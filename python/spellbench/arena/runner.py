@@ -55,7 +55,7 @@ import multiprocessing
 import queue
 import threading
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations_with_replacement
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -184,13 +184,15 @@ class BotSpec:
     training_style_tags: tuple[str, ...] = ()
     registered_at: int = 0
 
-    def registry_entry(self) -> registry.RegistryEntry:
+    def registry_entry(self, *, checkpoint_path: str | None = None) -> registry.RegistryEntry:
+        """This bot's registry entry. The descriptor records the command as
+        written; ``checkpoint_path`` (the resolved path, when the recorded
+        one holds a placeholder) is where the checkpoint bytes are read."""
         if self.type == "builtin":
             descriptor = registry.builtin_descriptor(self.name, self.version)
         else:
-            weights = (
-                registry.checkpoint_sha256(Path(self.checkpoint)) if self.checkpoint is not None else None
-            )
+            path = self.checkpoint if checkpoint_path is None else checkpoint_path
+            weights = registry.checkpoint_sha256(Path(path)) if path is not None else None
             descriptor = registry.subprocess_descriptor(
                 self.name, self.version, self.command, weights_sha256=weights
             )
@@ -344,12 +346,6 @@ class TournamentConfig:
             assert self.decks is not None
             return (self.decks,)
         return tuple((deck, deck) for deck in self.deck_pool)
-
-    def anchor_bot_id(self) -> str:
-        for spec in self.bots:
-            if spec.name == self.rating_anchor:
-                return spec.registry_entry().bot_id
-        raise TournamentError(f"rating_anchor {self.rating_anchor!r} is not a configured bot")
 
     def to_json(self) -> dict[str, Any]:
         doc: dict[str, Any] = {
@@ -1141,19 +1137,44 @@ class TournamentSummary:
     manifest: dict[str, Any]
 
 
+def _executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> TournamentConfig:
+    """``config`` with every command part and checkpoint path passed through ``resolve``."""
+    bots = tuple(
+        replace(
+            spec,
+            command=tuple(resolve(part) for part in spec.command),
+            checkpoint=None if spec.checkpoint is None else resolve(spec.checkpoint),
+        )
+        for spec in config.bots
+    )
+    return replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots)
+
+
 def run_tournament(
     config: TournamentConfig,
     *,
     on_game: Callable[[store.LedgerRow], None] | None = None,
+    resolve: Callable[[str], str] | None = None,
+    output_dir: str | Path | None = None,
 ) -> TournamentSummary:
-    """Run the full schedule and publish the tournament artifacts."""
+    """Run the full schedule and publish the tournament artifacts.
+
+    ``resolve`` maps each engine and bot command part and checkpoint path to
+    the string that starts the process or locates the file; every published
+    artifact records ``config`` as written. ``output_dir`` publishes into
+    that directory instead of ``config.tournament_dir``.
+    """
+    executed = config if resolve is None else _executed_config(config, resolve)
     pin = _EnginePin()
-    _preflight(config, pin)
-    directory = Path(config.tournament_dir)
+    _preflight(executed, pin)
+    directory = Path(config.tournament_dir if output_dir is None else output_dir)
     store.prepare_tournament_dir(directory)
-    entries_list = [spec.registry_entry() for spec in config.bots]
+    entries_list = [
+        spec.registry_entry(checkpoint_path=run_spec.checkpoint)
+        for spec, run_spec in zip(config.bots, executed.bots)
+    ]
     entries = {entry.name: entry for entry in entries_list}
-    anchor_bot_id = config.anchor_bot_id()
+    anchor_bot_id = entries[config.rating_anchor].bot_id
 
     store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
     registry.write_registry(directory / store.REGISTRY_NAME, entries_list)
@@ -1170,16 +1191,16 @@ def run_tournament(
         if on_game is not None:
             on_game(row)
 
-    schedule = _schedule(config)
+    schedule = _schedule(executed)
     if config.workers == 1:
         for ctx in schedule:
-            record(*_play_game(config, ctx, entries, pin))
+            record(*_play_game(executed, ctx, entries, pin))
     else:
         pool = ProcessPoolExecutor(
             max_workers=config.workers, mp_context=multiprocessing.get_context("spawn")
         )
         try:
-            futures = [pool.submit(_play_game_in_worker, config, ctx, entries) for ctx in schedule]
+            futures = [pool.submit(_play_game_in_worker, executed, ctx, entries) for ctx in schedule]
             for future in futures:  # schedule order, whatever the completion order
                 row, diagnostics, identity = future.result()
                 pin.check(identity)
