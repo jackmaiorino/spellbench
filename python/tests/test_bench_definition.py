@@ -280,13 +280,52 @@ def test_display_urls_reject_control_characters(url: str) -> None:
         definition.parse_benchmark(value)
 
 
-def test_run_sort_key_is_the_date_then_the_suffix() -> None:
-    assert definition.run_sort_key("2026-09-26") == ("2026-09-26", 1)
-    assert definition.run_sort_key("2026-09-26-10") == ("2026-09-26", 10)
+@pytest.mark.parametrize(
+    "name,key", [("2026-09-26", ("2026-09-26", 1)), ("2026-09-26-2", ("2026-09-26", 2)), ("2026-09-26-10", ("2026-09-26", 10))]
+)
+def test_run_names_sort_by_date_then_suffix(name: str, key: tuple[str, int]) -> None:
+    assert definition.RUN_NAME_PATTERN.fullmatch(name)
+    assert definition.run_sort_key(name) == key
 
 
 # "-1" would tie with the unsuffixed name; a fullwidth-digit date would sort after every real run.
 @pytest.mark.parametrize("name", ["2026-09-26-1", "2026-09-26-02", "2026-09-26\n", "\uff12\uff10\uff12\uff16-09-26", "notes"])
 def test_other_names_are_not_run_names(name: str) -> None:
+    assert definition.RUN_NAME_PATTERN.fullmatch(name) is None
     with pytest.raises(BenchmarkError, match="run name"):
         definition.run_sort_key(name)
+
+
+def test_local_values_reject_control_characters(tmp_path: Path) -> None:
+    # Single backslashes: JSON reads \t, \b and \r as a tab, backspaces and a carriage return.
+    (tmp_path / "local.json").write_text(r'{"MTG_KERNEL_BRIDGE": "C:\tools\bin\release\bridge.exe"}', encoding="utf-8")
+    with pytest.raises(BenchmarkError, match="MTG_KERNEL_BRIDGE.*forward slashes"):
+        definition.load_local_values(tmp_path)
+    (tmp_path / "local.json").write_text(r'{"MTG_KERNEL_BRIDGE": "C:\\tools\\bin\\bridge.exe"}', encoding="utf-8")
+    assert definition.load_local_values(tmp_path) == {"MTG_KERNEL_BRIDGE": "C:\\tools\\bin\\bridge.exe"}
+
+
+def test_environment_values_reject_control_characters() -> None:
+    # Git Bash keeps the carriage return of a value read from a CRLF file.
+    with pytest.raises(BenchmarkError, match="MTG_KERNEL_BRIDGE"):
+        definition.placeholder_values(["MTG_KERNEL_BRIDGE"], {}, {"MTG_KERNEL_BRIDGE": "C:/bridge.exe\r"})
+
+
+@pytest.mark.parametrize("text", ["${MTG-KERNEL}", "${CKPT_DIR/m.bin"])
+@pytest.mark.parametrize(
+    "field,path",
+    [
+        ("engine.command[0]", ("engine", "command", 0)),
+        ("bots[1].command[1]", ("bots", 1, "command", 1)),
+        ("bots[1].checkpoint", ("bots", 1, "checkpoint")),
+    ],
+)
+def test_malformed_placeholders_are_errors(text: str, field: str, path: tuple[Any, ...]) -> None:
+    value = _value()
+    parent = value
+    for key in path[:-1]:
+        parent = parent[key]
+    parent[path[-1]] = text
+    with pytest.raises(BenchmarkError) as caught:
+        definition.parse_benchmark(value)
+    assert f"benchmark.{field}:" in str(caught.value)

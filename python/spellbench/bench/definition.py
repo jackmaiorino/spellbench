@@ -24,7 +24,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Iterable, Iterator, Mapping
 
 from ..arena import runner, store
 from ..errors import MalformedJsonError
@@ -38,7 +38,8 @@ PROPOSED_FILE = "proposed.json"
 LOCAL_VALUES_FILE = "local.json"
 RUNS_DIR = "runs"
 PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
-RUN_NAME_PATTERN = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:-([1-9][0-9]*))?$")
+# Use with fullmatch: a date, then no suffix (a day's first run) or a suffix of 2 or more.
+RUN_NAME_PATTERN = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2})(?:-([2-9]|[1-9][0-9]+))?")
 
 _ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 _NAME_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
@@ -171,12 +172,17 @@ def _integer(value: Any, context: str, *, minimum: int) -> int:
     return value
 
 
+def _has_control_character(text: str) -> bool:
+    return any(unicodedata.category(char) == "Cc" for char in text)
+
+
 def _is_link(value: Any) -> bool:
     """An ``https://`` or ``http://`` URL without whitespace or control characters."""
     return (
         type(value) is str
         and value.startswith(("https://", "http://"))
-        and not any(char.isspace() or unicodedata.category(char) == "Cc" for char in value)
+        and not any(char.isspace() for char in value)
+        and not _has_control_character(value)
     )
 
 
@@ -244,7 +250,7 @@ def parse_benchmark(value: Any) -> Benchmark:
         field: _integer(document.get(field, default), f"{context}.{field}", minimum=1)
         for field, default in _OPTIONAL_DEFAULTS.items()
     }
-    return Benchmark(
+    benchmark = Benchmark(
         id=bench_id,
         title=_string(document["title"], f"{context}.title"),
         summary=_string(document["summary"], f"{context}.summary"),
@@ -260,6 +266,13 @@ def parse_benchmark(value: Any) -> Benchmark:
         bots=_parse_bots(document["bots"], f"{context}.bots"),
         **optional,
     )
+    for field, text in _placeholder_fields(benchmark):
+        if "${" in PLACEHOLDER_PATTERN.sub("", text):
+            raise BenchmarkError(
+                f"{context}.{field}: malformed placeholder in {text!r}; "
+                "write ${NAME} with NAME of letters, digits and '_', not starting with a digit"
+            )
+    return benchmark
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -330,17 +343,26 @@ def load_proposed(benchmarks_dir: Path) -> tuple[ProposedBenchmark, ...]:
 # ---------------------------------------------------------------------------
 
 
-def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:
-    """The sorted unique placeholders in the engine command, bot commands and checkpoints."""
-    texts = list(benchmark.engine_command)
-    for bot in benchmark.bots:
+def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
+    """(field, text) for each string that may hold placeholders: command parts and checkpoints."""
+    for index, part in enumerate(benchmark.engine_command):
+        yield f"engine.command[{index}]", part
+    for bot_index, bot in enumerate(benchmark.bots):
         command = bot.entry.get("command")
         if isinstance(command, list):
-            texts.extend(part for part in command if isinstance(part, str))
+            for index, part in enumerate(command):
+                if isinstance(part, str):
+                    yield f"bots[{bot_index}].command[{index}]", part
         checkpoint = bot.entry.get("checkpoint")
         if isinstance(checkpoint, str):
-            texts.append(checkpoint)
-    return tuple(sorted({name for text in texts for name in PLACEHOLDER_PATTERN.findall(text)}))
+            yield f"bots[{bot_index}].checkpoint", checkpoint
+
+
+def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:
+    """The sorted unique placeholders in the engine command, bot commands and checkpoints."""
+    return tuple(
+        sorted({name for _, text in _placeholder_fields(benchmark) for name in PLACEHOLDER_PATTERN.findall(text)})
+    )
 
 
 def load_local_values(benchmarks_dir: Path) -> dict[str, str]:
@@ -356,13 +378,18 @@ def load_local_values(benchmarks_dir: Path) -> dict[str, str]:
             )
         if type(value) is not str:
             raise BenchmarkError(f"{path}: {name}: must be a string")
+        if _has_control_character(value):
+            raise BenchmarkError(
+                f"{path}: {name}: contains a control character; write paths with forward slashes "
+                "or doubled backslashes (in JSON a single backslash starts an escape such as a tab)"
+            )
     return values
 
 
 def placeholder_values(
     names: Iterable[str], local: Mapping[str, str], environ: Mapping[str, str]
 ) -> dict[str, str]:
-    """Resolve each name from the environment first, then local.json."""
+    """Resolve each name from the environment first, then local.json; no value may hold a control character."""
     values: dict[str, str] = {}
     missing: list[str] = []
     for name in sorted(set(names)):
@@ -374,6 +401,11 @@ def placeholder_values(
     if missing:
         raise BenchmarkError(
             f"unresolved placeholders {missing}: set them in the environment or in benchmarks/{LOCAL_VALUES_FILE}"
+        )
+    garbled = [name for name, value in values.items() if _has_control_character(value)]
+    if garbled:
+        raise BenchmarkError(
+            f"placeholder values {garbled} contain control characters (a stray tab, newline or carriage return?)"
         )
     return values
 
@@ -395,22 +427,9 @@ def substitute(text: str, values: Mapping[str, str]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _run_name_match(name: str) -> re.Match[str] | None:
-    """Match a run name, so that each name has its own sort key.
-
-    ASCII only (``\\d`` also matches other scripts' digits), the whole name
-    (``$`` alone accepts a trailing newline), and no ``-1`` suffix (it would
-    tie with the unsuffixed name).
-    """
-    match = RUN_NAME_PATTERN.fullmatch(name) if name.isascii() else None
-    if match is None or match.group(2) == "1":
-        return None
-    return match
-
-
 def run_sort_key(name: str) -> tuple[str, int]:
     """(date, suffix) of a run name; the first run of a day has suffix 1."""
-    match = _run_name_match(name)
+    match = RUN_NAME_PATTERN.fullmatch(name)
     if match is None:
         raise BenchmarkError(f"not a run name (YYYY-MM-DD or YYYY-MM-DD-N with N >= 2): {name!r}")
     return match.group(1), int(match.group(2) or 1)
@@ -422,7 +441,7 @@ def _runs(benchmark_dir: Path) -> list[Path]:
     if not runs_dir.is_dir():
         return []
     return sorted(
-        (child for child in runs_dir.iterdir() if _run_name_match(child.name)),
+        (child for child in runs_dir.iterdir() if RUN_NAME_PATTERN.fullmatch(child.name)),
         key=lambda child: run_sort_key(child.name),
     )
 
@@ -448,7 +467,7 @@ def next_run_name(benchmark_dir: Path, date: str) -> str:
 
     A name is taken by anything already there, published or not.
     """
-    match = _run_name_match(date)
+    match = RUN_NAME_PATTERN.fullmatch(date)
     if match is None or match.group(2) is not None:
         raise BenchmarkError(f"run date must be YYYY-MM-DD, got {date!r}")
     try:
