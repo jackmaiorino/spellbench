@@ -1165,16 +1165,19 @@ def run_tournament(
     that directory instead of ``config.tournament_dir``.
     """
     executed = config if resolve is None else _executed_config(config, resolve)
-    pin = _EnginePin()
-    _preflight(executed, pin)
-    directory = Path(config.tournament_dir if output_dir is None else output_dir)
-    store.prepare_tournament_dir(directory)
+    # Config errors stop the run before its directory exists: checkpoints are
+    # read (at their resolved paths) before any process starts, then the
+    # preflight tries the engine and every subprocess bot.
     entries_list = [
         spec.registry_entry(checkpoint_path=run_spec.checkpoint)
         for spec, run_spec in zip(config.bots, executed.bots)
     ]
     entries = {entry.name: entry for entry in entries_list}
     anchor_bot_id = entries[config.rating_anchor].bot_id
+    pin = _EnginePin()
+    _preflight(executed, pin)
+    directory = Path(config.tournament_dir if output_dir is None else output_dir)
+    store.prepare_tournament_dir(directory)
 
     store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
     registry.write_registry(directory / store.REGISTRY_NAME, entries_list)
