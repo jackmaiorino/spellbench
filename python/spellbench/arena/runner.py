@@ -1,10 +1,15 @@
 """Tournament runner: round-robin match scheduling and game adjudication.
 
-Schedule: round-robin over all unordered bot pairs INCLUDING mirrors
-(``itertools.combinations_with_replacement`` order over the config bot list).
-Each matchup is ``pairs_per_matchup`` seat-swapped PAIRS of games; both games
-of a pair share one ``game_seed`` (common random numbers: the engine sees
-identical randomness, only the seats swap).
+Schedule: round-robin over all unordered bot pairs, INCLUDING mirrors unless
+``include_self_play`` is false (``itertools.combinations_with_replacement``
+order over the config bot list). Each matchup is ``pairs_per_matchup``
+seat-swapped PAIRS of games; both games of a pair share one ``game_seed``
+(common random numbers: the engine sees identical randomness, only the seats
+swap). Every game plays the fixed ``decks`` pair, or, with a ``deck_pool``,
+pair ``p`` plays ``deck_pool[p % len(deck_pool)]`` in both seats, and
+``pairs_per_matchup`` is a multiple of the pool size so every matchup plays
+every deck equally. The preflight resets each deck pairing in its own engine
+process (an engine hosts one active game at a time, spec section 2).
 
 Seed schedule (``spellbench-arena-seed-v1``; SplitMix64 as ported in
 ``bots/uniform.py`` from mtg-kernel ``python/mtg_kernel_rl/determinism.py``)::
@@ -50,7 +55,7 @@ import multiprocessing
 import queue
 import threading
 from concurrent.futures import ProcessPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from itertools import combinations_with_replacement
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -152,9 +157,13 @@ def derive_game_seed(base_seed: int, matchup_index: int, pair_index: int) -> int
     return SplitMix64(mixed).next() & ((1 << 53) - 1)
 
 
-def matchup_indexes(bot_count: int) -> list[tuple[int, int]]:
-    """All unordered bot-list index pairs including mirrors, in schedule order."""
-    return list(combinations_with_replacement(range(bot_count), 2))
+def matchup_indexes(bot_count: int, *, include_self_play: bool = True) -> list[tuple[int, int]]:
+    """Unordered bot-list index pairs in schedule order; mirrors unless self-play is off."""
+    return [
+        (i, j)
+        for i, j in combinations_with_replacement(range(bot_count), 2)
+        if include_self_play or i != j
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -175,13 +184,15 @@ class BotSpec:
     training_style_tags: tuple[str, ...] = ()
     registered_at: int = 0
 
-    def registry_entry(self) -> registry.RegistryEntry:
+    def registry_entry(self, *, checkpoint_path: str | None = None) -> registry.RegistryEntry:
+        """This bot's registry entry. The descriptor records the command as
+        written; ``checkpoint_path`` (the resolved path, when the recorded
+        one holds a placeholder) is where the checkpoint bytes are read."""
         if self.type == "builtin":
             descriptor = registry.builtin_descriptor(self.name, self.version)
         else:
-            weights = (
-                registry.checkpoint_sha256(Path(self.checkpoint)) if self.checkpoint is not None else None
-            )
+            path = self.checkpoint if checkpoint_path is None else checkpoint_path
+            weights = registry.checkpoint_sha256(Path(path)) if path is not None else None
             descriptor = registry.subprocess_descriptor(
                 self.name, self.version, self.command, weights_sha256=weights
             )
@@ -305,7 +316,7 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
 class TournamentConfig:
     tournament_dir: str
     format: str
-    decks: tuple[models.Deck, models.Deck]
+    decks: tuple[models.Deck, models.Deck] | None  # None when a deck_pool is used
     engine_command: tuple[str, ...]
     engine_timeout_ms: int
     bots: tuple[BotSpec, ...]
@@ -318,19 +329,29 @@ class TournamentConfig:
     rating_anchor: str  # bot name from the bots list
     workers: int = DEFAULT_WORKERS
     startup_timeout_ms: int = DEFAULT_STARTUP_TIMEOUT_MS
+    deck_pool: tuple[models.Deck, ...] | None = None
+    include_self_play: bool = True
 
-    def anchor_bot_id(self) -> str:
-        for spec in self.bots:
-            if spec.name == self.rating_anchor:
-                return spec.registry_entry().bot_id
-        raise TournamentError(f"rating_anchor {self.rating_anchor!r} is not a configured bot")
+    def decks_for_pair(self, pair_index: int) -> tuple[models.Deck, models.Deck]:
+        """The (p0, p1) decks of both games of pair ``pair_index``."""
+        if self.deck_pool is None:
+            assert self.decks is not None
+            return self.decks
+        deck = self.deck_pool[pair_index % len(self.deck_pool)]
+        return (deck, deck)
+
+    def preflight_deck_pairs(self) -> tuple[tuple[models.Deck, models.Deck], ...]:
+        """Every deck pairing the schedule uses, in first-use order."""
+        if self.deck_pool is None:
+            assert self.decks is not None
+            return (self.decks,)
+        return tuple((deck, deck) for deck in self.deck_pool)
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        doc: dict[str, Any] = {
             "schema": store.CONFIG_SCHEMA,
             "tournament_dir": self.tournament_dir,
             "format": self.format,
-            "decks": [self.decks[0].to_json(), self.decks[1].to_json()],
             "engine": {"command": list(self.engine_command), "timeout_ms": self.engine_timeout_ms},
             "bots": [spec.to_json() for spec in self.bots],
             "pairs_per_matchup": self.pairs_per_matchup,
@@ -342,7 +363,14 @@ class TournamentConfig:
             "rating_anchor": self.rating_anchor,
             "workers": self.workers,
             "startup_timeout_ms": self.startup_timeout_ms,
+            "include_self_play": self.include_self_play,
         }
+        if self.deck_pool is None:
+            assert self.decks is not None
+            doc["decks"] = [deck.to_json() for deck in self.decks]
+        else:
+            doc["deck_pool"] = [deck.to_json() for deck in self.deck_pool]
+        return doc
 
     @classmethod
     def from_json(cls, value: Any) -> "TournamentConfig":
@@ -365,12 +393,13 @@ class TournamentConfig:
             "rating_anchor",
             "workers",
             "startup_timeout_ms",
+            "deck_pool",
+            "include_self_play",
         }
         required = {
             "schema",
             "tournament_dir",
             "format",
-            "decks",
             "engine",
             "bots",
             "pairs_per_matchup",
@@ -384,15 +413,38 @@ class TournamentConfig:
             )
         if value["schema"] != store.CONFIG_SCHEMA:
             raise TournamentError(f'{context}.schema: must be "{store.CONFIG_SCHEMA}"')
+        has_decks, has_pool = "decks" in value, "deck_pool" in value
+        if has_decks and has_pool:
+            raise TournamentError(f"{context}: give decks or deck_pool, not both")
+        if not has_decks and not has_pool:
+            raise TournamentError(f"{context}: requires decks (a fixed pair) or deck_pool")
+        decks: tuple[models.Deck, models.Deck] | None = None
+        deck_pool: tuple[models.Deck, ...] | None = None
+        if has_decks:
+            raw_decks = value["decks"]
+            if not isinstance(raw_decks, list) or len(raw_decks) != 2:
+                raise TournamentError(f"{context}.decks: must be a list of two decks (p0 first)")
+            try:
+                first, second = (
+                    models.Deck.from_json(item, f"{context}.decks[{i}]") for i, item in enumerate(raw_decks)
+                )
+            except ValidationError as exc:
+                raise TournamentError(str(exc)) from exc
+            decks = (first, second)
+        else:
+            raw_pool = value["deck_pool"]
+            if not isinstance(raw_pool, list) or not raw_pool:
+                raise TournamentError(f"{context}.deck_pool: must be a nonempty list of decks")
+            try:
+                deck_pool = tuple(
+                    models.Deck.from_json(item, f"{context}.deck_pool[{i}]") for i, item in enumerate(raw_pool)
+                )
+            except ValidationError as exc:
+                raise TournamentError(str(exc)) from exc
+            if len(set(deck_pool)) != len(deck_pool):
+                raise TournamentError(f"{context}.deck_pool: decks must be distinct")
         tournament_dir = _req_str(value["tournament_dir"], f"{context}.tournament_dir")
         format_ = _req_str(value["format"], f"{context}.format")
-        raw_decks = value["decks"]
-        if not isinstance(raw_decks, list) or len(raw_decks) != 2:
-            raise TournamentError(f"{context}.decks: must be a list of two decks (p0 first)")
-        try:
-            decks = tuple(models.Deck.from_json(item, f"{context}.decks[{i}]") for i, item in enumerate(raw_decks))
-        except ValidationError as exc:
-            raise TournamentError(str(exc)) from exc
         raw_engine = value["engine"]
         if not isinstance(raw_engine, dict):
             raise TournamentError(f"{context}.engine: must be an object")
@@ -410,6 +462,16 @@ class TournamentConfig:
         if len(set(names)) != len(names):
             raise TournamentError(f"{context}.bots: names must be unique, got {names}")
         pairs_per_matchup = _req_uint(value["pairs_per_matchup"], f"{context}.pairs_per_matchup", minimum=1)
+        if deck_pool is not None and pairs_per_matchup % len(deck_pool):
+            raise TournamentError(
+                f"{context}.pairs_per_matchup: {pairs_per_matchup} is not a multiple of the "
+                f"{len(deck_pool)} deck_pool decks (every matchup plays every deck equally)"
+            )
+        include_self_play = value.get("include_self_play", True)
+        if type(include_self_play) is not bool:
+            raise TournamentError(f"{context}.include_self_play: must be true or false")
+        if not include_self_play and len(bots) < 2:
+            raise TournamentError(f"{context}.include_self_play: false needs at least two bots")
         base_seed = _req_uint(value["base_seed"], f"{context}.base_seed")
         max_decisions = _req_uint(value.get("max_decisions", DEFAULT_MAX_DECISIONS), f"{context}.max_decisions", minimum=1)
         max_steps = _req_uint(value.get("max_steps", DEFAULT_MAX_STEPS), f"{context}.max_steps", minimum=1)
@@ -447,7 +509,7 @@ class TournamentConfig:
         return cls(
             tournament_dir=tournament_dir,
             format=format_,
-            decks=(decks[0], decks[1]),
+            decks=decks,
             engine_command=tuple(command),
             engine_timeout_ms=engine_timeout_ms,
             bots=bots,
@@ -460,6 +522,8 @@ class TournamentConfig:
             rating_anchor=rating_anchor,
             workers=workers,
             startup_timeout_ms=startup_timeout_ms,
+            deck_pool=deck_pool,
+            include_self_play=include_self_play,
         )
 
 
@@ -642,6 +706,7 @@ class _GameContext:
     game_index: int
     game_seed: int
     seat_specs: tuple[tuple[str, BotSpec], tuple[str, BotSpec]]  # (seat, spec) for p0, p1
+    decks: tuple[models.Deck, models.Deck]  # (p0, p1)
 
 
 def _ledger_seats(ctx: _GameContext, entries: dict[str, registry.RegistryEntry]) -> tuple[store.LedgerSeat, store.LedgerSeat]:
@@ -707,7 +772,7 @@ def _play_game_row(
     diagnostics: list[str],
 ) -> store.LedgerRow:
     seats = _ledger_seats(ctx, entries)
-    decks_json = (config.decks[0].to_json(), config.decks[1].to_json())
+    decks_json = (ctx.decks[0].to_json(), ctx.decks[1].to_json())
 
     def row_for(
         *,
@@ -770,7 +835,7 @@ def _play_game_row(
                     game_id=ctx.game_id,
                     seat=seat,
                     format=config.format,
-                    decks=config.decks,
+                    decks=ctx.decks,
                     engine=identity,
                 )
             except ForfeitError as exc:
@@ -792,7 +857,7 @@ def _play_game_row(
             response = engine.reset(
                 game_id=ctx.game_id,
                 format=config.format,
-                decks=config.decks,
+                decks=ctx.decks,
                 game_seed=ctx.game_seed,
                 max_decisions=config.max_decisions,
                 max_steps=config.max_steps,
@@ -906,13 +971,10 @@ def _play_game_in_worker(
     return row, diagnostics, pin.identity
 
 
-def _preflight(config: TournamentConfig, pin: _EnginePin) -> None:
-    """Start the engine and every subprocess bot once before any game.
-
-    A missing executable, a refused deck, or a bot that cannot say hello is a
-    config error: it stops the tournament here, before the directory exists,
-    instead of turning every game into a forfeit or a halt.
-    """
+def _preflight_engine(
+    config: TournamentConfig, pin: _EnginePin, decks: tuple[models.Deck, models.Deck], game_id: str
+) -> None:
+    """One engine process: hello, the pinned identity, the format, one reset."""
     try:
         engine = EngineProcess(list(config.engine_command), timeout_s=config.engine_timeout_ms / 1000.0)
     except TransportError as exc:
@@ -925,19 +987,33 @@ def _preflight(config: TournamentConfig, pin: _EnginePin) -> None:
                 f"engine does not support format {config.format!r}: offers {sorted(hello.formats)}"
             )
         engine.reset(
-            game_id="preflight",
+            game_id=game_id,
             format=config.format,
-            decks=config.decks,
+            decks=decks,
             game_seed=config.base_seed,
             max_decisions=config.max_decisions,
             max_steps=config.max_steps,
         )
     except (TransportError, RemoteError, ProtocolError) as exc:
+        labels = [deck.to_json() for deck in decks]
         raise TournamentError(
-            f"preflight: the engine could not start a game with the configured decks: {exc}"
+            f"preflight: the engine could not start a game with decks {labels}: {exc}"
         ) from exc
     finally:
         engine.close()
+
+
+def _preflight(config: TournamentConfig, pin: _EnginePin) -> None:
+    """Start the engine once per deck pairing and every subprocess bot once, before any game.
+
+    A missing executable, a refused deck, or a bot that cannot say hello is a
+    config error: it stops the tournament here, before the directory exists,
+    instead of turning every game into a forfeit or a halt.
+    """
+    # One engine process per deck pairing: an engine hosts one active game
+    # at a time (spec section 2), and the preflight never finishes its game.
+    for index, decks in enumerate(config.preflight_deck_pairs()):
+        _preflight_engine(config, pin, decks, f"preflight-{index}")
     for spec in config.bots:
         if spec.type != "subprocess":
             continue
@@ -961,9 +1037,11 @@ def _preflight(config: TournamentConfig, pin: _EnginePin) -> None:
 def _schedule(config: TournamentConfig) -> list[_GameContext]:
     """Every game of the round-robin, in ledger order."""
     schedule: list[_GameContext] = []
-    for matchup_index, (i, j) in enumerate(matchup_indexes(len(config.bots))):
+    matchups = matchup_indexes(len(config.bots), include_self_play=config.include_self_play)
+    for matchup_index, (i, j) in enumerate(matchups):
         for pair_index in range(config.pairs_per_matchup):
             game_seed = derive_game_seed(config.base_seed, matchup_index, pair_index)
+            decks = config.decks_for_pair(pair_index)
             for game_index in (0, 1):
                 if game_index == 0:
                     seat_specs = (("p0", config.bots[i]), ("p1", config.bots[j]))
@@ -977,6 +1055,7 @@ def _schedule(config: TournamentConfig) -> list[_GameContext]:
                         game_index=game_index,
                         game_seed=game_seed,
                         seat_specs=seat_specs,
+                        decks=decks,
                     )
                 )
     return schedule
@@ -1030,9 +1109,9 @@ def schedule_mismatches(
     schedule = _schedule(config)
     if len(rows) != len(schedule):
         return [f"the ledger has {len(rows)} games but the schedule has {len(schedule)}"]
-    decks = (config.decks[0].to_json(), config.decks[1].to_json())
     failures = []
     for index, (ctx, row) in enumerate(zip(schedule, rows)):
+        decks = (ctx.decks[0].to_json(), ctx.decks[1].to_json())
         seats = tuple(
             store.LedgerSeat(
                 seat=seat, bot_id=entries_by_name[spec.name].bot_id, name=spec.name, version=spec.version
@@ -1058,19 +1137,47 @@ class TournamentSummary:
     manifest: dict[str, Any]
 
 
+def _executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> TournamentConfig:
+    """``config`` with every command part and checkpoint path passed through ``resolve``."""
+    bots = tuple(
+        replace(
+            spec,
+            command=tuple(resolve(part) for part in spec.command),
+            checkpoint=None if spec.checkpoint is None else resolve(spec.checkpoint),
+        )
+        for spec in config.bots
+    )
+    return replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots)
+
+
 def run_tournament(
     config: TournamentConfig,
     *,
     on_game: Callable[[store.LedgerRow], None] | None = None,
+    resolve: Callable[[str], str] | None = None,
+    output_dir: str | Path | None = None,
 ) -> TournamentSummary:
-    """Run the full schedule and publish the tournament artifacts."""
-    pin = _EnginePin()
-    _preflight(config, pin)
-    directory = Path(config.tournament_dir)
-    store.prepare_tournament_dir(directory)
-    entries_list = [spec.registry_entry() for spec in config.bots]
+    """Run the full schedule and publish the tournament artifacts.
+
+    ``resolve`` maps each engine and bot command part and checkpoint path to
+    the string that starts the process or locates the file; every published
+    artifact records ``config`` as written. ``output_dir`` publishes into
+    that directory instead of ``config.tournament_dir``.
+    """
+    executed = config if resolve is None else _executed_config(config, resolve)
+    # Config errors stop the run before its directory exists: checkpoints are
+    # read (at their resolved paths) before any process starts, then the
+    # preflight tries the engine and every subprocess bot.
+    entries_list = [
+        spec.registry_entry(checkpoint_path=run_spec.checkpoint)
+        for spec, run_spec in zip(config.bots, executed.bots)
+    ]
     entries = {entry.name: entry for entry in entries_list}
-    anchor_bot_id = config.anchor_bot_id()
+    anchor_bot_id = entries[config.rating_anchor].bot_id
+    pin = _EnginePin()
+    _preflight(executed, pin)
+    directory = Path(config.tournament_dir if output_dir is None else output_dir)
+    store.prepare_tournament_dir(directory)
 
     store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
     registry.write_registry(directory / store.REGISTRY_NAME, entries_list)
@@ -1087,16 +1194,16 @@ def run_tournament(
         if on_game is not None:
             on_game(row)
 
-    schedule = _schedule(config)
+    schedule = _schedule(executed)
     if config.workers == 1:
         for ctx in schedule:
-            record(*_play_game(config, ctx, entries, pin))
+            record(*_play_game(executed, ctx, entries, pin))
     else:
         pool = ProcessPoolExecutor(
             max_workers=config.workers, mp_context=multiprocessing.get_context("spawn")
         )
         try:
-            futures = [pool.submit(_play_game_in_worker, config, ctx, entries) for ctx in schedule]
+            futures = [pool.submit(_play_game_in_worker, executed, ctx, entries) for ctx in schedule]
             for future in futures:  # schedule order, whatever the completion order
                 row, diagnostics, identity = future.result()
                 pin.check(identity)

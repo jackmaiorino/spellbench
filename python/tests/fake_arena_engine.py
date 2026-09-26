@@ -6,6 +6,9 @@ higher score wins naturally and equal scores draw. So the builtin bots have
 hand-derivable results: ``heuristic`` always plays the land (2 points),
 ``first`` always passes (0 points), and ``uniform`` is seeded per game.
 
+Hosts one game at a time, like the mtg-kernel bridge: a ``reset`` while a
+game is active answers ``game_already_active`` (spec section 2).
+
 Test hooks, selected by the p0 deck's ``catalog_id``:
 
 - ``Crash``: the process exits abruptly on the first ``step`` request.
@@ -128,6 +131,7 @@ def main() -> int:
     step = 0
     max_steps = DECISIONS_PER_GAME
     scores = {"p0": 0, "p1": 0}
+    active = False
     while True:
         line = wire.read_line(sys.stdin.buffer)
         if line is None:
@@ -147,6 +151,12 @@ def main() -> int:
                     decklists_as_data=False,
                     extensions=(),
                 ).to_json()
+            elif kind == "reset" and active:
+                message = ErrorResponse(
+                    request_id=request_id,
+                    code="game_already_active",
+                    message="this engine process already hosts an active game",
+                ).to_json()
             elif kind == "reset" and request["seats"][0]["deck"].get("catalog_id") == "Refuse":
                 message = ErrorResponse(
                     request_id=request_id, code="unsupported_deck", message="deck refused by the test hook"
@@ -155,6 +165,9 @@ def main() -> int:
                 game_id = request["game_id"]
                 hook = request["seats"][0]["deck"].get("catalog_id", "")
                 max_steps = min(request["max_steps"], DECISIONS_PER_GAME)
+                step = 0
+                scores = {"p0": 0, "p1": 0}
+                active = True
                 if hook == "Rendezvous" and not game_id.startswith("preflight"):
                     _rendezvous(game_id)
                 message = _decision(request_id, game_id, 0, scores).to_json()
@@ -171,6 +184,7 @@ def main() -> int:
                         decision_count=step + 1,
                     )
                     message = _terminal(request_id, game_id, result)
+                    active = False
                 else:
                     seat = "p0" if step % 2 == 0 else "p1"
                     scores[seat] += request["selection"]["candidate_id"]
@@ -190,6 +204,7 @@ def main() -> int:
                             decision_count=step,
                         )
                         message = _terminal(request_id, game_id, result)
+                        active = False
                     elif step >= max_steps:
                         result = TerminalResult(
                             outcome="truncated",
@@ -200,6 +215,7 @@ def main() -> int:
                             decision_count=step,
                         )
                         message = _terminal(request_id, game_id, result)
+                        active = False
                     else:
                         message = _decision(request_id, game_id, step, scores).to_json()
             else:

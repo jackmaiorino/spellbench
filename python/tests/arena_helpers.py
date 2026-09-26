@@ -36,6 +36,7 @@ def make_config(
     *,
     engine: Path = FAKE_ARENA_ENGINE,
     decks: tuple[str, str] = ("Burn", "Burn"),
+    deck_pool: tuple[str, ...] | None = None,
     pairs: int = 2,
     **extra: Any,
 ) -> dict[str, Any]:
@@ -50,6 +51,9 @@ def make_config(
         "base_seed": 12345,
         "bootstrap_replicates": 1000,
     }
+    if deck_pool is not None:
+        del config["decks"]
+        config["deck_pool"] = [{"catalog_id": deck} for deck in deck_pool]
     config.update(extra)
     return config
 
