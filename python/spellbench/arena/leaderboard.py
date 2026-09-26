@@ -27,6 +27,9 @@ Conventions (declared in the artifact's ``notes``):
   test runs over per-pair half-point totals.
 - Subratings per training-style tag are a filtered recomputation over the
   same ledger: only rated games where BOTH seats carry the tag.
+- Deck slices (when the ledger holds two or more deck pairings) rebuild the
+  leaderboard from each pairing's games alone, with the same anchor and
+  prior, through the same code path as the overall table.
 
 Statistics seeds (``spellbench-arena-stats-seed-v1``) derive from the
 tournament base seed via one SplitMix64 draw (SplitMix64 as ported in
@@ -35,8 +38,12 @@ protocol integer range (|x| <= 2^53)::
 
     rating_bootstrap_seed = SM64(base_seed ^ 0x5350_5f42_4f54_5354) & (2**53 - 1)
     matchup_stat_seed(k)  = SM64(base_seed ^ 0x5350_5f4d_4154_4348 ^ k * 0x9e3779b97f4a7c15) & (2**53 - 1)
+    deck_slice_seed(k)    = SM64(base_seed ^ 0x5350_5f44_4543_4b53 ^ k * 0x9e3779b97f4a7c15) & (2**53 - 1)
 
-where ``k`` is the matchup's ordinal in sorted ``(a_bot_id, b_bot_id)`` order.
+where ``k`` is the matchup's ordinal in sorted ``(a_bot_id, b_bot_id)`` order
+for ``matchup_stat_seed``, and the slice's ordinal in ``slices.deck`` for
+``deck_slice_seed``. A slice's own stats seeds derive from its
+``deck_slice_seed`` exactly as the overall ones derive from ``base_seed``.
 """
 
 from __future__ import annotations
@@ -50,6 +57,7 @@ _MASK64 = 0xFFFF_FFFF_FFFF_FFFF
 _GOLDEN_RATIO_64 = 0x9E37_79B9_7F4A_7C15  # SplitMix64 increment (see ratings.py)
 _RATING_BOOTSTRAP_DOMAIN = 0x5350_5F42_4F54_5354
 _MATCHUP_STAT_DOMAIN = 0x5350_5F4D_4154_4348
+_DECK_SLICE_DOMAIN = 0x5350_5F44_4543_4B53  # "SP_DECKS"
 _STATS_SEED_VERSION = "spellbench-arena-stats-seed-v1"
 _BT_ALGORITHM = (
     "anchored Bradley-Terry MM (draws count half; anchor fixed at 0.0 log units); "
@@ -67,6 +75,7 @@ NOTES = [
     "subratings per training-style tag are a filtered recomputation over the same ledger",
     "Elo display = rating * 400 / ln(10) + 1000; the anchor displays at exactly 1000",
     "fixed-point integers: rating_log_units_e6 = rating * 1e6, elo_milli = Elo * 1e3",
+    "deck slices (when games use more than one deck pairing): each pairing's ratings recomputed from its games alone, with the same anchor and prior and stats seeds derived per slice",
 ]
 
 
@@ -79,6 +88,11 @@ def rating_bootstrap_seed(base_seed: int) -> int:
 
 def matchup_stat_seed(base_seed: int, matchup_ordinal: int) -> int:
     mixed = (base_seed ^ _MATCHUP_STAT_DOMAIN ^ (matchup_ordinal * _GOLDEN_RATIO_64)) & _MASK64
+    return ratings.splitmix64_next(mixed) & _MAX_JSON_INT
+
+
+def deck_slice_seed(base_seed: int, ordinal: int) -> int:
+    mixed = (base_seed ^ _DECK_SLICE_DOMAIN ^ (ordinal * _GOLDEN_RATIO_64)) & _MASK64
     return ratings.splitmix64_next(mixed) & _MAX_JSON_INT
 
 
@@ -250,6 +264,37 @@ def build_leaderboard(
     format: str,
 ) -> tuple[dict[str, Any], str]:
     """Build the leaderboard JSON document and the markdown rendering."""
+    document = _build_document(
+        rows,
+        entries,
+        anchor_bot_id=anchor_bot_id,
+        base_seed=base_seed,
+        bootstrap_replicates=bootstrap_replicates,
+        format=format,
+    )
+    document["slices"] = {
+        "deck": _deck_slices(
+            rows,
+            entries,
+            anchor_bot_id=anchor_bot_id,
+            base_seed=base_seed,
+            bootstrap_replicates=bootstrap_replicates,
+            format=format,
+        )
+    }
+    return document, render_markdown(document)
+
+
+def _build_document(
+    rows: Sequence[store.LedgerRow],
+    entries: Sequence[registry.RegistryEntry],
+    *,
+    anchor_bot_id: str,
+    base_seed: int,
+    bootstrap_replicates: int,
+    format: str,
+) -> dict[str, Any]:
+    """The leaderboard document for ``rows``, without deck slices."""
     by_id = {entry.bot_id: entry for entry in entries}
     if anchor_bot_id not in by_id:
         raise ValueError(f"anchor bot_id is not in the registry: {anchor_bot_id!r}")
@@ -414,7 +459,58 @@ def build_leaderboard(
         "subratings": subratings,
         "notes": NOTES,
     }
-    return document, render_markdown(document)
+    return document
+
+
+def _deck_label(deck: dict[str, Any]) -> str:
+    if "catalog_id" in deck:
+        return deck["catalog_id"]
+    return "decklist " + store.sha256_hex(store.canonical_bytes(deck))[:12]
+
+
+def _pairing_label(decks: Sequence[dict[str, Any]]) -> str:
+    first, second = (_deck_label(deck) for deck in decks)
+    return first if decks[0] == decks[1] else f"{first} vs {second}"
+
+
+def _deck_slices(
+    rows: Sequence[store.LedgerRow],
+    entries: Sequence[registry.RegistryEntry],
+    *,
+    anchor_bot_id: str,
+    base_seed: int,
+    bootstrap_replicates: int,
+    format: str,
+) -> list[dict[str, Any]]:
+    """Per-deck-pairing ratings; empty unless the ledger holds two or more pairings."""
+    groups: dict[bytes, list[store.LedgerRow]] = {}
+    for row in rows:
+        groups.setdefault(store.canonical_bytes(list(row.decks)), []).append(row)
+    if len(groups) < 2:
+        return []
+    slices = []
+    for ordinal, key in enumerate(sorted(groups)):
+        pairing_rows = groups[key]
+        document = _build_document(
+            pairing_rows,
+            entries,
+            anchor_bot_id=anchor_bot_id,
+            base_seed=deck_slice_seed(base_seed, ordinal),
+            bootstrap_replicates=bootstrap_replicates,
+            format=format,
+        )
+        slices.append(
+            {
+                "label": _pairing_label(pairing_rows[0].decks),
+                "decks": list(pairing_rows[0].decks),
+                "status": document["status"],
+                "fit_error": document["fit_error"],
+                "games": document["games"],
+                "rating_bootstrap": document["bt"]["rating_bootstrap"],
+                "rows": document["rows"],
+            }
+        )
+    return slices
 
 
 def _build_subrating(
@@ -509,6 +605,20 @@ def _fmt_rational(value: dict[str, int] | None, digits: int = 4) -> str:
     return f"{value['num'] / value['den']:.{digits}f}"
 
 
+_TABLE_HEADER = "| Rank | Bot | Rating | Elo | CI95 (Elo) | Games | W | D | L | Forfeit L |"
+_TABLE_RULE = "| ---: | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |"
+
+
+def _table_row(row: dict[str, Any]) -> str:
+    rank = "-" if row["rank"] is None else str(row["rank"])
+    return (
+        f"| {rank} | {row['name']} {row['version']} | {_fmt_e6(row['rating_log_units_e6'])} "
+        f"| {_fmt_milli(row['elo_milli'])} | {_fmt_ci(row['ci95_elo_milli'])} "
+        f"| {row['games']} | {row['wins']} | {row['draws']} | {row['losses']} "
+        f"| {row['forfeit_losses']} |"
+    )
+
+
 def render_markdown(document: dict[str, Any]) -> str:
     anchor = document["anchor"]
     counts = document["games"]
@@ -527,17 +637,10 @@ def render_markdown(document: dict[str, Any]) -> str:
         f"CI95: paired bootstrap over seat-swapped pairs "
         f"({boot['replicates']} replicates, {boot['failed_replicates']} failed, status {boot['status']})",
         "",
-        "| Rank | Bot | Rating | Elo | CI95 (Elo) | Games | W | D | L | Forfeit L |",
-        "| ---: | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |",
+        _TABLE_HEADER,
+        _TABLE_RULE,
     ]
-    for row in document["rows"]:
-        rank = "-" if row["rank"] is None else str(row["rank"])
-        lines.append(
-            f"| {rank} | {row['name']} {row['version']} | {_fmt_e6(row['rating_log_units_e6'])} "
-            f"| {_fmt_milli(row['elo_milli'])} | {_fmt_ci(row['ci95_elo_milli'])} "
-            f"| {row['games']} | {row['wins']} | {row['draws']} | {row['losses']} "
-            f"| {row['forfeit_losses']} |"
-        )
+    lines += [_table_row(row) for row in document["rows"]]
     lines += [
         "",
         "## Matchups (W/D/L from bot A's perspective, rated games)",
@@ -576,6 +679,22 @@ def render_markdown(document: dict[str, Any]) -> str:
                     f"| {_fmt_milli(row['elo_milli'])} | {row['games']} | {row['wins']} "
                     f"| {row['draws']} | {row['losses']} |"
                 )
+            lines.append("")
+    deck_slices = document["slices"]["deck"]
+    if deck_slices:
+        if lines[-1]:  # the subratings end with a blank line; the matchup table does not
+            lines.append("")
+        lines += ["## By deck", ""]
+        for deck_slice in deck_slices:
+            lines += [f"### {deck_slice['label']}", ""]
+            if deck_slice["status"] != "ok":
+                reason = deck_slice["status"]
+                if deck_slice["fit_error"]:
+                    reason += f" ({deck_slice['fit_error']})"
+                lines += [f"skipped: {reason}", ""]
+                continue
+            lines += [_TABLE_HEADER, _TABLE_RULE]
+            lines += [_table_row(row) for row in deck_slice["rows"]]
             lines.append("")
     lines += ["## Notes", ""]
     lines += [f"- {note}" for note in document["notes"]]
