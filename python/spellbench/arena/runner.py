@@ -24,6 +24,12 @@ per seat: builtin bots run in process but are driven through the same
 models); subprocess bots are driven via ``AgentProcess``. Every ``choose``
 carries a wall-clock timeout (default 30 s, ``choose_timeout_ms``).
 
+Games are independent (their own engine process, fresh bot handlers or
+processes, seeds fixed by the schedule), so ``workers`` games run
+concurrently. Results do not depend on the worker count: the ledger is
+written in schedule order. Budget ``workers`` to the host's free cores,
+since ``choose_timeout_ms`` is wall-clock time.
+
 Adjudication (there are no timeouts in the protocol itself, spec section 11):
 a choose timeout, a malformed agent response, an invalid selection, an agent
 error response, or an agent transport failure is a FORFEIT LOSS for the
@@ -36,6 +42,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from itertools import combinations_with_replacement
 from pathlib import Path
@@ -64,6 +71,8 @@ DEFAULT_MAX_STEPS = 100_000
 DEFAULT_CHOOSE_TIMEOUT_MS = 30_000
 DEFAULT_ENGINE_TIMEOUT_MS = 120_000
 DEFAULT_BOOTSTRAP_REPLICATES = 2_000
+DEFAULT_WORKERS = 1
+MAX_WORKERS = 256
 
 BOT_TYPES = frozenset({"builtin", "subprocess"})
 
@@ -258,6 +267,7 @@ class TournamentConfig:
     choose_timeout_ms: int
     bootstrap_replicates: int
     rating_anchor: str  # bot name from the bots list
+    workers: int = DEFAULT_WORKERS
 
     def anchor_bot_id(self) -> str:
         for spec in self.bots:
@@ -280,6 +290,7 @@ class TournamentConfig:
             "choose_timeout_ms": self.choose_timeout_ms,
             "bootstrap_replicates": self.bootstrap_replicates,
             "rating_anchor": self.rating_anchor,
+            "workers": self.workers,
         }
 
     @classmethod
@@ -301,6 +312,7 @@ class TournamentConfig:
             "choose_timeout_ms",
             "bootstrap_replicates",
             "rating_anchor",
+            "workers",
         }
         required = {
             "schema",
@@ -362,6 +374,9 @@ class TournamentConfig:
         _req_str(rating_anchor, f"{context}.rating_anchor")
         if rating_anchor not in names:
             raise TournamentError(f"{context}.rating_anchor: not a configured bot: {rating_anchor!r}")
+        workers = _req_uint(
+            value.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
+        )
         return cls(
             tournament_dir=tournament_dir,
             format=format_,
@@ -376,6 +391,7 @@ class TournamentConfig:
             choose_timeout_ms=choose_timeout_ms,
             bootstrap_replicates=bootstrap_replicates,
             rating_anchor=rating_anchor,
+            workers=workers,
         )
 
 
@@ -558,17 +574,43 @@ def _ledger_seats(ctx: _GameContext, entries: dict[str, registry.RegistryEntry])
     return (seats[0], seats[1])
 
 
+class _EnginePin:
+    """The engine identity pinned by the first ``hello`` of the tournament.
+
+    Every later engine process must report the identical identity. Shared
+    by concurrently running games, hence the lock.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._identity: models.EngineIdentity | None = None
+
+    def check(self, identity: models.EngineIdentity) -> None:
+        with self._lock:
+            if self._identity is None:
+                self._identity = identity
+            elif identity != self._identity:
+                raise TournamentError(
+                    f"engine identity drifted between processes: {identity} != {self._identity}"
+                )
+
+    @property
+    def identity(self) -> models.EngineIdentity:
+        if self._identity is None:
+            raise TournamentError("no engine identity was pinned (no game reached hello)")
+        return self._identity
+
+
 def _play_game(
     config: TournamentConfig,
     ctx: _GameContext,
     entries: dict[str, registry.RegistryEntry],
-    provenance_pin: list[models.Provenance],
-    engine_identity: list[models.EngineIdentity],
+    pin: _EnginePin,
 ) -> store.LedgerRow:
     """Play (or adjudicate) one game; returns its ledger row.
 
-    ``provenance_pin``/``engine_identity`` are one-element lists: the first
-    game pins the engine identity, later games must match it exactly.
+    The first game to reach ``hello`` pins the engine identity in ``pin``;
+    every other game must match it exactly.
     """
     seats = _ledger_seats(ctx, entries)
     decks_json = (config.decks[0].to_json(), config.decks[1].to_json())
@@ -602,7 +644,7 @@ def _play_game(
             adjudication=adjudication,
             step_count=step_count,
             decision_count=decision_count,
-            engine=provenance_pin[0],
+            engine=pin.identity.provenance(),
         )
 
     engine = EngineProcess(list(config.engine_command), timeout_s=config.engine_timeout_ms / 1000.0)
@@ -614,14 +656,7 @@ def _play_game(
         except (TransportError, RemoteError, ProtocolError) as exc:
             raise TournamentError(f"engine hello failed: {exc}") from exc
         identity = hello.engine
-        provenance = identity.provenance()
-        if not provenance_pin:
-            provenance_pin.append(provenance)
-            engine_identity.append(identity)
-        elif provenance != provenance_pin[0]:
-            raise TournamentError(
-                f"engine provenance drifted between processes: {provenance} != {provenance_pin[0]}"
-            )
+        pin.check(identity)
         if config.format not in hello.formats:
             raise TournamentError(
                 f"engine does not support format {config.format!r}: offers {sorted(hello.formats)}"
@@ -750,6 +785,30 @@ def _play_game(
 # ---------------------------------------------------------------------------
 
 
+def _schedule(config: TournamentConfig) -> list[_GameContext]:
+    """Every game of the round-robin, in ledger order."""
+    schedule: list[_GameContext] = []
+    for matchup_index, (i, j) in enumerate(matchup_indexes(len(config.bots))):
+        for pair_index in range(config.pairs_per_matchup):
+            game_seed = derive_game_seed(config.base_seed, matchup_index, pair_index)
+            for game_index in (0, 1):
+                if game_index == 0:
+                    seat_specs = (("p0", config.bots[i]), ("p1", config.bots[j]))
+                else:
+                    seat_specs = (("p0", config.bots[j]), ("p1", config.bots[i]))
+                schedule.append(
+                    _GameContext(
+                        game_id=f"m{matchup_index:04d}p{pair_index:04d}g{game_index}",
+                        matchup_index=matchup_index,
+                        pair_index=pair_index,
+                        game_index=game_index,
+                        game_seed=game_seed,
+                        seat_specs=seat_specs,
+                    )
+                )
+    return schedule
+
+
 @dataclass(frozen=True)
 class TournamentSummary:
     tournament_dir: Path
@@ -780,29 +839,28 @@ def run_tournament(
     ledger_path.write_bytes(b"")  # truncate/create the ledger before the first game
 
     rows: list[store.LedgerRow] = []
-    provenance_pin: list[models.Provenance] = []
-    engine_identity: list[models.EngineIdentity] = []
-    for matchup_index, (i, j) in enumerate(matchup_indexes(len(config.bots))):
-        for pair_index in range(config.pairs_per_matchup):
-            game_seed = derive_game_seed(config.base_seed, matchup_index, pair_index)
-            for game_index in (0, 1):
-                if game_index == 0:
-                    seat_specs = (("p0", config.bots[i]), ("p1", config.bots[j]))
-                else:
-                    seat_specs = (("p0", config.bots[j]), ("p1", config.bots[i]))
-                ctx = _GameContext(
-                    game_id=f"m{matchup_index:04d}p{pair_index:04d}g{game_index}",
-                    matchup_index=matchup_index,
-                    pair_index=pair_index,
-                    game_index=game_index,
-                    game_seed=game_seed,
-                    seat_specs=seat_specs,
-                )
-                row = _play_game(config, ctx, entries, provenance_pin, engine_identity)
-                rows.append(row)
-                store.append_ledger_row(ledger_path, row.to_json())
-                if on_game is not None:
-                    on_game(row)
+    pin = _EnginePin()
+
+    def record(row: store.LedgerRow) -> None:
+        rows.append(row)
+        store.append_ledger_row(ledger_path, row.to_json())
+        if on_game is not None:
+            on_game(row)
+
+    schedule = _schedule(config)
+    if config.workers == 1:
+        for ctx in schedule:
+            record(_play_game(config, ctx, entries, pin))
+    else:
+        pool = ThreadPoolExecutor(max_workers=config.workers, thread_name_prefix="spellbench-game")
+        try:
+            futures = [pool.submit(_play_game, config, ctx, entries, pin) for ctx in schedule]
+            for future in futures:  # schedule order, whatever the completion order
+                record(future.result())
+        finally:
+            # On an abort (a TournamentError or an interrupt) the queued games
+            # are dropped; games already running finish before the raise.
+            pool.shutdown(wait=True, cancel_futures=True)
 
     document, markdown = leaderboard.build_leaderboard(
         rows,
@@ -832,9 +890,10 @@ def run_tournament(
             "seed_schedule": SEED_SCHEDULE_VERSION,
             "rating_anchor": {"name": config.rating_anchor, "bot_id": anchor_bot_id},
             "arena_version": __version__,
+            "workers": config.workers,
             "bots": [entry.to_json() for entry in entries_list],
         },
-        "engine": engine_identity[0].to_json(),
+        "engine": pin.identity.to_json(),
         "games": {
             "total": len(rows),
             "natural": counts["natural"],

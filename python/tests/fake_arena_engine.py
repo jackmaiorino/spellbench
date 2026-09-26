@@ -10,6 +10,10 @@ Test hooks, selected by the p0 deck's ``catalog_id``:
 
 - ``Crash``: the process exits abruptly on the first ``step`` request.
 - ``Halt``: the first ``step`` answers a ``halted`` terminal.
+- ``Rendezvous``: ``reset`` drops a marker named after the game into
+  ``$SPELLBENCH_RENDEZVOUS_DIR`` and waits until
+  ``$SPELLBENCH_RENDEZVOUS_COUNT`` markers exist, exiting abruptly after
+  ten seconds. Only concurrently running engines can meet.
 
 ``max_steps`` below four truncates the game at that step.
 """
@@ -18,6 +22,8 @@ from __future__ import annotations
 
 import os
 import sys
+import time
+from pathlib import Path
 
 from spellbench import wire
 from spellbench.errors import MalformedJsonError
@@ -100,6 +106,17 @@ def _terminal(request_id: str, game_id: str, result: TerminalResult) -> dict:
     return Terminal(request_id=request_id, game_id=game_id, result=result, provenance=PROVENANCE).to_json()
 
 
+def _rendezvous(game_id: str) -> None:
+    directory = Path(os.environ["SPELLBENCH_RENDEZVOUS_DIR"])
+    count = int(os.environ["SPELLBENCH_RENDEZVOUS_COUNT"])
+    (directory / game_id).touch()
+    deadline = time.monotonic() + 10.0
+    while sum(1 for _ in directory.iterdir()) < count:
+        if time.monotonic() > deadline:
+            os._exit(4)
+        time.sleep(0.02)
+
+
 def main() -> int:
     out = sys.stdout.buffer
     game_id = ""
@@ -130,6 +147,8 @@ def main() -> int:
                 game_id = request["game_id"]
                 hook = request["seats"][0]["deck"].get("catalog_id", "")
                 max_steps = min(request["max_steps"], DECISIONS_PER_GAME)
+                if hook == "Rendezvous":
+                    _rendezvous(game_id)
                 message = _decision(request_id, game_id, 0, scores).to_json()
             elif kind == "step":
                 if hook == "Crash":
