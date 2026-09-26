@@ -13,15 +13,24 @@ import hashlib
 import json
 import os
 import queue
+import re
 import shutil
 import subprocess
 import threading
 from typing import Any, Mapping, Sequence
 
-from .errors import LineTooLongError, MalformedJsonError, TransportError, ValidationError
+from .errors import (
+    LineTooLongError,
+    MalformedJsonError,
+    PeerTimeoutError,
+    TransportError,
+    ValidationError,
+)
 
 MAX_LINE_BYTES = 8 * 1024 * 1024
 MAX_JSON_INT = 1 << 53
+# A peer's stderr is diagnostics only; keep a bounded prefix of it.
+STDERR_CAPTURE_BYTES = 64 * 1024
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -48,6 +57,25 @@ def _parse_int(value: str) -> int:
     return parsed
 
 
+_SURROGATE_ESCAPE = re.compile(r"\\u[dD][89a-fA-F]")
+
+
+def _reject_lone_surrogates(value: Any) -> None:
+    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot."""
+    if isinstance(value, str):
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise MalformedJsonError("string contains a lone surrogate escape") from exc
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            _reject_lone_surrogates(key)
+            _reject_lone_surrogates(item)
+    elif isinstance(value, list):
+        for item in value:
+            _reject_lone_surrogates(item)
+
+
 def strict_json_loads(line: bytes | str) -> dict[str, Any]:
     """Parse one line of strict JSON; the top level must be an object."""
     if isinstance(line, bytes):
@@ -67,8 +95,12 @@ def strict_json_loads(line: bytes | str) -> dict[str, Any]:
         raise
     except json.JSONDecodeError as exc:
         raise MalformedJsonError(f"line is not strict JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise MalformedJsonError("JSON nesting is too deep") from exc
     if not isinstance(value, dict):
         raise MalformedJsonError("top-level JSON value is not an object")
+    if _SURROGATE_ESCAPE.search(line):
+        _reject_lone_surrogates(value)
     return value
 
 
@@ -150,7 +182,8 @@ def read_line(stream: Any, *, max_line_bytes: int = MAX_LINE_BYTES) -> bytes | N
 def _stdout_reader(stream: Any, output: "queue.Queue[bytes | BaseException]", max_line_bytes: int) -> None:
     try:
         while True:
-            line = stream.readline()
+            # Bounded: a line past the cap fails without buffering the rest.
+            line = stream.readline(max_line_bytes + 1)
             if line == b"":
                 output.put(b"")
                 return
@@ -163,11 +196,16 @@ def _stdout_reader(stream: Any, output: "queue.Queue[bytes | BaseException]", ma
 
 
 def _stderr_reader(stream: Any, chunks: list[bytes]) -> None:
+    """Drain stderr (so the child never blocks on it), keeping a bounded prefix."""
+    kept = 0
     while True:
-        chunk = stream.readline()
+        chunk = stream.read1(65536)
         if chunk == b"":
             return
-        chunks.append(chunk)
+        if kept < STDERR_CAPTURE_BYTES:
+            chunk = chunk[: STDERR_CAPTURE_BYTES - kept]
+            chunks.append(chunk)
+            kept += len(chunk)
 
 
 class SubprocessPeer:
@@ -245,7 +283,7 @@ class SubprocessPeer:
         try:
             item = self._stdout.get(timeout=self._timeout_s) if self._timeout_s is not None else self._stdout.get()
         except queue.Empty as exc:
-            raise TransportError(f"timeout waiting for peer stdout; stderr={self.stderr_text()!r}") from exc
+            raise PeerTimeoutError(f"timeout waiting for peer stdout; stderr={self.stderr_text()!r}") from exc
         if isinstance(item, BaseException):
             raise item
         if item == b"":

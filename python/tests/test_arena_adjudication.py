@@ -10,11 +10,16 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
+from spellbench.arena.cli import validate_tournament_dir
+
 from arena_helpers import (
     BOT_HANG,
     BOT_INVALID_CHOICE,
     builtin,
     cli_bot,
+    hostile_bot,
     ledger_rows,
     leaderboard,
     make_config,
@@ -109,3 +114,48 @@ def test_truncated_games_are_recorded_and_unrated(tmp_path: Path) -> None:
     assert (summary.games_total, summary.games_truncated, summary.games_rated) == (6, 6, 0)
     assert {(row["outcome"], row["step_count"]) for row in ledger_rows(directory)} == {("truncated", 2)}
     assert leaderboard(directory)["status"] == "no_rated_games"
+
+
+@pytest.mark.parametrize(
+    ("mode", "cause"),
+    [
+        ("nested", "malformed_response"),
+        ("surrogate", "malformed_response"),
+        ("badname", "malformed_response"),
+        ("garbage", "malformed_response"),
+        ("crash", "transport_error"),
+        ("flood", "malformed_response"),
+    ],
+)
+def test_a_hostile_bot_forfeits_and_the_tournament_still_publishes(
+    tmp_path: Path, mode: str, cause: str
+) -> None:
+    directory = tmp_path / "t"
+    summary = run(make_config(directory, [builtin("heuristic"), hostile_bot(mode)], pairs=1))
+    assert summary.games_forfeit == 4
+    assert {row[2] for row in _forfeits(directory)} == {cause}
+    assert validate_tournament_dir(directory) == []
+
+
+def test_adjudicated_rows_are_byte_identical_across_reruns(tmp_path: Path) -> None:
+    # The crashing bot prints its PID to stderr: nothing peer-controlled may
+    # reach the ledger, or identical configs stop reproducing.
+    first, second = tmp_path / "a", tmp_path / "b"
+    for directory in (first, second):
+        run(make_config(directory, [builtin("heuristic"), hostile_bot("crash")], pairs=1))
+    assert (first / "matches.jsonl").read_bytes() == (second / "matches.jsonl").read_bytes()
+
+
+def test_a_truncated_game_may_name_a_winner_and_stays_unrated(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    summary = run(
+        make_config(
+            directory,
+            [builtin("heuristic"), builtin("first")],
+            decks=("CapWinner", "Burn"),
+            pairs=1,
+            max_steps=2,
+        )
+    )
+    assert (summary.games_truncated, summary.games_rated) == (6, 0)
+    assert {(row["outcome"], row["winner"]) for row in ledger_rows(directory)} == {("truncated", "p0")}

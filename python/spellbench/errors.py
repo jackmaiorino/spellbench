@@ -27,6 +27,10 @@ class TransportError(SpellbenchError):
     """The peer process or pipe failed (EOF, timeout, unexpected exit)."""
 
 
+class PeerTimeoutError(TransportError):
+    """The peer did not answer within the host's wall-clock budget."""
+
+
 class RemoteError(SpellbenchError):
     """The peer returned a well-formed ``error`` response."""
 
@@ -34,6 +38,10 @@ class RemoteError(SpellbenchError):
         super().__init__(f"{code}: {message}")
         self.code = code
         self.message = message
+
+    def __reduce__(self) -> tuple:
+        # Rebuild from (code, message), so the error can cross processes.
+        return (type(self), (self.code, self.message))
 
 
 class EngineError(RemoteError):

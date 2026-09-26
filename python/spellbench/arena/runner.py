@@ -59,6 +59,7 @@ from ..agent_client import AgentProcess
 from ..engine_client import EngineProcess
 from ..errors import (
     AgentError,
+    PeerTimeoutError,
     ProtocolError,
     RemoteError,
     TransportError,
@@ -78,7 +79,8 @@ DEFAULT_CHOOSE_TIMEOUT_MS = 30_000
 DEFAULT_ENGINE_TIMEOUT_MS = 120_000
 DEFAULT_BOOTSTRAP_REPLICATES = 2_000
 DEFAULT_WORKERS = 1
-MAX_WORKERS = 256
+# The most worker processes Windows can wait on; one limit keeps configs portable.
+MAX_WORKERS = 61
 
 BOT_TYPES = frozenset({"builtin", "subprocess"})
 
@@ -88,14 +90,52 @@ class TournamentError(Exception):
 
 
 class ForfeitError(Exception):
-    """The acting bot loses this game by forfeit; carries the ledger cause."""
+    """The acting bot loses this game by forfeit.
 
-    def __init__(self, cause: str, detail: str) -> None:
+    ``detail`` is host-written text that goes into the ledger (it must be
+    deterministic, so it never quotes the peer); ``diagnostic`` keeps the raw
+    failure (peer stderr, OS errors) for ``diagnostics.jsonl`` only.
+    """
+
+    def __init__(self, cause: str, detail: str, diagnostic: str = "") -> None:
         if cause not in store.FORFEIT_CAUSES:
             raise ValueError(f"unknown forfeit cause: {cause!r}")
         super().__init__(f"{cause}: {detail}")
         self.cause = cause
-        self.detail = " ".join(detail.split())[:240]
+        self.detail = detail
+        self.diagnostic = diagnostic
+
+    def __reduce__(self) -> tuple:
+        return (type(self), (self.cause, self.detail, self.diagnostic))
+
+
+_FORFEIT_DETAIL = {
+    "timeout": "no answer to {phase} within {budget_ms} ms",
+    "malformed_response": "the answer to {phase} was not a valid protocol message",
+    "invalid_selection": "the answer to {phase} selected no offered candidate",
+    "agent_error": "{phase} was answered with an error",
+    "transport_error": "the bot process failed during {phase}",
+}
+
+
+def _agent_forfeit(exc: BaseException, phase: str, budget_ms: int) -> ForfeitError:
+    """A forfeit whose ledger text depends only on the cause and the phase."""
+    cause = _classify_agent_failure(exc)
+    detail = _FORFEIT_DETAIL[cause].format(phase=phase, budget_ms=budget_ms)
+    if isinstance(exc, RemoteError):
+        detail += f" ({exc.code})"  # a code from the closed protocol table
+    return ForfeitError(cause, detail, diagnostic=f"{type(exc).__name__}: {exc}")
+
+
+def _engine_halt_detail(exc: BaseException, phase: str, budget_ms: int) -> str:
+    """Deterministic ledger text for an engine failure (no peer output)."""
+    if isinstance(exc, PeerTimeoutError):
+        return f"the engine did not answer {phase} within {budget_ms} ms"
+    if isinstance(exc, TransportError):
+        return f"the engine process failed at {phase}"
+    if isinstance(exc, RemoteError):
+        return f"the engine answered {phase} with error {exc.code}"
+    return f"the engine's answer to {phase} was not a valid protocol message"
 
 
 def derive_game_seed(base_seed: int, matchup_index: int, pair_index: int) -> int:
@@ -409,9 +449,9 @@ class TournamentConfig:
 class _BuiltinDriver:
     """Drives an in-process builtin bot through the agent-role call sequence."""
 
-    def __init__(self, spec: BotSpec, timeout_s: float) -> None:
+    def __init__(self, spec: BotSpec, timeout_ms: int) -> None:
         self._spec = spec
-        self._timeout_s = timeout_s
+        self._timeout_ms = timeout_ms
         self._handler: Any = None
         self._game_id: str = ""
 
@@ -437,7 +477,9 @@ class _BuiltinDriver:
         try:
             self._handler.on_game_start(request)
         except Exception as exc:
-            raise ForfeitError("agent_error", f"on_game_start raised {type(exc).__name__}: {exc}") from exc
+            raise ForfeitError(
+                "agent_error", "the builtin bot raised during game_start", f"{type(exc).__name__}: {exc}"
+            ) from exc
 
     def choose(self, decision: models.Decision) -> models.Selection:
         result_queue: "queue.Queue[int | BaseException]" = queue.Queue(maxsize=1)
@@ -450,16 +492,22 @@ class _BuiltinDriver:
 
         worker = threading.Thread(target=call, daemon=True)
         worker.start()
+        phase = f"choose at step {decision.step}"
         try:
-            result = result_queue.get(timeout=self._timeout_s)
+            result = result_queue.get(timeout=self._timeout_ms / 1000.0)
         except queue.Empty as exc:
-            raise ForfeitError("timeout", f"choose exceeded {self._timeout_s}s") from exc
+            raise ForfeitError(
+                "timeout", _FORFEIT_DETAIL["timeout"].format(phase=phase, budget_ms=self._timeout_ms)
+            ) from exc
         if isinstance(result, BaseException):
-            raise ForfeitError("agent_error", f"choose raised {type(result).__name__}: {result}")
+            raise ForfeitError(
+                "agent_error", f"the builtin bot raised during {phase}", f"{type(result).__name__}: {result}"
+            )
         if type(result) is not int or not 0 <= result < len(decision.candidates):
             raise ForfeitError(
                 "invalid_selection",
-                f"choose returned {result!r}, not a candidate index in [0, {len(decision.candidates)})",
+                _FORFEIT_DETAIL["invalid_selection"].format(phase=phase, budget_ms=self._timeout_ms),
+                f"choose returned {result!r}",
             )
         return models.Selection(
             candidate_id=result,
@@ -484,9 +532,9 @@ class _BuiltinDriver:
 class _SubprocessDriver:
     """Drives one subprocess bot via AgentProcess (one process per seat per game)."""
 
-    def __init__(self, spec: BotSpec, timeout_s: float) -> None:
+    def __init__(self, spec: BotSpec, timeout_ms: int) -> None:
         self._spec = spec
-        self._timeout_s = timeout_s
+        self._timeout_ms = timeout_ms
         self._agent: AgentProcess | None = None
 
     def start(
@@ -499,29 +547,29 @@ class _SubprocessDriver:
         engine: models.EngineIdentity,
     ) -> None:
         try:
-            self._agent = AgentProcess(list(self._spec.command), timeout_s=self._timeout_s)
+            self._agent = AgentProcess(list(self._spec.command), timeout_s=self._timeout_ms / 1000.0)
             hello = self._agent.hello()
         except (TransportError, RemoteError, ProtocolError) as exc:
             self.close()
-            raise ForfeitError(_classify_agent_failure(exc), f"hello failed: {exc}") from exc
+            raise _agent_forfeit(exc, "hello", self._timeout_ms) from exc
         if hello.bot.name != self._spec.name or hello.bot.version != self._spec.version:
             self.close()
             raise ForfeitError(
                 "malformed_response",
-                f"hello identity mismatch: expected {self._spec.name} {self._spec.version}, "
-                f"got {hello.bot.name} {hello.bot.version}",
+                "hello named a different bot than its config entry",
+                f"expected {self._spec.name} {self._spec.version}, got {hello.bot.name} {hello.bot.version}",
             )
         try:
             self._agent.game_start(game_id=game_id, seat=seat, format=format, decks=decks, engine=engine)
         except (TransportError, RemoteError, ProtocolError) as exc:
-            raise ForfeitError(_classify_agent_failure(exc), f"game_start failed: {exc}") from exc
+            raise _agent_forfeit(exc, "game_start", self._timeout_ms) from exc
 
     def choose(self, decision: models.Decision) -> models.Selection:
         assert self._agent is not None
         try:
             return self._agent.choose(decision)
         except (TransportError, RemoteError, ProtocolError) as exc:
-            raise ForfeitError(_classify_agent_failure(exc), str(exc)) from exc
+            raise _agent_forfeit(exc, f"choose at step {decision.step}", self._timeout_ms) from exc
 
     def game_over(self, terminal: models.TerminalResult) -> None:
         if self._agent is None:
@@ -545,8 +593,10 @@ def _classify_agent_failure(exc: BaseException) -> str:
     stable messages (spellbench 0.1.0) and defaults to the more conservative
     "malformed_response".
     """
+    if isinstance(exc, PeerTimeoutError):
+        return "timeout"
     if isinstance(exc, TransportError):
-        return "timeout" if "timeout" in str(exc).lower() else "transport_error"
+        return "transport_error"
     if isinstance(exc, AgentError):
         return "agent_error"
     message = str(exc)
@@ -612,15 +662,28 @@ def _play_game(
     ctx: _GameContext,
     entries: dict[str, registry.RegistryEntry],
     pin: _EnginePin,
-) -> store.LedgerRow:
-    """Play (or adjudicate) one game; returns its ledger row.
+) -> tuple[store.LedgerRow, tuple[str, ...]]:
+    """Play (or adjudicate) one game; returns its ledger row and diagnostics.
 
     The first game to reach ``hello`` pins the engine identity in ``pin``;
-    every other game must match it exactly.
+    every other game must match it exactly. The ledger row holds only
+    host-written text; raw failure text (peer stderr, OS errors) comes back
+    as diagnostics, which never enter the hashed artifacts.
     """
+    diagnostics: list[str] = []
+    row = _play_game_row(config, ctx, entries, pin, diagnostics)
+    return row, tuple(diagnostics)
+
+
+def _play_game_row(
+    config: TournamentConfig,
+    ctx: _GameContext,
+    entries: dict[str, registry.RegistryEntry],
+    pin: _EnginePin,
+    diagnostics: list[str],
+) -> store.LedgerRow:
     seats = _ledger_seats(ctx, entries)
     decks_json = (config.decks[0].to_json(), config.decks[1].to_json())
-    choose_timeout_s = config.choose_timeout_ms / 1000.0
 
     def row_for(
         *,
@@ -672,9 +735,9 @@ def _play_game(
             )
         for seat, spec in ctx.seat_specs:
             driver: Any = (
-                _BuiltinDriver(spec, choose_timeout_s)
+                _BuiltinDriver(spec, config.choose_timeout_ms)
                 if spec.type == "builtin"
-                else _SubprocessDriver(spec, choose_timeout_s)
+                else _SubprocessDriver(spec, config.choose_timeout_ms)
             )
             drivers.append((seat, driver))
         for seat, driver in drivers:
@@ -687,6 +750,8 @@ def _play_game(
                     engine=identity,
                 )
             except ForfeitError as exc:
+                if exc.diagnostic:
+                    diagnostics.append(f"{seat} {exc.detail}: {exc.diagnostic}")
                 winner = "p1" if seat == "p0" else "p0"
                 return row_for(
                     outcome=f"{winner}_win",
@@ -709,12 +774,14 @@ def _play_game(
                 max_steps=config.max_steps,
             )
         except (TransportError, RemoteError, ProtocolError) as exc:
+            diagnostics.append(f"engine at reset: {type(exc).__name__}: {exc}")
+            detail = _engine_halt_detail(exc, "reset", config.engine_timeout_ms)
             return row_for(
                 outcome="halted",
                 classification="halted",
                 winner=None,
                 reason="engine error at reset",
-                adjudication=store.Adjudication(kind="engine_halt", detail=str(exc)[:240]),
+                adjudication=store.Adjudication(kind="engine_halt", detail=detail),
                 step_count=0,
                 decision_count=0,
             )
@@ -725,6 +792,8 @@ def _play_game(
             try:
                 selection = driver.choose(decision)
             except ForfeitError as exc:
+                if exc.diagnostic:
+                    diagnostics.append(f"{seat} {exc.detail}: {exc.diagnostic}")
                 winner = "p1" if seat == "p0" else "p0"
                 terminal_notice = models.TerminalResult(
                     outcome="halted",
@@ -751,6 +820,8 @@ def _play_game(
             try:
                 response = engine.step(selection)
             except (TransportError, RemoteError, ProtocolError) as exc:
+                phase = f"step {decision.step}"
+                diagnostics.append(f"engine at {phase}: {type(exc).__name__}: {exc}")
                 terminal_notice = models.TerminalResult(
                     outcome="halted",
                     classification="halted",
@@ -766,7 +837,10 @@ def _play_game(
                     classification="halted",
                     winner=None,
                     reason="engine error mid-game",
-                    adjudication=store.Adjudication(kind="engine_halt", detail=str(exc)[:240]),
+                    adjudication=store.Adjudication(
+                        kind="engine_halt",
+                        detail=_engine_halt_detail(exc, phase, config.engine_timeout_ms),
+                    ),
                     step_count=decision.step,
                     decision_count=decision.group.group_id,
                 )
@@ -798,14 +872,14 @@ def _play_game_in_worker(
     config: TournamentConfig,
     ctx: _GameContext,
     entries: dict[str, registry.RegistryEntry],
-) -> tuple[store.LedgerRow, models.EngineIdentity]:
+) -> tuple[store.LedgerRow, tuple[str, ...], models.EngineIdentity]:
     """Worker-process entry point: one game, plus the engine identity it saw.
 
     The parent process checks every returned identity against its own pin.
     """
     pin = _EnginePin()
-    row = _play_game(config, ctx, entries, pin)
-    return row, pin.identity
+    row, diagnostics = _play_game(config, ctx, entries, pin)
+    return row, diagnostics, pin.identity
 
 
 def _schedule(config: TournamentConfig) -> list[_GameContext]:
@@ -864,16 +938,18 @@ def run_tournament(
     rows: list[store.LedgerRow] = []
     pin = _EnginePin()
 
-    def record(row: store.LedgerRow) -> None:
+    def record(row: store.LedgerRow, diagnostics: tuple[str, ...]) -> None:
         rows.append(row)
         store.append_ledger_row(ledger_path, row.to_json())
+        if diagnostics:
+            store.append_diagnostics(directory / store.DIAGNOSTICS_NAME, row.game_id, diagnostics)
         if on_game is not None:
             on_game(row)
 
     schedule = _schedule(config)
     if config.workers == 1:
         for ctx in schedule:
-            record(_play_game(config, ctx, entries, pin))
+            record(*_play_game(config, ctx, entries, pin))
     else:
         pool = ProcessPoolExecutor(
             max_workers=config.workers, mp_context=multiprocessing.get_context("spawn")
@@ -881,9 +957,9 @@ def run_tournament(
         try:
             futures = [pool.submit(_play_game_in_worker, config, ctx, entries) for ctx in schedule]
             for future in futures:  # schedule order, whatever the completion order
-                row, identity = future.result()
+                row, diagnostics, identity = future.result()
                 pin.check(identity)
-                record(row)
+                record(row, diagnostics)
         finally:
             # On an abort (a TournamentError or an interrupt) the queued games
             # are dropped; games already running finish before the raise.

@@ -110,3 +110,53 @@ def test_read_line_enforces_cap() -> None:
     too_long = io.BytesIO(b"x" * wire.MAX_LINE_BYTES + b"\n")
     with pytest.raises(LineTooLongError):
         wire.read_line(too_long)
+
+
+def test_strict_loads_rejects_deeply_nested_json_as_malformed() -> None:
+    nested = b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}"
+    with pytest.raises(MalformedJsonError):
+        wire.strict_json_loads(nested)
+
+
+@pytest.mark.parametrize("escape", [b"\ud800", b"\uDFFF", b"x\udc00y"])
+def test_strict_loads_rejects_lone_surrogate_escapes(escape: bytes) -> None:
+    # A lone surrogate cannot be encoded as UTF-8, so it could never be
+    # written back out canonically.
+    with pytest.raises(MalformedJsonError):
+        wire.strict_json_loads(b'{"a":"' + escape + b'"}')
+
+
+def test_strict_loads_accepts_escaped_surrogate_pairs() -> None:
+    assert wire.strict_json_loads(b'{"a":"\ud83d\ude00"}') == {"a": "\U0001F600"}
+
+
+def _peer_running(code: str, **kwargs) -> wire.SubprocessPeer:
+    import sys
+
+    return wire.SubprocessPeer([sys.executable, "-c", code], **kwargs)
+
+
+def test_peer_rejects_an_oversized_line_before_it_ends() -> None:
+    # The child writes more than the cap and never finishes the line; the
+    # peer must fail on the cap, not buffer until a newline that never comes.
+    code = "import sys, time; sys.stdout.buffer.write(b'x' * 4096); sys.stdout.flush(); time.sleep(30)"
+    peer = _peer_running(code, timeout_s=5, max_line_bytes=1024)
+    try:
+        with pytest.raises(LineTooLongError):
+            peer.read_line()
+    finally:
+        peer.close()
+
+
+def test_peer_caps_captured_stderr() -> None:
+    code = (
+        "import sys; sys.stderr.buffer.write(b'e' * (1 << 20)); sys.stderr.flush();"
+        " sys.stdout.buffer.write(b'{}' + bytes([10])); sys.stdout.flush()"
+    )
+    peer = _peer_running(code, timeout_s=10)
+    try:
+        assert peer.read_line() == b"{}"
+        peer.close()
+        assert len(peer.stderr_text()) <= wire.STDERR_CAPTURE_BYTES + 64
+    finally:
+        peer.close()

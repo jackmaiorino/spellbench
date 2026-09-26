@@ -41,8 +41,29 @@ def test_workers_run_engines_concurrently(tmp_path: Path, monkeypatch: pytest.Mo
     assert {row["classification"] for row in ledger_rows(directory)} == {"natural"}
 
 
-@pytest.mark.parametrize("workers", [0, 257, "4"])
+@pytest.mark.parametrize("workers", [0, 62, "4"])
 def test_worker_count_is_validated(tmp_path: Path, workers: object) -> None:
+    # 61 is the most worker processes Windows can wait on; one limit keeps
+    # configs portable across platforms.
     config = make_config(tmp_path / "t", BOTS, pairs=1, workers=workers)
-    with pytest.raises(runner.TournamentError, match=r"config\.workers: must be an integer in \[1, 256\]"):
+    with pytest.raises(runner.TournamentError, match=r"config\.workers: must be an integer in \[1, 61\]"):
         runner.TournamentConfig.from_json(config)
+
+
+def test_errors_survive_the_trip_between_processes() -> None:
+    # Worker processes hand exceptions back to the parent by pickling; an
+    # exception that cannot unpickle turns into a broken pool.
+    import pickle
+
+    from spellbench.errors import AgentError, EngineError, RemoteError
+
+    for error in (
+        AgentError("internal_error", "boom"),
+        EngineError("unsupported_deck", "no such deck"),
+        RemoteError("malformed_request", "bad"),
+        runner.ForfeitError("timeout", "the agent did not answer choose in time"),
+        runner.TournamentError("engine hello failed"),
+    ):
+        restored = pickle.loads(pickle.dumps(error))
+        assert type(restored) is type(error)
+        assert str(restored) == str(error)

@@ -81,3 +81,10 @@ def matchup_by_names(document: dict[str, Any], first: str, second: str) -> dict[
     ]
     assert len(matches) == 1, f"expected one matchup for {first} vs {second}"
     return matches[0]
+
+
+BOT_HOSTILE = TESTS_DIR / "bot_hostile.py"
+
+
+def hostile_bot(mode: str) -> dict[str, Any]:
+    return subprocess_bot("hostile", [sys.executable, str(BOT_HOSTILE), mode])

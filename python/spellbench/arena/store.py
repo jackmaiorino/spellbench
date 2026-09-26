@@ -23,6 +23,7 @@ verifiable tournament; a directory without one is partial.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,9 @@ REGISTRY_NAME = "registry.json"
 LEDGER_NAME = "matches.jsonl"
 LEADERBOARD_JSON_NAME = "leaderboard.json"
 LEADERBOARD_MD_NAME = "LEADERBOARD.md"
+# Raw failure text (peer stderr, OS errors) per adjudicated game. Deliberately
+# outside the manifest: it is not deterministic and not part of the result.
+DIAGNOSTICS_NAME = "diagnostics.jsonl"
 
 # Data files in publish order; the manifest is always last.
 DATA_FILE_NAMES = (
@@ -94,6 +98,13 @@ def append_ledger_row(path: Path, row: Any) -> None:
         handle.write(line)
         handle.flush()
         os.fsync(handle.fileno())
+
+
+def append_diagnostics(path: Path, game_id: str, diagnostics: Iterable[str]) -> None:
+    """Append one diagnostics record (ASCII-escaped JSON; never hashed)."""
+    line = json.dumps({"game_id": game_id, "diagnostics": list(diagnostics)}, ensure_ascii=True)
+    with open(path, "a", encoding="ascii", newline="\n") as handle:
+        handle.write(line + "\n")
 
 
 def file_entry(path: Path, name: str) -> dict[str, Any]:
@@ -363,10 +374,10 @@ class LedgerRow:
             if self.adjudication is not None:
                 raise ValidationError("ledger: a natural row carries no adjudication")
         elif self.classification in ("truncated", "halted"):
+            # Spec 7.5: winner is null "when unassigned by rule"; an engine may
+            # name one at a cap. Recorded as reported, never rated.
             if self.outcome != self.classification:
                 raise ValidationError("ledger: truncated/halted rows carry the matching outcome")
-            if self.winner is not None:
-                raise ValidationError("ledger: truncated/halted rows have winner null")
             if self.classification == "truncated" and self.adjudication is not None:
                 raise ValidationError("ledger: a truncated row carries no adjudication")
             if self.classification == "halted" and self.adjudication is not None and self.adjudication.kind != "engine_halt":

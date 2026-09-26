@@ -10,6 +10,8 @@ Test hooks, selected by the p0 deck's ``catalog_id``:
 
 - ``Crash``: the process exits abruptly on the first ``step`` request.
 - ``Halt``: the first ``step`` answers a ``halted`` terminal.
+- ``CapWinner``: a game truncated by ``max_steps`` names ``p0`` as winner
+  (spec 7.5 allows a winner assigned by rule on a truncated terminal).
 - ``Rendezvous``: ``reset`` drops a marker named after the game into
   ``$SPELLBENCH_RENDEZVOUS_DIR`` and waits until
   ``$SPELLBENCH_RENDEZVOUS_COUNT`` markers exist, exiting abruptly after
@@ -186,7 +188,7 @@ def main() -> int:
                         result = TerminalResult(
                             outcome="truncated",
                             classification="truncated",
-                            winner=None,
+                            winner="p0" if hook == "CapWinner" else None,
                             reason="max_steps",
                             step_count=step,
                             decision_count=step,
