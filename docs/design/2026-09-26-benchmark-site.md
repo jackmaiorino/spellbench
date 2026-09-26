@@ -1,6 +1,6 @@
 # Benchmark site (sub-project A)
 
-Status: design approved in conversation 2026-09-26; spec awaiting review.
+Status: approved 2026-09-26; implementation plan in `2026-09-26-benchmark-site-plan.md`.
 
 ## Goal
 
