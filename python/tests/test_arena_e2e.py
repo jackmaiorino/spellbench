@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import math
+import tomllib
 from pathlib import Path
 
+import spellbench
 from spellbench.arena import store
 from spellbench.arena.cli import main as cli_main
 from spellbench.arena.cli import validate_tournament_dir
@@ -24,6 +26,13 @@ from arena_helpers import (
 )
 
 ALL_BUILTINS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
+REPO = Path(__file__).resolve().parents[2]
+
+
+def test_the_package_version_is_the_project_version() -> None:
+    # Runs record spellbench.__version__, and validate compares it with the running arena's.
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["version"] == spellbench.__version__
 
 
 def test_round_robin_with_every_builtin_bot(tmp_path: Path) -> None:
