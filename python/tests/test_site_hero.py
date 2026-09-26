@@ -59,6 +59,22 @@ def test_two_benchmarks_average_and_combine_standard_errors() -> None:
     assert [chip.benchmark_id for chip in row.chips] == ["a", "b"]
 
 
+def test_combined_interval_squares_half_widths_exactly() -> None:
+    # h * h is exactly rounded on every OS; h ** 2 calls the C library pow(),
+    # which on Windows is one ulp off for benchmark a's half-width here.
+    table = hero_table(
+        [
+            ("a", _board(_row("heuristic", 1_100_000, (1_061_188, 1_138_812)))),
+            ("b", _board(_row("heuristic", 1_200_000, (1_141_200, 1_258_800)))),
+        ]
+    )
+    row = _by_name(table)["heuristic"]
+    half_a = (138.812 - 61.188) / (2 * 1.96)
+    half_b = (258.8 - 141.2) / (2 * 1.96)
+    se = math.sqrt(half_a * half_a + half_b * half_b) / 2
+    assert (row.lower, row.upper) == (150.0 - 1.96 * se, 150.0 + 1.96 * se)
+
+
 def test_a_bot_in_one_of_two_benchmarks_keeps_that_interval() -> None:
     table = hero_table(
         [

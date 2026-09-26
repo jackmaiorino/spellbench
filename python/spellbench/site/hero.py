@@ -97,8 +97,21 @@ def _combine(name: str, chips: tuple[HeroChip, ...]) -> HeroRow:
     count = len(chips)
     score = math.fsum(chip.margin for chip in chips) / count
     if count == 1:
-        return HeroRow(name, score, chips[0].lower, chips[0].upper, False, False, chips)
-    if any(chip.lower is None or chip.upper is None for chip in chips):
-        return HeroRow(name, score, None, None, True, False, chips)
-    se = math.sqrt(math.fsum(((chip.upper - chip.lower) / (2 * Z95)) ** 2 for chip in chips)) / count
-    return HeroRow(name, score, score - Z95 * se, score + Z95 * se, True, False, chips)
+        return HeroRow(
+            name=name, score=score, lower=chips[0].lower, upper=chips[0].upper,
+            approximate=False, reference=False, chips=chips,
+        )
+    halves: list[float] = []
+    for chip in chips:
+        if chip.lower is None or chip.upper is None:
+            return HeroRow(
+                name=name, score=score, lower=None, upper=None, approximate=True, reference=False, chips=chips
+            )
+        halves.append((chip.upper - chip.lower) / (2 * Z95))
+    # Square by multiplication: h * h is exactly rounded on every OS, while h ** 2
+    # calls the C library pow(), which is not (it differs on Windows).
+    se = math.sqrt(math.fsum(half * half for half in halves)) / count
+    return HeroRow(
+        name=name, score=score, lower=score - Z95 * se, upper=score + Z95 * se,
+        approximate=True, reference=False, chips=chips,
+    )
