@@ -7,6 +7,8 @@
 - ``garbage``: answers ``choose`` with a line that is not JSON.
 - ``crash``: writes a stderr burst holding its PID, then exits on ``choose``.
 - ``flood``: answers ``choose`` with a 16 MiB line (twice the protocol cap).
+- ``bigint``: answers ``choose`` with a choice whose ``candidate_id`` has
+  5000 digits (past CPython's 4300-digit integer conversion limit).
 
 Every other request is answered correctly, as bot ``hostile`` 1.0.0.
 """
@@ -76,6 +78,12 @@ def main() -> int:
         elif MODE == "flood":
             sys.stdout.buffer.write(b"a" * (16 << 20) + b"\n")
             sys.stdout.buffer.flush()
+        elif MODE == "bigint":
+            send(
+                b'{"protocol":"spellbench/v1","request_id":"' + request_id.encode() + b'",'
+                b'"response_type":"choice","selection":{"candidate_id":' + b"1" * 5000 + b","
+                b'"semantic_echo":{"kind":"pass"}}}'
+            )
         else:
             raise SystemExit(f"unknown mode {MODE}")
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import io
+import sys
+from typing import Iterator
 
 import pytest
 
@@ -35,6 +37,8 @@ def test_strict_loads_accepts_crlf_terminated_payload() -> None:
         b'{"a":-Infinity}',
         b'{"a":9007199254740993}',  # 2^53 + 1
         b'{"a":-9007199254740993}',
+        b'{"a":10000000000000000}',  # 17 digits
+        b'{"a":-10000000000000000}',
         b"[1,2]",  # non-object top level
         b'"hello"',
         b"123",
@@ -50,9 +54,54 @@ def test_strict_loads_rejects(line: bytes) -> None:
         wire.strict_json_loads(line)
 
 
-@pytest.mark.parametrize("line", [b'{"a":9007199254740992}', b'{"a":-9007199254740992}', b'{"a":0}'])
-def test_strict_loads_accepts_safe_int_bounds(line: bytes) -> None:
-    assert "a" in wire.strict_json_loads(line)
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        (b"9007199254740992", 1 << 53),
+        (b"-9007199254740992", -(1 << 53)),
+        (b"1000000000000000", 10**15),  # 16 digits
+        (b"0", 0),
+        (b"-0", 0),
+    ],
+)
+def test_strict_loads_accepts_safe_int_bounds(literal: bytes, expected: int) -> None:
+    value = wire.strict_json_loads(b'{"a":' + literal + b"}")["a"]
+    assert type(value) is int and value == expected
+
+
+@pytest.mark.parametrize("sign", ["", "-"])
+@pytest.mark.parametrize("digits", [4300, 4301, 5000, 100_000])
+def test_strict_loads_rejects_a_huge_int_literal_as_malformed(digits: int, sign: str) -> None:
+    # Past 4300 digits int() raises a bare ValueError (CPython's integer
+    # string-conversion limit), which the arena would not catch as a forfeit.
+    literal = sign + "".join(str(index % 10) for index in range(1, digits + 1))
+    with pytest.raises(MalformedJsonError) as caught:
+        wire.strict_json_loads(b'{"a":' + literal.encode("ascii") + b"}")
+    message = str(caught.value)
+    assert literal[:32] in message
+    assert literal[:33] not in message
+    assert len(message) < 128
+
+
+@pytest.fixture
+def strictest_int_conversion_limit() -> Iterator[None]:
+    # The limit is process-wide: set the strictest one CPython accepts
+    # (640 digits) and restore the previous one afterwards.
+    previous = sys.get_int_max_str_digits()
+    sys.set_int_max_str_digits(sys.int_info.str_digits_check_threshold)
+    try:
+        yield
+    finally:
+        sys.set_int_max_str_digits(previous)
+
+
+@pytest.mark.usefixtures("strictest_int_conversion_limit")
+@pytest.mark.parametrize("digits", [641, 4300])
+def test_strict_loads_rejects_huge_ints_under_any_interpreter_limit(digits: int) -> None:
+    # A host may run with a stricter -X int_max_str_digits; the digit count is
+    # checked before any conversion, so the answer is still MalformedJsonError.
+    with pytest.raises(MalformedJsonError):
+        wire.strict_json_loads(b'{"a":' + b"1" * digits + b"}")
 
 
 @pytest.mark.parametrize(
@@ -118,7 +167,7 @@ def test_strict_loads_rejects_deeply_nested_json_as_malformed() -> None:
         wire.strict_json_loads(nested)
 
 
-@pytest.mark.parametrize("escape", [b"\ud800", b"\uDFFF", b"x\udc00y"])
+@pytest.mark.parametrize("escape", [rb"\ud800", rb"\uDFFF", rb"x\udc00y"])
 def test_strict_loads_rejects_lone_surrogate_escapes(escape: bytes) -> None:
     # A lone surrogate cannot be encoded as UTF-8, so it could never be
     # written back out canonically.
@@ -127,7 +176,7 @@ def test_strict_loads_rejects_lone_surrogate_escapes(escape: bytes) -> None:
 
 
 def test_strict_loads_accepts_escaped_surrogate_pairs() -> None:
-    assert wire.strict_json_loads(b'{"a":"\ud83d\ude00"}') == {"a": "\U0001F600"}
+    assert wire.strict_json_loads(rb'{"a":"\ud83d\ude00"}') == {"a": "\U0001F600"}
 
 
 def _peer_running(code: str, **kwargs) -> wire.SubprocessPeer:
