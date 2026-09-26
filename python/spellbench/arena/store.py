@@ -321,9 +321,10 @@ class Adjudication:
 class LedgerRow:
     """One completed (or adjudicated) game in the match ledger.
 
-    ``classification == "natural"`` rows are the only rating input (spec
-    section 7.5); truncated, halted, and forfeit rows are recorded and
-    excluded from the rating fit.
+    Natural rows (spec section 7.5) and forfeit rows are rated: a forfeit is
+    a loss for the seat that forfeited, or a losing bot could erase its
+    losses by hanging or answering garbage. Truncated and halted rows are
+    recorded and excluded from the rating fit.
     """
 
     game_id: str
@@ -402,8 +403,8 @@ class LedgerRow:
 
     @property
     def rated(self) -> bool:
-        """Only natural terminals enter ratings (spec section 7.5)."""
-        return self.classification == "natural"
+        """Natural terminals and forfeits enter ratings."""
+        return self.classification in ("natural", "forfeit")
 
     def bot_id_at(self, seat: str) -> str:
         for entry in self.seats:

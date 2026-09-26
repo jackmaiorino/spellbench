@@ -7,6 +7,7 @@ fake_arena_engine p0 acts at even steps and p1 at odd steps.
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
@@ -47,7 +48,9 @@ def test_invalid_selection_is_a_forfeit_loss_for_the_acting_bot(tmp_path: Path) 
     directory = tmp_path / "t"
     bad = subprocess_bot("bad-invalid", [sys.executable, str(BOT_INVALID_CHOICE)])
     summary = run(make_config(directory, [builtin("heuristic"), bad], pairs=1))
-    assert (summary.games_total, summary.games_rated, summary.games_forfeit) == (6, 2, 4)
+    # A forfeit is a rated loss: otherwise a losing bot could erase its
+    # losses by hanging or answering garbage.
+    assert (summary.games_total, summary.games_rated, summary.games_forfeit) == (6, 6, 4)
     assert _forfeits(directory) == [
         ("m0001p0000g0", "p0_win", "invalid_selection", "p1", 1),
         ("m0001p0000g1", "p1_win", "invalid_selection", "p0", 0),
@@ -56,10 +59,14 @@ def test_invalid_selection_is_a_forfeit_loss_for_the_acting_bot(tmp_path: Path) 
     ]
     document = leaderboard(directory)
     offender = row_by_name(document, "bad-invalid")
+    # 2 cross games lost, plus 2 mirror games (each a win and a loss for the
+    # bot holding both seats).
     assert offender["forfeit_losses"] == 4
-    assert (offender["games"], offender["wins"], offender["losses"]) == (0, 0, 0)
+    assert (offender["games"], offender["wins"], offender["draws"], offender["losses"]) == (6, 2, 0, 4)
     assert row_by_name(document, "heuristic")["forfeit_losses"] == 0
     assert document["games"]["forfeit"] == 4
+    # heuristic 2-0 plus one virtual draw: 2.5 to 0.5, ln(5) apart.
+    assert offender["rating_log_units_e6"] == round(-math.log(5) * 1_000_000)
 
 
 def test_choose_timeout_is_a_forfeit_loss(tmp_path: Path) -> None:

@@ -38,9 +38,10 @@ wall-clock time. Worker processes are spawned, so a script that calls
 Adjudication (there are no timeouts in the protocol itself, spec section 11):
 a choose timeout, a malformed agent response, an invalid selection, an agent
 error response, or an agent transport failure is a FORFEIT LOSS for the
-acting seat's bot, recorded in the ledger with an ``adjudication`` object.
-A host-detected engine contract failure records a ``halted`` row with an
-``engine_halt`` adjudication. Only natural terminals enter ratings.
+acting seat's bot, recorded in the ledger with an ``adjudication`` object and
+rated as a loss. A host-detected engine contract failure records a
+``halted`` row with an ``engine_halt`` adjudication. Natural terminals and
+forfeits enter ratings; truncated and halted games do not.
 """
 
 from __future__ import annotations
@@ -1011,7 +1012,7 @@ def run_tournament(
     return TournamentSummary(
         tournament_dir=directory,
         games_total=len(rows),
-        games_rated=counts["natural"],
+        games_rated=counts["natural"] + counts["forfeit"],
         games_truncated=counts["truncated"],
         games_halted=counts["halted"],
         games_forfeit=counts["forfeit"],

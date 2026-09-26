@@ -7,8 +7,9 @@ byte-identically from a tournament directory.
 
 Conventions (declared in the artifact's ``notes``):
 
-- Only ``natural`` ledger rows are rated (spec section 7.5); truncated,
-  halted, and forfeit rows are recorded in the ledger and excluded.
+- ``natural`` rows (spec section 7.5) and ``forfeit`` rows are rated; a
+  forfeit is a loss for the seat that forfeited. Truncated and halted rows
+  are recorded in the ledger and excluded.
 - Games/W/D/L count seat-games: a non-mirror game is one seat-game per bot;
   a mirror game is two seat-games for the same bot (one per seat), so a
   decisive mirror adds one win AND one loss.
@@ -54,7 +55,7 @@ _BT_ALGORITHM = (
 VIRTUAL_DRAWS_PER_MATCHUP = 1
 
 NOTES = [
-    "only natural terminals are rated; truncated, halted, and forfeit games are excluded",
+    "natural results and forfeits are rated (a forfeit is a loss for the forfeiting bot); truncated and halted games are excluded",
     "games/W/D/L count seat-games: a mirror game is two seat-games for the same bot",
     "the Bradley-Terry fit excludes mirror matchups",
     "prior: each rated matchup adds one virtual drawn game to the fit and every bootstrap refit",
@@ -143,7 +144,6 @@ def _accumulate(
             assert row.adjudication is not None and row.adjudication.loser_seat is not None
             loser = row.bot_id_at(row.adjudication.loser_seat)
             forfeit_losses[loser] = forfeit_losses.get(loser, 0) + 1
-            continue
         if not row.rated:
             continue
         mirror = p0_id == p1_id
@@ -228,9 +228,9 @@ def build_leaderboard(
         raise ValueError(f"anchor bot_id is not in the registry: {anchor_bot_id!r}")
     counts = {"total": len(rows), "rated": 0, "truncated": 0, "halted": 0, "forfeit": 0}
     for row in rows:
-        if row.classification == "natural":
+        if row.rated:
             counts["rated"] += 1
-        else:
+        if row.classification != "natural":
             counts[row.classification] += 1
 
     wdl, forfeit_losses, matchups = _accumulate(rows)
@@ -488,7 +488,8 @@ def render_markdown(document: dict[str, Any]) -> str:
         f"# Spellbench leaderboard: {document['format']}",
         "",
         f"- Games: {counts['total']} played, {counts['rated']} rated "
-        f"(truncated: {counts['truncated']}, halted: {counts['halted']}, forfeits: {counts['forfeit']})",
+        f"(forfeits rated as losses: {counts['forfeit']}; unrated: truncated {counts['truncated']}, "
+        f"halted {counts['halted']})",
         f"- Anchor: {anchor['name']} {anchor['version']}, fixed at 0.000000 log units (Elo display 1000.0)",
         f"- Status: {document['status']}"
         + (f" ({document['fit_error']})" if document["fit_error"] else ""),
