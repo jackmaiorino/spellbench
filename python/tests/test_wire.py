@@ -175,6 +175,21 @@ def test_strict_loads_rejects_lone_surrogate_escapes(escape: bytes) -> None:
         wire.strict_json_loads(b'{"a":"' + escape + b'"}')
 
 
+@pytest.mark.parametrize(
+    ("opening", "innermost", "closing"),
+    [(b"[", rb'"\ud800"', b"]"), (b'{"k":', rb'{"\ud800":0}', b"}")],
+    ids=["value", "key"],
+)
+def test_strict_loads_rejects_a_lone_surrogate_nested_past_the_recursion_limit(
+    opening: bytes, innermost: bytes, closing: bytes
+) -> None:
+    # 1500 levels exceed Python's recursion limit (1000) but stay within
+    # json's own nesting limit, so the surrogate check must not recurse.
+    depth = 1500
+    with pytest.raises(MalformedJsonError):
+        wire.strict_json_loads(b'{"a":' + opening * depth + innermost + closing * depth + b"}")
+
+
 def test_strict_loads_accepts_escaped_surrogate_pairs() -> None:
     assert wire.strict_json_loads(rb'{"a":"\ud83d\ude00"}') == {"a": "\U0001F600"}
 

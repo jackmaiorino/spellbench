@@ -75,19 +75,24 @@ _SURROGATE_ESCAPE = re.compile(r"\\u[dD][89a-fA-F]")
 
 
 def _reject_lone_surrogates(value: Any) -> None:
-    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot."""
-    if isinstance(value, str):
-        try:
-            value.encode("utf-8")
-        except UnicodeEncodeError as exc:
-            raise MalformedJsonError("string contains a lone surrogate escape") from exc
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            _reject_lone_surrogates(key)
-            _reject_lone_surrogates(item)
-    elif isinstance(value, list):
-        for item in value:
-            _reject_lone_surrogates(item)
+    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot.
+
+    The walk keeps its own stack instead of recursing: json accepts nesting
+    deeper than the interpreter's recursion limit.
+    """
+    pending = [value]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            try:
+                item.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise MalformedJsonError("string contains a lone surrogate escape") from exc
+        elif isinstance(item, dict):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
 
 
 def strict_json_loads(line: bytes | str) -> dict[str, Any]:

@@ -141,6 +141,7 @@ def test_truncated_games_are_recorded_and_unrated(tmp_path: Path) -> None:
         ("crash", "transport_error"),
         ("flood", "malformed_response"),
         ("bigint", "malformed_response"),
+        ("deepsurrogate", "malformed_response"),
     ],
 )
 def test_a_hostile_bot_forfeits_and_the_tournament_still_publishes(

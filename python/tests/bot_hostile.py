@@ -9,6 +9,8 @@
 - ``flood``: answers ``choose`` with a 16 MiB line (twice the protocol cap).
 - ``bigint``: answers ``choose`` with a choice whose ``candidate_id`` has
   5000 digits (past CPython's 4300-digit integer conversion limit).
+- ``deepsurrogate``: answers ``choose`` with a line nested 1500 deep (past
+  Python's recursion limit, within json's) around a lone surrogate escape.
 
 Every other request is answered correctly, as bot ``hostile`` 1.0.0.
 """
@@ -84,6 +86,8 @@ def main() -> int:
                 b'"response_type":"choice","selection":{"candidate_id":' + b"1" * 5000 + b","
                 b'"semantic_echo":{"kind":"pass"}}}'
             )
+        elif MODE == "deepsurrogate":
+            send(b'{"x":' + b"[" * 1500 + b'"\\ud800"' + b"]" * 1500 + b"}")
         else:
             raise SystemExit(f"unknown mode {MODE}")
 
