@@ -400,8 +400,10 @@ def _grid(
     """Each overall bot's share of the points against each other, over complete pairs.
 
     A matchup stores bot ``a``'s share as ``a_score``; bot ``b``'s is its
-    complement. The diagonal, a pair of bots without a matchup, and a
-    matchup without complete pairs (``a_score`` null) have no cell.
+    complement. A cell carries the matchup's rated ``games`` and the
+    ``complete_pairs`` the share is computed over. The diagonal, a pair of
+    bots without a matchup, and a matchup without complete pairs
+    (``a_score`` null) have no cell.
     """
     by_bots = {frozenset((matchup["a_bot_id"], matchup["b_bot_id"])): matchup for matchup in matchups}
     cells: list[list[dict[str, Any] | None]] = []
@@ -414,7 +416,7 @@ def _grid(
                 continue
             num, den = matchup["a_score"]["num"], matchup["a_score"]["den"]
             share = num / den if matchup["a_bot_id"] == row["bot_id"] else (den - num) / den
-            line.append({"score": share, "games": matchup["games"]})
+            line.append({"score": share, "games": matchup["games"], "complete_pairs": matchup["complete_pairs"]})
         cells.append(line)
     return {
         "names": [row["name"] for row in rows],

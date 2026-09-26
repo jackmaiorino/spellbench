@@ -84,9 +84,9 @@ BENCH: dict[str, Any] = {
         "names": ["heuristic", "uniform", "first"],
         "labels": ["heuristic", "random", "first"],
         "cells": [
-            [None, {"score": 0.6, "games": 64}, {"score": 0.7, "games": 64}],
-            [{"score": 0.4, "games": 64}, None, {"score": 0.55, "games": 64}],
-            [{"score": 0.3, "games": 64}, {"score": 0.45, "games": 64}, None],
+            [None, {"score": 0.6, "games": 64, "complete_pairs": 32}, {"score": 0.7, "games": 64, "complete_pairs": 32}],
+            [{"score": 0.4, "games": 64, "complete_pairs": 32}, None, {"score": 0.55, "games": 57, "complete_pairs": 27}],
+            [{"score": 0.3, "games": 64, "complete_pairs": 32}, {"score": 0.45, "games": 57, "complete_pairs": 27}, None],
         ],
     },
 }
@@ -171,6 +171,14 @@ def test_the_grid_shows_shares() -> None:
     cell = re.search(r'<td\b[^>]*data-row="heuristic"[^>]*data-col="uniform"[^>]*>(.*?)</td>', page, re.S)
     assert cell and "60%" in cell.group(1)
     assert page.count('data-col="first"') == 3  # one cell per row, the diagonal included
+
+
+def test_a_grid_cell_names_the_sample_behind_its_share() -> None:
+    # The share is over complete pairs only: 57 rated games, but 27 complete pairs (54 games).
+    page = _pages()["benchmark"]
+    cell = re.search(r'<td data-row="uniform" data-col="first" title="([^"]*)"', page)
+    assert cell and cell.group(1) == "over 27 complete pairs (54 games)"
+    assert 'title="over 32 complete pairs (64 games)"' in page
 
 
 def test_every_deck_and_style_gets_a_panel() -> None:

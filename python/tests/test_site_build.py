@@ -374,9 +374,11 @@ def test_every_leaderboard_number_reaches_the_benchmark_page(tree: Path, tmp_pat
     for matchup in board["matchups"]:
         a, b = names[matchup["a_bot_id"]], names[matchup["b_bot_id"]]
         share = matchup["a_score"]["num"] / matchup["a_score"]["den"]
+        pairs = matchup["complete_pairs"]
+        sample = f"over {pairs} complete pair{'s' if pairs != 1 else ''} ({2 * pairs} games)"
         for row, col, expected in ((a, b, share), (b, a, 1 - share)):
             cell = re.search(rf'<td data-row="{row}" data-col="{col}" title="([^"]*)"[^>]*>([^<]*)</td>', page)
-            assert cell and cell.groups() == (f'{matchup["games"]} games', render.format_share(expected)), (row, col)
+            assert cell and cell.groups() == (sample, render.format_share(expected)), (row, col)
     for deck_slice in board["slices"]["deck"]:
         section = page[page.index(f'data-deck="{deck_slice["label"]}"'):]
         for row in deck_slice["rows"]:

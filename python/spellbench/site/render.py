@@ -967,7 +967,11 @@ def _grid(grid: Mapping[str, Any]) -> str:
 
 
 def _grid_cell(row_name: str, col_name: str, cell: Mapping[str, Any] | None) -> str:
-    """One matchup cell, tinted by how far its share is from even, with the game count as its title."""
+    """One matchup cell, tinted by how far its share is from even, titled with the sample behind the share.
+
+    The share is computed over complete seat-swapped pairs only, so the
+    title counts those pairs (and their games), not every rated game.
+    """
     position = f'data-row="{_e(row_name)}" data-col="{_e(col_name)}"'
     if cell is None:
         return f'<td {position} class="none"></td>'
@@ -977,7 +981,9 @@ def _grid_cell(row_name: str, col_name: str, cell: Mapping[str, Any] | None) -> 
     if strength:
         tone = "accent" if percent > 50 else "warn"
         tint = f' style="background: color-mix(in srgb, var(--{tone}) {strength}%, transparent)"'
-    return f'<td {position} title="{_count(cell["games"], "game")}"{tint}>{format_share(cell["score"])}</td>'
+    pairs = cell["complete_pairs"]
+    sample = f"over {_count(pairs, 'complete pair')} ({_count(2 * pairs, 'game')})"
+    return f'<td {position} title="{sample}"{tint}>{format_share(cell["score"])}</td>'
 
 
 def _details(view: Mapping[str, Any]) -> str:
