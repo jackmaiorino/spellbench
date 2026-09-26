@@ -1,0 +1,15 @@
+{
+  "schema": "spellbench-tournament-config/v1",
+  "tournament_dir": "out/mtg-kernel-burn",
+  "format": "pauper-bo1",
+  "decks": [{"catalog_id": "Burn"}, {"catalog_id": "Burn"}],
+  "engine": {"command": ["../mtg-kernel/target/release/agent_bridge_v1"]},
+  "bots": [
+    {"name": "uniform", "version": "1.0.0", "type": "builtin", "seed": 11, "training_style_tags": ["baseline"]},
+    {"name": "heuristic", "version": "1.0.0", "type": "builtin", "training_style_tags": ["heuristic"]},
+    {"name": "first", "version": "1.0.0", "type": "builtin", "training_style_tags": ["baseline"]}
+  ],
+  "pairs_per_matchup": 32,
+  "base_seed": 12345,
+  "workers": 8
+}

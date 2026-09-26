@@ -492,7 +492,8 @@ def render_markdown(document: dict[str, Any]) -> str:
         f"- Anchor: {anchor['name']} {anchor['version']}, fixed at 0.000000 log units (Elo display 1000.0)",
         f"- Status: {document['status']}"
         + (f" ({document['fit_error']})" if document["fit_error"] else ""),
-        f"- Rating: anchored Bradley-Terry MM, draws count half; "
+        f"- Rating: anchored Bradley-Terry MM, draws count half, "
+        f"{document['bt']['virtual_draws_per_matchup']} virtual draw(s) per matchup; "
         f"CI95: paired bootstrap over seat-swapped pairs "
         f"({boot['replicates']} replicates, {boot['failed_replicates']} failed, status {boot['status']})",
         "",
