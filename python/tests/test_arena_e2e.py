@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -202,6 +204,16 @@ def test_builtin_bot_served_over_stdio_plays_like_the_in_process_bot(tmp_path: P
     )
     expected = [(row["game_id"], row["outcome"]) for row in ledger_rows(in_process)]
     assert [(row["game_id"], row["outcome"]) for row in ledger_rows(over_stdio)] == expected
+
+
+def test_the_cli_module_leaves_the_benchmark_and_site_code_unloaded() -> None:
+    # `spellbench bot` starts once per seat per game and needs neither.
+    code = (
+        "import sys, spellbench.arena.cli; "
+        "print(sorted(name for name in sys.modules if name.startswith(('spellbench.bench', 'spellbench.site'))))"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "[]"
 
 
 def _refresh_manifest(directory: Path, edit=None) -> None:

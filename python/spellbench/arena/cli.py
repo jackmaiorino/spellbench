@@ -24,7 +24,6 @@ from pathlib import Path
 from typing import Sequence
 
 from .. import agent_server
-from ..bench.run import run_benchmark
 from ..errors import ValidationError
 from ..wire import strict_json_loads
 from . import runner, store
@@ -102,6 +101,9 @@ def _cmd_leaderboard(argv: Sequence[str]) -> int:
 
 
 def _cmd_bench(argv: Sequence[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
+    from ..bench.run import run_benchmark
+
     if len(argv) < 2 or argv[0] != "run":
         print(_BENCH_USAGE, file=sys.stderr)
         return 2
