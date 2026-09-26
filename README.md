@@ -58,13 +58,29 @@ Enter it in a config's `bots` list as
 
 ## Ratings
 
-Matchups are seat-swapped game pairs sharing a seed. Only natural results
-are rated; forfeits (timeouts, illegal answers), engine halts and capped
-games are recorded and excluded. Ratings come from an anchored
-Bradley-Terry fit (draws count half, plus one virtual draw per matchup)
-with paired-bootstrap 95% intervals, displayed on an Elo scale with the
-anchor at 1000. `workers` plays games in parallel without changing any
-result.
+Matchups are seat-swapped game pairs sharing a seed. Natural results and
+forfeits (timeouts, illegal answers, crashes) are rated; engine halts and
+capped games are recorded and excluded. Ratings come from an anchored
+Bradley-Terry fit over complete pairs (draws count half, plus one virtual
+draw per matchup) with paired-bootstrap 95% intervals, on an Elo scale with
+the anchor at 1000.
+
+## Running tournaments
+
+- Before any game the arena starts the engine and every bot once; a config
+  error stops it there.
+- `startup_timeout_ms` bounds a bot's start-up (model loading);
+  `choose_timeout_ms` bounds each decision. Both are wall-clock, so leave
+  CPU headroom.
+- `workers` plays games in parallel processes without changing any result.
+  A script that calls `run_tournament` with `workers` above 1 needs an
+  `if __name__ == "__main__":` guard.
+
+## Trust
+
+Bots run as your user. The protocol never shows them hidden state, but a
+hostile bot process could read other processes or files. Run untrusted bots
+under a separate low-privilege account or in a container.
 
 ## Status
 
