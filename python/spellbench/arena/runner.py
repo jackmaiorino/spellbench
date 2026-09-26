@@ -66,7 +66,7 @@ from ..errors import (
     TransportError,
     ValidationError,
 )
-from . import leaderboard, registry, store
+from . import leaderboard, ratings, registry, store
 from .bots import BUILTIN_VERSIONS, create_builtin_bot
 from .bots.uniform import GOLDEN_RATIO_64, MASK64, SplitMix64
 
@@ -424,6 +424,18 @@ class TournamentConfig:
         workers = _req_uint(
             value.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         )
+        # The leaderboard's bootstraps refuse oversized inputs; refuse such a
+        # config now rather than after every game has been played.
+        rated_pairs = len(bots) * (len(bots) - 1) // 2 * pairs_per_matchup
+        if (
+            pairs_per_matchup > ratings.MAX_PAIR_COUNT
+            or max(pairs_per_matchup, rated_pairs) * bootstrap_replicates > ratings.MAX_BOOTSTRAP_DRAWS
+        ):
+            raise TournamentError(
+                f"{context}: the bootstrap would draw {max(pairs_per_matchup, rated_pairs) * bootstrap_replicates} "
+                f"pairs (limit {ratings.MAX_BOOTSTRAP_DRAWS}, at most {ratings.MAX_PAIR_COUNT} pairs per "
+                "matchup); lower bootstrap_replicates or pairs_per_matchup"
+            )
         return cls(
             tournament_dir=tournament_dir,
             format=format_,

@@ -20,8 +20,11 @@ Conventions (declared in the artifact's ``notes``):
   unbeaten or winless record has no finite maximum-likelihood rating and a
   single lopsided bot would blank the whole leaderboard. W/D/L columns and
   matchup counts report real games only.
-- The paired bootstrap resamples seat-swapped pairs (the CRN unit) within
-  each matchup; the sign test runs over per-pair half-point totals.
+- Ratings, matchup scores, intervals, and sign tests all use one sample:
+  complete seat-swapped pairs (both games rated), the CRN unit. W/D/L
+  columns count every rated game.
+- The paired bootstrap resamples those pairs within each matchup; the sign
+  test runs over per-pair half-point totals.
 - Subratings per training-style tag are a filtered recomputation over the
   same ledger: only rated games where BOTH seats carry the tag.
 
@@ -59,6 +62,7 @@ NOTES = [
     "games/W/D/L count seat-games: a mirror game is two seat-games for the same bot",
     "the Bradley-Terry fit excludes mirror matchups",
     "prior: each rated matchup adds one virtual drawn game to the fit and every bootstrap refit",
+    "ratings, matchup scores, intervals, and sign tests use complete seat-swapped pairs; W/D/L counts every rated game",
     "the paired bootstrap resamples seat-swapped pairs (the CRN unit) within each matchup",
     "subratings per training-style tag are a filtered recomputation over the same ledger",
     "Elo display = rating * 400 / ln(10) + 1000; the anchor displays at exactly 1000",
@@ -129,6 +133,21 @@ class _Matchup:
     def incomplete_pairs(self) -> int:
         return sum(1 for games in self.pairs.values() if set(games) != {0, 1})
 
+    def complete_pair_record(self) -> tuple[int, int, int]:
+        """(a_wins, b_wins, draws) over the games of complete pairs only."""
+        a_wins = b_wins = draws = 0
+        for games in self.pairs.values():
+            if set(games) != {0, 1}:
+                continue
+            for row in games.values():
+                if row.winner_bot_id is None:
+                    draws += 1
+                elif row.winner_bot_id == self.a_id:
+                    a_wins += 1
+                else:
+                    b_wins += 1
+        return a_wins, b_wins, draws
+
 
 def _accumulate(
     rows: Sequence[store.LedgerRow],
@@ -190,18 +209,26 @@ def _rational(num: int, den: int) -> dict[str, int]:
 
 
 def _prior_pair_records(matchups: Sequence[_Matchup]) -> list[ratings.PairRecord]:
-    """Fit inputs for the rated (non-mirror) matchups, prior draws included."""
-    return [
-        ratings.PairRecord(
-            a_id=matchup.a_id,
-            b_id=matchup.b_id,
-            a_wins=matchup.a_wins,
-            b_wins=matchup.b_wins,
-            draws=matchup.draws + VIRTUAL_DRAWS_PER_MATCHUP,
+    """Fit inputs for the rated (non-mirror) matchups, prior draws included.
+
+    The sample is complete seat-swapped pairs, the same one the bootstrap
+    resamples, so every published estimate and interval shares one sample.
+    """
+    records = []
+    for matchup in matchups:
+        if matchup.mirror or not matchup.complete_pair_totals():
+            continue
+        a_wins, b_wins, draws = matchup.complete_pair_record()
+        records.append(
+            ratings.PairRecord(
+                a_id=matchup.a_id,
+                b_id=matchup.b_id,
+                a_wins=a_wins,
+                b_wins=b_wins,
+                draws=draws + VIRTUAL_DRAWS_PER_MATCHUP,
+            )
         )
-        for matchup in matchups
-        if not matchup.mirror and matchup.games > 0
-    ]
+    return records
 
 
 def _fit_or_none(
@@ -242,9 +269,11 @@ def build_leaderboard(
     for ordinal, matchup in enumerate(ordered_matchups):
         totals = matchup.complete_pair_totals()
         if matchup.mirror:
-            a_half, a_half_den = 1, 2  # a mirror seat-game is always a wash
+            a_score = _rational(1, 2) if matchup.games else None  # always a wash
+        elif totals:
+            a_score = _rational(sum(totals), 4 * len(totals))  # complete pairs
         else:
-            a_half, a_half_den = 2 * matchup.a_wins + matchup.draws, 2 * matchup.games
+            a_score = None
         entry: dict[str, Any] = {
             "a_bot_id": matchup.a_id,
             "b_bot_id": matchup.b_id,
@@ -256,7 +285,7 @@ def build_leaderboard(
             "b_wins": matchup.b_wins,
             "complete_pairs": len(totals),
             "incomplete_pairs": matchup.incomplete_pairs(),
-            "a_score": _rational(a_half, a_half_den) if matchup.games else _rational(0, 1),
+            "a_score": a_score,
             "a_score_ci95": None,
             "sign_test": None,
         }

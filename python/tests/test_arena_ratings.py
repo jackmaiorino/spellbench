@@ -103,3 +103,101 @@ def test_elo_display_scale() -> None:
     assert ratings.elo_display(math.log(10)) == pytest.approx(1400.0)  # 400 * log10(10)
     assert ratings.elo_milli(math.log(9)) == 1_381_697  # 1000 + 400 * log10(9) = 1381.697...
     assert ratings.rating_e6(-math.log(9)) == -2_197_225
+
+
+# ---------------------------------------------------------------------------
+# Leaderboard sampling and feasibility
+# ---------------------------------------------------------------------------
+
+from spellbench import models  # noqa: E402
+from spellbench.arena import leaderboard, registry, runner, store  # noqa: E402
+
+_PROVENANCE = models.Provenance("fake", "0", "rules", "pool")
+
+
+def _entry(name: str) -> registry.RegistryEntry:
+    return registry.build_entry(
+        name=name, version="1.0.0", descriptor=registry.builtin_descriptor(name, "1.0.0")
+    )
+
+
+def _row(pair: int, game: int, a: registry.RegistryEntry, b: registry.RegistryEntry, result: str) -> store.LedgerRow:
+    """One game of matchup (a, b): game 0 seats a at p0, game 1 seats b at p0."""
+    p0, p1 = (a, b) if game == 0 else (b, a)
+    seats = tuple(
+        store.LedgerSeat(seat=seat, bot_id=entry.bot_id, name=entry.name, version=entry.version)
+        for seat, entry in (("p0", p0), ("p1", p1))
+    )
+    if result == "halted":
+        outcome, classification, winner = "halted", "halted", None
+    else:
+        winner = "p0" if (result == "a") == (game == 0) else "p1"
+        outcome, classification = f"{winner}_win", "natural"
+    return store.LedgerRow(
+        game_id=f"m0001p{pair:04d}g{game}",
+        matchup_index=1,
+        pair_index=pair,
+        game_index=game,
+        format="pauper-bo1",
+        game_seed=1,
+        seats=seats,
+        decks=({"catalog_id": "Burn"}, {"catalog_id": "Burn"}),
+        outcome=outcome,
+        classification=classification,
+        winner=winner,
+        winner_bot_id=None if winner is None else (p0 if winner == "p0" else p1).bot_id,
+        reason="test",
+        adjudication=None,
+        step_count=1,
+        decision_count=1,
+        engine=_PROVENANCE,
+    )
+
+
+def test_ratings_and_intervals_share_the_complete_pair_sample() -> None:
+    # Pair 0: a wins both games. Pair 1: a wins game 0, game 1 halted. The
+    # CRN unit is the pair, so the half-rated pair 1 drops out of the fit as
+    # it does from the bootstrap: a 2-0 plus one virtual draw, ln(5) apart.
+    a, b = _entry("alpha"), _entry("beta")
+    rows = [_row(0, 0, a, b, "a"), _row(0, 1, a, b, "a"), _row(1, 0, a, b, "a"), _row(1, 1, a, b, "halted")]
+    document, _ = leaderboard.build_leaderboard(
+        rows, [a, b], anchor_bot_id=a.bot_id, base_seed=1, bootstrap_replicates=1000, format="pauper-bo1"
+    )
+    ratings_by_name = {row["name"]: row for row in document["rows"]}
+    assert ratings_by_name["beta"]["rating_log_units_e6"] == round(-math.log(5) * 1_000_000)
+    matchup = document["matchups"][0]
+    assert (matchup["complete_pairs"], matchup["incomplete_pairs"]) == (1, 1)
+    alpha_share = Fraction(matchup["a_score"]["num"], matchup["a_score"]["den"])
+    if matchup["a_name"] != "alpha":
+        alpha_share = 1 - alpha_share
+    assert alpha_share == 1  # alpha won both games of the only complete pair
+
+
+def _many_bots(count: int) -> list[dict]:
+    return [
+        {"name": f"bot{index}", "version": "1", "type": "subprocess", "command": ["bot"]}
+        for index in range(count)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("bots", "pairs"),
+    [
+        (10, 600),  # 45 matchups x 600 pairs x 2000 replicates > 50M bootstrap draws
+        (2, 30_000),  # one matchup's 30,000 pairs x 2000 replicates > 50M
+    ],
+)
+def test_configs_whose_bootstrap_cannot_run_are_rejected_up_front(bots: int, pairs: int) -> None:
+    # Otherwise the leaderboard fails after every game has been played.
+    config = {
+        "schema": "spellbench-tournament-config/v1",
+        "tournament_dir": "unused",
+        "format": "pauper-bo1",
+        "decks": [{"catalog_id": "Burn"}, {"catalog_id": "Burn"}],
+        "engine": {"command": ["engine"]},
+        "bots": _many_bots(bots),
+        "pairs_per_matchup": pairs,
+        "base_seed": 1,
+    }
+    with pytest.raises(runner.TournamentError, match="bootstrap"):
+        runner.TournamentConfig.from_json(config)

@@ -202,6 +202,10 @@ _MIN_BOOTSTRAP_REPLICATES = 1_000
 _MAX_BOOTSTRAP_REPLICATES = 100_000
 _MAX_BOOTSTRAP_DRAWS = 50_000_000
 
+# Public limits, so configs can be checked before any game is played.
+MAX_PAIR_COUNT = _MAX_PAIR_COUNT
+MAX_BOOTSTRAP_DRAWS = _MAX_BOOTSTRAP_DRAWS
+
 
 class _SplitMix64:
     """Ported from mtg-kernel evaluation_stats.py (private _SplitMix64)."""
