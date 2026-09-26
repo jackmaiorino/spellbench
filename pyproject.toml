@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spellbench"
+version = "0.1.0"
+description = "Cross-engine Magic: The Gathering agent protocol and tournament arena"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+
+[project.scripts]
+spellbench = "spellbench.arena.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "python"}
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["spellbench*"]
+
+[tool.uv]
+required-version = "==0.11.29"

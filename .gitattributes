@@ -1,0 +1,4 @@
+# Byte-exact goldens and canonical JSON artifacts: keep LF on every platform.
+* text=auto eol=lf
+*.jsonl text eol=lf
+*.json text eol=lf

@@ -1,0 +1,4 @@
+{"dir":"host_to_engine","message":{"protocol":"spellbench/v1","request_id":"h-1","request_type":"hello"}}
+{"dir":"engine_to_host","message":{"capabilities":{"decklists_as_data":true},"engine":{"card_pool_identity":"pool-example-1","name":"example-engine","rules_snapshot_id":"rules-2025-09-26","source_revision":null,"version":"1.0.0"},"extensions":["x_example_obsv1"],"formats":["pauper-bo1"],"protocol":"spellbench/v1","request_id":"h-1","response_type":"hello_ok"}}
+{"dir":"host_to_engine","message":{"format":"pauper-bo1","game_id":"g-0001","game_seed":12345,"max_decisions":10000,"max_steps":100000,"protocol":"spellbench/v1","request_id":"h-1","request_type":"reset","seats":[{"deck":{"catalog_id":"Burn"},"seat":"p0"},{"deck":{"catalog_id":"Burn"},"seat":"p1"}]}}
+{"dir":"engine_to_host","message":{"error":{"code":"request_id_reuse_mismatch","message":"request_id reused with a different payload"},"protocol":"spellbench/v1","request_id":"h-1","response_type":"error"}}
