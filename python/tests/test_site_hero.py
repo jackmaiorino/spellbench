@@ -7,11 +7,18 @@ from typing import Any
 
 import pytest
 
-from spellbench.site.hero import HeroChip, hero_table
+from spellbench.site.hero import HeroChip, hero_table, rating_bound
 
 
-def _row(name: str, elo: int, ci: tuple[int, int] | None, rated: bool = True) -> dict[str, Any]:
-    return {"name": name, "rated": rated, "elo_milli": elo if rated else None, "ci95_elo_milli": None if ci is None else list(ci)}
+def _row(
+    name: str, elo: int, ci: tuple[int, int] | None, rated: bool = True, record: tuple[int, int, int] = (5, 0, 5)
+) -> dict[str, Any]:
+    """A leaderboard row reduced to the fields the Hero table reads; ``record`` is (wins, draws, losses)."""
+    wins, draws, losses = record
+    return {
+        "name": name, "rated": rated, "elo_milli": elo if rated else None, "ci95_elo_milli": None if ci is None else list(ci),
+        "wins": wins, "draws": draws, "losses": losses, "games": wins + draws + losses,
+    }
 
 
 def _board(*rows: dict[str, Any], anchor: str = "uniform", status: str = "ok") -> dict[str, Any]:
@@ -132,3 +139,66 @@ def test_unrated_rows_are_skipped_and_ties_break_by_name() -> None:
         ]
     )
     assert [row.name for row in table.rows] == ["alpha", "zeta", "uniform"]
+
+
+@pytest.mark.parametrize(
+    ("record", "rated", "bound"),
+    [
+        ((6, 0, 0), True, "lower"),
+        ((6, 2, 0), True, "lower"),   # draws do not change the rule
+        ((0, 0, 6), True, "upper"),
+        ((0, 2, 6), True, "upper"),
+        ((5, 0, 1), True, None),
+        ((0, 4, 0), True, None),      # only draws: neither a win nor a loss
+        ((6, 0, 0), False, None),     # no rating to bound
+    ],
+)
+def test_a_rating_is_a_bound_when_the_bot_never_lost_or_never_won(
+    record: tuple[int, int, int], rated: bool, bound: str | None
+) -> None:
+    assert rating_bound(_row("bot", 1_100_000, None, rated=rated, record=record)) == bound
+
+
+def test_a_bot_that_never_lost_is_a_lower_bound_and_one_that_never_won_an_upper_bound() -> None:
+    table = hero_table(
+        [
+            (
+                "pauper",
+                _board(
+                    _row("strong", 1_864_000, (1_817_000, 1_920_000), record=(64, 0, 0)),
+                    _row("weak", 700_000, (690_000, 710_000), record=(0, 0, 64)),
+                ),
+            )
+        ]
+    )
+    rows = _by_name(table)
+    strong = rows["strong"]
+    assert strong.bound == "lower" and strong.chips == (HeroChip("pauper", 864.0, 817.0, 920.0, "lower"),)
+    assert (strong.score, strong.lower, strong.upper, strong.approximate) == (864.0, 817.0, 920.0, False)  # otherwise unchanged
+    assert rows["weak"].bound == "upper" and rows["weak"].chips[0].bound == "upper"
+    assert rows["uniform"].bound is None and rows["uniform"].chips[0].bound is None  # the reference is exact
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "bound"),
+    [
+        ((64, 0, 0), (5, 0, 5), "lower"),   # the mean of a lower bound and an estimate is a lower bound
+        ((64, 0, 0), (40, 0, 0), "lower"),
+        ((0, 0, 64), (0, 0, 9), "upper"),
+        ((5, 0, 5), (0, 0, 9), "upper"),
+        ((64, 0, 0), (0, 0, 9), None),      # mixed bounds bound nothing
+        ((5, 0, 5), (5, 0, 5), None),
+    ],
+)
+def test_a_combined_row_is_a_bound_when_its_bounded_chips_agree(
+    first: tuple[int, int, int], second: tuple[int, int, int], bound: str | None
+) -> None:
+    table = hero_table(
+        [
+            ("a", _board(_row("bot", 1_100_000, (1_060_800, 1_139_200), record=first))),
+            ("b", _board(_row("bot", 1_200_000, (1_141_200, 1_258_800), record=second))),
+        ]
+    )
+    row = _by_name(table)["bot"]
+    assert row.bound == bound
+    assert row.approximate is True and row.score == pytest.approx(150.0)
