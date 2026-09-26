@@ -84,7 +84,7 @@ engine, a deck pool, and a roster anchored on the builtin `uniform` bot
 seats, and bots never play themselves.
 
 ```bash
-spellbench bench run benchmarks/pauper-kernel
+uv run spellbench bench run benchmarks/pauper-kernel
 ```
 
 The run replays the whole round robin into
@@ -97,7 +97,7 @@ Placeholders have no escape, so a literal `${` in a command or checkpoint
 path is an error.
 
 ```bash
-spellbench site benchmarks site
+uv run spellbench site benchmarks site
 ```
 
 This re-validates each benchmark's latest run, refuses to build if one
