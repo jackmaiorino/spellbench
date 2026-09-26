@@ -13,7 +13,12 @@ Conventions (declared in the artifact's ``notes``):
   a mirror game is two seat-games for the same bot (one per seat), so a
   decisive mirror adds one win AND one loss.
 - The Bradley-Terry fit excludes mirror matchups: a bot cannot inform its
-  own rating.
+  own rating. Mirror matchups carry no score CI or sign test either.
+- Prior: every rated matchup gets ``VIRTUAL_DRAWS_PER_MATCHUP`` virtual
+  drawn games in the fit (and in every bootstrap refit). Without it an
+  unbeaten or winless record has no finite maximum-likelihood rating and a
+  single lopsided bot would blank the whole leaderboard. W/D/L columns and
+  matchup counts report real games only.
 - The paired bootstrap resamples seat-swapped pairs (the CRN unit) within
   each matchup; the sign test runs over per-pair half-point totals.
 - Subratings per training-style tag are a filtered recomputation over the
@@ -46,11 +51,13 @@ _BT_ALGORITHM = (
     "anchored Bradley-Terry MM (draws count half; anchor fixed at 0.0 log units); "
     "ported from mtg-kernel scripts/experiments/population_v2_cycle4_v1/bt_rating_v1.py"
 )
+VIRTUAL_DRAWS_PER_MATCHUP = 1
 
 NOTES = [
     "only natural terminals are rated; truncated, halted, and forfeit games are excluded",
     "games/W/D/L count seat-games: a mirror game is two seat-games for the same bot",
     "the Bradley-Terry fit excludes mirror matchups",
+    "prior: each rated matchup adds one virtual drawn game to the fit and every bootstrap refit",
     "the paired bootstrap resamples seat-swapped pairs (the CRN unit) within each matchup",
     "subratings per training-style tag are a filtered recomputation over the same ledger",
     "Elo display = rating * 400 / ln(10) + 1000; the anchor displays at exactly 1000",
@@ -96,8 +103,9 @@ class _Matchup:
     def complete_pair_totals(self) -> tuple[int, ...]:
         """Per-pair half-point totals for `a`, over pairs with both games rated.
 
-        A mirror pair is a wash by construction (the bot holds both seats), so
-        its total is always 2 half-points per game, 4 per pair.
+        A mirror pair is a wash by construction (the bot holds both seats and
+        earns one of the two half-points of every game), so its total is
+        always 2 of the pair's 4 half-points.
         """
         totals: list[int] = []
         for pair_index in sorted(self.pairs):
@@ -105,7 +113,7 @@ class _Matchup:
             if set(games) != {0, 1}:
                 continue
             if self.mirror:
-                totals.append(4)
+                totals.append(2)
                 continue
             total = 0
             for game_index in (0, 1):
@@ -181,6 +189,21 @@ def _rational(num: int, den: int) -> dict[str, int]:
     return {"num": num, "den": den}
 
 
+def _prior_pair_records(matchups: Sequence[_Matchup]) -> list[ratings.PairRecord]:
+    """Fit inputs for the rated (non-mirror) matchups, prior draws included."""
+    return [
+        ratings.PairRecord(
+            a_id=matchup.a_id,
+            b_id=matchup.b_id,
+            a_wins=matchup.a_wins,
+            b_wins=matchup.b_wins,
+            draws=matchup.draws + VIRTUAL_DRAWS_PER_MATCHUP,
+        )
+        for matchup in matchups
+        if not matchup.mirror and matchup.games > 0
+    ]
+
+
 def _fit_or_none(
     pair_records: list[ratings.PairRecord], anchor_bot_id: str
 ) -> tuple[ratings.BtFit | None, str | None]:
@@ -237,7 +260,7 @@ def build_leaderboard(
             "a_score_ci95": None,
             "sign_test": None,
         }
-        if totals:
+        if totals and not matchup.mirror:
             seed = matchup_stat_seed(base_seed, ordinal)
             summary = ratings.bootstrap_pair_half_points(totals, seed, bootstrap_replicates)
             entry["a_score_ci95"] = {
@@ -253,24 +276,13 @@ def build_leaderboard(
                 "ties": sign.ties,
                 "p_value": _rational(sign.p_value_numerator, sign.p_value_denominator),
             }
-            if not matchup.mirror:
-                matchup_pairs_for_bootstrap.append(
-                    ratings.MatchupPairs(a_id=matchup.a_id, b_id=matchup.b_id, pair_totals=totals)
-                )
+            matchup_pairs_for_bootstrap.append(
+                ratings.MatchupPairs(a_id=matchup.a_id, b_id=matchup.b_id, pair_totals=totals)
+            )
         matchup_entries.append(entry)
 
     # ---------------- anchored BT fit over the whole panel ----------------
-    pair_records = [
-        ratings.PairRecord(
-            a_id=matchup.a_id,
-            b_id=matchup.b_id,
-            a_wins=matchup.a_wins,
-            b_wins=matchup.b_wins,
-            draws=matchup.draws,
-        )
-        for matchup in ordered_matchups
-        if not matchup.mirror and matchup.games > 0
-    ]
+    pair_records = _prior_pair_records(ordered_matchups)
     if not pair_records:
         status, fit, fit_error = "no_rated_games", None, None
     else:
@@ -292,6 +304,7 @@ def build_leaderboard(
                 anchor_bot_id,
                 bootstrap_seed=seed,
                 bootstrap_replicates=bootstrap_replicates,
+                virtual_draws=VIRTUAL_DRAWS_PER_MATCHUP,
             )
         except ratings.BtRatingError:
             bootstrap_doc = {"status": "bootstrap_failed", "replicates": bootstrap_replicates, "failed_replicates": bootstrap_replicates, "seed": seed}
@@ -362,6 +375,7 @@ def build_leaderboard(
         "bt": {
             "algorithm": _BT_ALGORITHM,
             "anchor_bot_id": anchor_bot_id,
+            "virtual_draws_per_matchup": VIRTUAL_DRAWS_PER_MATCHUP,
             "iterations": None if fit is None else fit.iterations,
             "rating_bootstrap": bootstrap_doc,
             "stats_seed_version": _STATS_SEED_VERSION,
@@ -403,17 +417,7 @@ def _build_subrating(
         doc["reason"] = "no_rated_games"
         return doc
     slice_wdl, _, slice_matchups = _accumulate(slice_rows)
-    pair_records = [
-        ratings.PairRecord(
-            a_id=matchup.a_id,
-            b_id=matchup.b_id,
-            a_wins=matchup.a_wins,
-            b_wins=matchup.b_wins,
-            draws=matchup.draws,
-        )
-        for key, matchup in sorted(slice_matchups.items())
-        if not matchup.mirror and matchup.games > 0
-    ]
+    pair_records = _prior_pair_records([slice_matchups[key] for key in sorted(slice_matchups)])
     if not pair_records:
         doc["reason"] = "no_rated_games"
         return doc

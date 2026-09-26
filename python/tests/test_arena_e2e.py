@@ -1,0 +1,171 @@
+"""End-to-end arena tournaments against the fake engines, plus the CLI."""
+
+from __future__ import annotations
+
+import json
+import math
+from pathlib import Path
+
+from spellbench.arena import store
+from spellbench.arena.cli import main as cli_main
+from spellbench.arena.cli import validate_tournament_dir
+
+from arena_helpers import (
+    FAKE_ENGINE,
+    builtin,
+    cli_bot,
+    ledger_rows,
+    leaderboard,
+    make_config,
+    matchup_by_names,
+    row_by_name,
+    run,
+    subprocess_bot,
+)
+
+ALL_BUILTINS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
+
+
+def test_round_robin_with_every_builtin_bot(tmp_path: Path) -> None:
+    # fake_engine.py always ends in a natural p0 win, so every seat-swapped
+    # pair splits 1-1: each bot finishes 4-0-4 over 8 seat-games (a decisive
+    # mirror game is one win and one loss) and all ratings tie at the anchor.
+    directory = tmp_path / "t"
+    summary = run(make_config(directory, ALL_BUILTINS, engine=FAKE_ENGINE, pairs=1))
+    assert (summary.games_total, summary.games_rated) == (12, 12)
+    rows = ledger_rows(directory)
+    assert [row["game_id"] for row in rows] == [
+        f"m{m:04d}p0000g{g}" for m in range(6) for g in (0, 1)
+    ]
+    assert {row["outcome"] for row in rows} == {"p0_win"}
+    document = leaderboard(directory)
+    assert document["status"] == "ok"
+    for name in ("uniform", "heuristic", "first"):
+        row = row_by_name(document, name)
+        assert (row["games"], row["wins"], row["draws"], row["losses"]) == (8, 4, 0, 4)
+        assert row["rating_log_units_e6"] == 0
+        assert row["elo_milli"] == 1_000_000
+
+
+def test_outcomes_follow_the_bots_choices(tmp_path: Path) -> None:
+    # fake_arena_engine: heuristic always plays its land (2 points), first
+    # always passes (0 points), so heuristic wins every cross game and both
+    # mirrors draw. One virtual draw per rated matchup keeps the 4-0 record
+    # finite: heuristic 4.5 vs first 0.5, a rating gap of ln(9).
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=2))
+    document = leaderboard(directory)
+    heuristic = row_by_name(document, "heuristic")
+    first = row_by_name(document, "first")
+    assert (heuristic["games"], heuristic["wins"], heuristic["draws"], heuristic["losses"]) == (12, 4, 8, 0)
+    assert (first["games"], first["wins"], first["draws"], first["losses"]) == (12, 0, 8, 4)
+    assert document["status"] == "ok"
+    assert heuristic["rating_log_units_e6"] == 0
+    assert first["rating_log_units_e6"] == round(-math.log(9) * 1_000_000)
+    assert [row["name"] for row in document["rows"]] == ["heuristic", "first"]
+    cross = matchup_by_names(document, "heuristic", "first")
+    assert cross["games"] == 4 and cross["draws"] == 0
+    assert {cross["a_wins"], cross["b_wins"]} == {4, 0}
+
+
+def test_mirror_matchups_carry_no_paired_statistics(tmp_path: Path) -> None:
+    # A bot holding both seats cannot beat itself: no score CI or sign test.
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=2))
+    for name in ("heuristic", "first"):
+        mirror = matchup_by_names(leaderboard(directory), name, name)
+        assert mirror["games"] == 4
+        assert mirror["a_score"]["num"] * 2 == mirror["a_score"]["den"]
+        assert mirror["a_score_ci95"] is None
+        assert mirror["sign_test"] is None
+
+
+def test_rerun_of_an_identical_config_is_byte_identical(tmp_path: Path) -> None:
+    first_dir, second_dir = tmp_path / "a", tmp_path / "b"
+    run(make_config(first_dir, ALL_BUILTINS, pairs=3))
+    run(make_config(second_dir, ALL_BUILTINS, pairs=3))
+    for name in ("matches.jsonl", "registry.json", "leaderboard.json", "LEADERBOARD.md"):
+        assert (first_dir / name).read_bytes() == (second_dir / name).read_bytes(), name
+    # Non-vacuous: uniform's seeded choices must vary the results (a draw
+    # needs uniform to play both lands; a heuristic win needs it to pass).
+    versus_heuristic = [
+        row["outcome"]
+        for row in ledger_rows(first_dir)
+        if {seat["name"] for seat in row["seats"]} == {"uniform", "heuristic"}
+    ]
+    assert "draw" in versus_heuristic
+    assert any(outcome != "draw" for outcome in versus_heuristic)
+
+
+def _flip_first_cross_game(directory: Path) -> None:
+    """Rewrite one heuristic-vs-first win as a first win (a consistent row)."""
+    rows = ledger_rows(directory)
+    for row in rows:
+        names = {seat["seat"]: seat for seat in row["seats"]}
+        if {seat["name"] for seat in row["seats"]} == {"heuristic", "first"}:
+            loser_seat = "p1" if row["winner"] == "p0" else "p0"
+            row["outcome"] = f"{loser_seat}_win"
+            row["winner"] = loser_seat
+            row["winner_bot_id"] = names[loser_seat]["bot_id"]
+            break
+    else:
+        raise AssertionError("no heuristic-vs-first game in the ledger")
+    data = b"".join(store.canonical_bytes(row) + b"\n" for row in rows)
+    (directory / "matches.jsonl").write_bytes(data)
+
+
+def test_validate_rederives_ratings_and_catches_tampering(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    run(make_config(directory, ALL_BUILTINS, pairs=2))
+    assert validate_tournament_dir(directory) == []
+
+    _flip_first_cross_game(directory)
+    failures = validate_tournament_dir(directory)
+    assert "digest mismatch: matches.jsonl" in failures
+
+    # A forger who also refreshes the manifest digest is still caught: the
+    # published leaderboard no longer matches a recomputation from the ledger.
+    manifest_path = directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    for entry in manifest["files"]:
+        if entry["path"] == "matches.jsonl":
+            entry.update(store.file_entry(directory / "matches.jsonl", "matches.jsonl"))
+    manifest_path.write_bytes(store.canonical_bytes(manifest) + b"\n")
+    failures = validate_tournament_dir(directory)
+    assert "leaderboard.json does not match a recomputation from matches.jsonl" in failures
+    assert not any(failure.startswith("digest mismatch") for failure in failures)
+
+
+def test_cli_run_validate_and_leaderboard(tmp_path: Path, capsys) -> None:
+    directory = tmp_path / "t"
+    config_path = tmp_path / "config.json"
+    config_path.write_bytes(
+        store.canonical_bytes(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    )
+    assert cli_main(["run", str(config_path)]) == 0
+    assert cli_main(["validate", str(directory)]) == 0
+    capsys.readouterr()
+    assert cli_main(["leaderboard", str(directory)]) == 0
+    printed = capsys.readouterr().out
+    assert "| 1 | heuristic 1.0.0 |" in printed
+    assert cli_main(["validate", str(tmp_path / "missing")]) == 1
+    assert cli_main(["run", str(config_path)]) == 1  # refuses to overwrite a published run
+    assert cli_main([]) == 2
+
+
+def test_builtin_bot_served_over_stdio_plays_like_the_in_process_bot(tmp_path: Path) -> None:
+    in_process = tmp_path / "in-process"
+    over_stdio = tmp_path / "over-stdio"
+    run(make_config(in_process, [builtin("heuristic"), builtin("uniform", seed=11)], pairs=2))
+    run(
+        make_config(
+            over_stdio,
+            [
+                subprocess_bot("heuristic", cli_bot("heuristic")),
+                subprocess_bot("uniform", cli_bot("uniform", "--seed", "11")),
+            ],
+            pairs=2,
+        )
+    )
+    expected = [(row["game_id"], row["outcome"]) for row in ledger_rows(in_process)]
+    assert [(row["game_id"], row["outcome"]) for row in ledger_rows(over_stdio)] == expected

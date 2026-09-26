@@ -442,15 +442,20 @@ def paired_rating_bootstrap(
     *,
     bootstrap_seed: int,
     bootstrap_replicates: int,
+    virtual_draws: int = 0,
 ) -> RatingBootstrap:
     """Resample pair units per matchup, refit BT, and take percentile CIs.
 
     The resampling unit is the seat-swapped pair, preserving the CRN design.
     Draw order is fixed (matchup order, then pair slot), so an identical
-    ledger and seed reproduce identical intervals. Replicate fits that fail
-    closed (a degenerate or disconnected resample) are skipped and counted;
-    if more than half fail, the whole bootstrap fails closed.
+    ledger and seed reproduce identical intervals. ``virtual_draws`` adds
+    that many drawn games to every matchup of every refit, the same prior
+    the point fit uses. Replicate fits that fail closed (a degenerate or
+    disconnected resample) are skipped and counted; if more than half fail,
+    the whole bootstrap fails closed.
     """
+    if type(virtual_draws) is not int or virtual_draws < 0:
+        raise ValueError("virtual_draws must be a nonnegative integer")
     _validate_uint64(bootstrap_seed, "bootstrap_seed")
     total_pairs = sum(len(matchup.pair_totals) for matchup in matchups)
     _validate_bootstrap_replicates(bootstrap_replicates, max(total_pairs, 1))
@@ -464,12 +469,13 @@ def paired_rating_bootstrap(
             a_score = 0.0
             for _ in range(len(totals)):
                 a_score += totals[_unbiased_index(len(totals), rng.next_u64)]
+            # Half-point units: a drawn game is one half-point per side.
             score_pairs.append(
                 _ScorePair(
                     a_id=matchup.a_id,
                     b_id=matchup.b_id,
-                    a_score=a_score,
-                    b_score=4.0 * len(totals) - a_score,
+                    a_score=a_score + virtual_draws,
+                    b_score=4.0 * len(totals) - a_score + virtual_draws,
                 )
             )
         try:
