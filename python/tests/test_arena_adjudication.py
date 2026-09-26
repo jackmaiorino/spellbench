@@ -15,6 +15,7 @@ from pathlib import Path
 
 import pytest
 
+from spellbench.arena import runner
 from spellbench.arena.cli import validate_tournament_dir
 
 from arena_helpers import (
@@ -83,18 +84,24 @@ def test_choose_timeout_is_a_forfeit_loss(tmp_path: Path) -> None:
     ]
 
 
-def test_bot_identity_mismatch_at_hello_is_a_forfeit(tmp_path: Path) -> None:
-    # The process answers hello as "first", but the config registered it as
-    # "impostor": the host refuses to seat it.
+@pytest.mark.parametrize(
+    ("bot", "reason"),
+    [
+        # Answers hello as "first", but the config registered it as "impostor".
+        (subprocess_bot("impostor", cli_bot("first")), "answered hello as 'first'"),
+        # Its hello carries a lone surrogate, so it cannot be recorded.
+        (hostile_bot("badname"), "failed its hello"),
+    ],
+)
+def test_a_bot_that_cannot_introduce_itself_stops_the_tournament_up_front(
+    tmp_path: Path, bot: dict, reason: str
+) -> None:
+    # A bot that fails hello is a config problem: the preflight refuses the
+    # tournament before its directory exists, instead of forfeiting every game.
     directory = tmp_path / "t"
-    impostor = subprocess_bot("impostor", cli_bot("first"))
-    run(make_config(directory, [builtin("heuristic"), impostor], pairs=1))
-    assert _forfeits(directory) == [
-        ("m0001p0000g0", "p0_win", "malformed_response", "p1", 0),
-        ("m0001p0000g1", "p1_win", "malformed_response", "p0", 0),
-        ("m0002p0000g0", "p1_win", "malformed_response", "p0", 0),
-        ("m0002p0000g1", "p1_win", "malformed_response", "p0", 0),
-    ]
+    with pytest.raises(runner.TournamentError, match=reason):
+        run(make_config(directory, [builtin("heuristic"), bot], pairs=1))
+    assert not directory.exists()
 
 
 def test_engine_crash_mid_game_is_halted_and_unrated(tmp_path: Path) -> None:
@@ -130,7 +137,6 @@ def test_truncated_games_are_recorded_and_unrated(tmp_path: Path) -> None:
     [
         ("nested", "malformed_response"),
         ("surrogate", "malformed_response"),
-        ("badname", "malformed_response"),
         ("garbage", "malformed_response"),
         ("crash", "transport_error"),
         ("flood", "malformed_response"),

@@ -12,7 +12,9 @@ Test hooks, selected by the p0 deck's ``catalog_id``:
 - ``Halt``: the first ``step`` answers a ``halted`` terminal.
 - ``CapWinner``: a game truncated by ``max_steps`` names ``p0`` as winner
   (spec 7.5 allows a winner assigned by rule on a truncated terminal).
-- ``Rendezvous``: ``reset`` drops a marker named after the game into
+- ``Refuse``: ``reset`` answers ``unsupported_deck``.
+- ``Rendezvous``: ``reset`` (of a scheduled game, not the host's preflight)
+  drops a marker named after the game into
   ``$SPELLBENCH_RENDEZVOUS_DIR`` and waits until
   ``$SPELLBENCH_RENDEZVOUS_COUNT`` markers exist, exiting abruptly after
   ten seconds. Only concurrently running engines can meet.
@@ -145,11 +147,15 @@ def main() -> int:
                     decklists_as_data=False,
                     extensions=(),
                 ).to_json()
+            elif kind == "reset" and request["seats"][0]["deck"].get("catalog_id") == "Refuse":
+                message = ErrorResponse(
+                    request_id=request_id, code="unsupported_deck", message="deck refused by the test hook"
+                ).to_json()
             elif kind == "reset":
                 game_id = request["game_id"]
                 hook = request["seats"][0]["deck"].get("catalog_id", "")
                 max_steps = min(request["max_steps"], DECISIONS_PER_GAME)
-                if hook == "Rendezvous":
+                if hook == "Rendezvous" and not game_id.startswith("preflight"):
                     _rendezvous(game_id)
                 message = _decision(request_id, game_id, 0, scores).to_json()
             elif kind == "step":

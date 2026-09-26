@@ -78,6 +78,8 @@ DEFAULT_MAX_DECISIONS = 10_000
 DEFAULT_MAX_STEPS = 100_000
 DEFAULT_CHOOSE_TIMEOUT_MS = 30_000
 DEFAULT_ENGINE_TIMEOUT_MS = 120_000
+# Spawn, hello and game_start of a subprocess bot: model loading can be slow.
+DEFAULT_STARTUP_TIMEOUT_MS = 120_000
 DEFAULT_BOOTSTRAP_REPLICATES = 2_000
 DEFAULT_WORKERS = 1
 # The most worker processes Windows can wait on; one limit keeps configs portable.
@@ -315,6 +317,7 @@ class TournamentConfig:
     bootstrap_replicates: int
     rating_anchor: str  # bot name from the bots list
     workers: int = DEFAULT_WORKERS
+    startup_timeout_ms: int = DEFAULT_STARTUP_TIMEOUT_MS
 
     def anchor_bot_id(self) -> str:
         for spec in self.bots:
@@ -338,6 +341,7 @@ class TournamentConfig:
             "bootstrap_replicates": self.bootstrap_replicates,
             "rating_anchor": self.rating_anchor,
             "workers": self.workers,
+            "startup_timeout_ms": self.startup_timeout_ms,
         }
 
     @classmethod
@@ -360,6 +364,7 @@ class TournamentConfig:
             "bootstrap_replicates",
             "rating_anchor",
             "workers",
+            "startup_timeout_ms",
         }
         required = {
             "schema",
@@ -411,6 +416,9 @@ class TournamentConfig:
         choose_timeout_ms = _req_uint(
             value.get("choose_timeout_ms", DEFAULT_CHOOSE_TIMEOUT_MS), f"{context}.choose_timeout_ms", minimum=1
         )
+        startup_timeout_ms = _req_uint(
+            value.get("startup_timeout_ms", DEFAULT_STARTUP_TIMEOUT_MS), f"{context}.startup_timeout_ms", minimum=1
+        )
         bootstrap_replicates = _req_uint(
             value.get("bootstrap_replicates", DEFAULT_BOOTSTRAP_REPLICATES),
             f"{context}.bootstrap_replicates",
@@ -451,6 +459,7 @@ class TournamentConfig:
             bootstrap_replicates=bootstrap_replicates,
             rating_anchor=rating_anchor,
             workers=workers,
+            startup_timeout_ms=startup_timeout_ms,
         )
 
 
@@ -545,9 +554,10 @@ class _BuiltinDriver:
 class _SubprocessDriver:
     """Drives one subprocess bot via AgentProcess (one process per seat per game)."""
 
-    def __init__(self, spec: BotSpec, timeout_ms: int) -> None:
+    def __init__(self, spec: BotSpec, timeout_ms: int, startup_timeout_ms: int) -> None:
         self._spec = spec
         self._timeout_ms = timeout_ms
+        self._startup_timeout_ms = startup_timeout_ms
         self._agent: AgentProcess | None = None
 
     def start(
@@ -560,11 +570,11 @@ class _SubprocessDriver:
         engine: models.EngineIdentity,
     ) -> None:
         try:
-            self._agent = AgentProcess(list(self._spec.command), timeout_s=self._timeout_ms / 1000.0)
+            self._agent = AgentProcess(list(self._spec.command), timeout_s=self._startup_timeout_ms / 1000.0)
             hello = self._agent.hello()
         except (TransportError, RemoteError, ProtocolError) as exc:
             self.close()
-            raise _agent_forfeit(exc, "hello", self._timeout_ms) from exc
+            raise _agent_forfeit(exc, "hello", self._startup_timeout_ms) from exc
         if hello.bot.name != self._spec.name or hello.bot.version != self._spec.version:
             self.close()
             raise ForfeitError(
@@ -575,7 +585,8 @@ class _SubprocessDriver:
         try:
             self._agent.game_start(game_id=game_id, seat=seat, format=format, decks=decks, engine=engine)
         except (TransportError, RemoteError, ProtocolError) as exc:
-            raise _agent_forfeit(exc, "game_start", self._timeout_ms) from exc
+            raise _agent_forfeit(exc, "game_start", self._startup_timeout_ms) from exc
+        self._agent.set_timeout(self._timeout_ms / 1000.0)
 
     def choose(self, decision: models.Decision) -> models.Selection:
         assert self._agent is not None
@@ -750,7 +761,7 @@ def _play_game_row(
             driver: Any = (
                 _BuiltinDriver(spec, config.choose_timeout_ms)
                 if spec.type == "builtin"
-                else _SubprocessDriver(spec, config.choose_timeout_ms)
+                else _SubprocessDriver(spec, config.choose_timeout_ms, config.startup_timeout_ms)
             )
             drivers.append((seat, driver))
         for seat, driver in drivers:
@@ -895,6 +906,58 @@ def _play_game_in_worker(
     return row, diagnostics, pin.identity
 
 
+def _preflight(config: TournamentConfig, pin: _EnginePin) -> None:
+    """Start the engine and every subprocess bot once before any game.
+
+    A missing executable, a refused deck, or a bot that cannot say hello is a
+    config error: it stops the tournament here, before the directory exists,
+    instead of turning every game into a forfeit or a halt.
+    """
+    try:
+        engine = EngineProcess(list(config.engine_command), timeout_s=config.engine_timeout_ms / 1000.0)
+    except TransportError as exc:
+        raise TournamentError(f"engine failed to start: {exc}") from exc
+    try:
+        hello = engine.hello()
+        pin.check(hello.engine)
+        if config.format not in hello.formats:
+            raise TournamentError(
+                f"engine does not support format {config.format!r}: offers {sorted(hello.formats)}"
+            )
+        engine.reset(
+            game_id="preflight",
+            format=config.format,
+            decks=config.decks,
+            game_seed=config.base_seed,
+            max_decisions=config.max_decisions,
+            max_steps=config.max_steps,
+        )
+    except (TransportError, RemoteError, ProtocolError) as exc:
+        raise TournamentError(
+            f"preflight: the engine could not start a game with the configured decks: {exc}"
+        ) from exc
+    finally:
+        engine.close()
+    for spec in config.bots:
+        if spec.type != "subprocess":
+            continue
+        try:
+            agent = AgentProcess(list(spec.command), timeout_s=config.startup_timeout_ms / 1000.0)
+        except TransportError as exc:
+            raise TournamentError(f"preflight: bot {spec.name!r} could not start: {exc}") from exc
+        try:
+            hello_ok = agent.hello()
+        except (TransportError, RemoteError, ProtocolError) as exc:
+            raise TournamentError(f"preflight: bot {spec.name!r} failed its hello: {exc}") from exc
+        finally:
+            agent.close()
+        if (hello_ok.bot.name, hello_ok.bot.version) != (spec.name, spec.version):
+            raise TournamentError(
+                f"preflight: bot {spec.name!r} answered hello as "
+                f"{hello_ok.bot.name!r} {hello_ok.bot.version!r}"
+            )
+
+
 def _schedule(config: TournamentConfig) -> list[_GameContext]:
     """Every game of the round-robin, in ledger order."""
     schedule: list[_GameContext] = []
@@ -943,6 +1006,7 @@ def manifest_body(
             "max_decisions": config.max_decisions,
             "max_steps": config.max_steps,
             "choose_timeout_ms": config.choose_timeout_ms,
+            "startup_timeout_ms": config.startup_timeout_ms,
             "engine_timeout_ms": config.engine_timeout_ms,
             "bootstrap_replicates": config.bootstrap_replicates,
             "seed_schedule": SEED_SCHEDULE_VERSION,
@@ -1000,6 +1064,8 @@ def run_tournament(
     on_game: Callable[[store.LedgerRow], None] | None = None,
 ) -> TournamentSummary:
     """Run the full schedule and publish the tournament artifacts."""
+    pin = _EnginePin()
+    _preflight(config, pin)
     directory = Path(config.tournament_dir)
     store.prepare_tournament_dir(directory)
     entries_list = [spec.registry_entry() for spec in config.bots]
@@ -1012,7 +1078,6 @@ def run_tournament(
     ledger_path.write_bytes(b"")  # truncate/create the ledger before the first game
 
     rows: list[store.LedgerRow] = []
-    pin = _EnginePin()
 
     def record(row: store.LedgerRow, diagnostics: tuple[str, ...]) -> None:
         rows.append(row)

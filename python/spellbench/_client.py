@@ -49,6 +49,12 @@ class RoleClient:
         self._last: tuple[dict[str, Any], bytes, bytes, Any] | None = None
         self._closed = False
 
+    def set_timeout(self, timeout_s: float | None) -> None:
+        """Change the read budget of a spawned peer (injected peers are left alone)."""
+        setter = getattr(self._peer, "set_timeout", None)
+        if setter is not None:
+            setter(timeout_s)
+
     def _next_request_id(self) -> str:
         while True:
             self._request_counter += 1

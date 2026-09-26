@@ -14,6 +14,7 @@ FAKE_ENGINE = TESTS_DIR / "fake_engine.py"
 FAKE_ARENA_ENGINE = TESTS_DIR / "fake_arena_engine.py"
 BOT_INVALID_CHOICE = TESTS_DIR / "bot_invalid_choice.py"
 BOT_HANG = TESTS_DIR / "bot_hang.py"
+BOT_SLOW_START = TESTS_DIR / "bot_slow_start.py"
 
 
 def builtin(name: str, **extra: Any) -> dict[str, Any]:

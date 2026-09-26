@@ -284,6 +284,10 @@ class SubprocessPeer:
         self._stderr_thread.start()
         self._closed = False
 
+    def set_timeout(self, timeout_s: float | None) -> None:
+        """Change the read budget, e.g. from a startup budget to a per-decision one."""
+        self._timeout_s = timeout_s
+
     def stderr_text(self) -> str:
         return b"".join(self._stderr_chunks).decode("utf-8", errors="replace")
 
