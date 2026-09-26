@@ -6,6 +6,8 @@
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
 - ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
+- ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
+  latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
   subprocess (so configs can reference builtins over stdio too).
 
@@ -30,6 +32,7 @@ _USAGE = (
     "  spellbench run CONFIG.json\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
+    "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
     "  spellbench bot NAME [--seed N]"
 )
 
@@ -87,6 +90,20 @@ def _cmd_leaderboard(argv: Sequence[str]) -> int:
     return 0
 
 
+def _cmd_site(argv: Sequence[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the site modules.
+    from ..site.build import build_site
+
+    if len(argv) != 2:
+        print("usage: spellbench site BENCHMARKS_DIR OUT_DIR", file=sys.stderr)
+        return 2
+    out_dir = Path(argv[1])
+    for warning in build_site(Path(argv[0]), out_dir):
+        print(f"warning: {warning}", file=sys.stderr)
+    print(f"site built: {out_dir}")
+    return 0
+
+
 def _cmd_bot(argv: Sequence[str]) -> int:
     if not argv or argv[0] not in BUILTIN_VERSIONS:
         print(
@@ -129,6 +146,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_validate(rest)
         if command == "leaderboard":
             return _cmd_leaderboard(rest)
+        if command == "site":
+            return _cmd_site(rest)
         if command == "bot":
             return _cmd_bot(rest)
     except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
