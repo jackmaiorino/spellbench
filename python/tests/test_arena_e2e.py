@@ -191,3 +191,54 @@ def test_builtin_bot_served_over_stdio_plays_like_the_in_process_bot(tmp_path: P
     )
     expected = [(row["game_id"], row["outcome"]) for row in ledger_rows(in_process)]
     assert [(row["game_id"], row["outcome"]) for row in ledger_rows(over_stdio)] == expected
+
+
+def _refresh_manifest(directory: Path, edit=None) -> None:
+    """Re-sign every data file in the manifest (what a careful forger does)."""
+    manifest_path = directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"] = [store.file_entry(directory / entry["path"], entry["path"]) for entry in manifest["files"]]
+    if edit is not None:
+        edit(manifest)
+    manifest_path.write_bytes(store.canonical_bytes(manifest) + b"\n")
+
+
+def test_validate_needs_nothing_outside_the_tournament_directory(tmp_path: Path) -> None:
+    # The anchor's checkpoint is hashed into its bot_id at registration; a
+    # published tournament must validate after the checkpoint moves.
+    checkpoint = tmp_path / "weights.bin"
+    checkpoint.write_bytes(b"weights")
+    bots = [
+        subprocess_bot("heuristic", cli_bot("heuristic"), checkpoint=str(checkpoint)),
+        builtin("first"),
+    ]
+    directory = tmp_path / "t"
+    run(make_config(directory, bots, pairs=1))
+    checkpoint.unlink()
+    assert validate_tournament_dir(directory) == []
+
+
+def test_validate_requires_every_data_file_in_the_manifest(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    _refresh_manifest(directory, edit=lambda manifest: manifest.update(files=[]))
+    assert any("manifest" in failure for failure in validate_tournament_dir(directory))
+
+
+def test_validate_checks_the_ledger_against_the_schedule(tmp_path: Path) -> None:
+    # A row moved off its scheduled seed changes no rating, so only a
+    # schedule check can catch it.
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    rows = ledger_rows(directory)
+    rows[0]["game_seed"] += 1
+    (directory / "matches.jsonl").write_bytes(b"".join(store.canonical_bytes(row) + b"\n" for row in rows))
+    _refresh_manifest(directory)
+    assert any("schedule" in failure for failure in validate_tournament_dir(directory))
+
+
+def test_validate_checks_the_manifest_game_counts(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    _refresh_manifest(directory, edit=lambda manifest: manifest["games"].update(natural=0))
+    assert any("games" in failure for failure in validate_tournament_dir(directory))

@@ -919,6 +919,69 @@ def _schedule(config: TournamentConfig) -> list[_GameContext]:
     return schedule
 
 
+def manifest_body(
+    config: TournamentConfig,
+    entries: Sequence[registry.RegistryEntry],
+    anchor_bot_id: str,
+    engine: dict[str, Any],
+    rows: Sequence[store.LedgerRow],
+    leaderboard_status: str,
+) -> dict[str, Any]:
+    """Everything in manifest.json except ``files``; ``entries`` in config order.
+
+    Shared by run and validate, so validate can rebuild it from the data.
+    """
+    counts = {"natural": 0, "truncated": 0, "halted": 0, "forfeit": 0}
+    for row in rows:
+        counts[row.classification] += 1
+    return {
+        "schema": store.TOURNAMENT_SCHEMA,
+        "tournament": {
+            "format": config.format,
+            "base_seed": config.base_seed,
+            "pairs_per_matchup": config.pairs_per_matchup,
+            "max_decisions": config.max_decisions,
+            "max_steps": config.max_steps,
+            "choose_timeout_ms": config.choose_timeout_ms,
+            "engine_timeout_ms": config.engine_timeout_ms,
+            "bootstrap_replicates": config.bootstrap_replicates,
+            "seed_schedule": SEED_SCHEDULE_VERSION,
+            "rating_anchor": {"name": config.rating_anchor, "bot_id": anchor_bot_id},
+            "arena_version": __version__,
+            "workers": config.workers,
+            "bots": [entry.to_json() for entry in entries],
+        },
+        "engine": engine,
+        "games": {"total": len(rows), **counts},
+        "leaderboard_status": leaderboard_status,
+    }
+
+
+def schedule_mismatches(
+    config: TournamentConfig,
+    entries_by_name: dict[str, registry.RegistryEntry],
+    rows: Sequence[store.LedgerRow],
+) -> list[str]:
+    """Differences between a ledger and the games its config schedules."""
+    schedule = _schedule(config)
+    if len(rows) != len(schedule):
+        return [f"the ledger has {len(rows)} games but the schedule has {len(schedule)}"]
+    decks = (config.decks[0].to_json(), config.decks[1].to_json())
+    failures = []
+    for index, (ctx, row) in enumerate(zip(schedule, rows)):
+        seats = tuple(
+            store.LedgerSeat(
+                seat=seat, bot_id=entries_by_name[spec.name].bot_id, name=spec.name, version=spec.version
+            )
+            for seat, spec in ctx.seat_specs
+        )
+        scheduled = (ctx.game_id, ctx.matchup_index, ctx.pair_index, ctx.game_index, ctx.game_seed)
+        recorded = (row.game_id, row.matchup_index, row.pair_index, row.game_index, row.game_seed)
+        if (recorded, row.format, row.seats, row.decks) != (scheduled, config.format, seats, decks):
+            failures.append(f"ledger row {index} ({row.game_id}) does not match the schedule")
+    return failures
+
+
 @dataclass(frozen=True)
 class TournamentSummary:
     tournament_dir: Path
@@ -989,37 +1052,11 @@ def run_tournament(
     store.write_json_atomic(directory / store.LEADERBOARD_JSON_NAME, document)
     store.write_bytes_atomic(directory / store.LEADERBOARD_MD_NAME, markdown.encode("utf-8"))
 
-    counts = {"natural": 0, "truncated": 0, "halted": 0, "forfeit": 0}
-    for row in rows:
-        counts[row.classification] += 1
-    manifest = {
-        "schema": store.TOURNAMENT_SCHEMA,
-        "tournament": {
-            "format": config.format,
-            "base_seed": config.base_seed,
-            "pairs_per_matchup": config.pairs_per_matchup,
-            "max_decisions": config.max_decisions,
-            "max_steps": config.max_steps,
-            "choose_timeout_ms": config.choose_timeout_ms,
-            "engine_timeout_ms": config.engine_timeout_ms,
-            "bootstrap_replicates": config.bootstrap_replicates,
-            "seed_schedule": SEED_SCHEDULE_VERSION,
-            "rating_anchor": {"name": config.rating_anchor, "bot_id": anchor_bot_id},
-            "arena_version": __version__,
-            "workers": config.workers,
-            "bots": [entry.to_json() for entry in entries_list],
-        },
-        "engine": pin.identity.to_json(),
-        "games": {
-            "total": len(rows),
-            "natural": counts["natural"],
-            "truncated": counts["truncated"],
-            "halted": counts["halted"],
-            "forfeit": counts["forfeit"],
-        },
-        "leaderboard_status": document["status"],
-        "files": [store.file_entry(directory / name, name) for name in store.DATA_FILE_NAMES],
-    }
+    manifest = manifest_body(
+        config, entries_list, anchor_bot_id, pin.identity.to_json(), rows, document["status"]
+    )
+    manifest["files"] = [store.file_entry(directory / name, name) for name in store.DATA_FILE_NAMES]
+    counts = manifest["games"]
     store.publish_manifest(directory, manifest)
     return TournamentSummary(
         tournament_dir=directory,
