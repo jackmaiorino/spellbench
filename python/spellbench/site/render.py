@@ -18,6 +18,10 @@ shapes and the markup hooks the build relies on (``data-bot``,
   script. Without script every tab panel shows under its own heading.
 - SVG x positions are percentages of the chart width with one decimal, so
   marks keep their shape at any width and the output stays stable.
+- A rating that is only a bound (a row whose ``bound`` is ``"lower"`` or
+  ``"upper"``) reads "at least" or "at most" (a sign before its number) and
+  draws an open-ended arrow instead of an interval. A zero-width interval
+  that is not a bound reads "interval not estimable".
 """
 
 from __future__ import annotations
@@ -29,8 +33,12 @@ _SEP = " \N{MIDDLE DOT} "
 _ARROW = "\N{RIGHTWARDS ARROW}"
 _CHECK = "\N{CHECK MARK}"
 _MINUS = "\N{MINUS SIGN}"
+_NBSP = "\N{NO-BREAK SPACE}"
 _ANCHOR_ELO_MILLI = 1_000_000  # the random bot's fixed Elo, 1000
 _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) grid cell
+# A rating from a record without losses (or without wins) is only a bound (hero.rating_bound).
+_BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
+_BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
 _NAV = (
     ("Leaderboard", "index.html#hero"),
@@ -70,6 +78,12 @@ _METHOD_SECTIONS = (
         "win, and every matchup gets one extra virtual draw so a perfect record still has a finite rating. "
         "The random bot is the anchor: its Elo is fixed at 1000. The 95% intervals come from a bootstrap "
         "that resamples whole pairs within each matchup.",
+    ),
+    (
+        "Unbeaten and winless bots",
+        "A bot that never lost (or never won) a rated game has no finite best-fit rating. The virtual draw keeps it "
+        "finite, so the site shows it as a bound, at least or at most, and that bound grows with the number of games "
+        "played.",
     ),
     (
         "By deck",
@@ -203,7 +217,7 @@ ol.hero > li {
 .who { grid-area: who; min-width: 0; }
 .name, .label { font-weight: 600; }
 .by { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
-.value { grid-area: value; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.value { grid-area: value; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .reference .value { color: var(--muted); }
 .chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 4px; }
 #hero .note { margin-top: 12px; }
@@ -212,12 +226,14 @@ svg.bar { grid-area: bar; width: 100%; height: 24px; }
 svg.ci { width: 100%; min-width: 96px; height: 16px; }
 .zero { stroke: var(--muted); stroke-dasharray: 3 3; }
 .whisker { stroke: var(--text); stroke-width: 1.5; }
+/* a bound's open-ended arrow: the tone's color in a table, the whisker's in the Hero chart */
+svg.bar .arrow { color: var(--text); }
 .track { stroke: var(--border); }
 .up { color: var(--accent); }
 .down { color: var(--warn); }
 .flat { color: var(--muted); }
 @media (min-width: 720px) {
-  ol.hero > li { grid-template-columns: 11rem minmax(0, 1fr) 3.5rem 11rem; grid-template-areas: "who bar value chips"; gap: 16px; }
+  ol.hero > li { grid-template-columns: 11rem minmax(0, 1fr) 4.5rem 11rem; grid-template-areas: "who bar value chips"; gap: 16px; }
 }
 .cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-top: 40px; padding: 20px 24px; border-radius: 12px; background: var(--surface); }
 .cta h2 { font-size: 18px; }
@@ -261,7 +277,9 @@ table.leaders tbody tr { border-bottom: 1px solid var(--border); }
 .num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .rank { color: var(--muted); }
 .elo { font-weight: 600; }
+.elo .record { display: table; margin: 2px 0 0 auto; font-size: 11.5px; line-height: 18px; }
 .ci-cell { width: 34%; }
+.ci-text { color: var(--muted); font-size: 13px; }
 .matchups { margin-top: 56px; }
 .matchups .note { margin: 4px 0 16px; }
 table.grid { width: auto; border-collapse: separate; border-spacing: 3px; }
@@ -529,6 +547,31 @@ def _position(value: float, scale: tuple[float, float]) -> float:
     return round((value - low) / (high - low) * 100, 1)
 
 
+def _bound_kind(bound: Any) -> str | None:
+    """``"lower"`` or ``"upper"``; any other value is not a bound."""
+    return bound if bound in _BOUND_SIGNS else None
+
+
+def _bounded(text: str, bound: Any) -> str:
+    """``text`` after its bound's sign (at least or at most) and a no-break space; unchanged when not a bound."""
+    kind = _bound_kind(bound)
+    return text if kind is None else f"{_BOUND_SIGNS[kind]}{_NBSP}{text}"
+
+
+def _arrow(start: float, bound: str, y: int) -> str:
+    """An open-ended arrow from ``start`` (percent of the width) to the chart's edge, at height ``y``.
+
+    It points right for a lower bound and left for an upper bound. The head
+    is a nested SVG placed at the edge, so it keeps its size at any width.
+    """
+    edge, head = (100.0, "M-7 -4.5L0 0L-7 4.5Z") if bound == "lower" else (0.0, "M7 -4.5L0 0L7 4.5Z")
+    return (
+        f'<g class="arrow"><line x1="{start:.1f}%" y1="{y}" x2="{edge:.1f}%" y2="{y}" '
+        'stroke="currentColor" stroke-width="2"/>'
+        f'<svg x="{edge:.1f}%" y="{y}" overflow="visible"><path d="{head}" fill="currentColor"/></svg></g>'
+    )
+
+
 # ---------------- home page ----------------
 
 
@@ -544,7 +587,8 @@ def _hero(hero: Mapping[str, Any]) -> str:
         values = [0.0]
         for row in rows:
             values.append(row["score"])
-            values.extend(bound for bound in (row["lower"], row["upper"]) if bound is not None)
+            if _hero_bound(row) is None:  # a bound is drawn as an arrow, not across its interval
+                values.extend(end for end in (row["lower"], row["upper"]) if end is not None)
         scale = _scale(values)
         parts.append('<ol class="hero">')
         parts.extend(_hero_row(row, scale) for row in rows)
@@ -552,6 +596,11 @@ def _hero(hero: Mapping[str, Any]) -> str:
         note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
             note += " Intervals that combine several benchmarks are approximate."
+        if any(_hero_bound(row) for row in rows):
+            note += (
+                f" A score marked {_BOUND_SIGNS['lower']} or {_BOUND_SIGNS['upper']} is only a bound: "
+                "the bot never lost, or never won, in a benchmark it entered."
+            )
         parts.append(_note(note))
     else:
         parts.append('<p class="empty">No rated benchmark yet.</p>')
@@ -559,30 +608,59 @@ def _hero(hero: Mapping[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def _hero_bound(row: Mapping[str, Any]) -> str | None:
+    """A Hero row's bound, ``"lower"`` or ``"upper"``; never the reference row's."""
+    return None if row["reference"] else _bound_kind(row["bound"])
+
+
+def _versus_random(value: float, bound: str | None) -> str:
+    """A margin in words: "101 Elo above random", "154 Elo below random", "level with random".
+
+    A bound reads "at least" or "at most" of that distance: a lower bound on a
+    margin below random caps how far below it is, so it reads "at most".
+    """
+    rounded = round(value)
+    if rounded > 0:
+        text, above = f"{rounded} Elo above random", True
+    elif rounded < 0:
+        text, above = f"{-rounded} Elo below random", False
+    else:
+        text, above = "level with random", True
+    if bound is None:
+        return text
+    return ("at least " if (bound == "lower") == above else "at most ") + text
+
+
 def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
+    bound = _hero_bound(row)
     who = f'<span class="name">{_e(row["label"])}</span>'
     if row["reference"]:
         who += ' <span class="chip quiet">reference</span>'
     if row["author"]:
         who += f'<span class="by">{_e(row["author"])}</span>'
     chips = " ".join(
-        f'<span class="chip">{_e(chip["benchmark_id"])} {format_margin(chip["margin"])}</span>' for chip in row["chips"]
+        f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}</span>'
+        for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""
     return "\n".join(
         [
             f'<li data-bot="{_e(row["name"])}"{kind}>',
             f'<div class="who">{who}</div>',
-            _hero_bar(row, scale),
-            f'<span class="value">{format_margin(row["score"])}</span>',
+            _hero_bar(row, scale, bound),
+            f'<span class="value">{_bounded(format_margin(row["score"]), bound)}</span>',
             f'<span class="chips">{chips}</span>',
             "</li>",
         ]
     )
 
 
-def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
-    """A bar from 0 to the score over a dashed zero line, with a whisker across the interval."""
+def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str | None) -> str:
+    """A bar from 0 to the score over a dashed zero line, with a whisker across the interval.
+
+    A bound gets an open-ended arrow toward the side it is open on instead of
+    the whisker; a zero-width interval gets no whisker.
+    """
     zero = _position(0.0, scale)
     marks = [f'<line class="zero" x1="{zero:.1f}%" y1="0" x2="{zero:.1f}%" y2="24"/>']
     if row["reference"]:
@@ -596,8 +674,19 @@ def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
             f'<rect class="{tone}" x="{min(zero, end):.1f}%" y="6" width="{abs(end - zero):.1f}%" height="12" '
             'rx="2" fill="currentColor"/>'
         )
-        label = f"{format_margin(score)} Elo above random"
-        if lower is not None and upper is not None:
+        label = _versus_random(score, bound)
+        if bound is not None:
+            marks.append(_arrow(end, bound, 12))
+            record = _BOUND_RECORDS[bound]
+            where = [chip["benchmark_id"] for chip in row["chips"] if chip["bound"] == bound]
+            if where:
+                record += " in " + ", ".join(where)
+            label += f", {record}: the rating is limited by the prior"
+        elif lower is None or upper is None:
+            label += ", no interval"
+        elif lower == upper:
+            label += ", interval not estimable"
+        else:
             low, high = _position(lower, scale), _position(upper, scale)
             marks.append(
                 f'<g class="whisker"><line x1="{low:.1f}%" y1="12" x2="{high:.1f}%" y2="12"/>'
@@ -606,8 +695,6 @@ def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
             )
             interval = "approximate 95% interval" if row["approximate"] else "95% interval"
             label += f", {interval} {format_margin(lower)} to {format_margin(upper)}"
-        else:
-            label += ", no interval"
     return f'<svg class="bar" width="100%" height="24" role="img" aria-label="{_e(label)}">{"".join(marks)}</svg>'
 
 
@@ -734,14 +821,21 @@ def _style_section(table: Mapping[str, Any], scale: tuple[float, float]) -> str:
 
 
 def _elo_scale(rows: Sequence[Mapping[str, Any]]) -> tuple[float, float]:
-    """The axis for a leaderboard's interval bars: every rated row's Elo and interval bounds."""
+    """The axis for a leaderboard's interval bars: every rated row's Elo and drawn interval ends."""
     values: list[float] = []
     for row in rows:
         if row["elo_milli"] is not None:
             values.append(row["elo_milli"] / 1000)
-            if row["ci_elo_milli"] is not None:
-                values.extend(bound / 1000 for bound in row["ci_elo_milli"])
+            if row["ci_elo_milli"] is not None and _row_bound(row) is None:  # a bound is drawn as an arrow
+                values.extend(end / 1000 for end in row["ci_elo_milli"])
     return _scale(values)
+
+
+def _row_bound(row: Mapping[str, Any]) -> str | None:
+    """A leaderboard row's bound, ``"lower"`` or ``"upper"``; never the anchor's or an unrated row's."""
+    if row["anchor"] or row["elo_milli"] is None:
+        return None
+    return _bound_kind(row["bound"])
 
 
 def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float]) -> str:
@@ -767,6 +861,7 @@ def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float])
 
 
 def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
+    bound = _row_bound(row)
     rank = "-" if row["rank"] is None else str(row["rank"])
     hint = f' title="{_e(row["description"])}"' if row["description"] else ""
     bot = f'<span class="label"{hint}>{_link(row["url"], row["label"])}</span>'
@@ -776,14 +871,19 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
         bot += " " + " ".join(marks)
     if row["author"]:
         bot += f'<span class="by">{_e(row["author"])}</span>'
-    elo = '<span class="muted">unrated</span>' if row["elo_milli"] is None else format_elo(row["elo_milli"])
+    if row["elo_milli"] is None:
+        elo = '<span class="muted">unrated</span>'
+    else:
+        elo = _bounded(format_elo(row["elo_milli"]), bound)
+        if bound is not None:
+            elo += f'<span class="chip quiet record">{_BOUND_RECORDS[bound]}</span>'
     return "\n".join(
         [
             f'<tr data-bot="{_e(row["name"])}">',
             f'<td class="num rank">{rank}</td>',
             f'<td class="bot">{bot}</td>',
             f'<td class="num elo">{elo}</td>',
-            f'<td class="ci-cell">{_interval_bar(row, scale)}</td>',
+            f'<td class="ci-cell">{_interval_bar(row, scale, bound)}</td>',
             f'<td class="num">{row["wins"]}-{row["draws"]}-{row["losses"]}</td>',
             f'<td class="num">{row["games"]}</td>',
             f'<td class="num">{row["forfeits"]}</td>',
@@ -792,30 +892,44 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     )
 
 
-def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
-    """A dot at the Elo and a line across its 95% interval; empty for an unrated row."""
+def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str | None) -> str:
+    """A dot at the Elo and a line across its 95% interval; empty for an unrated row.
+
+    A bound gets an open-ended arrow from the dot toward the side it is open on
+    instead of the line. A zero-width interval on a row that is neither the
+    anchor nor a bound (every resampled pair came out the same) reads
+    "interval not estimable" instead of a bare dot like the anchor's.
+    """
     elo_milli, interval = row["elo_milli"], row["ci_elo_milli"]
     if elo_milli is None:
         return ""
+    if bound is None and not row["anchor"] and interval is not None and interval[0] == interval[1]:
+        return '<span class="ci-text">interval not estimable</span>'
     if row["anchor"] or elo_milli == _ANCHOR_ELO_MILLI:
         tone = "flat"
     else:
         tone = "up" if elo_milli > _ANCHOR_ELO_MILLI else "down"
+    elo, x = format_elo(elo_milli), _position(elo_milli / 1000, scale)
     marks = ['<line class="track" x1="0" y1="8" x2="100%" y2="8"/>', f'<g class="{tone}">']
-    if interval is not None:
-        low, high = _position(interval[0] / 1000, scale), _position(interval[1] / 1000, scale)
-        if high > low:
-            marks.append(
-                f'<line x1="{low:.1f}%" y1="8" x2="{high:.1f}%" y2="8" '
-                'stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
-            )
-    marks.append(f'<circle cx="{_position(elo_milli / 1000, scale):.1f}%" cy="8" r="4" fill="currentColor"/></g>')
-    if row["anchor"]:
-        label = f"Elo {format_elo(elo_milli)}, the anchor"
-    elif interval is None:
-        label = f"Elo {format_elo(elo_milli)}, no interval"
+    if bound is not None:
+        marks.append(_arrow(x, bound, 8))
+        limit = "at least" if bound == "lower" else "at most"
+        label = f"{limit} {elo} Elo, {_BOUND_RECORDS[bound]}: the rating is limited by the prior"
     else:
-        label = f"Elo {format_elo(elo_milli)}, 95% interval {format_elo(interval[0])} to {format_elo(interval[1])}"
+        if interval is not None:
+            low, high = _position(interval[0] / 1000, scale), _position(interval[1] / 1000, scale)
+            if high > low:
+                marks.append(
+                    f'<line x1="{low:.1f}%" y1="8" x2="{high:.1f}%" y2="8" '
+                    'stroke="currentColor" stroke-width="3" stroke-linecap="round"/>'
+                )
+        if row["anchor"]:
+            label = f"Elo {elo}, the anchor"
+        elif interval is None:
+            label = f"Elo {elo}, no interval"
+        else:
+            label = f"Elo {elo}, 95% interval {format_elo(interval[0])} to {format_elo(interval[1])}"
+    marks.append(f'<circle cx="{x:.1f}%" cy="8" r="4" fill="currentColor"/></g>')
     return f'<svg class="ci" width="100%" height="16" role="img" aria-label="{_e(label)}">{"".join(marks)}</svg>'
 
 

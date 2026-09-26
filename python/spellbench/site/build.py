@@ -208,7 +208,8 @@ def _hero_row(row: hero.HeroRow, benchmarks: Sequence[definition.Benchmark]) -> 
         "upper": row.upper,
         "approximate": row.approximate,
         "reference": row.reference,
-        "chips": [{"benchmark_id": chip.benchmark_id, "margin": chip.margin} for chip in row.chips],
+        "bound": row.bound,
+        "chips": [{"benchmark_id": chip.benchmark_id, "margin": chip.margin, "bound": chip.bound} for chip in row.chips],
     }
 
 
@@ -277,24 +278,32 @@ def _display_of(benchmark: definition.Benchmark, name: str, owner: str) -> dict[
 def _leader_rows(
     rows: Sequence[Mapping[str, Any]], anchor_id: str, display: Mapping[str, Mapping[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Leaderboard rows (overall or one deck's), in leaderboard order."""
-    return [
-        {
-            "rank": row["rank"],
-            "name": row["name"],
-            **display[row["name"]],  # label, author, description, url
-            "tags": list(row["training_style_tags"]),
-            "anchor": row["bot_id"] == anchor_id,
-            "elo_milli": row["elo_milli"],
-            "ci_elo_milli": row["ci95_elo_milli"],
-            "wins": row["wins"],
-            "draws": row["draws"],
-            "losses": row["losses"],
-            "games": row["games"],
-            "forfeits": row["forfeit_losses"],
-        }
-        for row in rows
-    ]
+    """Leaderboard rows (overall or one deck's), in leaderboard order.
+
+    ``bound`` marks a rating that is only a bound (``hero.rating_bound``); the
+    anchor's rating is fixed, so it never is.
+    """
+    views = []
+    for row in rows:
+        anchor = row["bot_id"] == anchor_id
+        views.append(
+            {
+                "rank": row["rank"],
+                "name": row["name"],
+                **display[row["name"]],  # label, author, description, url
+                "tags": list(row["training_style_tags"]),
+                "anchor": anchor,
+                "elo_milli": row["elo_milli"],
+                "ci_elo_milli": row["ci95_elo_milli"],
+                "bound": None if anchor else hero.rating_bound(row),
+                "wins": row["wins"],
+                "draws": row["draws"],
+                "losses": row["losses"],
+                "games": row["games"],
+                "forfeits": row["forfeit_losses"],
+            }
+        )
+    return views
 
 
 def _deck_table(

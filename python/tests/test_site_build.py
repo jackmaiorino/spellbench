@@ -22,6 +22,7 @@ from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE
 
 RUN_FILES = ("manifest.json", "config.json", "registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md")
 HOSTILE = '<script>alert("x")</script>'
+GE, LE, NBSP = "≥", "≤", " "  # a bound's sign, then a no-break space before its number
 
 
 def _bot(name: str, label: str, tag: str, **extra: Any) -> dict[str, Any]:
@@ -100,10 +101,27 @@ def _files(directory: Path) -> dict[str, bytes]:
     return {path.relative_to(directory).as_posix(): path.read_bytes() for path in sorted(directory.rglob("*")) if path.is_file()}
 
 
-def _element(page: str, tag: str, attribute: str, value: str) -> str:
+def _html(page: str, tag: str, attribute: str, value: str) -> str:
+    """The inner HTML of the first ``<tag attribute="value">`` in ``page``."""
     match = re.search(rf'<{tag}\b[^>]*\b{attribute}="{re.escape(value)}"[^>]*>(.*?)</{tag}>', page, re.S)
     assert match, f"no <{tag} {attribute}={value!r}>"
-    return re.sub(r"<[^>]+>", " ", match.group(1))
+    return match.group(1)
+
+
+def _element(page: str, tag: str, attribute: str, value: str) -> str:
+    """The text of the first ``<tag attribute="value">``, each tag replaced by a space."""
+    return re.sub(r"<[^>]+>", " ", _html(page, tag, attribute, value))
+
+
+def _bound(row: dict[str, Any], board: dict[str, Any]) -> str | None:
+    """The site's bound for a leaderboard row, derived here from the rule rather than the build."""
+    if row["bot_id"] == board["anchor"]["bot_id"] or not row["rated"]:
+        return None
+    if row["wins"] and not row["losses"]:
+        return "lower"
+    if row["losses"] and not row["wins"]:
+        return "upper"
+    return None
 
 
 def test_the_site_has_every_page_and_run_file(tree: Path, tmp_path: Path) -> None:
@@ -259,13 +277,18 @@ def _publish(root: Path, value: dict[str, Any]) -> Path:
 
 
 def _assert_overall_rows(page: str, board: dict[str, Any]) -> None:
-    """Each overall row shows the anchor mark, interval, games and forfeits of its ``board`` row."""
+    """Each overall row shows the anchor mark, interval or bound, games and forfeits of its ``board`` row."""
     overall = page[page.index('data-panel="overall"'):]
     for row in board["rows"]:
         cells = re.search(rf'<tr data-bot="{row["name"]}">(.*?)</tr>', overall, re.S).group(1)
         is_anchor = row["bot_id"] == board["anchor"]["bot_id"]
         assert ("anchor" in _element(overall, "tr", "data-bot", row["name"]).split()) == is_anchor, row["name"]
-        if not is_anchor:
+        elo, bound = render.format_elo(row["elo_milli"]), _bound(row, board)
+        if bound == "lower":
+            assert f"at least {elo} Elo, unbeaten: the rating is limited by the prior" in cells, row["name"]
+        elif bound == "upper":
+            assert f"at most {elo} Elo, winless: the rating is limited by the prior" in cells, row["name"]
+        elif not is_anchor:
             low, high = (render.format_elo(bound) for bound in row["ci95_elo_milli"])
             assert f"95% interval {low} to {high}" in cells, row["name"]
         assert f'<td class="num">{row["games"]}</td>\n<td class="num">{row["forfeit_losses"]}</td>' in cells
@@ -290,6 +313,33 @@ def test_every_leaderboard_number_reaches_the_benchmark_page(tree: Path, tmp_pat
             text = _element(section, "tr", "data-bot", row["name"])
             assert render.format_elo(row["elo_milli"]) in text
             assert f'{row["wins"]}-{row["draws"]}-{row["losses"]}' in text
+
+
+def test_a_bot_that_never_lost_is_shown_as_a_bound(tree: Path, tmp_path: Path) -> None:
+    # On the fake engine heuristic scores two points a game and first none: heuristic never loses, first never wins.
+    out = tmp_path / "site"
+    build_site(tree, out)
+    boards = {b: json.loads((tree / b / "runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8")) for b in ("alpha", "beta")}
+    rows = {row["name"]: row for row in boards["alpha"]["rows"]}
+    assert rows["heuristic"]["losses"] == 0 < rows["heuristic"]["wins"]
+    assert rows["first"]["wins"] == 0 < rows["first"]["losses"]
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    overall = page[page.index('data-panel="overall"'):]
+    top, bottom = _html(overall, "tr", "data-bot", "heuristic"), _html(overall, "tr", "data-bot", "first")
+    high, low = render.format_elo(rows["heuristic"]["elo_milli"]), render.format_elo(rows["first"]["elo_milli"])
+    assert f"{GE}{NBSP}{high}" in top and ">unbeaten<" in top and 'class="arrow"' in top
+    assert f'aria-label="at least {high} Elo, unbeaten: the rating is limited by the prior"' in top
+    assert f"{LE}{NBSP}{low}" in bottom and ">winless<" in bottom and 'class="arrow"' in bottom
+    # the Hero row averages two lower bounds: a lower bound, drawn with an arrow
+    hero = _html((out / "index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
+    margins = {
+        b: (next(row for row in board["rows"] if row["name"] == "heuristic")["elo_milli"] - 1_000_000) / 1000
+        for b, board in boards.items()
+    }
+    assert f'<span class="value">{GE}{NBSP}{render.format_margin(sum(margins.values()) / 2)}</span>' in hero
+    assert 'class="arrow"' in hero and 'class="whisker"' not in hero
+    for bench, margin in margins.items():
+        assert f"{bench} {GE}{NBSP}{render.format_margin(margin)}" in hero
 
 
 def test_an_unrated_deck_is_reported_and_the_site_still_builds(tmp_path: Path) -> None:
