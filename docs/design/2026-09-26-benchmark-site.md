@@ -49,14 +49,16 @@ Rules:
 - Self-play is off: a bot is never scheduled against itself.
 - Each run replays the whole round-robin. There is no incremental merging
   and no run history on the site: the site shows each benchmark's latest
-  run (the lexically last run folder).
-- Machine-specific paths never enter the repo. Commands in
-  `benchmark.json` may contain `${NAME}` placeholders, resolved at run time
+  run (the latest date, then the highest `-N` suffix).
+- Machine-specific paths never enter the repo. The engine command, bot
+  commands, and bot checkpoint paths in `benchmark.json` may contain
+  `${NAME}` placeholders, resolved at run time
   from environment variables or the git-ignored `benchmarks/local.json`
   (`{"NAME": "value"}`; the environment wins). An unresolved placeholder is
   an error before any process starts. The run's recorded `config.json`
-  keeps the placeholders, and bot ids hash the unresolved command, so a
-  run's artifacts are the same on every machine and publish no local paths.
+  keeps the placeholders, and bot ids hash the unresolved command (a
+  checkpoint still contributes the hash of its bytes), so a run's artifacts
+  are the same on every machine and publish no local paths.
 - `diagnostics.jsonl` (raw peer stderr) is git-ignored under `benchmarks/`.
 
 Launch benchmark `pauper-kernel`: engine `${MTG_KERNEL_BRIDGE}` (the
