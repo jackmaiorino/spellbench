@@ -1,4 +1,4 @@
-"""The ``spellbench`` command line: run / validate / leaderboard / bot.
+"""The ``spellbench`` command line: run / validate / leaderboard / bench / bot.
 
 - ``spellbench run CONFIG.json``: run a tournament and publish artifacts
   into the config's ``tournament_dir``.
@@ -6,6 +6,9 @@
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
 - ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
+- ``spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]``: run a
+  benchmark into ``BENCHMARK_DIR/runs/<date>[-N]/`` (the date defaults to
+  today), then validate the run.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
   subprocess (so configs can reference builtins over stdio too).
 
@@ -19,6 +22,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .. import agent_server
+from ..bench.run import run_benchmark
 from ..errors import ValidationError
 from ..wire import strict_json_loads
 from . import runner, store
@@ -30,8 +34,10 @@ _USAGE = (
     "  spellbench run CONFIG.json\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
+    "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
     "  spellbench bot NAME [--seed N]"
 )
+_BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
 
 
 def _load_config(path: Path) -> runner.TournamentConfig:
@@ -46,6 +52,16 @@ def _load_config(path: Path) -> runner.TournamentConfig:
     return runner.TournamentConfig.from_json(value)
 
 
+def _print_games(summary: runner.TournamentSummary) -> None:
+    """The games and leaderboard-status lines of ``run`` and ``bench run``."""
+    print(
+        f"games: {summary.games_total} total, {summary.games_rated} rated, "
+        f"{summary.games_truncated} truncated, {summary.games_halted} halted, "
+        f"{summary.games_forfeit} forfeit"
+    )
+    print(f"leaderboard status: {summary.leaderboard_status}")
+
+
 def _cmd_run(argv: Sequence[str]) -> int:
     if len(argv) != 1:
         print("usage: spellbench run CONFIG.json", file=sys.stderr)
@@ -53,12 +69,7 @@ def _cmd_run(argv: Sequence[str]) -> int:
     config = _load_config(Path(argv[0]))
     summary = runner.run_tournament(config)
     print(f"tournament published: {summary.tournament_dir}")
-    print(
-        f"games: {summary.games_total} total, {summary.games_rated} natural, "
-        f"{summary.games_truncated} truncated, {summary.games_halted} halted, "
-        f"{summary.games_forfeit} forfeit"
-    )
-    print(f"leaderboard status: {summary.leaderboard_status}")
+    _print_games(summary)
     return 0
 
 
@@ -84,6 +95,28 @@ def _cmd_leaderboard(argv: Sequence[str]) -> int:
         print(f"no leaderboard at {path} (run a tournament first)", file=sys.stderr)
         return 1
     sys.stdout.write(path.read_text(encoding="utf-8"))
+    return 0
+
+
+def _cmd_bench(argv: Sequence[str]) -> int:
+    if len(argv) < 2 or argv[0] != "run":
+        print(_BENCH_USAGE, file=sys.stderr)
+        return 2
+    date = None
+    rest = list(argv[2:])
+    if rest:
+        if len(rest) != 2 or rest[0] != "--date":
+            print(_BENCH_USAGE, file=sys.stderr)
+            return 2
+        date = rest[1]
+    result = run_benchmark(Path(argv[1]), date=date)
+    print(f"benchmark run published: {result.run_dir}")
+    _print_games(result.summary)
+    if result.failures:
+        for failure in result.failures:
+            print(f"FAIL {failure}", file=sys.stderr)
+        return 1
+    print("validate: OK")
     return 0
 
 
@@ -129,6 +162,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_validate(rest)
         if command == "leaderboard":
             return _cmd_leaderboard(rest)
+        if command == "bench":
+            return _cmd_bench(rest)
         if command == "bot":
             return _cmd_bot(rest)
     except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:

@@ -9,3 +9,6 @@ build/
 .ruff_cache/
 out/
 target/
+benchmarks/local.json
+benchmarks/**/diagnostics.jsonl
+/site/
