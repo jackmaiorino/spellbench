@@ -307,10 +307,9 @@ def _read_json(path: Path) -> dict[str, Any]:
         data = path.read_bytes()
     except OSError as exc:
         raise BenchmarkError(f"cannot read {path}: {exc}") from exc
-    # ValueError: an integer literal past Python's digit limit escapes strict_json_loads.
     try:
         return strict_json_loads(data)
-    except (MalformedJsonError, ValueError) as exc:
+    except MalformedJsonError as exc:
         raise BenchmarkError(f"{path} is not strict JSON: {exc}") from exc
 
 

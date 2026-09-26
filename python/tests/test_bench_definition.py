@@ -193,6 +193,15 @@ def test_load_benchmark_rejects_non_strict_json(tmp_path: Path) -> None:
         definition.load_benchmark(directory)
 
 
+def test_an_integer_literal_past_the_interpreter_digit_limit_is_not_strict_json(tmp_path: Path) -> None:
+    # int() raises a bare ValueError past 4300 digits; the reader must still name the file.
+    directory = tmp_path / "pauper-kernel"
+    directory.mkdir()
+    (directory / "benchmark.json").write_text('{"base_seed": ' + "7" * 5000 + "}", encoding="utf-8")
+    with pytest.raises(BenchmarkError, match=r"benchmark\.json is not strict JSON"):
+        definition.load_benchmark(directory)
+
+
 def test_find_benchmarks_lists_folders_with_a_definition_in_order(tmp_path: Path) -> None:
     _write(tmp_path / "b", _value(id="b"))
     _write(tmp_path / "a", _value(id="a"))
