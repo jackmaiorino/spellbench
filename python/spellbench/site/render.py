@@ -869,8 +869,13 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     marks += [f'<span class="chip">{_e(tag)}</span>' for tag in row["tags"]]
     if marks:
         bot += " " + " ".join(marks)
-    if row["author"]:
-        bot += f'<span class="by">{_e(row["author"])}</span>'
+    # Under the label: the author, then the registry name and version that were rated. Display text is
+    # not recorded in runs, so this keeps a relabel in benchmark.json from hiding what the numbers belong to.
+    byline = [_e(row["author"])] if row["author"] else []
+    byline.append(
+        f'<span class="ident" title="the rated bot: registry name and version">{_e(row["name"])} {_e(row["version"])}</span>'
+    )
+    bot += f'<span class="by">{_SEP.join(byline)}</span>'
     if row["elo_milli"] is None:
         elo = '<span class="muted">unrated</span>'
     else:

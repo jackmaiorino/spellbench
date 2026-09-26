@@ -18,7 +18,7 @@ from spellbench.bench import definition
 from spellbench.site import render
 from spellbench.site.build import SiteError, build_site
 
-from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE
+from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE, cli_bot
 
 RUN_FILES = ("manifest.json", "config.json", "registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md")
 HOSTILE = '<script>alert("x")</script>'
@@ -233,9 +233,79 @@ def test_a_changed_definition_still_renders_the_run_and_warns(copy_tree: Path, t
     (copy_tree / "alpha/benchmark.json").write_text(json.dumps(changed, indent=2), encoding="utf-8")
     out = tmp_path / "site"
     warnings = build_site(copy_tree, out)
-    assert any("alpha" in warning and "changed" in warning for warning in warnings)
+    assert "alpha: benchmark.json changed since run 2026-09-26 (differs in bot names); rerun to publish the change" in warnings
     page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
     assert "first" in _element(page[page.index('data-panel="overall"'):], "tr", "data-bot", "first")
+
+
+def _overall_row(page: str, name: str) -> str:
+    """The inner HTML of bot ``name``'s row in the Overall table."""
+    return _html(page[page.index('data-panel="overall"'):], "tr", "data-bot", name)
+
+
+def test_a_changed_bot_entry_warns_and_shows_the_rated_bot(copy_tree: Path, tmp_path: Path) -> None:
+    changed = _definition("alpha", labels={"heuristic": "heuristic v2 (MCTS)"})
+    changed["bots"][1]["seed"] = 7  # the arena entry changed after the run, as a new command or checkpoint would
+    changed["bots"][1]["display"].update(description="Search with rollouts.", url="https://example.com/mcts")
+    (copy_tree / "alpha/benchmark.json").write_text(json.dumps(changed, indent=2), encoding="utf-8")
+    out = tmp_path / "site"
+    warnings = build_site(copy_tree, out)
+    assert (
+        "alpha: benchmark.json changed since run 2026-09-26 (differs in bot 'heuristic'); rerun to publish the change"
+        in warnings
+    )
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    row = _overall_row(page, "heuristic")
+    # the registry name and owner of the bot that was rated: no new label, description, or link
+    assert '<span class="label">heuristic</span>' in row
+    assert "v2" not in row and "rollouts" not in row and "example.com" not in row
+    assert "unspecified" in row  # the registry owner: the entry names none
+    assert "heuristic 1.0.0" in re.sub(r"<[^>]+>", " ", row)
+    assert '<span class="label" title="uniform bot">random</span>' in _overall_row(page, "uniform")  # unchanged entry
+
+
+def test_a_changed_setting_is_named_in_the_warning(copy_tree: Path, tmp_path: Path) -> None:
+    changed = _definition("alpha")
+    changed.update(base_seed=100, pairs_per_deck=2)
+    (copy_tree / "alpha/benchmark.json").write_text(json.dumps(changed, indent=2), encoding="utf-8")
+    out = tmp_path / "site"
+    warnings = build_site(copy_tree, out)
+    assert (
+        "alpha: benchmark.json changed since run 2026-09-26 (differs in base_seed, pairs_per_matchup); "
+        "rerun to publish the change" in warnings
+    )
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    assert '<span class="label" title="heuristic bot">heuristic</span>' in _overall_row(page, "heuristic")
+
+
+def test_a_relabel_is_live_and_every_row_shows_the_rated_name_and_version(copy_tree: Path, tmp_path: Path) -> None:
+    # Display text is not recorded in runs, so a relabel cannot be detected; the rated identity stays visible.
+    relabelled = _definition("alpha", labels={"heuristic": "heuristic v2 (MCTS)"})
+    (copy_tree / "alpha/benchmark.json").write_text(json.dumps(relabelled, indent=2), encoding="utf-8")
+    out = tmp_path / "site"
+    warnings = build_site(copy_tree, out)
+    assert not [warning for warning in warnings if "changed since run" in warning]
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    text = re.sub(r"<[^>]+>", " ", _overall_row(page, "heuristic"))
+    assert "heuristic v2 (MCTS)" in text and "heuristic 1.0.0" in text
+    for name in ("uniform", "first"):
+        assert f"{name} 1.0.0" in re.sub(r"<[^>]+>", " ", _overall_row(page, name))
+
+
+def test_the_hero_warns_when_one_name_covers_different_registry_bots(copy_tree: Path, tmp_path: Path) -> None:
+    value = _definition("delta")
+    value["bots"][1] = {  # "heuristic" served as a subprocess: another descriptor, so another bot id
+        "name": "heuristic", "version": "1.0.0", "type": "subprocess", "command": cli_bot("heuristic"),
+        "training_style_tags": ["heuristic"],
+        "display": {"label": "heuristic", "author": "Spellbench", "description": "heuristic bot", "url": None},
+    }
+    _publish(copy_tree, value)
+    warnings = build_site(copy_tree, tmp_path / "site")
+    assert (
+        "Hero chart: 'heuristic' averages different registry bots (different bot ids) across benchmarks alpha, beta, delta"
+        in warnings
+    )
+    assert not [warning for warning in warnings if "'first'" in warning]  # the same builtin everywhere
 
 
 def test_hostile_labels_are_escaped(tmp_path: Path) -> None:

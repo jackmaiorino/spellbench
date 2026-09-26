@@ -19,7 +19,7 @@ def _leader(name: str, label: str, rank: int | None, elo: int | None, ci: list[i
     row = {
         "rank": rank, "name": name, "label": label, "author": "Spellbench", "url": None, "description": f"{label} bot",
         "tags": ["baseline"], "anchor": name == "uniform", "elo_milli": elo, "ci_elo_milli": ci,
-        "wins": 10, "draws": 2, "losses": 4, "games": 16, "forfeits": 1, "bound": None,
+        "wins": 10, "draws": 2, "losses": 4, "games": 16, "forfeits": 1, "bound": None, "version": "1.0.0",
     }
     row.update(extra)
     return row
@@ -338,6 +338,21 @@ def test_the_hero_states_each_margin_in_words(score: float, bound: str | None, p
     )
     label = _aria(_html(render.render_home(home), "li", "data-bot", "first"))
     assert label.startswith(phrase + ",")
+
+
+def test_every_leaderboard_row_shows_the_rated_name_and_version() -> None:
+    bench = copy.deepcopy(BENCH)
+    bench["overall"][0].update(label="heuristic v2 (MCTS)", version="2.3.1")
+    page = render.render_benchmark(bench)
+    overall = page[page.index('data-panel="overall"'):]
+    row = _html(overall, "tr", "data-bot", "heuristic")
+    # muted text after the label: the registry name and version the ratings belong to
+    assert re.search(r'<span class="by">[^<]*<span class="ident"[^>]*>heuristic 2\.3\.1</span></span>', row)
+    assert "heuristic v2 (MCTS)" in _element(overall, "tr", "data-bot", "heuristic")
+    for name in ("uniform", "first"):
+        assert f"{name} 1.0.0" in _element(overall, "tr", "data-bot", name)
+    style = page[page.index('data-panel="style"'):]
+    assert "uniform 1.0.0" in _element(style, "tr", "data-bot", "uniform")  # style tables reuse the rows
 
 
 def test_the_method_page_explains_bounds() -> None:
