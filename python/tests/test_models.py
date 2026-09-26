@@ -96,6 +96,26 @@ def test_invalid_semantics_rejected(semantic: dict[str, Any]) -> None:
         validate_semantic(semantic)
 
 
+@pytest.mark.parametrize("bad", [[], {}], ids=["list", "dict"])
+@pytest.mark.parametrize(
+    ("kind", "name"),
+    [("activate_mana_ability", "mana_choice"), ("choose_cast_mode", "mode"), ("choose_color", "color")],
+)
+def test_enum_fields_reject_unhashable_values(kind: str, name: str, bad: Any) -> None:
+    # A JSON list or object is unhashable: a set membership test on it raises
+    # TypeError, which the clients do not map to a protocol error.
+    semantic = _broken(kind, lambda s: s.update({name: bad}))
+    with pytest.raises(ValidationError, match=name):
+        validate_semantic(semantic)
+    with pytest.raises(ValidationError, match=name):
+        Selection.from_json({"candidate_id": 0, "semantic_echo": semantic})
+
+
+def test_mana_choice_may_be_null() -> None:
+    semantic = _broken("activate_mana_ability", lambda s: s.update({"mana_choice": None}))
+    assert validate_semantic(semantic) is semantic
+
+
 def test_object_ref_round_trip() -> None:
     ref = ObjectRef.from_json(OBJ)
     assert ref.to_json() == OBJ

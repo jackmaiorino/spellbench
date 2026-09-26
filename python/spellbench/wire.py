@@ -30,6 +30,11 @@ from .errors import (
 
 MAX_LINE_BYTES = 8 * 1024 * 1024
 MAX_JSON_INT = 1 << 53
+# A JSON integer literal has no leading zeros, so one with more digits than
+# 2^53 is out of range whatever its value.
+_MAX_JSON_INT_DIGITS = len(str(MAX_JSON_INT))
+# How much of an out-of-range integer literal an error message quotes.
+_QUOTED_INT_CHARS = 32
 # A peer's stderr is diagnostics only; keep a bounded prefix of it.
 STDERR_CAPTURE_BYTES = 64 * 1024
 
@@ -52,29 +57,42 @@ def _reject_float(value: str) -> None:
 
 
 def _parse_int(value: str) -> int:
-    parsed = int(value)
-    if abs(parsed) > MAX_JSON_INT:
-        raise MalformedJsonError(f"JSON integer outside |x| <= 2^53: {value}")
-    return parsed
+    # Count the digits before converting: int() raises a bare ValueError past
+    # CPython's integer string-conversion limit (4300 digits by default), and
+    # a long literal is out of range anyway.
+    digits = len(value) - 1 if value.startswith("-") else len(value)
+    if digits <= _MAX_JSON_INT_DIGITS:
+        parsed = int(value)
+        if abs(parsed) <= MAX_JSON_INT:
+            return parsed
+    quoted = value
+    if len(value) > _QUOTED_INT_CHARS:
+        quoted = f"{value[:_QUOTED_INT_CHARS]}... ({digits} digits)"
+    raise MalformedJsonError(f"JSON integer outside |x| <= 2^53: {quoted}")
 
 
 _SURROGATE_ESCAPE = re.compile(r"\\u[dD][89a-fA-F]")
 
 
 def _reject_lone_surrogates(value: Any) -> None:
-    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot."""
-    if isinstance(value, str):
-        try:
-            value.encode("utf-8")
-        except UnicodeEncodeError as exc:
-            raise MalformedJsonError("string contains a lone surrogate escape") from exc
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            _reject_lone_surrogates(key)
-            _reject_lone_surrogates(item)
-    elif isinstance(value, list):
-        for item in value:
-            _reject_lone_surrogates(item)
+    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot.
+
+    The walk keeps its own stack instead of recursing: json accepts nesting
+    deeper than the interpreter's recursion limit.
+    """
+    pending = [value]
+    while pending:
+        item = pending.pop()
+        if isinstance(item, str):
+            try:
+                item.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise MalformedJsonError("string contains a lone surrogate escape") from exc
+        elif isinstance(item, dict):
+            pending.extend(item.keys())
+            pending.extend(item.values())
+        elif isinstance(item, list):
+            pending.extend(item)
 
 
 def strict_json_loads(line: bytes | str) -> dict[str, Any]:
