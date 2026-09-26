@@ -1,0 +1,7 @@
+{
+  "schema": "spellbench-proposed-benchmarks/v1",
+  "proposed": [
+    {"title": "FDN Limited", "summary": "Foundations limited games, the format several community draft models target.", "needs": "an engine"},
+    {"title": "Standard 2022-25", "summary": "Constructed Standard with the 2022 to 2025 card pool.", "needs": "an engine"}
+  ]
+}
