@@ -88,7 +88,7 @@ uv run spellbench bench run benchmarks/pauper-kernel
 ```
 
 The run replays the whole round robin into
-`benchmarks/<id>/runs/<date>/` and validates it; commit the run to publish
+`benchmarks/<id>/runs/<date>[-N]/` and validates it; commit the run to publish
 it. Machine paths stay out of the repo: `${NAME}` placeholders in engine
 and bot commands resolve from the environment or from the git-ignored
 `benchmarks/local.json`, for example
@@ -103,7 +103,8 @@ uv run spellbench site benchmarks site
 This re-validates each benchmark's latest run, refuses to build if one
 fails, and writes the static site: the Hero chart (Elo above random,
 averaged over the benchmarks a bot entered), a page per benchmark, and the
-method. The Pages workflow builds and deploys it on every push to `main`.
+method. The Pages workflow validates the runs on every push to `main` and
+deploys the site once the repository is public.
 
 ## Trust
 
