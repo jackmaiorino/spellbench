@@ -1,8 +1,8 @@
 """Test fixture: an agent-role bot that never answers ``choose``.
 
 It completes ``hello`` and ``game_start`` normally, then sleeps on the first
-``choose`` so the host's wall-clock budget expires and the host must
-adjudicate a timeout forfeit and kill the process.
+``choose`` (argv[1] seconds, default 3600) so the host's wall-clock budget
+expires and the host must adjudicate a timeout forfeit and kill the process.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def main() -> int:
         request_id = request.get("request_id", "")
         request_type = request.get("request_type")
         if request_type == "choose":
-            time.sleep(3600)
+            time.sleep(int(sys.argv[1]) if len(sys.argv) > 1 else 3600)
         if request_type == "hello":
             message = {
                 "response_type": "hello_ok",

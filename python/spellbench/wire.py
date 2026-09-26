@@ -15,6 +15,7 @@ import os
 import queue
 import re
 import shutil
+import signal
 import subprocess
 import threading
 from typing import Any, Mapping, Sequence
@@ -208,6 +209,27 @@ def _stderr_reader(stream: Any, chunks: list[bytes]) -> None:
             kept += len(chunk)
 
 
+def _kill_process_tree(proc: "subprocess.Popen[bytes]") -> None:
+    """Kill ``proc`` and every process it started (best effort)."""
+    if os.name == "nt":
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    try:
+        proc.kill()
+    except OSError:
+        pass
+
+
 class SubprocessPeer:
     """A child-process peer with framed stdin/stdout (spec section 2).
 
@@ -237,6 +259,8 @@ class SubprocessPeer:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False,
+                # POSIX: its own process group, so close() can kill the tree.
+                start_new_session=os.name != "nt",
             )
         except OSError as exc:
             raise TransportError(f"cannot start {argv[0]!r}: {exc}") from exc
@@ -306,18 +330,22 @@ class SubprocessPeer:
             try:
                 proc.wait(timeout=2)
             except subprocess.TimeoutExpired:
-                proc.terminate()
+                # A wrapper (.bat, sh without exec) may hold the real peer as
+                # a grandchild with the pipes open: kill the whole tree.
+                _kill_process_tree(proc)
                 try:
-                    proc.wait(timeout=2)
+                    proc.wait(timeout=5)
                 except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=2)
+                    pass
         self._stdout_thread.join(timeout=1)
         self._stderr_thread.join(timeout=1)
-        for stream in (proc.stdout, proc.stderr):
+        # Never close a pipe a reader thread is still blocked on: the close
+        # would wait for that read, i.e. for whatever still holds the pipe.
+        for stream, reader in ((proc.stdout, self._stdout_thread), (proc.stderr, self._stderr_thread)):
+            if stream is None or reader.is_alive():
+                continue
             try:
-                if stream is not None:
-                    stream.close()
+                stream.close()
             except OSError:
                 pass
 

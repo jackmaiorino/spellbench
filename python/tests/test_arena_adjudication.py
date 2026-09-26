@@ -8,7 +8,9 @@ fake_arena_engine p0 acts at even steps and p1 at odd steps.
 from __future__ import annotations
 
 import math
+import os
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -166,3 +168,39 @@ def test_a_truncated_game_may_name_a_winner_and_stays_unrated(tmp_path: Path) ->
     )
     assert (summary.games_truncated, summary.games_rated) == (6, 0)
     assert {(row["outcome"], row["winner"]) for row in ledger_rows(directory)} == {("truncated", "p0")}
+
+
+def test_a_hung_bot_behind_a_wrapper_process_is_killed(tmp_path: Path) -> None:
+    # A wrapper (a .bat, sh without exec, conda run) keeps the real bot as a
+    # grandchild that holds the pipes; closing must kill the whole tree
+    # instead of waiting on a pipe that never closes.
+    if os.name == "nt":
+        wrapper = tmp_path / "wrap.bat"
+        wrapper.write_text(f'@"{sys.executable}" "{BOT_HANG}" 60\n', encoding="ascii")
+        command = ["cmd", "/c", str(wrapper)]
+    else:
+        wrapper = tmp_path / "wrap.sh"
+        wrapper.write_text(f'"{sys.executable}" "{BOT_HANG}" 60\n', encoding="ascii")
+        command = ["sh", str(wrapper)]
+    directory = tmp_path / "t"
+    config = make_config(
+        directory,
+        [builtin("heuristic"), subprocess_bot("bad-hang", command)],
+        pairs=1,
+        choose_timeout_ms=300,
+    )
+    outcome: list[BaseException | None] = []
+
+    def play() -> None:
+        try:
+            run(config)
+            outcome.append(None)
+        except BaseException as exc:
+            outcome.append(exc)
+
+    worker = threading.Thread(target=play, daemon=True)
+    worker.start()
+    worker.join(timeout=45)
+    assert outcome, "the host is still blocked on the hung bot's pipes"
+    assert outcome[0] is None
+    assert {row[2] for row in _forfeits(directory)} == {"timeout"}
