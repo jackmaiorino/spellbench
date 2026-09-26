@@ -248,18 +248,26 @@ def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:
     bench = copy.deepcopy(BENCH)
     bench["title"] = bench["summary"] = bench["engine"]["version"] = token
     bench["overall"][0]["label"] = token
+    bench["grid"]["labels"][0] = token
     home_page, bench_page = render.render_home(home), render.render_benchmark(bench)
     assert token in _element(home_page, "li", "data-bot", "heuristic")
     assert f'<a href="b/pauper-kernel/index.html">{token}</a>' in home_page
     assert f"<h1>{token}</h1>" in bench_page and f'<p class="lead">{token}</p>' in bench_page
     assert f"engine mtg-kernel {token}" in bench_page
     assert token in _element(bench_page, "tr", "data-bot", "heuristic")
+    grid = bench_page[bench_page.index('<table class="grid">'):]
+    assert f'<th scope="col">{token}</th>' in grid and f'<th scope="row">{token}</th>' in grid
+    # the grid's screen-reader corner label sits inside the scrolling wrapper
+    assert re.search(r'<div class="table-wrap">\s*<table class="grid">\s*<thead><tr><th scope="col"><span class="sr-only">', bench_page)
     for page in (home_page, bench_page):
         style = page[page.index("<style>"):page.index("</style>")]
         # every free-text block inherits overflow-wrap: anywhere from body ...
         assert re.search(r"(?m)^body\s*\{[^}]*\boverflow-wrap:\s*anywhere\b", style)
         # ... while tables keep their min-content widths and scroll inside .table-wrap
         assert re.search(r"\.table-wrap\s*\{[^}]*\boverflow-wrap:\s*normal\b", style)
+        # ... which is the containing block of the absolutely positioned screen-reader text inside it, so
+        # its overflow clips that text too (else a wide grid pushed it, and the page, past the viewport)
+        assert re.search(r"\.table-wrap\s*\{[^}]*\bposition:\s*relative\b", style)
 
 
 def test_a_bounded_leaderboard_row_reads_as_a_bound_with_an_arrow() -> None:

@@ -268,8 +268,10 @@ svg.bar .arrow { color: var(--text); }
 .panel h3 { margin-bottom: 8px; }
 .panel .empty { padding: 0; }
 .panel section + section { margin-top: 32px; }
-/* tables keep whole words (their usual min-content widths) and scroll inside the wrapper instead */
-.table-wrap { overflow-x: auto; overflow-wrap: normal; }
+/* tables keep whole words (their usual min-content widths) and scroll inside the wrapper instead;
+   position: relative makes the wrapper the containing block of absolutely positioned text inside it
+   (the grid's screen-reader corner label), so its overflow clips that text as well */
+.table-wrap { position: relative; overflow-x: auto; overflow-wrap: normal; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
 th, td { padding: 10px 12px; text-align: left; vertical-align: middle; }
 thead th { padding-top: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
