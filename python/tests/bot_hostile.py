@@ -11,6 +11,8 @@
   5000 digits (past CPython's 4300-digit integer conversion limit).
 - ``deepsurrogate``: answers ``choose`` with a line nested 1500 deep (past
   Python's recursion limit, within json's) around a lone surrogate escape.
+- ``unhashable``: answers ``choose`` with a choice that is valid except for
+  ``"color": []`` (a JSON list where the model expects a color name).
 
 Every other request is answered correctly, as bot ``hostile`` 1.0.0.
 """
@@ -88,6 +90,27 @@ def main() -> int:
             )
         elif MODE == "deepsurrogate":
             send(b'{"x":' + b"[" * 1500 + b'"\\ud800"' + b"]" * 1500 + b"}")
+        elif MODE == "unhashable":
+            source = {
+                "object_id": "obj-000001",
+                "card_name": None,
+                "owner_seat": "p0",
+                "controller_seat": "p0",
+                "zone": "hand",
+            }
+            send(
+                wire.canonical_json_dumps(
+                    {
+                        "protocol": "spellbench/v1",
+                        "request_id": request_id,
+                        "response_type": "choice",
+                        "selection": {
+                            "candidate_id": 0,
+                            "semantic_echo": {"color": [], "kind": "choose_color", "source": source},
+                        },
+                    }
+                )
+            )
         else:
             raise SystemExit(f"unknown mode {MODE}")
 

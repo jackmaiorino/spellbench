@@ -186,7 +186,7 @@ def test_strict_loads_rejects_a_lone_surrogate_nested_past_the_recursion_limit(
     # 1500 levels exceed Python's recursion limit (1000) but stay within
     # json's own nesting limit, so the surrogate check must not recurse.
     depth = 1500
-    with pytest.raises(MalformedJsonError):
+    with pytest.raises(MalformedJsonError, match="lone surrogate"):
         wire.strict_json_loads(b'{"a":' + opening * depth + innermost + closing * depth + b"}")
 
 

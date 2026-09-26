@@ -142,6 +142,7 @@ def test_truncated_games_are_recorded_and_unrated(tmp_path: Path) -> None:
         ("flood", "malformed_response"),
         ("bigint", "malformed_response"),
         ("deepsurrogate", "malformed_response"),
+        ("unhashable", "malformed_response"),
     ],
 )
 def test_a_hostile_bot_forfeits_and_the_tournament_still_publishes(
@@ -150,7 +151,14 @@ def test_a_hostile_bot_forfeits_and_the_tournament_still_publishes(
     directory = tmp_path / "t"
     summary = run(make_config(directory, [builtin("heuristic"), hostile_bot(mode)], pairs=1))
     assert summary.games_forfeit == 4
-    assert {row[2] for row in _forfeits(directory)} == {cause}
+    # The hostile bot is p1 in m1 g0, p0 in m1 g1, and both seats in m2 (where
+    # p0 acts first), so every loser seat below is the hostile bot.
+    assert [(game_id, row_cause, loser) for game_id, _, row_cause, loser, _ in _forfeits(directory)] == [
+        ("m0001p0000g0", cause, "p1"),
+        ("m0001p0000g1", cause, "p0"),
+        ("m0002p0000g0", cause, "p0"),
+        ("m0002p0000g1", cause, "p0"),
+    ]
     assert validate_tournament_dir(directory) == []
 
 

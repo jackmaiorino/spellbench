@@ -328,14 +328,16 @@ def _validate_semantic_field(field_kind: str, value: Any, context: str) -> None:
         text = _str(value, context)
         if not SNAKE_CASE_RE.match(text):
             _fail(context, f"must be lowercase snake_case: {text!r}")
+    # Type before membership: a JSON list or object is unhashable, and testing
+    # it against a frozenset raises TypeError instead of ValidationError.
     elif field_kind == "mana_choice":
-        if value is not None and value not in MANA_CHOICES:
+        if value is not None and (type(value) is not str or value not in MANA_CHOICES):
             _fail(context, f"must be one of {sorted(MANA_CHOICES)} or null")
     elif field_kind == "cast_mode":
-        if value not in CAST_MODES:
+        if type(value) is not str or value not in CAST_MODES:
             _fail(context, f"must be one of {sorted(CAST_MODES)}")
     elif field_kind == "color":
-        if value not in COLORS:
+        if type(value) is not str or value not in COLORS:
             _fail(context, f"must be one of {sorted(COLORS)}")
     elif field_kind == "object_ref_array":
         for index, item in enumerate(_list(value, context)):
