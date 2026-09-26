@@ -40,16 +40,23 @@ def reset_kwargs() -> dict:
     )
 
 
-def terminal(request_id: str, *, step_count: int = 2, decision_count: int = 2, game_id: str = "g-0001") -> bytes:
+def terminal(
+    request_id: str,
+    *,
+    step_count: int = 2,
+    decision_count: int = 2,
+    game_id: str = "g-0001",
+    halted: bool = False,
+) -> bytes:
     return payload(
         Terminal(
             request_id=request_id,
             game_id=game_id,
             result=TerminalResult(
-                outcome="p0_win",
-                classification="natural",
-                winner="p0",
-                reason="p1_life_zero",
+                outcome="halted" if halted else "p0_win",
+                classification="halted" if halted else "natural",
+                winner=None if halted else "p0",
+                reason="engine_contract_failure" if halted else "p1_life_zero",
                 step_count=step_count,
                 decision_count=decision_count,
             ),
@@ -223,6 +230,26 @@ def test_terminal_interrupting_partial_group_detected() -> None:
         engine.reset(**reset_kwargs())
         with pytest.raises(ProtocolError, match="partial group"):
             engine.step(0)
+
+
+def test_a_halted_terminal_may_end_a_partial_group() -> None:
+    # Spec 8: an engine that cannot complete a group fails the whole game as
+    # halted; the unfinished group is not a completed physical decision.
+    peer = ScriptedPeer(
+        [
+            hello_ok(),
+            payload(
+                make_decision("h-2", step=0, group=Group(group_id=0, substep_index=0, substep_count=2)).to_json()
+            ),
+            terminal("h-3", step_count=1, decision_count=0, halted=True),
+        ]
+    )
+    with EngineProcess(peer=peer) as engine:
+        engine.hello()
+        engine.reset(**reset_kwargs())
+        done = engine.step(0)
+        assert isinstance(done, Terminal)
+        assert done.result.classification == "halted"
 
 
 def test_terminal_decision_count_mismatch_detected() -> None:

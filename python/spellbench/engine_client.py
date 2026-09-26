@@ -259,9 +259,14 @@ class EngineProcess(RoleClient):
         else:
             if self._group is None:
                 raise ProtocolError("missing prior group state at terminal")
-            if self._group.substep_index + 1 != self._group.substep_count:
+            if self._group.substep_index + 1 == self._group.substep_count:
+                expected_decision_count = self._group.group_id + 1
+            elif result.classification == "halted":
+                # Spec 8: an engine that cannot complete a group halts the
+                # game; the unfinished group is not a completed decision.
+                expected_decision_count = self._group.group_id
+            else:
                 raise ProtocolError("terminal interrupted a partial group")
-            expected_decision_count = self._group.group_id + 1
         if result.decision_count != expected_decision_count:
             raise ProtocolError(
                 f"terminal decision_count mismatch: expected {expected_decision_count}, "

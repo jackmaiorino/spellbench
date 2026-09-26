@@ -61,8 +61,9 @@ seat's private state; engines must not expose one.
 Every request carries `request_type` (string), `protocol`
 (`"spellbench/v1"`), and `request_id` (string, unique per process from this
 sender). Every response carries `response_type`, `protocol`, and the echoed
-`request_id`. A `protocol` value other than `"spellbench/v1"` fails with
-`protocol_mismatch`.
+`request_id`; an error answering a request whose `request_id` cannot be read
+(unparseable JSON, a non-string id) carries `""`. A `protocol` value other
+than `"spellbench/v1"` fails with `protocol_mismatch`.
 
 Retransmitting the identical request (same `request_id`, byte-identical
 payload) returns the cached response without side effects; engines MUST and
@@ -324,7 +325,8 @@ Response: the next `decision`, or `terminal`.
 - Only `natural` terminals with outcome `p0_win`, `p1_win`, or `draw` are
   admissible for ratings. `truncated` (cap reached) and `halted` (engine
   contract failure) games are recorded and excluded.
-- `step_count` and `decision_count` are the totals for the completed game.
+- `step_count` counts the game's answered decisions; `decision_count` counts
+  its completed physical decisions (groups, Section 8).
 
 ### 7.6 `error` (response)
 
@@ -343,9 +345,10 @@ Engines that decompose one physical game decision (for example an
 include/exclude scan over attackers) into several wire decisions mark them
 with `group`: equal `group_id` and `acting_seat`, `substep_index` running
 `0..substep_count-1`, `substep_count` fixed across the group. `group_id`
-advances by exactly 1 after a completed group. A terminal must not interrupt
-a partial group: an engine that cannot complete a group fails the whole game
-as `halted`. Engines without decomposition always emit `substep_index: 0,
+advances by exactly 1 after a completed group. Only a `halted` terminal may
+interrupt a partial group: an engine that cannot complete a group fails the
+whole game as `halted`, and the unfinished group does not count toward
+`decision_count`. Engines without decomposition always emit `substep_index: 0,
 substep_count: 1` with `group_id` equal to the physical decision count.
 
 ## 9. Extensions
@@ -354,8 +357,10 @@ A decision may carry an `extensions` object whose keys match
 `x_[a-z0-9_]+`; any other key is `malformed_request`. Extensions are
 engine-specific, optional to emit, and ignored by readers that do not know
 them. The mtg-kernel bridge emits `x_kernel_v5` carrying the raw
-`ObservationV5` and `LegalActionV5` payloads so that kernel-native models can
-play without a neutral re-encoding. Hosts pass extensions through unchanged.
+`ObservationV5` and `LegalActionV5` payloads as JSON text (`observation_json`,
+`legal_actions_json`), since they hold 64-bit hashes outside the integer range
+of Section 2, so that kernel-native models can play without a neutral
+re-encoding. Hosts pass extensions through unchanged.
 
 ## 10. Agent role messages
 
