@@ -26,9 +26,14 @@ carries a wall-clock timeout (default 30 s, ``choose_timeout_ms``).
 
 Games are independent (their own engine process, fresh bot handlers or
 processes, seeds fixed by the schedule), so ``workers`` games run
-concurrently. Results do not depend on the worker count: the ledger is
-written in schedule order. Budget ``workers`` to the host's free cores,
-since ``choose_timeout_ms`` is wall-clock time.
+concurrently in worker processes. Processes rather than threads: the host
+side of a game (strict JSON parsing and fail-closed message validation,
+builtin bots) holds the GIL, and threads saturated near 1.4 cores. Results
+do not depend on the worker count: the ledger is written in schedule order.
+Budget ``workers`` to the host's free cores, since ``choose_timeout_ms`` is
+wall-clock time. Worker processes are spawned, so a script that calls
+:func:`run_tournament` with ``workers > 1`` must do so under
+``if __name__ == "__main__":``.
 
 Adjudication (there are no timeouts in the protocol itself, spec section 11):
 a choose timeout, a malformed agent response, an invalid selection, an agent
@@ -40,9 +45,10 @@ A host-detected engine contract failure records a ``halted`` row with an
 
 from __future__ import annotations
 
+import multiprocessing
 import queue
 import threading
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from itertools import combinations_with_replacement
 from pathlib import Path
@@ -788,6 +794,20 @@ def _play_game(
 # ---------------------------------------------------------------------------
 
 
+def _play_game_in_worker(
+    config: TournamentConfig,
+    ctx: _GameContext,
+    entries: dict[str, registry.RegistryEntry],
+) -> tuple[store.LedgerRow, models.EngineIdentity]:
+    """Worker-process entry point: one game, plus the engine identity it saw.
+
+    The parent process checks every returned identity against its own pin.
+    """
+    pin = _EnginePin()
+    row = _play_game(config, ctx, entries, pin)
+    return row, pin.identity
+
+
 def _schedule(config: TournamentConfig) -> list[_GameContext]:
     """Every game of the round-robin, in ledger order."""
     schedule: list[_GameContext] = []
@@ -855,11 +875,15 @@ def run_tournament(
         for ctx in schedule:
             record(_play_game(config, ctx, entries, pin))
     else:
-        pool = ThreadPoolExecutor(max_workers=config.workers, thread_name_prefix="spellbench-game")
+        pool = ProcessPoolExecutor(
+            max_workers=config.workers, mp_context=multiprocessing.get_context("spawn")
+        )
         try:
-            futures = [pool.submit(_play_game, config, ctx, entries, pin) for ctx in schedule]
+            futures = [pool.submit(_play_game_in_worker, config, ctx, entries) for ctx in schedule]
             for future in futures:  # schedule order, whatever the completion order
-                record(future.result())
+                row, identity = future.result()
+                pin.check(identity)
+                record(row)
         finally:
             # On an abort (a TournamentError or an interrupt) the queued games
             # are dropped; games already running finish before the raise.
