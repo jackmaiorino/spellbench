@@ -220,3 +220,25 @@ def test_the_method_page_explains_the_rating() -> None:
     method = _pages()["method"]
     for phrase in ("seat", "forfeit", "virtual draw", "anchor", "Hero score", "spellbench validate"):
         assert phrase in method
+
+
+def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:
+    token = "W" * 200
+    home = copy.deepcopy(HOME)
+    home["hero"]["rows"][0]["label"] = token
+    home["benchmarks"][0]["title"] = token
+    bench = copy.deepcopy(BENCH)
+    bench["title"] = bench["summary"] = bench["engine"]["version"] = token
+    bench["overall"][0]["label"] = token
+    home_page, bench_page = render.render_home(home), render.render_benchmark(bench)
+    assert token in _element(home_page, "li", "data-bot", "heuristic")
+    assert f'<a href="b/pauper-kernel/index.html">{token}</a>' in home_page
+    assert f"<h1>{token}</h1>" in bench_page and f'<p class="lead">{token}</p>' in bench_page
+    assert f"engine mtg-kernel {token}" in bench_page
+    assert token in _element(bench_page, "tr", "data-bot", "heuristic")
+    for page in (home_page, bench_page):
+        style = page[page.index("<style>"):page.index("</style>")]
+        # every free-text block inherits overflow-wrap: anywhere from body ...
+        assert re.search(r"(?m)^body\s*\{[^}]*\boverflow-wrap:\s*anywhere\b", style)
+        # ... while tables keep their min-content widths and scroll inside .table-wrap
+        assert re.search(r"\.table-wrap\s*\{[^}]*\boverflow-wrap:\s*normal\b", style)

@@ -149,6 +149,8 @@ body {
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 16px;
   line-height: 1.55;
+  /* a long unbroken title, label, or version breaks instead of widening the page (tables opt out below) */
+  overflow-wrap: anywhere;
 }
 a { color: var(--accent-ink); text-underline-offset: 0.2em; }
 a:hover { color: var(--accent); }
@@ -159,8 +161,8 @@ h2 { font-size: 21px; letter-spacing: -0.01em; }
 h3 { font-size: 16px; }
 p { margin: 0; }
 code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875em; }
-code { padding: 0.1em 0.35em; border-radius: 4px; background: var(--surface); overflow-wrap: anywhere; }
-pre { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); white-space: pre-wrap; overflow-wrap: anywhere; }
+code { padding: 0.1em 0.35em; border-radius: 4px; background: var(--surface); }
+pre { margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); white-space: pre-wrap; }
 pre code { padding: 0; background: none; font-size: inherit; }
 .sr-only, .tabs:not([hidden]) ~ .panel .panel-title {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
@@ -192,13 +194,13 @@ main { padding-top: 40px; padding-bottom: 64px; }
   white-space: nowrap; vertical-align: 1px;
 }
 .chip.quiet { background: none; box-shadow: inset 0 0 0 1px var(--border); color: var(--muted); }
-.chips .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.chips .chip { max-width: 100%; white-space: normal; }
 ol.hero { margin: 24px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
 ol.hero > li {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who value" "bar bar" "chips chips";
   align-items: center; gap: 6px 16px; padding: 12px 0; border-bottom: 1px solid var(--border);
 }
-.who { grid-area: who; min-width: 0; overflow-wrap: anywhere; }
+.who { grid-area: who; min-width: 0; }
 .name, .label { font-weight: 600; }
 .by { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
 .value { grid-area: value; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
@@ -224,7 +226,7 @@ svg.ci { width: 100%; min-width: 96px; height: 16px; }
 .button:hover { border-color: var(--accent); color: var(--accent-ink); }
 #benchmarks { margin-top: 56px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-top: 16px; }
-.card { position: relative; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; overflow-wrap: anywhere; }
+.card { position: relative; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; }
 .card.linked:hover { border-color: var(--accent); }
 .card.proposed { border-style: dashed; }
 .card h3 a { color: var(--text); text-decoration: none; }
@@ -250,7 +252,8 @@ svg.ci { width: 100%; min-width: 96px; height: 16px; }
 .panel h3 { margin-bottom: 8px; }
 .panel .empty { padding: 0; }
 .panel section + section { margin-top: 32px; }
-.table-wrap { overflow-x: auto; }
+/* tables keep whole words (their usual min-content widths) and scroll inside the wrapper instead */
+.table-wrap { overflow-x: auto; overflow-wrap: normal; }
 table { width: 100%; border-collapse: collapse; font-size: 15px; }
 th, td { padding: 10px 12px; text-align: left; vertical-align: middle; }
 thead th { padding-top: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
@@ -274,7 +277,7 @@ table.grid td.none { background: var(--surface); }
 .details { display: grid; gap: 32px 40px; margin-top: 56px; }
 .details dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 20px; margin: 14px 0 0; font-size: 15px; }
 .details dt { color: var(--muted); }
-.details dd { margin: 0; overflow-wrap: anywhere; }
+.details dd { margin: 0; }
 .recheck { padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .recheck p, .recheck pre { margin-top: 10px; }
 .recheck code { background: var(--bg); }
