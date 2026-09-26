@@ -8,8 +8,8 @@ hand-derivable results: ``heuristic`` always plays the land (2 points),
 
 Test hooks, selected by the p0 deck's ``catalog_id``:
 
-- ``Crash`` — the process exits abruptly on the first ``step`` request.
-- ``Halt`` — the first ``step`` answers a ``halted`` terminal.
+- ``Crash``: the process exits abruptly on the first ``step`` request.
+- ``Halt``: the first ``step`` answers a ``halted`` terminal.
 
 ``max_steps`` below four truncates the game at that step.
 """

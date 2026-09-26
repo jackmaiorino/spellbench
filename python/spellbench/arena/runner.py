@@ -3,7 +3,7 @@
 Schedule: round-robin over all unordered bot pairs INCLUDING mirrors
 (``itertools.combinations_with_replacement`` order over the config bot list).
 Each matchup is ``pairs_per_matchup`` seat-swapped PAIRS of games; both games
-of a pair share one ``game_seed`` (common random numbers — the engine sees
+of a pair share one ``game_seed`` (common random numbers: the engine sees
 identical randomness, only the seats swap).
 
 Seed schedule (``spellbench-arena-seed-v1``; SplitMix64 as ported in

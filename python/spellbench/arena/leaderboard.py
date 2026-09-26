@@ -485,11 +485,11 @@ def render_markdown(document: dict[str, Any]) -> str:
     counts = document["games"]
     boot = document["bt"]["rating_bootstrap"]
     lines = [
-        f"# Spellbench leaderboard — {document['format']}",
+        f"# Spellbench leaderboard: {document['format']}",
         "",
         f"- Games: {counts['total']} played, {counts['rated']} rated "
         f"(truncated: {counts['truncated']}, halted: {counts['halted']}, forfeits: {counts['forfeit']})",
-        f"- Anchor: {anchor['name']} {anchor['version']} — fixed at 0.000000 log units (Elo display 1000.0)",
+        f"- Anchor: {anchor['name']} {anchor['version']}, fixed at 0.000000 log units (Elo display 1000.0)",
         f"- Status: {document['status']}"
         + (f" ({document['fit_error']})" if document["fit_error"] else ""),
         f"- Rating: anchored Bradley-Terry MM, draws count half; "

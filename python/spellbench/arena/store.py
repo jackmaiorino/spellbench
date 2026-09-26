@@ -7,11 +7,11 @@ fixed-point integers and ratios as ``{"num": ..., "den": ...}`` pairs).
 
 Schema identities:
 
-- ``spellbench-tournament/v1`` — ``manifest.json``, the publish boundary.
-- ``spellbench-match-ledger/v1`` — ``matches.jsonl``, one row per game.
-- ``spellbench-bot-registry/v1`` — ``registry.json``.
-- ``spellbench-leaderboard/v1`` — ``leaderboard.json``.
-- ``spellbench-tournament-config/v1`` — ``config.json``, the normalized
+- ``spellbench-tournament/v1``: ``manifest.json``, the publish boundary.
+- ``spellbench-match-ledger/v1``: ``matches.jsonl``, one row per game.
+- ``spellbench-bot-registry/v1``: ``registry.json``.
+- ``spellbench-leaderboard/v1``: ``leaderboard.json``.
+- ``spellbench-tournament-config/v1``: ``config.json``, the normalized
   canonical copy of the run configuration.
 
 Atomic publish: every data file is written (and fsynced) first;
@@ -103,7 +103,7 @@ def file_entry(path: Path, name: str) -> dict[str, Any]:
 
 
 def publish_manifest(directory: Path, manifest: dict[str, Any]) -> bytes:
-    """Write ``manifest.json`` — the publish boundary, always last.
+    """Write ``manifest.json``, the publish boundary, always last.
 
     The caller must have written (and flushed) every data file listed in
     ``manifest["files"]`` before calling this.

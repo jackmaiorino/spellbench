@@ -3,9 +3,9 @@
 This bot reads only the offered candidate list (the entire neutral
 observation in v1 is ``state_summary``; it does not need it). Priority order:
 
-1. ``play_land`` — the first such candidate;
-2. ``cast_spell`` — the first such candidate;
-3. ``activate_mana_ability`` or ``activate_ability`` — the first of either;
+1. ``play_land``: the first such candidate;
+2. ``cast_spell``: the first such candidate;
+3. ``activate_mana_ability`` or ``activate_ability``: the first of either;
 4. ``choose_attacker_inclusion`` with ``include: true``;
 5. ``choose_blocker_inclusion`` with ``include: false``;
 6. otherwise candidate 0 (which for pass-only decisions is ``pass``).

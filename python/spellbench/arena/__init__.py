@@ -1,6 +1,6 @@
 """The spellbench tournament arena: match runner, registry, ratings, leaderboard.
 
-Artifacts are canonical JSON (spec section 4.3) published atomically —
+Artifacts are canonical JSON (spec section 4.3) published atomically:
 data files first, ``manifest.json`` last (see ``store.py``).
 """
 

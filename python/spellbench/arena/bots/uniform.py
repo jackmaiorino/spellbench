@@ -7,7 +7,7 @@ reused with Jack's attribution.
 Derivation (``spellbench-arena-uniform-v1``): the bot is constructed with an
 integer ``seed``. On ``game_start`` the per-game stream is seeded with
 ``SplitMix64(seed ^ int.from_bytes(sha256(game_id.encode("utf-8"))[:8], "big"))``.
-Each ``choose`` draws ``stream.next() % len(candidates)`` — the same modulo
+Each ``choose`` draws ``stream.next() % len(candidates)``, the same modulo
 reduction the mtg-kernel uniform policy uses
 (``determinism.derive_uniform_index``). The game_id mix keeps the two games
 of a seat-swapped pair decorrelated while an identical config replays

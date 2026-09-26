@@ -1,7 +1,7 @@
 """A conformant agent-role stdio server (spec section 10).
 
-``serve`` wraps user handler callables — ``on_game_start``,
-``choose(decision) -> candidate_id``, ``on_game_over`` — as an agent-role
+``serve`` wraps user handler callables (``on_game_start``,
+``choose(decision) -> candidate_id``, ``on_game_over``) as an agent-role
 process speaking strict NDJSON on stdin/stdout. The server owns all protocol
 state: the idempotent-retry cache (single entry, spec section 4.1), the
 one-game-at-a-time rule, the pending-decision rule, and the closed error-code

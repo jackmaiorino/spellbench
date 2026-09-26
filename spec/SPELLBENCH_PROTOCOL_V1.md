@@ -135,7 +135,7 @@ object: field `kind` plus the fields below. Unknown `kind` values are
 
 | kind | additional fields | meaning |
 |---|---|---|
-| `pass` | — | pass priority / decline an optional prompt |
+| `pass` | (none) | pass priority / decline an optional prompt |
 | `play_land` | `source` | play the referenced land |
 | `cast_spell` | `source` | cast the referenced spell (cost/mode fixed by enumeration) |
 | `activate_mana_ability` | `source`, `mana_choice`, `cost_target` | `mana_choice`: `"W","U","B","R","G","C"` or null; `cost_target`: target ref or null |

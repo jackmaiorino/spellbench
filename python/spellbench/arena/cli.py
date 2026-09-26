@@ -1,12 +1,12 @@
 """The ``spellbench`` command line: run / validate / leaderboard / bot.
 
-- ``spellbench run CONFIG.json`` — run a tournament and publish artifacts
+- ``spellbench run CONFIG.json``: run a tournament and publish artifacts
   into the config's ``tournament_dir``.
-- ``spellbench validate TOURNAMENT_DIR`` — verify every manifest digest and
+- ``spellbench validate TOURNAMENT_DIR``: verify every manifest digest and
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
-- ``spellbench leaderboard TOURNAMENT_DIR`` — print the leaderboard table.
-- ``spellbench bot NAME [--seed N]`` — serve a builtin bot as an agent-role
+- ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
+- ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
   subprocess (so configs can reference builtins over stdio too).
 
 Exit codes: 0 success, 1 validation/run failure, 2 usage.
