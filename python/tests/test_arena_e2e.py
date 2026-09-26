@@ -80,6 +80,28 @@ def test_mirror_matchups_carry_no_paired_statistics(tmp_path: Path) -> None:
         assert mirror["sign_test"] is None
 
 
+def test_training_style_subratings_refit_only_games_inside_the_tag(tmp_path: Path) -> None:
+    # "rl" holds heuristic and first: their slice keeps heuristic-vs-first
+    # games (4-0, so ln(9) apart under the prior) and drops every uniform
+    # game. "baseline" holds only uniform, so it cannot be rated.
+    directory = tmp_path / "t"
+    bots = [
+        builtin("uniform", seed=11, training_style_tags=["baseline"]),
+        builtin("heuristic", training_style_tags=["rl"]),
+        builtin("first", training_style_tags=["rl"]),
+    ]
+    run(make_config(directory, bots, pairs=2))
+    subratings = {sub["tag"]: sub for sub in leaderboard(directory)["subratings"]}
+    assert (subratings["baseline"]["status"], subratings["baseline"]["reason"]) == ("skipped", "fewer_than_two_bots")
+    rl = subratings["rl"]
+    assert rl["status"] == "ok"
+    rows = {row["name"]: row for row in rl["rows"]}
+    assert set(rows) == {"heuristic", "first"}
+    assert (rows["heuristic"]["games"], rows["heuristic"]["wins"], rows["heuristic"]["losses"]) == (12, 4, 0)
+    gap = rows["heuristic"]["rating_log_units_e6"] - rows["first"]["rating_log_units_e6"]
+    assert abs(gap - math.log(9) * 1_000_000) <= 1
+
+
 def test_rerun_of_an_identical_config_is_byte_identical(tmp_path: Path) -> None:
     first_dir, second_dir = tmp_path / "a", tmp_path / "b"
     run(make_config(first_dir, ALL_BUILTINS, pairs=3))
