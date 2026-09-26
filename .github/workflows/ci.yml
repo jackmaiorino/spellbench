@@ -36,3 +36,6 @@ jobs:
 
       - name: Run tests
         run: uv run --no-sync pytest python/tests -q
+
+      - name: Validate committed benchmark runs
+        run: uv run --no-sync spellbench site benchmarks "${{ runner.temp }}/site-check"
