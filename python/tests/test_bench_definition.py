@@ -106,6 +106,32 @@ def test_bot_names_are_unique() -> None:
         definition.parse_benchmark(value)
 
 
+# Cf: zero-width space, right-to-left override, left-to-right isolate, soft hyphen. Cc: escape, newline.
+@pytest.mark.parametrize("char", ["​", "‮", "⁦", "­", "\x1b", "\n"])
+@pytest.mark.parametrize("field", ["label", "author", "description"])
+def test_display_text_rejects_control_and_format_characters(field: str, char: str) -> None:
+    value = _value()
+    value["bots"][1]["display"][field] = f"My{char}Bot"
+    with pytest.raises(BenchmarkError, match=rf"benchmark\.bots\[1\]\.display\.{field}: .*U\+{ord(char):04X}"):
+        definition.parse_benchmark(value)
+
+
+def test_display_text_may_hold_any_visible_characters() -> None:
+    value = _value()
+    label = "Überbot · 改 (MCTS) \U0001f916"
+    value["bots"][1]["display"].update(label=label, author="José", description="Fast. Then slow.")
+    assert definition.parse_benchmark(value).bot("mybot").display.label == label
+
+
+# Each reads as "random" on a page: the same text, another case, extra spacing, fullwidth letters.
+@pytest.mark.parametrize("label", ["random", "Random", " random  ", "random ", "ｒａｎｄｏｍ"])
+def test_labels_are_unique_within_a_benchmark(label: str) -> None:
+    value = _value()
+    value["bots"][1]["display"]["label"] = label
+    with pytest.raises(BenchmarkError, match=r"benchmark\.bots\[1\]\.display\.label: .*bots\[0\]"):
+        definition.parse_benchmark(value)
+
+
 @pytest.mark.parametrize("url", ["javascript:alert(1)", "ftp://x.org", "example.com", " https://x.org", "https://x.org/a b"])
 def test_display_urls_must_be_plain_http_links(url: str) -> None:
     value = _value()
