@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import queue
+import shutil
 import subprocess
 import threading
 from typing import Any, Mapping, Sequence
@@ -184,13 +186,22 @@ class SubprocessPeer:
     ) -> None:
         if not argv:
             raise ValueError("argv must be nonempty")
-        self._proc = subprocess.Popen(
-            list(argv),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-        )
+        argv = list(argv)
+        # A bare program name resolves on PATH, as a POSIX shell would. On
+        # Windows, CreateProcess would first look in the running interpreter's
+        # own directory, so a bare "python" could start a different Python.
+        if os.path.basename(argv[0]) == argv[0]:
+            argv[0] = shutil.which(argv[0]) or argv[0]
+        try:
+            self._proc = subprocess.Popen(
+                argv,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=False,
+            )
+        except OSError as exc:
+            raise TransportError(f"cannot start {argv[0]!r}: {exc}") from exc
         assert self._proc.stdin is not None
         assert self._proc.stdout is not None
         assert self._proc.stderr is not None

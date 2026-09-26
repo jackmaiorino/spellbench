@@ -647,7 +647,10 @@ def _play_game(
             engine=pin.identity.provenance(),
         )
 
-    engine = EngineProcess(list(config.engine_command), timeout_s=config.engine_timeout_ms / 1000.0)
+    try:
+        engine = EngineProcess(list(config.engine_command), timeout_s=config.engine_timeout_ms / 1000.0)
+    except TransportError as exc:
+        raise TournamentError(f"engine failed to start: {exc}") from exc
     drivers: list[Any] = []
     decision: models.Decision | None = None
     try:
