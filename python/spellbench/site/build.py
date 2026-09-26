@@ -325,7 +325,8 @@ def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset
             "games": {key: board["games"][key] for key in _GAME_COUNTS},
             "manifest_sha256": store.sha256_hex(run.files[store.MANIFEST_NAME]),
             "files": [{"name": name, "href": f"run/{name}", "bytes": len(run.files[name])} for name in RUN_FILES],
-            "validate_command": f"spellbench validate benchmarks/{benchmark.id}/runs/{run.name}",
+            # uv run: a fresh clone has no spellbench on PATH until uv installs the project
+            "validate_command": f"uv run spellbench validate benchmarks/{benchmark.id}/runs/{run.name}",
         },
         "overall": overall,
         "deck_tables": [_deck_table(deck_slice, anchor_id, display) for deck_slice in board["slices"]["deck"]],

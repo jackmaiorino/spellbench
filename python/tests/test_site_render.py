@@ -72,7 +72,7 @@ BENCH: dict[str, Any] = {
         "manifest_sha256": "f" * 64,
         "files": [{"name": "matches.jsonl", "href": "run/matches.jsonl", "bytes": 12345},
                   {"name": "manifest.json", "href": "run/manifest.json", "bytes": 999}],
-        "validate_command": "spellbench validate benchmarks/pauper-kernel/runs/2026-09-26",
+        "validate_command": "uv run spellbench validate benchmarks/pauper-kernel/runs/2026-09-26",
     },
     "overall": OVERALL,
     "deck_tables": [
@@ -246,6 +246,10 @@ def test_the_method_page_explains_the_rating() -> None:
     method = _pages()["method"]
     for phrase in ("seat", "forfeit", "virtual draw", "anchor", "Hero score", "spellbench validate"):
         assert phrase in method
+
+
+def test_the_method_page_gives_a_recheck_command_that_runs_from_a_fresh_clone() -> None:
+    assert "<code>uv run spellbench validate benchmarks/&lt;id&gt;/runs/&lt;name&gt;</code>" in _pages()["method"]
 
 
 def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:

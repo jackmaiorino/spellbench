@@ -387,6 +387,14 @@ def test_every_leaderboard_number_reaches_the_benchmark_page(tree: Path, tmp_pat
             assert f'{row["wins"]}-{row["draws"]}-{row["losses"]}' in text
 
 
+def test_the_recheck_command_runs_from_a_fresh_clone(tree: Path, tmp_path: Path) -> None:
+    # A fresh clone has no spellbench on PATH; uv run installs the project and runs it.
+    out = tmp_path / "site"
+    build_site(tree, out)
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    assert "<pre><code>uv run spellbench validate benchmarks/alpha/runs/2026-09-26</code></pre>" in page
+
+
 def test_a_bot_that_never_lost_is_shown_as_a_bound(tree: Path, tmp_path: Path) -> None:
     # On the fake engine heuristic scores two points a game and first none: heuristic never loses, first never wins.
     out = tmp_path / "site"

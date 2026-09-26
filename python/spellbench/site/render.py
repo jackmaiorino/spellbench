@@ -430,7 +430,7 @@ def render_method(view: Mapping[str, Any]) -> str:
     sections.append(
         "<section>\n<h2>Check it yourself</h2>\n"
         f"<p>Every number on this site is re-derived from a committed match ledger. {clone} and run "
-        "<code>spellbench validate benchmarks/&lt;id&gt;/runs/&lt;date&gt;</code>: it checks every file's "
+        "<code>uv run spellbench validate benchmarks/&lt;id&gt;/runs/&lt;name&gt;</code>: it checks every file's "
         "hash and recomputes every rating from the ledger.</p>\n</section>"
     )
     main = ['<div class="prose">', "<h1>How ratings work</h1>", *sections, "</div>"]
