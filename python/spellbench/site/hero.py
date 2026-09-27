@@ -7,11 +7,12 @@ the benchmarks ``i`` entered. One benchmark keeps its own interval; several
 combine per-benchmark standard errors (half-width / 1.96) as
 ``sqrt(sum(se^2)) / n``, an approximation the site labels as such.
 
-A bot that never lost (or never won) a rated game has no finite best-fit
-rating: the one virtual draw per matchup keeps it finite, and it grows with
-the number of games. ``rating_bound`` marks such a rating as a lower (or
-upper) bound. A Hero score is a bound when the benchmarks that bound it all
-bound it the same way; mixed bounds bound nothing.
+A bot that won (or lost) every rated game has no finite best-fit rating: the
+one virtual draw per matchup keeps it finite, and it grows with the number
+of games. ``rating_bound`` marks such a rating as a lower (or upper) bound.
+A draw gives each side half a point, so a record with a draw has a finite
+rating and is never a bound. A Hero score is a bound when the benchmarks
+that bound it all bound it the same way; mixed bounds bound nothing.
 """
 
 from __future__ import annotations
@@ -60,11 +61,12 @@ def _elo_above_anchor(elo_milli: int) -> float:
 def rating_bound(row: Mapping[str, Any]) -> str | None:
     """Whether a leaderboard row's rating is only a bound: ``"lower"``, ``"upper"``, or None.
 
-    A rated row with no losses and at least one win is a lower bound; one with
-    no wins and at least one loss is an upper bound. Callers leave out the
-    anchor, whose rating is fixed.
+    A rated row with at least one win and no losses or draws is a lower bound;
+    one with at least one loss and no wins or draws is an upper bound. A draw
+    gives each side half a point, so with one the best-fit rating is finite
+    without the prior. Callers leave out the anchor, whose rating is fixed.
     """
-    if not row["rated"]:
+    if not row["rated"] or row["draws"] > 0:
         return None
     if row["losses"] == 0 and row["wins"] > 0:
         return "lower"

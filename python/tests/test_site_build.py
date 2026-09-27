@@ -116,8 +116,12 @@ def _element(page: str, tag: str, attribute: str, value: str) -> str:
 
 
 def _bound(row: dict[str, Any], board: dict[str, Any]) -> str | None:
-    """The site's bound for a leaderboard row, derived here from the rule rather than the build."""
-    if row["bot_id"] == board["anchor"]["bot_id"] or not row["rated"]:
+    """The site's bound for a leaderboard row, derived here from the rule rather than the build.
+
+    Only a record of wins alone (or losses alone) is a bound: a draw gives each side half a point,
+    so a record with a draw has a finite best-fit rating.
+    """
+    if row["bot_id"] == board["anchor"]["bot_id"] or not row["rated"] or row["draws"]:
         return None
     if row["wins"] and not row["losses"]:
         return "lower"
@@ -400,21 +404,25 @@ def test_the_recheck_command_runs_from_a_fresh_clone(tree: Path, tmp_path: Path)
     assert "<pre><code>uv run spellbench validate benchmarks/alpha/runs/2026-09-26</code></pre>" in page
 
 
-def test_a_bot_that_never_lost_is_shown_as_a_bound(tree: Path, tmp_path: Path) -> None:
+def test_a_bot_that_won_every_game_is_shown_as_a_bound(tree: Path, tmp_path: Path) -> None:
     # On the fake engine heuristic scores two points a game and first none: heuristic never loses, first never wins.
     out = tmp_path / "site"
     build_site(tree, out)
     boards = {b: json.loads((tree / b / "runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8")) for b in ("alpha", "beta")}
     rows = {row["name"]: row for row in boards["alpha"]["rows"]}
-    assert rows["heuristic"]["losses"] == 0 < rows["heuristic"]["wins"]
-    assert rows["first"]["wins"] == 0 < rows["first"]["losses"]
+    assert rows["heuristic"]["wins"] > 0 == rows["heuristic"]["draws"] == rows["heuristic"]["losses"]
     page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
-    overall = page[page.index('data-panel="overall"'):]
-    top, bottom = _html(overall, "tr", "data-bot", "heuristic"), _html(overall, "tr", "data-bot", "first")
-    high, low = render.format_elo(rows["heuristic"]["elo_milli"]), render.format_elo(rows["first"]["elo_milli"])
+    top = _html(page[page.index('data-panel="overall"'):], "tr", "data-bot", "heuristic")
+    high = render.format_elo(rows["heuristic"]["elo_milli"])
     assert f"{GE}{NBSP}{high}" in top and ">unbeaten<" in top and 'class="arrow"' in top
     assert f'aria-label="at least {high} Elo, unbeaten: the rating is limited by the prior"' in top
-    assert f"{LE}{NBSP}{low}" in bottom and ">winless<" in bottom and 'class="arrow"' in bottom
+    # first lost every game on Faeries: an upper bound in that deck's table
+    faeries = next(deck for deck in boards["alpha"]["slices"]["deck"] if deck["label"] == "Faeries")
+    first = next(row for row in faeries["rows"] if row["name"] == "first")
+    assert first["losses"] > 0 == first["wins"] == first["draws"]
+    bottom = _html(_section(page, 'data-deck="Faeries"'), "tr", "data-bot", "first")
+    assert f"{LE}{NBSP}{render.format_elo(first['elo_milli'])}" in bottom and ">winless<" in bottom
+    assert 'class="arrow"' in bottom
     # the Hero row averages two lower bounds: a lower bound, drawn with an arrow
     hero = _html((out / "index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
     margins = {
@@ -425,6 +433,23 @@ def test_a_bot_that_never_lost_is_shown_as_a_bound(tree: Path, tmp_path: Path) -
     assert 'class="arrow"' in hero and 'class="whisker"' not in hero
     for bench, margin in margins.items():
         assert f"{bench} {GE}{NBSP}{render.format_margin(margin)}" in hero
+
+
+def test_a_bot_with_a_draw_is_not_a_bound(tree: Path, tmp_path: Path) -> None:
+    # Overall, first never won but drew against uniform: its rating is finite, so it shows its interval.
+    out = tmp_path / "site"
+    build_site(tree, out)
+    board = json.loads((tree / "alpha/runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
+    first = next(row for row in board["rows"] if row["name"] == "first")
+    assert first["wins"] == 0 < first["draws"] and first["losses"] > 0
+    page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
+    row = _html(page[page.index('data-panel="overall"'):], "tr", "data-bot", "first")
+    elo = render.format_elo(first["elo_milli"])
+    low, high = (render.format_elo(end) for end in first["ci95_elo_milli"])
+    assert f'<td class="num elo">{elo}</td>' in row and "winless" not in row and 'class="arrow"' not in row
+    assert f'aria-label="Elo {elo}, 95% interval {low} to {high}"' in row
+    hero = _html((out / "index.html").read_text(encoding="utf-8"), "li", "data-bot", "first")
+    assert LE not in hero and 'class="arrow"' not in hero and 'class="whisker"' in hero
 
 
 def test_an_unrated_deck_is_reported_and_the_site_still_builds(tmp_path: Path) -> None:
@@ -541,10 +566,11 @@ def test_the_build_never_replaces_the_benchmarks_it_reads(copy_tree: Path) -> No
 def checked(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, Any]]:
     """A site built from one benchmark, "gamma", holding every kind of leaderboard row, and its leaderboard.json.
 
-    On the fake engine heuristic never loses (a lower bound), first never wins
-    (an upper bound), and one-land beats first and loses to heuristic: an
-    ordinary interval overall and, with one pair per deck, a zero-width one
-    ("interval not estimable") in every deck table. uniform is the anchor.
+    On the fake engine heuristic wins every game (a lower bound), first never
+    wins (an upper bound where it also never drew, else an interval), and
+    one-land beats first and loses to heuristic: an ordinary interval overall
+    and, with one pair per deck, a zero-width one ("interval not estimable")
+    in every deck table. uniform is the anchor.
     """
     root = tmp_path_factory.mktemp("checked")
     value = _definition("gamma")

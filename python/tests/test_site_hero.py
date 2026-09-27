@@ -145,18 +145,26 @@ def test_unrated_rows_are_skipped_and_ties_break_by_name() -> None:
     ("record", "rated", "bound"),
     [
         ((6, 0, 0), True, "lower"),
-        ((6, 2, 0), True, "lower"),   # draws do not change the rule
         ((0, 0, 6), True, "upper"),
-        ((0, 2, 6), True, "upper"),
         ((5, 0, 1), True, None),
         ((0, 4, 0), True, None),      # only draws: neither a win nor a loss
         ((6, 0, 0), False, None),     # no rating to bound
     ],
 )
-def test_a_rating_is_a_bound_when_the_bot_never_lost_or_never_won(
+def test_a_rating_is_a_bound_when_the_bot_won_or_lost_every_game(
     record: tuple[int, int, int], rated: bool, bound: str | None
 ) -> None:
     assert rating_bound(_row("bot", 1_100_000, None, rated=rated, record=record)) == bound
+
+
+@pytest.mark.parametrize("record", [(6, 2, 0), (6, 1, 0), (0, 1, 6), (0, 2, 6)])
+def test_draws_make_a_rating_finite_so_it_is_not_a_bound(record: tuple[int, int, int]) -> None:
+    # A draw gives each side half a point, so a bot that never lost but drew (or never won but drew)
+    # has a finite best-fit rating that does not lean on the prior.
+    assert rating_bound(_row("bot", 1_100_000, None, record=record)) is None
+    table = hero_table([("pauper", _board(_row("drawer", 1_300_000, (1_250_000, 1_350_000), record=record)))])
+    row = _by_name(table)["drawer"]
+    assert row.bound is None and row.chips[0].bound is None
 
 
 def test_a_bot_that_never_lost_is_a_lower_bound_and_one_that_never_won_an_upper_bound() -> None:

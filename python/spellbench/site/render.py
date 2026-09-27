@@ -38,7 +38,7 @@ _MINUS = "\N{MINUS SIGN}"
 _NBSP = "\N{NO-BREAK SPACE}"
 _ANCHOR_ELO_MILLI = 1_000_000  # the random bot's fixed Elo, 1000
 _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) grid cell
-# A rating from a record without losses (or without wins) is only a bound (hero.rating_bound).
+# A rating from a record of wins alone (or losses alone) is only a bound (hero.rating_bound).
 _BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
 _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
@@ -83,8 +83,8 @@ _METHOD_SECTIONS = (
         "that resamples whole pairs within each matchup.",
     ),
     (
-        "Unbeaten and winless bots",
-        "A bot that never lost (or never won) a rated game has no finite best-fit rating. The virtual draw keeps it "
+        "Bots that won or lost every game",
+        "A bot that won (or lost) every rated game has no finite best-fit rating. The virtual draw keeps it "
         "finite, so the site shows it as a bound, at least or at most, and that bound grows with the number of games "
         "played.",
     ),
@@ -604,7 +604,7 @@ def _hero(hero: Mapping[str, Any]) -> str:
         if any(_hero_bound(row) for row in rows):
             note += (
                 f" A score marked {_BOUND_SIGNS['lower']} or {_BOUND_SIGNS['upper']} is only a bound: "
-                "the bot never lost, or never won, in a benchmark it entered."
+                "the bot won every game, or lost every game, in a benchmark it entered."
             )
         parts.append(_note(note))
     else:

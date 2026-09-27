@@ -350,7 +350,10 @@ def test_a_bounded_hero_row_reads_as_a_bound_with_an_arrow() -> None:
     assert 'class="arrow"' in row and 'class="whisker"' not in row
     assert _aria(row) == "at least 864 Elo above random, unbeaten in pauper-kernel: the rating is limited by the prior"
     hero = page[page.index('id="hero"'):page.index('id="benchmarks"')]
-    assert f"A score marked {GE} or {LE} is only a bound" in hero
+    assert (
+        f"A score marked {GE} or {LE} is only a bound: the bot won every game, or lost every game, "
+        "in a benchmark it entered."
+    ) in hero
     assert "is only a bound" not in render.render_home(HOME)  # the note appears only with a bound
 
 
@@ -399,11 +402,14 @@ def test_every_leaderboard_row_shows_the_rated_name_and_version() -> None:
 
 
 def test_the_method_page_explains_bounds() -> None:
+    # "won (or lost) every rated game": a draw gives each side half a point, so a record with one is finite
     method = _pages()["method"]
+    assert "<h2>Bots that won or lost every game</h2>" in method
     assert (
-        "A bot that never lost (or never won) a rated game has no finite best-fit rating. The virtual draw keeps it "
+        "A bot that won (or lost) every rated game has no finite best-fit rating. The virtual draw keeps it "
         "finite, so the site shows it as a bound, at least or at most, and that bound grows with the number of games played."
     ) in method
+    assert "never lost" not in method
 
 
 # ---------------- escaping: payloads in every string field of all four views ----------------
