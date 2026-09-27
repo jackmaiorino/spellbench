@@ -5,7 +5,7 @@ definition, re-validates each benchmark's latest published run with the
 checks of ``spellbench validate``, and refuses to build if any run fails. It
 then computes the Hero table, builds the view-model dicts that ``render``
 turns into pages (the contract in ``docs/design/2026-09-26-benchmark-site-plan.md``),
-and writes ``index.html``, ``join.html``, ``method.html``,
+and writes ``index.html``, ``models.html``, ``join.html``, ``method.html``,
 ``b/<id>/index.html``, and byte copies of each run's files under
 ``b/<id>/run/`` for download.
 
@@ -46,6 +46,7 @@ _SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "
 _MARKER_TEXT = "spellbench site output; rebuilt by spellbench site\n"
 _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
 _ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
+_ANCHOR_ELO_MILLI = 1_000_000  # the anchor's fixed Elo in milli-Elo (hero.py)
 
 
 class SiteError(ValueError):
@@ -112,6 +113,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     files = {
         SITE_MARKER: _MARKER_TEXT.encode("utf-8"),  # first: a partial write can still be replaced
         "index.html": render.render_home(_home_view(benchmarks, runs, stale, table, proposed)).encode("utf-8"),
+        "models.html": render.render_models(_models_view(benchmarks, runs, stale)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
     }
@@ -265,7 +267,7 @@ def _hero_row(
     As on that benchmark's page, a bot whose arena entry changed since its run
     (in ``stale``) shows its registry name and owner instead.
     """
-    label, author = row.name, ""
+    label, author, description = row.name, "", ""
     for benchmark in benchmarks:
         bot = benchmark.bot(row.name)
         if bot is None:
@@ -273,12 +275,13 @@ def _hero_row(
         if row.name in stale.get(benchmark.id, frozenset()):
             label, author = row.name, runs[benchmark.id].owners[row.name]
         else:
-            label, author = bot.display.label, bot.display.author
+            label, author, description = bot.display.label, bot.display.author, bot.display.description
         break
     return {
         "name": row.name,
         "label": label,
         "author": author,
+        "description": description,
         "score": row.score,
         "lower": row.lower,
         "upper": row.upper,
@@ -287,6 +290,108 @@ def _hero_row(
         "bound": row.bound,
         "chips": [{"benchmark_id": chip.benchmark_id, "margin": chip.margin, "bound": chip.bound} for chip in row.chips],
     }
+
+
+def _models_view(
+    benchmarks: Sequence[definition.Benchmark],
+    runs: Mapping[str, _Run],
+    stale: Mapping[str, frozenset[str]],
+) -> dict[str, Any]:
+    """The view of ``models.html``: one section per bot, linked from every bot name on the site.
+
+    A bot's text comes from the first benchmark (id order) whose definition
+    lists it. A bot whose arena entry changed since that benchmark's run (in
+    ``stale``), or that no definition lists, shows its registry name and owner
+    with the recorded entry's facts instead, as on the benchmark pages.
+    Ratings come from each benchmark's latest run leaderboard. Sections order
+    submitted models by best rating first, the anchor and builtins after
+    them, ties by name.
+    """
+    sections: dict[str, dict[str, Any]] = {}
+    for benchmark in benchmarks:
+        for bot in benchmark.bots:
+            if bot.name in sections:
+                continue
+            if bot.name in stale.get(benchmark.id, frozenset()):
+                sections[bot.name] = _recorded_section(bot.name, runs[benchmark.id])
+            else:
+                sections[bot.name] = _definition_section(bot)
+    for benchmark in benchmarks:
+        run = runs.get(benchmark.id)
+        if run is None:
+            continue
+        for row in run.board["rows"]:
+            if row["name"] not in sections:
+                sections[row["name"]] = _recorded_section(row["name"], run)
+    for benchmark in benchmarks:
+        run = runs.get(benchmark.id)
+        if run is None:
+            continue
+        anchor_id = run.board["anchor"]["bot_id"]
+        for row in run.board["rows"]:
+            sections[row["name"]]["benchmarks"].append(_model_rating(benchmark.id, row, anchor_id))
+    return {"site": _SITE, "models": sorted(sections.values(), key=_model_order)}
+
+
+def _definition_section(bot: definition.BenchmarkBot) -> dict[str, Any]:
+    """A models section from the definition: the display text and the arena entry's facts."""
+    display, entry = bot.display, bot.entry
+    return {
+        "name": bot.name,
+        "label": display.label,
+        "author": display.author,
+        "description": display.description,
+        "url": display.url,
+        "kind": _model_kind(entry["type"]),
+        "engine": entry.get("engine"),
+        "tags": list(entry.get("training_style_tags", ())),
+        "version": entry["version"],
+        "benchmarks": [],
+    }
+
+
+def _recorded_section(name: str, run: _Run) -> dict[str, Any]:
+    """A models section from a run's records, for a bot the definition no longer describes."""
+    spec = next(spec for spec in run.config.bots if spec.name == name)
+    return {
+        "name": name,
+        "label": name,
+        "author": run.owners[name],
+        "description": "",
+        "url": None,
+        "kind": _model_kind(spec.type),
+        "engine": None if spec.engine == "any" else spec.engine,
+        "tags": list(spec.training_style_tags),
+        "version": spec.version,
+        "benchmarks": [],
+    }
+
+
+def _model_kind(bot_type: str) -> str:
+    """The facts line's first item: builtins are the reference bots, everything else a submitted model."""
+    return "builtin reference bot" if bot_type == "builtin" else "submitted model"
+
+
+def _model_rating(bench_id: str, row: Mapping[str, Any], anchor_id: str) -> dict[str, Any]:
+    """One benchmark line of a models section: Elo above random and its interval, or "reference" for the anchor."""
+    anchor = row["bot_id"] == anchor_id
+    elo, interval = row["elo_milli"], row["ci95_elo_milli"]
+    return {
+        "id": bench_id,
+        "href": f"b/{bench_id}/index.html",
+        "reference": anchor,
+        "margin": None if elo is None else (elo - _ANCHOR_ELO_MILLI) / 1000,
+        "lower": None if interval is None else (interval[0] - _ANCHOR_ELO_MILLI) / 1000,
+        "upper": None if interval is None else (interval[1] - _ANCHOR_ELO_MILLI) / 1000,
+        "bound": None if anchor else hero.rating_bound(row),
+    }
+
+
+def _model_order(section: Mapping[str, Any]) -> tuple[bool, float, str]:
+    """Submitted models by best rating first, then the anchor and builtins; ties by name."""
+    margins = [row["margin"] for row in section["benchmarks"] if row["margin"] is not None]
+    best = max(margins, default=float("-inf"))
+    return (section["kind"] == "builtin reference bot", -best, section["name"])
 
 
 def _card(benchmark: definition.Benchmark, run: _Run | None) -> dict[str, Any]:
@@ -443,6 +548,7 @@ def _grid(
     return {
         "names": [row["name"] for row in rows],
         "labels": [display[row["name"]]["label"] for row in rows],
+        "descriptions": [display[row["name"]]["description"] for row in rows],
         "cells": cells,
     }
 
