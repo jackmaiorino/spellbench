@@ -37,7 +37,7 @@ CITED_BY = "cited by: "
 # The artifact catalog's statuses (collab tools/artifact_register.py); a closed run's pins are frozen.
 CATALOG_STATUSES = ("live", "closed", "frozen", "unknown")
 CLOSURE_STATUS = "frozen"
-# A citation lock older than this was left by a crashed launch.
+# A pin row lock older than this was left by a crashed launch.
 LOCK_STALE_S = 600.0
 _PLACEHOLDER = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
 
@@ -244,11 +244,13 @@ def _check_status(status: str) -> None:
 
 
 @contextlib.contextmanager
-def _citation_lock(directory: Path, timeout_s: float) -> Iterator[None]:
-    """Hold ``<directory>.lock`` beside the pin while its catalog row is read and rewritten.
+def _pin_row_lock(directory: Path, timeout_s: float) -> Iterator[None]:
+    """Hold ``<directory>.lock`` beside the pin while anything writes its catalog row.
 
-    Two launches citing one pin would otherwise both read the same note, and
-    the second write would drop the first run's citation. A lock older than
+    The register script loads the catalog and appends the whole row it loaded,
+    so a write that loaded the row before another launch's citation landed
+    would drop that citation; every write to a pin's row therefore holds this
+    lock, across the script's load and its append. A lock older than
     ``LOCK_STALE_S`` was left by a crashed launch and is broken; waiting
     longer than ``timeout_s`` for a live one is an error.
     """
@@ -294,8 +296,8 @@ def register_pins(
 ) -> None:
     """Register each pinned directory once in the artifact catalog (lane ``spellbench``, kept in full).
 
-    Without ``cited_by`` each directory is added with the given fields. With
-    it, under a lock per pin, the catalog row is looked up first (``show``):
+    Every write holds the pin's lock. Without ``cited_by`` each directory is
+    added with the given fields. With it, the catalog row is looked up first (``show``):
     a new pin is added with the note ``cited by: <cited_by>``, and a pin
     other runs share is updated with ``status`` and this run appended to its
     note, keeping its first purpose and doc (the catalog keeps only the
@@ -307,9 +309,10 @@ def register_pins(
     for directory in dict.fromkeys(Path(item) for item in pinned):
         added = _add_arguments(directory, owner=owner, status=status, purpose=purpose, doc=doc, regen=regen)
         if cited_by is None:
-            _register(register_script, "add", directory, added, python=python, timeout_s=timeout_s)
+            with _pin_row_lock(directory, timeout_s):  # "add" re-appends the row it loaded, citations included
+                _register(register_script, "add", directory, added, python=python, timeout_s=timeout_s)
             continue
-        with _citation_lock(directory, timeout_s):
+        with _pin_row_lock(directory, timeout_s):
             shown = _register(register_script, "show", directory, ["--id", str(directory)], python=python,
                               timeout_s=timeout_s)
             try:
@@ -367,7 +370,11 @@ def pin_and_register(
             register_pins(register_script, [directory], owner=owner, purpose=purpose, doc=doc, regen=regen,
                           cited_by=cited_by, status="live", python=python, timeout_s=timeout_s)
         pin_files([file], pin_root)
-        _register(register_script, "update", directory, ["--id", str(directory), "--status", "live"], python=python,
-                  timeout_s=timeout_s)  # the catalog measures the copy now that it is in place
+        # The catalog measures the copy now that it is in place. The register script loads the catalog and appends
+        # the whole row it loaded, so this update holds the pin's lock too: another launch's citation must not land
+        # between its load and its append.
+        with _pin_row_lock(directory, timeout_s):
+            _register(register_script, "update", directory, ["--id", str(directory), "--status", "live"],
+                      python=python, timeout_s=timeout_s)
         directories.append(directory)
     return tuple(directories)

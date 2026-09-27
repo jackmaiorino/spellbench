@@ -5,9 +5,12 @@
   repeats of one game. ``play(workers, indices)`` plays the given games with
   that many workers and reports each game's own time, digest and ledger
   bytes (``PlayedGame``).
+- The current rules are this module's constants (:func:`current_rules`);
+  each allocation records the rules it was planned under, and is checked
+  against those, so tests that change a rule patch it here.
 - A run is substantial when its projected serial time reaches
-  ``SUBSTANTIAL_RUN_SECONDS`` (recorded in the allocation) and its scaling
-  comparison fits the budget: every rung of 1, ``bound // 2`` and ``bound``
+  ``SUBSTANTIAL_RUN_SECONDS`` and its scaling comparison fits the
+  budget: every rung of 1, ``bound // 2`` and ``bound``
   workers plays the same ``QUALIFY_GAMES_PER_WORKER * bound`` games, at
   most ``QUALIFY_BUDGET_PERCENT`` percent of the serial schedule at ideal
   scaling, because qualification counts toward the time to a completed
@@ -21,14 +24,14 @@
   clock), which are recorded rather than refused.
 - Every other run is small: after a short probe it keeps its configured
   workers (within the declared cores and the game count), and after the run
-  one scheduled game is replayed serially (``spot_check_game``,
+  one scheduled game is replayed serially (:func:`spot_check_game`,
   ``Allocation.with_spot_check``); only a passed spot check makes it
   ratable (Decision 3).
 - With an evidence file, a qualification is recorded locally and reused by a
-  later launch on the same host, cores, cores per game, worker bound,
-  hardware and workload whose probe would play the same games, for half to
-  twice as many games in the same size class; a reuse never carries a spot
-  check forward.
+  later launch under the same rules on the same host, cores, cores per
+  game, worker bound, hardware and workload whose probe would play the
+  same games, for half to twice as many games in the same size class; a
+  reuse never carries a spot check forward.
 - The allocation carries the machine's facts and a byte budget: ledger rows
   projected from the probe plus the pinned files, under a cap. A launch that
   would leave less than ``RESERVE_BYTES`` free on the run or pin volume is
@@ -47,20 +50,53 @@ from typing import Any, Callable, Mapping, Sequence
 from ..errors import ProtocolError, ValidationError
 from ..wire import canonical_json_dumps, strict_json_loads
 from .allocation import (
-    PLACEMENT_FORM, QUALIFY_GAMES_PER_WORKER, Allocation, Budget, MachineFacts, Placement, PlayedGame, ThroughputError,
-    Trial, exact_keys, fastest_workers, is_digest, ladder_fits, projected_row_bytes, projected_seconds,
-    resource_bound, size_class, worker_ladder,
+    PLACEMENT_FORM, Allocation, Budget, MachineFacts, Placement, PlayedGame, QualificationRules, ThroughputError,
+    Trial, exact_keys, fastest_workers, is_digest, projected_row_bytes, projected_seconds,
 )
 from .machine import RESERVE_BYTES, check_reserve, host_name, machine_facts, usable_cpus
 
-# A run projected at this much serial time or more is substantial (recorded in each allocation). Tests that force a
-# scaling comparison patch this module's constant.
+# The current qualification rules (current_rules). Each allocation records the rules it was planned under and is
+# checked against those, so changing one here never invalidates a published manifest; patch them here in tests.
+# A run projected at this much serial time or more is substantial.
 SUBSTANTIAL_RUN_SECONDS = 600
+# The scaling comparison's cost at ideal scaling, as a share of the projected serial time.
+QUALIFY_BUDGET_PERCENT = 12
+# Games every rung plays, per worker of the top rung.
+QUALIFY_GAMES_PER_WORKER = 2
 # The probe of a schedule too small for a scaling comparison.
 PROBE_GAMES = 2
+# The worker ladder: 1 and cap // divisor for each divisor, so (2, 1) compares 1, cap // 2 and cap.
+LADDER_DIVISORS = (2, 1)
+# A small run spot-checks game games_total // SPOT_CHECK_DIVISOR: the middle one, played while every worker was busy.
+SPOT_CHECK_DIVISOR = 2
 EVIDENCE_SCHEMA = "spellbench-throughput-evidence/v1"
 
 Play = Callable[[int, tuple[int, ...]], tuple[float, Sequence[PlayedGame]]]
+
+
+def current_rules() -> QualificationRules:
+    """The rules a launch plans under now, read from this module's constants at call time."""
+    return QualificationRules(
+        substantial_run_seconds=SUBSTANTIAL_RUN_SECONDS, budget_percent=QUALIFY_BUDGET_PERCENT,
+        games_per_worker=QUALIFY_GAMES_PER_WORKER, probe_games=PROBE_GAMES, ladder_divisors=LADDER_DIVISORS,
+        spot_check_divisor=SPOT_CHECK_DIVISOR,
+    )
+
+
+def resource_bound(cpu_count: int, per_game_cores: int) -> int:
+    """Games that fit at once when each needs ``per_game_cores`` declared cores (spec 11.4); at least 1."""
+    return max(1, cpu_count // max(1, per_game_cores))
+
+
+def worker_ladder(cap: int) -> tuple[int, ...]:
+    """The worker counts a substantial run compares under the current rules: 1, ``cap // 2`` and ``cap``."""
+    return current_rules().ladder(cap)
+
+
+def spot_check_game(games_total: int) -> int:
+    """The scheduled game a small run planned now replays serially after it finishes (its allocation's rules
+    name it too: ``Allocation.rules.spot_check_game``)."""
+    return current_rules().spot_check_game(games_total)
 
 
 def sample_order(groups: Sequence[Sequence[int]]) -> tuple[int, ...]:
@@ -86,10 +122,9 @@ def workload_id(value: Any) -> str:
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
-def _probe_indices(order: tuple[int, ...], games_total: int, bound: int) -> tuple[int, ...]:
-    """The games a schedule's probe plays: the comparison's games when it fits (the probe is then its first rung),
-    else ``PROBE_GAMES``; always from the front of the sample."""
-    return order[: QUALIFY_GAMES_PER_WORKER * bound if ladder_fits(games_total, bound) else min(PROBE_GAMES, games_total)]
+def _probe_indices(rules: QualificationRules, order: tuple[int, ...], games_total: int, bound: int) -> tuple[int, ...]:
+    """The games a schedule's probe plays under ``rules``, from the front of the sample."""
+    return order[: rules.probe_size(games_total, bound)]
 
 
 def _usable_seconds(value: Any) -> bool:
@@ -259,26 +294,27 @@ def _hardware(machine: MachineFacts) -> tuple[int | None, tuple[str, ...]]:
 
 def _prior_allocation(
     path: Path, *, host: str, cpu_count: int, per_game_cores: int, workload: str, bound: int, games_total: int,
-    machine: MachineFacts, probe_indices: tuple[int, ...], threshold: int,
+    machine: MachineFacts, probe_indices: tuple[int, ...], rules: QualificationRules,
 ) -> Allocation | None:
     """The newest recorded allocation this schedule may reuse.
 
-    Same host, cores, cores per game, workload, worker bound and hardware;
-    a probe of exactly the games this schedule's own probe would play; half
-    to twice as many games; and the size class this schedule gets from that
-    probe's pace under this launch's threshold.
+    The same rules, host, cores, cores per game, workload, worker bound and
+    hardware; a probe of exactly the games this schedule's own probe would
+    play; half to twice as many games; and the size class this schedule
+    gets from its own projection (that identical probe's pace, its own game
+    count).
     """
-    key = (host, cpu_count, per_game_cores, workload, bound, _hardware(machine))
+    key = (rules, host, cpu_count, per_game_cores, workload, bound, _hardware(machine))
 
     def compatible(prior: Allocation) -> bool:
         assert prior.probe is not None and prior.games_total is not None and prior.machine is not None
         return (
-            (prior.host, prior.cpu_count, prior.per_game_cores, prior.workload, _worker_bound(prior),
+            (prior.rules, prior.host, prior.cpu_count, prior.per_game_cores, prior.workload, _worker_bound(prior),
              _hardware(prior.machine)) == key
             and prior.probe.indices == probe_indices
             and prior.games_total <= 2 * games_total
             and games_total <= 2 * prior.games_total
-            and size_class(prior.probe, games_total, bound, threshold) == prior.kind
+            and rules.size_class(prior.probe, games_total, bound) == prior.kind
         )
 
     matches = [prior for prior in load_evidence(path) if compatible(prior)]
@@ -286,19 +322,19 @@ def _prior_allocation(
 
 
 def _reused(
-    prior: Allocation, *, games_total: int, threshold: int, placement: Placement | None, machine: MachineFacts,
-    pinned_bytes: int, cap_bytes: int | None,
+    prior: Allocation, *, games_total: int, placement: Placement | None, machine: MachineFacts, pinned_bytes: int,
+    cap_bytes: int | None,
 ) -> Allocation:
-    """``prior``'s measurement for this run: this schedule's projection, threshold, budget, machine and placement,
-    and no spot check (a small run's spot check is its own)."""
+    """``prior``'s measurement for this run (under the same rules): this schedule's projection, budget, machine
+    and placement, and no spot check (a small run's spot check is its own)."""
     assert prior.probe is not None
     projected = projected_seconds(prior.probe, games_total)
     if prior.kind == "substantial" and placement is None:
         raise ThroughputError(_placement_needed(projected))
     budget = _budget(prior.probe, games_total, pinned_bytes, cap_bytes)
     check_reserve(machine, budget.projected_bytes)
-    return replace(prior, games_total=games_total, projected_serial_seconds=projected, substantial_run_seconds=threshold,
-                   placement=placement, machine=machine, budget=budget, spot_check=None, reused=True)
+    return replace(prior, games_total=games_total, projected_serial_seconds=projected, placement=placement,
+                   machine=machine, budget=budget, spot_check=None, reused=True)
 
 
 def plan_allocation(
@@ -357,7 +393,7 @@ def plan_allocation(
             raise ThroughputError(f"{label}: must be a non-negative integer, got {value!r}")
     order = _sample(sample, games_total)
     note = _placement(placement)
-    threshold = SUBSTANTIAL_RUN_SECONDS
+    rules = current_rules()
     if machine is None:
         if volumes is None:
             raise ThroughputError(f"the {RESERVE_BYTES // 2**30} GiB reserve check needs the run_dir and pin_root "
@@ -368,17 +404,17 @@ def plan_allocation(
     check_reserve(machine, 0)
     # More workers than games is never useful (COMPUTE-POLICY.md item 2).
     bound = min(cap, resource_bound(cpu, per_game_cores), games_total)
-    indices = _probe_indices(order, games_total, bound)
+    indices = _probe_indices(rules, order, games_total, bound)
     if evidence is not None:
         assert workload is not None
         evidence = Path(evidence)
         _ensure_writable(evidence)
         prior = _prior_allocation(evidence, host=machine_name, cpu_count=cpu, per_game_cores=per_game_cores,
                                   workload=workload, bound=bound, games_total=games_total, machine=machine,
-                                  probe_indices=indices, threshold=threshold)
+                                  probe_indices=indices, rules=rules)
         if prior is not None:
-            return _reused(prior, games_total=games_total, threshold=threshold, placement=note, machine=machine,
-                           pinned_bytes=pinned_bytes, cap_bytes=cap_bytes)
+            return _reused(prior, games_total=games_total, placement=note, machine=machine, pinned_bytes=pinned_bytes,
+                           cap_bytes=cap_bytes)
     started = clock()
     probe, probe_digests = _trial(play, 1, indices)
     projected = projected_seconds(probe, games_total)
@@ -386,16 +422,16 @@ def plan_allocation(
     check_reserve(machine, budget.projected_bytes)
     common: dict[str, Any] = dict(
         host=machine_name, cpu_count=cpu, per_game_cores=per_game_cores, games_total=games_total, probe=probe,
-        projected_serial_seconds=projected, substantial_run_seconds=threshold, placement=note, workload=workload,
+        projected_serial_seconds=projected, rules=rules, placement=note, workload=workload,
         machine=machine, budget=budget,
     )
-    if size_class(probe, games_total, bound, threshold) == "small":
+    if rules.size_class(probe, games_total, bound) == "small":
         allocation = Allocation(kind="small", workers=bound, qualification_seconds_milli=_since(clock, started), **common)
     else:
         if note is None:
             raise ThroughputError(_placement_needed(projected))
         trials, rung_digests = [probe], [probe_digests]
-        for workers in worker_ladder(bound)[1:]:
+        for workers in rules.ladder(bound)[1:]:
             trial, digests = _trial(play, workers, indices)
             trials.append(trial)
             rung_digests.append(digests)

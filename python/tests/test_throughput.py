@@ -86,7 +86,9 @@ def test_a_short_schedule_is_small_keeps_its_configured_workers_and_awaits_its_s
     assert (allocation.kind, allocation.workers, allocation.projected_serial_seconds) == ("small", 4, 48)
     assert calls == [(1, (0, 1))] and allocation.spot_check is None and not allocation.measured
     assert allocation.label == allocation.to_json()["label"] == "small run, not spot-checked"
-    assert allocation.to_json()["substantial_run_seconds"] == SUBSTANTIAL_RUN_SECONDS == 600
+    assert allocation.to_json()["rules"] == {"substantial_run_seconds": 600, "budget_percent": 12, "games_per_worker": 2,
+                                         "probe_games": 2, "ladder_divisors": [2, 1], "spot_check_divisor": 2}
+    assert allocation.rules.substantial_run_seconds == SUBSTANTIAL_RUN_SECONDS == 600
 
 
 def test_a_small_run_is_ratable_once_its_spot_check_passes() -> None:
@@ -144,9 +146,46 @@ def test_the_substantial_threshold_is_recorded_and_patchable(monkeypatch) -> Non
     assert _plan(play, placement=None).kind == "small"  # 192 games of half a second
     monkeypatch.setattr(qualification, "SUBSTANTIAL_RUN_SECONDS", 0)  # what a test forcing the ladder patches
     forced = _plan(play)
-    assert forced.kind == "substantial" and forced.to_json()["substantial_run_seconds"] == 0
+    assert forced.kind == "substantial" and forced.to_json()["rules"]["substantial_run_seconds"] == 0
     monkeypatch.undo()
     assert Allocation.from_json(forced.to_json()) == forced  # checked against its own recorded threshold
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("SUBSTANTIAL_RUN_SECONDS", 60), ("SUBSTANTIAL_RUN_SECONDS", 5000), ("QUALIFY_BUDGET_PERCENT", 11),
+     ("QUALIFY_BUDGET_PERCENT", 13), ("QUALIFY_GAMES_PER_WORKER", 3), ("PROBE_GAMES", 4), ("LADDER_DIVISORS", (4, 2, 1)),
+     ("SPOT_CHECK_DIVISOR", 3)],
+)
+def test_a_manifest_stays_valid_after_the_rules_change(monkeypatch, name: str, value: Any) -> None:
+    play, _ = _player(10.0, {4: 3.5, 8: 3.4})
+    substantial = _plan(play).to_json()
+    small = _plan(play, games_total=183, placement=None)  # 12.02 percent: the comparison does not fit
+    small = small.with_spot_check(spot_check_game(183), recorded_digest=DIGEST, replayed_digest=DIGEST).to_json()
+    monkeypatch.setattr(qualification, name, value)  # the rules change after both manifests were written
+    assert Allocation.from_json(substantial).label == "substantial run, measured"
+    assert Allocation.from_json(small).label == "small run, spot-checked"
+    assert qualification.current_rules().to_json() != substantial["rules"]
+
+
+def test_a_small_run_spot_checks_the_game_its_own_rules_name(monkeypatch) -> None:
+    play, _ = _player(0.5, {})
+    monkeypatch.setattr(qualification, "SPOT_CHECK_DIVISOR", 3)
+    planned = _plan(play, games_total=96, cap=4, placement=None)  # planned under a rule naming game 32
+    monkeypatch.undo()  # the rules change again before the run ends and replays its game
+    checked = planned.with_spot_check(32, recorded_digest=DIGEST, replayed_digest=DIGEST)
+    assert checked.label == "small run, spot-checked" and Allocation.from_json(checked.to_json()) == checked
+    with pytest.raises(ThroughputError, match="game 32"):
+        planned.with_spot_check(spot_check_game(96), recorded_digest=DIGEST, replayed_digest=DIGEST)  # today's: 48
+
+
+def test_reuse_never_crosses_a_rules_change(tmp_path: Path, monkeypatch) -> None:
+    evidence = tmp_path / "throughput-evidence.jsonl"
+    play, calls = _player(10.0, {4: 3.5, 8: 3.4})
+    plan_allocation(play=play, placement=PLACEMENT, **_reuse_plan(evidence))
+    monkeypatch.setattr(qualification, "QUALIFY_BUDGET_PERCENT", 13)  # the same probe, under other rules
+    again = plan_allocation(play=play, placement=PLACEMENT, **_reuse_plan(evidence))
+    assert not again.reused and again.rules.budget_percent == 13 and _counts(calls) == [(1, 16), (4, 16), (8, 16)] * 2
 
 
 def test_the_qualification_wall_time_is_recorded() -> None:
@@ -342,7 +381,11 @@ def test_a_measured_allocation_round_trips_and_parsing_is_strict() -> None:
         {**value, "placement": None},
         {**value, "games_total": 384},  # the projection belongs to another schedule
         {**value, "projected_serial_seconds": 100},
-        {**value, "substantial_run_seconds": 2000},  # under this threshold the schedule would be small
+        {**value, "rules": {**value["rules"], "substantial_run_seconds": 2000}},  # under this threshold: small
+        {**value, "rules": {**value["rules"], "budget_percent": 11}},  # under this budget the comparison does not fit
+        {**value, "rules": {**value["rules"], "ladder_divisors": [4, 2, 1]}},  # the trials are not this ladder
+        {**value, "rules": {**value["rules"], "ladder_divisors": [1, 2]}},  # divisors run from largest to 1
+        {key: item for key, item in value.items() if key != "rules"} | {"rules": None},  # measured without rules
         {**value, "spot_check": {"game_index": 96, "recorded_digest": DIGEST, "replayed_digest": DIGEST, "passed": True}},
         {**value, "budget": {**value["budget"], "projected_bytes": 1}},
         {**value, "machine": {**value["machine"], "free_bytes": {"C:/runs": 1}}},  # roles, never paths

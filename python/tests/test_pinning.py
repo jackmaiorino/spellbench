@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from spellbench.bench.pinning import (
-    CLOSURE_STATUS, PinningError, engine_files, pin_and_register, pin_files, pinned_command, register_pins,
+    CITED_BY, CLOSURE_STATUS, PinningError, engine_files, pin_and_register, pin_files, pinned_command, register_pins,
     register_tree, resolve_command, verify_files, verify_pins,
 )
 
@@ -269,14 +269,88 @@ def test_concurrent_citations_of_a_shared_pin_are_all_kept(tmp_path: Path) -> No
     assert sorted(note.split("; ")[1:]) == ["x run r2", "x run r3"]
 
 
+# The collab tools/artifact_register.py pattern that matters here: main() loads the whole catalog first, and "add"
+# and "update" start from the newest row for the id, set the given fields, and append the whole row (the newest line
+# wins). A post-copy "update" (no --note) pauses after loading until the test releases it, bounded at 3 s.
+_LOAD_THEN_APPEND = '''\
+import json, os, sys, time
+catalog = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ARTIFACTS", "catalog.jsonl")
+rows = {}
+if os.path.exists(catalog):
+    for line in open(catalog, encoding="utf-8"):
+        if line.strip():
+            row = json.loads(line)
+            rows[row["id"].lower()] = row
+args = sys.argv[1:]
+def arg(name):
+    return args[args.index(name) + 1] if name in args else None
+rid = os.path.normpath(arg("--path") or arg("--id")).replace("\\\\", "/").rstrip("/")
+if args[0] == "show":
+    print(json.dumps(rows[rid.lower()], indent=1) if rid.lower() in rows else "not found")
+    sys.exit(0)
+if args[0] == "update" and rid.lower() not in rows:
+    sys.exit(f"unknown id {rid}; use add")
+row = dict(rows.get(rid.lower(), {"id": rid, "paths": [rid]}))
+for key in ("lane", "owner", "status", "retention", "purpose", "doc", "regen", "note"):
+    if arg("--" + key):
+        row[key] = arg("--" + key)
+if args[0] == "update" and "--note" not in args:
+    flag = os.environ["REGISTER_PAUSE_FLAG"]
+    open(flag, "w").close()
+    deadline = time.monotonic() + 3.0
+    while not os.path.exists(flag + ".release") and time.monotonic() < deadline:
+        time.sleep(0.02)
+os.makedirs(os.path.dirname(catalog), exist_ok=True)
+with open(catalog, "a", encoding="utf-8", newline="\\n") as handle:
+    handle.write(json.dumps(row) + "\\n")
+print("registered " + rid)
+'''
+
+
+def test_two_launches_citing_one_pin_keep_both_citations(tmp_path: Path, monkeypatch) -> None:
+    """Launch B pins and catalogues an engine; while B's post-copy update holds the catalog it loaded, launch A cites
+    the same pin. B's update must not append the row it loaded before A's citation (re-review race)."""
+    script = tmp_path / "collab" / "tools" / "artifact_register.py"
+    script.parent.mkdir(parents=True)
+    script.write_text(_LOAD_THEN_APPEND, encoding="utf-8")
+    flag = tmp_path / "loaded.flag"
+    monkeypatch.setenv("REGISTER_PAUSE_FLAG", str(flag))
+    engine = tmp_path / "engine.bin"
+    engine.write_bytes(b"engine bytes")
+    files = engine_files([str(engine)])
+    pin_root = tmp_path / "pins"
+    fields = {"owner": "spellbench", "purpose": "engine", "doc": "manifest.json", "regen": "cargo build"}
+    failures: list[BaseException] = []
+
+    def launch_b() -> None:
+        try:
+            pin_and_register(files, pin_root, script, cited_by="bench run B", **fields)
+        except BaseException as exc:  # reported below: a thread's exception would otherwise vanish
+            failures.append(exc)
+
+    b = threading.Thread(target=launch_b)
+    b.start()
+    while not flag.exists():  # B's post-copy update has loaded the catalog and paused
+        assert b.is_alive(), failures
+        time.sleep(0.02)
+    register_pins(script, [pin_root / files[0].sha256], cited_by="bench run A", **fields)
+    Path(str(flag) + ".release").write_bytes(b"")  # unblocks B at once if B was not holding the pin's lock
+    b.join()
+    newest = json.loads((tmp_path / "collab" / "ARTIFACTS" / "catalog.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    assert failures == [] and newest["note"].startswith(CITED_BY)
+    assert sorted(newest["note"][len(CITED_BY):].split("; ")) == ["bench run A", "bench run B"]
+
+
 def test_a_held_catalog_lock_bounds_the_wait_and_a_stale_one_is_broken(tmp_path: Path) -> None:
     script, log = _register_script(tmp_path)
     directory = tmp_path / "pins" / "abc"
     directory.parent.mkdir(parents=True)
     lock = directory.with_name("abc.lock")
-    lock.write_text("4242", encoding="utf-8")  # another launch is citing this pin
-    with pytest.raises(PinningError, match="lock"):
-        register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", cited_by="x run r", timeout_s=0.5)
+    lock.write_text("4242", encoding="utf-8")  # another launch is writing this pin's catalog row
+    for cited_by in ("x run r", None):  # a plain add re-appends the row it loads, so it waits for the lock too
+        with pytest.raises(PinningError, match="lock"):
+            register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", cited_by=cited_by,
+                          timeout_s=0.5)
     assert not log.exists()
     an_hour_ago = time.time() - 3600
     os.utime(lock, (an_hour_ago, an_hour_ago))  # left by a launch that crashed an hour ago

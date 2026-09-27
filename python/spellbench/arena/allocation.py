@@ -3,10 +3,15 @@
 :meth:`Allocation.to_json` is the manifest's ``allocation`` block. Every
 record validates on construction, so :meth:`Allocation.from_json` and direct
 construction share one rule set: an allocation cannot claim a kind, a worker
-count, a projection or a verdict that its own evidence does not support. The
-rules it is checked against live here too (the worker ladder, the
-comparison's budget, the ranking by busy time, the spot-check game);
-:mod:`.qualification` plans allocations under them.
+count, a projection or a verdict that its own evidence does not support.
+
+An allocation records the qualification rules it was planned under
+(:class:`QualificationRules`: the substantial-run threshold, the
+comparison's budget and games per worker, the probe size, the worker ladder
+and the spot-check game), and is checked against those, never against the
+current constants, so a manifest stays checkable after the rules change.
+:mod:`.qualification` holds the current rules and plans allocations under
+them.
 
 Trials, machine facts and spot checks are wall-clock evidence: they live only
 in the manifest's ``allocation`` block and the local evidence file, never in
@@ -22,10 +27,6 @@ from typing import Any, Sequence
 
 from ..errors import ValidationError
 
-# Games every rung plays, per worker of the top rung.
-QUALIFY_GAMES_PER_WORKER = 2
-# The scaling comparison's cost at ideal scaling, as a share of the projected serial time.
-QUALIFY_BUDGET_PERCENT = 12
 ALLOCATION_KINDS = ("small", "substantial", "unmeasured")
 # The placements COMPUTE-POLICY.md item 1 names: the operator's main PC, HaleysPC and RunPod.
 PLACEMENT_MACHINES = ("main-pc", "haleyspc", "runpod")
@@ -43,11 +44,13 @@ PLACEMENT_FORM = (
     "example 'main-pc=used: fastest measured; haleyspc=slower: half the speed per game; runpod=not_authorized: "
     "no spending authority' (COMPUTE-POLICY.md item 1)"
 )
+_RULES_KEYS = ("substantial_run_seconds", "budget_percent", "games_per_worker", "probe_games", "ladder_divisors",
+               "spot_check_divisor")
 _TRIAL_KEYS = ("workers", "games", "indices", "seconds_milli", "busy_milli", "row_bytes", "outputs_digest")
 _SPOT_CHECK_KEYS = ("game_index", "recorded_digest", "replayed_digest", "passed")
 _ALLOCATION_KEYS = (
-    "kind", "label", "workers", "host", "cpu_count", "per_game_cores", "games_total", "substantial_run_seconds",
-    "probe", "trials", "projected_serial_seconds", "placement", "outputs_identical", "outputs_note", "spot_check",
+    "kind", "label", "workers", "host", "cpu_count", "per_game_cores", "games_total", "rules", "probe", "trials",
+    "projected_serial_seconds", "placement", "outputs_identical", "outputs_note", "spot_check",
     "qualification_seconds_milli", "workload", "reused", "machine", "budget",
 )
 
@@ -85,30 +88,6 @@ def is_digest(value: Any) -> bool:
     return type(value) is str and _DIGEST.fullmatch(value) is not None
 
 
-# ---------------------------------------------------------------------------
-# The rules an allocation follows
-# ---------------------------------------------------------------------------
-
-
-def resource_bound(cpu_count: int, per_game_cores: int) -> int:
-    """Games that fit at once when each needs ``per_game_cores`` declared cores (spec 11.4); at least 1."""
-    return max(1, cpu_count // max(1, per_game_cores))
-
-
-def worker_ladder(cap: int) -> tuple[int, ...]:
-    """The worker counts a substantial run compares: 1, ``cap // 2`` and ``cap``, without repeats."""
-    return tuple(sorted({1, max(1, cap // 2), max(1, cap)}))
-
-
-def ladder_fits(games_total: int, bound: int) -> bool:
-    """Whether the scaling comparison fits: ``QUALIFY_GAMES_PER_WORKER`` games per top-rung worker on every rung,
-    costing at most ``QUALIFY_BUDGET_PERCENT`` percent of the serial schedule at ideal scaling (the time per game
-    cancels, so this depends on the counts alone)."""
-    games = QUALIFY_GAMES_PER_WORKER * bound
-    cost = games * sum(Fraction(1, workers) for workers in worker_ladder(bound))
-    return games <= games_total and cost * 100 <= games_total * QUALIFY_BUDGET_PERCENT
-
-
 def projected_seconds(probe: Trial, games_total: int) -> int:
     """The serial time of ``games_total`` games at the 1-worker probe's pace, in whole seconds, rounded up."""
     return -(-probe.seconds_milli * games_total // (1000 * probe.games))
@@ -118,21 +97,96 @@ def projected_row_bytes(probe: Trial, games_total: int) -> int:
     return -(-probe.row_bytes * games_total // probe.games)
 
 
-def size_class(probe: Trial, games_total: int, bound: int, substantial_run_seconds: int) -> str:
-    """``substantial`` when the projection reaches ``substantial_run_seconds`` and the comparison fits, else ``small``."""
-    long_enough = projected_seconds(probe, games_total) >= substantial_run_seconds
-    return "substantial" if long_enough and ladder_fits(games_total, bound) else "small"
-
-
 def fastest_workers(trials: Sequence[Trial]) -> int:
     """The rung with the most games per second of busy time; the fewer workers on a tie."""
     return max(trials, key=lambda trial: (trial.rate, -trial.workers)).workers
 
 
-def spot_check_game(games_total: int) -> int:
-    """The scheduled game a small run replays serially after it finishes: the middle one, played while every
-    worker was busy."""
-    return games_total // 2
+# ---------------------------------------------------------------------------
+# The qualification rules an allocation was planned under
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class QualificationRules:
+    """The rules an allocation was planned under, recorded with it.
+
+    ``substantial_run_seconds``: a projection at least this long, whose
+    comparison fits, is substantial. The comparison plays
+    ``games_per_worker`` games per top-rung worker on every rung, and at
+    ideal scaling costs at most ``budget_percent`` percent of the serial
+    schedule. The rungs are 1 and ``cap // divisor`` for each of
+    ``ladder_divisors`` (largest first, ending with 1, which is the cap
+    itself). A schedule whose comparison does not fit probes
+    ``probe_games`` games. A small run spot-checks game
+    ``games_total // spot_check_divisor``.
+    """
+
+    substantial_run_seconds: int
+    budget_percent: int
+    games_per_worker: int
+    probe_games: int
+    ladder_divisors: tuple[int, ...]
+    spot_check_divisor: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ladder_divisors", tuple(self.ladder_divisors))
+        _count(self.substantial_run_seconds, "rules.substantial_run_seconds")
+        for name in ("budget_percent", "games_per_worker", "probe_games", "spot_check_divisor"):
+            _count(getattr(self, name), f"rules.{name}", 1)
+        divisors = self.ladder_divisors
+        if (
+            not divisors
+            or any(type(divisor) is not int or not 1 <= divisor <= _MAX_INT for divisor in divisors)
+            or list(divisors) != sorted(set(divisors), reverse=True)
+            or divisors[-1] != 1
+        ):
+            raise ValidationError("rules.ladder_divisors: distinct positive integers, largest first, ending with 1")
+
+    def ladder(self, cap: int) -> tuple[int, ...]:
+        """The worker counts a substantial run compares under these rules, ascending, without repeats."""
+        return tuple(sorted({1, *(max(1, cap // divisor) for divisor in self.ladder_divisors)}))
+
+    def ladder_fits(self, games_total: int, bound: int) -> bool:
+        """Whether the scaling comparison fits the schedule (the time per game cancels: counts alone decide)."""
+        games = self.games_per_worker * bound
+        cost = games * sum(Fraction(1, workers) for workers in self.ladder(bound))
+        return games <= games_total and cost * 100 <= games_total * self.budget_percent
+
+    def probe_size(self, games_total: int, bound: int) -> int:
+        """Games the probe plays: the comparison's games when it fits (the probe is then its first rung)."""
+        if self.ladder_fits(games_total, bound):
+            return self.games_per_worker * bound
+        return min(self.probe_games, games_total)
+
+    def size_class(self, probe: Trial, games_total: int, bound: int) -> str:
+        """``substantial`` when the projection reaches the threshold and the comparison fits, else ``small``."""
+        long_enough = projected_seconds(probe, games_total) >= self.substantial_run_seconds
+        return "substantial" if long_enough and self.ladder_fits(games_total, bound) else "small"
+
+    def spot_check_game(self, games_total: int) -> int:
+        """The scheduled game a small run replays serially after it finishes."""
+        return games_total // self.spot_check_divisor
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "substantial_run_seconds": self.substantial_run_seconds,
+            "budget_percent": self.budget_percent,
+            "games_per_worker": self.games_per_worker,
+            "probe_games": self.probe_games,
+            "ladder_divisors": list(self.ladder_divisors),
+            "spot_check_divisor": self.spot_check_divisor,
+        }
+
+    @classmethod
+    def from_json(cls, value: Any, context: str = "rules") -> QualificationRules:
+        exact_keys(_object(value, context), _RULES_KEYS, context)
+        if not isinstance(value["ladder_divisors"], list):
+            raise ValidationError(f"{context}.ladder_divisors: must be a list")
+        try:
+            return cls(**{**value, "ladder_divisors": tuple(value["ladder_divisors"])})
+        except ValidationError as exc:
+            raise ValidationError(f"{context}: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -348,8 +402,8 @@ class Budget:
 
 @dataclass(frozen=True)
 class SpotCheck:
-    """A small run's output-identity check: one scheduled game (:func:`spot_check_game`) replayed serially after
-    the run, its game digest compared with the one the run recorded."""
+    """A small run's output-identity check: one scheduled game (the rules' spot-check game) replayed serially
+    after the run, its game digest compared with the one the run recorded."""
 
     game_index: int
     recorded_digest: str
@@ -383,11 +437,12 @@ class Allocation:
     """How many games a run plays at once, and the evidence for it (the manifest's ``allocation`` block).
 
     ``kind`` is ``substantial`` (a scaling comparison chose the workers),
-    ``small`` (the schedule projected under ``substantial_run_seconds`` of
-    serial time, or had too few games for the comparison, so it kept its
+    ``small`` (the schedule projected under the rules' threshold of serial
+    time, or had too few games for the comparison, so it kept its
     configured workers and is checked by replaying one game after the run:
     ``spot_check``) or ``unmeasured`` (no guard ran). ``label`` in the JSON
-    spells this out. ``games_total`` and ``projected_serial_seconds``
+    spells this out. ``rules`` are the qualification rules it was planned
+    and is checked under. ``games_total`` and ``projected_serial_seconds``
     describe the schedule the allocation was planned for;
     ``qualification_seconds_milli`` is the wall time the measurement took;
     ``reused`` says an earlier launch measured it, so this run spent nothing
@@ -412,7 +467,7 @@ class Allocation:
     outputs_note: str | None = None
     machine: MachineFacts | None = None
     budget: Budget | None = None
-    substantial_run_seconds: int | None = None
+    rules: QualificationRules | None = None
     spot_check: SpotCheck | None = None
 
     def __post_init__(self) -> None:
@@ -444,10 +499,10 @@ class Allocation:
         return float(chosen.rate * 1000)
 
     def with_spot_check(self, game_index: int, *, recorded_digest: str, replayed_digest: str) -> Allocation:
-        """This small allocation with the result of its spot check (the game at :func:`spot_check_game`)."""
-        if self.kind != "small" or self.games_total is None:
+        """This small allocation with the result of its spot check (the game its rules name)."""
+        if self.kind != "small" or self.games_total is None or self.rules is None:
             raise ThroughputError(f"only a small allocation is spot-checked; this one is {self.kind}")
-        expected = spot_check_game(self.games_total)
+        expected = self.rules.spot_check_game(self.games_total)
         if game_index != expected:
             raise ThroughputError(f"a {self.games_total}-game run spot-checks game {expected}, not {game_index}")
         check = SpotCheck(game_index=game_index, recorded_digest=recorded_digest, replayed_digest=replayed_digest)
@@ -462,7 +517,7 @@ class Allocation:
             "cpu_count": self.cpu_count,
             "per_game_cores": self.per_game_cores,
             "games_total": self.games_total,
-            "substantial_run_seconds": self.substantial_run_seconds,
+            "rules": None if self.rules is None else self.rules.to_json(),
             "probe": None if self.probe is None else self.probe.to_json(),
             "trials": [trial.to_json() for trial in self.trials],
             "projected_serial_seconds": self.projected_serial_seconds,
@@ -484,8 +539,8 @@ class Allocation:
         label = fields.pop("label")
         if not isinstance(fields["trials"], list):
             raise ValidationError(f"{context}.trials: must be a list")
-        parsers = {"probe": Trial.from_json, "placement": Placement.from_json, "machine": MachineFacts.from_json,
-                   "budget": Budget.from_json, "spot_check": SpotCheck.from_json}
+        parsers = {"rules": QualificationRules.from_json, "probe": Trial.from_json, "placement": Placement.from_json,
+                   "machine": MachineFacts.from_json, "budget": Budget.from_json, "spot_check": SpotCheck.from_json}
         for name, parse in parsers.items():
             if fields[name] is not None:
                 fields[name] = parse(fields[name], f"{context}.{name}")
@@ -516,15 +571,14 @@ def _check_allocation(allocation: Allocation) -> None:
     _text(allocation.host, "allocation.host")
     _count(allocation.cpu_count, "allocation.cpu_count", 1)
     _count(allocation.per_game_cores, "allocation.per_game_cores", 1)
-    records = (("probe", Trial), ("placement", Placement), ("machine", MachineFacts), ("budget", Budget),
-               ("spot_check", SpotCheck))
+    records = (("rules", QualificationRules), ("probe", Trial), ("placement", Placement), ("machine", MachineFacts),
+               ("budget", Budget), ("spot_check", SpotCheck))
     for name, kind in records:
         if getattr(allocation, name) is not None and not isinstance(getattr(allocation, name), kind):
             raise ValidationError(f"allocation.{name}: must be a {kind.__name__} or null")
     if not all(isinstance(trial, Trial) for trial in allocation.trials):
         raise ValidationError("allocation.trials: must hold trials")
-    counts = (("projected_serial_seconds", 0), ("qualification_seconds_milli", 0), ("games_total", 1),
-              ("substantial_run_seconds", 0))
+    counts = (("projected_serial_seconds", 0), ("qualification_seconds_milli", 0), ("games_total", 1))
     for name, minimum in counts:
         if getattr(allocation, name) is not None:
             _count(getattr(allocation, name), f"allocation.{name}", minimum)
@@ -538,18 +592,18 @@ def _check_allocation(allocation: Allocation) -> None:
         raise ValidationError("allocation.reused: must be a boolean")
     evidence = (allocation.probe, allocation.projected_serial_seconds, allocation.outputs_identical,
                 allocation.outputs_note, allocation.qualification_seconds_milli, allocation.games_total,
-                allocation.machine, allocation.budget, allocation.substantial_run_seconds, allocation.spot_check)
+                allocation.machine, allocation.budget, allocation.rules, allocation.spot_check)
     if allocation.kind == "unmeasured":
         if allocation.trials or allocation.reused or any(item is not None for item in evidence):
             raise ValidationError("allocation: an unmeasured allocation carries no measurement")
         return
     probe, games_total, budget, machine = allocation.probe, allocation.games_total, allocation.budget, allocation.machine
-    threshold = allocation.substantial_run_seconds
-    if None in (probe, games_total, budget, machine, threshold, allocation.projected_serial_seconds):
-        raise ValidationError(f"allocation: a {allocation.kind} allocation needs its probe, schedule, threshold, "
+    rules = allocation.rules
+    if None in (probe, games_total, budget, machine, rules, allocation.projected_serial_seconds):
+        raise ValidationError(f"allocation: a {allocation.kind} allocation needs its rules, probe, schedule, "
                               "projection, machine and budget")
     assert probe is not None and games_total is not None and budget is not None and machine is not None
-    assert threshold is not None
+    assert rules is not None
     if machine.missing_roles:
         raise ValidationError(f"allocation.machine: needs the free space of {', '.join(VOLUME_ROLES)}")
     if probe.workers != 1 or allocation.projected_serial_seconds != projected_seconds(probe, games_total):
@@ -559,24 +613,25 @@ def _check_allocation(allocation: Allocation) -> None:
     if allocation.kind == "small":
         if allocation.trials or allocation.outputs_identical is not None or allocation.outputs_note is not None:
             raise ValidationError("allocation: a small allocation has no scaling comparison")
-        if size_class(probe, games_total, allocation.workers, threshold) != "small":
-            raise ValidationError("allocation: a schedule this long qualifies, so it cannot be small")
-        if allocation.spot_check is not None and allocation.spot_check.game_index != spot_check_game(games_total):
-            raise ValidationError(f"allocation.spot_check: must replay game {spot_check_game(games_total)}")
+        if rules.size_class(probe, games_total, allocation.workers) != "small":
+            raise ValidationError("allocation: under its rules a schedule this long qualifies, so it cannot be small")
+        expected = rules.spot_check_game(games_total)
+        if allocation.spot_check is not None and allocation.spot_check.game_index != expected:
+            raise ValidationError(f"allocation.spot_check: its rules replay game {expected}")
         return
     trials = allocation.trials
     top = max((trial.workers for trial in trials), default=1)
     if (
         not trials
         or trials[0] != probe
-        or tuple(trial.workers for trial in trials) != worker_ladder(top)
+        or tuple(trial.workers for trial in trials) != rules.ladder(top)
         or any(trial.indices != probe.indices for trial in trials)
-        or probe.games != QUALIFY_GAMES_PER_WORKER * top
-        or size_class(probe, games_total, top, threshold) != "substantial"
+        or probe.games != rules.games_per_worker * top
+        or rules.size_class(probe, games_total, top) != "substantial"
     ):
         raise ValidationError(
-            "allocation: a substantial allocation compares 1, top // 2 and top workers on the probe's games, "
-            "and its schedule must be long enough to qualify"
+            "allocation: a substantial allocation compares its rules' worker ladder on the probe's games, "
+            "and under its rules its schedule must be long enough to qualify"
         )
     if allocation.placement is None or allocation.spot_check is not None:
         raise ValidationError("allocation: a substantial allocation needs its placement and has no spot check")
