@@ -20,11 +20,17 @@ Conventions for scenarios:
   and the stack item of an object that left the stack is dropped.
 - ``libraries[seat]`` is the library order, index 0 on top; ``add`` puts a library card at the bottom.
   Reorder a library by editing that list (a ``move`` is a zone change).
-- A multi-face card's ``name`` is the face currently up (spec 5.1). ``move`` turns the front face up; a
-  scenario that plays or casts a back face sets ``name`` after the move.
+- A look lasts until ``end_looks(viewer)`` or a zone change. Call ``end_looks`` when the decisions of the
+  effect that showed the cards end, and before shuffling or reordering a library, so that a later look
+  cannot tell whether it shows the same card (spec 5.3).
+- A multi-face card's ``name`` is the face currently up (spec 5.1). ``add`` also takes the full name a
+  decklist uses (spec 4.4) and puts the front face up; ``move`` turns the front face up, and a scenario that
+  plays or casts a back face sets ``name`` after the move.
 - An ability on the stack is an object in zone ``"stack"`` named after its source (spec 5.1), with a
-  ``StackItem`` of kind ``activated_ability`` or ``triggered_ability``. Once its ``StackItem`` is gone (the
-  ability resolved), the object is outside every observation.
+  ``StackItem`` of kind ``activated_ability`` or ``triggered_ability``. Each activation or trigger is an
+  object of its own: once its ``StackItem`` is gone (the ability resolved), the object is outside every
+  observation, and it never gets another (an id never returns, spec 5.3). An ability, or a pending trigger,
+  whose source is face down and hidden from the viewer is nameless to that viewer too (spec 5.1, 6.8).
 - Characteristics are the printed ones in ``CARDS``: the fake engine applies no continuous effects.
 """
 
@@ -102,6 +108,8 @@ CARDS: dict[str, dict[str, Any]] = {
 
 # A face-down spell or permanent: a nameless, colorless 2/2 creature with no text (CR 708.2a).
 _FACE_DOWN = _card(["creature"], 0, power=2, toughness=2)
+# A decklist names a multi-face card by its full name (spec 4.4); ``add`` puts it in with its front face up.
+_FRONT_FACES = {card["full_name"]: card["full_name"].split(" // ")[0] for card in CARDS.values() if card["full_name"]}
 
 
 @dataclass
@@ -237,9 +245,11 @@ class World:
             **state: Any) -> int:
         """Put a new object into a zone and return its internal id; ``state`` sets other ``Obj`` fields.
 
-        The object has been there since before this turn (summoning sick only when ``state`` says so); a library
-        card goes to the bottom of its owner's library.
+        ``name`` is a key of ``CARDS``, or a multi-face card's full name as a decklist writes it (spec 4.4), which
+        puts the card in with its front face up. The object has been there since before this turn (summoning sick
+        only when ``state`` says so); a library card goes to the bottom of its owner's library.
         """
+        name = _FRONT_FACES.get(name, name)
         if name not in CARDS:
             raise ValueError(f"{name!r} is not a fixture card (see CARDS)")
         controller = _controller(owner, zone, controller)
@@ -249,6 +259,9 @@ class World:
             raise ValueError(f"internal id {internal!r} is not a new nonnegative integer")
         obj = Obj(internal, name, owner, controller, zone, **state)
         _check_face_down(obj.face_down, zone)
+        if obj.exiled_by is not None and zone != "exile":
+            raise ValueError(f"exiled_by links an exiled card to the object that exiled it (spec 6.4), "
+                             f"not a {zone} card")
         self._next_internal = max(self._next_internal, internal + 1)
         self.objects[internal] = obj
         if zone == "library":
@@ -292,7 +305,8 @@ class World:
 
     def _sever(self, internal: int) -> None:
         """Every reference the World holds to this object now names an object that left (spec 5.1, 6.4 to 6.7)."""
-        self.stack[:] = [item for item in self.stack if item.internal != internal]
+        if self.objects[internal].zone == "stack":            # leaving the stack; an item added early stays
+            self.stack[:] = [item for item in self.stack if item.internal != internal]
         for item in self.stack:
             if item.source == internal:
                 item.source = None
@@ -339,25 +353,33 @@ class World:
         return looks[internal]
 
     def end_looks(self, viewer: str) -> None:
-        """The effect that showed the viewer its current looks is over; a later look gets a fresh id."""
+        """The effect that showed the viewer its current looks is over; a later look gets a fresh id.
+
+        Call it too before a library is shuffled or reordered, which moves no card to another zone (spec 5.3).
+        """
         self._looks[_seat(viewer)].clear()
 
     def reference(self, viewer: str, internal: int) -> dict[str, Any] | None:
         """The object reference the viewer sees (spec 5.1), or None for an object outside its observation.
 
         Outside are a card in a hidden zone the viewer is not looking at, and an object in zone "stack" that has
-        no stack item.
+        no stack item. An ability whose face-down source hides its name from the viewer is nameless too.
         """
         obj = self._object(internal)
-        if _hidden(_seat(viewer), obj):
+        named = _shows_name(_seat(viewer), obj)
+        if _hidden(viewer, obj):
             object_id = self._looks[viewer].get(internal)
             if object_id is None:
                 return None
-        elif obj.zone == "stack" and all(item.internal != internal for item in self.stack):
-            return None
         else:
+            if obj.zone == "stack":
+                item = next((item for item in self.stack if item.internal == internal), None)
+                if item is None:
+                    return None
+                if item.source is not None and not _shows_name(viewer, self._object(item.source)):
+                    named = False                        # named after a face-down source hidden from the viewer
             object_id = self.object_id(viewer, internal)
-        return {"object_id": object_id, "card_name": obj.name if _shows_name(viewer, obj) else None,
+        return {"object_id": object_id, "card_name": obj.name if named else None,
                 "owner_seat": obj.owner, "controller_seat": obj.controller, "zone": obj.zone}
 
     def target(self, viewer: str, target: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -499,15 +521,20 @@ class World:
         }
 
     def _pending_triggers(self, viewer: str) -> list[dict[str, Any]]:
-        """Spec 6.6: a trigger whose source is in a zone hidden from the viewer, and not shown to it, is omitted."""
+        """Spec 6.6: a trigger whose source is in a zone hidden from the viewer, and not shown to it, is omitted.
+
+        A face-down source the viewer may not look at hides its ``source_name`` too (spec 5.1, 6.8).
+        """
         entries = []
         for trigger in self.pending_triggers:
             source = trigger["source"]
             if source is not None and _hidden(viewer, self._object(source)) and source not in self._looks[viewer]:
                 continue
+            named = source is None or _shows_name(viewer, self._object(source))
             entries.append({"source": None if source is None else self.reference(viewer, source),
-                            "source_name": trigger["source_name"], "controller_seat": trigger["controller_seat"],
-                            "label": trigger["label"], "optional": trigger["optional"]})
+                            "source_name": trigger["source_name"] if named else None,
+                            "controller_seat": trigger["controller_seat"], "label": trigger["label"],
+                            "optional": trigger["optional"]})
         return entries
 
     def _known(self, viewer: str) -> list[dict[str, Any]]:
@@ -535,6 +562,9 @@ class World:
     # Helpers.
 
     def _object(self, internal: int) -> Obj:
+        if type(internal) is not int:
+            raise ValueError(f'the World names an object by its internal id, an int ({{"$obj": n}} is the form for '
+                             f"Posed candidates and targets), not {internal!r}")
         try:
             return self.objects[internal]
         except KeyError:
@@ -550,6 +580,9 @@ class World:
             if obj.zone != "stack":
                 raise ValueError(f"the stack item of card-{item.internal} ({obj.name}) is not on the stack; "
                                  "move() the object there first")
+        internals = [item.internal for item in self.stack]
+        if len(set(internals)) != len(internals):
+            raise ValueError("two stack items share an object; each spell, activation or trigger is its own object")
         for seat in _SEATS:
             if sorted(self.libraries[seat]) != sorted(obj.internal for obj in self._owned("library", seat)):
                 raise ValueError(f"libraries[{seat!r}] must list exactly the cards in {seat}'s library")

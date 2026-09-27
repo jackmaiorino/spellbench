@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import unicodedata
 
 import pytest
@@ -191,6 +192,67 @@ def test_stack_entries_resolve_per_viewer() -> None:
         world.observation("p0")
 
 
+def test_a_stack_item_may_come_before_or_after_its_object_moves_onto_the_stack() -> None:
+    for item_first in (True, False):
+        world = World(GAME0, flags=FLAGS_OFF)
+        bolt = world.add("Lightning Bolt", owner="p0", zone="hand")
+        item = StackItem(bolt, "spell", None, [{"player": "p1"}])
+        if item_first:
+            world.stack.append(item)
+        world.move(bolt, "stack")
+        if not item_first:
+            world.stack.append(item)
+        (entry,) = world.observation("p1")["stack"]
+        assert (entry["card_name"], entry["object_id"]) == ("Lightning Bolt", world.object_id("p1", bolt)), item_first
+        world.move(bolt, "graveyard")                                                         # leaving drops the item
+        assert world.stack == []
+
+
+def test_a_face_down_source_hides_the_name_of_its_triggers_and_abilities() -> None:
+    world = World(GAME0, flags=FLAGS_ON)                                                     # a ward trigger, say
+    seer = world.add("Fathom Seer", owner="p1", zone="battlefield", face_down=True)
+    world.pending_triggers.append({"source": seer, "source_name": "Fathom Seer", "controller_seat": "p1",
+                                   "label": "ward", "optional": False})
+    for viewer, name in (("p0", None), ("p1", "Fathom Seer")):                             # the controller may know it
+        (trigger,) = world.observation(viewer)["pending_triggers"]
+        assert (trigger["source_name"], trigger["source"]["card_name"]) == (name, name), viewer
+    world.pending_triggers.clear()
+    ward = world.add("Fathom Seer", owner="p1", zone="stack")                               # named after its source
+    world.stack.append(StackItem(ward, "triggered_ability", seer, []))
+    for viewer, name in (("p0", None), ("p1", "Fathom Seer")):
+        (entry,) = world.observation(viewer)["stack"]
+        assert (entry["card_name"], entry["source"]["card_name"], world.reference(viewer, ward)["card_name"]) == (
+            name, name, name), viewer
+    world.objects[seer].face_down = False                                                    # turned face up
+    assert world.observation("p0")["stack"][0]["card_name"] == "Fathom Seer"
+
+
+def test_face_down_objects_show_their_name_to_who_may_look() -> None:
+    world = World(GAME0, flags=FLAGS_ON)
+    world.add("Brainstorm", owner="p1", zone="exile", face_down=True, face_down_visible_to=("p1",))   # foretold-like
+    world.add("Fathom Seer", owner="p0", zone="battlefield", face_down=True)
+    (allowed,) = world.observation("p1")["players"][1]["exile"]
+    (hidden,) = world.observation("p0")["players"][1]["exile"]
+    assert (allowed["card_name"], allowed["characteristics"]["types"]) == ("Brainstorm", ["instant"])
+    assert (hidden["card_name"], hidden["characteristics"]) == (None, None)                 # spec 6.8
+    (own,) = world.observation("p0")["players"][0]["battlefield"]                            # CR 708.5
+    characteristics = own["characteristics"]
+    assert (own["card_name"], characteristics["types"], characteristics["colors"], characteristics["power"]) == (
+        "Fathom Seer", ["creature"], [], 2)
+
+
+def test_an_observation_shares_nothing_with_the_world() -> None:
+    world = World(GAME0, flags=FLAGS_ON)
+    world.add("Pithing Needle", owner="p0", zone="battlefield", counters={"charge": 1},
+              chosen=[{"kind": "card_name", "value": "Rancor"}])
+    view = world.observation("p0")
+    expected = copy.deepcopy(view)
+    needle = view["players"][0]["battlefield"][0]["permanent"]
+    needle["counters"]["charge"], needle["chosen"][0]["value"] = 9, "Fireball"
+    view["players"][0]["progress"]["ring_tempted"], view["players"][0]["mana_pool"]["R"] = 3, 2
+    assert world.observation("p0") == expected
+
+
 def test_a_pending_trigger_from_a_hidden_card_is_omitted() -> None:
     world = World(GAME0, flags=FLAGS_ON)
     temper = world.add("Fiery Temper", owner="p1", zone="hand")
@@ -217,6 +279,16 @@ def test_a_zone_change_makes_a_fresh_object() -> None:
     assert (obj.tapped, obj.phased_out, obj.counters, obj.summoning_sick) == (False, False, {}, True)
     (record,) = world.observation("p0")["players"][1]["battlefield"]                          # p1 controls it
     assert (record["card_name"], record["owner_seat"], record["controller_seat"]) == ("Spikefield Cave", "p0", "p1")
+    journey = world.add("Journey to Nowhere", owner="p0", zone="battlefield")
+    seer = world.add("Fathom Seer", owner="p1", zone="exile", face_down=True, face_down_visible_to=("p1",),
+                     exiled_by=journey)
+    swift = world.add("Monastery Swiftspear", owner="p0", zone="battlefield", attack_target={"player": "p1"})
+    world.move(seer, "battlefield")                                                           # returned
+    world.move(swift, "battlefield")                                                          # flickered
+    returned, flickered = world.objects[seer], world.objects[swift]
+    assert (returned.exiled_by, returned.face_down_visible_to, flickered.attack_target) == (None, (), None)
+    hazard = world.add("Spikefield Hazard // Spikefield Cave", owner="p0", zone="library")    # a decklist's full name
+    assert world.objects[hazard].name == "Spikefield Hazard"
 
 
 def test_libraries_list_cards_from_the_top() -> None:
@@ -273,6 +345,9 @@ def test_looks_are_per_viewer_and_a_zone_change_ends_them() -> None:
     assert world.reference("p1", card)["object_id"] == world.object_id("p1", card) != shown
     world.move(card, "library")                                                              # a new stay
     assert world.reference("p0", card) is None and world.look("p0", card) != shown
+    looks = {seat: world.look(seat, card) for seat in ("p0", "p1")}
+    world.end_looks("p0")                                                                    # per viewer
+    assert world.look("p1", card) == looks["p1"] and world.look("p0", card) != looks["p0"]
 
 
 @pytest.mark.parametrize(
@@ -289,14 +364,25 @@ def test_looks_are_per_viewer_and_a_zone_change_ends_them() -> None:
                                          "position_from_top": None, "position_from_bottom": None, "how": "revealed"}),
                    w.observation("p0")),
         lambda w: World(GAME0, flags={"known_cards": True}),
+        lambda w: _twice_on_the_stack(w),
+        lambda w: w.reference("p0", {"$obj": w.add("Island", owner="p0", zone="hand")}),
+        lambda w: w.add("Grizzly Bears", owner="p1", zone="battlefield",
+                        exiled_by=w.add("Journey to Nowhere", owner="p0", zone="battlefield")),
     ],
     ids=["unknown card", "controller outside the battlefield", "face down in a graveyard", "reused internal id",
          "plain id of a library card", "look at a public card", "target without $obj", "known entry with an id",
-         "missing flags"],
+         "missing flags", "two stack items for one object", "$obj where an internal id goes",
+         "exiled_by outside exile"],
 )
 def test_the_world_refuses_what_the_spec_cannot_show(build) -> None:
     with pytest.raises(ValueError):
         build(World(GAME0, flags=FLAGS_OFF))
+
+
+def _twice_on_the_stack(world: World) -> None:
+    ability = world.add("Relic of Progenitus", owner="p0", zone="stack")          # one object per activation
+    world.stack.extend(StackItem(ability, "activated_ability", None, []) for _ in range(2))
+    world.observation("p0")
 
 
 def test_posed_and_scenario_defaults() -> None:
