@@ -102,6 +102,7 @@ def test_v9_context_matches_the_family_with_the_mana_payment_exception() -> None
         seat_decision(MANA[:1] + MANA[2:], kind="choice", purpose="mana_payment"),     # no pay: false
         seat_decision(MANA + [SAMPLES["choose_target"]], kind="choice", purpose="mana_payment"),
         seat_decision(purpose="mana_payment"),                                          # the purpose on a priority decision
+        seat_decision(MANA[1:], purpose="mana_payment"),                               # legal mana_payment candidates, wrong kind
     ):
         with pytest.raises(ValidatorViolation) as caught:
             check_context(decision)
