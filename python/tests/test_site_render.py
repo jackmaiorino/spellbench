@@ -76,8 +76,9 @@ BENCH: dict[str, Any] = {
     },
     "overall": OVERALL,
     "deck_tables": [
-        {"label": "Burn", "status": "ok", "reason": None, "rows": OVERALL},
-        {"label": "Elves", "status": "fit_failed", "reason": "reference id is absent", "rows": []},
+        {"label": "Burn", "status": "ok", "reason": None, "fit_error": None, "rows": OVERALL},
+        {"label": "Elves", "status": "fit_failed", "reason": "the random bot has no complete pair on this deck",
+         "fit_error": "reference_id has no games", "rows": []},
     ],
     "style_tables": [{"tag": "baseline", "rows": OVERALL[1:]}, {"tag": "heuristic", "rows": OVERALL[:1]}],
     "grid": {
@@ -184,8 +185,29 @@ def test_a_grid_cell_names_the_sample_behind_its_share() -> None:
 def test_every_deck_and_style_gets_a_panel() -> None:
     page = _pages()["benchmark"]
     assert 'data-deck="Burn"' in page and 'data-deck="Elves"' in page
-    assert "Not rated: reference id is absent" in page
+    assert "Not rated: " in _element(page, "section", "data-deck", "Elves")
     assert 'data-tag="baseline"' in page and 'data-tag="heuristic"' in page
+
+
+def test_an_unrated_deck_gives_a_reason_for_readers_and_keeps_the_fit_error_on_hover() -> None:
+    page = _pages()["benchmark"]
+    assert (
+        '<p class="empty">Not rated: <span title="reference_id has no games">'
+        "the random bot has no complete pair on this deck</span></p>"
+    ) in _html(page, "section", "data-deck", "Elves")
+    bench = copy.deepcopy(BENCH)
+    bench["deck_tables"][1].update(status="no_rated_games", reason="no rated games", fit_error=None)
+    assert '<p class="empty">Not rated: no rated games</p>' in render.render_benchmark(bench)
+
+
+def test_the_hero_subtitle_names_the_whiskers() -> None:
+    hero = _pages()["home"]
+    hero = hero[hero.index('id="hero"'):hero.index("</section>")]
+    assert "Whiskers show 95% intervals." in hero and "Bars show" not in hero
+
+
+def test_the_method_page_says_which_matchups_get_the_virtual_draw() -> None:
+    assert "every matchup with a complete pair gets one extra virtual draw" in _pages()["method"]
 
 
 def test_links_between_pages() -> None:

@@ -45,6 +45,7 @@ RUN_FILES = (store.MANIFEST_NAME, *store.DATA_FILE_NAMES)
 _SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL}
 _MARKER_TEXT = "spellbench site output; rebuilt by spellbench site\n"
 _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
+_ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
 
 
 class SiteError(ValueError):
@@ -379,18 +380,24 @@ def _leader_rows(
 def _deck_table(
     deck_slice: Mapping[str, Any], anchor_id: str, display: Mapping[str, Mapping[str, Any]]
 ) -> dict[str, Any]:
-    """One deck's table from ``slices.deck``, with the reason when it is not rated."""
-    status = deck_slice["status"]
+    """One deck's table from ``slices.deck``, with a reason for readers when it is not rated.
+
+    The fit's own error text stays in ``fit_error``; the page shows it on hover.
+    """
+    status, fit_error = deck_slice["status"], deck_slice["fit_error"]
     if status == "ok":
         reason = None
     elif status == "no_rated_games":
         reason = "no rated games"
+    elif fit_error == _ANCHOR_WITHOUT_PAIRS:
+        reason = "the random bot has no complete pair on this deck"
     else:
-        reason = deck_slice["fit_error"]
+        reason = "the ratings could not be fitted"
     return {
         "label": deck_slice["label"],
         "status": status,
         "reason": reason,
+        "fit_error": fit_error,
         "rows": _leader_rows(deck_slice["rows"], anchor_id, display),
     }
 

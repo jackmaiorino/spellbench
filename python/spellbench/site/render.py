@@ -49,7 +49,7 @@ _NAV = (
 
 _HERO_SUBTITLE = (
     "Each bot's Elo minus the random bot's, averaged over the benchmarks it entered. "
-    "Bars show 95% intervals. "
+    "Whiskers show 95% intervals. "
     "The score compares skill above random across formats, not head-to-head results."
 )
 
@@ -75,7 +75,8 @@ _METHOD_SECTIONS = (
     (
         "Ratings",
         "Ratings come from a Bradley-Terry fit over complete seat-swapped pairs. A draw counts as half a "
-        "win, and every matchup gets one extra virtual draw so a perfect record still has a finite rating. "
+        "win, and every matchup with a complete pair gets one extra virtual draw so a perfect record still has a "
+        "finite rating. "
         "The random bot is the anchor: its Elo is fixed at 1000. The 95% intervals come from a bootstrap "
         "that resamples whole pairs within each matchup.",
     ),
@@ -812,7 +813,10 @@ def _deck_section(table: Mapping[str, Any]) -> str:
     if table["status"] == "ok":
         content = _leader_table(table["rows"], _elo_scale(table["rows"]))
     else:
-        content = f'<p class="empty">Not rated: {_e(table["reason"] or table["status"])}</p>'
+        reason = _e(table["reason"] or table["status"])
+        if table["fit_error"]:  # the fit's own words, on hover
+            reason = f'<span title="{_e(table["fit_error"])}">{reason}</span>'
+        content = f'<p class="empty">Not rated: {reason}</p>'
     label = _e(table["label"])
     return f'<section data-panel="deck" data-deck="{label}">\n<h3>{label}</h3>\n{content}\n</section>'
 

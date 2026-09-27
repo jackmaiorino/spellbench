@@ -15,7 +15,7 @@ import pytest
 
 from spellbench.arena import cli, runner, store
 from spellbench.bench import definition
-from spellbench.site import render
+from spellbench.site import build, render
 from spellbench.site.build import SiteError, build_site
 
 from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE, cli_bot
@@ -433,6 +433,22 @@ def test_an_unrated_deck_is_reported_and_the_site_still_builds(tmp_path: Path) -
     assert "Not rated: no rated games" in _element(page, "section", "data-deck", "Halt")
     games = board["games"]
     assert f'{games["total"]} games: {games["rated"]} rated, {games["halted"]} halted' in page
+
+
+@pytest.mark.parametrize(
+    ("status", "fit_error", "reason"),
+    [
+        ("ok", None, None),
+        ("no_rated_games", None, "no rated games"),
+        ("fit_failed", "reference_id has no games", "the random bot has no complete pair on this deck"),
+        ("fit_failed", "comparison graph is disconnected", "the ratings could not be fitted"),
+    ],
+)
+def test_a_deck_table_explains_why_it_is_not_rated(status: str, fit_error: str | None, reason: str | None) -> None:
+    # The fake engine cannot leave the anchor without a complete pair on one deck, so the slice is built here.
+    deck_slice = {"label": "Elves", "status": status, "fit_error": fit_error, "rows": []}
+    table = build._deck_table(deck_slice, "a" * 64, {})
+    assert (table["status"], table["reason"], table["fit_error"]) == (status, reason, fit_error)
 
 
 def test_forfeits_reach_the_benchmark_page(tmp_path: Path) -> None:
