@@ -107,7 +107,7 @@ def test_bot_names_are_unique() -> None:
 
 
 # Cf: zero-width space, right-to-left override, left-to-right isolate, soft hyphen. Cc: escape, newline.
-@pytest.mark.parametrize("char", ["​", "‮", "⁦", "­", "\x1b", "\n"])
+@pytest.mark.parametrize("char", ["\u200b", "\u202e", "\u2066", "\u00ad", "\x1b", "\n"])
 @pytest.mark.parametrize("field", ["label", "author", "description"])
 def test_display_text_rejects_control_and_format_characters(field: str, char: str) -> None:
     value = _value()

@@ -422,7 +422,7 @@ MARKUP_PAYLOADS = (
     "</style><script>alert(1)</script>",
     '" onmouseover="alert(1)',
     "&lt;b&gt;already escaped&lt;/b&gt; &amp;",
-    "‮​</textarea><b>bidi</b>⁦",  # bidi and zero-width characters around markup (render level only)
+    "\u202e\u200b</textarea><b>bidi</b>\u2066",  # bidi and zero-width characters around markup (render level only)
 )
 # Fields whose values choose the markup's shape: kept in the second pass so that bounded rows, rated
 # deck tables, and links render with payloads in their text.
