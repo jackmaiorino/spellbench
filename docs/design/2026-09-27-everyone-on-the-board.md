@@ -74,7 +74,10 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 - Community bots never run on this PC outside a Docker container with no
   network, and pickled checkpoints load only inside that container. Engine
   sources needed for adapters (gorge now, XMage and CABT later) are built and
-  run on the host.
+  run on the host, and so are bots the maintainer builds from the same
+  pinned, reviewed source (gorge's own bots). Submitted binaries, checkpoints
+  and pickles always need the sandbox; the host enforces this with an
+  allowlist (P, Decision on isolation).
 - Codex-owned kernel code and checkpoints are used read-only; nothing of
   Codex's is pushed; Spellbench results are measurement only.
 - Outreach (Discord posts, GitHub issues on members' repositories) is drafted
