@@ -30,6 +30,7 @@ type Game struct {
 	planned uint64 // draws the planner forced, plus the toss
 }
 
+// New returns the game at its first decision, even alongside a CheckRandomness error.
 func New(reg *cards.Registry, sec *secrets.Game, decks [2][]*cards.Card, r Rules) (*Game, error) {
 	g := &Game{Secret: sec, planned: 1}
 	seed := sec.StreamSeed("shared", "gorge_seed", 0)
@@ -89,7 +90,7 @@ func (g *Game) Submit(in decision.Intent) error {
 // Probe submits ins to a clone. Clones have no planner, so a probe's own
 // shuffles draw from the clone's generator; probes judge legality only.
 // A clone still holds the real hidden zones and the secret-seeded generator,
-// so a probe's outcome may never shape a candidate set through hidden-zone
+// so no probe outcome may set a decision's shape through hidden-zone
 // contents (Section 13 F3); Task 28's resample check is the net.
 func (g *Game) Probe(ins ...decision.Intent) (*rules.Engine, error) {
 	c := g.E.Clone()

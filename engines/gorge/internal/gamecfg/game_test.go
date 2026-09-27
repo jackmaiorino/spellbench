@@ -192,7 +192,10 @@ func TestMulliganShuffleUsesTheSeatsNextOrdinal(t *testing.T) {
 func TestSubmitReportsUnplannedRandomness(t *testing.T) {
 	reg := testcorpus.Registry(t)
 	burn := deck(t, reg, "Burn")
-	g, _ := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+	g, err := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+	if err != nil {
+		t.Fatal(err) // New ends with CheckRandomness, so the invariant holds here
+	}
 	in := intent(t, g, 0, "keep")
 	g.E.Rand(6)
 	if err := g.Submit(in); !errors.Is(err, gamecfg.ErrUnplannedRandomness) {
@@ -200,28 +203,59 @@ func TestSubmitReportsUnplannedRandomness(t *testing.T) {
 	}
 }
 
-// Probe answers on a clone: an option the engine did not offer is an error,
-// and a legal answer moves only the clone, to where the real submit arrives.
+// Probe answers on a clone, and an option the engine did not offer is an
+// error. Probing p0's mulligan and p1's keep ends the pass, so the clone
+// shuffles p0's redraw, yet the real engine's draws, planned count, head,
+// pending decision and library stay put, and real submits still pass. A
+// clone shuffles from its own generator, not the planner, so only a
+// draw-free probe ends where the real submit arrives.
 func TestProbeLeavesTheRealEngineUntouched(t *testing.T) {
 	reg := testcorpus.Registry(t)
 	burn := deck(t, reg, "Burn")
-	g, _ := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
-	in := intent(t, g, 0, "mulligan")
-	head, draws := g.E.L.Head(), g.E.RNGDraws()
-	if _, err := g.Probe(decision.Intent{Seq: in.Seq, Player: 0, Choices: []int{2}}); err == nil {
+	build := func() *gamecfg.Game {
+		g, err := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	g, twin := build(), build()
+	mull := intent(t, g, 0, "mulligan")
+	if err := twin.Submit(mull); err != nil { // p1's keep is read off a twin game
+		t.Fatal(err)
+	}
+	keep := intent(t, twin, 1, "keep")
+	head, draws, lib := g.E.L.Head(), g.E.RNGDraws(), slices.Clone(g.E.G.Zone(state.ZLibrary, 0))
+	if _, err := g.Probe(decision.Intent{Seq: mull.Seq, Player: 0, Choices: []int{2}}); err == nil {
 		t.Fatal("probe accepted an option the engine did not offer")
 	}
-	c, err := g.Probe(in)
+	c, err := g.Probe(mull, keep)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if g.E.L.Head() != head || g.E.RNGDraws() != draws || g.E.Pending().Seq != in.Seq {
-		t.Fatal("probing moved the real engine")
+	if c.RNGDraws() == draws {
+		t.Fatal("the probe drew nothing, so it cannot test the real engine's draws")
 	}
-	if err := g.Submit(in); err != nil {
+	if got := g.E.RNGDraws(); got != draws {
+		t.Errorf("real engine has %d draws after probing, want %d", got, draws)
+	}
+	if err := g.CheckRandomness(); err != nil {
+		t.Errorf("probing moved the planned count: %v", err)
+	}
+	if g.E.L.Head() != head || g.E.Pending().Seq != mull.Seq || !slices.Equal(g.E.G.Zone(state.ZLibrary, 0), lib) {
+		t.Error("probing moved the real engine's head, pending decision or library")
+	}
+	one, err := g.Probe(mull)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if g.E.L.Head() == head || c.L.Head() != g.E.L.Head() {
-		t.Fatal("the probe's clone is not where the real submit arrives")
+	if err := g.Submit(mull); err != nil {
+		t.Fatal(err)
+	}
+	if one.L.Head() != g.E.L.Head() {
+		t.Error("a draw-free probe did not end where the real submit arrives")
+	}
+	if err := g.Submit(keep); err != nil {
+		t.Fatal(err)
 	}
 }
