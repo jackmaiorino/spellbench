@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import re
 import shutil
@@ -18,8 +19,9 @@ from spellbench.bench import definition
 from spellbench.site import build, render
 from spellbench.site.build import SiteError, build_site
 
-from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE, cli_bot
+from arena_helpers import BOT_INVALID_CHOICE, FAKE_ARENA_ENGINE, TESTS_DIR, cli_bot
 
+BOT_ONE_LAND = TESTS_DIR / "bot_one_land.py"
 RUN_FILES = ("manifest.json", "config.json", "registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md")
 HOSTILE = '<script>alert("x")</script>'
 GE, LE, NBSP = "≥", "≤", " "  # a bound's sign, then a no-break space before its number
@@ -527,3 +529,151 @@ def test_the_build_never_replaces_the_benchmarks_it_reads(copy_tree: Path) -> No
         with pytest.raises(SiteError, match="refusing"):
             build_site(copy_tree, out)
         assert _files(copy_tree.parent) == before
+
+
+# ---------------- every number on the site, checked against leaderboard.json ----------------
+
+
+@pytest.fixture(scope="module")
+def checked(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, dict[str, Any]]:
+    """A site built from one benchmark, "gamma", holding every kind of leaderboard row, and its leaderboard.json.
+
+    On the fake engine heuristic never loses (a lower bound), first never wins
+    (an upper bound), and one-land beats first and loses to heuristic: an
+    ordinary interval overall and, with one pair per deck, a zero-width one
+    ("interval not estimable") in every deck table. uniform is the anchor.
+    """
+    root = tmp_path_factory.mktemp("checked")
+    value = _definition("gamma")
+    value["workers"] = 4  # the ledger is the same for any worker count
+    value["bots"].append(
+        {
+            "name": "one-land", "version": "1.0.0", "type": "subprocess", "command": [sys.executable, str(BOT_ONE_LAND)],
+            "training_style_tags": ["baseline"],
+            "display": {"label": "one land", "author": "Tests", "description": "Plays one land a game.", "url": None},
+        }
+    )
+    run_dir = _publish(root / "benchmarks", value)
+    build_site(root / "benchmarks", root / "site")
+    return root / "site", json.loads((run_dir / "leaderboard.json").read_text(encoding="utf-8"))
+
+
+def _section(page: str, marker: str) -> str:
+    """The HTML from ``marker`` to the end of its section."""
+    start = page.index(marker)
+    return page[start:page.index("</section>", start)]
+
+
+def _aria_label(fragment: str) -> str:
+    match = re.search(r'aria-label="([^"]*)"', fragment)
+    assert match, fragment
+    return html.unescape(match.group(1))
+
+
+def _check_table(section: str, rows: list[dict[str, Any]], board: dict[str, Any]) -> set[str]:
+    """Check one rendered leaderboard against its leaderboard.json ``rows``; returns the kinds of rows seen."""
+    assert re.findall(r'<tr data-bot="([^"]*)">', section) == [row["name"] for row in rows]
+    kinds: set[str] = set()
+    for row in rows:
+        cells = re.findall(r"<td[^>]*>(.*?)</td>", _html(section, "tr", "data-bot", row["name"]), re.S)
+        rank, bot, elo_cell, ci_cell, wdl, games, forfeits = cells
+        assert rank == ("-" if row["rank"] is None else str(row["rank"])), row["name"]
+        assert f'>{row["name"]} {row["version"]}</span>' in bot, row["name"]  # the rated identity
+        assert wdl == f'{row["wins"]}-{row["draws"]}-{row["losses"]}', row["name"]
+        assert (games, forfeits) == (str(row["games"]), str(row["forfeit_losses"])), row["name"]
+        if row["elo_milli"] is None:
+            assert (elo_cell, ci_cell) == ('<span class="muted">unrated</span>', ""), row["name"]
+            kinds.add("unrated")
+            continue
+        elo, interval, bound = render.format_elo(row["elo_milli"]), row["ci95_elo_milli"], _bound(row, board)
+        assert elo_cell.split("<", 1)[0] == {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + elo, row["name"]
+        assert (">unbeaten<" in elo_cell, ">winless<" in elo_cell) == (bound == "lower", bound == "upper"), row["name"]
+        if row["bot_id"] == board["anchor"]["bot_id"]:
+            kind, label = "anchor", f"Elo {elo}, the anchor"
+        elif bound == "lower":
+            kind, label = "lower", f"at least {elo} Elo, unbeaten: the rating is limited by the prior"
+        elif bound == "upper":
+            kind, label = "upper", f"at most {elo} Elo, winless: the rating is limited by the prior"
+        elif interval is None:
+            kind, label = "no interval", f"Elo {elo}, no interval"
+        elif interval[0] == interval[1]:
+            kind, label = "not estimable", None
+        else:
+            low, high = (render.format_elo(end) for end in interval)
+            kind, label = "interval", f"Elo {elo}, 95% interval {low} to {high}"
+        if label is None:
+            assert ci_cell == '<span class="ci-text">interval not estimable</span>', row["name"]
+        else:
+            assert _aria_label(ci_cell) == label, row["name"]
+        assert ('class="arrow"' in ci_cell) == (bound is not None), row["name"]
+        kinds.add(kind)
+    return kinds
+
+
+def _in_words(margin: float, bound: str | None) -> str:
+    """A Hero margin as the aria text words it."""
+    rounded = round(margin)
+    if rounded > 0:
+        text = f"{rounded} Elo above random"
+    elif rounded < 0:
+        text = f"{-rounded} Elo below random"
+    else:
+        text = "level with random"
+    if bound is None:
+        return text
+    return ("at least " if (bound == "lower") == (rounded >= 0) else "at most ") + text
+
+
+def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, dict[str, Any]]) -> None:
+    site, board = checked
+    page = (site / "b/gamma/index.html").read_text(encoding="utf-8")
+    games = board["games"]
+    assert f'{games["total"]} games: {games["rated"]} rated' in page
+
+    # the overall, training-style, and deck tables
+    kinds = _check_table(_section(page, 'data-panel="overall"'), board["rows"], board)
+    for tag in sorted({tag for row in board["rows"] for tag in row["training_style_tags"]}):
+        tagged = [row for row in board["rows"] if tag in row["training_style_tags"]]
+        _check_table(_section(page, f'data-tag="{tag}"'), tagged, board)
+    for deck_slice in board["slices"]["deck"]:
+        section = _section(page, f'data-deck="{deck_slice["label"]}"')
+        assert deck_slice["status"] == "ok"
+        kinds |= _check_table(section, deck_slice["rows"], board)
+    assert kinds == {"anchor", "lower", "upper", "interval", "not estimable"}  # every kind of row, from real data
+
+    # the matchup grid: every ordered pair of bots, the diagonal included
+    names = [row["name"] for row in board["rows"]]
+    matchups = {frozenset((matchup["a_name"], matchup["b_name"])): matchup for matchup in board["matchups"]}
+    for row_name in names:
+        for col_name in names:
+            cell = re.search(rf'<td data-row="{row_name}" data-col="{col_name}"([^>]*)>([^<]*)</td>', page)
+            assert cell, (row_name, col_name)
+            matchup = matchups.get(frozenset((row_name, col_name))) if row_name != col_name else None
+            if matchup is None or matchup["a_score"] is None:
+                assert cell.groups() == (' class="none"', ""), (row_name, col_name)
+                continue
+            num, den = matchup["a_score"]["num"], matchup["a_score"]["den"]
+            share = num / den if matchup["a_name"] == row_name else (den - num) / den
+            pairs = matchup["complete_pairs"]
+            assert cell.group(1).startswith(f' title="over {pairs} complete pairs ({2 * pairs} games)"'), (row_name, col_name)
+            assert cell.group(2) == render.format_share(share), (row_name, col_name)
+
+    # the Hero chart: one benchmark, so each row is that benchmark's overall row
+    home = (site / "index.html").read_text(encoding="utf-8")
+    assert f'{games["total"]} games' in home[home.index('id="benchmarks"'):]
+    for row in board["rows"]:
+        item = _html(home, "li", "data-bot", row["name"])
+        if row["bot_id"] == board["anchor"]["bot_id"]:
+            assert '<span class="value">0</span>' in item and _aria_label(item) == "0, the reference"
+            continue
+        margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
+        value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
+        assert f'<span class="value">{value}</span>' in item, row["name"]
+        assert f'<span class="chip">gamma {value}</span>' in item, row["name"]
+        if bound is None:
+            low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
+            detail = f"95% interval {render.format_margin(low)} to {render.format_margin(high)}"
+        else:
+            detail = f"{'unbeaten' if bound == 'lower' else 'winless'} in gamma: the rating is limited by the prior"
+        assert _aria_label(item) == f"{_in_words(margin, bound)}, {detail}", row["name"]
+        assert ('class="arrow"' in item, 'class="whisker"' in item) == (bound is not None, bound is None), row["name"]

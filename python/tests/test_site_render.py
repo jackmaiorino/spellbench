@@ -5,7 +5,8 @@ from __future__ import annotations
 import copy
 import html
 import re
-from typing import Any
+from html.parser import HTMLParser
+from typing import Any, Callable
 
 import pytest
 
@@ -403,3 +404,84 @@ def test_the_method_page_explains_bounds() -> None:
         "A bot that never lost (or never won) a rated game has no finite best-fit rating. The virtual draw keeps it "
         "finite, so the site shows it as a bound, at least or at most, and that bound grows with the number of games played."
     ) in method
+
+
+# ---------------- escaping: payloads in every string field of all four views ----------------
+
+MARKUP_PAYLOADS = (
+    "<img src=x onerror=alert(1)>",
+    '"><svg onload=alert(1)>',
+    "'><script>alert(1)</script>",
+    "</title><script>alert(1)</script>",
+    "</style><script>alert(1)</script>",
+    '" onmouseover="alert(1)',
+    "&lt;b&gt;already escaped&lt;/b&gt; &amp;",
+    "‮​</textarea><b>bidi</b>⁦",  # bidi and zero-width characters around markup (render level only)
+)
+# Fields whose values choose the markup's shape: kept in the second pass so that bounded rows, rated
+# deck tables, and links render with payloads in their text.
+SHAPE_KEYS = frozenset({"bound", "status", "url", "repo_url"})
+
+
+def _inject(value: Any, payload: str, keep: frozenset[str] = frozenset()) -> Any:
+    """``value`` with every string replaced by ``payload``, except under the dict keys in ``keep``."""
+    if isinstance(value, dict):
+        return {key: item if key in keep else _inject(item, payload, keep) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_inject(item, payload, keep) for item in value]
+    return payload if isinstance(value, str) else value
+
+
+def _fuzz_views() -> list[tuple[str, Callable[[Any], str], dict[str, Any]]]:
+    """Each page's renderer with a view that takes every branch that shows data."""
+    home = copy.deepcopy(HOME)
+    home["hero"]["rows"][0].update(bound="lower", chips=[{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": "lower"}])
+    home["hero"]["rows"][2]["approximate"] = home["hero"]["approximate"] = True
+    bench = copy.deepcopy(BENCH)
+    bench["overall"][0].update(bound="lower", wins=16, draws=0, losses=0)
+    bench["overall"][2].update(url="https://example.com/first", ci_elo_milli=[985_000, 985_000])  # not estimable
+    bench["overall"].append(_leader("ghost", "ghost", None, None, None, wins=0, draws=0, losses=0, games=0))
+    return [
+        ("home", render.render_home, home),
+        ("benchmark", render.render_benchmark, bench),
+        ("join", render.render_join, copy.deepcopy(INFO)),
+        ("method", render.render_method, copy.deepcopy(INFO)),
+    ]
+
+
+class _Structure(HTMLParser):
+    """The tags and attribute names of a page, in order, and its link targets."""
+
+    def __init__(self, page: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.events: list[tuple[str, ...]] = []
+        self.links: list[str] = []
+        self.feed(page)
+        self.close()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.events.append((tag, *(name for name, _ in attrs)))
+        self.links += [value for name, value in attrs if name in ("href", "src") and value is not None]
+
+    def handle_endtag(self, tag: str) -> None:
+        self.events.append(("/" + tag,))
+
+
+@pytest.mark.parametrize("keep", [frozenset(), SHAPE_KEYS], ids=["every-string", "every-string-but-shape-keys"])
+@pytest.mark.parametrize("payload", MARKUP_PAYLOADS)
+def test_payloads_in_every_string_field_stay_text(payload: str, keep: frozenset[str]) -> None:
+    for name, render_page, view in _fuzz_views():
+        benign = _Structure(render_page(_inject(view, "text", keep)))
+        page = render_page(_inject(view, payload, keep))
+        # a payload that opened or closed a tag (a </title> or </style> breakout included) or added an
+        # attribute would change the page's tag structure
+        assert _Structure(page).events == benign.events, name
+        assert payload not in page, name  # every payload holds a character that escaping rewrites
+        assert page.count("<script>") == (1 if name == "benchmark" else 0), name  # only the tab script
+
+
+def test_a_script_url_in_a_data_field_never_becomes_a_link() -> None:
+    # hrefs keep their build-made relative paths; every other string, url and repo_url included, is the payload
+    for name, render_page, view in _fuzz_views():
+        links = _Structure(render_page(_inject(view, "javascript:alert(1)", frozenset({"href"})))).links
+        assert links and not [link for link in links if link.strip().lower().startswith("javascript:")], name
