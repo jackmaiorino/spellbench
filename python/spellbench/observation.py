@@ -5,9 +5,13 @@ type and vocabulary of spec 6, plus the structural rules of spec 6.2 to 6.6
 that each validator's docstring lists. Optional fields (spec 6.9) are null or
 typed here; whether each follows its flag is V8's check. What the viewer may
 see is V5's (the other seat's hand, ``hand_count``, a record claiming
-``library``, and the shape, count and order of ``known``) and V6's (face-down
-names), and V4 matches every reference inside the observation against the
-held objects through ``observation_objects`` and ``observation_references``.
+``library``, and the shape, count and order of ``known``) and V6's (which
+face-down objects must be nameless), and V4 matches every reference inside the
+observation against the held objects through ``observation_objects`` and
+``observation_references``. V1 also keeps a hidden identity hidden within the
+observation (spec 5.1, 6.8): a nameless record has a null ``full_name`` (and,
+face-down off the battlefield, null ``characteristics``), and an ability or a
+pending trigger whose source is nameless is nameless too.
 
 Every error context is the path of the offending value, for example
 ``observation.players[0].battlefield[0].permanent.counters``, because the
@@ -20,6 +24,8 @@ import re
 from typing import Any, Callable, Iterator, Mapping
 
 from ._schema import (
+    I32_MAX,
+    I32_MIN,
     OBSERVATION_FLAGS,  # re-exported: the flags of the optional fields (spec 6.9)
     REFERENCE_FIELDS,
     SEATS,
@@ -160,8 +166,9 @@ _STACK_FIELDS = (
 )
 _PENDING_TRIGGER_FIELDS = ("source", "source_name", "controller_seat", "label", "optional")
 _KNOWN_FIELDS = ("owner_seat", "zone", "card_name", "object_id", "position_from_top", "position_from_bottom", "how")
-# Spec 6.10: a chosen number is a decimal string (numbers are i32, so it may carry a sign).
+# Spec 4.4 and 6.10: a chosen number is an i32 written in decimal, so it may carry a sign.
 _DECIMAL_RE = re.compile(r"\A(?:0|-?[1-9][0-9]*)\Z")
+_I32_DIGITS = len(str(I32_MIN))  # the longest i32 in decimal; a longer string never reaches int()
 
 
 def _one_of(allowed: tuple[str, ...]) -> Callable[[Any, str], str]:
@@ -182,8 +189,10 @@ def _array_of(check: Callable[[Any, str], Any]) -> Callable[[Any, str], list[Any
 
 
 def _decimal(value: Any, context: str) -> str:
-    if not _DECIMAL_RE.fullmatch(text(value, context)):
-        fail(context, f"{value!r} is not a decimal integer")
+    """An i32 in decimal, without leading zeros (spec 4.4, 6.10)."""
+    number = text(value, context)
+    if not (_DECIMAL_RE.fullmatch(number) and len(number) <= _I32_DIGITS and I32_MIN <= int(number) <= I32_MAX):
+        fail(context, f"{value!r} is not an i32 in decimal")
     return value
 
 
@@ -226,8 +235,9 @@ def validate_observation(value: Any, context: str = "observation") -> dict[str, 
     """Check an observation's structure (V1, spec 6); returns the input dict.
 
     Beyond types (spec 6.2): ``players`` is exactly p0 then p1, ``phase_step``
-    is ``pregame`` exactly when ``turn`` is 0, and ``active_seat`` is null
-    only in ``pregame``.
+    is ``pregame`` exactly when ``turn`` is 0, ``active_seat`` is null only in
+    ``pregame``, and ``priority_seat`` is null in ``pregame``, where no player
+    has priority.
     """
     observation = as_object(value, context)
     exact_keys(observation, _OBSERVATION_FIELDS, context)
@@ -238,7 +248,8 @@ def validate_observation(value: Any, context: str = "observation") -> dict[str, 
         fail(f"{context}.phase_step", f"must be pregame exactly when turn is 0, got {phase_step!r} in turn {turn}")
     if nullable(observation["active_seat"], seat, f"{context}.active_seat") is None and phase_step != "pregame":
         fail(f"{context}.active_seat", f"is null only in pregame, got null in {phase_step}")
-    nullable(observation["priority_seat"], seat, f"{context}.priority_seat")
+    if nullable(observation["priority_seat"], seat, f"{context}.priority_seat") is not None and phase_step == "pregame":
+        fail(f"{context}.priority_seat", "must be null in pregame, where no player has priority")
     nullable(observation["passed_seats"], _seat_list, f"{context}.passed_seats")
     nullable(observation["day_night"], _day_night, f"{context}.day_night")
     players = array(observation["players"], f"{context}.players", min_length=2, max_length=2)
@@ -313,7 +324,7 @@ def _record(value: Any, zone_array: str, holder: str, context: str) -> None:
     5.1). ``permanent`` is non-null exactly on the battlefield. ``characteristics``
     is null exactly for a face-down record outside the battlefield whose name
     is hidden: its printed characteristics are hidden with its name (spec 6.4,
-    6.8).
+    6.8). A nameless record has a null ``full_name`` for the same reason.
     """
     record = as_object(value, context)
     exact_keys(record, _RECORD_FIELDS, context)
@@ -329,7 +340,8 @@ def _record(value: Any, zone_array: str, holder: str, context: str) -> None:
         fail(f"{context}.owner_seat", f"must be {holder}, whose {zone_array} holds it, got {owner!r}")
     elif controller != owner:
         fail(f"{context}.controller_seat", f"must be the owner {owner}, as for any object without a controller")
-    nullable(record["full_name"], card_name, f"{context}.full_name")
+    if nullable(record["full_name"], card_name, f"{context}.full_name") is not None and record["card_name"] is None:
+        fail(f"{context}.full_name", "must be null when card_name is null: a hidden identity hides its full name too")
     face_down = boolean(record["face_down"], f"{context}.face_down")
     boolean(record["token"], f"{context}.token")
     boolean(record["copy"], f"{context}.copy")
@@ -402,7 +414,9 @@ def _chosen(value: Any, context: str) -> None:
 def _stack_entry(value: Any, context: str) -> None:
     """A stack entry (spec 6.5) in zone ``stack``.
 
-    A spell has characteristics and a null source; an ability has null characteristics.
+    A spell has characteristics and a null source; an ability has null
+    characteristics, and is nameless when its source is, since it is named
+    after its source (spec 5.1).
     """
     entry = as_object(value, context)
     exact_keys(entry, _STACK_FIELDS, context)
@@ -410,8 +424,11 @@ def _stack_entry(value: Any, context: str) -> None:
     if entry["zone"] != "stack":
         fail(f"{context}.zone", f"must be stack, got {entry['zone']!r}")
     spell = vocab(entry["stack_kind"], STACK_KINDS, f"{context}.stack_kind") == "spell"
-    if nullable(entry["source"], object_ref, f"{context}.source") is not None and spell:
+    source = nullable(entry["source"], object_ref, f"{context}.source")
+    if source is not None and spell:
         fail(f"{context}.source", "must be null for a spell")
+    if source is not None and source["card_name"] is None and entry["card_name"] is not None:
+        fail(f"{context}.card_name", "must be null when its source's name is hidden")
     boolean(entry["face_down"], f"{context}.face_down")
     boolean(entry["copy"], f"{context}.copy")
     if entry["characteristics"] is None:
@@ -429,11 +446,13 @@ def _stack_entry(value: Any, context: str) -> None:
 
 
 def _pending_trigger(value: Any, context: str) -> None:
-    """A pending trigger (spec 6.6)."""
+    """A pending trigger (spec 6.6): its ``source_name`` is null when its source's name is hidden (spec 5.1, 6.8)."""
     trigger = as_object(value, context)
     exact_keys(trigger, _PENDING_TRIGGER_FIELDS, context)
-    nullable(trigger["source"], object_ref, f"{context}.source")
-    nullable(trigger["source_name"], card_name, f"{context}.source_name")
+    source = nullable(trigger["source"], object_ref, f"{context}.source")
+    source_name = nullable(trigger["source_name"], card_name, f"{context}.source_name")
+    if source is not None and source["card_name"] is None and source_name is not None:
+        fail(f"{context}.source_name", "must be null when its source's name is hidden")
     seat(trigger["controller_seat"], f"{context}.controller_seat")
     nullable(trigger["label"], text, f"{context}.label")
     boolean(trigger["optional"], f"{context}.optional")

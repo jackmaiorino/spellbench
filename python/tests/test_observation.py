@@ -244,6 +244,34 @@ def test_every_link_kind_is_walked_and_equals_a_held_object() -> None:
     ]
 
 
+def _morph() -> dict:
+    """p1's face-down creature as the viewer p0 sees it: nameless, with face-down characteristics (spec 6.4, 6.8)."""
+    return {**_card("o-fd00000000000001", None, "p1", "battlefield", _traits(["creature"], power=2, toughness=2),
+                    permanent=_state()), "face_down": True}
+
+
+def _morph_ability(name: str | None) -> dict:
+    """A triggered ability of the morph on the stack, named after its source (spec 5.1)."""
+    return {**_ref(_morph()), "object_id": "o-ab00000000000001", "card_name": name, "zone": "stack",
+            "stack_kind": "triggered_ability", "source": _ref(_morph()), "face_down": False, "copy": False,
+            "characteristics": None, "targets": [], "divided": None, "modes": None, "x_value": None, "text": None}
+
+
+def _morph_trigger(name: str | None) -> dict:
+    """A pending trigger of the morph (spec 6.6)."""
+    return {"source": _ref(_morph()), "source_name": name, "controller_seat": "p1", "label": None, "optional": False}
+
+
+def test_a_hidden_identity_stays_hidden_in_every_name_field() -> None:
+    # A nameless face-down card, an ability and a pending trigger sourced from it, all nameless (spec 5.1, 6.8).
+    observation = _copy()
+    observation["players"][1]["battlefield"].append(_morph())
+    observation["players"][1]["exile"].append(_face_down_exile(None))
+    observation.update(stack=[_morph_ability(None)], pending_triggers=[_morph_trigger(None)])
+    assert validate_observation(observation)
+    assert [path for path, _ in observation_references(observation)] == ["stack[0].source", "pending_triggers[0].source"]
+
+
 def _more_mutations() -> dict:
     """Rules the cases above leave unexercised, each with the path its error names."""
     def edit(change):
@@ -284,7 +312,21 @@ def _more_mutations() -> dict:
         "a known entry with an empty id": (edit(lambda o: o["known"][0].update(object_id="")), "known[0].object_id"),
         "a chosen color outside the colors": (chosen("color", "purple"), "players[0].battlefield[0].permanent.chosen[0].value"),
         "a chosen number not in decimal": (chosen("number", "07"), "players[0].battlefield[0].permanent.chosen[0].value"),
+        "a chosen number beyond i32": (chosen("number", "2147483648"), "players[0].battlefield[0].permanent.chosen[0].value"),
+        "a chosen number of 5000 digits": (chosen("number", "9" * 5000), "players[0].battlefield[0].permanent.chosen[0].value"),
         "day_night outside its vocabulary": (edit(lambda o: o.update(day_night="dusk")), "day_night"),
+        "a priority seat in pregame": (edit(lambda o: o.update(turn=0, phase_step="pregame", active_seat=None,
+                                                               priority_seat="p0")), "priority_seat"),     # spec 6.2
+        # A face-down identity hidden by its reference is hidden in every other name field too (spec 5.1, 6.8).
+        "a nameless face-down exile with a full name": (edit(lambda o: o["players"][1]["exile"].append(
+            {**_face_down_exile(None), "full_name": "Delver of Secrets // Insectile Aberration"})),
+            "players[1].exile[0].full_name"),
+        "an ability named after its hidden source": (edit(lambda o: (
+            o["players"][1]["battlefield"].append(_morph()), o.update(stack=[_morph_ability("Hooded Hydra")]))),
+            "stack[0].card_name"),
+        "a pending trigger naming its hidden source": (edit(lambda o: (
+            o["players"][1]["battlefield"].append(_morph()), o.update(pending_triggers=[_morph_trigger("Hooded Hydra")]))),
+            "pending_triggers[0].source_name"),
     }
 
 
