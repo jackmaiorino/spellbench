@@ -64,9 +64,10 @@ type CatalogDeck struct {
 	Decklist  []DeckRow `json:"decklist"`
 }
 
+// DeckRow is a decklist row (Section 12.1). Count is a u32 on every GOARCH.
 type DeckRow struct {
 	Name  string `json:"name"`
-	Count int    `json:"count"`
+	Count uint32 `json:"count"`
 }
 
 type Extension struct {
