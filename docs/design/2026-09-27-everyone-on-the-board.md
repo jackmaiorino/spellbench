@@ -89,3 +89,14 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    and gorge's source first, later XMage and CABT.
 2. Telling Codex about the bridge port (posted to the collab mailbox).
 3. Outreach drafts, which Jack sends.
+
+## Status (2026-09-27)
+
+- Public: the repository is public and the site deploys from `main` to
+  https://jackmaiorino.github.io/spellbench/ (Jack, 2026-09-27: "make the repo
+  public and push it").
+- C is done: g115, A48 and c12 are rated on `pauper-kernel`.
+- Jack, 2026-09-27: "We will do a best effort to integrate gorge and DraftZero
+  and MageZero and Manafold." Order: G (gorge), then X (XMage for DraftZero and
+  MageZero, with D's network-less sandbox for their checkpoints), with
+  Manafold's protocol co-review now and its adapter after its M4.
