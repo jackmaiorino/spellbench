@@ -103,6 +103,38 @@ func TestSortKnownOrder(t *testing.T) {
 	if *ks[1].PositionFromTop != 0 {
 		t.Fatal("position_from_top must break the tie")
 	}
+
+	// position_from_bottom breaks a tie once owner_seat, zone, card_name and
+	// position_from_top (both nil here) all agree.
+	bottom := []protocol.Known{
+		{OwnerSeat: "p0", Zone: "library", CardName: "Mountain", How: "revealed", PositionFromBottom: &one},
+		{OwnerSeat: "p0", Zone: "library", CardName: "Mountain", How: "revealed", PositionFromBottom: &zero},
+	}
+	observe.SortKnown(bottom)
+	if *bottom[0].PositionFromBottom != 0 || *bottom[1].PositionFromBottom != 1 {
+		t.Fatalf("position_from_bottom must break the tie: %+v", bottom)
+	}
+
+	// how breaks a tie once both position fields also agree (both nil here).
+	how := []protocol.Known{
+		{OwnerSeat: "p0", Zone: "library", CardName: "Swamp", How: "revealed"},
+		{OwnerSeat: "p0", Zone: "library", CardName: "Swamp", How: "looked_at"},
+	}
+	observe.SortKnown(how)
+	if how[0].How != "looked_at" || how[1].How != "revealed" {
+		t.Fatalf("how must break the tie: %+v", how)
+	}
+
+	// object_id breaks a tie once how also agrees; nulls first.
+	oid := "o-9"
+	objID := []protocol.Known{
+		{OwnerSeat: "p0", Zone: "library", CardName: "Forest", How: "revealed", ObjectID: &oid},
+		{OwnerSeat: "p0", Zone: "library", CardName: "Forest", How: "revealed"},
+	}
+	observe.SortKnown(objID)
+	if objID[0].ObjectID != nil || objID[1].ObjectID == nil {
+		t.Fatalf("object_id must break the tie, null first: %+v", objID)
+	}
 }
 
 // tracked plays bot games from their start, syncing a tracker after every
@@ -270,6 +302,42 @@ func TestDiesTriggerSourceIsNull(t *testing.T) {
 	}
 }
 
+// Mesmeric Fiend's leaves-the-battlefield trigger carries no Destination$ in
+// its own text (Forge's Origin$ Battlefield with no Destination$: it returns
+// the exiled card no matter where the Fiend goes), unlike the five
+// Destination$-Graveyard-only cards TestDiesTriggerSourceIsNull covers, and
+// the Fiend has two T: lines (its enter trigger and this one), so this pins
+// looksBackTrigger to the trigger actually on the stack (matched by Effect),
+// not to a card's first trigger. The catalog's mirror matches never remove a
+// live creature except by dying, so the reachable case still ends in a
+// graveyard; Journey to Nowhere (CawGates) and Experimental Synthesizer
+// (Rally) are the same Destination$-unrestricted shape and were checked too,
+// but neither deck has anything that removes its own or an opponent's such
+// permanent other than dying, so the Fiend is the corpus's only reachable
+// instance of this shape.
+func TestUnrestrictedDestinationTriggerSourceIsNull(t *testing.T) {
+	var trigger state.ObjID
+	g, tr := tracked(t, []string{"Spy"}, func(e *rules.Engine, tr *identity.Tracker) bool {
+		for _, id := range e.G.Stack {
+			o := e.G.Obj(id)
+			src := e.G.Obj(o.Source)
+			if o.Ability == nil || o.StackKind != state.StackKindTriggered || src == nil ||
+				src.Zone != state.ZGraveyard || src.Face() == nil || src.Face().Name != "Mesmeric Fiend" {
+				continue
+			}
+			if key, ok := tr.SourceKey(id); ok && key == tr.Key(o.Source) {
+				trigger = id
+				return true
+			}
+		}
+		return false
+	})
+	se := entry(t, g, tr, trigger)
+	if se.StackKind != "triggered_ability" || se.Source != nil {
+		t.Fatalf("Mesmeric Fiend's leaves trigger %+v: source %+v, want null", se.ObjectRef, se.Source)
+	}
+}
+
 // Krark-Clan Shaman's activated ability: the Shaman is on the battlefield
 // (incarnation 1) while gorge leaves the ability's SourceIncarnation 0, so a
 // guard comparing them would null a live source. Section 6.5 keeps it. The
@@ -355,5 +423,84 @@ func TestInternalCounterMarkersAreSkipped(t *testing.T) {
 		if _, ok := rec.Permanent.Counters[marker]; ok {
 			t.Fatalf("internal marker mapped as %s: %v", marker, rec.Permanent.Counters)
 		}
+	}
+}
+
+// Section 6.6: a pending trigger's source and source_name are populated when
+// that source sits in a zone visible to the viewer. Any optional trigger
+// (Nihil Spellbomb's dies draw, Gatecreeper Vine's or Squadron Hawk's search)
+// pauses with a non-empty pending-trigger queue while its controller is
+// asked (CR 603.3b/603.5), so a real catalog game reaches this without any
+// state manipulation.
+func TestPendingTriggerSourceIsPopulatedWhenVisible(t *testing.T) {
+	g, tr := tracked(t, []string{"Wildfire", "Spy", "CawGates"}, func(e *rules.Engine, _ *identity.Tracker) bool {
+		return len(e.PendingTriggers()) > 0
+	})
+	pts := g.E.PendingTriggers()
+	pt := pts[0]
+	src := g.E.G.Obj(pt.Source)
+	if src == nil || src.Face() == nil {
+		t.Fatal("pending trigger source is gone")
+	}
+	p := &observe.Projector{E: g.E, IDs: tr}
+	obs, err := p.Observation(0, observe.State{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(obs.PendingTriggers) == 0 {
+		t.Fatal("observation lists no pending triggers")
+	}
+	got := obs.PendingTriggers[0]
+	wantRef, err := p.Ref(0, pt.Source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wantRef == nil {
+		t.Fatal("the trigger's own source has no reference from p0")
+	}
+	if got.ControllerSeat != observe.Seat(pt.Controller) {
+		t.Fatalf("controller_seat %s, want %s", got.ControllerSeat, observe.Seat(pt.Controller))
+	}
+	if got.Source == nil || got.Source.ObjectID != wantRef.ObjectID {
+		t.Fatalf("source %+v, want %+v", got.Source, wantRef)
+	}
+	if got.SourceName == nil || *got.SourceName != src.Face().Name {
+		t.Fatalf("source_name %v, want %q", got.SourceName, src.Face().Name)
+	}
+}
+
+// Section 6.6: a pending trigger whose source sits in a zone hidden from the
+// viewer (a hand, unrevealed) is omitted from that viewer's list. No catalog
+// card's own trigger fires while its source already sits in a hand, so this
+// relocates a real trigger's source directly (as
+// TestInternalCounterMarkersAreSkipped relocates a card to build its
+// scenario). The omission check reads the source's zone fresh from the game
+// at observation time (Visible(b.viewer, g.Obj(pt.Source))), so moving the
+// same real trigger's source after the fact exercises exactly the code a
+// naturally hand-sourced trigger would.
+func TestPendingTriggerFromAHiddenHandIsOmitted(t *testing.T) {
+	g, tr := tracked(t, []string{"Wildfire", "Spy", "CawGates"}, func(e *rules.Engine, _ *identity.Tracker) bool {
+		return len(e.PendingTriggers()) > 0
+	})
+	pts := g.E.PendingTriggers()
+	before := len(pts)
+	pt := pts[0]
+	src := g.E.G.Obj(pt.Source)
+	if src == nil {
+		t.Fatal("pending trigger source is gone")
+	}
+	viewer := 1 - src.Owner
+	events.Emit(g.E.G, g.E.L, events.Event{Kind: events.MoveZone, Obj: pt.Source, From: src.Zone, To: state.ZHand})
+	if err := tr.Sync(g.E); err != nil {
+		t.Fatal(err)
+	}
+	p := &observe.Projector{E: g.E, IDs: tr}
+	obs, err := p.Observation(viewer, observe.State{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(obs.PendingTriggers) != before-1 {
+		t.Fatalf("pending_triggers has %d entries, want %d (the hand-hidden source omitted): %+v",
+			len(obs.PendingTriggers), before-1, obs.PendingTriggers)
 	}
 }

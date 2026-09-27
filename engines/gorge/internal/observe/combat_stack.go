@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -38,6 +39,32 @@ func (b *builder) sameRef(id state.ObjID, key string, known bool) (*protocol.Obj
 		return nil, nil
 	}
 	return b.p.Ref(b.viewer, id)
+}
+
+// looksBackTrigger reports whether ability's own card-text trigger is a
+// leaves-the-battlefield trigger (Forge's Mode$ ChangesZone | Origin$
+// Battlefield): gorge's own signal for CR 603.6d's look-back-in-time rule
+// (rules/trigger_match.go's unexported looksBack). gorge does not export
+// that match itself, so this mirrors its unexported findTriggerForAbility:
+// walk src's current face's Triggers for the one whose Effect is ability,
+// using only exported fields (Object.Face, Face.Triggers, Trigger.Effect).
+//
+// A trigger whose Origin is not the battlefield is not a leaves-the-
+// battlefield trigger even when this particular move happens to end in a
+// graveyard (CR 603.6c): a "put into a graveyard from anywhere" trigger such
+// as Narcomoeba's fires from the graveyard it already occupies, so its
+// source never left.
+func looksBackTrigger(src *state.Object, ability *cards.SA) bool {
+	f := src.Face()
+	if f == nil {
+		return false
+	}
+	for _, t := range f.Triggers {
+		if t.Effect == ability {
+			return t.Mode == "ChangesZone" && t.Params["Origin"] == "Battlefield"
+		}
+	}
+	return false
 }
 
 func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
@@ -118,15 +145,34 @@ func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error 
 			// decides (gorge leaves SourceIncarnation 0 on an ordinary ability
 			// while its permanent sits at incarnation 1, so an incarnation
 			// comparison would null live sources). A key mismatch means the
-			// source changed zones since the ability was put on the stack. For
-			// a triggered ability the key is taken when the trigger is put on
-			// the stack, so a dies, sacrificed or cycled source already sits in
-			// the graveyard at that key: that source has left too. (Sources
-			// taken from a hand or library are nulled by visibility instead.)
-			gone := known && o.StackKind == state.StackKindTriggered && src != nil &&
-				src.Zone == state.ZGraveyard && key == b.p.IDs.Key(o.Source)
+			// source changed zones again after the ability was put on the
+			// stack: that alone covers an activated ability (a cycled or
+			// sacrificed source moves before its ability is even pushed, per
+			// the tracker's own pre-cost key capture, so its key is already
+			// stale by the time it is recorded) and a triggered ability whose
+			// source moves after being put on the stack.
+			//
+			// It misses a triggered ability created under CR 603.6d's
+			// look-back-in-time rule: a genuine leaves-the-battlefield trigger
+			// (dies, sacrificed, exiled, bounced) is created only once its
+			// source has already left, so the key recorded for it already
+			// matches wherever the source landed and never goes stale on its
+			// own. looksBackTrigger reads the same signal gorge's own matcher
+			// uses for that rule: when the ability is that shape and the
+			// source is no longer on the battlefield, in any zone, the source
+			// has left too. (Sources taken from a hand or library are nulled
+			// by visibility instead. A graveyard-resident trigger such as
+			// Narcomoeba's, put into a graveyard from the library, is not a
+			// leaves-the-battlefield trigger even though the move ends in a
+			// graveyard, CR 603.6c: its Origin is not the battlefield, so its
+			// source never left where it now sits.)
+			gone := known && key != b.p.IDs.Key(o.Source)
+			if !gone && src != nil && o.StackKind == state.StackKindTriggered &&
+				looksBackTrigger(src, o.Ability) && src.Zone != state.ZBattlefield {
+				gone = true
+			}
 			if src != nil && !gone {
-				if se.Source, err = b.sameRef(o.Source, key, known); err != nil {
+				if se.Source, err = b.p.Ref(b.viewer, o.Source); err != nil {
 					return err
 				}
 			}

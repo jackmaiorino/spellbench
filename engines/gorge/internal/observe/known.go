@@ -6,6 +6,11 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
+// KnownEntry builds a Known entry (Section 6.7) from an already-visible
+// object reference. Precondition: ref.CardName is non-nil, that is, ref
+// names an object whose identity the viewer already knows; a reference built
+// for a hidden object (a library card the viewer has not looked at, Section
+// 5.1) carries a nil CardName and must not reach this call.
 func KnownEntry(ref protocol.ObjectRef, how string, fromTop *uint32) protocol.Known {
 	id := ref.ObjectID
 	return protocol.Known{OwnerSeat: ref.OwnerSeat, Zone: ref.Zone, CardName: *ref.CardName, ObjectID: &id,
