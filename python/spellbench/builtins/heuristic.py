@@ -25,6 +25,8 @@ from ..bot import Decision, GameOver, GameStart, serve
 BOT_NAME = "heuristic"
 BOT_VERSION = "2.0.0"
 
+_USAGE = "usage: python -m spellbench.builtins.heuristic (no arguments)"
+
 _ABILITY_KINDS = ("activate_mana_ability", "activate_ability")  # a tuple: a lenient read may meet an unhashable kind
 
 
@@ -64,7 +66,10 @@ class HeuristicBot:
 
 
 def main() -> int:
-    """Serve the heuristic bot over stdin and stdout."""
+    """Serve the heuristic bot over stdin and stdout; exit code 2 for any argument."""
+    if sys.argv[1:]:
+        print(_USAGE, file=sys.stderr)
+        return 2
     return serve(HeuristicBot(), name=BOT_NAME, version=BOT_VERSION)
 
 

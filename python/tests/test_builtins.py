@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import importlib
+import io
 import subprocess
 import sys
 
@@ -9,7 +11,7 @@ import pytest
 
 from spellbench import wire
 from spellbench.bot import Decision, GameOver, GameStart
-from spellbench.builtins import BUILTIN_BOTS, BUILTIN_VERSIONS, create_builtin_bot, uniform
+from spellbench.builtins import BUILTIN_BOTS, BUILTIN_VERSIONS, create_builtin_bot
 from spellbench.builtins.uniform import DERIVATION_VERSION, MASK64, SplitMix64, stream_seed
 
 # Bots read leniently, so short semantics are enough here (Task 7's samples land in the same wave).
@@ -93,6 +95,7 @@ def test_first_takes_the_first_candidate_and_serves_over_stdio() -> None:
                                                         ("game_over", {"game_id": "g-1", "terminal": {}})]))
     result = subprocess.run([sys.executable, "-m", "spellbench.builtins.first"], input=lines, capture_output=True, timeout=30)
     assert result.returncode == 0 and b'"name":"first"' in result.stdout and b'"version":"2.0.0"' in result.stdout
+    assert result.stderr == b""  # no runpy warning: the package has not imported the module -m runs
 
 
 # The exact behavior each builtin promises; the uniform bot is the rating anchor, so its picks are pinned.
@@ -112,6 +115,9 @@ def test_the_table_names_each_bot_and_refuses_unknown_names() -> None:
         create_builtin_bot("random")
     with pytest.raises(ValueError, match="nonnegative"):
         create_builtin_bot("uniform", seed=-1)
+    package = importlib.import_module("spellbench.builtins")  # the tables are built on first access (PEP 562)
+    assert package.BUILTIN_BOTS is BUILTIN_BOTS and "BUILTIN_VERSIONS" in vars(package)  # then kept as attributes
+    assert not hasattr(package, "no_such_name")  # a plain AttributeError, so from-imports of the bot modules work
 
 
 def test_splitmix64_is_the_reference_generator() -> None:
@@ -177,7 +183,7 @@ def test_each_module_serves_its_bot_over_stdio(name: str, args: list[str], seed:
     lines = b"".join(wire.canonical_json_line({"request_type": kind, "protocol": "spellbench/v2", "request_id": f"r-{i}", **extra})
                      for i, (kind, extra) in enumerate(requests))
     result = subprocess.run([sys.executable, "-m", f"spellbench.builtins.{name}", *args], input=lines, capture_output=True, timeout=30)
-    assert result.returncode == 0, result.stderr
+    assert (result.returncode, result.stderr) == (0, b"")
     answers = [wire.strict_json_loads(line) for line in result.stdout.splitlines()]
     in_process = create_builtin_bot(name, seed=seed)
     in_process.on_game_start(GameStart.from_request(start))
@@ -186,8 +192,32 @@ def test_each_module_serves_its_bot_over_stdio(name: str, args: list[str], seed:
         in_process.choose(Decision.from_request(choose)) for _ in range(5)]
 
 
-@pytest.mark.parametrize("args", [["--seed"], ["--seed", "x"], ["--seed", "-1"]])
-def test_uniform_refuses_a_bad_seed_argument(args: list[str], monkeypatch: pytest.MonkeyPatch, capsys) -> None:
-    monkeypatch.setattr(sys, "argv", ["uniform", *args])
-    assert uniform.main() == 2
+@pytest.mark.parametrize("name", ["first", "heuristic", "uniform"])
+def test_each_module_answers_hello_under_an_error_warnings_filter(name: str) -> None:
+    hello = wire.canonical_json_line({"request_type": "hello", "protocol": "spellbench/v2", "request_id": "r-0", "protocol_minor": 0})
+    result = subprocess.run([sys.executable, "-W", "error", "-m", f"spellbench.builtins.{name}"], input=hello, capture_output=True, timeout=30)
+    assert (result.returncode, result.stderr) == (0, b"")
+    [answer] = [wire.strict_json_loads(line) for line in result.stdout.splitlines()]
+    assert answer["bot"] == {"name": name, "version": "2.0.0"}
+
+
+@pytest.mark.parametrize("kind", [["x"], {"x": 1}, "pay_mana", "some_future_kind"])
+def test_heuristic_reads_odd_kinds_leniently(kind: object) -> None:
+    # Unhashable, reserved (spec 7.7) and unknown kinds match no preference and never raise,
+    # since an exception in choose is an internal_error forfeit (spec 10.5).
+    bot = create_builtin_bot("heuristic")
+    _start(bot, agent_seed=1)
+    assert bot.choose(_offered((0, {"kind": kind}))) == 0
+    assert bot.choose(_offered((0, {"kind": kind}), (1, SAMPLES["activate_ability"]))) == 1
+
+
+@pytest.mark.parametrize(
+    ("name", "args"),
+    [("uniform", ["--seed"]), ("uniform", ["--seed", "x"]), ("uniform", ["--seed", "-1"]),
+     ("first", ["--seed", "5"]), ("heuristic", ["--seed", "5"])],
+)
+def test_a_bad_argument_gets_the_usage_line(name: str, args: list[str], monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr(sys, "argv", [name, *args])
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO()))  # a bot that serves anyway reads EOF and returns 0
+    assert importlib.import_module(f"spellbench.builtins.{name}").main() == 2
     assert "usage" in capsys.readouterr().err

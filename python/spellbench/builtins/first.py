@@ -13,6 +13,8 @@ from ..bot import Decision, GameOver, GameStart, serve
 BOT_NAME = "first"
 BOT_VERSION = "2.0.0"
 
+_USAGE = "usage: python -m spellbench.builtins.first (no arguments)"
+
 
 class FirstBot:
     """Answers the first offered candidate's ``candidate_id``."""
@@ -31,7 +33,10 @@ class FirstBot:
 
 
 def main() -> int:
-    """Serve the first-candidate bot over stdin and stdout."""
+    """Serve the first-candidate bot over stdin and stdout; exit code 2 for any argument."""
+    if sys.argv[1:]:
+        print(_USAGE, file=sys.stderr)
+        return 2
     return serve(FirstBot(), name=BOT_NAME, version=BOT_VERSION)
 
 
