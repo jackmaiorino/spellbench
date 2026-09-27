@@ -343,6 +343,7 @@ class SubprocessPeer:
         *,
         timeout_s: float | None = None,
         max_line_bytes: int = MAX_LINE_BYTES,
+        env: Mapping[str, str] | None = None,
     ) -> None:
         if not argv:
             raise ValueError("argv must be nonempty")
@@ -361,6 +362,8 @@ class SubprocessPeer:
                 shell=False,
                 # POSIX: its own process group, so close() can kill the tree.
                 start_new_session=os.name != "nt",
+                # None inherits the host's own environment, as subprocess.Popen does by default.
+                env=None if env is None else dict(env),
             )
         except OSError as exc:
             raise TransportError(f"cannot start {argv[0]!r}: {exc}") from exc
