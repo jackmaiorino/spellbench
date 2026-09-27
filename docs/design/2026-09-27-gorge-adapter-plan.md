@@ -40,9 +40,10 @@
   - `formats ["pauper-bo1"]`, `deck_sources ["catalog"]`;
   - `rules_supported {"mulligan":["london","none"],"starting_player":["host_assigned"]}`;
   - observation flags true only for `pending_triggers` and `keywords`;
-  - `engine_defaults` all `null`, `rewind false`, `fairness {"noninterference_probe":false}`;
+  - `engine_defaults` `{"trigger_order":null,"replacement_order":null,"combat_damage_assignment":"engine_order","mana_payment":null}`: gorge assigns combat damage itself in engine order, and the engine answers gorge's division ask with that rule (Task 16), so `distribute` is never posed;
+  - `rewind false`, `fairness {"noninterference_probe":false}`;
   - `extensions [{"name":"x_gorge_view_v1","native_ids":false}]`;
-  - `decision_kinds`: the 25 kinds `pass, play_land, cast_spell, activate_mana_ability, activate_ability, special_action, choose_target, finish_target_selection, choose_cost_target, choose_spell_mode, choose_color, choose_number, choose_boolean, choose_name, select_object, finish_selection, optional_cost, optional_cast, mulligan, order_pick, arrange_card, choose_replacement, declare_attack, declare_block, distribute`.
+  - `decision_kinds`: the 24 kinds `pass, play_land, cast_spell, activate_mana_ability, activate_ability, special_action, choose_target, finish_target_selection, choose_cost_target, choose_spell_mode, choose_color, choose_number, choose_boolean, choose_name, select_object, finish_selection, optional_cost, optional_cast, mulligan, order_pick, arrange_card, choose_replacement, declare_attack, declare_block`.
 - **No text channel.** Every `display_text`, `context.text`, stack `text` and pending-trigger `label` is `null`, so F2's text rule holds by construction.
 - **Card names:**
   - Oracle names in NFC, with multi-face cards named `"A // B"` in decklists: `Sagu Wildling // Roost Seek`, `The Modern Age // Vector Glider`.
@@ -68,7 +69,7 @@
 1. **Name normalization.** Decks named with ASCII-folded or NFD names (`Troll of Khazad-dum`, `Lo\u0301rien Revealed`), or a host whose `deck_id` rows use `"A // B"` names, must give `unsupported_deck` or matching ids, never a crash or silent substitution. Pinned in Task 7 (`TestDeckIDsMatchHostComputation`, `TestAsciiFoldedNameIsNotSubstituted`).
 2. **Echo equality.** A `step` whose `semantic_echo` has the candidate's fields in another key order, or with nested object references re-serialized, must be accepted; an echo with one extra or one changed field must be `semantic_echo_mismatch`. Pinned in Task 22 (`TestEchoComparesParsedFieldsNotBytes`).
 3. **Caps.** A cap that would land inside a fixed group (attack declarations, arrangements) must end the game `truncated` before the group starts, with `decision_count` excluding it. The engine must never interrupt a partial group, which Section 8 forbids for truncation. Pinned in Task 22 (`TestCapNeverSplitsAGroup`).
-4. **Retransmission.** A retransmitted `step` after the engine has already answered it returns the cached bytes without advancing. The same `request_id` with different bytes, including an older id, returns `request_id_reuse_mismatch`. Pinned in Task 23 (`TestRetransmissionIsIdempotentAndReuseFails`).
+4. **Retransmission.** A retransmitted `step` after the engine has already answered it returns the cached bytes without advancing, and so does an identical retransmission of an older request of the same game. The same `request_id` with different bytes, including an older id, returns `request_id_reuse_mismatch`. Pinned in Task 23 (`TestRetransmissionIsIdempotentAndReuseFails`).
 5. **Canonicalized payloads.** The Go agent must reconstruct gorge types from the host's canonical re-serialization: sorted keys, integers re-printed, extension object reordered. Pinned in Task 26 (`TestAgentDecodesCanonicalizedPayload`).
 
 ---
@@ -91,7 +92,7 @@ All paths are relative to `C:\Users\Jack\IdeaProjects\spellbench\engines\gorge` 
 | `internal/identity/` | zone-incarnation tracker (shadow `events.Apply`), per-viewer ids, looks |
 | `internal/observe/` | v2 observation from `view.Project` plus engine state, vocab normalization |
 | `internal/mapping/` | transactions: framework, source resolution, oracle, priority, mana, combat, targets, costs, selections, modes, ordering, arrangement, simple choices, payments |
-| `internal/session/` | one game: loop, counters, groups, caps, terminals, halts, internal answers; the qualification audit (resample self-check, leak scan, realized intents) |
+| `internal/session/` | one game: loop, counters, groups, caps, terminals, halts, internal answers; the qualification audit (resample self-check, leak scan, semantic consistency, realized commits) |
 | `internal/server/` | environment-role request handling, retransmission cache |
 | `internal/xview/` | `x_gorge_view_v1` payload builder, per-seat id tables, hidden-option renumbering |
 | `internal/validate/` | Go subset of the live validator (V2 to V9 plus V1 field checks) |
@@ -105,32 +106,34 @@ All paths are relative to `C:\Users\Jack\IdeaProjects\spellbench\engines\gorge` 
 
 ## Waves, dependencies and effort
 
-Each row is one task of about half a day unless noted; tasks in one wave run in parallel in separate worktrees.
+Each row is one task of about half a day unless noted. Tasks in one wave run in parallel in separate worktrees and touch disjoint files, except where a row says "then": those tasks run one after another, each merged before the next starts.
 
 | Wave | Tasks (effort, depends on) |
 |---|---|
 | 0 | T1 scaffold and pin (0.5) |
 | 1 | T2 strict JSON and framing (0.5, T1); T3 canonical JSON and digests (0.5, T1); T4 secrets (0.5, T1); T5 v2 types (0.5, T1) |
-| 2 | T6 envelope and requests (0.5, T2 T5); T7 catalog (0.5, T1 T3); T8 game construction (0.5, T4 T7); T9 validator subset (0.5, T5) |
-| 3 | T10 identity (0.5, T4 T8); T11 observation I (0.5, T5 T10); T12 observation II (0.5, T11) |
-| 4 | T13 mapping framework (0.5, T12); T14 priority (0.5, T13); T15 mana abilities (0.5, T13) |
-| 5 | T16 combat (0.75, T13); T17 targets and costs (0.5, T13); T18 selections and modes (0.5, T13); T19 ordering and arrangement (1.0, T13); T20 simple choices (0.5, T13); T21 resolution payments (0.5, T13 T15) |
+| 2 | T6 envelope and requests (0.5, T2 T5), T7 catalog (0.5, T1 T3) and T9 validator subset (0.5, T5) in parallel; then T8 game construction (0.5, T4 T7) once T7 is merged |
+| 3 | T10 identity (0.5, T4 T8), then T11 observation I (0.5, T5 T10), then T12 observation II (0.5, T11) |
+| 4 | T13 mapping framework (0.5, T12), then T14 priority (0.5, T13), then T15 mana abilities (0.5, T14) |
+| 5 | T16 combat (0.75, T13 T14); T17 targets and costs (0.5, T13 T14); T18 selections and modes (0.5, T13 T14); T19a ordering (0.5, T13 T14); T19b arrangement (0.75, T13 T14); T20 simple choices (0.5, T13 T14); T21 resolution payments (0.5, T13 T15) |
 | 6 | T22 session (0.5, T6 T8 T12 T14 to T21); T24 x_gorge_view_v1 (0.75, T14 to T21) |
-| 7 | T23 environment server and binary (0.5, T6 T22 T24); T26 Go agent (1.0, T24) |
-| 8 | T25 mini-host and test agents (0.5, T3 T4 T9 T23) |
-| 9 | T27 goldens (0.5, T25); T28 qualification (1.0, T25 T26) |
-| 10 | T29 benchmark and engine notes (0.5, T7 T28) |
-| 11 | T30 integration with sub-project P and rated run (0.75, P deliverables P1 to P4) |
+| 7 | T23 environment server and binary (0.5, T6 T22 T24) |
+| 8 | T25 mini-host and test agents (0.75, T3 T4 T9 T23); T28a qualification audits (0.75, T22 T23 T24) |
+| 9 | T26 Go agent (1.0, T23 T24 T25); T27 goldens (0.5, T25) |
+| 10 | T28b qualification runner and runs (0.75, T25 T26 T28a) |
+| 11 | T29 benchmark and engine notes (0.5, T7 T28b) |
+| 12 | T30 integration with sub-project P and rated run (0.75, T29, P deliverables P1 to P4) |
 
-- **Effort:** about 17.25 agent-days in total, 16.5 before P's deliverables land.
-- **Critical path:** T1, T3, T7, T8, T10, T11, T12, T13, T19, T24, then T23 and T25 (or T26, equal length), then T28, T29 = 8.25 days of work. T30 (0.75) follows once P lands, about 9 days elapsed with enough parallel agents. With three agents, expect 11 to 12 working days.
-- **Slack:** the wave-1 and wave-5 tasks off the path (T2, T4, T5, T6, T9, T14 to T18, T20, T21) and T27.
+- **Wave 5 dependency on T14:** the wave-5 tests build their games with Task 14's test helpers (`envFor`, `untilPending`, `answerAll`).
+- **Effort:** about 18.25 agent-days in total, 17.5 before P's deliverables land.
+- **Critical path:** T1, T3, T7, T8, T10, T11, T12, T13, T14, T15, T21, T24, T23, T25, T26, T28b, T29 = 9.75 days of work. T30 (0.75) follows once P lands, about 10.5 days elapsed with enough parallel agents. With three agents, expect 11 to 12 working days.
+- **Slack:** T2, T4, T5, T6, T9, T16 to T20 (T19a and T19b included), T22, T27 and T28a.
 
 ## What this plan needs from sub-project P
 
 | P deliverable | Used by | Interim without it |
 |---|---|---|
-| P1 v2 reference host with the live validator (V1 to V10), canonical forwarding, secrets and commitment, clocks, forfeits, digest | T30 rated run, validator verdict | Go mini-host plus validator subset (T9, T25), run in T28 |
+| P1 v2 reference host with the live validator (V1 to V10), canonical forwarding, secrets and commitment, clocks, forfeits, digest | T30 rated run, validator verdict | Go mini-host plus validator subset (T9, T25), run in T28b |
 | P2 `spellbench-benchmark/v2` schema and loader (rotating pool, rules, time_control, limits, resources, per-game extension enablement) | T29 final validation, T30 | T29 writes the file against the spec fields and a Go shape test |
 | P3 v2 builtin bots (uniform anchor, heuristic, first) | T30 ratings | Go `uniform` and `first` test agents (T25) |
 | P4 v2 engine conformance harness and `goldens/protocol_v2` envelope and error goldens, replayable by any engine with engine identity masked | T30 conformance | engine-specific Go goldens and error-table tests (T23, T27) |
@@ -143,7 +146,7 @@ Each row is one task of about half a day unless noted; tasks in one wave run in 
 3. **Hybrid pip allocation** (Burning-Tree Emissary's `{R/G}` paid from a pool holding both). v2.0 has no kind for allocating floating mana (`pay_mana` is reserved). Recommended: the engine answers with gorge's first offered option and documents it; alternative: pose `choose_color` with purpose `mana`.
 4. **Mulligan rule for `pauper-gorge`.** Section 12.2 says `london` wherever supported, which makes the cross-engine comparison with `pauper-kernel` (`none`) not like for like. Recommended: `london`, per the spec.
 5. **Publishing.** Pushing `gorge-adapter`, publishing the benchmark, and offering the adapter to gorge's maintainer are Jack's to send.
-6. **What "gorge-bot" means on the leaderboard.** Through the adapter the bot sees per-seat ids and name-sorted hidden options (F1), so its games are not byte-identical to native gorge games. Recommended: rate it as `gorge-bot` with that note, and qualify it by intent parity (Task 28: the adapter commits exactly the move the bot chose). The alternative, native-identical play, would need native ids and engine-ordered hidden options, which F1 rules out.
+6. **What "gorge-bot" means on the leaderboard.** Through the adapter the bot sees per-seat ids and name-sorted hidden options (F1), so its games are not byte-identical to native gorge games. Recommended: rate it as `gorge-bot` with that note, and qualify it by intent parity (Task 28b: the adapter commits exactly the move the bot chose). The alternative, native-identical play, would need native ids and engine-ordered hidden options, which F1 rules out.
 
 ---
 
@@ -866,8 +869,8 @@ git add engines/gorge/internal/wire && git commit -m "gorge adapter: strict JSON
 - Consumes: `wire.CheckStrictAny` (Task 2). If Task 2 is not merged yet, this task's worktree cherry-picks it first.
 - Produces:
   - `func wire.CanonicalBytes(raw []byte) ([]byte, error)`, `func wire.Canonical(v any) ([]byte, error)`;
-  - `type wire.DeckRow struct{ Name string; Count int }` (JSON `name`, `count`), `func wire.DeckID(rows []DeckRow) string`, `func wire.DomainID(names []string) string`;
-  - `func wire.WithoutRequestID(msg []byte) ([]byte, error)`;
+  - `type wire.DeckRow struct{ Name string; Count int }` (JSON `name`, `count`), `func wire.DeckID(rows []DeckRow) (string, error)`, `func wire.DomainID(names []string) (string, error)` (Steps 1 to 5 return the id alone; the wire follow-up of Step 6 makes both refuse a repeated name);
+  - `func wire.WithoutRequestID(msg []byte) ([]byte, error)` (strict after Step 6: it runs `CheckStrict` first);
   - `type wire.GameDigest` with `func wire.NewGameDigest(resetMinusID []byte) (*GameDigest, error)`, `func (*GameDigest) Chain(msgMinusID []byte) error` and `func (*GameDigest) String() string`.
 
 - [ ] **Step 1: Write the failing test (spec Section 16 vectors)**
@@ -1181,6 +1184,125 @@ Expected: all wire tests PASS, including `TestCanonicalMatchesSpecVector`, `Test
 git add engines/gorge/internal/wire && git commit -m "gorge adapter: RFC 8785 canonical JSON, deck and domain ids, game digest"
 ```
 
+- [ ] **Step 6: Wire follow-up (strict digest input, repeated names refused)**
+
+Applied in the wire follow-up, a task outside this plan's numbering that runs after Tasks 2 and 3 are merged (G1-7 needs Task 2's `CheckStrict`).
+- `WithoutRequestID` runs `CheckStrict` first, so a duplicate key or trailing data is an error instead of being dropped before the digest (Sections 2 and 11.8).
+- `DeckID` and `DomainID` refuse a repeated name with an error, as P's reference host does: Section 4.3 computes both over distinct names. Tasks 7, 23 and 25 take the error.
+
+Replace or add these declarations in `internal/wire/canonical_test.go`:
+
+```go
+func TestDeckAndDomainIDVectors(t *testing.T) {
+	id, err := wire.DeckID([]wire.DeckRow{{Name: "Mountain", Count: 18}, {Name: "Lightning Bolt", Count: 4}})
+	if err != nil || id != "sha256:0df0a001e3c4b74b1061b21e319a645f32fbe3173120e432864e14d6d6f2f5d2" {
+		t.Fatalf("deck_id %s %v", id, err)
+	}
+	dom, err := wire.DomainID([]string{"Mountain", "Lightning Bolt"})
+	if err != nil || dom != "sha256:74f7f4b39eecbed1c039cf4b229fa533069d2cdd8caf3bb6380b832eb40fb697" {
+		t.Fatalf("domain_id %s %v", dom, err)
+	}
+}
+
+// The wire follow-up: repeated names are refused (P's reference host does the
+// same), and a message with a duplicate key or trailing data is never digested.
+func TestRepeatedNamesAreRefused(t *testing.T) {
+	rows := []wire.DeckRow{{Name: "Mountain", Count: 9}, {Name: "Lightning Bolt", Count: 4}, {Name: "Mountain", Count: 9}}
+	if id, err := wire.DeckID(rows); err == nil {
+		t.Fatalf("deck_id merged a repeated name: %s", id)
+	}
+	if id, err := wire.DomainID([]string{"Mountain", "Lightning Bolt", "Mountain"}); err == nil {
+		t.Fatalf("domain_id merged a repeated name: %s", id)
+	}
+}
+
+func TestWithoutRequestIDIsStrict(t *testing.T) {
+	for _, in := range []string{`{"request_id":"a","b":1,"b":2}`, `{"request_id":"a"} {}`, `[1]`, `{"a":1.5}`} {
+		if out, err := wire.WithoutRequestID([]byte(in)); err == nil {
+			t.Errorf("%s accepted as %s", in, out)
+		}
+	}
+}
+```
+
+Run: `go test ./internal/wire/ -run 'DeckAndDomain|Repeated|WithoutRequestID'`
+Expected: FAIL to compile: `assignment mismatch: 2 variables but wire.DeckID returns 1 value`.
+
+Replace or add these declarations in `internal/wire/canonical.go`:
+
+```go
+// DeckID is Section 4.3's deck_id: one row per distinct name, sorted by name
+// in code point order (UTF-8 byte order equals code point order), canonical,
+// SHA-256. A repeated name is refused, never merged.
+func DeckID(rows []DeckRow) (string, error) {
+	s := append([]DeckRow(nil), rows...)
+	sort.Slice(s, func(i, j int) bool { return s[i].Name < s[j].Name })
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+	for i, r := range s {
+		if i > 0 {
+			if s[i-1].Name == r.Name {
+				return "", fmt.Errorf("card name %q appears twice", r.Name)
+			}
+			buf.WriteByte(',')
+		}
+		buf.WriteString(`{"count":` + strconv.Itoa(r.Count) + `,"name":`)
+		writeString(&buf, r.Name)
+		buf.WriteByte('}')
+	}
+	buf.WriteByte(']')
+	return sha(buf.Bytes()), nil
+}
+
+// DomainID is card_name_domain.domain_id: the distinct names sorted,
+// canonical, SHA-256. A repeated name is refused, never merged.
+func DomainID(names []string) (string, error) {
+	s := append([]string(nil), names...)
+	sort.Strings(s)
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+	for i, n := range s {
+		if i > 0 {
+			if s[i-1] == n {
+				return "", fmt.Errorf("card name %q appears twice", n)
+			}
+			buf.WriteByte(',')
+		}
+		writeString(&buf, n)
+	}
+	buf.WriteByte(']')
+	return sha(buf.Bytes()), nil
+}
+```
+
+Replace or add these declarations in `internal/wire/digest.go`:
+
+```go
+// WithoutRequestID removes the top-level request_id before digesting (Section
+// 11.8). The message must be strict JSON (Section 2): a duplicate key or
+// trailing data is an error, never silently dropped.
+func WithoutRequestID(msg []byte) ([]byte, error) {
+	if err := CheckStrict(msg); err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(msg))
+	dec.UseNumber()
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return nil, err
+	}
+	delete(m, "request_id")
+	return Canonical(m)
+}
+```
+
+Run: `go test ./internal/wire/ -v`
+Expected: every wire test PASS, including `TestRepeatedNamesAreRefused` and `TestWithoutRequestIDIsStrict`.
+
+```bash
+git add engines/gorge/internal/wire && git commit -m "gorge adapter: strict WithoutRequestID; deck and domain ids refuse repeated names"
+```
+
 ---
 
 ### Task 4: Secrets and identifier constructions
@@ -1379,11 +1501,13 @@ git add engines/gorge/internal/secrets && git commit -m "gorge adapter: v2 secre
 - Produces:
   - `const protocol.Name = "spellbench/v2"`;
   - `type ObjectRef`, `type TargetRef` (with `PlayerTarget(seat string) TargetRef` and `ObjectTarget(ObjectRef) TargetRef`);
-  - `type Semantic struct{ Kind string; Fields map[string]any }` with `MarshalJSON` and `func (Semantic) Check() error`;
-  - `var KindFields map[string][]string` (the 30 kinds) and `var PriorityKinds map[string]bool`;
+  - `type Semantic struct{ Kind string; Fields map[string]any }` with `MarshalJSON`, `func (*Semantic) UnmarshalJSON([]byte) error` and `func (Semantic) Check() error`. A decoded semantic's `Fields` hold `string`, `bool`, `nil`, `json.Number`, and `json.RawMessage` for nested objects and arrays; constructors store Go values. `Check` types every field of all 30 kinds (references, target references, order items, u32, i32, vocabularies, seats; Section 11.3 V1), reads numbers through one helper (Go integer types or `json.Number`), enforces the Section 7.3 constraints and `choose_name`'s card-type domain, and never panics;
+  - `var KindFields map[string][]string` (the 30 kinds, derived from the typed `kindTable`) and `var PriorityKinds map[string]bool`;
   - the constructors listed in Step 3;
-  - `type Candidate`, `type Group`, `type Context`, `type SeatDecision`, `type Observation`, `type PlayerObs`, `type ObjectRecord`, `type Characteristics`, `type Permanent`, `type StackEntry`, `type PendingTrigger`, `type Known`, `type ManaPool`, `type OrderItem`, `type TriggerItem`;
-  - `type Provenance`, `type Engine`, `type HelloOK`, `type DecisionResponse`, `type TerminalResponse`, `type ErrorResponse`, `type ErrorBody`, `type DeckOK`.
+  - `type Candidate`, `type Group`, `type Context`, `type SeatDecision` (its `Extensions` is `type ExtensionMap map[string]json.RawMessage`, whose `MarshalJSON` writes nil as `{}`, Section 9.3; plain map values assign to it), `type Observation`, `type PlayerObs` (with `Progress *Progress`), `type ObjectRecord`, `type Characteristics`, `type Permanent`, `type StackEntry`, `type PendingTrigger`, `type Known`, `type ManaPool`, `type OrderItem`, `type TriggerItem` (a `TargetRef` decodes strictly: exactly one of a seat or a reference);
+  - `type Provenance`, `type Engine`, `type HelloOK` (`ProtocolMinor uint32`), `type DecisionResponse`, `type TerminalResponse`, `type ErrorResponse`, `type ErrorBody`, `type DeckOK`.
+
+G1-2 and G1-8, applied during implementation, with its review fix round: the semantic decoder and number-safe `Check` (a host decodes the engine's JSON before validating it, Tasks 9 and 25), typed fields for all 30 kinds, `Check`'s remaining constraints (`choose_option`, `choose_pile`, the `mana_choice` vocabulary, a null `cast_spell` method), and `extensions` as an object (`ExtensionMap`).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1394,7 +1518,10 @@ package protocol_test
 
 import (
 	"encoding/json"
+	"errors"
+	"math"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -1426,11 +1553,12 @@ func keys(t *testing.T, s protocol.Semantic) []string {
 	return ks
 }
 
-func TestConstructorsEmitExactlyTheSpecFields(t *testing.T) {
+// everyConstructor returns one semantic from each constructor.
+func everyConstructor() []protocol.Semantic {
 	name := "Lightning Bolt"
 	r := protocol.ObjectRef{ObjectID: "o-0a3647243d16bf78", CardName: &name, OwnerSeat: "p0", ControllerSeat: "p0", Zone: "hand"}
 	tgt := protocol.PlayerTarget("p1")
-	for _, s := range []protocol.Semantic{
+	return []protocol.Semantic{
 		protocol.Pass(), protocol.PlayLand(r, 0), protocol.CastSpell(r, "normal"),
 		protocol.ActivateManaAbility(r, 0, nil, nil), protocol.ActivateAbility(r, 1), protocol.SpecialAction(r, "plot"),
 		protocol.ChooseTarget(r, 0, tgt, 0, 1, 1), protocol.FinishTargetSelection(r, 0, 1),
@@ -1443,7 +1571,11 @@ func TestConstructorsEmitExactlyTheSpecFields(t *testing.T) {
 		protocol.ArrangeCard(&r, "scry", r, 0, 2, "top"),
 		protocol.ChooseReplacement(tgt, "damage", nil, 0, 2), protocol.DeclareAttack(r, &tgt), protocol.DeclareBlock(r, nil),
 		protocol.Distribute(&r, "combat_damage", protocol.ObjectTarget(r), 1, 3),
-	} {
+	}
+}
+
+func TestConstructorsEmitExactlyTheSpecFields(t *testing.T) {
+	for _, s := range everyConstructor() {
 		want := append([]string(nil), protocol.KindFields[s.Kind]...)
 		sort.Strings(want)
 		got := keys(t, s)
@@ -1466,9 +1598,9 @@ func TestCheckEnforcesFieldConstraints(t *testing.T) {
 	name := "x"
 	r := protocol.ObjectRef{ObjectID: "o-1", CardName: &name, OwnerSeat: "p0", ControllerSeat: "p0", Zone: "stack"}
 	for _, s := range []protocol.Semantic{
-		protocol.ChooseTarget(r, 0, protocol.PlayerTarget("p0"), 1, 1, 1),  // selected_count < maximum
-		protocol.ChooseSpellMode(r, 2, 2, 0, 1, 1),                          // mode_index < mode_count
-		protocol.ChooseNumber(nil, "amount", 5, 0, 4),                       // minimum <= value <= maximum
+		protocol.ChooseTarget(r, 0, protocol.PlayerTarget("p0"), 1, 1, 1),            // selected_count < maximum
+		protocol.ChooseSpellMode(r, 2, 2, 0, 1, 1),                                   // mode_index < mode_count
+		protocol.ChooseNumber(nil, "amount", 5, 0, 4),                                // minimum <= value <= maximum
 		protocol.ChooseReplacement(protocol.PlayerTarget("p0"), "damage", nil, 0, 1), // 2 <= count
 		protocol.Distribute(nil, "damage", protocol.PlayerTarget("p1"), 4, 3),        // amount <= remaining
 		protocol.ChooseColor(nil, "effect", "colorless"),                             // vocabulary
@@ -1491,6 +1623,652 @@ func TestTargetRefAndNullableFields(t *testing.T) {
 		t.Fatalf("player target %s", b)
 	}
 }
+
+// checked runs Check and reports a panic as a test failure, so one bad case
+// cannot abort the others.
+func checked(t *testing.T, s protocol.Semantic) (err error) {
+	t.Helper()
+	defer func() {
+		if p := recover(); p != nil {
+			t.Errorf("%s: Check panicked: %v", s.Kind, p)
+			err = errors.New("panic")
+		}
+	}()
+	return s.Check()
+}
+
+func decoded(t *testing.T, text string) protocol.Semantic {
+	t.Helper()
+	var s protocol.Semantic
+	if err := json.Unmarshal([]byte(text), &s); err != nil {
+		t.Fatalf("%s: %v", text, err)
+	}
+	return s
+}
+
+// A host decodes the engine's JSON; the decoded semantic must pass Check and
+// re-marshal to the same bytes.
+func TestDecodedSemanticsRoundTrip(t *testing.T) {
+	for _, s := range everyConstructor() {
+		b, err := json.Marshal(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var d protocol.Semantic
+		if err := json.Unmarshal(b, &d); err != nil {
+			t.Errorf("%s: %v", s.Kind, err)
+			continue
+		}
+		if err := checked(t, d); err != nil {
+			t.Errorf("decoded %s: %v", s.Kind, err)
+		}
+		if again, _ := json.Marshal(d); string(again) != string(b) {
+			t.Errorf("%s round trip\n got %s\nwant %s", s.Kind, again, b)
+		}
+	}
+}
+
+// Task 25's host decodes whole decision responses into these types.
+func TestDecodedDecisionKeepsItsCandidates(t *testing.T) {
+	sd := protocol.SeatDecision{ActingSeat: "p0", Context: protocol.Context{Kind: "choice"}}
+	for i, s := range everyConstructor() {
+		sd.Candidates = append(sd.Candidates, protocol.Candidate{CandidateID: uint32(i), Semantic: s})
+	}
+	b, err := json.Marshal(protocol.DecisionResponse{ResponseType: "decision", Protocol: protocol.Name, SeatDecision: sd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back protocol.DecisionResponse
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range back.SeatDecision.Candidates {
+		if err := checked(t, c.Semantic); err != nil {
+			t.Errorf("candidate %d: %v", c.CandidateID, err)
+		}
+	}
+	if again, _ := json.Marshal(back); string(again) != string(b) {
+		t.Errorf("decision round trip\n got %s\nwant %s", again, b)
+	}
+}
+
+func TestSemanticDecodeNeedsAKindedObject(t *testing.T) {
+	for _, text := range []string{`null`, `[]`, `"pass"`, `7`, `{}`, `{"kind":null}`, `{"kind":7}`} {
+		var s protocol.Semantic
+		if err := json.Unmarshal([]byte(text), &s); err == nil {
+			t.Errorf("%s decoded as %+v", text, s)
+		}
+	}
+	var c protocol.Candidate
+	if err := json.Unmarshal([]byte(`{"candidate_id":0,"semantic":null,"display_text":null}`), &c); err == nil {
+		t.Errorf("null semantic decoded as %+v", c.Semantic)
+	}
+}
+
+func TestCheckReadsNumbersExactly(t *testing.T) {
+	d := decoded(t, `{"kind":"choose_number","source":null,"purpose":"x_value","value":-2,"minimum":-3,"maximum":4}`)
+	if d.Fields["value"] != json.Number("-2") {
+		t.Fatalf("value decoded as %T %v, want json.Number", d.Fields["value"], d.Fields["value"])
+	}
+	if err := checked(t, d); err != nil {
+		t.Fatalf("decoded choose_number: %v", err)
+	}
+	if err := checked(t, decoded(t, `{"kind":"choose_number","source":null,"purpose":"x_value","value":5,"minimum":0,"maximum":4}`)); err == nil {
+		t.Error("decoded choose_number outside its range accepted")
+	}
+	// Generically decoded fields (float64): an error, not a panic.
+	generic := protocol.Semantic{Kind: "choose_number", Fields: map[string]any{"source": nil, "purpose": "x_value",
+		"value": float64(1), "minimum": float64(0), "maximum": float64(2)}}
+	if err := checked(t, generic); err == nil {
+		t.Error("float64 numbers accepted")
+	}
+	// Any Go integer type is read.
+	s := protocol.OrderPick(nil, "triggers", protocol.ObjectItem(ref), 0, 2)
+	s.Fields["position"], s.Fields["count"] = int(1), uint64(2)
+	if err := checked(t, s); err != nil {
+		t.Errorf("Go integer types: %v", err)
+	}
+	// Anything else is refused, as are values outside the field's u32 or i32 range.
+	for name, mutate := range map[string]func(protocol.Semantic){
+		"fraction":            func(s protocol.Semantic) { s.Fields["position"] = json.Number("0.5") },
+		"exponent":            func(s protocol.Semantic) { s.Fields["position"] = json.Number("0e0") },
+		"string":              func(s protocol.Semantic) { s.Fields["position"] = "0" },
+		"null":                func(s protocol.Semantic) { s.Fields["position"] = nil },
+		"negative u32":        func(s protocol.Semantic) { s.Fields["position"] = json.Number("-1") },
+		"u32 overflow":        func(s protocol.Semantic) { s.Fields["count"] = uint64(math.MaxUint32 + 1) },
+		"uint64 beyond int64": func(s protocol.Semantic) { s.Fields["count"] = uint64(math.MaxUint64) },
+	} {
+		s := protocol.OrderPick(nil, "triggers", protocol.ObjectItem(ref), 0, 2)
+		mutate(s)
+		if err := checked(t, s); err == nil {
+			t.Errorf("order_pick with %s %v accepted", name, s.Fields)
+		}
+	}
+	i32 := protocol.ChooseNumber(nil, "amount", 1, 0, 4)
+	i32.Fields["maximum"] = json.Number("2147483648")
+	if err := checked(t, i32); err == nil {
+		t.Error("choose_number maximum beyond i32 accepted")
+	}
+}
+
+// specTypes is this test's own transcription of the field types in Sections
+// 7.2 and 7.3: R and T are object and target references, word is a
+// vocabulary value, snake an open snake_case word, piles two arrays of R.
+var specTypes = map[string][][2]string{
+	"pass":                    {},
+	"play_land":               {{"source", "R"}, {"face", "u32"}},
+	"cast_spell":              {{"source", "R"}, {"method", "word|null"}},
+	"activate_mana_ability":   {{"source", "R"}, {"ability_index", "u32"}, {"mana_choice", "word|null"}, {"cost_target", "T|null"}},
+	"activate_ability":        {{"source", "R"}, {"ability_index", "u32"}},
+	"special_action":          {{"source", "R"}, {"action", "word"}},
+	"choose_target":           {{"source", "R"}, {"slot", "u32"}, {"target", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_target_selection": {{"source", "R"}, {"slot", "u32"}, {"selected_count", "u32"}},
+	"choose_cost_target":      {{"source", "R"}, {"cost_kind", "word"}, {"candidate", "R"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_cast_method":      {{"source", "R"}, {"method", "word"}},
+	"choose_spell_mode":       {{"source", "R"}, {"mode_index", "u32"}, {"mode_count", "u32"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_option":           {{"source", "R|null"}, {"purpose", "word"}, {"option_index", "u32"}, {"option_count", "u32"}, {"option_label", "string|null"}},
+	"choose_color":            {{"source", "R|null"}, {"purpose", "word"}, {"color", "word"}},
+	"choose_number":           {{"source", "R|null"}, {"purpose", "word"}, {"value", "i32"}, {"minimum", "i32"}, {"maximum", "i32"}},
+	"choose_boolean":          {{"source", "R|null"}, {"purpose", "word"}, {"value", "bool"}},
+	"choose_name":             {{"source", "R|null"}, {"purpose", "word"}, {"value", "string"}},
+	"select_object":           {{"source", "R|null"}, {"purpose", "word"}, {"choice", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_selection":        {{"source", "R|null"}, {"purpose", "word"}, {"selected_count", "u32"}},
+	"optional_cost":           {{"source", "R"}, {"cost", "word"}, {"pay", "bool"}},
+	"choose_cost_option":      {{"source", "R"}, {"choice", "snake"}},
+	"optional_cast":           {{"card", "R"}, {"method", "word"}, {"cast_it", "bool"}},
+	"mulligan":                {{"hand_size", "u32"}, {"mulligans_taken", "u32"}, {"keep", "bool"}},
+	"order_pick":              {{"source", "R|null"}, {"purpose", "word"}, {"item", "item"}, {"position", "u32"}, {"count", "u32"}},
+	"arrange_card":            {{"source", "R|null"}, {"purpose", "word"}, {"card", "R"}, {"card_index", "u32"}, {"card_count", "u32"}, {"destination", "word"}},
+	"choose_replacement":      {{"affected", "T"}, {"event", "word"}, {"replacement_source", "R|null"}, {"replacement_index", "u32"}, {"replacement_count", "u32"}},
+	"choose_starting_player":  {{"player", "seat"}},
+	"declare_attack":          {{"attacker", "R"}, {"defender", "T|null"}},
+	"declare_block":           {{"blocker", "R"}, {"attacker", "R|null"}},
+	"distribute":              {{"source", "R|null"}, {"purpose", "word"}, {"recipient", "T"}, {"amount", "u32"}, {"remaining", "u32"}},
+	"choose_pile":             {{"source", "R|null"}, {"purpose", "word"}, {"pile_index", "u32"}, {"piles", "piles"}},
+}
+
+func TestKindFieldsMatchTheSpecTable(t *testing.T) {
+	if len(protocol.KindFields) != len(specTypes) {
+		t.Fatalf("%d kinds, spec table %d", len(protocol.KindFields), len(specTypes))
+	}
+	for kind, slots := range specTypes {
+		got := protocol.KindFields[kind]
+		if len(got) != len(slots) {
+			t.Errorf("%s fields %v, spec %v", kind, got, slots)
+			continue
+		}
+		for i, sl := range slots {
+			if got[i] != sl[0] {
+				t.Errorf("%s fields %v, spec %v", kind, got, slots)
+			}
+		}
+	}
+}
+
+// baselines returns one valid semantic of every kind.
+func baselines() map[string]protocol.Semantic {
+	out := map[string]protocol.Semantic{}
+	for _, s := range everyConstructor() {
+		out[s.Kind] = s
+	}
+	for _, s := range []protocol.Semantic{
+		{Kind: "choose_cast_method", Fields: map[string]any{"source": ref, "method": "flashback"}},
+		{Kind: "choose_option", Fields: map[string]any{"source": nil, "purpose": "effect_option",
+			"option_index": uint32(0), "option_count": uint32(2), "option_label": nil}},
+		{Kind: "choose_cost_option", Fields: map[string]any{"source": ref, "choice": "sacrifice_land"}},
+		{Kind: "choose_starting_player", Fields: map[string]any{"player": "p1"}},
+		{Kind: "choose_pile", Fields: map[string]any{"source": nil, "purpose": "effect", "pile_index": uint32(1),
+			"piles": [][]protocol.ObjectRef{{}, {ref}}}},
+	} {
+		out[s.Kind] = s
+	}
+	return out
+}
+
+// with returns a copy of s with field k set to v.
+func with(s protocol.Semantic, k string, v any) protocol.Semantic {
+	f := make(map[string]any, len(s.Fields))
+	for key, val := range s.Fields {
+		f[key] = val
+	}
+	f[k] = v
+	return protocol.Semantic{Kind: s.Kind, Fields: f}
+}
+
+// mk builds a semantic from field pairs.
+func mk(kind string, kv ...any) protocol.Semantic {
+	f := map[string]any{}
+	for i := 0; i < len(kv); i += 2 {
+		f[kv[i].(string)] = kv[i+1]
+	}
+	return protocol.Semantic{Kind: kind, Fields: f}
+}
+
+// both runs Check on s as built and on s decoded from its JSON, as a host
+// reads it.
+func both(t *testing.T, s protocol.Semantic) (built, wire error) {
+	t.Helper()
+	built = checked(t, s)
+	b, err := json.Marshal(s)
+	if err != nil {
+		return built, err
+	}
+	var d protocol.Semantic
+	if err := json.Unmarshal(b, &d); err != nil {
+		return built, err
+	}
+	return built, checked(t, d)
+}
+
+var (
+	island = "Island"
+	ref    = protocol.ObjectRef{ObjectID: "o-2", CardName: &island, OwnerSeat: "p1", ControllerSeat: "p1", Zone: "battlefield"}
+)
+
+// refMap is ref as decoded JSON, edited.
+func refMap(edit func(map[string]any)) map[string]any {
+	m := map[string]any{"object_id": "o-2", "card_name": "Island", "owner_seat": "p1", "controller_seat": "p1", "zone": "battlefield"}
+	if edit != nil {
+		edit(m)
+	}
+	return m
+}
+
+// trigger is an order_pick trigger item's body as decoded JSON, edited.
+func trigger(edit func(map[string]any)) map[string]any {
+	m := map[string]any{"source": refMap(nil), "source_name": "Island", "ability_index": 0,
+		"event_objects": []any{refMap(nil)}, "instance": 1, "label": nil}
+	if edit != nil {
+		edit(m)
+	}
+	return m
+}
+
+type value struct {
+	name string
+	v    any
+}
+
+// wrongValues returns values that a field of the given spec type must refuse.
+func wrongValues(typ string) []value {
+	base, nullable := strings.CutSuffix(typ, "|null")
+	var out []value
+	if !nullable {
+		out = append(out, value{"null", nil})
+	}
+	badRef := func(name string, edit func(map[string]any)) value { return value{name, refMap(edit)} }
+	switch base {
+	case "u32":
+		out = append(out, value{"-1", -1}, value{"2^32", uint64(1) << 32}, value{"1.5", json.Number("1.5")},
+			value{"1e0", json.Number("1e0")}, value{`"0"`, "0"}, value{"true", true}, value{"{}", map[string]any{}})
+	case "i32":
+		out = append(out, value{"2^31", int64(math.MaxInt32) + 1}, value{"-2^31-1", int64(math.MinInt32) - 1},
+			value{"0.5", json.Number("0.5")}, value{`"0"`, "0"}, value{"false", false})
+	case "bool":
+		out = append(out, value{`"yes"`, "yes"}, value{`"true"`, "true"}, value{"1", 1}, value{"{}", map[string]any{}})
+	case "string":
+		out = append(out, value{"5", 5}, value{"true", true}, value{"{}", map[string]any{}}, value{"[]", []any{}})
+	case "word":
+		out = append(out, value{`"bogus"`, "bogus"}, value{`""`, ""}, value{"5", 5}, value{"true", true})
+	case "snake":
+		out = append(out, value{`"Not Snake"`, "Not Snake"}, value{`"1st"`, "1st"}, value{`"a-b"`, "a-b"},
+			value{`""`, ""}, value{"5", 5})
+	case "seat":
+		out = append(out, value{`"p7"`, "p7"}, value{`"P0"`, "P0"}, value{`""`, ""}, value{"0", 0})
+	case "R":
+		out = append(out, value{"7", 7}, value{`"o-2"`, "o-2"}, value{"[]", []any{}}, value{"{}", map[string]any{}},
+			value{"zero ObjectRef", protocol.ObjectRef{}}, value{"player target", protocol.PlayerTarget("p0")},
+			badRef("ref without zone", func(m map[string]any) { delete(m, "zone") }),
+			badRef("ref with an extra key", func(m map[string]any) { m["x"] = 1 }),
+			badRef("owner_seat p7", func(m map[string]any) { m["owner_seat"] = "p7" }),
+			badRef("controller_seat null", func(m map[string]any) { m["controller_seat"] = nil }),
+			badRef("zone deck", func(m map[string]any) { m["zone"] = "deck" }),
+			badRef("object_id 5", func(m map[string]any) { m["object_id"] = 5 }),
+			badRef("object_id null", func(m map[string]any) { m["object_id"] = nil }),
+			badRef("card_name 5", func(m map[string]any) { m["card_name"] = 5 }))
+	case "T":
+		out = append(out, value{"zero TargetRef", protocol.TargetRef{}}, value{`{"object":null}`, map[string]any{"object": nil}},
+			value{"{}", map[string]any{}}, value{`{"player":"p7"}`, map[string]any{"player": "p7"}},
+			value{"player and object", map[string]any{"player": "p0", "object": refMap(nil)}},
+			value{`{"target":"p0"}`, map[string]any{"target": "p0"}},
+			value{"object with a bad ref", map[string]any{"object": refMap(func(m map[string]any) { m["zone"] = "deck" })}},
+			value{"bare ref", ref}, value{`"p0"`, "p0"}, value{"5", 5})
+	case "item":
+		badTrigger := func(name string, edit func(map[string]any)) value {
+			return value{name, map[string]any{"trigger": trigger(edit)}}
+		}
+		out = append(out, value{"zero OrderItem", protocol.OrderItem{}}, value{`{"trigger":null}`, map[string]any{"trigger": nil}},
+			value{`{"object":null}`, map[string]any{"object": nil}}, value{"[]", []any{}}, value{"{}", map[string]any{}},
+			value{"object and trigger", map[string]any{"object": refMap(nil), "trigger": trigger(nil)}},
+			value{`{"card":R}`, map[string]any{"card": refMap(nil)}}, value{"bare ref", refMap(nil)},
+			badTrigger("trigger without instance", func(m map[string]any) { delete(m, "instance") }),
+			badTrigger("trigger with an extra key", func(m map[string]any) { m["x"] = 1 }),
+			badTrigger("trigger instance -1", func(m map[string]any) { m["instance"] = -1 }),
+			badTrigger(`trigger ability_index "x"`, func(m map[string]any) { m["ability_index"] = "x" }),
+			badTrigger("trigger source 5", func(m map[string]any) { m["source"] = 5 }),
+			badTrigger("trigger source_name 5", func(m map[string]any) { m["source_name"] = 5 }),
+			badTrigger("trigger label 5", func(m map[string]any) { m["label"] = 5 }),
+			badTrigger("trigger event_objects null", func(m map[string]any) { m["event_objects"] = nil }),
+			badTrigger("trigger event_objects [5]", func(m map[string]any) { m["event_objects"] = []any{5} }))
+	case "piles":
+		out = append(out, value{`[[1,2],["x"]]`, []any{[]any{1, 2}, []any{"x"}}},
+			value{"refs, not arrays", []any{refMap(nil), refMap(nil)}},
+			value{"a null pile", []any{[]any{refMap(nil)}, nil}},
+			value{"a bad ref in a pile", []any{[]any{refMap(func(m map[string]any) { m["zone"] = "deck" })}, []any{}}},
+			value{`"piles"`, "piles"}, value{"{}", map[string]any{}})
+	}
+	return out
+}
+
+// validValues returns values other than the baseline's that a field of the
+// given spec type must accept. Numbers are covered by the constraint tests.
+func validValues(typ string) []value {
+	base, nullable := strings.CutSuffix(typ, "|null")
+	var out []value
+	if nullable {
+		out = append(out, value{"null", nil})
+		switch base {
+		case "R":
+			out = append(out, value{"nil *ObjectRef", (*protocol.ObjectRef)(nil)})
+		case "T":
+			out = append(out, value{"nil *TargetRef", (*protocol.TargetRef)(nil)})
+		case "string", "word":
+			out = append(out, value{"nil *string", (*string)(nil)})
+		}
+	}
+	tgt := protocol.ObjectTarget(ref)
+	switch base {
+	case "R":
+		out = append(out, value{"ObjectRef", ref}, value{"*ObjectRef", &ref},
+			value{"null card_name", refMap(func(m map[string]any) { m["card_name"] = nil })},
+			value{"zone exile", refMap(func(m map[string]any) { m["zone"] = "exile" })})
+	case "T":
+		out = append(out, value{"player p0", protocol.PlayerTarget("p0")}, value{"object", tgt}, value{"*TargetRef", &tgt},
+			value{`{"player":"p1"}`, map[string]any{"player": "p1"}})
+	case "item":
+		out = append(out, value{"object item", protocol.ObjectItem(ref)},
+			value{"empty trigger", protocol.OrderItem{Trigger: &protocol.TriggerItem{EventObjects: []protocol.ObjectRef{}}}},
+			value{"trigger", map[string]any{"trigger": trigger(nil)}},
+			value{"trigger with nulls", map[string]any{"trigger": trigger(func(m map[string]any) {
+				m["source"], m["source_name"], m["ability_index"], m["event_objects"] = nil, nil, nil, []any{}
+			})}})
+	case "piles":
+		out = append(out, value{"Go piles", [][]protocol.ObjectRef{{ref}, {}}},
+			value{"decoded piles", []any{[]any{}, []any{refMap(nil), refMap(nil)}}})
+	case "seat":
+		out = append(out, value{"p0", "p0"}, value{"p1", "p1"})
+	case "snake":
+		out = append(out, value{"decline", "decline"}, value{"a1_b", "a1_b"})
+	case "bool":
+		out = append(out, value{"true", true}, value{"false", false})
+	}
+	return out
+}
+
+// Every field slot of every kind refuses values of the wrong type, built or
+// decoded.
+func TestEverySlotRejectsAWrongValue(t *testing.T) {
+	base := baselines()
+	for kind, slots := range specTypes {
+		for _, sl := range slots {
+			for _, w := range wrongValues(sl[1]) {
+				if built, wire := both(t, with(base[kind], sl[0], w.v)); built == nil || wire == nil {
+					t.Errorf("%s.%s = %s accepted (built: %v, decoded: %v)", kind, sl[0], w.name, built, wire)
+				}
+			}
+		}
+	}
+}
+
+func TestEverySlotAcceptsItsValidForms(t *testing.T) {
+	base := baselines()
+	if len(base) != len(specTypes) {
+		t.Fatalf("%d baselines for %d kinds", len(base), len(specTypes))
+	}
+	for kind, slots := range specTypes {
+		if built, wire := both(t, base[kind]); built != nil || wire != nil {
+			t.Errorf("baseline %s rejected (built: %v, decoded: %v)", kind, built, wire)
+		}
+		for _, sl := range slots {
+			vals := validValues(sl[1])
+			if w, ok := base[kind].Fields[sl[0]].(string); ok {
+				vals = append(vals, value{"*string", &w})
+			}
+			for _, v := range vals {
+				if built, wire := both(t, with(base[kind], sl[0], v.v)); built != nil || wire != nil {
+					t.Errorf("%s.%s = %s rejected (built: %v, decoded: %v)", kind, sl[0], v.name, built, wire)
+				}
+			}
+		}
+	}
+}
+
+// A zero TargetRef or OrderItem marshals as {"object":null} or
+// {"trigger":null}; one with both members set marshals as its first member.
+// Check refuses all three in every target and item slot.
+func TestZeroAndDoubleReferencesFailCheck(t *testing.T) {
+	base := baselines()
+	p0 := "p0"
+	for kind, slots := range specTypes {
+		for _, sl := range slots {
+			var bad []value
+			switch strings.TrimSuffix(sl[1], "|null") {
+			case "T":
+				bad = []value{{"zero TargetRef", protocol.TargetRef{}}, {"&zero TargetRef", &protocol.TargetRef{}},
+					{"TargetRef with both members", protocol.TargetRef{Player: &p0, Object: &ref}}}
+			case "item":
+				bad = []value{{"zero OrderItem", protocol.OrderItem{}}, {"&zero OrderItem", &protocol.OrderItem{}},
+					{"OrderItem with both members", protocol.OrderItem{Object: &ref, Trigger: &protocol.TriggerItem{EventObjects: []protocol.ObjectRef{}}}}}
+			}
+			for _, b := range bad {
+				if err := checked(t, with(base[kind], sl[0], b.v)); err == nil {
+					t.Errorf("%s.%s = %s accepted", kind, sl[0], b.name)
+				}
+			}
+		}
+	}
+	for _, text := range []string{
+		`{"kind":"choose_target","source":{"object_id":"o-1","card_name":"x","owner_seat":"p0","controller_seat":"p0","zone":"stack"},"slot":0,"target":{"object":null},"selected_count":0,"minimum":1,"maximum":1}`,
+		`{"kind":"order_pick","source":null,"purpose":"triggers","item":{"trigger":null},"position":0,"count":1}`,
+	} {
+		if err := checked(t, decoded(t, text)); err == nil {
+			t.Errorf("%s accepted", text)
+		}
+	}
+}
+
+// Each clause of Section 7.3's field constraints, the choose_name card-type
+// domain, and the field set, violated alone and met at its boundary.
+func TestCheckEnforcesEachConstraintClause(t *testing.T) {
+	R := refMap(nil)
+	target := func(sel, lo, hi int) protocol.Semantic {
+		return mk("choose_target", "source", R, "slot", 0, "target", map[string]any{"player": "p1"}, "selected_count", sel, "minimum", lo, "maximum", hi)
+	}
+	costTarget := func(sel, lo, hi int) protocol.Semantic {
+		return mk("choose_cost_target", "source", R, "cost_kind", "sacrifice", "candidate", R, "selected_count", sel, "minimum", lo, "maximum", hi)
+	}
+	selectObject := func(sel, lo, hi int) protocol.Semantic {
+		return mk("select_object", "source", nil, "purpose", "discard", "choice", map[string]any{"object": R}, "selected_count", sel, "minimum", lo, "maximum", hi)
+	}
+	mode := func(idx, count, sel, lo, hi int) protocol.Semantic {
+		return mk("choose_spell_mode", "source", R, "mode_index", idx, "mode_count", count, "selected_count", sel, "minimum", lo, "maximum", hi)
+	}
+	option := func(idx, count int) protocol.Semantic {
+		return mk("choose_option", "source", nil, "purpose", "vote", "option_index", idx, "option_count", count, "option_label", "yes")
+	}
+	number := func(v, lo, hi int64) protocol.Semantic {
+		return mk("choose_number", "source", nil, "purpose", "amount", "value", v, "minimum", lo, "maximum", hi)
+	}
+	pick := func(pos, count int) protocol.Semantic {
+		return mk("order_pick", "source", nil, "purpose", "triggers", "item", map[string]any{"object": R}, "position", pos, "count", count)
+	}
+	arrange := func(idx, count int) protocol.Semantic {
+		return mk("arrange_card", "source", nil, "purpose", "scry", "card", R, "card_index", idx, "card_count", count, "destination", "bottom")
+	}
+	replacement := func(idx, count int) protocol.Semantic {
+		return mk("choose_replacement", "affected", map[string]any{"player": "p0"}, "event", "damage", "replacement_source", nil,
+			"replacement_index", idx, "replacement_count", count)
+	}
+	distribute := func(amount, remaining int) protocol.Semantic {
+		return mk("distribute", "source", nil, "purpose", "damage", "recipient", map[string]any{"player": "p1"}, "amount", amount, "remaining", remaining)
+	}
+	pile := func(idx int, piles ...any) protocol.Semantic {
+		return mk("choose_pile", "source", nil, "purpose", "effect", "pile_index", idx, "piles", piles)
+	}
+	name := func(purpose, v string) protocol.Semantic {
+		return mk("choose_name", "source", nil, "purpose", purpose, "value", v)
+	}
+	color := func(kv ...any) protocol.Semantic {
+		return mk("choose_color", append([]any{"source", nil, "purpose", "effect"}, kv...)...)
+	}
+	for name, s := range map[string]protocol.Semantic{
+		"choose_target minimum > maximum":              target(0, 2, 1),
+		"choose_target selected_count = maximum":       target(1, 1, 1),
+		"choose_cost_target minimum > maximum":         costTarget(0, 2, 1),
+		"choose_cost_target selected_count = maximum":  costTarget(1, 1, 1),
+		"select_object minimum > maximum":              selectObject(0, 2, 1),
+		"select_object selected_count = maximum":       selectObject(1, 1, 1),
+		"choose_spell_mode mode_index = mode_count":    mode(2, 2, 0, 1, 1),
+		"choose_spell_mode minimum > maximum":          mode(0, 3, 0, 2, 1),
+		"choose_spell_mode maximum > mode_count":       mode(0, 2, 0, 1, 3),
+		"choose_spell_mode selected_count = maximum":   mode(0, 2, 1, 1, 1),
+		"choose_option option_index = option_count":    option(2, 2),
+		"choose_number value < minimum":                number(-1, 0, 4),
+		"choose_number value > maximum":                number(5, 0, 4),
+		"order_pick position = count":                  pick(2, 2),
+		"arrange_card card_index = card_count":         arrange(2, 2),
+		"choose_replacement replacement_count = 1":     replacement(0, 1),
+		"choose_replacement index = count":             replacement(2, 2),
+		"distribute amount > remaining":                distribute(4, 3),
+		"choose_pile pile_index 2":                     pile(2, []any{}, []any{R}),
+		"choose_pile with one pile":                    pile(0, []any{R}),
+		"choose_pile with three piles":                 pile(0, []any{}, []any{}, []any{R}),
+		"choose_pile with no piles":                    pile(0),
+		"choose_name card_type bogus":                  name("card_type", "bogus"),
+		"choose_name card_type Creature":               name("card_type", "Creature"),
+		"pass with an extra field":                     mk("pass", "x", 1),
+		"choose_color with an extra field":             color("color", "red", "extra", 1),
+		"choose_color without color":                   color(),
+		"choose_color with colour instead of color":    color("colour", "red"),
+		"choose_color with sauce instead of source":    mk("choose_color", "sauce", nil, "purpose", "effect", "color", "red"),
+		"reserved kind pay_mana":                       mk("pay_mana"),
+		"reserved kind narrow_number":                  mk("narrow_number", "source", nil, "purpose", "other", "minimum", 0, "maximum", 1),
+		"kind missing":                                 mk(""),
+		"choose_number minimum beyond i32":             number(0, math.MinInt32-1, 4),
+		"play_land face beyond u32":                    mk("play_land", "source", R, "face", uint64(math.MaxUint32)+1),
+		"order_pick position -1":                       pick(-1, 2),
+		"choose_starting_player player null":           mk("choose_starting_player", "player", nil),
+		"choose_cost_option choice with a capital":     mk("choose_cost_option", "source", R, "choice", "Decline"),
+		"cast_spell method bogus":                      mk("cast_spell", "source", R, "method", "bogus"),
+		"activate_mana_ability mana_choice lower case": mk("activate_mana_ability", "source", R, "ability_index", 0, "mana_choice", "w", "cost_target", nil),
+	} {
+		if built, wire := both(t, s); built == nil || wire == nil {
+			t.Errorf("%s accepted (built: %v, decoded: %v)", name, built, wire)
+		}
+	}
+	for name, s := range map[string]protocol.Semantic{
+		"choose_target minimum = maximum":                   target(0, 1, 1),
+		"choose_target selected_count = maximum - 1":        target(1, 0, 2),
+		"choose_cost_target minimum = maximum":              costTarget(0, 1, 1),
+		"choose_cost_target selected_count = maximum - 1":   costTarget(1, 0, 2),
+		"select_object minimum = maximum":                   selectObject(0, 1, 1),
+		"select_object selected_count = maximum - 1":        selectObject(1, 0, 2),
+		"choose_spell_mode at every boundary":               mode(1, 2, 1, 2, 2),
+		"choose_option option_index = option_count - 1":     option(1, 2),
+		"choose_number value = minimum":                     number(-3, -3, 4),
+		"choose_number value = maximum":                     number(4, -3, 4),
+		"choose_number over the whole i32 range":            number(math.MinInt32, math.MinInt32, math.MaxInt32),
+		"choose_number value = i32 maximum":                 number(math.MaxInt32, 0, math.MaxInt32),
+		"order_pick position = count - 1":                   pick(1, 2),
+		"arrange_card card_index = card_count - 1":          arrange(1, 2),
+		"choose_replacement replacement_count = 2":          replacement(0, 2),
+		"choose_replacement index = count - 1":              replacement(1, 2),
+		"distribute amount = remaining":                     distribute(3, 3),
+		"choose_pile pile_index 0":                          pile(0, []any{}, []any{R}),
+		"choose_pile pile_index 1":                          pile(1, []any{R}, []any{}),
+		"choose_name card_type creature":                    name("card_type", "creature"),
+		"choose_name card_type kindred":                     name("card_type", "kindred"),
+		"choose_name creature_type goblin":                  name("creature_type", "goblin"),
+		"choose_name card_name Lightning Bolt":              name("card_name", "Lightning Bolt"),
+		"choose_color":                                      color("color", "red"),
+		"pass":                                              mk("pass"),
+		"play_land face = u32 maximum":                      mk("play_land", "source", R, "face", uint64(math.MaxUint32)),
+		"mulligan counts as Go int, uint64 and json.Number": mk("mulligan", "hand_size", 7, "mulligans_taken", uint64(1), "keep", true),
+		"finish_selection selected_count as json.Number":    mk("finish_selection", "source", nil, "purpose", "modes", "selected_count", json.Number("3")),
+	} {
+		if built, wire := both(t, s); built != nil || wire != nil {
+			t.Errorf("%s rejected (built: %v, decoded: %v)", name, built, wire)
+		}
+	}
+}
+
+// TargetRef decoding (observation targets: attached_to, attack_target, stack
+// targets) accepts exactly {"player": seat} or {"object": ref}.
+func TestTargetRefDecodingIsStrict(t *testing.T) {
+	obj := `{"object_id":"o-1","card_name":null,"owner_seat":"p0","controller_seat":"p0","zone":"battlefield"}`
+	for _, text := range []string{`null`, `{}`, `[]`, `"p0"`, `{"object":null}`, `{"player":null}`, `{"player":"p7"}`,
+		`{"player":"p0","x":1}`, `{"player":"p0","object":` + obj + `}`, `{"target":"p0"}`} {
+		var tr protocol.TargetRef
+		if err := json.Unmarshal([]byte(text), &tr); err == nil {
+			t.Errorf("%s decoded as %+v", text, tr)
+		}
+	}
+	for _, text := range []string{`{"player":"p1"}`, `{"object":` + obj + `}`} {
+		var tr protocol.TargetRef
+		if err := json.Unmarshal([]byte(text), &tr); err != nil {
+			t.Errorf("%s: %v", text, err)
+		} else if b, _ := json.Marshal(tr); string(b) != text {
+			t.Errorf("%s re-marshals as %s", text, b)
+		}
+	}
+	var p protocol.Permanent
+	if err := json.Unmarshal([]byte(`{"attached_to":{"object":null}}`), &p); err == nil {
+		t.Error(`attached_to {"object":null} decoded`)
+	}
+	if err := json.Unmarshal([]byte(`{"attached_to":null,"attack_target":{"player":"p1"}}`), &p); err != nil || p.AttachedTo != nil {
+		t.Errorf("valid permanent targets: %v %+v", err, p)
+	}
+}
+
+// Section 6.3's progress object and Section 4.2's u32 protocol_minor.
+func TestProgressAndProtocolMinorTypes(t *testing.T) {
+	text := `{"dungeon":"Tomb of Annihilation","dungeon_room":null,"ring_tempted":2,"speed":null}`
+	var p protocol.PlayerObs
+	if err := json.Unmarshal([]byte(`{"progress":`+text+`}`), &p); err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := json.Marshal(p.Progress); string(b) != text {
+		t.Errorf("progress re-marshals as %s", b)
+	}
+	var h protocol.HelloOK
+	if err := json.Unmarshal([]byte(`{"protocol_minor":4294967296}`), &h); err == nil {
+		t.Error("protocol_minor 2^32 decoded")
+	}
+}
+
+// Section 9.3: extensions is an object, {} when the engine emits none.
+func TestExtensionsMarshalAsAnObject(t *testing.T) {
+	b, err := json.Marshal(protocol.DecisionResponse{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"extensions":{}`) {
+		t.Errorf("nil extensions marshal as %s", b)
+	}
+	sd := protocol.SeatDecision{Extensions: map[string]json.RawMessage{"x_gorge_view_v1": json.RawMessage(`{"a":1}`)}}
+	if b, _ = json.Marshal(sd); !strings.Contains(string(b), `"extensions":{"x_gorge_view_v1":{"a":1}}`) {
+		t.Errorf("extensions marshal as %s", b)
+	}
+	// The guarantee sits on the small map, not on the whole decision.
+	if b, _ = json.Marshal(protocol.ExtensionMap(nil)); string(b) != `{}` {
+		t.Errorf("nil ExtensionMap marshals as %s", b)
+	}
+	// A host decoding an engine's null still sees it (Task 9's check).
+	var back protocol.SeatDecision
+	if err := json.Unmarshal([]byte(`{"extensions":null}`), &back); err != nil || back.Extensions != nil {
+		t.Errorf("decoded null extensions: %v %v", err, back.Extensions)
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1506,7 +2284,10 @@ Expected: FAIL with `undefined: protocol.KindFields`.
 // Package protocol holds the Spellbench v2 wire types this engine emits and reads.
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const Name = "spellbench/v2"
 
@@ -1534,17 +2315,34 @@ func (t TargetRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]*ObjectRef{"object": t.Object})
 }
 
+// UnmarshalJSON accepts exactly {"player": seat} or {"object": ref}.
 func (t *TargetRef) UnmarshalJSON(b []byte) error {
-	var m struct {
-		Player *string    `json:"player"`
-		Object *ObjectRef `json:"object"`
-	}
+	var m map[string]json.RawMessage
 	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	t.Player, t.Object = m.Player, m.Object
+	p, o := m["player"], m["object"]
+	var seat string
+	var r ObjectRef
+	switch {
+	case len(m) == 1 && p != nil:
+		if json.Unmarshal(p, &seat) != nil || (seat != "p0" && seat != "p1") {
+			return fmt.Errorf("target reference: player %s is not a seat", p)
+		}
+		t.Player, t.Object = &seat, nil
+	case len(m) == 1 && o != nil && string(o) != "null":
+		if err := json.Unmarshal(o, &r); err != nil {
+			return err
+		}
+		t.Player, t.Object = nil, &r
+	default:
+		return fmt.Errorf(`target reference %s is not {"player": seat} or {"object": ref}`, b)
+	}
 	return nil
 }
+
+// oneMember reports whether exactly one member is set, as the wire form needs.
+func (t TargetRef) oneMember() bool { return (t.Player == nil) != (t.Object == nil) }
 
 // OrderItem is order_pick.item: {"object": R} or {"trigger": {...}}.
 type OrderItem struct {
@@ -1563,6 +2361,8 @@ type TriggerItem struct {
 
 func ObjectItem(r ObjectRef) OrderItem { return OrderItem{Object: &r} }
 
+func (o OrderItem) oneMember() bool { return (o.Object == nil) != (o.Trigger == nil) }
+
 func (o OrderItem) MarshalJSON() ([]byte, error) {
 	if o.Object != nil {
 		return json.Marshal(map[string]*ObjectRef{"object": o.Object})
@@ -1577,72 +2377,118 @@ func (o OrderItem) MarshalJSON() ([]byte, error) {
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
+	"reflect"
+	"regexp"
 	"slices"
+	"strings"
+)
+
+type slot struct{ name, typ string }
+
+// kindTable is Sections 7.2 and 7.3: each kind's fields in order, all required
+// and no others, with the type Check enforces:
+//   - R and T: an object reference (Section 5.1) and a target reference (5.2);
+//   - item: order_pick.item, {"object": R} or {"trigger": {...}};
+//   - [X]: an array of X;
+//   - u32 and i32 (Section 4.4), bool, string, and seat (p0 or p1);
+//   - snake: an open lowercase snake_case word (Section 4.4);
+//   - any other name: a string from Vocab[name].
+//
+// A "|null" suffix also allows null.
+var kindTable = map[string][]slot{
+	"pass":                    {},
+	"play_land":               {{"source", "R"}, {"face", "u32"}},
+	"cast_spell":              {{"source", "R"}, {"method", "method|null"}},
+	"activate_mana_ability":   {{"source", "R"}, {"ability_index", "u32"}, {"mana_choice", "mana_symbol|null"}, {"cost_target", "T|null"}},
+	"activate_ability":        {{"source", "R"}, {"ability_index", "u32"}},
+	"special_action":          {{"source", "R"}, {"action", "special_action.action"}},
+	"choose_target":           {{"source", "R"}, {"slot", "u32"}, {"target", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_target_selection": {{"source", "R"}, {"slot", "u32"}, {"selected_count", "u32"}},
+	"choose_cost_target":      {{"source", "R"}, {"cost_kind", "choose_cost_target.cost_kind"}, {"candidate", "R"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_cast_method":      {{"source", "R"}, {"method", "method"}},
+	"choose_spell_mode":       {{"source", "R"}, {"mode_index", "u32"}, {"mode_count", "u32"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_option":           {{"source", "R|null"}, {"purpose", "choose_option.purpose"}, {"option_index", "u32"}, {"option_count", "u32"}, {"option_label", "string|null"}},
+	"choose_color":            {{"source", "R|null"}, {"purpose", "choose_color.purpose"}, {"color", "color"}},
+	"choose_number":           {{"source", "R|null"}, {"purpose", "choose_number.purpose"}, {"value", "i32"}, {"minimum", "i32"}, {"maximum", "i32"}},
+	"choose_boolean":          {{"source", "R|null"}, {"purpose", "choose_boolean.purpose"}, {"value", "bool"}},
+	"choose_name":             {{"source", "R|null"}, {"purpose", "choose_name.purpose"}, {"value", "string"}},
+	"select_object":           {{"source", "R|null"}, {"purpose", "select_object.purpose"}, {"choice", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_selection":        {{"source", "R|null"}, {"purpose", "finish_selection.purpose"}, {"selected_count", "u32"}},
+	"optional_cost":           {{"source", "R"}, {"cost", "optional_cost.cost"}, {"pay", "bool"}},
+	"choose_cost_option":      {{"source", "R"}, {"choice", "snake"}},
+	"optional_cast":           {{"card", "R"}, {"method", "method"}, {"cast_it", "bool"}},
+	"mulligan":                {{"hand_size", "u32"}, {"mulligans_taken", "u32"}, {"keep", "bool"}},
+	"order_pick":              {{"source", "R|null"}, {"purpose", "order_pick.purpose"}, {"item", "item"}, {"position", "u32"}, {"count", "u32"}},
+	"arrange_card":            {{"source", "R|null"}, {"purpose", "arrange_card.purpose"}, {"card", "R"}, {"card_index", "u32"}, {"card_count", "u32"}, {"destination", "arrange_card.destination"}},
+	"choose_replacement":      {{"affected", "T"}, {"event", "choose_replacement.event"}, {"replacement_source", "R|null"}, {"replacement_index", "u32"}, {"replacement_count", "u32"}},
+	"choose_starting_player":  {{"player", "seat"}},
+	"declare_attack":          {{"attacker", "R"}, {"defender", "T|null"}},
+	"declare_block":           {{"blocker", "R"}, {"attacker", "R|null"}},
+	"distribute":              {{"source", "R|null"}, {"purpose", "distribute.purpose"}, {"recipient", "T"}, {"amount", "u32"}, {"remaining", "u32"}},
+	"choose_pile":             {{"source", "R|null"}, {"purpose", "choose_pile.purpose"}, {"pile_index", "u32"}, {"piles", "[[R]]"}},
+}
+
+// The nested objects, typed the same way.
+var (
+	refShape     = []slot{{"object_id", "string"}, {"card_name", "string|null"}, {"owner_seat", "seat"}, {"controller_seat", "seat"}, {"zone", "zone"}}
+	triggerShape = []slot{{"source", "R|null"}, {"source_name", "string|null"}, {"ability_index", "u32|null"}, {"event_objects", "[R]"}, {"instance", "u32"}, {"label", "string|null"}}
+	targetForms  = map[string]string{"player": "seat", "object": "R"}
+	itemForms    = map[string]string{"object": "R", "trigger": "trigger"}
+	snakeCase    = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
 
 // KindFields is Section 7.2 and 7.3: each kind's fields, all required, no others.
-var KindFields = map[string][]string{
-	"pass":                    {},
-	"play_land":               {"source", "face"},
-	"cast_spell":              {"source", "method"},
-	"activate_mana_ability":   {"source", "ability_index", "mana_choice", "cost_target"},
-	"activate_ability":        {"source", "ability_index"},
-	"special_action":          {"source", "action"},
-	"choose_target":           {"source", "slot", "target", "selected_count", "minimum", "maximum"},
-	"finish_target_selection": {"source", "slot", "selected_count"},
-	"choose_cost_target":      {"source", "cost_kind", "candidate", "selected_count", "minimum", "maximum"},
-	"choose_cast_method":      {"source", "method"},
-	"choose_spell_mode":       {"source", "mode_index", "mode_count", "selected_count", "minimum", "maximum"},
-	"choose_option":           {"source", "purpose", "option_index", "option_count", "option_label"},
-	"choose_color":            {"source", "purpose", "color"},
-	"choose_number":           {"source", "purpose", "value", "minimum", "maximum"},
-	"choose_boolean":          {"source", "purpose", "value"},
-	"choose_name":             {"source", "purpose", "value"},
-	"select_object":           {"source", "purpose", "choice", "selected_count", "minimum", "maximum"},
-	"finish_selection":        {"source", "purpose", "selected_count"},
-	"optional_cost":           {"source", "cost", "pay"},
-	"choose_cost_option":      {"source", "choice"},
-	"optional_cast":           {"card", "method", "cast_it"},
-	"mulligan":                {"hand_size", "mulligans_taken", "keep"},
-	"order_pick":              {"source", "purpose", "item", "position", "count"},
-	"arrange_card":            {"source", "purpose", "card", "card_index", "card_count", "destination"},
-	"choose_replacement":      {"affected", "event", "replacement_source", "replacement_index", "replacement_count"},
-	"choose_starting_player":  {"player"},
-	"declare_attack":          {"attacker", "defender"},
-	"declare_block":           {"blocker", "attacker"},
-	"distribute":              {"source", "purpose", "recipient", "amount", "remaining"},
-	"choose_pile":             {"source", "purpose", "pile_index", "piles"},
-}
+var KindFields = func() map[string][]string {
+	m := make(map[string][]string, len(kindTable))
+	for kind, slots := range kindTable {
+		m[kind] = make([]string, len(slots))
+		for i, s := range slots {
+			m[kind][i] = s.name
+		}
+	}
+	return m
+}()
 
 var PriorityKinds = map[string]bool{"pass": true, "play_land": true, "cast_spell": true,
 	"activate_mana_ability": true, "activate_ability": true, "special_action": true}
 
-// Vocab is Section 6.10 and 7.4, keyed "<kind>.<field>" or a shared name.
+// Vocab is Sections 5.1, 6.10 and 7.4, keyed "<kind>.<field>" or a shared name.
 var Vocab = map[string][]string{
-	"select_object.purpose":    {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
-	"finish_selection.purpose": {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
-	"choose_boolean.purpose":   {"may_ability", "optional_trigger", "may_cast", "change_copy_targets", "optional_replacement", "reveal", "other"},
-	"choose_number.purpose":    {"x_value", "amount", "life_payment", "cost_repetitions", "vote", "other"},
-	"choose_option.purpose":    {"effect_option", "top_or_bottom", "odd_or_even", "vote", "other"},
-	"choose_color.purpose":     {"mana", "protection", "effect", "other"},
-	"choose_name.purpose":      {"card_name", "creature_type", "card_type", "land_type", "basic_land_type", "other"},
-	"order_pick.purpose":       {"triggers", "library_top", "library_bottom", "mulligan_bottom", "arrangement", "other"},
-	"arrange_card.purpose":     {"scry", "surveil", "dig", "look_at_top", "pile_split", "other"},
-	"arrange_card.destination": {"top", "bottom", "graveyard", "exile", "hand", "battlefield", "pile_0", "pile_1"},
-	"distribute.purpose":       {"damage", "combat_damage", "counters", "mana", "life", "other"},
-	"choose_pile.purpose":      {"effect", "other"},
-	"method":                   {"normal", "alternative", "flashback", "escape", "evoke", "overload", "adventure", "disturb", "foretell", "plot", "mdfc_back", "split_left", "split_right", "fuse", "prototype", "morph", "disguise", "madness", "miracle", "cascade", "discover", "rebound", "suspend", "free", "other"},
-	"optional_cost.cost":       {"kicker", "buyback", "entwine", "conspire", "casualty", "bargain", "gift", "offspring", "copy", "unless_payment", "additional", "other"},
+	"zone":                         {"library", "hand", "battlefield", "graveyard", "stack", "exile", "command"},
+	"select_object.purpose":        {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
+	"finish_selection.purpose":     {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
+	"choose_boolean.purpose":       {"may_ability", "optional_trigger", "may_cast", "change_copy_targets", "optional_replacement", "reveal", "other"},
+	"choose_number.purpose":        {"x_value", "amount", "life_payment", "cost_repetitions", "vote", "other"},
+	"choose_option.purpose":        {"effect_option", "top_or_bottom", "odd_or_even", "vote", "other"},
+	"choose_color.purpose":         {"mana", "protection", "effect", "other"},
+	"choose_name.purpose":          {"card_name", "creature_type", "card_type", "land_type", "basic_land_type", "other"},
+	"order_pick.purpose":           {"triggers", "library_top", "library_bottom", "mulligan_bottom", "arrangement", "other"},
+	"arrange_card.purpose":         {"scry", "surveil", "dig", "look_at_top", "pile_split", "other"},
+	"arrange_card.destination":     {"top", "bottom", "graveyard", "exile", "hand", "battlefield", "pile_0", "pile_1"},
+	"distribute.purpose":           {"damage", "combat_damage", "counters", "mana", "life", "other"},
+	"choose_pile.purpose":          {"effect", "other"},
+	"method":                       {"normal", "alternative", "flashback", "escape", "evoke", "overload", "adventure", "disturb", "foretell", "plot", "mdfc_back", "split_left", "split_right", "fuse", "prototype", "morph", "disguise", "madness", "miracle", "cascade", "discover", "rebound", "suspend", "free", "other"},
+	"optional_cost.cost":           {"kicker", "buyback", "entwine", "conspire", "casualty", "bargain", "gift", "offspring", "copy", "unless_payment", "additional", "other"},
 	"choose_cost_target.cost_kind": {"sacrifice", "discard", "exile", "tap", "untap", "return_to_hand", "reveal", "remove_counter", "other"},
-	"special_action.action":    {"turn_face_up", "plot", "foretell", "suspend", "unlock_door", "other"},
-	"choose_replacement.event": {"zone_change", "damage", "draw", "enter_battlefield", "counters", "life", "other"},
-	"color":                    {"white", "blue", "black", "red", "green"},
-	"mana_symbol":              {"W", "U", "B", "R", "G", "C"},
-	"card_type":                {"artifact", "battle", "conspiracy", "creature", "dungeon", "enchantment", "instant", "kindred", "land", "phenomenon", "plane", "planeswalker", "scheme", "sorcery", "vanguard"},
+	"special_action.action":        {"turn_face_up", "plot", "foretell", "suspend", "unlock_door", "other"},
+	"choose_replacement.event":     {"zone_change", "damage", "draw", "enter_battlefield", "counters", "life", "other"},
+	"color":                        {"white", "blue", "black", "red", "green"},
+	"mana_symbol":                  {"W", "U", "B", "R", "G", "C"},
+	"card_type":                    {"artifact", "battle", "conspiracy", "creature", "dungeon", "enchantment", "instant", "kindred", "land", "phenomenon", "plane", "planeswalker", "scheme", "sorcery", "vanguard"},
 }
 
+// Semantic is a candidate's tagged object: Kind plus that kind's fields.
+// Constructors store Go values (ObjectRef, TargetRef, OrderItem, their
+// pointers for nullable fields, uint32, int32, string, *string, bool).
+// UnmarshalJSON, the host's side, stores strings, bools, null (nil) and numbers
+// (json.Number), and keeps objects and arrays as json.RawMessage: a generic map
+// would re-sort the keys of nested references, so Marshal could not reproduce
+// the engine's bytes.
 type Semantic struct {
 	Kind   string
 	Fields map[string]any
@@ -1657,6 +2503,45 @@ func (s Semantic) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
+// UnmarshalJSON accepts an object whose kind is a string; Check judges the
+// other fields.
+func (s *Semantic) UnmarshalJSON(b []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return fmt.Errorf("semantic: %w", err)
+	}
+	k, ok := raw["kind"]
+	if !ok || k[0] != '"' {
+		return errors.New("semantic: not an object with a string kind")
+	}
+	var kind string
+	if err := json.Unmarshal(k, &kind); err != nil {
+		return fmt.Errorf("semantic kind: %w", err)
+	}
+	delete(raw, "kind")
+	fields := make(map[string]any, len(raw))
+	for name, v := range raw {
+		switch v[0] {
+		case '{', '[':
+			fields[name] = v
+		case '"':
+			var str string
+			if err := json.Unmarshal(v, &str); err != nil {
+				return fmt.Errorf("semantic field %s: %w", name, err)
+			}
+			fields[name] = str
+		case 't', 'f':
+			fields[name] = v[0] == 't'
+		case 'n':
+			fields[name] = nil
+		default:
+			fields[name] = json.Number(v) // the literal, as UseNumber keeps it
+		}
+	}
+	s.Kind, s.Fields = kind, fields
+	return nil
+}
+
 func sem(kind string, kv ...any) Semantic {
 	f := make(map[string]any, len(kv)/2)
 	for i := 0; i < len(kv); i += 2 {
@@ -1665,9 +2550,13 @@ func sem(kind string, kv ...any) Semantic {
 	return Semantic{Kind: kind, Fields: f}
 }
 
-func Pass() Semantic                                 { return sem("pass") }
-func PlayLand(src ObjectRef, face uint32) Semantic    { return sem("play_land", "source", src, "face", face) }
-func CastSpell(src ObjectRef, method string) Semantic { return sem("cast_spell", "source", src, "method", method) }
+func Pass() Semantic { return sem("pass") }
+func PlayLand(src ObjectRef, face uint32) Semantic {
+	return sem("play_land", "source", src, "face", face)
+}
+func CastSpell(src ObjectRef, method string) Semantic {
+	return sem("cast_spell", "source", src, "method", method)
+}
 func ActivateManaAbility(src ObjectRef, idx uint32, mana *string, cost *TargetRef) Semantic {
 	return sem("activate_mana_ability", "source", src, "ability_index", idx, "mana_choice", mana, "cost_target", cost)
 }
@@ -1735,70 +2624,284 @@ func Distribute(src *ObjectRef, purpose string, recipient TargetRef, amount, rem
 	return sem("distribute", "source", src, "purpose", purpose, "recipient", recipient, "amount", amount, "remaining", remaining)
 }
 
-func u(s Semantic, k string) uint32 { v, _ := s.Fields[k].(uint32); return v }
-
 func inVocab(list, v string) bool { return slices.Contains(Vocab[list], v) }
 
-// Check enforces Section 7.3's field constraints and the vocabularies.
+// show renders a field value for an error message as its JSON.
+func show(v any) string {
+	if b, err := json.Marshal(v); err == nil {
+		return string(b)
+	}
+	return fmt.Sprint(v)
+}
+
+// integer is how Check reads every number: a Go integer type (constructors) or
+// a json.Number (UnmarshalJSON). Anything else is an error, including a float64
+// from a decoder without UseNumber and a literal with a fraction or exponent.
+func integer(v any) (int64, error) {
+	if n, ok := v.(json.Number); ok {
+		i, err := n.Int64()
+		if err != nil {
+			return 0, fmt.Errorf("%s is not an integer", n)
+		}
+		return i, nil
+	}
+	switch rv := reflect.ValueOf(v); rv.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return rv.Int(), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if n := rv.Uint(); n <= math.MaxInt64 {
+			return int64(n), nil
+		}
+		return 0, fmt.Errorf("%d is out of range", rv.Uint())
+	}
+	return 0, fmt.Errorf("%s (%T) is not an integer", show(v), v)
+}
+
+// isNull reports whether v marshals as JSON null.
+func isNull(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch rv := reflect.ValueOf(v); rv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
+		return rv.IsNil()
+	}
+	return false
+}
+
+// text reads a string field: a string, or a *string as constructors store
+// nullable ones.
+func text(v any) (string, error) {
+	switch x := v.(type) {
+	case string:
+		return x, nil
+	case *string:
+		if x != nil {
+			return *x, nil
+		}
+	}
+	return "", fmt.Errorf("%s (%T) is not a string", show(v), v)
+}
+
+// asDecoded returns a reference, target, item or array as UnmarshalJSON-style
+// values (maps, slices, strings, bools, nil and json.Number), so a built value
+// is judged exactly as its JSON would be. A TargetRef or OrderItem must set
+// exactly one member, since MarshalJSON would hide the other.
+func asDecoded(v any) (any, error) {
+	switch v.(type) {
+	case map[string]any, []any:
+		return v, nil
+	}
+	if isNull(v) {
+		return nil, nil
+	}
+	if r, ok := v.(interface{ oneMember() bool }); ok && !r.oneMember() {
+		return nil, fmt.Errorf("%T must set exactly one member", v)
+	}
+	b, ok := v.(json.RawMessage)
+	if !ok {
+		var err error
+		if b, err = json.Marshal(v); err != nil {
+			return nil, err
+		}
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var g any
+	if err := d.Decode(&g); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+// checkValue checks v against a kindTable type.
+func checkValue(typ string, v any) error {
+	base, nullable := strings.CutSuffix(typ, "|null")
+	elem, isArray := strings.CutPrefix(base, "[")
+	if isArray || base == "R" || base == "T" || base == "item" || base == "trigger" {
+		var err error
+		if v, err = asDecoded(v); err != nil {
+			return err
+		}
+	}
+	if isNull(v) {
+		if nullable {
+			return nil
+		}
+		return errors.New("is null")
+	}
+	switch {
+	case isArray:
+		a, ok := v.([]any)
+		if !ok {
+			return fmt.Errorf("%s is not an array", show(v))
+		}
+		for i, e := range a {
+			if err := checkValue(strings.TrimSuffix(elem, "]"), e); err != nil {
+				return fmt.Errorf("[%d]: %w", i, err)
+			}
+		}
+		return nil
+	case base == "R":
+		return checkObject(v, refShape)
+	case base == "trigger":
+		return checkObject(v, triggerShape)
+	case base == "T":
+		return checkOneOf(v, targetForms)
+	case base == "item":
+		return checkOneOf(v, itemForms)
+	case base == "u32":
+		return inRange(v, 0, math.MaxUint32, base)
+	case base == "i32":
+		return inRange(v, math.MinInt32, math.MaxInt32, base)
+	case base == "bool":
+		if _, ok := v.(bool); !ok {
+			return fmt.Errorf("%s is not a bool", show(v))
+		}
+		return nil
+	}
+	w, err := text(v)
+	switch {
+	case err != nil:
+		return err
+	case base == "string":
+	case base == "seat":
+		if w != "p0" && w != "p1" {
+			return fmt.Errorf("%q is not a seat", w)
+		}
+	case base == "snake":
+		if !snakeCase.MatchString(w) {
+			return fmt.Errorf("%q is not a snake_case word", w)
+		}
+	case Vocab[base] == nil:
+		return fmt.Errorf("unknown type %q", typ)
+	case !inVocab(base, w):
+		return fmt.Errorf("%q not in vocabulary %s", w, base)
+	}
+	return nil
+}
+
+func inRange(v any, lo, hi int64, typ string) error {
+	n, err := integer(v)
+	if err == nil && (n < lo || n > hi) {
+		err = fmt.Errorf("%d is not a %s", n, typ)
+	}
+	return err
+}
+
+// checkObject checks that v is an object with exactly shape's fields.
+func checkObject(v any, shape []slot) error {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s is not an object", show(v))
+	}
+	if len(m) != len(shape) {
+		return fmt.Errorf("%s has %d fields, want %d", show(v), len(m), len(shape))
+	}
+	for _, sl := range shape {
+		fv, ok := m[sl.name]
+		if !ok {
+			return fmt.Errorf("%s lacks %s", show(v), sl.name)
+		}
+		if err := checkValue(sl.typ, fv); err != nil {
+			return fmt.Errorf("%s: %w", sl.name, err)
+		}
+	}
+	return nil
+}
+
+// checkOneOf checks that v is an object with exactly one of forms' members.
+func checkOneOf(v any, forms map[string]string) error {
+	m, ok := v.(map[string]any)
+	if !ok || len(m) != 1 {
+		return fmt.Errorf("%s is not an object with one member", show(v))
+	}
+	for k, fv := range m {
+		typ, ok := forms[k]
+		if !ok {
+			return fmt.Errorf("unknown member %q", k)
+		}
+		if err := checkValue(typ, fv); err != nil {
+			return fmt.Errorf("%s: %w", k, err)
+		}
+	}
+	return nil
+}
+
+// Check enforces Sections 7.2 and 7.3 for constructed and decoded semantics
+// alike: a known kind, exactly its fields, each field's kindTable type, the
+// field constraints, and the static choose_name domain. A malformed value is
+// an error, never a panic.
 func (s Semantic) Check() error {
-	want, ok := KindFields[s.Kind]
+	slots, ok := kindTable[s.Kind]
 	if !ok {
 		return fmt.Errorf("unknown kind %q", s.Kind)
 	}
-	if len(want) != len(s.Fields) {
-		return fmt.Errorf("%s has %d fields, want %d", s.Kind, len(s.Fields), len(want))
+	if len(slots) != len(s.Fields) {
+		return fmt.Errorf("%s has %d fields, want %d", s.Kind, len(s.Fields), len(slots))
 	}
-	for _, f := range want {
-		if _, ok := s.Fields[f]; !ok {
-			return fmt.Errorf("%s lacks %s", s.Kind, f)
+	for _, sl := range slots {
+		v, ok := s.Fields[sl.name]
+		if !ok {
+			return fmt.Errorf("%s lacks %s", s.Kind, sl.name)
+		}
+		if err := checkValue(sl.typ, v); err != nil {
+			return fmt.Errorf("%s.%s: %w", s.Kind, sl.name, err)
 		}
 	}
-	str := func(k string) string { v, _ := s.Fields[k].(string); return v }
+	return s.checkConstraints()
+}
+
+// num and str read fields Check has already typed.
+func (s Semantic) num(k string) int64  { n, _ := integer(s.Fields[k]); return n }
+func (s Semantic) str(k string) string { w, _ := text(s.Fields[k]); return w }
+
+// checkConstraints is Section 7.3's field constraints, plus the card_type
+// domain of choose_name (Section 7.5 names the card types of Section 6.10).
+func (s Semantic) checkConstraints() error {
+	n := s.num
 	switch s.Kind {
 	case "choose_target", "choose_cost_target", "select_object":
-		if !(u(s, "minimum") <= u(s, "maximum") && u(s, "selected_count") < u(s, "maximum")) {
-			return fmt.Errorf("%s counts out of range", s.Kind)
+		if sel, lo, hi := n("selected_count"), n("minimum"), n("maximum"); !(lo <= hi && sel < hi) {
+			return fmt.Errorf("%s selected_count %d, minimum %d, maximum %d", s.Kind, sel, lo, hi)
 		}
 	case "choose_spell_mode":
-		if !(u(s, "mode_index") < u(s, "mode_count") && u(s, "minimum") <= u(s, "maximum") &&
-			u(s, "maximum") <= u(s, "mode_count") && u(s, "selected_count") < u(s, "maximum")) {
-			return fmt.Errorf("choose_spell_mode counts out of range")
+		idx, count, sel, lo, hi := n("mode_index"), n("mode_count"), n("selected_count"), n("minimum"), n("maximum")
+		if !(idx < count && lo <= hi && hi <= count && sel < hi) {
+			return fmt.Errorf("choose_spell_mode mode_index %d, mode_count %d, selected_count %d, minimum %d, maximum %d", idx, count, sel, lo, hi)
+		}
+	case "choose_option":
+		if idx, count := n("option_index"), n("option_count"); !(idx < count) {
+			return fmt.Errorf("choose_option option_index %d, option_count %d", idx, count)
 		}
 	case "choose_number":
-		v, lo, hi := s.Fields["value"].(int32), s.Fields["minimum"].(int32), s.Fields["maximum"].(int32)
-		if !(lo <= v && v <= hi) {
+		if v, lo, hi := n("value"), n("minimum"), n("maximum"); !(lo <= v && v <= hi) {
 			return fmt.Errorf("choose_number %d outside [%d,%d]", v, lo, hi)
 		}
 	case "order_pick":
-		if !(u(s, "position") < u(s, "count")) {
-			return fmt.Errorf("order_pick position out of range")
+		if pos, count := n("position"), n("count"); !(pos < count) {
+			return fmt.Errorf("order_pick position %d, count %d", pos, count)
 		}
 	case "arrange_card":
-		if !(u(s, "card_index") < u(s, "card_count")) || !inVocab("arrange_card.destination", str("destination")) {
-			return fmt.Errorf("arrange_card out of range")
+		if idx, count := n("card_index"), n("card_count"); !(idx < count) {
+			return fmt.Errorf("arrange_card card_index %d, card_count %d", idx, count)
 		}
 	case "choose_replacement":
-		if !(2 <= u(s, "replacement_count") && u(s, "replacement_index") < u(s, "replacement_count")) {
-			return fmt.Errorf("choose_replacement counts out of range")
+		if idx, count := n("replacement_index"), n("replacement_count"); !(2 <= count && idx < count) {
+			return fmt.Errorf("choose_replacement replacement_index %d, replacement_count %d", idx, count)
 		}
 	case "distribute":
-		if !(u(s, "amount") <= u(s, "remaining")) {
-			return fmt.Errorf("distribute amount exceeds remaining")
+		if amount, remaining := n("amount"), n("remaining"); !(amount <= remaining) {
+			return fmt.Errorf("distribute amount %d, remaining %d", amount, remaining)
 		}
-	case "choose_color":
-		if !inVocab("color", str("color")) {
-			return fmt.Errorf("color %q", str("color"))
+	case "choose_pile":
+		piles, _ := asDecoded(s.Fields["piles"])
+		if a, _ := piles.([]any); !(n("pile_index") <= 1 && len(a) == 2) {
+			return fmt.Errorf("choose_pile pile_index %d with %d piles", n("pile_index"), len(a))
 		}
-	case "cast_spell", "optional_cast":
-		if !inVocab("method", str("method")) {
-			return fmt.Errorf("method %q", str("method"))
-		}
-	}
-	for _, f := range []string{"purpose", "cost", "cost_kind", "action", "event"} {
-		if v, ok := s.Fields[f].(string); ok {
-			if list, ok := Vocab[s.Kind+"."+f]; ok && !slices.Contains(list, v) {
-				return fmt.Errorf("%s.%s %q not in vocabulary", s.Kind, f, v)
-			}
+	case "choose_name":
+		if s.str("purpose") == "card_type" && !inVocab("card_type", s.str("value")) {
+			return fmt.Errorf("choose_name card_type %q is not a card type", s.str("value"))
 		}
 	}
 	return nil
@@ -1831,18 +2934,18 @@ type Characteristics struct {
 }
 
 type Permanent struct {
-	Tapped           bool              `json:"tapped"`
-	SummoningSick    bool              `json:"summoning_sick"`
-	Damage           uint32            `json:"damage"`
-	Counters         map[string]uint32 `json:"counters"`
-	AttachedTo       *TargetRef        `json:"attached_to"`
-	Attacking        bool              `json:"attacking"`
-	AttackTarget     *TargetRef        `json:"attack_target"`
-	Blocking         bool              `json:"blocking"`
-	BlockedAttackers []ObjectRef       `json:"blocked_attackers"`
-	PhasedOut        bool              `json:"phased_out"`
-	Statuses         []string          `json:"statuses"`
-	ClassLevel       *uint32           `json:"class_level"`
+	Tapped           bool                `json:"tapped"`
+	SummoningSick    bool                `json:"summoning_sick"`
+	Damage           uint32              `json:"damage"`
+	Counters         map[string]uint32   `json:"counters"`
+	AttachedTo       *TargetRef          `json:"attached_to"`
+	Attacking        bool                `json:"attacking"`
+	AttackTarget     *TargetRef          `json:"attack_target"`
+	Blocking         bool                `json:"blocking"`
+	BlockedAttackers []ObjectRef         `json:"blocked_attackers"`
+	PhasedOut        bool                `json:"phased_out"`
+	Statuses         []string            `json:"statuses"`
+	ClassLevel       *uint32             `json:"class_level"`
 	Chosen           []map[string]string `json:"chosen"`
 }
 
@@ -1866,7 +2969,7 @@ type PlayerObs struct {
 	LandsPlayedThisTurn uint32            `json:"lands_played_this_turn"`
 	MulligansTaken      uint32            `json:"mulligans_taken"`
 	Designations        []string          `json:"designations"`
-	Progress            *struct{}         `json:"progress"`
+	Progress            *Progress         `json:"progress"`
 	HandCount           uint32            `json:"hand_count"`
 	LibraryCount        uint32            `json:"library_count"`
 	Hand                []ObjectRecord    `json:"hand"`
@@ -1874,6 +2977,15 @@ type PlayerObs struct {
 	Graveyard           []ObjectRecord    `json:"graveyard"`
 	Exile               []ObjectRecord    `json:"exile"`
 	Command             []ObjectRecord    `json:"command"`
+}
+
+// Progress is Section 6.3's player progress. This engine leaves it null
+// (player_progress is false).
+type Progress struct {
+	Dungeon     *string `json:"dungeon"`
+	DungeonRoom *string `json:"dungeon_room"`
+	RingTempted uint32  `json:"ring_tempted"`
+	Speed       *uint32 `json:"speed"`
 }
 
 type StackEntry struct {
@@ -1951,13 +3063,24 @@ type Context struct {
 }
 
 type SeatDecision struct {
-	ActingSeat  string                     `json:"acting_seat"`
-	SeatStep    uint64                     `json:"seat_step"`
-	Group       Group                      `json:"group"`
-	Context     Context                    `json:"context"`
-	Observation Observation                `json:"observation"`
-	Candidates  []Candidate                `json:"candidates"`
-	Extensions  map[string]json.RawMessage `json:"extensions"`
+	ActingSeat  string       `json:"acting_seat"`
+	SeatStep    uint64       `json:"seat_step"`
+	Group       Group        `json:"group"`
+	Context     Context      `json:"context"`
+	Observation Observation  `json:"observation"`
+	Candidates  []Candidate  `json:"candidates"`
+	Extensions  ExtensionMap `json:"extensions"`
+}
+
+// ExtensionMap is seat_decision.extensions (Section 14). It marshals as an
+// object, {} when nil, never null (Section 9.3). Plain map literals assign to it.
+type ExtensionMap map[string]json.RawMessage
+
+func (e ExtensionMap) MarshalJSON() ([]byte, error) {
+	if e == nil {
+		return []byte("{}"), nil
+	}
+	return json.Marshal(map[string]json.RawMessage(e))
 }
 
 type Engine struct {
@@ -1995,7 +3118,7 @@ type HelloOK struct {
 	ResponseType   string              `json:"response_type"`
 	Protocol       string              `json:"protocol"`
 	RequestID      string              `json:"request_id"`
-	ProtocolMinor  uint64              `json:"protocol_minor"`
+	ProtocolMinor  uint32              `json:"protocol_minor"`
 	Engine         Engine              `json:"engine"`
 	Formats        []string            `json:"formats"`
 	DeckSources    []string            `json:"deck_sources"`
@@ -2055,7 +3178,7 @@ type DeckOK struct {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/protocol/ -v`
-Expected: `--- PASS: TestThirtyKinds`, `--- PASS: TestConstructorsEmitExactlyTheSpecFields`, `--- PASS: TestCheckEnforcesFieldConstraints`, `--- PASS: TestTargetRefAndNullableFields`.
+Expected: all sixteen tests PASS, from `TestThirtyKinds` to `TestExtensionsMarshalAsAnObject`, including `TestDecodedSemanticsRoundTrip`, `TestCheckReadsNumbersExactly`, `TestEverySlotRejectsAWrongValue` and `TestCheckEnforcesEachConstraintClause`.
 
 - [ ] **Step 5: Commit**
 
@@ -2083,6 +3206,8 @@ git add engines/gorge/internal/protocol && git commit -m "gorge adapter: v2 cand
   - `type Rules struct{ OpponentDecklist, Mulligan, StartingPlayer string; StartingSeat *string; DomainID string; Names []string; Extensions []string; Probe bool }`;
   - `type StepReq struct{ GameID string; ExpectedStep uint64; CandidateID uint64; Echo json.RawMessage }`.
 
+Strict reading (G1-4): `json.Unmarshal` of JSON `null` into a string, bool or slice is a silent no-op, so every field goes through a getter that checks the raw value. A string starts with `"`, a bool is `true` or `false`, an array starts with `[` and holds only strings; a `null` `protocol` is `malformed_request`. Decklist rows are exactly `{name, count}` with a nonempty name, a count in [1, 2^32-1] and distinct names, for `reset` and `validate_deck`. `protocol_minor` and `samples` are u32 (Section 4.2).
+
 - [ ] **Step 1: Write the failing test**
 
 `internal/protocol/requests_test.go`:
@@ -2109,6 +3234,19 @@ func TestDecodeReset(t *testing.T) {
 		*r.Rules.StartingSeat != "p0" || r.MaxSteps != 100000 || len(r.Rules.Extensions) != 1 {
 		t.Fatalf("decoded %+v", req.Reset)
 	}
+	req, perr = protocol.Decode([]byte(withDecklist(`[{"name":"Mountain","count":40},{"count":20,"name":"Lightning Bolt"}]`)))
+	if perr != nil || !req.Reset.Decks[0].IsDecklist || len(req.Reset.Decks[0].Decklist) != 2 || req.Reset.Decks[0].Decklist[1].Count != 20 {
+		t.Fatalf("decklist deck: %+v %v", req.Reset, perr)
+	}
+}
+
+// withDecklist gives seat p0 a decklist deck instead of its catalog deck.
+func withDecklist(rows string) string {
+	return strings.Replace(goodReset, `"catalog_id":"Burn"}`, `"decklist":`+rows+`}`, 1)
+}
+
+func validateDeck(rows string) string {
+	return `{"request_type":"validate_deck","protocol":"spellbench/v2","request_id":"v","format":"pauper-bo1","deck":{"decklist":` + rows + `}}`
 }
 
 func TestDecodeErrorsUseTheClosedTable(t *testing.T) {
@@ -2125,6 +3263,33 @@ func TestDecodeErrorsUseTheClosedTable(t *testing.T) {
 		{strings.Replace(goodReset, `"mulligan":"london"`, `"mulligan":"paris"`, 1), protocol.CodeMalformedRequest, "h-2"},
 		{strings.Replace(goodReset, `7648831b`, `7648831B`, 1), protocol.CodeMalformedRequest, "h-2"},
 		{`{"request_type":"step","protocol":"spellbench/v2","request_id":"s","game_id":"g","expected_step":0,"selection":{"candidate_id":0}}`, protocol.CodeMalformedRequest, "s"},
+		// JSON null is never a string, bool or array (G1-4), and protocol_minor is u32.
+		{`{"request_type":"hello","protocol":null,"request_id":"a","protocol_minor":0}`, protocol.CodeMalformedRequest, "a"},
+		{`{"request_type":null,"protocol":"spellbench/v2","request_id":"a","protocol_minor":0}`, protocol.CodeMalformedRequest, "a"},
+		{`{"request_type":"hello","protocol":"spellbench/v2","request_id":"a","protocol_minor":4294967296}`, protocol.CodeMalformedRequest, "a"},
+		{strings.Replace(goodReset, `"game_id":"g-1"`, `"game_id":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"format":"pauper-bo1"`, `"format":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"deck_id":"sha256:aa"`, `"deck_id":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"catalog_id":"Burn"`, `"catalog_id":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"opponent_decklist":"visible"`, `"opponent_decklist":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"domain_id":"sha256:cc"`, `"domain_id":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"names":["Lightning Bolt"]`, `"names":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"names":["Lightning Bolt"]`, `"names":["Lightning Bolt",null]`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"probe":false`, `"probe":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{strings.Replace(goodReset, `"game_secret":"7648831b4ae4148770e13149d5ebbe1c4991168413d4b38e49292cfc5538980e"`, `"game_secret":null`, 1), protocol.CodeMalformedRequest, "h-2"},
+		{`{"request_type":"step","protocol":"spellbench/v2","request_id":"s","game_id":null,"expected_step":0,"selection":{"candidate_id":0,"semantic_echo":{"kind":"pass"}}}`, protocol.CodeMalformedRequest, "s"},
+		// Decklist rows are exactly {name, count}: count in [1, 2^32-1], names distinct and nonempty.
+		{withDecklist(`[{"name":"Mountain","count":60,"x_note":1}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"Name":"Mountain","count":60}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"name":"Mountain","count":0}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"name":"Mountain"}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"name":"Mountain","count":4294967296}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"name":"","count":60}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[{"name":"Mountain","count":30},{"name":"Mountain","count":30}]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`null`), protocol.CodeMalformedRequest, "h-2"},
+		{validateDeck(`[{"name":"Mountain","count":30},{"name":"Mountain","count":30}]`), protocol.CodeMalformedRequest, "v"},
+		{validateDeck(`[{"name":null,"count":60}]`), protocol.CodeMalformedRequest, "v"},
 	}
 	for _, c := range cases {
 		req, perr := protocol.Decode([]byte(c.line))
@@ -2183,6 +3348,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
 	"strconv"
@@ -2259,12 +3425,44 @@ func exact(o obj, fields ...string) error {
 	return nil
 }
 
+// getStr reads a string field. JSON null or any other type is an error:
+// json.Unmarshal of null into a string is a silent no-op.
 func getStr(o obj, k string) (string, error) {
+	raw := o[k]
 	var s string
-	if err := json.Unmarshal(o[k], &s); err != nil {
+	if len(raw) == 0 || raw[0] != '"' || json.Unmarshal(raw, &s) != nil {
 		return "", fmt.Errorf("%s is not a string", k)
 	}
 	return s, nil
+}
+
+// getBool reads a field that is exactly true or false.
+func getBool(o obj, k string) (bool, error) {
+	switch string(o[k]) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	}
+	return false, fmt.Errorf("%s is not a boolean", k)
+}
+
+// getStrings reads an array of strings; null and non-string elements are errors.
+func getStrings(o obj, k string) ([]string, error) {
+	raw := o[k]
+	var elems []json.RawMessage
+	if len(raw) == 0 || raw[0] != '[' || json.Unmarshal(raw, &elems) != nil {
+		return nil, fmt.Errorf("%s is not an array of strings", k)
+	}
+	out := make([]string, 0, len(elems))
+	for i, e := range elems {
+		var s string
+		if len(e) == 0 || e[0] != '"' || json.Unmarshal(e, &s) != nil {
+			return nil, fmt.Errorf("%s[%d] is not a string", k, i)
+		}
+		out = append(out, s)
+	}
+	return out, nil
 }
 
 // getU64 accepts only an integer literal (json.Number would also take "5").
@@ -2276,6 +3474,15 @@ func getU64(o obj, k string) (uint64, error) {
 	v, err := strconv.ParseUint(string(raw), 10, 64)
 	if err != nil {
 		return 0, fmt.Errorf("%s is not a non-negative integer", k)
+	}
+	return v, nil
+}
+
+// getU32 is getU64 bounded to u32 (Section 4.4).
+func getU32(o obj, k string) (uint64, error) {
+	v, err := getU64(o, k)
+	if err != nil || v > math.MaxUint32 {
+		return 0, fmt.Errorf("%s is not a u32", k)
 	}
 	return v, nil
 }
@@ -2308,13 +3515,9 @@ func Decode(line []byte) (Request, *Error) {
 	} else {
 		return req, Errf(CodeMalformedRequest, "request_id is not a nonempty string")
 	}
-	p, ok := o["protocol"]
-	if !ok {
-		return req, Errf(CodeMalformedRequest, "missing protocol")
-	}
-	var ps string
-	if json.Unmarshal(p, &ps) != nil {
-		return req, Errf(CodeMalformedRequest, "protocol is not a string")
+	ps, err := getStr(o, "protocol")
+	if err != nil {
+		return req, Errf(CodeMalformedRequest, "protocol is missing or not a string")
 	}
 	if ps != Name {
 		return req, Errf(CodeProtocolMismatch, "protocol "+ps)
@@ -2349,9 +3552,40 @@ func decodeHello(o obj, req *Request) error {
 	if err := exact(o, "request_type", "protocol", "request_id", "protocol_minor"); err != nil {
 		return err
 	}
-	m, err := getU64(o, "protocol_minor")
+	m, err := getU32(o, "protocol_minor")
 	req.Hello = &HelloReq{ProtocolMinor: m}
 	return err
+}
+
+// decodeDecklist reads rows that are exactly {name, count}: a nonempty name,
+// a count in [1, 2^32-1], and each name once.
+func decodeDecklist(raw json.RawMessage) ([]DeckRow, error) {
+	var elems []json.RawMessage
+	if len(raw) == 0 || raw[0] != '[' || json.Unmarshal(raw, &elems) != nil {
+		return nil, errors.New("decklist is not an array")
+	}
+	seen := map[string]bool{}
+	rows := make([]DeckRow, 0, len(elems))
+	for i, e := range elems {
+		row, err := getObj(e)
+		if err != nil || exact(row, "name", "count") != nil {
+			return nil, fmt.Errorf("decklist[%d] is not exactly {name, count}", i)
+		}
+		name, err := getStr(row, "name")
+		if err != nil || name == "" {
+			return nil, fmt.Errorf("decklist[%d].name is not a nonempty string", i)
+		}
+		n, err := getU32(row, "count")
+		if err != nil || n == 0 {
+			return nil, fmt.Errorf("decklist[%d].count is not in [1, 2^32-1]", i)
+		}
+		if seen[name] {
+			return nil, fmt.Errorf("decklist names %q twice", name)
+		}
+		seen[name] = true
+		rows = append(rows, DeckRow{Name: name, Count: int(n)})
+	}
+	return rows, nil
 }
 
 func decodeDeck(raw json.RawMessage) (DeckSpec, error) {
@@ -2368,7 +3602,7 @@ func decodeDeck(raw json.RawMessage) (DeckSpec, error) {
 		s.CatalogID, err = getStr(d, "catalog_id")
 	case exact(d, "deck_id", "decklist") == nil:
 		s.IsDecklist = true
-		err = json.Unmarshal(d["decklist"], &s.Decklist)
+		s.Decklist, err = decodeDecklist(d["decklist"])
 	default:
 		err = errors.New("deck must be {deck_id, catalog_id} or {deck_id, decklist}")
 	}
@@ -2412,14 +3646,14 @@ func decodeRules(raw json.RawMessage) (Rules, error) {
 	if r.DomainID, err = getStr(dom, "domain_id"); err != nil {
 		return r, err
 	}
-	if err := json.Unmarshal(dom["names"], &r.Names); err != nil {
-		return r, errors.New("card_name_domain.names")
+	if r.Names, err = getStrings(dom, "names"); err != nil {
+		return r, err
 	}
-	if err := json.Unmarshal(o["extensions"], &r.Extensions); err != nil || r.Extensions == nil {
-		return r, errors.New("extensions")
+	if r.Extensions, err = getStrings(o, "extensions"); err != nil {
+		return r, err
 	}
-	if err := json.Unmarshal(o["probe"], &r.Probe); err != nil {
-		return r, errors.New("probe")
+	if r.Probe, err = getBool(o, "probe"); err != nil {
+		return r, err
 	}
 	return r, nil
 }
@@ -2513,7 +3747,7 @@ func decodeValidateDeck(o obj, req *Request) error {
 		v.Deck.CatalogID, err = getStr(d, "catalog_id")
 	case exact(d, "decklist") == nil:
 		v.Deck.IsDecklist = true
-		err = json.Unmarshal(d["decklist"], &v.Deck.Decklist)
+		v.Deck.Decklist, err = decodeDecklist(d["decklist"])
 	default:
 		err = errors.New("deck must be {catalog_id} or {decklist}")
 	}
@@ -2530,7 +3764,7 @@ func decodeProbe(o obj, req *Request) error {
 	if p.GameID, err = getStr(o, "game_id"); err != nil {
 		return err
 	}
-	p.Samples, err = getU64(o, "samples")
+	p.Samples, err = getU32(o, "samples")
 	req.Probe = p
 	return err
 }
@@ -2556,14 +3790,16 @@ git add engines/gorge/internal/protocol && git commit -m "gorge adapter: strict 
 - Test: `internal/catalog/catalog_test.go`
 
 **Interfaces:**
-- Consumes: `wire.DeckRow`, `wire.DeckID` (Task 3), `testcorpus.Registry` (Task 1).
+- Consumes: `wire.DeckRow`, `wire.DeckID` and `wire.DomainID` with their error results (Task 3 and its wire follow-up; whichever of this task and the follow-up merges second adapts these call sites), `testcorpus.Registry` (Task 1).
 - Produces:
   - `type catalog.Deck struct{ CatalogID, Name string; Rows []wire.DeckRow }` with `func (Deck) DeckID() string`;
   - `func catalog.Decks() []Deck` (five decks, benchmark order Wildfire, Rally, Spy, Burn, CawGates);
   - `func catalog.ByID(id string) (Deck, bool)`;
   - `func catalog.Resolve(reg *cards.Registry, d Deck) ([]*cards.Card, error)` (row order, expanded by count);
-  - `func catalog.Preflight(reg *cards.Registry) error`;
+  - `func catalog.Preflight(reg *cards.Registry) error`: every primitive the cards' scripts name is implemented. It checks primitives, not decisions: that every decision these cards raise maps to a declared kind (Section 9.2) is shown by the census and by Task 28b's games;
   - `func catalog.PoolNames() []string` (sorted distinct names).
+
+G1-9, applied during implementation: the deck rows use keyed literals (`go vet` flags unkeyed ones), `catalog` imports `rules` for its registrations as `gorgepin` does, and the preflight comment names what proves decision-kind coverage. The merged task also added tests for near-miss names, catalog order and lookup contracts, and preflight refusals. The `DeckID` and `DomainID` call sites below take the error results of Task 3's Step 6, applied in the wire follow-up.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2573,9 +3809,12 @@ git add engines/gorge/internal/protocol && git commit -m "gorge adapter: strict 
 package catalog_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testcorpus"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
@@ -2604,8 +3843,8 @@ func TestDeckIDsMatchHostComputation(t *testing.T) {
 			t.Errorf("%s deck_id %s, want %s", d.CatalogID, d.DeckID(), wantIDs[d.CatalogID])
 		}
 	}
-	if got := wire.DomainID(catalog.PoolNames()); got != "sha256:ab186e0272634f91dad9dd7b5765f33b69b3dc91bdfb1f6e43879be6ea49ba5b" {
-		t.Errorf("pool domain_id %s", got)
+	if got, err := wire.DomainID(catalog.PoolNames()); err != nil || got != "sha256:ab186e0272634f91dad9dd7b5765f33b69b3dc91bdfb1f6e43879be6ea49ba5b" {
+		t.Errorf("pool domain_id %s %v", got, err)
 	}
 }
 
@@ -2632,6 +3871,95 @@ func TestAsciiFoldedNameIsNotSubstituted(t *testing.T) {
 		t.Fatal("NFD-decomposed name resolved")
 	}
 }
+
+// gorge's Lookup finds each of these (case and punctuation folded, one face of
+// a multi-face card, an alias), so each reaches the exact-name check.
+func TestNearMissNamesGorgeFindsAreNotSubstituted(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	for _, name := range []string{"lightning bolt", "KrarkClan Shaman", "Sagu Wildling", "Vector Glider", "Skittering Kitten"} {
+		if _, ok := reg.Lookup(name); !ok {
+			t.Fatalf("gorge no longer finds %q", name)
+		}
+		d := catalog.Deck{CatalogID: "Z", Rows: []wire.DeckRow{{Name: name, Count: 60}}}
+		if _, err := catalog.Resolve(reg, d); err == nil || !strings.Contains(err.Error(), name) {
+			t.Errorf("%q resolved: %v", name, err)
+		}
+	}
+}
+
+// Decks keeps benchmark order and distinct row names, ByID finds exactly the
+// named deck, Resolve keeps row order expanded by count (the library order the
+// shuffle starts from), and PoolNames is sorted and distinct.
+func TestCatalogOrderAndLookupContracts(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	var ids []string
+	for _, d := range catalog.Decks() {
+		ids = append(ids, d.CatalogID)
+		if got, ok := catalog.ByID(d.CatalogID); !ok || got.CatalogID != d.CatalogID {
+			t.Errorf("ByID(%s) gave %q, %v", d.CatalogID, got.CatalogID, ok)
+		}
+		cs, err := catalog.Resolve(reg, d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		seen, i := map[string]bool{}, 0
+		for _, r := range d.Rows {
+			if seen[r.Name] {
+				t.Errorf("%s repeats %s", d.CatalogID, r.Name)
+			}
+			seen[r.Name] = true
+			want, _ := reg.Lookup(r.Name)
+			for n := 0; n < r.Count; n++ {
+				if i >= len(cs) || cs[i] != want {
+					t.Fatalf("%s card %d is not %s", d.CatalogID, i, r.Name)
+				}
+				i++
+			}
+		}
+		if i != len(cs) {
+			t.Errorf("%s resolves to %d cards, rows hold %d", d.CatalogID, len(cs), i)
+		}
+	}
+	if got := strings.Join(ids, " "); got != "Wildfire Rally Spy Burn CawGates" {
+		t.Errorf("decks in order %s", got)
+	}
+	if _, ok := catalog.ByID("Pauper"); ok {
+		t.Error("an unknown catalog id was found")
+	}
+	names := catalog.PoolNames()
+	for i := 1; i < len(names); i++ {
+		if names[i-1] >= names[i] {
+			t.Errorf("pool names %q, %q are not sorted and distinct", names[i-1], names[i])
+		}
+	}
+}
+
+// Preflight fails on a missing catalog card, and on a card that resolves but
+// needs a primitive gorge does not implement.
+func TestPreflightRefusesMissingAndUnplayableCards(t *testing.T) {
+	if err := catalog.Preflight(cards.NewRegistry()); err == nil {
+		t.Fatal("an empty registry passed")
+	}
+	// One synthetic card (authored here, not a Forge file), named for the
+	// first row Preflight checks, with a keyword gorge does not implement.
+	dir := t.TempDir()
+	folder := cards.CorpusDir(dir)
+	if err := os.MkdirAll(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	first := catalog.Decks()[0].Rows[0].Name
+	script := []byte("Name:" + first + "\nTypes:Land\nK:Spellbench Probe Keyword\nOracle:\n")
+	if err := os.WriteFile(filepath.Join(folder, "first.txt"), script, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reg, err := cards.OpenCorpus(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := catalog.Preflight(reg); err == nil || !strings.Contains(err.Error(), "kw:Spellbench Probe Keyword") {
+		t.Fatalf("an unplayable card passed: %v", err)
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -2656,55 +3984,71 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	// rules registers its non-API primitives with effects.Supported; without
+	// this import coverage checks undercount (see gorge cmd/forgec).
+	_ "github.com/adams-shaun/gorge/rules"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 )
 
+// Deck is one catalog deck: its catalog_id, display name and decklist rows.
 type Deck struct {
 	CatalogID, Name string
 	Rows            []wire.DeckRow
 }
 
-func (d Deck) DeckID() string { return wire.DeckID(d.Rows) }
+// DeckID is the deck's Section 4.3 deck_id. Catalog rows name each card once,
+// so wire.DeckID (which refuses a repeated name) cannot fail here;
+// TestDeckIDsMatchHostComputation pins every id.
+func (d Deck) DeckID() string {
+	id, err := wire.DeckID(d.Rows)
+	if err != nil {
+		panic("catalog deck " + d.CatalogID + ": " + err.Error())
+	}
+	return id
+}
 
 var decks = []Deck{
 	{CatalogID: "Wildfire", Name: "Wildfire", Rows: []wire.DeckRow{
-		{"Twisted Landscape", 4}, {"Fanatical Offering", 4}, {"Ichor Wellspring", 3}, {"Blood Fountain", 1},
-		{"Drossforge Bridge", 4}, {"Slagwoods Bridge", 4}, {"Writhing Chrysalis", 4}, {"Nyxborn Hydra", 1},
-		{"Vault of Whispers", 1}, {"Cleansing Wildfire", 4}, {"Lembas", 3}, {"Makeshift Munitions", 1},
-		{"Cast Down", 4}, {"Nihil Spellbomb", 4}, {"Swamp", 3}, {"Mountain", 2}, {"Forest", 2},
-		{"Refurbished Familiar", 4}, {"Krark-Clan Shaman", 3}, {"Eviscerator's Insight", 1}, {"Toxin Analysis", 2},
-		{"Pulse of Murasa", 1},
+		{Name: "Twisted Landscape", Count: 4}, {Name: "Fanatical Offering", Count: 4}, {Name: "Ichor Wellspring", Count: 3}, {Name: "Blood Fountain", Count: 1},
+		{Name: "Drossforge Bridge", Count: 4}, {Name: "Slagwoods Bridge", Count: 4}, {Name: "Writhing Chrysalis", Count: 4}, {Name: "Nyxborn Hydra", Count: 1},
+		{Name: "Vault of Whispers", Count: 1}, {Name: "Cleansing Wildfire", Count: 4}, {Name: "Lembas", Count: 3}, {Name: "Makeshift Munitions", Count: 1},
+		{Name: "Cast Down", Count: 4}, {Name: "Nihil Spellbomb", Count: 4}, {Name: "Swamp", Count: 3}, {Name: "Mountain", Count: 2}, {Name: "Forest", Count: 2},
+		{Name: "Refurbished Familiar", Count: 4}, {Name: "Krark-Clan Shaman", Count: 3}, {Name: "Eviscerator's Insight", Count: 1}, {Name: "Toxin Analysis", Count: 2},
+		{Name: "Pulse of Murasa", Count: 1},
 	}},
 	{CatalogID: "Rally", Name: "Rally", Rows: []wire.DeckRow{
-		{"Clockwork Percussionist", 4}, {"Voldaren Epicure", 4}, {"Goblin Bushwhacker", 4},
-		{"Goblin Tomb Raider", 4}, {"Burning-Tree Emissary", 4}, {"Galvanic Blast", 4},
-		{"Experimental Synthesizer", 3}, {"Lightning Bolt", 4}, {"Reckless Impulse", 4},
-		{"Rally at the Hornburg", 4}, {"Great Furnace", 4}, {"Mountain", 14}, {"Chain Lightning", 2},
-		{"End the Festivities", 1},
+		{Name: "Clockwork Percussionist", Count: 4}, {Name: "Voldaren Epicure", Count: 4}, {Name: "Goblin Bushwhacker", Count: 4},
+		{Name: "Goblin Tomb Raider", Count: 4}, {Name: "Burning-Tree Emissary", Count: 4}, {Name: "Galvanic Blast", Count: 4},
+		{Name: "Experimental Synthesizer", Count: 3}, {Name: "Lightning Bolt", Count: 4}, {Name: "Reckless Impulse", Count: 4},
+		{Name: "Rally at the Hornburg", Count: 4}, {Name: "Great Furnace", Count: 4}, {Name: "Mountain", Count: 14}, {Name: "Chain Lightning", Count: 2},
+		{Name: "End the Festivities", Count: 1},
 	}},
 	{CatalogID: "Spy", Name: "Spy", Rows: []wire.DeckRow{
-		{"Mesmeric Fiend", 2}, {"Overgrown Battlement", 4}, {"Saruli Caretaker", 4}, {"Gatecreeper Vine", 3},
-		{"Sagu Wildling // Roost Seek", 4}, {"Generous Ent", 4}, {"Lead the Stampede", 4}, {"Winding Way", 4},
-		{"Land Grant", 4}, {"Balustrade Spy", 4}, {"Lotleth Giant", 2}, {"Dread Return", 2}, {"Swamp", 1},
-		{"Forest", 3}, {"Wall of Roots", 3}, {"Masked Vandal", 3}, {"Quirion Ranger", 2},
-		{"Troll of Khazad-dûm", 1}, {"Lotus Petal", 2}, {"Tinder Wall", 2}, {"Elves of Deep Shadow", 2},
+		{Name: "Mesmeric Fiend", Count: 2}, {Name: "Overgrown Battlement", Count: 4}, {Name: "Saruli Caretaker", Count: 4}, {Name: "Gatecreeper Vine", Count: 3},
+		{Name: "Sagu Wildling // Roost Seek", Count: 4}, {Name: "Generous Ent", Count: 4}, {Name: "Lead the Stampede", Count: 4}, {Name: "Winding Way", Count: 4},
+		{Name: "Land Grant", Count: 4}, {Name: "Balustrade Spy", Count: 4}, {Name: "Lotleth Giant", Count: 2}, {Name: "Dread Return", Count: 2}, {Name: "Swamp", Count: 1},
+		{Name: "Forest", Count: 3}, {Name: "Wall of Roots", Count: 3}, {Name: "Masked Vandal", Count: 3}, {Name: "Quirion Ranger", Count: 2},
+		{Name: "Troll of Khazad-dûm", Count: 1}, {Name: "Lotus Petal", Count: 2}, {Name: "Tinder Wall", Count: 2}, {Name: "Elves of Deep Shadow", Count: 2},
 	}},
 	{CatalogID: "Burn", Name: "Burn", Rows: []wire.DeckRow{
-		{"Sneaky Snacker", 4}, {"Faithless Looting", 2}, {"Highway Robbery", 4}, {"Masked Meower", 4},
-		{"Lightning Bolt", 4}, {"Mountain", 18}, {"Grab the Prize", 4}, {"Fireblast", 4}, {"Guttersnipe", 4},
-		{"Fiery Temper", 4}, {"Voldaren Epicure", 4}, {"Lava Dart", 4},
+		{Name: "Sneaky Snacker", Count: 4}, {Name: "Faithless Looting", Count: 2}, {Name: "Highway Robbery", Count: 4}, {Name: "Masked Meower", Count: 4},
+		{Name: "Lightning Bolt", Count: 4}, {Name: "Mountain", Count: 18}, {Name: "Grab the Prize", Count: 4}, {Name: "Fireblast", Count: 4}, {Name: "Guttersnipe", Count: 4},
+		{Name: "Fiery Temper", Count: 4}, {Name: "Voldaren Epicure", Count: 4}, {Name: "Lava Dart", Count: 4},
 	}},
 	{CatalogID: "CawGates", Name: "CawGates", Rows: []wire.DeckRow{
-		{"Island", 4}, {"Citadel Gate", 4}, {"Counterspell", 4}, {"Heap Gate", 2}, {"Idyllic Beachfront", 1},
-		{"Brainstorm", 3}, {"Journey to Nowhere", 4}, {"Lórien Revealed", 3}, {"Outlaw Medic", 2},
-		{"Basilisk Gate", 4}, {"Sacred Cat", 4}, {"Sea Gate", 4}, {"Azorius Guildgate", 2},
-		{"The Modern Age // Vector Glider", 4}, {"Thraben Charm", 2}, {"Prismatic Strands", 4},
-		{"Squadron Hawk", 4}, {"Spell Pierce", 2}, {"Preordain", 2}, {"Guardian of the Guildpact", 1},
+		{Name: "Island", Count: 4}, {Name: "Citadel Gate", Count: 4}, {Name: "Counterspell", Count: 4}, {Name: "Heap Gate", Count: 2}, {Name: "Idyllic Beachfront", Count: 1},
+		{Name: "Brainstorm", Count: 3}, {Name: "Journey to Nowhere", Count: 4}, {Name: "Lórien Revealed", Count: 3}, {Name: "Outlaw Medic", Count: 2},
+		{Name: "Basilisk Gate", Count: 4}, {Name: "Sacred Cat", Count: 4}, {Name: "Sea Gate", Count: 4}, {Name: "Azorius Guildgate", Count: 2},
+		{Name: "The Modern Age // Vector Glider", Count: 4}, {Name: "Thraben Charm", Count: 2}, {Name: "Prismatic Strands", Count: 4},
+		{Name: "Squadron Hawk", Count: 4}, {Name: "Spell Pierce", Count: 2}, {Name: "Preordain", Count: 2}, {Name: "Guardian of the Guildpact", Count: 1},
 	}},
 }
 
+// Decks returns the catalog in benchmark order. The slice and its rows are
+// shared: callers must not modify them.
 func Decks() []Deck { return decks }
 
+// ByID returns the catalog deck whose catalog_id is id.
 func ByID(id string) (Deck, bool) {
 	for _, d := range decks {
 		if d.CatalogID == id {
@@ -2714,9 +4058,10 @@ func ByID(id string) (Deck, bool) {
 	return Deck{}, false
 }
 
-// lookup resolves an Oracle name exactly: gorge's NormalizeName keeps
-// diacritics, and the front face of "A // B" must name a card whose faces
-// join to exactly that full name.
+// lookup resolves an Oracle name exactly. gorge's Lookup folds case and
+// whitespace, drops punctuation and combining marks, reads only the front face
+// of "A // B", and also finds a card by one face or an alias, so the card it
+// finds must carry exactly this name: its faces joined with " // ".
 func lookup(reg *cards.Registry, name string) (*cards.Card, error) {
 	if !utf8.ValidString(name) {
 		return nil, fmt.Errorf("card %q is not UTF-8", name)
@@ -2739,6 +4084,9 @@ func lookup(reg *cards.Registry, name string) (*cards.Card, error) {
 	return c, nil
 }
 
+// Resolve returns d's cards in row order, each row repeated count times. A
+// name that is not exactly a corpus card's Oracle name is an error, never a
+// substitution.
 func Resolve(reg *cards.Registry, d Deck) ([]*cards.Card, error) {
 	var out []*cards.Card
 	for _, r := range d.Rows {
@@ -2754,7 +4102,10 @@ func Resolve(reg *cards.Registry, d Deck) ([]*cards.Card, error) {
 }
 
 // Preflight proves every catalog card resolves and is fully playable
-// (every primitive its script names is implemented).
+// (every primitive its script names is implemented). It does not prove that
+// the engine can offer every decision these cards raise (Section 9.2 makes
+// such a deck unsupported_deck): the plan's decision-shape census (census5)
+// and the Task 28 qualification prove decision-kind coverage.
 func Preflight(reg *cards.Registry) error {
 	sup := effects.Supported()
 	for _, d := range decks {
@@ -2771,6 +4122,7 @@ func Preflight(reg *cards.Registry) error {
 	return nil
 }
 
+// PoolNames returns every catalog card name once, sorted in code point order.
 func PoolNames() []string {
 	set := map[string]bool{}
 	for _, d := range decks {
@@ -2790,7 +4142,7 @@ func PoolNames() []string {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/catalog/ -v`
-Expected: `--- PASS: TestDeckIDsMatchHostComputation`, `--- PASS: TestEveryCatalogCardResolvesAndIsFullyPlayable`, `--- PASS: TestAsciiFoldedNameIsNotSubstituted`.
+Expected: `--- PASS: TestDeckIDsMatchHostComputation`, `--- PASS: TestEveryCatalogCardResolvesAndIsFullyPlayable`, `--- PASS: TestAsciiFoldedNameIsNotSubstituted`, `--- PASS: TestNearMissNamesGorgeFindsAreNotSubstituted`, `--- PASS: TestCatalogOrderAndLookupContracts`, `--- PASS: TestPreflightRefusesMissingAndUnplayableCards`.
 
 - [ ] **Step 5: Commit**
 
@@ -2817,6 +4169,8 @@ git add engines/gorge/internal/catalog && git commit -m "gorge adapter: five-dec
   - `func (*Game) Probe(ins ...decision.Intent) (*rules.Engine, error)` (clone plus submits; the real engine is untouched);
   - `var gamecfg.ErrUnplannedRandomness`.
 
+G1-10, applied during implementation, with its review fix round: tests recompute both opening libraries and a mulligan's shuffle (the seat's next ordinal) from the secret streams without the planner, and check the gorge seed; a probe test covers a shuffling probe and shows the real engine untouched; `New`'s errors are checked. `Probe`'s comment says a probe outcome may never shape a decision through hidden-zone contents (Section 13 F3).
+
 - [ ] **Step 1: Write the failing test**
 
 `internal/gamecfg/game_test.go`:
@@ -2826,10 +4180,13 @@ package gamecfg_test
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
@@ -2914,6 +4271,172 @@ func TestUnplannedRandomnessIsDetected(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// fisherYates recomputes a Section 11.6 library shuffle from the spec alone:
+// Fisher-Yates over in, driven by the stream of
+// "spellbench/v2/rng:<owner>:library_shuffle:<n>".
+func fisherYates(sec *secrets.Game, owner string, n uint64, in []state.ObjID) []state.ObjID {
+	out := slices.Clone(in)
+	r := sec.Stream(owner, "library_shuffle", n)
+	for i := len(out) - 1; i > 0; i-- {
+		j := r.IntN(i + 1)
+		out[i], out[j] = out[j], out[i]
+	}
+	return out
+}
+
+// dealt is p's hand then library. A draw moves the library's top (index 0)
+// to the end of the hand, so right after a shuffle and a fresh seven this is
+// the shuffled order.
+func dealt(g *gamecfg.Game, p state.PlayerID) []state.ObjID {
+	return append(slices.Clone(g.E.G.Zone(state.ZHand, p)), g.E.G.Zone(state.ZLibrary, p)...)
+}
+
+// intent answers p's pending decision with its option of this kind.
+func intent(t *testing.T, g *gamecfg.Game, p state.PlayerID, kind string) decision.Intent {
+	t.Helper()
+	d := g.E.Pending()
+	if d == nil || d.Player != p {
+		t.Fatalf("no pending decision for p%d", p)
+	}
+	for i, o := range d.Options {
+		if o.Kind == kind {
+			return decision.Intent{Seq: d.Seq, Player: p, Choices: []int{i}}
+		}
+	}
+	t.Fatalf("p%d has no %q option", p, kind)
+	return decision.Intent{}
+}
+
+// Both opening libraries, recomputed from the secret without the planner:
+// gorge numbers objects from 1, seat by seat in deck order, and shuffles each
+// library from that order. A swapped seat, ordinal or purpose fails here, and
+// so does a gorge seed not taken from the shared stream.
+func TestOpeningLibrariesFollowTheSecretStreams(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	decks := [2][]*cards.Card{deck(t, reg, "Spy"), deck(t, reg, "Burn")}
+	sec := secret(5)
+	g, err := gamecfg.New(reg, sec, decks, gamecfg.Rules{Mulligan: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := state.ObjID(1)
+	for p, owner := range []string{"p0", "p1"} {
+		in := make([]state.ObjID, len(decks[p]))
+		for i, c := range decks[p] {
+			if o := g.E.G.Obj(next); o == nil || o.Card != c {
+				t.Fatalf("object %d is not %s's deck card %d", next, owner, i)
+			}
+			in[i] = next
+			next++
+		}
+		if got, want := dealt(g, state.PlayerID(p)), fisherYates(sec, owner, 0, in); !slices.Equal(got, want) {
+			t.Fatalf("%s opening order\n got %v\nwant %v", owner, got, want)
+		}
+	}
+	seed := sec.StreamSeed("shared", "gorge_seed", 0)
+	if want := binary.BigEndian.Uint64(seed[:8]); g.E.L.Seed != want {
+		t.Fatalf("gorge seed %d, want %d", g.E.L.Seed, want)
+	}
+}
+
+// A London mulligan is the seat's second shuffle: ordinal 1 of its own
+// stream, over its library with the hand moved to the end. gorge redraws when
+// the declaration pass ends, so p1 answers first.
+func TestMulliganShuffleUsesTheSeatsNextOrdinal(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	burn := deck(t, reg, "Burn")
+	sec := secret(5)
+	g, err := gamecfg.New(reg, sec, [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := append(slices.Clone(g.E.G.Zone(state.ZLibrary, 0)), g.E.G.Zone(state.ZHand, 0)...)
+	if err := g.Submit(intent(t, g, 0, "mulligan")); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Submit(intent(t, g, 1, "keep")); err != nil {
+		t.Fatal(err)
+	}
+	if d := g.E.Pending(); d == nil || d.Kind != decision.KMulligan || d.Player != 0 {
+		t.Fatal("p0 is not deciding on its redrawn hand")
+	}
+	if got, want := dealt(g, 0), fisherYates(sec, "p0", 1, in); !slices.Equal(got, want) {
+		t.Fatalf("p0 order after the mulligan\n got %v\nwant %v", got, want)
+	}
+}
+
+// Submit checks the invariant after every intent.
+func TestSubmitReportsUnplannedRandomness(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	burn := deck(t, reg, "Burn")
+	g, err := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+	if err != nil {
+		t.Fatal(err) // New ends with CheckRandomness, so the invariant holds here
+	}
+	in := intent(t, g, 0, "keep")
+	g.E.Rand(6)
+	if err := g.Submit(in); !errors.Is(err, gamecfg.ErrUnplannedRandomness) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+// Probe answers on a clone, and an option the engine did not offer is an
+// error. Probing p0's mulligan and p1's keep ends the pass, so the clone
+// shuffles p0's redraw, yet the real engine's draws, planned count, head,
+// pending decision and library stay put, and real submits still pass. A
+// clone shuffles from its own generator, not the planner, so only a
+// draw-free probe ends where the real submit arrives.
+func TestProbeLeavesTheRealEngineUntouched(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	burn := deck(t, reg, "Burn")
+	build := func() *gamecfg.Game {
+		g, err := gamecfg.New(reg, secret(3), [2][]*cards.Card{burn, burn}, gamecfg.Rules{Mulligan: "london"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return g
+	}
+	g, twin := build(), build()
+	mull := intent(t, g, 0, "mulligan")
+	if err := twin.Submit(mull); err != nil { // p1's keep is read off a twin game
+		t.Fatal(err)
+	}
+	keep := intent(t, twin, 1, "keep")
+	head, draws, lib := g.E.L.Head(), g.E.RNGDraws(), slices.Clone(g.E.G.Zone(state.ZLibrary, 0))
+	if _, err := g.Probe(decision.Intent{Seq: mull.Seq, Player: 0, Choices: []int{2}}); err == nil {
+		t.Fatal("probe accepted an option the engine did not offer")
+	}
+	c, err := g.Probe(mull, keep)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.RNGDraws() == draws {
+		t.Fatal("the probe drew nothing, so it cannot test the real engine's draws")
+	}
+	if got := g.E.RNGDraws(); got != draws {
+		t.Errorf("real engine has %d draws after probing, want %d", got, draws)
+	}
+	if err := g.CheckRandomness(); err != nil {
+		t.Errorf("probing moved the planned count: %v", err)
+	}
+	if g.E.L.Head() != head || g.E.Pending().Seq != mull.Seq || !slices.Equal(g.E.G.Zone(state.ZLibrary, 0), lib) {
+		t.Error("probing moved the real engine's head, pending decision or library")
+	}
+	one, err := g.Probe(mull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Submit(mull); err != nil {
+		t.Fatal(err)
+	}
+	if one.L.Head() != g.E.L.Head() {
+		t.Error("a draw-free probe did not end where the real submit arrives")
+	}
+	if err := g.Submit(keep); err != nil {
+		t.Fatal(err)
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -2958,6 +4481,7 @@ type Game struct {
 	planned uint64 // draws the planner forced, plus the toss
 }
 
+// New returns the game at its first decision, even alongside a CheckRandomness error.
 func New(reg *cards.Registry, sec *secrets.Game, decks [2][]*cards.Card, r Rules) (*Game, error) {
 	g := &Game{Secret: sec, planned: 1}
 	seed := sec.StreamSeed("shared", "gorge_seed", 0)
@@ -3016,6 +4540,9 @@ func (g *Game) Submit(in decision.Intent) error {
 
 // Probe submits ins to a clone. Clones have no planner, so a probe's own
 // shuffles draw from the clone's generator; probes judge legality only.
+// A clone still holds the real hidden zones and the secret-seeded generator,
+// so no probe outcome may set a decision's shape through hidden-zone
+// contents (Section 13 F3); Task 28's resample check is the net.
 func (g *Game) Probe(ins ...decision.Intent) (*rules.Engine, error) {
 	c := g.E.Clone()
 	for _, in := range ins {
@@ -3030,7 +4557,7 @@ func (g *Game) Probe(ins ...decision.Intent) (*rules.Engine, error) {
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/gamecfg/ -v`
-Expected: `--- PASS: TestStartingSeatIsForcedAndGamesAreDeterministic`, `--- PASS: TestSeatOneLibraryIsIndependentOfSeatZero`, `--- PASS: TestUnplannedRandomnessIsDetected`.
+Expected: all seven tests PASS: `TestStartingSeatIsForcedAndGamesAreDeterministic`, `TestSeatOneLibraryIsIndependentOfSeatZero`, `TestUnplannedRandomnessIsDetected`, `TestOpeningLibrariesFollowTheSecretStreams`, `TestMulliganShuffleUsesTheSeatsNextOrdinal`, `TestSubmitReportsUnplannedRandomness`, `TestProbeLeavesTheRealEngineUntouched`.
 
 - [ ] **Step 5: Commit**
 
@@ -3051,7 +4578,10 @@ git add engines/gorge/internal/gamecfg && git commit -m "gorge adapter: secret-d
 - Produces:
   - `type validate.Profile struct{ Kinds map[string]bool; Flags map[string]bool; Extensions map[string]bool }`;
   - `type validate.Stream struct` (per-seat state: seat_step, groups, id zones, departed ids) with `func validate.NewStream(p Profile) *Stream`;
-  - `func (*Stream) Check(sd protocol.SeatDecision) error`, which returns a `*validate.Violation{Rule, Msg string}` naming V1 to V9.
+  - `func (*Stream) Check(sd protocol.SeatDecision) error`, which returns a `*validate.Violation{Rule, Msg string}` naming V1 to V9;
+  - `func (*Stream) InGroup() bool`: whether the seat's last decision left a group partial, for the mini-host's cross-seat check (Task 25).
+
+Checks beyond the base subset (G1-11): V1 a non-null `extensions` object; V4 every reference the observation holds (`context.source`, `attached_to`, `attack_target`, `blocked_attackers`, `exiled_by`, stack sources and targets, pending-trigger sources) and ids unique within the observation; V5 `known` shape, count and order (Section 6.7) and hidden-zone candidates in `(card_name, object_id)` order; V8 every optional field null exactly as its flag says (Section 6.9); V9 `activate_mana_ability` in a choice decision only beside `optional_cost` candidates with purpose `mana_payment`. Cross-seat group exclusivity needs both streams, so the mini-host checks it (Task 25). Decoded semantics hold nested references as raw JSON (Task 5), which `walkRefs` reads.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3144,6 +4674,138 @@ func TestIDFreshnessAcrossTheSeatStream(t *testing.T) {
 		t.Fatalf("reused id across zones reported %q", got)
 	}
 }
+
+// A host validates the engine's JSON after decoding it (Task 25). A decision
+// with non-pass candidates must survive the round trip (G1-2).
+func TestJSONDecodedDecisionValidates(t *testing.T) {
+	hand := protocol.ObjectRef{ObjectID: "o-1", CardName: str("Mountain"), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "hand"}
+	sd := base(0, 0)
+	sd.Observation.Players[0].Hand = []protocol.ObjectRecord{{ObjectRef: hand, Characteristics: &protocol.Characteristics{
+		Supertypes: []string{"basic"}, Types: []string{"land"}, Subtypes: []string{"mountain"}, Colors: []string{}, Keywords: []string{}}}}
+	sd.Observation.Players[0].HandCount = 1
+	sd.Candidates = append(sd.Candidates, protocol.Candidate{CandidateID: 1, Semantic: protocol.PlayLand(hand, 0)})
+	b, err := json.Marshal(protocol.DecisionResponse{ResponseType: "decision", Protocol: protocol.Name, SeatDecision: sd})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var back protocol.DecisionResponse
+	if err := json.Unmarshal(b, &back); err != nil {
+		t.Fatal(err)
+	}
+	if err := validate.NewStream(profile()).Check(back.SeatDecision); err != nil {
+		t.Fatalf("decoded decision: %v", err)
+	}
+}
+
+func allKinds() validate.Profile {
+	p := profile()
+	p.Kinds = map[string]bool{}
+	for k := range protocol.KindFields {
+		p.Kinds[k] = true
+	}
+	return p
+}
+
+// populated has one permanent and one stack ability, so every reference
+// field has a record to point at.
+func populated() protocol.SeatDecision {
+	sd := base(0, 0)
+	perm := protocol.ObjectRef{ObjectID: "o-b", CardName: str("Mountain"), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "battlefield"}
+	sd.Observation.Players[0].Battlefield = []protocol.ObjectRecord{{ObjectRef: perm,
+		Characteristics: &protocol.Characteristics{Supertypes: []string{}, Types: []string{"land"}, Subtypes: []string{}, Colors: []string{}, Keywords: []string{}},
+		Permanent:       &protocol.Permanent{Counters: map[string]uint32{}, BlockedAttackers: []protocol.ObjectRef{}}}}
+	ability := protocol.ObjectRef{ObjectID: "o-s", CardName: str("Mountain"), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "stack"}
+	sd.Observation.Stack = []protocol.StackEntry{{ObjectRef: ability, StackKind: "activated_ability", Source: &perm, Targets: []*protocol.TargetRef{}}}
+	return sd
+}
+
+// searchFor sets up a library search whose candidates reference two looked-at
+// cards, in the given name order.
+func searchFor(sd *protocol.SeatDecision, first, second string) {
+	ids := map[string]string{"Forest": "o-f", "Swamp": "o-w"}
+	sd.Observation.Known = []protocol.Known{
+		{OwnerSeat: "p0", Zone: "library", CardName: "Forest", ObjectID: str("o-f"), How: "searching"},
+		{OwnerSeat: "p0", Zone: "library", CardName: "Swamp", ObjectID: str("o-w"), How: "searching"},
+	}
+	sd.Context = protocol.Context{Kind: "choice"}
+	sd.Candidates = nil
+	for i, n := range []string{first, second} {
+		r := protocol.ObjectRef{ObjectID: ids[n], CardName: str(n), OwnerSeat: "p0", ControllerSeat: "p0", Zone: "library"}
+		sd.Candidates = append(sd.Candidates, protocol.Candidate{CandidateID: uint32(i),
+			Semantic: protocol.SelectObject(nil, "search", protocol.ObjectTarget(r), 0, 0, 1)})
+	}
+}
+
+// G1-11: the structural rules beyond the base subset, one mutation each.
+func TestStructuralRulesNameTheirRule(t *testing.T) {
+	stranger := protocol.ObjectRef{ObjectID: "o-x", CardName: str("Swamp"), OwnerSeat: "p1", ControllerSeat: "p1", Zone: "battlefield"}
+	zero, one := uint32(0), uint32(1)
+	cases := []struct {
+		rule, what string
+		mutate     func(*protocol.SeatDecision)
+	}{
+		{"V1", "extensions null", func(sd *protocol.SeatDecision) { sd.Extensions = nil }},
+		{"V4", "context.source", func(sd *protocol.SeatDecision) { sd.Context.Source = &stranger }},
+		{"V4", "attached_to", func(sd *protocol.SeatDecision) {
+			t := protocol.ObjectTarget(stranger)
+			sd.Observation.Players[0].Battlefield[0].Permanent.AttachedTo = &t
+		}},
+		{"V4", "blocked_attackers", func(sd *protocol.SeatDecision) {
+			sd.Observation.Players[0].Battlefield[0].Permanent.BlockedAttackers = []protocol.ObjectRef{stranger}
+		}},
+		{"V4", "stack source", func(sd *protocol.SeatDecision) { sd.Observation.Stack[0].Source = &stranger }},
+		{"V4", "stack target", func(sd *protocol.SeatDecision) {
+			t := protocol.ObjectTarget(stranger)
+			sd.Observation.Stack[0].Targets = []*protocol.TargetRef{&t}
+		}},
+		{"V4", "pending-trigger source", func(sd *protocol.SeatDecision) {
+			sd.Observation.PendingTriggers = []protocol.PendingTrigger{{Source: &stranger, ControllerSeat: "p1"}}
+		}},
+		{"V4", "duplicate id", func(sd *protocol.SeatDecision) {
+			rec := sd.Observation.Players[0].Battlefield[0]
+			sd.Observation.Players[0].Battlefield = append(sd.Observation.Players[0].Battlefield, rec)
+		}},
+		{"V5", "own hand in known", func(sd *protocol.SeatDecision) {
+			sd.Observation.Known = []protocol.Known{{OwnerSeat: "p0", Zone: "hand", CardName: "Mountain", How: "revealed"}}
+		}},
+		{"V5", "two library positions", func(sd *protocol.SeatDecision) {
+			sd.Observation.Known = []protocol.Known{{OwnerSeat: "p0", Zone: "library", CardName: "Mountain",
+				PositionFromTop: &zero, PositionFromBottom: &zero, How: "looked_at"}}
+		}},
+		{"V5", "known order", func(sd *protocol.SeatDecision) {
+			sd.Observation.Known = []protocol.Known{
+				{OwnerSeat: "p0", Zone: "library", CardName: "Mountain", PositionFromTop: &one, How: "looked_at"},
+				{OwnerSeat: "p0", Zone: "library", CardName: "Mountain", PositionFromTop: &zero, How: "looked_at"}}
+		}},
+		{"V5", "more hand entries than cards", func(sd *protocol.SeatDecision) {
+			sd.Observation.Known = []protocol.Known{{OwnerSeat: "p1", Zone: "hand", CardName: "Mountain", How: "revealed"}}
+		}},
+		{"V5", "hidden-zone candidate order", func(sd *protocol.SeatDecision) { searchFor(sd, "Swamp", "Forest") }},
+		{"V8", "keywords null with its flag", func(sd *protocol.SeatDecision) {
+			sd.Observation.Players[0].Battlefield[0].Characteristics.Keywords = nil
+		}},
+		{"V8", "poison without its flag", func(sd *protocol.SeatDecision) { sd.Observation.Players[0].Poison = &one }},
+		{"V9", "mana ability without optional_cost", func(sd *protocol.SeatDecision) {
+			sd.Context = protocol.Context{Kind: "choice", Purpose: str("mana_payment")}
+			sd.Candidates = []protocol.Candidate{{Semantic: protocol.ActivateManaAbility(sd.Observation.Players[0].Battlefield[0].ObjectRef, 0, nil, nil)}}
+		}},
+	}
+	if err := validate.NewStream(allKinds()).Check(populated()); err != nil {
+		t.Fatalf("clean decision: %v", err)
+	}
+	sorted := populated()
+	searchFor(&sorted, "Forest", "Swamp")
+	if err := validate.NewStream(allKinds()).Check(sorted); err != nil {
+		t.Fatalf("sorted search: %v", err)
+	}
+	for _, c := range cases {
+		sd := populated()
+		c.mutate(&sd)
+		if got := rule(validate.NewStream(allKinds()).Check(sd)); got != c.rule {
+			t.Errorf("%s reported %q, want %s", c.what, got, c.rule)
+		}
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -3164,6 +4826,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"slices"
 
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
@@ -3194,6 +4857,11 @@ func NewStream(p Profile) *Stream {
 	return &Stream{p: p, zoneOf: map[string]string{}, live: map[string]bool{}, departed: map[string]bool{}}
 }
 
+// InGroup reports whether this seat's last decision left a group partial. The
+// mini-host checks it across its two streams: while one seat's group is
+// partial, the engine poses nothing to the other seat (Section 8, V3).
+func (s *Stream) InGroup() bool { return s.group != nil }
+
 var extKey = regexp.MustCompile(`^x_[a-z0-9_]+$`)
 
 // EqualRef compares references by value (CardName is a pointer).
@@ -3202,12 +4870,14 @@ func EqualRef(a, b protocol.ObjectRef) bool {
 		a.Zone == b.Zone && (a.CardName == nil) == (b.CardName == nil) && (a.CardName == nil || *a.CardName == *b.CardName)
 }
 
-// records collects every object record and reference of the observation by id.
+// records collects every object record of the observation by id (zone
+// arrays, stack entries, and known entries that carry an id). An id may
+// appear only once.
 func records(o protocol.Observation) (map[string]protocol.ObjectRef, error) {
 	out := map[string]protocol.ObjectRef{}
 	add := func(r protocol.ObjectRef) error {
-		if prev, ok := out[r.ObjectID]; ok && !EqualRef(prev, r) {
-			return vio("V4", "id %s names two different records", r.ObjectID)
+		if _, ok := out[r.ObjectID]; ok {
+			return vio("V4", "id %s appears twice in the observation", r.ObjectID)
 		}
 		out[r.ObjectID] = r
 		return nil
@@ -3273,6 +4943,241 @@ func walkRefs(v any, visit func(protocol.ObjectRef) error) error {
 	return walk(generic)
 }
 
+// observationRefs visits every non-null object reference the observation
+// holds outside its records: attachments, attack targets, blocked attackers,
+// exiled_by, stack sources and targets, pending-trigger sources (V4).
+func observationRefs(o protocol.Observation, visit func(where string, r protocol.ObjectRef) error) error {
+	target := func(where string, t *protocol.TargetRef) error {
+		if t != nil && t.Object != nil {
+			return visit(where, *t.Object)
+		}
+		return nil
+	}
+	for _, p := range o.Players {
+		for _, zone := range [][]protocol.ObjectRecord{p.Hand, p.Battlefield, p.Graveyard, p.Exile, p.Command} {
+			for _, rec := range zone {
+				if rec.ExiledBy != nil {
+					if err := visit("exiled_by of "+rec.ObjectID, *rec.ExiledBy); err != nil {
+						return err
+					}
+				}
+				pm := rec.Permanent
+				if pm == nil {
+					continue
+				}
+				if err := target("attached_to of "+rec.ObjectID, pm.AttachedTo); err != nil {
+					return err
+				}
+				if err := target("attack_target of "+rec.ObjectID, pm.AttackTarget); err != nil {
+					return err
+				}
+				for _, a := range pm.BlockedAttackers {
+					if err := visit("blocked_attackers of "+rec.ObjectID, a); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	for _, st := range o.Stack {
+		if st.Source != nil {
+			if err := visit("source of "+st.ObjectID, *st.Source); err != nil {
+				return err
+			}
+		}
+		for _, t := range st.Targets {
+			if err := target("target of "+st.ObjectID, t); err != nil {
+				return err
+			}
+		}
+	}
+	for i, pt := range o.PendingTriggers {
+		if pt.Source != nil {
+			if err := visit(fmt.Sprintf("pending trigger %d", i), *pt.Source); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+var knownHow = []string{"revealed", "looked_at", "from_public_zone", "own_placement", "searching", "tracked"}
+
+func cmpU(a, b *uint32) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return -1
+	case b == nil:
+		return 1
+	case *a < *b:
+		return -1
+	case *a > *b:
+		return 1
+	}
+	return 0
+}
+
+func cmpS(a, b *string) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return -1
+	case b == nil:
+		return 1
+	case *a < *b:
+		return -1
+	case *a > *b:
+		return 1
+	}
+	return 0
+}
+
+// knownOrder is Section 6.7's order: owner_seat, zone, card_name,
+// position_from_top, position_from_bottom, how, object_id (nulls first).
+func knownOrder(a, b protocol.Known) int {
+	for _, c := range [][2]string{{a.OwnerSeat, b.OwnerSeat}, {a.Zone, b.Zone}, {a.CardName, b.CardName}} {
+		if c[0] != c[1] {
+			if c[0] < c[1] {
+				return -1
+			}
+			return 1
+		}
+	}
+	if c := cmpU(a.PositionFromTop, b.PositionFromTop); c != 0 {
+		return c
+	}
+	if c := cmpU(a.PositionFromBottom, b.PositionFromBottom); c != 0 {
+		return c
+	}
+	if a.How != b.How {
+		if a.How < b.How {
+			return -1
+		}
+		return 1
+	}
+	return cmpS(a.ObjectID, b.ObjectID)
+}
+
+// checkKnown is V5's knowledge rules (Section 6.7): shape, count and order.
+func checkKnown(o protocol.Observation) error {
+	hand := map[string]uint32{}
+	for i, k := range o.Known {
+		switch {
+		case k.Zone != "hand" && k.Zone != "library":
+			return vio("V5", "known %d has zone %q", i, k.Zone)
+		case !slices.Contains(knownHow, k.How):
+			return vio("V5", "known %d has how %q", i, k.How)
+		case k.CardName == "":
+			return vio("V5", "known %d has no card name", i)
+		case k.Zone == "hand" && k.OwnerSeat == o.Viewer:
+			return vio("V5", "known %d lists the viewer's own hand", i)
+		case k.Zone == "hand" && (k.PositionFromTop != nil || k.PositionFromBottom != nil):
+			return vio("V5", "known hand entry %d has a position", i)
+		case k.Zone == "library" && k.How != "searching" && (k.PositionFromTop == nil) == (k.PositionFromBottom == nil):
+			return vio("V5", "known library entry %d needs exactly one position", i)
+		case k.Zone == "library" && k.PositionFromTop != nil && k.PositionFromBottom != nil:
+			return vio("V5", "known library entry %d has two positions", i)
+		}
+		if k.Zone == "hand" {
+			hand[k.OwnerSeat]++
+		}
+		if i > 0 && knownOrder(o.Known[i-1], k) > 0 {
+			return vio("V5", "known entries %d and %d are out of order", i-1, i)
+		}
+	}
+	for _, p := range o.Players {
+		if hand[p.Seat] > p.HandCount {
+			return vio("V5", "%d known hand entries for %s, hand_count %d", hand[p.Seat], p.Seat, p.HandCount)
+		}
+	}
+	return nil
+}
+
+// hiddenKey returns the smallest (card_name, object_id) key among the
+// hidden-zone cards a candidate references, if any: library cards, and cards
+// in the other seat's hand.
+func hiddenKey(viewer string, sem protocol.Semantic) (string, bool) {
+	key, found := "", false
+	walkRefs(sem, func(r protocol.ObjectRef) error {
+		if r.Zone == "library" || (r.Zone == "hand" && r.OwnerSeat != viewer) {
+			name := ""
+			if r.CardName != nil {
+				name = *r.CardName
+			}
+			if k := name + "\x00" + r.ObjectID; !found || k < key {
+				key, found = k, true
+			}
+		}
+		return nil
+	})
+	return key, found
+}
+
+// checkFlags is V8's optional-field rule (Section 6.9): a field whose flag is
+// false is null; with the flag true it is null only where Section 6.9 allows
+// (full_name, exiled_by, stack text, class_level).
+func (s *Stream) checkFlags(o protocol.Observation) error {
+	on := s.p.Flags
+	field := func(flag string, isNull bool, what string) error {
+		if on[flag] == isNull {
+			if isNull {
+				return vio("V8", "%s is null with %s true", what, flag)
+			}
+			return vio("V8", "%s is set with %s false", what, flag)
+		}
+		return nil
+	}
+	nullable := func(flag string, isNull bool, what string) error {
+		if !on[flag] && !isNull {
+			return vio("V8", "%s is set with %s false", what, flag)
+		}
+		return nil
+	}
+	chars := func(c *protocol.Characteristics, what string) error {
+		if c == nil {
+			return nil
+		}
+		return field("keywords", c.Keywords == nil, "keywords of "+what)
+	}
+	checks := []error{
+		field("day_night", o.DayNight == nil, "day_night"),
+		field("passed_seats", o.PassedSeats == nil, "passed_seats"),
+		field("pending_triggers", o.PendingTriggers == nil, "pending_triggers"),
+	}
+	for _, p := range o.Players {
+		checks = append(checks,
+			field("poison", p.Poison == nil, "poison of "+p.Seat),
+			field("player_counters", p.Counters == nil, "counters of "+p.Seat),
+			field("designations", p.Designations == nil, "designations of "+p.Seat),
+			field("player_progress", p.Progress == nil, "progress of "+p.Seat))
+		for _, zone := range [][]protocol.ObjectRecord{p.Hand, p.Battlefield, p.Graveyard, p.Exile, p.Command} {
+			for _, rec := range zone {
+				checks = append(checks, chars(rec.Characteristics, rec.ObjectID),
+					nullable("full_name", rec.FullName == nil, "full_name of "+rec.ObjectID),
+					nullable("exiled_by", rec.ExiledBy == nil, "exiled_by of "+rec.ObjectID))
+				if pm := rec.Permanent; pm != nil {
+					checks = append(checks,
+						field("permanent_details", pm.Statuses == nil, "statuses of "+rec.ObjectID),
+						field("permanent_details", pm.Chosen == nil, "chosen of "+rec.ObjectID),
+						nullable("permanent_details", pm.ClassLevel == nil, "class_level of "+rec.ObjectID))
+				}
+			}
+		}
+	}
+	for _, st := range o.Stack {
+		checks = append(checks, chars(st.Characteristics, st.ObjectID), nullable("stack_text", st.Text == nil, "text of "+st.ObjectID))
+	}
+	for _, err := range checks {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Stream) Check(sd protocol.SeatDecision) error {
 	o := sd.Observation
 	// V2
@@ -3291,12 +5196,15 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 	} else if g.GroupID != s.nextGroup || g.SubstepIndex != 0 || g.SubstepCount == 0 {
 		return vio("V3", "group %d/%d, want new group %d", g.GroupID, g.SubstepIndex, s.nextGroup)
 	}
-	// V1 candidates
+	// V1 candidates and the extensions object
+	if sd.Extensions == nil {
+		return vio("V1", "extensions is null, not an object")
+	}
 	if len(sd.Candidates) == 0 || len(sd.Candidates) > 4096 {
 		return vio("V1", "%d candidates", len(sd.Candidates))
 	}
 	seen := map[string]bool{}
-	priority := 0
+	priority, costs := 0, 0
 	for i, c := range sd.Candidates {
 		if c.CandidateID != uint32(i) {
 			return vio("V1", "candidate %d has id %d", i, c.CandidateID)
@@ -3318,6 +5226,9 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		if protocol.PriorityKinds[c.Semantic.Kind] {
 			priority++
 		}
+		if c.Semantic.Kind == "optional_cost" {
+			costs++
+		}
 	}
 	// V9
 	switch {
@@ -3325,12 +5236,12 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		return vio("V9", "priority context with choice candidates")
 	case sd.Context.Kind == "choice" && priority > 0:
 		for _, c := range sd.Candidates {
-			if protocol.PriorityKinds[c.Semantic.Kind] && c.Semantic.Kind != "activate_mana_ability" {
-				return vio("V9", "choice context with %s", c.Semantic.Kind)
+			if k := c.Semantic.Kind; k != "activate_mana_ability" && k != "optional_cost" {
+				return vio("V9", "choice context with activate_mana_ability and %s", k)
 			}
 		}
-		if sd.Context.Purpose == nil || *sd.Context.Purpose != "mana_payment" {
-			return vio("V9", "activate_mana_ability in a choice decision without mana_payment")
+		if sd.Context.Purpose == nil || *sd.Context.Purpose != "mana_payment" || costs == 0 {
+			return vio("V9", "activate_mana_ability in a choice decision without mana_payment and optional_cost candidates")
 		}
 	case sd.Context.Kind != "priority" && sd.Context.Kind != "choice":
 		return vio("V9", "context kind %q", sd.Context.Kind)
@@ -3347,15 +5258,21 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 	if me.Hand == nil || uint32(len(me.Hand)) != me.HandCount {
 		return vio("V5", "viewer hand has %d records, hand_count %d", len(me.Hand), me.HandCount)
 	}
-	// V8 optional fields
-	if !s.p.Flags["day_night"] && o.DayNight != nil {
-		return vio("V8", "day_night set without its flag")
+	if err := checkKnown(o); err != nil {
+		return err
 	}
-	if !s.p.Flags["passed_seats"] && o.PassedSeats != nil {
-		return vio("V8", "passed_seats set without its flag")
+	prev := ""
+	for i, c := range sd.Candidates {
+		if key, ok := hiddenKey(sd.ActingSeat, c.Semantic); ok {
+			if key < prev {
+				return vio("V5", "hidden-zone candidate %d is out of (card_name, object_id) order", i)
+			}
+			prev = key
+		}
 	}
-	if s.p.Flags["pending_triggers"] != (o.PendingTriggers != nil) {
-		return vio("V8", "pending_triggers presence does not match its flag")
+	// V8 optional fields and extensions
+	if err := s.checkFlags(o); err != nil {
+		return err
 	}
 	for k := range sd.Extensions {
 		if !extKey.MatchString(k) || !s.p.Extensions[k] {
@@ -3388,12 +5305,23 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 			return vio("V7", "id %s returned after leaving", id)
 		}
 	}
-	for _, c := range sd.Candidates {
+	matches := func(where string, r protocol.ObjectRef) error {
+		if rec, ok := recs[r.ObjectID]; !ok || !EqualRef(rec, r) {
+			return vio("V4", "%s references %s, not equal to its observation record", where, r.ObjectID)
+		}
+		return nil
+	}
+	if sd.Context.Source != nil {
+		if err := matches("context.source", *sd.Context.Source); err != nil {
+			return err
+		}
+	}
+	if err := observationRefs(o, matches); err != nil {
+		return err
+	}
+	for i, c := range sd.Candidates {
 		if err := walkRefs(c.Semantic, func(r protocol.ObjectRef) error {
-			if rec, ok := recs[r.ObjectID]; !ok || !EqualRef(rec, r) {
-				return vio("V4", "candidate references %s, not equal to its observation record", r.ObjectID)
-			}
-			return nil
+			return matches(fmt.Sprintf("candidate %d", i), r)
 		}); err != nil {
 			return err
 		}
@@ -3425,7 +5353,7 @@ Note for the implementer: V7's "returned after leaving" treats a hidden-zone loo
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/validate/ -v`
-Expected: `--- PASS: TestValidSequencePasses`, `--- PASS: TestViolationsNameTheirRule`, `--- PASS: TestIDFreshnessAcrossTheSeatStream`.
+Expected: `--- PASS: TestValidSequencePasses`, `--- PASS: TestViolationsNameTheirRule`, `--- PASS: TestIDFreshnessAcrossTheSeatStream`, `--- PASS: TestJSONDecodedDecisionValidates`, `--- PASS: TestStructuralRulesNameTheirRule`.
 
 - [ ] **Step 5: Commit**
 
@@ -3448,13 +5376,21 @@ git add engines/gorge/internal/validate && git commit -m "gorge adapter: Go vali
   - `type identity.Tracker` with `func identity.New(e *rules.Engine, sec *secrets.Game) *Tracker`;
   - `func (*Tracker) Sync(e *rules.Engine) error`, `func (*Tracker) Key(id state.ObjID) string`;
   - `func (*Tracker) VisibleID(viewer state.PlayerID, id state.ObjID) (string, error)`;
-  - look handling: `func (*Tracker) OpenLook(viewer state.PlayerID)`, `func (*Tracker) LookID(viewer state.PlayerID, id state.ObjID) (string, error)`, `func (*Tracker) CloseLook(viewer state.PlayerID)`;
+  - look handling: `func (*Tracker) OpenLook(viewer state.PlayerID)` (an open look is closed first, so its looks count), `func (*Tracker) LookID(viewer state.PlayerID, id state.ObjID) (string, error)`, `func (*Tracker) CloseLook(viewer state.PlayerID)`;
+  - the keys references were taken at, for Task 12's null rules: `func (*Tracker) SourceKey(id state.ObjID) (string, bool)` (a stack ability's source when it was put on the stack), `func (*Tracker) TargetKey(id state.ObjID, i int) (string, bool)` (target i when chosen), `func (*Tracker) AttackKey(attacker state.ObjID) (string, bool)` (a battle or planeswalker when attacked), and `func (*Tracker) Blocking(id state.ObjID) bool` (declared as a blocker this combat and still the same object);
   - `var identity.ErrIDCollision`, `var identity.ErrShadowDiverged`;
   - `testgame.New(t, reg, deck0, deck1 string, secretByte byte, mulligan string) *gamecfg.Game`;
   - `testgame.RunUntil(t, g, bots [2]seat.Seat, pred func(*rules.Engine) bool, maxIntents int) bool`;
   - `testgame.Bots(seed uint64) [2]seat.Seat`.
 
-Design note: gorge keeps one `ObjID` across zone changes. Section 5.3 needs a fresh id on every zone change, including round trips inside one engine step: a London mulligan moves hand to library to hand inside one `Submit`. The tracker therefore replays each new engine event through `events.Apply` on a shadow `state.Game` and counts every zone change exactly. A shadow that disagrees with the engine is a hard error (`halted`).
+Design note: gorge keeps one `ObjID` across zone changes. Section 5.3 needs a fresh id on every zone change, including round trips inside one engine step: a London mulligan moves hand to library to hand inside one `Submit`. gorge defers every redraw until each seat has declared (`rules/mulligan.go`: `handleMulligan` only counts, `resolveMulliganRedraws` runs after the pass), so a mulliganing seat's hand moves in the `Submit` of the last declaration, not its own; the session tasks must not expect an immediate redraw either. The tracker therefore replays each new engine event through `events.Apply` on a shadow `state.Game` and counts every zone change exactly. A shadow that disagrees with the engine is a hard error (`halted`).
+
+References that must turn null when their object changes zones (G1-3) need more than a live `ObjID`, because gorge keeps one `ObjID` across zones and `state.Target` carries no incarnation. The tracker records, as it folds events, the key each reference was taken at:
+- an activated ability's source: its key at the start of the Sync batch, before the cost events (a cycled card is discarded before its ability is pushed);
+- a triggered ability's source: its key when the trigger is put on the stack;
+- a target: its key when chosen;
+- a battle or planeswalker attack target: its key when declared;
+- a declared blocker: its key when declared, until combat ends or it is removed from combat (G1-15, CR 509.1h).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3555,7 +5491,7 @@ func TestIDsAreFreshPerZoneAndPerViewer(t *testing.T) {
 		return o.Zone != state.ZHand
 	}, 5000)
 	if !moved {
-		t.Skip("card never left hand in this seed; pick another seed if this fires")
+		t.Fatal("card never left hand in this seed: pick another seed")
 	}
 	if err := tr.Sync(g.E); err != nil {
 		t.Fatal(err)
@@ -3566,6 +5502,10 @@ func TestIDsAreFreshPerZoneAndPerViewer(t *testing.T) {
 	}
 }
 
+// gorge defers every London redraw until each seat has declared
+// (rules/mulligan.go: handleMulligan counts, resolveMulliganRedraws runs after
+// the pass), so the mulliganing seat's hand moves only once the other seat
+// has answered.
 func TestMulliganRoundTripGivesFreshIDs(t *testing.T) {
 	reg := testcorpus.Registry(t)
 	g := testgame.New(t, reg, "Spy", "Spy", 2, "london")
@@ -3574,25 +5514,39 @@ func TestMulliganRoundTripGivesFreshIDs(t *testing.T) {
 	if d.Kind != decision.KMulligan {
 		t.Fatalf("first decision %s, want mulligan", d.Kind)
 	}
+	seat := d.Player
 	before := map[string]bool{}
-	for _, id := range g.E.G.Zone(state.ZHand, d.Player) {
-		oid, _ := tr.VisibleID(d.Player, id)
+	for _, id := range g.E.G.Zone(state.ZHand, seat) {
+		oid, _ := tr.VisibleID(seat, id)
 		before[oid] = true
 	}
-	var mull int
-	for _, o := range d.Options {
-		if o.Kind == "mulligan" {
-			mull = o.Index
+	answer := func(d *decision.Decision, kind string) {
+		for _, o := range d.Options {
+			if o.Kind == kind {
+				if err := g.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{o.Index}}); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
 		}
+		t.Fatalf("no %s option in %+v", kind, d.Options)
 	}
-	if err := g.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{mull}}); err != nil {
-		t.Fatal(err)
+	answer(d, "mulligan")
+	for d = g.E.Pending(); d != nil && d.Player != seat; d = g.E.Pending() {
+		answer(d, "keep")
+	}
+	if d == nil || d.Kind != decision.KMulligan {
+		t.Fatalf("after the redraw the seat is asked %+v, want its next mulligan ask", d)
 	}
 	if err := tr.Sync(g.E); err != nil {
 		t.Fatal(err)
 	}
-	for _, id := range g.E.G.Zone(state.ZHand, d.Player) {
-		oid, _ := tr.VisibleID(d.Player, id)
+	hand := g.E.G.Zone(state.ZHand, seat)
+	if len(hand) != 7 {
+		t.Fatalf("redrawn hand has %d cards", len(hand))
+	}
+	for _, id := range hand {
+		oid, _ := tr.VisibleID(seat, id)
 		if before[oid] {
 			t.Fatalf("id %s is reused in the redrawn hand", oid)
 		}
@@ -3610,9 +5564,11 @@ func TestLooksAreStableWithinAndFreshAcross(t *testing.T) {
 	tr.CloseLook(0)
 	tr.OpenLook(0)
 	c, _ := tr.LookID(0, top)
+	tr.OpenLook(0) // a second open without a close still starts a fresh look
+	d, _ := tr.LookID(0, top)
 	tr.CloseLook(0)
-	if a != b || a == c {
-		t.Fatalf("look ids %s %s %s", a, b, c)
+	if a != b || a == c || d == c || d == a {
+		t.Fatalf("look ids %s %s %s %s", a, b, c, d)
 	}
 }
 
@@ -3665,6 +5621,12 @@ type lookKey struct {
 	key    string
 }
 
+// chosen is one stack target as it was when chosen: the object and its key.
+type chosen struct {
+	obj state.ObjID
+	key string
+}
+
 type Tracker struct {
 	sec     *secrets.Game
 	shadow  *state.Game
@@ -3674,28 +5636,48 @@ type Tracker struct {
 	open    [2]map[string]uint32
 	seen    [2]map[string]string
 	zbuf    []state.Zone
+	// References that must turn null when their object changes zones (G1-3):
+	// the key each was taken at. gorge keeps one ObjID across zone changes, so
+	// a live ObjID alone cannot tell a stale reference from a current one.
+	sourceKeys map[state.ObjID]string   // stack ability -> its source's key when put on the stack
+	targetKeys map[state.ObjID][]chosen // stack object -> its targets' keys when chosen
+	attackKeys map[state.ObjID]string   // attacker -> the attacked battle's or planeswalker's key
+	blockKeys  map[state.ObjID]string   // blocker declared this combat -> its key when declared
+	before     map[state.ObjID]uint32   // move counts at the start of this Sync batch, for objects that moved in it
 }
 
 func New(e *rules.Engine, sec *secrets.Game) *Tracker {
 	return &Tracker{sec: sec, shadow: e.G.Clone(), applied: len(e.L.Events),
 		moves: map[state.ObjID]uint32{}, looks: map[lookKey]uint32{},
-		seen: [2]map[string]string{{}, {}}}
+		seen:       [2]map[string]string{{}, {}},
+		sourceKeys: map[state.ObjID]string{}, targetKeys: map[state.ObjID][]chosen{},
+		attackKeys: map[state.ObjID]string{}, blockKeys: map[state.ObjID]string{}, before: map[state.ObjID]uint32{}}
 }
+
+func keyOf(id state.ObjID, moves uint32) string { return fmt.Sprintf("%d:z%d", id, moves) }
 
 // Sync folds the events appended since the last call into the shadow game,
 // counting every zone change per object, then checks the shadow against the engine.
 func (t *Tracker) Sync(e *rules.Engine) error {
+	clear(t.before)
 	for ; t.applied < len(e.L.Events); t.applied++ {
+		ev := e.L.Events[t.applied]
+		n := len(t.shadow.Objs)
 		t.zbuf = t.zbuf[:0]
 		for i := range t.shadow.Objs {
 			t.zbuf = append(t.zbuf, t.shadow.Objs[i].Zone)
 		}
-		events.Apply(t.shadow, e.L.Events[t.applied])
+		events.Apply(t.shadow, ev)
 		for i := range t.zbuf {
 			if t.shadow.Objs[i].Zone != t.zbuf[i] {
-				t.moves[t.shadow.Objs[i].ID]++
+				id := t.shadow.Objs[i].ID
+				if _, ok := t.before[id]; !ok {
+					t.before[id] = t.moves[id]
+				}
+				t.moves[id]++
 			}
 		}
+		t.record(ev, n)
 	}
 	if len(t.shadow.Objs) != len(e.G.Objs) {
 		return fmt.Errorf("%w: %d shadow objects, %d engine objects", ErrShadowDiverged, len(t.shadow.Objs), len(e.G.Objs))
@@ -3708,8 +5690,114 @@ func (t *Tracker) Sync(e *rules.Engine) error {
 	return nil
 }
 
+// record notes, after event ev (which may have minted the objects from index
+// n on), the keys that stack references and attack targets were taken at.
+//   - An ability's source: for an activated ability, its key at the start of
+//     this Sync batch, before the cost events (a cycled card is discarded
+//     before its ability is pushed); for a triggered ability, its key when
+//     the trigger is put on the stack.
+//   - A target: its key when chosen.
+//   - A battle or planeswalker attack target: its key when declared.
+//   - A declared blocker: its key when declared, until combat ends or it is
+//     removed from combat.
+func (t *Tracker) record(ev events.Event, n int) {
+	g := t.shadow
+	for i := n; i < len(g.Objs); i++ {
+		o := &g.Objs[i]
+		if o.Ability == nil || o.Zone != state.ZStack || o.Source == 0 {
+			continue
+		}
+		mc := t.moves[o.Source]
+		if b, ok := t.before[o.Source]; ok && o.StackKind == state.StackKindActivated {
+			mc = b
+		}
+		t.sourceKeys[o.ID] = keyOf(o.Source, mc)
+	}
+	for _, id := range g.Stack {
+		o := g.Obj(id)
+		if o == nil {
+			continue
+		}
+		have := t.targetKeys[id]
+		if len(have) > len(o.Targets) {
+			have = have[:len(o.Targets)]
+		}
+		for j, tg := range o.Targets {
+			obj := tg.Obj
+			if tg.IsPlayer {
+				obj = 0
+			}
+			if j < len(have) && have[j].obj == obj {
+				continue
+			}
+			c := chosen{obj: obj}
+			if obj != 0 {
+				c.key = t.Key(obj)
+			}
+			if j < len(have) {
+				have[j] = c
+			} else {
+				have = append(have, c)
+			}
+		}
+		t.targetKeys[id] = have
+	}
+	if ev.Kind == events.DeclareAttackers && ev.Obj != 0 {
+		for _, id := range ev.IDs {
+			t.attackKeys[id] = t.Key(ev.Obj)
+		}
+	}
+	if ev.Kind == events.DeclareBlockers {
+		for _, pr := range ev.Pairs {
+			if pr[1] != 0 {
+				t.blockKeys[pr[1]] = t.Key(pr[1])
+			}
+		}
+	}
+	if ev.Kind == events.EndCombatReset {
+		if ev.Obj == 0 {
+			clear(t.attackKeys)
+			clear(t.blockKeys)
+		} else {
+			delete(t.blockKeys, ev.Obj)
+		}
+	}
+}
+
 // Key is the internal key of Section 5.3: stable for one stay in one zone.
-func (t *Tracker) Key(id state.ObjID) string { return fmt.Sprintf("%d:z%d", id, t.moves[id]) }
+func (t *Tracker) Key(id state.ObjID) string { return keyOf(id, t.moves[id]) }
+
+// SourceKey is the key the source of stack ability id had when the ability
+// was put on the stack. ok is false for an ability the tracker never saw
+// pushed (one already on the stack when the tracker was created).
+func (t *Tracker) SourceKey(id state.ObjID) (key string, ok bool) {
+	key, ok = t.sourceKeys[id]
+	return key, ok
+}
+
+// TargetKey is the key target i of stack object id had when it was chosen.
+func (t *Tracker) TargetKey(id state.ObjID, i int) (key string, ok bool) {
+	ks := t.targetKeys[id]
+	if i >= len(ks) || ks[i].obj == 0 {
+		return "", false
+	}
+	return ks[i].key, true
+}
+
+// AttackKey is the key of the battle or planeswalker attacker was declared
+// against, while that combat lasts.
+func (t *Tracker) AttackKey(attacker state.ObjID) (key string, ok bool) {
+	key, ok = t.attackKeys[attacker]
+	return key, ok
+}
+
+// Blocking reports whether id was declared as a blocker this combat and has
+// neither changed zones nor been removed from combat since: CR 509.1h keeps it
+// a blocking creature after its attacker leaves.
+func (t *Tracker) Blocking(id state.ObjID) bool {
+	key, ok := t.blockKeys[id]
+	return ok && key == t.Key(id)
+}
 
 func (t *Tracker) mint(viewer state.PlayerID, msg string) (string, error) {
 	oid := t.sec.ObjectID(msg)
@@ -3724,8 +5812,15 @@ func (t *Tracker) VisibleID(viewer state.PlayerID, id state.ObjID) (string, erro
 	return t.mint(viewer, fmt.Sprintf("p%d:%s", viewer, t.Key(id)))
 }
 
-// OpenLook starts one effect's look for viewer; CloseLook ends it.
-func (t *Tracker) OpenLook(viewer state.PlayerID) { t.open[viewer] = map[string]uint32{} }
+// OpenLook starts one effect's look for viewer; CloseLook ends it. Opening a
+// look while one is open closes that one first, so its looks still count and
+// its ids are never reused.
+func (t *Tracker) OpenLook(viewer state.PlayerID) {
+	if t.open[viewer] != nil {
+		t.CloseLook(viewer)
+	}
+	t.open[viewer] = map[string]uint32{}
+}
 
 func (t *Tracker) CloseLook(viewer state.PlayerID) {
 	for key := range t.open[viewer] {
@@ -3766,7 +5861,7 @@ git add engines/gorge/internal/identity engines/gorge/internal/testgame && git c
 
 **Files:**
 - Create: `internal/observe/project.go`, `internal/observe/vocab.go`
-- Test: `internal/observe/project_test.go`, `internal/observe/vocab_test.go`
+- Test: `internal/observe/project_test.go`, `internal/observe/vocab_test.go`, `internal/observe/manavalue_test.go`
 
 **Interfaces:**
 - Consumes: `identity.Tracker` (Task 10), protocol types (Task 5), `testgame` (Task 10).
@@ -3776,8 +5871,10 @@ git add engines/gorge/internal/identity engines/gorge/internal/testgame && git c
   - `func (*Projector) Observation(viewer state.PlayerID, st State) (protocol.Observation, error)`;
   - `func (*Projector) Ref(viewer state.PlayerID, id state.ObjID) (*protocol.ObjectRef, error)` (nil when absent or hidden);
   - `func (*Projector) Record(viewer state.PlayerID, id state.ObjID) (protocol.ObjectRecord, error)`;
-  - `func (*Projector) LookRef(viewer state.PlayerID, id state.ObjID) (protocol.ObjectRef, error)` (a hidden-zone object shown by the open look);
+  - `func (*Projector) LookRef(viewer state.PlayerID, id state.ObjID) (protocol.ObjectRef, error)` (a hidden-zone object shown by the open look; an object `Visible` accepts is refused, so no object gets two ids);
   - vocab helpers: `observe.Seat(p) string`, `observe.PhaseStep(g) string`, `observe.Visible(viewer, o) bool`, `observe.MayLook(viewer, o) bool`, `observe.Normalize(s) string`, `observe.Counter(kind) string`, `observe.Keywords([]string) []string`, `observe.Colors(letters string) []string`.
+
+Characteristics (G1-5, G1-14): a transforming double-faced card takes its mana value from its front face on either face (CR 712.8e: Vector Glider is 2), a spell on the stack counts its announced X (CR 202.3e), and an ability is not named after a face-down source the viewer may not look at. Changeling is a known gap: the subtypes show gorge's derived types (Masked Vandal reads `shapeshifter`), recorded in the engine notes.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3821,12 +5918,14 @@ package observe_test
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/state"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/identity"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testcorpus"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testgame"
 )
@@ -3849,12 +5948,33 @@ func TestObservationHidesTheOtherHandAndLibraries(t *testing.T) {
 	if strings.Contains(string(b), `"zone":"library"`) {
 		t.Fatal("a zone array holds a library object")
 	}
-	for _, name := range []string{"Counterspell", "Brainstorm", "Squadron Hawk"} { // CawGates cards p0 cannot see
-		for _, rec := range obs.Players[1].Battlefield {
-			if rec.CardName != nil && *rec.CardName == name && rec.Zone != "battlefield" {
-				t.Fatalf("hidden %s visible", name)
+	// No card of p1's hand or library may be named anywhere, unless the same
+	// name is in a zone p0 sees. (Burn and CawGates share no card.)
+	seen := map[string]bool{}
+	for _, pl := range obs.Players {
+		for _, zone := range [][]protocol.ObjectRecord{pl.Hand, pl.Battlefield, pl.Graveyard, pl.Exile, pl.Command} {
+			for _, rec := range zone {
+				if rec.CardName != nil {
+					seen[*rec.CardName] = true
+				}
 			}
 		}
+	}
+	hidden := 0
+	for _, z := range []state.Zone{state.ZHand, state.ZLibrary} {
+		for _, id := range g.E.G.Zone(z, 1) {
+			name := g.E.G.Obj(id).Face().Name
+			if seen[name] {
+				continue
+			}
+			hidden++
+			if strings.Contains(string(b), strconv.Quote(name)) {
+				t.Fatalf("hidden card %s is named in p0's observation", name)
+			}
+		}
+	}
+	if hidden != 60 {
+		t.Fatalf("scanned %d hidden cards, want p1's 60", hidden)
 	}
 }
 
@@ -3880,6 +6000,44 @@ func TestCharacteristicsOfBasicLandAndBolt(t *testing.T) {
 		}
 		if rec.Permanent != nil || rec.Token || rec.Copy {
 			t.Errorf("%s in hand has permanent fields", *rec.CardName)
+		}
+	}
+}
+```
+
+`internal/observe/manavalue_test.go` (internal: `manaValue` is unexported):
+
+```go
+package observe
+
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/state"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testcorpus"
+)
+
+// Vector Glider, the back face of The Modern Age, has the front face's mana
+// value (CR 712.8e); X counts only on the stack (CR 202.3e).
+func TestManaValueOfBackFacesAndX(t *testing.T) {
+	reg := testcorpus.Registry(t)
+	age, ok1 := reg.Lookup("The Modern Age")
+	hydra, ok2 := reg.Lookup("Nyxborn Hydra")
+	if !ok1 || !ok2 {
+		t.Fatal("corpus lacks The Modern Age or Nyxborn Hydra")
+	}
+	for _, c := range []struct {
+		what string
+		o    state.Object
+		want uint32
+	}{
+		{"The Modern Age", state.Object{Card: age, Zone: state.ZBattlefield}, 2},
+		{"Vector Glider", state.Object{Card: age, FaceIdx: 1, Zone: state.ZBattlefield}, 2},
+		{"Nyxborn Hydra in hand", state.Object{Card: hydra, Zone: state.ZHand, X: 3}, 1},
+		{"Nyxborn Hydra on the stack with X 3", state.Object{Card: hydra, Zone: state.ZStack, X: 3}, 4},
+	} {
+		if got := manaValue(&c.o); got != c.want {
+			t.Errorf("%s: mana value %d, want %d", c.what, got, c.want)
 		}
 	}
 }
@@ -4006,6 +6164,7 @@ package observe
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/rules"
@@ -4059,7 +6218,9 @@ func (p *Projector) name(viewer state.PlayerID, o *state.Object) *string {
 	}
 	var n string
 	if o.Ability != nil {
-		if src := p.E.G.Obj(o.Source); src != nil && src.Face() != nil {
+		// An ability is named after its source, unless that source is face
+		// down and the viewer may not look at it.
+		if src := p.E.G.Obj(o.Source); src != nil && src.Face() != nil && (!src.FaceDown || MayLook(viewer, src)) {
 			n = src.Face().Name
 		}
 	} else if n = p.E.Derived(o.ID).Name; n == "" && o.Face() != nil {
@@ -4084,9 +6245,14 @@ func (p *Projector) Ref(viewer state.PlayerID, id state.ObjID) (*protocol.Object
 		ControllerSeat: Seat(controller(o)), Zone: o.Zone.String()}, nil
 }
 
-// LookRef references a hidden-zone object the open look shows to viewer.
+// LookRef references a hidden-zone object the open look shows to viewer. An
+// object the viewer can see already has its visible id; a look id would give
+// it two.
 func (p *Projector) LookRef(viewer state.PlayerID, id state.ObjID) (protocol.ObjectRef, error) {
 	o := p.E.G.Obj(id)
+	if o == nil || Visible(viewer, o) {
+		return protocol.ObjectRef{}, fmt.Errorf("engine_contract_failure:look_ref_not_hidden %d", id)
+	}
 	oid, err := p.IDs.LookID(viewer, id)
 	if err != nil {
 		return protocol.ObjectRef{}, err
@@ -4119,14 +6285,32 @@ func (p *Projector) Characteristics(viewer state.PlayerID, o *state.Object) *pro
 			c.Subtypes = append(c.Subtypes, n)
 		}
 	}
-	if f := o.Face(); f != nil {
-		c.ManaValue = uint32(max(0, botpolicy.CmcOf(f.ManaCost)))
-	}
+	c.ManaValue = manaValue(o)
 	if slices.Contains(c.Types, "creature") {
 		pw, tg := d.Power, d.Toughness
 		c.Power, c.Toughness = &pw, &tg
 	}
 	return c
+}
+
+// manaValue is CR 202.3's mana value: a transforming double-faced card uses
+// its front face's cost on either face (CR 712.8e: Vector Glider is 2), and X
+// counts as its announced value only while the spell is on the stack (CR
+// 202.3e).
+func manaValue(o *state.Object) uint32 {
+	f := o.Face()
+	if f == nil {
+		return 0
+	}
+	cost := f.ManaCost
+	if o.Card != nil && o.Card.AlternateMode == "DoubleFaced" && len(o.Card.Faces) > 0 {
+		cost = o.Card.Faces[0].ManaCost
+	}
+	mv := max(0, botpolicy.CmcOf(cost))
+	if o.Zone == state.ZStack && o.Ability == nil {
+		mv += int32(strings.Count(cost, "X")) * max(0, o.X)
+	}
+	return uint32(mv)
 }
 
 // builder carries per-observation caches (the inverted block map of Task 12).
@@ -4215,7 +6399,7 @@ func (p *Projector) Observation(viewer state.PlayerID, st State) (protocol.Obser
 }
 ```
 
-Also in this task, add stubs that Task 12 replaces: `func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error)` returning tapped, summoning sick, damage and counters only, and `func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error { return nil }`. Task 12 owns both bodies.
+Also in this task, add to `project.go` the two stubs that Task 12 replaces: `func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error)` returning tapped, summoning sick, damage and counters only, and `func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error { return nil }`. Task 12 deletes them from `project.go` and owns both bodies.
 
 ```go
 func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
@@ -4235,7 +6419,7 @@ func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error 
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/observe/ -v`
-Expected: `--- PASS: TestVocabularyNormalization`, `--- PASS: TestObservationHidesTheOtherHandAndLibraries`, `--- PASS: TestCharacteristicsOfBasicLandAndBolt`.
+Expected: `--- PASS: TestVocabularyNormalization`, `--- PASS: TestObservationHidesTheOtherHandAndLibraries`, `--- PASS: TestCharacteristicsOfBasicLandAndBolt`, `--- PASS: TestManaValueOfBackFacesAndX`.
 
 - [ ] **Step 5: Commit**
 
@@ -4252,10 +6436,10 @@ git add engines/gorge/internal/observe && git commit -m "gorge adapter: v2 obser
 - Test: `internal/observe/combat_stack_test.go`
 
 **Interfaces:**
-- Consumes: Task 11's `builder`, `Projector`, `Ref`, `Characteristics`.
+- Consumes: Task 11's `builder`, `Projector`, `Ref`, `Characteristics`; Task 10's `SourceKey`, `TargetKey`, `AttackKey`, `Blocking`.
 - Produces:
-  - full `(*builder).permanent` (attached_to, attacking, attack_target, blocking and blocked_attackers inverted from `BlockedBy`);
-  - `(*builder).stackAndPending`: stack entries, pending triggers, with triggers whose source is hidden from the viewer omitted (Section 6.6);
+  - full `(*builder).permanent`: attached_to, attacking, attack_target (null once the attacked permanent changed zones), blocking (declared this combat, or still blocking: it stays true after the attacker leaves, CR 509.1h) and blocked_attackers inverted from `BlockedBy`, zero tombstones skipped;
+  - `(*builder).stackAndPending`: stack entries and pending triggers, with triggers whose source is hidden from the viewer omitted (Section 6.6). A stack source or target that changed zones since it was recorded is null (Sections 5.1 and 6.5); `stack_kind` comes from `Object.StackKind`; a stack object without a reference or with an unmapped kind is an `engine_contract_failure` error, never a truncated stack (Section 9.5);
   - `func observe.SortKnown(ks []protocol.Known)`;
   - `func observe.KnownEntry(ref protocol.ObjectRef, how string, fromTop *uint32) protocol.Known`.
 
@@ -4267,10 +6451,12 @@ git add engines/gorge/internal/observe && git commit -m "gorge adapter: v2 obser
 package observe_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/gamecfg"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/identity"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -4283,7 +6469,8 @@ func TestBlockingIsInvertedFromBlockedBy(t *testing.T) {
 	g := testgame.New(t, reg, "Wildfire", "Wildfire", 6, "none")
 	found := testgame.RunUntil(t, g, testgame.Bots(21), func(e *rules.Engine) bool {
 		for i := range e.G.Objs {
-			if e.G.Objs[i].IsAttacking && len(e.G.Objs[i].BlockedBy) > 0 {
+			// a live blocker: gorge leaves zero tombstones for removed ones
+			if e.G.Objs[i].IsAttacking && slices.ContainsFunc(e.G.Objs[i].BlockedBy, func(b state.ObjID) bool { return b != 0 }) {
 				return true
 			}
 		}
@@ -4366,12 +6553,144 @@ func TestSortKnownOrder(t *testing.T) {
 		t.Fatal("position_from_top must break the tie")
 	}
 }
+
+// tracked plays bot games from their start, syncing a tracker after every
+// intent as the session does, until pred holds. It tries each deck with
+// several seeds and fails, never skips, when no game gets there.
+func tracked(t *testing.T, decks []string, pred func(*rules.Engine, *identity.Tracker) bool) (*gamecfg.Game, *identity.Tracker) {
+	reg := testcorpus.Registry(t)
+	for _, deck := range decks {
+		for s := byte(1); s <= 20; s++ {
+			g := testgame.New(t, reg, deck, deck, s, "none")
+			tr := identity.New(g.E, g.Secret)
+			if testgame.RunUntil(t, g, testgame.Bots(uint64(s)), func(e *rules.Engine) bool {
+				if err := tr.Sync(e); err != nil {
+					t.Fatal(err)
+				}
+				return pred(e, tr)
+			}, 30000) {
+				return g, tr
+			}
+		}
+	}
+	t.Fatalf("no %v game reached the wanted state", decks)
+	return nil, nil
+}
+
+// entry returns the viewer's stack entry for stack object id.
+func entry(t *testing.T, g *gamecfg.Game, tr *identity.Tracker, id state.ObjID) protocol.StackEntry {
+	p := &observe.Projector{E: g.E, IDs: tr}
+	obs, err := p.Observation(0, observe.State{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, sid := range g.E.G.Stack {
+		if sid == id {
+			return obs.Stack[i]
+		}
+	}
+	t.Fatalf("stack object %d not in the observation", id)
+	return protocol.StackEntry{}
+}
+
+// A cycled card is discarded before its ability is put on the stack, so the
+// ability's source has left: Section 6.5 makes it null.
+func TestCycledSourceIsNull(t *testing.T) {
+	var ability state.ObjID
+	g, tr := tracked(t, []string{"Spy", "CawGates", "Wildfire"}, func(e *rules.Engine, tr *identity.Tracker) bool {
+		for _, id := range e.G.Stack {
+			o := e.G.Obj(id)
+			if src := e.G.Obj(o.Source); o.Ability != nil && o.StackKind == state.StackKindActivated && src != nil && src.Zone == state.ZGraveyard {
+				ability = id
+				return true
+			}
+		}
+		return false
+	})
+	if se := entry(t, g, tr, ability); se.Source != nil || se.StackKind != "activated_ability" {
+		t.Fatalf("ability %+v: source %+v, want null", se.ObjectRef, se.Source)
+	}
+}
+
+// A target that changed zones after it was chosen (a land sacrificed in
+// response to Cleansing Wildfire) is a null target, even though the card is
+// visible in its new zone.
+func TestTargetThatLeftIsNull(t *testing.T) {
+	var spell state.ObjID
+	var slot int
+	g, tr := tracked(t, []string{"Wildfire", "Rally", "Burn"}, func(e *rules.Engine, tr *identity.Tracker) bool {
+		for _, id := range e.G.Stack {
+			for i, tg := range e.G.Obj(id).Targets {
+				if key, ok := tr.TargetKey(id, i); ok && !tg.IsPlayer && e.G.Obj(tg.Obj) != nil && key != tr.Key(tg.Obj) {
+					spell, slot = id, i
+					return true
+				}
+			}
+		}
+		return false
+	})
+	if se := entry(t, g, tr, spell); se.Targets[slot] != nil {
+		t.Fatalf("target %d of %+v is %+v, want null", slot, se.ObjectRef, se.Targets[slot].Object)
+	}
+}
+
+// Writhing Chrysalis's cast trigger resolves above the spell it came from:
+// that source is still on the stack and stays referenced.
+func TestCastTriggerKeepsItsStackSource(t *testing.T) {
+	var trigger state.ObjID
+	g, tr := tracked(t, []string{"Wildfire"}, func(e *rules.Engine, tr *identity.Tracker) bool {
+		for _, id := range e.G.Stack {
+			o := e.G.Obj(id)
+			if src := e.G.Obj(o.Source); o.Ability != nil && src != nil && src.Zone == state.ZStack && src.Face().Name == "Writhing Chrysalis" {
+				trigger = id
+				return true
+			}
+		}
+		return false
+	})
+	se := entry(t, g, tr, trigger)
+	if se.StackKind != "triggered_ability" || se.Source == nil || se.Source.Zone != "stack" || *se.Source.CardName != "Writhing Chrysalis" {
+		t.Fatalf("cast trigger %+v with source %+v", se.ObjectRef, se.Source)
+	}
+}
+
+// CR 509.1h: a blocker whose attacker left combat is still a blocking
+// creature, with no blocked attackers left to list.
+func TestBlockerStaysBlockingAfterItsAttackerLeaves(t *testing.T) {
+	var blocker state.ObjID
+	g, tr := tracked(t, []string{"CawGates", "Rally", "Wildfire"}, func(e *rules.Engine, tr *identity.Tracker) bool {
+		for i := range e.G.Objs {
+			b := &e.G.Objs[i]
+			if b.Zone != state.ZBattlefield || !tr.Blocking(b.ID) {
+				continue
+			}
+			alone := true
+			for j := range e.G.Objs {
+				if a := &e.G.Objs[j]; a.IsAttacking && slices.Contains(a.BlockedBy, b.ID) {
+					alone = false
+				}
+			}
+			if alone {
+				blocker = b.ID
+				return true
+			}
+		}
+		return false
+	})
+	rec, err := (&observe.Projector{E: g.E, IDs: tr}).Record(0, blocker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rec.Permanent.Blocking || len(rec.Permanent.BlockedAttackers) != 0 {
+		t.Fatalf("blocker %s: blocking %v, attackers %v", rec.ObjectID, rec.Permanent.Blocking, rec.Permanent.BlockedAttackers)
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/observe/ -run 'Blocking|StackEntry|SortKnown'`
-Expected: FAIL: `undefined: observe.SortKnown`, and the combat test fails on `blockers 0` against the Task 11 stub.
+Run: `go test ./internal/observe/ -run 'Blocking|StackEntry|SortKnown|Cycled|TargetThatLeft|CastTrigger|BlockerStays'`
+Expected: FAIL to compile: `undefined: observe.SortKnown`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -4381,6 +6700,7 @@ Delete the two stubs from `project.go` and create `internal/observe/combat_stack
 package observe
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -4388,6 +6708,8 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
+// blockMap inverts the attackers' BlockedBy lists: blocker -> attackers it
+// blocks. gorge keeps zero tombstones for removed blockers; they are skipped.
 func (b *builder) blockMap() map[state.ObjID][]state.ObjID {
 	if b.blocking == nil {
 		b.blocking = map[state.ObjID][]state.ObjID{}
@@ -4396,12 +6718,25 @@ func (b *builder) blockMap() map[state.ObjID][]state.ObjID {
 			a := &g.Objs[i]
 			if a.Zone == state.ZBattlefield && a.IsAttacking {
 				for _, blk := range a.BlockedBy {
-					b.blocking[blk] = append(b.blocking[blk], a.ID)
+					if blk != 0 {
+						b.blocking[blk] = append(b.blocking[blk], a.ID)
+					}
 				}
 			}
 		}
 	}
 	return b.blocking
+}
+
+// sameRef references id, or nil once id has changed zones since key was
+// taken (Sections 5.1, 6.4 and 6.5: a reference to an object that left is
+// null). known is false for a reference the tracker never recorded, which
+// follows the current object.
+func (b *builder) sameRef(id state.ObjID, key string, known bool) (*protocol.ObjectRef, error) {
+	if known && key != b.p.IDs.Key(id) {
+		return nil, nil
+	}
+	return b.p.Ref(b.viewer, id)
 }
 
 func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
@@ -4425,7 +6760,8 @@ func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
 	if o.IsAttacking {
 		pm.Attacking = true
 		if o.AttackingBattle != 0 {
-			r, err := b.p.Ref(b.viewer, o.AttackingBattle)
+			key, known := b.p.IDs.AttackKey(o.ID)
+			r, err := b.sameRef(o.AttackingBattle, key, known)
 			if err != nil {
 				return nil, err
 			}
@@ -4438,8 +6774,9 @@ func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
 			pm.AttackTarget = &t
 		}
 	}
-	for _, a := range b.blockMap()[o.ID] {
-		pm.Blocking = true
+	attackers := b.blockMap()[o.ID]
+	pm.Blocking = len(attackers) > 0 || b.p.IDs.Blocking(o.ID)
+	for _, a := range attackers {
 		r, err := b.p.Ref(b.viewer, a)
 		if err != nil {
 			return nil, err
@@ -4451,34 +6788,42 @@ func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
 	return pm, nil
 }
 
-var stackKinds = map[string]string{"spell": "spell", "trigger": "triggered_ability", "ability": "activated_ability"}
+var stackKinds = map[state.StackObjKind]string{state.StackKindSpell: "spell",
+	state.StackKindActivated: "activated_ability", state.StackKindTriggered: "triggered_ability"}
 
 func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error {
 	g := b.p.E.G
 	for _, sv := range v.Stack {
 		o := g.Obj(sv.ID)
 		ref, err := b.p.Ref(b.viewer, sv.ID)
-		if err != nil || ref == nil {
+		if err != nil {
 			return err
 		}
-		se := protocol.StackEntry{ObjectRef: *ref, StackKind: stackKinds[sv.Kind], FaceDown: o.FaceDown, Copy: o.IsCopy,
+		kind, ok := stackKinds[o.StackKind]
+		if ref == nil || !ok || (o.Ability != nil) == (o.StackKind == state.StackKindSpell) {
+			// Never a partial stack (Section 9.5): the game halts instead.
+			return fmt.Errorf("engine_contract_failure:stack_entry %d", sv.ID)
+		}
+		se := protocol.StackEntry{ObjectRef: *ref, StackKind: kind, FaceDown: o.FaceDown, Copy: o.IsCopy,
 			Targets: []*protocol.TargetRef{}}
 		if o.Ability != nil {
 			if src := g.Obj(o.Source); src != nil && src.Incarnation == o.SourceIncarnation {
-				if se.Source, err = b.p.Ref(b.viewer, o.Source); err != nil {
+				key, known := b.p.IDs.SourceKey(o.ID)
+				if se.Source, err = b.sameRef(o.Source, key, known); err != nil {
 					return err
 				}
 			}
 		} else {
 			se.Characteristics = b.p.Characteristics(b.viewer, o)
 		}
-		for _, t := range o.Targets {
+		for i, t := range o.Targets {
 			if t.IsPlayer {
 				pt := protocol.PlayerTarget(Seat(t.Player))
 				se.Targets = append(se.Targets, &pt)
 				continue
 			}
-			r, err := b.p.Ref(b.viewer, t.Obj)
+			key, known := b.p.IDs.TargetKey(o.ID, i)
+			r, err := b.sameRef(t.Obj, key, known)
 			if err != nil {
 				return err
 			}
@@ -4614,7 +6959,7 @@ func SortKnown(ks []protocol.Known) {
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `go test ./internal/observe/ -v`
-Expected: all observe tests PASS (five tests).
+Expected: all eleven observe tests PASS, including `TestCycledSourceIsNull`, `TestTargetThatLeftIsNull`, `TestCastTriggerKeepsItsStackSource` and `TestBlockerStaysBlockingAfterItsAttackerLeaves`.
 
 - [ ] **Step 5: Commit**
 
@@ -4634,18 +6979,19 @@ git add engines/gorge/internal/observe && git commit -m "gorge adapter: observat
 - Consumes: `gamecfg.Game`, `observe.Projector`, `identity.Tracker`, protocol types.
 - Produces (every later mapping task builds on these names):
   - `type mapping.Env struct{ G *gamecfg.Game; Obs *observe.Projector; IDs *identity.Tracker; Action *ActionContext; Domain map[string]bool; Slots map[string]uint32; Looking [2]bool }` with `func (*Env) OpenLook(seat state.PlayerID)` and `func (*Env) CloseLooks()`;
-  - `type mapping.ActionContext struct{ Seat state.PlayerID; Obj state.ObjID }`;
+  - `type mapping.ActionContext struct{ Seat state.PlayerID; Obj state.ObjID; Since state.ObjID }` (`Since`: the engine's next object id when the action began, set by the session);
   - `type mapping.NativeOp struct{ Op string; Option int; Followup []int; List string; Position int; Unit state.ObjID; Covers []int }` (JSON tags `op`, `option`, `followup`, `list`, `position`, `unit`, `covers`);
   - `type mapping.Cand struct{ Sem protocol.Semantic; Op NativeOp; Hidden bool; SortName, SortID string }`;
-  - `type mapping.Pose struct{ Seat state.PlayerID; Context protocol.Context; GroupStart bool; SubstepIndex, SubstepCount uint32; Candidates []Cand; Known []protocol.Known; Look bool; Native *decision.Decision; Followups map[string]*decision.Decision; Splits [][]int32 }`;
+  - `type mapping.Pose struct{ Seat state.PlayerID; Context protocol.Context; GroupStart bool; SubstepIndex, SubstepCount uint32; Candidates []Cand; Known []protocol.Known; Look bool; Native *decision.Decision; Followups map[string]*decision.Decision }`;
   - `type mapping.Transaction interface{ Pose() (*Pose, error); Answer(i int) (commit []decision.Intent, done bool, err error) }`;
   - `func mapping.Begin(env *Env, d *decision.Decision) (Transaction, error)`, `func mapping.Register(route string, f Builder)`, `type mapping.Builder func(*Env, *decision.Decision) (Transaction, error)`, `func mapping.Route(d *decision.Decision) string`;
   - `func mapping.ResolveSource(env *Env, d *decision.Decision) (*protocol.ObjectRef, error)` and `func mapping.MustSource(env *Env, d *decision.Decision) (protocol.ObjectRef, error)`;
   - `func mapping.Accepts(env *Env, ins ...decision.Intent) bool`, `func mapping.Intent(d *decision.Decision, choices ...int) decision.Intent`;
   - `func mapping.Finalize(p *Pose) error` (pass first, hidden-zone candidate order, distinct semantics, 4096 cap);
-  - `type mapping.PickSpec` and `func mapping.NewPick(env *Env, s PickSpec) Transaction` (the generic one-pick-per-decision subset transaction used by Tasks 17 to 19), plus the unexported helper `allOptions(d)`;
+  - `type mapping.PickSpec` and `func mapping.NewPick(env *Env, s PickSpec) Transaction` (the generic one-pick-per-decision subset transaction used by Tasks 17, 18 and 19a), plus the unexported helper `allOptions(d)`;
   - `func mapping.SingleChoice(env *Env, d *decision.Decision, ctx protocol.Context, sem func(decision.Option) (protocol.Semantic, bool, error)) (Transaction, error)`, with the unexported `singleTx` (an `after` hook field) and `choice(src, purpose)`, used by Tasks 20 and 21;
   - errors `mapping.ErrDeadEnd`, `mapping.ErrUnmapped`, `mapping.ErrCandidateLimit`, `mapping.ErrDuplicate`, `mapping.ErrUnresolvableSource`;
+  - engine-internal answers, a registry like the routes: `type mapping.InternalFunc func(*Env, *decision.Decision) (decision.Intent, error)`, `func mapping.RegisterInternal(route string, f InternalFunc)` (Task 16 registers `choose/division`, Task 21 `choose/pay_pip`) and `func mapping.Internal(env *Env, d *decision.Decision) (decision.Intent, bool, error)`, which the session calls before posing;
   - hook `var mapping.ExpandActivate func(env *Env, d *decision.Decision, o decision.Option, src protocol.ObjectRef) ([]Cand, map[string]*decision.Decision, error)` with a simple default (one candidate, no folding) that Task 15 replaces.
 
 Routing is a registry, so wave-5 tasks add files with `init()` registrations and never edit a shared switch.
@@ -4768,9 +7114,13 @@ var (
 	ErrUnresolvableSource = errors.New("engine_contract_failure:unresolvable_source")
 )
 
+// ActionContext is the acting seat's priority action in progress: the object
+// it acts from, and Since, the engine's next object id when the action began
+// (stack objects with a smaller id were on the stack before it).
 type ActionContext struct {
-	Seat state.PlayerID
-	Obj  state.ObjID
+	Seat  state.PlayerID
+	Obj   state.ObjID
+	Since state.ObjID
 }
 
 type Env struct {
@@ -4809,7 +7159,7 @@ func (e *Env) CloseLooks() {
 // declines), "cast" (a cast_spell standing for several native variants,
 // listed in Covers), "list" (Option at Position of the native list named by
 // List: "choices", "rest" or "followup:<key>"), "dest" (an arrangement
-// partition, Task 19), "amount" (a distribute amount).
+// partition, Task 19b).
 type NativeOp struct {
 	Op       string      `json:"op"`
 	Option   int         `json:"option"`
@@ -4837,7 +7187,6 @@ type Pose struct {
 	Look                       bool
 	Native                     *decision.Decision
 	Followups                  map[string]*decision.Decision
-	Splits                     [][]int32
 }
 
 type Transaction interface {
@@ -4857,6 +7206,25 @@ func Begin(env *Env, d *decision.Decision) (Transaction, error) {
 		return f(env, d)
 	}
 	return nil, fmt.Errorf("%w:%s", ErrUnmapped, r)
+}
+
+// InternalFunc answers a decision the engine makes itself, under a declared
+// rule, without posing it (Section 7.6 and controller decision 3).
+type InternalFunc func(*Env, *decision.Decision) (decision.Intent, error)
+
+var internals = map[string]InternalFunc{}
+
+// RegisterInternal makes route an engine-internal answer (Tasks 16 and 21).
+func RegisterInternal(route string, f InternalFunc) { internals[route] = f }
+
+// Internal answers d when its route is engine-internal; ok is false otherwise.
+func Internal(env *Env, d *decision.Decision) (in decision.Intent, ok bool, err error) {
+	f, ok := internals[Route(d)]
+	if !ok {
+		return decision.Intent{}, false, nil
+	}
+	in, err = f(env, d)
+	return in, true, err
 }
 
 func Intent(d *decision.Decision, choices ...int) decision.Intent {
@@ -4979,7 +7347,10 @@ import (
 
 // ResolveSource finds a choice decision's v2 source (Section 7.3), in order:
 //  1. the stack entry of the ability whose source is Decision.Source (topmost),
-//     or Decision.Source itself when it is on the stack;
+//     or Decision.Source itself when it is on the stack. While the acting seat
+//     is still announcing its own action from Decision.Source, abilities put
+//     on the stack before that action began are skipped: they are an earlier
+//     activation of the same permanent, not this one;
 //  2. the current visible incarnation of Decision.Source;
 //  3. the object of the acting seat's last priority action (gorge chooses an
 //     activated ability's targets and costs before pushing it: sourceprobe);
@@ -4987,9 +7358,15 @@ import (
 func ResolveSource(env *Env, d *decision.Decision) (*protocol.ObjectRef, error) {
 	g := env.G.E.G
 	if d.Source != 0 {
+		a := env.Action
+		announcing := a != nil && a.Seat == d.Player && a.Obj == d.Source
 		for i := len(g.Stack) - 1; i >= 0; i-- {
-			if so := g.Obj(g.Stack[i]); so != nil && so.Ability != nil && so.Source == d.Source {
-				return env.Obs.Ref(d.Player, g.Stack[i])
+			id := g.Stack[i]
+			if announcing && id < a.Since {
+				continue
+			}
+			if so := g.Obj(id); so != nil && so.Ability != nil && so.Source == d.Source {
+				return env.Obs.Ref(d.Player, id)
 			}
 		}
 		if r, err := env.Obs.Ref(d.Player, d.Source); r != nil || err != nil {
@@ -5307,17 +7684,18 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: mapping 
 - Consumes: framework (Task 13), `ExpandActivate`.
 - Produces:
   - registered route `priority`;
-  - `func mapping.CastMethod(o decision.Option) (method string, optional string, special string, ok bool)`, with the mode tables below;
+  - `func mapping.CastMethod(o decision.Option, alternateMode string) (method string, optional string, special string, ok bool)` (`alternateMode` is the card's `AlternateMode`), with the mode tables below;
   - `func mapping.NonManaAbilityIndex(o *state.Object, abilityIdx int) uint32`.
 
 Mode tables:
 - method:
   - `"" mayplay mayflash` → `normal`; `flashback` → `flashback`; `plot_cast` → `plot`;
   - `bestowed surged blitzed emerged mutated` → `alternative`, as is any option with `AltCostIndex > 0`;
-  - `escape` → `escape`; `madness` → `madness`; `miracle` → `miracle`; `foretell_cast` → `foretell`; `adventure_alt` → `adventure`; `split_alt` → `split_right`; `fuse` → `fuse`; `suspend_cast` → `suspend`; `modal_spell` → `mdfc_back`.
+  - `escape` → `escape`; `madness` → `madness`; `miracle` → `miracle`; `foretell_cast` → `foretell`; `adventure_alt` → `adventure` for an Adventure card and `other` for an Omen face (Roost Seek), which v2's vocabulary has no word for; `split_alt` → `split_right`; `fuse` → `fuse`; `suspend_cast` → `suspend`; `modal_spell` → `mdfc_back`.
 - optional cost: `kicked` → `kicker`, `buyback` → `buyback`, `entwined` → `entwine`, `conspired` → `conspire`, `casualty` → `casualty`, `offspring` → `offspring`.
 - special action: cast `Mode` `plot` → `special_action` `plot`; priority kinds `turn_face_up` → `turn_face_up`, `unlock` → `unlock_door`.
-- `concede` is never offered. Any other mode or kind fails closed as unmapped.
+- `concede` is never offered. Any other mode or kind fails closed as unmapped; the engine notes list those modes (Task 29).
+- One cast candidate stands for one object, method and alternative cost: two alternative costs of one card key on `AltCostIndex`, so neither overwrites the other (their equal semantics then fail closed as duplicates).
 - Optional-cost modes: gorge offers the plain and the optional-cost variants as two options for one object. The adapter offers one `cast_spell`; if the agent picks it, a follow-up `optional_cost` decision in its own group picks the native option. The follow-up's `source` is the card itself (still in hand), because gorge has not started casting.
 
 - [ ] **Step 1: Write the failing test**
@@ -5400,6 +7778,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
 func hasOption(d *decision.Decision, kind, mode string) bool {
@@ -5468,14 +7847,35 @@ func TestKickerBecomesAFollowUpOptionalCost(t *testing.T) {
 		t.Fatalf("kicked commit %v", commit)
 	}
 }
-```
 
-(`priority_test.go` also imports `github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol`.)
+func TestCastMethodTable(t *testing.T) {
+	for _, c := range []struct {
+		opt                      decision.Option
+		altMode                  string
+		method, optional, action string
+	}{
+		{decision.Option{Kind: "cast"}, "", "normal", "", ""},
+		{decision.Option{Kind: "cast", Mode: "kicked"}, "", "normal", "kicker", ""},
+		{decision.Option{Kind: "cast", AltCostIndex: 1}, "", "alternative", "", ""},
+		{decision.Option{Kind: "cast", Mode: "adventure_alt"}, "Adventure", "adventure", "", ""},
+		{decision.Option{Kind: "cast", Mode: "adventure_alt"}, "Omen", "other", "", ""}, // Roost Seek
+		{decision.Option{Kind: "cast", Mode: "plot"}, "", "", "", "plot"},
+	} {
+		m, o, a, ok := mapping.CastMethod(c.opt, c.altMode)
+		if !ok || m != c.method || o != c.optional || a != c.action {
+			t.Errorf("%+v %s: %q %q %q %v", c.opt, c.altMode, m, o, a, ok)
+		}
+	}
+	if _, _, _, ok := mapping.CastMethod(decision.Option{Kind: "cast", Mode: "multikicked"}, ""); ok {
+		t.Error("multikicker is mapped; it must fail closed")
+	}
+}
+```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/mapping/ -run 'Priority|Kicker'`
-Expected: FAIL with `engine_contract_failure:unmapped_decision:priority`.
+Run: `go test ./internal/mapping/ -run 'Priority|Kicker|CastMethod'`
+Expected: FAIL to compile: `undefined: mapping.CastMethod`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -5501,9 +7901,12 @@ var castMethods = map[string]string{"": "normal", "mayplay": "normal", "mayflash
 var optionalCostModes = map[string]string{"kicked": "kicker", "buyback": "buyback", "entwined": "entwine",
 	"conspired": "conspire", "casualty": "casualty", "offspring": "offspring"}
 
-// CastMethod classifies a "cast" option: a method, or an optional cost over
-// the normal method, or a special action.
-func CastMethod(o decision.Option) (method, optional, special string, ok bool) {
+// CastMethod classifies a "cast" option of a card whose AlternateMode is
+// alternateMode: a method, or an optional cost over the normal method, or a
+// special action. gorge's adventure_alt also casts an Omen face (Roost Seek),
+// which v2's method vocabulary names only as "other". Every mode outside the
+// tables fails closed (the engine notes list them).
+func CastMethod(o decision.Option, alternateMode string) (method, optional, special string, ok bool) {
 	if o.Mode == "plot" {
 		return "", "", "plot", true
 	}
@@ -5512,6 +7915,9 @@ func CastMethod(o decision.Option) (method, optional, special string, ok bool) {
 	}
 	if o.AltCostIndex > 0 {
 		return "alternative", "", "", true
+	}
+	if o.Mode == "adventure_alt" && alternateMode != "Adventure" {
+		return "other", "", "", true
 	}
 	m, ok := castMethods[o.Mode]
 	return m, "", "", ok
@@ -5623,7 +8029,8 @@ func (t *priorityTx) Pose() (*Pose, error) {
 			if err != nil {
 				return nil, err
 			}
-			method, optional, special, ok := CastMethod(o)
+			obj := t.env.G.E.G.Obj(o.Obj)
+			method, optional, special, ok := CastMethod(o, obj.Card.AlternateMode)
 			if !ok {
 				return nil, fmt.Errorf("%w:cast_mode/%s", ErrUnmapped, o.Mode)
 			}
@@ -5631,7 +8038,11 @@ func (t *priorityTx) Pose() (*Pose, error) {
 				p.Candidates = append(p.Candidates, Cand{Sem: protocol.SpecialAction(src, special), Op: NativeOp{Op: "choose", Option: o.Index}})
 				continue
 			}
-			key := fmt.Sprint(o.Obj, "/", method)
+			// One candidate per object, method and alternative cost: two
+			// alternative costs of one card stay two variants (their equal
+			// semantics then fail closed as duplicates), never one overwriting
+			// the other.
+			key := fmt.Sprint(o.Obj, "/", method, "/", o.AltCostIndex)
 			cg := casts[key]
 			if cg == nil {
 				cg = &castGroup{plain: -1, optional: map[string]int{}, src: src, method: method}
@@ -5709,12 +8120,12 @@ func (t *priorityTx) Answer(i int) ([]decision.Intent, bool, error) {
 }
 ```
 
-The session fills each follow-up intent's `Seq` and `Player` from the engine's pending decision at commit time, and checks that the follow-up is the decision the lookahead saw (Task 22).
+The session fills each follow-up intent's `Seq` and `Player` from the engine's pending decision at commit time, after checking that the pending decision is the one the lookahead saw; otherwise the game halts `followup_mismatch` (Task 22).
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `go test ./internal/mapping/ -run 'Priority|Kicker' -v`
-Expected: `--- PASS: TestPriorityPassFirstAndNoConcede`, `--- PASS: TestKickerBecomesAFollowUpOptionalCost`.
+Run: `go test ./internal/mapping/ -run 'Priority|Kicker|CastMethod' -v`
+Expected: `--- PASS: TestPriorityPassFirstAndNoConcede`, `--- PASS: TestKickerBecomesAFollowUpOptionalCost`, `--- PASS: TestCastMethodTable`.
 
 - [ ] **Step 5: Commit**
 
@@ -5731,7 +8142,7 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: priority
 - Test: `internal/mapping/mana_test.go`
 
 **Interfaces:**
-- Consumes: framework (Task 13), `gamecfg.Game.Probe`.
+- Consumes: framework (Task 13), `gamecfg.Game.Probe`, Task 14's test helpers (`envFor`, `untilPending`).
 - Produces:
   - replaces `mapping.ExpandActivate` (in `init()`);
   - `func mapping.ManaSymbol(o decision.Option) (string, bool)` (from `Option.ManaSymbol`, else a label ending `Add X`);
@@ -5740,8 +8151,10 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: priority
 Rules:
 - The lookahead submits the activation on a clone.
 - If the clone's next pending decision belongs to the same seat and is a mana follow-up, it is folded: colour options (`mana`) become `mana_choice`; single-object cost picks (`tapcost`, `sacrifice`, `discard`, `exile_cost`, `returncost`) become `cost_target`, recursing once for a colour after a cost.
+- A source with several available mana abilities (Heap Gate: {T}: Add {C}; {1}, {T}: add one mana of any color) asks gorge's stage-1 "choose a mana ability" first. Its options are `mana` options that name their ability in `Option.Ability`, with a single pip (`Add C`) or none (`Pay 1: Add any color`). An option without a pip is probed and its stage-2 colour ask folded too: one candidate per colour, `Followup: [stage-1 option, colour]` (G2-1).
+- `ability_index` is the stage-1 option's `Ability`: gorge numbers the source's available mana abilities, which is their Oracle order whenever all are available, and only then does it ask stage 1 (G2-11). A source that asks no stage 1 activates its only available ability, index 0: a single-ability source, or Heap Gate while its {1} ability is unpayable. The cost-then-colour fold is reached only by single-ability sources, so it keeps index 0.
 - A plain source (basic land) is one candidate with `mana_choice: null`.
-- `Followups` records each folded native follow-up decision, keyed `"<option>"` or `"<option>/<cost option>"`, for `x_gorge_view_v1`.
+- `Followups` records each folded native follow-up decision, keyed `"<option>"` or `"<option>/<first follow-up option>"` (a cost pick or a stage-1 option), for `x_gorge_view_v1` and the session's follow-up check.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -5751,6 +8164,7 @@ Rules:
 package mapping_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -5812,11 +8226,81 @@ func TestDualLandExpandsIntoOneCandidatePerColour(t *testing.T) {
 		t.Fatal("choosing R did not add red mana")
 	}
 }
+
+// Heap Gate has two mana abilities ({T}: Add {C}; {1}, {T}: add one mana of
+// any color). With mana floating, both are available, so activating it asks
+// gorge's stage-1 "choose a mana ability", and the second ability then asks
+// its colour: both asks fold into one decision, and each candidate names its
+// ability by index (G2-1, G2-11).
+func TestHeapGateFoldsItsTwoAbilitiesAndTheColourAsk(t *testing.T) {
+	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
+		if d.Kind != decision.KPriority {
+			return false
+		}
+		for _, o := range d.Options {
+			if o.Kind == "activate" && o.Cost != "" && e.G.Obj(o.Obj).Face().Name == "Heap Gate" {
+				return true // the {1} ability is payable from the pool
+			}
+		}
+		return false
+	})
+	env := envFor(t, g)
+	d := g.E.Pending()
+	tx, _ := mapping.Begin(env, d)
+	p, err := tx.Pose()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]int{} // "<ability_index>/<mana_choice>" -> candidate
+	gate := ""
+	for i, c := range p.Candidates {
+		if c.Sem.Kind != "activate_mana_ability" {
+			continue
+		}
+		src := c.Sem.Fields["source"].(protocol.ObjectRef)
+		if *src.CardName != "Heap Gate" || (gate != "" && src.ObjectID != gate) {
+			continue
+		}
+		gate = src.ObjectID
+		mc, _ := c.Sem.Fields["mana_choice"].(*string)
+		if mc == nil {
+			t.Fatalf("Heap Gate candidate without a mana choice: %+v", c.Sem)
+		}
+		got[fmt.Sprint(c.Sem.Fields["ability_index"], "/", *mc)] = i
+	}
+	for _, want := range []string{"0/C", "1/W", "1/U", "1/B", "1/R", "1/G"} {
+		if _, ok := got[want]; !ok {
+			t.Fatalf("Heap Gate candidates %v lack %s", got, want)
+		}
+	}
+	if len(got) != 6 {
+		t.Fatalf("Heap Gate candidates %v, want 6", got)
+	}
+	commit, done, err := tx.Answer(got["1/G"])
+	if err != nil || !done || len(commit) != 3 {
+		t.Fatalf("commit %v done %v err %v", commit, done, err)
+	}
+	c, err := g.Probe(commit[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range commit[1:] {
+		f := c.Pending()
+		in.Seq, in.Player = f.Seq, f.Player
+		if err := c.SubmitHypothetical(in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, after := g.E.G.Players[d.Player].Pool, c.G.Players[d.Player].Pool
+	if after[state.MG] != before[state.MG]+1 {
+		t.Fatalf("green mana %d, want %d", after[state.MG], before[state.MG]+1)
+	}
+}
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/mapping/ -run DualLand`
+Run: `go test ./internal/mapping/ -run 'DualLand|HeapGate'`
 Expected: FAIL with `bridge colours map[]` (the Task 13 default does not fold colours).
 
 - [ ] **Step 3: Write minimal implementation**
@@ -5878,15 +8362,38 @@ func expandActivate(env *Env, d *decision.Decision, o decision.Option, src proto
 	key := fmt.Sprint(o.Index)
 	switch k := next.Options[0].Kind; {
 	case k == "mana":
+		// A colour ask, or gorge's stage-1 "choose a mana ability" ask for a
+		// source with several available mana abilities (Heap Gate). Each
+		// option carries its ability in Option.Ability (0 for a colour ask
+		// of a single-ability source), and either a single pip or, for an
+		// ability whose colour is asked next, none: that stage-2 colour ask
+		// is folded as the follow-up "<option>/<stage-1 option>".
 		folds[key] = next
 		var out []Cand
 		for _, co := range next.Options {
-			sym, ok := ManaSymbol(co)
-			if !ok {
-				return nil, nil, fmt.Errorf("%w:mana_option/%q", ErrUnmapped, co.Label)
+			idx := uint32(co.Ability)
+			if sym, ok := ManaSymbol(co); ok {
+				out = append(out, Cand{Sem: protocol.ActivateManaAbility(src, idx, &sym, nil),
+					Op: NativeOp{Op: "choose", Option: o.Index, Followup: []int{co.Index}}})
+				continue
 			}
-			out = append(out, Cand{Sem: protocol.ActivateManaAbility(src, 0, &sym, nil),
-				Op: NativeOp{Op: "choose", Option: o.Index, Followup: []int{co.Index}}})
+			c2, err := env.G.Probe(Intent(d, o.Index), Intent(next, co.Index))
+			if err != nil {
+				continue // the engine refuses this ability now: not offered
+			}
+			n2 := sameSeatChoose(c2, d.Player)
+			if n2 == nil || n2.Options[0].Kind != "mana" {
+				return nil, nil, fmt.Errorf("%w:mana_ability/%q", ErrUnmapped, co.Label)
+			}
+			folds[fmt.Sprint(key, "/", co.Index)] = n2
+			for _, col := range n2.Options {
+				sym, ok := ManaSymbol(col)
+				if !ok {
+					return nil, nil, fmt.Errorf("%w:mana_option/%q", ErrUnmapped, col.Label)
+				}
+				out = append(out, Cand{Sem: protocol.ActivateManaAbility(src, idx, &sym, nil),
+					Op: NativeOp{Op: "choose", Option: o.Index, Followup: []int{co.Index, col.Index}}})
+			}
 		}
 		return out, folds, nil
 	case costKinds[k] && next.Min == 1 && next.Max == 1:
@@ -5923,17 +8430,17 @@ func expandActivate(env *Env, d *decision.Decision, o decision.Option, src proto
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/mapping/ -v`
-Expected: all mapping tests so far PASS, including `TestDualLandExpandsIntoOneCandidatePerColour`.
+Expected: all mapping tests so far PASS, including `TestDualLandExpandsIntoOneCandidatePerColour` and `TestHeapGateFoldsItsTwoAbilitiesAndTheColourAsk`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engines/gorge/internal/mapping && git commit -m "gorge adapter: mana abilities folded with colour and cost lookahead"
+git add engines/gorge/internal/mapping && git commit -m "gorge adapter: mana abilities folded with stage-1, colour and cost lookahead"
 ```
 
 ---
 
-### Task 16: Combat: declare_attack, declare_block, distribute
+### Task 16: Combat: declare_attack, declare_block, engine-order damage
 
 **Files:**
 - Create: `internal/mapping/combat.go`
@@ -5942,15 +8449,17 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: mana abi
 **Interfaces:**
 - Consumes: framework (Task 13): `Accepts`, `Finalize`, `Intent`, `Register`.
 - Produces:
-  - registered routes `attackers`, `blockers`, `choose/division`;
-  - `func mapping.Compositions(power int32, n int) [][]int32`, which reproduces gorge's `divisionOptions` enumeration order.
+  - registered routes `attackers`, `blockers`;
+  - the internal answer `choose/division` (`RegisterInternal`): under hello_ok's `combat_damage_assignment: "engine_order"` the engine answers gorge's division ask itself;
+  - `func mapping.Compositions(power int32, n int) [][]int32`, which reproduces gorge's `divisionOptions` enumeration order;
+  - `func mapping.EngineOrderSplit(power int32, lethal []int32) []int32`, Section 7.6's engine-order split.
 
 Rules (Section 7.5 Combat):
 - One fixed group with one decision per creature that appears in the native options, in first-appearance order.
 - A blocker whose group cap exceeds 1 gets one decision per additional block.
 - Candidates: each legal defender (attack) or attacker (block), plus `null`.
-- A candidate is offered only if some full declaration extending the current prefix is accepted by the engine: prefix alone, then the prefix repaired by `decision.FitRequired` (only if the repair keeps the prefix), then a bounded depth-first search.
-- Division: one `distribute` per blocker, in gorge's blocker order; candidates are the amounts that appear in a legal composition consistent with the earlier picks.
+- A candidate is offered only if some full declaration extending the current prefix is accepted by the engine: prefix alone, then the prefix repaired by `decision.FitRequired` (only if the repair keeps the prefix and adds options only for units not yet decided: FitRequired may prepend an option for the unit whose `null` candidate is being tested, which would re-decide it), then a bounded depth-first search.
+- Combat damage (Section 7.6): gorge assigns trample damage, and divisions too large to ask, itself: lethal damage to each blocker in its blocker order, the rest to the last blocker or to the defender with trample. The engine declares that rule as `engine_order` and answers gorge's division ask for a non-trample attacker with the same split, so no `distribute` is posed. gorge measures lethal as the blocker's toughness (1 when the attacker has deathtouch), without subtracting damage already marked; the engine notes record it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -5960,11 +8469,13 @@ Rules (Section 7.5 Combat):
 package mapping_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
 func TestAttackGroupHasOneDecisionPerCreature(t *testing.T) {
@@ -6018,14 +8529,40 @@ func TestCompositionsMatchGorgeOrder(t *testing.T) {
 		}
 	}
 }
-```
 
-`combat_test.go` also imports `github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol`.
+// Section 7.6's engine_order split, which the engine applies to gorge's
+// division ask instead of posing distribute (combat_damage_assignment is
+// declared "engine_order"): lethal to each blocker in order, the rest to the
+// last blocker.
+func TestEngineOrderSplit(t *testing.T) {
+	for _, c := range []struct {
+		power  int32
+		lethal []int32
+		want   []int32
+	}{
+		{5, []int32{2, 2, 2}, []int32{2, 2, 1}},
+		{7, []int32{2, 2}, []int32{2, 5}},
+		{1, []int32{2, 2}, []int32{1, 0}},
+		{3, []int32{1, 1, 1}, []int32{1, 1, 1}},
+	} {
+		if got := mapping.EngineOrderSplit(c.power, c.lethal); !slices.Equal(got, c.want) {
+			t.Errorf("EngineOrderSplit(%d, %v) = %v, want %v", c.power, c.lethal, got, c.want)
+		}
+	}
+	d := &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "division"}}}
+	if mapping.Route(d) != "choose/division" {
+		t.Fatalf("route %s", mapping.Route(d))
+	}
+	if _, ok, _ := mapping.Internal(nil, &decision.Decision{Kind: decision.KAttackers}); ok {
+		t.Fatal("an attack declaration is answered internally")
+	}
+}
+```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `go test ./internal/mapping/ -run 'AttackGroup|Compositions'`
-Expected: FAIL with `unmapped_decision:attackers` and `undefined: mapping.Compositions`.
+Run: `go test ./internal/mapping/ -run 'AttackGroup|Compositions|EngineOrder'`
+Expected: FAIL to compile: `undefined: mapping.Compositions` and `undefined: mapping.EngineOrderSplit`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -6049,7 +8586,7 @@ import (
 func init() {
 	Register("attackers", func(env *Env, d *decision.Decision) (Transaction, error) { return newDeclare(env, d, true) })
 	Register("blockers", func(env *Env, d *decision.Decision) (Transaction, error) { return newDeclare(env, d, false) })
-	Register("choose/division", newDivision)
+	RegisterInternal("choose/division", engineOrderDivision)
 }
 
 type declareTx struct {
@@ -6097,7 +8634,7 @@ func (t *declareTx) completable(prefix []int, from int, budget *int) bool {
 	if t.accepts(prefix) {
 		return true
 	}
-	if fr := t.d.FitRequired(prefix); len(fr) >= len(prefix) && slices.Equal(fr[:len(prefix)], prefix) && t.accepts(fr) {
+	if fr := t.d.FitRequired(prefix); t.laterUnitsOnly(prefix, fr, from) && t.accepts(fr) {
 		return true
 	}
 	for u := from; u < len(t.units) && *budget > 0; u++ {
@@ -6112,6 +8649,22 @@ func (t *declareTx) completable(prefix []int, from int, budget *int) bool {
 		}
 	}
 	return false
+}
+
+// laterUnitsOnly reports whether the repair fr keeps prefix and adds options
+// only for units at index from or later. FitRequired may add an option for a
+// unit already decided (the current unit, when its null candidate is being
+// tested): that completion would re-decide it, so it proves nothing.
+func (t *declareTx) laterUnitsOnly(prefix, fr []int, from int) bool {
+	if len(fr) < len(prefix) || !slices.Equal(fr[:len(prefix)], prefix) {
+		return false
+	}
+	for _, o := range fr[len(prefix):] {
+		if !slices.Contains(t.units[from:], t.d.Options[o].Obj) {
+			return false
+		}
+	}
+	return true
 }
 
 func (t *declareTx) ref(id state.ObjID) (protocol.ObjectRef, error) {
@@ -6205,102 +8758,77 @@ func Compositions(power int32, n int) [][]int32 {
 	return out
 }
 
-type divisionTx struct {
-	env      *Env
-	d        *decision.Decision
-	src      *protocol.ObjectRef
-	blockers []protocol.ObjectRef
-	splits   [][]int32
-	power    int32
-	chosen   []int32
-	pose     *Pose
+// EngineOrderSplit is Section 7.6's engine_order combat damage assignment
+// over blockers in gorge's order: lethal damage to each blocker, the rest to
+// the last one. lethal[i] is blocker i's lethal amount.
+func EngineOrderSplit(power int32, lethal []int32) []int32 {
+	out := make([]int32, len(lethal))
+	remaining := power
+	for i, need := range lethal {
+		give := remaining
+		if i < len(lethal)-1 && give > need {
+			give = max(0, need)
+		}
+		out[i] = give
+		remaining -= give
+	}
+	return out
 }
 
-func newDivision(env *Env, d *decision.Decision) (Transaction, error) {
-	g := env.G.E.G
-	a := g.Obj(d.Source)
+// engineOrderDivision answers gorge's combat damage division ask itself,
+// under hello_ok's combat_damage_assignment "engine_order": gorge's blocker
+// order, and gorge's measure of lethal (the blocker's toughness, 1 when the
+// attacker has deathtouch). gorge assigns trample damage and divisions too
+// large to ask with the same rule (rules/combat.go), so every combat follows
+// one declared rule and no distribute decision is ever posed.
+func engineOrderDivision(env *Env, d *decision.Decision) (decision.Intent, error) {
+	e := env.G.E
+	a := e.G.Obj(d.Source)
 	if a == nil || len(d.Options) == 0 {
-		return nil, fmt.Errorf("%w:division_without_attacker", ErrUnmapped)
+		return decision.Intent{}, fmt.Errorf("%w:division_without_attacker", ErrUnmapped)
 	}
 	power := int32(d.Options[len(d.Options)-1].Amount)
 	var live []state.ObjID
 	for _, b := range a.BlockedBy {
-		if o := g.Obj(b); o != nil && o.Zone == state.ZBattlefield {
+		if o := e.G.Obj(b); o != nil && o.Zone == state.ZBattlefield {
 			live = append(live, b)
 		}
 	}
 	splits := Compositions(power, len(live))
-	if len(splits) != len(d.Options) {
-		return nil, fmt.Errorf("%w:division_layout", ErrUnmapped)
+	if len(live) < 2 || len(splits) != len(d.Options) {
+		return decision.Intent{}, fmt.Errorf("%w:division_layout", ErrUnmapped)
 	}
-	t := &divisionTx{env: env, d: d, splits: splits, power: power}
 	for i, o := range d.Options {
-		parts := strings.Split(o.Label, ",")
-		if int32(o.Amount) != splits[i][0] || len(parts) != len(live) {
-			return nil, fmt.Errorf("%w:division_layout", ErrUnmapped)
+		if int32(o.Amount) != splits[i][0] || len(strings.Split(o.Label, ",")) != len(live) {
+			return decision.Intent{}, fmt.Errorf("%w:division_layout", ErrUnmapped)
 		}
 	}
-	for _, b := range live {
-		r, err := env.Obs.Ref(d.Player, b)
-		if err != nil || r == nil {
-			return nil, fmt.Errorf("%w:division_blocker", ErrUnmapped)
-		}
-		t.blockers = append(t.blockers, *r)
-	}
-	var err error
-	t.src, err = env.Obs.Ref(d.Player, d.Source)
-	return t, err
-}
-
-func (t *divisionTx) consistent(s []int32) bool { return slices.Equal(s[:len(t.chosen)], t.chosen) }
-
-func (t *divisionTx) Pose() (*Pose, error) {
-	r := len(t.chosen)
-	var sum int32
-	for _, v := range t.chosen {
-		sum += v
-	}
-	p := &Pose{Seat: t.d.Player, Context: protocol.Context{Kind: "choice", Source: t.src, Purpose: purpose("combat_damage")},
-		GroupStart: r == 0, SubstepIndex: uint32(r), SubstepCount: uint32(len(t.blockers)), Native: t.d, Splits: t.splits}
-	seen := map[int32]bool{}
-	for _, s := range t.splits {
-		if t.consistent(s) && !seen[s[r]] {
-			seen[s[r]] = true
-			p.Candidates = append(p.Candidates, Cand{
-				Sem: protocol.Distribute(t.src, "combat_damage", protocol.ObjectTarget(t.blockers[r]), uint32(s[r]), uint32(t.power-sum)),
-				Op:  NativeOp{Op: "amount", Option: -1, Position: r}})
+	lethal := make([]int32, len(live))
+	for i, b := range live {
+		lethal[i] = e.Toughness(b)
+		if e.HasKeyword(a.ID, "Deathtouch") {
+			lethal[i] = 1
 		}
 	}
-	if err := Finalize(p); err != nil {
-		return nil, err
-	}
-	t.pose = p
-	return p, nil
-}
-
-func (t *divisionTx) Answer(i int) ([]decision.Intent, bool, error) {
-	t.chosen = append(t.chosen, int32(t.pose.Candidates[i].Sem.Fields["amount"].(uint32)))
-	if len(t.chosen) < len(t.blockers) {
-		return nil, false, nil
-	}
-	for k, s := range t.splits {
-		if slices.Equal(s, t.chosen) {
-			return []decision.Intent{Intent(t.d, k)}, true, nil
+	want := EngineOrderSplit(power, lethal)
+	for k, split := range splits {
+		if slices.Equal(split, want) {
+			return Intent(d, k), nil
 		}
 	}
-	return nil, false, ErrDeadEnd
+	return decision.Intent{}, fmt.Errorf("%w:division_split", ErrUnmapped)
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `go test ./internal/mapping/ -run 'AttackGroup|Compositions' -v`
-Expected: `--- PASS: TestAttackGroupHasOneDecisionPerCreature`, `--- PASS: TestCompositionsMatchGorgeOrder`.
+Run: `go test ./internal/mapping/ -run 'AttackGroup|Compositions|EngineOrder' -v`
+Expected: `--- PASS: TestAttackGroupHasOneDecisionPerCreature`, `--- PASS: TestCompositionsMatchGorgeOrder`, `--- PASS: TestEngineOrderSplit`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engines/gorge/internal/mapping && git commit -m "gorge adapter: attack and block declarations with witnesses, combat damage distribution"
+git add engines/gorge/internal/mapping && git commit -m "gorge adapter: attack and block declarations with witnesses, engine-order combat damage"
 ```
 
 ---
@@ -6520,9 +9048,10 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: targets 
   - `choose/search` (`select_object` `search`, hidden-zone candidates, `known` entries how `searching`);
   - `choose/hand_move`:
     - destination exile from the other seat's hand: `select_object` `exile`, `known` how `revealed`;
-    - any library destination: delegated to the route `hand_move/library` registered by Task 19;
+    - any library destination: delegated to the route `hand_move/library` registered by Task 19a;
   - `choose/untap` (`untap`), `choose/keep` (`legend_rule`);
-  - `modes/mode` (`choose_spell_mode`, `finish_selection` `modes` when variable).
+  - `modes/mode` (`choose_spell_mode`, `finish_selection` `modes` when variable). gorge offers only the eligible modes, so `mode_index` is the offered mode's printed index and `mode_count` the printed count (G2-10), the numbering the stack entry's `modes` use (Task 12);
+- Produces `func mapping.PrintedModes(d *decision.Decision) ([]uint32, uint32, error)`: each offered option's printed mode index (from `ResumeModes` within `ResumeSA`'s `Choices`) and the printed count; dense when the decision has no `ResumeModes`. Task 28a's consistency audit reads it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -6532,6 +9061,8 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: targets 
 package mapping_test
 
 import (
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -6571,16 +9102,38 @@ func TestSearchCandidatesAreSortedAndKnown(t *testing.T) {
 	}
 }
 
-func TestModalSpellUsesChooseSpellMode(t *testing.T) {
-	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		return d.Kind == decision.KModes && d.ResumeKind == "cast_modes"
+// gorge offers only Thraben Charm's eligible modes; each candidate still
+// names the printed mode and the printed count of three (G2-10).
+func TestModalSpellNamesPrintedModes(t *testing.T) {
+	printed := func(e *rules.Engine, d *decision.Decision) []string {
+		var out []string
+		for _, c := range strings.Split(e.G.Obj(d.Source).Face().SpellAbility().Params["Choices"], ",") {
+			out = append(out, strings.TrimSpace(c))
+		}
+		return out
+	}
+	g := untilPending(t, "CawGates", 17, func(d *decision.Decision, e *rules.Engine) bool {
+		if d.Kind != decision.KModes || e.G.Obj(d.Source) == nil || e.G.Obj(d.Source).Face().Name != "Thraben Charm" {
+			return false
+		}
+		return len(d.ResumeModes) > 0 && d.ResumeModes[0] != printed(e, d)[0] // the first printed mode was filtered out
 	})
 	env := envFor(t, g)
-	tx, _ := mapping.Begin(env, g.E.Pending())
-	p, _ := tx.Pose()
-	c := p.Candidates[0].Sem
-	if c.Kind != "choose_spell_mode" || c.Fields["mode_count"] != uint32(len(g.E.Pending().Options)) {
-		t.Fatalf("%+v", c)
+	d := g.E.Pending()
+	names := printed(g.E, d)
+	tx, _ := mapping.Begin(env, d)
+	p, err := tx.Pose()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range p.Candidates {
+		if c.Sem.Kind != "choose_spell_mode" {
+			continue
+		}
+		want := uint32(slices.Index(names, d.ResumeModes[c.Op.Option]))
+		if c.Sem.Fields["mode_index"] != want || c.Sem.Fields["mode_count"] != uint32(3) {
+			t.Fatalf("option %d: %+v, want mode_index %d of 3", c.Op.Option, c.Sem.Fields, want)
+		}
 	}
 }
 ```
@@ -6599,6 +9152,8 @@ package mapping
 
 import (
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
@@ -6694,18 +9249,55 @@ func newHandMove(env *Env, d *decision.Decision) (Transaction, error) {
 	return nil, fmt.Errorf("%w:hand_move/%s", ErrUnmapped, dest)
 }
 
+// newModes poses one choose_spell_mode per pick. gorge offers only the
+// eligible modes (Thraben Charm without a creature to target starts at its
+// second mode), so a candidate names the printed mode and count (Section
+// 7.3), the numbering the stack entry's modes use (Task 12).
 func newModes(env *Env, d *decision.Decision) (Transaction, error) {
 	src, err := MustSource(env, d)
 	if err != nil {
 		return nil, err
 	}
-	n, lo, hi := uint32(len(d.Options)), uint32(d.Min), uint32(d.Max)
+	index, n, err := PrintedModes(d)
+	if err != nil {
+		return nil, err
+	}
+	lo, hi := uint32(d.Min), uint32(d.Max)
 	purp := "modes"
 	return NewPick(env, PickSpec{D: d, Options: allOptions(d), Context: protocol.Context{Kind: "choice", Source: &src},
 		Sem: func(opt int, sel uint32) (Cand, error) {
-			return Cand{Sem: protocol.ChooseSpellMode(src, uint32(opt), n, sel, lo, hi)}, nil
+			return Cand{Sem: protocol.ChooseSpellMode(src, index[opt], n, sel, lo, hi)}, nil
 		},
 		Finish: func(sel uint32) protocol.Semantic { return protocol.FinishSelection(&src, purp, sel) }}), nil
+}
+
+// PrintedModes maps each offered mode option to its index among the modal
+// ability's printed modes (ResumeSA's Choices, in Oracle order), and returns
+// the printed mode count. gorge names each offered mode in ResumeModes; a
+// decision without them offers every printed mode, densely.
+func PrintedModes(d *decision.Decision) ([]uint32, uint32, error) {
+	index := make([]uint32, len(d.Options))
+	for i := range index {
+		index[i] = uint32(i)
+	}
+	if len(d.ResumeModes) == 0 || d.ResumeSA == nil {
+		return index, uint32(len(d.Options)), nil
+	}
+	var printed []string
+	for _, c := range strings.Split(d.ResumeSA.Params["Choices"], ",") {
+		printed = append(printed, strings.TrimSpace(c))
+	}
+	if len(d.ResumeModes) != len(d.Options) {
+		return nil, 0, fmt.Errorf("%w:modes_layout", ErrUnmapped)
+	}
+	for i, name := range d.ResumeModes {
+		k := slices.Index(printed, strings.TrimSpace(name))
+		if k < 0 {
+			return nil, 0, fmt.Errorf("%w:modes_layout", ErrUnmapped)
+		}
+		index[i] = uint32(k)
+	}
+	return index, uint32(len(printed)), nil
 }
 ```
 
@@ -6724,110 +9316,25 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: selectio
 
 ---
 
-### Task 19: Ordering and arrangement
+### Task 19a: Ordering
 
 **Files:**
-- Create: `internal/mapping/order.go`, `internal/mapping/arrange.go`
-- Test: `internal/mapping/order_test.go`, `internal/mapping/arrange_test.go`
+- Create: `internal/mapping/order.go`
+- Test: `internal/mapping/order_test.go`
 
 **Interfaces:**
-- Consumes: framework, `Env.OpenLook`, `LookRef`, `KnownEntry`, `SortKnown`, `gamecfg.Game.Probe`.
-- Native ops (read by Task 26's agent): partition candidates are `dest` (Option is the card's native option or -1, List the destination, Position the card index; `top` and `hand` are inside the native Choices). Ordering candidates are `list` (List `choices`, `rest` or `followup:dig_bottom`; Option the card's option in that decision; Position its place in the destination). Explore's partition candidates are `choose` with the destination option's index.
+- Consumes: framework (Task 13): `NewPick`, `PickSpec`, `ResolveSource`, `Finalize`; Task 14's test helpers.
+- Native ops (read by Task 26's agent): ordering candidates are `list` (List `choices`; Option the item's option in the native decision; Position its place in the order).
 - Produces registered routes:
   - `trigger_order`: `order_pick` `triggers`, n-1 decisions, last implied;
   - `mulligan/bottom`: `order_pick` `mulligan_bottom`, all k posed;
-  - `hand_move/library`: `select_object` fixed group, then `order_pick` `library_top`;
-  - `arrange/bottom`, `arrange/graveyard`, `arrange/exile`, `arrange/hand`: the Section 7.5 arrangement, `2n-1` decisions;
-  - `choose/dig`: dig and gorge's follow-up `dig_bottom` as one arrangement with purpose `dig`;
-  - `arrange/dig_bottom`: a dig_bottom ask with no take ask before it, one arrangement with forced `bottom` partitions;
-  - `choose/explore`: one-card arrangement, destinations `top` or `graveyard`.
+  - `hand_move/library`: `select_object` picks (a fixed group, or a `finish_selection` once the minimum is met when the ask is variable), then `order_pick` `library_top`.
+
+A trigger item's `instance` numbers the triggers whose visible fields are equal: two triggers whose sources are not visible both read source and name `null`, and numbering them per native object would give them equal semantics (G2-23).
 
 Pinned direction, verified in gorge's code (`rules/arrange.go`, `rules/mulligan.go` `handleBottoming`, `effects/zone.go` `libraryOrderPlacement`): in every native answer, list index 0 is the card closest to the library's top. It matches v2 position order, so native lists are built in v2 placement order.
 
 - [ ] **Step 1: Write the failing tests**
-
-`internal/mapping/arrange_test.go`:
-
-```go
-package mapping_test
-
-import (
-	"testing"
-
-	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/rules"
-	"github.com/adams-shaun/gorge/state"
-	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
-)
-
-func TestScryIsTwoNMinusOneAndLandsCardsWhereChosen(t *testing.T) {
-	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		return d.Kind == decision.KArrange && d.Restable && len(d.Options) == 2 // Preordain's scry 2
-	})
-	env := envFor(t, g)
-	d := g.E.Pending()
-	lib := g.E.G.Zone(state.ZLibrary, d.Player)
-	top0, top1 := lib[0], lib[1]
-	tx, _ := mapping.Begin(env, d)
-	decisions := 0
-	commit := answerAll(t, tx, func(p *mapping.Pose) int {
-		decisions++
-		if p.SubstepCount != 3 {
-			t.Fatalf("group size %d, want 3", p.SubstepCount)
-		}
-		if p.Candidates[0].Sem.Kind == "arrange_card" {
-			for i, c := range p.Candidates { // send card 0 to the bottom, keep card 1 on top
-				if (decisions == 1) == (c.Sem.Fields["destination"] == "bottom") {
-					return i
-				}
-			}
-		}
-		return 0
-	})
-	if decisions != 3 {
-		t.Fatalf("%d decisions", decisions)
-	}
-	c, err := g.Probe(commit...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	newLib := c.G.Zone(state.ZLibrary, d.Player)
-	if newLib[0] != top1 || newLib[len(newLib)-1] != top0 {
-		t.Fatalf("library top %d bottom %d, want %d and %d", newLib[0], newLib[len(newLib)-1], top1, top0)
-	}
-}
-
-func TestDigMergesDigAndDigBottomIntoOneArrangement(t *testing.T) {
-	g := untilPending(t, "Spy", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		return d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Kind == "dig"
-	})
-	env := envFor(t, g)
-	tx, _ := mapping.Begin(env, g.E.Pending())
-	var count uint32
-	followOps := 0
-	commit := answerAll(t, tx, func(p *mapping.Pose) int {
-		count = p.SubstepCount
-		for i, c := range p.Candidates {
-			if c.Sem.Kind == "arrange_card" && c.Sem.Fields["destination"] == "bottom" {
-				return i // every card to the bottom, so gorge asks dig_bottom for the order
-			}
-			if c.Op.Op == "list" && c.Op.List == "followup:dig_bottom" && p.Followups["dig_bottom"] != nil {
-				followOps++
-			}
-		}
-		return 0
-	})
-	if count != 2*5-1 {
-		t.Fatalf("Lead the Stampede arrangement size %d, want 9", count)
-	}
-	if followOps == 0 || len(commit) != 2 {
-		t.Fatalf("bottom order not carried by the dig_bottom follow-up: %d ops, commit %v", followOps, commit)
-	}
-	if _, err := g.Probe(commit...); err != nil {
-		t.Fatalf("dig commit rejected: %v", err)
-	}
-}
-```
 
 `internal/mapping/order_test.go`:
 
@@ -6881,8 +9388,8 @@ The mulligan-bottom test uses `untilPendingRules` (Task 14's helper) with `"lond
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/mapping/ -run 'Scry|Dig|TriggerOrder|MulliganBottom'`
-Expected: FAIL with `unmapped_decision:arrange/bottom` and similar.
+Run: `go test ./internal/mapping/ -run 'TriggerOrder|MulliganBottom'`
+Expected: FAIL with `unmapped_decision:trigger_order`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -6892,6 +9399,7 @@ Expected: FAIL with `unmapped_decision:arrange/bottom` and similar.
 package mapping
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 
@@ -6967,9 +9475,13 @@ func newTriggerOrder(env *Env, d *decision.Decision) (Transaction, error) {
 		if src != nil {
 			name = src.CardName
 		}
-		key := fmt.Sprint(o.Obj)
-		item := protocol.TriggerItem{Source: src, SourceName: name, EventObjects: []protocol.ObjectRef{}, Instance: instances[key]}
-		instances[key]++
+		// instance numbers the triggers whose visible fields are equal (two
+		// triggers of hidden sources both read source and name null), so
+		// the key is those fields, never the native object.
+		item := protocol.TriggerItem{Source: src, SourceName: name, EventObjects: []protocol.ObjectRef{}}
+		b, _ := json.Marshal(item)
+		item.Instance = instances[string(b)]
+		instances[string(b)]++
 		t.items[o.Index] = protocol.OrderItem{Trigger: &item}
 		t.pool = append(t.pool, o.Index)
 	}
@@ -7016,7 +9528,8 @@ func newHandToLibrary(env *Env, d *decision.Decision) (Transaction, error) {
 				return Cand{}, fmt.Errorf("%w: hand card not visible", ErrUnmapped)
 			}
 			return Cand{Sem: protocol.SelectObject(src, purp, protocol.ObjectTarget(*r), sel, lo, hi)}, nil
-		}})
+		},
+		Finish: func(sel uint32) protocol.Semantic { return protocol.FinishSelection(src, purp, sel) }})
 	return h, nil
 }
 
@@ -7050,6 +9563,130 @@ func (h *handToLibrary) Answer(i int) ([]decision.Intent, bool, error) {
 	return nil, false, nil
 }
 ```
+
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `go test ./internal/mapping/ -run 'TriggerOrder|MulliganBottom' -v`
+Expected: `--- PASS: TestTriggerOrderImpliesTheLastPosition`, `--- PASS: TestMulliganBottomPosesAllPicks`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engines/gorge/internal/mapping && git commit -m "gorge adapter: order picks (triggers, mulligan bottom, Brainstorm)"
+```
+
+---
+
+### Task 19b: Arrangement
+
+**Files:**
+- Create: `internal/mapping/arrange.go`
+- Test: `internal/mapping/arrange_test.go`
+
+**Interfaces:**
+- Consumes: framework, `Env.OpenLook`, `LookRef`, `KnownEntry`, `SortKnown`, `gamecfg.Game.Probe`; Task 14's test helpers.
+- Native ops (read by Task 26's agent): partition candidates are `dest` (Option is the card's native option or -1, List the destination, Position the card index; `top` and `hand` are inside the native Choices). Ordering candidates are `list` (List `choices`, `rest` or `followup:dig_bottom`; Option the card's option in that decision; Position its place in the destination). Explore's partition candidates are `choose` with the destination option's index.
+- Produces registered routes:
+  - `arrange/bottom`, `arrange/graveyard`, `arrange/exile`, `arrange/hand`: the Section 7.5 arrangement, `2n-1` decisions;
+  - `choose/dig`: dig and gorge's follow-up `dig_bottom` as one arrangement with purpose `dig`;
+  - `arrange/dig_bottom`: a dig_bottom ask with no take ask before it, one arrangement with forced `bottom` partitions;
+  - `choose/explore`: one-card arrangement, destinations `top` or `graveyard`.
+
+Pinned direction, verified in gorge's code (`rules/arrange.go`, `rules/mulligan.go` `handleBottoming`, `effects/zone.go` `libraryOrderPlacement`): in every native answer, list index 0 is the card closest to the library's top. It matches v2 position order, so native lists are built in v2 placement order.
+
+- [ ] **Step 1: Write the failing tests**
+
+`internal/mapping/arrange_test.go`:
+
+```go
+package mapping_test
+
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
+)
+
+func TestScryIsTwoNMinusOneAndLandsCardsWhereChosen(t *testing.T) {
+	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
+		return d.Kind == decision.KArrange && d.Restable && len(d.Options) == 2 // Preordain's scry 2
+	})
+	env := envFor(t, g)
+	d := g.E.Pending()
+	lib := g.E.G.Zone(state.ZLibrary, d.Player)
+	top0, top1 := lib[0], lib[1]
+	tx, _ := mapping.Begin(env, d)
+	decisions := 0
+	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		decisions++
+		if p.SubstepCount != 3 {
+			t.Fatalf("group size %d, want 3", p.SubstepCount)
+		}
+		if p.Candidates[0].Sem.Kind == "arrange_card" {
+			for i, c := range p.Candidates { // send card 0 to the bottom, keep card 1 on top
+				if (decisions == 1) == (c.Sem.Fields["destination"] == "bottom") {
+					return i
+				}
+			}
+		}
+		return 0
+	})
+	if decisions != 3 {
+		t.Fatalf("%d decisions", decisions)
+	}
+	c, err := g.Probe(commit...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Preordain draws after its scry, so the card kept on top is now the last
+	// card added to the hand, and the other is the library's bottom card.
+	hand, newLib := c.G.Zone(state.ZHand, d.Player), c.G.Zone(state.ZLibrary, d.Player)
+	if hand[len(hand)-1] != top1 || newLib[len(newLib)-1] != top0 {
+		t.Fatalf("drawn %d, library bottom %d, want %d and %d", hand[len(hand)-1], newLib[len(newLib)-1], top1, top0)
+	}
+}
+
+func TestDigMergesDigAndDigBottomIntoOneArrangement(t *testing.T) {
+	g := untilPending(t, "Spy", 1, func(d *decision.Decision, e *rules.Engine) bool {
+		return d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Kind == "dig"
+	})
+	env := envFor(t, g)
+	tx, _ := mapping.Begin(env, g.E.Pending())
+	var count uint32
+	followOps := 0
+	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		count = p.SubstepCount
+		for i, c := range p.Candidates {
+			if c.Sem.Kind == "arrange_card" && c.Sem.Fields["destination"] == "bottom" {
+				return i // every card to the bottom, so gorge asks dig_bottom for the order
+			}
+			if c.Op.Op == "list" && c.Op.List == "followup:dig_bottom" && p.Followups["dig_bottom"] != nil {
+				followOps++
+			}
+		}
+		return 0
+	})
+	if count != 2*5-1 {
+		t.Fatalf("Lead the Stampede arrangement size %d, want 9", count)
+	}
+	if followOps == 0 || len(commit) != 2 {
+		t.Fatalf("bottom order not carried by the dig_bottom follow-up: %d ops, commit %v", followOps, commit)
+	}
+	if _, err := g.Probe(commit...); err != nil {
+		t.Fatalf("dig commit rejected: %v", err)
+	}
+}
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `go test ./internal/mapping/ -run 'Scry|Dig'`
+Expected: FAIL with `unmapped_decision:arrange/bottom`.
+
+- [ ] **Step 3: Write minimal implementation**
 
 `internal/mapping/arrange.go`:
 
@@ -7527,13 +10164,13 @@ Three details are easy to get wrong:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `go test ./internal/mapping/ -run 'Scry|Dig|TriggerOrder|MulliganBottom' -v`
-Expected: all four PASS.
+Run: `go test ./internal/mapping/ -run 'Scry|Dig' -v`
+Expected: `--- PASS: TestScryIsTwoNMinusOneAndLandsCardsWhereChosen`, `--- PASS: TestDigMergesDigAndDigBottomIntoOneArrangement`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engines/gorge/internal/mapping && git commit -m "gorge adapter: order picks and fixed-size arrangements (scry, dig, explore, Brainstorm)"
+git add engines/gorge/internal/mapping && git commit -m "gorge adapter: fixed-size arrangements (scry, dig, explore)"
 ```
 
 ---
@@ -7548,7 +10185,7 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: order pi
 - Consumes: framework.
 - Produces registered routes:
   - `mulligan/keep` (`mulligan`, which updates `Env.Obs.Mulls`);
-  - `trigger_optional/optional` (`choose_boolean` `optional_trigger`), `trigger_optional/madness` (`optional_cast` `madness`);
+  - `trigger_optional/optional` (`choose_boolean` `optional_trigger`), `trigger_optional/madness` (`optional_cast` `madness`, whose `card` is the exiled card itself: `ResolveSource` would answer the madness trigger's stack entry);
   - `choose/yesno` (`choose_boolean`: ResumeKind `search_confirm` to `may_ability`, `search_mayshuffle` to `other`, `copy_optional` and `repeat_optional` to `may_ability`, else `other`);
   - `replacement/madness` (`choose_boolean` `optional_replacement`, true means exile), `replacement/order` (`choose_replacement`);
   - `choose/color` (`choose_color` `effect`), `choose/x` (`choose_number` `x_value`), `choose/number` (`choose_number` `amount`);
@@ -7568,6 +10205,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
 func TestSimpleChoiceKinds(t *testing.T) {
@@ -7601,6 +10239,11 @@ func TestSimpleChoiceKinds(t *testing.T) {
 		}
 		if err := p.Candidates[0].Sem.Check(); err != nil {
 			t.Fatalf("%s: %v", c.want, err)
+		}
+		if c.want == "optional_cast" { // the card in exile, not the madness trigger on the stack
+			if card := p.Candidates[0].Sem.Fields["card"].(protocol.ObjectRef); card.Zone != "exile" {
+				t.Fatalf("madness card is in %s", card.Zone)
+			}
 		}
 	}
 }
@@ -7679,10 +10322,16 @@ func init() {
 		})
 	})
 	Register("trigger_optional/madness", func(env *Env, d *decision.Decision) (Transaction, error) {
-		card, err := MustSource(env, d)
+		// optional_cast.card is the exiled card itself. ResolveSource would
+		// answer the madness trigger's stack entry, whose source it is.
+		r, err := env.Obs.Ref(d.Player, d.Source)
 		if err != nil {
 			return nil, err
 		}
+		if r == nil {
+			return nil, ErrUnresolvableSource
+		}
+		card := *r
 		return SingleChoice(env, d, choice(&card, ""), func(o decision.Option) (protocol.Semantic, bool, error) {
 			return protocol.OptionalCast(card, "madness", o.Kind == "yes"), true, nil
 		})
@@ -7809,7 +10458,7 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: mulligan
 - Consumes: framework, `ExpandActivate` (Task 15).
 - Produces:
   - registered routes `modes/unless`, `choose/mana_window`, `choose/trigger_cost`;
-  - `func mapping.Internal(d *decision.Decision) (decision.Intent, bool)`, the decisions the engine answers itself. v2.0 has no kind for allocating floating mana to a hybrid pip, since `pay_mana` is reserved, so `choose/pay_pip` is answered with gorge's first offered option. This is the engine's payment procedure, not a player decision, and is recorded in the engine notes (Task 29) and as controller decision 3.
+  - the internal answer `choose/pay_pip` (`RegisterInternal`, Task 13's registry). v2.0 has no kind for allocating floating mana to a hybrid pip, since `pay_mana` is reserved, so `choose/pay_pip` is answered with gorge's first offered option. This is the engine's payment procedure, not a player decision, and is recorded in the engine notes (Task 29) and as controller decision 3.
 
 Rules:
 - **Unless costs** (gorge `KModes` pay/decline, ResumeKind `unless_pay`) become `optional_cost`.
@@ -7820,7 +10469,7 @@ Rules:
   - one `activate_mana_ability` per window activation, folded like Task 15;
   - `optional_cost pay:true`, only when a clone shows that done leads to a pay/decline ask offering pay.
   - Each activation commits and the session re-poses the next window as a new decision.
-  - A window whose done does not lead to a trigger-cost ask (a cast payment window, or `unless_mana`) fails closed.
+  - A window whose done does not lead to a trigger-cost ask fails closed: a cast payment window (gorge poses one when a cost grows after announcement; absent in bot play, reachable by other agents) or `unless_mana`. The engine notes list it as a halt cause (G2-28).
 - **Trigger costs without a window** (`choose/trigger_cost`) become `optional_cost` pay:true/false as offered.
 
 - [ ] **Step 1: Write the failing test**
@@ -7902,11 +10551,11 @@ func TestUnlessPayIsOfferedOnlyWhenThePoolCovers(t *testing.T) {
 
 func TestHybridPipIsAnsweredInternally(t *testing.T) {
 	d := &decision.Decision{Kind: decision.KChoose, Min: 1, Max: 1, Options: []decision.Option{{Index: 0, Kind: "pay_R"}, {Index: 1, Kind: "pay_G"}}}
-	in, ok := mapping.Internal(d)
-	if !ok || len(in.Choices) != 1 || in.Choices[0] != 0 {
-		t.Fatalf("internal answer %v %v", in, ok)
+	in, ok, err := mapping.Internal(nil, d)
+	if !ok || err != nil || len(in.Choices) != 1 || in.Choices[0] != 0 {
+		t.Fatalf("internal answer %v %v %v", in, ok, err)
 	}
-	if _, ok := mapping.Internal(&decision.Decision{Kind: decision.KPriority}); ok {
+	if _, ok, _ := mapping.Internal(nil, &decision.Decision{Kind: decision.KPriority}); ok {
 		t.Fatal("priority answered internally")
 	}
 }
@@ -7915,7 +10564,7 @@ func TestHybridPipIsAnsweredInternally(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/mapping/ -run 'Spellbomb|UnlessPay|HybridPip'`
-Expected: FAIL with `undefined: mapping.Internal`.
+Expected: FAIL with `engine_contract_failure:unmapped_decision:choose/mana_window`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -7936,14 +10585,15 @@ func init() {
 	Register("modes/unless", newUnless)
 	Register("choose/mana_window", newManaWindow)
 	Register("choose/trigger_cost", newTriggerCost)
+	RegisterInternal("choose/pay_pip", payPip)
 }
 
-// Internal returns the answer for decisions the engine makes itself.
-func Internal(d *decision.Decision) (decision.Intent, bool) {
-	if d.Kind == decision.KChoose && Route(d) == "choose/pay_pip" {
-		return Intent(d, d.Options[0].Index), true
-	}
-	return decision.Intent{}, false
+// payPip allocates floating mana to a hybrid pip with gorge's first offered
+// option: v2.0 has no kind for it (pay_mana is reserved), so this is the
+// engine's payment procedure, recorded in the engine notes (controller
+// decision 3).
+func payPip(_ *Env, d *decision.Decision) (decision.Intent, error) {
+	return Intent(d, d.Options[0].Index), nil
 }
 
 func unlessCost(d *decision.Decision) string {
@@ -8026,6 +10676,8 @@ func newManaWindow(env *Env, d *decision.Decision) (Transaction, error) {
 	}
 	ask := c.Pending()
 	if ask == nil || ask.Player != d.Player || Route(ask) != "choose/trigger_cost" {
+		// A cast payment window (a cost that grew after announcement) or an
+		// unless_mana window: not mapped in v2.0, a listed halt cause.
 		return nil, fmt.Errorf("%w:mana_window_not_a_trigger_cost", ErrUnmapped)
 	}
 	purp := "mana_payment"
@@ -8082,7 +10734,7 @@ git add engines/gorge/internal/mapping && git commit -m "gorge adapter: unless a
 - Test: `internal/session/session_test.go`
 
 **Interfaces:**
-- Consumes: `gamecfg`, `identity`, `observe`, `mapping` (Begin, Internal, error values), `protocol`.
+- Consumes: `gamecfg`, `identity`, `observe`, `mapping` (Begin, `Internal(env, d)`, error values), `protocol`.
 - Produces:
   - `type session.Extender interface{ Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64) (map[string]json.RawMessage, error) }`;
   - `type session.Config struct{ Reg *cards.Registry; Provenance protocol.Provenance; Ext Extender }`;
@@ -8098,6 +10750,9 @@ Rules:
 - Caps are checked only when a group would start. A group starts only if `decision_count < max_decisions` and `step + substep_count <= max_steps`, so truncation never splits a group (Section 8).
 - Halts are `halted` with reason `engine_contract_failure:<cause>`, the cause a fixed token, never engine text. Engine panics, including `*rules.LivelockError`, are recovered.
 - `priority_seat` is the acting seat for priority decisions and for choices inside that seat's own priority action; else null.
+- A priority answer records the action (`mapping.ActionContext`, with `Since` the engine's next object id), which source resolution reads while the seat announces it (Task 13).
+- Decisions the engine answers itself (`mapping.Internal`: combat damage in engine order, hybrid pips) are submitted without posing.
+- A folded follow-up intent (Seq 0) is submitted only when the pending decision is the one the lookahead saw: the same kind and player, and options equal in kind, object, mana symbol and ability. Its pose keys name it (`followKeys`). Anything else halts `followup_mismatch` (G2-16).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -8107,7 +10762,10 @@ Rules:
 package session_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"maps"
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -8184,25 +10842,105 @@ func TestFirstCandidateGameEndsWithConsistentCounts(t *testing.T) {
 	}
 }
 
+// reversedJSON writes a decoded JSON value with every object's keys in
+// reverse sorted order, a layout no encoder produces on its own.
+func reversedJSON(v any) []byte {
+	var b bytes.Buffer
+	switch x := v.(type) {
+	case map[string]any:
+		keys := slices.Sorted(maps.Keys(x))
+		slices.Reverse(keys)
+		b.WriteByte('{')
+		for i, k := range keys {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			kb, _ := json.Marshal(k)
+			b.Write(kb)
+			b.WriteByte(':')
+			b.Write(reversedJSON(x[k]))
+		}
+		b.WriteByte('}')
+	case []any:
+		b.WriteByte('[')
+		for i, e := range x {
+			if i > 0 {
+				b.WriteByte(',')
+			}
+			b.Write(reversedJSON(e))
+		}
+		b.WriteByte(']')
+	default:
+		eb, _ := json.Marshal(x)
+		b.Write(eb)
+	}
+	return b.Bytes()
+}
+
+func decoded(t *testing.T, raw []byte) map[string]any {
+	d := json.NewDecoder(bytes.NewReader(raw))
+	d.UseNumber()
+	var m map[string]any
+	if err := d.Decode(&m); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
 func TestEchoComparesParsedFieldsNotBytes(t *testing.T) {
 	g := start(t, "Burn", 4000)
-	dec, _ := g.Pending()
-	c := dec.SeatDecision.Candidates[len(dec.SeatDecision.Candidates)-1].Semantic
-	var m map[string]any
-	json.Unmarshal(echo(t, c), &m)
-	reordered, _ := json.Marshal(m) // map keys come back sorted: a different byte order than the struct fields
+	// Pass until a candidate carries a nested object reference (a play_land
+	// or cast_spell source).
+	var dec *protocol.DecisionResponse
+	id := -1
+	for n := 0; id < 0; n++ {
+		d, term := g.Pending()
+		if term != nil || n > 200 {
+			t.Fatal("no candidate with a nested object reference")
+		}
+		for i, c := range d.SeatDecision.Candidates {
+			if _, ok := c.Semantic.Fields["source"].(protocol.ObjectRef); ok {
+				dec, id = d, i
+				break
+			}
+		}
+		if id < 0 {
+			if perr := g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: d.Step, CandidateID: 0, Echo: echo(t, d.SeatDecision.Candidates[0].Semantic)}); perr != nil {
+				t.Fatal(perr)
+			}
+		}
+	}
+	c := dec.SeatDecision.Candidates[id].Semantic
+	raw := echo(t, c)
+	reordered := reversedJSON(decoded(t, raw))
+	if bytes.Equal(reordered, raw) {
+		t.Fatal("the reversed layout equals the engine's bytes")
+	}
 	if !session.EchoEqual(reordered, c) {
-		t.Fatal("reordered echo rejected")
+		t.Fatalf("echo with reversed keys at every level rejected: %s", reordered)
 	}
-	m["x_extra"] = 1
-	extra, _ := json.Marshal(m)
-	if session.EchoEqual(extra, c) {
-		t.Fatal("echo with an extra field accepted")
+	extra := decoded(t, raw)
+	extra["x_extra"] = 1
+	changed := decoded(t, raw)
+	changed["source"].(map[string]any)["zone"] = "graveyard"
+	for what, m := range map[string]map[string]any{"an extra field": extra, "a changed nested field": changed} {
+		b := reversedJSON(m)
+		if session.EchoEqual(b, c) {
+			t.Fatalf("echo with %s accepted", what)
+		}
+		if perr := g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: uint64(id), Echo: b}); perr == nil || perr.Code != protocol.CodeSemanticEchoMismatch {
+			t.Fatalf("echo with %s: got %v", what, perr)
+		}
 	}
-	if perr := g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: 0, Echo: extra}); perr == nil || perr.Code != protocol.CodeSemanticEchoMismatch {
-		t.Fatalf("got %v", perr)
+	if perr := g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: uint64(id), Echo: reordered}); perr != nil {
+		t.Fatalf("reordered echo refused by Step: %v", perr)
 	}
 }
+
+// last answers every decision with its last candidate: it takes mulligans
+// until the rule forces a keep, then bottoms several cards, an order_pick
+// group of two or more substeps (Section 8).
+func last(sd protocol.SeatDecision) int { return len(sd.Candidates) - 1 }
 
 func TestCapNeverSplitsAGroup(t *testing.T) {
 	g := start(t, "Rally", 4000)
@@ -8210,14 +10948,17 @@ func TestCapNeverSplitsAGroup(t *testing.T) {
 	for found := false; !found; {
 		dec, term := g.Pending()
 		if term != nil {
-			t.Skip("no multi-substep group in this seed")
+			t.Fatal("the game ended before a multi-substep group")
 		}
 		sd := dec.SeatDecision
 		if sd.Group.SubstepIndex == 0 && sd.Group.SubstepCount >= 2 {
 			groupStep, found = dec.Step, true
 			break
 		}
-		g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: 0, Echo: echo(t, sd.Candidates[0].Semantic)})
+		k := last(sd)
+		if perr := g.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: uint64(k), Echo: echo(t, sd.Candidates[k].Semantic)}); perr != nil {
+			t.Fatal(perr)
+		}
 	}
 	h := start(t, "Rally", groupStep+1) // room for one more decision, not for the group
 	for {
@@ -8228,7 +10969,10 @@ func TestCapNeverSplitsAGroup(t *testing.T) {
 			}
 			return
 		}
-		h.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: 0, Echo: echo(t, dec.SeatDecision.Candidates[0].Semantic)})
+		k := last(dec.SeatDecision)
+		if perr := h.Step(&protocol.StepReq{GameID: "g-t", ExpectedStep: dec.Step, CandidateID: uint64(k), Echo: echo(t, dec.SeatDecision.Candidates[k].Semantic)}); perr != nil {
+			t.Fatal(perr)
+		}
 	}
 }
 
@@ -8263,6 +11007,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -8356,8 +11101,11 @@ func (s *Game) advance() {
 				s.halt("no_pending_decision")
 				return
 			}
-			if in, ok := mapping.Internal(d); ok {
-				if err := s.submit(in); err != nil {
+			if in, ok, err := mapping.Internal(s.env, d); ok || err != nil {
+				if err == nil {
+					err = s.submit(in, nil)
+				}
+				if err != nil {
 					s.halt(cause(err, "submit_rejected"))
 					return
 				}
@@ -8470,9 +11218,10 @@ func (s *Game) answer(i int) {
 	defer s.recoverPanic()
 	p := s.pose
 	seat := p.Seat
+	op := p.Candidates[i].Op
 	if p.Context.Kind == "priority" {
-		if obj := s.actionObject(p.Candidates[i].Op); obj != 0 {
-			s.env.Action = &mapping.ActionContext{Seat: seat, Obj: obj}
+		if obj := s.actionObject(op); obj != 0 {
+			s.env.Action = &mapping.ActionContext{Seat: seat, Obj: obj, Since: s.g.E.G.NextID}
 		}
 	}
 	commit, done, err := s.tx.Answer(i)
@@ -8486,8 +11235,13 @@ func (s *Game) answer(i int) {
 		s.halt(cause(err, "dead_end"))
 		return
 	}
-	for _, in := range commit {
-		if err := s.submit(in); err != nil {
+	keys := followKeys(op)
+	for k, in := range commit {
+		var want *decision.Decision
+		if k > 0 && in.Seq == 0 && k-1 < len(keys) {
+			want = p.Followups[keys[k-1]]
+		}
+		if err := s.submit(in, want); err != nil {
 			s.halt(cause(err, "submit_rejected"))
 			return
 		}
@@ -8501,12 +11255,46 @@ func (s *Game) answer(i int) {
 
 var errFollowup = errors.New("engine_contract_failure:followup_mismatch")
 
-func (s *Game) submit(in decision.Intent) error {
+// followKeys names the pose follow-ups a candidate's folded intents answer,
+// in commit order: "<option>", then "<option>/<first follow-up option>"
+// (Tasks 15 and 21 key them so).
+func followKeys(op mapping.NativeOp) []string {
+	keys := make([]string, 0, len(op.Followup))
+	key := strconv.Itoa(op.Option)
+	for _, f := range op.Followup {
+		keys = append(keys, key)
+		key += "/" + strconv.Itoa(f)
+	}
+	return keys
+}
+
+// sameAsk reports whether the pending decision is the one the lookahead saw:
+// the same kind, player and options (kind, object, mana symbol, ability).
+func sameAsk(d, want *decision.Decision) bool {
+	if d.Kind != want.Kind || d.Player != want.Player || len(d.Options) != len(want.Options) {
+		return false
+	}
+	for i, o := range d.Options {
+		w := want.Options[i]
+		if o.Kind != w.Kind || o.Obj != w.Obj || o.ManaSymbol != w.ManaSymbol || o.Ability != w.Ability {
+			return false
+		}
+	}
+	return true
+}
+
+// submit sends one intent. A folded follow-up (Seq 0) is filled from the
+// pending decision only after that decision is shown to be the lookahead's
+// (want); otherwise the game halts followup_mismatch.
+func (s *Game) submit(in decision.Intent, want *decision.Decision) error {
 	d := s.g.E.Pending()
 	if d == nil {
 		return errFollowup
 	}
 	if in.Seq == 0 {
+		if want == nil || !sameAsk(d, want) {
+			return errFollowup
+		}
 		in.Seq, in.Player = d.Seq, d.Player
 	}
 	if in.Seq != d.Seq || in.Player != d.Player {
@@ -8625,17 +11413,18 @@ git add engines/gorge/internal/session && git commit -m "gorge adapter: v2 game 
 - Produces:
   - `type server.Server` with `func server.New(reg *cards.Registry, sourceRevision *string) *Server` and `func (*Server) Handle(line []byte) []byte` (one response line without the newline);
   - `func server.Serve(r io.Reader, w io.Writer, s *Server) error`;
-  - `var server.DecisionKinds []string` (the 25 kinds);
+  - `var server.DecisionKinds []string` (the 24 kinds; `distribute` is not one, since combat damage follows the declared `engine_order` default);
   - the `spellbench-gorge-env` binary (`-corpus`, `-source-revision`).
 
-Retransmission: the engine caches the last response. Every request id seen gets its payload's SHA-256.
-- The identical last request returns the cached bytes.
-- Any other reuse of an id returns `request_id_reuse_mismatch`, including an identical retransmission of an older request, which a host never sends because it never pipelines. This is recorded in the engine notes.
+Retransmission (Section 4.1, G2-21): the engine caches every response since the last accepted reset, with its request's SHA-256, by request id.
+- An identical retransmission of any cached request, the latest or an older one of the same game, returns its cached bytes without side effects.
+- A cached id with different bytes returns `request_id_reuse_mismatch`.
+- Each accepted reset clears the cache, so it holds one game's traffic at most. An id from an earlier game is no longer recognized; a host never reuses one, since ids are unique per process. This is recorded in the engine notes.
 
 Parse failures are never cached.
 
 Validation order:
-- **Reset:** `game_already_active`, reused `game_id` (`malformed_request`), `unsupported_format`, per-seat deck checks (`unsupported_deck`, then `deck_id_mismatch`), rule checks (`unsupported_rule`, and `malformed_request` when `domain_id` does not hash its names).
+- **Reset:** `game_already_active`, reused `game_id` (`malformed_request`), `unsupported_format`, per-seat deck checks (`unsupported_deck`, then `deck_id_mismatch`), rule checks (`unsupported_rule`, and `malformed_request` when `domain_id` does not hash its names or a name repeats).
 - **Step:** `step_before_reset`, `game_id_mismatch`, then the session's order.
 
 - [ ] **Step 1: Write the failing test**
@@ -8648,6 +11437,7 @@ package server_test
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -8676,8 +11466,9 @@ func code(t *testing.T, b []byte) string {
 func reset(id, gameID, deck, mutate string) []byte {
 	d, _ := catalog.ByID(deck)
 	names, _ := json.Marshal(catalog.PoolNames())
+	dom, _ := wire.DomainID(catalog.PoolNames())
 	line := fmt.Sprintf(`{"request_type":"reset","protocol":"spellbench/v2","request_id":%q,"game_id":%q,"format":"pauper-bo1","seats":[{"seat":"p0","deck":{"deck_id":%q,"catalog_id":%q}},{"seat":"p1","deck":{"deck_id":%q,"catalog_id":%q}}],"rules":{"opponent_decklist":"visible","mulligan":"london","starting_player":"host_assigned","starting_seat":"p0","card_name_domain":{"domain_id":%q,"names":%s},"extensions":["x_gorge_view_v1"],"probe":false},"game_secret":"%s","max_decisions":10000,"max_steps":100000}`,
-		id, gameID, d.DeckID(), deck, d.DeckID(), deck, wire.DomainID(catalog.PoolNames()), names, strings.Repeat("ab", 32))
+		id, gameID, d.DeckID(), deck, d.DeckID(), deck, dom, names, strings.Repeat("ab", 32))
 	if mutate != "" {
 		parts := strings.SplitN(mutate, "=>", 2)
 		line = strings.Replace(line, parts[0], parts[1], 1)
@@ -8688,9 +11479,13 @@ func reset(id, gameID, deck, mutate string) []byte {
 func TestHelloDeclaresTheProfile(t *testing.T) {
 	s := server.New(testcorpus.Registry(t), nil)
 	m := resp(t, s.Handle([]byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1","protocol_minor":3}`)))
-	if m["protocol_minor"].(float64) != 0 || len(m["decision_kinds"].([]any)) != 25 || len(m["catalog"].([]any)) != 5 ||
-		len(m["observation"].(map[string]any)) != 13 || m["rewind"] != false {
+	if m["protocol_minor"].(float64) != 0 || len(m["decision_kinds"].([]any)) != 24 || len(m["catalog"].([]any)) != 5 ||
+		len(m["observation"].(map[string]any)) != 13 || m["rewind"] != false ||
+		m["engine_defaults"].(map[string]any)["combat_damage_assignment"] != "engine_order" {
 		t.Fatalf("hello_ok %v", m)
+	}
+	if slices.Contains(server.DecisionKinds, "distribute") {
+		t.Fatal("distribute declared, but combat damage follows engine_order")
 	}
 }
 
@@ -8754,9 +11549,18 @@ func TestRetransmissionIsIdempotentAndReuseFails(t *testing.T) {
 	if got := code(t, s.Handle(reset("r-1", "g-1", "Spy", ""))); got != "request_id_reuse_mismatch" {
 		t.Fatalf("reuse with different bytes: %s", got)
 	}
-	s.Handle([]byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-9","protocol_minor":0}`))
-	if got := code(t, s.Handle(line)); got != "request_id_reuse_mismatch" {
+	hello := `{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-9","protocol_minor":0}`
+	h := s.Handle([]byte(hello))
+	// Section 4.1: an identical retransmission of an older request of this
+	// game returns its cached response, without side effects.
+	if got := s.Handle(line); string(got) != string(a) {
 		t.Fatalf("older identical retransmission: %s", got)
+	}
+	if got := s.Handle([]byte(hello)); string(got) != string(h) {
+		t.Fatal("retransmitted hello returned different bytes")
+	}
+	if got := code(t, s.Handle([]byte(strings.Replace(hello, `"protocol_minor":0`, `"protocol_minor":1`, 1)))); got != "request_id_reuse_mismatch" {
+		t.Fatalf("older id with different bytes: %s", got)
 	}
 }
 ```
@@ -8783,26 +11587,36 @@ import (
 
 const AdapterVersion = "0.1.0"
 
+// DecisionKinds are the 24 kinds the engine emits. distribute is not one:
+// combat damage follows the declared engine_order default (Section 7.6).
 var DecisionKinds = []string{"pass", "play_land", "cast_spell", "activate_mana_ability", "activate_ability",
 	"special_action", "choose_target", "finish_target_selection", "choose_cost_target", "choose_spell_mode",
 	"choose_color", "choose_number", "choose_boolean", "choose_name", "select_object", "finish_selection",
 	"optional_cost", "optional_cast", "mulligan", "order_pick", "arrange_card", "choose_replacement",
-	"declare_attack", "declare_block", "distribute"}
+	"declare_attack", "declare_block"}
 
 func engineIdentity(sourceRevision *string) protocol.Engine {
 	var ids []string
 	for _, d := range catalog.Decks() {
 		ids = append(ids, d.DeckID())
 	}
+	catalogID, err := wire.DomainID(ids) // five distinct deck ids: never refused
+	if err != nil {
+		panic("catalog deck ids repeat: " + err.Error())
+	}
 	return protocol.Engine{Name: "gorge", Version: "gorge-" + gorgepin.GorgeCommit[:12] + "/spellbench-adapter-" + AdapterVersion,
 		SourceRevision:   sourceRevision,
 		RulesSnapshotID:  "gorge/" + gorgepin.GorgeCommit[:12] + "/ir-" + cards.CompilerFingerprint,
-		CardPoolIdentity: "forge-" + gorgepin.ForgeRef[:12] + "/corpus-" + gorgepin.CorpusDigest[:16] + "/catalog-" + wire.DomainID(ids)[7:23]}
+		CardPoolIdentity: "forge-" + gorgepin.ForgeRef[:12] + "/corpus-" + gorgepin.CorpusDigest[:16] + "/catalog-" + catalogID[7:23]}
 }
 
 func provenance(e protocol.Engine) protocol.Provenance {
 	return protocol.Provenance{EngineName: e.Name, EngineVersion: e.Version, RulesSnapshotID: e.RulesSnapshotID, CardPoolIdentity: e.CardPoolIdentity}
 }
+
+// engineOrder is the declared combat damage default (Section 7.6): gorge
+// assigns combat damage in engine order (Task 16).
+var engineOrder = "engine_order"
 
 func helloOK(id string, e protocol.Engine, flags map[string]bool) protocol.HelloOK {
 	var cat []protocol.CatalogDeck
@@ -8817,7 +11631,7 @@ func helloOK(id string, e protocol.Engine, flags map[string]bool) protocol.Hello
 		Formats: []string{"pauper-bo1"}, DeckSources: []string{"catalog"}, Catalog: cat,
 		RulesSupported: map[string][]string{"mulligan": {"london", "none"}, "starting_player": {"host_assigned"}},
 		Observation:    flags, DecisionKinds: DecisionKinds,
-		EngineDefaults: map[string]*string{"trigger_order": nil, "replacement_order": nil, "combat_damage_assignment": nil, "mana_payment": nil},
+		EngineDefaults: map[string]*string{"trigger_order": nil, "replacement_order": nil, "combat_damage_assignment": &engineOrder, "mana_payment": nil},
 		Rewind:         false, Fairness: map[string]bool{"noninterference_probe": false},
 		Extensions:     []protocol.Extension{{Name: "x_gorge_view_v1", NativeIDs: false}}}
 }
@@ -8845,18 +11659,26 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/xview"
 )
 
+// cached is one answered request: the SHA-256 of its line and the response.
+type cached struct {
+	sum  [32]byte
+	resp []byte
+}
+
 type Server struct {
-	reg      *cards.Registry
-	engine   protocol.Engine
-	game     *session.Game
-	gameIDs  map[string]bool
-	seen     map[string][32]byte
-	lastID   string
-	lastResp []byte
+	reg     *cards.Registry
+	engine  protocol.Engine
+	game    *session.Game
+	gameIDs map[string]bool
+	// cache holds every response since the last accepted reset, by request
+	// id (Section 4.1): an identical retransmission of any of them returns
+	// its bytes, a changed payload is request_id_reuse_mismatch. Clearing it
+	// at each accepted reset bounds it by one game's traffic.
+	cache map[string]cached
 }
 
 func New(reg *cards.Registry, sourceRevision *string) *Server {
-	return &Server{reg: reg, engine: engineIdentity(sourceRevision), gameIDs: map[string]bool{}, seen: map[string][32]byte{}}
+	return &Server{reg: reg, engine: engineIdentity(sourceRevision), gameIDs: map[string]bool{}, cache: map[string]cached{}}
 }
 
 func marshal(v any) []byte {
@@ -8875,14 +11697,18 @@ func (s *Server) Handle(line []byte) []byte {
 		return errResp(req.ID, perr)
 	}
 	sum := sha256.Sum256(line)
-	if prev, ok := s.seen[req.ID]; ok {
-		if prev == sum && req.ID == s.lastID {
-			return s.lastResp
+	if c, ok := s.cache[req.ID]; ok {
+		if c.sum == sum {
+			return c.resp
 		}
-		return errResp(req.ID, protocol.Errf(protocol.CodeRequestIDReuseMismatch, "request_id reused; only the latest request may be retransmitted"))
+		return errResp(req.ID, protocol.Errf(protocol.CodeRequestIDReuseMismatch, "request_id reused with a different payload"))
 	}
+	prev := s.game
 	out := s.dispatch(req)
-	s.seen[req.ID], s.lastID, s.lastResp = sum, req.ID, out
+	if s.game != prev { // an accepted reset starts a new game
+		clear(s.cache)
+	}
+	s.cache[req.ID] = cached{sum: sum, resp: out}
 	return out
 }
 
@@ -8950,8 +11776,9 @@ func (s *Server) reset(req protocol.Request) []byte {
 		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "starting_player"))
 	case r.Rules.Probe:
 		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "probe"))
-	case wire.DomainID(r.Rules.Names) != r.Rules.DomainID:
-		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, "card_name_domain.domain_id does not hash its names"))
+	}
+	if dom, err := wire.DomainID(r.Rules.Names); err != nil || dom != r.Rules.DomainID {
+		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, "card_name_domain.domain_id does not hash its distinct names"))
 	}
 	for _, x := range r.Rules.Extensions {
 		if x != "x_gorge_view_v1" {
@@ -9069,7 +11896,7 @@ func (f *flushWriter) Write(p []byte) (int, error) {
 Run: `go test ./internal/server/ -v`
 Expected: all four tests PASS.
 
-Run: `go build -o bin/spellbench-gorge-env.exe ./cmd/spellbench-gorge-env && echo '{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1","protocol_minor":0}' | ./bin/spellbench-gorge-env.exe | head -c 120`
+Run: `go build -o bin/ ./cmd/spellbench-gorge-env && echo '{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1","protocol_minor":0}' | bin/spellbench-gorge-env | head -c 120` (Git Bash finds the `.exe` on Windows)
 Expected: a line starting `{"catalog":[{"catalog_id":"Wildfire"` (canonical key order), with `"response_type":"hello_ok"` later in the same line.
 
 - [ ] **Step 5: Commit**
@@ -9089,8 +11916,9 @@ git add engines/gorge/internal/server engines/gorge/cmd/spellbench-gorge-env && 
 **Interfaces:**
 - Consumes: `mapping.Env`, `mapping.Pose`, `mapping.NativeOp`, `view.Project`, `view.RoundOf`, `identity.Tracker`, `observe.Visible`.
 - Produces:
-  - `type xview.Payload struct{ Version int; NativeIndex uint64; View view.View; Decision decision.Decision; Facts Facts; Followups map[string]decision.Decision; Ops []mapping.NativeOp; Splits [][]int32 }` (JSON keys `version`, `native_index`, `view`, `decision`, `policy_facts`, `followups`, `ops`, `splits`);
-  - `type xview.Facts` and `type xview.OptionFacts`;
+  - `type xview.Payload struct{ Version int; NativeIndex uint64; View view.View; Decision decision.Decision; Facts Facts; Followups map[string]decision.Decision; Ops []mapping.NativeOp }` (JSON keys `version`, `native_index`, `view`, `decision`, `policy_facts`, `followups`, `ops`);
+  - `type xview.Facts`, `type xview.OptionFacts` and `type xview.ProducesFacts` (a card view's `ManaProduction.Indeterminate` and `Reflected`, which are json `"-"` and read by gorge's bot when it taps mana: G2-27);
+  - `type xview.Follow struct{ Key string; Perm []int }`: the Extender keeps, per seat, its last payload's renumbering of the native decision and of each folded follow-up (by native key), for Task 28a's audit only;
   - `type xview.Extender`, implementing `session.Extender`, with `func xview.New() *Extender` (per game: per-seat id tables);
   - `func (*Extender) Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64) (map[string]json.RawMessage, error)`.
 
@@ -9099,7 +11927,10 @@ Audit rules (Section 14 with `native_ids: false`):
 - **No global counters:** `Decision.Seq` is replaced by `native_index`, the seat's own count of native decisions.
 - **No digests:** payment actions and fallbacks are dropped.
 - **No hidden order:** options referencing hidden-zone cards are reordered by `(card_name, v2 id)` and renumbered, in the native decision and in every follow-up. Follow-up keys and every op are translated with the matching permutation.
-- **Pending triggers** with hidden sources are dropped, as in the observation.
+- **Pending triggers** whose source is hidden, absent or 0 are dropped, as in the observation.
+- **Only seen objects get ids** (G2-2): an object the seat sees, or a hidden card this pose's own look shows (its native and follow-up options). Every other reference (a stack ability's source shuffled into a library, as Lembas's is; an absent object; 0) becomes 0, the payload's analogue of v2's `null`.
+- **No native ids in names** (G2-3): gorge writes object ids into option groups (`"blocker:65"`, `"payment:12"`). Each decision's groups are relabelled `g0`, `g1`, ... in first-appearance order, equal groups kept equal, and `GroupLimits` keys follow.
+- **Deterministic numbering** (G2-20): follow-ups are visited in sorted key order, so integers are assigned the same way on every rerun.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -9110,10 +11941,14 @@ package xview_test
 
 import (
 	"encoding/json"
+	"regexp"
+	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/identity"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
@@ -9123,35 +11958,52 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/xview"
 )
 
+// payloadAt plays bot games (seeds 1 to 20) until pred holds, then builds
+// the pose's payload.
 func payloadAt(t *testing.T, deck string, pred func(*decision.Decision, *rules.Engine) bool) (xview.Payload, *mapping.Pose) {
-	reg := testcorpus.Registry(t)
-	g := testgame.New(t, reg, deck, deck, 1, "none")
-	if !testgame.RunUntil(t, g, testgame.Bots(1), func(e *rules.Engine) bool { d := e.Pending(); return d != nil && pred(d, e) }, 30000) {
-		t.Fatal("decision not reached")
-	}
-	tr := identity.New(g.E, g.Secret)
-	env := &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Slots: map[string]uint32{}}
-	tx, err := mapping.Begin(env, g.E.Pending())
-	if err != nil {
-		t.Fatal(err)
-	}
-	p, err := tx.Pose()
-	if err != nil {
-		t.Fatal(err)
-	}
-	ext, err := xview.New().Extend(env, p, 7)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw := ext["x_gorge_view_v1"]
-	if err := wire.CheckStrictAny(raw); err != nil {
-		t.Fatalf("payload is not strict JSON: %v", err)
-	}
-	var pl xview.Payload
-	if err := json.Unmarshal(raw, &pl); err != nil {
-		t.Fatal(err)
-	}
+	pl, p, _ := payloadAndGame(t, deck, pred)
 	return pl, p
+}
+
+func payloadAndGame(t *testing.T, deck string, pred func(*decision.Decision, *rules.Engine) bool) (xview.Payload, *mapping.Pose, *rules.Engine) {
+	reg := testcorpus.Registry(t)
+	for seed := byte(1); seed <= 20; seed++ {
+		g := testgame.New(t, reg, deck, deck, seed, "none")
+		tr := identity.New(g.E, g.Secret)
+		if !testgame.RunUntil(t, g, testgame.Bots(uint64(seed)), func(e *rules.Engine) bool {
+			if err := tr.Sync(e); err != nil {
+				t.Fatal(err)
+			}
+			d := e.Pending()
+			return d != nil && pred(d, e)
+		}, 30000) {
+			continue
+		}
+		env := &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Slots: map[string]uint32{}}
+		tx, err := mapping.Begin(env, g.E.Pending())
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := tx.Pose()
+		if err != nil {
+			t.Fatal(err)
+		}
+		ext, err := xview.New().Extend(env, p, 7)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := ext["x_gorge_view_v1"]
+		if err := wire.CheckStrictAny(raw); err != nil {
+			t.Fatalf("payload is not strict JSON: %v", err)
+		}
+		var pl xview.Payload
+		if err := json.Unmarshal(raw, &pl); err != nil {
+			t.Fatal(err)
+		}
+		return pl, p, g.E
+	}
+	t.Fatalf("no %s game reached the decision", deck)
+	return xview.Payload{}, nil, nil
 }
 
 func TestPayloadHasNoGlobalCountersOrDigests(t *testing.T) {
@@ -9184,14 +12036,109 @@ func TestSearchOptionsAreSortedAndIDsAreSmall(t *testing.T) {
 		}
 	}
 }
+
+// Lembas's gain-life ability stays on the stack after its dies trigger
+// shuffles Lembas into the library: the ability's source is hidden, so the
+// payload names it 0 instead of failing the game (G2-2).
+func TestHiddenStackSourceIsZero(t *testing.T) {
+	var ability state.ObjID
+	pl, _, e := payloadAndGame(t, "Wildfire", func(d *decision.Decision, e *rules.Engine) bool {
+		for _, id := range e.G.Stack {
+			if o := e.G.Obj(id); o.Ability != nil && e.G.Obj(o.Source) != nil && e.G.Obj(o.Source).Zone == state.ZLibrary {
+				ability = id
+				return true
+			}
+		}
+		return false
+	})
+	i := slices.Index(e.G.Stack, ability)
+	if i < 0 || i >= len(pl.View.Stack) || pl.View.Stack[i].Source != 0 {
+		t.Fatalf("stack %+v, want entry %d with source 0", pl.View.Stack, i)
+	}
+}
+
+var kindAndID = regexp.MustCompile(`[a-z_]+:[0-9]+`)
+
+// Block options carry gorge groups named after native ids ("blocker:65"):
+// the payload relabels them g0, g1, ... and no string carries a native id
+// (G2-3).
+func TestGroupsCarryNoNativeIDs(t *testing.T) {
+	pl, p, _ := payloadAndGame(t, "Rally", func(d *decision.Decision, e *rules.Engine) bool {
+		if d.Kind != decision.KBlockers {
+			return false
+		}
+		for _, o := range d.Options {
+			if o.Group != "" {
+				return true
+			}
+		}
+		return false
+	})
+	groups := regexp.MustCompile(`^g[0-9]+$`)
+	native, got := p.Native.Options, pl.Decision.Options // blockers are visible: options keep their order
+	for i := range native {
+		if (native[i].Group == "") != (got[i].Group == "") || (got[i].Group != "" && !groups.MatchString(got[i].Group)) {
+			t.Fatalf("option %d group %q became %q", i, native[i].Group, got[i].Group)
+		}
+		for j := range native {
+			if (native[i].Group == native[j].Group) != (got[i].Group == got[j].Group) {
+				t.Fatalf("options %d and %d changed group equality", i, j)
+			}
+		}
+	}
+	for k := range pl.Decision.GroupLimits {
+		if !groups.MatchString(k) {
+			t.Fatalf("group limit key %q", k)
+		}
+	}
+	raw, _ := json.Marshal(pl)
+	var walk func(any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case string:
+			if kindAndID.MatchString(x) {
+				t.Errorf("payload string %q names a native id", x)
+			}
+		case []any:
+			for _, e := range x {
+				walk(e)
+			}
+		case map[string]any:
+			for k, e := range x {
+				walk(k)
+				walk(e)
+			}
+		}
+	}
+	var generic any
+	json.Unmarshal(raw, &generic)
+	walk(generic)
+	for _, pv := range pl.View.Players {
+		for _, cv := range pv.Battlefield {
+			if cv.Token != "#"+strconv.FormatUint(uint64(cv.ID), 10) {
+				t.Errorf("card %d token %q", cv.ID, cv.Token)
+			}
+		}
+	}
+}
 ```
 
-`internal/xview/key_test.go` (internal: `followKey` is unexported):
+`internal/xview/key_test.go` (internal: `followKey`, `rekey` and `dropSourceless` are unexported):
 
 ```go
 package xview
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/identity"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testcorpus"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testgame"
+)
 
 func TestFollowKeysFollowTheRenumbering(t *testing.T) {
 	perm := []int{2, 0, 1}
@@ -9200,6 +12147,27 @@ func TestFollowKeysFollowTheRenumbering(t *testing.T) {
 		if got := followKey(in, perm, fperm); got != want {
 			t.Errorf("followKey(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// A reference to a hidden card that no look shows, or to object 0 (a Rally
+// pending trigger had one), becomes 0 without failing, and a pending trigger
+// left without a source is dropped (G2-2).
+func TestHiddenAndZeroReferencesBecomeZero(t *testing.T) {
+	g := testgame.New(t, testcorpus.Registry(t), "Rally", "Rally", 1, "none")
+	tr := identity.New(g.E, g.Secret)
+	env := &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}}
+	hand, lib := g.E.G.Zone(state.ZHand, 0)[0], g.E.G.Zone(state.ZLibrary, 0)[0]
+	r, errp := New().rekey(env, 0, map[state.ObjID]bool{})
+	v := view.View{Pending: []view.PendingView{{Source: 0}, {Source: lib}, {Source: hand}},
+		Stack: []view.StackView{{ID: hand, Source: lib}}}
+	r.view(&v)
+	dropSourceless(&v)
+	if *errp != nil {
+		t.Fatal(*errp)
+	}
+	if len(v.Pending) != 1 || v.Pending[0].Source == 0 || v.Stack[0].Source != 0 || v.Stack[0].ID == 0 {
+		t.Fatalf("pending %+v, stack %+v", v.Pending, v.Stack)
 	}
 }
 ```
@@ -9312,7 +12280,8 @@ package xview
 
 import (
 	"encoding/json"
-	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -9333,8 +12302,18 @@ type OptionFacts struct {
 	AttackMust bool            `json:"attack_must"`
 }
 
+// ProducesFacts restores a card view's server-side mana production flags
+// (cards.ManaProduction's Indeterminate and Reflected are json "-"), which
+// gorge's bot reads when it taps mana.
+type ProducesFacts struct {
+	Card          state.ObjID `json:"card"`
+	Indeterminate bool        `json:"indeterminate"`
+	Reflected     bool        `json:"reflected"`
+}
+
 type Facts struct {
-	Options                   []OptionFacts `json:"options"`
+	Options                   []OptionFacts   `json:"options"`
+	Produces                  []ProducesFacts `json:"produces"`
 	EffectOptional            bool          `json:"effect_optional"`
 	CopyOfCopy                bool          `json:"copy_of_copy"`
 	AffordableTargets         int           `json:"affordable_targets"`
@@ -9353,7 +12332,6 @@ type Payload struct {
 	Facts       Facts                        `json:"policy_facts"`
 	Followups   map[string]decision.Decision `json:"followups"`
 	Ops         []mapping.NativeOp           `json:"ops"`
-	Splits      [][]int32                    `json:"splits"`
 }
 
 type table struct {
@@ -9361,16 +12339,29 @@ type table struct {
 	next uint32
 }
 
+// Follow is one folded follow-up of a seat's last payload: its payload key
+// and its native -> payload option renumbering.
+type Follow struct {
+	Key  string
+	Perm []int
+}
+
 type Extender struct {
-	tables [2]*table
-	last   [2][]int // the seat's last native -> payload renumbering (audit only, Task 28)
+	tables     [2]*table
+	last       [2][]int             // the seat's last native -> payload renumbering (audit only, Task 28a)
+	lastFollow [2]map[string]Follow // the same for its follow-ups, by native key (audit only, Task 28a)
 }
 
 func New() *Extender {
 	return &Extender{tables: [2]*table{{ints: map[string]uint32{}}, {ints: map[string]uint32{}}}}
 }
 
-func (x *Extender) rekey(env *mapping.Env, seat state.PlayerID) (rekeyer, *error) {
+// rekey maps gorge object ids to the seat's small integers. Only objects the
+// seat sees, or the hidden cards this pose's own look shows (its native and
+// follow-up options), get one. Every other reference (a card in a hidden zone,
+// an absent object, 0) becomes 0, the payload's analogue of v2's null
+// (Sections 5.1 and 5.3).
+func (x *Extender) rekey(env *mapping.Env, seat state.PlayerID, shown map[state.ObjID]bool) (rekeyer, *error) {
 	var firstErr error
 	t := x.tables[seat]
 	return func(id state.ObjID) state.ObjID {
@@ -9379,11 +12370,13 @@ func (x *Extender) rekey(env *mapping.Env, seat state.PlayerID) (rekeyer, *error
 		var err error
 		switch {
 		case o == nil:
-			err = fmt.Errorf("object %d missing", id)
+			return 0
 		case observe.Visible(seat, o) || o.Zone == state.ZCeased:
 			v2, err = env.IDs.VisibleID(seat, id)
+		case shown[id]:
+			v2, err = env.IDs.LookID(seat, id)
 		default:
-			v2, err = env.IDs.LookID(seat, id) // only a look can show a hidden-zone object
+			return 0
 		}
 		if err != nil {
 			if firstErr == nil {
@@ -9398,6 +12391,77 @@ func (x *Extender) rekey(env *mapping.Env, seat state.PlayerID) (rekeyer, *error
 		}
 		return state.ObjID(n)
 	}, &firstErr
+}
+
+// shownBy lists the objects the pose's native decision and folded follow-ups
+// offer: the only hidden-zone cards the payload may name.
+func shownBy(p *mapping.Pose) map[state.ObjID]bool {
+	shown := map[state.ObjID]bool{}
+	for _, d := range append([]*decision.Decision{p.Native}, slices.Collect(maps.Values(p.Followups))...) {
+		for _, o := range d.Options {
+			shown[o.Obj] = true
+		}
+	}
+	return shown
+}
+
+// relabelGroups replaces each option's Group with an opaque label in
+// first-appearance order (g0, g1, ...), keeping equal groups equal, and
+// renames GroupLimits keys the same way. gorge writes native object ids into
+// group names ("blocker:65", "payment:12").
+func relabelGroups(d *decision.Decision) {
+	labels := map[string]string{}
+	label := func(g string) string {
+		if g == "" {
+			return ""
+		}
+		l, ok := labels[g]
+		if !ok {
+			l = "g" + strconv.Itoa(len(labels))
+			labels[g] = l
+		}
+		return l
+	}
+	for i := range d.Options {
+		d.Options[i].Group = label(d.Options[i].Group)
+	}
+	if d.GroupLimits != nil {
+		m := make(map[string]int, len(d.GroupLimits))
+		for _, g := range slices.Sorted(maps.Keys(d.GroupLimits)) {
+			m[label(g)] = d.GroupLimits[g]
+		}
+		d.GroupLimits = m
+	}
+}
+
+// dropSourceless drops the pending triggers whose source rekeyed to 0: a
+// hidden, absent or zero source, as the observation omits them (Section 6.6).
+func dropSourceless(v *view.View) {
+	kept := v.Pending[:0]
+	for _, pv := range v.Pending {
+		if pv.Source != 0 {
+			kept = append(kept, pv)
+		}
+	}
+	v.Pending = kept
+}
+
+// produces collects the mana production flags of every card in the view.
+func produces(v *view.View) []ProducesFacts {
+	var out []ProducesFacts
+	add := func(cvs []view.CardView) {
+		for _, cv := range cvs {
+			if pr := cv.Produces; pr != nil && (pr.Indeterminate || pr.Reflected) {
+				out = append(out, ProducesFacts{Card: cv.ID, Indeterminate: pr.Indeterminate, Reflected: pr.Reflected})
+			}
+		}
+	}
+	for _, p := range v.Players {
+		for _, z := range [][]view.CardView{p.Hand, p.Battlefield, p.Graveyard, p.Exile, p.Command, p.Commanders} {
+			add(z)
+		}
+	}
+	return out
 }
 
 func facts(d *decision.Decision) Facts {
@@ -9475,19 +12539,14 @@ func followKey(k string, perm []int, fperm map[string][]int) string {
 func (x *Extender) Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64) (map[string]json.RawMessage, error) {
 	e := env.G.E
 	seat := p.Seat
-	r, errp := x.rekey(env, seat)
+	r, errp := x.rekey(env, seat, shownBy(p))
 	v := view.Project(e.G, e, seat, nil)
 	v.Round = view.RoundOf(e.G, e.L.Events)
-	kept := v.Pending[:0]
-	for _, pv := range v.Pending {
-		if o := e.G.Obj(pv.Source); o == nil || observe.Visible(seat, o) {
-			kept = append(kept, pv)
-		}
-	}
-	v.Pending = kept
 	r.view(&v)
+	dropSourceless(&v)
 	d := p.Native.CloneValue()
-	pl := Payload{Version: 1, NativeIndex: nativeIndex, Facts: facts(&d), Followups: map[string]decision.Decision{}, Splits: p.Splits}
+	pl := Payload{Version: 1, NativeIndex: nativeIndex, Facts: facts(&d), Followups: map[string]decision.Decision{}}
+	pl.Facts.Produces = produces(&v)
 	perm, order := sortHidden(env, seat, &d)
 	x.last[seat] = perm
 	if f := pl.Facts.Options; len(f) == len(order) {
@@ -9498,20 +12557,23 @@ func (x *Extender) Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64)
 		pl.Facts.Options = nf
 	}
 	r.decision(&d, nativeIndex)
+	relabelGroups(&d)
 	pl.Decision = d
 	// Follow-ups are sorted the same way; their keys and every op that points
-	// into them are translated with their own permutations.
+	// into them are translated with their own permutations. Keys are visited
+	// in sorted order, so ids are numbered the same way on every rerun.
 	fperm := map[string][]int{}
-	fds := map[string]decision.Decision{}
-	for k, fd := range p.Followups {
-		c := fd.CloneValue()
+	follows := map[string]Follow{}
+	for _, k := range slices.Sorted(maps.Keys(p.Followups)) {
+		c := p.Followups[k].CloneValue()
 		fperm[k], _ = sortHidden(env, seat, &c)
 		r.decision(&c, nativeIndex)
-		fds[k] = c
+		relabelGroups(&c)
+		key := followKey(k, perm, fperm)
+		pl.Followups[key] = c
+		follows[k] = Follow{Key: key, Perm: fperm[k]}
 	}
-	for k, c := range fds {
-		pl.Followups[followKey(k, perm, fperm)] = c
-	}
+	x.lastFollow[seat] = follows
 	for _, c := range p.Candidates {
 		op := c.Op
 		// The pose may be posed again (a retransmission): never rewrite its slices.
@@ -9554,7 +12616,7 @@ Order of operations matters. Every permutation is computed from native indices b
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/xview/ -v`
-Expected: `--- PASS: TestPayloadHasNoGlobalCountersOrDigests`, `--- PASS: TestSearchOptionsAreSortedAndIDsAreSmall`, `--- PASS: TestFollowKeysFollowTheRenumbering`.
+Expected: `--- PASS: TestPayloadHasNoGlobalCountersOrDigests`, `--- PASS: TestSearchOptionsAreSortedAndIDsAreSmall`, `--- PASS: TestHiddenStackSourceIsZero`, `--- PASS: TestGroupsCarryNoNativeIDs`, `--- PASS: TestFollowKeysFollowTheRenumbering`, `--- PASS: TestHiddenAndZeroReferencesBecomeZero`.
 
 - [ ] **Step 5: Commit**
 
@@ -9571,16 +12633,16 @@ git add engines/gorge/internal/xview && git commit -m "gorge adapter: x_gorge_vi
 - Test: `internal/minihost/host_test.go`
 
 **Interfaces:**
-- Consumes: `server.Server`, `validate`, `wire` (canonical, digest), `secrets` (host side), `catalog`, `protocol`.
+- Consumes: `server.Server`, `validate` (`Stream.Check` and `Stream.InGroup`, Task 9), `wire` (canonical, digest, `DomainID` with its error), `secrets` (host side), `catalog`, `protocol` (the `Semantic` decoder of Task 5: the host decodes the engine's JSON into `protocol.SeatDecision` before validating).
 - Produces:
   - `type minihost.Link interface{ Round(req []byte) ([]byte, error) }`;
-  - `type minihost.Host struct{ RunSecret []byte; Engine Link; Profile validate.Profile; MaxSteps, MaxDecisions uint64 }`;
+  - `type minihost.Host struct{ RunSecret []byte; Engine Link; Profile validate.Profile; MaxSteps, MaxDecisions uint64; KeepDecisions bool }`;
   - `func (*Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []string, agents [2]Link) (Result, error)`;
-  - `type minihost.Result struct{ Terminal protocol.TerminalResponse; Digest string; Steps int; SeatDecisions [2][][]byte }` (the canonical `seat_decision` bytes, kept for leak scans);
+  - `type minihost.Result struct{ Terminal protocol.TerminalResponse; Digest string; Steps int; SeatDecisions [2][][]byte }` (the canonical `seat_decision` bytes, kept only with `KeepDecisions`: at 10 to 35 KB each with the extension, keeping every game's would exhaust memory in long qualification runs, G2-22);
   - `type minihost.EngineLink struct{ S *server.Server }`;
   - `type minihost.Uniform struct` and `type minihost.First struct` (in-process agents seeded from `game_start.agent_seed`).
 
-The mini-host implements Sections 11.2 (canonical forwarding), 11.3 (validator subset), 11.6 (secrets, agent seeds, opaque ids) and 11.8 (digest). It has no clocks, adjudication or stalling; P's host owns those.
+The mini-host implements Sections 11.2 (canonical forwarding), 11.3 (validator subset), 11.6 (secrets, agent seeds, opaque ids) and 11.8 (digest). It has no clocks, adjudication or stalling; P's host owns those. It also checks V3 across its two streams: no decision for one seat while the other seat's group is partial (G1-11).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -9730,14 +12792,18 @@ type Host struct {
 	Engine                 Link
 	Profile                validate.Profile
 	MaxSteps, MaxDecisions uint64
-	n                      int
+	// KeepDecisions keeps every forwarded seat decision in the Result. They
+	// run 10 to 35 KB each with the extension, so only tests that read them
+	// turn it on.
+	KeepDecisions bool
+	n             int
 }
 
 type Result struct {
 	Terminal      protocol.TerminalResponse
 	Digest        string
 	Steps         int
-	SeatDecisions [2][][]byte
+	SeatDecisions [2][][]byte // only with Host.KeepDecisions
 }
 
 func (h *Host) id() string { h.n++; return fmt.Sprintf("h-%d", h.n) }
@@ -9746,13 +12812,17 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 	var res Result
 	gameID := secrets.GameID(h.RunSecret, i)
 	names := catalog.PoolNames()
+	domain, err := wire.DomainID(names)
+	if err != nil {
+		return res, err
+	}
 	seat0 := "p0"
 	reset := map[string]any{"request_type": "reset", "protocol": protocol.Name, "request_id": h.id(), "game_id": gameID,
 		"format": "pauper-bo1",
 		"seats": []any{map[string]any{"seat": "p0", "deck": map[string]any{"deck_id": deck.DeckID(), "catalog_id": deck.CatalogID}},
 			map[string]any{"seat": "p1", "deck": map[string]any{"deck_id": deck.DeckID(), "catalog_id": deck.CatalogID}}},
 		"rules": map[string]any{"opponent_decklist": "visible", "mulligan": mulligan, "starting_player": "host_assigned",
-			"starting_seat": seat0, "card_name_domain": map[string]any{"domain_id": wire.DomainID(names), "names": names},
+			"starting_seat": seat0, "card_name_domain": map[string]any{"domain_id": domain, "names": names},
 			"extensions": extensions, "probe": false},
 		"game_secret": hex.EncodeToString(secrets.GameSecret(h.RunSecret, i)), "max_decisions": h.MaxDecisions, "max_steps": h.MaxSteps}
 	resetBytes, _ := wire.Canonical(reset)
@@ -9811,6 +12881,11 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 		if sd.ActingSeat == "p1" {
 			seat = 1
 		}
+		// V3 across the two streams: while one seat's group is partial, the
+		// engine poses nothing to the other seat (Section 8).
+		if streams[1-seat].InGroup() {
+			return res, fmt.Errorf("validator: V3: decision for %s while the other seat's group is partial", sd.ActingSeat)
+		}
 		if err := streams[seat].Check(sd); err != nil {
 			return res, fmt.Errorf("validator: %w", err)
 		}
@@ -9823,7 +12898,9 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 		if err != nil {
 			return res, err
 		}
-		res.SeatDecisions[seat] = append(res.SeatDecisions[seat], canon)
+		if h.KeepDecisions {
+			res.SeatDecisions[seat] = append(res.SeatDecisions[seat], canon)
+		}
 		choose := fmt.Sprintf(`{"request_type":"choose","protocol":"spellbench/v2","request_id":"r-%d","game_id":%q,"decision":%s,"clock":{"remaining_ms":600000,"max_decision_ms":60000}}`,
 			agentReq[seat], gameID, canon)
 		agentReq[seat]++
@@ -9875,13 +12952,14 @@ git add engines/gorge/internal/minihost && git commit -m "gorge adapter: in-proc
 - Test: `internal/agent/agent_test.go`, `internal/agent/pick_test.go`
 
 **Interfaces:**
-- Consumes: `xview.Payload`, `mapping.NativeOp`, `seat.NewBot`, `seat.NewLethalPressureBot`.
+- Consumes: `xview.Payload` and `xview.ProducesFacts`, `mapping.NativeOp`, `seat.NewBot`, `seat.NewLethalPressureBot`, `wire.NewReader`; the test drives games through `server` (Task 23) and `minihost` (Task 25).
 - Produces:
   - `type agent.Server` with `func agent.New(policy string) (*Server, error)` (`bot` or `lethal-pressure`), `func (*Server) Handle(line []byte) []byte` and `func (*Server) Round(req []byte) ([]byte, error)` (a `minihost.Link`);
-  - `func agent.Rebuild(p xview.Payload) (view.View, decision.Decision)` (applies the policy facts);
-  - `func agent.Pick(p xview.Payload, sems []map[string]any, st *Plan, ask func(decision.Decision) decision.Intent) (int, bool)` (candidate semantics are read as generic JSON: `protocol.Semantic` has no decoder);
+  - `func agent.Serve(r io.Reader, w io.Writer, s *Server) error`: the stdio loop; an over-long line is answered `malformed_json` and the next line is read;
+  - `func agent.Rebuild(p xview.Payload) (view.View, decision.Decision)` (applies the policy facts, including the card views' mana production flags);
+  - `func agent.Pick(p xview.Payload, sems []map[string]any, st *Plan, ask func(decision.Decision) decision.Intent) (int, string)` (candidate semantics are read as generic JSON; the string is `""` for a match, `"forced"` or `"fallback"`);
   - `type agent.Plan` and `func agent.NewPlan(native uint64, in decision.Intent) *Plan`;
-  - `func (*Server) Fallbacks() int`, `func (*Server) Intents() map[uint64]decision.Intent` and `func (*Server) FellBack(native uint64) bool` (the current game's plans, for Task 28's parity audit);
+  - `type agent.Record struct{ Intent decision.Intent; Followups map[string]decision.Intent; Forced, Fallbacks int; Reason string }`, `func (*Server) Records() map[uint64]*Record` (the current game's native decisions, with the bot's follow-up answers keyed as the payload keys them, for Task 28b's parity audit), `func (*Server) Fallbacks() int` and `func (*Server) Forced() int`;
   - the `spellbench-gorge-agent` binary (`-policy`).
 
 Behaviour:
@@ -9894,10 +12972,10 @@ Behaviour:
   - `cast` matches when the intended option is in `Covers`;
   - `dest` matches when the card's option is inside the intended Choices exactly when the destination is `top` or `hand`;
   - `list` matches the named list (`Choices`, `Rest`, or a follow-up's answer) at `Position`;
-  - `amount` matches the intended split;
   - `finish` matches when every intended pick is done.
-- A decision with a single candidate is answered without counting a fallback.
-- If nothing matches (the unless-cost restriction, controller decision 2), the agent falls back to `pay: false`, then `finish`, then candidate 0, and counts the fallback on stderr.
+- When nothing matches a decision with a single candidate, it is answered as forced (G2-7): gorge's bot takes every offered unless payment, but when paying needs a mana window the engine leaves only `pay: false` (controller decision 2). A forced answer is counted apart from fallbacks, recorded with a reason on the native decision's `Record`, and skipped by parity.
+- When nothing matches among several candidates, the agent falls back to `pay: false`, then `finish`, then candidate 0, and records the fallback and its reason.
+- A panic inside the bot answers an empty intent, so the substep falls back (counted); any other failure answers `internal_error`, and a `choose` before `game_start` answers `malformed_request` (G2-26, Section 10.5).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -9907,6 +12985,7 @@ Behaviour:
 package agent_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -9934,7 +13013,7 @@ func TestAgentDecodesCanonicalizedPayload(t *testing.T) {
 	}
 	h := &minihost.Host{RunSecret: make([]byte, 32), Engine: &minihost.EngineLink{S: server.New(testcorpus.Registry(t), nil)},
 		Profile:  validate.Profile{Kinds: kinds, Flags: observe.Flags, Extensions: map[string]bool{}},
-		MaxSteps: 3000, MaxDecisions: 2999}
+		MaxSteps: 3000, MaxDecisions: 2999, KeepDecisions: true}
 	burn, _ := catalog.ByID("Burn")
 	b0, _ := agent.New("bot")
 	b1, _ := agent.New("lethal-pressure")
@@ -9951,6 +13030,26 @@ func TestAgentDecodesCanonicalizedPayload(t *testing.T) {
 	canon, _ := wire.CanonicalBytes(res.SeatDecisions[0][0])
 	if !strings.Contains(string(canon), `"x_gorge_view_v1"`) {
 		t.Fatal("extension missing from the forwarded decision")
+	}
+}
+
+// A choose before game_start is refused, not a crash, and an over-long line
+// is answered malformed_json while the agent keeps serving (G2-26).
+func TestAgentAnswersErrorsAndKeepsReading(t *testing.T) {
+	a, _ := agent.New("bot")
+	var m map[string]any
+	json.Unmarshal(a.Handle([]byte(`{"request_type":"choose","protocol":"spellbench/v2","request_id":"r-1","game_id":"g","decision":{"candidates":[]}}`)), &m)
+	if m["response_type"] != "error" || m["error"].(map[string]any)["code"] != "malformed_request" {
+		t.Fatalf("choose before game_start: %v", m)
+	}
+	in := strings.Repeat("x", wire.MaxLineBytes+1) + "\n" + `{"request_type":"hello","protocol":"spellbench/v2","request_id":"r-0","protocol_minor":0}` + "\n"
+	var w bytes.Buffer
+	if err := agent.Serve(strings.NewReader(in), &w, a); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(w.String()), "\n")
+	if len(lines) != 2 || !strings.Contains(lines[0], `"malformed_json"`) || !strings.Contains(lines[1], `"hello_ok"`) {
+		t.Fatalf("answers %q", lines)
 	}
 }
 ```
@@ -9977,15 +13076,20 @@ func TestPickFollowsAScryAnswer(t *testing.T) {
 		{Op: "dest", Option: 0, List: "top", Position: 0},
 		{Op: "dest", Option: 0, List: "bottom", Position: 0},
 	}}
-	if i, fell := agent.Pick(part, sems, pl, none); i != 1 || fell {
-		t.Fatalf("card 0 went to candidate %d (fallback %v), want the bottom", i, fell)
+	if i, miss := agent.Pick(part, sems, pl, none); i != 1 || miss != "" {
+		t.Fatalf("card 0 went to candidate %d (%q), want the bottom", i, miss)
 	}
 	order := xview.Payload{Ops: []mapping.NativeOp{
 		{Op: "list", Option: 1, List: "rest", Position: 0},
 		{Op: "list", Option: 0, List: "rest", Position: 0},
 	}}
-	if i, fell := agent.Pick(order, sems, pl, none); i != 1 || fell {
-		t.Fatalf("first bottom card is candidate %d (fallback %v), want option 0", i, fell)
+	if i, miss := agent.Pick(order, sems, pl, none); i != 1 || miss != "" {
+		t.Fatalf("first bottom card is candidate %d (%q), want option 0", i, miss)
+	}
+	// Nothing matches a single candidate: it is forced, never a fallback (G2-7).
+	lone := xview.Payload{Ops: []mapping.NativeOp{{Op: "list", Option: 1, List: "choices", Position: 0}}}
+	if i, miss := agent.Pick(lone, sems[:1], pl, none); i != 0 || miss != "forced" {
+		t.Fatalf("lone unmatched candidate %d (%q), want 0 forced", i, miss)
 	}
 }
 ```
@@ -10008,7 +13112,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -10017,37 +13123,54 @@ import (
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/xview"
 )
+
+// Record is how the agent played one native decision, for Task 28b's parity
+// audit: the bot's plan (its intent, and its answers to the folded follow-ups
+// it was asked, keyed as the payload keys them) and the substeps no op
+// matched: Forced when the decision had a single candidate, Fallbacks
+// otherwise, with the first reason.
+type Record struct {
+	Intent    decision.Intent
+	Followups map[string]decision.Intent
+	Forced    int
+	Fallbacks int
+	Reason    string
+}
 
 type Server struct {
 	policy    string
 	bot       seat.Seat
 	plan      *Plan
 	fallbacks int
-	intents   map[uint64]decision.Intent // the bot's plan per native index (parity audit)
-	fell      map[uint64]bool
+	forced    int
+	records   map[uint64]*Record // the current game's native decisions (parity audit)
 }
 
 func New(policy string) (*Server, error) {
 	if policy != "bot" && policy != "lethal-pressure" {
 		return nil, fmt.Errorf("unknown policy %q", policy)
 	}
-	return &Server{policy: policy, intents: map[uint64]decision.Intent{}, fell: map[uint64]bool{}}, nil
+	return &Server{policy: policy, records: map[uint64]*Record{}}, nil
 }
 
+// Fallbacks counts substeps answered by the fallback rule; Forced counts
+// single-candidate substeps no op matched (the unless-cost restriction of
+// controller decision 2, say). Both are per process, across games.
 func (s *Server) Fallbacks() int { return s.fallbacks }
 
-// Intents and FellBack expose the current game's plans to Task 28's parity audit.
-func (s *Server) Intents() map[uint64]decision.Intent { return s.intents }
+func (s *Server) Forced() int { return s.forced }
 
-func (s *Server) FellBack(native uint64) bool { return s.fell[native] }
+// Records exposes the current game's native decisions to Task 28b's audit.
+func (s *Server) Records() map[uint64]*Record { return s.records }
 
 func (s *Server) Round(req []byte) ([]byte, error) { return s.Handle(req), nil }
 
 type candidate struct {
 	CandidateID uint32         `json:"candidate_id"`
-	Semantic    map[string]any `json:"semantic"` // protocol.Semantic has no decoder: read it generically
+	Semantic    map[string]any `json:"semantic"` // read generically: the agent needs only kinds and a few fields
 }
 
 type request struct {
@@ -10062,14 +13185,26 @@ type request struct {
 
 func out(v map[string]any) []byte { b, _ := json.Marshal(v); return b }
 
-func (s *Server) Handle(line []byte) []byte {
+func errorLine(id, code, msg string) []byte {
+	return out(map[string]any{"response_type": "error", "protocol": protocol.Name, "request_id": id,
+		"error": map[string]string{"code": code, "message": msg}})
+}
+
+// Handle answers one request line. A failure inside the agent answers
+// internal_error (Section 10.5) instead of ending the process.
+func (s *Server) Handle(line []byte) (resp []byte) {
 	var q request
 	dec := json.NewDecoder(bytes.NewReader(line))
 	dec.UseNumber() // amounts compare as integers, never as floats
 	if err := dec.Decode(&q); err != nil {
-		return out(map[string]any{"response_type": "error", "protocol": protocol.Name, "request_id": "",
-			"error": map[string]string{"code": "malformed_json", "message": err.Error()}})
+		return errorLine("", "malformed_json", err.Error())
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, "gorge agent: internal error:", r)
+			resp = errorLine(q.RequestID, "internal_error", "the agent failed")
+		}
+	}()
 	base := map[string]any{"protocol": protocol.Name, "request_id": q.RequestID}
 	switch q.RequestType {
 	case "hello":
@@ -10085,15 +13220,54 @@ func (s *Server) Handle(line []byte) []byte {
 			s.bot = seat.NewBot(q.AgentSeed)
 		}
 		s.plan = nil
-		s.intents, s.fell = map[uint64]decision.Intent{}, map[uint64]bool{}
+		s.records = map[uint64]*Record{}
 		base["response_type"] = "ack"
 	case "choose":
+		if s.bot == nil {
+			return errorLine(q.RequestID, "malformed_request", "choose before game_start")
+		}
 		base["response_type"] = "choice"
 		base["selection"] = map[string]uint32{"candidate_id": s.choose(q)}
 	default:
 		base["response_type"] = "ack"
 	}
 	return out(base)
+}
+
+// Serve answers request lines until the input ends. An over-long line is
+// answered malformed_json and the next line is read (Section 2).
+func Serve(r io.Reader, w io.Writer, s *Server) error {
+	in := wire.NewReader(r)
+	for {
+		line, err := in.ReadLine()
+		var resp []byte
+		switch {
+		case errors.Is(err, io.EOF):
+			return nil
+		case errors.Is(err, wire.ErrLineTooLong):
+			resp = errorLine("", "malformed_json", "line exceeds 8 MiB")
+		case err != nil:
+			return err
+		default:
+			resp = s.Handle(line)
+		}
+		if _, err := w.Write(append(resp, '\n')); err != nil {
+			return err
+		}
+	}
+}
+
+// decide asks the bot. A panic answers an empty intent, so no op matches and
+// the substep falls back, counted.
+func (s *Server) decide(v view.View, d decision.Decision) (in decision.Intent) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintln(os.Stderr, "gorge agent: bot panic:", r)
+			in = decision.Intent{}
+		}
+	}()
+	in, _ = s.bot.Decide(context.Background(), v, d)
+	return in
 }
 
 func (s *Server) choose(q request) uint32 {
@@ -10113,21 +13287,30 @@ func (s *Server) choose(q request) uint32 {
 	ask := func(nd decision.Decision) decision.Intent {
 		vv := v // a follow-up is asked with the same view, showing that decision
 		vv.Decision = &nd
-		in, _ := s.bot.Decide(context.Background(), vv, nd)
-		return in
+		return s.decide(vv, nd)
 	}
 	if s.plan == nil || s.plan.native != p.NativeIndex {
 		s.plan = NewPlan(p.NativeIndex, ask(d))
-		s.intents[p.NativeIndex] = s.plan.intent
+		s.records[p.NativeIndex] = &Record{Intent: s.plan.intent, Followups: s.plan.follow}
 	}
 	sems := make([]map[string]any, len(cands))
 	for i, c := range cands {
 		sems[i] = c.Semantic
 	}
-	i, fell := Pick(p, sems, s.plan, ask)
-	if fell {
-		s.fallbacks++
-		s.fell[p.NativeIndex] = true
+	i, miss := Pick(p, sems, s.plan, ask)
+	if miss != "" {
+		r := s.records[p.NativeIndex]
+		if miss == "forced" {
+			s.forced++
+			r.Forced++
+		} else {
+			s.fallbacks++
+			r.Fallbacks++
+		}
+		if r.Reason == "" {
+			r.Reason = fmt.Sprintf("%s: no %v candidate of %d matches the plan", miss, sems[0]["kind"], len(sems))
+		}
+		fmt.Fprintln(os.Stderr, "gorge agent: native", p.NativeIndex, r.Reason)
 	}
 	return cands[i].CandidateID
 }
@@ -10146,6 +13329,22 @@ func Rebuild(p xview.Payload) (view.View, decision.Decision) {
 			o := f.Options[i]
 			d.Options[i].Attach, d.Options[i].Grant, d.Options[i].Controller = o.Attach, o.Grant, state.PlayerID(o.Controller)
 			d.Options[i].SetProps, d.Options[i].BlockMust, d.Options[i].AttackMust = o.SetProps, o.BlockMust, o.AttackMust
+		}
+	}
+	flags := map[state.ObjID]xview.ProducesFacts{}
+	for _, pf := range f.Produces {
+		flags[pf.Card] = pf
+	}
+	for pi := range v.Players {
+		pv := &v.Players[pi]
+		for _, zone := range [][]view.CardView{pv.Hand, pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command, pv.Commanders} {
+			for i := range zone {
+				if pf, ok := flags[zone[i].ID]; ok && zone[i].Produces != nil {
+					pr := *zone[i].Produces
+					pr.Indeterminate, pr.Reflected = pf.Indeterminate, pf.Reflected
+					zone[i].Produces = &pr
+				}
+			}
 		}
 	}
 	v.Decision = &d
@@ -10216,7 +13415,7 @@ func unitChosen(p xview.Payload, in decision.Intent, unit int) bool {
 }
 
 // match reports whether a candidate's native op agrees with the plan.
-func (pl *Plan) match(p xview.Payload, op mapping.NativeOp, sem map[string]any, ask func(decision.Decision) decision.Intent) bool {
+func (pl *Plan) match(p xview.Payload, op mapping.NativeOp, ask func(decision.Decision) decision.Intent) bool {
 	in := pl.intent
 	switch op.Op {
 	case "choose":
@@ -10260,40 +13459,40 @@ func (pl *Plan) match(p xview.Payload, op mapping.NativeOp, sem map[string]any, 
 			list = pl.followup(p, key, ask)
 		}
 		return op.Position < len(list) && list[op.Position] == op.Option
-	case "amount":
-		if len(in.Choices) == 1 && in.Choices[0] < len(p.Splits) && op.Position < len(p.Splits[in.Choices[0]]) {
-			return fmt.Sprint(sem["amount"]) == fmt.Sprint(p.Splits[in.Choices[0]][op.Position])
-		}
 	case "finish":
 		return len(pl.used) >= len(in.Choices)
 	}
 	return false
 }
 
-// Pick returns the candidate matching the plan, and whether it fell back.
-func Pick(p xview.Payload, sems []map[string]any, pl *Plan, ask func(decision.Decision) decision.Intent) (int, bool) {
+// Pick returns the candidate matching the plan, with miss "". When no op
+// matches, a single candidate is answered as "forced" (an engine-fixed order,
+// or pay:false left alone by the unless-cost restriction of controller
+// decision 2); otherwise the agent falls back to pay:false, then finish, then
+// candidate 0, as "fallback".
+func Pick(p xview.Payload, sems []map[string]any, pl *Plan, ask func(decision.Decision) decision.Intent) (int, string) {
 	for i, op := range p.Ops {
-		if pl.match(p, op, sems[i], ask) {
+		if pl.match(p, op, ask) {
 			if op.Op == "choose" {
 				pl.used = append(pl.used, op.Option)
 			}
-			return i, false
+			return i, ""
 		}
 	}
 	if len(sems) == 1 {
-		return 0, false // a forced pick (an engine-fixed order, say) is not a fallback
+		return 0, "forced"
 	}
 	for i, s := range sems {
 		if s["kind"] == "optional_cost" && s["pay"] == false {
-			return i, true
+			return i, "fallback"
 		}
 	}
 	for i, s := range sems {
 		if s["kind"] == "finish_selection" || s["kind"] == "finish_target_selection" {
-			return i, true
+			return i, "fallback"
 		}
 	}
-	return 0, true
+	return 0, "fallback"
 }
 ```
 
@@ -10313,7 +13512,6 @@ import (
 	"os"
 
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/agent"
-	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 )
 
 func main() {
@@ -10324,23 +13522,27 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	in := wire.NewReader(os.Stdin)
-	w := bufio.NewWriter(os.Stdout)
-	for {
-		line, err := in.ReadLine()
-		if err != nil {
-			return
-		}
-		w.Write(append(s.Handle(line), '\n'))
-		w.Flush()
+	if err := agent.Serve(os.Stdin, &flushWriter{bufio.NewWriter(os.Stdout)}, s); err != nil {
+		fmt.Fprintln(os.Stderr, "spellbench-gorge-agent:", err)
+		os.Exit(1)
 	}
+}
+
+type flushWriter struct{ w *bufio.Writer }
+
+func (f *flushWriter) Write(p []byte) (int, error) {
+	n, err := f.w.Write(p)
+	if err == nil {
+		err = f.w.Flush()
+	}
+	return n, err
 }
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `go test ./internal/agent/ -v -timeout 20m`
-Expected: `--- PASS: TestPickFollowsAScryAnswer` and `--- PASS: TestAgentDecodesCanonicalizedPayload` (no `halted`, fallbacks at most 2% of steps).
+Expected: `--- PASS: TestPickFollowsAScryAnswer`, `--- PASS: TestAgentAnswersErrorsAndKeepsReading` and `--- PASS: TestAgentDecodesCanonicalizedPayload` (no `halted`, fallbacks at most 2% of steps).
 
 - [ ] **Step 5: Commit**
 
@@ -10360,7 +13562,7 @@ git add engines/gorge/internal/agent engines/gorge/cmd/spellbench-gorge-agent &&
 - Consumes: `server`, `minihost`, `catalog`, `validate`, `observe`.
 - Produces:
   - goldens in the spec's transcript format, `{"dir": "host_to_engine" | "engine_to_host" | "host_to_agent" | "agent_to_host", "message": {...}}` per line. A request line that is not JSON at all (the `malformed_json` scenario) is stored as the string `raw`, since `message` must be an object;
-  - `TestGoldensReplayByteExact`, which replays the `host_to_engine` lines into a fresh server and compares every `engine_to_host` line byte for byte;
+  - `TestGoldensReplayByteExact`, which replays the `host_to_engine` lines into a fresh server, compares every `engine_to_host` line byte for byte, and recomputes each game scenario's Section 11.8 digest against `digests.json`;
   - `-update` regenerates the files.
 
 Scenarios:
@@ -10368,7 +13570,9 @@ Scenarios:
 - `reset_first_decision_<deck>` for the five decks;
 - `uniform_game_burn` (Uniform agents, `max_steps` 300, full transcript with agent traffic);
 - one file per error code: `malformed_json`, `malformed_request`, `protocol_mismatch`, `request_id_reuse_mismatch`, `step_before_reset`, `game_already_active`, `game_id_mismatch`, `expected_step_mismatch`, `candidate_id_out_of_range`, `semantic_echo_mismatch`, `unsupported_format`, `unsupported_deck`, `deck_id_mismatch`, `unsupported_rule`, `unsupported_request`, `game_already_terminal`;
-- `arrangement`, `attack_declaration`, `order_pick` and `mana_payment`: the first seeded Uniform game (seeds 0 to 19, every deck) whose decisions reach that shape, replayed with `max_steps` ending right after that group, since a cap never splits a group.
+- `arrangement`, `attack_declaration`, `order_pick` and `mana_payment`: the first seeded Uniform game (seeds 0 to 19, every deck) whose decisions reach that shape, replayed with `max_steps` ending right after that group, since a cap never splits a group. An arrangement or order block must have at least three substeps, so a scry 1 or a one-card bottom block never stands in for a full group, and the order block is one outside an arrangement, so the two goldens differ.
+
+Every scenario resets without `x_gorge_view_v1`: its payload carries gorge cost strings compiled from Forge scripts, which this module never ships.
 
 27 transcripts in all, plus `digests.json` with the game scenarios' digests.
 
@@ -10399,6 +13603,7 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/server"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/testcorpus"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/validate"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 )
 
 var update = flag.Bool("update", false, "regenerate goldens")
@@ -10422,6 +13627,10 @@ func TestGoldensReplayByteExact(t *testing.T) {
 	if len(files) < 27 {
 		t.Fatalf("%d golden files, want at least 27", len(files))
 	}
+	var digests map[string]string
+	if b, err := os.ReadFile(filepath.Join(dir, "digests.json")); err != nil || json.Unmarshal(b, &digests) != nil || len(digests) != 5 {
+		t.Fatalf("digests.json: %v, %d entries, want 5", err, len(digests))
+	}
 	for _, f := range files {
 		s := server.New(testcorpus.Registry(t), nil)
 		fh, err := os.Open(f)
@@ -10431,6 +13640,7 @@ func TestGoldensReplayByteExact(t *testing.T) {
 		sc := bufio.NewScanner(fh)
 		sc.Buffer(make([]byte, 1<<20), 9<<20)
 		var last []byte
+		var dig *wire.GameDigest // Section 11.8 over the engine lines, from the reset on
 		for sc.Scan() {
 			var r record
 			if err := json.Unmarshal(sc.Bytes(), &r); err != nil {
@@ -10444,8 +13654,26 @@ func TestGoldensReplayByteExact(t *testing.T) {
 			case r.Dir == "engine_to_host" && string(last) != string(r.Message):
 				t.Fatalf("%s: engine response differs:\n got %s\nwant %s", filepath.Base(f), last, r.Message)
 			}
+			if (r.Dir == "host_to_engine" || r.Dir == "engine_to_host") && r.Raw == "" {
+				msg, err := wire.WithoutRequestID(r.Message)
+				switch {
+				case err != nil:
+					t.Fatalf("%s: %v", f, err)
+				case dig == nil:
+					dig, err = wire.NewGameDigest(msg)
+				default:
+					err = dig.Chain(msg)
+				}
+				if err != nil {
+					t.Fatalf("%s: %v", f, err)
+				}
+			}
 		}
 		fh.Close()
+		name := strings.TrimSuffix(filepath.Base(f), ".transcript.jsonl")
+		if want, ok := digests[name]; ok && (dig == nil || dig.String() != want) {
+			t.Fatalf("%s: replayed digest %v, digests.json has %s", name, dig, want)
+		}
 	}
 }
 
@@ -10491,11 +13719,13 @@ func playRecorded(reg *cards.Registry, i uint64, deck catalog.Deck, maxSteps uin
 	return recs, res, err
 }
 
-// firstGroup finds the first engine decision containing needle and returns
-// the step its group started at and the group's size.
-func firstGroup(recs []record, needle string) (start, size uint64, ok bool) {
+// firstGroup finds the first engine decision containing needle, and not
+// exclude when it is set, whose group has at least minSize substeps, and
+// returns the step that group started at and its size.
+func firstGroup(recs []record, needle, exclude string, minSize uint64) (start, size uint64, ok bool) {
 	for _, r := range recs {
-		if r.Dir != "engine_to_host" || !strings.Contains(string(r.Message), needle) {
+		msg := string(r.Message)
+		if r.Dir != "engine_to_host" || !strings.Contains(msg, needle) || (exclude != "" && strings.Contains(msg, exclude)) {
 			continue
 		}
 		var d struct {
@@ -10507,7 +13737,7 @@ func firstGroup(recs []record, needle string) (start, size uint64, ok bool) {
 				} `json:"group"`
 			} `json:"seat_decision"`
 		}
-		if json.Unmarshal(r.Message, &d) == nil && d.SeatDecision.Group.SubstepCount > 0 {
+		if json.Unmarshal(r.Message, &d) == nil && d.SeatDecision.Group.SubstepCount >= minSize {
 			return d.Step - d.SeatDecision.Group.SubstepIndex, d.SeatDecision.Group.SubstepCount, true
 		}
 	}
@@ -10523,7 +13753,10 @@ func writeGoldens(t *testing.T, dir string) error {
 	step := func(game string, exp, cand int, echo string) []byte {
 		return []byte(fmt.Sprintf(`{"request_type":"step","protocol":"spellbench/v2","request_id":"s-1","game_id":%q,"expected_step":%d,"selection":{"candidate_id":%d,"semantic_echo":%s}}`, game, exp, cand, echo))
 	}
-	burn := reset("r-1", "g-1", "Burn", "")
+	// Goldens are generated without x_gorge_view_v1: its payload carries gorge
+	// cost strings compiled from Forge scripts, which this module never ships.
+	noExt := `"extensions":["x_gorge_view_v1"]=>"extensions":[]`
+	burn := reset("r-1", "g-1", "Burn", noExt)
 	pass := `{"kind":"pass"}`
 	scenarios := []struct {
 		name  string
@@ -10535,7 +13768,7 @@ func writeGoldens(t *testing.T, dir string) error {
 		{"protocol_mismatch", [][]byte{[]byte(`{"request_type":"hello","protocol":"spellbench/v1","request_id":"h-1","protocol_minor":0}`)}},
 		{"request_id_reuse_mismatch", [][]byte{hello, []byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1","protocol_minor":1}`)}},
 		{"step_before_reset", [][]byte{step("g-1", 0, 0, pass)}},
-		{"game_already_active", [][]byte{burn, reset("r-2", "g-2", "Burn", "")}},
+		{"game_already_active", [][]byte{burn, reset("r-2", "g-2", "Burn", noExt)}},
 		{"game_id_mismatch", [][]byte{burn, step("g-9", 0, 0, pass)}},
 		{"expected_step_mismatch", [][]byte{burn, step("g-1", 5, 0, pass)}},
 		{"candidate_id_out_of_range", [][]byte{burn, step("g-1", 0, 4095, pass)}},
@@ -10551,7 +13784,7 @@ func writeGoldens(t *testing.T, dir string) error {
 		scenarios = append(scenarios, struct {
 			name  string
 			lines [][]byte
-		}{"reset_first_decision_" + strings.ToLower(d.CatalogID), [][]byte{reset("r-1", "g-1", d.CatalogID, "")}})
+		}{"reset_first_decision_" + strings.ToLower(d.CatalogID), [][]byte{reset("r-1", "g-1", d.CatalogID, noExt)}})
 	}
 	for _, sc := range scenarios {
 		s := server.New(reg, nil)
@@ -10580,11 +13813,17 @@ func writeGoldens(t *testing.T, dir string) error {
 	digests["uniform_game_burn"] = res.Digest
 	// Group shapes: the first seeded game that reaches each, cut by max_steps
 	// right after that group (a cap never splits a group).
-	targets := []struct{ name, needle string }{
-		{"arrangement", `"kind":"arrange_card"`},
-		{"attack_declaration", `"kind":"declare_attack"`},
-		{"order_pick", `"kind":"order_pick"`},
-		{"mana_payment", `"purpose":"mana_payment"`},
+	// Arrangements and order blocks need three substeps or more, so a scry 1
+	// or a one-card bottom block never stands in for a full group; an order
+	// block is one outside an arrangement, so the two goldens differ.
+	targets := []struct {
+		name, needle, exclude string
+		minSize               uint64
+	}{
+		{"arrangement", `"kind":"arrange_card"`, "", 3},
+		{"attack_declaration", `"kind":"declare_attack"`, "", 1},
+		{"order_pick", `"kind":"order_pick"`, `"purpose":"arrangement"`, 3},
+		{"mana_payment", `"purpose":"mana_payment"`, "", 1},
 	}
 	for _, tg := range targets {
 		found := false
@@ -10594,7 +13833,7 @@ func writeGoldens(t *testing.T, dir string) error {
 				if err != nil {
 					return err
 				}
-				start, size, ok := firstGroup(full, tg.needle)
+				start, size, ok := firstGroup(full, tg.needle, tg.exclude, tg.minSize)
 				if !ok {
 					continue
 				}
@@ -10644,33 +13883,30 @@ git add engines/gorge/internal/server/golden_test.go engines/gorge/testdata/gold
 
 ---
 
-### Task 28: Qualification: determinism, fairness, leaks, parity, throughput
+### Task 28a: Qualification audits: resample self-check, leak scan, semantic consistency, realized commits
 
 **Files:**
-- Create: `internal/session/resample.go`, `internal/session/audit.go`, `internal/identity/clone.go`, `internal/xview/clone.go`, `internal/server/audit.go`, `cmd/gorgequal/main.go`
-- Modify: `internal/session/session.go` (the `Audit` switch, the leak scan in `present`, the realized intent in `answer`), `internal/server/server.go` (the `audit` field)
-- Test: `internal/session/resample_test.go`, `internal/session/audit_test.go`, `cmd/gorgequal/main_test.go`
+- Create: `internal/session/resample.go`, `internal/session/audit.go`, `internal/identity/clone.go`, `internal/xview/clone.go`, `internal/server/audit.go`
+- Modify: `internal/session/session.go` (the declarations `Config`, `Game`, `advance`, `present`, `answer`), `internal/server/server.go` (the declarations `Server`, `reset`)
+- Test: `internal/session/resample_test.go`, `internal/session/audit_test.go`
 
 **Interfaces:**
-- Consumes: `session.Game`, `minihost`, `agent` (`Intents`, `FellBack`, `Fallbacks`), `xview` (`last`), `validate`, `catalog`.
+- Consumes: `session.Game` (Task 22), `server.Server` (Task 23), `xview.Extender` and `xview.Follow` (Task 24), `identity.Tracker` (Task 10), `mapping.PrintedModes` (Task 18), `mapping.ManaSymbol` (Task 15).
 - Produces:
-  - `func (*session.Game) ResampleCheck(r *rand.Rand) error`, `func (*identity.Tracker) CloneFor(e *rules.Engine) *Tracker`, `func (*xview.Extender) Clone() *Extender`, `func (*xview.Extender) Perm(seat state.PlayerID) []int`;
-  - the audit: `session.Config.Audit`, `func session.LeakHits(sd []byte, hidden map[string]bool) int`, `type session.Realized struct{ Seat state.PlayerID; Native uint64; Kind decision.Kind; Intent decision.Intent }`, `func (*Game) Leaks() int`, `func (*Game) Realized() []Realized`;
-  - `func (*server.Server) SetAudit(on bool)`, `Leaks() int`, `Realized() []session.Realized`, `ResampleCheck(r *rand.Rand) error`;
-  - the `gorgequal` command: `-games N`, `-resample K` (a check before every K-th step, 0 for none), `-workers W`, `-audit` (default true), `-out report.json`;
-  - a report with per deck and pairing counts: halts, truncations, validator violations, rerun digest mismatches, resample checks and failures, leak-scan hits, parity comparisons and mismatches, fallbacks, games per second, and Go memory (`runtime.MemStats.Sys`).
+  - `func (*session.Game) ResampleCheck(r *rand.Rand) error`;
+  - `func (*identity.Tracker) CloneFor(e *rules.Engine) *Tracker`, `func (*xview.Extender) Clone() *Extender`, `func (*xview.Extender) Perm(seat state.PlayerID) []int`, `func (*xview.Extender) FollowOf(seat state.PlayerID, nativeKey string) (Follow, bool)`;
+  - the audit: `session.Config.Audit`, `func session.LeakHits(sd []byte, hidden map[string]bool) int`, `type session.Realized struct{ Seat state.PlayerID; Native uint64; Kind decision.Kind; Intent decision.Intent; Followups map[string]decision.Intent }`, `func (*Game) Leaks() int`, `func (*Game) Inconsistent() int`, `func (*Game) Realized() []Realized`;
+  - `func (*server.Server) SetAudit(on bool)`, `Leaks() int`, `Inconsistent() int`, `Realized() []session.Realized`, `ResampleCheck(r *rand.Rand) error`.
 
-Checks:
-1. **Determinism:** every game is played twice from the same run secret, once audited and once plain. The digests must match, which also shows the audit does not disturb the game.
-2. **Validator:** the mini-host's validator subset checks every forwarded decision (Task 25).
-3. **Resample self-check.** It stands in for the reserved Section 9.7 probe and does not change the fairness label. It runs at the first substep of a transaction, the only pose built from the current engine state:
-   - clone the engine, the identity tracker and the extension's id tables;
-   - permute every library except the positions the pose's `known` entries give and the cards the native decision offers;
-   - swap each unpinned card of the other seat's hand with a random card of that seat's library, unless the seat is looking at that whole library (a search);
-   - rebuild the whole `seat_decision`, including `x_gorge_view_v1`, and require canonical byte equality.
-4. **Leak scan:** every string in a seat decision (the extension included; `choose_name` candidates skipped, their domain is public) is checked against the names of cards the seat cannot see. Those are the cards in the other seat's hand, in libraries or face down, minus every name the seat can see anywhere and every name in the decision's `known`. A hit is investigated, never whitelisted without the controller.
-5. **Bot parity:** gorge's bot must play through the adapter exactly the moves it chose. For every completed native decision the session records the committed intent, renumbered into the extension's option order (`Perm`). It must equal the agent's plan for that native decision, except where the agent recorded a fallback. Attacker and blocker choices compare as sets, and pile-B order only when the bot gave one. Native-versus-adapter game identity is not expected: per-seat ids and sorted hidden options change the bot's inputs by design (engine notes, Task 29).
-6. **Throughput:** plain games per second, serially and with W workers, for Task 30's compute qualification.
+Audits (Task 28b's runner turns them on and reports them):
+1. **Resample self-check.** It stands in for the reserved Section 9.7 probe and does not change the fairness label. It runs only at a transaction's first pose, the only one built from the current engine state: the session sets `fresh` when `advance` begins a transaction and clears it in `answer`. A later pose (a follow-up group such as the kicker `optional_cost`, the next pick of a variable selection, a later substep) carries answers a clone never saw, so its substep index proves nothing (G2-8). The check:
+   - clones the engine, the identity tracker and the extension's id tables;
+   - permutes every library except the positions the pose's `known` entries give and the cards the native decision offers;
+   - swaps each unpinned card of the other seat's hand with a random card of that seat's library, unless the seat is looking at that whole library (a search);
+   - rebuilds the whole `seat_decision`, including `x_gorge_view_v1`, and requires canonical byte equality.
+2. **Leak scan:** every string in a seat decision (the extension included; `choose_name` candidates skipped, their domain is public) is checked against the names of cards the seat cannot see. Those are the cards in the other seat's hand, in libraries or face down, minus every name the seat can see anywhere and every name the decision itself carries in public records: zone records, stack entries of either kind (an ability names its source even after the source went into a library, as Lembas's does), pending-trigger names and `known` (G2-9). A hit is investigated, never whitelisted without the controller.
+3. **Semantic consistency:** each answered candidate must describe the native option its op commits: the object it names (by v2 id when the seat sees it, else by name, zone and owner), a mana candidate's `ability_index` and `mana_choice`, a mode's `mode_index`, a number's `value`, an attack's defender and a block's attacker. It catches wrong numbering (G2-10, G2-11, G2-19) that parity alone cannot see (G2-14).
+4. **Realized commits:** for every completed native decision the session records its commits in the numbering the seat's agent saw: the native decision's intent renumbered by `Perm`, and each later intent under the payload key of the follow-up it answered, renumbered by that follow-up's permutation. A folded intent (Seq 0) answers the follow-up its op's key chain names; an intent carrying its own Seq (dig's bottom order) answers the pose follow-up with that Seq (G2-14).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -10693,6 +13929,9 @@ func TestResamplingHiddenStateNeverChangesTheSeatDecision(t *testing.T) {
 		for n := 0; n < 400; n++ {
 			dec, term := g.Pending()
 			if term != nil {
+				if term.Classification == "halted" {
+					t.Fatalf("%s halted: %s", deck, term.Reason)
+				}
 				break
 			}
 			if n%7 == 0 {
@@ -10771,8 +14010,8 @@ func TestAuditedGameHasNoLeaksAndRecordsIntents(t *testing.T) {
 			t.Fatal(perr)
 		}
 	}
-	if g.Leaks() != 0 {
-		t.Fatalf("%d leak-scan hits", g.Leaks())
+	if g.Leaks() != 0 || g.Inconsistent() != 0 {
+		t.Fatalf("%d leak-scan hits, %d inconsistent candidates", g.Leaks(), g.Inconsistent())
 	}
 	if len(g.Realized()) == 0 {
 		t.Fatal("no realized intents recorded")
@@ -10780,31 +14019,10 @@ func TestAuditedGameHasNoLeaksAndRecordsIntents(t *testing.T) {
 }
 ```
 
-`cmd/gorgequal/main_test.go`:
-
-```go
-package main
-
-import "testing"
-
-func TestSmallQualificationIsClean(t *testing.T) {
-	rep, err := qualify(options{games: 1, resample: 3, workers: 1, audit: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !rep.Clean() {
-		t.Fatalf("qualification not clean: %+v", rep.Totals)
-	}
-	if rep.Totals.ResampleChecks == 0 || rep.Totals.ParityCompared == 0 {
-		t.Fatalf("checks did not run: %+v", rep.Totals)
-	}
-}
-```
-
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `go test ./internal/session/ -run 'Resampling|Leak|Audited' && go test ./cmd/gorgequal/`
-Expected: FAIL with `g.ResampleCheck undefined`, `undefined: session.LeakHits` and `undefined: qualify`.
+Run: `go test ./internal/session/ -run 'Resampling|Leak|Audited'`
+Expected: FAIL with `g.ResampleCheck undefined` and `undefined: session.LeakHits`.
 
 - [ ] **Step 3: Write minimal implementation**
 
@@ -10817,14 +14035,21 @@ import (
 	"maps"
 
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // CloneFor copies the tracker for a clone of the game (the resample
-// self-check): the same move and look counters, open looks and minted ids,
-// with the shadow re-pointed at e. The copy only mints; it never syncs.
+// self-check): the same move and look counters, open looks, minted ids and
+// recorded reference keys, with the shadow re-pointed at e. The copy only
+// mints; it never syncs.
 func (t *Tracker) CloneFor(e *rules.Engine) *Tracker {
 	c := &Tracker{sec: t.sec, shadow: e.G.Clone(), applied: len(e.L.Events),
-		moves: maps.Clone(t.moves), looks: maps.Clone(t.looks)}
+		moves: maps.Clone(t.moves), looks: maps.Clone(t.looks),
+		sourceKeys: maps.Clone(t.sourceKeys), targetKeys: map[state.ObjID][]chosen{},
+		attackKeys: maps.Clone(t.attackKeys), blockKeys: maps.Clone(t.blockKeys), before: map[state.ObjID]uint32{}}
+	for id, ks := range t.targetKeys {
+		c.targetKeys[id] = append([]chosen(nil), ks...)
+	}
 	for v := range t.open {
 		c.open[v] = maps.Clone(t.open[v]) // a nil map (no open look) stays nil
 		c.seen[v] = maps.Clone(t.seen[v])
@@ -10852,6 +14077,7 @@ func (x *Extender) Clone() *Extender {
 	for s, t := range x.tables {
 		c.tables[s] = &table{ints: maps.Clone(t.ints), next: t.next}
 		c.last[s] = slices.Clone(x.last[s])
+		c.lastFollow[s] = maps.Clone(x.lastFollow[s])
 	}
 	return c
 }
@@ -10859,6 +14085,13 @@ func (x *Extender) Clone() *Extender {
 // Perm is the native -> payload option renumbering of the seat's last
 // payload. The audit reads it; no agent ever receives it.
 func (x *Extender) Perm(seat state.PlayerID) []int { return x.last[seat] }
+
+// FollowOf is the payload key and renumbering of the folded follow-up the
+// seat's last payload keyed nativeKey natively (audit only).
+func (x *Extender) FollowOf(seat state.PlayerID, nativeKey string) (Follow, bool) {
+	f, ok := x.lastFollow[seat][nativeKey]
+	return f, ok
+}
 ```
 
 `internal/session/resample.go`:
@@ -10886,9 +14119,10 @@ var ErrResample = errors.New("noninterference self-check failed")
 // ResampleCheck rebuilds the pending seat decision from a clone whose hidden
 // state was redrawn and requires byte equality with the real one.
 func (s *Game) ResampleCheck(r *rand.Rand) error {
-	// Only a transaction's first substep was posed from this very state;
-	// later substeps carry answers the clone never saw.
-	if s.resp == nil || s.native == nil || s.pose == nil || s.pose.SubstepIndex != 0 {
+	// Only a transaction's first pose was built from this very state; every
+	// later one (a follow-up group, the next pick of a variable selection, the
+	// substeps of a group) carries answers the clone never saw.
+	if s.resp == nil || s.native == nil || s.pose == nil || !s.fresh {
 		return nil
 	}
 	seat := s.pose.Seat
@@ -10987,25 +14221,38 @@ package session
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/xview"
 )
 
-// Realized is a completed native decision's committed intent, renumbered
-// into the x_gorge_view_v1 option order, for the bot parity audit.
+// Realized is a completed native decision as the engine committed it, in
+// the numbering the seat's x_gorge_view_v1 showed: the native decision's
+// intent, and each folded follow-up's under its payload key (Task 28b's
+// parity audit compares both with the agent's plan).
 type Realized struct {
-	Seat   state.PlayerID
-	Native uint64
-	Kind   decision.Kind
-	Intent decision.Intent
+	Seat      state.PlayerID
+	Native    uint64
+	Kind      decision.Kind
+	Intent    decision.Intent
+	Followups map[string]decision.Intent
 }
 
 func (s *Game) Leaks() int { return s.leaks }
 
 func (s *Game) Realized() []Realized { return s.realized }
+
+// Inconsistent counts answered candidates whose semantic disagrees with the
+// native option their op commits.
+func (s *Game) Inconsistent() int { return s.inconsistent }
 
 // LeakHits counts string values in a seat decision that name a card hidden
 // from the seat. choose_name candidates are skipped: their domain is public.
@@ -11040,9 +14287,12 @@ func LeakHits(sd []byte, hidden map[string]bool) int {
 }
 
 // hiddenNames lists the names of cards the seat cannot see (the other seat's
-// hand, libraries, face-down cards), minus every name the seat can see
-// anywhere and every name the decision's known entries show.
-func (s *Game) hiddenNames(seat state.PlayerID, known []protocol.Known) map[string]bool {
+// hand, libraries, face-down cards), minus every name the seat can see: any
+// visible card, and every name the decision's own observation carries in
+// public records (zone records, stack entries of either kind, pending
+// triggers) or in known. A stack ability names its source even after the
+// source went into a library (Lembas), and that name is public.
+func (s *Game) hiddenNames(seat state.PlayerID, obs protocol.Observation) map[string]bool {
 	g := s.g.E.G
 	hidden, seen := map[string]bool{}, map[string]bool{}
 	for i := range g.Objs {
@@ -11058,7 +14308,25 @@ func (s *Game) hiddenNames(seat state.PlayerID, known []protocol.Known) map[stri
 			hidden[name] = true
 		}
 	}
-	for _, k := range known {
+	see := func(n *string) {
+		if n != nil {
+			seen[*n] = true
+		}
+	}
+	for _, p := range obs.Players {
+		for _, zone := range [][]protocol.ObjectRecord{p.Hand, p.Battlefield, p.Graveyard, p.Exile, p.Command} {
+			for _, rec := range zone {
+				see(rec.CardName)
+			}
+		}
+	}
+	for _, st := range obs.Stack {
+		see(st.CardName)
+	}
+	for _, pt := range obs.PendingTriggers {
+		see(pt.SourceName)
+	}
+	for _, k := range obs.Known {
 		seen[k.CardName] = true
 	}
 	for n := range seen {
@@ -11067,29 +14335,191 @@ func (s *Game) hiddenNames(seat state.PlayerID, known []protocol.Known) map[stri
 	return hidden
 }
 
-// realize records a completed native decision's intent in the numbering the
-// seat's agent saw.
-func (s *Game) realize(seat state.PlayerID, in decision.Intent) {
-	var perm []int
-	if p, ok := s.cfg.Ext.(interface{ Perm(state.PlayerID) []int }); ok {
-		perm = p.Perm(seat)
+// realize records a completed native decision's commits in the numbering
+// the seat's agent saw: commit[0] in the native decision's payload order,
+// and each later intent under the payload key of the follow-up it answered,
+// in that follow-up's order. A folded intent (Seq 0) answers the follow-up
+// its op's key chain names; one carrying its own Seq (dig's bottom order)
+// answers the pose follow-up with that Seq.
+func (s *Game) realize(seat state.PlayerID, p *mapping.Pose, op mapping.NativeOp, commit []decision.Intent) {
+	x, _ := s.cfg.Ext.(*xview.Extender)
+	renum := func(perm []int, in decision.Intent) decision.Intent {
+		m := func(xs []int) []int {
+			out := make([]int, len(xs))
+			for i, v := range xs {
+				out[i] = v
+				if v >= 0 && v < len(perm) {
+					out[i] = perm[v]
+				}
+			}
+			return out
+		}
+		return decision.Intent{Choices: m(in.Choices), Rest: m(in.Rest)}
 	}
-	renum := func(xs []int) []int {
-		out := make([]int, len(xs))
-		for i, x := range xs {
-			out[i] = x
-			if x >= 0 && x < len(perm) {
-				out[i] = perm[x]
+	var perm []int
+	if x != nil {
+		perm = x.Perm(seat)
+	}
+	r := Realized{Seat: seat, Native: s.nativeCount[seat], Kind: s.native.Kind, Intent: renum(perm, commit[0]),
+		Followups: map[string]decision.Intent{}}
+	keys := followKeys(op)
+	for k, in := range commit[1:] {
+		native := ""
+		if in.Seq == 0 && k < len(keys) {
+			native = keys[k]
+		} else {
+			for key, fd := range p.Followups {
+				if fd.Seq == in.Seq {
+					native = key
+				}
 			}
 		}
-		return out
+		if x == nil {
+			continue
+		}
+		if f, ok := x.FollowOf(seat, native); ok {
+			r.Followups[f.Key] = renum(f.Perm, in)
+		}
 	}
-	s.realized = append(s.realized, Realized{Seat: seat, Native: s.nativeCount[seat], Kind: s.native.Kind,
-		Intent: decision.Intent{Choices: renum(in.Choices), Rest: renum(in.Rest)}})
+	s.realized = append(s.realized, r)
+}
+
+// objectField names, per kind, the semantic field that references the
+// object of the native option a choose, cast or list op commits.
+var objectField = map[string]string{"play_land": "source", "cast_spell": "source", "activate_ability": "source",
+	"activate_mana_ability": "source", "special_action": "source", "choose_target": "target",
+	"choose_cost_target": "candidate", "select_object": "choice", "declare_attack": "attacker",
+	"declare_block": "blocker", "order_pick": "item", "optional_cast": "card", "choose_replacement": "replacement_source"}
+
+// checkConsistent is the semantic-consistency audit: an answered candidate
+// must describe the native option its op commits.
+func (s *Game) checkConsistent(p *mapping.Pose, c mapping.Cand) {
+	if why := s.consistent(p, c); why != "" {
+		s.inconsistent++
+		fmt.Fprintf(os.Stderr, "gorge audit: %s candidate disagrees with its native option: %s\n", c.Sem.Kind, why)
+	}
+}
+
+// consistent returns what differs, or "": the object the semantic names is
+// the option's object (by v2 id when the seat sees it, else by name, zone
+// and owner); a mana candidate's ability_index and mana_choice are its folded
+// options'; a mode's mode_index is the option's printed mode; a number's
+// value is the option's amount; an attack's defender and a block's attacker
+// are the option's.
+func (s *Game) consistent(p *mapping.Pose, c mapping.Cand) string {
+	op, d, idx := c.Op, p.Native, c.Op.Option
+	switch op.Op {
+	case "cast":
+		if len(op.Covers) == 0 {
+			return "a cast op covers no option"
+		}
+		idx = op.Covers[0]
+	case "choose":
+	case "list":
+		if key, ok := strings.CutPrefix(op.List, "followup:"); ok {
+			d = p.Followups[key]
+		}
+	case "dest":
+		if idx < 0 {
+			return "" // a looked-at card with no native option
+		}
+	default:
+		return "" // none, finish: no native option
+	}
+	if d == nil || idx < 0 || idx >= len(d.Options) {
+		return fmt.Sprintf("option %d is not offered", idx)
+	}
+	o := d.Options[idx]
+	var sem map[string]any
+	b, _ := json.Marshal(c.Sem)
+	json.Unmarshal(b, &sem)
+	if f := objectField[c.Sem.Kind]; f != "" {
+		if why := s.sameObject(p.Seat, sem[f], o.Obj, o.Player, o.Kind == "player"); why != "" {
+			return why
+		}
+	}
+	switch c.Sem.Kind {
+	case "arrange_card":
+		if op.Op == "dest" {
+			return s.sameObject(p.Seat, sem["card"], o.Obj, 0, false)
+		}
+	case "declare_attack":
+		if o.Battle != 0 {
+			return s.sameObject(p.Seat, sem["defender"], o.Battle, 0, false)
+		}
+		return s.sameObject(p.Seat, sem["defender"], 0, o.Player, true)
+	case "declare_block":
+		return s.sameObject(p.Seat, sem["attacker"], o.Attacker, 0, false)
+	case "choose_spell_mode":
+		index, _, err := mapping.PrintedModes(d)
+		if err != nil || fmt.Sprint(sem["mode_index"]) != fmt.Sprint(index[idx]) {
+			return fmt.Sprintf("mode_index %v for option %d", sem["mode_index"], idx)
+		}
+	case "choose_number":
+		if fmt.Sprint(sem["value"]) != strconv.Itoa(o.Amount) {
+			return fmt.Sprintf("value %v, option amount %d", sem["value"], o.Amount)
+		}
+	case "activate_mana_ability":
+		keys := followKeys(op)
+		if len(keys) == 0 {
+			return ""
+		}
+		first, last := p.Followups[keys[0]], p.Followups[keys[len(keys)-1]]
+		if first == nil || last == nil {
+			return "a folded follow-up is missing"
+		}
+		f0, fl := first.Options[op.Followup[0]], last.Options[op.Followup[len(op.Followup)-1]]
+		if f0.Kind == "mana" && fmt.Sprint(sem["ability_index"]) != strconv.Itoa(f0.Ability) {
+			return fmt.Sprintf("ability_index %v, folded ability %d", sem["ability_index"], f0.Ability)
+		}
+		if sym, ok := mapping.ManaSymbol(fl); ok && sem["mana_choice"] != sym {
+			return fmt.Sprintf("mana_choice %v, folded %s", sem["mana_choice"], sym)
+		}
+	}
+	return ""
+}
+
+// sameObject reports why ref (an object reference, a target reference or an
+// order item, as generic JSON) does not name the native object obj, or the
+// seat player when isPlayer.
+func (s *Game) sameObject(seat state.PlayerID, ref any, obj state.ObjID, player state.PlayerID, isPlayer bool) string {
+	m, _ := ref.(map[string]any)
+	if inner, ok := m["object"].(map[string]any); ok {
+		m = inner
+	}
+	if pl, ok := m["player"].(string); ok || isPlayer {
+		if !isPlayer || pl != observe.Seat(player) {
+			return fmt.Sprintf("player %v, option %s", m["player"], observe.Seat(player))
+		}
+		return ""
+	}
+	o := s.g.E.G.Obj(obj)
+	switch {
+	case obj == 0 || m["trigger"] != nil:
+		return "" // no native object to compare, or a trigger item
+	case o == nil:
+		return fmt.Sprintf("option object %d is gone", obj)
+	case m == nil:
+		if observe.Visible(seat, o) {
+			return fmt.Sprintf("a null reference to visible object %d", obj)
+		}
+		return ""
+	case observe.Visible(seat, o):
+		want, err := s.env.IDs.VisibleID(seat, obj)
+		if err != nil || m["object_id"] != want {
+			return fmt.Sprintf("names %v, the option is %s", m["object_id"], want)
+		}
+	case m["card_name"] != o.Face().Name || m["zone"] != o.Zone.String() || m["owner_seat"] != observe.Seat(o.Owner):
+		// a hidden card shown by a look: compare what its look id stands for
+		return fmt.Sprintf("names %v in %v, the option is %s in %s", m["card_name"], m["zone"], o.Face().Name, o.Zone)
+	}
+	return ""
 }
 ```
 
-Modify `internal/session/session.go`:
+Then change the session: `Config` gains `Audit`; `Game` gains `leaks`, `inconsistent`, `realized` and `fresh`; `advance` sets `fresh` when it begins a transaction; `present` runs the leak scan once the extensions are attached; `answer` clears `fresh`, runs the consistency check before the transaction's `Answer`, and records the realized commits when the transaction completes, before the next decision is posed (which would overwrite the extension's permutations).
+
+Replace or add these declarations in `internal/session/session.go`:
 
 ```go
 type Config struct {
@@ -11098,33 +14528,243 @@ type Config struct {
 	Ext        Extender
 	Audit      bool // qualification only: leak scan and realized intents
 }
-```
 
-Add `leaks int` and `realized []Realized` to `Game`. In `present`, after the extensions are attached:
+type Game struct {
+	ID                     string
+	cfg                    Config
+	g                      *gamecfg.Game
+	env                    *mapping.Env
+	tx                     mapping.Transaction
+	native                 *decision.Decision
+	pose                   *mapping.Pose
+	resp                   *protocol.DecisionResponse
+	term                   *protocol.TerminalResponse
+	step, decisions        uint64
+	seatStep, groupID      [2]uint64
+	nativeCount            [2]uint64
+	maxSteps, maxDecisions uint64
+	leaks, inconsistent    int
+	realized               []Realized
+	fresh                  bool // the pending pose is its transaction's first
+}
 
-```go
+func (s *Game) advance() {
+	defer s.recoverPanic()
+	for s.term == nil {
+		if s.tx == nil {
+			e := s.g.E
+			if e.G.Over {
+				s.natural()
+				return
+			}
+			d := e.Pending()
+			if d == nil {
+				s.halt("no_pending_decision")
+				return
+			}
+			if in, ok, err := mapping.Internal(s.env, d); ok || err != nil {
+				if err == nil {
+					err = s.submit(in, nil)
+				}
+				if err != nil {
+					s.halt(cause(err, "submit_rejected"))
+					return
+				}
+				continue
+			}
+			if d.Kind == decision.KPriority {
+				s.env.Action, s.env.Slots = nil, map[string]uint32{}
+			}
+			tx, err := mapping.Begin(s.env, d)
+			if err != nil {
+				s.halt(cause(err, "unmapped_decision"))
+				return
+			}
+			s.tx, s.native = tx, d
+			s.nativeCount[d.Player]++
+			s.fresh = true
+		}
+		p, err := s.tx.Pose()
+		if err != nil {
+			s.halt(cause(err, "dead_end"))
+			return
+		}
+		if p.GroupStart {
+			if s.decisions >= s.maxDecisions {
+				s.truncate("max_decisions")
+				return
+			}
+			if s.step+uint64(p.SubstepCount) > s.maxSteps {
+				s.truncate("max_steps")
+				return
+			}
+		}
+		if err := s.present(p); err != nil {
+			s.halt(cause(err, "projection"))
+		}
+		return
+	}
+}
+
+func (s *Game) present(p *mapping.Pose) error {
+	var holder *state.PlayerID
+	if p.Context.Kind == "priority" || (s.env.Action != nil && s.env.Action.Seat == p.Seat) {
+		h := p.Seat
+		holder = &h
+	}
+	known := append([]protocol.Known(nil), p.Known...)
+	observe.SortKnown(known)
+	obs, err := s.env.Obs.Observation(p.Seat, observe.State{PriorityHolder: holder, Known: known})
+	if err != nil {
+		return err
+	}
+	sd := protocol.SeatDecision{ActingSeat: observe.Seat(p.Seat), SeatStep: s.seatStep[p.Seat],
+		Group:   protocol.Group{GroupID: s.groupID[p.Seat], SubstepIndex: p.SubstepIndex, SubstepCount: p.SubstepCount},
+		Context: p.Context, Observation: obs, Extensions: map[string]json.RawMessage{}}
+	for i, c := range p.Candidates {
+		sd.Candidates = append(sd.Candidates, protocol.Candidate{CandidateID: uint32(i), Semantic: c.Sem})
+	}
+	if s.cfg.Ext != nil {
+		ext, err := s.cfg.Ext.Extend(s.env, p, s.nativeCount[p.Seat])
+		if err != nil {
+			return err
+		}
+		sd.Extensions = ext
+	}
 	if s.cfg.Audit {
 		b, err := json.Marshal(sd)
 		if err != nil {
 			return err
 		}
-		s.leaks += LeakHits(b, s.hiddenNames(p.Seat, known))
+		s.leaks += LeakHits(b, s.hiddenNames(p.Seat, obs))
 	}
-```
+	s.pose = p
+	s.resp = &protocol.DecisionResponse{ResponseType: "decision", Protocol: protocol.Name, GameID: s.ID, Step: s.step,
+		SeatDecision: sd, Provenance: s.cfg.Provenance}
+	return nil
+}
 
-In `answer`, record the intent before the next decision is posed (which would overwrite the extension's `last` permutation):
-
-```go
+func (s *Game) answer(i int) {
+	defer s.recoverPanic()
+	p := s.pose
+	seat := p.Seat
+	op := p.Candidates[i].Op
+	s.fresh = false
+	if s.cfg.Audit {
+		s.checkConsistent(p, p.Candidates[i])
+	}
+	if p.Context.Kind == "priority" {
+		if obj := s.actionObject(op); obj != 0 {
+			s.env.Action = &mapping.ActionContext{Seat: seat, Obj: obj, Since: s.g.E.G.NextID}
+		}
+	}
+	commit, done, err := s.tx.Answer(i)
+	s.step++
+	s.seatStep[seat]++
+	if p.SubstepIndex+1 == p.SubstepCount {
+		s.groupID[seat]++
+		s.decisions++
+	}
+	if err != nil {
+		s.halt(cause(err, "dead_end"))
+		return
+	}
+	keys := followKeys(op)
+	for k, in := range commit {
+		var want *decision.Decision
+		if k > 0 && in.Seq == 0 && k-1 < len(keys) {
+			want = p.Followups[keys[k-1]]
+		}
+		if err := s.submit(in, want); err != nil {
+			s.halt(cause(err, "submit_rejected"))
+			return
+		}
+	}
 	if done {
 		if s.cfg.Audit && len(commit) > 0 {
-			s.realize(seat, commit[0]) // commit[0] always answers the transaction's own native decision
+			s.realize(seat, p, op, commit) // commit[0] always answers the transaction's own native decision
 		}
 		s.tx = nil
 		s.env.CloseLooks()
 	}
+	s.advance()
+}
 ```
 
-Modify `internal/server/server.go`: add an `audit bool` field to `Server`, and in `reset` build `cfg := session.Config{Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}`.
+Give the server the audit switch: `Server` gains `audit`, and `reset` passes it on.
+
+Replace or add these declarations in `internal/server/server.go`:
+
+```go
+type Server struct {
+	reg     *cards.Registry
+	engine  protocol.Engine
+	game    *session.Game
+	gameIDs map[string]bool
+	// cache holds every response since the last accepted reset, by request
+	// id (Section 4.1): an identical retransmission of any of them returns
+	// its bytes, a changed payload is request_id_reuse_mismatch. Clearing it
+	// at each accepted reset bounds it by one game's traffic.
+	cache map[string]cached
+	audit bool
+}
+
+func (s *Server) reset(req protocol.Request) []byte {
+	r := req.Reset
+	switch {
+	case s.game != nil && !terminal(s.game):
+		return errResp(req.ID, protocol.Errf(protocol.CodeGameAlreadyActive, "a game is active"))
+	case s.gameIDs[r.GameID]:
+		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, "game_id reused"))
+	case r.Format != "pauper-bo1":
+		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedFormat, r.Format))
+	}
+	var decks [2][]*cards.Card
+	for i, spec := range r.Decks {
+		d, ok := catalog.ByID(spec.CatalogID)
+		if spec.IsDecklist || !ok {
+			return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedDeck, "only the engine catalog decks are playable"))
+		}
+		if spec.DeckID != d.DeckID() {
+			return errResp(req.ID, protocol.Errf(protocol.CodeDeckIDMismatch, "deck_id does not match "+d.CatalogID))
+		}
+		cs, err := catalog.Resolve(s.reg, d)
+		if err != nil {
+			return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedDeck, err.Error()))
+		}
+		decks[i] = cs
+	}
+	switch {
+	case r.Rules.StartingPlayer != "host_assigned":
+		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "starting_player"))
+	case r.Rules.Probe:
+		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "probe"))
+	}
+	if dom, err := wire.DomainID(r.Rules.Names); err != nil || dom != r.Rules.DomainID {
+		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, "card_name_domain.domain_id does not hash its distinct names"))
+	}
+	for _, x := range r.Rules.Extensions {
+		if x != "x_gorge_view_v1" {
+			return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "extension "+x))
+		}
+	}
+	sec, err := secrets.ParseGame(r.GameSecret)
+	if err != nil {
+		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, err.Error()))
+	}
+	cfg := session.Config{Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}
+	if slices.Contains(r.Rules.Extensions, "x_gorge_view_v1") {
+		cfg.Ext = xview.New()
+	}
+	g, err := session.Start(cfg, r.GameID, r, sec, decks)
+	if err != nil {
+		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedDeck, "engine could not start: "+err.Error()))
+	}
+	s.game = g
+	s.gameIDs[r.GameID] = true
+	return s.respond(req.ID, g)
+}
+```
 
 `internal/server/audit.go`:
 
@@ -11140,12 +14780,19 @@ import (
 // SetAudit turns the qualification audit on for games reset afterwards.
 func (s *Server) SetAudit(on bool) { s.audit = on }
 
-// Leaks, Realized and ResampleCheck report on the current game.
+// Leaks, Inconsistent, Realized and ResampleCheck report on the current game.
 func (s *Server) Leaks() int {
 	if s.game == nil {
 		return 0
 	}
 	return s.game.Leaks()
+}
+
+func (s *Server) Inconsistent() int {
+	if s.game == nil {
+		return 0
+	}
+	return s.game.Inconsistent()
 }
 
 func (s *Server) Realized() []session.Realized {
@@ -11163,12 +14810,75 @@ func (s *Server) ResampleCheck(r *rand.Rand) error {
 }
 ```
 
+- [ ] **Step 4: Run tests to verify they pass**
+
+Run: `go test ./internal/session/ -run 'Resampling|Leak|Audited' -v -timeout 30m`
+Expected: `--- PASS: TestResamplingHiddenStateNeverChangesTheSeatDecision`, `--- PASS: TestLeakScanCountsAPlantedName`, `--- PASS: TestAuditedGameHasNoLeaksAndRecordsIntents`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add engines/gorge/internal/session engines/gorge/internal/identity engines/gorge/internal/xview engines/gorge/internal/server && git commit -m "gorge adapter: qualification audits (resample self-check, leak scan, consistency, realized commits)"
+```
+
+---
+
+### Task 28b: Qualification runner and runs: determinism, fairness, leaks, parity, throughput
+
+**Files:**
+- Create: `cmd/gorgequal/main.go`
+- Test: `cmd/gorgequal/main_test.go`
+
+**Interfaces:**
+- Consumes: `minihost` (Task 25), `agent` (`Records`, `Forced`, `Fallbacks`, Task 26), the server's audit (Task 28a), `validate`, `catalog`.
+- Produces:
+  - the `gorgequal` command: `-games N`, `-resample K` (a check before every K-th step, 0 for none), `-workers W`, `-audit` (default true), `-out report.json`;
+  - a report with per deck and pairing rows (halts, truncations, validator violations, rerun digest mismatches, resample checks and failures, leak-scan hits, inconsistent candidates, parity comparisons and mismatches, fallbacks, forced answers), per-deck gates with reasons, games per second, and Go memory (`runtime.MemStats.Sys`).
+
+Checks:
+1. **Determinism:** every game is played twice from the same run secret, once audited and once plain. The digests must match, which also shows the audit does not disturb the game.
+2. **Validator:** the mini-host's validator subset checks every forwarded decision (Task 25).
+3. **Resample self-check, leak scan and semantic consistency** (Task 28a): zero failures, hits and inconsistent candidates.
+4. **Bot parity:** gorge's bot must play through the adapter exactly the moves it chose. Every realized native decision of an agent seat must equal the agent's `Record`: the top-level intent (attacker and blocker choices as sets, pile-B order only when the bot gave one) and every folded follow-up answer, such as a mana colour, a cost target, a trigger cost's pay or decline, or dig's bottom order (G2-14). Native decisions the agent answered forced or by fallback are not compared (G2-7). Native-versus-adapter game identity is not expected: per-seat ids and sorted hidden options change the bot's inputs by design (engine notes, Task 29).
+5. **Forced and fallback gate:** per deck, the native decisions the gorge agents answered with a forced or fallback substep stay under 1% of all their native decisions, and the report lists the reasons (G2-14). Forced answers are reported per deck, apart from fallbacks.
+6. **Throughput:** plain games per second, serially and with W workers, for Task 30's compute qualification.
+
+- [ ] **Step 1: Write the failing test**
+
+`cmd/gorgequal/main_test.go`:
+
+```go
+package main
+
+import "testing"
+
+func TestSmallQualificationIsClean(t *testing.T) {
+	rep, err := qualify(options{games: 1, resample: 3, workers: 1, audit: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rep.Clean() {
+		t.Fatalf("qualification not clean: %+v %+v", rep.Totals, rep.Gates)
+	}
+	if rep.Totals.ResampleChecks == 0 || rep.Totals.ParityCompared == 0 {
+		t.Fatalf("checks did not run: %+v", rep.Totals)
+	}
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `go test ./cmd/gorgequal/`
+Expected: FAIL with `undefined: qualify`.
+
+- [ ] **Step 3: Write minimal implementation**
+
 `cmd/gorgequal/main.go`:
 
 ```go
 // Command gorgequal runs the adapter's qualification: games per deck and
 // pairing through the mini-host, with determinism, validator, resample,
-// leak, parity and throughput checks.
+// leak, semantic-consistency, parity and throughput checks.
 package main
 
 import (
@@ -11176,6 +14886,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"os"
 	"runtime"
@@ -11202,21 +14913,41 @@ type options struct {
 
 type Totals struct {
 	Games, Halts, Truncations, Violations, DigestMismatch int
-	ResampleChecks, ResampleFailures, LeakHits           int
-	ParityCompared, ParityMismatch, Fallbacks            int
-	GamesPerSecond                                       float64
-	GoMemoryMB                                           uint64
+	ResampleChecks, ResampleFailures, LeakHits, Inconsistent int
+	ParityCompared, ParityMismatch, Fallbacks, Forced        int
+	GamesPerSecond                                           float64
+	GoMemoryMB                                               uint64
+}
+
+// DeckGate counts, per deck, the native decisions the gorge agents answered
+// and those with a forced or fallback substep, with their reasons. Parity
+// never compares those decisions, so the gate bounds them instead.
+type DeckGate struct {
+	AgentNatives, ForcedNatives, FallbackNatives int
+	Reasons                                      map[string]int
+}
+
+// Pass: forced plus fallback native decisions stay under 1% of the deck's
+// agent native decisions.
+func (g DeckGate) Pass() bool {
+	return 100*(g.ForcedNatives+g.FallbackNatives) < g.AgentNatives || g.AgentNatives == 0
 }
 
 type Report struct {
-	Totals Totals           `json:"totals"`
-	Rows   []map[string]any `json:"rows"`
+	Totals Totals              `json:"totals"`
+	Gates  map[string]DeckGate `json:"gates"`
+	Rows   []map[string]any    `json:"rows"`
 }
 
 func (r Report) Clean() bool {
 	t := r.Totals
+	for _, g := range r.Gates {
+		if !g.Pass() {
+			return false
+		}
+	}
 	return t.Games > 0 && t.Halts == 0 && t.Violations == 0 && t.DigestMismatch == 0 &&
-		t.ResampleFailures == 0 && t.LeakHits == 0 && t.ParityMismatch == 0
+		t.ResampleFailures == 0 && t.LeakHits == 0 && t.Inconsistent == 0 && t.ParityMismatch == 0
 }
 
 var pairings = []string{"uniform/uniform", "bot/uniform", "bot/lethal-pressure"}
@@ -11262,18 +14993,33 @@ func sameIntent(k decision.Kind, got, want decision.Intent) bool {
 	return slices.Equal(g, w) && (len(want.Rest) == 0 || slices.Equal(got.Rest, want.Rest))
 }
 
-// parity compares each realized intent of an agent seat with that agent's
-// plan, skipping native decisions where the agent fell back.
+// parity compares each realized native decision of an agent seat with the
+// agent's record of it: the top-level intent and every folded follow-up
+// answer. Decisions the agent answered forced or by fallback are skipped;
+// the deck gate bounds them.
 func parity(realized []session.Realized, seats [2]minihost.Link) (compared, mismatched int) {
 	for _, r := range realized {
 		a, ok := seats[r.Seat].(*agent.Server)
-		if !ok || a.FellBack(r.Native) {
+		if !ok {
+			continue
+		}
+		rec := a.Records()[r.Native]
+		if rec != nil && (rec.Forced > 0 || rec.Fallbacks > 0) {
 			continue
 		}
 		compared++
-		if want, ok := a.Intents()[r.Native]; !ok || !sameIntent(r.Kind, r.Intent, want) {
+		same := rec != nil && sameIntent(r.Kind, r.Intent, rec.Intent)
+		for key, got := range r.Followups {
+			if !same {
+				break
+			}
+			want, ok := rec.Followups[key]
+			same = ok && slices.Equal(got.Choices, want.Choices)
+		}
+		if !same {
 			mismatched++
-			fmt.Fprintf(os.Stderr, "gorgequal: parity seat %d native %d %s: realized %v, planned %v\n", r.Seat, r.Native, r.Kind, r.Intent, want)
+			fmt.Fprintf(os.Stderr, "gorgequal: parity seat %d native %d %s: realized %v %v, planned %+v\n",
+				r.Seat, r.Native, r.Kind, r.Intent, r.Followups, rec)
 		}
 	}
 	return compared, mismatched
@@ -11317,7 +15063,7 @@ func qualify(o options) (Report, error) {
 		res, err := h.Play(j.i, j.deck, "london", []string{"x_gorge_view_v1"}, seats)
 		return res, al, seats, err
 	}
-	rep := Report{}
+	rep := Report{Gates: map[string]DeckGate{}}
 	var mu sync.Mutex
 	start := time.Now()
 	work := make(chan job)
@@ -11329,16 +15075,33 @@ func qualify(o options) (Report, error) {
 			for j := range work {
 				a, al, seats, errA := play(j, o.audit)
 				b, _, _, errB := play(j, false)
-				fb := 0
+				fb, forced := 0, 0
+				gate := DeckGate{Reasons: map[string]int{}}
 				for _, l := range seats {
-					if ag, ok := l.(*agent.Server); ok {
-						fb += ag.Fallbacks()
+					ag, ok := l.(*agent.Server)
+					if !ok {
+						continue
+					}
+					fb += ag.Fallbacks()
+					forced += ag.Forced()
+					for _, rec := range ag.Records() {
+						gate.AgentNatives++
+						switch {
+						case rec.Fallbacks > 0:
+							gate.FallbackNatives++
+						case rec.Forced > 0:
+							gate.ForcedNatives++
+						}
+						if rec.Reason != "" {
+							gate.Reasons[rec.Reason]++
+						}
 					}
 				}
 				compared, mismatched := parity(al.srv.Realized(), seats)
-				leaks := al.srv.Leaks()
+				leaks, inconsistent := al.srv.Leaks(), al.srv.Inconsistent()
 				row := map[string]any{"deck": j.deck.CatalogID, "pairing": j.pairing, "game": j.i, "steps": a.Steps,
-					"outcome": a.Terminal.Outcome, "digest": a.Digest, "leaks": leaks, "parity_mismatch": mismatched, "fallbacks": fb}
+					"outcome": a.Terminal.Outcome, "digest": a.Digest, "leaks": leaks, "inconsistent": inconsistent,
+					"parity_mismatch": mismatched, "fallbacks": fb, "forced": forced}
 				mu.Lock()
 				t := &rep.Totals
 				t.Games++
@@ -11358,9 +15121,22 @@ func qualify(o options) (Report, error) {
 				t.ResampleChecks += al.checks
 				t.ResampleFailures += al.failed
 				t.LeakHits += leaks
+				t.Inconsistent += inconsistent
 				t.ParityCompared += compared
 				t.ParityMismatch += mismatched
 				t.Fallbacks += fb
+				t.Forced += forced
+				dg := rep.Gates[j.deck.CatalogID]
+				if dg.Reasons == nil {
+					dg.Reasons = map[string]int{}
+				}
+				dg.AgentNatives += gate.AgentNatives
+				dg.ForcedNatives += gate.ForcedNatives
+				dg.FallbackNatives += gate.FallbackNatives
+				for k, v := range gate.Reasons {
+					dg.Reasons[k] += v
+				}
+				rep.Gates[j.deck.CatalogID] = dg
 				rep.Rows = append(rep.Rows, row)
 				mu.Unlock()
 			}
@@ -11383,7 +15159,7 @@ func main() {
 	flag.IntVar(&o.games, "games", 4, "games per deck and pairing")
 	flag.IntVar(&o.resample, "resample", 7, "run the resample self-check before every K-th step (0: never)")
 	flag.IntVar(&o.workers, "workers", max(1, runtime.NumCPU()/2), "concurrent games")
-	flag.BoolVar(&o.audit, "audit", true, "leak scan, parity and resample checks on the first run of each game")
+	flag.BoolVar(&o.audit, "audit", true, "leak scan, consistency, parity and resample checks on the first run of each game")
 	outPath := flag.String("out", "gorgequal-report.json", "report path")
 	flag.Parse()
 	rep, err := qualify(o)
@@ -11397,22 +15173,26 @@ func main() {
 		os.Exit(1)
 	}
 	t := rep.Totals
-	fmt.Printf("games %d halts %d truncated %d violations %d digest_mismatch %d resample_failed %d/%d leak_hits %d parity_mismatch %d/%d fallbacks %d games/s %.2f clean=%v\n",
+	fmt.Printf("games %d halts %d truncated %d violations %d digest_mismatch %d resample_failed %d/%d leak_hits %d inconsistent %d parity_mismatch %d/%d fallbacks %d forced %d games/s %.2f clean=%v\n",
 		t.Games, t.Halts, t.Truncations, t.Violations, t.DigestMismatch, t.ResampleFailures, t.ResampleChecks,
-		t.LeakHits, t.ParityMismatch, t.ParityCompared, t.Fallbacks, t.GamesPerSecond, rep.Clean())
+		t.LeakHits, t.Inconsistent, t.ParityMismatch, t.ParityCompared, t.Fallbacks, t.Forced, t.GamesPerSecond, rep.Clean())
+	for _, d := range slices.Sorted(maps.Keys(rep.Gates)) {
+		g := rep.Gates[d]
+		fmt.Printf("gate %s: %d agent native decisions, %d forced, %d fallback, pass=%v\n", d, g.AgentNatives, g.ForcedNatives, g.FallbackNatives, g.Pass())
+	}
 	if !rep.Clean() {
 		os.Exit(1)
 	}
 }
 ```
 
-- [ ] **Step 4: Run tests and the qualification runs**
+- [ ] **Step 4: Run the test and the qualification runs**
 
-Run: `go test ./internal/session/ -run 'Resampling|Leak|Audited' -v -timeout 30m && go test ./cmd/gorgequal/ -v -timeout 30m`
-Expected: `--- PASS: TestResamplingHiddenStateNeverChangesTheSeatDecision`, `--- PASS: TestLeakScanCountsAPlantedName`, `--- PASS: TestAuditedGameHasNoLeaksAndRecordsIntents`, `--- PASS: TestSmallQualificationIsClean`.
+Run: `go test ./cmd/gorgequal/ -v -timeout 60m`
+Expected: `--- PASS: TestSmallQualificationIsClean`.
 
 Run: `go run ./cmd/gorgequal -games 8 -workers 8 -out ../../out/gorgequal-audit.json`
-Expected: `clean=true` over 120 games (5 decks x 3 pairings x 8), with `halts 0`, `violations 0`, `digest_mismatch 0`, `resample_failed 0/`, `leak_hits 0` and `parity_mismatch 0/`.
+Expected: `clean=true` over 120 games (5 decks x 3 pairings x 8), with `halts 0`, `violations 0`, `digest_mismatch 0`, `resample_failed 0/`, `leak_hits 0`, `inconsistent 0` and `parity_mismatch 0/`, and `pass=true` on every deck's `gate` line.
 
 Run: `go run ./cmd/gorgequal -games 8 -workers 1 -audit=false -resample 0 -out ../../out/gorgequal-serial.json && go run ./cmd/gorgequal -games 8 -workers 8 -audit=false -resample 0 -out ../../out/gorgequal-w8.json`
 Expected: both `clean=true`. Record both games/s figures for Task 30's compute qualification.
@@ -11420,7 +15200,7 @@ Expected: both `clean=true`. Record both games/s figures for Task 30's compute q
 - [ ] **Step 5: Commit**
 
 ```bash
-git add engines/gorge/internal/session engines/gorge/internal/identity engines/gorge/internal/xview engines/gorge/internal/server engines/gorge/cmd/gorgequal && git commit -m "gorge adapter: qualification with resample self-check, leak scan, bot parity and throughput"
+git add engines/gorge/cmd/gorgequal && git commit -m "gorge adapter: qualification runner with bot parity, forced and fallback gate, and throughput"
 ```
 
 ---
@@ -11463,8 +15243,9 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 		Schema, ID, Format string
 		DeckPool           []string `json:"deck_pool"`
 		Rules              struct {
-			Mulligan, StartingPlayer string
-			Extensions               []string
+			Mulligan       string   `json:"mulligan"`
+			StartingPlayer string   `json:"starting_player"`
+			Extensions     []string `json:"extensions"`
 		} `json:"rules"`
 		Limits map[string]int `json:"limits"`
 	}
@@ -11475,7 +15256,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	for _, d := range catalog.Decks() {
 		ids = append(ids, d.CatalogID)
 	}
-	if !slices.Equal(b.DeckPool, ids) || b.Format != "pauper-bo1" || b.Rules.Mulligan != "london" {
+	if !slices.Equal(b.DeckPool, ids) || b.Format != "pauper-bo1" || b.Rules.Mulligan != "london" || b.Rules.StartingPlayer != "host_assigned" {
 		t.Fatalf("benchmark %+v", b)
 	}
 	if 2*b.Limits["max_seat_decisions_per_game"] >= b.Limits["max_decisions"] ||
@@ -11488,7 +15269,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `go test ./internal/server/ -run Benchmark`
-Expected: FAIL with `open ../../../../benchmarks/pauper-gorge/benchmark.json: The system cannot find the path specified.`
+Expected: FAIL with `open ../../../../benchmarks/pauper-gorge/benchmark.json:` followed by the system's file-not-found message.
 
 - [ ] **Step 3: Write the files**
 
@@ -11529,19 +15310,23 @@ Expected: FAIL with `open ../../../../benchmarks/pauper-gorge/benchmark.json: Th
 
 `engines/gorge/README.md` covers, briefly:
 1. Build: `source scripts/env.sh && sh scripts/setup-dev.sh && go build -o bin/ ./cmd/...`; the corpus is fetched with gorge's `forgec fetch` and is never shipped.
-2. The declared `hello_ok` profile (the Global Constraints line).
-3. Engine procedures and limits:
-   - No engine defaults are declared.
+2. CI (G1-6, G2-31): the module has no `go.sum` and builds only through the git-ignored `go.work`, and `scripts/env.sh` holds this machine's D: paths. A CI job clones gorge at the pin, exports `GORGE_SRC` and `GORGE_CARDS`, runs `forgec fetch -ref 95f04e8a04c8925fa97cb226fc3341cabcc90a53` into `GORGE_CARDS`, runs `sh scripts/setup-dev.sh`, then the one test command `go test -timeout 60m ./...` (the mini-host, agent and qualification packages run past `go test`'s 10-minute default). Tests fail, never skip, when `GORGE_CARDS` is unset.
+3. The declared `hello_ok` profile (the Global Constraints line).
+4. Engine procedures and limits:
+   - Combat damage assignment is declared `engine_order` (Section 7.6): gorge's blocker order, lethal damage to each blocker, the rest to the last blocker or to the defender with trample; no `distribute` is posed. gorge measures lethal as the blocker's toughness (1 against deathtouch), without subtracting damage already marked. The other engine defaults are null.
    - Hybrid-pip allocation from floating mana is engine-internal (gorge's first option).
    - Unless costs can be paid only from floating mana (no activation during the unless ask).
    - `known_cards` is false and there is no text channel.
-   - Only `host_assigned` starting players; only the latest request is retransmittable.
+   - Only `host_assigned` starting players.
+   - Retransmission: the engine caches every response since the last accepted reset, so an identical older request of the same game gets its cached response; a request id from an earlier game is not recognized.
    - Phased-out permanents are omitted (gorge's view treats them as absent).
-   - `ability_index` follows gorge's compiled ability order.
-   - A blocker stops reading as blocking once its attacker leaves combat.
+   - `ability_index`: a non-mana ability counts the face's non-mana abilities in Oracle order. A mana ability takes gorge's stage-1 numbering of the source's available mana abilities, which is Oracle order when all are available; a source with one available ability reads 0.
+   - Changeling is a known gap: subtypes show gorge's derived types (Masked Vandal reads `shapeshifter`), not every creature type.
+   - Cast modes that fail closed as `unmapped_decision`: `optionalcost`, `multikicked`, `replicated`, `squadded`, `warped`, `warp_recast`, `mayhem`, `harmonize`, `retrace`, `jumpstart`, `aftermath`, `adventure_recast`, `room_alt`, `defeat_cast`, and the special actions `foretell` and `suspend`. An Omen face (Roost Seek) is cast with method `other`, which the vocabulary offers for it.
+   - A mana payment window that does not lead to a trigger-cost ask halts the game `engine_contract_failure:unmapped_decision`: a cast payment window (gorge poses one when a cost grows after announcement) or an `unless_mana` window. Bot play never reaches one; another agent can.
    - Where gorge fixes a pile-B order (an arrange ask that is not Restable), each order pick offers one card. A dig_bottom ask with no take ask before it is an arrangement whose partitions are all `bottom`.
-4. `x_gorge_view_v1`: payload fields, id re-keying and the audit (Task 24), `native_ids: false`. The wrapped bots see per-seat ids and name-sorted hidden options, so their games are not byte-identical to native gorge games; parity means the adapter commits exactly the intent the bot chose (Task 28).
-5. How to run the qualification (Task 28) and the goldens (Task 27).
+5. `x_gorge_view_v1`: payload fields, id re-keying and the audit (Task 24), `native_ids: false`. Hidden, absent and zero references are 0, option groups are relabelled, and the policy facts restore the server-side fields gorge's bot reads, including the card views' mana production flags. The wrapped bots see per-seat ids and name-sorted hidden options, so their games are not byte-identical to native gorge games; parity means the adapter commits exactly the intent, follow-up answers included, the bot chose (Task 28b).
+6. How to run the qualification (Tasks 28a and 28b) and the goldens (Task 27).
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -11583,17 +15368,40 @@ Run: P1's tournament launcher on `pauper-gorge`, 1 pair per deck, all four bots.
 Expected: validator verdict `pass`, zero `halted` games, gorge agents with zero `malformed_response` or `invalid_selection` forfeits.
 
 - [ ] **Step 4: Compute qualification before the rated run** (`C:/Users/Jack/COMPUTE-POLICY.md`)
-- Measure completed games per second with P's launcher at `workers` 1, 4, 8 and 16 on Jack's PC.
-- Check HaleysPC and RunPod availability.
-- Record the numbers and the chosen allocation in the run manifest.
-Expected: the fastest qualified allocation is recorded, and the rated run launches only through P's supported launcher.
 
-- [ ] **Step 5: Rated run and publication gate**
+Each item fills a field of the run manifest's compute record.
+- Placements (`placements`): for Jack's PC, HaleysPC and RunPod, record availability, competing work, cores, memory, storage and connectivity, and any current reservation to preserve.
+- Throughput on identical inputs (`throughput`): the same seeded pairs through P's launcher at `workers` 1, 4, 8 and 16 on Jack's PC, and the same pairs with the same binaries (hashes checked) on HaleysPC. Record completed games per second and projected completion time per machine and worker count. Task 28b's in-process figures are ceilings only.
+- RunPod projection (`runpod_projection`): cost and turnaround, counting startup, the transfer of the binaries, a `forgec fetch` of the corpus there (it is never shipped), games per second, recovery and release, against the two PCs and within existing spending authority.
+- Guarded launch path (`guarded_launcher`): run P's launcher once without throughput evidence and record its refusal, then name the launch command that carries the guard. A launch that bypasses it is not a qualified run.
+- Choice (`choice`): the fastest qualified allocation, and why.
+Expected: every field is recorded, the refusal is shown, and the chosen allocation is the fastest qualified one.
 
-Run: P1's launcher with the recorded allocation and the published commitment.
+- [ ] **Step 5: Artifact law before launch** (`C:/Users/Jack/IdeaProjects/collab/ARTIFACT-LAW.md`)
+
+Each item fills a field of the run manifest's artifact record.
+- Budget (`budget_bytes`, `cap_bytes`, clause 1): the run's projected bytes and a cap; the launcher refuses dispatch past the cap or below a 60 GiB reserve on the target volume, and the actual bytes are reconciled after the run.
+- Scratch (`scratch_root`, clause 2): hot I/O under one SSD scratch root, `D:/e-scratch/pauper-gorge-<run>/`, with a manifest naming its sources and hashes; sealed outputs move to E: once verified, and the scratch deletion is logged.
+- Pinned binaries (`pinned_binaries`, clause 4): copy `spellbench-gorge-env` and `spellbench-gorge-agent` into `E:/pinned-binaries/<sha256>/` and record both hashes, with gorge's commit and the corpus digest.
+- Registry (`catalog_entry`, clause 9): register the run's artifact tree in `ARTIFACTS/catalog.jsonl` through `tools/artifact_register.py`.
+Expected: the manifest carries every field, both binaries resolve by hash under `E:/pinned-binaries`, and the catalog lists the run.
+
+- [ ] **Step 6: Commitment before the first game** (Section 11.6)
+
+Run: P's `bench commit` for the rated run, under the standing authorization. It writes the commitment (SHA-256 of the run secret, with the benchmark id and the run label), pushes it to the benchmark's public repository and obtains a third-party timestamp.
+Expected: the pushed commit and the timestamp both exist before Step 7 starts. A run whose commitment is not provably public before its first game is never rated, so the launch waits for both.
+
+- [ ] **Step 7: Rated run and publication gate**
+
+Run: P1's launcher with the recorded allocation and the pushed, timestamped commitment. During the run, sample CPU, memory and I/O each minute: two consecutive 60-second windows of idle eligible capacity while games are queued require diagnosis and a qualified correction, recorded in the manifest (compute policy item 6).
 Expected: a completed run with validator verdict `pass`, `fairness_label` `validator only`, `native_id_extensions` empty, and gorge-bot and gorge-lethal-pressure rated. Publishing the run and pushing branches wait for Jack.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 8: Closure prune manifest** (artifact law clause 3)
+
+Write the run's PRUNE manifest (paths, bytes, hashes, regeneration recipe): keep the manifests, receipts, reports, ledger and every failed or void attempt's records; prune uncited bulk; never prune a hash-cited file. Mark the catalog entry closed.
+Expected: the PRUNE manifest lists every pruned path, and the catalog entry points to it.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add benchmarks/pauper-gorge && git commit -m "pauper-gorge: first validator-clean run"
@@ -11612,11 +15420,11 @@ Spec coverage, by section:
 | 4.3 canonical JSON | T3, T25 |
 | 5.3 ids | T4, T10 |
 | 6 observation | T11, T12 |
-| 6.7 known (`known_cards` false) | T18, T19 |
-| 6.8 hidden | T11, T24, T28 |
+| 6.7 known (`known_cards` false) | T18, T19a, T19b |
+| 6.8 hidden | T11, T24, T28a |
 | 7.1 rules | T13 |
 | 7.2 to 7.5 kinds | T14 to T21 |
-| 7.6 defaults (none declared; mulligan and starting player by rules) | T8, T23 |
+| 7.6 defaults (combat damage `engine_order` declared; mulligan and starting player by rules) | T8, T16, T23 |
 | 8 groups and caps | T13, T22 |
 | 9.1 to 9.8 messages and errors | T5, T6, T22, T23 |
 | 11.3 validator | T9, T25, T30 |
@@ -11624,11 +15432,66 @@ Spec coverage, by section:
 | 11.6 secrets and streams | T4, T8 |
 | 11.8 digest | T3, T25 |
 | 12 decks and domain | T7, T23 |
-| 13 fairness | T24, T28 |
+| 13 fairness | T24, T28a, T28b |
 | 14 extensions | T24 |
 | 16 goldens and vectors | T3, T4, T27, T30 |
 
-- **Gaps accepted:** `probe_resample` answers `unsupported_request`, as the spec allows for an engine without the probe. `choose_pile` and `choose_cost_option` are not declared; the pool needs neither.
+- **Gaps accepted:** `probe_resample` answers `unsupported_request`, as the spec allows for an engine without the probe. `choose_pile` and `choose_cost_option` are not declared; the pool needs neither. `distribute` is not declared: combat damage follows the declared engine order (T16).
 - **Placeholder scan:** every step carries its code. Task 30 depends on P's commands, which it names by deliverable because P has not published them yet.
-- **Type consistency:** `NativeOp` (T13) is used unchanged by T14 to T21, T24 and T26; its ops `choose`, `finish`, `none`, `cast`, `list`, `dest` and `amount` are matched one for one by `agent.Pick`, and follow-up keys (`"<option>"`, `"<option>/<follow-up option>"`, `dig_bottom`) are renumbered by `xview.followKey`. `Transaction.Answer` returns `([]decision.Intent, bool, error)` everywhere, and `Env.OpenLook` and `Env.CloseLooks` are used by T18, T19 and T22.
+- **Type consistency:** `NativeOp` (T13) is used unchanged by T14 to T21, T24 and T26; its ops `choose`, `finish`, `none`, `cast`, `list` and `dest` are matched one for one by `agent.Pick`, and follow-up keys (`"<option>"`, `"<option>/<follow-up option>"`, `dig_bottom`) are renumbered by `xview.followKey`, checked by the session before each folded intent (T22) and translated for the audit (`xview.Follow`, T28a). `Transaction.Answer` returns `([]decision.Intent, bool, error)` everywhere, and `Env.OpenLook` and `Env.CloseLooks` are used by T18, T19a, T19b and T22.
 - **Review Focus:** each line has its test in T7, T22, T23 and T26.
+
+## Revision notes
+
+Pre-execution review G1 (Tasks 1 to 12) and G2 (Tasks 13 to 30), applied with the controller's rulings. Tasks 3, 5, 7 and 8 show what was built ("applied during implementation"), and Task 3's Step 6 what the wire follow-up applies.
+
+- G1-1: T10 `TestMulliganRoundTripGivesFreshIDs` answers the other seat's keep before comparing; the design note records gorge's deferred redraw.
+- G1-2: T5 `Semantic.UnmarshalJSON` and number-safe `Check` (applied during implementation); T9 `TestJSONDecodedDecisionValidates`.
+- G1-3: T10 records source, target and attack keys (`SourceKey`, `TargetKey`, `AttackKey`); T12 nulls stale references; tests for a cycled source, a target that left, and Writhing Chrysalis's cast trigger.
+- G1-4: T6 strict string, bool and array getters, exact decklist rows, u32 `protocol_minor`; null and row cases in `TestDecodeErrorsUseTheClosedTable`.
+- G1-5: T11 `manaValue` takes a transforming card's front-face cost; `TestManaValueOfBackFacesAndX`.
+- G1-6: T29 README CI note (clone at the pin, `forgec fetch`, `setup-dev.sh`, one `go test -timeout 60m ./...`).
+- G1-7: T3 Step 6, `WithoutRequestID` runs `CheckStrict` first (applied in the wire follow-up).
+- G1-8: T5 `Check` constraints and `ExtensionMap` (applied during implementation).
+- G1-9: T7 keyed literals, `rules` import, preflight coverage note (applied during implementation).
+- G1-10: T8 stream-recomputation tests and the `Probe` F3 comment (applied during implementation).
+- G1-11: T9 V1 extensions, V4 all references, V5 `known` and hidden order, V8 flags, V9 companions, `Stream.InGroup`; T25 cross-seat V3 check.
+- G1-12: T10 skip replaced by `t.Fatal`, `OpenLook` closes an open look first; T11 `LookRef` refuses visible objects.
+- G1-13: T11 hidden-card scan over p1's hand and library names.
+- G1-14: T11 X on the stack and face-down ability names, changeling noted as a gap; T12 `stack_kind` from `Object.StackKind`; T29 notes.
+- G1-15: T10 `Blocking` (declared blockers per combat); T12 `blocking` reads it, tombstones skipped; `TestBlockerStaysBlockingAfterItsAttackerLeaves`.
+- G1-16: T12 halts on a stack object without a reference or with an unmapped kind.
+- G1-17: T12 Step 2 expects a compile failure; T11 names `project.go` for the stubs.
+- G2-1: T15 folds gorge's stage-1 mana ability ask and its stage-2 colour ask; Heap Gate test.
+- G2-2: T24 rekeys only seen or shown objects, others 0; pending triggers without a source dropped; Lembas and zero-source tests.
+- G2-3: T24 `relabelGroups` (`g0`, `g1`, ...) for groups and `GroupLimits`; `TestGroupsCarryNoNativeIDs`.
+- G2-4: T5's decoder (via G1-2, applied during implementation) is what T25 consumes; nested values stay raw JSON per the Task 5 ruling, not a per-kind Go type table.
+- G2-5: waves and dependencies: T13, then T14, then T15; wave 5 on T14's helpers; T26 after T23 and T25; T28b last; critical path recomputed.
+- G2-6: T19b scry test checks the drawn card and the library bottom.
+- G2-7: T26 `Pick` returns "forced" for an unmatched single candidate, counted apart; T28b parity skips it and reports it per deck.
+- G2-8: T28a resample check runs only on a transaction's first pose (`fresh`); T22 `advance` and `answer` set and clear it.
+- G2-9: T28a `hiddenNames` subtracts every name the decision's public records carry.
+- G2-10: T18 `PrintedModes`; `mode_index` and `mode_count` are printed; filtered Thraben Charm test.
+- G2-11: T15 `ability_index` from the stage-1 option's `Ability`; T29 notes corrected.
+- G2-12: T16 `laterUnitsOnly` limits the FitRequired shortcut to undecided units.
+- G2-13: `combat_damage_assignment: "engine_order"` (Global Constraints, T23); T16 answers the division ask internally (`EngineOrderSplit`, `RegisterInternal`); `distribute` dropped from the 24 kinds, with Pose splits and the `amount` op.
+- G2-14: T28a realized commits with follow-up answers and the semantic-consistency audit; T26 `Record`; T28b full parity and the 1% forced and fallback gate.
+- G2-15: T22 cap test drives a multi-substep group and fails if absent; echo test with reversed nested keys and a changed field; T28a resample test fails on `halted`.
+- G2-16: T22 `submit` checks each folded follow-up against the lookahead (`followKeys`, `sameAsk`), else `followup_mismatch`.
+- G2-17: T30 Steps 4, 5, 7 and 8: placements, throughput on both PCs, RunPod projection, guarded launcher, utilization watch, byte budget, scratch root, pinned binaries, catalog, PRUNE manifest.
+- G2-18: T30 Step 6: P's `bench commit` pushes and timestamps the commitment before the first game.
+- G2-19: T20 madness `card` is the exiled card; the test checks its zone.
+- G2-20: T24 visits follow-up keys in sorted order.
+- G2-21: T23 caches every response of the current game and clears at each accepted reset; test and Review Focus 4 updated; T29 notes.
+- G2-22: T25 `KeepDecisions`, off by default.
+- G2-23: T19a numbers trigger instances over the item's visible fields.
+- G2-24: T13 `ActionContext.Since`; `ResolveSource` skips older abilities while the seat announces its action; T22 sets `Since`.
+- G2-25: T14 `CastMethod(o, alternateMode)`: Omen is `other`, alternative costs keyed by `AltCostIndex`; T29 lists the fail-closed modes.
+- G2-26: T26 recovers bot panics, answers `internal_error` and `malformed_request`, `agent.Serve` keeps reading after an over-long line.
+- G2-27: T24 `ProducesFacts` carries the mana production flags; T26 `Rebuild` restores them.
+- G2-28: T21 comment and T29 notes list the cast payment window as a halt cause.
+- G2-29: T19a `hand_move/library` selection gets a `Finish`.
+- G2-30: T27 arrangement and order groups of three or more (the order block outside an arrangement), digests checked on replay, goldens without the extension.
+- G2-31: T29 CI command with `-timeout`, `json` tags on the benchmark test, OS-neutral expected text; T23 smoke without `.exe`.
+- G2-32: T19 split into T19a and T19b, T28 into T28a and T28b, T25 re-estimated at 0.75.
+- Controller: T8 runs after T7 in wave 2 (wave table). `DeckID` and `DomainID` refuse repeated names: T3 Step 6 (applied in the wire follow-up), with T7, T23 and T25 taking the error.
