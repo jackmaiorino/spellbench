@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from spellbench.bench.pinning import (
-    PinningError, engine_files, pin_and_register, pin_files, pinned_command, register_pins, register_tree,
-    resolve_command, verify_files, verify_pins,
+    CLOSURE_STATUS, PinningError, engine_files, pin_and_register, pin_files, pinned_command, register_pins,
+    register_tree, resolve_command, verify_files, verify_pins,
 )
 
 
@@ -195,10 +198,14 @@ def test_registration_is_bounded_and_registers_each_directory_once(tmp_path: Pat
         register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", python=str(tmp_path / "no-python.exe"))
 
 
-def test_each_pin_is_registered_right_after_it_is_pinned(tmp_path: Path) -> None:
+def test_each_pin_is_catalogued_before_its_copy_lands_and_updated_after(tmp_path: Path) -> None:
     root = tmp_path / "pins"
     seen = tmp_path / "seen.jsonl"
-    body = f"open({str(seen)!r}, 'a').write(json.dumps(sorted(os.listdir({str(root)!r}))) + '\\n')\n"
+    # Each call records the pin directories that hold a file at that moment.
+    body = (f"root = {str(root)!r}\n"
+            "held = sorted(name for name in (os.listdir(root) if os.path.isdir(root) else [])\n"
+            "              if os.path.isdir(os.path.join(root, name)) and os.listdir(os.path.join(root, name)))\n"
+            f"open({str(seen)!r}, 'a').write(json.dumps(held) + '\\n')\n")
     script, log = _register_script(tmp_path, body=body)
     first, second = tmp_path / "a.bin", tmp_path / "b.bin"
     first.write_bytes(b"a")
@@ -206,8 +213,84 @@ def test_each_pin_is_registered_right_after_it_is_pinned(tmp_path: Path) -> None
     files = engine_files([str(first), str(second)])
     directories = pin_and_register(files, root, script, owner="spellbench", purpose="engine of x run r", doc="d",
                                    regen="r", cited_by="x run r")
-    assert directories == (root / files[0].sha256, root / files[1].sha256)
-    # The first pin is shown and added while it is the only one; the second pin exists only for its own calls.
+    one, two = files[0].sha256, files[1].sha256
+    assert directories == (root / one, root / two)
+    assert [call[0] for call in _calls(log)] == ["show", "add", "update", "show", "add", "update"]
     views = [json.loads(line) for line in seen.read_text(encoding="utf-8").splitlines()]
-    assert views == [[files[0].sha256]] * 2 + [sorted([files[0].sha256, files[1].sha256])] * 2
-    assert [call[0] for call in _calls(log)] == ["show", "add", "show", "add"]
+    assert views == [[], [], [one], [one], [one], sorted([one, two])]  # catalogued first, re-measured after the copy
+
+
+def _catalog_script(tmp_path: Path) -> Path:
+    """A register script over a JSON catalog beside it, whose "show" is slow: two unlocked writers would both read
+    the same note before either writes, and the second write would drop the first run's citation."""
+    script = tmp_path / "register.py"
+    script.write_text(
+        "import json, os, sys, time\n"
+        "args, path = sys.argv[1:], os.path.splitext(sys.argv[0])[0] + '.json'\n"
+        "rows = json.load(open(path))\n"
+        "def arg(name):\n"
+        "    return args[args.index(name) + 1] if name in args else None\n"
+        "if args[0] == 'show':\n"
+        "    time.sleep(1.0)\n"
+        "    row = rows.get(arg('--id'))\n"
+        "    print(json.dumps(row) if row else 'not found')\n"
+        "else:\n"
+        "    key = arg('--id') or arg('--path')\n"
+        "    row = dict(rows.get(key, {}), status=arg('--status'))\n"
+        "    if arg('--note') is not None:\n"
+        "        row['note'] = arg('--note')\n"
+        "    rows[key] = row\n"
+        "    json.dump(rows, open(path, 'w'))\n",
+        encoding="utf-8",
+    )
+    return script
+
+
+def test_concurrent_citations_of_a_shared_pin_are_all_kept(tmp_path: Path) -> None:
+    script = _catalog_script(tmp_path)
+    directory = tmp_path / "pins" / "abc"
+    catalog = tmp_path / "register.json"
+    catalog.write_text(json.dumps({str(directory): {"note": "cited by: x run r", "status": "live"}}), encoding="utf-8")
+    failures: list[BaseException] = []
+
+    def cite(run: str) -> None:
+        try:
+            register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", cited_by=run)
+        except BaseException as exc:  # reported below: a thread's exception would otherwise vanish
+            failures.append(exc)
+
+    threads = [threading.Thread(target=cite, args=(run,)) for run in ("x run r2", "x run r3")]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    note = json.loads(catalog.read_text(encoding="utf-8"))[str(directory)]["note"]
+    assert failures == [] and note.startswith("cited by: x run r; ")
+    assert sorted(note.split("; ")[1:]) == ["x run r2", "x run r3"]
+
+
+def test_a_held_catalog_lock_bounds_the_wait_and_a_stale_one_is_broken(tmp_path: Path) -> None:
+    script, log = _register_script(tmp_path)
+    directory = tmp_path / "pins" / "abc"
+    directory.parent.mkdir(parents=True)
+    lock = directory.with_name("abc.lock")
+    lock.write_text("4242", encoding="utf-8")  # another launch is citing this pin
+    with pytest.raises(PinningError, match="lock"):
+        register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", cited_by="x run r", timeout_s=0.5)
+    assert not log.exists()
+    an_hour_ago = time.time() - 3600
+    os.utime(lock, (an_hour_ago, an_hour_ago))  # left by a launch that crashed an hour ago
+    register_pins(script, [directory], owner="o", purpose="p", doc="d", regen="r", cited_by="x run r")
+    assert not lock.exists() and [call[0] for call in _calls(log)] == ["show", "add"]
+
+
+def test_registration_uses_the_catalog_statuses_and_pins_freeze_at_closure(tmp_path: Path) -> None:
+    assert CLOSURE_STATUS == "frozen"  # Decision 10: a closed run's pins stay, frozen
+    script, log = _register_script(tmp_path)
+    for register in (lambda: register_pins(script, [tmp_path / "pins" / "abc"], owner="o", purpose="p", doc="d",
+                                           regen="r", status="done"),
+                     lambda: register_tree(script, tmp_path / "runs" / "r", owner="o", status="archived", purpose="p",
+                                           doc="d", regen="r")):
+        with pytest.raises(PinningError, match="status"):
+            register()
+    assert not log.exists()

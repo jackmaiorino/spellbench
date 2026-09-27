@@ -3,16 +3,17 @@
 A launch resolves each command once (:func:`resolve_command`: a bare program
 name through the PATH; an unexpanded placeholder or a missing program is
 refused), hashes the files it names plus declared files such as a bot's
-checkpoint (:func:`engine_files`), copies each to
-``<pin_root>/<sha256>/<file name>`` and registers each pin directory in the
-artifact catalog right after pinning it (:func:`pin_and_register`), through
-the collab ``tools/artifact_register.py`` or any script with its command
-line. The launcher starts the resolved command, or with
-:func:`pinned_command` the pinned copies of self-contained binaries, and
-re-hashes what it starts (:func:`verify_files`, :func:`verify_pins`) before
-each process and after the last game, so the recorded hashes are the bytes
-that ran. Plan the allocation (``arena.throughput.plan_allocation``, with the
-pinned bytes) before pinning: it keeps the 60 GiB reserve on the pin root.
+checkpoint (:func:`engine_files`), and pins each to
+``<pin_root>/<sha256>/<file name>``, cataloguing the pin directory before
+the copy lands (:func:`pin_and_register`), through the collab
+``tools/artifact_register.py`` or any script with its command line. The
+launcher starts the resolved command, or with :func:`pinned_command` the
+pinned copies of self-contained binaries, and re-hashes what it starts
+(:func:`verify_files`, :func:`verify_pins`) before each process and after
+the last game, so the recorded hashes are the bytes that ran. At the run's
+closure its pins move to ``CLOSURE_STATUS`` (Decision 10). Plan the
+allocation (``arena.throughput.plan_allocation``, with the pinned bytes)
+before pinning: it keeps the 60 GiB reserve on the pin root.
 """
 
 from __future__ import annotations
@@ -25,13 +26,19 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 
 CHUNK_BYTES = 1 << 20
 REGISTER_TIMEOUT_S = 60.0
 CITED_BY = "cited by: "
+# The artifact catalog's statuses (collab tools/artifact_register.py); a closed run's pins are frozen.
+CATALOG_STATUSES = ("live", "closed", "frozen", "unknown")
+CLOSURE_STATUS = "frozen"
+# A citation lock older than this was left by a crashed launch.
+LOCK_STALE_S = 600.0
 _PLACEHOLDER = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
 
 
@@ -231,6 +238,47 @@ def _cite(note: Any, cited_by: str) -> str:
     return f"{note}; {CITED_BY}{cited_by}" if note else CITED_BY + cited_by
 
 
+def _check_status(status: str) -> None:
+    if status not in CATALOG_STATUSES:
+        raise PinningError(f"catalog status {status!r} must be one of {', '.join(CATALOG_STATUSES)}")
+
+
+@contextlib.contextmanager
+def _citation_lock(directory: Path, timeout_s: float) -> Iterator[None]:
+    """Hold ``<directory>.lock`` beside the pin while its catalog row is read and rewritten.
+
+    Two launches citing one pin would otherwise both read the same note, and
+    the second write would drop the first run's citation. A lock older than
+    ``LOCK_STALE_S`` was left by a crashed launch and is broken; waiting
+    longer than ``timeout_s`` for a live one is an error.
+    """
+    lock = directory.with_name(directory.name + ".lock")
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            lock.parent.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            with contextlib.suppress(OSError):
+                if time.time() - lock.stat().st_mtime > LOCK_STALE_S:
+                    lock.unlink()
+                    continue
+            if time.monotonic() >= deadline:
+                raise PinningError(f"the catalog lock {lock} is still held after {timeout_s:g} s; "
+                                   "delete it if no launch is registering this pin") from None
+            time.sleep(0.05)
+        except OSError as exc:
+            raise PinningError(f"cannot take the catalog lock {lock}: {exc}") from exc
+    try:
+        os.write(descriptor, str(os.getpid()).encode("ascii"))
+        os.close(descriptor)
+        yield
+    finally:
+        with contextlib.suppress(OSError):
+            lock.unlink()
+
+
 def register_pins(
     register_script: Path,
     pinned: Sequence[Path],
@@ -247,29 +295,35 @@ def register_pins(
     """Register each pinned directory once in the artifact catalog (lane ``spellbench``, kept in full).
 
     Without ``cited_by`` each directory is added with the given fields. With
-    it, the catalog row is looked up first (``show``): a new pin is added
-    with the note ``cited by: <cited_by>``, and a pin other runs share is
-    updated with ``status`` and this run appended to its note, keeping its
-    first purpose and doc (the catalog keeps only the newest row). Each call
-    of the script is bounded by ``timeout_s``.
+    it, under a lock per pin, the catalog row is looked up first (``show``):
+    a new pin is added with the note ``cited by: <cited_by>``, and a pin
+    other runs share is updated with ``status`` and this run appended to its
+    note, keeping its first purpose and doc (the catalog keeps only the
+    newest row). ``status`` is a catalog status; a closed run's pins move to
+    ``CLOSURE_STATUS`` (Decision 10). Each call of the script, and each wait
+    for a lock, is bounded by ``timeout_s``.
     """
+    _check_status(status)
     for directory in dict.fromkeys(Path(item) for item in pinned):
         added = _add_arguments(directory, owner=owner, status=status, purpose=purpose, doc=doc, regen=regen)
         if cited_by is None:
             _register(register_script, "add", directory, added, python=python, timeout_s=timeout_s)
             continue
-        shown = _register(register_script, "show", directory, ["--id", str(directory)], python=python, timeout_s=timeout_s)
-        try:
-            row = json.loads(shown)
-        except ValueError:
-            row = None  # "not found"
-        if isinstance(row, dict):
-            note = _cite(row.get("note"), cited_by)
-            _register(register_script, "update", directory, ["--id", str(directory), "--status", status, "--note", note],
-                      python=python, timeout_s=timeout_s)
-        else:
-            _register(register_script, "add", directory, [*added, "--note", CITED_BY + cited_by], python=python,
-                      timeout_s=timeout_s)
+        with _citation_lock(directory, timeout_s):
+            shown = _register(register_script, "show", directory, ["--id", str(directory)], python=python,
+                              timeout_s=timeout_s)
+            try:
+                row = json.loads(shown)
+            except ValueError:
+                row = None  # "not found"
+            if isinstance(row, dict):
+                note = _cite(row.get("note"), cited_by)
+                _register(register_script, "update", directory,
+                          ["--id", str(directory), "--status", status, "--note", note], python=python,
+                          timeout_s=timeout_s)
+            else:
+                _register(register_script, "add", directory, [*added, "--note", CITED_BY + cited_by], python=python,
+                          timeout_s=timeout_s)
 
 
 def register_tree(
@@ -285,6 +339,7 @@ def register_tree(
     timeout_s: float = REGISTER_TIMEOUT_S,
 ) -> None:
     """Register one artifact tree, such as a published run directory (ARTIFACT-LAW.md clause 9)."""
+    _check_status(status)
     _register(register_script, "add", Path(path),
               _add_arguments(Path(path), owner=owner, status=status, purpose=purpose, doc=doc, regen=regen),
               python=python, timeout_s=timeout_s)
@@ -303,13 +358,16 @@ def pin_and_register(
     python: str = sys.executable,
     timeout_s: float = REGISTER_TIMEOUT_S,
 ) -> tuple[Path, ...]:
-    """Pin each file and register its directory (status live) before pinning the next, so a crash leaves at
-    most one pin uncatalogued; returns each file's pin directory."""
+    """Pin each file, cataloguing its directory (status live) before the copy lands and updating the row after it,
+    so a crash can never leave a pinned copy the catalog does not list; returns each file's pin directory."""
     directories: list[Path] = []
     for file in files:
-        (directory,) = pin_files([file], pin_root)
+        directory = Path(pin_root) / file.sha256
         if directory not in directories:
             register_pins(register_script, [directory], owner=owner, purpose=purpose, doc=doc, regen=regen,
                           cited_by=cited_by, status="live", python=python, timeout_s=timeout_s)
+        pin_files([file], pin_root)
+        _register(register_script, "update", directory, ["--id", str(directory), "--status", "live"], python=python,
+                  timeout_s=timeout_s)  # the catalog measures the copy now that it is in place
         directories.append(directory)
     return tuple(directories)

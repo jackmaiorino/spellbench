@@ -1,4 +1,4 @@
-"""The useful-compute guard (COMPUTE-POLICY.md): probe, scaling comparison, selection, budget and monitoring."""
+"""The useful-compute guard (COMPUTE-POLICY.md): probe, scaling comparison, spot check, budget and monitoring."""
 
 from __future__ import annotations
 
@@ -14,18 +14,22 @@ from typing import Any
 
 import pytest
 
-from spellbench.arena import throughput
+from spellbench.arena import qualification
+from spellbench.arena.machine import cgroup_cpus
 from spellbench.arena.throughput import (
-    RESERVE_BYTES, Allocation, Budget, CpuSampler, IdleMonitor, MachineFacts, Placement, PlayedGame, ThroughputError,
-    check_reserve, machine_facts, plan_allocation, resource_bound, sample_order, warning_sink, worker_ladder, workload_id,
+    RESERVE_BYTES, SUBSTANTIAL_RUN_SECONDS, Allocation, Budget, CpuSampler, IdleMonitor, MachineFacts, Placement,
+    PlayedGame, ThroughputError, check_reserve, free_bytes, machine_facts, nvidia_gpus, plan_allocation, resource_bound,
+    sample_order, spot_check_game, total_memory, warning_sink, worker_ladder, workload_id,
 )
 from spellbench.errors import ValidationError
 from spellbench.wire import canonical_json_dumps
 
 DIGEST = "sha256:" + "0" * 64
+OTHER = "sha256:" + "1" * 64
 PLACEMENT = ("main-pc=used: fastest measured; haleyspc=slower: about half the speed per game; "
              "runpod=not_authorized: no spending authority for this run")
 FIRST_16 = tuple(range(16))
+MACHINE = MachineFacts(memory_bytes=2**36, gpus=(), free_bytes=(("pin_root", 2**42), ("run_dir", 2**42)))
 
 
 def _player(per_game_seconds: float, speedup: dict[int, float], *, digest=lambda workers, index: DIGEST, row_bytes: int = 1000):
@@ -42,8 +46,27 @@ def _player(per_game_seconds: float, speedup: dict[int, float], *, digest=lambda
     return play, calls
 
 
+def _plan(play, **change: Any) -> Allocation:
+    """plan_allocation for the pauper-kernel shape (192 games, cap 8, 24 cores), with placement and machine facts."""
+    plan = {"games_total": 192, "cap": 8, "per_game_cores": 1, "play": play, "placement": PLACEMENT, "cpu_count": 24,
+            "host": "h", "machine": MACHINE}
+    return plan_allocation(**{**plan, **change})
+
+
 def _counts(calls: list[tuple[int, tuple[int, ...]]]) -> list[tuple[int, int]]:
     return [(workers, len(indices)) for workers, indices in calls]
+
+
+def _counting(play):
+    """``play`` that advances a call counter after each call (for digests that change from call to call)."""
+    call = [0]
+
+    def run(workers: int, indices: tuple[int, ...]):
+        result = play(workers, indices)
+        call[0] += 1
+        return result
+
+    return run, call
 
 
 def _ticks(monitor: IdleMonitor, now: list[float], seconds, *, running, queued: int = 5, completed=None) -> list[int]:
@@ -57,41 +80,73 @@ def _ticks(monitor: IdleMonitor, now: list[float], seconds, *, running, queued: 
     return flagged
 
 
-def test_a_fast_schedule_is_small_keeps_the_resource_bounded_workers_and_is_unmeasured() -> None:
+def test_a_short_schedule_is_small_keeps_its_configured_workers_and_awaits_its_spot_check() -> None:
     play, calls = _player(0.5, {})
-    allocation = plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24, host="h")
+    allocation = _plan(play, games_total=96, cap=4, placement=None)
     assert (allocation.kind, allocation.workers, allocation.projected_serial_seconds) == ("small", 4, 48)
-    assert calls == [(1, (0, 1))] and not allocation.measured
-    assert allocation.label == allocation.to_json()["label"] == "small run, unmeasured"
+    assert calls == [(1, (0, 1))] and allocation.spot_check is None and not allocation.measured
+    assert allocation.label == allocation.to_json()["label"] == "small run, not spot-checked"
+    assert allocation.to_json()["substantial_run_seconds"] == SUBSTANTIAL_RUN_SECONDS == 600
+
+
+def test_a_small_run_is_ratable_once_its_spot_check_passes() -> None:
+    play, _ = _player(0.5, {})
+    allocation = _plan(play, games_total=96, cap=4, placement=None)
+    game = spot_check_game(96)
+    passed = allocation.with_spot_check(game, recorded_digest=DIGEST, replayed_digest=DIGEST)
+    assert game == 48 and passed.measured and passed.label == "small run, spot-checked"
+    assert passed.to_json()["spot_check"] == {"game_index": 48, "recorded_digest": DIGEST, "replayed_digest": DIGEST,
+                                              "passed": True}
+    assert Allocation.from_json(passed.to_json()) == passed
+    failed = allocation.with_spot_check(game, recorded_digest=DIGEST, replayed_digest=OTHER)
+    assert not failed.measured and failed.label == "small run, spot check failed"
+    with pytest.raises(ThroughputError, match="game 48"):
+        allocation.with_spot_check(game + 1, recorded_digest=DIGEST, replayed_digest=DIGEST)
+    substantial = _plan(_player(10.0, {4: 3.5, 8: 3.4})[0])
+    with pytest.raises(ThroughputError, match="small"):
+        substantial.with_spot_check(96, recorded_digest=DIGEST, replayed_digest=DIGEST)
+    value = passed.to_json()
+    for broken in ({**value["spot_check"], "passed": False}, {**value["spot_check"], "game_index": 47}):
+        with pytest.raises(ValidationError):
+            Allocation.from_json({**value, "spot_check": broken})
 
 
 def test_a_substantial_schedule_compares_worker_counts_on_identical_games() -> None:
     play, calls = _player(10.0, {2: 1.9, 4: 3.5, 8: 3.4})
-    allocation = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT,
-                                 cpu_count=24, host="h")
+    allocation = _plan(play, per_game_cores=3)
     # The probe plays two games per top-rung worker with one worker and is the ladder's first rung; 4 and 8 workers
     # then play the same 16 games (22 game-times at ideal scaling: within 12 percent of the 192-game schedule).
     assert calls == [(1, FIRST_16), (4, FIRST_16), (8, FIRST_16)]
     assert allocation.kind == "substantial" and allocation.workers == 4 and allocation.outputs_identical
     assert allocation.measured and allocation.label == "substantial run, measured" and allocation.trials[0] == allocation.probe
-    assert allocation.to_json()["placement"] == Placement.parse(PLACEMENT).to_json()
+    assert allocation.spot_check is None and allocation.to_json()["placement"] == Placement.parse(PLACEMENT).to_json()
 
 
 @pytest.mark.parametrize(
-    ("games_total", "kind", "counts"),
+    ("games_total", "per_game", "kind", "counts"),
     [
-        (2000, "substantial", [(1, 16), (4, 16), (8, 16)]),
-        (192, "substantial", [(1, 16), (4, 16), (8, 16)]),
-        (183, "small", [(1, 2)]),  # the same comparison would cost 12.02 percent of the serial schedule
-        (5, "small", [(1, 2)]),  # fewer games than two per worker at the top rung
+        (2000, 200.0, "substantial", [(1, 16), (4, 16), (8, 16)]),
+        (192, 200.0, "substantial", [(1, 16), (4, 16), (8, 16)]),
+        (192, 3.125, "substantial", [(1, 16), (4, 16), (8, 16)]),  # 600 s projected: substantial at the threshold
+        (192, 3.0, "small", [(1, 16)]),  # 576 s projected: under the threshold
+        (183, 200.0, "small", [(1, 2)]),  # the comparison would cost 12.02 percent of the serial schedule
+        (5, 200.0, "small", [(1, 2)]),  # fewer games than two per worker at the top rung
     ],
 )
-def test_a_schedule_too_small_to_qualify_within_the_budget_is_small(games_total: int, kind: str, counts: list) -> None:
-    play, calls = _player(60.0, {})
-    allocation = plan_allocation(games_total=games_total, cap=8, per_game_cores=1, play=play, placement=PLACEMENT,
-                                 cpu_count=24, host="h")
+def test_a_schedule_short_in_time_or_games_is_small(games_total: int, per_game: float, kind: str, counts: list) -> None:
+    play, calls = _player(per_game, {})
+    allocation = _plan(play, games_total=games_total)
     assert allocation.kind == kind and _counts(calls) == counts
-    assert allocation.projected_serial_seconds > throughput.SMALL_RUN_SECONDS  # long enough: the budget alone decides
+
+
+def test_the_substantial_threshold_is_recorded_and_patchable(monkeypatch) -> None:
+    play, _ = _player(0.5, {})
+    assert _plan(play, placement=None).kind == "small"  # 192 games of half a second
+    monkeypatch.setattr(qualification, "SUBSTANTIAL_RUN_SECONDS", 0)  # what a test forcing the ladder patches
+    forced = _plan(play)
+    assert forced.kind == "substantial" and forced.to_json()["substantial_run_seconds"] == 0
+    monkeypatch.undo()
+    assert Allocation.from_json(forced.to_json()) == forced  # checked against its own recorded threshold
 
 
 def test_the_qualification_wall_time_is_recorded() -> None:
@@ -105,11 +160,9 @@ def test_the_qualification_wall_time_is_recorded() -> None:
 
         return run
 
-    small = plan_allocation(games_total=96, cap=4, per_game_cores=1, play=timed(_player(0.5, {})[0]), placement=None,
-                            cpu_count=24, host="h", clock=lambda: now[0])
+    small = _plan(timed(_player(0.5, {})[0]), games_total=96, cap=4, placement=None, clock=lambda: now[0])
     assert small.qualification_seconds_milli == 1_250
-    substantial = plan_allocation(games_total=192, cap=8, per_game_cores=1, play=timed(_player(10.0, {4: 4.0, 8: 5.0})[0]),
-                                  placement=PLACEMENT, cpu_count=24, host="h", clock=lambda: now[0])
+    substantial = _plan(timed(_player(10.0, {4: 4.0, 8: 5.0})[0]), clock=lambda: now[0])
     # 16 games at 1, 4 and 8 workers take 160 s, 40 s and 32 s, and 0.25 s around each call.
     assert substantial.workers == 8 and substantial.to_json()["qualification_seconds_milli"] == 232_750
 
@@ -133,9 +186,7 @@ def test_busy_time_ranking_finds_the_fastest_worker_count_where_batch_wall_time_
             walls[workers] = max(free)
             return max(free), tuple(PlayedGame(index, duration, DIGEST, 100) for index, duration in zip(indices, durations))
 
-        allocation = plan_allocation(games_total=192, cap=8, per_game_cores=1, play=play, placement=PLACEMENT,
-                                     cpu_count=24, host="h")
-        wrong_by_busy += allocation.workers != 8
+        wrong_by_busy += _plan(play).workers != 8
         wrong_by_wall += min(walls, key=lambda workers: (round(walls[workers] * 1000), workers)) != 8
     assert wrong_by_busy == 0 and wrong_by_wall >= 40
 
@@ -144,9 +195,9 @@ def test_a_substantial_run_needs_a_placement_naming_every_machine() -> None:
     play, _ = _player(10.0, {})
     for placement in (None, "   "):
         with pytest.raises(ThroughputError, match="placement"):
-            plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=placement, cpu_count=24, host="h")
+            _plan(play, placement=placement)
     with pytest.raises(ThroughputError, match="main-pc, haleyspc and runpod"):
-        plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement="this PC only", cpu_count=24, host="h")
+        _plan(play, placement="this PC only")
 
 
 def test_the_placement_names_each_machine_once_with_a_disposition_and_a_reason() -> None:
@@ -168,43 +219,49 @@ def test_the_placement_names_each_machine_once_with_a_disposition_and_a_reason()
 
 
 def test_outputs_that_change_with_the_worker_count_are_refused() -> None:
-    play, calls = _player(10.0, {}, digest=lambda workers, index: DIGEST if workers == 1 else "sha256:" + "1" * 64)
+    play, calls = _player(10.0, {}, digest=lambda workers, index: DIGEST if workers == 1 else OTHER)
     with pytest.raises(ThroughputError, match="changed the results"):
-        plan_allocation(games_total=192, cap=2, per_game_cores=1, play=play, placement=PLACEMENT, cpu_count=24, host="h")
+        _plan(play, cap=2)
     assert _counts(calls) == [(1, 4), (2, 4), (1, 4)]  # the 1-worker trial was replayed and reproduced itself
 
 
 def test_bots_that_read_the_clock_are_recorded_not_refused() -> None:
-    call = [0]  # game 1's digest names the call that played it, as if a bot read the clock
-
-    def digest(workers: int, index: int) -> str:
+    def digest(workers: int, index: int) -> str:  # game 1's digest names the call that played it: a bot reading the clock
         return DIGEST if index != 1 else "sha256:" + format(call[0], "064x")
 
     play, calls = _player(10.0, {2: 1.8}, digest=digest)
-
-    def counting(workers: int, indices: tuple[int, ...]):
-        result = play(workers, indices)
-        call[0] += 1
-        return result
-
-    allocation = plan_allocation(games_total=192, cap=2, per_game_cores=1, play=counting, placement=PLACEMENT,
-                                 cpu_count=24, host="h")
+    counting, call = _counting(play)
+    allocation = _plan(counting, cap=2)
     assert _counts(calls) == [(1, 4), (2, 4), (1, 4)] and allocation.workers == 2 and allocation.measured
-    assert allocation.outputs_identical is False and "did not reproduce itself (game 1 differed)" in allocation.outputs_note
+    assert allocation.outputs_identical is False and allocation.outputs_note.startswith("game 1 differed between worker counts")
     assert "clock" in allocation.outputs_note and Allocation.from_json(allocation.to_json()) == allocation
+
+
+def test_a_clock_reading_game_cannot_hide_a_worker_count_change_in_another() -> None:
+    """Re-review: game 1 reads the clock (differs on every call); game 5 changes only with more than one worker."""
+
+    def digest(workers: int, index: int) -> str:
+        if index == 1:
+            return "sha256:" + format(call[0], "064x")
+        return "sha256:" + "5" * 64 if index == 5 and workers > 1 else DIGEST
+
+    play, calls = _player(10.0, {4: 3.5, 8: 3.4}, digest=digest)
+    counting, call = _counting(play)
+    with pytest.raises(ThroughputError, match=r"changed the results of identical games \(game 5\)"):
+        _plan(counting)
+    assert _counts(calls) == [(1, 16), (4, 16), (8, 16), (1, 16)]  # the replay changed game 1, never game 5
 
 
 def test_an_empty_schedule_is_refused_before_anything_plays() -> None:
     play, calls = _player(1.0, {})
     with pytest.raises(ThroughputError, match="no games"):
-        plan_allocation(games_total=0, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=4, host="h")
+        _plan(play, games_total=0, cap=4, cpu_count=4)
     assert calls == []
 
 
 def test_a_single_worker_bound_does_not_replay_the_probe() -> None:
     play, calls = _player(100.0, {})
-    allocation = plan_allocation(games_total=20, cap=1, per_game_cores=1, play=play, placement=PLACEMENT,
-                                 cpu_count=24, host="h")
+    allocation = _plan(play, games_total=20, cap=1)
     assert calls == [(1, (0, 1))] and allocation.kind == "substantial" and allocation.trials == (allocation.probe,)
 
 
@@ -212,13 +269,11 @@ def test_qualification_samples_games_across_matchups() -> None:
     assert sample_order([[0, 1, 2, 3], [4, 5], [6, 7, 8]]) == (0, 4, 6, 1, 5, 7, 2, 8, 3)
     matchups = [list(range(start, start + 8)) for start in range(0, 192, 8)]  # 24 matchups of 8 games each
     play, calls = _player(10.0, {4: 3.5, 8: 3.4})
-    plan_allocation(games_total=192, cap=8, per_game_cores=1, play=play, placement=PLACEMENT, cpu_count=24, host="h",
-                    sample=sample_order(matchups))
+    _plan(play, sample=sample_order(matchups))
     assert [indices for _, indices in calls] == [tuple(range(0, 128, 8))] * 3  # the first game of 16 matchups
     for bad in ([0, 0, 1], list(range(191)), [*range(191), 500]):
         with pytest.raises(ThroughputError, match="sample"):
-            plan_allocation(games_total=192, cap=8, per_game_cores=1, play=play, placement=PLACEMENT, cpu_count=24,
-                            host="h", sample=bad)
+            _plan(play, sample=bad)
 
 
 @pytest.mark.parametrize(
@@ -236,7 +291,7 @@ def test_qualification_samples_games_across_matchups() -> None:
 )
 def test_a_play_that_reports_unusable_results_is_refused(play) -> None:
     with pytest.raises(ThroughputError, match="playing 2 games with 1 worker"):
-        plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24, host="h")
+        _plan(play, games_total=96, cap=4, placement=None)
 
 
 @pytest.mark.parametrize(
@@ -245,9 +300,8 @@ def test_a_play_that_reports_unusable_results_is_refused(play) -> None:
 )
 def test_bad_launch_facts_are_refused_before_anything_plays(change: dict[str, Any]) -> None:
     play, calls = _player(0.5, {})
-    plan = {"games_total": 96, "cap": 4, "per_game_cores": 1, "play": play, "placement": None, "cpu_count": 24, "host": "h"}
     with pytest.raises(ThroughputError):
-        plan_allocation(**{**plan, **change})
+        _plan(play, **{"games_total": 96, "cap": 4, "placement": None, **change})
     assert calls == []
 
 
@@ -258,9 +312,9 @@ def test_resources_bound_the_ladder() -> None:
 
 
 def test_a_container_cpu_quota_bounds_the_core_count() -> None:
-    assert throughput._cgroup_cpus("max 100000\n") is None and throughput._cgroup_cpus(None) is None
-    assert throughput._cgroup_cpus("200000 100000\n") == 2 and throughput._cgroup_cpus("150000 100000") == 2
-    assert throughput._cgroup_cpus("garbage") is None
+    assert cgroup_cpus("max 100000\n") is None and cgroup_cpus(None) is None
+    assert cgroup_cpus("200000 100000\n") == 2 and cgroup_cpus("150000 100000") == 2
+    assert cgroup_cpus("garbage") is None
 
 
 def test_an_unmeasured_allocation_round_trips_and_is_not_measured() -> None:
@@ -271,10 +325,7 @@ def test_an_unmeasured_allocation_round_trips_and_is_not_measured() -> None:
 
 def test_a_measured_allocation_round_trips_and_parsing_is_strict() -> None:
     play, _ = _player(10.0, {4: 3.5, 8: 3.4})
-    machine = MachineFacts(memory_bytes=2**36, gpus=("Test GPU",), free_bytes=(("run_dir", 2**40),))
-    allocation = plan_allocation(games_total=192, cap=8, per_game_cores=1, play=play, placement=PLACEMENT, cpu_count=24,
-                                 host="h", workload=workload_id({"config": {"format": "pauper-bo1"}}), pinned_bytes=5000,
-                                 machine=machine)
+    allocation = _plan(play, workload=workload_id({"config": {"format": "pauper-bo1"}}), pinned_bytes=5000)
     value = allocation.to_json()
     assert canonical_json_dumps(value)  # integers only: the manifest's allocation block is canonical JSON
     assert Allocation.from_json(value) == allocation and allocation.qualified_rate == pytest.approx(0.35)
@@ -282,7 +333,7 @@ def test_a_measured_allocation_round_trips_and_parsing_is_strict() -> None:
         {**value, "note": "x"},
         {key: item for key, item in value.items() if key != "reused"},
         {**value, "kind": "large"},
-        {**value, "label": "small run, unmeasured"},
+        {**value, "label": "small run, spot-checked"},
         {**value, "workers": True},
         {**value, "workers": 8},  # a slower rung than the busy-time choice
         {**value, "trials": []},
@@ -291,8 +342,11 @@ def test_a_measured_allocation_round_trips_and_parsing_is_strict() -> None:
         {**value, "placement": None},
         {**value, "games_total": 384},  # the projection belongs to another schedule
         {**value, "projected_serial_seconds": 100},
+        {**value, "substantial_run_seconds": 2000},  # under this threshold the schedule would be small
+        {**value, "spot_check": {"game_index": 96, "recorded_digest": DIGEST, "replayed_digest": DIGEST, "passed": True}},
         {**value, "budget": {**value["budget"], "projected_bytes": 1}},
         {**value, "machine": {**value["machine"], "free_bytes": {"C:/runs": 1}}},  # roles, never paths
+        {**value, "machine": {**value["machine"], "free_bytes": {"run_dir": 2**42}}},  # the pin volume is missing
         {**value, "probe": {**value["probe"], "outputs_digest": "0" * 64}},
     ]
     for item in broken:
@@ -309,7 +363,7 @@ def test_the_workload_identity_is_canonical() -> None:
 
 def _reuse_plan(evidence: Path, **change: Any) -> dict[str, Any]:
     plan = {"games_total": 192, "cap": 8, "per_game_cores": 3, "cpu_count": 24, "host": "h", "evidence": evidence,
-            "workload": workload_id({"config": {"format": "pauper-bo1"}, "engine_files": ["a" * 64]})}
+            "machine": MACHINE, "workload": workload_id({"config": {"format": "pauper-bo1"}, "engine_files": ["a" * 64]})}
     return {**plan, **change}
 
 
@@ -333,7 +387,7 @@ def test_a_compatible_prior_qualification_is_reused(tmp_path: Path) -> None:
     [{"host": "other"}, {"cpu_count": 32}, {"per_game_cores": 2}, {"cap": 4},
      {"workload": workload_id({"config": {"format": "pauper-bo1"}, "engine_files": ["b" * 64]})},
      {"games_total": 385},  # more than twice the qualified schedule
-     {"machine": MachineFacts(memory_bytes=2**35, gpus=(), free_bytes=())}],  # other hardware
+     {"machine": replace(MACHINE, memory_bytes=2**35)}],  # other hardware
 )
 def test_a_changed_condition_qualifies_again(tmp_path: Path, change: dict[str, Any]) -> None:
     evidence = tmp_path / "throughput-evidence.jsonl"
@@ -356,6 +410,30 @@ def test_a_small_rerun_never_covers_a_substantial_schedule(tmp_path: Path) -> No
     assert (full.kind, full.reused, full.projected_serial_seconds, full.games_total) == ("substantial", False, 1920, 192)
 
 
+def test_reuse_needs_a_probe_of_the_same_size_and_games(tmp_path: Path) -> None:
+    """Re-review: a 100-game rerun's 2-game probe (two fast builtin mirrors) must not classify the 192-game run."""
+    evidence = tmp_path / "throughput-evidence.jsonl"
+    calls = []
+
+    def seconds(index: int) -> float:
+        return 0.5 if index in (0, 1) else 30.0
+
+    def play(workers: int, indices: tuple[int, ...]):
+        calls.append(workers)
+        return sum(seconds(index) for index in indices) / workers, tuple(PlayedGame(index, seconds(index), DIGEST, 100)
+                                                                         for index in indices)
+
+    plan = dict(cap=8, per_game_cores=1, cpu_count=24, host="h", play=play, machine=MACHINE, evidence=evidence,
+                workload=workload_id({"config": "pauper-kernel"}))
+    rerun = plan_allocation(games_total=100, placement=None, **plan)  # too few games for the comparison
+    assert (rerun.kind, rerun.probe.games, rerun.projected_serial_seconds) == ("small", 2, 50)
+    full = plan_allocation(games_total=192, placement=PLACEMENT, **plan)  # classified by its own 16-game probe
+    assert (full.kind, full.reused, full.probe.games, full.projected_serial_seconds) == ("substantial", False, 16, 5052)
+    reordered = plan_allocation(games_total=192, placement=PLACEMENT, sample=range(191, -1, -1), **plan)
+    assert not reordered.reused  # a probe of other games is another measurement
+    assert plan_allocation(games_total=192, placement=PLACEMENT, **plan).reused
+
+
 def test_reuse_follows_the_schedule_within_a_factor_of_two(tmp_path: Path) -> None:
     evidence = tmp_path / "throughput-evidence.jsonl"
     play, calls = _player(10.0, {4: 3.5, 8: 3.4})
@@ -367,32 +445,42 @@ def test_reuse_follows_the_schedule_within_a_factor_of_two(tmp_path: Path) -> No
 
 def test_reuse_never_crosses_the_size_class(tmp_path: Path) -> None:
     evidence = tmp_path / "throughput-evidence.jsonl"
-    play, calls = _player(0.6, {})
-    small = plan_allocation(play=play, placement=None, **_reuse_plan(evidence))  # 116 s projected: small
+    play, calls = _player(2.5, {})
+    small = plan_allocation(play=play, placement=None, **_reuse_plan(evidence))  # 480 s projected: small
     assert small.kind == "small" and _counts(calls) == [(1, 16)]
-    longer = plan_allocation(play=play, placement=PLACEMENT, **_reuse_plan(evidence, games_total=250))  # 150 s
+    longer = plan_allocation(play=play, placement=PLACEMENT, **_reuse_plan(evidence, games_total=250))  # 625 s
     assert longer.kind == "substantial" and not longer.reused
     assert _counts(calls) == [(1, 16), (1, 16), (4, 16), (8, 16)]
+
+
+def test_reuse_never_carries_a_spot_check_forward(tmp_path: Path) -> None:
+    evidence = tmp_path / "throughput-evidence.jsonl"
+    play, calls = _player(0.5, {})
+    plan = _reuse_plan(evidence, games_total=96, cap=4, per_game_cores=1)
+    checked = plan_allocation(play=play, placement=None, **plan).with_spot_check(
+        spot_check_game(96), recorded_digest=DIGEST, replayed_digest=DIGEST)
+    qualification.record_evidence(evidence, checked)  # as if a spot-checked allocation had been recorded
+    again = plan_allocation(play=play, placement=None, **plan)
+    assert again.reused and again.spot_check is None and not again.measured and len(calls) == 1
 
 
 def test_unreadable_evidence_is_ignored_and_evidence_needs_a_workload(tmp_path: Path) -> None:
     evidence = tmp_path / "throughput-evidence.jsonl"
     evidence.write_text('not json\n{"schema": "spellbench-throughput-evidence/v1", "allocation": {}}\n', encoding="utf-8")
     play, calls = _player(0.5, {})
-    plan = {"games_total": 96, "cap": 4, "per_game_cores": 1, "placement": None, "cpu_count": 24, "host": "h",
-            "evidence": evidence, "workload": workload_id({"config": {"format": "pauper-bo1"}})}
-    assert not plan_allocation(play=play, **plan).reused and plan_allocation(play=play, **plan).reused
+    plan = {"games_total": 96, "cap": 4, "placement": None, "evidence": evidence,
+            "workload": workload_id({"config": {"format": "pauper-bo1"}})}
+    assert not _plan(play, **plan).reused and _plan(play, **plan).reused
     assert calls == [(1, (0, 1))]
     with pytest.raises(ThroughputError, match="workload"):
-        plan_allocation(play=play, **{**plan, "workload": None})
+        _plan(play, **{**plan, "workload": None})
 
 
 def test_evidence_that_cannot_be_written_is_refused_before_anything_plays(tmp_path: Path) -> None:
     play, calls = _player(0.5, {})
-    plan = {"games_total": 96, "cap": 4, "per_game_cores": 1, "play": play, "placement": None, "cpu_count": 24,
-            "host": "h", "workload": workload_id({})}
+    plan = {"games_total": 96, "cap": 4, "placement": None, "workload": workload_id({})}
     with pytest.raises(ThroughputError, match="evidence"):
-        plan_allocation(**plan, evidence=tmp_path)  # a directory where the file should be
+        _plan(play, **plan, evidence=tmp_path)  # a directory where the file should be
     evidence = tmp_path / "throughput-evidence.jsonl"
     evidence.write_bytes(b"")
     os.chmod(evidence, stat.S_IREAD)  # readable, so only a write would fail: after the games, without the check
@@ -400,7 +488,7 @@ def test_evidence_that_cannot_be_written_is_refused_before_anything_plays(tmp_pa
         if os.access(evidence, os.W_OK):
             pytest.skip("this user can write read-only files")
         with pytest.raises(ThroughputError, match="cannot write the throughput evidence"):
-            plan_allocation(**plan, evidence=evidence)
+            _plan(play, **plan, evidence=evidence)
     finally:
         os.chmod(evidence, stat.S_IREAD | stat.S_IWRITE)
     assert calls == []
@@ -408,13 +496,11 @@ def test_evidence_that_cannot_be_written_is_refused_before_anything_plays(tmp_pa
 
 def test_the_budget_projects_row_and_pin_bytes_under_a_cap() -> None:
     play, _ = _player(0.5, {}, row_bytes=1000)
-    allocation = plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24,
-                                 host="h", pinned_bytes=5000)
+    allocation = _plan(play, games_total=96, cap=4, placement=None, pinned_bytes=5000)
     assert allocation.budget == Budget(projected_bytes=96 * 1000 + 5000, pinned_bytes=5000, cap_bytes=2 * (96 * 1000 + 5000))
     assert allocation.to_json()["budget"] == {"projected_bytes": 101_000, "pinned_bytes": 5000, "cap_bytes": 202_000}
     with pytest.raises(ThroughputError, match="cap"):
-        plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24, host="h",
-                        pinned_bytes=5000, cap_bytes=100_000)
+        _plan(play, games_total=96, cap=4, placement=None, pinned_bytes=5000, cap_bytes=100_000)
 
 
 def test_a_target_volume_below_the_60_gib_reserve_is_refused() -> None:
@@ -422,16 +508,35 @@ def test_a_target_volume_below_the_60_gib_reserve_is_refused() -> None:
         return MachineFacts(memory_bytes=2**36, gpus=(), free_bytes=(("pin_root", 2**42), ("run_dir", free)))
 
     play, calls = _player(0.5, {}, row_bytes=1000)
-    plan = {"games_total": 96, "cap": 4, "per_game_cores": 1, "play": play, "placement": None, "cpu_count": 24, "host": "h"}
+    plan = {"games_total": 96, "cap": 4, "placement": None}
     with pytest.raises(ThroughputError, match="60 GiB"):
-        plan_allocation(**plan, machine=machine(RESERVE_BYTES - 1))
+        _plan(play, **plan, machine=machine(RESERVE_BYTES - 1))
     assert calls == []  # refused before anything played
     with pytest.raises(ThroughputError, match="run_dir"):
-        plan_allocation(**plan, machine=machine(RESERVE_BYTES + 96_000 - 1))  # the projected rows would cross it
-    allocation = plan_allocation(**plan, machine=machine(RESERVE_BYTES + 96_000))
+        _plan(play, **plan, machine=machine(RESERVE_BYTES + 96_000 - 1))  # the projected rows would cross it
+    allocation = _plan(play, **plan, machine=machine(RESERVE_BYTES + 96_000))
     assert allocation.to_json()["machine"] == {"memory_bytes": 2**36, "gpus": [],
                                                "free_bytes": {"pin_root": 2**42, "run_dir": RESERVE_BYTES + 96_000}}
     check_reserve(allocation.machine, allocation.budget.projected_bytes)
+
+
+def test_the_reserve_check_always_runs_on_the_run_and_pin_volumes(tmp_path: Path, monkeypatch) -> None:
+    play, calls = _player(0.5, {})
+    plan = {"games_total": 96, "cap": 4, "placement": None}
+    with pytest.raises(ThroughputError, match="run_dir and pin_root"):
+        _plan(play, **plan, machine=None)  # no facts, and no volumes to measure
+    with pytest.raises(ThroughputError, match="pin_root"):
+        _plan(play, **plan, machine=MachineFacts(memory_bytes=None, gpus=(), free_bytes=(("run_dir", 2**42),)))
+    measured: list[list[str]] = []
+
+    def facts(volumes):
+        measured.append(sorted(volumes))
+        return MachineFacts(memory_bytes=None, gpus=(), free_bytes=(("pin_root", RESERVE_BYTES - 1), ("run_dir", 2**42)))
+
+    monkeypatch.setattr(qualification, "machine_facts", facts)
+    with pytest.raises(ThroughputError, match="pin_root has"):
+        _plan(play, **plan, machine=None, volumes={"run_dir": tmp_path / "runs", "pin_root": tmp_path / "pins"})
+    assert measured == [["pin_root", "run_dir"]] and calls == []
 
 
 def test_machine_facts_record_memory_gpus_and_free_space_by_role(tmp_path: Path) -> None:
@@ -444,10 +549,10 @@ def test_machine_facts_record_memory_gpus_and_free_space_by_role(tmp_path: Path)
 
 
 def test_the_machine_probes_are_well_formed(tmp_path: Path) -> None:
-    memory = throughput.total_memory()
+    memory = total_memory()
     assert memory is None or memory > 0
-    assert all(isinstance(name, str) and name for name in throughput.nvidia_gpus())
-    assert throughput.free_bytes(tmp_path / "not" / "yet") > 0
+    assert all(isinstance(name, str) and name for name in nvidia_gpus())
+    assert free_bytes(tmp_path / "not" / "yet") > 0
     sampler = CpuSampler()
     sampler.sample()
     busy = sampler.sample()
