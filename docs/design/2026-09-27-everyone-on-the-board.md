@@ -1,0 +1,76 @@
+# Everyone on the board (program)
+
+Status: direction set by Jack 2026-09-26 ("work towards getting them all on
+the leaderboard; that's how we get engagement"). Decisions below were made
+under Jack's standing authorization and are reported, not blocking.
+
+## Goal
+
+Every MTGRL community bot or model rated on the Spellbench leaderboard,
+starting with the ones that exist today. Success is measured by bots on the
+board, not by features: each sub-project below ends with a named bot rated.
+
+## Where each project stands (research 2026-09-26)
+
+Full notes (kept out of the repository): `E:/spellbench-archive/program-research/`
+(`research-community-landscape.md`, `research-C-kernel-models.md`).
+
+| Project | What exists | Path to the board | Blocked on |
+|---|---|---|---|
+| mtg-kernel (Jack) | g115, A48, c12 checkpoints; Codex's local branch | Bridge ported to Codex's evaluation commit `cd41885e`, g115 input extension, stdlib bot around the existing scorer | Engine port (3.5 to 4 agent-days); Codex owns the inputs (read-only use) |
+| gorge | Go engine (91.6% of Forge cards), 3 bots, per-seat fair view | gorge as a second engine: Go stdio adapter + `x_gorge_view_v1` + a Go agent wrapping his bots | Protocol v2 decision kinds (or declared defaults); Go toolchain and gorge source on this PC |
+| DraftZero | FDN Limited models on XMage (pickled checkpoints) | FDN Limited on XMage; fair play needs the v2 board view and his own decklist | XMage adapter; pickles only inside a sandbox |
+| MageZero | Deck-local models, 16-deck Standard 2022-25 pool | Standard 2022-25 on XMage with a bring-your-own-deck benchmark type | XMage adapter; fixed-deck benchmarks; fair mode |
+| Manafold | Engine without real cards yet; tracks a "UCI-like" agent protocol (issue #128) | Protocol co-review now; adapter after his M4 milestone | His roadmap |
+| Other Discord members | Nothing public found | Ask | Outreach |
+| Also found | pauper_sim (5 archetypes overlap our pool), Phase (Rust engine, fair AI), Argentum (FDN cards), NMaass CABT (MIT XMage NDJSON bridge) | Board view (pauper_sim); engine adapters (Phase, Argentum); CABT as the XMage adapter core | Same as above |
+
+## Sub-projects, in order
+
+1. **C: Jack's models on `pauper-kernel`.** Port the bridge to `cd41885e`,
+   add `x_kernel_flat_v4` (g115's input computed by the evaluation's own Rust
+   code in a lockstep training-mode copy, plus the model-row to candidate-id
+   map), a stdlib Python bot around the existing scorer (v4 mode, seeded
+   sampling), halts for missing inputs. Then A48 and c12 by config. Re-run the
+   launch benchmark on the new engine identity.
+2. **P: Protocol v2.** A neutral, hidden-information-safe board view for the
+   acting seat; the missing decision kinds (mulligan, library arrangement for
+   scry and surveil, naming, replacement and trigger order, starting player);
+   the acting seat's own decklist at `game_start`; a declared fairness
+   contract; and a fixed-deck ("bring your own deck") benchmark type. Clean
+   break from v1 while no outside bot depends on it. Reference stack, arena,
+   builtins, conformance tests, then the mtg-kernel bridge (after C's port).
+3. **G: gorge as the second engine.** Go environment adapter, gorge bots as
+   agents, a gorge benchmark (the 8 Pauper lists if gorge covers them, for a
+   cross-engine comparison), gorge's bots rated. Offer gorge's author the
+   adapter as a pull request, or let them own it.
+4. **D: Join kit.** Join page and guide, a starter bot on v2, local try-out
+   against the builtins, and a submission path with two tiers: self-reported
+   runs (labelled) and verified runs, where the maintainer runs the bot in a
+   network-less Docker container on this PC. Prebuilt bridge binaries once
+   publishing is decided.
+5. **X: XMage for FDN Limited and Standard 2022-25.** Adapter built on CABT,
+   co-built with their authors; DraftZero and MageZero rated.
+6. **Later:** Phase and Argentum adapters, Forge, Manafold after its M4.
+
+## Decisions (standing authorization)
+
+- Protocol v2 now, as a clean break: the only v1 bots are ours.
+- The fairness contract is part of v2: engines never leak hidden state,
+  every published benchmark declares it, and bots that need clairvoyance
+  cannot enter. Spellbench as the harness where peeking is impossible is a
+  selling point (DraftZero's own audit found its search reads hidden cards).
+- Community code never runs on this PC outside a Docker container with no
+  network; pickled checkpoints load only inside that container.
+- Codex-owned kernel code and checkpoints are used read-only; nothing of
+  Codex's is pushed; Spellbench results are measurement only.
+- Outreach (Discord posts, GitHub issues on members' repositories) is drafted
+  here and sent by Jack.
+
+## Needs Jack
+
+1. Permission to download and build community code for adapters: the Go
+   toolchain and gorge's source first, later XMage and CABT.
+2. Whether to tell Codex about the bridge port (it reads a local commit on
+   Codex's branch without changing it).
+3. Sending the outreach drafts.
