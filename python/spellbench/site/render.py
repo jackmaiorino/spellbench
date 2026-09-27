@@ -5,7 +5,9 @@ returns the page text, so an unchanged view renders byte for byte. The view
 shapes and the markup hooks the build relies on (``data-bot``,
 ``data-panel``, ``data-deck``, ``data-tag``, ``data-row`` then ``data-col``,
 ``id="hero"``, ``id="benchmarks"``) are the Task 6 and Task 8 contract in
-``docs/design/2026-09-26-benchmark-site-plan.md``.
+``docs/design/2026-09-26-benchmark-site-plan.md``, extended since: leaderboard
+rows carry ``bound`` and ``version``, Hero rows and their chips ``bound``,
+deck tables ``fit_error``, and grid cells ``complete_pairs``.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
