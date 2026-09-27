@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 from pathlib import Path
 
@@ -72,3 +74,45 @@ def test_the_vectors_file_matches_the_implementation() -> None:
         assert object_id(game0, message) == value
     for label, value in vectors["stream_seed_game_0_first_8_bytes"].items():
         assert stream_seed(game0, label)[:8].hex() == value
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [VECTOR.game_secret(0).hex().encode("ascii"), VECTOR.game_secret(0)[:31], VECTOR.game_secret(0) + bytes(1),
+     VECTOR.game_secret(0).hex()],
+    ids=["hex-text-as-bytes", "31-bytes", "33-bytes", "hex-str"],
+)
+def test_game_secret_keys_are_exactly_32_raw_bytes(bad: object) -> None:
+    derived = (id_key, lambda key: object_id(key, "p0:card-17:z2"),
+               lambda key: stream_seed(key, "spellbench/v2/rng:p1:library_shuffle:0"))
+    for derive in derived:
+        with pytest.raises(ValueError, match="32 raw bytes"):
+            derive(bad)
+
+
+def _plain_hmac(key: bytes, message: str) -> bytes:
+    """Spec 11.6 as written, without the module under test."""
+    return hmac.new(key, message.encode("ascii"), hashlib.sha256).digest()
+
+
+def test_the_reference_extra_vectors_agree_with_plain_hmac_and_the_implementation() -> None:
+    extra = json.loads(VECTORS_FILE.read_bytes())["reference_extra"]
+    run_secret = bytes(range(32))
+    assert set(extra) == {"note", "game_secret", "game_id", "agent_seed", "stream_seed_game_0"}
+    assert set(extra["game_secret"]) == set(extra["game_id"]) == {"10", "255", "256"}
+    assert set(extra["agent_seed"]) == {f"{index}:{seat}" for index in (10, 255, 256) for seat in ("p0", "p1")} | {"2:p0"}
+    for index, value in extra["game_secret"].items():
+        assert value == _plain_hmac(run_secret, "spellbench/v2/game:" + index).hex() == VECTOR.game_secret(int(index)).hex()
+    for index, value in extra["game_id"].items():
+        assert value == "g-" + _plain_hmac(run_secret, "spellbench/v2/game-id:" + index)[:8].hex() == VECTOR.game_id(int(index))
+    raw_seed = lambda key: int.from_bytes(_plain_hmac(run_secret, "spellbench/v2/agent-seed:" + key)[:8], "big")
+    for key, value in extra["agent_seed"].items():
+        index, seat = key.split(":")
+        assert value == raw_seed(key) % 2**53 == VECTOR.agent_seed(int(index), seat)
+    # 2:p0 is the first seed whose raw 64-bit value has bit 53 set, so a mask one bit too wide changes it.
+    assert [raw_seed(key) >> 53 & 1 for key in ("0:p0", "0:p1", "1:p0", "1:p1", "2:p0")] == [0, 0, 0, 0, 1]
+    game0 = _plain_hmac(run_secret, "spellbench/v2/game:0")
+    assert set(extra["stream_seed_game_0"]) == {"spellbench/v2/rng:p1:library_shuffle:0"}
+    for label, value in extra["stream_seed_game_0"].items():
+        assert value == _plain_hmac(game0, label).hex() == stream_seed(game0, label).hex()
+        assert value[:16] == "8a28fd4db75719b1"  # the spec 16 first 8 bytes

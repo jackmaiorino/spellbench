@@ -11,6 +11,7 @@ import secrets
 from dataclasses import dataclass
 
 RUN_SECRET_BYTES = 32
+_GAME_SECRET_BYTES = 32
 _LOW_53_BITS = (1 << 53) - 1
 
 
@@ -73,8 +74,15 @@ class RunSecret:
         return "g-" + _hmac(self.value, b"spellbench/v2/preflight-id:" + _decimal(index))[:8].hex()
 
 
+def _game_secret(value: bytes) -> bytes:
+    """Spec 5.3 and 11.6 key HMAC-SHA256 with the game secret's 32 raw bytes, never its 64-character hex text."""
+    if type(value) is not bytes or len(value) != _GAME_SECRET_BYTES:
+        raise ValueError("a game secret is exactly 32 raw bytes")
+    return value
+
+
 def id_key(game_secret: bytes) -> bytes:
-    return _hmac(game_secret, b"spellbench/v2/object-id")
+    return _hmac(_game_secret(game_secret), b"spellbench/v2/object-id")
 
 
 def object_id(game_secret: bytes, message: str) -> str:
@@ -84,4 +92,4 @@ def object_id(game_secret: bytes, message: str) -> str:
 
 def stream_seed(game_secret: bytes, label: str) -> bytes:
     """The recommended stream seed of spec 11.6 for label ``"spellbench/v2/rng:<seat or shared>:<purpose>:<n>"``."""
-    return _hmac(game_secret, label.encode("ascii"))
+    return _hmac(_game_secret(game_secret), label.encode("ascii"))

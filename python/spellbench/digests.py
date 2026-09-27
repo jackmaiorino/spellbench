@@ -64,22 +64,34 @@ def deck_id(decklist: Sequence[Mapping[str, Any]]) -> str:
     return _sha256_id(deck_rows(decklist))
 
 
-def _distinct_names(names: Iterable[str]) -> list[str]:
+def _checked_names(names: Iterable[str]) -> list[str]:
+    """Each name checked (spec 4.4), in input order; one bare string is not an array of names."""
     if isinstance(names, str):
         _fail("names", "a card-name domain is an array of names, not one string")
-    checked = [_card_name(name, f"names[{index}]") for index, name in enumerate(names)]
-    return sorted(set(checked))
+    return [_card_name(name, f"names[{index}]") for index, name in enumerate(names)]
 
 
 def domain_id(names: Sequence[str]) -> str:
-    """``card_name_domain.domain_id`` (spec 4.3): over the distinct names, sorted in code point order."""
-    return _sha256_id(_distinct_names(names))
+    """``card_name_domain.domain_id`` (spec 4.3): over the names, sorted in code point order.
+
+    The names are distinct: a repeated name is refused, never merged, so the id is always the spec's.
+    """
+    checked = _checked_names(names)
+    seen: set[str] = set()
+    for index, name in enumerate(checked):
+        if name in seen:
+            _fail(f"names[{index}]", f"card name {name!r} appears twice")
+        seen.add(name)
+    return _sha256_id(sorted(checked))
 
 
 def card_name_domain(names: Iterable[str]) -> dict[str, Any]:
-    """The ``rules.card_name_domain`` object (spec 12.2): the distinct names, sorted, with their ``domain_id``."""
-    distinct = _distinct_names(names)
-    return {"domain_id": _sha256_id(distinct), "names": distinct}
+    """The ``rules.card_name_domain`` object (spec 12.2): the distinct names, sorted, with their ``domain_id``.
+
+    A pool's names repeat across its decks, so here a repeat counts once, unlike in :func:`domain_id`.
+    """
+    distinct = sorted(set(_checked_names(names)))
+    return {"domain_id": domain_id(distinct), "names": distinct}
 
 
 def _minus_request_id(message: Mapping[str, Any]) -> dict[str, Any]:
@@ -87,21 +99,36 @@ def _minus_request_id(message: Mapping[str, Any]) -> dict[str, Any]:
 
 
 class GameDigest:
-    """SHA-256 chain over one game's engine traffic (spec 11.8); agent traffic never enters it."""
+    """SHA-256 chain over one game's engine traffic (spec 11.8); agent traffic never enters it.
+
+    Entries keep the spec's order, and an entry out of order raises ``ValueError``: the reset response once,
+    before any step; each distinct step request and its response once; the adjudication record last.
+    """
 
     def __init__(self, reset_request: Mapping[str, Any]) -> None:
         self._d = hashlib.sha256(GAME_DIGEST_DOMAIN + canonical_json_dumps(_minus_request_id(reset_request))).digest()
         self._last_request: tuple[str, bytes] | None = None
         self._last_answered = False
+        self._reset_answered = False
         self._adjudicated = False
 
     def _chain(self, message: Mapping[str, Any]) -> None:
         self._d = hashlib.sha256(self._d + canonical_json_dumps(_minus_request_id(message))).digest()
 
+    def _refuse_after_adjudication(self) -> None:
+        if self._adjudicated:
+            raise ValueError("the adjudication record is the last entry of a game digest")
+
     def add_response(self, response: Mapping[str, Any]) -> None:
+        """Chain the engine's answer to ``reset``: once, and before any step."""
+        self._refuse_after_adjudication()
+        if self._reset_answered or self._last_request is not None:
+            raise ValueError("a game digest takes one reset response, before any step")
         self._chain(response)
+        self._reset_answered = True
 
     def add_step(self, request: Mapping[str, Any], response: Mapping[str, Any] | None) -> None:
+        self._refuse_after_adjudication()
         key = (request["request_id"], canonical_json_dumps(request))
         if key == self._last_request:  # a retransmission and its cached response are chained once
             if not self._last_answered and response is not None:
@@ -116,9 +143,9 @@ class GameDigest:
     def add_adjudication(self, *, classification: str, outcome: str, reason: str, winner: str | None) -> None:
         if self._adjudicated:
             raise ValueError("a game has at most one adjudication record")
-        self._adjudicated = True
         self._chain({"adjudication": {"classification": classification, "outcome": outcome,
                                       "reason": reason, "winner": winner}})
+        self._adjudicated = True
 
     def chain_hex(self) -> str:
         return self._d.hex()

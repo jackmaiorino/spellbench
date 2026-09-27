@@ -21,7 +21,16 @@ VECTOR_GROUPS = (
     "commitment", "game_secret", "game_id", "agent_seed", "id_key_game_0", "object_id_game_0",
     "stream_seed_game_0_first_8_bytes", "deck_id", "domain_id", "canonical_sha256", "first_digest_chain_value",
 )
-NFD_NAME = "Lim-Dûl's Vault"  # "u" plus a combining circumflex: the NFD spelling of an Oracle name
+REFERENCE_EXTRA_NOTE = (
+    "Not spec 16 values: computed by the spellbench Python reference implementation and by plain hmac and hashlib "
+    "from the constructions of spec 11.6, with the top-level run_secret; spec 16 governs. They cover multi-digit game "
+    "indices (10, 255, 256), an agent seed whose raw 64-bit value has bit 53 set (2:p0), and a full 32-byte stream seed."
+)
+NFD_NAME = "Lim-Du\u0302l's Vault"  # "u" plus a combining circumflex: the NFD spelling of an Oracle name
+RESET = {"request_type": "reset", "request_id": "h-2", "game_id": "g-1"}
+FIRST = {"response_type": "decision", "request_id": "h-2", "step": 0}
+STEP = {"request_type": "step", "request_id": "h-3", "expected_step": 0}
+DONE = {"response_type": "terminal", "request_id": "h-3", "outcome": "draw"}
 
 
 def test_deck_and_domain_vectors() -> None:
@@ -37,7 +46,7 @@ def test_deck_and_domain_vectors() -> None:
 
 
 def test_canonical_json_vector() -> None:
-    value = {"b": "Chainer's Edict", "a": "Lim-Dûl's Vault", "c": "tab\there"}
+    value = {"b": "Chainer's Edict", "a": "Lim-D\u00fbl's Vault", "c": "tab\there"}
     assert hashlib.sha256(wire.canonical_json_dumps(value)).hexdigest() == (
         "041575311eb1deb02f63f70361e14159034faf0d2a31e57edf8b4cf037680377"
     )
@@ -49,7 +58,7 @@ def test_canonical_json_vector() -> None:
         ([], "nonempty"),
         ([{"name": "Mountain", "count": 0}], "count"),
         ([{"name": "Mountain", "count": 1}, {"name": "Mountain", "count": 2}], "twice"),
-        ([{"name": NFD_NAME, "count": 1}], "Lim-Dûl's Vault.*NFC"),
+        ([{"name": NFD_NAME, "count": 1}], "Lim-Du\u0302l's Vault.*NFC"),
         ([{"name": "Mountain", "count": 1, "set": "M21"}], "exactly"),
         ([{"name": "Mountain", "count": 1 << 32}], "count"),
         ([{"name": "Mountain", "count": True}], "count"),
@@ -70,9 +79,12 @@ def test_deck_rows_name_the_card_under_the_callers_context() -> None:
     assert str(caught.value) == f"catalog[0] (Vault).decklist[1].name: card name {NFD_NAME!r} is not in Unicode NFC"
 
 
-def test_a_domain_is_the_set_of_its_nfc_names() -> None:
-    assert domain_id(("Mountain", "Lightning Bolt", "Mountain")) == domain_id(["Lightning Bolt", "Mountain"])
-    with pytest.raises(ValidationError, match="Lim-Dûl's Vault.*NFC"):
+def test_a_domain_id_sorts_its_names_and_refuses_a_repeat() -> None:
+    assert domain_id(("Mountain", "Lightning Bolt")) == domain_id(["Lightning Bolt", "Mountain"])
+    with pytest.raises(ValidationError) as caught:
+        domain_id(["Mountain", "Lightning Bolt", "Mountain"])  # spec 4.3 hashes distinct names; a repeat is refused
+    assert str(caught.value) == "names[2]: card name 'Mountain' appears twice"
+    with pytest.raises(ValidationError, match="Lim-Du\u0302l's Vault.*NFC"):
         card_name_domain(["Mountain", NFD_NAME])
     with pytest.raises(ValidationError, match="array"):
         domain_id("Mountain")
@@ -91,17 +103,25 @@ def _manual(reset: dict, *messages: dict) -> str:
     return "sha256:" + d.hex()
 
 
+def _strip(message: dict) -> dict:
+    return {key: value for key, value in message.items() if key != "request_id"}
+
+
 def test_chain_order_strips_request_ids_and_chains_a_retransmission_once() -> None:
-    reset = {"request_type": "reset", "request_id": "h-2", "game_id": "g-1"}
-    first = {"response_type": "decision", "request_id": "h-2", "step": 0}
-    step = {"request_type": "step", "request_id": "h-3", "expected_step": 0}
-    done = {"response_type": "terminal", "request_id": "h-3", "outcome": "draw"}
-    digest = GameDigest(reset)
-    digest.add_response(first)
-    digest.add_step(step, done)
-    digest.add_step(step, done)  # the identical retransmission and its cached response
-    strip = lambda message: {key: value for key, value in message.items() if key != "request_id"}
-    assert digest.value() == _manual(strip(reset), strip(first), strip(step), strip(done))
+    digest = GameDigest(RESET)
+    digest.add_response(FIRST)
+    digest.add_step(STEP, DONE)
+    digest.add_step(STEP, DONE)  # the identical retransmission and its cached response
+    assert digest.value() == _manual(_strip(RESET), _strip(FIRST), _strip(STEP), _strip(DONE))
+
+
+def test_a_step_retransmitted_after_a_timeout_chains_its_answer_once() -> None:
+    digest = GameDigest(RESET)
+    digest.add_response(FIRST)
+    digest.add_step(STEP, None)  # the engine did not answer within its budget
+    digest.add_step(STEP, DONE)  # the identical retransmission is answered
+    digest.add_step(STEP, DONE)  # a further retransmission gets the cached answer
+    assert digest.value() == _manual(_strip(RESET), _strip(FIRST), _strip(STEP), _strip(DONE))
 
 
 def test_an_adjudication_is_appended_once() -> None:
@@ -114,8 +134,41 @@ def test_an_adjudication_is_appended_once() -> None:
         digest.add_adjudication(classification="halted", outcome="halted", reason="x", winner=None)
 
 
+def test_nothing_follows_the_adjudication_record() -> None:
+    digest = GameDigest(RESET)  # the engine never answered the reset, and the host halted the game
+    digest.add_adjudication(classification="halted", outcome="halted", reason="x", winner=None)
+    final = digest.value()
+    with pytest.raises(ValueError):
+        digest.add_response(FIRST)
+    with pytest.raises(ValueError):
+        digest.add_step(STEP, DONE)
+    assert digest.value() == final
+
+
+def test_a_refused_adjudication_record_leaves_the_digest_open() -> None:
+    digest = GameDigest(RESET)
+    before = digest.value()
+    with pytest.raises(ValidationError):
+        digest.add_adjudication(classification="halted", outcome="halted", reason=1.5, winner=None)  # not canonical JSON
+    assert digest.value() == before
+    digest.add_adjudication(classification="halted", outcome="halted", reason="x", winner=None)
+
+
+def test_a_digest_takes_one_reset_response_before_any_step() -> None:
+    twice = GameDigest(RESET)
+    twice.add_response(FIRST)
+    chained = twice.value()
+    with pytest.raises(ValueError):
+        twice.add_response(FIRST)  # a retransmitted reset's cached answer is chained once
+    assert twice.value() == chained
+    late = GameDigest(RESET)
+    late.add_step(STEP, DONE)
+    with pytest.raises(ValueError):
+        late.add_response(FIRST)
+
+
 def test_the_vectors_file_holds_exactly_its_groups_and_each_reads_back() -> None:
-    assert set(VECTORS) == {"schema", "run_secret", *VECTOR_GROUPS}
+    assert set(VECTORS) == {"schema", "run_secret", *VECTOR_GROUPS, "reference_extra"}
     assert VECTORS["schema"] == "spellbench-test-vectors/v2"
     assert deck_id(VECTORS["deck_id"]["decklist"]) == VECTORS["deck_id"]["deck_id"]
     assert domain_id(VECTORS["domain_id"]["names"]) == VECTORS["domain_id"]["domain_id"]
@@ -138,7 +191,8 @@ def _vectors_document() -> dict[str, Any]:
     }
     messages = ("p0:card-17:z2", "p1:card-17:z2", "p0:card-17:z2:look:0", "p0:card-17:z2:look:1")
     labels = ("spellbench/v2/rng:p1:library_shuffle:0",)
-    value = {"b": "Chainer's Edict", "a": "Lim-Dûl's Vault", "c": "tab\there"}
+    value = {"b": "Chainer's Edict", "a": "Lim-D\u00fbl's Vault", "c": "tab\there"}
+    extra = (10, 255, 256)
     return {
         "schema": "spellbench-test-vectors/v2",
         "run_secret": secret.hex(),
@@ -153,6 +207,14 @@ def _vectors_document() -> dict[str, Any]:
         "domain_id": {"names": names, "domain_id": domain_id(names)},
         "canonical_sha256": {"value": value, "sha256": hashlib.sha256(wire.canonical_json_dumps(value)).hexdigest()},
         "first_digest_chain_value": {"reset": reset, "d": GameDigest({**reset, "request_id": "h-2"}).chain_hex()},
+        "reference_extra": {
+            "note": REFERENCE_EXTRA_NOTE,
+            "game_secret": {str(index): secret.game_secret(index).hex() for index in extra},
+            "game_id": {str(index): secret.game_id(index) for index in extra},
+            "agent_seed": {**{f"{index}:{seat}": secret.agent_seed(index, seat) for index in extra for seat in ("p0", "p1")},
+                           "2:p0": secret.agent_seed(2, "p0")},
+            "stream_seed_game_0": {label: stream_seed(game0, label).hex() for label in labels},
+        },
     }
 
 
