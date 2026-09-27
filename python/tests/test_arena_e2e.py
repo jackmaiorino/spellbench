@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import json
 import math
+import subprocess
+import sys
+import tomllib
 from pathlib import Path
 
+import pytest
+
+import spellbench
 from spellbench.arena import store
 from spellbench.arena.cli import main as cli_main
 from spellbench.arena.cli import validate_tournament_dir
@@ -24,6 +30,13 @@ from arena_helpers import (
 )
 
 ALL_BUILTINS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
+REPO = Path(__file__).resolve().parents[2]
+
+
+def test_the_package_version_is_the_project_version() -> None:
+    # Runs record spellbench.__version__, and validate compares it with the running arena's.
+    project = tomllib.loads((REPO / "pyproject.toml").read_text(encoding="utf-8"))["project"]
+    assert project["version"] == spellbench.__version__
 
 
 def test_round_robin_with_every_builtin_bot(tmp_path: Path) -> None:
@@ -193,6 +206,16 @@ def test_builtin_bot_served_over_stdio_plays_like_the_in_process_bot(tmp_path: P
     assert [(row["game_id"], row["outcome"]) for row in ledger_rows(over_stdio)] == expected
 
 
+def test_the_cli_module_leaves_the_benchmark_and_site_code_unloaded() -> None:
+    # `spellbench bot` starts once per seat per game and needs neither.
+    code = (
+        "import sys, spellbench.arena.cli; "
+        "print(sorted(name for name in sys.modules if name.startswith(('spellbench.bench', 'spellbench.site'))))"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert result.stdout.strip() == "[]"
+
+
 def _refresh_manifest(directory: Path, edit=None) -> None:
     """Re-sign every data file in the manifest (what a careful forger does)."""
     manifest_path = directory / "manifest.json"
@@ -242,3 +265,55 @@ def test_validate_checks_the_manifest_game_counts(tmp_path: Path) -> None:
     run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
     _refresh_manifest(directory, edit=lambda manifest: manifest["games"].update(natural=0))
     assert any("games" in failure for failure in validate_tournament_dir(directory))
+
+
+def _as_published_by_arena_0_1_0(directory: Path) -> None:
+    """Rewrite a run the way arena 0.1.0 published it: no "slices" in leaderboard.json."""
+    document = leaderboard(directory)
+    del document["slices"]
+    (directory / "leaderboard.json").write_bytes(store.canonical_bytes(document) + b"\n")
+    _refresh_manifest(directory, edit=lambda manifest: manifest["tournament"].update(arena_version="0.1.0"))
+
+
+def test_a_run_made_by_another_arena_version_fails_with_one_clear_message(tmp_path: Path, capsys) -> None:
+    # Leaderboard output changes between versions, so recomputing an older
+    # run would only report mismatches that read like tampering.
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    _as_published_by_arena_0_1_0(directory)
+    message = (
+        f"this run was made by spellbench arena 0.1.0; this is {spellbench.__version__}: "
+        "rerun the benchmark, or validate with arena 0.1.0"
+    )
+    assert validate_tournament_dir(directory) == [message]
+    capsys.readouterr()
+    assert cli_main(["validate", str(directory)]) == 1
+    assert capsys.readouterr().err.splitlines() == [f"FAIL {message}"]
+
+
+def test_an_unprintable_recorded_version_is_quoted(tmp_path: Path) -> None:
+    # The message reaches terminals and CI logs, where a line starting "::" is a workflow command.
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    forged = "0.1.0\n::error::forged"
+    _refresh_manifest(directory, edit=lambda manifest: manifest["tournament"].update(arena_version=forged))
+    assert validate_tournament_dir(directory) == [
+        f"this run was made by spellbench arena '0.1.0\\n::error::forged'; this is {spellbench.__version__}: "
+        "rerun the benchmark, or validate with arena '0.1.0\\n::error::forged'"
+    ]
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda manifest: manifest["tournament"].pop("arena_version"),
+        lambda manifest: manifest["tournament"].update(arena_version=["0.1.0"]),
+        lambda manifest: manifest.update(tournament=[]),
+    ],
+    ids=["missing", "not-a-string", "tournament-not-an-object"],
+)
+def test_a_manifest_without_a_version_string_is_a_failure_not_a_crash(tmp_path: Path, edit) -> None:
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    _refresh_manifest(directory, edit=edit)
+    assert validate_tournament_dir(directory) == ["manifest tournament does not match the tournament data"]

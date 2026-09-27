@@ -176,6 +176,24 @@ def _has_control_character(text: str) -> bool:
     return any(unicodedata.category(char) == "Cc" for char in text)
 
 
+def _display_text(value: Any, context: str) -> str:
+    """A nonempty string without control or format characters (Cc, Cf).
+
+    Format characters include the zero-width and bidi controls, which can
+    make one bot's text read like another's.
+    """
+    text = _string(value, context)
+    for char in text:
+        if unicodedata.category(char) in ("Cc", "Cf"):
+            raise BenchmarkError(f"{context}: must not contain control or format characters, found U+{ord(char):04X}")
+    return text
+
+
+def _label_key(label: str) -> str:
+    """A label as a reader compares it: compatibility forms and case folded, spacing collapsed."""
+    return " ".join(unicodedata.normalize("NFKC", label).casefold().split())
+
+
 def _is_link(value: Any) -> bool:
     """An ``https://`` or ``http://`` URL without whitespace or control characters."""
     return (
@@ -200,9 +218,9 @@ def _parse_display(value: Any, context: str) -> BotDisplay:
             f"{context}.url: must be null or an https:// or http:// URL without whitespace or control characters"
         )
     return BotDisplay(
-        label=_string(display["label"], f"{context}.label"),
-        author=_string(display["author"], f"{context}.author"),
-        description=_string(display["description"], f"{context}.description"),
+        label=_display_text(display["label"], f"{context}.label"),
+        author=_display_text(display["author"], f"{context}.author"),
+        description=_display_text(display["description"], f"{context}.description"),
         url=url,
     )
 
@@ -224,6 +242,14 @@ def _parse_bots(value: Any, context: str) -> tuple[BenchmarkBot, ...]:
     names = [bot.name for bot in bots]
     if len(set(names)) != len(names):
         raise BenchmarkError(f"{context}: names must be unique, got {names}")
+    first_with_label: dict[str, int] = {}
+    for index, bot in enumerate(bots):
+        other = first_with_label.setdefault(_label_key(bot.display.label), index)
+        if other != index:
+            raise BenchmarkError(
+                f"{context}[{index}].display.label: {bot.display.label!r} reads as the label of {context}[{other}]; "
+                "labels must be unique, ignoring case, spacing and compatibility forms"
+            )
     if not any(bot.name == ANCHOR_BOT and bot.entry.get("type") == "builtin" for bot in bots):
         raise BenchmarkError(f'{context}: the roster must include the builtin "{ANCHOR_BOT}" bot (the rating anchor)')
     return bots
@@ -281,10 +307,9 @@ def _read_json(path: Path) -> dict[str, Any]:
         data = path.read_bytes()
     except OSError as exc:
         raise BenchmarkError(f"cannot read {path}: {exc}") from exc
-    # ValueError: an integer literal past Python's digit limit escapes strict_json_loads.
     try:
         return strict_json_loads(data)
-    except (MalformedJsonError, ValueError) as exc:
+    except MalformedJsonError as exc:
         raise BenchmarkError(f"{path} is not strict JSON: {exc}") from exc
 
 

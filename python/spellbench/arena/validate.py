@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .. import models
+from .. import __version__, models
 from ..errors import ValidationError
 from . import leaderboard, registry, runner, store
 
@@ -12,10 +12,12 @@ from . import leaderboard, registry, runner, store
 def validate_tournament_dir(directory: Path) -> list[str]:
     """Re-verify a published tournament; returns a list of failures (empty = OK).
 
-    Checks (fail closed): manifest presence and schema, the sha256/byte count
-    of every data file, ledger row schemas, and a byte-exact recomputation of
-    ``leaderboard.json`` and ``LEADERBOARD.md`` from the ledger, registry,
-    and config.
+    Checks (fail closed): manifest presence and schema, the arena version
+    that made the run, the sha256/byte count of every data file, ledger row
+    schemas, and a byte-exact recomputation of ``leaderboard.json`` and
+    ``LEADERBOARD.md`` from the ledger, registry, and config. Leaderboard
+    output can change between arena versions, so a run made by another
+    version gets one failure naming that version and no recomputation.
     """
     failures: list[str] = []
     if not store.is_published(directory):
@@ -29,6 +31,15 @@ def validate_tournament_dir(directory: Path) -> list[str]:
         )
     except (store.StoreError, ValidationError) as exc:
         return [f"manifest: {exc}"]
+    # A manifest without a version string fails the manifest checks below.
+    tournament = manifest["tournament"]
+    made_by = tournament.get("arena_version") if isinstance(tournament, dict) else None
+    if type(made_by) is str and made_by != __version__:
+        shown = made_by if made_by.isprintable() else repr(made_by)
+        return [
+            f"this run was made by spellbench arena {shown}; this is {__version__}: "
+            f"rerun the benchmark, or validate with arena {shown}"
+        ]
     files = manifest["files"]
     listed = [entry.get("path") for entry in files if isinstance(entry, dict)] if isinstance(files, list) else None
     if listed != list(store.DATA_FILE_NAMES):

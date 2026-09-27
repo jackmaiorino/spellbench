@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from spellbench.arena import runner
+from spellbench.arena.validate import validate_tournament_dir
 
 from arena_helpers import builtin, ledger_rows, make_config, run
 
@@ -19,6 +20,17 @@ def test_worker_count_does_not_change_any_artifact(tmp_path: Path) -> None:
     run(make_config(parallel, BOTS, pairs=3, workers=4))
     for name in ("matches.jsonl", "registry.json", "leaderboard.json", "LEADERBOARD.md"):
         assert (serial / name).read_bytes() == (parallel / name).read_bytes(), name
+
+
+def test_a_parallel_deck_pool_run_validates_and_matches_a_serial_one(tmp_path: Path) -> None:
+    # The benchmark launch shape: a rotating deck pool, no self-play, games in worker processes.
+    serial, parallel = tmp_path / "serial", tmp_path / "parallel"
+    shape = {"deck_pool": ("Burn", "Elves", "Faeries"), "include_self_play": False, "rating_anchor": "uniform"}
+    run(make_config(serial, BOTS, pairs=3, workers=1, **shape))
+    run(make_config(parallel, BOTS, pairs=3, workers=2, **shape))
+    assert validate_tournament_dir(parallel) == []
+    assert (parallel / "matches.jsonl").read_bytes() == (serial / "matches.jsonl").read_bytes()
+    assert {row["decks"][0]["catalog_id"] for row in ledger_rows(parallel)} == {"Burn", "Elves", "Faeries"}
 
 
 def test_workers_run_engines_concurrently(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
