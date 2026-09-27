@@ -23,24 +23,24 @@ type Context struct {
 }
 
 type SeatDecision struct {
-	ActingSeat  string                     `json:"acting_seat"`
-	SeatStep    uint64                     `json:"seat_step"`
-	Group       Group                      `json:"group"`
-	Context     Context                    `json:"context"`
-	Observation Observation                `json:"observation"`
-	Candidates  []Candidate                `json:"candidates"`
-	Extensions  map[string]json.RawMessage `json:"extensions"`
+	ActingSeat  string       `json:"acting_seat"`
+	SeatStep    uint64       `json:"seat_step"`
+	Group       Group        `json:"group"`
+	Context     Context      `json:"context"`
+	Observation Observation  `json:"observation"`
+	Candidates  []Candidate  `json:"candidates"`
+	Extensions  ExtensionMap `json:"extensions"`
 }
 
-// MarshalJSON writes extensions as an object, {} when there are none, never
-// null (Section 9.3).
-func (sd SeatDecision) MarshalJSON() ([]byte, error) {
-	type plain SeatDecision
-	p := plain(sd)
-	if p.Extensions == nil {
-		p.Extensions = map[string]json.RawMessage{}
+// ExtensionMap is seat_decision.extensions (Section 14). It marshals as an
+// object, {} when nil, never null (Section 9.3). Plain map literals assign to it.
+type ExtensionMap map[string]json.RawMessage
+
+func (e ExtensionMap) MarshalJSON() ([]byte, error) {
+	if e == nil {
+		return []byte("{}"), nil
 	}
-	return json.Marshal(p)
+	return json.Marshal(map[string]json.RawMessage(e))
 }
 
 type Engine struct {
@@ -78,7 +78,7 @@ type HelloOK struct {
 	ResponseType   string              `json:"response_type"`
 	Protocol       string              `json:"protocol"`
 	RequestID      string              `json:"request_id"`
-	ProtocolMinor  uint64              `json:"protocol_minor"`
+	ProtocolMinor  uint32              `json:"protocol_minor"`
 	Engine         Engine              `json:"engine"`
 	Formats        []string            `json:"formats"`
 	DeckSources    []string            `json:"deck_sources"`

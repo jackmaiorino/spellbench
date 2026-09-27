@@ -56,7 +56,7 @@ type PlayerObs struct {
 	LandsPlayedThisTurn uint32            `json:"lands_played_this_turn"`
 	MulligansTaken      uint32            `json:"mulligans_taken"`
 	Designations        []string          `json:"designations"`
-	Progress            *struct{}         `json:"progress"`
+	Progress            *Progress         `json:"progress"`
 	HandCount           uint32            `json:"hand_count"`
 	LibraryCount        uint32            `json:"library_count"`
 	Hand                []ObjectRecord    `json:"hand"`
@@ -64,6 +64,15 @@ type PlayerObs struct {
 	Graveyard           []ObjectRecord    `json:"graveyard"`
 	Exile               []ObjectRecord    `json:"exile"`
 	Command             []ObjectRecord    `json:"command"`
+}
+
+// Progress is Section 6.3's player progress. This engine leaves it null
+// (player_progress is false).
+type Progress struct {
+	Dungeon     *string `json:"dungeon"`
+	DungeonRoom *string `json:"dungeon_room"`
+	RingTempted uint32  `json:"ring_tempted"`
+	Speed       *uint32 `json:"speed"`
 }
 
 type StackEntry struct {

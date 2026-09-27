@@ -1,7 +1,10 @@
 // Package protocol holds the Spellbench v2 wire types this engine emits and reads.
 package protocol
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 const Name = "spellbench/v2"
 
@@ -29,17 +32,34 @@ func (t TargetRef) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]*ObjectRef{"object": t.Object})
 }
 
+// UnmarshalJSON accepts exactly {"player": seat} or {"object": ref}.
 func (t *TargetRef) UnmarshalJSON(b []byte) error {
-	var m struct {
-		Player *string    `json:"player"`
-		Object *ObjectRef `json:"object"`
-	}
+	var m map[string]json.RawMessage
 	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	t.Player, t.Object = m.Player, m.Object
+	p, o := m["player"], m["object"]
+	var seat string
+	var r ObjectRef
+	switch {
+	case len(m) == 1 && p != nil:
+		if json.Unmarshal(p, &seat) != nil || (seat != "p0" && seat != "p1") {
+			return fmt.Errorf("target reference: player %s is not a seat", p)
+		}
+		t.Player, t.Object = &seat, nil
+	case len(m) == 1 && o != nil && string(o) != "null":
+		if err := json.Unmarshal(o, &r); err != nil {
+			return err
+		}
+		t.Player, t.Object = nil, &r
+	default:
+		return fmt.Errorf(`target reference %s is not {"player": seat} or {"object": ref}`, b)
+	}
 	return nil
 }
+
+// oneMember reports whether exactly one member is set, as the wire form needs.
+func (t TargetRef) oneMember() bool { return (t.Player == nil) != (t.Object == nil) }
 
 // OrderItem is order_pick.item: {"object": R} or {"trigger": {...}}.
 type OrderItem struct {
@@ -57,6 +77,8 @@ type TriggerItem struct {
 }
 
 func ObjectItem(r ObjectRef) OrderItem { return OrderItem{Object: &r} }
+
+func (o OrderItem) oneMember() bool { return (o.Object == nil) != (o.Trigger == nil) }
 
 func (o OrderItem) MarshalJSON() ([]byte, error) {
 	if o.Object != nil {

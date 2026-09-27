@@ -1,53 +1,89 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"regexp"
 	"slices"
+	"strings"
+)
+
+type slot struct{ name, typ string }
+
+// kindTable is Sections 7.2 and 7.3: each kind's fields in order, all required
+// and no others, with the type Check enforces:
+//   - R and T: an object reference (Section 5.1) and a target reference (5.2);
+//   - item: order_pick.item, {"object": R} or {"trigger": {...}};
+//   - [X]: an array of X;
+//   - u32 and i32 (Section 4.4), bool, string, and seat (p0 or p1);
+//   - snake: an open lowercase snake_case word (Section 4.4);
+//   - any other name: a string from Vocab[name].
+//
+// A "|null" suffix also allows null.
+var kindTable = map[string][]slot{
+	"pass":                    {},
+	"play_land":               {{"source", "R"}, {"face", "u32"}},
+	"cast_spell":              {{"source", "R"}, {"method", "method|null"}},
+	"activate_mana_ability":   {{"source", "R"}, {"ability_index", "u32"}, {"mana_choice", "mana_symbol|null"}, {"cost_target", "T|null"}},
+	"activate_ability":        {{"source", "R"}, {"ability_index", "u32"}},
+	"special_action":          {{"source", "R"}, {"action", "special_action.action"}},
+	"choose_target":           {{"source", "R"}, {"slot", "u32"}, {"target", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_target_selection": {{"source", "R"}, {"slot", "u32"}, {"selected_count", "u32"}},
+	"choose_cost_target":      {{"source", "R"}, {"cost_kind", "choose_cost_target.cost_kind"}, {"candidate", "R"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_cast_method":      {{"source", "R"}, {"method", "method"}},
+	"choose_spell_mode":       {{"source", "R"}, {"mode_index", "u32"}, {"mode_count", "u32"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"choose_option":           {{"source", "R|null"}, {"purpose", "choose_option.purpose"}, {"option_index", "u32"}, {"option_count", "u32"}, {"option_label", "string|null"}},
+	"choose_color":            {{"source", "R|null"}, {"purpose", "choose_color.purpose"}, {"color", "color"}},
+	"choose_number":           {{"source", "R|null"}, {"purpose", "choose_number.purpose"}, {"value", "i32"}, {"minimum", "i32"}, {"maximum", "i32"}},
+	"choose_boolean":          {{"source", "R|null"}, {"purpose", "choose_boolean.purpose"}, {"value", "bool"}},
+	"choose_name":             {{"source", "R|null"}, {"purpose", "choose_name.purpose"}, {"value", "string"}},
+	"select_object":           {{"source", "R|null"}, {"purpose", "select_object.purpose"}, {"choice", "T"}, {"selected_count", "u32"}, {"minimum", "u32"}, {"maximum", "u32"}},
+	"finish_selection":        {{"source", "R|null"}, {"purpose", "finish_selection.purpose"}, {"selected_count", "u32"}},
+	"optional_cost":           {{"source", "R"}, {"cost", "optional_cost.cost"}, {"pay", "bool"}},
+	"choose_cost_option":      {{"source", "R"}, {"choice", "snake"}},
+	"optional_cast":           {{"card", "R"}, {"method", "method"}, {"cast_it", "bool"}},
+	"mulligan":                {{"hand_size", "u32"}, {"mulligans_taken", "u32"}, {"keep", "bool"}},
+	"order_pick":              {{"source", "R|null"}, {"purpose", "order_pick.purpose"}, {"item", "item"}, {"position", "u32"}, {"count", "u32"}},
+	"arrange_card":            {{"source", "R|null"}, {"purpose", "arrange_card.purpose"}, {"card", "R"}, {"card_index", "u32"}, {"card_count", "u32"}, {"destination", "arrange_card.destination"}},
+	"choose_replacement":      {{"affected", "T"}, {"event", "choose_replacement.event"}, {"replacement_source", "R|null"}, {"replacement_index", "u32"}, {"replacement_count", "u32"}},
+	"choose_starting_player":  {{"player", "seat"}},
+	"declare_attack":          {{"attacker", "R"}, {"defender", "T|null"}},
+	"declare_block":           {{"blocker", "R"}, {"attacker", "R|null"}},
+	"distribute":              {{"source", "R|null"}, {"purpose", "distribute.purpose"}, {"recipient", "T"}, {"amount", "u32"}, {"remaining", "u32"}},
+	"choose_pile":             {{"source", "R|null"}, {"purpose", "choose_pile.purpose"}, {"pile_index", "u32"}, {"piles", "[[R]]"}},
+}
+
+// The nested objects, typed the same way.
+var (
+	refShape     = []slot{{"object_id", "string"}, {"card_name", "string|null"}, {"owner_seat", "seat"}, {"controller_seat", "seat"}, {"zone", "zone"}}
+	triggerShape = []slot{{"source", "R|null"}, {"source_name", "string|null"}, {"ability_index", "u32|null"}, {"event_objects", "[R]"}, {"instance", "u32"}, {"label", "string|null"}}
+	targetForms  = map[string]string{"player": "seat", "object": "R"}
+	itemForms    = map[string]string{"object": "R", "trigger": "trigger"}
+	snakeCase    = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
 
 // KindFields is Section 7.2 and 7.3: each kind's fields, all required, no others.
-var KindFields = map[string][]string{
-	"pass":                    {},
-	"play_land":               {"source", "face"},
-	"cast_spell":              {"source", "method"},
-	"activate_mana_ability":   {"source", "ability_index", "mana_choice", "cost_target"},
-	"activate_ability":        {"source", "ability_index"},
-	"special_action":          {"source", "action"},
-	"choose_target":           {"source", "slot", "target", "selected_count", "minimum", "maximum"},
-	"finish_target_selection": {"source", "slot", "selected_count"},
-	"choose_cost_target":      {"source", "cost_kind", "candidate", "selected_count", "minimum", "maximum"},
-	"choose_cast_method":      {"source", "method"},
-	"choose_spell_mode":       {"source", "mode_index", "mode_count", "selected_count", "minimum", "maximum"},
-	"choose_option":           {"source", "purpose", "option_index", "option_count", "option_label"},
-	"choose_color":            {"source", "purpose", "color"},
-	"choose_number":           {"source", "purpose", "value", "minimum", "maximum"},
-	"choose_boolean":          {"source", "purpose", "value"},
-	"choose_name":             {"source", "purpose", "value"},
-	"select_object":           {"source", "purpose", "choice", "selected_count", "minimum", "maximum"},
-	"finish_selection":        {"source", "purpose", "selected_count"},
-	"optional_cost":           {"source", "cost", "pay"},
-	"choose_cost_option":      {"source", "choice"},
-	"optional_cast":           {"card", "method", "cast_it"},
-	"mulligan":                {"hand_size", "mulligans_taken", "keep"},
-	"order_pick":              {"source", "purpose", "item", "position", "count"},
-	"arrange_card":            {"source", "purpose", "card", "card_index", "card_count", "destination"},
-	"choose_replacement":      {"affected", "event", "replacement_source", "replacement_index", "replacement_count"},
-	"choose_starting_player":  {"player"},
-	"declare_attack":          {"attacker", "defender"},
-	"declare_block":           {"blocker", "attacker"},
-	"distribute":              {"source", "purpose", "recipient", "amount", "remaining"},
-	"choose_pile":             {"source", "purpose", "pile_index", "piles"},
-}
+var KindFields = func() map[string][]string {
+	m := make(map[string][]string, len(kindTable))
+	for kind, slots := range kindTable {
+		m[kind] = make([]string, len(slots))
+		for i, s := range slots {
+			m[kind][i] = s.name
+		}
+	}
+	return m
+}()
 
 var PriorityKinds = map[string]bool{"pass": true, "play_land": true, "cast_spell": true,
 	"activate_mana_ability": true, "activate_ability": true, "special_action": true}
 
-// Vocab is Section 6.10 and 7.4, keyed "<kind>.<field>" or a shared name.
+// Vocab is Sections 5.1, 6.10 and 7.4, keyed "<kind>.<field>" or a shared name.
 var Vocab = map[string][]string{
+	"zone":                         {"library", "hand", "battlefield", "graveyard", "stack", "exile", "command"},
 	"select_object.purpose":        {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
 	"finish_selection.purpose":     {"discard", "sacrifice", "exile", "destroy", "return_to_hand", "search", "reveal", "put_onto_battlefield", "put_into_hand", "put_into_graveyard", "legend_rule", "tap", "untap", "delve", "convoke", "attach", "keep", "vote", "modes", "other"},
 	"choose_boolean.purpose":       {"may_ability", "optional_trigger", "may_cast", "change_copy_targets", "optional_replacement", "reveal", "other"},
@@ -245,154 +281,252 @@ func integer(v any) (int64, error) {
 	return 0, fmt.Errorf("%s (%T) is not an integer", show(v), v)
 }
 
-// numbers reads a semantic's number fields through integer, checks each
-// against its Section 4.4 type, and keeps the first error.
-type numbers struct {
-	s   Semantic
-	err error
+// isNull reports whether v marshals as JSON null.
+func isNull(v any) bool {
+	if v == nil {
+		return true
+	}
+	switch rv := reflect.ValueOf(v); rv.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Interface:
+		return rv.IsNil()
+	}
+	return false
 }
 
-func (n *numbers) read(k string, lo, hi int64, typ string) int64 {
-	v, err := integer(n.s.Fields[k])
-	if err == nil && (v < lo || v > hi) {
-		err = fmt.Errorf("%d is not a %s", v, typ)
-	}
-	if err != nil && n.err == nil {
-		n.err = fmt.Errorf("%s.%s: %w", n.s.Kind, k, err)
-	}
-	return v
-}
-
-func (n *numbers) u32(k string) int64 { return n.read(k, 0, math.MaxUint32, "u32") }
-func (n *numbers) i32(k string) int64 { return n.read(k, math.MinInt32, math.MaxInt32, "i32") }
-
-// checkWord checks a vocabulary field against Vocab[list]. The value is a
-// string, or a *string as constructors store nullable fields; null passes only
-// when nullable.
-func (s Semantic) checkWord(field, list string, nullable bool) error {
-	var w string
-	switch v := s.Fields[field].(type) {
+// text reads a string field: a string, or a *string as constructors store
+// nullable ones.
+func text(v any) (string, error) {
+	switch x := v.(type) {
 	case string:
-		w = v
+		return x, nil
 	case *string:
-		if v == nil {
-			return s.nullWord(field, nullable)
+		if x != nil {
+			return *x, nil
 		}
-		w = *v
-	case nil:
-		return s.nullWord(field, nullable)
-	default:
-		return fmt.Errorf("%s.%s %s (%T) is not a string", s.Kind, field, show(v), v)
 	}
-	if !inVocab(list, w) {
-		return fmt.Errorf("%s.%s %q not in vocabulary", s.Kind, field, w)
+	return "", fmt.Errorf("%s (%T) is not a string", show(v), v)
+}
+
+// asDecoded returns a reference, target, item or array as UnmarshalJSON-style
+// values (maps, slices, strings, bools, nil and json.Number), so a built value
+// is judged exactly as its JSON would be. A TargetRef or OrderItem must set
+// exactly one member, since MarshalJSON would hide the other.
+func asDecoded(v any) (any, error) {
+	switch v.(type) {
+	case map[string]any, []any:
+		return v, nil
+	}
+	if isNull(v) {
+		return nil, nil
+	}
+	if r, ok := v.(interface{ oneMember() bool }); ok && !r.oneMember() {
+		return nil, fmt.Errorf("%T must set exactly one member", v)
+	}
+	b, ok := v.(json.RawMessage)
+	if !ok {
+		var err error
+		if b, err = json.Marshal(v); err != nil {
+			return nil, err
+		}
+	}
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.UseNumber()
+	var g any
+	if err := d.Decode(&g); err != nil {
+		return nil, err
+	}
+	return g, nil
+}
+
+// checkValue checks v against a kindTable type.
+func checkValue(typ string, v any) error {
+	base, nullable := strings.CutSuffix(typ, "|null")
+	elem, isArray := strings.CutPrefix(base, "[")
+	if isArray || base == "R" || base == "T" || base == "item" || base == "trigger" {
+		var err error
+		if v, err = asDecoded(v); err != nil {
+			return err
+		}
+	}
+	if isNull(v) {
+		if nullable {
+			return nil
+		}
+		return errors.New("is null")
+	}
+	switch {
+	case isArray:
+		a, ok := v.([]any)
+		if !ok {
+			return fmt.Errorf("%s is not an array", show(v))
+		}
+		for i, e := range a {
+			if err := checkValue(strings.TrimSuffix(elem, "]"), e); err != nil {
+				return fmt.Errorf("[%d]: %w", i, err)
+			}
+		}
+		return nil
+	case base == "R":
+		return checkObject(v, refShape)
+	case base == "trigger":
+		return checkObject(v, triggerShape)
+	case base == "T":
+		return checkOneOf(v, targetForms)
+	case base == "item":
+		return checkOneOf(v, itemForms)
+	case base == "u32":
+		return inRange(v, 0, math.MaxUint32, base)
+	case base == "i32":
+		return inRange(v, math.MinInt32, math.MaxInt32, base)
+	case base == "bool":
+		if _, ok := v.(bool); !ok {
+			return fmt.Errorf("%s is not a bool", show(v))
+		}
+		return nil
+	}
+	w, err := text(v)
+	switch {
+	case err != nil:
+		return err
+	case base == "string":
+	case base == "seat":
+		if w != "p0" && w != "p1" {
+			return fmt.Errorf("%q is not a seat", w)
+		}
+	case base == "snake":
+		if !snakeCase.MatchString(w) {
+			return fmt.Errorf("%q is not a snake_case word", w)
+		}
+	case Vocab[base] == nil:
+		return fmt.Errorf("unknown type %q", typ)
+	case !inVocab(base, w):
+		return fmt.Errorf("%q not in vocabulary %s", w, base)
 	}
 	return nil
 }
 
-func (s Semantic) nullWord(field string, nullable bool) error {
-	if nullable {
-		return nil
+func inRange(v any, lo, hi int64, typ string) error {
+	n, err := integer(v)
+	if err == nil && (n < lo || n > hi) {
+		err = fmt.Errorf("%d is not a %s", n, typ)
 	}
-	return fmt.Errorf("%s.%s is null", s.Kind, field)
+	return err
 }
 
-// twoArrays reports whether piles encodes as exactly two JSON arrays, built by
-// a constructor or kept raw by UnmarshalJSON.
-func twoArrays(piles any) bool {
-	b, err := json.Marshal(piles)
-	var two []json.RawMessage
-	if err != nil || json.Unmarshal(b, &two) != nil || len(two) != 2 {
-		return false
+// checkObject checks that v is an object with exactly shape's fields.
+func checkObject(v any, shape []slot) error {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return fmt.Errorf("%s is not an object", show(v))
 	}
-	return two[0][0] == '[' && two[1][0] == '['
+	if len(m) != len(shape) {
+		return fmt.Errorf("%s has %d fields, want %d", show(v), len(m), len(shape))
+	}
+	for _, sl := range shape {
+		fv, ok := m[sl.name]
+		if !ok {
+			return fmt.Errorf("%s lacks %s", show(v), sl.name)
+		}
+		if err := checkValue(sl.typ, fv); err != nil {
+			return fmt.Errorf("%s: %w", sl.name, err)
+		}
+	}
+	return nil
 }
 
-// Check enforces Section 7.3's field constraints and the vocabularies, for
-// constructed and decoded semantics alike. A malformed value is an error, never
-// a panic. Fields with neither a constraint nor a vocabulary (references, face,
-// slot, bools) are not type-checked.
+// checkOneOf checks that v is an object with exactly one of forms' members.
+func checkOneOf(v any, forms map[string]string) error {
+	m, ok := v.(map[string]any)
+	if !ok || len(m) != 1 {
+		return fmt.Errorf("%s is not an object with one member", show(v))
+	}
+	for k, fv := range m {
+		typ, ok := forms[k]
+		if !ok {
+			return fmt.Errorf("unknown member %q", k)
+		}
+		if err := checkValue(typ, fv); err != nil {
+			return fmt.Errorf("%s: %w", k, err)
+		}
+	}
+	return nil
+}
+
+// Check enforces Sections 7.2 and 7.3 for constructed and decoded semantics
+// alike: a known kind, exactly its fields, each field's kindTable type, the
+// field constraints, and the static choose_name domain. A malformed value is
+// an error, never a panic.
 func (s Semantic) Check() error {
-	want, ok := KindFields[s.Kind]
+	slots, ok := kindTable[s.Kind]
 	if !ok {
 		return fmt.Errorf("unknown kind %q", s.Kind)
 	}
-	if len(want) != len(s.Fields) {
-		return fmt.Errorf("%s has %d fields, want %d", s.Kind, len(s.Fields), len(want))
+	if len(slots) != len(s.Fields) {
+		return fmt.Errorf("%s has %d fields, want %d", s.Kind, len(s.Fields), len(slots))
 	}
-	for _, f := range want {
-		if _, ok := s.Fields[f]; !ok {
-			return fmt.Errorf("%s lacks %s", s.Kind, f)
+	for _, sl := range slots {
+		v, ok := s.Fields[sl.name]
+		if !ok {
+			return fmt.Errorf("%s lacks %s", s.Kind, sl.name)
+		}
+		if err := checkValue(sl.typ, v); err != nil {
+			return fmt.Errorf("%s.%s: %w", s.Kind, sl.name, err)
 		}
 	}
-	if err := s.checkConstraints(); err != nil {
-		return err
-	}
-	for _, f := range []string{"purpose", "cost", "cost_kind", "action", "event", "destination"} {
-		if _, ok := Vocab[s.Kind+"."+f]; ok {
-			if err := s.checkWord(f, s.Kind+"."+f, false); err != nil {
-				return err
-			}
+	return s.checkConstraints()
+}
+
+// num and str read fields Check has already typed.
+func (s Semantic) num(k string) int64  { n, _ := integer(s.Fields[k]); return n }
+func (s Semantic) str(k string) string { w, _ := text(s.Fields[k]); return w }
+
+// checkConstraints is Section 7.3's field constraints, plus the card_type
+// domain of choose_name (Section 7.5 names the card types of Section 6.10).
+func (s Semantic) checkConstraints() error {
+	n := s.num
+	switch s.Kind {
+	case "choose_target", "choose_cost_target", "select_object":
+		if sel, lo, hi := n("selected_count"), n("minimum"), n("maximum"); !(lo <= hi && sel < hi) {
+			return fmt.Errorf("%s selected_count %d, minimum %d, maximum %d", s.Kind, sel, lo, hi)
+		}
+	case "choose_spell_mode":
+		idx, count, sel, lo, hi := n("mode_index"), n("mode_count"), n("selected_count"), n("minimum"), n("maximum")
+		if !(idx < count && lo <= hi && hi <= count && sel < hi) {
+			return fmt.Errorf("choose_spell_mode mode_index %d, mode_count %d, selected_count %d, minimum %d, maximum %d", idx, count, sel, lo, hi)
+		}
+	case "choose_option":
+		if idx, count := n("option_index"), n("option_count"); !(idx < count) {
+			return fmt.Errorf("choose_option option_index %d, option_count %d", idx, count)
+		}
+	case "choose_number":
+		if v, lo, hi := n("value"), n("minimum"), n("maximum"); !(lo <= v && v <= hi) {
+			return fmt.Errorf("choose_number %d outside [%d,%d]", v, lo, hi)
+		}
+	case "order_pick":
+		if pos, count := n("position"), n("count"); !(pos < count) {
+			return fmt.Errorf("order_pick position %d, count %d", pos, count)
+		}
+	case "arrange_card":
+		if idx, count := n("card_index"), n("card_count"); !(idx < count) {
+			return fmt.Errorf("arrange_card card_index %d, card_count %d", idx, count)
+		}
+	case "choose_replacement":
+		if idx, count := n("replacement_index"), n("replacement_count"); !(2 <= count && idx < count) {
+			return fmt.Errorf("choose_replacement replacement_index %d, replacement_count %d", idx, count)
+		}
+	case "distribute":
+		if amount, remaining := n("amount"), n("remaining"); !(amount <= remaining) {
+			return fmt.Errorf("distribute amount %d, remaining %d", amount, remaining)
+		}
+	case "choose_pile":
+		piles, _ := asDecoded(s.Fields["piles"])
+		if a, _ := piles.([]any); !(n("pile_index") <= 1 && len(a) == 2) {
+			return fmt.Errorf("choose_pile pile_index %d with %d piles", n("pile_index"), len(a))
+		}
+	case "choose_name":
+		if s.str("purpose") == "card_type" && !inVocab("card_type", s.str("value")) {
+			return fmt.Errorf("choose_name card_type %q is not a card type", s.str("value"))
 		}
 	}
 	return nil
-}
-
-func (s Semantic) checkConstraints() error {
-	n := &numbers{s: s}
-	var err error
-	switch s.Kind {
-	case "choose_target", "choose_cost_target", "select_object":
-		lo, hi, sel := n.u32("minimum"), n.u32("maximum"), n.u32("selected_count")
-		if !(lo <= hi && sel < hi) {
-			err = fmt.Errorf("%s counts out of range", s.Kind)
-		}
-	case "choose_spell_mode":
-		idx, count := n.u32("mode_index"), n.u32("mode_count")
-		lo, hi, sel := n.u32("minimum"), n.u32("maximum"), n.u32("selected_count")
-		if !(idx < count && lo <= hi && hi <= count && sel < hi) {
-			err = fmt.Errorf("choose_spell_mode counts out of range")
-		}
-	case "choose_option":
-		if !(n.u32("option_index") < n.u32("option_count")) {
-			err = fmt.Errorf("choose_option option_index out of range")
-		}
-	case "choose_number":
-		v, lo, hi := n.i32("value"), n.i32("minimum"), n.i32("maximum")
-		if !(lo <= v && v <= hi) {
-			err = fmt.Errorf("choose_number %d outside [%d,%d]", v, lo, hi)
-		}
-	case "order_pick":
-		if !(n.u32("position") < n.u32("count")) {
-			err = fmt.Errorf("order_pick position out of range")
-		}
-	case "arrange_card":
-		if !(n.u32("card_index") < n.u32("card_count")) {
-			err = fmt.Errorf("arrange_card card_index out of range")
-		}
-	case "choose_replacement":
-		idx, count := n.u32("replacement_index"), n.u32("replacement_count")
-		if !(2 <= count && idx < count) {
-			err = fmt.Errorf("choose_replacement counts out of range")
-		}
-	case "distribute":
-		if !(n.u32("amount") <= n.u32("remaining")) {
-			err = fmt.Errorf("distribute amount exceeds remaining")
-		}
-	case "choose_pile":
-		if n.u32("pile_index") > 1 || !twoArrays(s.Fields["piles"]) {
-			err = fmt.Errorf("choose_pile needs pile_index 0 or 1 and exactly two piles")
-		}
-	case "choose_color":
-		err = s.checkWord("color", "color", false)
-	case "activate_mana_ability":
-		err = s.checkWord("mana_choice", "mana_symbol", true)
-	case "cast_spell", "choose_cast_method", "optional_cast":
-		// Only cast_spell may leave method null, when choose_cast_method follows (Section 7.2).
-		err = s.checkWord("method", "method", s.Kind == "cast_spell")
-	}
-	if n.err != nil {
-		return n.err
-	}
-	return err
 }
