@@ -111,7 +111,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     info = {"site": _SITE}
     files = {
         SITE_MARKER: _MARKER_TEXT.encode("utf-8"),  # first: a partial write can still be replaced
-        "index.html": render.render_home(_home_view(benchmarks, runs, table, proposed)).encode("utf-8"),
+        "index.html": render.render_home(_home_view(benchmarks, runs, stale, table, proposed)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
     }
@@ -237,6 +237,7 @@ def _mixed_hero_bots(runs: Mapping[str, _Run], benchmark_ids: Sequence[str]) -> 
 def _home_view(
     benchmarks: Sequence[definition.Benchmark],
     runs: Mapping[str, _Run],
+    stale: Mapping[str, frozenset[str]],
     table: hero.HeroTable,
     proposed: Sequence[definition.ProposedBenchmark],
 ) -> dict[str, Any]:
@@ -244,7 +245,7 @@ def _home_view(
     return {
         "site": _SITE,
         "hero": {
-            "rows": [_hero_row(row, benchmarks) for row in table.rows],
+            "rows": [_hero_row(row, benchmarks, runs, stale) for row in table.rows],
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
         },
@@ -253,14 +254,27 @@ def _home_view(
     }
 
 
-def _hero_row(row: hero.HeroRow, benchmarks: Sequence[definition.Benchmark]) -> dict[str, Any]:
-    """A Hero row, labelled by the first benchmark (id order) whose definition lists the bot."""
+def _hero_row(
+    row: hero.HeroRow,
+    benchmarks: Sequence[definition.Benchmark],
+    runs: Mapping[str, _Run],
+    stale: Mapping[str, frozenset[str]],
+) -> dict[str, Any]:
+    """A Hero row, labelled by the first benchmark (id order) whose definition lists the bot.
+
+    As on that benchmark's page, a bot whose arena entry changed since its run
+    (in ``stale``) shows its registry name and owner instead.
+    """
     label, author = row.name, ""
     for benchmark in benchmarks:
         bot = benchmark.bot(row.name)
-        if bot is not None:
+        if bot is None:
+            continue
+        if row.name in stale.get(benchmark.id, frozenset()):
+            label, author = row.name, runs[benchmark.id].owners[row.name]
+        else:
             label, author = bot.display.label, bot.display.author
-            break
+        break
     return {
         "name": row.name,
         "label": label,

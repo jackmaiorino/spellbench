@@ -264,6 +264,9 @@ def test_a_changed_bot_entry_warns_and_shows_the_rated_bot(copy_tree: Path, tmp_
     assert "unspecified" in row  # the registry owner: the entry names none
     assert "heuristic 1.0.0" in re.sub(r"<[^>]+>", " ", row)
     assert '<span class="label" title="uniform bot">random</span>' in _overall_row(page, "uniform")  # unchanged entry
+    # the Hero row takes its label from alpha, the first benchmark listing the bot: the registry identity there too
+    hero = _html((out / "index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
+    assert '<span class="name">heuristic</span><span class="by">unspecified</span>' in hero and "v2" not in hero
 
 
 def test_a_changed_setting_is_named_in_the_warning(copy_tree: Path, tmp_path: Path) -> None:
