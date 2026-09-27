@@ -62,6 +62,7 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    fixed-deck benchmarks, rotating pairs with hidden lists, legality lists,
    per-benchmark time controls. FDN mirror matches work on v2.0. Research
    notes: `E:/spellbench-archive/program-research/x-xmage-brief.md`.
+   X also hosts CP7 (see Status).
 6. **Later:** Phase and Argentum adapters, Forge, Manafold after its M4.
 
 ## Decisions (standing authorization)
@@ -100,3 +101,11 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
   and MageZero and Manafold." Order: G (gorge), then X (XMage for DraftZero and
   MageZero, with D's network-less sandbox for their checkpoints), with
   Manafold's protocol co-review now and its adapter after its M4.
+- Jack, 2026-09-27, on CP7 (XMage's strongest built-in AI, ComputerPlayer7
+  at skill 7): "I want that on the leaderboard", folded into X. CP7 plays
+  as a labelled reference AI hosted inside the XMage adapter: its search reads
+  the whole game, so it can never be a fair entry. CP7's Spellbench results
+  are measurement only and never feed back into choosing mtg-kernel models
+  or experiments. A standalone plan (a v1 Rally-mirror engine, about 14
+  agent-days) is kept as input to X's plan:
+  `E:/spellbench-archive/program-research/cp7-plan.md`.
