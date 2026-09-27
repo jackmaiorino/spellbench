@@ -1,0 +1,115 @@
+"""The host's engine client (spec 9)."""
+
+from __future__ import annotations
+
+import copy
+
+import pytest
+
+from spellbench import wire
+from spellbench.errors import EngineError, ProtocolError
+from spellbench.host.engine_process import EngineProcess, TerminalCountError, TerminalReasonError
+from spellbench.messages import ResetRequest
+
+from conftest import ScriptedPeer
+from test_messages import HELLO_OK, PROVENANCE, RESET, TERMINAL
+
+
+def _decision(request_id: str, step: int) -> bytes:
+    return wire.canonical_json_dumps({"response_type": "decision", "protocol": "spellbench/v2", "request_id": request_id,
+                                      "game_id": RESET["game_id"], "step": step, "provenance": PROVENANCE,
+                                      "seat_decision": {"acting_seat": "p0", "candidates": [
+                                          {"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": None}]}})
+
+
+def _hello(peer: ScriptedPeer) -> EngineProcess:
+    engine = EngineProcess(peer=peer)
+    engine.hello()
+    return engine
+
+
+def _reset(engine: EngineProcess):
+    return engine.reset(ResetRequest.from_json({**copy.deepcopy(RESET), "request_id": engine.next_request_id()}))
+
+
+def test_a_game_binds_steps_and_echoes_the_semantic() -> None:
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), _decision("h-2", 0),
+                         wire.canonical_json_dumps({**TERMINAL, "request_id": "h-3", "step_count": 1, "decision_count": 1})])
+    engine = _hello(peer)
+    assert _reset(engine).step == 0
+    terminal = engine.step(candidate_id=0, semantic={"kind": "pass"})
+    assert terminal.result.step_count == 1
+    step = wire.strict_json_loads(peer.sent[2])
+    assert step["expected_step"] == 0 and step["selection"] == {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}
+    assert engine.last_request == step and engine.last_response["response_type"] == "terminal"
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        _decision("h-9", 0),                                                        # request_id not echoed
+        _decision("h-2", 3),                                                        # the first decision is step 0
+        wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "step_count": 5}),  # a reset terminal answers 0 steps
+    ],
+)
+def test_binding_drift_is_a_protocol_error(answer: bytes) -> None:
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), answer]))
+    with pytest.raises(ProtocolError):
+        _reset(engine)
+
+
+def test_a_wrong_terminal_step_count_is_a_terminal_count_error() -> None:
+    terminal = wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "step_count": 5})
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), terminal]))
+    with pytest.raises(TerminalCountError) as caught:
+        _reset(engine)
+    assert caught.value.terminal.result.step_count == 5                    # R2-3
+
+
+def test_the_v2_engine_error_codes_are_accepted() -> None:
+    error = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "h-2",
+             "error": {"code": "unsupported_rule", "message": "no such mulligan"}}     # not a v1 code (R2-17)
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), wire.canonical_json_dumps(error)]))
+    with pytest.raises(EngineError) as caught:
+        _reset(engine)
+    assert caught.value.code == "unsupported_rule"
+
+
+def test_an_error_envelope_is_an_engine_error() -> None:
+    error = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "h-2",
+             "error": {"code": "unsupported_deck", "message": "no such deck"}}
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), wire.canonical_json_dumps(error)]))
+    with pytest.raises(EngineError) as caught:
+        _reset(engine)
+    assert caught.value.code == "unsupported_deck"
+
+
+def test_a_higher_minor_than_requested_is_refused() -> None:
+    with pytest.raises(ProtocolError, match="protocol_minor"):
+        _hello(ScriptedPeer([wire.canonical_json_dumps({**HELLO_OK, "protocol_minor": 1})]))
+
+
+def test_raw_probes_do_not_touch_the_game_state() -> None:
+    mismatch = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "x",
+                "error": {"code": "protocol_mismatch", "message": "v2 only"}}
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), wire.canonical_json_dumps(mismatch)]))
+    assert engine.send_raw({"request_type": "hello", "protocol": "spellbench/v1", "request_id": "x"})["error"]["code"] == "protocol_mismatch"
+
+
+@pytest.mark.parametrize("reason", ["host_validator:V3", "host_engine_fault:terminal_counts", "forfeit:stalling"])
+def test_an_engine_terminal_never_impersonates_the_host(reason: str) -> None:
+    terminal = wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "reason": reason,
+                                          "step_count": 0, "decision_count": 0})
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), terminal]))
+    with pytest.raises(TerminalReasonError) as caught:
+        _reset(engine)
+    assert caught.value.terminal.result.reason == reason
+
+
+def test_an_engine_namespaced_reason_is_accepted() -> None:
+    terminal = wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "outcome": "halted",
+                                          "classification": "halted", "winner": None,
+                                          "reason": "engine_contract_failure:candidate_limit",
+                                          "step_count": 0, "decision_count": 0})
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), terminal]))
+    assert _reset(engine).result.reason == "engine_contract_failure:candidate_limit"
