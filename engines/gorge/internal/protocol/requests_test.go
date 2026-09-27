@@ -121,6 +121,34 @@ func TestDecodeReadsEscapedStrings(t *testing.T) {
 	}
 }
 
+func TestDecodeCardNamesMustBeNFC(t *testing.T) {
+	// Card names are Oracle names in Unicode NFC (Section 4.4): the precomposed
+	// spelling decodes, and the decomposed one (o, then U+0301) is
+	// malformed_request, whether sent raw or as a JSON escape.
+	nfc := "L" + string(rune(0x00f3)) + "rien Revealed"
+	nfd := "Lo" + string(rune(0x0301)) + "rien Revealed"
+	escapedNFD := "Lo" + string(rune(0x5c)) + "u0301rien Revealed"
+	lines := func(name string) []string {
+		return []string{
+			withDecklist(`[{"name":"` + name + `","count":4}]`),
+			validateList(`[{"name":"` + name + `","count":4}]`),
+			sub(goodReset, `"names":["Lightning Bolt"]`, `"names":["Lightning Bolt","`+name+`"]`),
+		}
+	}
+	for _, line := range lines(nfc) {
+		if _, perr := protocol.Decode([]byte(line)); perr != nil {
+			t.Errorf("%s: the NFC name was refused: %v", line, perr)
+		}
+	}
+	for _, name := range []string{nfd, escapedNFD} {
+		for _, line := range lines(name) {
+			if req, perr := protocol.Decode([]byte(line)); perr == nil || perr.Code != protocol.CodeMalformedRequest || req.ID == "" {
+				t.Errorf("%q: got %v, want malformed_request", line, perr)
+			}
+		}
+	}
+}
+
 func TestDecodeTossWinnerChoosesHasANullStartingSeat(t *testing.T) {
 	line := sub(sub(goodReset, `"starting_player":"host_assigned"`, `"starting_player":"toss_winner_chooses"`), `"starting_seat":"p0"`, `"starting_seat":null`)
 	req, perr := protocol.Decode([]byte(line))

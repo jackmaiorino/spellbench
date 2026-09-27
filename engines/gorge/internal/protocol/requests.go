@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strconv"
 
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 )
 
@@ -249,8 +251,8 @@ func decodeHello(o obj, req *Request) error {
 }
 
 // decodeDecklist reads Section 12.1's rows: at least one, each exactly
-// {name, count}, with a nonempty name and a count in [1, 2^32-1], and no name
-// twice.
+// {name, count}, with a nonempty NFC name and a count in [1, 2^32-1], and no
+// name twice.
 func decodeDecklist(raw json.RawMessage) ([]DeckRow, error) {
 	elems, ok := asArray(raw)
 	if !ok || len(elems) == 0 {
@@ -266,6 +268,9 @@ func decodeDecklist(raw json.RawMessage) ([]DeckRow, error) {
 		name, err := getStr(row, "name")
 		if err != nil || name == "" {
 			return nil, fmt.Errorf("decklist[%d].name is not a nonempty string", i)
+		}
+		if !norm.NFC.IsNormalString(name) {
+			return nil, fmt.Errorf("decklist[%d].name %q is not in Unicode NFC", i, name)
 		}
 		count, err := getU32(row, "count")
 		if err != nil || count == 0 {
@@ -343,8 +348,10 @@ func decodeRules(raw json.RawMessage) (Rules, error) {
 	if r.Names, err = getStrings(dom, "names"); err != nil {
 		return r, err
 	}
-	if i := slices.Index(r.Names, ""); i >= 0 {
-		return r, fmt.Errorf("card_name_domain.names[%d] is empty", i)
+	for i, n := range r.Names {
+		if n == "" || !norm.NFC.IsNormalString(n) {
+			return r, fmt.Errorf("card_name_domain.names[%d] %q is not a nonempty NFC name", i, n)
+		}
 	}
 	if i := firstRepeat(r.Names); i >= 0 {
 		return r, fmt.Errorf("card_name_domain.names[%d] repeats %q", i, r.Names[i])
