@@ -19,8 +19,8 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 |---|---|---|---|
 | mtg-kernel (Jack) | g115, A48, c12 checkpoints; Codex's local branch | Bridge ported to Codex's evaluation commit `cd41885e`, g115 input extension, stdlib bot around the existing scorer | Engine port (3.5 to 4 agent-days); Codex owns the inputs (read-only use) |
 | gorge | Go engine (91.6% of Forge cards), 3 bots, per-seat fair view | gorge as a second engine: Go stdio adapter + `x_gorge_view_v1` + a Go agent wrapping his bots | Protocol v2 decision kinds (or declared defaults); Go toolchain and gorge source on this PC |
-| DraftZero | FDN Limited models on XMage (pickled checkpoints) | FDN Limited on XMage; fair play needs the v2 board view and his own decklist | XMage adapter; pickles only inside a sandbox |
-| MageZero | Deck-local models, 16-deck Standard 2022-25 pool | Standard 2022-25 on XMage with a bring-your-own-deck benchmark type | XMage adapter; fixed-deck benchmarks; fair mode |
+| DraftZero | FDN Limited models on XMage (pickled checkpoints) | FDN Limited on XMage; its search runs on a copy of the real game, so a rated entry needs policy-only play through an audited extension or its own search over sampled worlds (its position rebuilder does most of this) | XMage adapter; v2.1 rotating pairs with hidden lists; pickles only inside a sandbox |
+| MageZero | Deck-local models, 16-deck Standard 2022-25 pool | Standard 2022-25 on XMage with a bring-your-own-deck benchmark type; same fair-search gap as DraftZero, and its shipped config appears to feed the opponent's hand to the network | XMage adapter; v2.1 fixed-deck benchmarks and legality lists; fair mode |
 | Manafold | Engine without real cards yet; tracks a "UCI-like" agent protocol (issue #128) | Protocol co-review now; adapter after his M4 milestone | His roadmap |
 | Other Discord members | Nothing public found | Ask | Outreach |
 | Also found | pauper_sim (5 archetypes overlap our pool), Phase (Rust engine, fair AI), Argentum (FDN cards), NMaass CABT (MIT XMage NDJSON bridge) | Board view (pauper_sim); engine adapters (Phase, Argentum); CABT as the XMage adapter core | Same as above |
@@ -49,8 +49,15 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    runs (labelled) and verified runs, where the maintainer runs the bot in a
    network-less Docker container on this PC. Prebuilt bridge binaries once
    publishing is decided.
-5. **X: XMage for FDN Limited and Standard 2022-25.** Adapter built on CABT,
-   co-built with their authors; DraftZero and MageZero rated.
+5. **X: XMage for FDN Limited and Standard 2022-25.** A Java overlay that
+   vendors CABT (reusing its callback coverage, not its observation, which
+   leaks face-down exile and shares ids across seats) plus a small XMage
+   random-number patch offered upstream. Estimate 21 to 27 agent-days for the
+   engine and both benchmark definitions; getting DraftZero and MageZero
+   rated fairly adds 10 to 16 days shared with their authors. Needs v2.1:
+   fixed-deck benchmarks, rotating pairs with hidden lists, legality lists,
+   per-benchmark time controls. FDN mirror matches work on v2.0. Research
+   notes: `E:/spellbench-archive/program-research/x-xmage-brief.md`.
 6. **Later:** Phase and Argentum adapters, Forge, Manafold after its M4.
 
 ## Decisions (standing authorization)
