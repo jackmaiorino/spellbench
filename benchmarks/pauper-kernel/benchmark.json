@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v1",
   "id": "pauper-kernel",
   "title": "Pauper · mtg-kernel",
-  "summary": "Eight Pauper decks on the mtg-kernel rules engine; every matchup plays each deck in both seats. Protocol v1 ratings, not audited for hidden information. Halted games are unrated; they come from builtin bots taking goad or menace choices that the engine offers but the rules forbid.",
+  "summary": "Eight Pauper decks on the mtg-kernel rules engine; every matchup plays each deck in both seats. Protocol v1 ratings, not audited for hidden information. Halted games are unrated; they come from builtin bots taking goad or menace choices that the engine offers but the rules forbid. The mtg-kernel engine build and the model checkpoints are private: the published ledgers, bot ids and hashes let anyone re-derive the ratings, but not replay the games.",
   "format": "pauper-bo1",
   "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}", "--x-kernel-flat-v4"], "timeout_ms": 120000},
   "deck_pool": ["Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"],
