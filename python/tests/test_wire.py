@@ -35,8 +35,8 @@ def test_strict_loads_accepts_crlf_terminated_payload() -> None:
         b'{"a":NaN}',
         b'{"a":Infinity}',
         b'{"a":-Infinity}',
-        b'{"a":9007199254740993}',  # 2^53 + 1
-        b'{"a":-9007199254740993}',
+        b'{"a":9007199254740992}',  # 2^53
+        b'{"a":-9007199254740992}',
         b'{"a":10000000000000000}',  # 17 digits
         b'{"a":-10000000000000000}',
         b"[1,2]",  # non-object top level
@@ -57,8 +57,8 @@ def test_strict_loads_rejects(line: bytes) -> None:
 @pytest.mark.parametrize(
     ("literal", "expected"),
     [
-        (b"9007199254740992", 1 << 53),
-        (b"-9007199254740992", -(1 << 53)),
+        (b"9007199254740991", (1 << 53) - 1),
+        (b"-9007199254740991", -((1 << 53) - 1)),
         (b"1000000000000000", 10**15),  # 16 digits
         (b"0", 0),
         (b"-0", 0),
@@ -109,7 +109,7 @@ def test_strict_loads_rejects_huge_ints_under_any_interpreter_limit(digits: int)
     [
         {"a": 1.5},
         {"a": float("nan")},
-        {"a": 9007199254740993},
+        {"a": 9007199254740992},
         {"a": [1, {"b": float("inf")}]},
         {1: "x"},
         {"a": object()},
@@ -180,18 +180,85 @@ def test_strict_loads_rejects_lone_surrogate_escapes(escape: bytes) -> None:
     [(b"[", rb'"\ud800"', b"]"), (b'{"k":', rb'{"\ud800":0}', b"}")],
     ids=["value", "key"],
 )
-def test_strict_loads_rejects_a_lone_surrogate_nested_past_the_recursion_limit(
-    opening: bytes, innermost: bytes, closing: bytes
-) -> None:
-    # 1500 levels exceed Python's recursion limit (1000) but stay within
-    # json's own nesting limit, so the surrogate check must not recurse.
+def test_deep_json_fails_on_depth_before_any_string_check(opening: bytes, innermost: bytes, closing: bytes) -> None:
     depth = 1500
-    with pytest.raises(MalformedJsonError, match="lone surrogate"):
+    with pytest.raises(MalformedJsonError, match="nesting deeper than 64 levels"):
         wire.strict_json_loads(b'{"a":' + opening * depth + innermost + closing * depth + b"}")
 
 
 def test_strict_loads_accepts_escaped_surrogate_pairs() -> None:
     assert wire.strict_json_loads(rb'{"a":"\ud83d\ude00"}') == {"a": "\U0001F600"}
+
+
+def test_a_lone_surrogate_within_the_depth_limit_is_rejected() -> None:
+    with pytest.raises(MalformedJsonError, match="lone surrogate"):
+        wire.strict_json_loads(b'{"a":' + b"[" * 10 + rb'"\ud800"' + b"]" * 10 + b"}")
+
+
+def _nested_objects(levels: int) -> bytes:
+    return b'{"a":' * levels + b"0" + b"}" * levels
+
+
+def test_nesting_of_64_levels_is_accepted_and_65_rejected() -> None:
+    assert wire.strict_json_loads(_nested_objects(64))
+    with pytest.raises(MalformedJsonError, match="nesting deeper than 64 levels"):
+        wire.strict_json_loads(_nested_objects(65))
+
+
+@pytest.mark.parametrize("line", [b"[1,2]", b'"hello"', b"123", b"null", b"true"])
+def test_a_non_object_top_level_raises_not_an_object_error(line: bytes) -> None:
+    # Valid JSON with a non-object top level is malformed_request, not malformed_json (spec 9.8).
+    with pytest.raises(wire.NotAnObjectError, match="not an object"):
+        wire.strict_json_loads(line)
+
+
+@pytest.mark.parametrize("line", [b"[" * 65 + b"]" * 65, rb'["\ud800"]'], ids=["depth", "lone-surrogate"])
+def test_a_line_breaking_strict_json_is_malformed_json_whatever_its_top_level(line: bytes) -> None:
+    with pytest.raises(MalformedJsonError) as caught:
+        wire.strict_json_loads(line)
+    assert not isinstance(caught.value, wire.NotAnObjectError)
+
+
+def test_canonical_escapes_follow_rfc_8785() -> None:
+    value = {"s": "\x00\x08\x0c\n\r\t\x1f\x7f\u2028\"\\"}
+    assert wire.canonical_json_dumps(value) == b'{"s":"\\u0000\\b\\f\\n\\r\\t\\u001f\x7f\xe2\x80\xa8\\"\\\\"}'
+
+
+def test_canonical_keys_sort_by_utf16_code_units() -> None:
+    # U+1F600 is the surrogate pair D83D DE00, which sorts before U+FFFD in UTF-16
+    # (RFC 8785 section 3.2.3), although its code point is larger.
+    assert wire.canonical_json_dumps({"\ufffd": 1, "\U0001F600": 2}) == b'{"\xf0\x9f\x98\x80":2,"\xef\xbf\xbd":1}'
+    assert wire.canonical_json_dumps({"b": 1, "a": {"d": 1, "c": 2}}) == b'{"a":{"c":2,"d":1},"b":1}'
+
+
+def test_canonical_dumps_matches_the_spec_16_vector() -> None:
+    value = {"b": "Chainer's Edict", "a": "Lim-D\u00fbl's Vault", "c": "tab\there"}
+    assert hashlib.sha256(wire.canonical_json_dumps(value)).hexdigest() == (
+        "041575311eb1deb02f63f70361e14159034faf0d2a31e57edf8b4cf037680377"
+    )
+
+
+def test_canonical_dumps_rejects_a_lone_surrogate_string() -> None:
+    with pytest.raises(ValidationError, match="lone surrogate"):
+        wire.canonical_json_dumps({"a": "x\ud800"})
+
+
+def _nested_lists(levels: int) -> list:
+    value: list = []
+    for _ in range(levels - 1):
+        value = [value]
+    return value
+
+
+def test_canonical_dumps_bounds_nesting_like_strict_loads() -> None:
+    # Canonical output is always strict JSON, and a cyclic structure fails instead of looping.
+    assert wire.canonical_json_dumps(_nested_lists(64)) == b"[" * 64 + b"]" * 64
+    with pytest.raises(ValidationError, match="nesting deeper than 64 levels"):
+        wire.canonical_json_dumps(_nested_lists(65))
+    cycle: list = []
+    cycle.append(cycle)
+    with pytest.raises(ValidationError, match="nesting deeper than 64 levels"):
+        wire.canonical_json_dumps({"a": cycle})
 
 
 def _peer_running(code: str, **kwargs) -> wire.SubprocessPeer:

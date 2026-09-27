@@ -1,10 +1,11 @@
 """Strict NDJSON framing for the spellbench wire protocol (spec sections 2 and 4.3).
 
-Strict JSON: receivers reject duplicate object keys, fractional or non-finite
-numbers (protocol numbers are integers with ``|x| <= 2^53``), non-object
-top-level values, and lines longer than 8 MiB. Canonical JSON is UTF-8 with
-keys sorted by code point, separators ``,`` and ``:``, and no insignificant
-whitespace.
+Strict JSON (spec 2): receivers reject duplicate object keys, fractional or
+non-finite numbers (protocol numbers are integers with ``|x| <= 2^53 - 1``),
+nesting deeper than 64 levels, unpaired surrogate escapes, non-object
+top-level values, and lines longer than 8 MiB. Canonical JSON is RFC 8785
+(spec 4.3): UTF-8 with keys sorted by UTF-16 code units, separators ``,``
+and ``:``, and no insignificant whitespace.
 """
 
 from __future__ import annotations
@@ -29,14 +30,23 @@ from .errors import (
 )
 
 MAX_LINE_BYTES = 8 * 1024 * 1024
-MAX_JSON_INT = 1 << 53
+MAX_JSON_INT = (1 << 53) - 1
+MAX_NESTING = 64
 # A JSON integer literal has no leading zeros, so one with more digits than
-# 2^53 is out of range whatever its value.
+# MAX_JSON_INT is out of range whatever its value.
 _MAX_JSON_INT_DIGITS = len(str(MAX_JSON_INT))
 # How much of an out-of-range integer literal an error message quotes.
 _QUOTED_INT_CHARS = 32
 # A peer's stderr is diagnostics only; keep a bounded prefix of it.
 STDERR_CAPTURE_BYTES = 64 * 1024
+
+
+class NotAnObjectError(MalformedJsonError):
+    """A strict-JSON line whose top-level value is not an object.
+
+    Spec 9.8 answers it with ``malformed_request``, not ``malformed_json``: the
+    line is valid JSON. A subclass, so callers catching MalformedJsonError keep working.
+    """
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -68,35 +78,48 @@ def _parse_int(value: str) -> int:
     quoted = value
     if len(value) > _QUOTED_INT_CHARS:
         quoted = f"{value[:_QUOTED_INT_CHARS]}... ({digits} digits)"
-    raise MalformedJsonError(f"JSON integer outside |x| <= 2^53: {quoted}")
+    raise MalformedJsonError(f"JSON integer outside |x| <= 2^53 - 1: {quoted}")
 
 
 _SURROGATE_ESCAPE = re.compile(r"\\u[dD][89a-fA-F]")
 
 
-def _reject_lone_surrogates(value: Any) -> None:
-    """Every string must encode as UTF-8; a lone ``\\uD800``-style escape cannot.
+def _encodable(value: str) -> None:
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise MalformedJsonError("string contains a lone surrogate escape") from exc
 
-    The walk keeps its own stack instead of recursing: json accepts nesting
-    deeper than the interpreter's recursion limit.
+
+def _check_tree(value: Any, *, check_strings: bool) -> None:
+    """Nesting at most MAX_NESTING levels (the top-level object is level 1); strings encodable.
+
+    Iterative: json accepts nesting deeper than the interpreter's recursion limit.
     """
-    pending = [value]
+    pending: list[tuple[Any, int]] = [(value, 1)]
     while pending:
-        item = pending.pop()
-        if isinstance(item, str):
-            try:
-                item.encode("utf-8")
-            except UnicodeEncodeError as exc:
-                raise MalformedJsonError("string contains a lone surrogate escape") from exc
-        elif isinstance(item, dict):
-            pending.extend(item.keys())
-            pending.extend(item.values())
-        elif isinstance(item, list):
-            pending.extend(item)
+        item, depth = pending.pop()
+        if isinstance(item, (dict, list)):
+            if depth > MAX_NESTING:
+                raise MalformedJsonError(f"JSON nesting deeper than {MAX_NESTING} levels")
+            children = item.values() if isinstance(item, dict) else item
+            if check_strings and isinstance(item, dict):
+                for key in item:
+                    _encodable(key)
+            pending.extend((child, depth + 1) for child in children)
+        elif check_strings and isinstance(item, str):
+            _encodable(item)
 
 
 def strict_json_loads(line: bytes | str) -> dict[str, Any]:
-    """Parse one line of strict JSON; the top level must be an object."""
+    """Parse one line of strict JSON (spec 2); the top level must be an object.
+
+    Raises MalformedJsonError (``malformed_json``), or its subclass
+    NotAnObjectError (``malformed_request``, spec 9.8) for a line that passes
+    every strict-JSON check but whose top level is not an object. The
+    strict-JSON checks run first, so a line that breaks them is
+    ``malformed_json`` whatever its top level and whichever layer finds it.
+    """
     if isinstance(line, bytes):
         try:
             line = line.decode("utf-8")
@@ -115,44 +138,70 @@ def strict_json_loads(line: bytes | str) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise MalformedJsonError(f"line is not strict JSON: {exc}") from exc
     except RecursionError as exc:
-        raise MalformedJsonError("JSON nesting is too deep") from exc
+        # json stops at the interpreter's recursion limit; same message as the walk below.
+        raise MalformedJsonError(f"JSON nesting deeper than {MAX_NESTING} levels") from exc
+    _check_tree(value, check_strings=bool(_SURROGATE_ESCAPE.search(line)))
     if not isinstance(value, dict):
-        raise MalformedJsonError("top-level JSON value is not an object")
-    if _SURROGATE_ESCAPE.search(line):
-        _reject_lone_surrogates(value)
+        raise NotAnObjectError("top-level JSON value is not an object")
     return value
 
 
-def _assert_canonical_tree(value: Any, context: str = "$") -> None:
-    if value is None or type(value) is bool or type(value) is str:
-        return
-    if type(value) is int:
-        if abs(value) > MAX_JSON_INT:
-            raise ValidationError(f"{context} integer outside |x| <= 2^53: {value}")
-        return
-    if isinstance(value, list):
-        for index, child in enumerate(value):
-            _assert_canonical_tree(child, f"{context}[{index}]")
-        return
+def _assert_canonical_tree(value: Any) -> bool:
+    """Validate a tree for canonical output; True when some key holds a non-BMP character.
+
+    Nesting is bounded as in strict_json_loads, so canonical output is always strict
+    JSON, and a cyclic structure fails here instead of looping.
+    """
+    astral = False
+    pending: list[tuple[Any, str, int]] = [(value, "$", 1)]
+    while pending:
+        item, context, depth = pending.pop()
+        if item is None or type(item) is bool:
+            continue
+        if type(item) is int:
+            if abs(item) > MAX_JSON_INT:
+                raise ValidationError(f"{context} integer outside |x| <= 2^53 - 1: {item}")
+        elif type(item) is str:
+            try:
+                item.encode("utf-8")
+            except UnicodeEncodeError as exc:
+                raise ValidationError(f"{context} string contains a lone surrogate") from exc
+        elif isinstance(item, (list, dict)) and depth > MAX_NESTING:
+            raise ValidationError(f"{context} nesting deeper than {MAX_NESTING} levels")
+        elif isinstance(item, list):
+            pending.extend((child, f"{context}[{index}]", depth + 1) for index, child in enumerate(item))
+        elif isinstance(item, dict):
+            for key, child in item.items():
+                if type(key) is not str:
+                    raise ValidationError(f"{context} has a non-string key: {key!r}")
+                pending.append((key, f"{context} key", depth))
+                # isascii() is O(1), so the ASCII keys of the protocol skip the per-character scan.
+                astral = astral or (not key.isascii() and max(map(ord, key)) > 0xFFFF)
+                pending.append((child, f"{context}.{key}", depth + 1))
+        else:
+            raise ValidationError(f"{context} is not canonical JSON: {type(item).__name__}")
+    return astral
+
+
+def _dumps_utf16(value: Any) -> str:
     if isinstance(value, dict):
-        for key, child in value.items():
-            if type(key) is not str:
-                raise ValidationError(f"{context} has a non-string key: {key!r}")
-            _assert_canonical_tree(child, f"{context}.{key}")
-        return
-    raise ValidationError(f"{context} is not canonical JSON: {type(value).__name__}")
+        keys = sorted(value, key=lambda key: key.encode("utf-16-be"))
+        return "{" + ",".join(json.dumps(key, ensure_ascii=False) + ":" + _dumps_utf16(value[key]) for key in keys) + "}"
+    if isinstance(value, list):
+        return "[" + ",".join(_dumps_utf16(child) for child in value) + "]"
+    return json.dumps(value, ensure_ascii=False)
 
 
 def canonical_json_dumps(value: Any) -> bytes:
-    """Canonical JSON (spec section 4.3): sorted keys, compact separators, UTF-8."""
-    _assert_canonical_tree(value)
-    return json.dumps(
-        value,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-        allow_nan=False,
-    ).encode("utf-8")
+    """RFC 8785 (spec 4.3): keys by UTF-16 code units, compact, integers only, raw UTF-8.
+
+    json's escaping already matches RFC 8785 (``\\"`` and ``\\\\``, short escapes for
+    \\b \\f \\n \\r \\t, lowercase \\u00xx for other control characters, nothing else
+    escaped). Code point order equals UTF-16 order unless a key holds a non-BMP character.
+    """
+    if _assert_canonical_tree(value):
+        return _dumps_utf16(value).encode("utf-8")
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
 def canonical_json_line(value: Any) -> bytes:
