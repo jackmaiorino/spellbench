@@ -47,7 +47,15 @@ _ADJUDICATION_KINDS = tuple(_ADJUDICATION_KEYS)
 _HOST_HALT_REASONS = frozenset(
     [f"host_validator:V{rule}" for rule in range(1, 11)] + [f"host_engine_fault:{fault}" for fault in ENGINE_FAULTS]
 )
-_GAME_DIGEST_RE = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
+# Spec 4.3: deck_id and game_digest are "sha256:" followed by 64 lowercase hex digits.
+_SHA256_ID_RE = re.compile(r"\Asha256:[0-9a-f]{64}\Z")
+_SHA256_ID_FORM = "sha256: followed by 64 lowercase hex digits"
+# Spec 11.6: game_id(i) is "g-" followed by the lowercase hex of 8 bytes.
+_GAME_ID_RE = re.compile(r"\Ag-[0-9a-f]{16}\Z")
+_GAME_ID_FORM = "g- followed by 16 lowercase hex digits"
+# The spec defines no bot ids: a bot_id is the lowercase hex SHA-256 of the bot's descriptor (arena/registry.py).
+_BOT_ID_RE = re.compile(r"\A[0-9a-f]{64}\Z")
+_BOT_ID_FORM = "64 lowercase hex digits"
 _ENGINE_KEYS = ("engine_name", "engine_version", "rules_snapshot_id", "card_pool_identity")
 _ROW_KEYS = (
     "schema",
@@ -74,6 +82,17 @@ _ROW_KEYS = (
 )
 
 
+def _formatted(value: Any, pattern: re.Pattern[str], form: str, context: str) -> str:
+    """A string ``pattern`` matches in full; the error names the expected ``form``."""
+    if not pattern.fullmatch(_schema.text(value, context)):
+        _schema.fail(context, f"must be {form}")
+    return value
+
+
+def _bot_id(value: Any, context: str) -> str:
+    return _formatted(value, _BOT_ID_RE, _BOT_ID_FORM, context)
+
+
 def _check_pair(value: Any, kind: type, context: str) -> None:
     if not isinstance(value, tuple) or len(value) != 2 or not all(isinstance(item, kind) for item in value):
         _schema.fail(context, f"must be a tuple of two {kind.__name__}")
@@ -96,7 +115,7 @@ class LedgerSeat:
 
     def __post_init__(self, context: str) -> None:
         _schema.seat(self.seat, f"{context}.seat")
-        _schema.nonempty(self.bot_id, f"{context}.bot_id")
+        _bot_id(self.bot_id, f"{context}.bot_id")
         _schema.nonempty(self.name, f"{context}.name")
         _schema.nonempty(self.version, f"{context}.version")
 
@@ -121,7 +140,7 @@ class LedgerDeck:
     context: InitVar[str] = "ledger_deck"
 
     def __post_init__(self, context: str) -> None:
-        _schema.nonempty(self.deck_id, f"{context}.deck_id")
+        _formatted(self.deck_id, _SHA256_ID_RE, _SHA256_ID_FORM, f"{context}.deck_id")
         _schema.nonempty(self.name, f"{context}.name")
         _schema.nullable(self.catalog_id, _schema.nonempty, f"{context}.catalog_id")
 
@@ -188,7 +207,7 @@ class LastSelection:
 
     def __post_init__(self, context: str) -> None:
         _schema.seat(self.seat, f"{context}.seat")
-        _schema.nonempty(self.bot_id, f"{context}.bot_id")
+        _bot_id(self.bot_id, f"{context}.bot_id")
 
     def to_json(self) -> dict[str, Any]:
         return {"seat": self.seat, "bot_id": self.bot_id}
@@ -238,7 +257,7 @@ class LedgerRow:
 
     def __post_init__(self, context: str) -> None:
         _schema.safe_int(self.game_index, f"{context}.game_index")
-        _schema.nonempty(self.game_id, f"{context}.game_id")
+        _formatted(self.game_id, _GAME_ID_RE, _GAME_ID_FORM, f"{context}.game_id")
         _schema.safe_int(self.matchup_index, f"{context}.matchup_index")
         _schema.safe_int(self.pair_index, f"{context}.pair_index")
         if type(self.pair_slot) is not int or self.pair_slot not in (0, 1):
@@ -251,7 +270,7 @@ class LedgerRow:
         _schema.vocab(self.outcome, _OUTCOMES, f"{context}.outcome")
         _schema.vocab(self.classification, _CLASSIFICATIONS, f"{context}.classification")
         _schema.nullable(self.winner, _schema.seat, f"{context}.winner")
-        _schema.nullable(self.winner_bot_id, _schema.nonempty, f"{context}.winner_bot_id")
+        _schema.nullable(self.winner_bot_id, _bot_id, f"{context}.winner_bot_id")
         _schema.nonempty(self.reason, f"{context}.reason")
         _check_optional(self.adjudication, Adjudication, f"{context}.adjudication")
         for name in ("step_count", "decision_count", "decisions_checked"):
@@ -262,8 +281,7 @@ class LedgerRow:
                 f"must be step_count ({self.step_count}) or one more, got {self.decisions_checked}",
             )
         _check_optional(self.last_selection, LastSelection, f"{context}.last_selection")
-        if not _GAME_DIGEST_RE.fullmatch(_schema.text(self.game_digest, f"{context}.game_digest")):
-            _schema.fail(f"{context}.game_digest", "must be sha256: followed by 64 lowercase hex digits")
+        _formatted(self.game_digest, _SHA256_ID_RE, _SHA256_ID_FORM, f"{context}.game_digest")
         require_keys(_schema.as_object(self.engine, f"{context}.engine"), _ENGINE_KEYS, f"{context}.engine")
         for key in _ENGINE_KEYS:
             _schema.nonempty(self.engine[key], f"{context}.engine.{key}")
