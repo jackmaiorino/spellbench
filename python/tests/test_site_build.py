@@ -133,10 +133,73 @@ def _bound(row: dict[str, Any], board: dict[str, Any]) -> str | None:
 def test_the_site_has_every_page_and_run_file(tree: Path, tmp_path: Path) -> None:
     out = tmp_path / "site"
     build_site(tree, out)
-    for page in ("index.html", "join.html", "method.html", "b/alpha/index.html", "b/beta/index.html"):
+    for page in ("index.html", "models.html", "join.html", "method.html", "b/alpha/index.html", "b/beta/index.html"):
         assert (out / page).is_file(), page
     for name in RUN_FILES:
         assert (out / "b/alpha/run" / name).read_bytes() == (tree / "alpha/runs/2026-09-26" / name).read_bytes()
+
+
+def test_every_models_link_resolves_to_a_section(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    models = (out / "models.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'id="(model-[^"]+)"', models))
+    assert ids
+    for page in out.rglob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        for anchor in re.findall(r'href="(?:\.\./\.\./)?models\.html#(model-[^"]+)"', text):
+            assert anchor in ids, f"{page.relative_to(out)} -> {anchor}"
+
+
+def test_the_nav_on_every_page_includes_models(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    for page in out.rglob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        root = "../" * (len(page.relative_to(out).parents) - 1)
+        current = ' aria-current="page"' if page.name == "models.html" else ""
+        assert f'<li><a href="{root}models.html"{current}>Models</a></li>' in text, page.relative_to(out)
+
+
+def test_every_benchmark_bot_has_a_models_section_with_its_display_text(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    models = (out / "models.html").read_text(encoding="utf-8")
+    for bench_id in ("alpha", "beta"):
+        document = json.loads((tree / bench_id / "benchmark.json").read_text(encoding="utf-8"))
+        for bot in document["bots"]:
+            text = _element(models, "section", "id", f"model-{bot['name']}")
+            assert bot["display"]["label"] in text, bot["name"]
+            assert bot["display"]["author"] in text and bot["display"]["description"] in text, bot["name"]
+            assert "builtin reference bot" in text and f"version {bot['version']}" in text, bot["name"]
+
+
+def test_the_models_page_shows_each_bots_rating_on_each_benchmark(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    models = (out / "models.html").read_text(encoding="utf-8")
+    for bench_id in ("alpha", "beta"):
+        board = json.loads((tree / bench_id / "runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
+        link = f'<a href="b/{bench_id}/index.html">{bench_id}</a>'
+        for row in board["rows"]:
+            section = _html(models, "section", "id", f"model-{row['name']}")
+            if row["bot_id"] == board["anchor"]["bot_id"]:
+                assert f"{link}: reference</li>" in section, row["name"]
+                continue
+            if row["elo_milli"] is None:
+                assert f'{link}: <span class="muted">unrated</span></li>' in section, row["name"]
+                continue
+            margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
+            value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
+            if bound is not None:
+                assert f"{link}: {value}</li>" in section, row["name"]
+            elif row["ci95_elo_milli"] is None:
+                assert f"{link}: {value} (no interval)</li>" in section, row["name"]
+            elif row["ci95_elo_milli"][0] == row["ci95_elo_milli"][1]:
+                assert f"{link}: {value} (interval not estimable)</li>" in section, row["name"]
+            else:
+                low, high = (render.format_margin((end - 1_000_000) / 1000) for end in row["ci95_elo_milli"])
+                assert f"{link}: {value} (95% interval {low} to {high})</li>" in section, row["name"]
 
 
 def test_every_internal_link_resolves(tree: Path, tmp_path: Path) -> None:
@@ -244,6 +307,27 @@ def test_a_changed_definition_still_renders_the_run_and_warns(copy_tree: Path, t
     assert "first" in _element(page[page.index('data-panel="overall"'):], "tr", "data-bot", "first")
 
 
+def test_a_bot_removed_from_every_definition_keeps_a_models_section_from_the_runs_records(
+    copy_tree: Path, tmp_path: Path
+) -> None:
+    # Its leaderboard rows and grid headers still link to models.html#model-first, so the section must exist.
+    for bench_id in ("alpha", "beta"):
+        changed = _definition(bench_id)
+        changed["bots"] = changed["bots"][:2]
+        (copy_tree / bench_id / "benchmark.json").write_text(json.dumps(changed, indent=2), encoding="utf-8")
+    out = tmp_path / "site"
+    build_site(copy_tree, out)
+    models = (out / "models.html").read_text(encoding="utf-8")
+    ids = set(re.findall(r'id="(model-[^"]+)"', models))
+    section = _element(models, "section", "id", "model-first")
+    assert "unspecified" in section and "builtin reference bot" in section  # registry identity, no display text
+    assert "first bot" not in models  # the removed entry's description stays off the page
+    for page in out.rglob("*.html"):
+        text = page.read_text(encoding="utf-8")
+        for anchor in re.findall(r'href="(?:\.\./\.\./)?models\.html#(model-[^"]+)"', text):
+            assert anchor in ids, f"{page.relative_to(out)} -> {anchor}"
+
+
 def _overall_row(page: str, name: str) -> str:
     """The inner HTML of bot ``name``'s row in the Overall table."""
     return _html(page[page.index('data-panel="overall"'):], "tr", "data-bot", name)
@@ -263,14 +347,21 @@ def test_a_changed_bot_entry_warns_and_shows_the_rated_bot(copy_tree: Path, tmp_
     page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
     row = _overall_row(page, "heuristic")
     # the registry name and owner of the bot that was rated: no new label, description, or link
-    assert '<span class="label">heuristic</span>' in row
+    assert '<span class="label"><a href="../../models.html#model-heuristic">heuristic</a></span>' in row
     assert "v2" not in row and "rollouts" not in row and "example.com" not in row
     assert "unspecified" in row  # the registry owner: the entry names none
     assert "heuristic 1.0.0" in re.sub(r"<[^>]+>", " ", row)
-    assert '<span class="label" title="uniform bot">random</span>' in _overall_row(page, "uniform")  # unchanged entry
+    unchanged = '<span class="label"><a href="../../models.html#model-uniform" title="uniform bot">random</a></span>'
+    assert unchanged in _overall_row(page, "uniform")  # unchanged entry
     # the Hero row takes its label from alpha, the first benchmark listing the bot: the registry identity there too
     hero = _html((out / "index.html").read_text(encoding="utf-8"), "li", "data-bot", "heuristic")
-    assert '<span class="name">heuristic</span><span class="by">unspecified</span>' in hero and "v2" not in hero
+    assert '<span class="name"><a href="models.html#model-heuristic">heuristic</a></span><span class="by">unspecified</span>' in hero
+    assert "v2" not in hero
+    # the Models section too: alpha's entry is stale, so the new display text stays off the page
+    models = (out / "models.html").read_text(encoding="utf-8")
+    section = _html(models, "section", "id", "model-heuristic")
+    assert "<h2>heuristic</h2>" in section and "unspecified" in re.sub(r"<[^>]+>", " ", section)
+    assert "rollouts" not in models and "example.com" not in models and "v2" not in models
 
 
 def test_a_changed_setting_is_named_in_the_warning(copy_tree: Path, tmp_path: Path) -> None:
@@ -284,7 +375,8 @@ def test_a_changed_setting_is_named_in_the_warning(copy_tree: Path, tmp_path: Pa
         "rerun to publish the change" in warnings
     )
     page = (out / "b/alpha/index.html").read_text(encoding="utf-8")
-    assert '<span class="label" title="heuristic bot">heuristic</span>' in _overall_row(page, "heuristic")
+    label = '<span class="label"><a href="../../models.html#model-heuristic" title="heuristic bot">heuristic</a></span>'
+    assert label in _overall_row(page, "heuristic")
 
 
 def test_a_relabel_is_live_and_every_row_shows_the_rated_name_and_version(copy_tree: Path, tmp_path: Path) -> None:
@@ -706,3 +798,17 @@ def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, d
             detail = f"{'unbeaten' if bound == 'lower' else 'winless'} in gamma: the rating is limited by the prior"
         assert _aria_label(item) == f"{_in_words(margin, bound)}, {detail}", row["name"]
         assert ('class="arrow"' in item, 'class="whisker"' in item) == (bound is not None, bound is None), row["name"]
+
+
+def test_the_models_page_orders_submitted_models_by_best_rating_then_the_builtins(
+    checked: tuple[Path, dict[str, Any]]
+) -> None:
+    # one-land is the only submitted (subprocess) model; the builtins follow by best rating, ties by name.
+    site, _ = checked
+    models = (site / "models.html").read_text(encoding="utf-8")
+    assert re.findall(r'<section id="model-([^"]+)"', models) == ["one-land", "heuristic", "uniform", "first"]
+    one_land = _element(models, "section", "id", "model-one-land")
+    assert "submitted model" in one_land and "baseline" in one_land and "version 1.0.0" in one_land
+    uniform = _html(models, "section", "id", "model-uniform")
+    assert "builtin reference bot" in uniform
+    assert '<li><a href="b/gamma/index.html">gamma</a>: reference</li>' in uniform
