@@ -3,7 +3,8 @@ from __future__ import annotations
 import hashlib
 import io
 import sys
-from typing import Iterator
+import tracemalloc
+from typing import Callable, Iterator
 
 import pytest
 
@@ -161,6 +162,36 @@ def test_read_line_enforces_cap() -> None:
         wire.read_line(too_long)
 
 
+class _ReadlineSizes(io.BytesIO):
+    """A stream that records the size argument of every readline call."""
+
+    def __init__(self, data: bytes) -> None:
+        super().__init__(data)
+        self.sizes: list[int] = []
+
+    def readline(self, size: int | None = -1) -> bytes:
+        self.sizes.append(-1 if size is None else size)
+        return super().readline(size)
+
+
+def test_read_line_discards_the_rest_of_an_oversized_line() -> None:
+    # Spec 2: one response per request line. An oversized line is rejected once and the
+    # next read starts at the next line; the discarding reads are bounded.
+    stream = _ReadlineSizes(b"x" * (9 << 20) + b"\n" + b'{"a":1}\n')
+    with pytest.raises(LineTooLongError):
+        wire.read_line(stream)
+    assert wire.read_line(stream) == b'{"a":1}'
+    assert wire.read_line(stream) is None
+    assert all(0 < size <= wire.MAX_LINE_BYTES + 1 for size in stream.sizes)
+
+
+def test_read_line_rejects_an_oversized_line_at_eof_once() -> None:
+    stream = io.BytesIO(b"x" * (9 << 20))
+    with pytest.raises(LineTooLongError):
+        wire.read_line(stream)
+    assert wire.read_line(stream) is None
+
+
 def test_strict_loads_rejects_deeply_nested_json_as_malformed() -> None:
     nested = b'{"a":' + b"[" * 100_000 + b"]" * 100_000 + b"}"
     with pytest.raises(MalformedJsonError):
@@ -259,6 +290,49 @@ def test_canonical_dumps_bounds_nesting_like_strict_loads() -> None:
     cycle.append(cycle)
     with pytest.raises(ValidationError, match="nesting deeper than 64 levels"):
         wire.canonical_json_dumps({"a": cycle})
+
+
+@pytest.mark.parametrize("line", ['{"a":"\ud800"}', '{"\udc00":1}'], ids=["value", "key"])
+def test_strict_loads_rejects_a_raw_lone_surrogate_in_str_input(line: str) -> None:
+    # UTF-8 bytes cannot carry one (decoding rejects it), but a str can.
+    with pytest.raises(MalformedJsonError, match="lone surrogate"):
+        wire.strict_json_loads(line)
+
+
+@pytest.mark.parametrize("value", [{"\ud800": 1}, "x\udfff", [{"a": ["\udc00"]}]], ids=["key", "top-level", "nested"])
+def test_canonical_dumps_rejects_a_raw_lone_surrogate_anywhere(value: object) -> None:
+    with pytest.raises(ValidationError, match="lone surrogate"):
+        wire.canonical_json_dumps(value)
+
+
+def test_canonical_keys_sort_by_utf16_code_units_when_the_astral_key_is_nested() -> None:
+    value = [{"b": {"\ufffd": 1, "\U0001F600": 2}, "a": 0}]
+    assert wire.canonical_json_dumps(value) == b'[{"a":0,"b":{"\xf0\x9f\x98\x80":2,"\xef\xbf\xbd":1}}]'
+
+
+def _peak_traced_bytes(call: Callable[[], object]) -> int:
+    """Peak memory traced while ``call`` runs, above what was allocated before it."""
+    tracing = tracemalloc.is_tracing()
+    if not tracing:
+        tracemalloc.start()
+    try:
+        base = tracemalloc.get_traced_memory()[0]
+        tracemalloc.reset_peak()
+        call()
+        return tracemalloc.get_traced_memory()[1] - base
+    finally:
+        if not tracing:
+            tracemalloc.stop()
+
+
+def test_wide_values_cost_memory_by_depth_not_width() -> None:
+    # The walks keep one iterator per open container, not one entry per element; the
+    # parse peak includes the parsed list itself (8 bytes per element).
+    count = 250_000
+    line = b'{"a":[' + b",".join([b"0"] * count) + b"]}"
+    assert _peak_traced_bytes(lambda: wire.strict_json_loads(line)) < 6 << 20
+    value = {"a": [0] * count}
+    assert _peak_traced_bytes(lambda: wire.canonical_json_dumps(value)) < 4 << 20
 
 
 def _peer_running(code: str, **kwargs) -> wire.SubprocessPeer:

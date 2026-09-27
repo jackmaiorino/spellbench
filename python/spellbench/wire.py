@@ -19,7 +19,7 @@ import shutil
 import signal
 import subprocess
 import threading
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
 from .errors import (
     LineTooLongError,
@@ -37,6 +37,8 @@ MAX_NESTING = 64
 _MAX_JSON_INT_DIGITS = len(str(MAX_JSON_INT))
 # How much of an out-of-range integer literal an error message quotes.
 _QUOTED_INT_CHARS = 32
+# read_line discards the rest of an oversized line in reads of at most this many bytes.
+_DISCARD_CHUNK_BYTES = 64 * 1024
 # A peer's stderr is diagnostics only; keep a bounded prefix of it.
 STDERR_CAPTURE_BYTES = 64 * 1024
 
@@ -82,6 +84,8 @@ def _parse_int(value: str) -> int:
 
 
 _SURROGATE_ESCAPE = re.compile(r"\\u[dD][89a-fA-F]")
+# A str holding a surrogate code point cannot be encoded as UTF-8.
+_LONE_SURROGATE = re.compile(r"[\ud800-\udfff]")
 
 
 def _encodable(value: str) -> None:
@@ -94,21 +98,26 @@ def _encodable(value: str) -> None:
 def _check_tree(value: Any, *, check_strings: bool) -> None:
     """Nesting at most MAX_NESTING levels (the top-level object is level 1); strings encodable.
 
-    Iterative: json accepts nesting deeper than the interpreter's recursion limit.
+    Iterative: json accepts nesting deeper than the interpreter's recursion limit. The
+    stack holds one iterator per open container, so memory grows with depth, not width;
+    a container met while the stack holds d iterators is at level d.
     """
-    pending: list[tuple[Any, int]] = [(value, 1)]
-    while pending:
-        item, depth = pending.pop()
-        if isinstance(item, (dict, list)):
-            if depth > MAX_NESTING:
-                raise MalformedJsonError(f"JSON nesting deeper than {MAX_NESTING} levels")
-            children = item.values() if isinstance(item, dict) else item
-            if check_strings and isinstance(item, dict):
-                for key in item:
-                    _encodable(key)
-            pending.extend((child, depth + 1) for child in children)
-        elif check_strings and isinstance(item, str):
-            _encodable(item)
+    stack: list[Iterator[Any]] = [iter((value,))]
+    while stack:
+        for item in stack[-1]:
+            if isinstance(item, (dict, list)):
+                if len(stack) > MAX_NESTING:
+                    raise MalformedJsonError(f"JSON nesting deeper than {MAX_NESTING} levels")
+                if check_strings and isinstance(item, dict):
+                    for key in item:
+                        _encodable(key)
+                if item:
+                    stack.append(iter(item.values() if isinstance(item, dict) else item))
+                    break
+            elif check_strings and isinstance(item, str):
+                _encodable(item)
+        else:
+            stack.pop()
 
 
 def strict_json_loads(line: bytes | str) -> dict[str, Any]:
@@ -125,6 +134,9 @@ def strict_json_loads(line: bytes | str) -> dict[str, Any]:
             line = line.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise MalformedJsonError(f"line is not valid UTF-8: {exc}") from exc
+    elif isinstance(line, str) and _LONE_SURROGATE.search(line):
+        # UTF-8 bytes cannot carry a lone surrogate (decoding rejects it), but a str can.
+        raise MalformedJsonError("line contains a lone surrogate, which UTF-8 cannot encode")
     try:
         value = json.loads(
             line,
@@ -146,40 +158,57 @@ def strict_json_loads(line: bytes | str) -> dict[str, Any]:
     return value
 
 
+def _context(path: list[Any], step: Any) -> str:
+    """The error context of an item, as ``$.key[index]``; ``None`` marks the root."""
+    return "$" + "".join(f"[{part}]" if type(part) is int else f".{part}" for part in (*path, step) if part is not None)
+
+
 def _assert_canonical_tree(value: Any) -> bool:
     """Validate a tree for canonical output; True when some key holds a non-BMP character.
 
     Nesting is bounded as in strict_json_loads, so canonical output is always strict
-    JSON, and a cyclic structure fails here instead of looping.
+    JSON, and a cyclic structure fails here instead of looping. The stack holds one
+    iterator per open container and error contexts are built only when raising, so
+    memory grows with depth, not width.
     """
     astral = False
-    pending: list[tuple[Any, str, int]] = [(value, "$", 1)]
-    while pending:
-        item, context, depth = pending.pop()
-        if item is None or type(item) is bool:
-            continue
-        if type(item) is int:
-            if abs(item) > MAX_JSON_INT:
-                raise ValidationError(f"{context} integer outside |x| <= 2^53 - 1: {item}")
-        elif type(item) is str:
-            try:
-                item.encode("utf-8")
-            except UnicodeEncodeError as exc:
-                raise ValidationError(f"{context} string contains a lone surrogate") from exc
-        elif isinstance(item, (list, dict)) and depth > MAX_NESTING:
-            raise ValidationError(f"{context} nesting deeper than {MAX_NESTING} levels")
-        elif isinstance(item, list):
-            pending.extend((child, f"{context}[{index}]", depth + 1) for index, child in enumerate(item))
-        elif isinstance(item, dict):
-            for key, child in item.items():
-                if type(key) is not str:
-                    raise ValidationError(f"{context} has a non-string key: {key!r}")
-                pending.append((key, f"{context} key", depth))
-                # isascii() is O(1), so the ASCII keys of the protocol skip the per-character scan.
-                astral = astral or (not key.isascii() and max(map(ord, key)) > 0xFFFF)
-                pending.append((child, f"{context}.{key}", depth + 1))
+    path: list[Any] = []  # the step (index or key) of each open container; None for the root
+    stack: list[Iterator[tuple[Any, Any]]] = [iter(((None, value),))]
+    while stack:
+        for step, item in stack[-1]:
+            if item is None or type(item) is bool:
+                continue
+            if type(item) is int:
+                if abs(item) > MAX_JSON_INT:
+                    raise ValidationError(f"{_context(path, step)} integer outside |x| <= 2^53 - 1: {item}")
+            elif type(item) is str:
+                # isascii() is O(1): only non-ASCII strings pay for the scan.
+                if not item.isascii() and _LONE_SURROGATE.search(item):
+                    raise ValidationError(f"{_context(path, step)} string contains a lone surrogate")
+            elif isinstance(item, (list, dict)):
+                if len(stack) > MAX_NESTING:
+                    raise ValidationError(f"{_context(path, step)} nesting deeper than {MAX_NESTING} levels")
+                if isinstance(item, dict):
+                    for key in item:
+                        if type(key) is not str:
+                            raise ValidationError(f"{_context(path, step)} has a non-string key: {key!r}")
+                        if not key.isascii():
+                            if _LONE_SURROGATE.search(key):
+                                raise ValidationError(f"{_context(path, step)} key string contains a lone surrogate")
+                            astral = astral or max(map(ord, key)) > 0xFFFF
+                    children: Iterator[tuple[Any, Any]] = iter(item.items())
+                else:
+                    children = enumerate(item)
+                if item:
+                    path.append(step)
+                    stack.append(children)
+                    break
+            else:
+                raise ValidationError(f"{_context(path, step)} is not canonical JSON: {type(item).__name__}")
         else:
-            raise ValidationError(f"{context} is not canonical JSON: {type(item).__name__}")
+            stack.pop()
+            if path:
+                path.pop()
     return astral
 
 
@@ -234,13 +263,17 @@ def strip_line_terminator(line: bytes) -> bytes:
 def read_line(stream: Any, *, max_line_bytes: int = MAX_LINE_BYTES) -> bytes | None:
     """Read one framed line from a binary stream; ``None`` at clean EOF.
 
-    The returned payload excludes the terminator. A line longer than
-    ``max_line_bytes`` or missing its terminator at EOF is rejected.
+    The returned payload excludes the terminator. A line missing its terminator at
+    EOF is rejected. A line longer than ``max_line_bytes`` is rejected once, after the
+    rest of it (through its terminator, or to EOF) is discarded in bounded reads, so
+    the next call starts at the next line (spec 2: one response per request line).
     """
     line = stream.readline(max_line_bytes + 1)
     if line == b"":
         return None
     if len(line) > max_line_bytes:
+        while line and not line.endswith(b"\n"):
+            line = stream.readline(min(_DISCARD_CHUNK_BYTES, max_line_bytes))
         raise LineTooLongError(f"line exceeds {max_line_bytes} bytes")
     if not line.endswith(b"\n"):
         raise MalformedJsonError("line missing \\n terminator before EOF")

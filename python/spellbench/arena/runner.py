@@ -230,7 +230,7 @@ def _req_str(value: Any, context: str) -> str:
     return value
 
 
-def _req_uint(value: Any, context: str, *, minimum: int = 0, maximum: int = (1 << 53)) -> int:
+def _req_uint(value: Any, context: str, *, minimum: int = 0, maximum: int = (1 << 53) - 1) -> int:
     if type(value) is not int or value < minimum or value > maximum:
         raise TournamentError(f"{context}: must be an integer in [{minimum}, {maximum}]")
     return value

@@ -83,6 +83,8 @@ REFERENCE_FIELDS = ("object_id", "card_name", "owner_seat", "controller_seat", "
 # newline), so match(), search() and fullmatch() all check the whole string.
 SNAKE_CASE_RE = re.compile(r"\A[a-z][a-z0-9_]*\Z")
 EXTENSION_KEY_RE = re.compile(r"\Ax_[a-z0-9_]+\Z")
+# A str holding a surrogate code point cannot be encoded as UTF-8.
+_LONE_SURROGATE = re.compile(r"[\ud800-\udfff]")
 
 
 def fail(context: str, detail: str) -> NoReturn:
@@ -135,8 +137,11 @@ def boolean(value: Any, context: str) -> bool:
 
 
 def text(value: Any, context: str) -> str:
+    """A string UTF-8 can encode: a str can hold a lone surrogate, a protocol line cannot."""
     if type(value) is not str:
         fail(context, f"must be a string, got {type(value).__name__}")
+    if not value.isascii() and _LONE_SURROGATE.search(value):
+        fail(context, "string contains a lone surrogate, which UTF-8 cannot encode")
     return value
 
 
