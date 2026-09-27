@@ -247,16 +247,3 @@ func (p *Projector) Observation(viewer state.PlayerID, st State) (protocol.Obser
 	}
 	return obs, b.stackAndPending(&obs, v)
 }
-
-func (b *builder) permanent(o *state.Object) (*protocol.Permanent, error) {
-	pm := &protocol.Permanent{Tapped: o.Tapped, SummoningSick: o.SummonSick, Damage: u32(o.Damage),
-		Counters: map[string]uint32{}, BlockedAttackers: []protocol.ObjectRef{}}
-	for _, c := range o.Counters {
-		if c.N > 0 {
-			pm.Counters[Counter(c.Kind)] += uint32(c.N)
-		}
-	}
-	return pm, nil
-}
-
-func (b *builder) stackAndPending(obs *protocol.Observation, v view.View) error { return nil }
