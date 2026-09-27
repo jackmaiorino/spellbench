@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import sys
 from pathlib import Path
 
@@ -16,9 +17,12 @@ from spellbench.host.tracking import GroupTracker
 from spellbench.messages import EnvHelloOk
 from spellbench.observation import validate_observation
 
+import fake_v2_engine
+import fake_v2_scenario_pregame
 import fake_v2_scenario_smoke
 
 ENGINE = Path(__file__).resolve().parent / "fake_v2_engine.py"
+SCORING_DECKLIST = [{"name": "Lightning Bolt", "count": 4}, {"name": "Mountain", "count": 18}]
 BURN_ID = deck_id([{"name": "Lightning Bolt", "count": 4}, {"name": "Mountain", "count": 18}])
 DOMAIN = {"domain_id": "sha256:74f7f4b39eecbed1c039cf4b229fa533069d2cdd8caf3bb6380b832eb40fb697", "names": ["Lightning Bolt", "Mountain"]}
 RULES = {"opponent_decklist": "visible", "mulligan": "none", "starting_player": "host_assigned", "starting_seat": "p0",
@@ -175,8 +179,8 @@ def test_hooks(engine: Engine) -> None:
     assert after["error"]["code"] == "game_already_terminal"                                  # R2-13
 
 
-def _play(engine: Engine, deck: str, game_id: str, pick=lambda sd: 0) -> dict:
-    response, step = engine.reset(deck=deck, game_id=game_id), 0
+def _play(engine: Engine, deck: str, game_id: str, pick=lambda sd: 0, **changes) -> dict:
+    response, step = engine.reset(deck=deck, game_id=game_id, **changes), 0
     while response["response_type"] == "decision":
         sd = response["seat_decision"]
         choice = pick(sd)
@@ -227,3 +231,161 @@ def test_the_smoke_scenario_numbers_counts_and_rewinds_like_the_host() -> None:
     counts = (response["step_count"], response["decision_count"])
     assert counts == (tracker.answered_steps, tracker.completed_groups) == (7, 3)          # Decision 4 (R2-1)
     assert ("priority", None, True) in contexts and ("choice", "mana_payment", False) in contexts
+
+
+def test_a_reformatted_equal_request_is_a_reuse_mismatch(engine: Engine) -> None:
+    first = engine.reset()
+    line = wire.canonical_json_dumps({"request_type": "step", "protocol": "spellbench/v2", "request_id": "h-70",
+                                      "game_id": first["game_id"], "expected_step": 0,
+                                      "selection": {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}})
+    engine.peer.write_line(line)
+    answer = engine.peer.read_line()
+    engine.peer.write_line(line)                                              # byte-identical: the cached answer
+    assert engine.peer.read_line() == answer
+    reformatted = (b'{"selection": {"semantic_echo": {"kind": "pass"}, "candidate_id": 0}, "expected_step": 0, '
+                   b'"request_id": "h-70", "protocol": "spellbench/v2", "request_type": "step", "game_id": "'
+                   + first["game_id"].encode() + b'"}')
+    assert wire.strict_json_loads(reformatted) == wire.strict_json_loads(line)  # the same payload, reordered
+    engine.peer.write_line(reformatted)
+    error = wire.strict_json_loads(engine.peer.read_line())
+    assert (error["request_id"], error["error"]["code"]) == ("h-70", "request_id_reuse_mismatch")   # spec 4.1
+    engine.peer.write_line(line)                                              # the cached entry is unchanged
+    assert engine.peer.read_line() == answer
+
+
+def test_rules_no_builtin_game_poses_are_refused() -> None:
+    """A non-scenario deck under mulligan london or a starting-player toss: unsupported_rule (spec 7.6)."""
+    cases = [
+        (("--london",), "Burn", {**RULES, "mulligan": "london"}),
+        (("--toss",), "Burn", {**RULES, "starting_player": "toss_winner_chooses", "starting_seat": None}),
+        (("--london", "--toss"), "Stall", {**RULES, "mulligan": "london",
+                                           "starting_player": "toss_winner_chooses", "starting_seat": None}),
+    ]
+    for args, deck, rules in cases:
+        process = Engine(*args)
+        process.send("hello", protocol_minor=0)
+        answer = process.reset(deck=deck, rules=rules)
+        assert (answer["response_type"], answer["error"]["code"]) == ("error", "unsupported_rule")
+        assert process.reset(deck=deck)["response_type"] == "decision"        # the refusal started no game
+        process.peer.close()
+
+
+def test_a_scenario_poses_the_pregame_decisions_itself() -> None:
+    """A scenario deck under london/toss rules poses the mulligan and starting-player decisions (spec 7.6)."""
+    process = Engine("--london", "--toss")
+    process.send("hello", protocol_minor=0)
+    deck = {"deck_id": deck_id(fake_v2_scenario_pregame.SCENARIO.decklist), "catalog_id": "Scenario:pregame"}
+    rules = {**RULES, "mulligan": "london", "starting_player": "toss_winner_chooses", "starting_seat": None}
+    response = process.reset(seats=[{"seat": seat, "deck": deck} for seat in ("p0", "p1")], rules=rules)
+    kinds, step = [], 0
+    while response["response_type"] == "decision":
+        sd = response["seat_decision"]
+        validate_observation(sd["observation"])
+        for candidate in sd["candidates"]:
+            validate_candidate(candidate)
+        kinds.append((sd["acting_seat"], sd["candidates"][0]["semantic"]["kind"], sd["context"]["kind"]))
+        response = process.send("step", game_id="g-0000000000000001", expected_step=step,
+                                selection={"candidate_id": 0, "semantic_echo": sd["candidates"][0]["semantic"]})
+        step += 1
+    process.peer.close()
+    assert kinds == [("p0", "mulligan", "choice"), ("p1", "mulligan", "choice"),
+                     ("p0", "choose_starting_player", "choice")]
+    assert (response["outcome"], response["reason"]) == ("draw", "scenario_complete")
+    assert (response["step_count"], response["decision_count"]) == (3, 3)
+
+
+def test_caps_truncate_the_scoring_game(engine: Engine) -> None:
+    truncated = _play(engine, "Burn", "g-0000000000000021", max_steps=3)
+    assert (truncated["outcome"], truncated["classification"], truncated["reason"]) == \
+        ("truncated", "truncated", "max_steps")
+    assert (truncated["step_count"], truncated["decision_count"]) == (3, 3)
+    truncated = _play(engine, "Burn", "g-0000000000000022", max_decisions=2)
+    assert (truncated["reason"], truncated["step_count"], truncated["decision_count"]) == ("max_decisions", 2, 2)
+    natural = _play(engine, "Burn", "g-0000000000000023", max_steps=4, max_decisions=4)
+    assert (natural["classification"], natural["reason"], natural["step_count"]) == ("natural", "score", 4)
+    # the answer reaching both caps ends the game naturally, not truncated
+
+
+def test_the_halt_and_truncate_hooks_count_their_answer(engine: Engine) -> None:
+    halted = _play(engine, "Halt", "g-0000000000000015")
+    assert (halted["outcome"], halted["reason"]) == ("halted", "engine_contract_failure:test_hook")
+    assert (halted["step_count"], halted["decision_count"]) == (1, 1)
+    truncated = _play(engine, "Truncate", "g-0000000000000016")
+    assert (truncated["outcome"], truncated["reason"]) == ("truncated", "engine_cap")
+    assert (truncated["step_count"], truncated["decision_count"]) == (1, 1)
+
+
+def test_an_error_message_quoting_a_lone_surrogate_is_sanitized(engine: Engine) -> None:
+    escape = b"\\ud800"                                                     # a JSON escape of an unpaired surrogate
+    engine.peer.write_line(b'{"' + escape + b'": 1, "' + escape + b'": 2}')  # the same surrogate key twice
+    error = wire.strict_json_loads(engine.peer.read_line())
+    assert (error["request_id"], error["error"]["code"]) == ("", "malformed_json")
+    assert "duplicate JSON key" in error["error"]["message"] and len(error["error"]["message"]) <= 240
+    assert engine.send("hello", protocol_minor=0)["response_type"] == "hello_ok"   # the engine did not crash
+
+
+def test_validate_deck_format_and_decklist_refusals(engine: Engine) -> None:
+    answer = engine.send("validate_deck", format="modern", deck={"catalog_id": "Burn"})
+    assert (answer["response_type"], answer["error"]["code"]) == ("error", "unsupported_format")
+    answer = engine.send("validate_deck", format="pauper-bo1", deck={"decklist": SCORING_DECKLIST})
+    assert (answer["response_type"], answer["error"]["code"]) == ("error", "unsupported_deck")   # no --decklists
+
+
+def test_a_decklist_deck_with_the_decklist_source() -> None:
+    process = Engine("--decklists")
+    process.send("hello", protocol_minor=0)
+    unknown = [{"name": "Black Lotus", "count": 4}, {"name": "Mountain", "count": 18}]
+    answer = process.send("validate_deck", format="pauper-bo1", deck={"decklist": unknown})
+    assert (answer["response_type"], answer["error"]["code"]) == ("error", "unsupported_deck")
+    assert "Black Lotus" in answer["error"]["message"]                        # the message names the cards (spec 9.6)
+    ok = process.send("validate_deck", format="pauper-bo1", deck={"decklist": SCORING_DECKLIST})
+    assert ok["response_type"] == "deck_ok"
+    deck = {"deck_id": deck_id(SCORING_DECKLIST), "decklist": SCORING_DECKLIST}
+    response = process.reset(seats=[{"seat": seat, "deck": deck} for seat in ("p0", "p1")])
+    step = 0
+    while response["response_type"] == "decision":
+        sd = response["seat_decision"]
+        response = process.send("step", game_id="g-0000000000000001", expected_step=step,
+                                selection={"candidate_id": 0, "semantic_echo": sd["candidates"][0]["semantic"]})
+        step += 1
+    process.peer.close()
+    assert (response["outcome"], response["reason"], response["step_count"]) == ("draw", "score", 4)
+
+
+def test_serve_applies_mutate_to_each_decision_in_process() -> None:
+    requests = [
+        {"request_type": "hello", "protocol": "spellbench/v2", "request_id": "m-1", "protocol_minor": 0},
+        {"request_type": "reset", "protocol": "spellbench/v2", "request_id": "m-2",
+         "game_id": "g-0000000000000001", "format": "pauper-bo1",
+         "seats": [{"seat": seat, "deck": {"deck_id": BURN_ID, "catalog_id": "Burn"}} for seat in ("p0", "p1")],
+         "rules": RULES, "game_secret": "11" * 32, "max_decisions": 10000, "max_steps": 100000},
+        {"request_type": "step", "protocol": "spellbench/v2", "request_id": "m-3",
+         "game_id": "g-0000000000000001", "expected_step": 0,
+         "selection": {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}},
+    ]
+    steps = []
+
+    def mutate(step: int, message: dict) -> dict | bytes:
+        steps.append(step)
+        if step == 0:
+            message["seat_decision"]["context"]["text"] = "mutated"
+            return message                                                    # a dict: written as canonical JSON
+        return wire.canonical_json_dumps(message)                             # bytes: written unchanged
+
+    out = io.BytesIO()
+    stdin = io.BytesIO(b"".join(wire.canonical_json_line(request) for request in requests))
+    assert fake_v2_engine.serve([], stdin=stdin, stdout=out, mutate=mutate) == 0
+    answers = [wire.strict_json_loads(line) for line in out.getvalue().splitlines()]
+    assert [answer["response_type"] for answer in answers] == ["hello_ok", "decision", "decision"]
+    assert steps == [0, 1]                                                    # the binding steps of the decisions
+    assert answers[1]["seat_decision"]["context"]["text"] == "mutated"
+    assert answers[2]["seat_decision"]["context"]["text"] is None
+
+
+def test_an_unterminated_line_gets_one_framing_error() -> None:
+    out = io.BytesIO()
+    code = fake_v2_engine.serve([], stdin=io.BytesIO(b'{"request_type": "hello"}'), stdout=out)
+    assert code == 0                                                          # EOF after the error
+    (answer,) = out.getvalue().splitlines()
+    error = wire.strict_json_loads(answer)
+    assert (error["request_id"], error["error"]["code"]) == ("", "malformed_json")   # framing level, not body level

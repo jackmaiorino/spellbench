@@ -12,24 +12,24 @@ and ``--toss`` add ``london`` and ``toss_winner_chooses``; ``--decklists`` adds 
 ``--probe`` declares the probe, whose every ``probe_resample`` it refuses (spec 9.7 is reserved), so it plays
 no game reset with ``rules.probe: true``.
 
-The p0 deck picks the game. ``Burn``, ``Elves`` and ``Faeries`` play the scoring game: each seat holds two
-Mountains, and four decisions follow, the starting seat first (p0 under ``toss_winner_chooses``), then
-alternating, in turn ``step + 1`` with the acting seat active and holding priority. Each offers
-``[pass, play_land]`` for a Mountain in the seat's hand, and each land played scores 1. After the fourth answer
-the higher score wins and equal scores draw (reason ``score``). The built-in games pose no pregame decision,
-whatever the mulligan and starting-player rules; ``--london`` and ``--toss`` serve the scenarios, which pose
-their own. The hooks: ``Crash`` exits with code 3 at the first step; ``Halt`` answers it with a halted terminal
-and ``Truncate`` with a truncated one (reason ``engine_cap``); ``Refuse`` is refused, in either seat;
-``Rendezvous`` drops a marker named after the game in ``$SPELLBENCH_RENDEZVOUS_DIR`` at the first step and waits
-for ``$SPELLBENCH_RENDEZVOUS_COUNT`` markers (exit code 4 after 10 s); ``Loop`` poses ``[pass]`` to alternating
-seats forever; ``Stall`` offers p0 ``[pass, activate_ability]`` for its Relic of Progenitus and p1 ``[pass]`` in
-alternation, and draws (reason ``stall_ended``) when p0 passes; ``P0Wins`` is the scoring game that p0 always
-wins (reason ``p0_wins_hook``); ``Echo`` is the scoring game whose reason is ``secret:`` and the first 8 hex
-digits of the SHA-256 of the game secret's 32 bytes. A decklist deck (``--decklists``) of fixture cards plays
-the scoring game. ``Scenario:<name>`` plays the ``SCENARIO`` of ``fake_v2_scenario_<name>.py`` beside this file,
-and needs each of the scenario's ``engine_args`` on this engine's command line. Every game ends truncated
-(reason ``max_steps`` or ``max_decisions``) once the answered decisions reach ``max_steps`` or the counted groups
-reach ``max_decisions``, unless the answer that reaches the cap ends it naturally.
+The p0 deck picks the game. ``Burn``, ``Elves`` and ``Faeries`` play the scoring game: each seat holds two Mountains,
+and four decisions follow, the starting seat first, then alternating, in turn ``step + 1`` with the acting seat active
+and holding priority. Each offers ``[pass, play_land]`` for a Mountain in the seat's hand, and each land played scores
+1. After the fourth answer the higher score wins and equal scores draw (reason ``score``). The built-in games pose no
+pregame decision, so ``reset`` answers ``unsupported_rule`` for a non-scenario deck under a ``mulligan`` other than
+``none`` or a ``starting_player`` other than ``host_assigned`` (spec 7.6); ``--london`` and ``--toss`` serve the
+scenarios, which pose their own. The hooks: ``Crash`` exits with code 3 at the first step; ``Halt`` answers it with a
+halted terminal and ``Truncate`` with a truncated one (reason ``engine_cap``); ``Refuse`` is refused, in either seat;
+``Rendezvous`` drops a marker named after the game in ``$SPELLBENCH_RENDEZVOUS_DIR`` at the first step and waits for
+``$SPELLBENCH_RENDEZVOUS_COUNT`` markers (exit code 4 after 10 s); ``Loop`` poses ``[pass]`` to alternating seats
+forever; ``Stall`` offers p0 ``[pass, activate_ability]`` for its Relic of Progenitus and p1 ``[pass]`` in alternation,
+and draws (reason ``stall_ended``) when p0 passes; ``P0Wins`` is the scoring game that p0 always wins (reason
+``p0_wins_hook``); ``Echo`` is the scoring game whose reason is ``secret:`` and the first 8 hex digits of the SHA-256
+of the game secret's 32 bytes. A decklist deck (``--decklists``) of fixture cards plays the scoring game.
+``Scenario:<name>`` plays the ``SCENARIO`` of ``fake_v2_scenario_<name>.py`` beside this file, and needs each of the
+scenario's ``engine_args`` on this engine's command line. Every game ends truncated (reason ``max_steps`` or
+``max_decisions``) once the answered decisions reach ``max_steps`` or the counted groups reach ``max_decisions``,
+unless the answer that reaches the cap ends it naturally.
 
 Scenario runner (spec 8; Decision 4, as the host's ``GroupTracker`` counts): each ``Posed`` becomes a seat
 decision whose ``{"$obj": n}`` references resolve through ``World.reference`` and whose targets resolve through
@@ -40,9 +40,10 @@ completion index; a rewind stops counting every group from that index on. The te
 the answered decisions and its ``decision_count`` the counted groups.
 
 Requests are parsed strictly (spec 4.2). The one-entry retransmission cache (spec 4.1) holds the last request
-that parsed, compared as canonical JSON, so a byte-identical line always matches. ``reset`` checks, in order: a
-reused ``game_id`` (``malformed_request``), an active game, the format, the decks, their ``deck_id`` values and
-the rules. ``step`` checks in the order of spec 9.4.
+that parsed and repeats its answer only for the byte-identical line (its terminator aside); a reformatted but
+logically equal payload under the same ``request_id`` is ``request_id_reuse_mismatch``. ``reset`` checks, in
+order: a reused ``game_id`` (``malformed_request``), an active game, the format, the decks, their ``deck_id``
+values and the rules. ``step`` checks in the order of spec 9.4.
 
 ``serve(argv, stdin=None, stdout=None, mutate=None)`` runs the engine. ``mutate(step, message)`` may rewrite
 each outgoing decision or terminal (``step`` is a decision's binding step, or the answered count for a
@@ -427,7 +428,7 @@ class _Engine:
         }
         self._game: _Game | None = None
         self._used_game_ids: set[str] = set()
-        # The last request that parsed: (request_id, its canonical JSON, the answer line) (spec 4.1).
+        # The last request that parsed: (request_id, its raw line without terminator, the answer line) (spec 4.1).
         self._cache: tuple[str, bytes, bytes] | None = None
 
     def handle(self, line: bytes) -> bytes:
@@ -455,7 +456,7 @@ class _Engine:
             request = parse(value)
         except ValidationError as exc:                       # never cached (spec 4.1)
             return _error(request_id, "malformed_request", str(exc))
-        payload = wire.canonical_json_dumps(value)           # spec 4.1: the identical payload, as canonical JSON
+        payload = line                                     # spec 4.1: the raw line, its terminator already stripped
         if self._cache is not None and self._cache[0] == request_id:
             if self._cache[1] == payload:
                 return self._cache[2]                        # a retransmission: no side effects
@@ -490,7 +491,7 @@ class _Engine:
             if deck.deck_id != expected:
                 return _error(request_id, "deck_id_mismatch",
                               f"the {seat} deck_id does not match its list, whose deck_id is {expected}")
-        refusal = self._unsupported_rule(request.rules)
+        refusal = self._unsupported_rule(request.rules, request.seats[0].catalog_id)
         if refusal is not None:
             return _error(request_id, "unsupported_rule", refusal)
         self._used_game_ids.add(request.game_id)
@@ -500,22 +501,24 @@ class _Engine:
     def _start(self, request: ResetRequest) -> _Game:
         world = World(bytes.fromhex(request.game_secret), flags=self._flags)
         hook = request.seats[0].catalog_id                   # the p0 deck picks the game; a decklist deck scores
-        first = request.rules.starting_seat or "p0"
         scenario = self._scenarios.get(hook)
         outcome = None
         if scenario is not None:
             script, outcome = scenario.script(world), scenario.outcome
-        elif hook == "Loop":
-            script = _loop(world, first)
-        elif hook == "Stall":
-            script = _stall(world, first)
-        elif hook == "P0Wins":
-            script = _scoring(world, first, lambda scores: ("p0_win", "p0", "p0_wins_hook"))
-        elif hook == "Echo":
-            digest = hashlib.sha256(bytes.fromhex(request.game_secret)).hexdigest()
-            script = _scoring(world, first, _by_score(f"secret:{digest[:8]}"))
         else:
-            script = _scoring(world, first, _by_score("score"))
+            # _answer_reset refused every other rule (spec 7.6): host_assigned, so starting_seat is a seat.
+            first = request.rules.starting_seat
+            if hook == "Loop":
+                script = _loop(world, first)
+            elif hook == "Stall":
+                script = _stall(world, first)
+            elif hook == "P0Wins":
+                script = _scoring(world, first, lambda scores: ("p0_win", "p0", "p0_wins_hook"))
+            elif hook == "Echo":
+                digest = hashlib.sha256(bytes.fromhex(request.game_secret)).hexdigest()
+                script = _scoring(world, first, _by_score(f"secret:{digest[:8]}"))
+            else:
+                script = _scoring(world, first, _by_score("score"))
         return _Game(request.game_id, script, world, hook=hook, outcome=outcome,
                      max_steps=request.max_steps, max_decisions=request.max_decisions)
 
@@ -579,13 +582,24 @@ class _Engine:
     def _rows(self, catalog_id: str | None, decklist: tuple[DeckRow, ...] | None) -> list[dict[str, Any]]:
         return self._decks[catalog_id] if catalog_id is not None else [row.to_json() for row in decklist]
 
-    def _unsupported_rule(self, rules: Rules) -> str | None:
-        """Why this engine cannot play under ``rules`` (``unsupported_rule``, spec 9.2), or None."""
+    def _unsupported_rule(self, rules: Rules, hook: str | None) -> str | None:
+        """Why this engine cannot play under ``rules`` (``unsupported_rule``, spec 9.2), or None.
+
+        ``hook`` is the p0 deck's catalog id, which picks the game. Spec 7.6 licenses skipping the mulligan
+        and starting-player decisions only under ``none`` and ``host_assigned``; the built-in games pose no
+        pregame decision, so any other value is refused for a non-scenario deck. A scenario poses them itself.
+        """
         profile = self._hello.profile
         for name in ("mulligan", "starting_player"):
             value, supported = getattr(rules, name), profile.rules_supported[name]
             if value not in supported:
                 return f"rules.{name} {value!r} is not in rules_supported.{name} ({', '.join(supported)})"
+        if hook not in self._scenarios:
+            if rules.mulligan != "none":
+                return f"rules.mulligan {rules.mulligan!r}: this deck's game poses no mulligan decision (spec 7.6)"
+            if rules.starting_player != "host_assigned":
+                return (f"rules.starting_player {rules.starting_player!r}: this deck's game poses no "
+                        "starting-player decision (spec 7.6)")
         declared = {extension.name for extension in profile.extensions}
         undeclared = [name for name in rules.extensions if name not in declared]
         if undeclared:
