@@ -16,7 +16,12 @@
 - Runtime code is standard library only: `dependencies = []` stays empty; pytest is the only test dependency.
 - No em-dash (U+2014) anywhere: code, comments, HTML copy, docs, commit messages. Name projects, not people. No attribution lines in commit messages.
 - Protocol string `"spellbench/v2"`, `protocol_minor` 0. Integers `|x| <= 2^53 - 1`, integer literals only, nesting at most 64 levels, lines at most 8 MiB, `\r\n` tolerated on read.
-- Engines and the host fail closed (unknown fields are `malformed_request`, except `x_[a-z0-9_]+` keys in `seat_decision.extensions`). Agents, and the host reading agent responses, are lenient (spec 4.2, 10).
+- Engines and the host fail closed (unknown fields are `malformed_request`, except `x_[a-z0-9_]+` keys in `seat_decision.extensions`). Agents, and the host reading agent responses, are lenient (spec 4.2, 10). Leniency covers fields, not JSON syntax: the host parses every agent answer with strict JSON (spec 2: integers only, nesting at most 64 levels, no duplicate keys), so a float even in an ignored field is `malformed_response` (Decision 12).
+- Arena modules never import `spellbench.bench` or `spellbench.site` at module level; `arena/cli.py` imports them inside its command functions. Types both sides need live in arena: `EngineFile` in `arena/manifest.py`, the reveal constants in `arena/validate.py` (R3-4).
+- The rated rule (Decision 3): a complete ledger, a `pass` verdict, a commitment pushed with a third-party timestamp before the first game, a measured allocation, and pinned engine files (a non-empty `engine_files`; R3-7).
+- The commit flow (Decision 9): `bench commit` checks the local values a rated run needs, generates the run secret in memory, commits and pushes `COMMITMENT.json` itself, and writes the secret only after the push succeeded; a commitment changed after its first push proves nothing; every committed run is published (a manifest, or `REVEAL.json` with a fixed reason category), and CI fails on a deleted run directory or a stale unrevealed commitment (R3-8, R3-14).
+- Isolation (spec 11.7, R3-9): subprocess bots start with an environment stripped of `SPELLBENCH_*`; the manifest records each entry's isolation (`builtin-in-process`, `unsandboxed`, `verified-sandbox`) and a run-level `self_reported` flag, shown next to "validator only"; a subprocess entry runs only when owned by `spellbench`, on `ISOLATION_ALLOWLIST` (`jackmaiorino`, the maintainer's own models, and `gorge`, bots the maintainer builds from pinned, reviewed source), or wrapped by sub-project D's sandbox; submitted binaries, checkpoints and pickles need the sandbox.
+- Budget (ARTIFACT-LAW clause 1, R3-7): every guarded launch records projected bytes and a cap in the manifest's `allocation.budget`, and refuses to start when less than a 60 GiB reserve would stay free on the run's or the pins' volume.
 - Canonical JSON is RFC 8785 through `wire.canonical_json_dumps` (keys ordered by UTF-16 code units; `"`, `\` and control characters escaped, `\u00xx` in lowercase hex). Every digest and every forwarded `seat_decision` goes through it.
 - Published artifacts are deterministic given the run secret: no timestamps, no absolute or machine paths, sorted iteration, `\n` line endings. Wall-clock values (clocks, throughput trials) never enter hashed data files; they live only in the manifest's `allocation` block or in unhashed files (`diagnostics.jsonl`, `throughput.jsonl`).
 - Secrets: a run secret or game secret is never logged, printed, or written before its run ends, except the run secret file kept outside the repository (Task 41). `RunSecret.__repr__` redacts.
@@ -37,16 +42,18 @@
 ## Decisions (made under the standing authorization; the controller should check them)
 
 1. **v1 runs stay readable.** A frozen verifier (`arena/legacy_v1.py`) re-validates v1 runs byte for byte, and the site keeps showing the latest committed v1 run of `pauper-kernel` (the launch run, or sub-project C's re-launch if it lands first), labelled "protocol v1, before the fairness contract", on its page and in the Hero, until K2 reruns the benchmark on v2. Why: the rerun needs the kernel bridge v2 (out of scope); without this, CI's run validation and Pages fail and the board is empty for the whole K2 period; and every committed number stays checkable. Cost: one frozen module of moved code; no v1 protocol code survives.
-2. **Build beside, then switch.** v2 lives in new modules with permanent names; the arena switches in place in Task 33; arena tests that still speak v1 are skipped at module level from Task 33 until their migration task (37, 39, 40, 41, 42). CI's `spellbench site` step on the integration branch is red from Task 33 until Task 42; the branch merges to `board-program` only after Task 44.
-3. **What "rated" means.** A v2 run is rated only if it completed, the validator verdict is `pass`, its commitment was pushed before the first game with a third-party timestamp reference, and its allocation was measured by the throughput guard. Everything else publishes as unrated. The site's board run is the latest rated v2 run, or the latest v1 run.
+2. **Build beside, then switch.** v2 lives in new modules with permanent names; the arena switches in place in Task 33; arena tests that still speak v1 are skipped at module level from Task 33 until their migration task (37, 39, 40, 41, 42). CI's `spellbench site` step on the integration branch is red from Task 33 until Task 42; the branch merges to `board-program` only after Task 44. CI runs only on pushes to `main` and on pull requests, so a draft pull request from `protocol-v2` to `board-program` stays open from wave 1 on, and every wave merge runs the Windows and Linux matrix (R3-27).
+3. **What "rated" means.** A v2 run is rated only if it completed, the validator verdict is `pass`, its commitment was pushed before the first game with a third-party timestamp reference, its allocation was measured by the throughput guard, and its engine files were pinned (the manifest's `engine_files` is not empty, so the library path cannot mint a rated run without pins; R3-7). Everything else publishes as unrated. Isolation (spec 11.7, 13 F5; R3-9): the manifest records each entry's isolation, and a run with an unsandboxed subprocess bot carries `self_reported: true`, shown as "self-reported" next to "validator only"; such a run can still be rated, since spec 11.7 labels self-reported runs rather than excluding them. The site's board run is the latest rated v2 run, or the latest v1 run.
 4. **Rewind accounting** (spec 8, re-review n1): the rewound priority action's own group and every group completed after it are abandoned (not counted in `decision_count`); `group_id` is never reused. The host checks terminal `step_count` and `decision_count` exactly; a mismatch halts the game with reason `host_engine_fault:terminal_counts`.
 5. **Caps** (spec 11.4): "reaches" means the seat's count equals the cap; the host adjudicates right after that choice, before sending the step. The stalling window is the last 250 answered decisions, that one included.
 6. **Invalid runs stop at once** (spec 11.3 allows it): the ledger is the schedule prefix through the violating game, whatever the worker count.
-7. **Goldens carry digests in a sidecar**, `goldens/protocol_v2/index.json` (with each transcript's engine arguments and replay roles), so every transcript row keeps exactly the spec's `{"dir", "message"}` shape; the two `malformed_json` transcripts hold the offending line as a JSON string.
+7. **Goldens carry digests in a sidecar**, `goldens/protocol_v2/index.json` (with each transcript's engine arguments and replay roles), so every transcript row keeps exactly the spec's `{"dir", "message"}` shape; the two `malformed_json` transcripts and `engine_error_malformed_request_non_object` hold the offending line as a JSON string (R1-3).
 8. **Benchmarks fix their information rules**: opponent decklist `visible`, mulligan `auto` (London when the engine supports it, else `none`, per spec 12.2), `host_assigned` with `p0`, probe off. Config `base_seed` becomes `stats_seed` (bootstrap only). Builtins become 2.0.0 (new bot ids).
-9. **Commit flow**: `bench commit` writes `runs/<name>/COMMITMENT.json` and keeps the secret under `~/.spellbench/run-secrets/` (override `SPELLBENCH_SECRETS_DIR`, never inside the repository); `bench run --run NAME --proof REF` checks with git that the commitment is in a pushed commit; a committed run that fails before its manifest is published as `REVEAL.json`. Preflight resets use host-internal HMAC labels of the run secret (`spellbench/v2/preflight-game:`, `spellbench/v2/preflight-id:`), never a scheduled game's secret.
-10. **Launch guards**: the throughput guard runs in `bench run` and `spellbench run`; a rated benchmark run also requires `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER` (engine files pinned by SHA-256 and registered). The library `run_tournament` requires an `Allocation`; an `unmeasured` one makes the run unrated. Guarded launch paths after P: `spellbench bench run`, `spellbench run`; the library path is covered by the rated rule.
+9. **Commit flow** (R3-8, R3-14): `bench commit BENCH --placement TEXT` first checks the local values the rated run will need (`SPELLBENCH_PIN_ROOT`, `SPELLBENCH_ARTIFACT_REGISTER`, a structured placement note), so a missing value never burns a published commitment; it then generates the run secret in memory, writes `runs/<name>/COMMITMENT.json`, commits and pushes it itself, and only after the push succeeded writes the secret (and the placement note) under `~/.spellbench/run-secrets/` (override `SPELLBENCH_SECRETS_DIR`, never inside the repository), so no usable secret exists without a public commitment, and spec 11.6 then forces its reveal; the operator records a third-party timestamp for the commit. `bench run --run NAME --proof REF` fetches the remote and checks with git that the commitment is in a pushed commit and unchanged since its first push. A committed run that fails before its manifest, in the invocation that holds its lock (beside the secret), is published as `REVEAL.json` with a fixed reason category. CI fails when a run directory is deleted or a commitment stays unrevealed, and the site lists pending and revealed runs (Task 44). A rated run pushes a `COMMITMENT.json` commit to the Spellbench repository from `bench commit` (covered by the standing authorization for launches). Preflight resets use host-internal HMAC labels of the run secret (`spellbench/v2/preflight-game:`, `spellbench/v2/preflight-id:`), never a scheduled game's secret.
+10. **Launch guards** (R1-6, R3-6, R3-7): the throughput guard runs in `bench run`, `bench rerun` and `spellbench run`. A substantial run needs a placement note naming the main PC, HaleysPC and RunPod each with a disposition; the guard records the machine's memory, GPUs and free disk, measures {1, bound / 2, bound} workers on identical games sampled across the matchups at about 10 percent of the projected serial time, reuses compatible evidence rather than re-benchmarking unchanged conditions, records a clock-dependent bot's outputs as not identical rather than refusing, and during the run compares finished games per window with the qualified rate and samples the machine's CPU, reporting as it happens. Every guarded launch records a budget block and refuses to start below a 60 GiB reserve. A rated benchmark run also requires `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER`: the engine's files and the subprocess bots' commands and checkpoints are pinned by SHA-256, registered live right after pinning and frozen at closure, and the run directory is registered too. The library `run_tournament` requires an `Allocation`; an `unmeasured` one, or no pinned engine files, makes the run unrated. Guarded launch paths after P: `spellbench bench run`, `spellbench bench rerun`, `spellbench run`; the library path is covered by the rated rule.
 11. **Sub-project C is input, not a conflict.** C (in flight on `c-kernel-bots`) adds `integrations/mtg_kernel/` (a v1 bot), edits `test_engine_conformance.py`, CI and `benchmarks/pauper-kernel/benchmark.json`, and commits a v1 run. P keeps C's `SPELLBENCH_ENGINE_ARGS` (Task 32), migrates whatever `benchmark.json` holds, C's bots included (Task 37), validates every v1 run (Task 4), and skips C's kernel-bot tests at module level when it deletes v1 (Task 44): that bot speaks v1 and is ported by K2.
+12. **JSON syntax in agent answers is strict** (spec 2 and 10.3; R1-18): spec 2 lists the host among the strict receivers (no floats, nesting at most 64 levels, no duplicate keys), while spec 10.3's leniency covers fields. The host ignores unknown fields and `x_` keys in agent answers but reads each line with `wire.strict_json_loads`, so an answer holding a float anywhere, even in an ignored debug field such as `"x_score": 0.62`, is `malformed_response`. The README's "Write a bot" section and the minimal bot's docstring say so. Relaxing JSON syntax for agent answers is recorded for the v2.1 errata. Cost if wrong: an ML bot with a float debug field forfeits until it drops the field.
+13. **A truncated terminal may interrupt a partial group** (spec 8 and 9.2; R1-12): spec 8 lets only a `halted` terminal, a host adjudication or a rewind interrupt a partial group, while spec 9.2 ends the game `truncated` when a cap is reached, and `max_steps` counts substeps, so a cap can fall inside a group. The validator reads the cap rule as the more specific one: a `truncated` terminal may interrupt a partial group, and a `natural` terminal while a group is partial is a V3 violation (`host_validator:V3`). The interrupted group does not count toward `decision_count`.
 
 ## Interfaces for K2 and G (produced here, consumed there)
 
@@ -57,20 +64,20 @@
 - `spellbench.run_secret.object_id(game_secret: bytes, message: str) -> str`, `id_key(game_secret: bytes) -> bytes`, `stream_seed(game_secret: bytes, label: str) -> bytes` (Task 2), as test oracles for adapter id and RNG code.
 - `benchmark.json` v2 fields an engine benchmark sets (Task 37): `engine.name`, `engine.command` (with `${NAME}` placeholders), `deck_pool`, `extensions`, `native_id_audits`, `time_control`, `limits`, `resources`, `workers`.
 - Python bots: `spellbench.bot.serve(...)` with the lenient views `spellbench.bot.Decision`, `Candidate`, `GameStart`, `GameOver` (Task 6), and `spellbench.builtins.uniform.SplitMix64` (Task 11). K2 ports C's `integrations/mtg_kernel/kernel_flat_bot.py` from `spellbench.agent_server.serve` and `spellbench.arena.bots.uniform.SplitMix64` to these.
-- Launch path for a published run: `spellbench bench commit`, then `spellbench bench run BENCH --run NAME --proof REF --placement TEXT`, with the local values `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER` (Tasks 41, 43). The kernel adapter is expected as `agent_bridge_v2` (Annex A naming) behind `${MTG_KERNEL_BRIDGE}`.
+- Launch path for a published run: `spellbench bench commit BENCH --placement TEXT` (it commits and pushes the commitment), a third-party timestamp, then `spellbench bench run BENCH --run NAME --proof REF`, with the local values `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER` (Tasks 41, 43). A subprocess bot entry needs owner `spellbench`, an owner on `ISOLATION_ALLOWLIST`, or sub-project D's sandbox wrapper (Task 31). The kernel adapter is expected as `agent_bridge_v2` (Annex A naming) behind `${MTG_KERNEL_BRIDGE}`.
 
 ## File Structure
 
 | File | Task | Responsibility |
 |---|---|---|
-| `python/spellbench/wire.py` | 1, 44 | strict JSON (bound, depth 64), RFC 8785 canonical JSON, framing, subprocess peer |
+| `python/spellbench/wire.py` | 1, 17, 44 | strict JSON (bound, depth 64, `NotAnObjectError`), RFC 8785 canonical JSON, framing, subprocess peer (with an `env`) |
 | `python/spellbench/_schema.py` (new) | 1 | shared strict validators and the protocol's closed name sets |
 | `python/spellbench/run_secret.py` (new) | 2 | run secret, commitment, game secrets, opaque game ids, agent seeds, object ids, stream seeds |
 | `python/spellbench/digests.py` (new) | 2 | deck ids, card-name domains, the per-game digest chain |
-| `python/spellbench/host/clock.py` (new) | 3 | Fischer clock, per-seat caps, stalling window |
+| `python/spellbench/host/clock.py` (new) | 3, 29 | Fischer clock, per-seat caps, stalling window |
 | `python/spellbench/arena/legacy_v1.py` (new) | 4, 20 | frozen v1 run reader and verifier |
-| `python/spellbench/arena/throughput.py` (new) | 5 | throughput qualification, allocation record, idle monitor |
-| `python/spellbench/bench/pinning.py` (new) | 5 | engine file hashing, pinning, artifact registration |
+| `python/spellbench/arena/throughput.py` (new) | 5 | throughput qualification, allocation record, evidence reuse, placement and machine record, budget and reserve, idle monitor |
+| `python/spellbench/bench/pinning.py` (new) | 5, 31 | engine file hashing, pinning, artifact registration (`EngineFile` moves to `arena/manifest.py` in Task 31) |
 | `python/spellbench/bot.py` (new) | 6 | lenient agent-role server and bot-side views |
 | `examples/minimal_bot.py` (new) | 6 | the spec 10.6 minimal bot, stdlib only |
 | `python/spellbench/candidates.py` (new) | 7 | the 30 v2.0 kinds, vocabularies, constraints |
@@ -90,43 +97,47 @@
 | `python/spellbench/host/game.py` (new) | 23, 29 | one game: routing, validation, digest, clocks, caps, adjudication |
 | `python/spellbench/arena/drivers.py` (new) | 24 | builtin and subprocess seat drivers |
 | `python/spellbench/arena/schedule.py` (new) | 25 | preflight, schedule, per-game setup |
-| `python/tests/fake_v2_scenario_*.py`, `fake_v2_knowledge.py` (new) | 26, 27 | kinds, board and knowledge tours |
+| `python/tests/fake_v2_scenario_*.py`, `fake_v2_knowledge.py` (new) | 21, 26, 27 | the runner's smoke scenario (21); kinds, board and knowledge tours |
 | `python/tests/hostile_v2_engine.py`, `bot_v2_hostile.py` (new) | 28 | hostile participants |
 | `python/spellbench/arena/executor.py` (new) | 30 | serial and parallel execution, schedule-order prefix |
-| `python/spellbench/arena/manifest.py` (new) | 31 | manifest v2, information rules, validator record, rated rule |
+| `python/spellbench/arena/manifest.py` (new) | 31 | manifest v2, information rules, validator record, isolation record, rated rule, `EngineFile` |
 | `python/spellbench/conformance.py` (new) | 32 | engine conformance runner |
 | `python/spellbench/arena/runner.py`, `store.py`, `cli.py` | 33 (and 32, 41, 43) | the v2 tournament, v2 schemas, CLI |
 | `python/tools/generate_goldens_v2.py`, `goldens/protocol_v2/` (new) | 2, 34 | golden transcripts, index and vectors |
-| `python/spellbench/arena/validate.py` | 4, 36, 41 | dispatch v1 or v2 validation; revealed runs |
+| `python/spellbench/arena/validate.py` | 4, 36, 41 | dispatch v1 or v2 validation; revealed runs and the reveal constants |
 | `python/spellbench/bench/definition.py`, `benchmarks/pauper-kernel/benchmark.json` | 37 | benchmark schema v2 |
-| `python/spellbench/site/render.py`, `site/build.py` | 38, 42 | v2 and legacy runs on the site |
+| `python/spellbench/site/render.py`, `site/build.py` | 38, 42, 44 | v2 and legacy runs on the site; revealed and pending runs (44) |
 | `python/spellbench/bench/commit.py` (new), `bench/run.py` | 41, 43 | commit, run, reveal, rerun, launch guards |
+| `python/tools/check_run_history.py` (new) | 44 | CI: no deleted run directory, no stale unrevealed commitment |
 | deletions, `README.md`, CI, version | 44 | v1 removal and docs |
 
 ## Execution Notes (controller)
 
 - One integration branch `protocol-v2` off `board-program`; one git worktree and branch per task; merge each wave before starting the next. Files within a wave are disjoint.
-- Files shared across waves (never within one): `arena/cli.py` (Tasks 32, 33, 41, 43), `arena/runner.py` (20, 33, 43), `arena/store.py` (20, 33), `arena/legacy_v1.py` (4, 20), `arena/validate.py` (4, 36, 41), `host/game.py` (23, 29), `bench/run.py` (41, 43), `python/tests/test_engine_conformance.py` (32). `python/tests/fake_v2_engine.py` is written by Task 21 only; Tasks 26 and 27 add scenario modules it discovers.
+- In each new task worktree, run `uv sync --locked --extra test` once (as CI does) before any `uv run pytest`: `uv run` alone syncs no extras, so pytest would be missing. Never `uv add` a test tool; `dependencies = []` stays empty (R1-9).
+- Keep a draft pull request from `protocol-v2` to `board-program` open from wave 1 on, so every wave merge runs CI's Windows and Linux matrix (Decision 2, R3-27).
+- In-flight wave 1 (R1 and R3 were applied after dispatch): Task 4 ends with a fix round for R3-18 and Task 5 with one for R3-6, R3-7 and R3-28, each applied after the task's first review; Task 6 ends with a follow-up for R1-3 that lands once wave 1 has merged, since `wire.NotAnObjectError` is Task 1's.
+- Files shared across waves (never within one): `wire.py` (Tasks 1, 17, 44), `host/clock.py` (3, 29), `bench/pinning.py` (5, 31), `arena/legacy_v1.py` (4, 20), `arena/validate.py` (4, 36, 41), `arena/runner.py` (20, 33, 43), `arena/store.py` (20, 33), `arena/cli.py` (32, 33, 41, 43), `host/game.py` (23, 29), `host/agent_process.py` (17, 44), `host/engine_process.py` (18, 44), `bench/run.py` (41, 43), `site/build.py` (42, 44); tests `test_wire.py` (1, 44), `test_host_clock.py` (3, 29), `test_arena_ratings.py` and `test_arena_slices.py` (20, 33, 40), the other modules Task 33 skips until their migration (`test_arena_adjudication.py` 33, 39; `test_arena_e2e.py`, `test_arena_schedule.py`, `test_arena_parallel.py`, `test_arena_resolve.py`, `test_arena_commands.py` 33, 40; `test_bench_definition.py` 33, 37; `test_bench_run.py` 33, 41), `test_site_build.py` (33, 42, 44), and `test_engine_conformance.py` (32; sub-project C edits it too). `python/tests/fake_v2_engine.py` is written by Task 21 only, which also ships the smoke scenario; Tasks 26 and 27 add scenario modules it discovers.
 - Created once: `host/__init__.py` (Task 3), `builtins/__init__.py` (Task 11), `goldens/protocol_v2/` (Task 2), `python/tests/tour_helpers.py` (Task 22).
-- Task 33 inserts `import pytest` and `pytest.skip("protocol v1 test, migrated in Task N", allow_module_level=True)` right after `from __future__ import annotations` (before every other import, so the module's v1 imports never run) in each arena test module it breaks. Tasks 37, 39, 40, 41, 42 remove their skip; Task 44 asserts none remain.
-- Shared test fixtures from Task 33 on live in `python/tests/arena_helpers.py`: `TEST_RUN_SECRET = RunSecret(bytes(range(32)))` (the spec 16 vector secret), `TEST_PROOF`, `small_allocation(workers)`, `run(config, *, rated=False)`.
+- Task 33 inserts `import pytest` and `pytest.skip("protocol v1 test, migrated in Task N", allow_module_level=True)` right after `from __future__ import annotations` (before every other import, so the module's v1 imports never run) in each arena test module it breaks. Tasks 37, 39, 40, 41, 42 remove their skip; Task 44 asserts that the only module-level skips left are sub-project C's kernel-bot modules, waiting for K2.
+- Shared test fixtures from Task 33 on live in `python/tests/arena_helpers.py`: `TEST_RUN_SECRET = RunSecret(bytes(range(32)))` (the spec 16 vector secret), `TEST_PROOF`, `TEST_ENGINE_FILES`, `small_allocation(workers)`, `run(config, *, rated=False)`, and `subprocess_bot(...)` with owner `spellbench`.
 - Sub-project C: when it merges into `board-program`, rebase `protocol-v2` on it at the next wave boundary. The rebase touches `test_engine_conformance.py` (take P's Task 32 version once it exists, keeping `SPELLBENCH_ENGINE_ARGS`), CI (keep C's `pytest python/tests integrations -q`), and `benchmarks/pauper-kernel/` (keep C's run and its definition until Task 37 migrates it).
 - Compute: the suite's tournaments are small correctness checks, which COMPUTE-POLICY allows. No benchmark run is launched in this sub-project; the first v2 `pauper-kernel` run belongs to K2 and goes through the guarded `bench run`.
 
 | Wave | Tasks (effort in agent-days) | Needs |
 |---|---|---|
-| 1 | 1 (0.5), 2 (0.5), 3 (0.5), 4 (0.5), 5 (0.5), 6 (0.5) | nothing |
-| 2 | 7 (0.5), 8 (0.75), 9 (0.5), 10 (0.5), 11 (0.5), 12 (0.5), 13 (0.5) | wave 1 |
-| 3 | 14 (0.5), 15 (0.5), 16 (0.5), 17 (0.75), 18 (0.5), 19 (0.5), 20 (0.5), 21 (0.75) | wave 2 |
-| 4 | 22 (0.5) | 14, 15, 16, 18, 21 |
-| 5 | 23 (0.75), 24 (0.5), 25 (0.5), 26 (0.75), 27 (0.5), 28 (0.5) | 22 and wave 3 |
-| 6 | 29 (0.75), 30 (0.5), 31 (0.5), 32 (0.5) | wave 5 |
-| 7 | 33 (0.75), 34 (0.75) | wave 6 |
-| 8 | 35 (0.5), 36 (0.5), 37 (0.5), 38 (0.5) | 33, 34 |
-| 9 | 39 (0.5), 40 (0.75), 41 (0.75), 42 (0.5) | 36, 37, 38 |
-| 10 | 43 (0.5), 44 (0.5) | 41; 39, 40, 42 |
+| 1 | 1 (0.5), 2 (0.5), 3 (0.5), 4 (0.5), 5 (0.75, with its fix round), 6 (0.5) | nothing |
+| 2 | 7 (0.5), 8 (0.75), 9 (0.5), 10 (0.5), 11 (0.5), 12 (0.5), 13 (0.75) | wave 1 |
+| 3 | 14 (0.5), 15 (0.5), 16 (0.5), 17 (1.0), 18 (0.5), 19 (0.5), 20 (0.5), 21 (1.25) | wave 2 |
+| 4 | 22 (0.75) | 14, 15, 16, 18, 21 |
+| 5 | 23 (1.0), 24 (0.5), 25 (0.5), 26 (1.0), 27 (0.75), 28 (0.75) | 22 and wave 3 |
+| 6 | 29 (0.75), 30 (0.5), 31 (0.75), 32 (0.75) | wave 5 |
+| 7 | 33 (1.0), 34 (0.75) | wave 6 |
+| 8 | 35 (0.5), 36 (0.75), 37 (0.5), 38 (0.5) | 33, 34 |
+| 9 | 39 (0.5), 40 (0.75), 41 (1.0), 42 (0.5) | 36, 37, 38 |
+| 10 | 43 (1.0), 44 (1.0) | 41; 39, 40, 42 |
 
-Total: 44 tasks, 24.5 agent-days. Critical path: Tasks 1, 8, 15, 22, 23, 29, 33, 36, 41, 43 = 6.25 agent-days (Tasks 14, 16 and 21 are equally long alternatives to 15); with the wave barriers the elapsed time is 6.5 days, with up to eight implementers in wave 3. Each task's heading repeats its effort, wave and direct dependencies. Task 44 runs beside Task 43 (disjoint files); the controller reruns Task 44's final checks once both have merged.
+Total: 44 tasks, 29.25 agent-days (24.5 before the pre-execution review). Critical path: Tasks 1, 8, 21, 22, 23, 29, 33, 36, 41, 43 = 8.75 agent-days (Task 13 is an equally long alternative to 8, and Task 44 to 43); with the wave barriers the elapsed time is 9 days, with up to eight implementers in wave 3. Each task's heading repeats its effort, wave and direct dependencies. Task 44 runs beside Task 43 (disjoint files); the controller reruns Task 44's final checks once both have merged.
 
 ---
 
@@ -146,10 +157,11 @@ Total: 44 tasks, 24.5 agent-days. Critical path: Tasks 1, 8, 15, 22, 23, 29, 33,
 - Consumes: nothing new.
 - Produces:
   - `wire.MAX_JSON_INT = (1 << 53) - 1`, `wire.MAX_NESTING = 64`
-  - `wire.strict_json_loads(line: bytes | str) -> dict[str, Any]`: raises `MalformedJsonError` with "outside |x| <= 2^53 - 1", "nesting deeper than 64 levels", or "lone surrogate" in the message.
+  - `class wire.NotAnObjectError(MalformedJsonError)`: a line that passes every strict-JSON check but whose top level is not an object (`[1,2]`, `"x"`, `null`). Spec 9.8 answers it with `malformed_request`, not `malformed_json`; a subclass, so v1 code and every "unparseable" path keep working (R1-3).
+  - `wire.strict_json_loads(line: bytes | str) -> dict[str, Any]`: raises `MalformedJsonError` with "outside |x| <= 2^53 - 1", "nesting deeper than 64 levels", or "lone surrogate" in the message; the strict checks run first, then a non-object top level raises `NotAnObjectError` ("top-level JSON value is not an object"), so a line that breaks a strict rule is `malformed_json` whatever its top level.
   - `wire.canonical_json_dumps(value: Any) -> bytes`: RFC 8785 (keys by UTF-16 code units); raises `ValidationError` for floats, non-string keys, out-of-range integers, unencodable strings.
   - `_schema` closed name sets (the single source of truth; `candidates` and `observation` re-export them): `PRIORITY_KINDS = ("pass", "play_land", "cast_spell", "activate_mana_ability", "activate_ability", "special_action")`, `CHOICE_KINDS` (the 24 kinds of spec 7.3 in table order), `V2_KINDS = frozenset(PRIORITY_KINDS + CHOICE_KINDS)`, `RESERVED_KINDS = frozenset({"pay_mana", "narrow_name", "narrow_number"})`, `REQUIRED_KINDS = frozenset({"pass", "play_land", "cast_spell", "declare_attack", "declare_block"})`, `OBSERVATION_FLAGS` (the 13 flags of spec 6.9 in table order)
-  - `_schema`: `U32_MAX`, `I32_MIN`, `I32_MAX`, `SAFE_INT_MAX`, `SEATS = ("p0", "p1")`, `ZONES`, `REFERENCE_FIELDS = ("object_id", "card_name", "owner_seat", "controller_seat", "zone")`, `SNAKE_CASE_RE`, `EXTENSION_KEY_RE`; `fail(context: str, detail: str) -> NoReturn`, `as_object(value, context) -> dict`, `exact_keys(value: Mapping, expected: Iterable[str], context) -> None`, `safe_int`, `u32`, `i32` (each `(value, context) -> int`), `boolean(value, context) -> bool`, `text(value, context) -> str`, `nonempty(value, context) -> str`, `nullable(value, check: Callable[[Any, str], T], context) -> T | None`, `array(value, context, *, min_length: int = 0, max_length: int | None = None) -> list`, `seat(value, context) -> str`, `vocab(value, allowed: Collection[str], context) -> str`, `snake(value, context) -> str`, `card_name(value, context) -> str` (nonempty, NFC), `object_ref(value, context) -> dict`, `target_ref(value, context) -> dict`. All raise `errors.ValidationError("<context>: <detail>")`.
+  - `_schema`: `U32_MAX`, `I32_MIN`, `I32_MAX`, `SAFE_INT_MAX`, `SEATS = ("p0", "p1")`, `ZONES`, `REFERENCE_FIELDS = ("object_id", "card_name", "owner_seat", "controller_seat", "zone")`, `SNAKE_CASE_RE`, `EXTENSION_KEY_RE`; `fail(context: str, detail: str) -> NoReturn`, `as_object(value, context) -> dict`, `exact_keys(value: Mapping, expected: Iterable[str], context) -> None`, `safe_int`, `u32`, `i32` (each `(value, context) -> int`; `safe_int` accepts exactly `type(value) is int and 0 <= value <= SAFE_INT_MAX`, spec 4.4's `[0, 2^53 - 1]`, R1-2), `boolean(value, context) -> bool`, `text(value, context) -> str`, `nonempty(value, context) -> str`, `nullable(value, check: Callable[[Any, str], T], context) -> T | None`, `array(value, context, *, min_length: int = 0, max_length: int | None = None) -> list`, `seat(value, context) -> str`, `vocab(value, allowed: Collection[str], context) -> str`, `snake(value, context) -> str`, `card_name(value, context) -> str` (nonempty, NFC), `object_ref(value, context) -> dict`, `target_ref(value, context) -> dict`. All raise `errors.ValidationError("<context>: <detail>")`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -180,6 +192,20 @@ def test_nesting_of_64_levels_is_accepted_and_65_rejected() -> None:
     assert wire.strict_json_loads(_nested_objects(64))
     with pytest.raises(MalformedJsonError, match="nesting deeper than 64 levels"):
         wire.strict_json_loads(_nested_objects(65))
+
+
+@pytest.mark.parametrize("line", [b"[1,2]", b'"hello"', b"123", b"null", b"true"])
+def test_a_non_object_top_level_raises_not_an_object_error(line: bytes) -> None:
+    # Valid JSON with a non-object top level is malformed_request, not malformed_json (spec 9.8).
+    with pytest.raises(wire.NotAnObjectError, match="not an object"):
+        wire.strict_json_loads(line)
+
+
+@pytest.mark.parametrize("line", [b"[" * 65 + b"]" * 65, rb'["\ud800"]'], ids=["depth", "lone-surrogate"])
+def test_a_line_breaking_strict_json_is_malformed_json_whatever_its_top_level(line: bytes) -> None:
+    with pytest.raises(MalformedJsonError) as caught:
+        wire.strict_json_loads(line)
+    assert not isinstance(caught.value, wire.NotAnObjectError)
 
 
 def test_canonical_escapes_follow_rfc_8785() -> None:
@@ -257,6 +283,8 @@ def test_integers_check_type_before_range() -> None:
         s.u32(1 << 32, "n")
     with pytest.raises(ValidationError):
         s.safe_int(1 << 53, "n")
+    with pytest.raises(ValidationError):
+        s.safe_int(-1, "n")                        # counters are non-negative (spec 4.4)
     assert s.i32(-(1 << 31), "n") == -(1 << 31)
 
 
@@ -283,7 +311,7 @@ def test_snake_case_and_card_names() -> None:
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest python/tests/test_wire.py python/tests/test_schema.py -q`
-Expected: FAIL: `ModuleNotFoundError: spellbench._schema`, 2^53 accepted, depth 65 accepted, the UTF-16 order test gets code point order.
+Expected: FAIL: `ModuleNotFoundError: spellbench._schema`, 2^53 accepted, depth 65 accepted, `wire.NotAnObjectError` missing, the UTF-16 order test gets code point order.
 
 - [ ] **Step 3: Implement**
 
@@ -317,7 +345,25 @@ def _check_tree(value: Any, *, check_strings: bool) -> None:
             _encodable(item)
 ```
 
-`strict_json_loads` calls `_check_tree(value, check_strings=bool(_SURROGATE_ESCAPE.search(line)))` after the top-level object check, and turns a `RecursionError` from `json.loads` into the same `"JSON nesting deeper than 64 levels"` message, so the depth error reads the same whichever layer finds it. For canonical output:
+`strict_json_loads` turns a `RecursionError` from `json.loads` into the same `"JSON nesting deeper than 64 levels"` message, so the depth error reads the same whichever layer finds it, then calls `_check_tree(value, check_strings=bool(_SURROGATE_ESCAPE.search(line)))`, and only then checks the top level (R1-3):
+
+```python
+class NotAnObjectError(MalformedJsonError):
+    """A strict-JSON line whose top level is not an object.
+
+    Spec 9.8 answers it with malformed_request, not malformed_json: the line is valid JSON.
+    A subclass, so callers catching MalformedJsonError keep working.
+    """
+
+
+def _require_object(value: Any) -> dict[str, Any]:
+    """The last step of strict_json_loads, after every strict check."""
+    if not isinstance(value, dict):
+        raise NotAnObjectError("top-level JSON value is not an object")
+    return value
+```
+
+For canonical output:
 
 ```python
 def _assert_canonical_tree(value: Any) -> bool:
@@ -371,7 +417,7 @@ def canonical_json_dumps(value: Any) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
 ```
 
-Create `python/spellbench/_schema.py` with the closed name sets (copied from the tables of spec 6.9, 7.2 and 7.3) and the helpers listed under Interfaces. Each helper checks the Python type first (`type(value) is int`, never `isinstance`, so `True` is not an integer; a list is never tested for membership). `object_ref` calls `exact_keys` with `REFERENCE_FIELDS`, then `nonempty(object_id)`, `nullable(card_name, card_name)`, `seat` twice, `vocab(zone, ZONES)`, and returns the input dict. `card_name` fails with `"<context>: card name {value!r} is not in Unicode NFC"` when `unicodedata.is_normalized("NFC", value)` is false. `target_ref` accepts exactly `{"player": seat}` or `{"object": object_ref}`.
+Create `python/spellbench/_schema.py` with the closed name sets (copied from the tables of spec 6.9, 7.2 and 7.3) and the helpers listed under Interfaces. Each helper checks the Python type first (`type(value) is int`, never `isinstance`, so `True` is not an integer; a list is never tested for membership). `safe_int` accepts exactly `type(value) is int and 0 <= value <= SAFE_INT_MAX` (non-negative counters, spec 4.4; R1-2). `object_ref` calls `exact_keys` with `REFERENCE_FIELDS`, then `nonempty(object_id)`, `nullable(card_name, card_name)`, `seat` twice, `vocab(zone, ZONES)`, and returns the input dict. `card_name` fails with `"<context>: card name {value!r} is not in Unicode NFC"` when `unicodedata.is_normalized("NFC", value)` is false. `target_ref` accepts exactly `{"player": seat}` or `{"object": object_ref}`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -402,7 +448,7 @@ git commit -m "Wire: 2^53 - 1 bound, 64-level nesting, RFC 8785 key order; share
 - Produces:
   - `run_secret.RUN_SECRET_BYTES = 32`; `class RunSecret` (frozen, `value: bytes`, redacting `__repr__`): `generate() -> RunSecret`, `from_hex(text: str) -> RunSecret`, `hex() -> str`, `commitment() -> str`, `game_secret(index: int) -> bytes`, `game_id(index: int) -> str`, `agent_seed(index: int, seat: str) -> int`, `preflight_secret(index: int) -> bytes`, `preflight_game_id(index: int) -> str`
   - `run_secret.id_key(game_secret: bytes) -> bytes`, `object_id(game_secret: bytes, message: str) -> str`, `stream_seed(game_secret: bytes, label: str) -> bytes`
-  - `digests.deck_rows(decklist: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]`, `deck_id(decklist) -> str`, `domain_id(names: Sequence[str]) -> str`, `card_name_domain(names: Iterable[str]) -> dict[str, Any]` (`{"domain_id", "names"}`, names sorted and unique)
+  - `digests.deck_rows(decklist: Sequence[Mapping[str, Any]], context: str = "decklist") -> list[dict[str, Any]]` (every error names its row under `context`; the NFC failure reads `f"{context}[{i}].name: card name {name!r} is not in Unicode NFC"`, the `_schema.card_name` wording, R1-4), `deck_id(decklist) -> str`, `domain_id(names: Sequence[str]) -> str`, `card_name_domain(names: Iterable[str]) -> dict[str, Any]` (`{"domain_id", "names"}`, names sorted and unique)
   - `digests.GAME_DIGEST_DOMAIN = b"spellbench/v2/game-digest"`; `class GameDigest(reset_request: Mapping)` with `add_response(response: Mapping) -> None` (the answer to `reset`), `add_step(request: Mapping, response: Mapping | None) -> None`, `add_adjudication(*, classification: str, outcome: str, reason: str, winner: str | None) -> None`, `chain_hex() -> str`, `value() -> str` (`"sha256:" + hex`)
   - `goldens/protocol_v2/test_vectors.json`: one canonical JSON line, schema `"spellbench-test-vectors/v2"`.
 
@@ -503,9 +549,14 @@ import pytest
 from spellbench import wire
 from spellbench.digests import GAME_DIGEST_DOMAIN, GameDigest, card_name_domain, deck_id, deck_rows, domain_id
 from spellbench.errors import ValidationError
+from spellbench.run_secret import RunSecret, id_key, object_id, stream_seed
 
 BURN = [{"name": "Lightning Bolt", "count": 4}, {"name": "Mountain", "count": 18}]
-VECTORS = json.loads((Path(__file__).resolve().parents[2] / "goldens" / "protocol_v2" / "test_vectors.json").read_bytes())
+VECTORS_FILE = Path(__file__).resolve().parents[2] / "goldens" / "protocol_v2" / "test_vectors.json"
+VECTORS = json.loads(VECTORS_FILE.read_bytes())
+VECTOR_GROUPS = ("commitment", "game_secret", "game_id", "agent_seed", "id_key_game_0", "object_id_game_0",
+                 "stream_seed_game_0_first_8_bytes", "deck_id", "domain_id", "canonical_sha256", "first_digest_chain_value")
+NFD_VAULT = "Lim-Dûl's Vault"   # "u" plus a combining circumflex: the NFD spelling of an Oracle name
 
 
 def test_deck_and_domain_vectors() -> None:
@@ -526,13 +577,20 @@ def test_deck_and_domain_vectors() -> None:
         ([], "nonempty"),
         ([{"name": "Mountain", "count": 0}], "count"),
         ([{"name": "Mountain", "count": 1}, {"name": "Mountain", "count": 2}], "twice"),
-        ([{"name": "Lim-Du\u0302l's Vault", "count": 1}], "NFC"),
+        ([{"name": NFD_VAULT, "count": 1}], "Lim-Du\u0302l's Vault.*NFC"),       # the error names the card (R1-4)
         ([{"name": "Mountain", "count": 1, "set": "M21"}], "exactly"),
     ],
 )
 def test_deck_rows_are_strict(decklist: list, message: str) -> None:
     with pytest.raises(ValidationError, match=message):
         deck_rows(decklist)
+
+
+def test_deck_rows_name_the_card_under_the_callers_context() -> None:
+    decklist = [{"name": "Mountain", "count": 18}, {"name": NFD_VAULT, "count": 1}]
+    with pytest.raises(ValidationError) as caught:
+        deck_rows(decklist, context="catalog[0] (Vault).decklist")
+    assert str(caught.value) == f"catalog[0] (Vault).decklist[1].name: card name {NFD_VAULT!r} is not in Unicode NFC"
 
 
 def test_first_chain_value_matches_the_spec_vector() -> None:
@@ -569,6 +627,48 @@ def test_an_adjudication_is_appended_once() -> None:
     assert digest.value() == _manual({"request_type": "reset"}, record)
     with pytest.raises(ValueError):
         digest.add_adjudication(classification="halted", outcome="halted", reason="x", winner=None)
+
+
+def test_the_vectors_file_holds_exactly_its_groups_and_each_reads_back() -> None:
+    # K2 (Rust) and G (Go) unit tests consume this file, so every group is read back here (R1-5).
+    assert set(VECTORS) == {"schema", "run_secret", *VECTOR_GROUPS}
+    assert VECTORS["schema"] == "spellbench-test-vectors/v2"
+    assert deck_id(VECTORS["deck_id"]["decklist"]) == VECTORS["deck_id"]["deck_id"]
+    assert domain_id(VECTORS["domain_id"]["names"]) == VECTORS["domain_id"]["domain_id"]
+    canonical = wire.canonical_json_dumps(VECTORS["canonical_sha256"]["value"])
+    assert hashlib.sha256(canonical).hexdigest() == VECTORS["canonical_sha256"]["sha256"]
+
+
+def test_the_vectors_file_is_what_the_implementation_computes_from_the_spec_inputs() -> None:
+    secret = RunSecret(bytes(range(32)))
+    game0 = secret.game_secret(0)
+    names = ["Lightning Bolt", "Mountain"]
+    burn = {"deck_id": deck_id(BURN), "catalog_id": "Burn"}
+    reset = {  # the spec 9.2 example without its request_id
+        "request_type": "reset", "protocol": "spellbench/v2", "game_id": secret.game_id(0), "format": "pauper-bo1",
+        "seats": [{"seat": "p0", "deck": burn}, {"seat": "p1", "deck": burn}],
+        "rules": {"opponent_decklist": "visible", "mulligan": "none", "starting_player": "host_assigned", "starting_seat": "p0",
+                  "card_name_domain": card_name_domain(names), "extensions": [], "probe": False},
+        "game_secret": game0.hex(), "max_decisions": 10000, "max_steps": 100000,
+    }
+    messages = ("p0:card-17:z2", "p1:card-17:z2", "p0:card-17:z2:look:0", "p0:card-17:z2:look:1")
+    labels = ("spellbench/v2/rng:p1:library_shuffle:0",)
+    canonical_value = {"b": "Chainer's Edict", "a": "Lim-Dûl's Vault", "c": "tab\there"}
+    rebuilt = {
+        "schema": "spellbench-test-vectors/v2", "run_secret": secret.hex(), "commitment": secret.commitment(),
+        "game_secret": {str(i): secret.game_secret(i).hex() for i in (0, 1)},
+        "game_id": {str(i): secret.game_id(i) for i in (0, 1)},
+        "agent_seed": {f"{i}:{seat}": secret.agent_seed(i, seat) for i in (0, 1) for seat in ("p0", "p1")},
+        "id_key_game_0": id_key(game0).hex(),
+        "object_id_game_0": {message: object_id(game0, message) for message in messages},
+        "stream_seed_game_0_first_8_bytes": {label: stream_seed(game0, label)[:8].hex() for label in labels},
+        "deck_id": {"decklist": deck_rows(BURN), "deck_id": deck_id(BURN)},
+        "domain_id": {"names": names, "domain_id": domain_id(names)},
+        "canonical_sha256": {"value": canonical_value,
+                             "sha256": hashlib.sha256(wire.canonical_json_dumps(canonical_value)).hexdigest()},
+        "first_digest_chain_value": {"reset": reset, "d": GameDigest(reset).chain_hex()},
+    }
+    assert VECTORS_FILE.read_bytes() == wire.canonical_json_line(rebuilt)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -670,7 +770,7 @@ def stream_seed(game_secret: bytes, label: str) -> bytes:
     return _hmac(game_secret, label.encode("ascii"))
 ```
 
-`python/spellbench/digests.py`: `deck_rows` requires a nonempty list of rows, each exactly `{name, count}`, name nonempty and NFC (`unicodedata.is_normalized`), count an integer in `[1, 2^32 - 1]`, names distinct ("appears twice"); returns `{"count", "name"}` rows sorted by name. `deck_id` and `domain_id` are `"sha256:" + sha256(canonical_json_dumps(...))`, `domain_id` over the sorted distinct NFC names. `GameDigest`:
+`python/spellbench/digests.py`: `deck_rows(decklist, context="decklist")` requires a nonempty list of rows, each exactly `{name, count}`, name nonempty and NFC (`unicodedata.is_normalized`), count an integer in `[1, 2^32 - 1]`, names distinct ("appears twice"); returns `{"count", "name"}` rows sorted by name. Each failure is `ValidationError(f"{context}[{i}].<field>: ...")`, the NFC one exactly `f"{context}[{i}].name: card name {name!r} is not in Unicode NFC"`, so a caller names the deck by passing its own `context` (Task 9 passes `f"catalog[{i}] ({catalog_id}).decklist"`) and never re-raises. `deck_id` and `domain_id` are `"sha256:" + sha256(canonical_json_dumps(...))`, `domain_id` over the sorted distinct NFC names. `GameDigest`:
 
 ```python
 def _minus_request_id(message: Mapping[str, Any]) -> dict[str, Any]:
@@ -760,7 +860,7 @@ Write `goldens/protocol_v2/test_vectors.json` as one canonical line (`wire.canon
 }
 ```
 
-These are the spec 16 values, all recomputed while writing this plan; the reset is the spec 9.2 example without `request_id`. The tests recompute each one, so a typo fails.
+These are the spec 16 values, all recomputed while writing this plan; the reset is the spec 9.2 example without `request_id`. `test_digests.py` reads every group back, pins the file's exact key set (the 11 vector groups plus `schema` and `run_secret`), and rebuilds the whole file from the implementation and the spec's inputs, comparing bytes, so a typo in any value fails (R1-5).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -981,7 +1081,7 @@ git commit -m "Host: Fischer clock, seat caps and the stalling window"
 **Interfaces:**
 - Consumes: `store` IO helpers (`read_json`, `read_jsonl`, `verify_file_digests`, `canonical_bytes`, `require_keys`, `is_published`, `MANIFEST_NAME`, `CONFIG_NAME`, `REGISTRY_NAME`, `LEDGER_NAME`, `LEADERBOARD_JSON_NAME`, `LEADERBOARD_MD_NAME`, `DATA_FILE_NAMES`), `registry.read_registry`, `leaderboard.build_leaderboard`. Nothing from `models`, `runner`, `arena.bots`, or the v1 clients: this module must survive their deletion.
 - Produces:
-  - `legacy_v1.LEGACY_ARENA_VERSION = "0.2.0"`, `TOURNAMENT_SCHEMA_V1 = "spellbench-tournament/v1"`, `LEDGER_SCHEMA_V1 = "spellbench-match-ledger/v1"`, `CONFIG_SCHEMA_V1 = "spellbench-tournament-config/v1"`, `LEADERBOARD_SCHEMA_V1 = "spellbench-leaderboard/v1"`
+  - `legacy_v1.LEGACY_ARENA_VERSION = "0.2.0"` (the version gate compares a run's `arena_version` with it, never with the running package's `__version__`, R1-1), `LEGACY_ARENA_VERSIONS = ("0.2.0",)` (fix round, R3-18), `TOURNAMENT_SCHEMA_V1 = "spellbench-tournament/v1"`, `LEDGER_SCHEMA_V1 = "spellbench-match-ledger/v1"`, `CONFIG_SCHEMA_V1 = "spellbench-tournament-config/v1"`, `LEADERBOARD_SCHEMA_V1 = "spellbench-leaderboard/v1"`
   - `validate_v1_run(directory: Path) -> list[str]` (exactly today's `validate_tournament_dir` behavior and messages)
   - `LegacyLedgerRow` (today's `store.LedgerRow` fields and checks, plus property `pair_slot -> int` returning `game_index`)
   - `@dataclass(frozen=True) class LegacyRun: name: str; config: dict[str, Any]; engine: dict[str, Any]; owners: dict[str, str]; board: dict[str, Any]; deck_labels: tuple[str, ...]; pairs_per_deck: int; format: str`
@@ -1005,6 +1105,7 @@ from pathlib import Path
 
 import pytest
 
+import spellbench
 from spellbench.arena import legacy_v1, store
 from spellbench.arena.validate import validate_tournament_dir
 
@@ -1028,6 +1129,30 @@ def test_a_tampered_v1_run_fails(tmp_path: Path) -> None:
     ledger.write_bytes(ledger.read_bytes().replace(b'"reason":"game_over"', b'"reason":"game over"', 1))
     failures = legacy_v1.validate_v1_run(copy)
     assert any("digest mismatch: matches.jsonl" in failure for failure in failures)
+
+
+def test_a_later_package_version_still_validates_the_v1_runs(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Task 44 bumps spellbench.__version__ to 0.3.0; the gate compares with the version that made
+    # the v1 runs (R1-1). Patch any copy the module could have bound too.
+    monkeypatch.setattr(spellbench, "__version__", "0.3.0")
+    monkeypatch.setattr(legacy_v1, "__version__", "0.3.0", raising=False)
+    assert legacy_v1.validate_v1_run(LAUNCH_RUN) == []
+
+
+@pytest.mark.parametrize("package_version", ["0.2.0", "0.3.0"])
+def test_a_v1_run_made_by_another_arena_version_gets_one_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, package_version: str
+) -> None:
+    monkeypatch.setattr(spellbench, "__version__", package_version)
+    copy = tmp_path / "run"
+    shutil.copytree(LAUNCH_RUN, copy)
+    manifest = store.read_json(copy / "manifest.json")
+    manifest["tournament"]["arena_version"] = "0.1.0"
+    (copy / "manifest.json").write_bytes(store.canonical_bytes(manifest) + b"\n")
+    assert legacy_v1.validate_v1_run(copy) == [
+        f"this run was made by spellbench arena 0.1.0; this is {package_version}: "
+        "rerun the benchmark, or validate with arena 0.1.0"
+    ]
 
 
 def test_read_v1_run_gives_the_site_what_it_shows() -> None:
@@ -1059,7 +1184,7 @@ Expected: FAIL at collection: `cannot import name 'legacy_v1'`.
 
 - [ ] **Step 3: Move the v1 verifier**
 
-Create `legacy_v1.py` from the copies listed in Background. `validate_v1_run` is today's `validate_tournament_dir` body with `store.TOURNAMENT_SCHEMA`, `store.CONFIG_SCHEMA`, `store.LEDGER_SCHEMA` replaced by the `_V1` constants, `runner.TournamentConfig` by `LegacyConfig`, `store.parse_ledger` by the local `parse_ledger`, `runner.schedule_mismatches` and `runner.manifest_body` by the local copies, and `models.EngineIdentity` by the local copy. Keep the arena version gate exactly (it compares with `spellbench.__version__`, so its message is unchanged); a v1 run is recomputed only when its version equals `LEGACY_ARENA_VERSION`. `read_v1_run` reads a run that `validate_v1_run` accepted: `name=directory.name`, the recorded config JSON, `manifest["engine"]`, owners from the registry by name, `leaderboard.json`, deck labels (a catalog id, or `"decklist " + sha256(canonical deck)[:12]`, in pool order; a fixed pair reads `"<p0>"` or `"<p0> vs <p1>"`), `pairs_per_matchup // len(deck_pool)` (or `pairs_per_matchup` for a fixed pair), and the format.
+Create `legacy_v1.py` from the copies listed in Background. `validate_v1_run` is today's `validate_tournament_dir` body with `store.TOURNAMENT_SCHEMA`, `store.CONFIG_SCHEMA`, `store.LEDGER_SCHEMA` replaced by the `_V1` constants, `runner.TournamentConfig` by `LegacyConfig`, `store.parse_ledger` by the local `parse_ledger`, `runner.schedule_mismatches` and `runner.manifest_body` by the local copies, and `models.EngineIdentity` by the local copy. The arena version gate compares the run's `arena_version` with `LEGACY_ARENA_VERSION`, never with the running package's version (R1-1: Task 44 bumps `__version__` to 0.3.0, and the launch run records 0.2.0); a v1 run is recomputed only when its version equals `LEGACY_ARENA_VERSION`. The failure message keeps today's text, `f"this run was made by spellbench arena {shown}; this is {version}: rerun the benchmark, or validate with arena {shown}"`, with `version` read as `spellbench.__version__` at call time (`import spellbench` inside the function, never a module-level `from .. import __version__`), so a run made by another version still gets that single line and nothing more. `read_v1_run` reads a run that `validate_v1_run` accepted: `name=directory.name`, the recorded config JSON, `manifest["engine"]`, owners from the registry by name, `leaderboard.json`, deck labels (a catalog id, or `"decklist " + sha256(canonical deck)[:12]`, in pool order; a fixed pair reads `"<p0>"` or `"<p0> vs <p1>"`), `pairs_per_matchup // len(deck_pool)` (or `pairs_per_matchup` for a fixed pair), and the format.
 
 Replace `validate.py` with:
 
@@ -1096,9 +1221,29 @@ git add python/spellbench/arena/legacy_v1.py python/spellbench/arena/validate.py
 git commit -m "Arena: frozen legacy verifier and reader for protocol v1 runs"
 ```
 
+- [ ] **Step 6: Fix round (R3-18), applied in Task 4's first fix round**
+
+Add `LEGACY_ARENA_VERSIONS = ("0.2.0",)` to `legacy_v1.py`: every arena version present in committed v1 runs (a sub-project C re-launch made by another version adds its version here). The gate accepts a run whose `arena_version` is in the tuple and gives the one-line message otherwise; `LEGACY_ARENA_VERSION` stays the launch run's version. Add to `test_legacy_v1.py`:
+
+```python
+@pytest.mark.parametrize("run", V1_RUNS, ids=lambda path: f"{path.parents[1].name}/{path.name}")
+def test_every_committed_v1_run_was_made_by_a_legacy_version(run: Path) -> None:
+    assert store.read_json(run / "manifest.json")["tournament"]["arena_version"] in legacy_v1.LEGACY_ARENA_VERSIONS
+```
+
+Run: `uv run pytest python/tests/test_legacy_v1.py -q`
+Expected: PASS.
+Run: `uv run pytest python/tests -q`
+Expected: all pass.
+
+```bash
+git add python/spellbench/arena/legacy_v1.py python/tests/test_legacy_v1.py
+git commit -m "Arena: the legacy gate accepts every arena version of a committed v1 run"
+```
+
 ### Task 5: Launch guard cores: throughput and pinning
 
-**Effort:** 0.5 agent-day. **Wave:** 1. **Depends on:** nothing.
+**Effort:** 0.75 agent-day (0.5, plus 0.25 for its fix round). **Wave:** 1. **Depends on:** nothing.
 
 **Files:**
 - Create: `python/spellbench/arena/throughput.py`
@@ -1106,17 +1251,25 @@ git commit -m "Arena: frozen legacy verifier and reader for protocol v1 runs"
 - Create: `python/tests/test_throughput.py`, `python/tests/test_pinning.py`
 
 **Interfaces:**
-- Consumes: nothing.
+- Consumes: `wire.canonical_json_dumps`, `wire.canonical_json_line`, `wire.strict_json_loads` (existing).
 - Produces (`spellbench.arena.throughput`):
-  - `SMALL_RUN_SECONDS = 120`, `PROBE_GAMES = 2`, `QUALIFY_GAMES_PER_WORKER = 2`, `ALLOCATION_KINDS = ("small", "substantial", "unmeasured")`, `class ThroughputError(Exception)`
+  - `SMALL_RUN_SECONDS = 120`, `PROBE_GAMES = 2`, `QUALIFY_GAMES_PER_WORKER = 2`, `QUALIFY_BUDGET_FRACTION = 0.10`, `ALLOCATION_KINDS = ("small", "substantial", "unmeasured")`, `EVIDENCE_SCHEMA = "spellbench-throughput-evidence/v1"`, `RUN_SPECIFIC_FIELDS = ("tournament_dir",)`, `class ThroughputError(Exception)`
   - `@dataclass(frozen=True) class Trial: workers: int; games: int; seconds_milli: int; outputs_digest: str` with `to_json()`
-  - `@dataclass(frozen=True) class Allocation: kind: str; workers: int; host: str; cpu_count: int; per_game_cores: int; probe: Trial | None = None; trials: tuple[Trial, ...] = (); projected_serial_seconds: int | None = None; placement: str | None = None; outputs_identical: bool | None = None` with property `measured -> bool`, `to_json() -> dict`, `from_json(value) -> Allocation` (strict keys), `unmeasured(workers: int, *, cpu_count: int | None = None, per_game_cores: int = 1, host: str | None = None) -> Allocation`
-  - `resource_bound(cpu_count: int, per_game_cores: int) -> int`, `worker_ladder(cap: int) -> tuple[int, ...]`
-  - `plan_allocation(*, games_total: int, cap: int, per_game_cores: int, play: Callable[[int, int], tuple[float, str]], placement: str | None, cpu_count: int | None = None, host: str | None = None) -> Allocation` where `play(workers, games)` plays the first `games` scheduled games with `workers` workers under a throwaway secret and returns `(wall seconds, outputs digest)`
-  - `class IdleMonitor(slots: int, *, window_s: float = 60.0, clock: Callable[[], float] = time.monotonic)` with `tick(*, running: int, queued: int) -> str | None`
+  - `@dataclass(frozen=True) class Allocation: kind: str; workers: int; host: str; cpu_count: int; per_game_cores: int; probe: Trial | None = None; trials: tuple[Trial, ...] = (); projected_serial_seconds: int | None = None; placement: str | None = None; outputs_identical: bool | None = None; qualification_key: str | None = None; qualification_seconds_milli: int = 0; reused: bool = False` with property `measured -> bool`, `to_json() -> dict`, `from_json(value) -> Allocation` (strict keys), `unmeasured(workers: int, *, cpu_count: int | None = None, per_game_cores: int = 1, host: str | None = None) -> Allocation`
+  - `resource_bound(cpu_count: int, per_game_cores: int) -> int`, `worker_ladder(cap: int) -> tuple[int, ...]` (`{1, cap // 2, cap}`, distinct and ascending), `qualification_games(*, games_total: int, bound: int, ladder: tuple[int, ...], per_game_seconds: float, projected_seconds: int) -> int`
+  - `qualification_key(*, host: str, cpu_count: int, per_game_cores: int, engine_files: Sequence[Mapping[str, Any]], config: Mapping[str, Any]) -> str` (`"sha256:" +` the digest of the canonical conditions; the config without `RUN_SPECIFIC_FIELDS`), `load_evidence(path: Path, key: str) -> Allocation | None`, `record_evidence(path: Path, allocation: Allocation) -> None`
+  - `plan_allocation(*, games_total: int, cap: int, per_game_cores: int, play: Callable[[int, int], tuple[float, str]], placement: str | None, cpu_count: int | None = None, host: str | None = None, key: str | None = None, evidence: Path | None = None) -> Allocation` where `play(workers, games)` plays `games` scheduled games with `workers` workers under a throwaway secret and returns `(wall seconds, outputs digest)`; with `key` and `evidence`, a recorded allocation for the same key is reused (`reused=True`, `qualification_seconds_milli=0`) and a fresh one is recorded; `games_total == 0` raises `ThroughputError`
+  - `class IdleMonitor(slots: int, *, window_s: float = 60.0, clock: Callable[[], float] = time.monotonic)` with `tick(*, running: int, queued: int) -> str | None` (a window is idle only when every tick in it was idle, R1-15)
 - Produces (`spellbench.bench.pinning`):
-  - `class PinningError(Exception)`; `@dataclass(frozen=True) class EngineFile: index: int; file_name: str; sha256: str; bytes: int; path: Path` (`path` excluded from comparison and `to_json()`)
+  - `class PinningError(Exception)`; `@dataclass(frozen=True) class EngineFile: index: int; file_name: str; sha256: str; bytes: int; path: Path` (`path` excluded from comparison and `to_json()`; Task 31 moves the class into `arena/manifest.py` with a `from_json`, and `bench.pinning` then imports it from there, R3-4)
   - `engine_files(command: Sequence[str]) -> tuple[EngineFile, ...]`, `pin_files(files: Sequence[EngineFile], pin_root: Path) -> tuple[Path, ...]`, `register_pins(register_script: Path, pinned: Sequence[Path], *, owner: str, purpose: str, doc: str, regen: str, python: str = sys.executable) -> None`
+- Produced by the fix round (Step 6; R3-6, R3-7, R3-28), and final from then on:
+  - `PLACEMENT_MACHINES = ("main-pc", "haleyspc", "runpod")` (the operator's main PC, HaleysPC and RunPod, the placements COMPUTE-POLICY.md item 1 names), `parse_placement(text: str) -> dict[str, str]`; `Allocation.placement` becomes `dict[str, str] | None`
+  - `machine_record(volumes: Mapping[str, Path], *, gpu_query: Callable[[], list[str]] = nvidia_gpus) -> dict[str, Any]` (`{"memory_bytes": int | None, "gpus": [str, ...], "free_bytes": {name: int}}`), `nvidia_gpus() -> list[str]`, `class CpuSampler` with `sample() -> float | None` (the machine's CPU busy fraction since the previous sample)
+  - `RESERVE_BYTES = 60 * 2**30`; `@dataclass(frozen=True) class Budget: projected_bytes: int; cap_bytes: int` with `to_json()`, `from_json(value)`; `check_reserve(budget: Budget, volumes: Mapping[str, Path], *, disk_free: Callable[[Path], int] | None = None) -> None` (None reads the module's `free_bytes` at call time), `free_bytes(path: Path) -> int`
+  - `Trial.row_bytes: int = 0`; `play` returns `(wall seconds, outputs digest, canonical ledger bytes of those games)`; `plan_allocation(..., fixed_bytes: int = 0, machine: Mapping[str, Any] | None = None)`; `Allocation` gains `outputs_note: str | None = None`, `machine: dict | None = None`, `budget: Budget | None = None` and property `qualified_rate -> float | None` (games per second of the chosen trial, else of the probe); `host=None` means the alias `"local"`, never the machine name
+  - `IdleMonitor(slots, *, window_s=60.0, clock=time.monotonic, qualified_rate: float | None = None, cpu: Callable[[], float | None] | None = None)` with `tick(*, running: int, queued: int, completed: int = 0) -> str | None` (`completed` counts the run's finished games so far)
+  - `register_pins(register_script, pinned, *, owner, purpose, doc, regen, cited_by: str, status: str = "live", python=sys.executable) -> None`, `register_tree(register_script: Path, path: Path, *, owner: str, status: str, purpose: str, doc: str, regen: str, python: str = sys.executable) -> None`
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1127,11 +1280,15 @@ Create `python/tests/test_throughput.py`:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from spellbench.arena.throughput import (
-    Allocation, IdleMonitor, ThroughputError, plan_allocation, resource_bound, worker_ladder,
+    Allocation, IdleMonitor, ThroughputError, plan_allocation, qualification_key, resource_bound, worker_ladder,
 )
+
+PLACEMENT = "this PC; HaleysPC idle but slower"
 
 
 def _player(per_game_seconds: float, speedup: dict[int, float], digest: str = "sha256:" + "0" * 64):
@@ -1149,15 +1306,19 @@ def test_a_fast_schedule_is_small_and_keeps_the_resource_bounded_workers() -> No
     allocation = plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24, host="h")
     assert (allocation.kind, allocation.workers, allocation.projected_serial_seconds) == ("small", 4, 48)
     assert calls == [(1, 2)] and allocation.measured
+    assert allocation.qualification_seconds_milli == allocation.probe.seconds_milli == 1000
 
 
-def test_a_substantial_schedule_compares_worker_counts_on_identical_games() -> None:
+def test_a_substantial_schedule_compares_bounded_worker_counts_on_identical_games() -> None:
     play, calls = _player(10.0, {2: 1.9, 4: 3.5, 8: 3.4})
-    allocation = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement="this PC; HaleysPC idle but slower",
+    allocation = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT,
                                  cpu_count=24, host="h")
-    assert calls == [(1, 2), (1, 16), (2, 16), (4, 16), (8, 16)]   # probe, then the ladder on the same 16 games
+    # The probe, then {1, bound // 2, bound} workers on the same games: 2 per worker of the bound is 16,
+    # cut to 13 so the ladder costs about 10 percent of the 1920 s serial projection (R1-6).
+    assert calls == [(1, 2), (1, 13), (4, 13), (8, 13)]
     assert allocation.kind == "substantial" and allocation.workers == 4 and allocation.outputs_identical
-    assert allocation.to_json()["placement"] == "this PC; HaleysPC idle but slower"
+    assert allocation.to_json()["placement"] == PLACEMENT
+    assert allocation.qualification_seconds_milli == sum(t.seconds_milli for t in (allocation.probe, *allocation.trials))
 
 
 def test_a_substantial_run_needs_a_placement_note() -> None:
@@ -1175,12 +1336,40 @@ def test_outputs_that_change_with_the_worker_count_are_refused() -> None:
 
 def test_resources_bound_the_ladder() -> None:
     assert resource_bound(24, 3) == 8 and resource_bound(2, 3) == 1
-    assert worker_ladder(8) == (1, 2, 4, 8) and worker_ladder(6) == (1, 2, 4, 6) and worker_ladder(1) == (1,)
+    assert worker_ladder(8) == (1, 4, 8) and worker_ladder(6) == (1, 3, 6) and worker_ladder(2) == (1, 2)
+    assert worker_ladder(1) == (1,)
 
 
 def test_an_unmeasured_allocation_round_trips_and_is_not_measured() -> None:
     allocation = Allocation.unmeasured(2, cpu_count=4, host="h")
     assert not allocation.measured and Allocation.from_json(allocation.to_json()) == allocation
+
+
+def test_a_run_without_games_has_nothing_to_qualify() -> None:
+    play, calls = _player(1.0, {})
+    with pytest.raises(ThroughputError, match="no games"):
+        plan_allocation(games_total=0, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=4, host="h")
+    assert calls == []
+
+
+def test_compatible_evidence_is_reused_and_changed_conditions_qualify_again(tmp_path: Path) -> None:
+    evidence = tmp_path / "throughput-evidence.jsonl"
+    config = {"tournament_dir": "runs/2026-10-01", "pairs_per_matchup": 4}
+    key = qualification_key(host="h", cpu_count=24, per_game_cores=3, engine_files=[], config=config)
+    play, calls = _player(10.0, {2: 1.9, 4: 3.5, 8: 3.4})
+    first = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT,
+                            cpu_count=24, host="h", key=key, evidence=evidence)
+    same = qualification_key(host="h", cpu_count=24, per_game_cores=3, engine_files=[],
+                             config={**config, "tournament_dir": "runs/2026-10-02"})
+    again = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT,
+                            cpu_count=24, host="h", key=same, evidence=evidence)
+    assert same == key and len(calls) == 4                     # the run directory is not a condition: nothing replayed
+    assert again.reused and again.qualification_seconds_milli == 0 and again.workers == first.workers == 4
+    rebuilt = qualification_key(host="h", cpu_count=24, per_game_cores=3, config=config,
+                                engine_files=[{"index": 0, "file_name": "engine", "sha256": "0" * 64, "bytes": 1}])
+    assert not plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT,
+                               cpu_count=24, host="h", key=rebuilt, evidence=evidence).reused
+    assert len(calls) == 8                                     # a rebuilt engine qualifies again
 
 
 def test_the_idle_monitor_warns_after_two_idle_windows() -> None:
@@ -1193,6 +1382,17 @@ def test_the_idle_monitor_warns_after_two_idle_windows() -> None:
     assert [w for w in warnings if w] and "idle" in [w for w in warnings if w][0]
     busy = IdleMonitor(4, window_s=60.0, clock=lambda: now[0])
     assert all(busy.tick(running=4, queued=5) is None for _ in range(3))
+
+
+def test_a_momentary_gap_between_games_is_not_idle() -> None:
+    now = [0.0]
+    monitor = IdleMonitor(4, window_s=60.0, clock=lambda: now[0])
+    warnings = []
+    for second in range(0, 301, 10):
+        now[0] = float(second)
+        running = 3 if second % 60 == 30 else 4                # one game just ended and the next has not started
+        warnings.append(monitor.tick(running=running, queued=5))
+    assert not any(warnings)
 ```
 
 Create `python/tests/test_pinning.py`:
@@ -1258,7 +1458,7 @@ Expected: FAIL at collection (`ModuleNotFoundError`).
 
 - [ ] **Step 3: Implement**
 
-`throughput.py` (module docstring: the probe, the small threshold, the scaling comparison on identical inputs, the placement note, and that trials are wall-clock evidence kept only in the manifest):
+`throughput.py` (module docstring: the probe, the small threshold, the scaling comparison on identical inputs and its cost bound, the reuse of compatible evidence, the placement note, and that trials are wall-clock evidence kept only in the manifest's `allocation` block and the local evidence file):
 
 ```python
 def resource_bound(cpu_count: int, per_game_cores: int) -> int:
@@ -1267,14 +1467,45 @@ def resource_bound(cpu_count: int, per_game_cores: int) -> int:
 
 
 def worker_ladder(cap: int) -> tuple[int, ...]:
-    ladder, workers = [], 1
-    while workers < cap:
-        ladder.append(workers)
-        workers *= 2
-    return tuple(ladder + [cap])
+    """One worker, half the bound and the bound: three trials whatever the core count (R1-6)."""
+    return tuple(sorted({1, max(1, cap // 2), cap}))
 
 
-def plan_allocation(*, games_total, cap, per_game_cores, play, placement, cpu_count=None, host=None) -> Allocation:
+def qualification_games(*, games_total: int, bound: int, ladder: tuple[int, ...], per_game_seconds: float,
+                        projected_seconds: int) -> int:
+    """Identical games per trial: 2 per worker of the bound, cut so the ladder costs about
+    QUALIFY_BUDGET_FRACTION of the projected serial time at ideal scaling, never below the bound (R1-6)."""
+    games = min(games_total, QUALIFY_GAMES_PER_WORKER * bound)
+    per_game_ladder = per_game_seconds * sum(1 / workers for workers in ladder)
+    budget = QUALIFY_BUDGET_FRACTION * projected_seconds
+    if per_game_ladder > 0 and games * per_game_ladder > budget:
+        games = max(min(bound, games_total), int(budget / per_game_ladder))
+    return games
+
+
+def qualification_key(*, host, cpu_count, per_game_cores, engine_files, config) -> str:
+    """The conditions a qualification holds for (R1-6); COMPUTE-POLICY: never re-benchmark unchanged conditions."""
+    fields = {"host": host, "cpu_count": cpu_count, "per_game_cores": per_game_cores, "engine_files": list(engine_files),
+              "config": {name: value for name, value in config.items() if name not in RUN_SPECIFIC_FIELDS}}
+    return "sha256:" + hashlib.sha256(canonical_json_dumps(fields)).hexdigest()
+
+
+def _placement_error(projected: int) -> ThroughputError:
+    return ThroughputError(
+        f"a substantial run (projected {projected} s serial) needs a placement note: which machines "
+        "(this PC, HaleysPC, RunPod) were considered and why this one (COMPUTE-POLICY.md)"
+    )
+
+
+def plan_allocation(*, games_total, cap, per_game_cores, play, placement, cpu_count=None, host=None,
+                    key=None, evidence=None) -> Allocation:
+    if games_total <= 0:
+        raise ThroughputError("a run with no games has nothing to qualify")
+    prior = load_evidence(evidence, key) if evidence is not None and key is not None else None
+    if prior is not None:                                   # unchanged conditions: reuse, never re-benchmark
+        if prior.kind == "substantial" and not placement:
+            raise _placement_error(prior.projected_serial_seconds or 0)
+        return dataclasses.replace(prior, placement=placement, reused=True, qualification_seconds_milli=0)
     cpu = (os.cpu_count() or 1) if cpu_count is None else cpu_count
     name = (platform.node() or "unknown") if host is None else host
     bound = min(cap, resource_bound(cpu, per_game_cores))
@@ -1283,24 +1514,28 @@ def plan_allocation(*, games_total, cap, per_game_cores, play, placement, cpu_co
     probe = Trial(1, probe_games, round(seconds * 1000), digest)
     projected = math.ceil(seconds / probe_games * games_total)
     common = dict(host=name, cpu_count=cpu, per_game_cores=per_game_cores, probe=probe,
-                  projected_serial_seconds=projected, placement=placement)
+                  projected_serial_seconds=projected, placement=placement, qualification_key=key)
     if projected <= SMALL_RUN_SECONDS:
-        return Allocation(kind="small", workers=bound, **common)
-    if not placement:
-        raise ThroughputError(
-            f"a substantial run (projected {projected} s serial) needs a placement note: which machines "
-            "(this PC, HaleysPC, RunPod) were considered and why this one (COMPUTE-POLICY.md)"
-        )
-    ladder = worker_ladder(bound)
-    games = min(games_total, QUALIFY_GAMES_PER_WORKER * ladder[-1])
-    trials = tuple(Trial(w, games, round(s * 1000), d) for w in ladder for s, d in [play(w, games)])
-    if len({trial.outputs_digest for trial in trials}) != 1:
-        raise ThroughputError("worker counts changed the results of identical games; refusing to parallelize")
-    best = max(trials, key=lambda trial: (trial.games / max(trial.seconds_milli, 1), -trial.workers))
-    return Allocation(kind="substantial", workers=best.workers, trials=trials, outputs_identical=True, **common)
+        allocation = Allocation(kind="small", workers=bound, qualification_seconds_milli=probe.seconds_milli, **common)
+    else:
+        if not placement:
+            raise _placement_error(projected)
+        ladder = worker_ladder(bound)
+        games = qualification_games(games_total=games_total, bound=bound, ladder=ladder,
+                                    per_game_seconds=seconds / probe_games, projected_seconds=projected)
+        trials = tuple(Trial(w, games, round(s * 1000), d) for w in ladder for s, d in [play(w, games)])
+        if len({trial.outputs_digest for trial in trials}) != 1:
+            raise ThroughputError("worker counts changed the results of identical games; refusing to parallelize")
+        best = max(trials, key=lambda trial: (trial.games / max(trial.seconds_milli, 1), -trial.workers))
+        spent = probe.seconds_milli + sum(trial.seconds_milli for trial in trials)
+        allocation = Allocation(kind="substantial", workers=best.workers, trials=trials, outputs_identical=True,
+                                qualification_seconds_milli=spent, **common)
+    if evidence is not None and key is not None:
+        record_evidence(evidence, allocation)
+    return allocation
 ```
 
-`Allocation.to_json()` writes every field (`probe` and each trial through `Trial.to_json()`, `trials` as a list); `from_json` checks the exact key set and the kinds, and rebuilds the tuple. `IdleMonitor` keeps the start of the current window and whether any tick in it saw `running < slots and queued > 0`; when a tick crosses the window end it counts consecutive idle windows, and at two it resets and returns `"idle capacity: fewer than {slots} games ran while games were queued for two consecutive {window_s:.0f} s windows"`.
+`Allocation.to_json()` writes every field (`probe` and each trial through `Trial.to_json()`, `trials` as a list); `from_json` checks the exact key set and the kinds, and rebuilds the tuple. `record_evidence` appends one canonical line `{"schema": EVIDENCE_SCHEMA, "key", "allocation"}` to the local evidence file (creating its directory); `load_evidence` returns the last allocation recorded under `key`, or None for a missing file, and skips a line that does not parse (the run then qualifies again). The evidence file is local and unhashed, like the trials: it never enters a published run. `IdleMonitor` keeps the start of the current window and whether every tick in it saw `running < slots and queued > 0` (R1-15: a single busy tick, such as the moment between one game ending and the next starting, keeps the window from counting as idle); when a tick crosses the window end it counts consecutive idle windows, and at two it resets and returns `"idle capacity: fewer than {slots} games ran while games were queued for two consecutive {window_s:.0f} s windows"`.
 
 `pinning.py`: `engine_files` resolves part 0 with `shutil.which` when it is a bare name, keeps the parts that are existing regular files, and hashes them in 1 MiB chunks. `pin_files` writes each file to `<pin_root>/<sha256>/<file_name>` through a `.tmp` copy, re-hashes before `os.replace`, and on an existing pin re-hashes it and raises `PinningError(f"pinned file {path} does not match sha256 {sha256}")` on a mismatch. `register_pins` runs, for each pinned directory, `[python, str(register_script), "add", "--path", str(directory), "--lane", "spellbench", "--owner", owner, "--status", "live", "--retention", "keep-full", "--purpose", purpose, "--doc", doc, "--regen", regen]` with `capture_output=True`, and raises `PinningError` with the last 200 characters of stderr on a nonzero exit (the script is the collab `tools/artifact_register.py`, or anything with its CLI).
 
@@ -1318,6 +1553,157 @@ git add python/spellbench/arena/throughput.py python/spellbench/bench/pinning.py
 git commit -m "Launch guards: throughput qualification and engine pinning cores"
 ```
 
+- [ ] **Step 6: Fix round (R3-6, R3-7, R3-28), applied in Task 5's first fix round**
+
+What changes (COMPUTE-POLICY items 1, 3 and 6; ARTIFACT-LAW clauses 1 and 9): a structured placement naming each machine with a disposition, and an automatic record of memory, GPUs and free disk; the budget block and the 60 GiB reserve; a clock-dependent bot recorded rather than refused; a monitor that compares finished games with the qualified rate and samples the machine's CPU; a host alias; and registration that catalogues pins while they are live and never overwrites a shared pin's first citation.
+
+In `python/tests/test_throughput.py`: replace `PLACEMENT` and `_player` with the versions below (every `play` now also returns the canonical ledger bytes of its games); in `test_outputs_that_change_with_the_worker_count_are_refused`, give the digest iterator a fourth value `"sha256:" + "0" * 64` (the 1-worker rerun reproduces itself, so the refusal stands), its `play` lambda a third return value `g`, and `placement=PLACEMENT` in place of `"x"`; in `test_a_substantial_schedule_compares_bounded_worker_counts_on_identical_games`, compare `allocation.to_json()["placement"]` with `parse_placement(PLACEMENT)`; extend the import list, and append the new tests:
+
+```python
+from spellbench.arena.throughput import (
+    RESERVE_BYTES, Allocation, Budget, CpuSampler, IdleMonitor, ThroughputError, check_reserve, machine_record,
+    parse_placement, plan_allocation, qualification_key, resource_bound, worker_ladder,
+)
+
+PLACEMENT = "main-pc: selected, fastest measured; haleyspc: idle, slower per game; runpod: not needed for a 1 h run"
+
+
+def _player(per_game_seconds: float, speedup: dict[int, float], digest: str = "sha256:" + "0" * 64):
+    calls: list[tuple[int, int]] = []
+
+    def play(workers: int, games: int) -> tuple[float, str, int]:
+        calls.append((workers, games))
+        return games * per_game_seconds / speedup.get(workers, 1.0), digest, games * 1000
+
+    return play, calls
+
+
+def test_the_placement_names_every_machine_with_a_disposition() -> None:
+    assert parse_placement(PLACEMENT) == {"main-pc": "selected, fastest measured", "haleyspc": "idle, slower per game",
+                                          "runpod": "not needed for a 1 h run"}
+    for bad in ("this PC only", "main-pc: selected; runpod: no", "main-pc: selected; haleyspc: ; runpod: no",
+                "main-pc: a; haleyspc: b; runpod: c; main-pc: d"):
+        with pytest.raises(ThroughputError, match="main-pc, haleyspc, runpod"):
+            parse_placement(bad)
+
+
+def test_the_machine_record_names_memory_gpus_and_free_space(tmp_path: Path) -> None:
+    record = machine_record({"run_dir": tmp_path}, gpu_query=lambda: ["Test GPU"])
+    assert record["gpus"] == ["Test GPU"] and record["free_bytes"]["run_dir"] > 0
+    assert record["memory_bytes"] is None or record["memory_bytes"] > 0
+    sampler = CpuSampler()
+    sampler.sample()
+    busy = sampler.sample()
+    assert busy is None or 0.0 <= busy <= 1.0
+
+
+def test_bots_that_read_the_clock_are_recorded_not_refused() -> None:
+    digests = iter("sha256:" + digit * 64 for digit in "0012")    # probe, 1 worker, 2 workers, the 1-worker rerun
+    allocation = plan_allocation(games_total=192, cap=2, per_game_cores=1, play=lambda w, g: (g * 10.0, next(digests), g),
+                                 placement=PLACEMENT, cpu_count=24, host="h")
+    assert allocation.outputs_identical is False and "did not reproduce itself" in allocation.outputs_note
+
+
+def test_the_budget_projects_bytes_and_keeps_a_60_gib_reserve(tmp_path: Path) -> None:
+    play, _ = _player(0.5, {})
+    allocation = plan_allocation(games_total=96, cap=4, per_game_cores=1, play=play, placement=None, cpu_count=24,
+                                 host="h", fixed_bytes=5000)
+    assert allocation.budget == Budget(projected_bytes=96 * 1000 + 5000, cap_bytes=2 * (96 * 1000 + 5000))
+    check_reserve(allocation.budget, {"run_dir": tmp_path}, disk_free=lambda path: RESERVE_BYTES + 10**6)
+    with pytest.raises(ThroughputError, match="60 GiB"):
+        check_reserve(allocation.budget, {"run_dir": tmp_path}, disk_free=lambda path: RESERVE_BYTES + 1000)
+
+
+def test_the_monitor_compares_finished_games_with_the_qualified_rate() -> None:
+    now = [0.0]
+    monitor = IdleMonitor(4, window_s=60.0, clock=lambda: now[0], qualified_rate=1.0, cpu=lambda: 0.25)
+    warnings = []
+    for second in range(0, 181, 10):
+        now[0] = float(second)
+        warnings.append(monitor.tick(running=4, queued=5, completed=second // 10))   # 6 games a window, 60 expected
+    (warning,) = [w for w in warnings if w]
+    assert "below the qualified rate" in warning and "6 games" in warning and "CPU 25% busy" in warning
+
+
+def test_the_qualified_rate_and_the_host_alias() -> None:
+    play, _ = _player(10.0, {2: 1.9, 4: 3.5, 8: 3.4})
+    allocation = plan_allocation(games_total=192, cap=8, per_game_cores=3, play=play, placement=PLACEMENT, cpu_count=24)
+    chosen = next(trial for trial in allocation.trials if trial.workers == allocation.workers)
+    assert allocation.qualified_rate == chosen.games * 1000 / chosen.seconds_milli
+    assert allocation.host == "local" and Allocation.unmeasured(1, cpu_count=4).host == "local"   # never the machine name
+    assert allocation.to_json()["placement"] == parse_placement(PLACEMENT)
+```
+
+In `python/tests/test_pinning.py`: replace `test_registration_calls_the_register_script` and `test_a_failing_register_script_is_an_error` with:
+
+```python
+def _logging_script(tmp_path: Path, show: str = "not found") -> tuple[Path, Path]:
+    log = tmp_path / "calls.json"
+    script = tmp_path / "register.py"
+    script.write_text("import json, sys\n"
+                      f"open({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+                      f"print({show!r} if sys.argv[1] == 'show' else 'registered')\n", encoding="utf-8")
+    return script, log
+
+
+def test_a_new_pin_is_added_live_with_its_citing_run(tmp_path: Path) -> None:
+    script, log = _logging_script(tmp_path)
+    register_pins(script, [tmp_path / "pins" / "abc"], owner="spellbench", purpose="pinned engine and bot files",
+                  doc="benchmarks/x/runs/r/manifest.json", regen="cargo build", cited_by="x run r")
+    show, add = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert show == ["show", "--id", str(tmp_path / "pins" / "abc")]
+    assert add[:3] == ["add", "--path", str(tmp_path / "pins" / "abc")]
+    assert add[add.index("--status") + 1] == "live" and add[add.index("--note") + 1] == "cited by: x run r"
+    assert ["--retention", "keep-full"] == add[add.index("--retention"):add.index("--retention") + 2]
+
+
+def test_a_shared_pin_keeps_its_first_citation_and_appends_the_next_run(tmp_path: Path) -> None:
+    script, log = _logging_script(tmp_path, show=json.dumps({"id": "p", "note": "cited by: x run r", "purpose": "first"}))
+    register_pins(script, [tmp_path / "pins" / "abc"], owner="spellbench", purpose="second", doc="d2", regen="r",
+                  cited_by="x run r2", status="frozen")
+    _, update = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert update[:3] == ["update", "--id", str(tmp_path / "pins" / "abc")] and "--purpose" not in update
+    assert update[update.index("--note") + 1] == "cited by: x run r; x run r2"
+    assert update[update.index("--status") + 1] == "frozen"
+
+
+def test_a_run_directory_is_registered_as_its_own_tree(tmp_path: Path) -> None:
+    script, log = _logging_script(tmp_path)
+    register_tree(script, tmp_path / "runs" / "r", owner="spellbench", status="closed", purpose="published run x/r",
+                  doc="benchmarks/x/runs/r/manifest.json", regen="spellbench bench rerun benchmarks/x/runs/r")
+    (add,) = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    assert add[:3] == ["add", "--path", str(tmp_path / "runs" / "r")] and add[add.index("--status") + 1] == "closed"
+
+
+def test_a_failing_register_script_is_an_error(tmp_path: Path) -> None:
+    script = tmp_path / "register.py"
+    script.write_text("import sys\nsys.exit('catalog locked')\n", encoding="utf-8")
+    with pytest.raises(PinningError, match="catalog locked"):
+        register_pins(script, [tmp_path], owner="spellbench", purpose="p", doc="d", regen="r", cited_by="x run r")
+```
+
+(and import `register_tree` beside `register_pins`).
+
+Implement:
+- `parse_placement(text)` splits on `;`, each part `machine: disposition` (the machine lowercased and stripped); every name in `PLACEMENT_MACHINES` must appear exactly once with a nonempty disposition and no other name may appear, else `ThroughputError("a placement note names each of main-pc, haleyspc, runpod once with a disposition, for example 'main-pc: selected, fastest measured; haleyspc: idle, slower per game; runpod: not needed' (COMPUTE-POLICY.md item 1)")`. `plan_allocation` parses a given placement (a substantial run still needs one) and stores the dict; `_placement_error` uses the same wording.
+- `machine_record` reads total physical memory (`GlobalMemoryStatusEx` through `ctypes` on Windows, `os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")` on POSIX, `None` when neither works), the GPU names from `gpu_query` (`nvidia_gpus` runs `nvidia-smi --query-gpu=name --format=csv,noheader` when `shutil.which` finds it, else returns `[]`), and `free_bytes(path)` (`shutil.disk_usage(path).free`) of each named volume. Keys name roles (`run_dir`, `pin_root`), never paths. `plan_allocation(..., machine=...)` stores it.
+- `CpuSampler.sample()` returns the machine CPU busy fraction since the previous call: on Windows `1 - idle delta / (kernel + user) delta` from `GetSystemTimes` through `ctypes` (kernel time includes idle time); on POSIX `min(1.0, os.getloadavg()[0] / (os.cpu_count() or 1))`; `None` on the first Windows call or when neither works.
+- `IdleMonitor`: a window is idle when games were queued at every tick and either every tick saw a free slot (R1-15), or, with `qualified_rate`, the window finished fewer than half of `qualified_rate * window_s` games (from `completed` at its first and last tick). Two consecutive idle windows return `f"throughput below the qualified rate: {done} games finished in {window_s:.0f} s against {expected:.0f} expected, for two consecutive windows; machine CPU {busy:.0%} busy"` (or the slot message above when the slots were idle; `CPU unknown` when `cpu` gives `None`), sampling `cpu` once at each window end.
+- On a digest mismatch among the trials, `plan_allocation` replays the 1-worker trial once. When the replay differs from the first 1-worker trial, the outputs depend on something other than the worker count (bots that read the clock, which spec 11.4 allows): record `outputs_identical=False` and `outputs_note="the 1-worker trial did not reproduce itself, so the bots' outputs depend on the clock; the allocation is chosen on speed alone"` and choose as usual. When it reproduces itself, refuse as before.
+- `Trial.row_bytes` records each trial's ledger bytes; the budget is `projected_bytes = ceil(probe.row_bytes / probe.games * games_total) + fixed_bytes` (the caller passes the pinned files' bytes as `fixed_bytes`), `cap_bytes = 2 * projected_bytes`, stored in `Allocation.budget` and so in the manifest's `allocation` block. `check_reserve` raises `ThroughputError` when `projected_bytes > cap_bytes`, or when any volume's `disk_free(path) - projected_bytes` falls below `RESERVE_BYTES` (`"... would leave less than the 60 GiB reserve free on <role> (ARTIFACT-LAW.md clause 1)"`).
+- `Allocation.qualified_rate` is `games * 1000 / seconds_milli` of the trial with the chosen worker count, else of the probe, else `None`. `plan_allocation` and `Allocation.unmeasured` default `host` to `"local"`: the manifest publishes a configured alias (Task 43 passes `SPELLBENCH_HOST_ALIAS`), never `platform.node()`.
+- `register_pins` first runs `[python, script, "show", "--id", str(directory)]` and reads its stdout as JSON (anything else, such as `not found`, means a new row; a nonzero exit is a `PinningError`). A new row is added as before plus `--status <status>` and `--note "cited by: <cited_by>"`. An existing row is updated with `[python, script, "update", "--id", str(directory), "--status", status, "--note", note]` only, where `note` appends `cited_by` to the existing `cited by:` list unless it is already there, so a pin two runs share keeps its first purpose and doc (ARTIFACT-LAW clause 9). `register_tree` adds one tree with `--lane spellbench --retention keep-full` and the given status, purpose, doc and regen.
+
+Run: `uv run pytest python/tests/test_throughput.py python/tests/test_pinning.py -q`
+Expected: PASS.
+Run: `uv run pytest python/tests -q`
+Expected: all pass.
+
+```bash
+git add python/spellbench/arena/throughput.py python/spellbench/bench/pinning.py python/tests/test_throughput.py python/tests/test_pinning.py
+git commit -m "Launch guards: structured placement, machine record, budget and reserve, live registration"
+```
+
 ### Task 6: The bot server and the minimal bot
 
 **Effort:** 0.5 agent-day. **Wave:** 1. **Depends on:** nothing.
@@ -1332,13 +1718,13 @@ git commit -m "Launch guards: throughput qualification and engine pinning cores"
 - Produces (`spellbench.bot`):
   - `PROTOCOL = "spellbench/v2"`
   - `@dataclass(frozen=True) class Candidate: candidate_id: int; semantic: dict[str, Any]; display_text: str | None`
-  - `@dataclass(frozen=True) class Decision: game_id: str; candidates: tuple[Candidate, ...]; acting_seat: str | None; seat_step: int | None; observation: dict; context: dict; group: dict; extensions: dict; clock: dict; raw: dict` with `from_request(request: Mapping) -> Decision` (raises `ValueError` when the candidates are unusable)
-  - `@dataclass(frozen=True) class GameStart: game_id: str; seat: str | None; format: str | None; own_deck: dict | None; opponent_deck: dict | None; rules: dict; engine: dict; engine_profile: dict; time_control: dict; limits: dict; resources: dict; agent_seed: int | None; raw: dict` with `from_request(request) -> GameStart`
-  - `@dataclass(frozen=True) class GameOver: game_id: str; terminal: dict; raw: dict` with `from_request(request) -> GameOver`
+  - `@dataclass(frozen=True) class Decision: game_id: str; candidates: tuple[Candidate, ...]; acting_seat: str | None; seat_step: int | None; observation: dict; context: dict; group: dict; extensions: dict; clock: dict; raw: dict` with `from_request(request: Mapping) -> Decision` (raises `ValueError` when the candidates are unusable); `raw` is `request["decision"]`, the seat decision itself (R2-19)
+  - `@dataclass(frozen=True) class GameStart: game_id: str; seat: str | None; format: str | None; own_deck: dict | None; opponent_deck: dict | None; rules: dict; engine: dict; engine_profile: dict; time_control: dict; limits: dict; resources: dict; agent_seed: int | None; raw: dict` with `from_request(request) -> GameStart` (`raw` is the request)
+  - `@dataclass(frozen=True) class GameOver: game_id: str; terminal: dict; raw: dict` with `from_request(request) -> GameOver` (`raw` is the request)
   - `class BotSession(*, choose: Callable[[Decision], int], on_game_start: Callable[[GameStart], None] | None = None, on_game_over: Callable[[GameOver], None] | None = None, name: str, version: str, requires_observation: Sequence[str] = (), requires_extensions: Sequence[str] = (), extensions_accepted: Sequence[str] = ())` with `handle_line(line: bytes) -> bytes`
   - `serve(handler: Any = None, *, choose=None, on_game_start=None, on_game_over=None, name: str = "spellbench-bot", version: str = "0.0.0", requires_observation=(), requires_extensions=(), extensions_accepted=(), stdin=None, stdout=None) -> int`
 
-Behavior (spec 4.1, 4.2, 10): ignore unknown fields everywhere; answer `hello` with `{"response_type": "hello_ok", "protocol", "request_id", "bot": {"name", "version"}, "requires": {"observation": [...], "extensions": [...]}, "extensions_accepted": [...]}`; `game_start` while a game is active is `game_already_active`, else `ack`; `choose` or `game_over` naming no active game is `unknown_game`; a `choose` whose `decision.candidates` is not a nonempty list of objects with integer `candidate_id` is `malformed_request`; a handler exception or a returned id that was not offered is `internal_error`; `choice` carries only `selection.candidate_id`; unparseable lines are `malformed_json` with `request_id` `""`; a missing or non-string `request_id` is `malformed_request` with `""`; a missing or non-string `protocol` is `malformed_request`; any other string is `protocol_mismatch`; an unknown `request_type` is `malformed_request`. After `game_over` the game is over even when `on_game_over` raises (that answer is `internal_error`). There is no retransmission cache and no `decision_pending` (the server answers each line before reading the next).
+Behavior (spec 4.1, 4.2, 10): ignore unknown fields everywhere; answer `hello` with `{"response_type": "hello_ok", "protocol", "request_id", "bot": {"name", "version"}, "requires": {"observation": [...], "extensions": [...]}, "extensions_accepted": [...]}`; `game_start` while a game is active is `game_already_active`, else `ack`; `choose` or `game_over` naming no active game is `unknown_game`; a `choose` whose `decision.candidates` is not a nonempty list of objects with integer `candidate_id` is `malformed_request`; a handler exception or a returned id that was not offered is `internal_error`; `choice` carries only `selection.candidate_id`; unparseable lines are `malformed_json` with `request_id` `""`; a line whose top level is not an object is `malformed_request` with `""` (spec 9.8; applied after wave 1 merges, Step 6, R1-3); a missing or non-string `request_id` is `malformed_request` with `""`; a missing or non-string `protocol` is `malformed_request`; any other string is `protocol_mismatch`; a non-string `request_type` (checked before the lookup, so a list or object never raises, R1-16) or an unknown one is `malformed_request`. After `game_over` the game is over even when `on_game_over` raises (that answer is `internal_error`). There is no retransmission cache and no `decision_pending` (the server answers each line before reading the next).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1355,7 +1741,7 @@ import json
 import pytest
 
 from spellbench import wire
-from spellbench.bot import BotSession, Decision, serve
+from spellbench.bot import BotSession, Decision, GameOver, GameStart, serve
 
 PASS = {"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": None}
 LAND = {"candidate_id": 1, "semantic": {"kind": "play_land", "face": 0, "source": {}}, "display_text": "Play Mountain"}
@@ -1403,6 +1789,8 @@ def test_choose_reads_leniently_and_answers_only_the_candidate_id() -> None:
         (b'{"request_type":"hello","request_id":"r-0"}', "malformed_request", "r-0"),
         (b'{"request_type":"hello","protocol":"spellbench/v1","request_id":"r-0"}', "protocol_mismatch", "r-0"),
         (b'{"request_type":"dance","protocol":"spellbench/v2","request_id":"r-0"}', "malformed_request", "r-0"),
+        (b'{"request_type":["hello"],"protocol":"spellbench/v2","request_id":"r-0"}', "malformed_request", "r-0"),
+        (b'{"request_type":{"a":1},"protocol":"spellbench/v2","request_id":"r-0"}', "malformed_request", "r-0"),
     ],
 )
 def test_envelope_errors(line: bytes, code: str, request_id: str) -> None:
@@ -1440,8 +1828,12 @@ def test_serve_accepts_crlf_and_utf8_names() -> None:
 
 
 def test_the_decision_view_exposes_what_bots_read() -> None:
-    view = Decision.from_request({"game_id": "g-1", "decision": {"seat_step": 3, "candidates": [PASS, LAND]}, "clock": {"remaining_ms": 5}})
+    request = {"game_id": "g-1", "decision": {"seat_step": 3, "candidates": [PASS, LAND]}, "clock": {"remaining_ms": 5}}
+    view = Decision.from_request(request)
     assert [c.candidate_id for c in view.candidates] == [0, 1] and view.seat_step == 3 and view.clock == {"remaining_ms": 5}
+    assert view.raw == request["decision"]                               # the seat decision itself (R2-19)
+    start, over = {"game_id": "g-1", "seat": "p0"}, {"game_id": "g-1", "terminal": {}}
+    assert GameStart.from_request(start).raw == start and GameOver.from_request(over).raw == over
 ```
 
 Create `python/tests/test_minimal_bot.py`:
@@ -1499,7 +1891,8 @@ Expected: FAIL (`ModuleNotFoundError: spellbench.bot`; the example file is missi
 Create `examples/minimal_bot.py`:
 
 ```python
-"""The minimal Spellbench v2 bot (spec 10.6): it always picks candidate 0."""
+"""The minimal Spellbench v2 bot (spec 10.6): it always picks candidate 0.
+Answers must be strict JSON (spec 2): integers only, never a float, not even in an extra field."""
 import json
 import sys
 
@@ -1532,8 +1925,10 @@ Create `python/spellbench/bot.py` to the behavior above. `BotSession.handle_line
             return _error(request_id, "malformed_request", "protocol must be a string")
         if protocol != PROTOCOL:
             return _error(request_id, "protocol_mismatch", f'protocol must be "{PROTOCOL}"')
-        handler = {"hello": self._hello, "game_start": self._game_start,
-                   "choose": self._choose, "game_over": self._game_over}.get(value.get("request_type"))
+        request_type = value.get("request_type")
+        handlers = {"hello": self._hello, "game_start": self._game_start,
+                    "choose": self._choose, "game_over": self._game_over}
+        handler = handlers.get(request_type) if type(request_type) is str else None   # a list is unhashable (R1-16)
         if handler is None:
             return _error(request_id, "malformed_request", "unknown request_type")
         return handler(request_id, value)
@@ -1553,6 +1948,26 @@ Expected: all pass.
 ```bash
 git add python/spellbench/bot.py examples/minimal_bot.py python/tests/test_bot_server.py python/tests/test_minimal_bot.py
 git commit -m "Bot server: lenient agent role, and the documented minimal bot"
+```
+
+- [ ] **Step 6: Follow-up after wave 1 merges (R1-3)**
+
+`wire.NotAnObjectError` is Task 1's, in the same wave, so this lands on the integration branch once wave 1 has merged (before wave 2 starts). In `BotSession.handle_line`, catch `wire.NotAnObjectError` before `MalformedJsonError` and answer `_error("", "malformed_request", "the request is not a JSON object")` (spec 9.8: valid JSON with a non-object top level). Add to `test_bot_server.py`:
+
+```python
+def test_a_non_object_line_is_a_malformed_request() -> None:
+    answer = _answer(_session(), b"[1,2]")
+    assert (answer["error"]["code"], answer["request_id"]) == ("malformed_request", "")
+```
+
+Run: `uv run pytest python/tests/test_bot_server.py -q`
+Expected: PASS.
+Run: `uv run pytest python/tests -q`
+Expected: all pass.
+
+```bash
+git add python/spellbench/bot.py python/tests/test_bot_server.py
+git commit -m "Bot server: a non-object request line is malformed_request"
 ```
 
 ## Wave 2
@@ -1812,13 +2227,13 @@ git commit -m "Candidates: the 30 v2.0 kinds with vocabularies and constraints"
 - Consumes: `_schema` (Task 1).
 - Produces (`spellbench.observation`):
   - `PHASE_STEPS` (13 values incl. `pregame`), `SUPERTYPES`, `CARD_TYPES`, `COLOR_ORDER = ("white", "blue", "black", "red", "green")`, `STACK_KINDS`, `KNOWN_ZONES = ("hand", "library")`, `KNOWN_HOW`, `CHOSEN_KINDS`, `DAY_NIGHT = ("day", "night", "none")`, `ZONE_ARRAYS = ("hand", "battlefield", "graveyard", "exile", "command")`, and `OBSERVATION_FLAGS` re-exported from `_schema`
-  - `validate_observation(value: Any, context: str = "observation") -> dict` (structure only: every field, type and vocabulary of spec 6; optional fields may be `null` or typed here, and Task 16 enforces the flags; `known` entries are type-checked here and shape-checked by Task 15)
+  - `validate_observation(value: Any, context: str = "observation") -> dict` (structure only: every field, type and vocabulary of spec 6; optional fields may be `null` or typed here, and Task 16 enforces the flags; `known` entries are type-checked here (`owner_seat` a seat, `zone` in `KNOWN_ZONES`, `card_name` a non-null NFC name, since knowledge is name-level (spec 6.7), `object_id` a nonempty string or null, both positions u32 or null, `how` in `KNOWN_HOW`; R1-8) and shape-checked by Task 15)
   - `zone_records(observation) -> Iterator[tuple[str, str, dict]]` (path, owning seat, record)
-  - `observation_objects(observation) -> list[tuple[str, dict]]` (path, reference) for every held object: zone-array records, stack entries, and `known` entries with a non-null `object_id` (reference `{object_id, card_name, owner_seat, controller_seat: owner_seat, zone}`)
+  - `observation_objects(observation) -> list[tuple[str, dict]]` (path, reference) for every held object: zone-array records and stack entries yield `{k: item[k] for k in REFERENCE_FIELDS}` (the 5-field reference, never the whole record, R1-7), and `known` entries with a non-null `object_id` yield the constructed reference `{object_id, card_name, owner_seat, controller_seat: owner_seat, zone}`
   - `observation_references(observation) -> list[tuple[str, dict]]` (path, reference) for every non-null reference inside the observation that must equal a held object: `permanent.attached_to` and `permanent.attack_target` objects, `permanent.blocked_attackers`, stack `source` and object `targets`, pending-trigger `source`, `exiled_by`
 - Produces (`python/tests/v2_sample_observation.py`): `SAMPLE_OBSERVATION` (spec 6.1 verbatim) and `ALL_FLAGS_ON`, `ALL_FLAGS_OFF` (dicts of the 13 flags).
 
-Structural rules beyond types (all V1, spec 6.2 to 6.6): `players` is exactly `[p0, p1]` in that order; `mana_pool` has exactly `W U B R G C`; `phase_step == "pregame"` exactly when `turn == 0`, and `active_seat` is null only in `pregame`; each zone-array record's `zone` equals its array (a record claiming `library` is left for V5), a `battlefield` record's `controller_seat` and every other array record's `owner_seat` equal the player's seat; `permanent` is non-null exactly for `battlefield` records; `characteristics` is null only for a face-down record outside the battlefield; `colors` is a subset in `COLOR_ORDER` order; `power` and `toughness` are non-null only when `types` has `creature`; `attack_target` is non-null only while `attacking`; stack entries have zone `stack`, `characteristics` exactly when `stack_kind == "spell"`, and `targets` entries that are target references or `null`; subtypes, keywords, counter names, statuses and designations match `[a-z][a-z0-9_]*`; every card name is NFC.
+Structural rules beyond types (all V1, spec 6.2 to 6.6): `players` is exactly `[p0, p1]` in that order; `mana_pool` has exactly `W U B R G C`; `phase_step == "pregame"` exactly when `turn == 0`, and `active_seat` is null only in `pregame`; each zone-array record's `zone` equals its array (a record claiming `library` is left for V5), a `battlefield` record's `controller_seat` and every other array record's `owner_seat` equal the player's seat; a `hand`, `graveyard`, `exile` or `command` record's `controller_seat` equals its `owner_seat` (spec 5.1: an object without a controller has its owner as controller); `permanent` is non-null exactly for `battlefield` records; `characteristics` is null only for a face-down record outside the battlefield, and a face-down record outside the battlefield whose `card_name` is null has `characteristics` null (spec 6.4, 6.8: its printed characteristics are hidden with its name); `colors` is a subset in `COLOR_ORDER` order; `power` and `toughness` are non-null only when `types` has `creature`; `attack_target` is non-null only while `attacking`; `blocked_attackers` is empty unless `blocking` (spec 6.4); stack entries have zone `stack`, `characteristics` exactly when `stack_kind == "spell"`, `source` null for a spell (spec 6.5), and `targets` entries that are target references or `null`; subtypes, keywords, counter names, statuses and designations match `[a-z][a-z0-9_]*`; every card name is NFC.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1852,9 +2267,33 @@ def _copy() -> dict:
     return copy.deepcopy(SAMPLE_OBSERVATION)
 
 
+def _ref(record: dict) -> dict:
+    return {key: record[key] for key in ("object_id", "card_name", "owner_seat", "controller_seat", "zone")}
+
+
+def _spell() -> dict:
+    bolt = SAMPLE_OBSERVATION["players"][0]["hand"][0]
+    return {**_ref(bolt), "object_id": "o-8c1d2e3f4a5b6c7d", "zone": "stack", "stack_kind": "spell", "source": None,
+            "face_down": False, "copy": False, "characteristics": copy.deepcopy(bolt["characteristics"]),
+            "targets": [{"player": "p1"}], "divided": None, "modes": None, "x_value": None, "text": None}
+
+
+def _face_down_exile(characteristics: dict | None) -> dict:
+    return {"object_id": "o-5e5e5e5e5e5e5e5e", "card_name": None, "owner_seat": "p1", "controller_seat": "p1", "zone": "exile",
+            "full_name": None, "face_down": True, "token": False, "copy": False, "characteristics": characteristics,
+            "permanent": None, "exiled_by": None}
+
+
 def test_the_spec_example_validates() -> None:
     assert validate_observation(_copy()) == SAMPLE_OBSERVATION
     assert len(OBSERVATION_FLAGS) == 13
+
+
+def test_a_spell_on_the_stack_and_a_hidden_face_down_exile_pass() -> None:
+    observation = _copy()
+    observation["stack"] = [_spell()]
+    observation["players"][1]["exile"].append(_face_down_exile(None))
+    assert validate_observation(observation)
 
 
 def _mutations():
@@ -1881,6 +2320,15 @@ def _mutations():
         "NFD card name": at(lambda o, v: o["players"][0]["hand"][0].update(card_name=v), "Lim-Du\u0302l's Vault"),
         "attack target while not attacking": at(lambda o, v: swift(o)["permanent"].update(attack_target=v), {"player": "p1"}),
         "life above i32": at(lambda o, v: o["players"][1].update(life=v), 1 << 31),
+        "known name null": at(lambda o, v: o["known"][1].update(card_name=v), None),                                   # R1-8
+        "uncontrolled card with another controller": at(lambda o, v: o["players"][0]["hand"][0].update(controller_seat=v), "p1"),
+        "spell with a source": lambda o: {**o, "stack": [{**_spell(), "source": _ref(swift(o))}]},
+        "blocked attackers while not blocking": at(
+            lambda o, v: o["players"][1]["battlefield"][0]["permanent"].update(blocked_attackers=v), [_ref(swift(SAMPLE_OBSERVATION))]),
+        "hidden face-down exile with characteristics": at(lambda o, v: o["players"][1]["exile"].append(v), _face_down_exile(
+            {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2, "toughness": 2,
+             "keywords": []})),
+        "active seat null outside pregame": at(lambda o, v: o.update(active_seat=v), None),                           # R2-25
     }
 
 
@@ -1913,6 +2361,8 @@ def test_walkers() -> None:
     held = dict(observation_objects(observation))
     assert held["known[2]"] == {"object_id": "o-794a5cb152c9620f", "card_name": "Island", "owner_seat": "p1",
                                 "controller_seat": "p1", "zone": "library"}
+    assert held["players[0].hand[0]"] == {"object_id": "o-1a7f3c9e5b2d4801", "card_name": "Lightning Bolt", "owner_seat": "p0",
+                                          "controller_seat": "p0", "zone": "hand"}      # the 5-field reference (R1-7)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -1955,7 +2405,7 @@ git commit -m "Observation: the spec 6 board view schema and reference walkers"
   - `EngineProfile(rules_supported: dict[str, tuple[str, ...]], observation: dict[str, bool], decision_kinds: tuple[str, ...], engine_defaults: dict[str, str | None], rewind: bool, fairness: dict[str, bool], extensions: tuple[ExtensionDecl, ...])` (its `to_json()` is the `game_start.engine_profile` object)
   - `HelloRequest(request_id, protocol_minor)`; `EnvHelloOk(request_id, protocol_minor, engine: EngineIdentity, formats: tuple[str, ...], deck_sources: tuple[str, ...], catalog: tuple[CatalogDeck, ...], profile: EngineProfile)` (JSON flattens the profile fields into `hello_ok`)
   - `CardNameDomain(domain_id, names: tuple[str, ...])`; `Rules(opponent_decklist, mulligan, starting_player, starting_seat: str | None, card_name_domain: CardNameDomain, extensions: tuple[str, ...], probe: bool)`
-  - `WireDeck(deck_id, catalog_id: str | None = None, decklist: tuple[DeckRow, ...] | None = None)`; `ResetRequest(request_id, game_id, format, seats: tuple[WireDeck, WireDeck], rules: Rules, game_secret: str, max_decisions: int, max_steps: int)`
+  - `WireDeck(deck_id, catalog_id: str | None = None, decklist: tuple[DeckRow, ...] | None = None)`; `ResetRequest(request_id, game_id, format, seats: tuple[WireDeck, WireDeck], rules: Rules, game_secret: str, max_decisions: int, max_steps: int)` (`game_secret` is `field(repr=False)`, so no repr in an error message prints it, R3-28)
   - `Decision(request_id, game_id, step: int, seat_decision: dict, provenance: Provenance)` (the binding; `seat_decision` is only checked to be an object here, Task 22 validates it) with property `acting_seat -> str | None`
   - `Selection(candidate_id, semantic_echo: dict)`; `StepRequest(request_id, game_id, expected_step, selection: Selection)`
   - `TerminalResult(outcome, classification, winner, reason, step_count, decision_count)`; `Terminal(request_id, game_id, result: TerminalResult, provenance: Provenance)`
@@ -2106,6 +2556,10 @@ def test_time_control_round_trips() -> None:
     value = {"startup_ms": 300000, "game_start_ms": 60000, "bank_ms": 600000, "increment_ms": 2000,
              "max_decision_ms": 60000, "engine_step_ms": 120000}
     assert TimeControl.from_json(value).to_json() == value
+
+
+def test_a_reset_never_prints_its_game_secret() -> None:
+    assert RESET["game_secret"] not in repr(ResetRequest.from_json(copy.deepcopy(RESET)))     # R3-28
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -2115,7 +2569,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.messages`).
 
 - [ ] **Step 3: Implement `messages.py`**
 
-Follow the v1 `models.py` pattern (frozen dataclasses, `to_json`, strict `from_json` with a context path) using `_schema` helpers. Rules per spec 9: `hello_ok.protocol_minor` is a safe integer (the engine client compares it with the request); `formats` and `deck_sources` nonempty, `deck_sources` a subset of `DECK_SOURCES` without repeats; `catalog` empty unless `deck_sources` has `catalog`, distinct `catalog_id`s, each `decklist` passed through `digests.deck_rows` (which names a non-NFC card; prefix the context with `catalog[i] (<catalog_id>)`); `rules_supported` exactly `mulligan` and `starting_player`, each a nonempty subset of its vocabulary; `observation` exactly the 13 flags as booleans; `decision_kinds` distinct members of `V2_KINDS` (a reserved kind fails as reserved) that include `REQUIRED_KINDS`; `engine_defaults` exactly the four keys, `mana_payment` in `(None, "engine_autopay")`, the others in `(None, "engine_order")`; `fairness` exactly `noninterference_probe`; `extensions` entries exactly `{name, native_ids}` with `EXTENSION_KEY_RE` names. `Rules.card_name_domain.domain_id` must equal `digests.domain_id(names)` and names are distinct NFC; `starting_seat` is a seat exactly when `starting_player == "host_assigned"`. `WireDeck` is exactly `{deck_id, catalog_id}` or `{deck_id, decklist}`, `deck_id` matching `sha256:[0-9a-f]{64}`. `ResetRequest.game_secret` is 64 lowercase hex; seats exactly `p0` then `p1`. `TerminalResult` follows spec 9.5 (natural pairs, `winner: null` for truncated and halted, no `forfeit`). Integer fields of `TimeControl`, `Limits`, `Resources` are at least 1 (`increment_ms` at least 0).
+Follow the v1 `models.py` pattern (frozen dataclasses, `to_json`, strict `from_json` with a context path) using `_schema` helpers. Rules per spec 9: `hello_ok.protocol_minor` is a u32 (spec 4.2; the engine client compares it with the request, R1-17); `formats` and `deck_sources` nonempty, `deck_sources` a subset of `DECK_SOURCES` without repeats; `catalog` empty unless `deck_sources` has `catalog`, distinct `catalog_id`s, each `decklist` passed through `digests.deck_rows(decklist, context=f"catalog[{i}] ({catalog_id}).decklist")`, whose NFC error then names the deck and the card (R1-4); `rules_supported` exactly `mulligan` and `starting_player`, each a nonempty subset of its vocabulary; `observation` exactly the 13 flags as booleans; `decision_kinds` distinct members of `V2_KINDS` (a reserved kind fails as reserved) that include `REQUIRED_KINDS`; `engine_defaults` exactly the four keys, `mana_payment` in `(None, "engine_autopay")`, the others in `(None, "engine_order")`; `fairness` exactly `noninterference_probe`; `extensions` entries exactly `{name, native_ids}` with `EXTENSION_KEY_RE` names. `Rules.card_name_domain.domain_id` must equal `digests.domain_id(names)` and names are distinct NFC; `Rules.extensions` entries are distinct `EXTENSION_KEY_RE` names (R1-17); `starting_seat` is a seat exactly when `starting_player == "host_assigned"`. `WireDeck` is exactly `{deck_id, catalog_id}` or `{deck_id, decklist}`, `deck_id` matching `sha256:[0-9a-f]{64}`. `ResetRequest.game_secret` is 64 lowercase hex; seats exactly `p0` then `p1`. `TerminalResult` follows spec 9.5 (natural pairs, `winner: null` for truncated and halted, no `forfeit`). Integer fields of `TimeControl`, `Limits`, `Resources` are at least 1 (`increment_ms` at least 0).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -2144,10 +2598,10 @@ git commit -m "Messages: engine-role messages and shared v2 protocol types"
 - Consumes: `errors.ProtocolError`; `host/__init__.py` (Task 3).
 - Produces:
   - `host.violation.RULES = ("V1", ..., "V10")`; `class ValidatorViolation(ProtocolError)` with `__init__(rule: str, detail: str)`, attributes `rule`, `detail`, picklable (`__reduce__`)
-  - `host.tracking.GroupTracker()` with `check(seat_decision: Mapping) -> None` (raises V3), `answered(seat_decision: Mapping, *, chosen_kind: str) -> None`, `answered_by(seat: str) -> int` (that seat's answered decisions, its `seat_step_count`), attribute `answered_steps: int`, property `completed_groups: int`
+  - `host.tracking.GroupTracker()` with `check(seat_decision: Mapping) -> None` (raises V3; a rewind that passes V3 abandons its groups right there, R2-23), `answered(seat_decision: Mapping, *, chosen_kind: str) -> None`, `answered_by(seat: str) -> int` (that seat's answered decisions, its `seat_step_count`), attribute `answered_steps: int`, properties `completed_groups: int` and `partial_seat: str | None` (the seat whose group is partial, or None; R1-12)
   - `host.tracking.IdTracker()` with `check(seat: str, objects: Mapping[str, str]) -> None` (object id to zone; raises V7)
 
-Semantics (spec 8, 9.3, 5.3; Decisions 4): per seat, `seat_step` starts at 0 and advances by 1 per answered decision; while a seat's group is partial, a decision for the other seat is a violation, and the seat's next decision must be the next substep (same `group_id` and `substep_count`) unless it is a rewind; a new group has the next `group_id` and substep 0; a rewind (`context.rewind`) is a priority decision of a seat that has made a non-pass priority action since its last priority decision, and it may abandon that seat's partial group (the rewind decision then has that group's id plus 1). When a rewind is answered, the groups completed since that seat's action (the action's own group included, and any group either seat completed after it) are subtracted from `completed_groups`.
+Semantics (spec 8, 9.3, 5.3; Decisions 4): per seat, `seat_step` starts at 0 and advances by 1 per answered decision; while a seat's group is partial, a decision for the other seat is a violation, and the seat's next decision must be the next substep (same `group_id` and `substep_count`) unless it is a rewind; a new group has the next `group_id` and substep 0; a rewind (`context.rewind`) is a priority decision of a seat that has made a non-pass priority action since its last priority decision, and it may abandon that seat's partial group (the rewind decision then has that group's id plus 1). When a rewind decision passes V3 (in `check`, so a game adjudicated at the rewind decision already records the smaller count, R2-23), the groups completed since that seat's action (the action's own group included, and any group either seat completed after it) stop counting toward `completed_groups`. Each completed group is flagged counted or not by its place in completion order, so a later rewind by either seat never subtracts a group twice; and when the rewound range holds the other seat's own last action, that action is forgotten too (the rewind undid it, so that seat has nothing left to rewind; R1-11).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2215,6 +2669,45 @@ def test_a_rewind_abandons_the_action_and_the_groups_after_it() -> None:
     assert tracker.answered_steps == 4     # seat_step keeps counting answered decisions
 
 
+def test_a_rewind_stops_counting_its_groups_when_posed() -> None:
+    tracker = GroupTracker()
+    play(tracker, sd("p0", 0, 0), chosen="cast_spell")
+    play(tracker, sd("p0", 1, 1, kind="choice"), chosen="choose_target")
+    tracker.check(sd("p0", 2, 2, rewind=True))       # validated, not yet answered: a forfeit here records 0 (R2-23)
+    assert tracker.completed_groups == 0
+
+
+def test_a_rewind_also_undoes_the_other_seats_later_action() -> None:
+    tracker = GroupTracker()
+    play(tracker, sd("p0", 0, 0), chosen="cast_spell")                    # p0's action
+    play(tracker, sd("p1", 0, 0), chosen="cast_spell")                    # p1 responds with its own action
+    play(tracker, sd("p1", 1, 1, kind="choice"), chosen="choose_target")  # p1's target group
+    play(tracker, sd("p0", 1, 1, rewind=True), chosen="pass")             # p0 rewinds: all three groups are abandoned
+    assert tracker.completed_groups == 1
+    with pytest.raises(ValidatorViolation, match="without a priority action"):
+        tracker.check(sd("p1", 2, 2, rewind=True))                        # p1's action was undone with them (R1-11)
+
+
+def test_a_second_rewind_never_subtracts_a_group_twice() -> None:
+    tracker = GroupTracker()
+    play(tracker, sd("p1", 0, 0), chosen="cast_spell")                    # p1 acts first
+    play(tracker, sd("p0", 0, 0), chosen="cast_spell")                    # then p0
+    play(tracker, sd("p0", 1, 1, kind="choice"), chosen="choose_target")
+    play(tracker, sd("p0", 2, 2, rewind=True), chosen="pass")             # p0's rewind abandons its two groups
+    assert tracker.completed_groups == 2                                  # p1's action and p0's re-posed decision
+    play(tracker, sd("p1", 1, 1, rewind=True), chosen="pass")             # p1's rewind abandons everything since its action
+    assert tracker.completed_groups == 1                                  # each group subtracted once (R1-11)
+
+
+def test_the_partial_seat() -> None:
+    tracker = GroupTracker()
+    assert tracker.partial_seat is None
+    play(tracker, sd("p0", 0, 0, 0, 2, kind="choice"), chosen="choose_target")
+    assert tracker.partial_seat == "p0"
+    play(tracker, sd("p0", 1, 0, 1, 2, kind="choice"), chosen="choose_target")
+    assert tracker.partial_seat is None
+
+
 def test_id_freshness() -> None:
     ids = IdTracker()
     ids.check("p0", {"o-1": "hand", "o-2": "battlefield"})
@@ -2273,14 +2766,19 @@ class GroupTracker:
         self._next_step = {"p0": 0, "p1": 0}
         self._next_group = {"p0": 0, "p1": 0}
         self._partial: dict[str, tuple[int, int, int] | None] = {"p0": None, "p1": None}
-        self._since_action: dict[str, list[int] | None] = {"p0": None, "p1": None}
+        # The completion index of each seat's last non-pass priority action, or None.
+        self._action: dict[str, int | None] = {"p0": None, "p1": None}
+        # One flag per completed group of either seat, in completion order; False once a rewind abandons it.
+        self._counted: list[bool] = []
         self.answered_steps = 0
-        self._completed = 0
-        self._abandoned = 0
 
     @property
     def completed_groups(self) -> int:
-        return self._completed - self._abandoned
+        return sum(self._counted)
+
+    @property
+    def partial_seat(self) -> str | None:
+        return next((seat for seat, partial in self._partial.items() if partial is not None), None)
 
     def answered_by(self, seat: str) -> int:
         return self._next_step[seat]
@@ -2294,38 +2792,46 @@ class GroupTracker:
             raise ValidatorViolation("V3", f"{seat} seat_step {sd['seat_step']} is not {self._next_step[seat]}")
         if self._partial[other] is not None:
             raise ValidatorViolation("V3", f"a decision for {seat} while {other}'s group {self._partial[other][0]} is partial")
+        partial = self._partial[seat]
         if context["rewind"]:
             if context["kind"] != "priority":
                 raise ValidatorViolation("V3", "a rewind re-poses a priority decision")
-            if self._since_action[seat] is None:
+            if self._action[seat] is None:
                 raise ValidatorViolation("V3", f"a rewind for {seat} without a priority action to undo")
-        partial = self._partial[seat]
-        if partial is not None and not context["rewind"]:
+        elif partial is not None:
             if key != (partial[0], partial[1] + 1, partial[2]):
                 raise ValidatorViolation("V3", f"{seat} group {partial[0]} must continue at substep {partial[1] + 1} of {partial[2]}")
             return
         expected = partial[0] + 1 if partial is not None else self._next_group[seat]
         if key[:2] != (expected, 0):
             raise ValidatorViolation("V3", f"{seat} must start group {expected} at substep 0, got {key[0]} at {key[1]}")
+        if context["rewind"]:
+            self._abandon(seat)
+
+    def _abandon(self, seat: str) -> None:
+        """Decision 4: the rewound action's own group and every group completed after it stop counting, once each."""
+        start = self._action[seat]
+        for index in range(start, len(self._counted)):
+            self._counted[index] = False
+        self._partial[seat] = None
+        self._action[seat] = None
+        other = "p1" if seat == "p0" else "p0"
+        if self._action[other] is not None and self._action[other] >= start:
+            self._action[other] = None          # the rewind undid the other seat's later action too (R1-11)
 
     def answered(self, sd: Mapping[str, Any], *, chosen_kind: str) -> None:
         seat, group, context = sd["acting_seat"], sd["group"], sd["context"]
         self._next_step[seat] += 1
         self.answered_steps += 1
-        if context["rewind"]:
-            self._abandoned += len(self._since_action[seat] or [])
-            self._partial[seat] = None
+        if context["kind"] == "priority":
+            # A priority decision is one substep (V3 group shapes, Task 22), so its group gets this index now.
+            self._action[seat] = len(self._counted) if chosen_kind != "pass" else None
         if group["substep_index"] + 1 == group["substep_count"]:
             self._partial[seat] = None
             self._next_group[seat] = group["group_id"] + 1
-            self._completed += 1
-            for open_list in self._since_action.values():
-                if open_list is not None:
-                    open_list.append(group["group_id"])
+            self._counted.append(True)
         else:
             self._partial[seat] = (group["group_id"], group["substep_index"], group["substep_count"])
-        if context["kind"] == "priority":
-            self._since_action[seat] = [group["group_id"]] if chosen_kind != "pass" else None
 ```
 
 `IdTracker` keeps per seat the zone of every id seen, the ids of the previous observation, and the ids that departed:
@@ -2541,7 +3047,7 @@ git commit -m "Builtins: uniform, heuristic and first on protocol v2 (2.0.0)"
   - `LedgerRow(game_index, game_id, matchup_index, pair_index, pair_slot, format, seats: tuple[LedgerSeat, LedgerSeat], decks: tuple[LedgerDeck, LedgerDeck], outcome, classification, winner, winner_bot_id, reason, adjudication: Adjudication | None, step_count, decision_count, decisions_checked, last_selection: LastSelection | None, game_digest: str, engine: dict)` with `rated -> bool`, `bot_id_at(seat) -> str`, `to_json()`, `from_json(value, context="ledger")`
   - `parse_ledger(rows: Iterable[dict]) -> tuple[LedgerRow, ...]`
 
-Row rules (spec 9.5, 11.5, 11.8; Decisions 4 and 5): `pair_slot` is 0 or 1; `engine` is exactly the four provenance fields; `game_digest` matches `sha256:[0-9a-f]{64}`; `step_count <= decisions_checked <= step_count + 1`. By classification:
+Row rules (spec 9.5, 11.5, 11.8; Decisions 4 and 5): `pair_slot` is 0 or 1; `engine` is exactly the four provenance fields; `game_digest` matches `sha256:[0-9a-f]{64}`; `step_count <= decisions_checked <= step_count + 1`. `Adjudication` JSON has a per-kind exact key set (R1-14): a `forfeit` is exactly `{"kind", "cause", "loser_seat", "detail"}`, and a `halt` or `mandatory_loop` exactly `{"kind", "detail"}` (its `cause` and `loser_seat` are None and never written); `to_json` writes that shape and `from_json` checks it per kind. By classification:
 - `natural`: outcome and winner paired; adjudication null, or `mandatory_loop` with outcome `draw` and reason `mandatory_loop`.
 - `forfeit`: outcome `p0_win` or `p1_win`, a `forfeit` adjudication whose `loser_seat` is the other seat, reason `forfeit:<cause>`.
 - `truncated`: outcome `truncated`, winner null, no adjudication.
@@ -2653,7 +3159,7 @@ git commit -m "Arena: ledger rows v2 with digests, attribution and host adjudica
 
 ### Task 13: The fake engine's board model
 
-**Effort:** 0.5 agent-day. **Wave:** 2. **Depends on:** Tasks 1, 2.
+**Effort:** 0.75 agent-day. **Wave:** 2. **Depends on:** Tasks 1, 2.
 
 **Files:**
 - Create: `python/tests/fake_v2_world.py`
@@ -2662,14 +3168,14 @@ git commit -m "Arena: ledger rows v2 with digests, attribution and host adjudica
 **Interfaces:**
 - Consumes: `run_secret.object_id` (Task 2); `_schema.OBSERVATION_FLAGS` (Task 1).
 - Produces (`python/tests/fake_v2_world.py`, imported by the fake engine and the scenario modules):
-  - `CARDS: dict[str, dict[str, Any]]`: characteristics of the fixture cards (at least Mountain, Island, Lightning Bolt, Counterspell, Brainstorm, Preordain, Grizzly Bears, Monastery Swiftspear, Spellstutter Sprite, Chainer's Edict, Lim-Dûl's Vault, Barbarian Class, Relic of Progenitus, Pithing Needle, and one modal double-faced card with `full_name` "A // B" form)
+  - `CARDS: dict[str, dict[str, Any]]`: characteristics of the fixture cards (at least Mountain, Island, Lightning Bolt, Counterspell, Brainstorm, Preordain, Grizzly Bears, Monastery Swiftspear, Spellstutter Sprite, Chainer's Edict, Lim-Dûl's Vault, Barbarian Class, Relic of Progenitus, Pithing Needle, one modal double-faced card with `full_name` "A // B" form, and, for the board and kinds tours (R2-12), Journey to Nowhere (an exiling permanent), a planeswalker, Rancor (an Aura), a morph creature, Fact or Fiction (piles), a kicker card and a madness card)
   - `@dataclass class Obj` (internal id, name, owner, controller, zone, `zone_changes`, face-down, token, copy, permanent state: tapped, summoning_sick, damage, counters, `attached_to`, `attack_target`, `blocking`, phased_out, statuses, class_level, chosen, `exiled_by`, `face_down_visible_to`)
   - `@dataclass class StackItem(internal, kind, source, targets, divided=None, modes=None, x_value=None, text=None)`
-  - `@dataclass(frozen=True) class Posed(seat: str, candidates: list[dict], substep: tuple[int, int] = (0, 1), kind: str | None = None, purpose: str | None = None, source: dict | None = None, rewind: bool = False, text: str | None = None, extensions: dict = {})` (one decision a scenario poses; the engine assigns candidate ids, `seat_step` and `group_id`)
+  - `@dataclass(frozen=True) class Posed(seat: str, candidates: list[dict], substep: tuple[int, int] = (0, 1), kind: str | None = None, purpose: str | None = None, source: dict | None = None, rewind: bool = False, text: str | None = None, extensions: dict = field(default_factory=dict))` (one decision a scenario poses; the engine assigns candidate ids, `seat_step` and `group_id`; a mutable default would fail at import, R1-10). Candidates are semantics whose object references are written `{"$obj": <internal id>}` (targets `{"object": {"$obj": n}}` or `{"player": seat}`, order items `{"object": {"$obj": n}}`, trigger sources and event objects and pile members likewise); `source` is `{"$obj": n}` or None. The engine resolves each through `World.reference(viewer, n)` / `World.target` for the acting seat (R2-12).
   - `@dataclass(frozen=True) class Scenario(name: str, decklist: list[dict], engine_args: tuple[str, ...], script: Callable[[World], Generator[Posed, int, None]], outcome: tuple[str, str | None, str] = ("draw", None, "scenario_complete"))`
-  - `class World(game_secret: bytes, *, flags: Mapping[str, bool])` with `add(name, *, owner, zone, controller=None, internal=None, **state) -> int`, `move(internal, zone, *, controller=None, library_position=0, face_down=False) -> None`, `object_id(viewer, internal) -> str`, `look(viewer, internal) -> str`, `end_looks(viewer) -> None`, `reference(viewer, internal) -> dict | None`, `target(viewer, target: dict | None) -> dict | None`, `observation(viewer) -> dict`; public state attributes (turn, phase_step, active_seat, priority_seat, life, poison, counters, mana_pool, lands_played, mulligans, designations, progress, day_night, passed_seats, libraries, stack, pending_triggers, known) that scenarios edit directly
+  - `class World(game_secret: bytes, *, flags: Mapping[str, bool])` with `add(name, *, owner, zone, controller=None, internal=None, **state) -> int`, `move(internal, zone, *, controller=None, library_position=0, face_down=False) -> None`, `object_id(viewer, internal) -> str`, `look(viewer, internal) -> str`, `end_looks(viewer) -> None`, `reference(viewer, internal) -> dict | None`, `target(viewer, target: dict | None) -> dict | None`, `observation(viewer) -> dict`; public state attributes (turn, phase_step, active_seat, priority_seat, life, poison, counters, mana_pool, lands_played, mulligans, designations, progress, day_night, passed_seats, libraries, stack, pending_triggers, known) that scenarios edit directly. Defaults that pass Task 8 (R1-10): `turn = 1`, `phase_step = "precombat_main"`, `active_seat = "p0"`, `priority_seat = "p0"`; a scenario sets `turn = 0` and `phase_step = "pregame"` (with `active_seat` and `priority_seat` None) for pregame decisions.
 
-Rules the model follows (spec 5.3, 6): ids come from `object_id(game_secret, f"{viewer}:card-{internal}:z{zone_changes}")` for visible objects and `f"{viewer}:card-{internal}:z{zone_changes}:look:{n}"` for looks into hidden zones, where `n` counts that viewer's looks during the stay and a look id stays fixed until `end_looks`; `move` bumps `zone_changes`, clears permanent state, and sets `face_down` to its argument (a face-down card leaving the battlefield is revealed, CR 708.9; `face_down=True` exiles a card face down); library order is index 0 at the top; face-down objects on the battlefield or the stack show face-down characteristics (a nameless colorless 2/2 creature) and `card_name: null` to every viewer but the controller, and face-down exiled cards show their name only to `face_down_visible_to`; references to objects outside the viewer's observation are `None`; each optional field of spec 6.9 is `null` when its flag is off; `known` entries carry `object_id` only for a card in the viewer's current looks and come out sorted by the spec 6.7 key.
+Rules the model follows (spec 5.3, 6): ids come from `object_id(game_secret, f"{viewer}:card-{internal}:z{zone_changes}")` for visible objects and `f"{viewer}:card-{internal}:z{zone_changes}:look:{n}"` for looks into hidden zones, where `n` counts that viewer's looks during the stay and a look id stays fixed until `end_looks`; `move` bumps `zone_changes`, clears permanent state, and sets `face_down` to its argument (a face-down card leaving the battlefield is revealed, CR 708.9; `face_down=True` exiles a card face down); library order is index 0 at the top; face-down objects on the battlefield or the stack show face-down characteristics (a nameless colorless 2/2 creature) and `card_name: null` to every viewer but the controller, and face-down exiled cards show their name only to `face_down_visible_to`, every other viewer seeing `card_name: null` and `characteristics: null` (spec 6.4, 6.8; Task 8's rule, R1-13); references to objects outside the viewer's observation are `None`; each optional field of spec 6.9 is `null` when its flag is off, and with its flag on a field no scenario set has the default `poison` 0, `counters` `{}`, `designations` `[]`, `progress` `{"dungeon": None, "dungeon_room": None, "ring_tempted": 0, "speed": None}`, `statuses` `[]`, `chosen` `[]` (R2-12). `known` entries a scenario writes into `world.known[viewer]` may carry `"internal"`: the World maps it to the viewer's look id while that object is in the viewer's current looks and strips it otherwise, so a candidate referencing a looked-at card holds an id V4 can match (R2-12). With `known_cards` off, `observation()` emits only the entries for the viewer's current looks (each with its look id; spec 6.7, R2-6); with it on, every entry, `object_id` only for a card in the current looks. Entries come out sorted by the spec 6.7 key.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2737,6 +3243,34 @@ def test_optional_fields_follow_the_flags() -> None:
     assert off["players"][0]["poison"] is None and off["known"] == []
     on = World(GAME0, flags=dict.fromkeys(FLAGS_OFF, True)).observation("p0")
     assert on["day_night"] in ("day", "night", "none") and on["passed_seats"] == [] and on["players"][0]["poison"] == 0
+    assert on["players"][0]["progress"] == {"dungeon": None, "dungeon_room": None, "ring_tempted": 0, "speed": None}
+    assert (on["turn"], on["phase_step"], on["active_seat"]) == (1, "precombat_main", "p0")       # R1-10 defaults
+
+
+def test_known_entries_follow_the_looks_and_the_flag() -> None:
+    world = World(GAME0, flags={**FLAGS_OFF, "known_cards": True})
+    island = world.add("Island", owner="p0", zone="library")
+    world.known["p0"] = [{"owner_seat": "p0", "zone": "library", "card_name": "Island", "object_id": None,
+                          "position_from_top": 0, "position_from_bottom": None, "how": "looked_at", "internal": island}]
+    look = world.look("p0", island)
+    assert world.observation("p0")["known"][0]["object_id"] == look                # in the current looks: its look id
+    world.end_looks("p0")
+    (entry,) = world.observation("p0")["known"]
+    assert entry["object_id"] is None and "internal" not in entry                  # the look ended: stripped
+    blind = World(GAME0, flags=FLAGS_OFF)                                          # known_cards off (R2-6)
+    card = blind.add("Island", owner="p0", zone="library")
+    blind.known["p0"] = [{"owner_seat": "p0", "zone": "library", "card_name": "Island", "object_id": None,
+                          "position_from_top": 0, "position_from_bottom": None, "how": "looked_at", "internal": card}]
+    assert blind.observation("p0")["known"] == []                                  # not looked at in this decision
+    blind.look("p0", card)
+    assert [entry["object_id"] for entry in blind.observation("p0")["known"]] == [blind.look("p0", card)]
+
+
+def test_a_face_down_exiled_card_hides_its_characteristics_too() -> None:
+    world = World(GAME0, flags=FLAGS_OFF)
+    world.add("Grizzly Bears", owner="p1", zone="exile", face_down=True)
+    (record,) = world.observation("p0")["players"][1]["exile"]
+    assert record["card_name"] is None and record["characteristics"] is None      # R1-13
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -2746,7 +3280,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: fake_v2_world`).
 
 - [ ] **Step 3: Implement `fake_v2_world.py`**
 
-Implement the model to the rules above; `observation(viewer)` returns every field of spec 6.2 to 6.6 in the spec's shapes (players `p0` then `p1`; zone arrays in insertion order, oldest first; `mana_pool` with the six symbols; `characteristics` from `CARDS` with `colors` in spec order; `permanent` for battlefield objects; stack entries with references resolved per viewer and targets that left becoming `None`). Keep the module independent of `spellbench` internals other than `run_secret.object_id`, so it doubles as a reference an adapter author can read.
+Implement the model to the rules above; `observation(viewer)` returns every field of spec 6.2 to 6.6 in the spec's shapes (players `p0` then `p1`; zone arrays in insertion order, oldest first; `mana_pool` with the six symbols; `characteristics` from `CARDS` with `colors` in spec order; `permanent` for battlefield objects; stack entries with references resolved per viewer and targets that left becoming `None`). Keep the module independent of `spellbench` internals other than its two imports, `run_secret.object_id` and `_schema.OBSERVATION_FLAGS` (R1-10), so it doubles as a reference an adapter author can read; `Posed.extensions` uses `field(default_factory=dict)`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -2912,7 +3446,7 @@ git commit -m "Host: V2 seat, V4 references, V6 face-down checks"
 - Consumes: `observation.zone_records` (Task 8), `candidates.object_references` (Task 7), `host.violation.ValidatorViolation` (Task 10).
 - Produces (`spellbench.host.hidden`): `check_hidden_zones(seat_decision: Mapping) -> None` (V5), `known_sort_key(entry: Mapping) -> tuple`, `hidden_candidate_key(semantic: Mapping, viewer: str) -> tuple | None`.
 
-Rules (spec 6.3, 6.7, 7.1, 11.3 V5): the other seat's `hand` is null; the viewer's `hand` has exactly `hand_count` records; no zone-array record has zone `library`; `known` entries: a `hand` entry names the other seat (never the viewer) and has both positions null; a `library` entry has exactly one non-null position, except `how: "searching"`, which has at most one; a seat's hand entries never outnumber its `hand_count`; `object_id` is non-null only with `how` in `looked_at`, `revealed`, `searching`; the list is sorted by `(owner_seat, zone, card_name, position_from_top, position_from_bottom, how, object_id)` with nulls first. Candidates that reference hidden-zone cards (zone `library`, or zone `hand` owned by the other seat) appear among themselves in `(card_name, object_id)` order; for a candidate with several such references, the key is the tuple of their `(card_name, object_id)` pairs in `object_references` order, with a null name sorting first.
+Rules (spec 6.3, 6.7, 7.1, 11.3 V5): the other seat's `hand` is null; the viewer's `hand` has exactly `hand_count` records; no zone-array record has zone `library`; `known` entries: a `hand` entry names the other seat (never the viewer) and has both positions null; a `library` entry has exactly one non-null position, except `how: "searching"`, which has at most one, and a non-null position is below its owner's `library_count` (R2-25); a seat's hand entries never outnumber its `hand_count`; `object_id` is non-null only with `how` in `looked_at`, `revealed`, `searching`; the list is sorted by `(owner_seat, zone, card_name, position_from_top, position_from_bottom, how, object_id)` with nulls first. Candidates that reference hidden-zone cards (zone `library`, or zone `hand` owned by the other seat) appear among themselves in `(card_name, object_id)` order; for a candidate with several such references, the key is the tuple of their `(card_name, object_id)` pairs in `object_references` order, with a null name sorting first.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2958,6 +3492,7 @@ def test_the_spec_example_passes() -> None:
         lambda o: o["known"].insert(1, _known({"owner_seat": "p0", "zone": "library", "how": "looked_at", "card_name": "Mountain"})),
         lambda o: o["known"].extend([_known({})] * 3),                              # 4 entries for a hand of 3
         lambda o: o["known"].append(_known({"how": "from_public_zone", "object_id": "o-1"})),
+        lambda o: o["known"][0].update(position_from_top=46),                       # p0's library holds 46 cards (R2-25)
     ],
 )
 def test_v5_violations(mutate) -> None:
@@ -3037,7 +3572,7 @@ git commit -m "Host: V5 hidden zones, knowledge entries and hidden-card order"
 - Consumes: `messages.EngineProfile`, `messages.Rules` (Task 9); `candidates.family` (Task 7); `observation.zone_records` (Task 8); `host.violation.ValidatorViolation` (Task 10).
 - Produces (`spellbench.host.declarations`): `check_declarations(seat_decision: Mapping, profile: EngineProfile, rules: Rules) -> None` (V8), `check_context(seat_decision: Mapping) -> None` (V9).
 
-Rules. V8 (spec 6.9, 7.6, 8, 12.2, 14): every candidate kind is in `profile.decision_kinds`; no `mulligan` candidate while `rules.mulligan == "none"`; no `choose_starting_player` while `rules.starting_player == "host_assigned"`; `context.rewind` only when `profile.rewind`; every `extensions` key is in `rules.extensions`; for each optional field, a false flag means the field is null everywhere, and a true flag means it is non-null everywhere except the cases spec 6.9 lists (`full_name`, `exiled_by`, stack `text` may be null; `class_level` is non-null exactly when the permanent's subtypes include `class`). The field map: `poison`, `player_counters` (`counters`), `designations`, `player_progress` (`progress`) per player; `day_night`, `passed_seats`, `pending_triggers` on the observation; `keywords` in every non-null `characteristics` (records and stack entries); `full_name` and `exiled_by` on records; `stack_text` on stack entries; `permanent_details` on each permanent's `statuses`, `class_level`, `chosen`. V9 (spec 7.1): all candidates are of `context.kind`'s family, except a choice decision with `context.purpose == "mana_payment"`, whose candidates are `optional_cost` and `activate_mana_ability` only and include an `optional_cost` with `pay: false`; `activate_mana_ability` in a choice decision requires that purpose; `mana_payment` appears only on a choice decision.
+Rules. V8 (spec 6.9, 7.6, 8, 12.2, 14): every candidate kind is in `profile.decision_kinds`; no `mulligan` candidate while `rules.mulligan == "none"`; no `choose_starting_player` while `rules.starting_player == "host_assigned"`; `context.rewind` only when `profile.rewind`; every `extensions` key is in `rules.extensions`; with `known_cards` false, every `known` entry has a non-null `object_id` and `how` in `looked_at`, `revealed`, `searching` (spec 6.7: only the cards looked at, revealed or searched in the current decision; over-informing is never allowed, R2-6); for each optional field, a false flag means the field is null everywhere, and a true flag means it is non-null everywhere except the cases spec 6.9 lists (`full_name`, `exiled_by`, stack `text` may be null; `class_level` is non-null exactly when the permanent's subtypes include `class`). The field map: `poison`, `player_counters` (`counters`), `designations`, `player_progress` (`progress`) per player; `day_night`, `passed_seats`, `pending_triggers` on the observation; `keywords` in every non-null `characteristics` (records and stack entries); `full_name` and `exiled_by` on records; `stack_text` on stack entries; `permanent_details` on each permanent's `statuses`, `class_level`, `chosen`. V9 (spec 7.1): all candidates are of `context.kind`'s family, except a choice decision with `context.purpose == "mana_payment"`, whose candidates are `optional_cost` and `activate_mana_ability` only and include an `optional_cost` with `pay: false`; `activate_mana_ability` in a choice decision requires that purpose; `mana_payment` appears only on a choice decision.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3121,6 +3656,18 @@ def test_v8_allowed_nulls_with_the_flag_on() -> None:
     _v8(decision)
 
 
+def test_v8_without_known_cards_only_current_looks_are_listed() -> None:
+    profile = EngineProfile.from_json({**PROFILE_JSON, "observation": {**FLAGS, "known_cards": False}})
+    current = seat_decision()
+    current["observation"]["known"] = [{"owner_seat": "p0", "zone": "library", "card_name": "Mountain",
+                                        "object_id": "o-3c9f5e7a1b2d4c6e", "position_from_top": 0,
+                                        "position_from_bottom": None, "how": "looked_at"}]
+    check_declarations(current, profile, RULES)                               # a card looked at in this decision
+    with pytest.raises(ValidatorViolation) as caught:
+        check_declarations(seat_decision(), profile, RULES)                    # the example's persistent entries (R2-6)
+    assert caught.value.rule == "V8"
+
+
 MANA = [{**SAMPLES["optional_cost"], "cost": "unless_payment", "pay": True},
         {**SAMPLES["optional_cost"], "cost": "unless_payment", "pay": False},
         SAMPLES["activate_mana_ability"]]
@@ -3167,27 +3714,29 @@ git commit -m "Host: V8 declarations and flags, V9 decision context"
 
 ### Task 17: Agent-role messages, the agent process and the seat driver protocol
 
-**Effort:** 0.75 agent-day. **Wave:** 3. **Depends on:** Tasks 1, 9.
+**Effort:** 1.0 agent-day. **Wave:** 3. **Depends on:** Tasks 1, 9.
 
 **Files:**
 - Create: `python/spellbench/agent_messages.py`
 - Create: `python/spellbench/host/seat.py`
 - Create: `python/spellbench/host/setup.py`
 - Create: `python/spellbench/host/agent_process.py`
+- Modify: `python/spellbench/wire.py` (`SubprocessPeer` gains `env`, R3-9)
 - Create: `python/tests/test_host_agent_process.py`
 
 **Interfaces:**
 - Consumes: `messages` (`PROTOCOL`, `PROTOCOL_MINOR`, `Rules`, `EngineIdentity`, `EngineProfile`, `TimeControl`, `Limits`, `Resources`, `DeckRow`) (Task 9); `wire.SubprocessPeer`, `wire.strict_json_loads`, `wire.canonical_json_dumps`; `_client.Peer` protocol (existing).
+- Produces (`spellbench.wire`): `SubprocessPeer(argv, *, timeout_s=None, max_line_bytes=MAX_LINE_BYTES, env: Mapping[str, str] | None = None)` (`env` is handed to `subprocess.Popen`; None inherits the host's environment, as today)
 - Produces (`spellbench.agent_messages`):
-  - `AGENT_ERROR_CODES` (the 7 codes of spec 10.5)
+  - `AGENT_ERROR_CODES` (the 7 codes of spec 10.5, a `frozenset`, R3-26)
   - `BotIdentity(name, version)`; `AgentHelloOk(request_id, bot, requires_observation: tuple[str, ...], requires_extensions: tuple[str, ...], extensions_accepted: tuple[str, ...])` with lenient `from_json(value, *, request_id: str)`
-  - `Choice(request_id: str, candidate_id: int, echoes: dict[str, Any])` with lenient `from_json(value, *, request_id)` (`echoes` holds whichever of `seat_step`, `semantic_echo` were present, raw)
+  - `Choice(request_id: str, candidate_id: int, echoes: dict[str, Any])` with lenient `from_json(value, *, request_id)` (`candidate_id` is any JSON integer, `type(v) is int`: a negative or huge id is an out-of-range selection that the game loop classifies as `invalid_selection`, never a `malformed_response`, R2-16; `echoes` holds whichever of `seat_step`, `semantic_echo` were present, raw)
   - `read_ack(value, *, request_id) -> None`, `read_error(value, *, request_id) -> tuple[str, str] | None` (an error envelope's code and message; `request_id` may echo or be `""`)
   - `OwnDeck(deck_id, name, decklist: tuple[DeckRow, ...])`, `Clock(remaining_ms, max_decision_ms)`, `AgentTerminal(outcome, classification, winner, reason, seat_step_count)` (classification may be `forfeit`), each with `to_json()` and strict `from_json`
   - `game_start_payload(*, game_id: str, seat: str, format: str, own_deck: OwnDeck, opponent_deck: OwnDeck | None, rules: Rules, engine: EngineIdentity, engine_profile: EngineProfile, time_control: TimeControl, limits: Limits, resources: Resources, agent_seed: int) -> dict`, `choose_payload(*, game_id: str, seat_decision: Mapping, clock: Clock) -> dict`, `game_over_payload(*, game_id: str, terminal: AgentTerminal) -> dict`, `request(request_type: str, request_id: str, payload: Mapping) -> dict`
-- Produces (`spellbench.host.seat`): `SEAT_FAILURE_CAUSES = ("timeout", "malformed_response", "invalid_selection", "agent_error", "transport_error")`; `class SeatFailure(Exception)` with `(cause: str, detail: str, diagnostic: str = "")`, picklable; `class SeatDriver(Protocol)` with `start(game_start: Mapping, *, timeout_s: float) -> None`, `choose(choose: Mapping, *, timeout_s: float) -> Choice`, `game_over(game_over: Mapping, *, timeout_s: float) -> None`, `close() -> None`
-- Produces (`spellbench.host.setup`): `@dataclass(frozen=True) class GameSetup: game_index: int; game_id: str; game_secret_hex: str; format: str; wire_decks: tuple[WireDeck, WireDeck]; own_decks: tuple[OwnDeck, OwnDeck]; rules: Rules; time_control: TimeControl; limits: Limits; resources: Resources; agent_seeds: tuple[int, int]` (data only, defined here so Tasks 23 and 25 can share it in the same wave; `host.game` re-exports it)
-- Produces (`spellbench.host.agent_process`): `class AgentProcess(argv: Sequence[str] | None = None, *, peer: Peer | None = None, startup_timeout_s: float | None = None)` with `hello() -> AgentHelloOk`, `game_start(payload, *, timeout_s) -> None`, `choose(payload, *, timeout_s) -> Choice`, `game_over(payload, *, timeout_s) -> None`, `close() -> None`, `stderr_text() -> str`. Request ids are `"r-<n>"`, `n` counting requests sent to this process from 0 (spec 4.1). Every failure raises `SeatFailure` with a deterministic `detail` that never quotes the peer: `PeerTimeoutError` is `timeout` ("no answer to {phase} within {ms} ms"), `TransportError` is `transport_error` ("the bot process failed during {phase}"), unparseable JSON, an oversized line, a missing required field, the wrong `response_type`, `protocol` or `request_id` are `malformed_response` ("the answer to {phase} was not a valid protocol message"), and an error envelope is `agent_error` ("{phase} was answered with an error (<code>)", the code only when it is in `AGENT_ERROR_CODES`). No retransmission (spec 4.1).
+- Produces (`spellbench.host.seat`): `SEAT_FAILURE_CAUSES = ("timeout", "malformed_response", "invalid_selection", "agent_error", "transport_error")`; `class SeatFailure(Exception)` with `(cause: str, detail: str, diagnostic: str = "")`, picklable, whose `str()` is `f"{cause}: {detail}"` and never includes `diagnostic` (the bot's stderr stays out of every error message, R2-15, R3-32); `class SeatDriver(Protocol)` with `start(game_start: Mapping, *, timeout_s: float) -> None`, `choose(choose: Mapping, *, timeout_s: float) -> Choice`, `game_over(game_over: Mapping, *, timeout_s: float) -> None`, `close() -> None`
+- Produces (`spellbench.host.setup`): `@dataclass(frozen=True) class GameSetup: game_index: int; game_id: str; game_secret_hex: str; format: str; wire_decks: tuple[WireDeck, WireDeck]; own_decks: tuple[OwnDeck, OwnDeck]; rules: Rules; time_control: TimeControl; limits: Limits; resources: Resources; agent_seeds: tuple[int, int]` (data only, defined here so Tasks 23 and 25 can share it in the same wave; `host.game` re-exports it; `game_secret_hex` is declared `field(repr=False)`, so no repr in an error prints it, R3-28)
+- Produces (`spellbench.host.agent_process`): `class AgentProcess(argv: Sequence[str] | None = None, *, peer: Peer | None = None, startup_timeout_s: float | None = None, env: Mapping[str, str] | None = None)` with `hello() -> AgentHelloOk`, `game_start(payload, *, timeout_s) -> None`, `choose(payload, *, timeout_s) -> Choice`, `game_over(payload, *, timeout_s) -> None`, `close() -> None`, `stderr_text() -> str` (`env` starts the bot process with that environment, R3-9; Task 24 strips `SPELLBENCH_*`). Request ids are `"r-<n>"`, `n` counting requests sent to this process from 0 (spec 4.1). Every write is bounded by the same budget as the read (R2-5: a pipe to a bot that stopped reading blocks the writer once about 4 KiB are pending on Windows, 64 KiB on Linux, and a `choose` carries the whole board): `_exchange` writes on a helper thread and waits at most `timeout_s`; on expiry it closes the peer (killing the process) and raises `SeatFailure("timeout", "the bot did not read {phase} within {ms} ms")`. Every failure raises `SeatFailure` with a deterministic `detail` that never quotes the peer, the exceptions caught in this order (R2-15): `PeerTimeoutError` (itself a `TransportError`) is `timeout` ("no answer to {phase} within {ms} ms"), any other `TransportError` is `transport_error` ("the bot process failed during {phase}"), `MalformedJsonError` (unparseable JSON, and an oversized line, since `LineTooLongError` is one), a missing required field, the wrong `response_type`, `protocol` or `request_id` are `malformed_response` ("the answer to {phase} was not a valid protocol message"), and an error envelope is `agent_error` ("{phase} was answered with an error (<code>)", the code only when it is in `AGENT_ERROR_CODES`). No retransmission (spec 4.1).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3198,13 +3747,16 @@ Create `python/tests/test_host_agent_process.py`:
 
 from __future__ import annotations
 
+import os
+import pickle
 import sys
+import threading
 import time
 
 import pytest
 
 from spellbench import wire
-from spellbench.agent_messages import AgentHelloOk, Choice, Clock, choose_payload
+from spellbench.agent_messages import AGENT_ERROR_CODES, AgentHelloOk, Choice, Clock, choose_payload
 from spellbench.errors import PeerTimeoutError, TransportError, ValidationError
 from spellbench.host.agent_process import AgentProcess
 from spellbench.host.seat import SeatFailure
@@ -3235,9 +3787,23 @@ def test_choice_needs_only_the_candidate_id_and_keeps_echoes_raw() -> None:
     assert Choice.from_json({**base, "selection": {"candidate_id": 1, "x_why": "tempo"}}, request_id="r-2").echoes == {}
     echoed = Choice.from_json({**base, "selection": {"candidate_id": 1, "seat_step": "3"}}, request_id="r-2")
     assert echoed.echoes == {"seat_step": "3"}
+    for candidate_id in (-1, 1 << 40):              # any integer: the game loop judges the range (R2-16)
+        assert Choice.from_json({**base, "selection": {"candidate_id": candidate_id}}, request_id="r-2").candidate_id == candidate_id
     for selection in ({"candidate_id": "1"}, {"candidate_id": True}, {}):
         with pytest.raises(ValidationError):
             Choice.from_json({**base, "selection": selection}, request_id="r-2")
+
+
+def test_a_seat_failure_prints_its_cause_and_detail_only() -> None:
+    failure = SeatFailure("timeout", "no answer to choose within 300 ms", diagnostic="Traceback: the bot's stderr")
+    assert str(failure) == "timeout: no answer to choose within 300 ms"          # never the diagnostic (R2-15)
+    assert pickle.loads(pickle.dumps(failure)).diagnostic == failure.diagnostic
+
+
+def test_the_agent_error_codes_are_a_closed_frozenset() -> None:
+    assert isinstance(AGENT_ERROR_CODES, frozenset) and AGENT_ERROR_CODES == {
+        "malformed_json", "malformed_request", "protocol_mismatch", "unknown_game", "game_already_active",
+        "decision_pending", "internal_error"}
 
 
 def test_request_ids_count_this_process_and_payloads_are_canonical() -> None:
@@ -3284,6 +3850,52 @@ def test_a_bot_that_logs_to_stdout_before_hello_is_malformed_and_never_hangs(tmp
     agent.close()
     assert caught.value.cause == "malformed_response" and "Loading" not in caught.value.detail
     assert time.monotonic() - started < 20
+
+
+class DeafPeer(ScriptedPeer):
+    """A peer whose writes block once the bot stops reading, like a full pipe."""
+
+    def __init__(self, responses) -> None:
+        super().__init__(responses)
+        self.release = threading.Event()
+
+    def write_line(self, data: bytes) -> None:
+        if wire.strict_json_loads(data)["request_type"] == "choose":
+            self.release.wait(30)
+        super().write_line(data)
+
+
+def test_a_write_to_a_bot_that_stopped_reading_times_out() -> None:
+    peer = DeafPeer([HELLO])
+    agent = AgentProcess(peer=peer)
+    agent.hello()
+    started = time.monotonic()
+    with pytest.raises(SeatFailure) as caught:
+        agent.choose({"game_id": "g-1", "decision": {}, "clock": {}}, timeout_s=0.5)
+    assert caught.value.cause == "timeout" and time.monotonic() - started < 5      # the write is bounded too (R2-5)
+    assert peer.closed                                                            # and the process is killed
+    peer.release.set()
+
+
+def test_the_bot_process_runs_with_the_environment_it_is_given(tmp_path, monkeypatch) -> None:
+    monkeypatch.setenv("SPELLBENCH_SECRETS_DIR", str(tmp_path / "secrets"))
+    script = tmp_path / "env_bot.py"
+    script.write_text(
+        "import json, os, sys\n"
+        "request = json.loads(sys.stdin.buffer.readline())\n"
+        "name = 'leaky' if 'SPELLBENCH_SECRETS_DIR' in os.environ else 'clean'\n"
+        "reply = {'response_type': 'hello_ok', 'protocol': 'spellbench/v2', 'request_id': request['request_id'],\n"
+        "         'bot': {'name': name, 'version': '1'}}\n"
+        "sys.stdout.write(json.dumps(reply) + '\\n')\n"
+        "sys.stdout.flush()\n", encoding="utf-8")
+    names = []
+    for env in (None, {key: value for key, value in os.environ.items() if not key.startswith("SPELLBENCH_")}):
+        agent = AgentProcess([sys.executable, str(script)], startup_timeout_s=30, env=env)
+        try:
+            names.append(agent.hello().bot.name)
+        finally:
+            agent.close()
+    assert names == ["leaky", "clean"]                                            # R3-9
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -3293,7 +3905,7 @@ Expected: FAIL at collection (`ModuleNotFoundError`).
 
 - [ ] **Step 3: Implement**
 
-`AgentProcess` wraps a `wire.SubprocessPeer` (or the injected peer): `_exchange(request_type, payload, timeout_s, phase)` stamps `request_id = f"r-{self._count}"` (incrementing), writes `wire.canonical_json_dumps(request(...))`, calls `peer.set_timeout(timeout_s)` when available, reads one line, parses it with `wire.strict_json_loads`, returns the dict with any error envelope already mapped to `SeatFailure("agent_error", ...)`; the exception mapping follows the Interfaces list, with `diagnostic` holding the exception text plus `stderr_text()`. The lenient readers accept any extra fields; a present-but-malformed `requires` or `extensions_accepted` is malformed (Review Focus 1 relies on failing fast rather than guessing). `host/setup.py` holds only the `GameSetup` dataclass from the Interfaces list (its imports: `WireDeck`, `Rules`, `TimeControl`, `Limits`, `Resources` from `messages`, `OwnDeck` from `agent_messages`).
+`AgentProcess` wraps a `wire.SubprocessPeer(argv, timeout_s=..., env=env)` (or the injected peer; in `wire.py`, `SubprocessPeer` passes its new `env` argument to `subprocess.Popen`): `_exchange(request_type, payload, timeout_s, phase)` stamps `request_id = f"r-{self._count}"` (incrementing), writes `wire.canonical_json_dumps(request(...))` on a daemon helper thread and joins it for at most `timeout_s` (the thread keeps any exception it meets for `_exchange` to map; on expiry `_exchange` closes the peer and raises the write timeout above), calls `peer.set_timeout(timeout_s)` when available, reads one line, parses it with `wire.strict_json_loads`, returns the dict with any error envelope already mapped to `SeatFailure("agent_error", ...)`; the exception mapping follows the Interfaces list, with `diagnostic` holding the exception text plus `stderr_text()`. The lenient readers accept any extra fields; a present-but-malformed `requires` or `extensions_accepted` is malformed (Review Focus 1 relies on failing fast rather than guessing). `host/setup.py` holds only the `GameSetup` dataclass from the Interfaces list (its imports: `WireDeck`, `Rules`, `TimeControl`, `Limits`, `Resources` from `messages`, `OwnDeck` from `agent_messages`).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -3305,7 +3917,7 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/spellbench/agent_messages.py python/spellbench/host/seat.py python/spellbench/host/setup.py python/spellbench/host/agent_process.py python/tests/test_host_agent_process.py
+git add python/spellbench/agent_messages.py python/spellbench/host/seat.py python/spellbench/host/setup.py python/spellbench/host/agent_process.py python/spellbench/wire.py python/tests/test_host_agent_process.py
 git commit -m "Host: agent-role messages, the agent client and the seat driver protocol"
 ```
 
@@ -3328,7 +3940,8 @@ git commit -m "Host: agent-role messages, the agent client and the seat driver p
   - `send_raw(message: Mapping[str, Any]) -> dict` and `send_line(payload: bytes) -> dict` (conformance probes: send anything, return the strict-parsed answer, no state change)
   - `retry_last() -> Any` (byte-identical retransmission, spec 4.1)
   - attributes `hello_result: EnvHelloOk | None`, `last_request: dict | None` (the last request sent), `last_response: dict | None` (its strict-parsed answer, including error envelopes and answers that failed a binding check; `None` when no parseable answer arrived); `set_timeout(seconds: float | None)`, `stderr_text() -> str`, `close()`
-  - binding checks: every answer echoes `request_id`; decisions and terminals echo `game_id`; the first decision has `step` 0 and each later one the previous plus 1; a terminal's `step_count` equals the answered count. A failed check raises `ProtocolError`; an error envelope raises `EngineError(code, message)` (a code outside `ENGINE_ERROR_CODES` is a `ProtocolError`). Provenance drift and `decision_count` are the validator's and the game loop's (Tasks 22, 23).
+  - `class TerminalCountError(ProtocolError)` with attribute `terminal: Terminal` (the parsed terminal whose `step_count` differs from the answered count; R2-3, so the game loop can halt it as `host_engine_fault:terminal_counts` rather than `malformed`)
+  - binding checks: every answer echoes `request_id`; decisions and terminals echo `game_id`; the first decision has `step` 0 and each later one the previous plus 1; a terminal's `step_count` equals the answered count, else `TerminalCountError`. Any other failed check raises `ProtocolError`; an error envelope raises `EngineError(code, message)` (a code outside `messages.ENGINE_ERROR_CODES`, the 17 codes of spec 9.8, is a `ProtocolError`; never the v1 `errors.ENGINE_ERROR_CODES`, R2-17). Provenance drift and `decision_count` are the validator's and the game loop's (Tasks 22, 23).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3345,7 +3958,7 @@ import pytest
 
 from spellbench import wire
 from spellbench.errors import EngineError, ProtocolError
-from spellbench.host.engine_process import EngineProcess
+from spellbench.host.engine_process import EngineProcess, TerminalCountError
 from spellbench.messages import ResetRequest
 
 from conftest import ScriptedPeer
@@ -3395,6 +4008,23 @@ def test_binding_drift_is_a_protocol_error(answer: bytes) -> None:
         _reset(engine)
 
 
+def test_a_wrong_terminal_step_count_is_a_terminal_count_error() -> None:
+    terminal = wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "step_count": 5})
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), terminal]))
+    with pytest.raises(TerminalCountError) as caught:
+        _reset(engine)
+    assert caught.value.terminal.result.step_count == 5                    # R2-3
+
+
+def test_the_v2_engine_error_codes_are_accepted() -> None:
+    error = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "h-2",
+             "error": {"code": "unsupported_rule", "message": "no such mulligan"}}     # not a v1 code (R2-17)
+    engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), wire.canonical_json_dumps(error)]))
+    with pytest.raises(EngineError) as caught:
+        _reset(engine)
+    assert caught.value.code == "unsupported_rule"
+
+
 def test_an_error_envelope_is_an_engine_error() -> None:
     error = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "h-2",
              "error": {"code": "unsupported_deck", "message": "no such deck"}}
@@ -3423,7 +4053,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.host.engine_proce
 
 - [ ] **Step 3: Implement `host/engine_process.py`**
 
-Port the structure of v1 `engine_client.EngineProcess` and `_client.RoleClient` (single outstanding request, `_pending` and `_last` for `retry_last`, commit after validation), replacing the v1 models with `messages` and dropping group checks (per-seat groups are V3). Keep `self._answered` (0 after reset, plus 1 per step answered with a decision or terminal) for the binding checks, and set `last_request` / `last_response` on every exchange, including error answers, so the game loop can chain them.
+Copy the logic of v1 `engine_client.EngineProcess` and `_client.RoleClient` into `engine_process.py` (single outstanding request, `_pending` and `_last` for `retry_last`, commit after validation), replacing the v1 models with `messages` and dropping group checks (per-seat groups are V3); import only `Peer` from `_client`, never subclass `RoleClient` (Task 44 deletes it, R2-17), and check error codes against `messages.ENGINE_ERROR_CODES`. Keep `self._answered` (0 after reset, plus 1 per step answered with a decision or terminal) for the binding checks, and set `last_request` / `last_response` on every exchange, including error answers, so the game loop can chain them.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -3620,6 +4250,16 @@ def test_v2_rows_carry_attribution() -> None:
     assert "## Halts and truncations after each bot's selection" in markdown
 
 
+def test_v2_deck_slices_are_labelled_by_deck_name() -> None:
+    elves = {"deck_id": "sha256:" + "2" * 64, "name": "Elves", "catalog_id": "Elves"}
+    swapped = [{"seat": "p0", "bot_id": B, "name": "b", "version": "1"}, {"seat": "p1", "bot_id": A, "name": "a", "version": "1"}]
+    rows = [row(), row(game_index=1, pair_slot=1, seats=swapped, winner_bot_id=B),
+            row(game_index=2, pair_index=1, decks=[elves, elves]),
+            row(game_index=3, pair_index=1, pair_slot=1, seats=swapped, winner_bot_id=B, decks=[elves, elves])]
+    document, _ = _build(rows)                    # LedgerDeck rows, normalized once (R2-8)
+    assert [deck_slice["label"] for deck_slice in document["slices"]["deck"]] == ["Burn", "Elves"]
+
+
 def test_v1_documents_are_unchanged() -> None:
     run = REPO / "benchmarks" / "pauper-kernel" / "runs" / "2026-09-26"
     rows = legacy_v1.parse_ledger(store.read_jsonl(run / "matches.jsonl", schema=legacy_v1.LEDGER_SCHEMA_V1))
@@ -3639,7 +4279,7 @@ Expected: FAIL (`LEADERBOARD_SCHEMA_V2` missing; `schema` is not a keyword).
 
 - [ ] **Step 3: Implement**
 
-In `leaderboard.py`: rename `NOTES` to `NOTES_V1`, add `NOTES_V2` and the schema constants, thread `schema` through `build_leaderboard`, `_build_document` and `_deck_slices` (every slice uses the same schema), read `row.pair_slot` in `_accumulate`, and make `_deck_label` return `deck["name"]` for a v2 deck entry (one with `deck_id`). Only when `schema == LEADERBOARD_SCHEMA_V2`: add the attribution fields (count every row, rated or not; a halted or truncated row with `last_selection` adds one to that bot) and the markdown section (columns `Bot`, `Games`, `Halts`, `Halt rate`, `Truncations`, `Truncation rate`, rates as `f"{num / den:.3f}"` or `-`). Add `pair_slot` to the v1 `store.LedgerRow`; pass `schema=leaderboard.LEADERBOARD_SCHEMA_V1` in the v1 `runner.run_tournament`, in `legacy_v1.validate_v1_run`, and in the helper builders of `test_arena_ratings.py` and `test_arena_slices.py`.
+In `leaderboard.py`: rename `NOTES` to `NOTES_V1`, add `NOTES_V2` and the schema constants, thread `schema` through `build_leaderboard`, `_build_document` and `_deck_slices` (every slice uses the same schema), read `row.pair_slot` in `_accumulate`, and make `_deck_label` return `deck["name"]` for a v2 deck entry (one with `deck_id`). v2 rows carry `LedgerDeck` dataclasses, which `canonical_bytes` rejects, so `_deck_slices` normalizes each row's decks once, `decks = [deck.to_json() if hasattr(deck, "to_json") else deck for deck in row.decks]`, and uses them for the grouping key, `_pairing_label` and the slice's published `decks` (R2-8). Only when `schema == LEADERBOARD_SCHEMA_V2`: add the attribution fields (count every row, rated or not; a halted or truncated row with `last_selection` adds one to that bot) and the markdown section (columns `Bot`, `Games`, `Halts`, `Halt rate`, `Truncations`, `Truncation rate`, rates as `f"{num / den:.3f}"` or `-`). Add `pair_slot` to the v1 `store.LedgerRow`; pass `schema=leaderboard.LEADERBOARD_SCHEMA_V1` in the v1 `runner.run_tournament`, in `legacy_v1.validate_v1_run`, and in the helper builders of `test_arena_ratings.py` and `test_arena_slices.py`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -3657,33 +4297,38 @@ git commit -m "Leaderboard: v2 documents with halt and truncation attribution"
 
 ### Task 21: The v2 fake engine
 
-**Effort:** 0.75 agent-day. **Wave:** 3. **Depends on:** Tasks 2, 9, 13.
+**Effort:** 1.25 agent-days. **Wave:** 3. **Depends on:** Tasks 2, 7, 8, 9, 10, 13.
 
 **Files:**
 - Create: `python/tests/fake_v2_engine.py`
+- Create: `python/tests/fake_v2_scenario_smoke.py` (the scenario runner's own test scenario, R2-1)
 - Create: `python/tests/test_fake_v2_engine.py`
 
 **Interfaces:**
-- Consumes: `fake_v2_world` (Task 13); `messages` models for strict request parsing (Task 9); `digests.deck_id`, `digests.deck_rows` (Task 2); `wire`.
+- Consumes: `fake_v2_world` (Task 13); `messages` models for strict request parsing (Task 9); `digests.deck_id`, `digests.deck_rows` (Task 2); `wire` (`NotAnObjectError`, Task 1). Tests only: `candidates.validate_candidate` (Task 7), `observation.validate_observation` (Task 8), `host.tracking.GroupTracker` (Task 10) (R2-14).
 - Produces (`python/tests/fake_v2_engine.py`):
-  - command line: `python fake_v2_engine.py [--flags NAMES | --all-flags] [--rewind] [--probe] [--london] [--toss] [--decklists] [--kinds NAMES] [--name NAME]` (flags and kinds are comma-separated; the defaults declare no optional flags, all 30 kinds, `rules_supported` `{"mulligan": ["none"], "starting_player": ["host_assigned"]}`, `deck_sources` `["catalog"]`, engine identity `fake-v2-engine` 0.2.0)
+  - command line: `python fake_v2_engine.py [--flags NAMES | --all-flags] [--rewind] [--probe] [--london] [--toss] [--decklists] [--kinds NAMES] [--name NAME]` (flags and kinds are comma-separated; the defaults declare no optional flags, all 30 kinds, `formats` `["pauper-bo1"]`, `rules_supported` `{"mulligan": ["none"], "starting_player": ["host_assigned"]}`, `deck_sources` `["catalog"]`, every `engine_defaults` entry `null`, `extensions` `[]` (R2-13), engine identity `fake-v2-engine` 0.2.0)
   - `serve(argv: Sequence[str], *, stdin=None, stdout=None, mutate: Callable[[int, dict], dict | bytes] | None = None) -> int` (`mutate(step, message)` may rewrite each outgoing decision or terminal, or return raw bytes to write instead of a message; it may also sleep or exit; Task 28's hostile engine uses it)
-  - catalog decks: `Burn`, `Elves`, `Faeries` (the scoring game), the hooks `Crash`, `Halt`, `Truncate`, `Refuse`, `Rendezvous`, `Loop`, `Stall`, and `Scenario:<name>` for every `fake_v2_scenario_<name>.py` beside the engine (module attribute `SCENARIO: fake_v2_world.Scenario`), in sorted catalog-id order
+  - catalog decks: `Burn`, `Elves`, `Faeries` (the scoring game), the hooks `Crash`, `Echo`, `Halt`, `Loop`, `P0Wins`, `Refuse`, `Rendezvous`, `Stall`, `Truncate`, and `Scenario:<name>` for every `fake_v2_scenario_<name>.py` beside the engine (module attribute `SCENARIO: fake_v2_world.Scenario`; this task ships `smoke`, Tasks 26 and 27 add `kinds`, `board` and `knowledge`), in sorted catalog-id order
   - `SCORING_DECKLIST = [{"name": "Lightning Bolt", "count": 4}, {"name": "Mountain", "count": 18}]` for the scoring decks and hooks
+- Produces (`python/tests/fake_v2_scenario_smoke.py`): `SCENARIO` (`Scenario:smoke`, engine args `--rewind`): a two-substep group, a non-pass priority action, one completed choice group, a partial group, a rewind and a `mana_payment` context override (R2-1).
 
-The scoring game (replaces `fake_arena_engine.py`, same outcomes): four decisions, the starting seat first, then alternating; each offers `[pass, play_land(face 0)]` for a Mountain in the seat's two-card hand; each `play_land` scores 1 and moves the Mountain to the battlefield (a fresh id). After the fourth answer: natural, the higher score wins, equal scores draw, reason `score`. Every game (the hooks and scenarios included) ends `truncated` (winner null, reason `max_steps` or `max_decisions`) once `max_steps` answers or `max_decisions` completed groups are reached, so `max_steps` below 4 truncates the scoring game. Turn number is the step plus 1, the acting seat is active and holds priority, phase `precombat_main`; `seat_step` and `group_id` count per seat. Hooks (by the p0 deck): `Crash` exits with code 3 at the first `step`; `Halt` answers the first `step` with a `halted` terminal, reason `engine_contract_failure:test_hook`; `Truncate` answers the first `step` with a `truncated` terminal, reason `engine_cap` (an engine-side cap, so truncation attribution can be tested although the host's seat caps always come first); `Refuse` answers `reset` with `unsupported_deck`; `Rendezvous` drops a marker named after the game in `$SPELLBENCH_RENDEZVOUS_DIR` at the first `step` and waits for `$SPELLBENCH_RENDEZVOUS_COUNT` markers (exit code 4 after 10 s; preflight resets never step, so they never wait); `Loop` poses single-candidate `[pass]` decisions to alternating seats forever, turn 1; `Stall` offers p0 `[pass, activate_ability(Relic of Progenitus)]` and p1 `[pass]` in alternation, turn 1, and ends in a natural draw (reason `stall_ended`) when p0 passes. A scenario deck runs its script (`Posed` decisions; the chosen `candidate_id` is sent into the generator); it needs its `engine_args` present on the engine's command line, else `reset` answers `unsupported_deck`.
+The scoring game (replaces `fake_arena_engine.py`, same outcomes): four decisions, the starting seat first, then alternating; each offers `[pass, play_land(face 0)]` for a Mountain in the seat's two-card hand; each `play_land` scores 1 and moves the Mountain to the battlefield (a fresh id). After the fourth answer: natural, the higher score wins, equal scores draw, reason `score`. Every game (the hooks and scenarios included) ends `truncated` (winner null, reason `max_steps` or `max_decisions`) once `max_steps` answers or `max_decisions` completed groups are reached, so `max_steps` below 4 truncates the scoring game. Turn number is the step plus 1, the acting seat is active and holds priority, phase `precombat_main`; `seat_step` and `group_id` count per seat. Hooks (by the p0 deck): `Crash` exits with code 3 at the first `step`; `Halt` answers the first `step` with a `halted` terminal, reason `engine_contract_failure:test_hook`; `Truncate` answers the first `step` with a `truncated` terminal, reason `engine_cap` (an engine-side cap, so truncation attribution can be tested although the host's seat caps always come first); `Refuse` answers `reset` with `unsupported_deck`; `Rendezvous` drops a marker named after the game in `$SPELLBENCH_RENDEZVOUS_DIR` at the first `step` and waits for `$SPELLBENCH_RENDEZVOUS_COUNT` markers (exit code 4 after 10 s; preflight resets never step, so they never wait); `Loop` poses single-candidate `[pass]` decisions to alternating seats forever, turn 1; `Stall` offers p0 `[pass, activate_ability(Relic of Progenitus)]` and p1 `[pass]` in alternation, turn 1, and ends in a natural draw (reason `stall_ended`) when p0 passes; `P0Wins` poses the scoring game's four decisions and ends natural with p0 winning (reason `p0_wins_hook`) whatever the answers, the v1 fake engine's constant result for ported tests (R3-16); `Echo` plays the scoring game but ends with reason `secret:<the first 8 hex digits of sha256 of the game secret's 32 bytes>` in place of `score`, so a test can compare what two games' engines received (R3-16). A scenario deck runs its script (`Posed` decisions; the chosen `candidate_id` is sent into the generator); it needs its `engine_args` present on the engine's command line, else `reset` answers `unsupported_deck`.
 
-Protocol behavior (spec 4.1, 9): strict parsing with the `messages` models (unknown fields `malformed_request`; unparseable lines `malformed_json` with `request_id` `""`); `protocol_mismatch`; a one-entry retransmission cache (the identical line returns the cached answer; a reused id with another payload is `request_id_reuse_mismatch`); a reused `game_id` is `malformed_request`; `reset` checks `format` (`unsupported_format`), deck sources and catalog ids (`unsupported_deck`), each `deck_id` against the list (`deck_id_mismatch`), rules against `rules_supported`, extensions and `probe` (`unsupported_rule`), and an active game (`game_already_active`); `step` checks in the spec 9.4 order; requests after a terminal are `game_already_terminal`; `validate_deck` answers `deck_ok` or `unsupported_deck` / `unsupported_format`; `probe_resample` is `unsupported_request`, or `probe_refused` with `--probe`.
+The scenario runner (R2-1, R2-12). It turns each `Posed` into a `seat_decision` for its seat: `{"$obj": n}` references resolve through `World.reference(seat, n)` and targets through `World.target` (a reference that resolves to `None` stays `None`); the candidates get dense ids in order; `context` is `{kind, source, purpose, text, rewind}` with `kind` the candidates' family unless the `Posed` names one (a `choice` decision with `purpose: "mana_payment"` over `activate_mana_ability` candidates is that override). `seat_step` counts the seat's answered decisions. A `Posed` whose `substep` index is above 0 continues the seat's current group (same `group_id`); any other starts the seat's next group. Rewind accounting follows Decision 4 exactly as Task 10's `GroupTracker` does: the engine keeps every completed group of both seats in completion order, each flagged counted, and per seat the completion index of its last non-pass priority action's group. Posing a `Posed` with `rewind=True` for seat S stops counting every group from S's action index on (the abandoned partial group was never counted), forgets S's action, forgets the other seat's action when it lies in that range, and gives the rewind decision S's partial group id plus 1 (or S's next group id). The terminal's `step_count` is the answered decisions and its `decision_count` the counted groups; the caps count the same (a terminal from a cap reached inside a group is `truncated`, Decision 13).
+
+Protocol behavior (spec 4.1, 9): strict parsing with the `messages` models (unknown fields `malformed_request`; unparseable lines `malformed_json` with `request_id` `""`; a line whose top level is not an object, `wire.NotAnObjectError`, `malformed_request` with `request_id` `""`, R1-3); `protocol_mismatch`; a one-entry retransmission cache (the identical line returns the cached answer; a reused id with another payload is `request_id_reuse_mismatch`; a request that fails parsing is never cached, spec 4.1); a reused `game_id` is `malformed_request`; `reset` checks `format` (`unsupported_format`), deck sources and catalog ids (`unsupported_deck`), each `deck_id` against the list (`deck_id_mismatch`), rules against `rules_supported`, extensions and `probe` (`unsupported_rule`), and an active game (`game_already_active`); `step` checks in the spec 9.4 order; `step` and `probe_resample` after a terminal are `game_already_terminal`, while a new `reset` after a terminal is legal (R2-13); `validate_deck` answers `deck_ok` or `unsupported_deck` / `unsupported_format`; `probe_resample` is `unsupported_request`, or `probe_refused` with `--probe`.
 
 - [ ] **Step 1: Write the failing tests**
 
 Create `python/tests/test_fake_v2_engine.py`:
 
 ```python
-"""The v2 fake engine: strict protocol handling, the scoring game, the hooks."""
+"""The v2 fake engine: strict protocol handling, the scoring game, the hooks, the scenario runner."""
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -3692,8 +4337,12 @@ import pytest
 from spellbench import wire
 from spellbench.candidates import validate_candidate
 from spellbench.digests import deck_id
+from spellbench.errors import TransportError
+from spellbench.host.tracking import GroupTracker
 from spellbench.messages import EnvHelloOk
 from spellbench.observation import validate_observation
+
+import fake_v2_scenario_smoke
 
 ENGINE = Path(__file__).resolve().parent / "fake_v2_engine.py"
 BURN_ID = deck_id([{"name": "Lightning Bolt", "count": 4}, {"name": "Mountain", "count": 18}])
@@ -3711,6 +4360,10 @@ class Engine:
         self.count += 1
         message = {"request_type": request_type, "protocol": "spellbench/v2", "request_id": f"h-{self.count}", **fields}
         self.peer.write_line(wire.canonical_json_dumps(message))
+        return wire.strict_json_loads(self.peer.read_line())
+
+    def raw(self, line: bytes) -> dict:
+        self.peer.write_line(line)
         return wire.strict_json_loads(self.peer.read_line())
 
     def reset(self, deck: str = "Burn", game_id: str = "g-0000000000000001", **changes) -> dict:
@@ -3734,7 +4387,9 @@ def test_hello_is_a_valid_v2_hello_ok() -> None:
     hello = EnvHelloOk.from_json(process.send("hello", protocol_minor=0))
     process.peer.close()
     assert hello.profile.rewind and all(hello.profile.observation.values())
-    assert {deck.catalog_id for deck in hello.catalog} >= {"Burn", "Elves", "Faeries", "Loop", "Stall"}
+    assert {deck.catalog_id for deck in hello.catalog} >= {"Burn", "Echo", "Elves", "Faeries", "Loop", "P0Wins", "Stall", "Scenario:smoke"}
+    assert hello.formats == ("pauper-bo1",) and hello.profile.extensions == ()                     # R2-13
+    assert set(hello.profile.engine_defaults.values()) == {None}
 
 
 def test_the_scoring_game_matches_the_v1_outcomes(engine: Engine) -> None:
@@ -3763,13 +4418,42 @@ def test_the_scoring_game_matches_the_v1_outcomes(engine: Engine) -> None:
         (lambda e: e.reset(rules={**RULES, "mulligan": "london"}), "unsupported_rule"),
         (lambda e: e.reset(rules={**RULES, "probe": True}), "unsupported_rule"),
         (lambda e: e.reset(x_extra=1), "malformed_request"),
+        (lambda e: e.raw(b"[1,2]"), "malformed_request"),                                   # a non-object top level (R1-3)
+        (lambda e: e.reset(rules={**RULES, "extensions": ["x_kernel_v5"]}), "unsupported_rule"),   # not declared in hello
         (lambda e: e.send("probe_resample", game_id="g-1", samples=1), "unsupported_request"),
         (lambda e: e.send("hello", protocol_minor=0, protocol="spellbench/v1"), "protocol_mismatch"),
+        (lambda e: e.send("validate_deck", format="pauper-bo1", deck={"catalog_id": "Nope"}), "unsupported_deck"),
     ],
 )
 def test_error_codes(engine: Engine, request_fn, code: str) -> None:
     answer = request_fn(engine)
     assert (answer["response_type"], answer["error"]["code"]) == ("error", code)
+
+
+def test_a_valid_deck_is_ok_and_a_non_object_line_carries_no_request_id(engine: Engine) -> None:
+    assert engine.send("validate_deck", format="pauper-bo1", deck={"catalog_id": "Burn"})["response_type"] == "deck_ok"
+    assert engine.raw(b"[1,2]")["request_id"] == ""
+
+
+def test_step_checks_run_in_the_spec_9_4_order(engine: Engine) -> None:
+    engine.reset()
+    selection = {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}
+    assert engine.send("step", game_id="g-9", expected_step=7, selection=selection)["error"]["code"] == "game_id_mismatch"
+
+
+def test_a_request_that_fails_parsing_is_never_cached(engine: Engine) -> None:
+    first = engine.reset()
+    step = {"request_type": "step", "protocol": "spellbench/v2", "request_id": "h-60", "game_id": first["game_id"],
+            "expected_step": 0, "selection": {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}}
+    assert engine.raw(wire.canonical_json_dumps({**step, "x_extra": 1}))["error"]["code"] == "malformed_request"
+    assert engine.raw(wire.canonical_json_dumps(step))["response_type"] == "decision"    # same id: served, not a reuse (R1-20)
+
+
+def test_a_reused_game_id_is_malformed(engine: Engine) -> None:
+    halted = engine.reset(deck="Halt")
+    engine.send("step", game_id=halted["game_id"], expected_step=0, selection={"candidate_id": 0, "semantic_echo": {"kind": "pass"}})
+    assert engine.reset()["error"]["code"] == "malformed_request"                          # the finished game's id
+    assert engine.reset(game_id="g-0000000000000002")["response_type"] == "decision"       # a new reset after a terminal
 
 
 def test_game_errors_and_retransmission(engine: Engine) -> None:
@@ -3811,9 +4495,123 @@ def test_hooks(engine: Engine) -> None:
         decision = loop.send("step", game_id="g-0000000000000001", expected_step=step, selection={"candidate_id": 0, "semantic_echo": {"kind": "pass"}})
     loop.peer.close()
     halted = engine.reset(deck="Halt")
-    assert engine.send("step", game_id=halted["game_id"], expected_step=0,
-                       selection={"candidate_id": 0, "semantic_echo": {"kind": "pass"}})["outcome"] == "halted"
+    selection = {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}
+    assert engine.send("step", game_id=halted["game_id"], expected_step=0, selection=selection)["outcome"] == "halted"
+    after = engine.send("step", game_id=halted["game_id"], expected_step=1, selection=selection)
+    assert after["error"]["code"] == "game_already_terminal"                                  # R2-13
+
+
+def _play(engine: Engine, deck: str, game_id: str, pick=lambda sd: 0) -> dict:
+    response, step = engine.reset(deck=deck, game_id=game_id), 0
+    while response["response_type"] == "decision":
+        sd = response["seat_decision"]
+        choice = pick(sd)
+        response = engine.send("step", game_id=game_id, expected_step=step,
+                               selection={"candidate_id": choice, "semantic_echo": sd["candidates"][choice]["semantic"]})
+        step += 1
+    return response
+
+
+def test_the_ending_hooks(engine: Engine) -> None:
+    assert _play(engine, "Truncate", "g-0000000000000011")["reason"] == "engine_cap"
+    assert _play(engine, "P0Wins", "g-0000000000000012", pick=lambda sd: len(sd["candidates"]) - 1)["outcome"] == "p0_win"
+    stall = _play(engine, "Stall", "g-0000000000000013")                                   # p0 passes: a natural draw
+    assert (stall["outcome"], stall["reason"]) == ("draw", "stall_ended")
+    echo = _play(engine, "Echo", "g-0000000000000014")
+    assert echo["reason"] == "secret:" + hashlib.sha256(bytes.fromhex("11" * 32)).hexdigest()[:8]   # R3-16
+
+
+def test_the_crash_hook_exits_at_the_first_step(engine: Engine) -> None:
+    first = engine.reset(deck="Crash")
+    engine.peer.write_line(wire.canonical_json_dumps({
+        "request_type": "step", "protocol": "spellbench/v2", "request_id": "h-90", "game_id": first["game_id"],
+        "expected_step": 0, "selection": {"candidate_id": 0, "semantic_echo": {"kind": "pass"}}}))
+    with pytest.raises(TransportError):
+        engine.peer.read_line()
+
+
+def test_the_smoke_scenario_numbers_counts_and_rewinds_like_the_host() -> None:
+    process = Engine("--rewind")
+    process.send("hello", protocol_minor=0)
+    deck = {"deck_id": deck_id(fake_v2_scenario_smoke.SCENARIO.decklist), "catalog_id": "Scenario:smoke"}
+    response = process.reset(seats=[{"seat": seat, "deck": deck} for seat in ("p0", "p1")])
+    tracker, contexts, step = GroupTracker(), [], 0
+    while response["response_type"] == "decision":
+        sd = response["seat_decision"]
+        validate_observation(sd["observation"])
+        for candidate in sd["candidates"]:
+            validate_candidate(candidate)
+        tracker.check(sd)                                         # V3: seat steps, groups, the rewind (Task 10)
+        contexts.append((sd["context"]["kind"], sd["context"]["purpose"], sd["context"]["rewind"]))
+        kinds = [candidate["semantic"]["kind"] for candidate in sd["candidates"]]
+        pick = kinds.index("cast_spell") if "cast_spell" in kinds else len(kinds) - 1   # take the action the rewind undoes
+        tracker.answered(sd, chosen_kind=kinds[pick])
+        response = process.send("step", game_id=response["game_id"], expected_step=step,
+                                selection={"candidate_id": pick, "semantic_echo": sd["candidates"][pick]["semantic"]})
+        step += 1
+    process.peer.close()
+    counts = (response["step_count"], response["decision_count"])
+    assert counts == (tracker.answered_steps, tracker.completed_groups) == (7, 3)          # Decision 4 (R2-1)
+    assert ("priority", None, True) in contexts and ("choice", "mana_payment", False) in contexts
 ```
+
+Create `python/tests/fake_v2_scenario_smoke.py`:
+
+```python
+"""The scenario runner's own test scenario (Task 21): group numbering, counting, a rewind, a context override."""
+
+from __future__ import annotations
+
+from fake_v2_world import Posed, Scenario, StackItem
+
+PASS = {"kind": "pass"}
+
+
+def _script(world):
+    bolt = world.add("Lightning Bolt", owner="p0", zone="hand")
+    islands = [world.add("Island", owner="p0", zone="hand") for _ in range(2)]
+    mountain = world.add("Mountain", owner="p0", zone="battlefield")
+    swiftspear = world.add("Monastery Swiftspear", owner="p0", zone="battlefield")
+    bears = world.add("Grizzly Bears", owner="p1", zone="battlefield")
+    # A two-substep group: a fixed discard of two, one pick per substep.
+    for index in range(2):
+        picked = yield Posed("p0", [{"kind": "select_object", "source": None, "purpose": "discard",
+                                     "choice": {"object": {"$obj": card}}, "selected_count": index,
+                                     "minimum": 2, "maximum": 2} for card in islands], substep=(index, 2))
+        world.move(islands.pop(picked), "graveyard")
+    # A non-pass priority action: Lightning Bolt is cast.
+    yield Posed("p0", [PASS, {"kind": "cast_spell", "source": {"$obj": bolt}, "method": "normal"}])
+    world.move(bolt, "stack")
+    world.stack.append(StackItem(bolt, "spell", None, []))
+    # One completed choice group: its target.
+    yield Posed("p0", [{"kind": "choose_target", "source": {"$obj": bolt}, "slot": 0, "target": target,
+                        "selected_count": 0, "minimum": 1, "maximum": 1}
+                       for target in ({"player": "p1"}, {"object": {"$obj": bears}})], source={"$obj": bolt})
+    # A partial group: an additional cost of two sacrifices, abandoned after its first pick.
+    yield Posed("p0", [{"kind": "choose_cost_target", "source": {"$obj": bolt}, "cost_kind": "sacrifice",
+                        "candidate": {"$obj": permanent}, "selected_count": 0, "minimum": 2, "maximum": 2}
+                       for permanent in (mountain, swiftspear)], substep=(0, 2), source={"$obj": bolt})
+    # The rewind: the cast cannot be completed, so it is undone and priority re-posed without it (spec 8).
+    world.stack.clear()
+    world.move(bolt, "hand")
+    yield Posed("p0", [PASS], rewind=True)
+    # A context override: a mana ability offered in a choice decision to pay a cost (spec 7.1).
+    yield Posed("p0", [{"kind": "activate_mana_ability", "source": {"$obj": mountain}, "ability_index": 0,
+                        "mana_choice": "R", "cost_target": None},
+                       {"kind": "optional_cost", "source": {"$obj": swiftspear}, "cost": "unless_payment", "pay": False}],
+                kind="choice", purpose="mana_payment")
+
+
+SCENARIO = Scenario(
+    name="smoke",
+    decklist=[{"name": "Grizzly Bears", "count": 4}, {"name": "Island", "count": 16}, {"name": "Lightning Bolt", "count": 4},
+              {"name": "Monastery Swiftspear", "count": 4}, {"name": "Mountain", "count": 16}],
+    engine_args=("--rewind",),
+    script=_script,
+)
+```
+
+The expected numbering: the discard is p0's group 0 (two substeps); the cast group 1 (the action); the target group 2; the partial cost group 3; the rewind decision group 4 (the partial group's id plus 1); the payment group 5. Seven answered decisions; groups 1 and 2 are abandoned and group 3 never completed, so `decision_count` is 3.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -3822,7 +4620,7 @@ Expected: FAIL (the engine file does not exist; the subprocess exits at once).
 
 - [ ] **Step 3: Implement `fake_v2_engine.py`**
 
-Structure: `serve()` reads lines with `wire.read_line`, answers each with one canonical line, and keeps `(last_request_id, last_line, last_answer)` for retransmission and the set of used game ids. Build seat decisions from `World.observation(seat)` plus the posed candidates (the engine resolves scenario candidate references through `World.reference`), with `context.kind` from the candidates' family unless the `Posed` gives one. `decision` and `terminal` answers carry `provenance` from the engine identity. `mutate` is applied to each decision or terminal just before it is written (`step` is the binding step of a decision, or the answered count for a terminal); bytes it returns are written as the line, unchanged.
+Structure: `serve()` reads lines with `wire.read_line`, answers each with one canonical line, and keeps `(last_request_id, last_line, last_answer)` for retransmission (only for requests that parsed) and the set of used game ids. `wire.NotAnObjectError` is caught before `MalformedJsonError` and answered `malformed_request` with `request_id` `""`. Build seat decisions from `World.observation(seat)` plus the posed candidates by the scenario runner rules above (`$obj` references resolved per viewer, group and seat numbering, rewind accounting); the smoke scenario of Step 1 is the runner's own check. `decision` and `terminal` answers carry `provenance` from the engine identity. `mutate` is applied to each decision or terminal just before it is written (`step` is the binding step of a decision, or the answered count for a terminal); bytes it returns are written as the line, unchanged.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -3834,15 +4632,15 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/tests/fake_v2_engine.py python/tests/test_fake_v2_engine.py
-git commit -m "Tests: the v2 fake engine with every engine error code and the scoring game"
+git add python/tests/fake_v2_engine.py python/tests/fake_v2_scenario_smoke.py python/tests/test_fake_v2_engine.py
+git commit -m "Tests: the v2 fake engine with every engine error code, the scoring game and the scenario runner"
 ```
 
 ## Wave 4
 
 ### Task 22: The live validator
 
-**Effort:** 0.5 agent-day. **Wave:** 4. **Depends on:** Tasks 14, 15, 16, 18, 21.
+**Effort:** 0.75 agent-day. **Wave:** 4. **Depends on:** Tasks 14, 15, 16, 18, 21.
 
 **Files:**
 - Create: `python/spellbench/host/validator.py`
@@ -3851,13 +4649,14 @@ git commit -m "Tests: the v2 fake engine with every engine error code and the sc
 
 **Interfaces:**
 - Consumes: `observation.validate_observation`, `observation.observation_objects`, `observation.CARD_TYPES` (Task 8); `candidates.validate_candidate`, `candidates.MAX_CANDIDATES` (Task 7); `messages.EnvHelloOk`, `Rules`, `Decision`, `Terminal` (Task 9); `host.refs` (Task 14), `host.hidden` (Task 15), `host.declarations` (Task 16), `host.tracking`, `host.violation` (Task 10); `host.engine_process` (Task 18); `_schema`; `wire.canonical_json_dumps`.
-- Produces (`python/tests/tour_helpers.py`): `play_tour(module: ModuleType, *extra_args: str) -> list[dict]` (starts the fake engine with the scenario's `engine_args` plus `extra_args`, resets `Scenario:<name>` with rules fitted to the engine's `rules_supported`, answers candidate 0 each time, validates every decision and the terminal counts, returns the validated seat decisions).
+- Produces (`python/tests/tour_helpers.py`): `play_tour(module: ModuleType, *extra_args: str) -> list[dict]` (starts the fake engine with the scenario's `engine_args` plus `extra_args`, resets `Scenario:<name>` with rules fitted to the engine's `rules_supported`, answers `module.pick(sd)` when the scenario module defines `pick(sd: dict) -> int` and candidate 0 otherwise (R2-2: candidate 0 of a priority decision is always `pass`, so a tour that must act, such as the kinds tour's rewind, picks), validates every decision and the terminal counts, returns the validated seat decisions).
 - Produces (`spellbench.host.validator`):
   - `VALIDATOR_VERSION = "spellbench-live-validator/2.0"`, `BASIC_LAND_TYPES = ("plains", "island", "swamp", "mountain", "forest")`
   - `validate_seat_decision_schema(seat_decision: Any, rules: Rules) -> dict` (V1 alone; any `ValidationError` becomes `ValidatorViolation("V1", ...)`)
-  - `class LiveValidator(hello: EnvHelloOk, rules: Rules)` with `check(decision: Decision) -> dict` (the validated seat decision), `answered(seat_decision: Mapping, candidate_id: int) -> None`, `check_terminal(terminal: Terminal) -> None` (V10), properties `decisions_checked: int`, `answered_steps: int`, `completed_groups: int`, and `answered_by(seat: str) -> int`
+  - `check_group_shape(seat_decision: Mapping) -> None` (the V3 group shapes of spec 7.5 and 8, R2-7)
+  - `class LiveValidator(hello: EnvHelloOk, rules: Rules)` with `check(decision: Decision) -> dict` (the validated seat decision; any exception other than a `ValidatorViolation` raised by a check becomes a V1 violation, R1-8), `answered(seat_decision: Mapping, candidate_id: int) -> None`, `check_terminal(terminal: Terminal) -> None` (V3: a terminal other than `halted` or `truncated` while a group is partial, Decision 13, R1-12; then V10), properties `decisions_checked: int`, `answered_steps: int`, `completed_groups: int`, and `answered_by(seat: str) -> int`
 
-V1 (spec 11.3): exactly the seven `seat_decision` fields (`acting_seat`, `seat_step`, `group`, `context`, `observation`, `candidates`, `extensions`); `group` `{group_id, substep_index, substep_count}` with `1 <= substep_count` and `substep_index < substep_count`; `context` exactly `{kind, source, purpose, text, rewind}` (`kind` priority or choice, `source` an object reference or null, `purpose` snake case or null, `text` string or null, `rewind` bool); the observation schema; 1 to 4096 candidates, each valid, `candidate_id` equal to its index, semantics pairwise distinct (compare canonical bytes), `pass` only at index 0; `extensions` an object with `x_[a-z0-9_]+` keys; `choose_name` values inside their domain (`card_name`: `rules.card_name_domain.names`; `creature_type`, `land_type`: snake case; `basic_land_type`: `BASIC_LAND_TYPES`; `card_type`: `CARD_TYPES`). `check` runs V1 to V10 in rule order, so the lowest-numbered broken rule is the one reported; V7 reads `{id: zone}` from `observation_objects`; V10 compares the decision's provenance with `hello.engine.provenance()`.
+V1 (spec 11.3): exactly the seven `seat_decision` fields (`acting_seat`, `seat_step`, `group`, `context`, `observation`, `candidates`, `extensions`); `group` `{group_id, substep_index, substep_count}` with `1 <= substep_count` and `substep_index < substep_count`; `context` exactly `{kind, source, purpose, text, rewind}` (`kind` priority or choice, `source` an object reference or null, `purpose` snake case or null, `text` string or null, `rewind` bool); the observation schema; 1 to 4096 candidates, each valid, `candidate_id` equal to its index, semantics pairwise distinct (compare canonical bytes), `pass` only at index 0; `extensions` an object with `x_[a-z0-9_]+` keys; `choose_name` values inside their domain (`card_name`: `rules.card_name_domain.names`; `creature_type`, `land_type`: snake case; `basic_land_type`: `BASIC_LAND_TYPES`; `card_type`: `CARD_TYPES`); a `select_object` with purpose `search` has `minimum` 0 (spec 7.5, F3: a search always allows finding nothing; R2-7); a decision offering `choose_starting_player` offers exactly one candidate per seat; a decision offering `mulligan` offers `keep: true`, and every `mulligan` candidate's `hand_size` and `mulligans_taken` equal the viewer's `hand_count` and `mulligans_taken` (spec 7.5; R2-25). V3 group shapes (`check_group_shape`, right after the `GroupTracker` check; R2-7): every `priority` decision, and every decision offering `finish_target_selection` or `finish_selection`, has `substep_count` 1; a group whose substep 0 offers `arrange_card` has `substep_count == 2 * card_count - 1`. `check` runs V1 to V10 in rule order, so the lowest-numbered broken rule is the one reported; V7 reads `{id: zone}` from `observation_objects`; V10 compares the decision's provenance with `hello.engine.provenance()`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -3877,9 +4676,9 @@ import pytest
 from spellbench.host.engine_process import EngineProcess
 from spellbench.host.validator import LiveValidator
 from spellbench.host.violation import ValidatorViolation
-from spellbench.messages import Decision, EnvHelloOk, Provenance, ResetRequest, Rules
+from spellbench.messages import Decision, EnvHelloOk, Provenance, ResetRequest, Rules, Terminal
 
-from test_messages import HELLO_OK, PROVENANCE, RESET, RULES
+from test_messages import HELLO_OK, PROVENANCE, RESET, RULES, TERMINAL
 from v2_sample_semantics import SAMPLES, seat_decision
 
 ENGINE = Path(__file__).resolve().parent / "fake_v2_engine.py"
@@ -3971,6 +4770,62 @@ def test_v7_across_decisions_and_v10_provenance() -> None:
     player["hand_count"] = 1
     assert _rule(validator, second, step=1) == "V7"
     assert _rule(_validator(), seat_decision(), provenance={**PROVENANCE, "engine_version": "9.9.9"}) == "V10"
+
+
+def test_v1_a_library_search_may_find_nothing() -> None:
+    search = {**SAMPLES["select_object"], "purpose": "search", "minimum": 1}
+    assert _rule(_validator(), seat_decision([search], kind="choice")) == "V1"            # spec 7.5, F3 (R2-7)
+
+
+MULLIGAN = {**SAMPLES["mulligan"], "hand_size": 2, "mulligans_taken": 0}                  # the example viewer: 2 cards, 0 taken
+
+
+@pytest.mark.parametrize(
+    ("candidates", "rule"),
+    [
+        ([SAMPLES["choose_starting_player"]], "V1"),                                        # only one seat offered
+        ([{**MULLIGAN, "keep": False}], "V1"),                                              # no keep: true
+        ([{**MULLIGAN, "hand_size": 7}], "V1"),                                             # not the viewer's hand_count
+        ([{**MULLIGAN, "mulligans_taken": 1}], "V1"),                                       # not the viewer's mulligans_taken
+        ([{**SAMPLES["choose_starting_player"], "player": "p0"}, SAMPLES["choose_starting_player"]], "V8"),  # past V1
+        ([MULLIGAN, {**MULLIGAN, "keep": False}], "V8"),                                    # past V1; the hello lacks the kind
+    ],
+)
+def test_v1_starting_player_and_mulligan_shapes(candidates: list, rule: str) -> None:
+    assert _rule(_validator(), seat_decision(candidates, kind="choice")) == rule            # R2-25
+
+
+@pytest.mark.parametrize(
+    ("semantics", "kind", "count"),
+    [
+        ([SAMPLES["arrange_card"]], "choice", 2),                  # scry 2 is 2 x 2 - 1 = 3 decisions
+        ([SAMPLES["finish_selection"]], "choice", 2),              # a finish candidate ends a one-decision group
+        ([SAMPLES["pass"], SAMPLES["play_land"]], "priority", 2),  # a priority decision is never decomposed
+    ],
+)
+def test_v3_group_shapes(semantics: list, kind: str, count: int) -> None:
+    sd = seat_decision(semantics, kind=kind)
+    sd["group"]["substep_count"] = count
+    assert _rule(_validator(), sd) == "V3"                                                   # R2-7
+
+
+def test_a_check_that_breaks_on_bad_input_reports_v1(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("spellbench.host.validator.check_hidden_zones", lambda sd: [][0])   # an IndexError, not a violation
+    assert _rule(_validator(), seat_decision()) == "V1"                                     # R1-8
+
+
+def test_only_a_halted_or_truncated_terminal_may_interrupt_a_group() -> None:
+    validator = _validator()
+    attack = seat_decision([SAMPLES["declare_attack"]], kind="choice")
+    attack["group"]["substep_count"] = 2                                                      # the first of two attackers
+    validator.check(_decision(attack))
+    validator.answered(attack, 0)
+    with pytest.raises(ValidatorViolation) as caught:
+        validator.check_terminal(Terminal.from_json({**TERMINAL, "step_count": 1, "decision_count": 0}))
+    assert caught.value.rule == "V3"                                                          # R1-12
+    validator.check_terminal(Terminal.from_json({**TERMINAL, "outcome": "truncated", "classification": "truncated",
+                                                 "winner": None, "reason": "max_steps", "step_count": 1,
+                                                 "decision_count": 0}))                       # a cap may (Decision 13)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -3992,9 +4847,18 @@ class LiveValidator:
 
     def check(self, decision: Decision) -> dict:
         self.decisions_checked += 1
+        try:
+            return self._check(decision)
+        except ValidatorViolation:
+            raise
+        except Exception as exc:   # a check meeting input it cannot read is a schema failure, never a crash (R1-8)
+            raise ValidatorViolation("V1", f"the seat decision broke a validator check ({type(exc).__name__})") from exc
+
+    def _check(self, decision: Decision) -> dict:
         sd = validate_seat_decision_schema(decision.seat_decision, self._rules)        # V1
         check_seat(sd)                                                                 # V2
         self._groups.check(sd)                                                         # V3
+        check_group_shape(sd)                                                          # V3 group shapes (R2-7)
         check_references(sd)                                                           # V4
         check_hidden_zones(sd)                                                         # V5
         check_face_down(sd)                                                            # V6
@@ -4008,11 +4872,28 @@ class LiveValidator:
         self._groups.answered(sd, chosen_kind=sd["candidates"][candidate_id]["semantic"]["kind"])
 
     def check_terminal(self, terminal: Terminal) -> None:
-        self._check_provenance(terminal.provenance)
+        seat = self._groups.partial_seat
+        if seat is not None and terminal.result.classification not in ("halted", "truncated"):   # spec 8, Decision 13
+            raise ValidatorViolation("V3", f"a {terminal.result.classification} terminal interrupted {seat}'s partial group")
+        self._check_provenance(terminal.provenance)                                              # V10
 
     def _check_provenance(self, provenance: Provenance) -> None:
         if provenance != self._provenance:
             raise ValidatorViolation("V10", "the engine identity drifted from its hello")
+
+
+def check_group_shape(sd: Mapping[str, Any]) -> None:
+    """V3 group shapes (spec 7.5, 8, F3): sizes that never depend on hidden facts."""
+    group = sd["group"]
+    kinds = [candidate["semantic"]["kind"] for candidate in sd["candidates"]]
+    if sd["context"]["kind"] == "priority" and group["substep_count"] != 1:
+        raise ValidatorViolation("V3", "a priority decision is one decision (substep_count 1)")
+    if {"finish_target_selection", "finish_selection"} & set(kinds) and group["substep_count"] != 1:
+        raise ValidatorViolation("V3", "a decision offering a finish candidate is its own group (substep_count 1)")
+    if group["substep_index"] == 0 and "arrange_card" in kinds:
+        cards = next(c["semantic"]["card_count"] for c in sd["candidates"] if c["semantic"]["kind"] == "arrange_card")
+        if group["substep_count"] != 2 * cards - 1:
+            raise ValidatorViolation("V3", f"an arrangement of {cards} cards is {2 * cards - 1} decisions, not {group['substep_count']}")
 ```
 
 plus the `answered_steps`, `completed_groups` and `answered_by` pass-throughs to the `GroupTracker`, and `validate_seat_decision_schema` per the V1 list above.
@@ -4037,7 +4918,9 @@ ENGINE = Path(__file__).resolve().parent / "fake_v2_engine.py"
 
 
 def play_tour(module: ModuleType, *extra_args: str) -> list[dict]:
+    """Candidate 0 unless the scenario module defines pick(sd) (R2-2): candidate 0 of a priority decision is pass."""
     scenario = module.SCENARIO
+    pick = getattr(module, "pick", lambda sd: 0)
     engine = EngineProcess([sys.executable, str(ENGINE), *scenario.engine_args, *extra_args], timeout_s=30)
     decisions: list[dict] = []
     try:
@@ -4059,8 +4942,9 @@ def play_tour(module: ModuleType, *extra_args: str) -> list[dict]:
         while isinstance(response, Decision):
             sd = validator.check(response)
             decisions.append(sd)
-            validator.answered(sd, 0)
-            response = engine.step(candidate_id=0, semantic=sd["candidates"][0]["semantic"])
+            choice = pick(sd)
+            validator.answered(sd, choice)
+            response = engine.step(candidate_id=choice, semantic=sd["candidates"][choice]["semantic"])
         validator.check_terminal(response)
         counts = (response.result.step_count, response.result.decision_count)
         assert counts == (validator.answered_steps, validator.completed_groups), counts
@@ -4087,20 +4971,20 @@ git commit -m "Host: the live validator, V1 to V10 in rule order"
 
 ### Task 23: The game loop: routing, validation, digest and halts
 
-**Effort:** 0.75 agent-day. **Wave:** 5. **Depends on:** Tasks 17, 18, 21, 22.
+**Effort:** 1.0 agent-day. **Wave:** 5. **Depends on:** Tasks 17, 18, 21, 22.
 
 **Files:**
 - Create: `python/spellbench/host/game.py`
 - Create: `python/tests/test_host_game.py`
 
 **Interfaces:**
-- Consumes: `host.validator.LiveValidator` (Task 22); `host.engine_process.EngineProcess` (Task 18); `host.seat.SeatDriver`, `SeatFailure`, `host.setup.GameSetup` (Task 17); `agent_messages` payload builders, `OwnDeck`, `Clock`, `AgentTerminal`, `Choice` (Task 17); `digests.GameDigest` (Task 2); `messages` (Task 9); `errors`.
+- Consumes: `host.validator.LiveValidator` (Task 22); `host.engine_process.EngineProcess`, `TerminalCountError` (Task 18); `host.seat.SeatDriver`, `SeatFailure`, `host.setup.GameSetup` (Task 17); `agent_messages` payload builders, `OwnDeck`, `Clock`, `AgentTerminal`, `Choice` (Task 17); `digests.GameDigest` (Task 2); `messages` (Task 9); `errors`.
 - Produces (`spellbench.host.game`):
   - `GameSetup`, re-exported from `host.setup` (Task 17)
-  - `@dataclass(frozen=True) class GameResult: outcome: str; classification: str; winner: str | None; reason: str; adjudication: dict | None; step_count: int; decision_count: int; decisions_checked: int; last_selection_seat: str | None; game_digest: str; violation: dict | None; diagnostics: tuple[str, ...]` (`adjudication` in the ledger shape of Task 12; `violation` is `{"rule", "detail"}`)
+  - `@dataclass(frozen=True) class GameResult: outcome: str; classification: str; winner: str | None; reason: str; adjudication: dict | None; step_count: int; decision_count: int; decisions_checked: int; last_selection_seat: str | None; game_digest: str; violation: dict | None; diagnostics: tuple[str, ...]` (`adjudication` in the ledger shape of Task 12; `violation` is `{"rule", "detail"}`; `step_count` counts the answered decisions, including one adjudicated right after its answer and before its `step` was sent (Decision 5), and `decision_count` the completed groups the validator counted, R3-12)
   - `play_game(setup: GameSetup, *, engine: EngineProcess, seats: Mapping[str, SeatDriver], clock_ns: Callable[[], int] = time.monotonic_ns) -> GameResult` (the engine has answered `hello`; the caller closes the engine and the seats)
 
-Flow (spec 11.2, 11.5, 11.8): build the `reset` request (`engine.next_request_id()`, caps from `setup.limits`) and start the digest from it; send `game_start` to p0 then p1 (`game_start_ms`); send `reset`; then for each decision: validate (a violation halts with `host_validator:<rule>`), send `choose` (the validated seat decision, a `Clock`), check the answer (`candidate_id` in range; `seat_step` and `semantic_echo` echoes, when present, equal by canonical bytes, else `invalid_selection`), record the answer with the validator, send `step` with the chosen candidate's semantic as the echo. Every engine answer and step request goes into the digest (`add_response` for the answer to `reset`, `add_step` for each step, the answer omitted when none parsed). An engine terminal is checked for V10 and for exact counts (`step_count == answered_steps`, `decision_count == completed_groups`, else `host_engine_fault:terminal_counts`). Engine failures halt with `host_engine_fault:<fault>`: `error` (an error envelope), `timeout` (`PeerTimeoutError`, bound by `engine_step_ms`), `transport` (other `TransportError`), `malformed` (any other `ProtocolError`). A `SeatFailure` forfeits that seat with its cause. Every host-recorded ending (forfeit, halt, draw) appends the adjudication record to the digest, and every ending sends `game_over` (with that seat's `seat_step_count`) to each seat that was sent `game_start`, ignoring failures. `last_selection_seat` is the seat of the last answered decision for halted and truncated games, else None. Part B (Task 29) adds the bank clock, caps and stalling through the three hooks `_budget_ms(seat)`, `_charge(seat, sd, elapsed_ms)` and `_after_answer(seat, sd, candidate_id)`; in this task they return `max_decision_ms`, None and None.
+Flow (spec 11.2, 11.5, 11.8): build the `reset` request (`engine.next_request_id()`, caps from `setup.limits`) and start the digest from it; send `game_start` to both seats at once (two threads joined within `(startup_ms + game_start_ms) / 1000` seconds, each driver bounded by `game_start_ms`; the results are then judged p0 first, so a forfeit and every recorded result follow p0-then-p1 order; R2-26: each seat's process launch and model load no longer wait for the other's); each seat's `opponent_deck` is `own_decks[other]` when `rules.opponent_decklist == "visible"` and `None` (the key present) when it is `hidden` (spec 10.2, R2-24); send `reset`; then for each decision: validate (a violation halts with `host_validator:<rule>`), send `choose` (the validated seat decision, a `Clock`), check the answer (`candidate_id` in range, `0 <= candidate_id < len(candidates)`, so a negative id never indexes from the end; `seat_step` and `semantic_echo` echoes, when present, equal by canonical bytes, else `invalid_selection`), record the answer with the validator, send `step` with the chosen candidate's semantic as the echo. Every engine answer and step request goes into the digest (`add_response` for the answer to `reset`, `add_step` for each step, the answer omitted when none parsed). An engine terminal is checked by the validator (V3 and V10) and for exact counts (`step_count == answered_steps`, `decision_count == completed_groups`); a mismatch halts with `host_engine_fault:terminal_counts`, including the `TerminalCountError` the engine client raises for `step_count` (caught before the generic `ProtocolError`, R2-3), with the detail `"terminal step_count X, decision_count Y; host counted A, B"` so an adapter author can find a Decision 4 misreading (R2-23). Engine failures halt with `host_engine_fault:<fault>`: `error` (an error envelope), `timeout` (`PeerTimeoutError`, bound by `engine_step_ms`), `transport` (other `TransportError`), `malformed` (any other `ProtocolError`). A `SeatFailure` forfeits that seat with its cause. Every host-recorded ending (forfeit, halt, draw) appends the adjudication record to the digest. Every ending sends `game_over` (with that seat's `seat_step_count`) with `timeout_s = game_start_ms / 1000` to each seat that was sent `game_start`, ignoring failures, except a seat whose failure was `timeout` or `transport_error`: its request is still outstanding or its process is gone, so the host closes that seat's driver at once (`close()` is idempotent) and sends it nothing more (spec 2: no pipelining; R2-4). `last_selection_seat` is the seat of the last answered decision for halted and truncated games, else None. Part B (Task 29) adds the bank clock, caps and stalling through the three hooks `_budget_ms(seat)`, `_charge(seat, sd, elapsed_ms)` and `_after_answer(seat, sd, candidate_id)`; in this task they return `max_decision_ms`, None and None. `_forfeit_for(seat, cause, detail)` builds every forfeit (any ledger forfeit cause, so Task 29 can use it for `stalling`, which is not a `SeatFailure` cause), and `_forfeit(seat, failure)` calls it with `failure.cause` and `failure.detail` (R2-18).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4112,6 +4996,7 @@ Create `python/tests/test_host_game.py`:
 from __future__ import annotations
 
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -4154,10 +5039,11 @@ def fail(exc: BaseException):
 class Seat:
     """A scripted SeatDriver: pick(decision) returns a candidate_id or a Choice, or raises."""
 
-    def __init__(self, pick=lambda decision: 0, *, start_error: SeatFailure | None = None) -> None:
-        self.pick, self.start_error, self.received = pick, start_error, []
+    def __init__(self, pick=lambda decision: 0, *, start_error: SeatFailure | None = None, start_delay_s: float = 0.0) -> None:
+        self.pick, self.start_error, self.start_delay_s, self.received, self.closed = pick, start_error, start_delay_s, [], False
 
     def start(self, game_start, *, timeout_s):
+        time.sleep(self.start_delay_s)
         self.received.append(("game_start", game_start))
         if self.start_error is not None:
             raise self.start_error
@@ -4171,7 +5057,7 @@ class Seat:
         self.received.append(("game_over", game_over))
 
     def close(self) -> None:
-        pass
+        self.closed = True
 
 
 def lands(decision) -> int:
@@ -4241,6 +5127,10 @@ def test_the_digest_is_reproducible_and_depends_on_the_secret() -> None:
                                     "game_id": SECRET.game_id(0), "outcome": "draw", "classification": "natural", "winner": None,
                                     "reason": "x", "step_count": 1, "decision_count": 7, "provenance": PROVENANCE}),
          "host_engine_fault:terminal_counts"),
+        (wire.canonical_json_dumps({"response_type": "terminal", "protocol": "spellbench/v2", "request_id": "h-3",
+                                    "game_id": SECRET.game_id(0), "outcome": "draw", "classification": "natural", "winner": None,
+                                    "reason": "x", "step_count": 5, "decision_count": 1, "provenance": PROVENANCE}),
+         "host_engine_fault:terminal_counts"),                                    # the engine client's TerminalCountError (R2-3)
     ],
 )
 def test_engine_faults_halt_after_the_last_selection(answer, reason: str) -> None:
@@ -4250,6 +5140,15 @@ def test_engine_faults_halt_after_the_last_selection(answer, reason: str) -> Non
     assert (result.classification, result.outcome, result.reason, result.winner) == ("halted", "halted", reason, None)
     assert result.adjudication["kind"] == "halt" and result.last_selection_seat == "p0"
     assert p1.received[-1][0] == "game_over"
+
+
+def test_a_terminal_count_halt_names_both_counts() -> None:
+    terminal = {"response_type": "terminal", "protocol": "spellbench/v2", "request_id": "h-3", "game_id": SECRET.game_id(0),
+                "outcome": "draw", "classification": "natural", "winner": None, "reason": "x", "step_count": 1,
+                "decision_count": 7, "provenance": PROVENANCE}
+    engine, _ = scripted(FIRST, wire.canonical_json_dumps(terminal))
+    result = play_game(setup(), engine=engine, seats={"p0": Seat(), "p1": Seat()})
+    assert result.adjudication["detail"] == "terminal step_count 1, decision_count 7; host counted 1, 1"   # R2-23
 
 
 def test_a_validator_violation_halts_and_the_digest_records_it() -> None:
@@ -4264,13 +5163,45 @@ def test_a_validator_violation_halts_and_the_digest_records_it() -> None:
 
 def test_a_seat_that_cannot_start_forfeits_before_any_reset() -> None:
     engine, peer = scripted()
-    failing = Seat(start_error=SeatFailure("timeout", "no answer to game_start within 60000 ms"))
-    result = play_game(setup(), engine=engine, seats={"p0": failing, "p1": Seat()})
+    failing, other = Seat(start_error=SeatFailure("timeout", "no answer to game_start within 60000 ms")), Seat()
+    result = play_game(setup(), engine=engine, seats={"p0": failing, "p1": other})
     assert (result.classification, result.winner, result.reason, result.step_count) == ("forfeit", "p1", "forfeit:timeout", 0)
     assert result.adjudication == {"kind": "forfeit", "cause": "timeout", "loser_seat": "p0",
                                    "detail": "no answer to game_start within 60000 ms"}
     assert len(peer.sent) == 1                                           # only hello: no reset was sent
-    assert [kind for kind, _ in failing.received] == ["game_start", "game_over"]
+    assert [kind for kind, _ in failing.received] == ["game_start"] and failing.closed   # timed out: closed, nothing more (R2-4)
+    assert [kind for kind, _ in other.received] == ["game_start", "game_over"]
+
+
+def test_a_seat_that_times_out_on_choose_gets_no_game_over() -> None:
+    engine, _ = scripted(FIRST)
+    slow, other = Seat(lambda d: fail(SeatFailure("timeout", "no answer to choose within 60000 ms"))), Seat()
+    result = play_game(setup(), engine=engine, seats={"p0": slow, "p1": other})
+    assert result.reason == "forfeit:timeout" and slow.closed                        # its request is still outstanding
+    assert [kind for kind, _ in slow.received] == ["game_start", "choose"]         # spec 2: never pipelined (R2-4)
+    assert other.received[-1][0] == "game_over"
+
+
+def test_both_seats_start_at_once() -> None:
+    engine, _ = scripted(FIRST, PeerTimeoutError("stop here"))
+    started = time.monotonic()
+    play_game(setup(), engine=engine, seats={"p0": Seat(start_delay_s=1.5), "p1": Seat(start_delay_s=1.5)})
+    assert time.monotonic() - started < 2.8                                         # not 3 s in series (R2-26)
+
+
+def test_a_hidden_opponent_decklist_is_sent_as_null() -> None:
+    engine, p0, p1 = real_engine(), Seat(lands), Seat()
+    try:
+        play_game(setup(rules=Rules.from_json({**RULES, "opponent_decklist": "hidden"})), engine=engine, seats={"p0": p0, "p1": p1})
+    finally:
+        engine.close()
+    for seat in (p0, p1):
+        start = seat.received[0][1]
+        assert "opponent_deck" in start and start["opponent_deck"] is None           # spec 10.2 (R1-19)
+
+
+def test_a_game_setup_never_prints_its_secret() -> None:
+    assert SECRET.game_secret(0).hex() not in repr(setup())                           # R3-28
 
 
 @pytest.mark.parametrize(
@@ -4278,6 +5209,7 @@ def test_a_seat_that_cannot_start_forfeits_before_any_reset() -> None:
     [
         (lambda d: fail(SeatFailure("agent_error", "choose was answered with an error (internal_error)")), "agent_error"),
         (lambda d: 7, "invalid_selection"),
+        (lambda d: -1, "invalid_selection"),                                        # never the last candidate (R2-16)
         (lambda d: Choice(request_id="r", candidate_id=0, echoes={"seat_step": 5}), "invalid_selection"),
         (lambda d: Choice(request_id="r", candidate_id=0, echoes={"seat_step": False}), "invalid_selection"),
         (lambda d: Choice(request_id="r", candidate_id=0, echoes={"semantic_echo": {"kind": "cast_spell"}}), "invalid_selection"),
@@ -4317,17 +5249,15 @@ class _Game:
                                   max_decisions=setup.limits.max_decisions, max_steps=setup.limits.max_steps)
         self.digest = GameDigest(self.reset.to_json())
         self.started: list[str] = []
+        self.silenced: set[str] = set()      # seats closed after a timeout or transport failure: sent nothing more (R2-4)
         self.last_seat: str | None = None
         self.diagnostics: list[str] = []
 
     def play(self) -> GameResult:
+        failures = self._start_both()        # both seats at once; the results are judged p0 first (R2-26)
         for seat in ("p0", "p1"):
-            self.started.append(seat)
-            try:
-                self.seats[seat].start(self._game_start_payload(seat),
-                                       timeout_s=self.setup.time_control.game_start_ms / 1000)
-            except SeatFailure as failure:
-                return self._forfeit(seat, failure)
+            if failures[seat] is not None:
+                return self._forfeit(seat, failures[seat])
         response = self._engine("reset", lambda: self.engine.reset(self.reset), step=False)
         while not isinstance(response, GameResult):
             if isinstance(response, Terminal):
@@ -4351,7 +5281,7 @@ class _Game:
         return response
 ```
 
-`_engine(phase, call, *, step)` sets `engine.set_timeout(engine_step_ms / 1000)`, runs the call, chains `engine.last_response` (reset) or `engine.last_request` plus `engine.last_response` (step) into the digest whether the call succeeded or failed, and maps `EngineError`, `PeerTimeoutError`, other `TransportError`, and other `ProtocolError` to `_halt("host_engine_fault:<fault>", detail)` with the deterministic details "the engine answered {phase} with error {code}", "the engine did not answer {phase} within {ms} ms", "the engine process failed at {phase}", "the engine's answer to {phase} was not a valid protocol message" (the exception text and `engine.stderr_text()` go to `diagnostics`). `_halt`, `_forfeit` and (in Task 29) `_draw` each call `digest.add_adjudication` once, send `game_over` to every started seat with an `AgentTerminal` carrying that seat's `validator.answered_by(seat)`, and build the `GameResult`. Echo comparisons use `wire.canonical_json_dumps` on both sides (so `False` never equals `0`).
+`_start_both()` runs each seat's `start(self._game_start_payload(seat), timeout_s=game_start_ms / 1000)` on its own thread, joins both by the shared deadline of `(startup_ms + game_start_ms) / 1000` seconds (a thread still running then is a `SeatFailure("timeout", ...)`), records both seats as started, silences every seat whose failure is `timeout` or `transport_error` (closing its driver), and returns `{seat: SeatFailure | None}`. `_game_start_payload(seat)` sends `opponent_deck` per the rules (R2-24). `_engine(phase, call, *, step)` sets `engine.set_timeout(engine_step_ms / 1000)`, runs the call, chains `engine.last_response` (reset) or `engine.last_request` plus `engine.last_response` (step) into the digest whether the call succeeded or failed, and maps `EngineError`, `PeerTimeoutError`, other `TransportError`, `TerminalCountError` (to `host_engine_fault:terminal_counts`, before the generic branch) and other `ProtocolError` to `_halt("host_engine_fault:<fault>", detail)` with the deterministic details "the engine answered {phase} with error {code}", "the engine did not answer {phase} within {ms} ms", "the engine process failed at {phase}", "terminal step_count X, decision_count Y; host counted A, B", "the engine's answer to {phase} was not a valid protocol message" (the exception text and `engine.stderr_text()` go to `diagnostics`). `_ask(seat, sd)` silences the seat on a `timeout` or `transport_error` failure before forfeiting it. `_halt`, `_forfeit_for` (and so `_forfeit`) and (in Task 29) `_draw` each call `digest.add_adjudication` once, send `game_over` with `timeout_s = game_start_ms / 1000` to every started seat that is not silenced, with an `AgentTerminal` carrying that seat's `validator.answered_by(seat)`, and build the `GameResult`. Echo comparisons use `wire.canonical_json_dumps` on both sides (so `False` never equals `0`).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4379,7 +5309,8 @@ git commit -m "Host: the v2 game loop with validation, canonical forwarding and 
 - Consumes: `host.seat.SeatDriver`, `SeatFailure`; `host.agent_process.AgentProcess`; `agent_messages.Choice` (Task 17); `builtins.create_builtin_bot` (Task 11); `bot.Decision`, `bot.GameStart`, `bot.GameOver` (Task 6); `arena.config.BotSpec` (Task 19); `wire`.
 - Produces (`spellbench.arena.drivers`):
   - `class BuiltinDriver(spec: BotSpec, *, factory: Callable[[], Any] | None = None)` (a fresh bot per `start`: `create_builtin_bot(spec.name, seed=spec.seed)` unless `factory` is given)
-  - `class SubprocessDriver(spec: BotSpec, *, startup_ms: int, agent_factory: Callable[[], AgentProcess] | None = None)` (a fresh process per game; `hello` within `startup_ms`; the bot must name itself `spec.name` and `spec.version`, else `SeatFailure("malformed_response", "hello named a different bot than its config entry")`)
+  - `class SubprocessDriver(spec: BotSpec, *, startup_ms: int, agent_factory: Callable[[], AgentProcess] | None = None)` (a fresh process per game, started with `bot_environment()`; `hello` within `startup_ms`; the bot must name itself `spec.name` and `spec.version`, else `SeatFailure("malformed_response", "hello named a different bot than its config entry")`)
+  - `bot_environment() -> dict[str, str]`: the host's environment without any `SPELLBENCH_*` key, so a bot never learns where the run secret lives (`SPELLBENCH_SECRETS_DIR`) or any other local value (R3-9)
   - `make_driver(spec: BotSpec, time_control: TimeControl) -> SeatDriver`
 
 Both implement `SeatDriver`. The builtin driver hands its bot the payloads round-tripped through canonical JSON (so a bot sees exactly what a subprocess bot would, and cannot mutate the host's copy), runs each call on a thread bounded by `timeout_s` (`timeout` on expiry, `agent_error` when the bot raises, `malformed_response` when `choose` returns a non-integer), and returns `Choice(request_id="builtin", candidate_id=..., echoes={})`. `game_over` never raises.
@@ -4466,6 +5397,20 @@ def test_a_subprocess_bot_must_name_its_config_entry() -> None:
     with pytest.raises(SeatFailure, match="different bot"):
         driver.start(START, timeout_s=30)
     driver.close()
+
+
+def test_a_subprocess_bot_never_sees_spellbench_settings(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SPELLBENCH_SECRETS_DIR", str(tmp_path / "secrets"))         # where a committed run keeps its secret
+    bot = tmp_path / "env_bot.py"
+    bot.write_text("import os, sys\nfrom spellbench.bot import serve\n"
+                   "name = 'leaky' if any(key.startswith('SPELLBENCH_') for key in os.environ) else 'clean'\n"
+                   "sys.exit(serve(choose=lambda d: 0, name=name, version='1'))\n", encoding="utf-8")
+    driver = SubprocessDriver(BotSpec(name="clean", version="1", type="subprocess", command=(sys.executable, str(bot))),
+                              startup_ms=30_000)
+    try:
+        driver.start(START, timeout_s=30)        # a bot that saw SPELLBENCH_* would name itself "leaky" and be refused (R3-9)
+    finally:
+        driver.close()
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -4475,7 +5420,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.arena.drivers`).
 
 - [ ] **Step 3: Implement `arena/drivers.py`**
 
-Port the thread-and-queue pattern of v1 `runner._BuiltinDriver.choose` for every builtin call, with `bot.GameStart.from_request(json.loads(canonical_json_dumps(payload)))` and the same for `bot.Decision` and `bot.GameOver`. `SubprocessDriver.start` creates the `AgentProcess` (`agent_factory()` or `AgentProcess(list(spec.command), startup_timeout_s=startup_ms / 1000)`), calls `hello()`, checks the identity, then `game_start(payload, timeout_s=timeout_s)`; `SeatFailure` propagates unchanged, and `close()` is idempotent.
+Port the thread-and-queue pattern of v1 `runner._BuiltinDriver.choose` for every builtin call, with `bot.GameStart.from_request(json.loads(canonical_json_dumps(payload)))` and the same for `bot.Decision` and `bot.GameOver`. `SubprocessDriver.start` creates the `AgentProcess` (`agent_factory()` or `AgentProcess(list(spec.command), startup_timeout_s=startup_ms / 1000, env=bot_environment())`), calls `hello()`, checks the identity, then `game_start(payload, timeout_s=timeout_s)`; `SeatFailure` propagates unchanged, and `close()` is idempotent.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4493,14 +5438,14 @@ git commit -m "Arena: builtin and subprocess seat drivers for protocol v2"
 
 ### Task 25: Schedule and preflight
 
-**Effort:** 0.5 agent-day. **Wave:** 5. **Depends on:** Tasks 17, 18, 19, 21.
+**Effort:** 0.5 agent-day. **Wave:** 5. **Depends on:** Tasks 12, 17, 18, 19, 21.
 
 **Files:**
 - Create: `python/spellbench/arena/schedule.py`
 - Create: `python/tests/test_arena_schedule_v2.py`
 
 **Interfaces:**
-- Consumes: `arena.config` (Task 19); `host.engine_process.EngineProcess` (Task 18); `host.agent_process.AgentProcess`, `agent_messages.OwnDeck`, `host.setup.GameSetup` (Task 17; not `host.game`, which Task 23 writes in this wave); `run_secret.RunSecret`, `digests` (Task 2); `messages` (Task 9).
+- Consumes: `arena.config` (Task 19); `host.engine_process.EngineProcess` (Task 18); `host.agent_process.AgentProcess`, `agent_messages.OwnDeck`, `host.setup.GameSetup` (Task 17; not `host.game`, which Task 23 writes in this wave); `run_secret.RunSecret`, `digests` (Task 2); `messages` (Task 9); `arena.ledger.LedgerDeck` (Task 12, for `ResolvedDeck.ledger()`; R2-14).
 - Produces (`spellbench.arena.schedule`):
   - `@dataclass(frozen=True) class ResolvedDeck: deck_id: str; name: str; catalog_id: str | None; decklist: tuple[DeckRow, ...]` with `wire() -> WireDeck`, `own() -> OwnDeck`, `ledger() -> LedgerDeck`
   - `@dataclass(frozen=True) class RunSetup: hello: EnvHelloOk; decks: dict[DeckSpec, ResolvedDeck]; rules: Rules; native_id_extensions: tuple[dict, ...]` with properties `engine -> EngineIdentity`, `profile -> EngineProfile`
@@ -4624,6 +5569,17 @@ def test_a_bot_whose_requirements_are_unmet_is_refused(tmp_path: Path) -> None:
             {"name": "needy", "version": "1", "type": "subprocess", "command": [sys.executable, str(bot)]}]
     with pytest.raises(TournamentError, match="needy.*poison"):
         preflight(config(bots=bots), SECRET)
+
+
+def test_a_bot_needing_an_extension_the_run_does_not_enable_is_refused(tmp_path: Path) -> None:
+    bot = tmp_path / "needs_kernel.py"
+    bot.write_text("import sys\nfrom spellbench.bot import serve\n"
+                   "sys.exit(serve(choose=lambda d: 0, name='needy', version='1', requires_extensions=('x_kernel_v5',)))\n",
+                   encoding="utf-8")
+    bots = [{"name": "uniform", "version": "2.0.0", "type": "builtin"},
+            {"name": "needy", "version": "1", "type": "subprocess", "command": [sys.executable, str(bot)]}]
+    with pytest.raises(TournamentError, match="needy.*x_kernel_v5"):                # requires.extensions (R2-25)
+        preflight(config(bots=bots), SECRET)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -4633,7 +5589,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.arena.schedule`).
 
 - [ ] **Step 3: Implement `arena/schedule.py`**
 
-Port `_EnginePin`, `_preflight_engine`, `_preflight` and `_schedule` from v1 `runner.py` into the public names above with the v2 steps. Wrap every engine or bot failure as `TournamentError(f"preflight: ...: {exc}")` so the underlying message (which names the card, deck, code or requirement) is kept. `game_setup` sets `opponent_deck` visibility through the rules; `own_decks[i]` is the resolved deck of seat `i`.
+Port `_EnginePin`, `_preflight_engine`, `_preflight` and `_schedule` from v1 `runner.py` into the public names above with the v2 steps. Wrap every engine or bot failure as `TournamentError(f"preflight: ...: {exc}")` so the underlying message (which names the card, deck, code or requirement) is kept; a `SeatFailure` is wrapped by its cause and detail only, `f"preflight: bot {name}: {exc.cause}: {exc.detail}"`, never its `diagnostic`, which holds the bot's stderr (R3-32). `own_decks[i]` is the resolved deck of seat `i` (the game loop decides what `opponent_deck` shows, Task 23).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4651,7 +5607,7 @@ git commit -m "Arena: v2 preflight, the opaque-id schedule and per-game setup"
 
 ### Task 26: Engine tours: every kind, group shape and board field
 
-**Effort:** 0.75 agent-day. **Wave:** 5. **Depends on:** Tasks 13, 21, 22.
+**Effort:** 1.0 agent-day. **Wave:** 5. **Depends on:** Tasks 13, 21, 22.
 
 **Files:**
 - Create: `python/tests/fake_v2_scenario_kinds.py`, `python/tests/fake_v2_scenario_board.py`
@@ -4659,9 +5615,11 @@ git commit -m "Arena: v2 preflight, the opaque-id schedule and per-game setup"
 
 **Interfaces:**
 - Consumes: `fake_v2_world.World`, `Posed`, `Scenario` (Task 13); the fake engine's scenario discovery (Task 21); `tour_helpers.play_tour` (Task 22).
-- Produces: `SCENARIO` in each module (catalog ids `Scenario:kinds`, `Scenario:board`), used by the goldens (Task 34) and the conformance tests (Task 32).
+- Produces: `SCENARIO` in each module (catalog ids `Scenario:kinds`, `Scenario:board`), used by the goldens (Task 34) and the conformance tests (Task 32); `fake_v2_scenario_kinds.pick(sd: dict) -> int`, the tour's scripted answers (R2-2), which Task 34 uses for the `game_kinds_tour` golden too.
 
-`Scenario:kinds` (engine args `--london`, `--toss`, `--rewind`; rules `mulligan: london`, `starting_player: toss_winner_chooses`) scripts a game that poses, in order: `choose_starting_player`; `mulligan` twice (keep false, then keep true with `mulligans_taken: 1`) and the `mulligan_bottom` pick; priority with `play_land` (face 0, and face 1 of the modal double-faced land), `cast_spell` with `method: null` then `choose_cast_method`, `special_action`, `activate_mana_ability`, `activate_ability`; a fixed two-target spell (one group of two `choose_target`); a variable-target spell (`choose_target` then `finish_target_selection`, one group each); `choose_cost_target`; "choose two" modes (a group of two `choose_spell_mode`) and "one or more" ended by `finish_selection` with `purpose: "modes"`; `choose_option`, `choose_color`, `choose_number` (`x_value`), `choose_boolean`, `choose_name` (a name from the domain); a fixed discard (`select_object` group of two); a library search (`select_object` with `purpose: "search"`, `minimum: 0`, candidates in `(card_name, object_id)` order, the cards in `known` with `how: "searching"` and fresh ids) ended by `finish_selection`; `optional_cost` (kicker), `choose_cost_option`, `optional_cast` (madness); a resolution-time payment (`context.purpose: "mana_payment"`: `optional_cost` `unless_payment` with `pay: true` and `pay: false`, plus `activate_mana_ability`, re-posed after the activation); two triggers ordered by one `order_pick` (`purpose: "triggers"`, the last position implied); scry 2 (one group of three: two `arrange_card`, one `order_pick` `arrangement`); `choose_replacement`; attacks (a group of two `declare_attack`, one with `defender: null`), blocks (a group of `declare_block`, one blocker with an additional block); combat damage `distribute` (a group of two); a pile split (arrangement with `pile_0` and `pile_1`) and `choose_pile`; and a rewind (a `cast_spell`, a `choose_target`, then the priority decision re-posed with `context.rewind: true`). `Scenario:board` (no engine args; the World's flags follow the engine's) places at least one of everything spec 6 shows: poison, energy counters, the monarch, dungeon progress, day, passed seats, a pending trigger (and a hidden-source trigger that is omitted), keywords, a modal double-faced card's `full_name`, an `exiled_by` link, stack text, `goaded`, a Class at level 2, a chosen card name, an Aura (`attached_to`), a creature attacking a planeswalker, a blocker with `blocked_attackers`, a face-down creature of each seat, a token copy, a stack spell whose target left (a `null` target), divided damage, modes and X.
+`Scenario:kinds` (engine args `--london`, `--toss`, `--rewind`; rules `mulligan: london`, `starting_player: toss_winner_chooses`) scripts a game that poses, in order: `choose_starting_player`; `mulligan` twice (keep false, then keep true with `mulligans_taken: 1`) and the `mulligan_bottom` pick; priority with `play_land` (face 0, and face 1 of the modal double-faced land), `cast_spell` with `method: null` then `choose_cast_method`, `special_action`, `activate_mana_ability`, `activate_ability`; a fixed two-target spell (one group of two `choose_target`); a variable-target spell (`choose_target` then `finish_target_selection`, one group each); `choose_cost_target`; "choose two" modes (a group of two `choose_spell_mode`) and "one or more" ended by `finish_selection` with `purpose: "modes"`; `choose_option`, `choose_color`, `choose_number` (`x_value`), `choose_boolean`, `choose_name` (a name from the domain); a fixed discard (`select_object` group of two); a library search (`select_object` with `purpose: "search"`, `minimum: 0`, candidates in `(card_name, object_id)` order, the cards in `known` with `how: "searching"` and fresh ids) ended by `finish_selection`; `optional_cost` (kicker), `choose_cost_option`, `optional_cast` (madness); a resolution-time payment (`context.purpose: "mana_payment"`), first posed with an empty mana pool as `[activate_mana_ability, optional_cost unless_payment pay: false]`, then, after the activation, re-posed with the mana visible in `mana_pool` and `optional_cost` `pay: true` added (spec 7.1: `pay: true` only once the pool covers the cost; R2-22); three triggers ordered by two `order_pick` decisions (one group of two, `purpose: "triggers"`, the last position implied; a multi-substep order block, R2-9); scry 2 (one group of three: two `arrange_card`, one `order_pick` `arrangement`); `choose_replacement`; attacks (a group of two `declare_attack`, one with `defender: null`), blocks (a group of `declare_block`, one blocker with an additional block); combat damage `distribute` (a group of two); a pile split (arrangement with `pile_0` and `pile_1`) and `choose_pile`; and a rewind: a priority decision offering `[pass, ..., cast_spell]` whose `cast_spell` the module's `pick` selects (candidate 0 is always `pass`, so without a picker no tour could act, R2-2), a `choose_target`, then the priority decision re-posed with `context.rewind: true`. `pick(sd)` answers, for each `seat_step` the script lists, the first candidate of the kind the script names for it, and candidate 0 otherwise.
+
+`Scenario:board` (engine args `--london`; the World's flags follow the engine's) opens with a pregame `mulligan` decision (turn 0, `phase_step` `pregame`, `active_seat` and `priority_seat` null, a seven-card hand; p0 keeps) and then places at least one of every feature `_board_features` names below, the fields of spec 6.2 to 6.6 and every flag of 6.9 (R2-10): passed seats, day and later night, a pending trigger (and a trigger from a card in p1's hand, which p0's list omits), a `known` entry, poison, energy counters, a non-empty mana pool, a land played this turn, one mulligan taken by p1, the monarch, dungeon progress with a room, the Ring's temptation, a speed, a graveyard card, a command-zone emblem, a modal double-faced card's `full_name`, keywords, an `exiled_by` link (Journey to Nowhere), a token copy, a face-down creature of each seat (p0 sees its own name, p1's shows `card_name: null`), a face-down exiled card with null `characteristics`, a tapped permanent, a summoning-sick creature, marked damage, permanent counters, an Aura (Rancor, `attached_to`), a creature attacking a planeswalker, a blocker with `blocked_attackers`, a phased-out permanent, `goaded`, a Class at level 2, a chosen card name (Pithing Needle), a spell, an activated ability and a triggered ability on the stack (one whose source has left: `source` null), a face-down stack spell, a copied spell, a stack spell whose target left (a `null` target), divided damage, modes, X, and stack text.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4680,40 +5638,115 @@ from tour_helpers import play_tour
 
 
 def test_the_kinds_tour_covers_every_kind_and_group_shape() -> None:
-    decisions = play_tour(fake_v2_scenario_kinds)
+    decisions = play_tour(fake_v2_scenario_kinds)                          # answered by fake_v2_scenario_kinds.pick
     kinds = {c["semantic"]["kind"] for sd in decisions for c in sd["candidates"]}
     assert kinds == V2_KINDS
     multi = {(sd["candidates"][0]["semantic"]["kind"], sd["group"]["substep_count"]) for sd in decisions if sd["group"]["substep_count"] > 1}
     assert {"declare_attack", "declare_block", "choose_target", "select_object", "choose_spell_mode", "distribute", "arrange_card"} <= {kind for kind, _ in multi}
     assert ("arrange_card", 3) in multi                                  # scry 2: 2n - 1 decisions
+    assert any(sd["group"]["substep_index"] == 0 and sd["group"]["substep_count"] > 1
+               and sd["candidates"][0]["semantic"]["kind"] == "order_pick" for sd in decisions)      # an order block (R2-9)
+    finishes = [sd for sd in decisions if any(c["semantic"]["kind"].startswith("finish_") for c in sd["candidates"])]
+    assert finishes and all(sd["group"]["substep_count"] == 1 for sd in finishes)
     assert any(sd["context"]["rewind"] for sd in decisions)
-    assert any(sd["context"]["purpose"] == "mana_payment" for sd in decisions)
+    payments = [sd for sd in decisions if sd["context"]["purpose"] == "mana_payment"]
+    first_pays = {c["semantic"].get("pay") for c in payments[0]["candidates"]}
+    assert first_pays == {None, False} and any(c["semantic"].get("pay") is True for c in payments[-1]["candidates"])  # R2-22
 
 
-def _optional_values(sd: dict) -> dict[str, list]:
-    observation = sd["observation"]
-    records = [r for player in observation["players"] for zone in ("hand", "battlefield", "graveyard", "exile", "command")
-               for r in (player[zone] or [])]
-    return {
-        "poison": [p["poison"] for p in observation["players"]], "player_counters": [p["counters"] for p in observation["players"]],
-        "designations": [p["designations"] for p in observation["players"]], "player_progress": [p["progress"] for p in observation["players"]],
-        "day_night": [observation["day_night"]], "passed_seats": [observation["passed_seats"]], "pending_triggers": [observation["pending_triggers"]],
-        "keywords": [r["characteristics"]["keywords"] for r in records if r["characteristics"]],
-        "full_name": [r["full_name"] for r in records], "exiled_by": [r["exiled_by"] for r in records],
-        "stack_text": [entry["text"] for entry in observation["stack"]],
-        "permanent_details": [r["permanent"]["statuses"] for r in records if r["permanent"]],
-    }
+def _board_features(sd: dict) -> set[str]:
+    """Name each board feature a decision shows; 0, {}, "none" and empty lists count as absent (R2-10)."""
+    o = sd["observation"]
+    found: set[str] = set()
+
+    def add(name: str, present) -> None:
+        if present:
+            found.add(name)
+
+    add("pregame", o["phase_step"] == "pregame" and o["active_seat"] is None and o["priority_seat"] is None)
+    add("passed_seats", o["passed_seats"])
+    add("day", o["day_night"] == "day")
+    add("night", o["day_night"] == "night")
+    add("pending_triggers", o["pending_triggers"])
+    add("known", o["known"])
+    for p in o["players"]:
+        progress = p["progress"] or {}
+        add("poison", p["poison"])
+        add("player_counters", p["counters"])
+        add("mana_pool", any(p["mana_pool"].values()))
+        add("lands_played", p["lands_played_this_turn"])
+        add("mulligans_taken", p["mulligans_taken"])
+        add("designations", p["designations"])
+        add("dungeon_room", progress.get("dungeon_room") is not None)
+        add("ring_tempted", progress.get("ring_tempted"))
+        add("speed", progress.get("speed") is not None)
+        add("graveyard", p["graveyard"])
+        add("command", p["command"])
+    records = [r for p in o["players"] for zone in ("hand", "battlefield", "graveyard", "exile", "command") for r in (p[zone] or [])]
+    for r in records:
+        add("full_name", r["full_name"] is not None)
+        add("keywords", (r["characteristics"] or {}).get("keywords"))
+        add("exiled_by", r["exiled_by"] is not None)
+        add("token_copy", r["token"] and r["copy"])
+        add("face_down_own", r["face_down"] and r["zone"] == "battlefield" and r["card_name"] is not None)
+        add("face_down_other", r["face_down"] and r["zone"] == "battlefield" and r["card_name"] is None)
+        add("face_down_exile_hidden", r["face_down"] and r["zone"] == "exile" and r["characteristics"] is None)
+        permanent = r["permanent"]
+        if permanent:
+            add("tapped", permanent["tapped"])
+            add("summoning_sick", permanent["summoning_sick"])
+            add("damage", permanent["damage"])
+            add("permanent_counters", permanent["counters"])
+            add("attached_to", permanent["attached_to"] is not None)
+            add("attack_planeswalker", permanent["attack_target"] is not None and "object" in permanent["attack_target"])
+            add("blocked_attackers", permanent["blocked_attackers"])
+            add("phased_out", permanent["phased_out"])
+            add("statuses", permanent["statuses"])
+            add("class_level", permanent["class_level"] is not None)
+            add("chosen", permanent["chosen"])
+    for entry in o["stack"]:
+        add(entry["stack_kind"], True)
+        add("departed_source", entry["stack_kind"] != "spell" and entry["source"] is None)
+        add("face_down_spell", entry["face_down"])
+        add("copied_spell", entry["stack_kind"] == "spell" and entry["copy"])
+        add("null_target", None in entry["targets"])
+        add("divided", entry["divided"] is not None)
+        add("modes", entry["modes"] is not None)
+        add("x_value", entry["x_value"] is not None)
+        add("stack_text", entry["text"] is not None)
+    return found
 
 
-def test_the_board_tour_shows_every_optional_field_or_none() -> None:
+BOARD_FEATURES = {
+    "pregame", "passed_seats", "day", "night", "pending_triggers", "known",
+    "poison", "player_counters", "mana_pool", "lands_played", "mulligans_taken", "designations", "dungeon_room",
+    "ring_tempted", "speed", "graveyard", "command",
+    "full_name", "keywords", "exiled_by", "token_copy", "face_down_own", "face_down_other", "face_down_exile_hidden",
+    "tapped", "summoning_sick", "damage", "permanent_counters", "attached_to", "attack_planeswalker", "blocked_attackers",
+    "phased_out", "statuses", "class_level", "chosen",
+    "spell", "activated_ability", "triggered_ability", "departed_source", "face_down_spell", "copied_spell", "null_target",
+    "divided", "modes", "x_value", "stack_text",
+}
+
+
+def _flagged_values(sd: dict) -> list:
+    """Every optional field of spec 6.9, each null when its flag is off."""
+    o = sd["observation"]
+    records = [r for p in o["players"] for zone in ("hand", "battlefield", "graveyard", "exile", "command") for r in (p[zone] or [])]
+    permanents = [r["permanent"] for r in records if r["permanent"]]
+    characteristics = [r["characteristics"] for r in records + o["stack"] if r["characteristics"]]
+    return ([o["passed_seats"], o["day_night"], o["pending_triggers"]]
+            + [p[field] for p in o["players"] for field in ("poison", "counters", "designations", "progress")]
+            + [r["full_name"] for r in records] + [r["exiled_by"] for r in records]
+            + [c["keywords"] for c in characteristics] + [entry["text"] for entry in o["stack"]]
+            + [permanent[field] for permanent in permanents for field in ("statuses", "class_level", "chosen")])
+
+
+def test_the_board_tour_shows_every_board_field_and_nothing_flagged_off() -> None:
     on = play_tour(fake_v2_scenario_board, "--all-flags")
-    for flag in _optional_values(on[0]):
-        assert any(value is not None and value != [] for sd in on for value in _optional_values(sd)[flag]), flag
+    assert set().union(*(_board_features(sd) for sd in on)) == BOARD_FEATURES     # spec 6.2 to 6.6, every 6.9 flag
     off = play_tour(fake_v2_scenario_board)
-    for flag, values in _optional_values(off[-1]).items():
-        assert all(value is None for value in values), flag
-    assert any(r["face_down"] and r["card_name"] is None for sd in on for r in sd["observation"]["players"][1]["battlefield"])
-    assert any(None in entry["targets"] for sd in on for entry in sd["observation"]["stack"])
+    assert all(value is None for sd in off for value in _flagged_values(sd))
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -4723,7 +5756,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: fake_v2_scenario_board`).
 
 - [ ] **Step 3: Write the two scenario modules**
 
-Each module builds a `Scenario` whose `script(world)` is a generator: it sets up objects with `world.add`, yields `Posed` decisions, and moves objects between yields so each observation matches what the next decision references (the engine resolves references per viewer; a scenario never writes an object id by hand). Keep every posed decision valid on its own: `pass` first whenever it is offered, distinct semantics, hidden-zone candidates sorted, the arrangement fixed at 2n - 1, a partial group never interleaved with the other seat. When the validator rejects a decision, fix the script, not the validator.
+Each module builds a `Scenario` whose `script(world)` is a generator: it sets up objects with `world.add`, yields `Posed` decisions whose object references are `{"$obj": internal}` (Task 13), and moves objects between yields so each observation matches what the next decision references (the engine resolves references per viewer; a scenario never writes an object id by hand, and a `known` entry it adds for a looked-at card carries `"internal"`). The generator receives each chosen `candidate_id`, so the kinds script follows the answers its `pick` gives. Keep every posed decision valid on its own: `pass` first whenever it is offered, distinct semantics, hidden-zone candidates sorted, the arrangement fixed at 2n - 1, finish candidates and priority decisions in one-decision groups, a search with `minimum` 0, a partial group never interleaved with the other seat. When the validator rejects a decision, fix the script, not the validator.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4741,7 +5774,7 @@ git commit -m "Tests: fake engine tours of every v2.0 kind, group shape and boar
 
 ### Task 27: Knowledge tour: every update-table row
 
-**Effort:** 0.5 agent-day. **Wave:** 5. **Depends on:** Tasks 13, 15, 21, 22.
+**Effort:** 0.75 agent-day. **Wave:** 5. **Depends on:** Tasks 13, 15, 21, 22.
 
 **Files:**
 - Create: `python/tests/fake_v2_knowledge.py`
@@ -4752,8 +5785,8 @@ git commit -m "Tests: fake engine tours of every v2.0 kind, group shape and boar
 - Consumes: `fake_v2_world.World`, `Posed`, `Scenario` (Task 13); the engine's scenario discovery (Task 21); `host.hidden.known_sort_key` (Task 15); `tour_helpers.play_tour` (Task 22).
 - Produces:
   - `fake_v2_knowledge.Knowledge(world: World, viewer: str)`: a reference implementation of the spec 6.7 update table, one method per row: `public_to_other_hand(name)`, `known_library_card_drawn(owner, end)`, `other_hand_revealed(names)`, `other_hand_to_public(name)`, `other_hand_to_hidden(count)`, `other_hand_randomized()`, `library_shuffled(owner)`, `looked_at(owner, cards: list[tuple[str, str, int]], how)` (`(name, end, position)`), `left_library_end(owner, end)`, `put_on_library_end(owner, end, name: str | None)`, `hidden_rearrangement(owner, end, depth)`, `ambiguous_insertion(owner, end, depth)`, `left_unknown_position(owner)`; `entries() -> list[dict]` (sorted by `known_sort_key`; it writes `world.known[viewer]`)
-  - `SCENARIO` (`Scenario:knowledge`, engine args `--flags known_cards`): the rows fired in order 1 to 13, each followed by one decision whose `context.text` is `"row <n>"`
-  - `EXPECTED: dict[int, list[dict]]`: viewer p0's `known` entries (without `object_id`) after each row
+  - `SCENARIO` (`Scenario:knowledge`, engine args `--flags known_cards`): the rows fired in order 1 to 13, each followed by one decision posed to p0 whose `context.text` is `"row <n>"`
+  - `EXPECTED: dict[int, list[dict]]`: viewer p0's `known` entries (without `object_id`) after each of the 13 rows, written by hand as literals, never computed with `Knowledge` (a comment says so), so the tour checks the model rather than its forwarding (R2-11)
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4764,6 +5797,7 @@ Create `python/tests/test_fake_v2_knowledge.py`:
 
 from __future__ import annotations
 
+from spellbench.observation import OBSERVATION_FLAGS
 from spellbench.run_secret import RunSecret
 
 import fake_v2_scenario_knowledge
@@ -4771,7 +5805,7 @@ from fake_v2_knowledge import Knowledge
 from fake_v2_world import World
 from tour_helpers import play_tour
 
-FLAGS = {"known_cards": True}
+FLAGS = {**dict.fromkeys(OBSERVATION_FLAGS, False), "known_cards": True}      # the World reads all 13 flags (R2-21)
 
 
 def _entry(owner, zone, name, top=None, bottom=None, how="revealed") -> dict:
@@ -4779,8 +5813,81 @@ def _entry(owner, zone, name, top=None, bottom=None, how="revealed") -> dict:
             "position_from_top": top, "position_from_bottom": bottom, "how": how}
 
 
-def fresh() -> Knowledge:
-    return Knowledge(World(RunSecret(bytes(range(32))).game_secret(0), flags=FLAGS), "p0")
+def fresh(library: int = 10) -> Knowledge:
+    """Viewer p0's knowledge, each library holding ``library`` cards (library_count is public)."""
+    world = World(RunSecret(bytes(range(32))).game_secret(0), flags=FLAGS)
+    for seat in ("p0", "p1"):
+        for _ in range(library):
+            world.add("Mountain", owner=seat, zone="library")
+    return Knowledge(world, "p0")
+
+
+def test_row_1_a_public_card_to_the_other_hand() -> None:
+    knowledge = fresh()
+    knowledge.public_to_other_hand("Lightning Bolt")
+    assert knowledge.entries() == [_entry("p1", "hand", "Lightning Bolt", how="from_public_zone")]
+
+
+def test_row_2_a_known_library_card_drawn_in_both_directions() -> None:
+    knowledge = fresh()
+    knowledge.looked_at("p1", [("Island", "top", 0)], "revealed")
+    knowledge.known_library_card_drawn("p1", "top")                          # the other seat draws it: tracked
+    assert knowledge.entries() == [_entry("p1", "hand", "Island", how="tracked")]
+    own = fresh()
+    own.looked_at("p0", [("Mountain", "top", 0)], "looked_at")
+    own.known_library_card_drawn("p0", "top")                                # the viewer draws it: its own hand is never listed
+    assert own.entries() == []
+
+
+def test_row_3_a_revealed_hand_replaces_its_entries() -> None:
+    knowledge = fresh()
+    knowledge.public_to_other_hand("Lightning Bolt")
+    knowledge.other_hand_revealed(["Counterspell", "Island"])
+    assert knowledge.entries() == [_entry("p1", "hand", "Counterspell"), _entry("p1", "hand", "Island")]
+
+
+def test_row_4_a_card_leaving_to_a_public_zone_removes_one_entry() -> None:
+    knowledge = fresh()
+    knowledge.other_hand_revealed(["Counterspell", "Counterspell"])
+    knowledge.other_hand_to_public("Counterspell")
+    assert knowledge.entries() == [_entry("p1", "hand", "Counterspell")]
+    knowledge.other_hand_to_public("Island")                                 # no entry with that name: nothing changes
+    assert knowledge.entries() == [_entry("p1", "hand", "Counterspell")]
+
+
+def test_row_6_a_randomized_hand_is_forgotten() -> None:
+    knowledge = fresh()
+    knowledge.other_hand_revealed(["Counterspell"])
+    knowledge.looked_at("p1", [("Island", "top", 0)], "revealed")
+    knowledge.other_hand_randomized()
+    assert knowledge.entries() == [_entry("p1", "library", "Island", top=0)]
+
+
+def test_row_7_a_shuffle_forgets_that_library_only() -> None:
+    knowledge = fresh()
+    knowledge.looked_at("p0", [("Mountain", "top", 0)], "looked_at")
+    knowledge.looked_at("p1", [("Island", "bottom", 0)], "revealed")
+    knowledge.library_shuffled("p0")
+    assert knowledge.entries() == [_entry("p1", "library", "Island", bottom=0)]
+
+
+def test_row_12_an_insertion_at_an_unknown_depth_forgets_what_could_shift() -> None:
+    knowledge = fresh()                                                      # 10 cards in p0's library before the insertion
+    knowledge.looked_at("p0", [("Island", "top", 0), ("Forest", "top", 3)], "looked_at")
+    knowledge.looked_at("p0", [("Swamp", "bottom", 0), ("Plains", "bottom", 8)], "looked_at")
+    knowledge.ambiguous_insertion("p0", "top", 2)                            # somewhere at or below the second card from the top
+    # Island (top 0) cannot move; Forest (top 3) and Swamp (9 from the top) might; Plains (1 from the top) moves
+    # exactly one further from the bottom.
+    assert knowledge.entries() == [_entry("p0", "library", "Island", top=0, how="looked_at"),
+                                   _entry("p0", "library", "Plains", bottom=9, how="looked_at")]
+
+
+def test_row_13_a_card_leaving_from_an_unknown_position_forgets_that_library() -> None:
+    knowledge = fresh()
+    knowledge.looked_at("p0", [("Island", "top", 0)], "looked_at")
+    knowledge.looked_at("p1", [("Swamp", "bottom", 0)], "revealed")
+    knowledge.left_unknown_position("p0")
+    assert knowledge.entries() == [_entry("p1", "library", "Swamp", bottom=0)]
 
 
 def test_hidden_departures_reduce_every_name() -> None:
@@ -4804,11 +5911,11 @@ def test_library_ends_renumber() -> None:
 def test_the_knowledge_tour_fires_every_row_and_passes_the_validator() -> None:
     decisions = play_tour(fake_v2_scenario_knowledge)
     marked = {int(sd["context"]["text"].split()[1]): sd for sd in decisions if (sd["context"]["text"] or "").startswith("row ")}
-    assert sorted(marked) == list(range(1, 14))
+    assert sorted(marked) == sorted(fake_v2_scenario_knowledge.EXPECTED) == list(range(1, 14))
+    assert {sd["acting_seat"] for sd in marked.values()} == {"p0"}          # every row is read from p0's view (R2-11)
     for row, expected in fake_v2_scenario_knowledge.EXPECTED.items():
-        if marked[row]["acting_seat"] == "p0":
-            seen = [{k: v for k, v in entry.items() if k != "object_id"} for entry in marked[row]["observation"]["known"]]
-            assert seen == [{k: v for k, v in entry.items() if k != "object_id"} for entry in expected], row
+        seen = [{k: v for k, v in entry.items() if k != "object_id"} for entry in marked[row]["observation"]["known"]]
+        assert seen == [{k: v for k, v in entry.items() if k != "object_id"} for entry in expected], row
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -4818,7 +5925,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: fake_v2_knowledge`).
 
 - [ ] **Step 3: Implement**
 
-`Knowledge` keeps entries as dicts and applies each row literally as spec 6.7 states it (the "remove every entry the insertion or removal makes ambiguous" rows remove all entries at or beyond the affected depth from that end, and every entry counted from the other end when the library size is unknown to the viewer). Keep one decision per row, posed to p0 wherever the row concerns p0's view, so `EXPECTED` pins what p0 sees; the scenario's decisions otherwise follow the Task 26 rules.
+`Knowledge` keeps entries as dicts and applies each row literally as spec 6.7 states it, reading library sizes from the World (`library_count` is public, so a position counted from one end always converts to the other: from-top index `library_count - 1 - position_from_bottom`). The two "ambiguous" rows remove every entry of that library whose position could have shifted (R2-21): row 12, `ambiguous_insertion(owner, end, depth)` (a card goes in somewhere at or beyond `depth` cards from `end`, `library_count` counted before it), removes the entries whose card lies at or beyond `depth` from `end`, whichever end they count from, and renumbers by one the entries counted from the other end whose card lies above `depth`; row 13, `left_unknown_position(owner)`, removes every entry of that library, since any of them may have shifted or been the card that left. Keep one decision per row, every one posed to p0, so `EXPECTED` pins what p0 sees; the scenario's decisions otherwise follow the Task 26 rules.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4836,7 +5943,7 @@ git commit -m "Tests: a reference knowledge model and a tour of every update-tab
 
 ### Task 28: Hostile engine and hostile bots
 
-**Effort:** 0.5 agent-day. **Wave:** 5. **Depends on:** Tasks 17, 18, 21, 22.
+**Effort:** 0.75 agent-day. **Wave:** 5. **Depends on:** Tasks 17, 18, 21, 22.
 
 **Files:**
 - Create: `python/tests/hostile_v2_engine.py`
@@ -4848,10 +5955,11 @@ git commit -m "Tests: a reference knowledge model and a tour of every update-tab
 - Produces:
   - `python hostile_v2_engine.py MODE [fake engine args...]`: the scoring game with one fault injected at the second decision (step 1) or its terminal; `hostile_v2_engine.MODES: dict[str, str]` mapping each mode to the expected outcome, a rule (`"V1"` to `"V10"`) or a fault (`"malformed"`, `"error"`, `"timeout"`, `"transport"`, `"terminal_counts"`)
   - `python bot_v2_hostile.py MODE`: a bot that misbehaves in one way and is otherwise the minimal bot (as `hostile` 1.0.0); `bot_v2_hostile.MODES: dict[str, str]` mapping each mode to the `AgentProcess` outcome (a `SeatFailure` cause, or `"ok"`)
+  - Both modules keep `MODES` (and the mutation or answer tables) at module level and every behavior under `if __name__ == "__main__":`, so a test can import them for `MODES` without the module reading `sys.argv` or serving stdin (R2-20).
 
-Engine modes (all at step 1 unless noted): `unknown-kind`, `reserved-kind`, `duplicate-semantics`, `pass-not-first`, `nfd-name` (V1); `viewer-mismatch` (V2); `seat-step-gap`, `group-skip` (V3); `stale-reference`, `absent-reference`, `duplicate-id` (V4); `opponent-hand`, `hand-count`, `library-record`, `known-unsorted` (V5, the last with `--flags known_cards`); `face-down-name` (V6); `id-two-zones` (V7, at step 2: p0's played Mountain keeps its hand id); `undeclared-kind` (V8, with `--kinds pass,play_land,cast_spell,declare_attack,declare_block` and a `choose_boolean` candidate), `flag-off-value`, `undeclared-extension` (V8); `family-mismatch` (V9); `provenance-drift` (V10); `garbage-json`, `wrong-request-id`, `deep-json` (an extension nested 70 levels) (malformed); `error-on-step` (error); `hang-on-step` (timeout; sleeps 60 s); `crash-on-step` (transport; exits 5); `bad-terminal-counts` (terminal_counts; `decision_count` plus 1).
+Engine modes (all at step 1 unless noted): `unknown-kind`, `reserved-kind`, `duplicate-semantics`, `pass-not-first`, `nfd-name`, `search-minimum` (a `select_object` with purpose `search` and `minimum` 1, R2-7) (V1); `viewer-mismatch` (V2); `seat-step-gap`, `group-skip`, `arrangement-size` (two `arrange_card` candidates for the acting seat's hand Mountain with `card_count` 2, posed as a group of 2 rather than 3, R2-7) (V3); `stale-reference`, `absent-reference`, `duplicate-id` (V4); `opponent-hand`, `hand-count`, `library-record`, `known-unsorted` (V5, the last with `--flags known_cards`); `face-down-name` (V6); `id-two-zones` (V7, at step 2: p0's played Mountain keeps its hand id); `undeclared-kind` (V8, with `--kinds pass,play_land,cast_spell,declare_attack,declare_block` and a `choose_boolean` candidate), `flag-off-value`, `undeclared-extension` (V8); `family-mismatch` (V9); `provenance-drift` (V10); `garbage-json`, `wrong-request-id`, `deep-json` (an extension nested 70 levels) (malformed); `error-on-step` (error); `hang-on-step` (timeout; sleeps 60 s); `crash-on-step` (transport; exits 5); `bad-terminal-counts` (terminal_counts; `decision_count` plus 1); `bad-terminal-steps` (terminal_counts; `step_count` plus 1, which the engine client raises as `TerminalCountError`, R2-3).
 
-Bot modes: `garbage`, `nested` (5000 levels), `deep65`, `flood` (16 MiB line), `bigint` (5000-digit id), `string-id`, `float-id`, `surrogate-error`, `stdout-noise` (prints `Loading model weights...` before `hello_ok`), `badname` (a lone surrogate in the name) are `malformed_response`; `error-response`, `decision-pending` are `agent_error`; `crash` is `transport_error`; `hang`, `slow-hello`, `slow-game-start` are `timeout`; `wrong-echo-step`, `wrong-echo-semantic`, `out-of-range`, `extra-fields`, `crlf`, `crash-on-game-over`, `requires-poison`, `wrong-name` (answers `hello` as `impostor`) are `ok` at this layer (the game loop, the drivers or preflight judge them). `crash` writes `Traceback ... pid=<its pid>` to stderr before exiting, so reruns prove no peer text reaches the ledger.
+Bot modes, each breaking one request (R3-32: `choose` unless named, so a run's preflight accepts the bot and the game forfeits it): `garbage`, `nested` (5000 levels), `deep65`, `flood` (16 MiB line), `bigint` (5000-digit id), `string-id`, `float-id`, `surrogate-error` are `malformed_response` at `choose`; `stdout-noise` (prints `Loading model weights...` before `hello_ok`) and `badname` (a lone surrogate in the name) are `malformed_response` at `hello`; `error-response`, `decision-pending` are `agent_error` at `choose`; `crash` is `transport_error` at `choose`; `hang` is `timeout` at `choose`, `slow-hello` at `hello`, `slow-game-start` at `game_start`, and `deaf` answers `hello` and `game_start`, then never reads stdin again (`timeout` at `choose`; with a `choose` over 64 KiB it is the host's write that must time out, R2-5); `wrong-echo-step`, `wrong-echo-semantic`, `out-of-range` (at `choose`), `extra-fields`, `crlf` (every answer), `crash-on-game-over` (at `game_over`), `requires-poison`, `wrong-name` (answers `hello` as `impostor`) (at `hello`) are `ok` at this layer (the game loop, the drivers or preflight judge them). `crash` writes `Traceback ... pid=<its pid>` to stderr before exiting, so reruns prove no peer text reaches the ledger.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -4864,13 +5972,14 @@ from __future__ import annotations
 
 import copy
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
 from spellbench.errors import EngineError, PeerTimeoutError, ProtocolError, TransportError
 from spellbench.host.agent_process import AgentProcess
-from spellbench.host.engine_process import EngineProcess
+from spellbench.host.engine_process import EngineProcess, TerminalCountError
 from spellbench.host.seat import SeatFailure
 from spellbench.host.validator import LiveValidator
 from spellbench.host.violation import ValidatorViolation
@@ -4881,7 +5990,8 @@ import hostile_v2_engine
 from test_messages import RESET, RULES
 
 TESTS = Path(__file__).resolve().parent
-FAULTS = ((PeerTimeoutError, "timeout"), (TransportError, "transport"), (EngineError, "error"), (ProtocolError, "malformed"))
+FAULTS = ((PeerTimeoutError, "timeout"), (TransportError, "transport"), (EngineError, "error"),
+          (TerminalCountError, "terminal_counts"), (ProtocolError, "malformed"))   # the subclass before ProtocolError
 
 
 def outcome_of_engine(mode: str) -> str:
@@ -4933,6 +6043,21 @@ def outcome_of_bot(mode: str) -> str:
 @pytest.mark.parametrize("mode", sorted(bot_v2_hostile.MODES))
 def test_each_hostile_bot_mode_maps_to_its_cause(mode: str) -> None:
     assert outcome_of_bot(mode) == bot_v2_hostile.MODES[mode]
+
+
+def test_a_deaf_bot_times_out_on_a_large_choose_without_hanging_the_host() -> None:
+    agent = AgentProcess([sys.executable, str(TESTS / "bot_v2_hostile.py"), "deaf"], startup_timeout_s=3)
+    decision = {"acting_seat": "p0", "seat_step": 0,
+                "candidates": [{"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": "x" * 70_000}]}
+    started = time.monotonic()
+    try:
+        agent.hello()
+        agent.game_start({"game_id": "g-1", "seat": "p0"}, timeout_s=3)
+        with pytest.raises(SeatFailure) as caught:
+            agent.choose({"game_id": "g-1", "decision": decision, "clock": {}}, timeout_s=1)    # past any pipe buffer
+    finally:
+        agent.close()
+    assert caught.value.cause == "timeout" and time.monotonic() - started < 15                 # R2-5
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -4942,7 +6067,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: bot_v2_hostile`).
 
 - [ ] **Step 3: Implement the two fixtures**
 
-`hostile_v2_engine.py` defines one `mutate(step, message)` per mode and calls `fake_v2_engine.serve(argv, mutate=MUTATIONS[mode])` with any fixed engine arguments the mode needs; every mutation edits a deep copy and leaves the message otherwise valid, so exactly one rule breaks. `bot_v2_hostile.py` follows the v1 `bot_hostile.py` shape with the v2 envelope; `MODES` is the table above.
+`hostile_v2_engine.py` defines one `mutate(step, message)` per mode and, under `if __name__ == "__main__":`, calls `fake_v2_engine.serve(argv, mutate=MUTATIONS[mode])` with any fixed engine arguments the mode needs; every mutation edits a deep copy and leaves the message otherwise valid, so exactly one rule breaks. `bot_v2_hostile.py` follows the v1 `bot_hostile.py` behavior with the v2 envelope, but keeps `MODES` (the table above, with `deaf` mapped to `timeout`) at module level and reads `sys.argv` and serves stdin only under `if __name__ == "__main__":` (R2-20).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -4965,12 +6090,14 @@ git commit -m "Tests: hostile v2 engines and bots, one per rule and fault"
 **Effort:** 0.75 agent-day. **Wave:** 6. **Depends on:** Tasks 3, 23, 24, 28.
 
 **Files:**
-- Modify: `python/spellbench/host/game.py` (the three hooks of Task 23, `_draw`)
+- Modify: `python/spellbench/host/game.py` (the three hooks of Task 23, `_draw`, and `_ask`, which builds the `Clock` payload; R3-12)
+- Modify: `python/spellbench/host/clock.py` (`StallingWindow.counts()`, R3-12)
+- Modify: `python/tests/test_host_clock.py` (a `counts()` test)
 - Create: `python/tests/test_host_game_adjudication.py`
 
 **Interfaces:**
-- Consumes: `host.clock.SeatClock`, `SeatCaps`, `StallingWindow`, `is_real_choice` (Task 3); Task 23's `_Game`; the drivers (Task 24); the hostile fixtures (Task 28).
-- Produces: no new names. `play_game` now enforces spec 11.4: each seat starts with `SeatClock(bank_ms, increment_ms, max_decision_ms)`; `choose` carries `Clock(remaining_ms=<bank before this decision>, max_decision_ms)`; the seat's budget is `clock.budget_ms()`; after the answer, `clock.charge(elapsed_ms)` false is a `timeout` forfeit ("the answer to choose at seat step {n} exceeded the seat's clock"), even when an answer arrived; `SeatCaps` records every answered decision (`turn` from the observation, `completed_group` when the substep was the group's last) and `StallingWindow` records `is_real_choice(len(candidates), chosen kind)`; when a cap is reached, before the step is sent, the ruling is a `stalling` forfeit of `ruling.loser_seat` ("{seat} reached {cap} ({limit}); real choices in the last 250 decisions: p0 {a}, p1 {b}") or a `mandatory_loop` draw (outcome `draw`, classification `natural`, winner null, reason `mandatory_loop`, adjudication `{"kind": "mandatory_loop", "detail": ...}`, appended to the digest like every host ending).
+- Consumes: `host.clock.SeatClock`, `SeatCaps`, `StallingWindow`, `is_real_choice` (Task 3); Task 23's `_Game`, including `_forfeit_for(seat, cause, detail)` (R2-18); the drivers (Task 24); the hostile fixtures (Task 28).
+- Produces: `host.clock.StallingWindow.counts() -> dict[str, int]` (each seat's real choices in the window). `play_game` now enforces spec 11.4 (its `step_count` still counts every answered decision, the one a cap adjudicates before its `step` is sent included; R3-12): each seat starts with `SeatClock(bank_ms, increment_ms, max_decision_ms)`; `choose` carries `Clock(remaining_ms=<bank before this decision>, max_decision_ms)`; the seat's budget is `clock.budget_ms()`; after the answer, `clock.charge(elapsed_ms)` false is a `timeout` forfeit ("the answer to choose at seat step {n} exceeded the seat's clock"), even when an answer arrived; `SeatCaps` records every answered decision (`turn` from the observation, `completed_group` when the substep was the group's last) and `StallingWindow` records `is_real_choice(len(candidates), chosen kind)`; when a cap is reached, before the step is sent, the ruling is a `stalling` forfeit of `ruling.loser_seat` through `_forfeit_for` (detail `"{seat} reached {cap} ({limit}); real choices in the last 250 decisions: p0 {a}, p1 {b}"`, the counts from `StallingWindow.counts()`) or a `mandatory_loop` draw (outcome `draw`, classification `natural`, winner null, reason `mandatory_loop`, adjudication `{"kind": "mandatory_loop", "detail": "{seat} reached {cap} ({limit}); no real choice in the last 250 decisions"}`, appended to the digest like every host ending).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5027,6 +6154,8 @@ def test_the_seat_with_more_real_choices_forfeits_for_stalling() -> None:
     result = play(deck="Stall", seats={"p0": Seat(last), "p1": Seat()}, limits=TIGHT)
     assert (result.classification, result.winner, result.reason) == ("forfeit", "p1", "forfeit:stalling")
     assert result.adjudication["loser_seat"] == "p0"
+    assert result.adjudication["detail"] == (
+        "p0 reached max_seat_decisions_per_turn (20); real choices in the last 250 decisions: p0 20, p1 0")   # R3-12
     ended = play(deck="Stall", seats={"p0": Seat(), "p1": Seat()}, limits=TIGHT)
     assert (ended.outcome, ended.reason) == ("draw", "stall_ended")
 
@@ -5111,17 +6240,31 @@ Expected: FAIL: Task 23 budgets every decision with `max_decision_ms` and sends 
                                completed_group=group["substep_index"] + 1 == group["substep_count"])
         if cap is None:
             return None
+        reached = f"{seat} reached {cap} ({getattr(self.setup.limits, cap)})"
         ruling = self.window.ruling(seat)
         if ruling.kind == "draw":
-            return self._draw(f"{seat} reached {cap}; no real choice in the last {STALLING_WINDOW} decisions")
-        return self._forfeit_for(ruling.loser_seat, "stalling", f"{seat} reached {cap}; the loser made more real choices in the last {STALLING_WINDOW} decisions")
+            return self._draw(f"{reached}; no real choice in the last {STALLING_WINDOW} decisions")
+        counts = self.window.counts()
+        return self._forfeit_for(ruling.loser_seat, "stalling",
+                                 f"{reached}; real choices in the last {STALLING_WINDOW} decisions: p0 {counts['p0']}, p1 {counts['p1']}")
 ```
 
-The `choose` payload's `Clock.remaining_ms` reads `self.clocks[seat].remaining_ms` before the decision. Drivers receive `timeout_s=self._budget_ms(seat) / 1000` for `choose` and `game_start_ms / 1000` for `game_start`.
+In `clock.py`, `StallingWindow.counts()` returns `{"p0": a, "p1": b}`, the real choices each seat made in the window (`ruling` uses the same counts). Add to `test_host_clock.py`:
+
+```python
+def test_the_window_counts_each_seats_real_choices() -> None:
+    window = StallingWindow()
+    window.record("p0", real_choice=True)
+    window.record("p1", real_choice=False)
+    window.record("p1", real_choice=True)
+    assert window.counts() == {"p0": 1, "p1": 1}
+```
+
+`_ask` builds the `choose` payload's `Clock` with `remaining_ms` read from `self.clocks[seat].remaining_ms` before the decision. Drivers receive `timeout_s=self._budget_ms(seat) / 1000` for `choose`, and `game_start_ms / 1000` for `game_start` and `game_over` (Task 23, R2-4).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
-Run: `uv run pytest python/tests/test_host_game_adjudication.py python/tests/test_host_game.py -q`
+Run: `uv run pytest python/tests/test_host_game_adjudication.py python/tests/test_host_game.py python/tests/test_host_clock.py -q`
 Expected: PASS.
 Run: `uv run pytest python/tests -q`
 Expected: all pass.
@@ -5129,7 +6272,7 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/spellbench/host/game.py python/tests/test_host_game_adjudication.py
+git add python/spellbench/host/game.py python/spellbench/host/clock.py python/tests/test_host_clock.py python/tests/test_host_game_adjudication.py
 git commit -m "Host: Fischer clocks, seat caps, stalling forfeits and the mandatory-loop draw"
 ```
 
@@ -5146,9 +6289,9 @@ git commit -m "Host: Fischer clocks, seat caps, stalling forfeits and the mandat
 - Produces (`spellbench.arena.executor`):
   - `@dataclass(frozen=True) class GameOutcome: row: LedgerRow; diagnostics: tuple[str, ...]; violation: dict | None; engine: dict` (`violation` is `{"game_index", "game_id", "rule", "detail"}` when the validator halted the game; `engine` is the identity the game's engine process reported)
   - `@dataclass(frozen=True) class ExecutionResult: outcomes: tuple[GameOutcome, ...]; stopped: str | None; error: BaseException | None; warnings: tuple[str, ...]` (`stopped` is None, `"violation"` or `"aborted"`; `outcomes` is always a contiguous schedule prefix)
-  - `execute(contexts: Sequence[C], play_one: Callable[[C], GameOutcome], *, workers: int, stop_on_violation: bool = True, on_outcome: Callable[[GameOutcome], None] | None = None, monitor: IdleMonitor | None = None) -> ExecutionResult`
+  - `execute(contexts: Sequence[C], play_one: Callable[[C], GameOutcome], *, workers: int, stop_on_violation: bool = True, on_outcome: Callable[[GameOutcome], None] | None = None, monitor: IdleMonitor | None = None, on_warning: Callable[[str], None] | None = None) -> ExecutionResult`
 
-Semantics (Decision 6): `workers == 1` plays serially; more uses a spawn-context `ProcessPoolExecutor` and consumes futures in schedule order, calling `monitor.tick(running=..., queued=...)` before waiting on each future and again after every 5-second wait, its warnings collected in `warnings`. `on_outcome` sees each outcome in schedule order. The first outcome with a violation ends the prefix there (when `stop_on_violation`): queued games are cancelled, running ones finish, later results are dropped. Any exception, including `KeyboardInterrupt` in the parent or in `on_outcome`, and a worker's exception, returns `stopped="aborted"` with the prefix recorded so far and the exception in `error`; the pool is always shut down with `cancel_futures=True`.
+Semantics (Decision 6): `workers == 1` plays serially; more uses a spawn-context `ProcessPoolExecutor` and consumes futures in schedule order, calling `monitor.tick(running=..., queued=..., completed=<games recorded so far>)` before waiting on each future and again after every 5-second wait (Task 5's monitor compares finished games with the qualified rate); each warning goes at once to `on_warning` (the runner's callback writes and flushes it, so a long run reports idle capacity while it happens, R3-6) and is also collected in `warnings`. `on_outcome` sees each outcome in schedule order. The first outcome with a violation ends the prefix there (when `stop_on_violation`): queued games are cancelled, running ones finish, later results are dropped. Any exception, including `KeyboardInterrupt` in the parent or in `on_outcome`, and a worker's exception, returns `stopped="aborted"` with the prefix recorded so far and the exception in `error`. The pool is always shut down with `cancel_futures=True`; on an abort also with `wait=False`, terminating the worker processes (`terminate_workers()` where it exists, Python 3.14 and later, else each process of the pool's `_processes`), so Ctrl+C never waits minutes for running games (R3-31).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5158,6 +6301,8 @@ Create `python/tests/test_arena_executor.py`:
 """Schedule-order execution: the same prefix whatever the worker count (Decision 6)."""
 
 from __future__ import annotations
+
+import time
 
 import pytest
 
@@ -5175,6 +6320,14 @@ def play_one(index: int) -> GameOutcome:
     violation = {"game_index": 3, "game_id": value["game_id"], "rule": "V4", "detail": "stale"} if index == 3 else None
     (parsed,) = parse_ledger([value])
     return GameOutcome(row=parsed, diagnostics=(), violation=violation, engine={"name": "fake"})
+
+
+def slow_or_failing(index: int) -> GameOutcome:
+    """Game 0 fails at once; every other game would run for 30 s."""
+    if index == 0:
+        raise RuntimeError("the engine binary vanished")
+    time.sleep(30)
+    return play_one(index)
 
 
 @pytest.mark.parametrize("workers", [1, 3])
@@ -5205,6 +6358,23 @@ def test_an_interrupt_in_the_parent_aborts_and_keeps_what_was_recorded() -> None
     result = execute([0, 1, 2], play_one, workers=1, on_outcome=interrupt)
     assert result.stopped == "aborted" and isinstance(result.error, KeyboardInterrupt)
     assert [o.row.game_index for o in result.outcomes] == [0, 1]
+
+
+def test_an_abort_does_not_wait_for_running_games() -> None:
+    started = time.monotonic()
+    result = execute([0, 1, 2], slow_or_failing, workers=3)
+    assert result.stopped == "aborted" and result.outcomes == ()
+    assert time.monotonic() - started < 20                     # the two 30 s games were terminated (R3-31)
+
+
+def test_warnings_reach_the_callback_as_they_happen() -> None:
+    class Monitor:
+        def tick(self, *, running: int, queued: int, completed: int) -> str:
+            return f"tick after {completed} games"
+
+    seen: list[str] = []
+    result = execute([0, 1, 2], play_one, workers=2, monitor=Monitor(), on_warning=seen.append)
+    assert seen and seen == list(result.warnings)                # R3-6
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -5232,25 +6402,28 @@ git commit -m "Arena: schedule-order executor with violation stops and aborts"
 
 ### Task 31: Manifest v2 and information rules
 
-**Effort:** 0.5 agent-day. **Wave:** 6. **Depends on:** Tasks 2, 5, 9, 12, 16, 19, 22.
+**Effort:** 0.75 agent-day. **Wave:** 6. **Depends on:** Tasks 2, 5, 9, 12, 16, 19, 22.
 
 **Files:**
 - Create: `python/spellbench/arena/manifest.py`
+- Modify: `python/spellbench/bench/pinning.py` (`EngineFile` moves from here into `arena/manifest.py`; `pinning` imports it back, so arena never imports bench, R3-4)
 - Create: `python/tests/test_arena_manifest.py`
 
 **Interfaces:**
-- Consumes: `arena.config.TournamentConfig` (Task 19); `arena.ledger.LedgerRow` (Task 12); `registry.RegistryEntry`; `messages.Rules`, `EngineProfile`, `EngineIdentity` (Task 9); `host.validator.VALIDATOR_VERSION` (Task 22); `run_secret.RunSecret` (Task 2); `arena.throughput.Allocation`, `bench.pinning.EngineFile` (Task 5); `spellbench.__version__`.
+- Consumes: `arena.config.TournamentConfig`, `BotSpec` (Task 19); `arena.ledger.LedgerRow` (Task 12); `registry.RegistryEntry`; `messages.Rules`, `EngineProfile`, `EngineIdentity` (Task 9); `host.validator.VALIDATOR_VERSION` (Task 22); `run_secret.RunSecret` (Task 2); `arena.throughput.Allocation`, and the `EngineFile` class of `bench.pinning` it moves (Task 5); `spellbench.__version__`.
 - Produces (`spellbench.arena.manifest`):
-  - `TOURNAMENT_SCHEMA_V2 = "spellbench-tournament/v2"`, `COMMITMENT_SCHEMA = "spellbench-run-commitment/v1"`, `FAIRNESS_LABEL = "validator only"`, `RUN_STATUSES = ("complete", "invalid", "aborted")`, `MANIFEST_KEYS = ("schema", "protocol", "tournament", "engine", "engine_profile", "information_rules", "validator", "secrets", "run", "allocation", "engine_files", "games", "leaderboard_status", "files")`
+  - `TOURNAMENT_SCHEMA_V2 = "spellbench-tournament/v2"`, `COMMITMENT_SCHEMA = "spellbench-run-commitment/v1"`, `FAIRNESS_LABEL = "validator only"`, `RUN_STATUSES = ("complete", "invalid", "aborted")`, `MANIFEST_KEYS = ("schema", "protocol", "tournament", "engine", "engine_profile", "information_rules", "validator", "isolation", "secrets", "run", "allocation", "engine_files", "games", "leaderboard_status", "files")`
+  - `@dataclass(frozen=True) class EngineFile: index: int; file_name: str; sha256: str; bytes: int; path: Path | None = field(default=None, compare=False, repr=False)` with `to_json()` (without `path`) and `from_json(value, context: str = "engine_file") -> EngineFile` (strict keys; `path` None), moved from `bench.pinning`, which now imports it from here (R3-4; Task 36 rebuilds engine files from a manifest)
+  - Isolation (spec 11.7, 13 F5; R3-9): `ISOLATION_KINDS = ("builtin-in-process", "unsandboxed", "verified-sandbox")`; `SANDBOX_PLACEHOLDER = "${SPELLBENCH_SANDBOX}"` (a subprocess command whose first part is this placeholder runs inside sub-project D's sandbox wrapper, the only verified isolation; no v2.0 run has it yet); `ISOLATION_ALLOWLIST = ("jackmaiorino", "gorge")` (owners whose subprocess bots may run unsandboxed: the maintainer's own models, and bots the maintainer builds from pinned, reviewed source, like the gorge engine itself; `spellbench`'s own bots are always allowed); `isolation_record(config: TournamentConfig) -> dict` (`{"entries": [{"name", "isolation"}, ...] in config order, "self_reported": bool}`, `self_reported` true when any entry is `unsandboxed`); `isolation_refusals(config: TournamentConfig) -> list[str]` (one message per subprocess entry whose owner is neither `spellbench` nor on the allowlist and whose command is not the sandbox wrapper: submitted binaries, checkpoints and pickles need the sandbox)
   - `@dataclass(frozen=True) class CommitmentProof: commit: str; timestamp: str` (commit: 40 lowercase hex; timestamp: nonempty third-party reference) with `to_json()`, `from_json(value)`
   - `commitment_record(*, run_secret: RunSecret, benchmark_id: str | None, run_label: str | None) -> dict` (the `COMMITMENT.json` document: `{"schema", "protocol": "spellbench/v2", "benchmark_id", "run_label", "commitment"}`)
   - `information_rules(rules: Rules, profile: EngineProfile, native_id_extensions: Sequence[Mapping[str, str]]) -> dict` (spec 12.2's shape: `rules`, `engine_defaults`, `observation`, `native_id_extensions`, `fairness_label`)
   - `validator_record(rows: Sequence[LedgerRow], violations: Sequence[Mapping[str, Any]]) -> dict` (`{"version", "verdict", "decisions_checked", "violations"}`, verdict `pass` exactly when there are no violations)
-  - `is_rated(*, status: str, verdict: str, commitment_proof: CommitmentProof | None, allocation: Allocation) -> bool` (Decision 3)
-  - `run_status(*, scheduled: int, rows: int, stopped: str | None, violations: int) -> str`
+  - `is_rated(*, status: str, verdict: str, commitment_proof: CommitmentProof | None, allocation: Allocation, engine_files: Sequence[EngineFile]) -> bool` (Decision 3: also needs pinned engine files, so the library path cannot mint a rated run without pins, R3-7)
+  - `run_status(*, scheduled: int, rows: int, violations: int) -> str` (from the rows and violations alone: `invalid` with a violation, else `complete` for a full ledger, else `aborted`; an interrupt after the last game still publishes `complete`, R3-13)
   - `manifest_body(*, config, entries, anchor_bot_id, engine: EngineIdentity, profile: EngineProfile, protocol_minor: int, info_rules: dict, rows, violations, scheduled: int, leaderboard_status: str, status: str, benchmark_id: str | None, run_label: str | None, run_secret: RunSecret, commitment_proof: CommitmentProof | None, allocation: Allocation, engine_files: Sequence[EngineFile]) -> dict` (every key of `MANIFEST_KEYS` except `files`)
 
-The sections: `protocol` `{"name": "spellbench/v2", "minor": protocol_minor}`; `tournament` (format, stats_seed, pairs_per_matchup, include_self_play, workers, time_control, limits, resources, bootstrap_replicates, `rating_anchor` `{name, bot_id}`, `arena_version`, `bots` as registry entries in config order); `engine` (identity JSON); `engine_profile` (`EngineProfile.to_json()`); `information_rules`; `validator`; `secrets` `{"commitment", "run_secret", "commitment_proof"}` (the secret revealed, spec 11.6); `run` `{"benchmark_id", "label", "status", "rated"}`; `allocation` (`Allocation.to_json()`); `engine_files` (`EngineFile.to_json()` list); `games` `{"scheduled", "total", "natural", "truncated", "halted", "forfeit"}`; `leaderboard_status`.
+The sections: `protocol` `{"name": "spellbench/v2", "minor": protocol_minor}`; `tournament` (format, stats_seed, pairs_per_matchup, include_self_play, workers, time_control, limits, resources, bootstrap_replicates, `rating_anchor` `{name, bot_id}`, `arena_version`, `bots` as registry entries in config order); `engine` (identity JSON); `engine_profile` (`EngineProfile.to_json()`); `information_rules`; `validator`; `isolation` (`isolation_record(config)`); `secrets` `{"commitment", "run_secret", "commitment_proof"}` (the secret revealed, spec 11.6); `run` `{"benchmark_id", "label", "status", "rated"}`; `allocation` (`Allocation.to_json()`); `engine_files` (`EngineFile.to_json()` list); `games` `{"scheduled", "total", "natural", "truncated", "halted", "forfeit"}`; `leaderboard_status`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5265,11 +6438,15 @@ import hashlib
 
 import pytest
 
+from spellbench.arena import manifest
+from spellbench.arena.config import TournamentConfig
 from spellbench.arena.manifest import (
-    CommitmentProof, commitment_record, information_rules, is_rated, run_status, validator_record,
+    CommitmentProof, EngineFile, commitment_record, information_rules, is_rated, isolation_record, isolation_refusals,
+    run_status, validator_record,
 )
 from spellbench.arena.ledger import parse_ledger
 from spellbench.arena.throughput import Allocation, Trial
+from spellbench.bench import pinning
 from spellbench.messages import EngineProfile, Rules
 from spellbench.run_secret import RunSecret
 
@@ -5279,6 +6456,7 @@ from test_ledger import VALID, row
 SMALL = Allocation(kind="small", workers=1, host="h", cpu_count=4, per_game_cores=1,
                    probe=Trial(1, 2, 10, "sha256:" + "0" * 64), projected_serial_seconds=1)
 PROOF = CommitmentProof(commit="a" * 40, timestamp="https://github.com/o/r/issues/1#issuecomment-1")
+PINNED = (EngineFile(index=0, file_name="engine", sha256="b" * 64, bytes=10),)
 
 
 def test_information_rules_have_the_spec_12_2_shape() -> None:
@@ -5298,23 +6476,52 @@ def test_the_validator_record() -> None:
 
 
 @pytest.mark.parametrize(
-    ("status", "verdict", "proof", "allocation", "rated"),
+    ("status", "verdict", "proof", "allocation", "files", "rated"),
     [
-        ("complete", "pass", PROOF, SMALL, True),
-        ("complete", "pass", None, SMALL, False),                                 # commitment not proven public
-        ("complete", "pass", PROOF, Allocation.unmeasured(1, cpu_count=4, host="h"), False),
-        ("invalid", "fail", PROOF, SMALL, False),
-        ("aborted", "pass", PROOF, SMALL, False),
+        ("complete", "pass", PROOF, SMALL, PINNED, True),
+        ("complete", "pass", None, SMALL, PINNED, False),                         # commitment not proven public
+        ("complete", "pass", PROOF, Allocation.unmeasured(1, cpu_count=4, host="h"), PINNED, False),
+        ("complete", "pass", PROOF, SMALL, (), False),                            # no pinned engine files (R3-7)
+        ("invalid", "fail", PROOF, SMALL, PINNED, False),
+        ("aborted", "pass", PROOF, SMALL, PINNED, False),
     ],
 )
-def test_the_rated_rule(status, verdict, proof, allocation, rated) -> None:
-    assert is_rated(status=status, verdict=verdict, commitment_proof=proof, allocation=allocation) is rated
+def test_the_rated_rule(status, verdict, proof, allocation, files, rated) -> None:
+    assert is_rated(status=status, verdict=verdict, commitment_proof=proof, allocation=allocation, engine_files=files) is rated
 
 
-def test_run_status() -> None:
-    assert run_status(scheduled=4, rows=4, stopped=None, violations=0) == "complete"
-    assert run_status(scheduled=4, rows=2, stopped="violation", violations=1) == "invalid"
-    assert run_status(scheduled=4, rows=2, stopped="aborted", violations=0) == "aborted"
+def test_run_status_comes_from_the_rows_and_violations_alone() -> None:
+    assert run_status(scheduled=4, rows=4, violations=0) == "complete"      # even when interrupted after the last game (R3-13)
+    assert run_status(scheduled=4, rows=2, violations=1) == "invalid"
+    assert run_status(scheduled=4, rows=2, violations=0) == "aborted"
+
+
+def test_engine_files_live_in_the_arena_and_read_back_without_a_path() -> None:
+    value = {"index": 1, "file_name": "engine.py", "sha256": "a" * 64, "bytes": 16}
+    assert EngineFile.from_json(value).to_json() == value and EngineFile.from_json(value).path is None
+    assert pinning.EngineFile is manifest.EngineFile                       # bench imports it from arena (R3-4)
+
+
+def _config(*bots: dict) -> TournamentConfig:
+    return TournamentConfig.from_json({"schema": "spellbench-tournament-config/v2", "tournament_dir": "t", "format": "pauper-bo1",
+                                       "decks": [{"catalog_id": "Burn"}, {"catalog_id": "Burn"}], "engine": {"command": ["engine"]},
+                                       "bots": [{"name": "uniform", "version": "2.0.0", "type": "builtin"}, *bots],
+                                       "pairs_per_matchup": 1, "stats_seed": 1})
+
+
+def test_isolation_labels_each_entry_and_refuses_unvetted_subprocess_bots() -> None:
+    config = _config({"name": "kernel", "version": "1", "type": "subprocess", "owner": "jackmaiorino", "command": ["bot"]},
+                     {"name": "stranger", "version": "1", "type": "subprocess", "owner": "someone", "command": ["bot"]},
+                     {"name": "boxed", "version": "1", "type": "subprocess", "owner": "someone",
+                      "command": ["${SPELLBENCH_SANDBOX}", "bot"]})
+    assert isolation_record(config) == {"entries": [{"name": "uniform", "isolation": "builtin-in-process"},
+                                                    {"name": "kernel", "isolation": "unsandboxed"},
+                                                    {"name": "stranger", "isolation": "unsandboxed"},
+                                                    {"name": "boxed", "isolation": "verified-sandbox"}],
+                                        "self_reported": True}                                  # spec 11.7 (R3-9)
+    (refusal,) = isolation_refusals(config)
+    assert "stranger" in refusal and "sandbox" in refusal
+    assert isolation_record(_config())["self_reported"] is False and isolation_refusals(_config()) == []
 
 
 def test_the_commitment_record_and_the_proof() -> None:
@@ -5333,7 +6540,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.arena.manifest`).
 
 - [ ] **Step 3: Implement `arena/manifest.py`**
 
-Pure functions over the inputs above; `manifest_body` assembles the sections in `MANIFEST_KEYS` order (canonical JSON sorts them anyway). `is_rated` is `status == "complete" and verdict == "pass" and commitment_proof is not None and allocation.measured`.
+Pure functions over the inputs above; `manifest_body` assembles the sections in `MANIFEST_KEYS` order (canonical JSON sorts them anyway). `is_rated` is `status == "complete" and verdict == "pass" and commitment_proof is not None and allocation.measured and bool(engine_files)`. Move the `EngineFile` class from `bench/pinning.py` into this module (adding `from_json` and the optional `path`), and replace it in `pinning.py` with `from ..arena.manifest import EngineFile`, so `engine_files` and `pin_files` keep their signatures and every arena module stays free of module-level `bench` and `site` imports (Global Constraints, R3-4). A bot's isolation is `builtin-in-process` for `type == "builtin"`, `verified-sandbox` for a subprocess whose `command[0] == SANDBOX_PLACEHOLDER`, else `unsandboxed`; a refusal reads `f"bots[{i}] ({name}): a subprocess bot owned by {owner!r} runs only inside the sub-project D sandbox (command starting {SANDBOX_PLACEHOLDER}); unsandboxed bots are limited to spellbench and {', '.join(ISOLATION_ALLOWLIST)} (spec 11.7)"`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -5345,13 +6552,13 @@ Expected: all pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add python/spellbench/arena/manifest.py python/tests/test_arena_manifest.py
-git commit -m "Arena: manifest v2 with information rules, verdict, secrets and the rated rule"
+git add python/spellbench/arena/manifest.py python/spellbench/bench/pinning.py python/tests/test_arena_manifest.py
+git commit -m "Arena: manifest v2 with information rules, verdict, isolation, secrets and the rated rule"
 ```
 
 ### Task 32: The engine conformance runner
 
-**Effort:** 0.5 agent-day. **Wave:** 6. **Depends on:** Tasks 18, 19, 21, 23, 24, 25, 28.
+**Effort:** 0.75 agent-day. **Wave:** 6. **Depends on:** Tasks 18, 19, 21, 23, 24, 25, 28.
 
 **Files:**
 - Create: `python/spellbench/conformance.py`
@@ -5365,10 +6572,10 @@ git commit -m "Arena: manifest v2 with information rules, verdict, secrets and t
   - `@dataclass(frozen=True) class CheckResult: name: str; passed: bool; detail: str`
   - `@dataclass(frozen=True) class ConformanceReport: checks: tuple[CheckResult, ...]` with property `passed -> bool` and `render() -> str` (`"PASS <name>"` or `"FAIL <name>: <detail>"` per line)
   - `check_engine(argv: Sequence[str], *, format: str, decks: Sequence[str], games: int = 4) -> ConformanceReport`
-  - `replay_engine_transcript(argv: Sequence[str], path: Path) -> list[str]` (sends every `host_to_engine` row of a golden transcript, compares each answer with its `engine_to_host` row as parsed JSON; returns the mismatches)
+  - `replay_engine_transcript(argv: Sequence[str], path: Path) -> list[str]` (sends every `host_to_engine` row of a golden transcript, compares each answer with its `engine_to_host` row as parsed JSON; returns the mismatches). A row whose `message` is a string (the offending line of a `malformed_json` or non-object golden, Decision 7) is written as its UTF-8 bytes unchanged; every other row as canonical JSON (R3-11).
   - CLI: `spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV...` (exit 0 when every check passes, else 1)
 
-Checks, each in a fresh engine process: `hello` (a strict `hello_ok`, the format offered, every deck in the catalog); `protocol_mismatch`; `malformed_json` (a non-JSON line answered with `request_id` `""`); `malformed_request` (an unknown field); `step_before_reset`; `unsupported_format`; `unsupported_deck` (catalog id `spellbench-conformance-no-such-deck`); `unsupported_request` for `probe_resample` (or `probe_refused` after a reset when the engine declares the probe); `game_already_active`; `game_id_mismatch`; `expected_step_mismatch`; `candidate_id_out_of_range`; `semantic_echo_mismatch`; `retransmission` (the identical request returns the identical parsed answer; a changed payload under the same id is `request_id_reuse_mismatch`); `game_already_terminal` (after a first-candidate game with `max_steps` 2000); and `games`: `games` full games (builtin `first` against `uniform`, seat-swapped, the decks in turn) through `play_game` with a fresh `RunSecret`, each required to end without a host halt or forfeit.
+Checks, each in a fresh engine process: `hello` (a strict `hello_ok`, the format offered, every deck in the catalog); `protocol_mismatch`; `malformed_json` (a non-JSON line answered with `request_id` `""`); `malformed_request` (an unknown field); `malformed_request_non_object` (the line `[1,2]`, valid JSON with a non-object top level, answered `malformed_request` with `request_id` `""`, spec 9.8; R1-3); `unsupported_rule` (three resets, each expecting `unsupported_rule` (spec 9.2): `rules.probe: true` on an engine without the probe, a `rules.extensions` entry the engine's `hello_ok` does not declare, and a mulligan or starting-player value outside `rules_supported` when the vocabulary has one; R3-10); `game_id_reuse` (a reset that reuses a finished game's `game_id` is `malformed_request`); `never_cached` (a request that fails parsing, then the same `request_id` with a valid payload, which is answered normally rather than as a cached error or a reuse mismatch, spec 4.1); `step_check_order` (a `step` with both a wrong `game_id` and a wrong `expected_step` is `game_id_mismatch`, spec 9.4; R1-20); `step_before_reset`; `unsupported_format`; `unsupported_deck` (catalog id `spellbench-conformance-no-such-deck`); `unsupported_request` for `probe_resample` (or `probe_refused` after a reset when the engine declares the probe); `game_already_active`; `game_id_mismatch`; `expected_step_mismatch`; `candidate_id_out_of_range`; `semantic_echo_mismatch`; `retransmission` (the identical request returns the identical parsed answer; a changed payload under the same id is `request_id_reuse_mismatch`); `game_already_terminal` (after a first-candidate game with `max_steps` 2000); and `games`: `games` full games (builtin `first` against `uniform`, seat-swapped, the decks in turn) through `play_game` with a fresh `RunSecret`, each required to end without a host halt or forfeit.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5382,8 +6589,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from spellbench import wire
 from spellbench.arena import cli
-from spellbench.conformance import check_engine
+from spellbench.conformance import check_engine, replay_engine_transcript
+from spellbench.host.engine_process import EngineProcess
 
 TESTS = Path(__file__).resolve().parent
 FAKE = [sys.executable, str(TESTS / "fake_v2_engine.py")]
@@ -5393,7 +6602,22 @@ def test_the_fake_engine_passes_every_check() -> None:
     report = check_engine(FAKE, format="pauper-bo1", decks=["Burn", "Elves"], games=2)
     assert report.passed, report.render()
     names = {check.name for check in report.checks}
-    assert {"hello", "protocol_mismatch", "malformed_json", "retransmission", "game_already_terminal", "games"} <= names
+    assert {"hello", "protocol_mismatch", "malformed_json", "malformed_request_non_object", "unsupported_rule",
+            "game_id_reuse", "never_cached", "step_check_order", "retransmission", "game_already_terminal", "games"} <= names
+
+
+def test_replay_sends_a_string_row_as_its_raw_line(tmp_path: Path) -> None:
+    engine = EngineProcess(FAKE, timeout_s=30)
+    try:
+        hello = {"request_type": "hello", "protocol": "spellbench/v2", "request_id": "h-1", "protocol_minor": 0}
+        hello_ok, error = engine.send_raw(hello), engine.send_line(b"{not json")
+    finally:
+        engine.close()
+    assert error["error"]["code"] == "malformed_json"
+    rows = [("host_to_engine", hello), ("engine_to_host", hello_ok), ("host_to_engine", "{not json"), ("engine_to_host", error)]
+    path = tmp_path / "raw.transcript.jsonl"
+    path.write_bytes(b"".join(wire.canonical_json_line({"dir": direction, "message": message}) for direction, message in rows))
+    assert replay_engine_transcript(FAKE, path) == []     # sent as the JSON string '"{not json"' it would be malformed_request (R3-11)
 
 
 def test_a_hostile_engine_fails_the_games_check_with_its_rule() -> None:
@@ -5448,7 +6672,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.conformance`).
 - [ ] **Step 4: Run the tests, then the whole suite**
 
 Run: `uv run pytest python/tests/test_conformance.py python/tests/test_engine_conformance.py -q`
-Expected: PASS (3 passed, 1 skipped).
+Expected: PASS (4 passed, 1 skipped).
 Run: `uv run pytest python/tests -q`
 Expected: all pass.
 
@@ -5463,12 +6687,12 @@ git commit -m "Conformance: an engine checker for adapters, with a CLI"
 
 ### Task 33: Switch the arena to v2
 
-**Effort:** 0.75 agent-day. **Wave:** 7. **Depends on:** Tasks 5, 11, 12, 19, 20, 23, 24, 25, 28, 29, 30, 31.
+**Effort:** 1.0 agent-day. **Wave:** 7. **Depends on:** Tasks 5, 11, 12, 19, 20, 23, 24, 25, 28, 29, 30, 31.
 
 **Files:**
 - Rewrite: `python/spellbench/arena/runner.py`
 - Modify: `python/spellbench/arena/store.py` (v2 schema constants; `COMMITMENT_NAME`; `prepare_tournament_dir(directory, *, allowed=())`; delete the v1 `LedgerSeat`, `Adjudication`, `LedgerRow`, `FORFEIT_CAUSES`, `parse_ledger`, which live on in `ledger.py` and `legacy_v1.py`)
-- Modify: `python/spellbench/arena/cli.py` (`run` and `bot` on v2)
+- Modify: `python/spellbench/arena/cli.py` (`run` and `bot` on v2; its module-level v1 imports `agent_server` and `.bots` go, R3-25)
 - Rewrite: `python/tests/arena_helpers.py`
 - Modify: `examples/quickstart.json` (v2 config on `python/tests/fake_v2_engine.py`)
 - Delete: `python/tests/fake_arena_engine.py`
@@ -5477,19 +6701,20 @@ git commit -m "Conformance: an engine checker for adapters, with a CLI"
 - Create: `python/tests/test_arena_tournament.py`
 
 **Interfaces:**
-- Consumes: `arena.config` (19), `arena.schedule` (25), `arena.drivers` (24), `arena.executor` (30), `arena.manifest` (31), `arena.ledger` (12), `arena.leaderboard` (20), `host.game` (23, 29), `host.engine_process` (18), `arena.throughput.Allocation`, `bench.pinning.EngineFile` (5), `run_secret` (2), `builtins`, `bot.serve` (11, 6).
+- Consumes: `arena.config` (19), `arena.schedule` (`preflight`, `schedule`, `game_setup`, `EnginePin`) (25), `arena.drivers` (24), `arena.executor` (30), `arena.manifest` (`EngineFile`, `isolation_record`, `isolation_refusals`, `run_status`, `is_rated`, `manifest_body`, `commitment_record`) (31), `arena.ledger` (12), `arena.leaderboard` (20), `host.game` (23, 29), `host.engine_process` (18), `arena.throughput.Allocation`, `resource_bound` (5), `run_secret` (2), `builtins`, `bot.serve` (11, 6). No module-level import of `spellbench.bench` or `spellbench.site` (Global Constraints, R3-4).
 - Produces (`spellbench.arena.runner`):
-  - `TournamentError`, `TournamentConfig`, `BotSpec` (re-exported from `config`, so `bench` and `site` code fails on v1-shaped input with a `TournamentError` at run time, not an import error, until Tasks 41 and 42 port it)
+  - `TournamentError`, `TournamentConfig`, `BotSpec` (re-exported from `config`). From this task until Task 37 ports it, `bench/definition.py` fails at import with an `AttributeError`, since it reads `runner.DEFAULT_CHOOSE_TIMEOUT_MS`, `DEFAULT_STARTUP_TIMEOUT_MS`, `DEFAULT_BOOTSTRAP_REPLICATES` and `DEFAULT_WORKERS` at import; every test that imports `spellbench.bench` is skipped at module level meanwhile, so the suite stays green (R3-25)
+  - `deferred_interrupts() -> ContextManager[None]` (while the runner writes an aborted run's manifest, a second Ctrl+C is held back and raised as `KeyboardInterrupt` once the manifest is written; SIGINT handling, main thread only, R3-31)
   - `@dataclass(frozen=True) class TournamentSummary: tournament_dir: Path; games_total: int; games_rated: int; games_truncated: int; games_halted: int; games_forfeit: int; leaderboard_status: str; status: str; rated: bool; manifest: dict`
   - `executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> TournamentConfig`
   - `registry_entries(config: TournamentConfig, executed: TournamentConfig) -> list[RegistryEntry]`
-  - `play_one(config: TournamentConfig, setup: RunSetup, context: GameContext, run_secret_hex: str, entries: dict[str, RegistryEntry]) -> GameOutcome` (top level and picklable: starts the engine with `startup_ms`, pins nothing itself but returns the identity, builds `make_driver` seats, calls `play_game`, closes everything, and builds the ledger row: seats and bot ids, `ResolvedDeck.ledger()` entries, the result fields, `last_selection` from `last_selection_seat`, the digest, `engine` provenance)
+  - `play_one(config: TournamentConfig, setup: RunSetup, context: GameContext, run_secret_hex: str, entries: dict[str, RegistryEntry]) -> GameOutcome` (top level and picklable: starts the engine with `startup_ms`, pins nothing itself but returns the identity, builds `make_driver` seats, calls `play_game`, closes everything, and builds the ledger row: seats and bot ids, `ResolvedDeck.ledger()` entries, the result fields, `last_selection` from `last_selection_seat`, the digest, `engine` provenance). An engine that fails to start or to answer `hello` gives that game a halted row (spec 11.5: an engine fault is a halt, not an aborted run; R3-23): `host_engine_fault:timeout` for a `PeerTimeoutError`, else `host_engine_fault:transport`, `last_selection` null, counts 0, the digest of the reset request plus the halt record, and the preflight identity as its `engine`.
   - `play_games(config: TournamentConfig, setup: RunSetup, contexts: Sequence[GameContext], *, run_secret: RunSecret, entries: dict[str, RegistryEntry], workers: int, stop_on_violation: bool = True, on_outcome=None, monitor: IdleMonitor | None = None) -> ExecutionResult`
   - `run_tournament(config: TournamentConfig, *, run_secret: RunSecret, allocation: Allocation, commitment_proof: CommitmentProof | None = None, run_label: str | None = None, benchmark_id: str | None = None, engine_files: Sequence[EngineFile] = (), resolve: Callable[[str], str] | None = None, output_dir: str | Path | None = None, on_game: Callable[[LedgerRow], None] | None = None) -> TournamentSummary`
 - Produces (`spellbench.arena.store`): `TOURNAMENT_SCHEMA = "spellbench-tournament/v2"`, `LEDGER_SCHEMA = "spellbench-match-ledger/v2"`, `CONFIG_SCHEMA = "spellbench-tournament-config/v2"`, `LEADERBOARD_SCHEMA = "spellbench-leaderboard/v2"`, `REGISTRY_SCHEMA` unchanged, `COMMITMENT_NAME = "COMMITMENT.json"` (literals, not imports, to avoid an import cycle; a test pins them to the owning modules' constants)
-- Produces (`python/tests/arena_helpers.py`), used by every later arena test: `TESTS_DIR`, `FAKE_ENGINE`, `HOSTILE_ENGINE`, `BOT_HOSTILE`, `MINIMAL_BOT`, `TEST_RUN_SECRET`, `TEST_PROOF`, `small_allocation(workers: int = 1) -> Allocation`, `builtin(name, **extra)`, `subprocess_bot(name, command, **extra)`, `cli_bot(name, *args)`, `hostile_bot(mode)`, `make_config(directory, bots, *, engine=FAKE_ENGINE, engine_args=(), decks=("Burn", "Burn"), deck_pool=None, pairs=2, **extra) -> dict`, `run(config: dict, *, rated: bool = False, secret: RunSecret = TEST_RUN_SECRET, **kwargs) -> TournamentSummary`, `ledger_rows(directory)`, `leaderboard(directory)`, `manifest(directory)`, `row_by_name(document, name)`, `matchup_by_names(document, first, second)`
+- Produces (`python/tests/arena_helpers.py`), used by every later arena test: `TESTS_DIR`, `FAKE_ENGINE`, `HOSTILE_ENGINE`, `BOT_HOSTILE`, `BOT_SLOW_START` (R3-16: `test_arena_commands.py` still needs it), `MINIMAL_BOT`, `TEST_RUN_SECRET`, `TEST_PROOF`, `TEST_ENGINE_FILES` (a rated run needs engine files, R3-7; `run(..., rated=True)` passes them), `small_allocation(workers: int = 1) -> Allocation`, `builtin(name, **extra)`, `subprocess_bot(name, command, **extra)` (owner `spellbench` unless `extra` names one: the test bots are the project's own, and runs refuse unvetted subprocess owners, R3-9), `cli_bot(name, *args)`, `hostile_bot(mode)`, `make_config(directory, bots, *, engine=FAKE_ENGINE, engine_args=(), decks=("Burn", "Burn"), deck_pool=None, pairs=2, **extra) -> dict`, `run(config: dict, *, rated: bool = False, secret: RunSecret = TEST_RUN_SECRET, **kwargs) -> TournamentSummary`, `ledger_rows(directory)`, `leaderboard(directory)`, `manifest(directory)`, `row_by_name(document, name)`, `matchup_by_names(document, first, second)`
 
-`run_tournament` order (spec 11.1, 11.6; Decisions 3 and 6): resolve the executed config and registry entries (checkpoints hashed); `preflight` (a config error writes nothing); `prepare_tournament_dir(directory, allowed=(COMMITMENT_NAME,))`; write `COMMITMENT.json` from `manifest.commitment_record` unless present, and refuse a present one whose commitment differs; write `config.json`, `registry.json`, an empty `matches.jsonl`; `schedule`; `play_games` with `allocation.workers`, appending each row (and diagnostics) as it arrives and then calling `on_game`; compute the status (`manifest.run_status`), the violations, the leaderboard (`schema=LEADERBOARD_SCHEMA_V2`, `base_seed=config.stats_seed`), and the manifest (`manifest_body` plus `files`: `COMMITMENT.json` first, then `DATA_FILE_NAMES`); publish; finally re-raise an aborting error (a `KeyboardInterrupt` included) after the manifest is written. `cli.py`: `run` loads a v2 config, uses `RunSecret.generate()` and `Allocation.unmeasured(config.workers)` (Task 43 adds the guard), and prints `status: <status> (rated|unrated)` after the games line; `bot NAME [--seed N]` serves `builtins.create_builtin_bot` through `bot.serve` with `BUILTIN_VERSIONS`.
+`run_tournament` order (spec 11.1, 11.6; Decisions 3 and 6): refuse unvetted subprocess entries (`manifest.isolation_refusals(config)`: a `TournamentError` naming each one before any process starts or anything is written, R3-9); resolve the executed config and registry entries (checkpoints hashed); `preflight(config, run_secret, pin=pin)` with a fresh `EnginePin` (a config error writes nothing); `prepare_tournament_dir(directory, allowed=(COMMITMENT_NAME,))`; write `COMMITMENT.json` from `manifest.commitment_record` unless present, and refuse a present one whose commitment, `benchmark_id` or `run_label` differs from this run's (spec 11.6: a commitment names its benchmark and run label, R3-30); write `config.json`, `registry.json`, an empty `matches.jsonl`; `schedule`; `play_games` with `min(allocation.workers, resource_bound(os.cpu_count() or 1, config.per_game_cores()))` workers (spec 11.4: games run in parallel only while their declared cores are free, whatever allocation a library caller passes), and that number is the manifest's `allocation.workers` (`dataclasses.replace`, R3-24); in `on_outcome`, before recording a game, `pin.check(EngineIdentity.from_json(outcome.engine))`: an engine whose identity drifted from preflight (rebuilt mid-run, the overwrite case of ARTIFACT-LAW clause 4) stops the run as `aborted` with `TournamentError("the engine identity changed during the run: ...")` naming both identities (R3-5); otherwise append the row (and diagnostics) as it arrives and then call `on_game`; the ledger, status and manifest use the rows the runner appended; compute the status (`manifest.run_status(scheduled=..., rows=..., violations=...)`, R3-13), the violations, the leaderboard (`schema=LEADERBOARD_SCHEMA_V2`, `base_seed=config.stats_seed`), and the manifest (`manifest_body` plus `files`: `COMMITMENT.json` first, then `DATA_FILE_NAMES`; its `isolation` block from `isolation_record(config)`); publish, an aborted run's manifest inside `deferred_interrupts()` (R3-31); finally re-raise an aborting error (a `KeyboardInterrupt` included) after the manifest is written. `cli.py`: `run` loads a v2 config, uses `RunSecret.generate()` and `Allocation.unmeasured(config.workers)` (Task 43 adds the guard), and prints `status: <status> (rated|unrated)` after the games line; `bot NAME [--seed N]` serves `builtins.create_builtin_bot` through `bot.serve` with `BUILTIN_VERSIONS`; the module-level imports of `agent_server` and `.bots` go, and `bench` and `site` stay imported inside their command functions (R3-25, R3-4).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5508,7 +6733,7 @@ from typing import Any
 
 from spellbench.arena import runner
 from spellbench.arena.config import TournamentConfig
-from spellbench.arena.manifest import CommitmentProof
+from spellbench.arena.manifest import CommitmentProof, EngineFile
 from spellbench.arena.throughput import Allocation, Trial
 from spellbench.run_secret import RunSecret
 
@@ -5516,9 +6741,12 @@ TESTS_DIR = Path(__file__).resolve().parent
 FAKE_ENGINE = TESTS_DIR / "fake_v2_engine.py"
 HOSTILE_ENGINE = TESTS_DIR / "hostile_v2_engine.py"
 BOT_HOSTILE = TESTS_DIR / "bot_v2_hostile.py"
+BOT_SLOW_START = TESTS_DIR / "bot_slow_start.py"
 MINIMAL_BOT = TESTS_DIR.parents[1] / "examples" / "minimal_bot.py"
 TEST_RUN_SECRET = RunSecret(bytes(range(32)))
 TEST_PROOF = CommitmentProof(commit="0" * 40, timestamp="test fixture")
+# A rated run needs pinned engine files (Decision 3, R3-7); library tests pass this stand-in record.
+TEST_ENGINE_FILES = (EngineFile(index=1, file_name="fake_v2_engine.py", sha256="0" * 64, bytes=1),)
 
 
 def small_allocation(workers: int = 1) -> Allocation:
@@ -5533,7 +6761,8 @@ def builtin(name: str, **extra: Any) -> dict[str, Any]:
 
 
 def subprocess_bot(name: str, command: list[str], **extra: Any) -> dict[str, Any]:
-    return {"name": name, "version": "1.0.0", "type": "subprocess", "command": command, **extra}
+    """The test bots are the project's own: owner spellbench, so the isolation rule admits them unsandboxed."""
+    return {"name": name, "version": "1.0.0", "type": "subprocess", "command": command, "owner": "spellbench", **extra}
 
 
 def cli_bot(name: str, *args: str) -> list[str]:
@@ -5563,7 +6792,8 @@ def make_config(directory: Path, bots: list[dict[str, Any]], *, engine: Path = F
 def run(config: dict[str, Any], *, rated: bool = False, secret: RunSecret = TEST_RUN_SECRET, **kwargs: Any) -> runner.TournamentSummary:
     parsed = TournamentConfig.from_json(config)
     return runner.run_tournament(parsed, run_secret=secret, allocation=small_allocation(parsed.workers),
-                                 commitment_proof=TEST_PROOF if rated else None, **kwargs)
+                                 commitment_proof=TEST_PROOF if rated else None,
+                                 engine_files=TEST_ENGINE_FILES if rated else (), **kwargs)
 
 
 def _json(path: Path) -> dict[str, Any]:
@@ -5602,6 +6832,8 @@ Create `python/tests/test_arena_tournament.py`:
 from __future__ import annotations
 
 import json
+import os
+import signal
 import subprocess
 from pathlib import Path
 
@@ -5609,7 +6841,9 @@ import pytest
 
 from spellbench.arena import cli, config as config_module, leaderboard, ledger, manifest as manifest_module, runner, store
 
-from arena_helpers import HOSTILE_ENGINE, TEST_RUN_SECRET, builtin, cli_bot, ledger_rows, make_config, manifest, run
+from arena_helpers import (
+    HOSTILE_ENGINE, TEST_RUN_SECRET, TESTS_DIR, builtin, cli_bot, ledger_rows, make_config, manifest, run, subprocess_bot,
+)
 
 BOTS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
 DATA = ("registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md", "COMMITMENT.json")
@@ -5689,6 +6923,72 @@ def test_the_cli_runs_a_config_and_serves_builtins(tmp_path: Path, capsys) -> No
     hello = b'{"request_type":"hello","protocol":"spellbench/v2","request_id":"r-0","protocol_minor":0}\n'
     served = subprocess.run(cli_bot("uniform"), input=hello, capture_output=True, timeout=60)
     assert b'"name":"uniform"' in served.stdout and b'"version":"2.0.0"' in served.stdout
+
+
+def _wrapped_engine(tmp_path: Path, name: str, body: str) -> Path:
+    """A fake v2 engine behind a small script whose behavior changes once the test touches a marker after game 0."""
+    script = tmp_path / f"{name}.py"
+    script.write_text(f"import os, sys\nsys.path.insert(0, {str(TESTS_DIR)!r})\nimport fake_v2_engine\n{body}", encoding="utf-8")
+    return script
+
+
+def test_an_engine_rebuilt_mid_run_aborts_it(tmp_path: Path) -> None:
+    marker = tmp_path / "rebuilt"
+    engine = _wrapped_engine(tmp_path, "rebuilt_engine",
+                             f"name = 'fake-v2-engine-rebuilt' if os.path.exists({str(marker)!r}) else 'fake-v2-engine'\n"
+                             "sys.exit(fake_v2_engine.serve(['--name', name, *sys.argv[1:]]))\n")
+    directory = tmp_path / "t"
+    with pytest.raises(runner.TournamentError, match="engine identity"):
+        run(make_config(directory, BOTS[:2], engine=engine, pairs=1, include_self_play=False), on_game=lambda row: marker.touch())
+    assert manifest(directory)["run"]["status"] == "aborted" and len(ledger_rows(directory)) == 1    # R3-5
+
+
+def test_an_engine_that_fails_to_start_halts_that_game_only(tmp_path: Path) -> None:
+    marker = tmp_path / "broken"
+    engine = _wrapped_engine(tmp_path, "flaky_engine",
+                             f"if os.path.exists({str(marker)!r}):\n    sys.exit(7)\n"
+                             "sys.exit(fake_v2_engine.serve(sys.argv[1:]))\n")
+    directory = tmp_path / "t"
+    summary = run(make_config(directory, BOTS[:2], engine=engine, pairs=1, include_self_play=False),
+                  on_game=lambda row: marker.touch())
+    rows = ledger_rows(directory)
+    assert summary.status == "complete" and (rows[1]["classification"], rows[1]["reason"]) == ("halted", "host_engine_fault:transport")
+    assert rows[1]["last_selection"] is None                                                       # R3-23
+
+
+def test_workers_are_capped_by_the_declared_cores(tmp_path: Path) -> None:
+    resources = {"cpus": 1, "memory_mb": 4096, "gpu": False, "engine_cpus": os.cpu_count() or 1}  # one game fills the machine
+    run(make_config(tmp_path / "t", BOTS, pairs=1, workers=3, resources=resources))
+    assert manifest(tmp_path / "t")["allocation"]["workers"] == 1                                   # spec 11.4 (R3-24)
+
+
+def test_unvetted_subprocess_bots_are_refused_and_the_isolation_is_published(tmp_path: Path) -> None:
+    first = subprocess_bot("first", cli_bot("first"), version="2.0.0")
+    with pytest.raises(runner.TournamentError, match="sandbox"):
+        run(make_config(tmp_path / "refused", [builtin("uniform"), {**first, "owner": "someone"}]))
+    assert not (tmp_path / "refused").exists()
+    run(make_config(tmp_path / "t", [builtin("uniform"), first], pairs=1))
+    assert manifest(tmp_path / "t")["isolation"] == {"entries": [{"name": "uniform", "isolation": "builtin-in-process"},
+                                                                 {"name": "first", "isolation": "unsandboxed"}],
+                                                     "self_reported": True}                         # spec 11.7 (R3-9)
+
+
+def test_a_commitment_made_for_another_run_is_refused(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    directory.mkdir()
+    record = manifest_module.commitment_record(run_secret=TEST_RUN_SECRET, benchmark_id="other-bench", run_label="2026-10-01")
+    store.write_json_atomic(directory / "COMMITMENT.json", record)
+    with pytest.raises(runner.TournamentError, match="benchmark_id"):
+        run(make_config(directory, BOTS, pairs=1), benchmark_id="fake-pool", run_label="2026-10-01")   # R3-30
+
+
+def test_a_second_interrupt_waits_until_the_manifest_is_written() -> None:
+    written = []
+    with pytest.raises(KeyboardInterrupt):
+        with runner.deferred_interrupts():
+            signal.raise_signal(signal.SIGINT)             # a second Ctrl+C while the aborted manifest is written
+            written.append("manifest")
+    assert written == ["manifest"]                         # R3-31
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -5718,7 +7018,7 @@ Rewrite `runner.py` to the Interfaces (module docstring: the v2 schedule, secret
 }
 ```
 
-Delete `fake_arena_engine.py` and add the module-level skips listed under Files. Port the two small bots: `bot_one_land.py` keeps its `OneLand` handler (reading `decision.candidates[i].semantic["kind"]` works unchanged on `bot.Decision`) and ends with `sys.exit(serve(OneLand(), name=BOT_NAME, version=BOT_VERSION))`; `bot_slow_start.py` sleeps `argv[1]` seconds, then serves `choose=lambda decision: decision.candidates[0].candidate_id` as `slow` 1.0.0.
+Delete `fake_arena_engine.py` and add the module-level skips listed under Files. Port the two small bots: `bot_one_land.py` keeps its `OneLand` handler (reading `decision.candidates[i].semantic["kind"]` works unchanged on `bot.Decision`) and ends with `sys.exit(serve(OneLand(), name=BOT_NAME, version=BOT_VERSION))`; `bot_slow_start.py` sleeps `argv[1]` seconds, then serves `choose=lambda decision: decision.candidates[0].candidate_id` as `slow` 1.0.0. `deferred_interrupts()` installs a SIGINT handler that only records the signal (in the main thread; elsewhere it changes nothing), restores the previous handler on exit, and then raises `KeyboardInterrupt` if a signal arrived meanwhile.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -5750,11 +7050,11 @@ git commit -m "Arena: switch tournaments to protocol v2"
 - Consumes: `host.game.play_game` (clocks pinned by `clock_ns=lambda: 0`), `host.engine_process`, `host.agent_process` (Tasks 23, 29, 18, 17); `arena.drivers.SubprocessDriver` with `agent_factory` (Task 24); `bot.BotSession` (Task 6); the fake engine, its scenarios and the hostile engine (Tasks 21, 26 to 28); `run_secret` (the spec 16 vector secret, so game 0's id is `g-f67d7fe78c792984` as in the spec examples).
 - Produces:
   - `goldens/protocol_v2/<name>.transcript.jsonl`: one canonical line per message, `{"dir": "host_to_engine" | "engine_to_host" | "host_to_agent" | "agent_to_host", "message": {...}}` (spec 16); for the two `malformed_json` transcripts, the offending line is a JSON string in `message`
-  - `goldens/protocol_v2/index.json`: `{"schema": "spellbench-goldens/v2", "transcripts": {<file name>: {"engine": "fake_v2_engine.py" | "hostile_v2_engine.py" | null, "engine_args": [...], "game_digest": "sha256:..." | null, "roles": [...]}}}` (Decision 7), where `roles` lists the replays that apply: `"host"` (every game), `"engine"` (every transcript with engine rows), `"bot_server"` (every transcript whose agent answers came from the reference `BotSession`; not `game_forfeit_invalid_selection`, whose p0 is a hand-built bad bot, nor `agent_error_decision_pending`)
+  - `goldens/protocol_v2/index.json`: `{"schema": "spellbench-goldens/v2", "notes": [...], "transcripts": {<file name>: {"engine": "fake_v2_engine.py" | "hostile_v2_engine.py" | null, "engine_args": [...], "game_digest": "sha256:..." | null, "roles": [...]}}}` (Decision 7). `notes` states the readings the goldens follow where the spec leaves room, first the Decision 4 reading of spec 8: "a rewind abandons the rewound priority action's own group and every group completed after it; they do not count toward decision_count, and group_id is never reused" (an adapter author comparing counts needs it, R2-23). `roles` lists the replays that apply: `"host"` (every game), `"engine"` (every transcript with engine rows), `"bot_server"` (every transcript whose agent answers came from the reference `BotSession`; not `game_forfeit_invalid_selection`, whose p0 is a hand-built bad bot, nor `agent_error_decision_pending`)
   - `python/tools/generate_goldens_v2.py` with `transcripts() -> dict[str, Golden]`, `render(rows) -> bytes`, `main(argv) -> int` (`--check` byte-compares without writing)
   - `python/tests/golden_helpers.py`: `GOLDENS_V2_DIR`, `load_transcript_v2(name: str) -> list[tuple[str, Any]]`, `golden_index() -> dict[str, dict]`, `class RecordingPeer(inner: Peer, rows: list, out_dir: str, in_dir: str)`, `class InProcessBot(session: BotSession)` (a `Peer` that answers through `handle_line`)
 
-Transcripts. Games (all four directions, a digest each): `game_scoring` (Burn, p0 plays lands), `game_kinds_tour`, `game_board_tour` (`--all-flags`), `game_knowledge_tour`, `game_forfeit_invalid_selection` (p0's bot answers 9), `game_halt_host_validator_v4` (hostile `stale-reference`), `game_mandatory_loop` (Loop, per-turn cap 3), `game_stalling_forfeit` (Stall, p0 activates, per-turn cap 3); together they cover every message type, every v2.0 kind, every group shape (a full arrangement and a rewind included). Engine errors (engine rows only, digest null): `engine_error_<code>` for each of the 17 codes of spec 9.8 (`probe_refused` from `--probe`) and `engine_validate_deck` (`deck_ok` and `unsupported_deck`). Agent errors (agent rows only): `agent_error_<code>` for each of the 7 codes of spec 10.5, generated through `BotSession` except `decision_pending`, which the reference server cannot produce and whose agent row is written by hand.
+Transcripts. Games (all four directions, a digest each): `game_scoring` (Burn, p0 plays lands), `game_kinds_tour` (answered by `fake_v2_scenario_kinds.pick`, the tour's own picker, so the rewind's cast is taken; R2-2), `game_board_tour` (`--all-flags`), `game_knowledge_tour`, `game_forfeit_invalid_selection` (p0's bot answers 9), `game_halt_host_validator_v4` (hostile `stale-reference`), `game_mandatory_loop` (Loop, per-turn cap 3), `game_stalling_forfeit` (Stall, p0 activates, per-turn cap 3); together they cover every message type, every v2.0 kind, every group shape (a full arrangement and a rewind included). Engine errors (engine rows only, digest null): `engine_error_<code>` for each of the 17 codes of spec 9.8 (`probe_refused` from `--probe`), `engine_error_malformed_request_non_object` (the line `[1,2]`, valid JSON with a non-object top level, answered `malformed_request` with `request_id` `""`; its host row holds the line as a JSON string, like the `malformed_json` goldens; R1-3), and `engine_validate_deck` (`deck_ok` and `unsupported_deck`). Agent errors (agent rows only): `agent_error_<code>` for each of the 7 codes of spec 10.5, generated through `BotSession` except `decision_pending`, which the reference server cannot produce and whose agent row is written by hand. `agent_error_internal_error` is generated the way Task 35 replays it: the session's `choose` returns 99, a `candidate_id` the decision did not offer, so the bot server reproduces the answer byte for byte (R3-26).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -5836,6 +7136,7 @@ Create `python/tests/test_goldens_v2.py`:
 
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -5848,6 +7149,11 @@ from spellbench.messages import ENGINE_ERROR_CODES
 from golden_helpers import GOLDENS_V2_DIR, golden_index, load_transcript_v2
 
 TOOL = Path(__file__).resolve().parents[1] / "tools" / "generate_goldens_v2.py"
+ENGINE_REQUESTS = {"hello", "reset", "step", "validate_deck", "probe_resample"}
+ENGINE_RESPONSES = {"hello_ok", "decision", "terminal", "deck_ok", "error"}
+AGENT_REQUESTS = {"hello", "game_start", "choose", "game_over"}
+AGENT_RESPONSES = {"hello_ok", "ack", "choice", "error"}
+RESERVED_RESPONSES = {"probe_result"}               # spec 9.7: reserved, so no v2.0 engine produces it
 
 
 def test_the_generator_check_passes() -> None:
@@ -5878,6 +7184,18 @@ def test_every_game_has_a_digest_and_the_goldens_cover_the_protocol() -> None:
                 (engine_codes if direction == "engine_to_host" else agent_codes).add(message["error"]["code"])
     assert kinds == V2_KINDS
     assert engine_codes == ENGINE_ERROR_CODES and agent_codes == AGENT_ERROR_CODES
+
+
+def test_the_goldens_cover_every_message_type() -> None:
+    seen: dict[str, set[str]] = {direction: set() for direction in ("host_to_engine", "engine_to_host", "host_to_agent", "agent_to_host")}
+    for name in golden_index():
+        for direction, message in load_transcript_v2(name):
+            if isinstance(message, dict):
+                seen[direction].add(message.get("request_type") or message.get("response_type"))
+    assert ENGINE_REQUESTS <= seen["host_to_engine"] and ENGINE_RESPONSES <= seen["engine_to_host"]
+    assert AGENT_REQUESTS <= seen["host_to_agent"] and AGENT_RESPONSES <= seen["agent_to_host"]
+    assert not RESERVED_RESPONSES & seen["engine_to_host"]                          # spec 16 (R3-26)
+    assert json.loads((GOLDENS_V2_DIR / "index.json").read_bytes())["notes"]        # the Decision 4 reading (R2-23)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -5887,7 +7205,7 @@ Expected: FAIL (no generator, no goldens).
 
 - [ ] **Step 3: Write the generator and generate**
 
-Each game golden runs `play_game` with `EngineProcess(peer=RecordingPeer(wire.SubprocessPeer([python, fake_v2_engine.py or hostile_v2_engine.py, *args]), rows, "host_to_engine", "engine_to_host"))` and, per seat, `SubprocessDriver(spec, startup_ms=30000, agent_factory=lambda: AgentProcess(peer=RecordingPeer(InProcessBot(BotSession(choose=script, name=..., version=...)), rows, "host_to_agent", "agent_to_host")))`, with `clock_ns=lambda: 0` so every `clock` payload is deterministic, game index 0 of the spec 16 secret, and the game's rules fitted to the engine (as `tour_helpers.play_tour` does). Engine error goldens send crafted requests through a recording `EngineProcess` (`send_raw`, `send_line`); agent error goldens send crafted lines to a recording `InProcessBot`. `main` writes each golden with `render` and `index.json` as one canonical line; `--check` prints `OK`, `STALE` or `MISSING` per file and exits 1 on any difference. Keep the generator deterministic: sorted names, fixed arguments, no wall clock. Run it: `uv run python python/tools/generate_goldens_v2.py`.
+Each game golden runs `play_game` with `EngineProcess(peer=RecordingPeer(wire.SubprocessPeer([python, fake_v2_engine.py or hostile_v2_engine.py, *args]), rows, "host_to_engine", "engine_to_host"))` and, per seat, `SubprocessDriver(spec, startup_ms=30000, agent_factory=lambda: AgentProcess(peer=RecordingPeer(InProcessBot(BotSession(choose=script, name=..., version=...)), rows, "host_to_agent", "agent_to_host")))`, with `clock_ns=lambda: 0` so every `clock` payload is deterministic, game index 0 of the spec 16 secret, and the game's rules fitted to the engine (as `tour_helpers.play_tour` does); the kinds tour's seats answer with `fake_v2_scenario_kinds.pick` (R2-2). Engine error goldens send crafted requests through a recording `EngineProcess` (`send_raw`, `send_line`; the non-object golden sends `b"[1,2]"` with `send_line`, and `RecordingPeer` keeps any line that does not strict-parse as its text); agent error goldens send crafted lines to a recording `InProcessBot`. `main` writes each golden with `render` and `index.json` as one canonical line; `--check` prints `OK`, `STALE` or `MISSING` per file and exits 1 on any difference. Keep the generator deterministic: sorted names, fixed arguments, no wall clock. Run it: `uv run python python/tools/generate_goldens_v2.py`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -6053,17 +7371,17 @@ git commit -m "Goldens: replay v2 transcripts as host, bot server and engine"
 
 ### Task 36: Validate v2 runs
 
-**Effort:** 0.5 agent-day. **Wave:** 8. **Depends on:** Tasks 4, 31, 33.
+**Effort:** 0.75 agent-day. **Wave:** 8. **Depends on:** Tasks 4, 31, 33.
 
 **Files:**
 - Modify: `python/spellbench/arena/validate.py`
 - Create: `python/tests/test_validate_v2.py`
 
 **Interfaces:**
-- Consumes: `store` (Task 33 schemas and IO), `arena.config`, `arena.ledger`, `arena.schedule.schedule`, `arena.manifest` (`MANIFEST_KEYS`, `manifest_body`, `validator_record`, `is_rated`, `run_status`, `CommitmentProof`, `FAIRNESS_LABEL`), `arena.leaderboard` (v2), `arena.throughput.Allocation.from_json`, `registry`, `legacy_v1` (Task 4), `digests`, `run_secret.RunSecret`, `spellbench.__version__`.
+- Consumes: `store` (Task 33 schemas and IO), `arena.config`, `arena.ledger`, `arena.schedule.schedule`, `arena.manifest` (`MANIFEST_KEYS`, `manifest_body`, `validator_record`, `is_rated`, `run_status`, `CommitmentProof`, `FAIRNESS_LABEL`, `EngineFile.from_json`, `isolation_record`), `arena.leaderboard` (v2), `arena.throughput.Allocation.from_json`, `registry`, `legacy_v1` (Task 4), `digests`, `run_secret.RunSecret`, `spellbench.__version__`. No module-level import of `spellbench.bench` (Global Constraints, R3-4).
 - Produces (`spellbench.arena.validate`): `validate_tournament_dir(directory: Path) -> list[str]` (a v2 manifest goes to `validate_v2_run`, anything else to the legacy verifier) and `validate_v2_run(directory: Path) -> list[str]`.
 
-The v2 checks, in order, each failure a line: manifest keys exactly `MANIFEST_KEYS`; `tournament.arena_version` equals `spellbench.__version__` (else the single v1-style message, and nothing more); `files` lists `COMMITMENT.json` then `store.DATA_FILE_NAMES`, digests match; config, registry and ledger parse (v2); `secrets`: the revealed `run_secret` hashes to `commitment`, `COMMITMENT.json` holds the same commitment, `commitment_proof` parses or is null; the ledger is a prefix of `schedule(config, run_secret)` (a complete run: all of it) with `game_index` from 0, `game_id == run_secret.game_id(game_index)`, matchup, pair, slot, seats (bot ids, names, versions) and decks as scheduled (a decklist deck's `deck_id` recomputed; games with one catalog id share one `deck_id`); `validator` equals `validator_record(rows, violations)`, each violation names a row whose reason is `host_validator:<rule>` and every such row is a violation; `run.status` equals the status the rows imply (complete, invalid when there is a violation, else aborted for a short ledger) and `run.rated` equals `is_rated(...)` with the recorded `Allocation`; `information_rules`: `fairness_label` is `validator only`, the domain id matches its names, `observation` and `engine_defaults` equal `engine_profile`'s, every native-id extension is enabled and audited; every row's `engine` equals the manifest engine's provenance; `leaderboard.json` and `LEADERBOARD.md` recompute byte for byte (`schema=LEADERBOARD_SCHEMA_V2`, `base_seed=config.stats_seed`); `manifest_body(...)` rebuilt from the files and the recorded engine, profile, information rules, secrets, allocation and engine files equals the manifest on every key but `files`.
+The v2 checks, in order, each failure a line: manifest keys exactly `MANIFEST_KEYS`; `tournament.arena_version` equals `spellbench.__version__` (else the single v1-style message, and nothing more); `files` lists `COMMITMENT.json` then `store.DATA_FILE_NAMES`, digests match; config, registry and ledger parse (v2); `secrets`: the revealed `run_secret` hashes to `commitment`, `COMMITMENT.json` holds the same commitment and this run's `benchmark_id` and `run_label` (the manifest's `run` block; spec 11.6, R3-30), `commitment_proof` parses or is null; the ledger is a prefix of `schedule(config, run_secret)` (a complete run: all of it) with `game_index` from 0, `game_id == run_secret.game_id(game_index)`, matchup, pair, slot, seats (bot ids, names, versions) and decks as scheduled (a decklist deck's `deck_id` recomputed; games with one catalog id share one `deck_id`); `validator` equals `validator_record(rows, violations)`, each violation names a row whose reason is `host_validator:<rule>` and every such row is a violation; `run.status` equals `run_status(scheduled=..., rows=..., violations=...)`, the status the rows and violations alone imply (invalid when there is a violation, else complete for a full ledger, else aborted; the runner computes it the same way, R3-13), and `run.rated` equals `is_rated(...)` with the recorded `Allocation` and the recorded `engine_files` (each read with `EngineFile.from_json`; no pinned files, no rating, R3-7); `isolation` equals `isolation_record(config)` (R3-9); `information_rules`: `fairness_label` is `validator only`, the domain id matches its names, `observation` and `engine_defaults` equal `engine_profile`'s, every native-id extension is enabled and audited; every row's `engine` equals the manifest engine's provenance; `leaderboard.json` and `LEADERBOARD.md` recompute byte for byte (`schema=LEADERBOARD_SCHEMA_V2`, `base_seed=config.stats_seed`); `manifest_body(...)` rebuilt from the files and the recorded engine, profile, information rules, secrets, allocation and engine files equals the manifest on every key but `files`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -6104,6 +7422,12 @@ def _rewrite(directory: Path, *, rows=None, edit=None) -> None:
     names = [entry["path"] for entry in document["files"]]
     document["files"] = [store.file_entry(directory / name, name) for name in names]
     store.write_json_atomic(directory / "manifest.json", document)
+
+
+def _relabel_commitment(directory: Path) -> None:
+    path = directory / "COMMITMENT.json"
+    store.write_json_atomic(path, {**json.loads(path.read_text(encoding="utf-8")), "run_label": "some-other-run"})
+    _rewrite(directory)
 
 
 def _flip_first(rows: list[dict]) -> list[dict]:
@@ -6151,6 +7475,8 @@ def test_an_aborted_run_validates_as_aborted(tmp_path: Path) -> None:
         (lambda d: _rewrite(d, edit=lambda m: m["information_rules"].update(fairness_label="validator and probe")), "fairness"),
         (lambda d: _rewrite(d, edit=lambda m: m["games"].update(natural=0)), "games"),
         (lambda d: (d / "LEADERBOARD.md").write_text("x", encoding="utf-8"), "digest mismatch: LEADERBOARD.md"),
+        (_relabel_commitment, "commitment"),                                                # another run's label (R3-30)
+        (lambda d: _rewrite(d, edit=lambda m: m["isolation"].update(self_reported=True)), "isolation"),       # R3-9
     ],
 )
 def test_tampering_is_caught(tmp_path: Path, tamper, expected: str) -> None:
@@ -6158,6 +7484,12 @@ def test_tampering_is_caught(tmp_path: Path, tamper, expected: str) -> None:
     tamper(directory)
     failures = validate_tournament_dir(directory)
     assert any(expected in failure for failure in failures), failures
+
+
+def test_a_rated_run_without_pinned_engine_files_is_caught(tmp_path: Path) -> None:
+    directory = _run(tmp_path, rated=True)
+    _rewrite(directory, edit=lambda m: m.update(engine_files=[]))
+    assert any("rated" in failure for failure in validate_tournament_dir(directory))        # R3-7
 
 
 def test_another_arena_version_gets_one_message(tmp_path: Path) -> None:
@@ -6181,7 +7513,7 @@ Expected: FAIL: every v2 run is sent to the legacy verifier, which reports the s
 
 - [ ] **Step 3: Implement**
 
-Add `validate_v2_run` with the checks above (the order matters only for the version gate, which returns early); keep each failure message short and naming its check (the words the tests match: "schedule", "commitment", "rated", "validator", "fairness", "games", "leaderboard.json", "digest mismatch"). Dispatch in `validate_tournament_dir` on the manifest's `schema`.
+Add `validate_v2_run` with the checks above (the order matters only for the version gate, which returns early); keep each failure message short and naming its check (the words the tests match: "schedule", "commitment", "rated", "validator", "fairness", "isolation", "games", "leaderboard.json", "digest mismatch"). Dispatch in `validate_tournament_dir` on the manifest's `schema`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -6213,7 +7545,7 @@ git commit -m "Validate: v2 runs, including invalid and aborted ones"
   - `Benchmark.tournament_config(tournament_dir: str) -> dict` (a v2 config: the pool, `include_self_play: false`, `rating_anchor: "uniform"`, and the fixed rules `{"opponent_decklist": "visible", "mulligan": "auto", "starting_player": "host_assigned", "starting_seat": "p0"}`, Decision 8)
   - every other public name of the module unchanged (`parse_benchmark`, `load_benchmark`, `find_benchmarks`, `load_proposed`, placeholder helpers, run-name helpers)
 
-Schema: required `schema`, `id`, `title`, `summary`, `format`, `engine` (`{name, command}`), `deck_pool` (catalog-id strings, or `{"name", "decklist"}` objects), `pairs_per_deck`, `stats_seed`, `bots`; optional `pairing` (only `"rotating_pool"`; `"fixed_deck"` fails with "fixed-deck benchmarks are reserved in protocol v2.0 (spec 15)"), `extensions`, `native_id_audits`, `time_control`, `limits`, `resources`, `bootstrap_replicates`, `workers`. A v1 schema or v1 field fails with a hint (`base_seed`: use `stats_seed`; `choose_timeout_ms`, `startup_timeout_ms`, `engine.timeout_ms`: use `time_control`).
+Schema: required `schema`, `id`, `title`, `summary`, `format`, `engine` (`{name, command}`), `deck_pool` (catalog-id strings, or `{"name", "decklist"}` objects), `pairs_per_deck`, `stats_seed`, `bots`; optional `pairing` (only `"rotating_pool"`; `"fixed_deck"`, or an `entries` field, spec 15's shape, fails with "fixed-deck benchmarks are reserved in protocol v2.0 (spec 15)"; both are checked before any other schema check, so a spec-15-shaped definition gets that message rather than a missing `deck_pool`, R3-19), `extensions`, `native_id_audits`, `time_control`, `limits`, `resources`, `bootstrap_replicates`, `workers`. A v1 schema or v1 field fails with a hint (`base_seed`: use `stats_seed`; `choose_timeout_ms`, `startup_timeout_ms`, `engine.timeout_ms`: use `time_control`).
 
 `benchmarks/pauper-kernel/benchmark.json` becomes (the committed v1 run is untouched):
 
@@ -6262,6 +7594,17 @@ In `python/tests/test_bench_definition.py`: delete the skip; convert every fixtu
 def test_fixed_deck_benchmarks_are_reserved(tmp_path: Path) -> None:
     with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
         definition.parse_benchmark(_value(pairing="fixed_deck"))
+
+
+def test_a_spec_15_shaped_definition_gets_the_reserved_message() -> None:
+    value = {key: item for key, item in _value().items() if key != "deck_pool"}
+    value.update(pairing="fixed_deck", entries=[{"entry": "burn-random", "bot": "uniform",
+                                                 "deck": {"name": "Burn", "catalog_id": "Burn"}, "display": {"label": "random"}}])
+    with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
+        definition.parse_benchmark(value)                                   # not "missing deck_pool" (R3-19)
+    del value["pairing"]
+    with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
+        definition.parse_benchmark(value)                                   # entries alone are the fixed-deck shape
 
 
 @pytest.mark.parametrize(("field", "hint"), [("base_seed", "stats_seed"), ("choose_timeout_ms", "time_control")])
@@ -6326,23 +7669,24 @@ View-model additions to `BenchmarkPageView`:
 ```text
 "protocol": {"name": str, "minor": int | None},       # {"name": "spellbench/v1", "minor": None} for a legacy run
 "legacy": bool,
-"fairness": {"label": str, "verdict": str, "decisions_checked": int, "violations": int} | None,   # None for a legacy run
+"fairness": {"label": str, "verdict": str, "decisions_checked": int, "violations": int, "self_reported": bool} | None,   # None for a legacy run
 "setup_rules": [{"term": str, "value": str}, ...],    # information rules and engine facts, in display order; [] for a legacy run
 "attribution": [{"name": str, "label": str, "games": int, "halts": int, "truncations": int}, ...],  # [] for a legacy run
 "newer_runs": [{"name": str, "status": str, "rated": bool}, ...],
 # and in "run": "status": str, "rated": bool, "commitment": str | None, "run_secret": str | None
+# and in HomeView's Hero rows, each chip: {"benchmark_id": str, "margin": float, "bound": str | None, "legacy": bool}
 ```
 
-Markup contract: the meta line gains `protocol v2` (or `protocol v1`); after the run box, a `<section class="fairness">` reading "Fairness: validator only. The host checked every decision before a bot saw it ({N} decisions, verdict {verdict}). It cannot see hidden state, so an engine adapter that leaked through its text or extensions would go unnoticed." with a link to `repo_url + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract"`; for a legacy run, a `<p class="legacy">` instead: "Protocol v1: this run predates the fairness contract, and the two games of each pair shared one seed. It stays on the board until the benchmark reruns on protocol v2."; when `newer_runs` is not empty, a note "Newer runs not shown: <name> (<status>), ..."; the Setup list gains `Protocol` and every `setup_rules` row; when `attribution` is not empty, a table `<table class="attribution">` headed "Halts and truncations after each bot's move" with a row per bot (`label`, games, halts, truncations); the Re-check box adds "Commitment" and "Run secret (revealed after the run)" with the hex values when present. Method page, Games section: "Each benchmark is a round robin. Every matchup is played as pairs of games with the seats swapped, each pair using the next deck of the benchmark's pool in both seats; a bot never plays itself. Every game has its own secret, so the two games of a pair shuffle independently, and ratings still count them as a pair. The run publishes a commitment to its secret before the first game and reveals the secret afterwards, so anyone can recompute every game's randomness." A new Method section "Fairness": "Engines never show a bot the other player's hand or either library, beyond what the rules let it know. The host checks every decision before forwarding it and publishes the verdict with the run. Timing is not hidden: a bot can measure how long its opponent takes." Join page: the spec link points to `SPELLBENCH_PROTOCOL_V2.md`, and the steps add "The smallest bot is about 15 lines: examples/minimal_bot.py." (linked to `repo_url + "/blob/main/examples/minimal_bot.py"`).
+Markup contract: the meta line gains `protocol v2` (or `protocol v1`); after the run box, a `<section class="fairness">` reading "Fairness: validator only. The host checked every decision before a bot saw it ({N} decisions, verdict {verdict}). It cannot see hidden state, so an engine adapter that leaked through its text or extensions would go unnoticed." with a link to `repo_url + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract"`, and, when `fairness.self_reported`, the label "self-reported" next to "validator only" and the sentence "Its bots ran without a verified sandbox (spec 11.7), so the run cannot claim isolation." (R3-9); a Hero chip whose `legacy` is true reads "{benchmark_id} {margin} (protocol v1)" (Decision 1: the v1 board run is labelled in the Hero too, R3-20); for a legacy run, a `<p class="legacy">` instead: "Protocol v1: this run predates the fairness contract, and the two games of each pair shared one seed. It stays on the board until the benchmark reruns on protocol v2."; when `newer_runs` is not empty, a note "Newer runs not shown: <name> (<status>), ..."; the Setup list gains `Protocol` and every `setup_rules` row; when `attribution` is not empty, a table `<table class="attribution">` headed "Halts and truncations after each bot's move" with a row per bot (`label`, games, halts, truncations); the Re-check box adds "Commitment" and "Run secret (revealed after the run)" with the hex values when present. Method page, Games section: "Each benchmark is a round robin. Every matchup is played as pairs of games with the seats swapped, each pair using the next deck of the benchmark's pool in both seats; a bot never plays itself. Every game has its own secret, so the two games of a pair shuffle independently, and ratings still count them as a pair. The run publishes a commitment to its secret before the first game and reveals the secret afterwards, so anyone can recompute every game's randomness." A new Method section "Fairness", worded as the contract rather than as fact (R3-21): "Engines must never show a bot the other player's hand or either library, beyond what the rules let it know. The host checks what it can see in every decision before forwarding it, and publishes the verdict with the run; it cannot see hidden state. What the protocol does not close (spec 13): timing, since a bot can measure how long its opponent takes; adapter faithfulness, since a leak through an engine's text or extensions goes unnoticed until an audit; rules errors in an engine; trust in the operator, who holds the run secret during the run; and self-reported runs, whose bots ran without a verified sandbox." Join page: the spec link points to `SPELLBENCH_PROTOCOL_V2.md`, and the steps add "The smallest bot is about 15 lines: examples/minimal_bot.py." (linked to `repo_url + "/blob/main/examples/minimal_bot.py"`).
 
 - [ ] **Step 1: Write the failing tests**
 
-Add to `python/tests/test_site_render.py` (building on its existing `BENCH` fixture, which the module updates with the new keys for a v2 run):
+Add to `python/tests/test_site_render.py` (building on its existing `BENCH` fixture, which the module updates with the new keys for a v2 run; every Hero chip literal in the module, `HOME`'s included, gains `"legacy": False`):
 
 ```python
 V2_EXTRA = {
     "protocol": {"name": "spellbench/v2", "minor": 0}, "legacy": False,
-    "fairness": {"label": "validator only", "verdict": "pass", "decisions_checked": 18123, "violations": 0},
+    "fairness": {"label": "validator only", "verdict": "pass", "decisions_checked": 18123, "violations": 0, "self_reported": False},
     "setup_rules": [{"term": "Opponent decklist", "value": "visible"}, {"term": "Mulligan", "value": "none (the engine offers no mulligans)"}],
     "attribution": [{"name": "heuristic", "label": "heuristic", "games": 64, "halts": 1, "truncations": 0}],
     "newer_runs": [{"name": "2026-10-02", "status": "invalid", "rated": False}],
@@ -6377,8 +7721,23 @@ def test_setup_rule_values_are_escaped() -> None:
 def test_method_and_join_describe_v2() -> None:
     method = render.render_method(INFO)
     assert "own secret" in method and "Fairness" in method
+    assert "must never" in method and "cannot see hidden state" in method and "self-reported" in method   # R3-21
     join = render.render_join(INFO)
     assert "SPELLBENCH_PROTOCOL_V2.md" in join and "examples/minimal_bot.py" in join
+
+
+def test_a_self_reported_run_says_so_next_to_the_fairness_label() -> None:
+    fairness = {**V2_EXTRA["fairness"], "self_reported": True}
+    page = _v2_page(fairness=fairness)
+    assert "self-reported" in _html(page, "section", "class", "fairness")                                  # R3-9
+    assert "self-reported" not in _html(_v2_page(), "section", "class", "fairness")
+
+
+def test_a_legacy_hero_chip_is_labelled() -> None:
+    home = copy.deepcopy(HOME)
+    home["hero"]["rows"][0]["chips"] = [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": True}]
+    assert "(protocol v1)" in _html(render.render_home(home), "li", "data-bot", "heuristic")               # R3-20
+    assert "(protocol v1)" not in render.render_home(HOME)
 ```
 
 Update any existing assertion on the old Games copy or the v1 spec link to the new text.
@@ -6386,11 +7745,11 @@ Update any existing assertion on the old Games copy or the v1 spec link to the n
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest python/tests/test_site_render.py -q`
-Expected: FAIL on the four new tests.
+Expected: FAIL on the six new tests.
 
 - [ ] **Step 3: Implement**
 
-Extend `render_benchmark`, `_details`, `_run_box`, `render_method` (`_METHOD_SECTIONS`) and `render_join` to the contract; escape every new data string with `_e`; add CSS for `.fairness`, `.legacy` and `.attribution` using the existing tokens (no new colors).
+Extend `render_benchmark`, `_details`, `_run_box`, `_hero_row`, `render_method` (`_METHOD_SECTIONS`) and `render_join` to the contract; escape every new data string with `_e`; add CSS for `.fairness`, `.legacy` and `.attribution` using the existing tokens (no new colors).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -6584,16 +7943,24 @@ Porting rules (apply to every test in the seven modules):
 | `Rendezvous` waits at `reset` | at the first `step` |
 | `spellbench bot` answers `spellbench/v1` | `spellbench/v2` with `2.0.0` |
 | `test_the_package_version_is_the_project_version` | unchanged |
+| `test_round_robin_with_every_builtin_bot` relies on v1 `fake_engine.py` always ending in a p0 win | `decks=("P0Wins", "P0Wins")` on the v2 fake engine (Task 21's hook, the same constant result), expectations unchanged (R3-16) |
+| `test_a_decklist_deck_is_labeled_by_its_digest` | renamed `test_a_decklist_deck_is_labeled_by_its_name`: a v2 deck is labelled by its `name` (Task 20) |
+| `subprocess_bot(name, cli_bot(name))` entries | `subprocess_bot(name, cli_bot(name), version="2.0.0")`: the served builtin names itself 2.0.0, and the driver refuses a mismatch at preflight |
+| `FAKE_ENGINE` (v1 `fake_engine.py`), `FAKE_ARENA_ENGINE` | `arena_helpers.FAKE_ENGINE` (the v2 fake engine) |
+| `BOT_SLOW_START` | `arena_helpers.BOT_SLOW_START` (kept by Task 33) |
 
-Retired: `test_validate_checks_the_ledger_against_the_schedule` edits `game_id` instead of `game_seed` (same name kept); nothing else is retired. New in `test_arena_e2e.py`:
+Retired: `test_validate_checks_the_ledger_against_the_schedule` edits `game_id` instead of `game_seed` (same name kept), and `test_a_decklist_deck_is_labeled_by_its_digest` becomes `test_a_decklist_deck_is_labeled_by_its_name` (the label changed in Task 20); nothing else is retired. New in `test_arena_e2e.py` (imports `hashlib` and `TEST_RUN_SECRET`):
 
 ```python
 def test_the_two_games_of_a_pair_have_independent_secrets(tmp_path: Path) -> None:
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("uniform", seed=11), builtin("first")], pairs=1, include_self_play=False))
+    run(make_config(directory, [builtin("uniform", seed=11), builtin("first")], decks=("Echo", "Echo"), pairs=1,
+                    include_self_play=False))
     first, second = ledger_rows(directory)
-    assert (first["pair_index"], second["pair_index"]) == (0, 0) and first["game_digest"] != second["game_digest"]
-    assert first["game_id"] != second["game_id"]
+    assert (first["pair_index"], second["pair_index"]) == (0, 0)
+    received = [row["reason"] for row in (first, second)]              # the Echo hook reports a hash of the secret it got
+    assert received == ["secret:" + hashlib.sha256(TEST_RUN_SECRET.game_secret(index)).hexdigest()[:8] for index in (0, 1)]
+    assert received[0] != received[1]                                  # what each engine received differs (R3-16)
 ```
 
 - [ ] **Step 1: Port the modules**
@@ -6615,40 +7982,47 @@ git commit -m "Tests: arena end to end, schedule, slices, parallel, resolve, com
 
 ### Task 41: Bench commit, run, reveal and rerun
 
-**Effort:** 0.75 agent-day. **Wave:** 9. **Depends on:** Tasks 31, 33, 36, 37.
+**Effort:** 1.0 agent-day. **Wave:** 9. **Depends on:** Tasks 5, 31, 33, 36, 37.
 
 **Files:**
 - Create: `python/spellbench/bench/commit.py`
 - Rewrite: `python/spellbench/bench/run.py`
 - Modify: `python/spellbench/arena/cli.py` (`bench commit`, `bench run`, `bench reveal`, `bench rerun`)
-- Modify: `python/spellbench/arena/validate.py` (a revealed run: `REVEAL.json` without a manifest)
+- Modify: `python/spellbench/arena/validate.py` (a revealed run: `REVEAL.json` without a manifest; the reveal constants and their check live here, R3-4)
 - Modify: `python/tests/test_bench_run.py` (remove the skip; port to v2)
 - Create: `python/tests/test_bench_commit.py`
 
 **Interfaces:**
-- Consumes: `bench.definition` (Task 37), `arena.runner` (Task 33), `arena.manifest` (`commitment_record`, `CommitmentProof`) (Task 31), `arena.schedule`, `arena.executor`, `arena.throughput.Allocation`, `run_secret.RunSecret`, `arena.validate` (Task 36).
+- Consumes: `bench.definition` (Task 37), `arena.runner` (Task 33), `arena.manifest` (`commitment_record`, `CommitmentProof`) (Task 31), `arena.schedule`, `arena.executor`, `arena.throughput.Allocation`, `parse_placement` (Task 5), `run_secret.RunSecret`, `arena.validate` (Task 36).
+- Produces (`spellbench.arena.validate`, so arena code never imports `bench`, R3-4): `REVEAL_NAME = "REVEAL.json"`, `REVEAL_SCHEMA = "spellbench-run-reveal/v1"`, `REVEAL_REASONS = ("preflight", "guard", "interrupted", "error")` (a fixed category, never exception text, which could carry local paths, R3-28), `check_reveal(directory: Path) -> list[str]`
 - Produces (`spellbench.bench.commit`):
-  - `SECRETS_DIR_NAME = "SPELLBENCH_SECRETS_DIR"`, `REVEAL_NAME = "REVEAL.json"`, `REVEAL_SCHEMA = "spellbench-run-reveal/v1"`, `class CommitError(ValueError)`
-  - `@dataclass(frozen=True) class CommittedRun: run_dir: Path; commitment: str; secret_path: Path`
+  - `SECRETS_DIR_NAME = "SPELLBENCH_SECRETS_DIR"`, `REMOTE = "origin"`, `class CommitError(ValueError)`; `REVEAL_NAME` and `REVEAL_SCHEMA` imported from `arena.validate`
+  - `@dataclass(frozen=True) class CommittedRun: run_dir: Path; commitment: str; secret_path: Path; commit: str` (`commit` is the pushed commit that added `COMMITMENT.json`)
   - `secrets_dir(environ: Mapping[str, str], local: Mapping[str, str]) -> Path` (the environment, then `benchmarks/local.json`, then `Path.home() / ".spellbench" / "run-secrets"`)
-  - `commit_run(benchmark_dir: Path, *, date: str | None = None, environ: Mapping[str, str] | None = None) -> CommittedRun`
-  - `load_run_secret(run_dir: Path, *, benchmark_id: str, environ: Mapping[str, str] | None = None) -> RunSecret`
-  - `pushed_commit(run_dir: Path) -> str` (the commit that added `COMMITMENT.json`, contained in a remote-tracking branch)
-  - `reveal_run(run_dir: Path, *, benchmark_id: str, environ: Mapping[str, str] | None = None) -> Path`
+  - `commit_run(benchmark_dir: Path, *, placement: str, date: str | None = None, environ: Mapping[str, str] | None = None) -> CommittedRun`
+  - `load_run_secret(run_dir: Path, *, benchmark_id: str, environ: Mapping[str, str] | None = None) -> RunSecret`, `load_placement(run_dir: Path, *, benchmark_id: str, environ: Mapping[str, str] | None = None) -> str`
+  - `pushed_commit(run_dir: Path) -> str` (after fetching `REMOTE`: the commit that added `COMMITMENT.json`, which must also be the last commit touching it and lie on a remote-tracking branch)
+  - `reveal_run(run_dir: Path, *, benchmark_id: str, reason: str, environ: Mapping[str, str] | None = None) -> Path` (`reason` in `REVEAL_REASONS`)
 - Produces (`spellbench.bench.run`):
   - `@dataclass(frozen=True) class BenchmarkRun: run_dir: Path; summary: TournamentSummary; failures: tuple[str, ...]`
-  - `run_benchmark(benchmark_dir: Path, *, run: str | None = None, proof: str | None = None, unrated: bool = False, date: str | None = None, placement: str | None = None, environ: Mapping[str, str] | None = None) -> BenchmarkRun`
+  - `run_benchmark(benchmark_dir: Path, *, run: str | None = None, proof: str | None = None, unrated: bool = False, date: str | None = None, placement: str | None = None, environ: Mapping[str, str] | None = None) -> BenchmarkRun` (a committed run uses the placement recorded at `bench commit`; `placement` is for `unrated` runs)
   - `rerun_games(run_dir: Path, *, games: Sequence[int] | None = None, environ: Mapping[str, str] | None = None) -> list[str]`
-- CLI: `spellbench bench commit BENCHMARK_DIR [--date YYYY-MM-DD]`; `spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]) [--placement TEXT]`; `spellbench bench reveal BENCHMARK_DIR --run NAME`; `spellbench bench rerun RUN_DIR [--game N]...`
+- CLI: `spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]`; `spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD] [--placement TEXT])`; `spellbench bench reveal BENCHMARK_DIR --run NAME`; `spellbench bench rerun RUN_DIR [--game N]...`
 
-Flow (spec 11.1, 11.6; Decisions 3 and 9): `commit_run` picks the next run name, generates the secret, refuses a secrets directory inside the repository work tree (`git rev-parse --show-toplevel`), writes the hex secret to `<secrets dir>/<benchmark id>/<run>.hex`, then writes `runs/<run>/COMMITMENT.json` (`commitment_record`), and tells the operator to commit and push it and record a third-party timestamp (an issue comment, a signed release, or an OpenTimestamps proof). `run_benchmark` with `run` loads the secret (it must hash to the file's commitment), checks `pushed_commit`, and passes `CommitmentProof(commit, proof)`; with `unrated` it uses a fresh secret and no proof (the runner writes the commitment before the first game). The allocation is `Allocation.unmeasured(benchmark.workers)` until Task 43 adds the guard, so rated runs publish as unrated until then. When a committed run fails before the runner publishes a manifest, `run_benchmark` calls `reveal_run`, which writes `REVEAL.json` (`{"schema", "benchmark_id", "run_label", "commitment", "run_secret", "status": "aborted", "reason"}`), so every committed run is published (spec 11.6); `validate` accepts such a directory when the secret hashes to the commitment. `rerun_games` resolves placeholders like `run_benchmark`, rebuilds the schedule from the revealed secret, replays the chosen games (all by default) through `runner.play_games`, and reports every game whose outcome, reason or `game_digest` differs from the ledger.
+Flow (spec 11.1, 11.6; Decisions 3 and 9). `commit_run` (R3-8, R3-14):
+1. Checks, before anything is published, the local values the rated run will need: `SPELLBENCH_PIN_ROOT` set, `SPELLBENCH_ARTIFACT_REGISTER` naming an existing file (the environment, then `benchmarks/local.json`), and a structured placement note (`parse_placement`); a failure is a `CommitError` naming the value, and nothing is committed (a missing value found after the push would burn the commitment).
+2. Picks the next run name and refuses a secrets directory inside the repository work tree (`git rev-parse --show-toplevel`).
+3. Generates the secret in memory, writes `runs/<run>/COMMITMENT.json` (`commitment_record`), commits only that file (`git add -- COMMITMENT.json`, `git commit -q -m "Spellbench: commitment for <benchmark id> run <run>" -- COMMITMENT.json`) and pushes it (`git push -q origin HEAD`); a failed push is `CommitError("the commitment was not pushed: ...")`, and the secret is dropped, so no usable secret ever exists without a public commitment (spec 11.6 then forces its reveal).
+4. Only then writes the hex secret to `<secrets dir>/<benchmark id>/<run>.hex` and the placement note to `<run>.placement.txt` beside it, and tells the operator to record a third-party timestamp for the commit (an issue comment, a signed release, or an OpenTimestamps proof).
+
+`run_benchmark` with `run`: the run directory must hold only `COMMITMENT.json`, and this invocation takes a lock, `<secrets dir>/<benchmark id>/<run>.lock` created with `O_EXCL` (held by another invocation, or a directory already holding more, is `CommitError("... is already running or finished")`, R3-14); it loads the secret (it must hash to the file's commitment) and the placement note, checks `pushed_commit`, and passes `CommitmentProof(commit, proof)`; the lock is removed at the end. With `unrated` it uses a fresh secret, no proof and the `placement` argument (the runner writes the commitment before the first game). The allocation is `Allocation.unmeasured(benchmark.workers)` until Task 43 adds the guard, so rated runs publish as unrated until then. When a committed run fails before the runner publishes a manifest, in the invocation that holds its lock, `run_benchmark` calls `reveal_run` with the reason category (`preflight` for a `TournamentError` raised before any game, `interrupted` for a `KeyboardInterrupt`, `error` otherwise; Task 43 adds `guard`), which writes `REVEAL.json` (`{"schema", "benchmark_id", "run_label", "commitment", "run_secret", "status": "aborted", "reason"}`), so every committed run is published (spec 11.6); `validate` accepts such a directory when `check_reveal` finds the secret hashing to the commitment, the record's `benchmark_id` and `run_label` matching `COMMITMENT.json`, and a reason in `REVEAL_REASONS`. `rerun_games` resolves placeholders like `run_benchmark`, rebuilds the schedule from the revealed secret, replays the chosen games (all by default) through `runner.play_games`, and reports every game whose outcome, reason or `game_digest` differs from the ledger.
 
 - [ ] **Step 1: Write the failing tests**
 
 Create `python/tests/test_bench_commit.py`:
 
 ```python
-"""Commitment first, secret outside the repository, reveal, rerun (spec 11.6)."""
+"""Commitment first and pushed, secret outside the repository, reveal, rerun (spec 11.6)."""
 
 from __future__ import annotations
 
@@ -6659,10 +8033,13 @@ from pathlib import Path
 
 import pytest
 
+from spellbench.arena.validate import validate_tournament_dir
 from spellbench.bench.commit import CommitError, commit_run, pushed_commit, reveal_run, secrets_dir
 from spellbench.bench.run import rerun_games, run_benchmark
 
 from test_bench_run import ENVIRON, _write_benchmark
+
+PLACEMENT = "main-pc: selected, fastest measured; haleyspc: idle, slower per game; runpod: not needed for a 1 h run"
 
 
 def git(cwd: Path, *args: str) -> str:
@@ -6687,47 +8064,86 @@ def repo(tmp_path: Path) -> Path:
 
 
 def env(tmp_path: Path) -> dict[str, str]:
-    return {**ENVIRON, "SPELLBENCH_SECRETS_DIR": str(tmp_path / "secrets")}
+    """The local values of a rated run: the secrets directory, and the pin root and register script Task 43 needs (R3-3)."""
+    register = tmp_path / "register.py"
+    register.write_text("import sys\n", encoding="utf-8")
+    return {**ENVIRON, "SPELLBENCH_SECRETS_DIR": str(tmp_path / "secrets"), "SPELLBENCH_PIN_ROOT": str(tmp_path / "pins"),
+            "SPELLBENCH_ARTIFACT_REGISTER": str(register)}
 
 
-def test_a_committed_run_needs_a_pushed_commitment_then_runs_with_its_proof(repo: Path, tmp_path: Path) -> None:
+def test_a_committed_run_is_pushed_before_its_secret_exists_then_runs_with_its_proof(repo: Path, tmp_path: Path) -> None:
     bench = repo / "benchmarks" / "fake-pool"
-    committed = commit_run(bench, date="2026-10-01", environ=env(tmp_path))
+    committed = commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=env(tmp_path))
     assert committed.run_dir == bench / "runs" / "2026-10-01"
     assert json.loads((committed.run_dir / "COMMITMENT.json").read_text(encoding="utf-8"))["commitment"] == committed.commitment
     assert repo not in committed.secret_path.parents
-    with pytest.raises(CommitError, match="pushed"):
-        pushed_commit(committed.run_dir)
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "commitment")
-    git(repo, "push", "-q", "origin", "HEAD:main")
+    assert pushed_commit(committed.run_dir) == committed.commit == git(repo, "rev-parse", "HEAD")   # committed and pushed (R3-8)
     result = run_benchmark(bench, run="2026-10-01", proof="https://example.org/issues/1#c1", environ=env(tmp_path))
     manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert result.failures == () and manifest["secrets"]["commitment"] == committed.commitment
-    assert manifest["secrets"]["commitment_proof"] == {"commit": git(repo, "rev-parse", "HEAD"), "timestamp": "https://example.org/issues/1#c1"}
+    assert manifest["secrets"]["commitment_proof"] == {"commit": committed.commit, "timestamp": "https://example.org/issues/1#c1"}
     assert rerun_games(result.run_dir, games=[0, 1], environ=env(tmp_path)) == []
+
+
+def test_no_secret_is_kept_when_the_commitment_cannot_be_pushed(repo: Path, tmp_path: Path) -> None:
+    git(repo, "remote", "remove", "origin")
+    with pytest.raises(CommitError, match="not pushed"):
+        commit_run(repo / "benchmarks" / "fake-pool", date="2026-10-01", placement=PLACEMENT, environ=env(tmp_path))
+    assert not list((tmp_path / "secrets").rglob("*.hex"))                                      # R3-8
+
+
+def test_a_commitment_changed_after_its_push_is_refused(repo: Path, tmp_path: Path) -> None:
+    committed = commit_run(repo / "benchmarks" / "fake-pool", date="2026-10-01", placement=PLACEMENT, environ=env(tmp_path))
+    path = committed.run_dir / "COMMITMENT.json"
+    path.write_text(path.read_text(encoding="utf-8").replace(committed.commitment, "0" * 64), encoding="utf-8")
+    git(repo, "commit", "-q", "-am", "swap the commitment")
+    git(repo, "push", "-q", "origin", "HEAD")
+    with pytest.raises(CommitError, match="changed after"):
+        pushed_commit(committed.run_dir)                                                        # R3-8
+
+
+def test_bench_commit_checks_the_local_values_before_publishing(repo: Path, tmp_path: Path) -> None:
+    bench = repo / "benchmarks" / "fake-pool"
+    head = git(repo, "rev-parse", "HEAD")
+    for missing in ("SPELLBENCH_PIN_ROOT", "SPELLBENCH_ARTIFACT_REGISTER"):
+        environ = {key: value for key, value in env(tmp_path).items() if key != missing}
+        with pytest.raises(CommitError, match=missing):
+            commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=environ)
+    with pytest.raises(CommitError, match="placement"):
+        commit_run(bench, date="2026-10-01", placement="this PC only", environ=env(tmp_path))
+    assert git(repo, "rev-parse", "HEAD") == head and not (bench / "runs").exists()            # nothing published (R3-14)
 
 
 def test_the_secret_never_lands_in_the_repository(repo: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
     bench = repo / "benchmarks" / "fake-pool"
-    committed = commit_run(bench, date="2026-10-01", environ=ENVIRON)          # no SPELLBENCH_SECRETS_DIR: the home default
+    home = {key: value for key, value in env(tmp_path).items() if key != "SPELLBENCH_SECRETS_DIR"}   # the home default
+    committed = commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=home)
     assert (tmp_path / "home") in committed.secret_path.parents and repo not in committed.secret_path.parents
-    assert git(repo, "status", "--porcelain", "--untracked-files=all").splitlines() == ["?? benchmarks/fake-pool/runs/2026-10-01/COMMITMENT.json"]
+    assert git(repo, "status", "--porcelain", "--untracked-files=all").splitlines() == []      # only the commitment, committed
     with pytest.raises(CommitError, match="outside the repository"):
-        commit_run(bench, date="2026-10-01", environ={**ENVIRON, "SPELLBENCH_SECRETS_DIR": str(repo / "secrets")})
-    assert commit_run(bench, date="2026-10-01", environ=ENVIRON).run_dir.name == "2026-10-01-2"
+        commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ={**home, "SPELLBENCH_SECRETS_DIR": str(repo / "secrets")})
+    assert commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=home).run_dir.name == "2026-10-01-2"
 
 
 def test_a_committed_run_that_died_is_revealed(repo: Path, tmp_path: Path) -> None:
     bench = repo / "benchmarks" / "fake-pool"
-    committed = commit_run(bench, date="2026-10-01", environ=env(tmp_path))
-    reveal = reveal_run(committed.run_dir, benchmark_id="fake-pool", environ=env(tmp_path))
+    committed = commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=env(tmp_path))
+    reveal = reveal_run(committed.run_dir, benchmark_id="fake-pool", reason="error", environ=env(tmp_path))
     record = json.loads(reveal.read_text(encoding="utf-8"))
     assert record["status"] == "aborted" and record["commitment"] == committed.commitment and len(record["run_secret"]) == 64
-    from spellbench.arena.validate import validate_tournament_dir
+    assert record["reason"] == "error"                                                          # a category, never exception text (R3-28)
     assert validate_tournament_dir(committed.run_dir) == []
+
+
+def test_a_run_owned_by_another_invocation_is_never_revealed(repo: Path, tmp_path: Path) -> None:
+    bench = repo / "benchmarks" / "fake-pool"
+    committed = commit_run(bench, date="2026-10-01", placement=PLACEMENT, environ=env(tmp_path))
+    (committed.secret_path.parent / "2026-10-01.lock").write_text("", encoding="utf-8")         # another bench run holds it
+    with pytest.raises(CommitError, match="already"):
+        run_benchmark(bench, run="2026-10-01", proof="https://example.org/i/1", environ=env(tmp_path))
+    assert sorted(path.name for path in committed.run_dir.iterdir()) == ["COMMITMENT.json"]    # no REVEAL.json (R3-14)
 
 
 def test_a_rerun_catches_a_changed_result(repo: Path, tmp_path: Path) -> None:
@@ -6739,7 +8155,13 @@ def test_a_rerun_catches_a_changed_result(repo: Path, tmp_path: Path) -> None:
     assert any("game 0" in mismatch for mismatch in rerun_games(result.run_dir, games=[0], environ=env(tmp_path)))
 ```
 
-Port `python/tests/test_bench_run.py` (delete the skip): `_write_benchmark` and `_bot` write v2 definitions (`"schema": "spellbench-benchmark/v2"`, `stats_seed`, builtin `2.0.0`, the engine `["${PY}", "${FAKE_ENGINE}"]` with `FAKE_ENGINE` now `fake_v2_engine.py`); every `run_benchmark(bench, date=...)` call gains `unrated=True`; `PUBLISHED` gains `COMMITMENT.json`; the CLI tests call `bench run DIR --unrated --date ...`; add a usage test that `bench run DIR` with neither `--run` nor `--unrated` exits 2.
+Port `python/tests/test_bench_run.py` (delete the skip):
+- `_write_benchmark(root: Path, **extra: Any) -> Path` and `_bot` write v2 definitions (`"schema": "spellbench-benchmark/v2"`, `stats_seed`, builtin `2.0.0`, the engine `["${PY}", "${FAKE_ENGINE}"]` with `FAKE_ENGINE` now `arena_helpers.FAKE_ENGINE`, the v2 fake engine); `extra` fields are merged into the definition (Task 43 sets `workers`, R3-15).
+- Every `run_benchmark(bench, date=...)` call gains `unrated=True`; `PUBLISHED` gains `COMMITMENT.json`; the CLI tests call `bench run DIR --unrated --date ...`.
+- `test_the_cli_prints_the_run_and_each_validate_failure` compares the first three lines, `out.splitlines()[:3] == [...]`, because Task 43 prints an `allocation:` line after them (R3-3, so Task 43 needs no edit here).
+- `test_a_second_run_the_same_day_gets_the_next_suffix` keeps its suffix and `latest_run_dir` checks and drops the byte-identity assertion: two unrated runs have fresh secrets (R3-16).
+- `test_the_launch_definitions_parse` compares `benchmark.deck_pool` with `tuple(DeckSpec(catalog_id=name) for name in ("Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"))` (the v2 pool holds `DeckSpec`s, R3-16) and parses the config with `spellbench.arena.config.TournamentConfig`.
+- Add a usage test that `bench run DIR` with neither `--run` nor `--unrated` exits 2.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -6748,7 +8170,7 @@ Expected: FAIL at collection (`ModuleNotFoundError: spellbench.bench.commit`).
 
 - [ ] **Step 3: Implement**
 
-Write `commit.py` and `run.py` to the flow above; use `git` through `subprocess.run([...], capture_output=True, text=True)` with `-C <run_dir>`: `ls-files --error-unmatch COMMITMENT.json` (tracked), `diff --quiet HEAD -- COMMITMENT.json` (unchanged), `log -n 1 --format=%H --diff-filter=A -- COMMITMENT.json` (the adding commit), `branch -r --contains <sha>` (pushed). Every failure (untracked, modified since its commit, or on no remote-tracking branch) raises `CommitError` with a message that starts `the commitment is not in a pushed commit:` and names the missing step, for example `...: push it before the first game (spec 11.6)`. Write the secret file with `os.open(..., O_CREAT | O_EXCL | O_WRONLY, 0o600)`. Add the four `bench` subcommands to `cli.py` (usage errors exit 2).
+Write `commit.py` and `run.py` to the flow above; use `git` through `subprocess.run([...], capture_output=True, text=True)` with `-C <run_dir>`. `pushed_commit` first runs `fetch -q origin` (so the check reads the remote's current state, not stale local refs), then `ls-files --error-unmatch COMMITMENT.json` (tracked), `diff --quiet HEAD -- COMMITMENT.json` (unchanged), `log -n 1 --format=%H --diff-filter=A -- COMMITMENT.json` (the adding commit) and `log -n 1 --format=%H -- COMMITMENT.json` (the last commit touching it), and `branch -r --contains <sha>` (pushed). An untracked or locally modified file, or an adding commit on no remote-tracking branch, raises `CommitError` with a message that starts `the commitment is not in a pushed commit:` and names the missing step, for example `...: push it before the first game (spec 11.6)`; a last commit that differs from the adding one raises `CommitError("the commitment was changed after its first push (<sha>); a changed commitment proves nothing (spec 11.6)")`. Write the secret file with `os.open(..., O_CREAT | O_EXCL | O_WRONLY, 0o600)` and the lock the same way. In `validate.py`, add `REVEAL_NAME`, `REVEAL_SCHEMA`, `REVEAL_REASONS` and `check_reveal`, and send a directory holding `REVEAL.json` and no manifest to `check_reveal`. Add the four `bench` subcommands to `cli.py`, importing `bench` inside the command functions (usage errors exit 2).
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
@@ -6761,7 +8183,7 @@ Expected: all pass.
 
 ```bash
 git add python/spellbench/bench/commit.py python/spellbench/bench/run.py python/spellbench/arena/cli.py python/spellbench/arena/validate.py python/tests/test_bench_commit.py python/tests/test_bench_run.py
-git commit -m "Bench: commit before the first game, run with a proof, reveal, rerun"
+git commit -m "Bench: a pushed commitment before the first game, run with a proof, reveal, rerun"
 ```
 
 ### Task 42: Site build on v2 and legacy runs
@@ -6776,11 +8198,11 @@ git commit -m "Bench: commit before the first game, run with a proof, reveal, re
 - Consumes: `bench.definition` (Task 37), `arena.validate` (Task 36), `arena.legacy_v1.read_v1_run` (Task 4), `arena.config.TournamentConfig`, `render` view contract (Task 38), `hero`.
 - Produces (`spellbench.site.build`): `build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]` unchanged in signature; new helper `board_run_dir(benchmark_dir: Path) -> Path | None` (the latest published run that is a rated v2 run or a v1 run).
 
-Rules (Decisions 1 and 3): each benchmark's page and Hero chip come from its board run; published runs newer than the board run are validated too, listed in `newer_runs`, and warned about ("<id>: runs/<name> is <status> and not rated; showing runs/<board>"); a run directory holding `REVEAL.json` and no manifest warns as "revealed after an abort" (detect it by that file name alone: Task 41 adds its validation in this same wave); a legacy board run is read with `legacy_v1.read_v1_run`, shows its bots by definition display where the name matches and by registry name otherwise, skips the drift check, and warns "<id>: the board run is protocol v1; rerun on protocol v2 to publish the current definition"; a v2 board run keeps the drift check (comparing v2 configs) and fills `protocol`, `fairness` (from `validator`), `setup_rules` (opponent decklist, mulligan with "(the engine offers no mulligans)" when the resolved rule is `none` because the engine lacks London, starting player, card-name domain size, each engine default, the optional observation fields the engine provides, enabled extensions), `attribution` (from the leaderboard rows), and the run's status, rated flag, commitment and revealed secret.
+Rules (Decisions 1 and 3): each benchmark's page and Hero chip come from its board run; published runs newer than the board run are validated too, listed in `newer_runs`, and warned about ("<id>: runs/<name> is <status> and not rated; showing runs/<board>"); a run directory holding `REVEAL.json` and no manifest warns as "revealed after an abort" (detect it by that file name alone: Task 41 adds its validation in this same wave); a legacy board run is read with `legacy_v1.read_v1_run`, shows its bots by definition display where the name matches and by registry name otherwise, skips the drift check, and warns "<id>: the board run is protocol v1; rerun on protocol v2 to publish the current definition"; a v2 board run keeps the drift check (comparing v2 configs) and fills `protocol`, `fairness` (from `validator`, with `self_reported` from the manifest's `isolation` block, R3-9), `setup_rules` (opponent decklist, mulligan with "(the engine offers no mulligans)" when the resolved rule is `none` because the engine lacks London, starting player, card-name domain size, each engine default, the optional observation fields the engine provides, enabled extensions), `attribution` (from the leaderboard rows), and the run's status, rated flag, commitment and revealed secret. Every Hero chip carries `legacy`, true when its benchmark's board run is protocol v1 (R3-20). `build.py` drops `from .. import models` (a v1 module Task 44 deletes): engine identities come from `messages.EngineIdentity` for v2 runs and from the legacy reader for v1 runs, and deck labels from the ledger's `LedgerDeck` names or `legacy_v1.read_v1_run` (R3-25).
 
 - [ ] **Step 1: Port and extend the tests**
 
-In `python/tests/test_site_build.py`: delete the skip; import `FAKE_ENGINE`, `TEST_RUN_SECRET`, `TEST_PROOF`, `small_allocation` and `hostile_bot` from `arena_helpers` in place of the v1 names (`FAKE_ARENA_ENGINE`; `BOT_INVALID_CHOICE` becomes `hostile_bot("out-of-range")`), plus `RunSecret`, `TournamentConfig`, and `REPO = Path(__file__).resolve().parents[2]`; `_definition` writes v2 definitions; `_add_benchmark` publishes rated runs with `runner.run_tournament(TournamentConfig.from_json(config), run_secret=TEST_RUN_SECRET, allocation=small_allocation(), commitment_proof=TEST_PROOF, output_dir=directory / "runs" / name)`; every existing test keeps its name and intent. Add:
+In `python/tests/test_site_build.py`: delete the skip; import `FAKE_ENGINE`, `TEST_RUN_SECRET`, `TEST_PROOF`, `TEST_ENGINE_FILES`, `small_allocation` and `hostile_bot` from `arena_helpers` in place of the v1 names (`FAKE_ARENA_ENGINE`; `BOT_INVALID_CHOICE` becomes `hostile_bot("out-of-range")`), plus `RunSecret`, `TournamentConfig`, and `REPO = Path(__file__).resolve().parents[2]`; `_definition` writes v2 definitions (a subprocess bot entry carries `"owner": "spellbench"`, R3-9); `_add_benchmark` publishes rated runs with `runner.run_tournament(TournamentConfig.from_json(config), run_secret=TEST_RUN_SECRET, allocation=small_allocation(), commitment_proof=TEST_PROOF, engine_files=TEST_ENGINE_FILES, output_dir=directory / "runs" / name)` (a rated run needs pinned engine files, R3-7); every existing test keeps its name and intent. Add:
 
 ```python
 def test_a_legacy_board_run_is_shown_with_its_label(tmp_path: Path) -> None:
@@ -6791,7 +8213,8 @@ def test_a_legacy_board_run_is_shown_with_its_label(tmp_path: Path) -> None:
     page = (tmp_path / "site" / "b" / "pauper-kernel" / "index.html").read_text(encoding="utf-8")
     assert 'class="legacy"' in page and "protocol v1" in page
     assert any("protocol v1" in warning for warning in warnings)
-    assert "pauper-kernel" in (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+    home = (tmp_path / "site" / "index.html").read_text(encoding="utf-8")
+    assert "pauper-kernel" in home and "(protocol v1)" in home                     # the Hero chip is labelled too (R3-20)
 
 
 def test_a_newer_unrated_run_is_not_the_board_run(copy_tree: Path, tmp_path: Path) -> None:
@@ -6809,6 +8232,7 @@ def test_a_v2_page_shows_the_fairness_verdict_and_rules(tree: Path, tmp_path: Pa
     build_site(tree, tmp_path / "site")
     page = (tmp_path / "site" / "b" / "alpha" / "index.html").read_text(encoding="utf-8")
     assert 'class="fairness"' in page and "verdict pass" in page and "Opponent decklist" in page
+    assert "self-reported" not in page                                              # builtin bots only (R3-9)
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -6840,25 +8264,29 @@ git commit -m "Site: board runs from rated v2 or legacy v1 runs, with fairness a
 
 ### Task 43: Launch guards in `bench run` and `spellbench run`
 
-**Effort:** 0.5 agent-day. **Wave:** 10. **Depends on:** Tasks 5, 25, 33, 41.
+**Effort:** 1.0 agent-day. **Wave:** 10. **Depends on:** Tasks 5, 25, 33, 41.
 
 **Files:**
-- Modify: `python/spellbench/bench/run.py` (throughput guard, pinning, registration)
+- Modify: `python/spellbench/bench/run.py` (throughput guard, budget and reserve, pinning, registration, the guarded rerun)
 - Modify: `python/spellbench/arena/runner.py` (the idle monitor during execution)
-- Modify: `python/spellbench/arena/cli.py` (`--placement` on `run`; allocation line in the output)
-- Modify: `.gitignore` (`benchmarks/**/throughput.jsonl`)
+- Modify: `python/spellbench/arena/cli.py` (`--placement` on `run`; allocation line in the output; guard errors as CLI errors)
+- Modify: `.gitignore` (`benchmarks/**/throughput.jsonl`, `**/throughput-evidence.jsonl`)
 - Create: `python/tests/test_bench_guards.py`
 
 **Interfaces:**
-- Consumes: `arena.throughput` (`plan_allocation`, `ThroughputError`, `IdleMonitor`, `SMALL_RUN_SECONDS`), `bench.pinning` (`engine_files`, `pin_files`, `register_pins`, `PinningError`) (Task 5); `arena.schedule` (`preflight`, `schedule`), `arena.runner` (`play_games`, `run_tournament`, `executed_config`, `registry_entries`) (Task 33); `bench.commit` (Task 41); `run_secret.RunSecret`.
+- Consumes: `arena.throughput` (`plan_allocation`, `qualification_key`, `parse_placement`, `machine_record`, `check_reserve`, `free_bytes`, `CpuSampler`, `ThroughputError`, `IdleMonitor`, `SMALL_RUN_SECONDS`, `RESERVE_BYTES`), `bench.pinning` (`engine_files`, `pin_files`, `register_pins`, `register_tree`, `PinningError`) (Task 5 and its fix round); `arena.manifest.EngineFile` (Task 31); `arena.schedule` (`preflight`, `schedule`), `arena.runner` (`play_games`, `run_tournament`, `executed_config`, `registry_entries`) (Task 33); `bench.commit` (`commit_run`, `load_placement`, `reveal_run`, `CommitError`) (Task 41); `run_secret.RunSecret`.
 - Produces:
-  - `bench.run.qualification_play(config: TournamentConfig) -> Callable[[int, int], tuple[float, str]]` (a throwaway `RunSecret.generate()`, one preflight, the first `games` scheduled contexts played with `workers` workers through `play_games`; returns wall seconds and `"sha256:" +` the hex digest of the canonical rows)
-  - `bench.run.plan_for(config: TournamentConfig, *, placement: str | None) -> Allocation` (`plan_allocation(games_total=len(schedule(config, secret)), cap=config.workers, per_game_cores=config.per_game_cores(), play=qualification_play(config), placement=placement)`)
-  - `run_benchmark(...)` now uses `plan_for` for every run, and for a rated run (`run=...`) requires the local values `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER` (optional `SPELLBENCH_ARTIFACT_OWNER`, default `spellbench`), pins the executed engine command's files before the run (`engine_files` also go to the manifest for every run), and after publishing registers each pinned directory (purpose `engine of <id> run <name>`, doc the run's `manifest.json`, regen `build <engine name> <version> at <source_revision or "unknown">`)
-  - `spellbench run CONFIG.json [--placement TEXT]` also plans with `plan_for`; both commands print `allocation: <kind> (<workers> workers)`
-  - `runner.run_tournament` runs an `IdleMonitor(allocation.workers)` when `allocation.workers > 1`, appending each warning to `<run dir>/throughput.jsonl` (never in the manifest's files) and to stderr
+  - `bench.run.EVIDENCE_NAME = "throughput-evidence.jsonl"`: the local, unhashed, git-ignored evidence file of R1-6, kept in the benchmark's directory (for `spellbench run`, beside the run directory), so qualification is reused while its conditions hold
+  - `bench.run.qualification_play(config: TournamentConfig) -> Callable[[int, int], tuple[float, str, int]]` (a throwaway `RunSecret.generate()`, one preflight, then `games` scheduled contexts sampled across the matchups: the first game of each matchup in schedule order, then each matchup's second game, and so on, so a pool that opens with builtin against builtin still measures the slow bots (R3-6); played with `workers` workers through `play_games`; returns wall seconds, `"sha256:" +` the hex digest of the canonical rows, and those rows' byte count)
+  - `bench.run.run_files(config: TournamentConfig) -> tuple[EngineFile, ...]` (the files to pin: the engine command's, then each subprocess bot command's, then each checkpoint's; ARTIFACT-LAW clause 4: `registry.json` cites checkpoint hashes through bot ids, R3-7)
+  - `bench.run.plan_for(config: TournamentConfig, *, placement: str | None, evidence: Path, volumes: Mapping[str, Path], files: Sequence[EngineFile] = (), environ: Mapping[str, str] | None = None) -> Allocation`: `plan_allocation(games_total=len(schedule(config, secret)), cap=config.workers, per_game_cores=config.per_game_cores(), play=qualification_play(config), placement=placement, host=<SPELLBENCH_HOST_ALIAS, default "local">, key=qualification_key(host=..., cpu_count=os.cpu_count() or 1, per_game_cores=..., engine_files=[f.to_json() for f in files], config=config.to_json()), evidence=evidence, fixed_bytes=sum(f.bytes for f in files), machine=machine_record(volumes))`, then `check_reserve(allocation.budget, volumes)`: a projection past the cap, or less than the 60 GiB reserve left on the run's or the pins' volume, is a `ThroughputError` before any game (ARTIFACT-LAW clause 1, R3-7). `volumes` names existing directories: `run_dir` (the benchmark directory, where the run lands) and, for a rated run, `pin_root`.
+  - `run_benchmark(...)` now plans every run with `plan_for` (a committed run with the placement recorded at `bench commit`, R3-14; an unrated one with its `placement`). A rated run (`run=...`) requires the local values `SPELLBENCH_PIN_ROOT` and `SPELLBENCH_ARTIFACT_REGISTER` (optional `SPELLBENCH_ARTIFACT_OWNER`, default `spellbench`), pins `run_files(executed)` before the run and registers each pinned directory right away, `register_pins(..., status="live", purpose="pinned engine and bot files of spellbench runs", doc=<the run's manifest.json>, regen="build <engine name> <version> at <source_revision or "unknown">", cited_by="<id> run <name>")` (so a crash never leaves pins uncatalogued, R3-7); the manifest's `engine_files` list the engine command's files (every run). After publishing it registers the pins again with `status="frozen"` (the note gains this run if it is new; a failure there is printed as a warning, since the pins are already catalogued) and the run directory itself with `register_tree` (status `closed`, retention `keep-full`, doc its `manifest.json`, regen `spellbench bench rerun <run dir>`) (ARTIFACT-LAW clause 9).
+  - `rerun_games(...)` plans its replay with `plan_for` (with a committed run's recorded placement): a substantial rerun is a launch like any other (R3-6).
+  - `spellbench run CONFIG.json [--placement TEXT]` also plans with `plan_for` (its evidence beside the run directory); both commands print `allocation: <kind> (<workers> workers)` after their other lines.
+  - `runner.run_tournament`, when it runs more than one worker, passes `play_games` an `IdleMonitor(workers, qualified_rate=allocation.qualified_rate, cpu=CpuSampler().sample)` and an `on_warning` that appends `{"warning": text}` to `<run dir>/throughput.jsonl`, flushes, and writes the text to stderr, as each warning happens (never in the manifest's files; R3-6).
+  - `cli.main` reports `ThroughputError` and `PinningError` (neither is a `ValueError`) as `error: ...` with exit 1, like its other input errors (R3-29).
 
-A guard failure (a `ThroughputError`, missing pin values, a `PinningError`) stops the command before the first game; for a committed run it publishes `REVEAL.json` (Task 41), because the commitment is already public.
+A guard failure (a `ThroughputError`, missing pin values, a `PinningError`) stops the command before the first game; for a committed run it publishes `REVEAL.json` with reason `guard` (Task 41), because the commitment is already public. PRUNE rule for the run-local files (ARTIFACT-LAW clause 3, R3-7): `diagnostics.jsonl` and `throughput.jsonl` are local, unhashed and git-ignored, and no record cites them; a complete run's copies are prunable at its closure, while an aborted or invalid run's copies are kept with its records (clause 3 keeps every failed attempt's logs). The evidence file is a cache: pruning it only costs a requalification.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -6876,66 +8304,103 @@ from pathlib import Path
 import pytest
 
 from spellbench.arena import cli, throughput
+from spellbench.arena.config import TournamentConfig
 from spellbench.bench.commit import commit_run
 from spellbench.bench.definition import BenchmarkError
-from spellbench.bench.run import run_benchmark
+from spellbench.bench.run import rerun_games, run_benchmark, run_files
 
-from test_bench_commit import git, repo  # noqa: F401  (repo is a fixture this module reuses)
+from arena_helpers import MINIMAL_BOT, builtin, make_config, run, small_allocation, subprocess_bot
+from test_bench_commit import PLACEMENT, env, git, repo  # noqa: F401  (repo is a fixture this module reuses)
 from test_bench_run import ENVIRON, _write_benchmark
 
 
 def _register_script(tmp_path: Path) -> tuple[Path, Path]:
-    log = tmp_path / "register.log"
-    script = tmp_path / "register.py"
-    script.write_text(f"import json, sys\nopen({str(log)!r}, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n", encoding="utf-8")
+    """A stand-in for collab's artifact_register.py: logs every call and remembers added rows for show."""
+    log, rows = tmp_path / "register.log", tmp_path / "rows.json"
+    script = tmp_path / "register_log.py"
+    script.write_text(
+        "import json, os, sys\n"
+        f"log, rows = {str(log)!r}, {str(rows)!r}\n"
+        "open(log, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n"
+        "known = json.load(open(rows)) if os.path.exists(rows) else {}\n"
+        "command, key = sys.argv[1], sys.argv[3]\n"
+        "if command == 'show':\n"
+        "    print(json.dumps(known[key]) if key in known else 'not found')\n"
+        "elif command == 'add':\n"
+        "    known[key] = {'id': key, 'note': sys.argv[sys.argv.index('--note') + 1] if '--note' in sys.argv else ''}\n"
+        "    json.dump(known, open(rows, 'w'))\n", encoding="utf-8")
     return script, log
 
 
-def _committed(repo: Path, tmp_path: Path, environ: dict) -> str:
-    bench = repo / "benchmarks" / "fake-pool"
-    committed = commit_run(bench, date="2026-10-01", environ=environ)
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "commitment")
-    git(repo, "push", "-q", "origin", "HEAD:main")
-    return committed.run_dir.name
+def _committed(repo: Path, environ: dict) -> str:
+    """bench commit commits and pushes the commitment itself (Task 41)."""
+    return commit_run(repo / "benchmarks" / "fake-pool", date="2026-10-01", placement=PLACEMENT, environ=environ).run_dir.name
 
 
 def test_a_rated_run_is_measured_pinned_and_registered(repo: Path, tmp_path: Path) -> None:
     script, log = _register_script(tmp_path)
-    environ = {**ENVIRON, "SPELLBENCH_SECRETS_DIR": str(tmp_path / "secrets"), "SPELLBENCH_PIN_ROOT": str(tmp_path / "pins"),
-               "SPELLBENCH_ARTIFACT_REGISTER": str(script)}
-    name = _committed(repo, tmp_path, environ)
+    environ = {**env(tmp_path), "SPELLBENCH_ARTIFACT_REGISTER": str(script)}
+    name = _committed(repo, environ)
     result = run_benchmark(repo / "benchmarks" / "fake-pool", run=name, proof="https://example.org/i/1", environ=environ)
     manifest = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["allocation"]["kind"] == "small" and manifest["run"]["rated"] is True
+    assert manifest["allocation"]["budget"]["projected_bytes"] > 0 and manifest["allocation"]["host"] == "local"
     engine_file = next(entry for entry in manifest["engine_files"] if entry["file_name"] == "fake_v2_engine.py")
     assert (tmp_path / "pins" / engine_file["sha256"] / "fake_v2_engine.py").is_file()
-    assert any(f"engine of fake-pool run {name}" in line for line in log.read_text(encoding="utf-8").splitlines())
+    calls = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+    statuses = [(call[0], call[call.index("--status") + 1]) for call in calls if call[0] in ("add", "update")]
+    assert statuses[0] == ("add", "live") and ("update", "frozen") in statuses       # live at pinning, frozen at closure (R3-7)
+    assert any(call[0] == "add" and call[2] == str(result.run_dir) for call in calls)  # the run directory itself
     assert result.failures == ()
 
 
 def test_a_rated_run_without_pin_values_stops_and_is_revealed(repo: Path, tmp_path: Path) -> None:
-    environ = {**ENVIRON, "SPELLBENCH_SECRETS_DIR": str(tmp_path / "secrets")}
-    name = _committed(repo, tmp_path, environ)
+    name = _committed(repo, env(tmp_path))
+    environ = {key: value for key, value in env(tmp_path).items() if key != "SPELLBENCH_PIN_ROOT"}
     with pytest.raises(BenchmarkError, match="SPELLBENCH_PIN_ROOT"):
         run_benchmark(repo / "benchmarks" / "fake-pool", run=name, proof="https://example.org/i/1", environ=environ)
     run_dir = repo / "benchmarks" / "fake-pool" / "runs" / name
-    assert (run_dir / "REVEAL.json").is_file() and not (run_dir / "matches.jsonl").exists()
+    assert json.loads((run_dir / "REVEAL.json").read_text(encoding="utf-8"))["reason"] == "guard"
+    assert not (run_dir / "matches.jsonl").exists()
 
 
 def test_a_substantial_run_needs_a_placement_and_compares_worker_counts(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(throughput, "SMALL_RUN_SECONDS", 0)
-    bench = _write_benchmark(tmp_path / "benchmarks")
+    bench = _write_benchmark(tmp_path / "benchmarks", workers=2)
     with pytest.raises(throughput.ThroughputError, match="placement"):
         run_benchmark(bench, unrated=True, date="2026-10-01", environ=ENVIRON)
-    result = run_benchmark(bench, unrated=True, date="2026-10-02", placement="this PC only: 12 s projected", environ=ENVIRON)
+    result = run_benchmark(bench, unrated=True, date="2026-10-02", placement=PLACEMENT, environ=ENVIRON)
     allocation = json.loads((result.run_dir / "manifest.json").read_text(encoding="utf-8"))["allocation"]
     assert allocation["kind"] == "substantial" and allocation["outputs_identical"] is True
-    assert [trial["workers"] for trial in allocation["trials"]][0] == 1 and allocation["placement"].startswith("this PC")
+    trials = allocation["trials"]
+    assert [trial["workers"] for trial in trials] == [1, 2] and len({trial["games"] for trial in trials}) == 1   # R3-15
+    assert allocation["placement"] == throughput.parse_placement(PLACEMENT) and allocation["machine"]["free_bytes"]
+
+
+def test_a_run_below_the_60_gib_reserve_is_refused(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(throughput, "free_bytes", lambda path: throughput.RESERVE_BYTES)     # a full disk
+    bench = _write_benchmark(tmp_path / "benchmarks")
+    with pytest.raises(throughput.ThroughputError, match="60 GiB"):
+        run_benchmark(bench, unrated=True, date="2026-10-01", environ=ENVIRON)              # ARTIFACT-LAW clause 1 (R3-7)
+    assert not (bench / "runs").exists()
+
+
+def test_bot_commands_and_checkpoints_are_pinned_with_the_engine(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "model.ckpt"
+    checkpoint.write_bytes(b"weights")
+    bots = [builtin("uniform"), subprocess_bot("minimal", [sys.executable, str(MINIMAL_BOT)], checkpoint=str(checkpoint))]
+    names = {file.file_name for file in run_files(TournamentConfig.from_json(make_config(tmp_path / "t", bots)))}
+    assert {"fake_v2_engine.py", "minimal_bot.py", "model.ckpt"} <= names                   # ARTIFACT-LAW clause 4 (R3-7)
+
+
+def test_a_rerun_is_planned_like_a_run(tmp_path: Path, monkeypatch) -> None:
+    result = run_benchmark(_write_benchmark(tmp_path / "benchmarks"), unrated=True, date="2026-10-01", environ=ENVIRON)
+    planned = []
+    monkeypatch.setattr("spellbench.bench.run.plan_for", lambda config, **kwargs: planned.append(config) or small_allocation())
+    assert rerun_games(result.run_dir, games=[0], environ=ENVIRON) == [] and planned         # a guarded launch path (R3-6)
 
 
 def test_spellbench_run_is_guarded_too(tmp_path: Path, capsys) -> None:
-    from arena_helpers import builtin, make_config
     path = tmp_path / "config.json"
     path.write_text(json.dumps(make_config(tmp_path / "t", [builtin("uniform"), builtin("first")], pairs=1)), encoding="utf-8")
     assert cli.main(["run", str(path)]) == 0
@@ -6943,9 +8408,16 @@ def test_spellbench_run_is_guarded_too(tmp_path: Path, capsys) -> None:
     assert json.loads((tmp_path / "t" / "manifest.json").read_text(encoding="utf-8"))["allocation"]["kind"] == "small"
 
 
+def test_guard_errors_are_cli_errors(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.setattr(throughput, "SMALL_RUN_SECONDS", 0)
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(make_config(tmp_path / "t", [builtin("uniform"), builtin("first")], pairs=1)), encoding="utf-8")
+    assert cli.main(["run", str(path)]) == 1                                                 # substantial, no --placement
+    assert "error:" in capsys.readouterr().err                                               # not a traceback (R3-29)
+
+
 def test_idle_warnings_go_to_an_unhashed_file(tmp_path: Path, monkeypatch) -> None:
-    from arena_helpers import builtin, make_config, run
-    monkeypatch.setattr(throughput.IdleMonitor, "tick", lambda self, *, running, queued: "idle capacity: test")
+    monkeypatch.setattr(throughput.IdleMonitor, "tick", lambda self, *, running, queued, completed=0: "idle capacity: test")
     run(make_config(tmp_path / "t", [builtin("uniform"), builtin("first")], pairs=2, workers=2))
     assert "idle capacity: test" in (tmp_path / "t" / "throughput.jsonl").read_text(encoding="utf-8")
     files = [entry["path"] for entry in json.loads((tmp_path / "t" / "manifest.json").read_text(encoding="utf-8"))["files"]]
@@ -6955,40 +8427,44 @@ def test_idle_warnings_go_to_an_unhashed_file(tmp_path: Path, monkeypatch) -> No
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `uv run pytest python/tests/test_bench_guards.py -q`
-Expected: FAIL (allocations are `unmeasured`; nothing is pinned; no placement check).
+Expected: FAIL (allocations are `unmeasured`; nothing is pinned; no placement, budget or reserve check; `run_files` is missing).
 
 - [ ] **Step 3: Implement**
 
-Wire `plan_for` into `run_benchmark` (after placeholder resolution and the commitment checks, before `run_tournament`) and into `cli._cmd_run`; the rated path checks the pin values first, then `engine_files(executed.engine_command)`, `pin_files`, the run, then `register_pins`. In `runner.run_tournament`, pass an `IdleMonitor` to `play_games` when `allocation.workers > 1` and write each returned warning as one JSON line `{"warning": text}` to `throughput.jsonl`. Add `benchmarks/**/throughput.jsonl` to `.gitignore`.
+Wire `plan_for` into `run_benchmark` (after placeholder resolution and the commitment checks, before `run_tournament`), into `rerun_games` and into `cli._cmd_run`; the rated path checks the pin values first, then `run_files(executed)`, `pin_files`, `register_pins(status="live")`, the run, then `register_pins(status="frozen")` and `register_tree`. A guard failure of a committed run goes to `reveal_run(..., reason="guard")`. In `runner.run_tournament`, pass the `IdleMonitor` and the flushing `on_warning` to `play_games` when more than one worker runs. In `cli.main`, catch `ThroughputError` and `PinningError` beside the existing input errors. Add `benchmarks/**/throughput.jsonl` and `**/throughput-evidence.jsonl` to `.gitignore`.
 
 - [ ] **Step 4: Run the tests, then the whole suite**
 
 Run: `uv run pytest python/tests/test_bench_guards.py -q`
 Expected: PASS.
 Run: `uv run pytest python/tests -q`
-Expected: all pass.
+Expected: all pass (Task 41's tests already carry pin values and compare the CLI output by prefix, R3-3).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add python/spellbench/bench/run.py python/spellbench/arena/runner.py python/spellbench/arena/cli.py .gitignore python/tests/test_bench_guards.py
-git commit -m "Launch guards: throughput qualification, engine pinning and registration"
+git commit -m "Launch guards: throughput qualification, budget and reserve, pinning and registration"
 ```
 
 ### Task 44: Remove protocol v1, update the docs, final checks
 
-**Effort:** 0.5 agent-day. **Wave:** 10. **Depends on:** Tasks 39, 40, 41, 42 (and so every earlier task).
+**Effort:** 1.0 agent-day. **Wave:** 10. **Depends on:** Tasks 39, 40, 41, 42 (and so every earlier task).
 
 **Files:**
 - Delete: `python/spellbench/models.py`, `engine_client.py`, `agent_client.py`, `agent_server.py`, `_client.py`, `python/spellbench/arena/bots/` (package), `python/tools/generate_protocol_goldens.py`, `goldens/protocol_v1/`, `python/tests/test_models.py`, `test_engine_client.py`, `test_agent_client.py`, `test_agent_server.py`, `test_golden_replay.py`, `test_end_to_end.py`, `fake_engine.py`
 - Modify: `python/spellbench/wire.py` (delete `candidates_sha256`; gain the `Peer` protocol from `_client.py`), `python/spellbench/host/engine_process.py`, `python/spellbench/host/agent_process.py` (import `Peer` from `wire`), `python/spellbench/errors.py` (delete the v1 code sets), `python/spellbench/__init__.py` (v2 docstring and exports; `__version__ = "0.3.0"`), `pyproject.toml` (`version = "0.3.0"`), `uv.lock` (`uv lock`), `python/tests/conftest.py` (keep `ScriptedPeer`, `payload`, `scripted_peer`; drop v1 imports and helpers), `python/tests/test_wire.py` (drop the `candidates_sha256` tests)
-- Modify: `.github/workflows/ci.yml` (the goldens step runs `generate_goldens_v2.py --check`), `README.md`, `examples/mtg-kernel.json`
+- Modify: `.github/workflows/ci.yml` (the goldens step runs `generate_goldens_v2.py --check`; the run-history check, R3-8), `README.md`, `examples/mtg-kernel.json`
+- Create: `python/tools/check_run_history.py`, `python/tests/test_run_history.py` (CI fails when a committed run directory is deleted or a commitment stays unrevealed, R3-8)
+- Modify: `python/spellbench/site/build.py`, `python/tests/test_site_build.py` (revealed runs validated and listed, pending commitments listed, R3-22; Task 42 is in wave 9 and Task 43 does not touch these files)
 - Modify, when sub-project C's `integrations/mtg_kernel/` exists on the branch: its test modules get `import pytest` and `pytest.skip("the kernel bot speaks protocol v1; K2 ports it to spellbench.bot", allow_module_level=True)` right after `from __future__ import annotations` (or first, without one), before every other import (the bot imports `spellbench.agent_server`, which this task deletes; K2 ports it to `spellbench.bot.serve` and `spellbench.builtins.uniform.SplitMix64`)
 - Create: `python/tests/test_repository_hygiene.py`
 
 **Interfaces:**
-- Consumes: everything above.
+- Consumes: everything above; for the site change `arena.validate.validate_tournament_dir`, `REVEAL_NAME`, `REVEAL_SCHEMA` (Task 41) and `arena.manifest.commitment_record` (Task 31).
 - Produces: package `spellbench` 0.3.0 whose top level exports `messages`, `wire`, `bot`, the error classes, and lazily `EngineProcess` (`host.engine_process`), `AgentProcess` (`host.agent_process`) and `serve` (`bot.serve`).
+- Produces: `python tools/check_run_history.py --base REF [--max-age-days N]` (default 3): exit 1, one line per problem, when any path under `benchmarks/*/runs/` was deleted between `REF` and `HEAD` (`git diff --name-only --diff-filter=D REF...HEAD -- benchmarks`; an all-zero or missing `REF` skips this part), or when a run directory holds `COMMITMENT.json` but neither `manifest.json` nor `REVEAL.json` and the commit that added its commitment is older than `N` days (`git log -n 1 --diff-filter=A --format=%ct`): a withheld run (spec 11.6: every committed run is published). CI checks out the full history (`fetch-depth: 0`) and runs it with `--base "${{ github.event.pull_request.base.sha || github.event.before }}"`.
+- Produces (site build, R3-22 and R3-8): a run directory holding `REVEAL.json` and no manifest is validated like every other published run (`validate_tournament_dir`, which calls Task 41's `check_reveal`; a failure refuses the build) and listed in `newer_runs` with status `aborted` when newer than the board run; a directory holding only `COMMITMENT.json` is listed with status `pending`; both read `rated: false`.
 
 - [ ] **Step 1: Write the failing hygiene test**
 
@@ -6999,6 +8475,7 @@ Create `python/tests/test_repository_hygiene.py`:
 
 from __future__ import annotations
 
+import ast
 import importlib
 from pathlib import Path
 
@@ -7008,6 +8485,7 @@ import spellbench
 
 REPO = Path(__file__).resolve().parents[2]
 EM_DASH = "\u2014"
+K2_SKIP = "the kernel bot speaks protocol v1; K2 ports it to spellbench.bot"
 
 
 @pytest.mark.parametrize("module", ["spellbench.models", "spellbench.engine_client", "spellbench.agent_client",
@@ -7017,10 +8495,23 @@ def test_v1_modules_are_gone(module: str) -> None:
         importlib.import_module(module)
 
 
-def test_no_migration_skip_is_left() -> None:
-    offenders = [path.name for path in (REPO / "python" / "tests").glob("test_*.py")
-                 if "protocol v1 test, migrated in Task" in path.read_text(encoding="utf-8")]
-    assert offenders == []
+def _module_level_skips(path: Path) -> list[str]:
+    """The messages of a test module's module-level pytest.skip calls, found with ast, so this module never matches itself (R3-1)."""
+    messages = []
+    for node in ast.parse(path.read_text(encoding="utf-8")).body:
+        call = node.value if isinstance(node, ast.Expr) else None
+        if (isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "skip"
+                and call.args and isinstance(call.args[0], ast.Constant)):
+            messages.append(call.args[0].value)
+    return messages
+
+
+def test_the_only_module_level_skips_left_are_the_kernel_bots_for_k2() -> None:
+    modules = [path for root in (REPO / "python" / "tests", REPO / "integrations") if root.is_dir()
+               for path in sorted(root.rglob("test_*.py"))]
+    left = {path.relative_to(REPO).as_posix(): _module_level_skips(path) for path in modules if _module_level_skips(path)}
+    expected = {path.relative_to(REPO).as_posix(): [K2_SKIP] for path in modules if path.relative_to(REPO).parts[0] == "integrations"}
+    assert left == expected          # no migration skip is left; sub-project C's kernel-bot modules wait for K2 (R3-18)
 
 
 def test_the_version_and_the_exports() -> None:
@@ -7043,7 +8534,90 @@ Expected: FAIL (the v1 modules import; the version is 0.2.0).
 
 - [ ] **Step 3: Remove v1 and update the package**
 
-Make the deletions and modifications listed under Files. Then run `uv lock` and check that `uv.lock` changed only the `spellbench` version line.
+Make the deletions and modifications listed under Files. Delete `python/spellbench/arena/bots/` as a whole directory (`git rm -r`, then `shutil.rmtree` of whatever is left): Step 2 imported it, and a leftover git-ignored `__pycache__` would keep `spellbench.arena.bots` importable as a namespace package, failing `test_v1_modules_are_gone` in this worktree though not in a fresh clone (R3-17). Then run `uv lock` and check that `uv.lock` changed only the `spellbench` version line. After the version bump, run `uv run pytest python/tests/test_legacy_v1.py -q` (Expected: PASS, since the legacy gate reads the version that made the v1 runs, Task 4), so a regression of R1-1 shows up in the task that causes it (R3-2).
+
+Create `python/tools/check_run_history.py` to its Interfaces entry (standard library and `git` only; each problem is one printed line naming the path, then exit 1; `OK` and exit 0 otherwise), and `python/tests/test_run_history.py`:
+
+```python
+"""The CI check that no committed run disappears and no commitment stays unrevealed (spec 11.6, R3-8)."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+TOOL = Path(__file__).resolve().parents[1] / "tools" / "check_run_history.py"
+
+
+def git(cwd: Path, *args: str, date: str | None = None) -> str:
+    env = {**os.environ, **({"GIT_AUTHOR_DATE": date, "GIT_COMMITTER_DATE": date} if date else {})}
+    return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True, env=env).stdout.strip()
+
+
+def check(repo: Path, base: str) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(TOOL), "--base", base], cwd=repo, capture_output=True, text=True)
+
+
+def _repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    run = repo / "benchmarks" / "x" / "runs" / "2026-10-01"
+    run.mkdir(parents=True)
+    (run / "manifest.json").write_text("{}", encoding="utf-8")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "bench@example.org")
+    git(repo, "config", "user.name", "bench")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "a published run")
+    return repo
+
+
+def test_a_deleted_run_directory_fails(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    base = git(repo, "rev-parse", "HEAD")
+    assert check(repo, base).returncode == 0
+    git(repo, "rm", "-q", "-r", "benchmarks/x/runs/2026-10-01")
+    git(repo, "commit", "-q", "-m", "drop it")
+    result = check(repo, base)
+    assert result.returncode == 1 and "benchmarks/x/runs/2026-10-01/manifest.json" in result.stdout
+
+
+def test_a_stale_unrevealed_commitment_fails_until_it_is_revealed(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+    base = git(repo, "rev-parse", "HEAD")
+    pending = repo / "benchmarks" / "x" / "runs" / "2026-10-02"
+    pending.mkdir()
+    (pending / "COMMITMENT.json").write_text("{}", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "a commitment", date="2026-01-01T00:00:00+00:00")           # long ago
+    result = check(repo, base)
+    assert result.returncode == 1 and "2026-10-02" in result.stdout and "unrevealed" in result.stdout
+    (pending / "REVEAL.json").write_text("{}", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "revealed")
+    assert check(repo, base).returncode == 0
+```
+
+In `site/build.py`, apply the site rule of the Interfaces (R3-22), and add to `python/tests/test_site_build.py` (with `commitment_record`, `REVEAL_SCHEMA`, `store` and `SiteError` imported):
+
+```python
+def test_revealed_and_pending_runs_are_listed_and_checked(copy_tree: Path, tmp_path: Path) -> None:
+    bench, secret = copy_tree / "alpha", RunSecret(bytes(range(32)))
+    for name in ("2026-09-27", "2026-09-28"):
+        (bench / "runs" / name).mkdir()
+        store.write_json_atomic(bench / "runs" / name / "COMMITMENT.json",
+                                commitment_record(run_secret=secret, benchmark_id="alpha", run_label=name))
+    reveal = {"schema": REVEAL_SCHEMA, "benchmark_id": "alpha", "run_label": "2026-09-28", "commitment": secret.commitment(),
+              "run_secret": secret.hex(), "status": "aborted", "reason": "error"}
+    store.write_json_atomic(bench / "runs" / "2026-09-28" / "REVEAL.json", reveal)
+    build_site(copy_tree, tmp_path / "site")
+    page = (tmp_path / "site" / "b" / "alpha" / "index.html").read_text(encoding="utf-8")
+    assert "2026-09-27 (pending)" in page and "2026-09-28 (aborted)" in page                       # R3-22, R3-8
+    store.write_json_atomic(bench / "runs" / "2026-09-28" / "REVEAL.json", {**reveal, "run_secret": "11" * 32})
+    with pytest.raises(SiteError, match="2026-09-28"):
+        build_site(copy_tree, tmp_path / "site-2")                                                # a wrong reveal fails the build
+```
 
 - [ ] **Step 4: Update the docs and examples**
 
@@ -7063,7 +8637,7 @@ def choose(decision):
 raise SystemExit(serve(choose=choose, name="my-bot", version="0.1.0"))
 ```
 
-and adds "No dependencies at all: `examples/minimal_bot.py` is a complete bot in 15 lines of standard-library Python."; "Ratings": "Matchups are seat-swapped game pairs. Each game has its own secret; the run publishes a commitment to its secret before the first game and reveals it afterwards, so every game can be recomputed."; "Benchmarks": the flow `spellbench bench commit`, commit and push the `COMMITMENT.json` and record a third-party timestamp, then `spellbench bench run benchmarks/<id> --run <name> --proof <link> [--placement "<machines considered>"]`; `--unrated` for a local try; the throughput guard (a small run keeps its workers; a substantial one measures worker counts on identical games and needs `--placement`); a rated run pins the engine's files under `SPELLBENCH_PIN_ROOT` and registers them with `SPELLBENCH_ARTIFACT_REGISTER` (both in `benchmarks/local.json`); `bench reveal` and `bench rerun`; "Trust" adds "The host validates every decision (fairness: validator only) and cannot see hidden state; see the spec's section 13."; "Status": "v2: 2-player best-of-one, stdio NDJSON, one decision at a time with authoritative legal candidates, a neutral board view, and live validation. `pauper-kernel`'s board run is protocol v1 until the v2 kernel adapter lands."
+and adds "No dependencies at all: `examples/minimal_bot.py` is a complete bot in 15 lines of standard-library Python." and "Answers are read as strict JSON (spec 2): integers only, never a float, not even in an extra field, no duplicate keys, and nesting of at most 64 levels; an answer that breaks this forfeits as `malformed_response` (Decision 12)." (R1-18); "Ratings": "Matchups are seat-swapped game pairs. Each game has its own secret; the run publishes a commitment to its secret before the first game and reveals it afterwards, so every game can be recomputed."; "Benchmarks": the flow `spellbench bench commit benchmarks/<id> --placement "main-pc: ...; haleyspc: ...; runpod: ..."` (it checks the local values, commits and pushes `COMMITMENT.json` itself, and only then keeps the secret), record a third-party timestamp for that commit, then `spellbench bench run benchmarks/<id> --run <name> --proof <link>`; `--unrated [--placement ...]` for a local try; the throughput guard (a small run keeps its workers; a substantial one measures worker counts on identical games, needs a placement naming each machine, and reuses its evidence while nothing changes); a rated run pins the engine's and the bots' files under `SPELLBENCH_PIN_ROOT` and registers them with `SPELLBENCH_ARTIFACT_REGISTER` (both in `benchmarks/local.json`), and refuses to start below a 60 GiB free-space reserve; `bench reveal` and `bench rerun`; "Trust" adds "The host validates every decision (fairness: validator only) and cannot see hidden state; see the spec's section 13."; "Status": "v2: 2-player best-of-one, stdio NDJSON, one decision at a time with authoritative legal candidates, a neutral board view, and live validation. `pauper-kernel`'s board run is protocol v1 until the v2 kernel adapter lands."
 
 - [ ] **Step 5: Run the final checks**
 
@@ -7089,5 +8663,88 @@ git commit -m "Protocol v1 removed; v2 docs, CI and version 0.3.0"
 
 ## Self-Review Notes
 
-- Spec coverage: sections 2 and 4 (Tasks 1, 9, 17, 18), 5 (Tasks 2, 13, 14), 6 (Tasks 8, 13, 15, 16, 26, 27), 7 (Tasks 7, 16, 26), 8 (Tasks 10, 26), 9 (Tasks 9, 18, 21), 10 (Tasks 6, 11, 17), 11.1 (Task 25), 11.2 (Task 23), 11.3 (Tasks 10, 14 to 16, 22, 30, 31, 36), 11.4 (Tasks 3, 29), 11.5 (Tasks 12, 20, 29, 39), 11.6 (Tasks 2, 31, 33, 41), 11.7 (Task 24: a fresh bot per game; verified sandboxes are sub-project D), 11.8 (Tasks 2, 23), 12 (Tasks 19, 25, 31, 37), 13 (Tasks 22, 38), 14 (Tasks 16, 25), 15 (reserved: Task 37 refuses it), 16 (Tasks 2, 34, 35), plus the arena, site, guard and artifact-law requirements (Tasks 4, 5, 33, 36 to 44).
+- Spec coverage: sections 2 and 4 (Tasks 1, 9, 17, 18), 5 (Tasks 2, 13, 14), 6 (Tasks 8, 13, 15, 16, 26, 27), 7 (Tasks 7, 16, 26), 8 (Tasks 10, 26), 9 (Tasks 9, 18, 21), 10 (Tasks 6, 11, 17), 11.1 (Task 25), 11.2 (Task 23), 11.3 (Tasks 10, 14 to 16, 22, 30, 31, 36), 11.4 (Tasks 3, 29), 11.5 (Tasks 12, 20, 29, 39), 11.6 (Tasks 2, 31, 33, 41, 44), 11.7 (Tasks 17, 24, 31, 33, 38, 42: a fresh bot per game, `SPELLBENCH_*` stripped from bot environments, each entry's isolation and a run-level self-reported label in the manifest and on the site, unvetted subprocess owners refused; verified sandboxes are sub-project D, so every v2.0 run with a subprocess bot is self-reported), 11.8 (Tasks 2, 23), 12 (Tasks 19, 25, 31, 37), 13 (Tasks 22, 38), 14 (Tasks 16, 25), 15 (reserved: Task 37 refuses it), 16 (Tasks 2, 34, 35), plus the arena, site, guard and artifact-law requirements (Tasks 4, 5, 33, 36 to 44).
 - Out of scope and named for K2 and G: the kernel bridge v2, the kernel bot port, extension audits, the gorge adapter.
+
+## Revision notes
+
+The pre-execution review (R1: Tasks 1 to 13, R2: Tasks 14 to 28, R3: Tasks 29 to 44) was applied as the controller ruled; one line per finding, naming where it landed. Wave file sets stay disjoint.
+
+- R1-1: Task 4 (the gate compares with `LEGACY_ARENA_VERSION`, reads `spellbench.__version__` at call time; two tests); Task 44 reruns `test_legacy_v1.py` after the bump (R3-2).
+- R1-2: Task 1 (`safe_int` range stated; `safe_int(-1)` test).
+- R1-3: Task 1 (`wire.NotAnObjectError`, strict checks first; tests); Task 6 follow-up after wave 1 merges; Task 21 (mapping; `[1,2]` test); Task 32 (`malformed_request_non_object` check); Task 34 (`engine_error_malformed_request_non_object` golden); Decision 7.
+- R1-4: Task 2 (`deck_rows(..., context)`, the NFC message names the card; tests); Task 9 passes the catalog context.
+- R1-5: Task 2 (every vector group read back, the key set pinned, the file rebuilt from the implementation).
+- R1-6: Task 5 (compatible evidence reused by `qualification_key`; ladder `{1, bound // 2, bound}` cut to about 10 percent of the serial time; qualification time recorded); Task 43 (evidence file in the benchmark directory, git-ignored).
+- R1-7: Task 8 (5-field references from `observation_objects`; test).
+- R1-8: Task 8 (`known` entry types; "known name null" mutation); Task 22 (any other exception in a check becomes V1).
+- R1-9: Execution Notes (`uv sync --locked --extra test`; never `uv add`).
+- R1-10: Task 13 (`field(default_factory=dict)`, both imports, `World` defaults).
+- R1-11: Task 10 (completion-index flags, the other seat's undone action forgotten; two tests).
+- R1-12: Task 10 (`partial_seat`); Task 22 (`check_terminal` V3); Decision 13 (a truncated terminal may interrupt a group).
+- R1-13: Task 8 (four rules, one mutation each); Task 13 (a face-down exiled card hides its characteristics too).
+- R1-14: Task 12 (per-kind `Adjudication` JSON shape).
+- R1-15: Task 5 (a window is idle only when every tick was; `games_total == 0` raises `ThroughputError`).
+- R1-16: Task 6 (`request_type` type check; tests).
+- R1-17: Task 9 (`protocol_minor` u32; `Rules.extensions` distinct extension names).
+- R1-18: Decision 12; Global Constraints; Task 6 (minimal bot docstring); Task 44 (README "Write a bot").
+- R1-19: Task 23 (hidden decklist test).
+- R1-20: Task 21 (reused `game_id`, never-cached parse failures, spec 9.4 order; tests); Task 32 (`game_id_reuse`, `never_cached`, `step_check_order`, `unsupported_rule` checks).
+- R2-1: Task 21 (rewind accounting as Task 10's tracker; `fake_v2_scenario_smoke.py` and its `GroupTracker` test; depends on Tasks 7, 8, 10).
+- R2-2: Task 22 (`play_tour` answers `module.pick`); Task 26 (`fake_v2_scenario_kinds.pick` takes the cast); Task 34 (the kinds golden uses it).
+- R2-3: Task 18 (`TerminalCountError`); Task 23 (mapped to `terminal_counts`; test); Task 28 (`bad-terminal-steps`).
+- R2-4: Task 23 (no `game_over` after a timeout or transport failure, the driver closed, a `game_over` budget; tests); Task 29 (text).
+- R2-5: Task 17 (writes on a helper thread, bounded by the budget; test); Task 28 (`deaf` mode and a 70 KB `choose` test).
+- R2-6: Task 16 (V8 rule for `known_cards` false; test); Task 13 (the World emits only current looks with the flag off).
+- R2-7: Task 22 (V3 group shapes, V1 search minimum; tests); Task 28 (`arrangement-size`, `search-minimum`).
+- R2-8: Task 20 (decks normalized once; deck-slice label test).
+- R2-9: Task 26 (three triggers, an order block of two; assertions).
+- R2-10: Task 26 (`_board_features` and the expected set; the board scenario gains `--london` for its pregame decision and lists every feature).
+- R2-11: Task 27 (all 13 rows on p0, hand-written `EXPECTED`; literal tests for rows 1 to 4, 6, 7, 12, 13).
+- R2-12: Task 13 (`$obj` references, `known` entries with `internal`, flag-on defaults, more `CARDS`); Task 21 (the engine resolves them).
+- R2-13: Task 21 (hooks, `validate_deck` and `game_already_terminal` tests; narrowed wording; hello fields stated).
+- R2-14: Task 21 (Tasks 7, 8 in Depends and Consumes); Task 25 (`LedgerDeck`, Task 12).
+- R2-15: Task 17 (`str(SeatFailure)` is `"cause: detail"`; except order stated).
+- R2-16: Task 17 (`Choice` takes any integer; test); Task 23 (a `-1` answer is `invalid_selection`).
+- R2-17: Task 18 (`messages.ENGINE_ERROR_CODES`; copy the `RoleClient` logic, import only `Peer`; test).
+- R2-18: Task 23 defines `_forfeit_for(seat, cause, detail)`, which builds every forfeit; `_forfeit` delegates to it.
+- R2-19: Task 6 (`Decision.raw`, `GameStart.raw`, `GameOver.raw` pinned; test).
+- R2-20: Task 28 (`MODES` at module level, behavior under `__main__`).
+- R2-21: Task 27 (all 13 flags; the rows 12 and 13 rule rewritten).
+- R2-22: Task 26 (the payment first posed with `pay: false` only; `pay: true` after the activation; assertion).
+- R2-23: Task 10 (subtracted when the rewind passes V3; test); Task 23 (the halt detail gives both counts; test); Task 34 (`notes` in `index.json`).
+- R2-24: Task 23 (`opponent_deck` rule); Task 25 (sentence dropped).
+- R2-25: Task 22 (starting player and mulligan V1 checks; tests); Task 15 (library positions below `library_count`); Task 8 (active seat mutation); Task 25 (`requires.extensions` test).
+- R2-26: Task 23 (both seats start at once, judged p0 first; timing test).
+- R3-1: Task 44 (skips found with `ast`).
+- R3-2: with R1-1 (Task 4); Task 44 Step 3.
+- R3-3: second option: Task 41's `env()` carries pin values and its CLI test compares a prefix; Task 43's Files unchanged.
+- R3-4: Task 31 moves `EngineFile` (with `from_json`) into `arena/manifest.py` and edits `bench/pinning.py` (Task 5 created it; no wave-6 conflict); Task 41 puts the reveal constants in `arena/validate.py`; Global Constraints.
+- R3-5: Task 33 (the identity check aborts a run whose engine changed; test). Not applied: the optional launch of per-game engines from the pinned copy, since pins live on the artifact drive and the check already stops a rebuilt engine.
+- R3-6: Task 5 fix round (structured placement, machine record, CPU sampler, rate-comparing monitor, clock-dependent outputs recorded); Task 30 (`on_warning`, `completed`); Task 43 (games sampled across matchups, flushing warnings, the rerun through `plan_for`); Decision 10.
+- R3-7: Task 5 fix round (budget and 60 GiB reserve; registration with status and appended citations; `register_tree`); Task 31 (`is_rated` needs engine files); Task 33 (`TEST_ENGINE_FILES`); Task 36; Task 42; Task 43 (bot files pinned, live then frozen registration, the run directory registered, the PRUNE rule); Decisions 3, 10; Global Constraints.
+- R3-8: Task 41 (in-memory secret, `bench commit` commits and pushes, secret written after the push, `pushed_commit` fetches and refuses a changed commitment; tests); Task 44 (`check_run_history.py` in CI; the site lists pending runs); Decision 9; Global Constraints.
+- R3-9: Task 17 (`env` on `SubprocessPeer` and `AgentProcess`); Task 24 (`SPELLBENCH_*` stripped; test); Task 31 (isolation record, allowlist, refusals); Task 33 (refusal, manifest block; helpers own `spellbench`); Tasks 36, 38, 42; Decision 3; Self-Review; Global Constraints.
+- R3-10: Task 32 (three `unsupported_rule` variants); Task 21 (undeclared extension test).
+- R3-11: Task 32 (string rows written raw; replay test).
+- R3-12: Task 29 (`StallingWindow.counts()` in `clock.py`, one detail text, `_ask` in Files, `step_count` meaning); `_forfeit_for` comes from Task 23 (R2-18) and takes any cause, `stalling` included; Task 23 states the `step_count` meaning.
+- R3-13: Task 31 (`run_status` from rows and violations); Tasks 33, 36.
+- R3-14: Task 41 (a lock beside the secret; `bench commit` checks the pin values, the register script and the placement, which it records for `bench run`); Decision 9.
+- R3-15: Task 43 (`workers` 2; trials for 1 and 2 workers on the same games).
+- R3-16: Task 40 (porting rows; the pair test compares what each engine received); Task 41 (`test_bench_run.py` rows); Task 21 (`P0Wins` and `Echo` hooks); Task 33 (`BOT_SLOW_START`).
+- R3-17: Task 44 (the whole `arena/bots/` directory deleted).
+- R3-18: Task 44 (the exact set of module-level skips); Task 4 fix round (`LEGACY_ARENA_VERSIONS`), because Task 4 is in flight.
+- R3-19: Task 37 (`pairing` and `entries` checked first; test).
+- R3-20: Task 38 (the chip's `legacy` label; test); Task 42 (fills it; test).
+- R3-21: Task 38 (the Fairness section worded as the contract, with the residual channels).
+- R3-22: Task 44 (revealed runs validated and listed in `newer_runs`, beside pending commitments; test), since Task 42 shares wave 9 with Task 41.
+- R3-23: Task 33 (an engine that fails to start halts that game; test).
+- R3-24: Task 33 (workers capped by the declared cores; the manifest records the capped count; test).
+- R3-25: Task 33 (the claim corrected; `cli.py` drops its v1 imports); Task 42 (`build.py` drops `models`).
+- R3-26: Task 34 (how `internal_error` is generated; message-type coverage with the reserved `probe_result` named); Task 17 (`AGENT_ERROR_CODES` a `frozenset`).
+- R3-27: Decision 2 and Execution Notes (a draft pull request runs CI on every wave merge).
+- R3-28: Task 41 (reveal reason categories); Task 5 fix round (host alias `local`, `SPELLBENCH_HOST_ALIAS`); Task 17 (`GameSetup.game_secret_hex`) and Task 9 (`ResetRequest.game_secret`) use `repr=False`; tests in Tasks 9 and 23.
+- R3-29: Task 43 (`cli.main` reports `ThroughputError` and `PinningError`; test).
+- R3-30: Task 33 (the commitment's benchmark and label checked; test); Task 36 (validated; test).
+- R3-31: Task 30 (abort shuts down without waiting and terminates the workers; test); Task 33 (`deferred_interrupts` while the aborted manifest is written; test).
+- R3-32: Task 28 (the request each mode breaks); Task 25 (a `SeatFailure` wrapped by cause and detail). Changed: `str(SeatFailure)` is `"cause: detail"` as R2-15 asks, not the detail alone; the diagnostic stays out either way.
