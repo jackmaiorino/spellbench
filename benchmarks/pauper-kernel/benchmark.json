@@ -2,16 +2,16 @@
   "schema": "spellbench-benchmark/v1",
   "id": "pauper-kernel",
   "title": "Pauper · mtg-kernel",
-  "summary": "Eight Pauper decks on the mtg-kernel rules engine; every matchup plays each deck in both seats.",
+  "summary": "Eight Pauper decks on the mtg-kernel rules engine; every matchup plays each deck in both seats. Protocol v1 ratings, not audited for hidden information. Halted games are unrated; they come from builtin bots taking goad or menace choices that the engine offers but the rules forbid.",
   "format": "pauper-bo1",
-  "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}"], "timeout_ms": 120000},
+  "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}", "--x-kernel-flat-v4"], "timeout_ms": 120000},
   "deck_pool": ["Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"],
   "pairs_per_deck": 4,
   "base_seed": 20260926,
   "choose_timeout_ms": 30000,
   "startup_timeout_ms": 120000,
   "bootstrap_replicates": 2000,
-  "workers": 8,
+  "workers": 20,
   "bots": [
     {
       "name": "uniform", "version": "1.0.0", "type": "builtin", "seed": 11, "owner": "spellbench",
@@ -27,6 +27,27 @@
       "name": "first", "version": "1.0.0", "type": "builtin", "owner": "spellbench",
       "training_style_tags": ["baseline"],
       "display": {"label": "first", "author": "Spellbench", "description": "Always takes the first offered action.", "url": null}
+    },
+    {
+      "name": "g115", "version": "1.0.0", "type": "subprocess", "owner": "jackmaiorino", "engine": "mtg-kernel",
+      "training_style_tags": ["reinforcement-learning"],
+      "command": ["${PYTHON}", "${MTG_KERNEL_FLAT_BOT}", "--scorer", "${MTG_KERNEL_SCORER}", "--config", "${G115_SCORER_CONFIG}", "--name", "g115", "--version", "1.0.0", "--expect-model-state", "8139016ca561961714f25e22a9d6f7fc888548fc332e45b6bce402dfc43159f2"],
+      "checkpoint": "${G115_CHECKPOINT}",
+      "display": {"label": "g115", "author": "mipo", "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates.", "url": null}
+    },
+    {
+      "name": "a48", "version": "1.0.0", "type": "subprocess", "owner": "jackmaiorino", "engine": "mtg-kernel",
+      "training_style_tags": ["reinforcement-learning"],
+      "command": ["${PYTHON}", "${MTG_KERNEL_FLAT_BOT}", "--scorer", "${MTG_KERNEL_SCORER}", "--config", "${A48_SCORER_CONFIG}", "--name", "a48", "--version", "1.0.0", "--expect-model-state", "774e936da26468358257774fe41ae94578265b331d2edb49d017c0835b08699a"],
+      "checkpoint": "${A48_CHECKPOINT}",
+      "display": {"label": "a48", "author": "mipo", "description": "mtg-kernel policy network, Phase 1 lineage a block 48 (8,800 updates, independent initialization), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates.", "url": null}
+    },
+    {
+      "name": "c12", "version": "1.0.0", "type": "subprocess", "owner": "jackmaiorino", "engine": "mtg-kernel",
+      "training_style_tags": ["reinforcement-learning"],
+      "command": ["${PYTHON}", "${MTG_KERNEL_FLAT_BOT}", "--scorer", "${MTG_KERNEL_SCORER}", "--config", "${C12_SCORER_CONFIG}", "--name", "c12", "--version", "1.0.0", "--expect-model-state", "5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de"],
+      "checkpoint": "${C12_CHECKPOINT}",
+      "display": {"label": "c12", "author": "mipo", "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror.", "url": null}
     }
   ]
 }
