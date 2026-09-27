@@ -60,17 +60,18 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
   every published benchmark declares it, and bots that need clairvoyance
   cannot enter. Spellbench as the harness where peeking is impossible is a
   selling point (DraftZero's own audit found its search reads hidden cards).
-- Community code never runs on this PC outside a Docker container with no
-  network; pickled checkpoints load only inside that container.
+- Community bots never run on this PC outside a Docker container with no
+  network, and pickled checkpoints load only inside that container. Engine
+  sources needed for adapters (gorge now, XMage and CABT later) are built and
+  run on the host.
 - Codex-owned kernel code and checkpoints are used read-only; nothing of
   Codex's is pushed; Spellbench results are measurement only.
 - Outreach (Discord posts, GitHub issues on members' repositories) is drafted
   here and sent by Jack.
 
-## Needs Jack
+## Approved by Jack (2026-09-26, "Approved for all")
 
-1. Permission to download and build community code for adapters: the Go
-   toolchain and gorge's source first, later XMage and CABT.
-2. Whether to tell Codex about the bridge port (it reads a local commit on
-   Codex's branch without changing it).
-3. Sending the outreach drafts.
+1. Downloading and building community code for adapters: the Go toolchain
+   and gorge's source first, later XMage and CABT.
+2. Telling Codex about the bridge port (posted to the collab mailbox).
+3. Outreach drafts, which Jack sends.
