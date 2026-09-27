@@ -18,9 +18,9 @@ part of spec 6.8 for hands and libraries: the host cannot tell whether a
 
 Inputs are seat decisions that already passed V1, so every field has its type
 and ``players`` is p0 then p1. The order checks compare consecutive keys with
-``>``: two identical entries, or two candidates referencing the same cards, are
-legal. Every detail starts with the path of the offending value, relative to
-the seat decision.
+``>``, so equal keys pass them: for example two identical entries, or two
+candidates referencing the same cards. Every detail starts with the path of the
+offending value, relative to the seat decision.
 """
 
 from __future__ import annotations

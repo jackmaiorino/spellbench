@@ -144,3 +144,42 @@ def test_the_rules_follow_the_acting_seat() -> None:
         with pytest.raises(ValidatorViolation) as caught:
             check_hidden_zones(p1_view(mutate))
         assert caught.value.rule == "V5"
+    with pytest.raises(ValidatorViolation) as caught:                                      # p0's view sent to p1: V2 halts
+        check_hidden_zones(seat_decision([SAMPLES["pass"]], acting_seat="p1"))            # it first, but V5 alone still
+    assert caught.value.detail.startswith("observation.players[0].hand must be null")      # guards the seat receiving it
+
+
+def _library_entry(**fields) -> dict:
+    return _known({"zone": "library", "how": "looked_at", **fields})
+
+
+@pytest.mark.parametrize(
+    ("earlier", "later"),
+    [
+        (_known({"card_name": "Counterspell"}), _known({"card_name": "Spellstutter Sprite"})),            # card_name
+        (_known({"how": "from_public_zone"}), _known({"how": "revealed"})),                                # how
+        (_known({}), _known({"object_id": "o-1"})),                                                        # a null id first
+        (_known({"object_id": "o-1"}), _known({"object_id": "o-2"})),                                      # object_id
+        (_known({"card_name": "Zodiac"}),                                                                  # zone before card_name
+         _known({"zone": "library", "card_name": "Aether", "how": "looked_at", "position_from_top": 0})),
+        (_library_entry(position_from_top=0), _library_entry(position_from_top=1)),                        # position_from_top
+        (_library_entry(position_from_bottom=0), _library_entry(position_from_bottom=1)),                  # position_from_bottom
+        (_library_entry(how="searching"), _library_entry(how="searching", position_from_bottom=0)),        # a null bottom first
+        (_library_entry(card_name="Counterspell", position_from_top=1),                                    # card_name before positions
+         _library_entry(card_name="Island", position_from_top=0)),
+        (_library_entry(how="revealed", position_from_bottom=0), _library_entry(position_from_bottom=1)),  # positions before how
+        (_known({"how": "looked_at", "object_id": "o-2"}), _known({"object_id": "o-1"})),                  # how before object_id
+    ],
+)
+def test_each_known_key_component(earlier, later) -> None:
+    check_hidden_zones(_with(lambda o: o.update(known=[earlier, later])))
+    with pytest.raises(ValidatorViolation, match="out of order"):
+        check_hidden_zones(_with(lambda o: o.update(known=[later, earlier])))
+
+
+def test_same_name_hidden_candidates_are_in_id_order() -> None:
+    search = lambda ref: {**SAMPLES["select_object"], "purpose": "search", "choice": {"object": ref}, "minimum": 0}
+    first, second = search(LIB("o-a", "Island")), search(LIB("o-b", "Island"))
+    check_hidden_zones(seat_decision([first, second, SAMPLES["finish_selection"]], kind="choice"))
+    with pytest.raises(ValidatorViolation, match="order"):
+        check_hidden_zones(seat_decision([second, first, SAMPLES["finish_selection"]], kind="choice"))
