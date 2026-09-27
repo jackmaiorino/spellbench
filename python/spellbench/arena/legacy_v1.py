@@ -8,8 +8,8 @@ rebuild are copied verbatim from commit 7e9e73f (``models.py``,
 where names would clash, and it imports none of those modules. From the rest
 of the package it uses only the ``store`` IO helpers,
 ``registry.read_registry``, ``leaderboard.build_leaderboard``, the
-``ratings`` bootstrap limits, ``errors.ValidationError`` and
-``wire.MAX_JSON_INT``.
+``ratings`` bootstrap limits and ``errors.ValidationError``; the v1 integer
+bound is frozen here as ``_V1_MAX_JSON_INT``.
 
 Spec section numbers below refer to ``spec/SPELLBENCH_PROTOCOL_V1.md``.
 
@@ -28,7 +28,6 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from ..errors import ValidationError
-from ..wire import MAX_JSON_INT
 from . import leaderboard, ratings, registry, store
 
 LEGACY_ARENA_VERSION = "0.2.0"
@@ -42,8 +41,11 @@ LEADERBOARD_SCHEMA_V1 = "spellbench-leaderboard/v1"
 # Field validators (from models.py)
 # ---------------------------------------------------------------------------
 
+# wire.MAX_JSON_INT at 7e9e73f (the v1 bound |x| <= 2^53), frozen: protocol v2 lowers it.
+_V1_MAX_JSON_INT = 1 << 53
+
 U32_MAX = (1 << 32) - 1
-U64_MAX = MAX_JSON_INT  # protocol numbers never exceed the IEEE-754 safe range
+U64_MAX = _V1_MAX_JSON_INT  # protocol numbers never exceed the IEEE-754 safe range
 
 SEATS = ("p0", "p1")
 
@@ -66,7 +68,7 @@ def _int(
     context: str,
     *,
     minimum: int = 0,
-    maximum: int = MAX_JSON_INT,
+    maximum: int = _V1_MAX_JSON_INT,
 ) -> int:
     if type(value) is not int:
         _fail(context, f"must be an integer, got {type(value).__name__}")
@@ -303,7 +305,7 @@ def _req_str(value: Any, context: str) -> str:
 
 
 def _req_uint(value: Any, context: str) -> int:
-    if type(value) is not int or value < 0 or value > MAX_JSON_INT:
+    if type(value) is not int or value < 0 or value > _V1_MAX_JSON_INT:
         raise ValidationError(f"{context}: must be an integer in [0, 2^53]")
     return value
 
@@ -1071,6 +1073,19 @@ def _package_version() -> str:
     return __version__
 
 
+def _read_for_comparison(path: Path, failures: list[str]) -> bytes | None:
+    """A published file's bytes, or None after recording a failure that names it.
+
+    Not in the 7e9e73f copy: there an unreadable leaderboard file raised
+    FileNotFoundError instead of failing closed with a message.
+    """
+    try:
+        return path.read_bytes()
+    except OSError:
+        failures.append(f"cannot read {path.name} to compare it with a recomputation")
+        return None
+
+
 def validate_v1_run(directory: Path) -> list[str]:
     """Re-verify a published v1 tournament; returns a list of failures (empty = OK).
 
@@ -1133,11 +1148,11 @@ def validate_v1_run(directory: Path) -> list[str]:
             format=config.format,
         )
         expected_json = store.canonical_bytes(document) + b"\n"
-        actual_json = (directory / store.LEADERBOARD_JSON_NAME).read_bytes()
-        if actual_json != expected_json:
+        actual_json = _read_for_comparison(directory / store.LEADERBOARD_JSON_NAME, failures)
+        if actual_json is not None and actual_json != expected_json:
             failures.append("leaderboard.json does not match a recomputation from matches.jsonl")
-        actual_md = (directory / store.LEADERBOARD_MD_NAME).read_bytes()
-        if actual_md != markdown.encode("utf-8"):
+        actual_md = _read_for_comparison(directory / store.LEADERBOARD_MD_NAME, failures)
+        if actual_md is not None and actual_md != markdown.encode("utf-8"):
             failures.append("LEADERBOARD.md does not match a recomputation from matches.jsonl")
         expected = manifest_body(
             config,
