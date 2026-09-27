@@ -15,9 +15,9 @@ from conftest import ScriptedPeer
 from test_messages import HELLO_OK, PROVENANCE, RESET, TERMINAL
 
 
-def _decision(request_id: str, step: int) -> bytes:
+def _decision(request_id: str, step: int, *, game_id: str = RESET["game_id"]) -> bytes:
     return wire.canonical_json_dumps({"response_type": "decision", "protocol": "spellbench/v2", "request_id": request_id,
-                                      "game_id": RESET["game_id"], "step": step, "provenance": PROVENANCE,
+                                      "game_id": game_id, "step": step, "provenance": PROVENANCE,
                                       "seat_decision": {"acting_seat": "p0", "candidates": [
                                           {"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": None}]}})
 
@@ -49,7 +49,10 @@ def test_a_game_binds_steps_and_echoes_the_semantic() -> None:
     [
         _decision("h-9", 0),                                                        # request_id not echoed
         _decision("h-2", 3),                                                        # the first decision is step 0
+        _decision("h-2", 0, game_id="g-not-the-requested-game"),                    # decision game_id mismatch
         wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "step_count": 5}),  # a reset terminal answers 0 steps
+        wire.canonical_json_dumps({**TERMINAL, "request_id": "h-2", "game_id": "g-not-the-requested-game",
+                                   "step_count": 0, "decision_count": 0}),           # terminal game_id mismatch
     ],
 )
 def test_binding_drift_is_a_protocol_error(answer: bytes) -> None:
@@ -93,7 +96,10 @@ def test_raw_probes_do_not_touch_the_game_state() -> None:
     mismatch = {"response_type": "error", "protocol": "spellbench/v2", "request_id": "x",
                 "error": {"code": "protocol_mismatch", "message": "v2 only"}}
     engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), wire.canonical_json_dumps(mismatch)]))
+    last_request, last_response, counter = engine.last_request, engine.last_response, engine._request_counter
     assert engine.send_raw({"request_type": "hello", "protocol": "spellbench/v1", "request_id": "x"})["error"]["code"] == "protocol_mismatch"
+    assert engine.last_request == last_request and engine.last_response == last_response  # untouched by the probe
+    assert engine._request_counter == counter                                             # no request_id consumed
 
 
 @pytest.mark.parametrize("reason", ["host_validator:V3", "host_engine_fault:terminal_counts", "forfeit:stalling"])
@@ -113,3 +119,50 @@ def test_an_engine_namespaced_reason_is_accepted() -> None:
                                           "step_count": 0, "decision_count": 0})
     engine = _hello(ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), terminal]))
     assert _reset(engine).result.reason == "engine_contract_failure:candidate_limit"
+
+
+def test_a_second_decision_steps_from_the_first() -> None:
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), _decision("h-2", 0), _decision("h-3", 1),
+                         wire.canonical_json_dumps({**TERMINAL, "request_id": "h-4", "step_count": 2, "decision_count": 2})])
+    engine = _hello(peer)
+    assert _reset(engine).step == 0
+    second = engine.step(candidate_id=0, semantic={"kind": "pass"})
+    assert second.step == 1                                                  # the previous step (0) plus 1
+    terminal = engine.step(candidate_id=0, semantic={"kind": "pass"})
+    assert terminal.result.step_count == 2
+
+
+def test_a_wrong_second_decision_step_is_a_protocol_error() -> None:
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), _decision("h-2", 0), _decision("h-3", 5)])
+    engine = _hello(peer)
+    _reset(engine)
+    with pytest.raises(ProtocolError, match="step drift"):
+        engine.step(candidate_id=0, semantic={"kind": "pass"})
+
+
+def test_retry_last_replays_the_cached_response() -> None:
+    decision_line = _decision("h-2", 0)
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), decision_line, decision_line])
+    engine = _hello(peer)
+    first = _reset(engine)
+    replay = engine.retry_last()
+    assert replay == first
+    assert peer.sent[1] == peer.sent[2]                                      # byte-identical retransmission (spec 4.1)
+
+
+def test_retry_last_rejects_a_non_identical_replay() -> None:
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), _decision("h-2", 0), _decision("h-2", 7)])
+    engine = _hello(peer)
+    _reset(engine)
+    with pytest.raises(ProtocolError, match="different response"):
+        engine.retry_last()
+
+
+def test_validate_deck_sends_the_catalog_form_and_returns_deck_ok() -> None:
+    deck_ok = wire.canonical_json_dumps({"response_type": "deck_ok", "protocol": "spellbench/v2", "request_id": "h-2"})
+    peer = ScriptedPeer([wire.canonical_json_dumps(HELLO_OK), deck_ok])
+    engine = _hello(peer)
+    result = engine.validate_deck(format="pauper-bo1", catalog_id="Burn")
+    assert result.request_id == "h-2"
+    request = wire.strict_json_loads(peer.sent[1])
+    assert request["format"] == "pauper-bo1" and request["deck"] == {"catalog_id": "Burn"}
