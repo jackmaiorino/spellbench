@@ -6,6 +6,13 @@ interval from ``b``'s leaderboard. The Hero score is the mean margin over
 the benchmarks ``i`` entered. One benchmark keeps its own interval; several
 combine per-benchmark standard errors (half-width / 1.96) as
 ``sqrt(sum(se^2)) / n``, an approximation the site labels as such.
+
+A bot that won (or lost) every rated game has no finite best-fit rating: the
+one virtual draw per matchup keeps it finite, and it grows with the number
+of games. ``rating_bound`` marks such a rating as a lower (or upper) bound.
+A draw gives each side half a point, so a record with a draw has a finite
+rating and is never a bound. A Hero score is a bound when the benchmarks
+that bound it all bound it the same way; mixed bounds bound nothing.
 """
 
 from __future__ import annotations
@@ -25,6 +32,7 @@ class HeroChip:
     margin: float            # Elo above the anchor in that benchmark
     lower: float | None      # interval bounds in the same units; None without an interval
     upper: float | None
+    bound: str | None = None  # "lower" or "upper" when that benchmark's rating is only a bound
 
 
 @dataclass(frozen=True)
@@ -36,6 +44,7 @@ class HeroRow:
     approximate: bool        # combined from several benchmarks
     reference: bool          # the anchor's row, fixed at 0
     chips: tuple[HeroChip, ...]
+    bound: str | None = None  # "lower" or "upper" when the score is only a bound
 
 
 @dataclass(frozen=True)
@@ -47,6 +56,23 @@ class HeroTable:
 
 def _elo_above_anchor(elo_milli: int) -> float:
     return (elo_milli - _ANCHOR_ELO_MILLI) / 1000
+
+
+def rating_bound(row: Mapping[str, Any]) -> str | None:
+    """Whether a leaderboard row's rating is only a bound: ``"lower"``, ``"upper"``, or None.
+
+    A rated row with at least one win and no losses or draws is a lower bound;
+    one with at least one loss and no wins or draws is an upper bound. A draw
+    gives each side half a point, so with one the best-fit rating is finite
+    without the prior. Callers leave out the anchor, whose rating is fixed.
+    """
+    if not row["rated"] or row["draws"] > 0:
+        return None
+    if row["losses"] == 0 and row["wins"] > 0:
+        return "lower"
+    if row["wins"] == 0 and row["losses"] > 0:
+        return "upper"
+    return None
 
 
 def hero_table(
@@ -79,6 +105,7 @@ def hero_table(
                     margin=_elo_above_anchor(row["elo_milli"]),
                     lower=None if interval is None else _elo_above_anchor(interval[0]),
                     upper=None if interval is None else _elo_above_anchor(interval[1]),
+                    bound=rating_bound(row),
                 )
             )
     rows = [_combine(name, tuple(bot_chips)) for name, bot_chips in chips.items()]
@@ -96,16 +123,20 @@ def hero_table(
 def _combine(name: str, chips: tuple[HeroChip, ...]) -> HeroRow:
     count = len(chips)
     score = math.fsum(chip.margin for chip in chips) / count
+    # The mean of lower bounds and estimates is a lower bound (likewise upper); mixed bounds bound nothing.
+    bounds = {chip.bound for chip in chips} - {None}
+    bound = bounds.pop() if len(bounds) == 1 else None
     if count == 1:
         return HeroRow(
             name=name, score=score, lower=chips[0].lower, upper=chips[0].upper,
-            approximate=False, reference=False, chips=chips,
+            approximate=False, reference=False, chips=chips, bound=bound,
         )
     halves: list[float] = []
     for chip in chips:
         if chip.lower is None or chip.upper is None:
             return HeroRow(
-                name=name, score=score, lower=None, upper=None, approximate=True, reference=False, chips=chips
+                name=name, score=score, lower=None, upper=None, approximate=True, reference=False, chips=chips,
+                bound=bound,
             )
         halves.append((chip.upper - chip.lower) / (2 * Z95))
     # Square by multiplication: h * h is exactly rounded on every OS, while h ** 2
@@ -113,5 +144,5 @@ def _combine(name: str, chips: tuple[HeroChip, ...]) -> HeroRow:
     se = math.sqrt(math.fsum(half * half for half in halves)) / count
     return HeroRow(
         name=name, score=score, lower=score - Z95 * se, upper=score + Z95 * se,
-        approximate=True, reference=False, chips=chips,
+        approximate=True, reference=False, chips=chips, bound=bound,
     )
