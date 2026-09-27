@@ -1,9 +1,11 @@
 // Package validate is a Go subset of the Section 11.3 live validator, used by
 // this adapter's tests and qualification until sub-project P's validator runs.
 //
-// Not covered: V1 for the observation (field types, vocabularies, NFC names),
-// the card_name domain of choose_name, V10 provenance, and rewinds (this
-// engine declares rewind false, so any early end of a group fails V3). Group
+// Not covered: V1 for the observation (field types, vocabularies, NFC names)
+// and for the decision's own fields (acting_seat as a seat, context purpose
+// and text), the card_name domain of choose_name, and V10 provenance. Rewinds
+// are not supported: this engine declares rewind false, so a decision with
+// context.rewind true, or any early end of a group, fails V3. Group
 // exclusivity spans both seats, so a host checks it with InGroup.
 package validate
 
@@ -16,6 +18,7 @@ import (
 	"slices"
 
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/wire"
 )
 
 type Violation struct{ Rule, Msg string }
@@ -107,47 +110,49 @@ func records(o protocol.Observation) (map[string]protocol.ObjectRef, error) {
 	return out, nil
 }
 
-// walkRefs visits every object reference inside a candidate semantic. It walks
-// the semantic's JSON, so built and decoded semantics read alike.
-func walkRefs(v any, visit func(protocol.ObjectRef) error) error {
-	b, _ := json.Marshal(v)
-	var generic any
-	json.Unmarshal(b, &generic)
-	var walk func(any) error
-	walk = func(x any) error {
-		switch t := x.(type) {
-		case map[string]any:
-			if id, ok := t["object_id"].(string); ok {
-				var r protocol.ObjectRef
-				rb, _ := json.Marshal(t)
-				json.Unmarshal(rb, &r)
-				r.ObjectID = id
-				return visit(r)
+// walkRefs visits every object reference in a JSON value decoded into any,
+// map keys in sorted order. Semantic.Check has already typed each reference's
+// five fields; one missing or mistyped would read as "" and fail V4.
+func walkRefs(x any, visit func(protocol.ObjectRef) error) error {
+	switch t := x.(type) {
+	case map[string]any:
+		if id, ok := t["object_id"].(string); ok {
+			r := protocol.ObjectRef{ObjectID: id}
+			r.OwnerSeat, _ = t["owner_seat"].(string)
+			r.ControllerSeat, _ = t["controller_seat"].(string)
+			r.Zone, _ = t["zone"].(string)
+			if name, ok := t["card_name"].(string); ok {
+				r.CardName = &name
 			}
-			for _, k := range slices.Sorted(maps.Keys(t)) {
-				if err := walk(t[k]); err != nil {
-					return err
-				}
-			}
-		case []any:
-			for _, e := range t {
-				if err := walk(e); err != nil {
-					return err
-				}
+			return visit(r)
+		}
+		for _, k := range slices.Sorted(maps.Keys(t)) {
+			if err := walkRefs(t[k], visit); err != nil {
+				return err
 			}
 		}
-		return nil
+	case []any:
+		for _, e := range t {
+			if err := walkRefs(e, visit); err != nil {
+				return err
+			}
+		}
 	}
-	return walk(generic)
+	return nil
 }
 
-func candidateRefs(s protocol.Semantic) []protocol.ObjectRef {
+// candidateRefs lists the object references in a candidate's JSON.
+func candidateRefs(b []byte) ([]protocol.ObjectRef, error) {
+	var generic any
+	if err := json.Unmarshal(b, &generic); err != nil {
+		return nil, err
+	}
 	var out []protocol.ObjectRef
-	walkRefs(s, func(r protocol.ObjectRef) error {
+	err := walkRefs(generic, func(r protocol.ObjectRef) error {
 		out = append(out, r)
 		return nil
 	})
-	return out
+	return out, err
 }
 
 // observationRefs visits the object references the observation holds besides
@@ -289,6 +294,8 @@ func checkKnown(o protocol.Observation) error {
 			return vio("V5", "known %d has how %q", i, k.How)
 		case k.CardName == "":
 			return vio("V5", "known %d has no card name", i)
+		case k.ObjectID != nil && !currentLook[k.How]:
+			return vio("V5", "known %d has an id, but only cards looked at, revealed or searched in this decision have one", i)
 		case k.Zone == "hand" && k.OwnerSeat == o.Viewer:
 			return vio("V5", "known %d lists the viewer's own hand", i)
 		case k.Zone == "hand" && (top || bottom):
@@ -314,14 +321,15 @@ func checkKnown(o protocol.Observation) error {
 }
 
 // currentLook is how a card looked at, revealed or searched in this decision
-// is known (Section 6.7).
+// is known. Only such an entry carries an object id (Section 6.7, V5).
 var currentLook = map[string]bool{"looked_at": true, "revealed": true, "searching": true}
 
 // checkFlags is V8's rule for the optional fields of Section 6.9. With its flag
 // false a field is null; with the flag true it is non-null, except that
 // full_name, exiled_by, stack text and class_level may still be null. known is
 // always an array, and with known_cards false it lists only cards looked at,
-// revealed or searched in this decision, which carry fresh ids (Section 6.7).
+// revealed or searched in this decision (Section 6.7): every entry carries an
+// id, and V5 has already held entries with ids to those three hows.
 func (s *Stream) checkFlags(o protocol.Observation) error {
 	var err error
 	field := func(flag string, null, nullable bool, what string) {
@@ -370,8 +378,8 @@ func (s *Stream) checkFlags(o protocol.Observation) error {
 	}
 	if !s.p.Flags["known_cards"] {
 		for i, k := range o.Known {
-			if k.ObjectID == nil || !currentLook[k.How] {
-				return vio("V8", "known %d (%s) is not a card looked at, revealed or searched in this decision, with known_cards false", i, k.How)
+			if k.ObjectID == nil {
+				return vio("V8", "known %d (%s) has no id, so it is not a card looked at, revealed or searched in this decision, with known_cards false", i, k.How)
 			}
 		}
 	}
@@ -387,6 +395,9 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		return vio("V2", "viewer %s, acting seat %s", o.Viewer, sd.ActingSeat)
 	}
 	// V3
+	if sd.Context.Rewind {
+		return vio("V3", "context.rewind is true, but rewinds are not supported (this engine declares rewind false)")
+	}
 	if sd.SeatStep != s.nextSeatStep {
 		return vio("V3", "seat_step %d, want %d", sd.SeatStep, s.nextSeatStep)
 	}
@@ -408,7 +419,7 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		return vio("V1", "%d candidates", len(sd.Candidates))
 	}
 	seen := map[string]bool{}
-	priority, costs := 0, 0
+	priority, declines := 0, 0
 	refs := make([][]protocol.ObjectRef, len(sd.Candidates))
 	for i, c := range sd.Candidates {
 		if c.CandidateID != uint32(i) {
@@ -417,11 +428,20 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		if err := c.Semantic.Check(); err != nil {
 			return vio("V1", "candidate %d: %v", i, err)
 		}
-		b, _ := json.Marshal(c.Semantic)
+		// The host's canonical JSON (Section 4.3) is the candidate as values:
+		// equal semantics match however they were built or decoded, and one
+		// that does not encode fails here instead of skipping V4 and V5.
+		b, err := wire.Canonical(c.Semantic)
+		if err != nil {
+			return vio("V1", "candidate %d does not encode as JSON: %v", i, err)
+		}
 		if seen[string(b)] {
 			return vio("V1", "candidate %d repeats a semantic", i)
 		}
 		seen[string(b)] = true
+		if refs[i], err = candidateRefs(b); err != nil {
+			return vio("V1", "candidate %d: %v", i, err)
+		}
 		if c.Semantic.Kind == "pass" && i != 0 {
 			return vio("V1", "pass at %d", i)
 		}
@@ -431,13 +451,14 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 		if protocol.PriorityKinds[c.Semantic.Kind] {
 			priority++
 		}
-		if c.Semantic.Kind == "optional_cost" {
-			costs++
+		if pay, ok := c.Semantic.Fields["pay"].(bool); c.Semantic.Kind == "optional_cost" && ok && !pay {
+			declines++
 		}
-		refs[i] = candidateRefs(c.Semantic)
 	}
 	// V9: the families do not mix, except activate_mana_ability beside
-	// optional_cost candidates with purpose mana_payment (Section 7.1).
+	// optional_cost candidates under purpose mana_payment, and such a decision
+	// always offers pay:false (Section 7.1), so it holds an optional_cost.
+	manaPayment := sd.Context.Purpose != nil && *sd.Context.Purpose == "mana_payment"
 	switch {
 	case sd.Context.Kind == "priority" && priority != len(sd.Candidates):
 		return vio("V9", "priority context with choice candidates")
@@ -451,11 +472,14 @@ func (s *Stream) Check(sd protocol.SeatDecision) error {
 				return vio("V9", "activate_mana_ability beside %s, not only optional_cost", k)
 			}
 		}
-		if sd.Context.Purpose == nil || *sd.Context.Purpose != "mana_payment" || costs == 0 {
-			return vio("V9", "activate_mana_ability in a choice decision without mana_payment and optional_cost candidates")
+		if !manaPayment {
+			return vio("V9", "activate_mana_ability in a choice decision without purpose mana_payment")
 		}
 	case sd.Context.Kind != "priority" && sd.Context.Kind != "choice":
 		return vio("V9", "context kind %q", sd.Context.Kind)
+	}
+	if sd.Context.Kind == "choice" && manaPayment && declines == 0 {
+		return vio("V9", "a mana_payment decision without optional_cost pay:false, which is always offered")
 	}
 	// V5
 	other := 1

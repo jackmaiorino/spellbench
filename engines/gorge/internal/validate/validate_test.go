@@ -232,6 +232,7 @@ func TestSubsetRulesNameTheirRule(t *testing.T) {
 		{"a group that starts past substep 0", "V3", profile(), groups(protocol.Group{GroupID: 0, SubstepIndex: 1, SubstepCount: 2})},
 		{"an id that returns after leaving", "V7", profile(), hands([]protocol.ObjectRecord{mtn}, []protocol.ObjectRecord{}, []protocol.ObjectRecord{mtn})},
 		{"a look id that returns after leaving", "V7", profile(), looks(look, []protocol.Known{}, look)},
+		{"a rewind, which this engine never declares", "V3", profile(), one(func(sd *protocol.SeatDecision) { sd.Context.Rewind = true })},
 	} {
 		s := validate.NewStream(c.p)
 		for i, sd := range c.steps {
@@ -243,6 +244,46 @@ func TestSubsetRulesNameTheirRule(t *testing.T) {
 				t.Errorf("%s: decision %d reported %q, want %q", c.what, i, got, want)
 				break
 			}
+		}
+	}
+}
+
+// A candidate that Check accepts but JSON cannot encode (json.Number holding
+// an invalid literal, which strconv.ParseInt reads) fails V1, so V4 and V5
+// never skip its references: here a source that is not in the observation.
+func TestCandidatesThatDoNotEncodeFailClosed(t *testing.T) {
+	stranger := ref("o-x", "Fireball", "p0", "stack")
+	for _, literal := range []string{"+1", "007"} {
+		sem := protocol.ChooseNumber(&stranger, "x_value", 0, 0, 9)
+		sem.Fields["value"] = json.Number(literal)
+		sd := base(0, 0)
+		sd.Context = protocol.Context{Kind: "choice", Purpose: str("x_value")}
+		sd.Candidates = []protocol.Candidate{{CandidateID: 0, Semantic: sem}}
+		if got := check(every("pending_triggers", "keywords"), sd); got != "V1" {
+			t.Errorf("value %s reported %q, want V1", literal, got)
+		}
+	}
+}
+
+// Distinctness compares values, not bytes: a decoded twin of a Go-built
+// candidate, its reference keys in another order or its number written -0,
+// repeats it (V1).
+func TestDistinctnessComparesValues(t *testing.T) {
+	mtn := ref("o-mtn", "Mountain", "p0", "hand")
+	for _, raw := range []string{
+		`{"kind":"play_land","face":0,"source":{"zone":"hand","object_id":"o-mtn","card_name":"Mountain","owner_seat":"p0","controller_seat":"p0"}}`,
+		`{"kind":"play_land","face":-0,"source":{"object_id":"o-mtn","card_name":"Mountain","owner_seat":"p0","controller_seat":"p0","zone":"hand"}}`,
+	} {
+		var twin protocol.Semantic
+		if err := json.Unmarshal([]byte(raw), &twin); err != nil {
+			t.Fatal(err)
+		}
+		sd := base(0, 0)
+		sd.Observation.Players[0].Hand, sd.Observation.Players[0].HandCount = []protocol.ObjectRecord{card(mtn, "land")}, 1
+		sd.Candidates = append(sd.Candidates, protocol.Candidate{CandidateID: 1, Semantic: protocol.PlayLand(mtn, 0)},
+			protocol.Candidate{CandidateID: 2, Semantic: twin})
+		if got := check(profile(), sd); got != "V1" {
+			t.Errorf("%s beside its Go-built twin reported %q, want V1", raw, got)
 		}
 	}
 }
@@ -436,6 +477,12 @@ func TestKnownShapeCountAndOrder(t *testing.T) {
 		{"hand entries beyond hand_count", "V5", []protocol.Known{hand("Counterspell", "revealed"),
 			hand("Island", "revealed"), hand("Island", "revealed")}},
 		{"equal entries", "", []protocol.Known{hand("Island", "revealed"), hand("Island", "revealed")}},
+		// An id marks a card looked at, revealed or searched in this decision.
+		{"an id on a tracked entry", "V5", []protocol.Known{withID(hand("Counterspell", "tracked"), "o-1")}},
+		{"an id on an entry from a public zone", "V5", []protocol.Known{withID(hand("Counterspell", "from_public_zone"), "o-1")}},
+		{"an id on an own placement", "V5", []protocol.Known{withID(lib("p0", "Island", zero, nil, "own_placement"), "o-1")}},
+		{"an id on a searched entry", "", []protocol.Known{withID(lib("p0", "Island", nil, nil, "searching"), "o-1")}},
+		{"an id on a revealed entry", "", []protocol.Known{withID(hand("Counterspell", "revealed"), "o-1")}},
 	}
 	// Each pair differs first in the named key, a before b, and a later key
 	// would order it the other way or not at all.
@@ -702,9 +749,9 @@ func TestKnownStaysAnArrayOfCurrentLooks(t *testing.T) {
 		{"a card revealed", false, []protocol.Known{hand("revealed", str("o-1"))}, ""},
 		{"a card searched", false, []protocol.Known{lib("searching", str("o-1"))}, ""},
 		{"a card looked at without an id", false, []protocol.Known{lib("looked_at", nil)}, "V8"},
-		{"a tracked card", false, []protocol.Known{hand("tracked", str("o-1"))}, "V8"},
-		{"a card from a public zone", false, []protocol.Known{hand("from_public_zone", str("o-1"))}, "V8"},
-		{"an own placement", false, []protocol.Known{lib("own_placement", str("o-1"))}, "V8"},
+		{"a tracked card", false, []protocol.Known{hand("tracked", nil)}, "V8"},
+		{"a card from a public zone", false, []protocol.Known{hand("from_public_zone", nil)}, "V8"},
+		{"an own placement", false, []protocol.Known{lib("own_placement", nil)}, "V8"},
 		{"a tracked card without an id", true, []protocol.Known{hand("tracked", nil)}, ""},
 		{"an own placement without an id", true, []protocol.Known{lib("own_placement", nil)}, ""},
 	} {
@@ -736,6 +783,9 @@ func TestManaAbilitiesJoinOnlyOptionalCosts(t *testing.T) {
 		{"an unless payment alone", "", "choice", str("mana_payment"), []protocol.Semantic{decline, pay}},
 		{"a mana ability in a priority decision", "", "priority", nil, []protocol.Semantic{protocol.Pass(), mana}},
 		{"a mana ability without optional_cost", "V9", "choice", str("mana_payment"), []protocol.Semantic{mana}},
+		{"a mana ability beside pay:true alone", "V9", "choice", str("mana_payment"), []protocol.Semantic{pay, mana}},
+		{"a mana payment re-posed without pay:false", "V9", "choice", str("mana_payment"), []protocol.Semantic{pay}},
+		{"a mana payment re-posed with pay:false alone", "", "choice", str("mana_payment"), []protocol.Semantic{decline}},
 		{"a mana ability without a purpose", "V9", "choice", nil, []protocol.Semantic{decline, mana}},
 		{"a mana ability under another purpose", "V9", "choice", str("other"), []protocol.Semantic{decline, mana}},
 		{"a mana ability beside another choice kind", "V9", "choice", str("mana_payment"),
