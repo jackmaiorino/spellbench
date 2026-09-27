@@ -128,8 +128,13 @@ func getStrings(o obj, k string) ([]string, error) {
 }
 
 // getU64 accepts only an integer literal (json.Number would also take "5").
+// -0 is 0: Section 2 forbids only fractions and exponents, and CheckStrict has
+// already refused every other signed spelling of zero ("-00" has a leading zero).
 func getU64(o obj, k string) (uint64, error) {
 	raw := o[k]
+	if string(raw) == "-0" {
+		return 0, nil
+	}
 	if len(raw) == 0 || raw[0] < '0' || raw[0] > '9' {
 		return 0, fmt.Errorf("%s is not a non-negative integer", k)
 	}
@@ -157,7 +162,26 @@ func getObj(raw json.RawMessage) (obj, error) {
 	return o, nil
 }
 
-var hex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var (
+	hex64 = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	// deckIDForm is Section 4.3's deck_id: "sha256:" and 64 lowercase hex digits.
+	deckIDForm = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	// extensionName is an x_ key (Section 14).
+	extensionName = regexp.MustCompile(`^x_[a-z0-9_]+$`)
+)
+
+// firstRepeat returns the index of the first value that repeats an earlier
+// one, or -1 when all are distinct.
+func firstRepeat(vals []string) int {
+	seen := make(map[string]bool, len(vals))
+	for i, v := range vals {
+		if seen[v] {
+			return i
+		}
+		seen[v] = true
+	}
+	return -1
+}
 
 // Decode parses one request line strictly. On error, Request.ID holds the
 // request_id when it could be read, else "", and no per-type request is set.
@@ -170,8 +194,10 @@ func Decode(line []byte) (Request, *Error) {
 		}
 		return req, Errf(CodeMalformedJSON, err.Error())
 	}
-	var o obj
-	_ = json.Unmarshal(line, &o)
+	o, err := getObj(line) // cannot fail after CheckStrict; checked all the same
+	if err != nil {
+		return req, Errf(CodeMalformedRequest, "the request is not a JSON object")
+	}
 	if id, err := getStr(o, "request_id"); err == nil && id != "" {
 		req.ID = id
 	} else {
@@ -222,12 +248,13 @@ func decodeHello(o obj, req *Request) error {
 	return nil
 }
 
-// decodeDecklist reads Section 12.1's rows: each exactly {name, count}, with a
-// nonempty name and a count in [1, 2^32-1], and no name twice.
+// decodeDecklist reads Section 12.1's rows: at least one, each exactly
+// {name, count}, with a nonempty name and a count in [1, 2^32-1], and no name
+// twice.
 func decodeDecklist(raw json.RawMessage) ([]DeckRow, error) {
 	elems, ok := asArray(raw)
-	if !ok {
-		return nil, errors.New("decklist is not an array")
+	if !ok || len(elems) == 0 {
+		return nil, errors.New("decklist is not a nonempty array")
 	}
 	rows := make([]DeckRow, len(elems))
 	seen := make(map[string]bool, len(elems))
@@ -248,7 +275,7 @@ func decodeDecklist(raw json.RawMessage) ([]DeckRow, error) {
 			return nil, fmt.Errorf("decklist names %q twice", name)
 		}
 		seen[name] = true
-		rows[i] = DeckRow{Name: name, Count: int(count)}
+		rows[i] = DeckRow{Name: name, Count: uint32(count)}
 	}
 	return rows, nil
 }
@@ -259,8 +286,8 @@ func decodeDeck(raw json.RawMessage) (DeckSpec, error) {
 		return DeckSpec{}, err
 	}
 	var s DeckSpec
-	if s.DeckID, err = getStr(d, "deck_id"); err != nil {
-		return s, err
+	if s.DeckID, err = getStr(d, "deck_id"); err != nil || !deckIDForm.MatchString(s.DeckID) {
+		return s, errors.New(`deck_id is not "sha256:" and 64 lowercase hex digits`)
 	}
 	switch {
 	case exact(d, "deck_id", "catalog_id") == nil:
@@ -316,14 +343,32 @@ func decodeRules(raw json.RawMessage) (Rules, error) {
 	if r.Names, err = getStrings(dom, "names"); err != nil {
 		return r, err
 	}
+	if i := slices.Index(r.Names, ""); i >= 0 {
+		return r, fmt.Errorf("card_name_domain.names[%d] is empty", i)
+	}
+	if i := firstRepeat(r.Names); i >= 0 {
+		return r, fmt.Errorf("card_name_domain.names[%d] repeats %q", i, r.Names[i])
+	}
 	if r.Extensions, err = getStrings(o, "extensions"); err != nil {
 		return r, err
+	}
+	for i, x := range r.Extensions {
+		if !extensionName.MatchString(x) {
+			return r, fmt.Errorf("extensions[%d] %q is not an x_[a-z0-9_]+ name", i, x)
+		}
+	}
+	if i := firstRepeat(r.Extensions); i >= 0 {
+		return r, fmt.Errorf("extensions[%d] repeats %q", i, r.Extensions[i])
 	}
 	if r.Probe, err = getBool(o, "probe"); err != nil {
 		return r, err
 	}
 	return r, nil
 }
+
+// errGameID answers a missing, mistyped or empty game_id: reset, step and
+// probe_resample each name a game.
+var errGameID = errors.New("game_id is not a nonempty string")
 
 func decodeReset(o obj, req *Request) error {
 	if err := exact(o, "request_type", "protocol", "request_id", "game_id", "format", "seats", "rules", "game_secret", "max_decisions", "max_steps"); err != nil {
@@ -332,7 +377,7 @@ func decodeReset(o obj, req *Request) error {
 	r := &ResetReq{}
 	var err error
 	if r.GameID, err = getStr(o, "game_id"); err != nil || r.GameID == "" {
-		return errors.New("game_id")
+		return errGameID
 	}
 	if r.Format, err = getStr(o, "format"); err != nil {
 		return err
@@ -375,8 +420,8 @@ func decodeStep(o obj, req *Request) error {
 	}
 	s := &StepReq{}
 	var err error
-	if s.GameID, err = getStr(o, "game_id"); err != nil {
-		return err
+	if s.GameID, err = getStr(o, "game_id"); err != nil || s.GameID == "" {
+		return errGameID
 	}
 	if s.ExpectedStep, err = getU64(o, "expected_step"); err != nil {
 		return err
@@ -431,8 +476,8 @@ func decodeProbe(o obj, req *Request) error {
 	}
 	p := &ProbeReq{}
 	var err error
-	if p.GameID, err = getStr(o, "game_id"); err != nil {
-		return err
+	if p.GameID, err = getStr(o, "game_id"); err != nil || p.GameID == "" {
+		return errGameID
 	}
 	if p.Samples, err = getU32(o, "samples"); err != nil {
 		return err

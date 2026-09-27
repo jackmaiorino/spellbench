@@ -1,6 +1,7 @@
 package protocol_test
 
 import (
+	"fmt"
 	"reflect"
 	"slices"
 	"strings"
@@ -9,7 +10,13 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
-const goodReset = `{"request_type":"reset","protocol":"spellbench/v2","request_id":"h-2","game_id":"g-1","format":"pauper-bo1","seats":[{"seat":"p0","deck":{"deck_id":"sha256:aa","catalog_id":"Burn"}},{"seat":"p1","deck":{"deck_id":"sha256:bb","catalog_id":"Spy"}}],"rules":{"opponent_decklist":"visible","mulligan":"london","starting_player":"host_assigned","starting_seat":"p0","card_name_domain":{"domain_id":"sha256:cc","names":["Lightning Bolt"]},"extensions":["x_gorge_view_v1"],"probe":false},"game_secret":"7648831b4ae4148770e13149d5ebbe1c4991168413d4b38e49292cfc5538980e","max_decisions":10000,"max_steps":100000}`
+const goodReset = `{"request_type":"reset","protocol":"spellbench/v2","request_id":"h-2","game_id":"g-1","format":"pauper-bo1","seats":[{"seat":"p0","deck":{"deck_id":"sha256:20e44003dba8100a83d84878c55f6736f1cb033ec76596a740cdbeb558b580c9","catalog_id":"Burn"}},{"seat":"p1","deck":{"deck_id":"sha256:82b3117c82044353f15f1dc1f32a45614e379f17e6be5b8df267c5e29b59dbb8","catalog_id":"Spy"}}],"rules":{"opponent_decklist":"visible","mulligan":"london","starting_player":"host_assigned","starting_seat":"p0","card_name_domain":{"domain_id":"sha256:cc","names":["Lightning Bolt"]},"extensions":["x_gorge_view_v1"],"probe":false},"game_secret":"7648831b4ae4148770e13149d5ebbe1c4991168413d4b38e49292cfc5538980e","max_decisions":10000,"max_steps":100000}`
+
+// The Burn and Spy catalog deck ids, as goodReset carries them.
+const (
+	burnID = "sha256:20e44003dba8100a83d84878c55f6736f1cb033ec76596a740cdbeb558b580c9"
+	spyID  = "sha256:82b3117c82044353f15f1dc1f32a45614e379f17e6be5b8df267c5e29b59dbb8"
+)
 
 func TestDecodeReset(t *testing.T) {
 	req, perr := protocol.Decode([]byte(goodReset))
@@ -75,8 +82,8 @@ func TestDecodeEveryRequestType(t *testing.T) {
 		t.Errorf("probe_resample: %+v", req.Probe)
 	}
 	req := decode(withDecklist(list))
-	if d := req.Reset.Decks; !reflect.DeepEqual(d[0], protocol.DeckSpec{DeckID: "sha256:aa", Decklist: rows, IsDecklist: true}) ||
-		!reflect.DeepEqual(d[1], protocol.DeckSpec{DeckID: "sha256:bb", CatalogID: "Spy"}) {
+	if d := req.Reset.Decks; !reflect.DeepEqual(d[0], protocol.DeckSpec{DeckID: burnID, Decklist: rows, IsDecklist: true}) ||
+		!reflect.DeepEqual(d[1], protocol.DeckSpec{DeckID: spyID, CatalogID: "Spy"}) {
 		t.Errorf("reset decks: %+v", d)
 	}
 	p0 := "p0"
@@ -90,6 +97,7 @@ func TestDecodeEveryRequestType(t *testing.T) {
 		sub(goodReset, `"probe":false`, `"probe":true`),
 		sub(goodReset, `"names":["Lightning Bolt"]`, `"names":[]`),
 		sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":[]`),
+		sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["x_other","x_0_"]`), // well formed; unsupported_rule comes later
 	} {
 		r := decode(line).Reset.Rules
 		if r.Probe != strings.Contains(line, `"probe":true`) || r.Names == nil || r.Extensions == nil {
@@ -122,7 +130,8 @@ func TestDecodeTossWinnerChoosesHasANullStartingSeat(t *testing.T) {
 }
 
 func TestDecodeAcceptsTheIntegerBounds(t *testing.T) {
-	// u32 fields reach 2^32-1 (Sections 4.2, 4.4, 9.7, 12.1); counters reach 2^53-1 (Section 4.4).
+	// u32 fields reach 2^32-1 (Sections 4.2, 4.4, 9.7, 12.1); counters reach 2^53-1
+	// (Section 4.4); -0 is 0 (Section 2 forbids only fractions and exponents).
 	cases := []struct {
 		line string
 		read func(protocol.Request) uint64
@@ -135,6 +144,11 @@ func TestDecodeAcceptsTheIntegerBounds(t *testing.T) {
 		{withDecklist(`[{"name":"Mountain","count":4294967295}]`), func(r protocol.Request) uint64 { return uint64(r.Reset.Decks[0].Decklist[0].Count) }, 1<<32 - 1},
 		{sub(goodReset, `"max_decisions":10000`, `"max_decisions":9007199254740991`), func(r protocol.Request) uint64 { return r.Reset.MaxDecisions }, 1<<53 - 1},
 		{sub(goodReset, `"max_steps":100000`, `"max_steps":0`), func(r protocol.Request) uint64 { return r.Reset.MaxSteps }, 0},
+		{sub(goodReset, `"max_steps":100000`, `"max_steps":-0`), func(r protocol.Request) uint64 { return r.Reset.MaxSteps }, 0},
+		{sub(goodHello, `"protocol_minor":0`, `"protocol_minor":-0`), func(r protocol.Request) uint64 { return r.Hello.ProtocolMinor }, 0},
+		{sub(goodStep, `"expected_step":0`, `"expected_step":-0`), func(r protocol.Request) uint64 { return r.Step.ExpectedStep }, 0},
+		{sub(goodStep, `"candidate_id":0`, `"candidate_id":-0`), func(r protocol.Request) uint64 { return r.Step.CandidateID }, 0},
+		{sub(goodProbe, `"samples":1`, `"samples":-0`), func(r protocol.Request) uint64 { return r.Probe.Samples }, 0},
 	}
 	for _, c := range cases {
 		req, perr := protocol.Decode([]byte(c.line))
@@ -143,6 +157,28 @@ func TestDecodeAcceptsTheIntegerBounds(t *testing.T) {
 		} else if got := c.read(req); got != c.want {
 			t.Errorf("%s: decoded %d, want %d", c.line, got, c.want)
 		}
+	}
+}
+
+func TestCandidateIDIsAU32(t *testing.T) {
+	// Section 4.4 types candidate_id as u32: past 2^32-1 the step is mistyped
+	// (malformed_request), while every u32 decodes as sent, so the session can
+	// answer candidate_id_out_of_range for one that was not offered.
+	if _, perr := protocol.Decode([]byte(sub(goodStep, `"candidate_id":0`, `"candidate_id":4294967296`))); perr == nil || perr.Code != protocol.CodeMalformedRequest {
+		t.Errorf("candidate_id 2^32: got %v, want malformed_request", perr)
+	}
+	for _, id := range []uint64{4095, 4096, 1<<32 - 1} {
+		line := sub(goodStep, `"candidate_id":0`, fmt.Sprintf(`"candidate_id":%d`, id))
+		if req, perr := protocol.Decode([]byte(line)); perr != nil || req.Step.CandidateID != id {
+			t.Errorf("candidate_id %d: got %v, want it decoded", id, perr)
+		}
+	}
+}
+
+func TestDeckRowCountIsAU32(t *testing.T) {
+	// Section 12.1's count is a u32 on every GOARCH; an int would wrap past 2^31-1 on 32-bit targets.
+	if k := reflect.TypeOf(protocol.DeckRow{}.Count).Kind(); k != reflect.Uint32 {
+		t.Fatalf("DeckRow.Count is a %s, want uint32", k)
 	}
 }
 
@@ -211,11 +247,11 @@ func TestDecodeErrorsUseTheClosedTable(t *testing.T) {
 		{sub(goodHello, `"protocol_minor":0`, `"protocol_minor":null`), protocol.CodeMalformedRequest, "a"},
 		{sub(goodReset, `"game_id":"g-1"`, `"game_id":null`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"format":"pauper-bo1"`, `"format":null`), protocol.CodeMalformedRequest, "h-2"},
-		{sub(goodReset, `"seats":[{"seat":"p0","deck":{"deck_id":"sha256:aa","catalog_id":"Burn"}},{"seat":"p1","deck":{"deck_id":"sha256:bb","catalog_id":"Spy"}}]`, `"seats":null`), protocol.CodeMalformedRequest, "h-2"},
-		{sub(goodReset, `{"seat":"p1","deck":{"deck_id":"sha256:bb","catalog_id":"Spy"}}`, `null`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"seats":[{"seat":"p0","deck":{"deck_id":"`+burnID+`","catalog_id":"Burn"}},{"seat":"p1","deck":{"deck_id":"`+spyID+`","catalog_id":"Spy"}}]`, `"seats":null`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `{"seat":"p1","deck":{"deck_id":"`+spyID+`","catalog_id":"Spy"}}`, `null`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"seat":"p0"`, `"seat":null`), protocol.CodeMalformedRequest, "h-2"},
-		{sub(goodReset, `"deck":{"deck_id":"sha256:aa","catalog_id":"Burn"}`, `"deck":null`), protocol.CodeMalformedRequest, "h-2"},
-		{sub(goodReset, `"deck_id":"sha256:aa"`, `"deck_id":null`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"deck":{"deck_id":"`+burnID+`","catalog_id":"Burn"}`, `"deck":null`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"deck_id":"`+burnID+`"`, `"deck_id":null`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"catalog_id":"Burn"`, `"catalog_id":null`), protocol.CodeMalformedRequest, "h-2"},
 		{withDecklist(`null`), protocol.CodeMalformedRequest, "h-2"},
 		{withDecklist(`[null]`), protocol.CodeMalformedRequest, "h-2"},
@@ -257,7 +293,7 @@ func TestDecodeErrorsUseTheClosedTable(t *testing.T) {
 		{sub(goodHello, `"request_type":"hello"`, `"request_type":["hello"]`), protocol.CodeMalformedRequest, "a"},
 		{sub(goodReset, `"game_id":"g-1"`, `"game_id":1`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"format":"pauper-bo1"`, `"format":["pauper-bo1"]`), protocol.CodeMalformedRequest, "h-2"},
-		{sub(goodReset, `"deck_id":"sha256:aa"`, `"deck_id":{}`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"deck_id":"`+burnID+`"`, `"deck_id":{}`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"catalog_id":"Burn"`, `"catalog_id":true`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"starting_seat":"p0"`, `"starting_seat":0`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `"domain_id":"sha256:cc"`, `"domain_id":0`), protocol.CodeMalformedRequest, "h-2"},
@@ -308,6 +344,35 @@ func TestDecodeErrorsUseTheClosedTable(t *testing.T) {
 		{sub(goodHello, `"request_id":"a"`, `"request_id":""`), protocol.CodeMalformedRequest, ""},
 		{sub(goodReset, `"game_id":"g-1"`, `"game_id":""`), protocol.CodeMalformedRequest, "h-2"},
 		{sub(goodReset, `8e49292cfc5538980e"`, `8e49292cfc5538980e0"`), protocol.CodeMalformedRequest, "h-2"},
+
+		// As strict as P's request models: rules.extensions holds distinct
+		// x_[a-z0-9_]+ names (Sections 9.2, 14); deck_id is "sha256:" plus 64
+		// lowercase hex digits (Sections 4.3, 12.1); card names are nonempty and
+		// distinct (Sections 4.4, 12.1, 12.2); a decklist has at least one row.
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["kernel"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["x_"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["X_gorge_view_v1"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["x_Gorge"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["x_gorge-view"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":[""]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"extensions":["x_gorge_view_v1"]`, `"extensions":["x_gorge_view_v1","x_gorge_view_v1"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, "sha256:aa"), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, burnID+"0"), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, burnID[:len(burnID)-1]), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, "sha256:"+strings.ToUpper(burnID[len("sha256:"):])), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, burnID[len("sha256:"):]), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, burnID, "sha512:"+burnID[len("sha256:"):]), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, spyID, ""), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"names":["Lightning Bolt"]`, `"names":["Lightning Bolt","Lightning Bolt"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"names":["Lightning Bolt"]`, `"names":["Sagu Wildling // Roost Seek","Sagu Wildling \/\/ Roost Seek"]`), protocol.CodeMalformedRequest, "h-2"},
+		{sub(goodReset, `"names":["Lightning Bolt"]`, `"names":["Lightning Bolt",""]`), protocol.CodeMalformedRequest, "h-2"},
+		{withDecklist(`[]`), protocol.CodeMalformedRequest, "h-2"},
+		{validateList(`[]`), protocol.CodeMalformedRequest, "v"},
+		{withDecklist(`[{"name":"Mountain","count":-0}]`), protocol.CodeMalformedRequest, "h-2"},
+
+		// A step or a probe names a game: an empty game_id is malformed, as in reset.
+		{sub(goodStep, `"game_id":"g"`, `"game_id":""`), protocol.CodeMalformedRequest, "s"},
+		{sub(goodProbe, `"game_id":"g"`, `"game_id":""`), protocol.CodeMalformedRequest, "p"},
 
 		// starting_seat is a seat exactly when starting_player is host_assigned (Section 12.2).
 		{sub(goodReset, `"starting_seat":"p0"`, `"starting_seat":"p2"`), protocol.CodeMalformedRequest, "h-2"},
