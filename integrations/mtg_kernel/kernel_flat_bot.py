@@ -13,6 +13,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import shutil
 import subprocess
 import sys
 import time
@@ -35,6 +37,8 @@ FEATURE_CONTRACT_DIGEST = "c4af415a3b0cf1e9c9960dbe2bc2d134c63e9f08206a9a364e113
 FEATURE_ENCODING_DIGEST = "271c0e5a0fdce75663c897e89a9d7280ab1a3bbb6679bd10ecb5f524991952de"
 SAMPLED = "sampled-wide-v1"
 ARGMAX = "argmax-first-v1"
+SAMPLER_IDENTITY = "f32-q8-expq63-hamilton-splitmix64-wide-v1"
+FLOAT_ENCODING = "ieee754-binary32-u32-bits"
 TENSOR_KEYS = frozenset({
     "state", "object_features", "object_card_ids", "object_groups", "object_node_ids",
     "edge_features", "edge_source_indices", "edge_target_indices", "action_features",
@@ -61,6 +65,11 @@ class ScorerProcess:
     """The native scorer child: one JSON object per line each way."""
 
     def __init__(self, argv: list[str]) -> None:
+        argv = list(argv)
+        # A bare program name resolves on PATH (with PATHEXT on Windows), as
+        # spellbench.wire.SubprocessPeer does, so one command runs on both.
+        if os.path.basename(argv[0]) == argv[0]:
+            argv[0] = shutil.which(argv[0]) or argv[0]
         self._proc = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         self.ready = self._read()
         if self.ready.get("schema") != READY_SCHEMA:
@@ -96,14 +105,25 @@ class ScorerProcess:
 
 
 class KernelFlatBot:
-    def __init__(self, scorer: ScorerProcess, *, seed: int, decision_log: Path | None, name: str, version: str) -> None:
+    def __init__(
+        self, scorer: ScorerProcess, *, seed: int, decision_log: Path | None, name: str, version: str,
+        expect_model_state: str | None = None,
+    ) -> None:
         ready = scorer.ready
         if (ready.get("feature_contract_digest"), ready.get("feature_encoding_digest")) != (
             FEATURE_CONTRACT_DIGEST, FEATURE_ENCODING_DIGEST,
         ):
             raise BotError("scorer serves a different feature contract")
+        if ready.get("sampler_identity") != SAMPLER_IDENTITY:
+            raise BotError(f"scorer sampler {ready.get('sampler_identity')!r} is not {SAMPLER_IDENTITY}")
+        if ready.get("float_encoding") != FLOAT_ENCODING:
+            raise BotError(f"scorer float encoding {ready.get('float_encoding')!r} is not {FLOAT_ENCODING}")
         if ready.get("selection") not in (SAMPLED, ARGMAX):
             raise BotError(f"unknown scorer selection {ready.get('selection')!r}")
+        if expect_model_state is not None and ready.get("model_state_sha256") != expect_model_state:
+            raise BotError(
+                f"scorer loaded model state {ready.get('model_state_sha256')}, expected {expect_model_state}"
+            )
         self._scorer = scorer
         self._seed = seed
         self._log_dir = decision_log
@@ -216,12 +236,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", required=True)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--decision-log", type=Path, default=None)
+    parser.add_argument(
+        "--expect-model-state", metavar="SHA256", default=None,
+        help="exit before hello unless the scorer reports this model_state_sha256",
+    )
     args = parser.parse_args(argv)
     if args.seed < 0:
         parser.error("--seed must be nonnegative")
     try:
         scorer = ScorerProcess([args.scorer, *args.scorer_arg, "--config", args.config])
-        bot = KernelFlatBot(scorer, seed=args.seed, decision_log=args.decision_log, name=args.name, version=args.version)
+        bot = KernelFlatBot(
+            scorer, seed=args.seed, decision_log=args.decision_log, name=args.name, version=args.version,
+            expect_model_state=args.expect_model_state,
+        )
     except (BotError, OSError, ValueError) as exc:
         print(f"kernel_flat_bot: {exc}", file=sys.stderr)
         return 1
