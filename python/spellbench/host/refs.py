@@ -35,10 +35,13 @@ def check_seat(seat_decision: Mapping[str, Any]) -> None:
 def _held(observation: Mapping[str, Any]) -> dict[str, dict]:
     """The observation's objects by id (V4's uniqueness rule)."""
     held: dict[str, dict] = {}
+    paths: dict[str, str] = {}
     for path, reference in observation_objects(observation):
         if reference["object_id"] in held:
-            raise ValidatorViolation("V4", f"object id {reference['object_id']} appears twice in the observation ({path})")
+            raise ValidatorViolation("V4", f"object id {reference['object_id']} appears twice in the observation "
+                                           f"({paths[reference['object_id']]} and {path})")
         held[reference["object_id"]] = reference
+        paths[reference["object_id"]] = path
     return held
 
 
