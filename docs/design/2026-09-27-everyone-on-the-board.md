@@ -33,14 +33,18 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    map), a stdlib Python bot around the existing scorer (v4 mode, seeded
    sampling), halts for missing inputs. Then A48 and c12 by config. Re-run the
    launch benchmark on the new engine identity.
-2. **P: Protocol v2.** A neutral, hidden-information-safe board view for the
+2. **P: Protocol v2.** (Plan: `docs/design/2026-09-27-protocol-v2-plan.md` on
+   branch `protocol-v2`, 44 tasks, 24.5 agent-days, about 6.5 days elapsed
+   with parallel agents.) A neutral, hidden-information-safe board view for the
    acting seat; the missing decision kinds (mulligan, library arrangement for
    scry and surveil, naming, replacement and trigger order, starting player);
    the acting seat's own decklist at `game_start`; a declared fairness
    contract; and a fixed-deck ("bring your own deck") benchmark type. Clean
    break from v1 while no outside bot depends on it. Reference stack, arena,
    builtins, conformance tests, then the mtg-kernel bridge (after C's port).
-3. **G: gorge as the second engine.** Go environment adapter, gorge bots as
+3. **G: gorge as the second engine.** (Plan: `docs/design/2026-09-27-gorge-adapter-plan.md`
+   on branch `gorge-adapter`, 30 tasks, 17.25 agent-days, runs beside P; only
+   its last task, the rated run, waits for P.) Go environment adapter, gorge bots as
    agents, a gorge benchmark (the 8 Pauper lists if gorge covers them, for a
    cross-engine comparison), gorge's bots rated. Offer gorge's author the
    adapter as a pull request, or let them own it.
