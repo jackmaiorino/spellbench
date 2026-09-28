@@ -26,9 +26,11 @@ from ._schema import (  # the kind name sets are re-exported
     exact_keys,
     fail,
     i32,
+    name_hidden_with_source,
     nonempty,
     nullable,
     object_ref,
+    quoted,
     seat,
     snake,
     target_ref,
@@ -195,8 +197,9 @@ def _order_item(value: Any, context: str) -> dict[str, Any]:
         where = f"{context}.trigger"
         trigger = as_object(item["trigger"], where)
         exact_keys(trigger, _TRIGGER_FIELDS, where)
-        nullable(trigger["source"], object_ref, f"{where}.source")
-        nullable(trigger["source_name"], card_name, f"{where}.source_name")
+        source = nullable(trigger["source"], object_ref, f"{where}.source")
+        source_name = nullable(trigger["source_name"], card_name, f"{where}.source_name")
+        name_hidden_with_source(source, source_name, f"{where}.source_name")   # as a pending trigger (spec 5.1, 6.8)
         nullable(trigger["ability_index"], u32, f"{where}.ability_index")
         for index, event_object in enumerate(array(trigger["event_objects"], f"{where}.event_objects")):
             object_ref(event_object, f"{where}.event_objects[{index}]")
@@ -247,8 +250,8 @@ def _fields(kind: Any, context: str) -> dict[str, Any]:
     fields = _FIELDS.get(text(kind, context))
     if fields is None:
         if kind in RESERVED_KINDS:
-            fail(context, f"{kind!r} is a reserved kind (not in v2.0)")
-        fail(context, f"{kind!r} is an unknown kind")
+            fail(context, f"{quoted(kind)} is a reserved kind (not in v2.0)")
+        fail(context, f"{quoted(kind)} is an unknown kind")
     return fields
 
 

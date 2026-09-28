@@ -13,10 +13,11 @@ bound is frozen here as ``_V1_MAX_JSON_INT``.
 
 Spec section numbers below refer to ``spec/SPELLBENCH_PROTOCOL_V1.md``.
 
-A v1 run is recomputed only when it was made by ``LEGACY_ARENA_VERSION``,
-the arena version that produced the v1 runs, never the running package
-version: a later release bumps ``spellbench.__version__`` and the committed
-runs must keep validating.
+A v1 run is recomputed only when the arena version that made it is in
+``LEGACY_ARENA_VERSIONS``, the versions present in the committed v1 runs
+(R3-18), never the running package version: a later release bumps
+``spellbench.__version__`` and the committed runs must keep validating.
+``LEGACY_ARENA_VERSION`` is the version the manifest rebuild writes.
 """
 
 from __future__ import annotations
@@ -30,7 +31,9 @@ from typing import Any, Iterable, Mapping, Sequence
 from ..errors import ValidationError
 from . import leaderboard, ratings, registry, store
 
-LEGACY_ARENA_VERSION = "0.2.0"
+# Every arena_version present in the committed v1 runs (R3-18), held as a tuple.
+LEGACY_ARENA_VERSIONS = ("0.2.0",)
+LEGACY_ARENA_VERSION = LEGACY_ARENA_VERSIONS[0]
 TOURNAMENT_SCHEMA_V1 = "spellbench-tournament/v1"
 LEDGER_SCHEMA_V1 = "spellbench-match-ledger/v1"
 CONFIG_SCHEMA_V1 = "spellbench-tournament-config/v1"
@@ -1093,9 +1096,9 @@ def validate_v1_run(directory: Path) -> list[str]:
     that made the run, the sha256/byte count of every data file, ledger row
     schemas, and a byte-exact recomputation of ``leaderboard.json`` and
     ``LEADERBOARD.md`` from the ledger, registry, and config. Leaderboard
-    output can change between arena versions, so a run made by any version
-    but ``LEGACY_ARENA_VERSION`` gets one failure naming that version and no
-    recomputation.
+    output can change between arena versions, so a run made by a version
+    outside ``LEGACY_ARENA_VERSIONS`` gets one failure naming that version
+    and no recomputation.
     """
     failures: list[str] = []
     if not store.is_published(directory):
@@ -1112,7 +1115,7 @@ def validate_v1_run(directory: Path) -> list[str]:
     # A manifest without a version string fails the manifest checks below.
     tournament = manifest["tournament"]
     made_by = tournament.get("arena_version") if isinstance(tournament, dict) else None
-    if type(made_by) is str and made_by != LEGACY_ARENA_VERSION:
+    if type(made_by) is str and made_by not in LEGACY_ARENA_VERSIONS:
         shown = made_by if made_by.isprintable() else repr(made_by)
         return [
             f"this run was made by spellbench arena {shown}; this is {_package_version()}: "
@@ -1146,6 +1149,7 @@ def validate_v1_run(directory: Path) -> list[str]:
             base_seed=config.base_seed,
             bootstrap_replicates=config.bootstrap_replicates,
             format=config.format,
+            schema=leaderboard.LEADERBOARD_SCHEMA_V1,
         )
         expected_json = store.canonical_bytes(document) + b"\n"
         actual_json = _read_for_comparison(directory / store.LEADERBOARD_JSON_NAME, failures)

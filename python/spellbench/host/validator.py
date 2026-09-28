@@ -9,18 +9,22 @@ counters and V7 id history in ``host.tracking``. This module owns:
   8's observation and candidate schemas do not already cover on their own:
   the seven top-level fields, ``group`` and ``context``, that the candidate
   list is 1 to 4096 entries, dense, pairwise distinct (by canonical bytes)
-  and poses ``pass`` only at index 0, that ``extensions`` keys match
-  ``x_[a-z0-9_]+``, that a ``choose_name`` value is NFC and inside its
-  purpose's domain (Task 7 checks only that it is a nonempty string), that a
-  ``search`` selection allows finding nothing, and the ``choose_starting_player``
-  and ``mulligan`` shapes of spec 7.5.
+  and poses ``pass`` only at index 0, and always at index 0 of a priority
+  decision, that ``extensions`` keys match ``x_[a-z0-9_]+`` and their payloads
+  are JSON the host can forward, that a ``choose_name`` value is NFC and
+  inside its purpose's domain (Task 7 checks only that it is a nonempty
+  string), that a ``search`` selection allows finding nothing and offers
+  ``finish_selection``, that no creature attacks its own controller, the
+  ``choose_starting_player`` and ``mulligan`` shapes of spec 7.5, and that a
+  pregame or arrangement decision offers its kind alone, one card per
+  arrangement decision.
 - The V3 group shapes of spec 7.5 and 8 (``check_group_shape``, R2-7): sizes
   that never depend on hidden facts, so they are checkable without the
   cross-decision state ``host.tracking.GroupTracker`` keeps.
 - ``LiveValidator``, which runs V1 to V10 in rule order on every decision of
   one game, so the lowest-numbered broken rule is the one reported (spec
-  11.3), and ``check_terminal``, the interruption rule of spec 8 and Decision
-  13 plus a last V10 check.
+  11.3), and ``check_terminal``: the interruption rule of spec 8 and Decision
+  13, a truncation only at a reached cap (spec 9.2), then a last V10 check.
 
 V7 (spec 5.3) is only ever checked from one seat's own decision stream: an id
 never keeps two zones and never returns after leaving that seat's
@@ -47,6 +51,7 @@ from .._schema import (
     fail,
     nullable,
     object_ref,
+    quoted,
     safe_int,
     seat,
     snake,
@@ -55,6 +60,7 @@ from .._schema import (
     vocab,
 )
 from ..candidates import MAX_CANDIDATES, validate_candidate
+from ..errors import ValidationError
 from ..messages import Decision, EnvHelloOk, Provenance, Rules, Terminal
 from ..observation import CARD_TYPES, observation_objects, validate_observation
 from ..wire import canonical_json_dumps
@@ -74,6 +80,9 @@ _CONTEXT_FIELDS = ("kind", "source", "purpose", "text", "rewind")
 _CONTEXT_KINDS = ("priority", "choice")
 # Spec 7.5 naming: purposes checked as snake_case subtypes, apart from card_name and basic_land_type/card_type.
 _SNAKE_NAME_PURPOSES = ("creature_type", "land_type")
+# Spec 7.5: kinds a decision offers with no other kind, and what an arrangement's partition decision shares.
+_KINDS_OFFERED_ALONE = ("mulligan", "choose_starting_player", "arrange_card")
+_ARRANGEMENT_FIELDS = ("source", "purpose", "card", "card_index", "card_count")
 
 
 def validate_seat_decision_schema(seat_decision: Any, rules: Rules) -> dict:
@@ -86,6 +95,8 @@ def validate_seat_decision_schema(seat_decision: Any, rules: Rules) -> dict:
     _check_context(sd["context"], "context")
     validate_observation(sd["observation"], "observation")
     _check_candidates(sd["candidates"], sd["observation"], rules, "candidates")
+    if sd["context"]["kind"] == "priority":
+        _check_priority(sd)
     _check_extensions(sd["extensions"], "extensions")
     return sd
 
@@ -133,7 +144,21 @@ def _check_candidates(value: Any, observation: Mapping[str, Any], rules: Rules, 
             _check_choose_name(semantic, rules, f"{context}[{index}].semantic.value")
         if semantic["kind"] == "select_object" and semantic["purpose"] == "search" and semantic["minimum"] != 0:
             fail(f"{context}[{index}].semantic.minimum", "a library search always allows finding nothing (spec 7.5, F3)")
+        if semantic["kind"] == "declare_attack" and semantic["defender"] == {"player": semantic["attacker"]["controller_seat"]}:
+            fail(f"{context}[{index}].semantic.defender", "a creature never attacks its own controller (CR 508.1b)")
     _check_starting_player_and_mulligan(candidates, observation, context)
+    _check_offered_together(candidates, context)
+
+
+def _check_priority(sd: Mapping[str, Any]) -> None:
+    """A priority decision offers ``pass`` as candidate 0 (spec 7.1).
+
+    Passing is always legal while holding priority (CR 117.3), so a priority decision without it
+    would force the seat to act (R2-2). That the seat holds priority is V2's (``host.refs``).
+    """
+    if sd["candidates"][0]["semantic"]["kind"] != "pass":
+        fail("candidates[0].semantic.kind", "a priority decision offers pass as candidate 0: passing is always legal "
+                                            "while holding priority (spec 7.1)")
 
 
 def _check_choose_name(semantic: Mapping[str, Any], rules: Rules, context: str) -> None:
@@ -142,7 +167,7 @@ def _check_choose_name(semantic: Mapping[str, Any], rules: Rules, context: str) 
     if purpose == "card_name":
         card_name(value, context)   # NFC (Task 7 checks only that it is a nonempty string)
         if value not in rules.card_name_domain.names:
-            fail(context, f"{value!r} is not in rules.card_name_domain.names")
+            fail(context, f"{quoted(value)} is not in rules.card_name_domain.names")
     elif purpose in _SNAKE_NAME_PURPOSES:
         snake(value, context)
     elif purpose == "basic_land_type":
@@ -166,12 +191,46 @@ def _check_starting_player_and_mulligan(candidates: list, observation: Mapping[s
                 fail(context, "a mulligan candidate must match the viewer's hand_count and mulligans_taken (R2-25)")
 
 
+def _check_offered_together(candidates: list, context: str) -> None:
+    """What one decision offers together (spec 7.5).
+
+    A pregame decision (``mulligan``, ``choose_starting_player``) and an arrangement's partition
+    decision offer only their own kind, and the ``arrange_card`` candidates of one decision place one
+    card, so they differ in ``destination`` only. A library search always allows finding nothing
+    (minimum 0), so it offers ``finish_selection`` beside its ``select_object`` candidates.
+    """
+    semantics = [candidate["semantic"] for candidate in candidates]
+    kinds = {semantic["kind"] for semantic in semantics}
+    for alone in _KINDS_OFFERED_ALONE:
+        if alone in kinds and kinds != {alone}:
+            fail(context, f"{alone} candidates are the only kind in their decision (spec 7.5)")
+    placed = {canonical_json_dumps([semantic[field] for field in _ARRANGEMENT_FIELDS])
+              for semantic in semantics if semantic["kind"] == "arrange_card"}
+    if len(placed) > 1:
+        fail(context, "the arrange_card candidates of one decision place one card: they share source, purpose, card, "
+                      "card_index and card_count (spec 7.5)")
+    searching = any(semantic["kind"] == "select_object" and semantic["purpose"] == "search" for semantic in semantics)
+    if searching and not any(semantic["kind"] == "finish_selection" and semantic["purpose"] == "search" for semantic in semantics):
+        fail(context, "a library search always offers finish_selection with purpose search (spec 7.5, F3)")
+
+
 def _check_extensions(value: Any, context: str) -> None:
-    """``extensions`` (spec 14): an object whose keys are ``x_[a-z0-9_]+``."""
+    """``extensions`` (spec 14): an object whose keys are ``x_[a-z0-9_]+``, holding JSON the host can forward.
+
+    Payloads are the one part of a seat decision no schema walks. The wire parser holds a subprocess
+    engine's to strict JSON (spec 2); an in-process engine's are canonicalized here, nested as a
+    forwarded ``choose`` request holds them (request, decision, extensions), so a float, a lone
+    surrogate, an integer past 2^53 - 1, a cycle or nesting past 64 levels is V1, never a failure
+    while forwarding.
+    """
     extensions = as_object(value, context)
     for key in extensions:
         if not EXTENSION_KEY_RE.fullmatch(key):
-            fail(context, f"{key!r} is not an extension key (x_[a-z0-9_]+)")
+            fail(context, f"{quoted(key)} is not an extension key (x_[a-z0-9_]+)")
+    try:
+        canonical_json_dumps({"decision": {"extensions": extensions}})
+    except ValidationError as exc:
+        fail(context, f"is not JSON the host can forward ({exc})")
 
 
 def check_group_shape(sd: Mapping[str, Any]) -> None:
@@ -191,9 +250,12 @@ def check_group_shape(sd: Mapping[str, Any]) -> None:
 class LiveValidator:
     """Live validation of one game's seat decisions, V1 to V10 in rule order (spec 11.3)."""
 
-    def __init__(self, hello: EnvHelloOk, rules: Rules) -> None:
+    def __init__(self, hello: EnvHelloOk, rules: Rules, *, max_decisions: int, max_steps: int) -> None:
+        """``max_decisions`` and ``max_steps`` are the game's caps as its ``reset`` sent them (spec 9.2)."""
         self._profile = hello.profile
         self._rules = rules
+        self._max_decisions = safe_int(max_decisions, "max_decisions")
+        self._max_steps = safe_int(max_steps, "max_steps")
         self._provenance = hello.engine.provenance()
         self._groups = GroupTracker()
         self._ids = IdTracker()
@@ -228,24 +290,47 @@ class LiveValidator:
         check_references(sd)                                                           # V4
         check_hidden_zones(sd)                                                         # V5
         check_face_down(sd)                                                            # V6
-        # V7 (spec 5.3): what one seat's stream can show, an id never keeps two zones
-        # and never returns after leaving it (module docstring).
-        self._ids.check(sd["acting_seat"], {ref["object_id"]: ref["zone"] for _, ref in observation_objects(sd["observation"])})
+        # V7 (spec 5.3): what one seat's stream can show, an id never keeps two zones or
+        # two owners, and never returns after leaving it (module docstring).
+        held = [ref for _, ref in observation_objects(sd["observation"])]
+        self._ids.check(sd["acting_seat"], {ref["object_id"]: ref["zone"] for ref in held},
+                        owners={ref["object_id"]: ref["owner_seat"] for ref in held})
         check_declarations(sd, self._profile, self._rules)                             # V8
         check_context(sd)                                                              # V9
         self._check_provenance(decision.provenance)                                    # V10
         return sd
 
     def answered(self, sd: Mapping[str, Any], candidate_id: int) -> None:
-        self._groups.answered(sd, chosen_kind=sd["candidates"][candidate_id]["semantic"]["kind"])
+        """Record the answer to a checked decision; ``candidate_id`` must index its candidates (a host bug otherwise)."""
+        candidates = sd["candidates"]
+        if type(candidate_id) is not int or not 0 <= candidate_id < len(candidates):
+            raise ValueError(f"candidate_id {candidate_id!r} is outside the {len(candidates)} candidates")
+        self._groups.answered(sd, chosen_kind=candidates[candidate_id]["semantic"]["kind"])
 
     def check_terminal(self, terminal: Terminal) -> None:
-        """V3 (spec 8, Decision 13): only a halted or truncated terminal may interrupt a partial group; then V10."""
+        """V3 (spec 8, 9.2, Decision 13), then V10.
+
+        A ``truncated`` terminal needs a reached cap: the answered decisions at ``max_steps``, or the
+        completed groups at ``max_decisions``. Only ``max_steps`` counts substeps, so only it can fall
+        inside a group: a partial group may end in a truncation at ``max_steps`` or in a ``halted``
+        terminal, never in a natural one.
+        """
+        classification = terminal.result.classification
         partial_seat = self._groups.partial_seat
-        if partial_seat is not None and terminal.result.classification not in ("halted", "truncated"):
-            raise ValidatorViolation(
-                "V3", f"a {terminal.result.classification} terminal interrupted {partial_seat}'s partial group"
-            )
+        steps_capped = self.answered_steps >= self._max_steps
+        if classification == "truncated":
+            if partial_seat is not None and not steps_capped:
+                raise ValidatorViolation(
+                    "V3", f"a truncated terminal interrupted {partial_seat}'s partial group before max_steps "
+                          f"{self._max_steps} was reached ({self.answered_steps} answered decisions)"
+                )
+            if not steps_capped and self.completed_groups < self._max_decisions:
+                raise ValidatorViolation(
+                    "V3", f"a truncated terminal after {self.answered_steps} answered decisions and {self.completed_groups} "
+                          f"completed groups, below max_steps {self._max_steps} and max_decisions {self._max_decisions}"
+                )
+        elif partial_seat is not None and classification != "halted":
+            raise ValidatorViolation("V3", f"a {classification} terminal interrupted {partial_seat}'s partial group")
         self._check_provenance(terminal.provenance)                                    # V10
 
     def _check_provenance(self, provenance: Provenance) -> None:

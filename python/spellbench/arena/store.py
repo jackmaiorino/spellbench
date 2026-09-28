@@ -406,6 +406,11 @@ class LedgerRow:
         """Natural terminals and forfeits enter ratings."""
         return self.classification in ("natural", "forfeit")
 
+    @property
+    def pair_slot(self) -> int:
+        """The game's slot in its seat-swapped pair; v1 records it as ``game_index``."""
+        return self.game_index
+
     def bot_id_at(self, seat: str) -> str:
         for entry in self.seats:
             if entry.seat == seat:

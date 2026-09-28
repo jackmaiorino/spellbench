@@ -145,6 +145,16 @@ def test_a_rewind_skips_the_abandoned_group_id() -> None:
     assert (tracker.answered_steps, tracker.completed_groups) == (4, 2)
 
 
+def test_an_id_keeps_its_owner() -> None:
+    ids = IdTracker()
+    ids.check("p0", {"o-1": "battlefield"}, owners={"o-1": "p1"})
+    ids.check("p0", {"o-1": "battlefield"}, owners={"o-1": "p1"})     # a controller or name may change, an owner never
+    with pytest.raises(ValidatorViolation, match="owners p1 and p0") as caught:
+        ids.check("p0", {"o-1": "battlefield"}, owners={"o-1": "p0"})
+    assert caught.value.rule == "V7"
+    ids.check("p1", {"o-1": "battlefield"}, owners={"o-1": "p0"})     # per viewer: another seat's stream
+
+
 def test_an_id_first_seen_later_never_returns_either() -> None:
     ids = IdTracker()
     ids.check("p0", {"o-1": "hand"})

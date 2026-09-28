@@ -156,3 +156,21 @@ def test_snake_case_and_card_names() -> None:
     assert s.card_name("Lim-D\u00fbl's Vault", "x")
     with pytest.raises(ValidationError, match="NFC"):
         s.card_name("Lim-Du\u0302l's Vault", "x")
+
+
+def test_a_name_taken_from_a_hidden_source_is_hidden() -> None:
+    hidden = {**BOLT, "card_name": None}
+    s.name_hidden_with_source(BOLT, "Lightning Bolt", "x")
+    s.name_hidden_with_source(None, "Lightning Bolt", "x")                      # a source that left
+    s.name_hidden_with_source(hidden, None, "x")
+    with pytest.raises(ValidationError, match="^x: must be null when its source's name is hidden$"):
+        s.name_hidden_with_source(hidden, "Lightning Bolt", "x")
+
+
+def test_quoted_values_are_cut_to_the_limit() -> None:
+    assert s.quoted("red") == "'red'"
+    cut = s.quoted("x" * 1000)
+    assert len(cut) == s.QUOTE_LIMIT and cut.startswith("'xxx") and cut.endswith("...")
+    with pytest.raises(ValidationError) as caught:
+        s.vocab("purple" * 1000, ("red",), "color")
+    assert len(str(caught.value)) < 100

@@ -86,21 +86,32 @@ class GroupTracker:
 
 
 class IdTracker:
-    """V7 state (spec 5.3): per viewer, an object id keeps one zone and never returns after leaving the observation."""
+    """V7 state (spec 5.3): per viewer, an object id keeps one zone and one owner, and never returns after leaving.
+
+    An object's owner never changes (CR 108.3), while its name, controller and characteristics may,
+    so an id showing another owner names another object.
+    """
 
     def __init__(self) -> None:
-        # Per seat: the zone of every id seen, the ids of the previous observation, and the ids that departed.
+        # Per seat: the zone and owner of every id seen, the ids of the previous observation, and the ids that departed.
         self._zones: dict[str, dict[str, str]] = {"p0": {}, "p1": {}}
+        self._owners: dict[str, dict[str, str]] = {"p0": {}, "p1": {}}
         self._present: dict[str, set[str]] = {"p0": set(), "p1": set()}
         self._departed: dict[str, set[str]] = {"p0": set(), "p1": set()}
 
-    def check(self, seat: str, objects: Mapping[str, str]) -> None:
-        zones = self._zones[seat]
+    def check(self, seat: str, objects: Mapping[str, str], *, owners: Mapping[str, str] | None = None) -> None:
+        """``objects`` maps each id of ``seat``'s observation to its zone, ``owners`` (when given) to its owner."""
+        zones, known_owners = self._zones[seat], self._owners[seat]
         for object_id, zone in objects.items():
             if object_id in self._departed[seat]:
                 raise ValidatorViolation("V7", f"object id {object_id} returned to {seat}'s observation after leaving it")
             if zones.get(object_id, zone) != zone:
                 raise ValidatorViolation("V7", f"object id {object_id} appeared in zones {zones[object_id]} and {zone}")
+            if owners is not None and known_owners.get(object_id, owners[object_id]) != owners[object_id]:
+                raise ValidatorViolation("V7", f"object id {object_id} appeared with owners {known_owners[object_id]} "
+                                               f"and {owners[object_id]}")
         self._departed[seat] |= self._present[seat] - objects.keys()
         self._present[seat] = set(objects)
         zones.update(objects)
+        if owners is not None:
+            known_owners.update(owners)
