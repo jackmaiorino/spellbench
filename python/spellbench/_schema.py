@@ -91,6 +91,15 @@ def fail(context: str, detail: str) -> NoReturn:
     raise ValidationError(f"{context}: {detail}")
 
 
+QUOTE_LIMIT = 64
+
+
+def quoted(value: Any) -> str:
+    """``repr(value)``, cut to ``QUOTE_LIMIT`` characters: a validator detail is published, a value is unbounded."""
+    shown = repr(value)
+    return shown if len(shown) <= QUOTE_LIMIT else shown[:QUOTE_LIMIT - 3] + "..."
+
+
 def as_object(value: Any, context: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         fail(context, f"must be an object, got {type(value).__name__}")
@@ -168,28 +177,28 @@ def array(value: Any, context: str, *, min_length: int = 0, max_length: int | No
 
 def seat(value: Any, context: str) -> str:
     if text(value, context) not in SEATS:
-        fail(context, f"must be p0 or p1, got {value!r}")
+        fail(context, f"must be p0 or p1, got {quoted(value)}")
     return value
 
 
 def vocab(value: Any, allowed: Collection[str], context: str) -> str:
     """A string from a closed vocabulary (the message lists it sorted, so it is deterministic)."""
     if text(value, context) not in allowed:
-        fail(context, f"{value!r} is not one of {', '.join(sorted(allowed))}")
+        fail(context, f"{quoted(value)} is not one of {', '.join(sorted(allowed))}")
     return value
 
 
 def snake(value: Any, context: str) -> str:
     """A lowercase snake_case value, ``[a-z][a-z0-9_]*`` (spec 4.4)."""
     if not SNAKE_CASE_RE.fullmatch(text(value, context)):
-        fail(context, f"{value!r} is not lowercase snake_case")
+        fail(context, f"{quoted(value)} is not lowercase snake_case")
     return value
 
 
 def card_name(value: Any, context: str) -> str:
     """A nonempty card name in Unicode NFC (spec 4.4)."""
     if not unicodedata.is_normalized("NFC", nonempty(value, context)):
-        fail(context, f"card name {value!r} is not in Unicode NFC")
+        fail(context, f"card name {quoted(value)} is not in Unicode NFC")
     return value
 
 
@@ -203,6 +212,17 @@ def object_ref(value: Any, context: str) -> dict[str, Any]:
     seat(reference["controller_seat"], f"{context}.controller_seat")
     vocab(reference["zone"], ZONES, f"{context}.zone")
     return reference
+
+
+def name_hidden_with_source(source: Mapping[str, Any] | None, name: Any, context: str) -> None:
+    """A name taken from a source is null when that source's name is hidden (spec 5.1, 6.8).
+
+    A stack ability's ``card_name``, a pending trigger's ``source_name`` and an ``order_pick`` trigger
+    item's ``source_name`` each name their source; this one check serves all three, so they cannot
+    drift apart. ``source`` is an object reference already checked, or null.
+    """
+    if source is not None and source["card_name"] is None and name is not None:
+        fail(context, "must be null when its source's name is hidden")
 
 
 def target_ref(value: Any, context: str) -> dict[str, Any]:
