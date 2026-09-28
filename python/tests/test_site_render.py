@@ -405,6 +405,28 @@ def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:
         assert re.search(r"\.table-wrap\s*\{[^}]*\bposition:\s*relative\b", style)
 
 
+def test_tables_wider_than_a_phone_scroll_inside_their_own_container() -> None:
+    # On a 375px phone a leaderboard or grid is wider than the viewport; it must scroll inside
+    # .table-wrap (overflow-x: auto), never widen the page. Every table on every page is wrapped.
+    for name, page in _pages().items():
+        style = page[page.index("<style>"):page.index("</style>")]
+        assert re.search(r"\.table-wrap\s*\{[^}]*\boverflow-x:\s*auto\b", style), name
+        tables = re.findall(r"<table\b", page)
+        wrapped = re.findall(r'<div class="table-wrap">\s*<table\b', page)
+        assert len(tables) == len(wrapped), name
+        if name == "benchmark":
+            assert tables, name
+
+
+def test_the_manifest_hash_wraps_instead_of_widening_the_page() -> None:
+    # The 64-digit hash has no break opportunities of its own; .hash lets it break anywhere, so the
+    # full value stays on the page (no truncation) without forcing the page wider.
+    page = _pages()["benchmark"]
+    style = page[page.index("<style>"):page.index("</style>")]
+    assert re.search(r"\.hash\s*\{[^}]*\bword-break:\s*break-all\b", style)
+    assert f'<code class="hash">{"f" * 64}</code>' in page
+
+
 def test_a_bounded_leaderboard_row_reads_as_a_bound_with_an_arrow() -> None:
     # A bot that won every game (+864 [+817, +920] in the reviewer's simulation) and one that lost every game.
     bench = copy.deepcopy(BENCH)
