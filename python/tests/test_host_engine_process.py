@@ -10,8 +10,8 @@ import time
 import pytest
 
 from spellbench import wire
-from spellbench.errors import EngineError, PeerTimeoutError, ProtocolError
-from spellbench.host.engine_process import EngineProcess, TerminalCountError, TerminalReasonError
+from spellbench.errors import EngineError, PeerTimeoutError, ProtocolError, TransportError
+from spellbench.host.engine_process import EngineProcess, HostMisuseError, TerminalCountError, TerminalReasonError
 from spellbench.messages import ResetRequest
 
 from conftest import ScriptedPeer
@@ -263,3 +263,56 @@ def test_a_real_engine_that_never_reads_its_stdin_times_out_on_a_big_write() -> 
     time.sleep(0.2)                                                        # let a just-finished writer thread drop out
     assert {t.ident for t in threading.enumerate()} <= before              # no helper thread left alive
     engine.close()
+
+
+# The game digest chains only exchanges that were written and answered (spec 11.8), and a call
+# out of sequence is the host's bug, never the engine's (Task 23 fix round 1).
+
+STEP = {"candidate_id": 0, "semantic": {"kind": "pass"}}
+
+
+@pytest.mark.parametrize("misuse", ["hello twice", "step before reset", "reset during a game", "closed client",
+                                    "invalid selection", "incomplete exchange"])
+def test_host_misuse_is_never_charged_to_the_engine(misuse: str) -> None:
+    """HostMisuseError, raised before anything is written; never a ProtocolError the game loop would halt the engine for."""
+    peer = ScriptedPeer([HELLO_LINE, _decision("h-2", 0), PeerTimeoutError("slow")])
+    engine = _hello(peer)
+    if misuse == "hello twice":
+        call = engine.hello
+    elif misuse == "step before reset":
+        call = lambda: engine.step(**STEP)
+    else:
+        _reset(engine)
+        call = lambda: engine.step(**STEP)
+        if misuse == "reset during a game":
+            call = lambda: _reset(engine)
+        elif misuse == "closed client":
+            engine.close()
+        elif misuse == "invalid selection":
+            call = lambda: engine.step(candidate_id=-1, semantic={"kind": "pass"})     # a step request the host cannot build
+        else:
+            with pytest.raises(PeerTimeoutError):
+                engine.step(**STEP)                                        # written, never answered: still pending
+    written = len(peer.sent)
+    with pytest.raises(HostMisuseError) as caught:
+        call()
+    assert not isinstance(caught.value, ProtocolError)
+    assert len(peer.sent) == written                                       # nothing reached the engine
+
+
+@pytest.mark.parametrize("failure", ["write", "read", "not JSON", "binding"])
+def test_only_an_answered_exchange_is_recorded(failure: str) -> None:
+    """``last_request`` and ``last_response`` never depend on whether a failure surfaced at the write or the read."""
+    answers = {"write": [], "read": [PeerTimeoutError("slow")], "not JSON": [b"{broken"], "binding": [_decision("h-9", 1)]}
+    peer = ScriptedPeer([HELLO_LINE, _decision("h-2", 0), *answers[failure]])
+    engine = _hello(peer)
+    _reset(engine)
+    if failure == "write":
+        peer.closed = True                                                 # the engine exited before the step was written
+    with pytest.raises((TransportError, ProtocolError)):
+        engine.step(**STEP)
+    if failure in ("write", "read"):
+        assert (engine.last_request, engine.last_response) == (None, None)
+    else:
+        assert engine.last_request == wire.strict_json_loads(peer.sent[-1])
+        assert engine.last_response == (None if failure == "not JSON" else wire.strict_json_loads(answers[failure][0]))

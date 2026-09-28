@@ -3,22 +3,30 @@
 ``play_game`` drives one game end to end: it builds the ``reset`` request and starts the
 digest from it, starts both seats at once, sends ``reset``, then alternates between
 validating the engine's decision (``host.validator.LiveValidator``), asking the acting
-seat to choose, and sending the engine ``step``. Every engine answer and step request is
-chained into the digest as it happens (spec 11.8), whether the call succeeds or fails, so
-the digest is a faithful record of the wire traffic even when the game ends in a fault.
+seat to choose, and sending the engine ``step``.
 
-Three endings are host-recorded rather than reported by the engine (spec 11.5): a
-``forfeit`` (a seat driver failed), a ``halt`` (a live-validation violation, or an engine
-fault: ``error``, ``timeout``, ``transport``, ``malformed``, ``terminal_counts`` or
-``terminal_reason``). Each appends its own adjudication record to the digest
-(``_halt``, ``_forfeit_for``) and sends every started, unsilenced seat a ``game_over``.
-A legitimate engine terminal (``natural``, ``truncated`` or an engine-reported
-``halted``) needs no adjudication record: the terminal message chained through the
-digest already speaks for itself.
+The digest (spec 11.8) chains the engine exchanges that were written and answered: each
+step request, and each answer whose line is JSON. An exchange that got no answer line (a
+failed write, a timeout, EOF) is not chained, so a halted game's digest never depends on
+whether the failure surfaced at the write or at the read, which is a matter of timing (a
+bot's think time, say). Nothing from an agent enters it.
+
+The host records three endings itself (spec 11.5), each appending one adjudication record
+to the digest and sending ``game_over`` to every started seat it has not closed: a
+``forfeit`` (a seat failed; ``_forfeit_for``), a ``halt`` (a live-validation violation, or
+an engine fault: ``error``, ``timeout``, ``transport``, ``malformed``, ``terminal_counts``
+or ``terminal_reason``; ``_halt``) and, from Part B (Task 29), the mandatory-loop draw. An
+engine terminal (``natural``, ``truncated`` or an engine-reported ``halted``) gets no
+adjudication record: its answer in the chain already records it.
+
+A host fault is never charged to a participant. A seat driver raises only ``SeatFailure``
+(``host.seat``), so any other exception from ``start``, ``choose`` or ``game_over`` is the
+host's, as is ``HostMisuseError`` from the engine client (a call out of sequence, such as a
+reused engine): each propagates out of ``play_game``, and no result is recorded.
 
 Part B (Task 29) wires the bank clock, seat caps and the stalling window through three
-hooks that this task stubs out: ``_budget_ms`` (always ``max_decision_ms``), ``_charge``
-and ``_after_answer`` (always ``None``, so they never end the game here).
+hooks that this task leaves inert: ``_budget_ms`` (``max_decision_ms``), ``_charge`` (given
+whole milliseconds) and ``_after_answer`` (both ``None``, so they never end the game here).
 """
 
 from __future__ import annotations
@@ -101,12 +109,14 @@ def _invalid_answer(sd: Mapping[str, Any], choice: Choice) -> str | None:
 
 
 class _Game:
-    def __init__(self, setup: GameSetup, engine: EngineProcess, seats: Mapping[str, SeatDriver], clock_ns) -> None:
+    def __init__(self, setup: GameSetup, engine: EngineProcess, seats: Mapping[str, SeatDriver],
+                 clock_ns: Callable[[], int]) -> None:
         if engine.hello_result is None:
             raise ProtocolError("play_game needs an engine that answered hello")
         self.setup, self.engine, self.seats, self.clock_ns = setup, engine, seats, clock_ns
         self.hello = engine.hello_result
-        self.validator = LiveValidator(self.hello, setup.rules)
+        self.validator = LiveValidator(self.hello, setup.rules, max_decisions=setup.limits.max_decisions,
+                                       max_steps=setup.limits.max_steps)
         self.reset = ResetRequest(request_id=engine.next_request_id(), game_id=setup.game_id, format=setup.format,
                                   seats=setup.wire_decks, rules=setup.rules, game_secret=setup.game_secret_hex,
                                   max_decisions=setup.limits.max_decisions, max_steps=setup.limits.max_steps)
@@ -128,7 +138,7 @@ class _Game:
             try:
                 sd = self.validator.check(response)
             except ValidatorViolation as violation:
-                return self._halt(f"host_validator:{violation.rule}", violation.detail, violation=violation)
+                return self._violation(violation)
             seat = sd["acting_seat"]
             answer = self._ask(seat, sd)
             if isinstance(answer, GameResult):
@@ -146,40 +156,54 @@ class _Game:
     # -- starting both seats -------------------------------------------------
 
     def _start_both(self) -> dict[str, SeatFailure | None]:
-        """Start both seats concurrently, joined by one shared deadline (R2-26).
+        """Start both seats at once and judge both starts once (spec 11.4, 11.5; R2-26).
 
-        Records both seats as started whether or not their ``start`` call succeeded, then
-        silences (closes) every seat whose failure was a timeout or a transport error: its
-        request is still outstanding or its process is gone (R2-4).
+        Both payloads are built first, so a setup the host cannot send raises here, before any
+        seat starts. Each ``start`` runs on its own thread, all joined by one shared deadline of
+        ``startup_ms + game_start_ms`` (a subprocess driver bounds its launch and ``hello`` by
+        ``startup_ms``, then its ``game_start`` by ``game_start_ms``). The judgment is taken
+        once, under a lock, from what the threads reported by then; a thread that reports
+        later changes nothing. A start still running is a ``timeout`` and a ``SeatFailure``
+        keeps its own cause; a seat that timed out or whose process failed
+        (``transport_error``) is closed at once and sent nothing more (R2-4). Any other
+        exception is a host fault: once both starts are judged it is raised (p0's first), and
+        neither seat forfeits.
         """
-        game_start_timeout_s = self.setup.time_control.game_start_ms / 1000
-        deadline_s = (self.setup.time_control.startup_ms + self.setup.time_control.game_start_ms) / 1000
-        results: dict[str, SeatFailure | None] = {}
+        time_control = self.setup.time_control
+        payloads = {seat: self._game_start_payload(seat) for seat in SEATS}
+        lock = threading.Lock()
+        reported: dict[str, BaseException | None] = {}
+        judged = False
 
         def run(seat: str) -> None:
             try:
-                self.seats[seat].start(self._game_start_payload(seat), timeout_s=game_start_timeout_s)
-            except SeatFailure as failure:
-                results[seat] = failure
-            else:
-                results[seat] = None
+                self.seats[seat].start(payloads[seat], timeout_s=time_control.game_start_ms / 1000)
+                outcome = None
+            except BaseException as exc:  # noqa: BLE001 - classified on the host's thread once judged
+                outcome = exc
+            with lock:
+                if not judged:
+                    reported[seat] = outcome
 
-        threads = {seat: threading.Thread(target=run, args=(seat,), daemon=True) for seat in SEATS}
-        started_ns = self.clock_ns()
-        for thread in threads.values():
+        threads = [threading.Thread(target=run, args=(seat,), name=f"game-start-{seat}", daemon=True) for seat in SEATS]
+        limit_ms = time_control.startup_ms + time_control.game_start_ms
+        deadline = time.monotonic() + limit_ms / 1000
+        for thread in threads:
             thread.start()
         self.started.extend(SEATS)
-        for seat in SEATS:
-            elapsed_s = (self.clock_ns() - started_ns) / 1_000_000_000
-            threads[seat].join(max(0.0, deadline_s - elapsed_s))
-            if seat not in results:
-                ms = self.setup.time_control.game_start_ms
-                results[seat] = SeatFailure("timeout", f"no answer to game_start within {ms} ms")
-        for seat in SEATS:
-            failure = results[seat]
-            if failure is not None and failure.cause in _SILENCING_CAUSES:
+        for thread in threads:
+            thread.join(max(0.0, deadline - time.monotonic()))
+        overrun = f"the seat did not start within {limit_ms} ms (startup_ms plus game_start_ms)"
+        with lock:
+            judged = True
+            outcomes = {seat: reported[seat] if seat in reported else SeatFailure("timeout", overrun) for seat in SEATS}
+        for seat, outcome in outcomes.items():
+            if isinstance(outcome, SeatFailure) and outcome.cause in _SILENCING_CAUSES:
                 self._silence(seat)
-        return results
+        for outcome in outcomes.values():
+            if outcome is not None and not isinstance(outcome, SeatFailure):
+                raise outcome
+        return outcomes
 
     def _game_start_payload(self, seat: str) -> dict[str, Any]:
         """``game_start`` past the envelope (spec 10.2); ``opponent_deck`` per the rules (R2-24)."""
@@ -196,9 +220,14 @@ class _Game:
 
     def _ask(self, seat: str, sd: Mapping[str, Any]) -> int | GameResult:
         """The acting seat's answer, a candidate id, or the ``GameResult`` of a forfeit."""
+        time_control = self.setup.time_control
         budget_ms = self._budget_ms(seat)
-        clock = Clock(remaining_ms=budget_ms, max_decision_ms=self.setup.time_control.max_decision_ms)
-        payload = choose_payload(game_id=self.setup.game_id, seat_decision=sd, clock=clock)
+        # Spec 10.3: remaining_ms is the seat's bank, which only Part B drains (Task 29).
+        clock = Clock(remaining_ms=time_control.bank_ms, max_decision_ms=time_control.max_decision_ms)
+        # The driver gets its own copy, the canonical re-serialization of the validated decision (spec 11.2): nothing
+        # it does to its payload reaches the host's, which the step echo and the group tracking read.
+        forwarded = wire.strict_json_loads(wire.canonical_json_dumps(sd))
+        payload = choose_payload(game_id=self.setup.game_id, seat_decision=forwarded, clock=clock)
         started_ns = self.clock_ns()
         try:
             choice = self.seats[seat].choose(payload, timeout_s=budget_ms / 1000)
@@ -206,7 +235,7 @@ class _Game:
             if failure.cause in _SILENCING_CAUSES:
                 self._silence(seat)
             return self._forfeit(seat, failure)
-        elapsed_ms = (self.clock_ns() - started_ns) / 1_000_000
+        elapsed_ms = -(-(self.clock_ns() - started_ns) // 1_000_000)     # whole milliseconds, rounded up
         ruling = self._charge(seat, sd, elapsed_ms)
         if ruling is not None:
             return ruling
@@ -219,53 +248,72 @@ class _Game:
         self.silenced.add(seat)
         self.seats[seat].close()
 
-    # -- the engine's answers, chained into the digest whether they fault or not --
+    # -- the engine's answers ------------------------------------------------
 
     def _engine(self, phase: str, call: Callable[[], Decision | Terminal], *, step: bool) -> Decision | Terminal | GameResult:
-        """Run ``call``, chain its wire traffic into the digest, and map an engine fault to a halt."""
+        """Run ``call`` (``reset`` or one ``step``), chain its exchange into the digest, and halt on an engine fault.
+
+        Only the exceptions below are the engine's; anything else, ``HostMisuseError`` included,
+        is the host's and propagates (module docstring).
+        """
         self.engine.set_timeout(self.setup.time_control.engine_step_ms / 1000)
         try:
             result = call()
         except EngineError as exc:
-            self._note(exc)
-            self._chain_engine(step)
-            return self._halt("host_engine_fault:error", f"the engine answered {phase} with error {exc.code}")
+            return self._engine_fault(exc, step, "error", f"the engine answered {phase} with error {exc.code}")
         except PeerTimeoutError as exc:
-            self._note(exc)
-            self._chain_engine(step)
             ms = self.setup.time_control.engine_step_ms
-            return self._halt("host_engine_fault:timeout", f"the engine did not answer {phase} within {ms} ms")
-        except TerminalCountError as exc:
-            self._note(exc)
-            self._chain_engine(step)
-            return self._halt("host_engine_fault:terminal_counts", self._terminal_counts_detail(exc.terminal.result))
-        except TerminalReasonError as exc:
-            self._note(exc)
-            self._chain_engine(step)
-            return self._halt("host_engine_fault:terminal_reason", str(exc))
+            return self._engine_fault(exc, step, "timeout", f"the engine did not answer {phase} within {ms} ms")
+        except TerminalCountError as exc:       # before ProtocolError, its base (R2-3)
+            return self._engine_fault(exc, step, "terminal_counts", self._terminal_counts_detail(exc.terminal.result),
+                                      terminal=exc.terminal)
+        except TerminalReasonError as exc:      # before ProtocolError, its base
+            return self._engine_fault(exc, step, "terminal_reason", str(exc), terminal=exc.terminal)
         except TransportError as exc:
-            self._note(exc)
-            self._chain_engine(step)
-            return self._halt("host_engine_fault:transport", f"the engine process failed at {phase}")
+            return self._engine_fault(exc, step, "transport", f"the engine process failed at {phase}")
         except ProtocolError as exc:
-            self._note(exc)
-            self._chain_engine(step)
-            return self._halt("host_engine_fault:malformed", f"the engine's answer to {phase} was not a valid protocol message")
-        else:
-            self._chain_engine(step)
-            return result
+            return self._engine_fault(exc, step, "malformed",
+                                      f"the engine's answer to {phase} was not a valid protocol message")
+        self._chain(step)
+        return result
+
+    def _engine_fault(self, exc: BaseException, step: bool, fault: str, detail: str, *,
+                      terminal: Terminal | None = None) -> GameResult:
+        """Halt as ``host_engine_fault:<fault>``, after chaining the exchange if it was answered.
+
+        A terminal the engine client refused still meets the validator's terminal checks
+        first, so V3 and V10 outrank a count or reason fault as they do in ``_terminal``.
+        """
+        self._note(exc)
+        self._chain(step)
+        if terminal is not None:
+            try:
+                self.validator.check_terminal(terminal)
+            except ValidatorViolation as violation:
+                return self._violation(violation)
+        return self._halt(f"host_engine_fault:{fault}", detail)
+
+    def _chain(self, step: bool) -> None:
+        """Chain the exchange just made when it was written and answered (spec 11.8; module docstring).
+
+        The engine client clears ``last_request`` before each write and sets it only once an
+        answer line arrives, so ``None`` here means this call got no answer.
+        """
+        request, response = self.engine.last_request, self.engine.last_response
+        if request is None:
+            return
+        if step:
+            self.digest.add_step(request, response)
+        elif response is not None:
+            self.digest.add_response(response)      # the reset request itself seeds the digest
 
     def _note(self, exc: BaseException) -> None:
+        """The exception text, and the engine's stderr unless that text already quotes it (``wire.SubprocessPeer``'s
+        transport failures do), go to ``diagnostics``: never to the ledger or the digest."""
         self.diagnostics.append(str(exc))
-        stderr = self.engine.stderr_text()
+        stderr = "" if isinstance(exc, TransportError) else self.engine.stderr_text()
         if stderr:
             self.diagnostics.append(stderr)
-
-    def _chain_engine(self, step: bool) -> None:
-        if step:
-            self.digest.add_step(self.engine.last_request, self.engine.last_response)
-        elif self.engine.last_response is not None:
-            self.digest.add_response(self.engine.last_response)
 
     def _terminal_counts_detail(self, result: TerminalResult) -> str:
         return (f"terminal step_count {result.step_count}, decision_count {result.decision_count}; "
@@ -276,24 +324,25 @@ class _Game:
     def _budget_ms(self, seat: str) -> int:
         return self.setup.time_control.max_decision_ms
 
-    def _charge(self, seat: str, sd: Mapping[str, Any], elapsed_ms: float) -> GameResult | None:
+    def _charge(self, seat: str, sd: Mapping[str, Any], elapsed_ms: int) -> GameResult | None:
         return None
 
     def _after_answer(self, seat: str, sd: Mapping[str, Any], candidate_id: int) -> GameResult | None:
         return None
 
-    # -- endings: a legitimate terminal, a host halt, a forfeit --------------
+    # -- endings: an engine terminal, a host halt, a forfeit -----------------
 
     def _terminal(self, response: Terminal) -> GameResult:
-        """A terminal the engine client already bound and count-checked for step_count (spec 9.3 to 9.5).
+        """An engine terminal the client already bound and checked for its reason and ``step_count`` (spec 9.3 to 9.5).
 
-        The host still checks it (V3, V10) and its decision_count, which only the host's
-        group tracking knows; either failure halts instead of accepting it.
+        The host still checks it, the validator first: V3 and V10 (spec 11.3), then both
+        counts, of which only the host's group tracking can check ``decision_count``
+        (Decision 4). A failure halts the game instead of accepting it.
         """
         try:
             self.validator.check_terminal(response)
         except ValidatorViolation as violation:
-            return self._halt(f"host_validator:{violation.rule}", violation.detail, violation=violation)
+            return self._violation(violation)
         result = response.result
         if result.step_count != self.validator.answered_steps or result.decision_count != self.validator.completed_groups:
             return self._halt("host_engine_fault:terminal_counts", self._terminal_counts_detail(result))
@@ -302,6 +351,9 @@ class _Game:
                              reason=result.reason)
         return self._result(outcome=result.outcome, classification=result.classification, winner=result.winner,
                             reason=result.reason, adjudication=None, last_selection_seat=last_selection_seat)
+
+    def _violation(self, violation: ValidatorViolation) -> GameResult:
+        return self._halt(f"host_validator:{violation.rule}", violation.detail, violation=violation)
 
     def _halt(self, reason: str, detail: str, *, violation: ValidatorViolation | None = None) -> GameResult:
         self.digest.add_adjudication(classification="halted", outcome="halted", reason=reason, winner=None)
@@ -325,7 +377,7 @@ class _Game:
         return self._forfeit_for(seat, failure.cause, failure.detail)
 
     def _send_game_over(self, *, outcome: str, classification: str, winner: str | None, reason: str) -> None:
-        """``game_over`` to every started, unsilenced seat, ignoring failures (spec 10.4, 11.5; R2-4)."""
+        """``game_over`` to every started, unsilenced seat, ignoring its ``SeatFailure`` (spec 10.4, 11.5; R2-4)."""
         timeout_s = self.setup.time_control.game_start_ms / 1000
         for seat in SEATS:
             if seat not in self.started or seat in self.silenced:
@@ -351,5 +403,8 @@ class _Game:
 
 def play_game(setup: GameSetup, *, engine: EngineProcess, seats: Mapping[str, SeatDriver],
               clock_ns: Callable[[], int] = time.monotonic_ns) -> GameResult:
-    """Play one game end to end (the engine has answered ``hello``; the caller closes the engine and the seats)."""
+    """Play one game end to end (the engine has answered ``hello``; the caller closes the engine and the seats).
+
+    A host fault propagates instead of returning a result (module docstring).
+    """
     return _Game(setup, engine, seats, clock_ns).play()

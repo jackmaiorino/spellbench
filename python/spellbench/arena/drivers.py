@@ -19,7 +19,9 @@ game's bot and request and answers only its own call's queue, and every
 ``start`` builds a fresh bot, so it cannot reach a later game. ``game_over``
 never raises for the bot: by the time it is sent the game's outcome is already
 decided, so a builtin bot's own ``game_over`` failure is swallowed rather than
-adjudicated, matching the v1 arena runner's ``_BuiltinDriver.game_over``.
+adjudicated, matching the v1 arena runner's ``_BuiltinDriver.game_over``. A
+bot's ``on_game_start`` and ``on_game_over`` are optional, as ``serve`` reads
+them: a missing one is skipped (its request is still numbered).
 
 The subprocess driver starts a fresh process per game with an environment
 stripped of every ``SPELLBENCH_*`` key (``bot_environment``, R3-9): a bot
@@ -83,7 +85,9 @@ class BuiltinDriver:
         bot = self._bot = factory() if factory is not None else create_builtin_bot(self._spec.name, seed=self._spec.seed)
         self._count = 1  # request ids restart per game; a bot process's hello takes r-0
         game = GameStart.from_request(self._view("game_start", game_start))
-        self._call(bot.on_game_start, game, timeout_s=timeout_s, phase="game_start")
+        hook = getattr(bot, "on_game_start", None)  # optional, as serve reads it (bot.py)
+        if hook is not None:
+            self._call(hook, game, timeout_s=timeout_s, phase="game_start")
 
     def choose(self, choose: Mapping[str, Any], *, timeout_s: float) -> Choice:
         bot = self._bot
@@ -104,8 +108,11 @@ class BuiltinDriver:
         if bot is None:
             return
         terminal = GameOver.from_request(self._view("game_over", game_over))
+        hook = getattr(bot, "on_game_over", None)  # optional, as serve reads it (bot.py)
+        if hook is None:
+            return
         try:
-            self._call(bot.on_game_over, terminal, timeout_s=timeout_s, phase="game_over")
+            self._call(hook, terminal, timeout_s=timeout_s, phase="game_over")
         except SeatFailure:
             pass
 

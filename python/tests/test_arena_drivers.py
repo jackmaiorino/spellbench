@@ -275,6 +275,23 @@ def test_a_builtin_bots_game_over_failure_is_never_adjudicated(on_game_over) -> 
     assert driver.game_over(OVER, timeout_s=0.2) is None
 
 
+@pytest.mark.parametrize("hooks", [(), ("on_game_start",), ("on_game_over",)])
+def test_a_builtin_bot_may_leave_out_its_optional_hooks(hooks: tuple[str, ...]) -> None:
+    """``on_game_start`` and ``on_game_over`` are optional, as ``serve`` reads them (bot.py): a missing one is skipped."""
+    ran: list[str] = []
+
+    class Bot:
+        def choose(self, decision): return 1
+
+    for hook in hooks:
+        setattr(Bot, hook, lambda self, view, hook=hook: ran.append(hook))
+    driver = BuiltinDriver(builtin("first"), factory=Bot)
+    driver.start(START, timeout_s=5)
+    assert driver.choose(CHOOSE, timeout_s=5).candidate_id == 1
+    assert driver.game_over(OVER, timeout_s=5) is None
+    assert ran == list(hooks)                       # the hooks it has still run
+
+
 def test_a_builtin_bot_cannot_mutate_the_host_copy_at_game_start_or_game_over() -> None:
     start = {**START, "rules": {"extensions": []}}
     over = copy.deepcopy(OVER)
@@ -361,6 +378,16 @@ def test_a_bot_process_that_cannot_start_forfeits(tmp_path: Path, where: str) ->
         driver.close()
     assert (caught.value.cause, caught.value.detail) == ("transport_error", "the bot process could not be started")
     assert "no-such-spellbench-bot" in caught.value.diagnostic      # the OS error stays in the diagnostic only
+
+
+def test_a_command_the_host_cannot_launch_is_the_hosts_error() -> None:
+    """Only a spawn failure (``TransportError``) forfeits; an empty command is a config bug and escapes as ValueError."""
+    driver = SubprocessDriver(BotSpec(name="empty", version="1", type="subprocess", command=()), startup_ms=5_000)
+    try:
+        with pytest.raises(ValueError, match="argv must be nonempty"):
+            driver.start(START, timeout_s=5)
+    finally:
+        driver.close()
 
 
 @pytest.mark.parametrize(("name", "version"), [("someone-else", "1.0.0"), ("minimal", "2.0.0")])
