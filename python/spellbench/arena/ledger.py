@@ -29,8 +29,9 @@ LEDGER_SCHEMA = "spellbench-match-ledger/v2"
 FORFEIT_CAUSES = frozenset(
     {"timeout", "stalling", "malformed_response", "invalid_selection", "agent_error", "transport_error"}
 )
-# The engine faults the host halts a game for, with reason "host_engine_fault:<fault>" (spec 11.5, Decision 4).
-ENGINE_FAULTS = ("error", "timeout", "transport", "malformed", "terminal_counts")
+# The engine faults the host halts a game for, with reason "host_engine_fault:<fault>" (spec 11.5, Decision 4);
+# terminal_reason is an engine terminal whose reason impersonates a host reason (host/engine_process.py).
+ENGINE_FAULTS = ("error", "timeout", "transport", "malformed", "terminal_counts", "terminal_reason")
 
 _OUTCOMES = ("p0_win", "p1_win", "draw", "truncated", "halted")
 _CLASSIFICATIONS = ("natural", "forfeit", "truncated", "halted")

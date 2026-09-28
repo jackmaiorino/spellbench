@@ -10,6 +10,19 @@ the game loop's (spec 11.3, 11.5), not checked here.
 Idempotent retry (spec 4.1): a single outstanding request; ``retry_last`` retransmits
 the last request byte-identically. ``send_raw`` and ``send_line`` are conformance
 probes: they send anything, return the strict-parsed answer, and change no state.
+
+``last_request`` and ``last_response`` describe the latest exchange that was written
+and answered, the only kind the game digest chains (spec 11.8): the request, and its
+strict-parsed answer (``None`` when the answer line was not JSON), error envelopes and
+answers that failed a binding check included. Both are ``None`` while an exchange is in
+flight and after one that got no answer line (a failed write, a timeout, EOF, a line
+over the 8 MiB cap), so what they hold never depends on which side of the pipe a
+failure surfaced on.
+
+A call out of sequence (a second ``hello``, ``reset`` during a game, ``step`` without a
+pending decision, any request on a closed client or over an incomplete exchange) or a
+selection that cannot be sent is the host's bug: it raises ``HostMisuseError`` before
+anything is written, never a ``ProtocolError``, which the game loop charges to the engine.
 """
 
 from __future__ import annotations
@@ -39,6 +52,14 @@ from ..messages import (
 # Reason prefixes only the host records (spec 11.3, 11.5): an engine terminal
 # carrying one impersonates the host.
 _HOST_REASON_PREFIXES = ("host_validator:", "host_engine_fault:", "forfeit:")
+
+
+class HostMisuseError(RuntimeError):
+    """A host bug: a call out of sequence, or a selection that cannot be sent; raised before anything is written.
+
+    Deliberately not a ``ProtocolError``: the game loop halts the game as an engine fault
+    for those, and a host bug is never charged to the engine.
+    """
 
 
 class TerminalCountError(ProtocolError):
@@ -115,7 +136,7 @@ class EngineProcess:
 
     def hello(self, *, protocol_minor: int = PROTOCOL_MINOR) -> EnvHelloOk:
         if self._hello is not None:
-            raise ProtocolError("hello already completed for this process")
+            raise HostMisuseError("hello already completed for this process")
         request = HelloRequest(request_id=self.next_request_id(), protocol_minor=protocol_minor)
         response, response_line = self._exchange(request.to_json())
         result = self._validate_response(response, request.to_json(), response_line)
@@ -124,21 +145,25 @@ class EngineProcess:
 
     def reset(self, request: ResetRequest) -> Decision | Terminal:
         if self._hello is None:
-            raise ProtocolError("reset before hello")
+            raise HostMisuseError("reset before hello")
         if self._game_id is not None:
-            raise ProtocolError("a game is already active on this process")
+            raise HostMisuseError("a game is already active on this process")
         response, response_line = self._exchange(request.to_json())
         return self._validate_response(response, request.to_json(), response_line)
 
     def step(self, *, candidate_id: int, semantic: Mapping[str, Any]) -> Decision | Terminal:
         """Select a candidate of the active decision, echoing its ``semantic`` (spec 9.4)."""
         if self._game_id is None or self._expected_step is None:
-            raise ProtocolError("step without an active decision")
+            raise HostMisuseError("step without an active decision")
+        try:
+            selection = Selection(candidate_id=candidate_id, semantic_echo=dict(semantic))
+        except ValidationError as exc:
+            raise HostMisuseError(f"the host cannot send this selection: {exc}") from exc
         request = StepRequest(
             request_id=self.next_request_id(),
             game_id=self._game_id,
             expected_step=self._expected_step,
-            selection=Selection(candidate_id=candidate_id, semantic_echo=dict(semantic)),
+            selection=selection,
         )
         response, response_line = self._exchange(request.to_json())
         return self._validate_response(response, request.to_json(), response_line)
@@ -151,7 +176,7 @@ class EngineProcess:
         decklist: Sequence[Mapping[str, Any]] | None = None,
     ) -> DeckOk:
         if self._hello is None:
-            raise ProtocolError("validate_deck before hello")
+            raise HostMisuseError("validate_deck before hello")
         rows = None if decklist is None else tuple(DeckRow(row["name"], row["count"]) for row in decklist)
         request = ValidateDeckRequest(
             request_id=self.next_request_id(), format=format, catalog_id=catalog_id, decklist=rows
@@ -168,23 +193,20 @@ class EngineProcess:
     def send_line(self, payload: bytes) -> dict[str, Any]:
         """A conformance probe: send any bytes, return the strict-parsed answer, change no state."""
         if self._closed:
-            raise ProtocolError("client is closed")
+            raise HostMisuseError("client is closed")
         self._peer.write_line(payload)
         return wire.strict_json_loads(self._peer.read_line())
 
     def retry_last(self) -> Any:
         """Retransmit the last request byte-identically (spec 4.1)."""
         if self._closed:
-            raise ProtocolError("client is closed")
+            raise HostMisuseError("client is closed")
         if self._pending is not None:
             request, line = self._pending
-            self._peer.write_line(line)
-            response_line = self._peer.read_line()
-            response = wire.strict_json_loads(response_line)
-            self.last_response = response
+            response, response_line = self._round_trip(request, line)
             return self._validate_response(response, request, response_line)
         if self._last is None:
-            raise ProtocolError("no request to retry")
+            raise HostMisuseError("no request to retry")
         request, line, response_line, result = self._last
         self._peer.write_line(line)
         replay_line = self._peer.read_line()
@@ -211,23 +233,22 @@ class EngineProcess:
     def _exchange(self, request: dict[str, Any]) -> tuple[dict[str, Any], bytes]:
         """Write one request line and read the strict-parsed response line."""
         if self._closed:
-            raise ProtocolError("client is closed")
+            raise HostMisuseError("client is closed")
         if self._pending is not None:
-            raise ProtocolError("a request exchange is incomplete; call retry_last()")
-        line = wire.canonical_json_dumps(request)
+            raise HostMisuseError("a request exchange is incomplete; call retry_last()")
+        return self._round_trip(request, wire.canonical_json_dumps(request))
+
+    def _round_trip(self, request: dict[str, Any], line: bytes) -> tuple[dict[str, Any], bytes]:
+        """Write ``line``, read its answer, and record the exchange once an answer line arrived (module docstring)."""
+        self.last_request = self.last_response = None
         self._peer.write_line(line)
+        # From here the request may or may not have been applied; keep _pending so
+        # retry_last() can retransmit the identical line.
         self._pending = (request, line)
+        response_line = self._peer.read_line()
         self.last_request = request
-        self.last_response = None
-        try:
-            response_line = self._peer.read_line()
-        except BaseException:
-            # The request may or may not have been applied; keep _pending so
-            # retry_last() can retransmit the identical line.
-            raise
-        response = wire.strict_json_loads(response_line)
-        self.last_response = response
-        return response, response_line
+        self.last_response = wire.strict_json_loads(response_line)
+        return self.last_response, response_line
 
     def _commit(self, request: dict[str, Any], response_line: bytes, result: Any) -> Any:
         line = wire.canonical_json_dumps(request)
