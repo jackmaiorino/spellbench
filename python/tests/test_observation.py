@@ -327,6 +327,14 @@ def _more_mutations() -> dict:
         "a pending trigger naming its hidden source": (edit(lambda o: (
             o["players"][1]["battlefield"].append(_morph()), o.update(pending_triggers=[_morph_trigger("Hooded Hydra")]))),
             "pending_triggers[0].source_name"),
+        # Consistency the audit found unchecked (M9).
+        "an exiling object on a permanent": (edit(lambda o: swift(o).update(exiled_by=_ref(o["players"][1]["battlefield"][0]))),
+                                             "players[0].battlefield[0].exiled_by"),
+        "a division unlike its targets": (on_stack(divided=[1, 1, 1]), "stack[0].divided"),
+        "a creature without power": (edit(lambda o: swift(o)["characteristics"].update(power=None)),
+                                     "players[0].battlefield[0].characteristics.power"),
+        "a creature without toughness": (edit(lambda o: o["players"][1]["battlefield"][0]["characteristics"].update(toughness=None)),
+                                         "players[1].battlefield[0].characteristics.toughness"),
     }
 
 
