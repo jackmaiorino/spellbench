@@ -14,6 +14,7 @@ probes: they send anything, return the strict-parsed answer, and change no state
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Any, Mapping, Sequence
 
 from .. import wire
@@ -315,7 +316,8 @@ class EngineProcess:
             raise ProtocolError("response request_id mismatch")
         if terminal.game_id != request["game_id"]:
             raise ProtocolError("response game_id mismatch")
-        reason = terminal.result.reason
+        # Compared without case, whitespace or compatibility forms: "Forfeit:timeout" and " forfeit:x" read as host reasons too.
+        reason = "".join(unicodedata.normalize("NFKC", terminal.result.reason).casefold().split())
         for prefix in _HOST_REASON_PREFIXES:
             if reason.startswith(prefix):
                 raise TerminalReasonError(

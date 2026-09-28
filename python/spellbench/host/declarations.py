@@ -16,16 +16,23 @@ declarations, in this order:
 4. no ``mulligan`` candidate while ``rules.mulligan`` is ``none``, and no
    ``choose_starting_player`` while ``rules.starting_player`` is
    ``host_assigned``: the declared rule answers those decisions (spec 7.6, 12.2);
+   likewise no decision an ``engine_defaults`` entry answers (spec 7.6): an
+   ``order_pick`` of ``triggers`` under ``trigger_order``, a
+   ``choose_replacement`` under ``replacement_order``, a ``distribute`` of
+   ``combat_damage`` under ``combat_damage_assignment``, and a mana ability in a
+   choice decision under ``engine_autopay``;
 5. ``context.rewind`` only when the profile declares ``rewind`` (spec 8);
-6. every ``extensions`` key is enabled in ``rules.extensions`` (spec 14).
+6. every ``extensions`` key is declared in ``hello_ok.extensions`` and enabled
+   in ``rules.extensions`` (spec 14).
 
-``check_context`` applies V9 (spec 7.1): the candidates are all of
+``check_context`` applies V9 (spec 7.1, 9.3): the candidates are all of
 ``context.kind``'s family, with one exception. A choice decision whose
 ``context.purpose`` is ``mana_payment`` offers ``optional_cost`` and
-``activate_mana_ability`` candidates only, and always offers an
-``optional_cost`` with ``pay: false``; that purpose appears only on a choice
-decision, and ``activate_mana_ability`` appears in a choice decision only under
-it.
+``activate_mana_ability`` candidates only, always offers an ``optional_cost``
+with ``pay: false``, and pays one cost of one source; that purpose appears
+only on a choice decision, and ``activate_mana_ability`` appears in a choice
+decision only under it. Any other ``context.purpose`` is null or repeats the
+purpose every candidate carrying one shares.
 
 Inputs are seat decisions that already passed V1, so every field has its type,
 every candidate a valid v2.0 kind. Details start with the path of the offending
@@ -34,8 +41,9 @@ value, relative to the seat decision.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Mapping
+from typing import Any, Callable, Iterator, Mapping
 
+from .._schema import quoted
 from ..candidates import family
 from ..messages import EngineProfile, Rules
 from ..observation import zone_records
@@ -45,6 +53,18 @@ from .violation import ValidatorViolation
 _CURRENT_LOOKS = ("looked_at", "revealed", "searching")
 # Spec 7.1: the only kinds a mana_payment choice offers.
 _MANA_PAYMENT_KINDS = ("optional_cost", "activate_mana_ability")
+# Spec 7.6: an engine default, the value under which the engine answers that decision itself, and whether a
+# candidate belongs to that decision. Under engine_autopay a seat still decides whether to pay a cost
+# (optional_cost), never how: no choice decision offers it a mana ability.
+_ENGINE_DEFAULTS: tuple[tuple[str, str, Callable[[Mapping[str, Any], Mapping[str, Any]], bool]], ...] = (
+    ("trigger_order", "engine_order",
+     lambda semantic, sd: semantic["kind"] == "order_pick" and semantic["purpose"] == "triggers"),
+    ("replacement_order", "engine_order", lambda semantic, sd: semantic["kind"] == "choose_replacement"),
+    ("combat_damage_assignment", "engine_order",
+     lambda semantic, sd: semantic["kind"] == "distribute" and semantic["purpose"] == "combat_damage"),
+    ("mana_payment", "engine_autopay",
+     lambda semantic, sd: semantic["kind"] == "activate_mana_ability" and sd["context"]["kind"] == "choice"),
+)
 
 
 def check_declarations(seat_decision: Mapping[str, Any], profile: EngineProfile, rules: Rules) -> None:
@@ -73,11 +93,19 @@ def check_declarations(seat_decision: Mapping[str, Any], profile: EngineProfile,
         raise ValidatorViolation("V8", "a mulligan candidate while rules.mulligan is none (spec 7.6)")
     if rules.starting_player == "host_assigned" and "choose_starting_player" in kinds:
         raise ValidatorViolation("V8", "a choose_starting_player candidate while rules.starting_player is host_assigned (spec 7.6)")
+    semantics = [candidate["semantic"] for candidate in seat_decision["candidates"]]
+    for default, value, answers in _ENGINE_DEFAULTS:
+        if profile.engine_defaults[default] == value and any(answers(semantic, seat_decision) for semantic in semantics):
+            raise ValidatorViolation("V8", f"a decision the engine answers itself under engine_defaults.{default} {value} "
+                                           "is posed (spec 7.6)")
     if seat_decision["context"]["rewind"] and not profile.rewind:
         raise ValidatorViolation("V8", "context.rewind is true but the profile does not declare rewind (spec 8)")
+    declared = {extension.name for extension in profile.extensions}
     for key in seat_decision["extensions"]:
+        if key not in declared:
+            raise ValidatorViolation("V8", f"extensions key {quoted(key)} is not declared in hello_ok.extensions (spec 14)")
         if key not in rules.extensions:
-            raise ValidatorViolation("V8", f"extensions key {key!r} is not enabled in rules.extensions (spec 14)")
+            raise ValidatorViolation("V8", f"extensions key {quoted(key)} is not enabled in rules.extensions (spec 14)")
 
 
 def check_context(seat_decision: Mapping[str, Any]) -> None:
@@ -99,6 +127,9 @@ def check_context(seat_decision: Mapping[str, Any]) -> None:
         pays = [candidate["semantic"] for candidate in candidates if candidate["semantic"]["kind"] == "optional_cost"]
         if not any(semantic["pay"] is False for semantic in pays):
             raise ValidatorViolation("V9", "a mana_payment decision always includes an optional_cost with pay false")
+        if any((semantic["source"], semantic["cost"]) != (pays[0]["source"], pays[0]["cost"]) for semantic in pays):
+            raise ValidatorViolation("V9", "a mana_payment decision pays one cost of one source: its optional_cost "
+                                           "candidates share source and cost")
         return
     for index, candidate in enumerate(candidates):
         offered = candidate["semantic"]["kind"]
@@ -107,6 +138,10 @@ def check_context(seat_decision: Mapping[str, Any]) -> None:
             if offered == "activate_mana_ability":   # a priority kind a choice decision may offer under mana_payment
                 detail += "; a choice decision offers it only with context.purpose mana_payment"
             raise ValidatorViolation("V9", detail)
+    shared = {candidate["semantic"]["purpose"] for candidate in candidates if "purpose" in candidate["semantic"]}
+    if purpose is not None and shared != {purpose}:
+        raise ValidatorViolation("V9", f"context.purpose {quoted(purpose)} is not the purpose every candidate carrying "
+                                       "one shares (spec 9.3)")
 
 
 def _optional_fields(seat_decision: Mapping[str, Any]) -> Iterator[tuple[str, str, Any, bool]]:

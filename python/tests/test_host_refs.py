@@ -9,6 +9,10 @@ from spellbench.host.violation import ValidatorViolation
 
 from v2_sample_semantics import R_BOLT, R_STACK, R_SWIFTSPEAR, SAMPLES, seat_decision
 
+# A face-down object as a seat that may not look at it sees it: a nameless, colorless 2/2 creature (spec 6.4).
+FACE_DOWN = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2,
+             "toughness": 2, "keywords": []}
+
 
 def _rule(check, decision) -> str:
     with pytest.raises(ValidatorViolation) as caught:
@@ -24,7 +28,22 @@ def test_a_consistent_decision_passes() -> None:
 
 
 def test_v2_the_viewer_is_the_acting_seat() -> None:
-    assert _rule(check_seat, seat_decision(acting_seat="p1")) == "V2"
+    decision = seat_decision(acting_seat="p1")
+    decision["observation"]["priority_seat"] = "p1"                           # p1 holds priority: only the view is p0's
+    with pytest.raises(ValidatorViolation, match="observation.viewer p0 is not acting_seat p1") as caught:
+        check_seat(decision)
+    assert caught.value.rule == "V2"
+
+
+def test_v2_a_priority_decision_goes_to_the_seat_holding_priority() -> None:
+    decision = seat_decision()
+    decision["observation"]["priority_seat"] = "p1"
+    with pytest.raises(ValidatorViolation, match="priority_seat p1 is not acting_seat p0") as caught:
+        check_seat(decision)
+    assert caught.value.rule == "V2"
+    choice = seat_decision([SAMPLES["choose_boolean"]], kind="choice")
+    choice["observation"]["priority_seat"] = "p1"                             # a choice goes to whoever decides
+    check_seat(choice)
 
 
 @pytest.mark.parametrize(
@@ -63,8 +82,11 @@ def test_v4_a_byte_identical_duplicate_id_fails_on_uniqueness_alone() -> None:
 
 def test_v6_face_down_names_are_hidden_from_other_seats() -> None:
     leak = seat_decision()
-    leak["observation"]["players"][1]["battlefield"][0]["face_down"] = True   # p1's face-down Sprite, still named
-    assert _rule(check_face_down, leak) == "V6"
+    sprite = leak["observation"]["players"][1]["battlefield"][0]
+    sprite.update(face_down=True, characteristics=copy.deepcopy(FACE_DOWN))   # p1's face-down Sprite, still named
+    with pytest.raises(ValidatorViolation, match=r"battlefield\[0\]\.card_name must be null") as caught:
+        check_face_down(leak)
+    assert caught.value.rule == "V6"
     own = seat_decision()
     own["observation"]["players"][0]["battlefield"][0]["face_down"] = True    # the viewer's own: it may look (CR 708.5)
     check_face_down(own)
@@ -73,7 +95,8 @@ def test_v6_face_down_names_are_hidden_from_other_seats() -> None:
 def test_v6_a_face_down_record_hides_its_full_name_too() -> None:
     leak = seat_decision()
     sprite = leak["observation"]["players"][1]["battlefield"][0]
-    sprite.update(face_down=True, card_name=None, full_name="Spellstutter Sprite")   # only full_name leaks
+    sprite.update(face_down=True, card_name=None, full_name="Spellstutter Sprite",   # only full_name leaks
+                  characteristics=copy.deepcopy(FACE_DOWN))
     with pytest.raises(ValidatorViolation, match=r"\.full_name"):
         check_face_down(leak)
 
@@ -92,8 +115,42 @@ def _stack_spell(**overrides) -> dict:
 
 def test_v6_face_down_stack_entries_are_hidden_from_other_seats() -> None:
     leak = seat_decision()
-    leak["observation"]["stack"].append(_stack_spell())           # p1's face-down spell, still named
-    assert _rule(check_face_down, leak) == "V6"
+    leak["observation"]["stack"].append(_stack_spell(characteristics=copy.deepcopy(FACE_DOWN)))   # still named
+    with pytest.raises(ValidatorViolation, match=r"stack\[0\]\.card_name must be null") as caught:
+        check_face_down(leak)
+    assert caught.value.rule == "V6"
     own = seat_decision()
     own["observation"]["stack"].append(_stack_spell(owner_seat="p0", controller_seat="p0"))   # the viewer's own
     check_face_down(own)
+
+
+def _morph(**characteristics) -> dict:
+    """p0's view of p1's Sprite turned face down, with ``characteristics`` over the face-down 2/2 (spec 6.4)."""
+    decision = seat_decision()
+    decision["observation"]["players"][1]["battlefield"][0].update(
+        face_down=True, card_name=None, full_name=None, characteristics={**FACE_DOWN, **characteristics})
+    return decision
+
+
+def test_v6_a_face_down_permanent_shows_only_the_face_down_characteristics() -> None:
+    for keywords in ([], ["ward"], None):                                      # null under a keywords flag that is off
+        check_face_down(_morph(keywords=keywords))
+    check_face_down(_morph(power=4, toughness=1))                              # counters and effects apply
+    for printed in ({"mana_value": 2}, {"colors": ["blue"]}, {"keywords": ["flash"]}, {"subtypes": ["faerie"]}):
+        with pytest.raises(ValidatorViolation, match="characteristics") as caught:
+            check_face_down(_morph(**printed))
+        assert caught.value.rule == "V6"
+    stolen = _morph(mana_value=2)                                              # the viewer controls it: it may look
+    stolen["observation"]["players"][1]["battlefield"][0]["controller_seat"] = "p0"
+    stolen["observation"]["players"][0]["battlefield"].append(stolen["observation"]["players"][1]["battlefield"].pop())
+    check_face_down(stolen)
+
+
+def test_v6_a_face_down_spell_chooses_nothing_that_identifies_it() -> None:
+    hidden = seat_decision()
+    hidden["observation"]["stack"].append(_stack_spell(card_name=None, characteristics=dict(FACE_DOWN)))
+    check_face_down(hidden)
+    for choice in ({"x_value": 2}, {"modes": [1]}, {"targets": [None]}, {"divided": [3]}):
+        chosen = seat_decision()
+        chosen["observation"]["stack"].append(_stack_spell(card_name=None, characteristics=dict(FACE_DOWN), **choice))
+        assert _rule(check_face_down, chosen) == "V6"

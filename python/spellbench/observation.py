@@ -36,9 +36,11 @@ from ._schema import (
     exact_keys,
     fail,
     i32,
+    name_hidden_with_source,
     nonempty,
     nullable,
     object_ref,
+    quoted,
     safe_int,
     seat,
     snake,
@@ -192,7 +194,7 @@ def _decimal(value: Any, context: str) -> str:
     """An i32 in decimal, without leading zeros (spec 4.4, 6.10)."""
     number = text(value, context)
     if not (_DECIMAL_RE.fullmatch(number) and len(number) <= _I32_DIGITS and I32_MIN <= int(number) <= I32_MAX):
-        fail(context, f"{value!r} is not an i32 in decimal")
+        fail(context, f"{quoted(value)} is not an i32 in decimal")
     return value
 
 
@@ -324,7 +326,8 @@ def _record(value: Any, zone_array: str, holder: str, context: str) -> None:
     5.1). ``permanent`` is non-null exactly on the battlefield. ``characteristics``
     is null exactly for a face-down record outside the battlefield whose name
     is hidden: its printed characteristics are hidden with its name (spec 6.4,
-    6.8). A nameless record has a null ``full_name`` for the same reason.
+    6.8). A nameless record has a null ``full_name`` for the same reason. Only an
+    exiled card has an exiling object (``exiled_by``).
     """
     record = as_object(value, context)
     exact_keys(record, _RECORD_FIELDS, context)
@@ -359,11 +362,13 @@ def _record(value: Any, zone_array: str, holder: str, context: str) -> None:
         _permanent(record["permanent"], f"{context}.permanent")
     elif record["permanent"] is not None:
         fail(f"{context}.permanent", f"must be null outside the battlefield, got an object in {zone_array}")
-    nullable(record["exiled_by"], object_ref, f"{context}.exiled_by")
+    exiled_by = nullable(record["exiled_by"], object_ref, f"{context}.exiled_by")
+    if exiled_by is not None and zone_array != "exile":
+        fail(f"{context}.exiled_by", f"must be null outside exile, got an exiling object in {zone_array}")
 
 
 def _characteristics(value: Any, context: str) -> None:
-    """Characteristics (spec 6.4): ``colors`` in ``COLOR_ORDER`` order, power and toughness only on creatures."""
+    """Characteristics (spec 6.4): ``colors`` in ``COLOR_ORDER`` order, power and toughness exactly on creatures."""
     characteristics = as_object(value, context)
     exact_keys(characteristics, _CHARACTERISTICS_FIELDS, context)
     _supertype_list(characteristics["supertypes"], f"{context}.supertypes")
@@ -372,11 +377,15 @@ def _characteristics(value: Any, context: str) -> None:
     colors = _color_list(characteristics["colors"], f"{context}.colors")
     positions = [COLOR_ORDER.index(color) for color in colors]
     if positions != sorted(set(positions)):
-        fail(f"{context}.colors", f"must be a subset of {', '.join(COLOR_ORDER)} in that order, got {colors!r}")
+        fail(f"{context}.colors", f"must be a subset of {', '.join(COLOR_ORDER)} in that order, got {quoted(colors)}")
     u32(characteristics["mana_value"], f"{context}.mana_value")
+    creature = "creature" in types
     for field in ("power", "toughness"):
-        if nullable(characteristics[field], i32, f"{context}.{field}") is not None and "creature" not in types:
-            fail(f"{context}.{field}", f"must be null for a noncreature, got {characteristics[field]!r}")
+        number = nullable(characteristics[field], i32, f"{context}.{field}")
+        if number is not None and not creature:
+            fail(f"{context}.{field}", f"must be null for a noncreature, got {number!r}")
+        if number is None and creature:
+            fail(f"{context}.{field}", "must be an integer for a creature, which always has power and toughness")
     nullable(characteristics["keywords"], _snake_list, f"{context}.keywords")
 
 
@@ -416,7 +425,9 @@ def _stack_entry(value: Any, context: str) -> None:
 
     A spell has characteristics and a null source; an ability has null
     characteristics, and is nameless when its source is, since it is named
-    after its source (spec 5.1).
+    after its source (spec 5.1). ``divided`` holds at most one amount per target:
+    the announced division may cover only some targets, as when a spell also has
+    another target requirement (CR 601.2d).
     """
     entry = as_object(value, context)
     exact_keys(entry, _STACK_FIELDS, context)
@@ -427,8 +438,7 @@ def _stack_entry(value: Any, context: str) -> None:
     source = nullable(entry["source"], object_ref, f"{context}.source")
     if source is not None and spell:
         fail(f"{context}.source", "must be null for a spell")
-    if source is not None and source["card_name"] is None and entry["card_name"] is not None:
-        fail(f"{context}.card_name", "must be null when its source's name is hidden")
+    name_hidden_with_source(source, entry["card_name"], f"{context}.card_name")
     boolean(entry["face_down"], f"{context}.face_down")
     boolean(entry["copy"], f"{context}.copy")
     if entry["characteristics"] is None:
@@ -438,8 +448,11 @@ def _stack_entry(value: Any, context: str) -> None:
         fail(f"{context}.characteristics", f"must be null for an ability, got an object for a {entry['stack_kind']}")
     else:
         _characteristics(entry["characteristics"], f"{context}.characteristics")
-    _target_list(entry["targets"], f"{context}.targets")
-    nullable(entry["divided"], _u32_list, f"{context}.divided")
+    targets = _target_list(entry["targets"], f"{context}.targets")
+    divided = nullable(entry["divided"], _u32_list, f"{context}.divided")
+    if divided is not None and len(divided) > len(targets):
+        fail(f"{context}.divided", f"must hold at most one amount per target ({len(targets)}), got {len(divided)} "
+                                   "(CR 601.2d)")
     nullable(entry["modes"], _u32_list, f"{context}.modes")
     nullable(entry["x_value"], u32, f"{context}.x_value")
     nullable(entry["text"], text, f"{context}.text")
@@ -451,8 +464,7 @@ def _pending_trigger(value: Any, context: str) -> None:
     exact_keys(trigger, _PENDING_TRIGGER_FIELDS, context)
     source = nullable(trigger["source"], object_ref, f"{context}.source")
     source_name = nullable(trigger["source_name"], card_name, f"{context}.source_name")
-    if source is not None and source["card_name"] is None and source_name is not None:
-        fail(f"{context}.source_name", "must be null when its source's name is hidden")
+    name_hidden_with_source(source, source_name, f"{context}.source_name")
     seat(trigger["controller_seat"], f"{context}.controller_seat")
     nullable(trigger["label"], text, f"{context}.label")
     boolean(trigger["optional"], f"{context}.optional")

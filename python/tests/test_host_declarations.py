@@ -2,6 +2,7 @@
 
 import pytest
 
+from spellbench._schema import V2_KINDS
 from spellbench.host.declarations import check_context, check_declarations
 from spellbench.host.violation import ValidatorViolation
 from spellbench.messages import EngineProfile, Rules
@@ -90,6 +91,68 @@ def test_v8_without_known_cards_only_current_looks_are_listed() -> None:
 MANA = [{**SAMPLES["optional_cost"], "cost": "unless_payment", "pay": True},
         {**SAMPLES["optional_cost"], "cost": "unless_payment", "pay": False},
         SAMPLES["activate_mana_ability"]]
+
+
+ALL_KINDS_JSON = {**PROFILE_JSON, "decision_kinds": sorted(V2_KINDS)}
+
+
+def _defaults(**changes) -> EngineProfile:
+    return EngineProfile.from_json({**ALL_KINDS_JSON, "engine_defaults": {**PROFILE_JSON["engine_defaults"], **changes}})
+
+
+@pytest.mark.parametrize(
+    ("default", "value", "decision"),
+    [
+        ("trigger_order", "engine_order", seat_decision([SAMPLES["order_pick"]], kind="choice")),
+        ("replacement_order", "engine_order", seat_decision([SAMPLES["choose_replacement"]], kind="choice")),
+        ("combat_damage_assignment", "engine_order",
+         seat_decision([{**SAMPLES["distribute"], "purpose": "combat_damage"}], kind="choice")),
+        ("mana_payment", "engine_autopay", seat_decision(MANA, kind="choice", purpose="mana_payment")),
+    ],
+    ids=["trigger_order", "replacement_order", "combat_damage_assignment", "mana_payment"],
+)
+def test_v8_a_declared_engine_default_answers_its_decision_itself(default: str, value: str, decision: dict) -> None:
+    check_declarations(decision, _defaults(), RULES)                                  # null: offered through its kind
+    with pytest.raises(ValidatorViolation, match=f"engine_defaults.{default}") as caught:
+        check_declarations(decision, _defaults(**{default: value}), RULES)             # spec 7.6 (M7)
+    assert caught.value.rule == "V8"
+
+
+def test_v8_under_its_engine_defaults_the_seat_still_decides_the_rest() -> None:
+    engine = _defaults(trigger_order="engine_order", combat_damage_assignment="engine_order", mana_payment="engine_autopay")
+    check_declarations(seat_decision(MANA[:2], kind="choice", purpose="mana_payment"), engine, RULES)   # whether to pay
+    check_declarations(seat_decision([{**SAMPLES["order_pick"], "purpose": "library_top",
+                                       "item": {"object": SAMPLES["arrange_card"]["card"]}}], kind="choice"), engine, RULES)
+    check_declarations(seat_decision([SAMPLES["distribute"]], kind="choice"), engine, RULES)          # damage a spell divides
+
+
+def test_v8_an_extension_key_is_declared_and_enabled() -> None:
+    rules = Rules.from_json({**RULES_JSON, "extensions": ["x_kernel_v5", "x_other"]})
+    check_declarations(seat_decision(extensions={"x_kernel_v5": {}}), PROFILE, rules)
+    with pytest.raises(ValidatorViolation, match="hello_ok.extensions") as caught:
+        check_declarations(seat_decision(extensions={"x_other": {}}), PROFILE, rules)   # enabled, never declared (M8)
+    assert caught.value.rule == "V8"
+
+
+def test_v9_context_purpose_repeats_the_candidates_shared_purpose() -> None:
+    boolean = SAMPLES["choose_boolean"]                                                # purpose may_ability
+    check_context(seat_decision([boolean], kind="choice", purpose="may_ability"))
+    check_context(seat_decision([boolean], kind="choice"))                             # or is left null
+    for decision in (
+        seat_decision(purpose="p1_holds_counterspell_and_island"),                     # the audit's input (M1)
+        seat_decision([boolean], kind="choice", purpose="reveal"),                     # not the candidates' purpose
+        seat_decision([boolean, {**boolean, "purpose": "reveal", "value": True}], kind="choice", purpose="reveal"),
+    ):
+        with pytest.raises(ValidatorViolation, match="context.purpose") as caught:
+            check_context(decision)
+        assert caught.value.rule == "V9"
+
+
+def test_v9_a_mana_payment_pays_one_cost_of_one_source() -> None:
+    for payment in ({**MANA[0], "source": SAMPLES["activate_ability"]["source"]}, {**MANA[0], "cost": "kicker"}):
+        with pytest.raises(ValidatorViolation, match="one cost") as caught:              # M10
+            check_context(seat_decision([payment, *MANA[1:]], kind="choice", purpose="mana_payment"))
+        assert caught.value.rule == "V9"
 
 
 def test_v9_context_matches_the_family_with_the_mana_payment_exception() -> None:
