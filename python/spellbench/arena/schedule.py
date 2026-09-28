@@ -42,7 +42,7 @@ from itertools import combinations_with_replacement
 
 from .. import digests
 from ..agent_messages import OwnDeck
-from ..errors import ProtocolError, RemoteError, TransportError
+from ..errors import ProtocolError, RemoteError, TransportError, ValidationError
 from ..host.agent_process import AgentProcess
 from ..host.engine_process import EngineProcess
 from ..host.seat import SeatFailure
@@ -230,26 +230,33 @@ def _resolve_deck(spec: DeckSpec, hello: EnvHelloOk) -> ResolvedDeck:
             )
         for deck in hello.catalog:
             if deck.catalog_id == spec.catalog_id:
-                rows = digests.deck_rows(
-                    [row.to_json() for row in deck.decklist], f"preflight: deck {spec.catalog_id!r}"
-                )
-                return ResolvedDeck(
-                    deck_id=digests.deck_id(rows),
-                    name=deck.name,
-                    catalog_id=deck.catalog_id,
-                    decklist=tuple(DeckRow(row["name"], row["count"]) for row in rows),
-                )
+                return _checked_deck(spec, deck.name, deck.decklist)
         raise TournamentError(f"preflight: deck {spec.catalog_id!r}: not in the engine's hello_ok.catalog")
     assert spec.name is not None and spec.decklist is not None
     if "decklist" not in hello.deck_sources:
         raise TournamentError(
             f"preflight: deck {spec.name!r}: the engine declares no decklist deck source (deck_sources)"
         )
+    return _checked_deck(spec, spec.name, spec.decklist)
+
+
+def _checked_deck(spec: DeckSpec, name: str, decklist: tuple[DeckRow, ...]) -> ResolvedDeck:
+    """A resolved deck: rows checked and sorted by ``digests.deck_rows``, with their ``deck_id`` (spec 4.3, 12.1).
+
+    Both deck sources take this path. A ``DeckSpec`` built in code rather than by ``from_json``
+    may hold unsorted rows or a repeated card; a list that fails the check is a
+    :class:`TournamentError` naming the deck, never a bare ``ValidationError``.
+    """
+    label = spec.catalog_id if spec.catalog_id is not None else name
+    try:
+        rows = digests.deck_rows([row.to_json() for row in decklist], f"preflight: deck {label!r}: decklist")
+    except ValidationError as exc:
+        raise TournamentError(str(exc)) from exc
     return ResolvedDeck(
-        deck_id=digests.deck_id([row.to_json() for row in spec.decklist]),
-        name=spec.name,
-        catalog_id=None,
-        decklist=spec.decklist,
+        deck_id=digests.deck_id(rows),
+        name=name,
+        catalog_id=spec.catalog_id,
+        decklist=tuple(DeckRow(row["name"], row["count"]) for row in rows),
     )
 
 
@@ -284,7 +291,7 @@ def _resolve_rules(config: TournamentConfig, hello: EnvHelloOk, decks: dict[Deck
         starting_seat=config.rules.starting_seat,
         card_name_domain=CardNameDomain.from_json(digests.card_name_domain(names)),
         extensions=config.extensions,
-        probe=False,  # hosts never enable the probe (spec 14)
+        probe=False,  # hosts never enable the probe (spec 9.7, 12.2)
     )
 
 
@@ -337,7 +344,7 @@ def _reset_pairing(
     except (TransportError, RemoteError, ProtocolError) as exc:
         labels = [decks[spec].name for spec in pair]
         raise TournamentError(
-            f"preflight: engine {hello.engine.name} {hello.engine.version} could not start a game "
+            f"preflight: engine {hello.engine.name!r} {hello.engine.version!r} could not start a game "
             f"with decks {labels}: {exc}"
         ) from exc
 
@@ -349,28 +356,28 @@ def _preflight_bot(config: TournamentConfig, hello: EnvHelloOk, rules: Rules, sp
             list(spec.command), startup_timeout_s=config.time_control.startup_ms / 1000, env=bot_environment()
         )
     except TransportError as exc:
-        raise TournamentError(f"preflight: bot {spec.name}: could not start: {exc}") from exc
+        raise TournamentError(f"preflight: bot {spec.name!r}: could not start: {exc}") from exc
     try:
         hello_ok = agent.hello()
     except SeatFailure as exc:
         # Cause and detail only: the diagnostic holds the bot's stderr (R3-32).
-        raise TournamentError(f"preflight: bot {spec.name}: {exc.cause}: {exc.detail}") from exc
+        raise TournamentError(f"preflight: bot {spec.name!r}: {exc.cause}: {exc.detail}") from exc
     finally:
         agent.close()
     if (hello_ok.bot.name, hello_ok.bot.version) != (spec.name, spec.version):
         raise TournamentError(
-            f"preflight: bot {spec.name}: answered hello as {hello_ok.bot.name!r} {hello_ok.bot.version!r}"
+            f"preflight: bot {spec.name!r}: answered hello as {hello_ok.bot.name!r} {hello_ok.bot.version!r}"
         )
     for flag in hello_ok.requires_observation:
         if not hello.profile.observation.get(flag, False):
             raise TournamentError(
-                f"preflight: bot {spec.name}: requires the observation flag {flag!r}, "
+                f"preflight: bot {spec.name!r}: requires the observation flag {flag!r}, "
                 "which the engine does not declare"
             )
     for name in hello_ok.requires_extensions:
         if name not in rules.extensions:
             raise TournamentError(
-                f"preflight: bot {spec.name}: requires the extension {name!r}, which this run does not enable"
+                f"preflight: bot {spec.name!r}: requires the extension {name!r}, which this run does not enable"
             )
 
 
