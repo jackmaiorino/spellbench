@@ -224,6 +224,16 @@ def test_nested_shapes_are_checked(semantic: dict) -> None:
         validate_semantic(semantic)
 
 
+def test_a_trigger_item_hides_the_name_of_a_nameless_source() -> None:
+    hidden = {**R_SPRITE, "card_name": None}                                  # a face-down source (spec 5.1, 6.8)
+    with pytest.raises(ValidationError, match=r"item\.trigger\.source_name: must be null when its source's name is hidden"):
+        validate_semantic(_edit("order_pick", item={"trigger": {**_TRIGGER, "source": hidden,
+                                                                "source_name": "Spellstutter Sprite"}}))
+    validate_semantic(_edit("order_pick", item={"trigger": {**_TRIGGER, "source": hidden, "source_name": None}}))
+    validate_semantic(_edit("order_pick", item={"trigger": {**_TRIGGER, "source": None,
+                                                            "source_name": "Spellstutter Sprite"}}))   # a source that left
+
+
 def test_null_trigger_fields_empty_piles_and_negative_numbers_pass() -> None:
     bare = {**_TRIGGER, "source": None, "source_name": None, "ability_index": None, "event_objects": [], "label": "Upkeep"}
     assert object_references(validate_semantic(_edit("order_pick", item={"trigger": bare}))) == []

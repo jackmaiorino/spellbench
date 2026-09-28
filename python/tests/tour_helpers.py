@@ -30,12 +30,13 @@ def play_tour(module: ModuleType, *extra_args: str) -> list[dict]:
                                  "card_name_domain": card_name_domain(row["name"] for row in scenario.decklist),
                                  "extensions": [], "probe": False})
         deck = {"deck_id": deck_id(scenario.decklist), "catalog_id": f"Scenario:{scenario.name}"}
-        validator = LiveValidator(hello, rules)
-        response = engine.reset(ResetRequest.from_json({
+        reset = ResetRequest.from_json({
             "request_type": "reset", "protocol": "spellbench/v2", "request_id": engine.next_request_id(),
             "game_id": "g-00000000000000aa", "format": "pauper-bo1",
             "seats": [{"seat": "p0", "deck": deck}, {"seat": "p1", "deck": deck}], "rules": rules.to_json(),
-            "game_secret": "22" * 32, "max_decisions": 10000, "max_steps": 100000}))
+            "game_secret": "22" * 32, "max_decisions": 10000, "max_steps": 100000})
+        validator = LiveValidator(hello, rules, max_decisions=reset.max_decisions, max_steps=reset.max_steps)
+        response = engine.reset(reset)
         while isinstance(response, Decision):
             sd = validator.check(response)
             decisions.append(sd)

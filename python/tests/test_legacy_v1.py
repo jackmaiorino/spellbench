@@ -118,6 +118,25 @@ def test_a_v1_run_made_by_another_arena_version_gets_one_line(
     ]
 
 
+def test_the_version_gate_holds_every_committed_arena_version(tmp_path: Path) -> None:
+    """R3-18: the gate accepts every arena version present in committed v1 runs, no other."""
+    assert isinstance(legacy_v1.LEGACY_ARENA_VERSIONS, tuple)
+    committed = {
+        store.read_json(run / "manifest.json", schema=legacy_v1.TOURNAMENT_SCHEMA_V1)["tournament"]["arena_version"]
+        for run in V1_RUNS
+    }
+    assert set(legacy_v1.LEGACY_ARENA_VERSIONS) == committed
+    for run in V1_RUNS:
+        assert legacy_v1.validate_v1_run(run) == []
+    copy = tmp_path / "run"
+    shutil.copytree(LAUNCH_RUN, copy)
+    manifest = store.read_json(copy / "manifest.json")
+    manifest["tournament"]["arena_version"] = "0.0.0-unknown"
+    (copy / "manifest.json").write_bytes(store.canonical_bytes(manifest) + b"\n")
+    (failure,) = legacy_v1.validate_v1_run(copy)
+    assert "0.0.0-unknown" in failure
+
+
 def test_read_v1_run_gives_the_site_what_it_shows() -> None:
     run = legacy_v1.read_v1_run(LAUNCH_RUN)
     assert run.name == "2026-09-26" and run.format == "pauper-bo1"

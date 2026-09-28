@@ -1220,6 +1220,7 @@ def run_tournament(
         base_seed=config.base_seed,
         bootstrap_replicates=config.bootstrap_replicates,
         format=config.format,
+        schema=leaderboard.LEADERBOARD_SCHEMA_V1,
     )
     store.write_json_atomic(directory / store.LEADERBOARD_JSON_NAME, document)
     store.write_bytes_atomic(directory / store.LEADERBOARD_MD_NAME, markdown.encode("utf-8"))

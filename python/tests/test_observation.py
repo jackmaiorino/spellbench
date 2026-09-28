@@ -49,6 +49,19 @@ def test_a_spell_on_the_stack_and_a_hidden_face_down_exile_pass() -> None:
     assert validate_observation(observation)
 
 
+def test_damage_divided_among_some_of_a_spells_targets_passes() -> None:
+    # Fiery Justice: 5 damage divided among any number of targets (here p1's Sprite and p1), then target opponent
+    # (p1) gains 5 life. The announced division covers the first requirement only (CR 601.2d).
+    observation = _copy()
+    sprite = _ref(observation["players"][1]["battlefield"][0])
+    targets = [{"object": sprite}, {"player": "p1"}, {"player": "p1"}]
+    sorcery = {"supertypes": [], "types": ["sorcery"], "subtypes": [], "colors": ["white", "red", "green"], "mana_value": 3,
+               "power": None, "toughness": None, "keywords": []}
+    observation["stack"] = [{**_spell(), "card_name": "Fiery Justice", "characteristics": sorcery, "targets": targets,
+                             "divided": [3, 2]}]
+    assert validate_observation(observation)
+
+
 def _mutations():
     def at(path_fn, value):
         def edit(observation):
@@ -301,8 +314,10 @@ def _more_mutations() -> dict:
                                  "players[0].hand[1].characteristics.types[0]"),
         "an unknown supertype": (edit(lambda o: o["players"][0]["hand"][1]["characteristics"].update(supertypes=["Basic"])),
                                  "players[0].hand[1].characteristics.supertypes[0]"),
-        "an exiled_by that is not an object reference": (edit(lambda o: o["players"][0]["hand"][0].update(exiled_by={"player": "p1"})),
-                                                         "players[0].hand[0].exiled_by"),
+        # In exile, where an exiling object belongs: only the reference check applies.
+        "an exiled_by that is not an object reference": (edit(lambda o: o["players"][0]["exile"].append(
+            {**copy.deepcopy(o["players"][0]["hand"][0]), "object_id": "o-e0e0e0e0e0e0e0e0", "zone": "exile",
+             "exiled_by": {"player": "p1"}})), "players[0].exile[0].exiled_by"),
         "a stack target that is not a target reference": (on_stack(targets=[{"player": "p2"}]), "stack[0].targets[0].player"),
         "a keyword not in snake case": (edit(lambda o: swift(o)["characteristics"].update(keywords=["first strike"])),
                                         "players[0].battlefield[0].characteristics.keywords[0]"),
@@ -327,6 +342,14 @@ def _more_mutations() -> dict:
         "a pending trigger naming its hidden source": (edit(lambda o: (
             o["players"][1]["battlefield"].append(_morph()), o.update(pending_triggers=[_morph_trigger("Hooded Hydra")]))),
             "pending_triggers[0].source_name"),
+        # Consistency the audit found unchecked (M9).
+        "an exiling object on a permanent": (edit(lambda o: swift(o).update(exiled_by=_ref(o["players"][1]["battlefield"][0]))),
+                                             "players[0].battlefield[0].exiled_by"),
+        "more amounts than targets": (on_stack(divided=[1, 1, 1]), "stack[0].divided"),
+        "a creature without power": (edit(lambda o: swift(o)["characteristics"].update(power=None)),
+                                     "players[0].battlefield[0].characteristics.power"),
+        "a creature without toughness": (edit(lambda o: o["players"][1]["battlefield"][0]["characteristics"].update(toughness=None)),
+                                         "players[1].battlefield[0].characteristics.toughness"),
     }
 
 

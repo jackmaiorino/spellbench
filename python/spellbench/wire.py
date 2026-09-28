@@ -343,6 +343,7 @@ class SubprocessPeer:
         *,
         timeout_s: float | None = None,
         max_line_bytes: int = MAX_LINE_BYTES,
+        env: Mapping[str, str] | None = None,
     ) -> None:
         if not argv:
             raise ValueError("argv must be nonempty")
@@ -361,6 +362,8 @@ class SubprocessPeer:
                 shell=False,
                 # POSIX: its own process group, so close() can kill the tree.
                 start_new_session=os.name != "nt",
+                # None inherits the host's own environment, as subprocess.Popen does by default.
+                env=None if env is None else dict(env),
             )
         except OSError as exc:
             raise TransportError(f"cannot start {argv[0]!r}: {exc}") from exc
@@ -392,6 +395,17 @@ class SubprocessPeer:
         return b"".join(self._stderr_chunks).decode("utf-8", errors="replace")
 
     def write_line(self, payload: bytes) -> None:
+        """Write one framed line, bounded by the current read budget (R2-5).
+
+        Windows pipes buffer about 4 KiB, Linux about 64 KiB, and do not support
+        ``select``; a child that stops reading its stdin blocks the write once that
+        buffer fills. The write runs on a daemon helper thread so it can be bounded:
+        on expiry, the child is killed first (a dead reader makes the blocked write
+        fail and release the buffered stream's internal lock), then this joins the
+        helper thread briefly, then closes the pipes. ``close()`` is never called
+        here while the helper thread may still hold that lock: closing stdin while a
+        write is stuck inside it would itself block on the same lock.
+        """
         if self._closed:
             raise TransportError("peer is closed")
         if self._proc.poll() is not None:
@@ -399,11 +413,37 @@ class SubprocessPeer:
                 f"peer exited before request: code={self._proc.returncode} stderr={self.stderr_text()!r}"
             )
         assert self._proc.stdin is not None
+        outcome: list[BaseException | None] = [None]
+        done = threading.Event()
+
+        def target() -> None:
+            try:
+                self._proc.stdin.write(payload + b"\n")
+                self._proc.stdin.flush()
+            except BaseException as exc:  # noqa: BLE001 - reported back to this call, once it is done
+                outcome[0] = exc
+            finally:
+                done.set()
+
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        if done.wait(self._timeout_s):  # Event.wait(None) blocks until set, same as an unset budget
+            exc = outcome[0]
+            if isinstance(exc, (BrokenPipeError, OSError)):
+                raise TransportError(f"peer stdin write failed: {exc}; stderr={self.stderr_text()!r}") from exc
+            if exc is not None:
+                raise exc
+            return
+        self._closed = True
+        _kill_process_tree(self._proc)
+        thread.join(2)
         try:
-            self._proc.stdin.write(payload + b"\n")
-            self._proc.stdin.flush()
-        except (BrokenPipeError, OSError) as exc:
-            raise TransportError(f"peer stdin write failed: {exc}; stderr={self.stderr_text()!r}") from exc
+            if not thread.is_alive() and self._proc.stdin is not None:
+                self._proc.stdin.close()
+        except OSError:
+            pass
+        self._finish_close()
+        raise PeerTimeoutError(f"timeout writing to peer stdin; stderr={self.stderr_text()!r}")
 
     def read_line(self) -> bytes:
         if self._closed:
@@ -420,16 +460,13 @@ class SubprocessPeer:
             )
         return item
 
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
+    def _finish_close(self) -> None:
+        """Wait for the child to exit, then release the reader threads and their streams.
+
+        Shared by :meth:`close` and :meth:`write_line`'s timeout path, which reaches this
+        only once its own writer thread is confirmed done, so stdin is no longer held.
+        """
         proc = self._proc
-        try:
-            if proc.stdin is not None:
-                proc.stdin.close()
-        except OSError:
-            pass
         if proc.poll() is None:
             try:
                 proc.wait(timeout=2)
@@ -452,6 +489,18 @@ class SubprocessPeer:
                 stream.close()
             except OSError:
                 pass
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        proc = self._proc
+        try:
+            if proc.stdin is not None:
+                proc.stdin.close()
+        except OSError:
+            pass
+        self._finish_close()
 
     def __enter__(self) -> "SubprocessPeer":
         return self
