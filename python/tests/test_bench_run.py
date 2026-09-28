@@ -20,6 +20,11 @@ from arena_helpers import FAKE_ARENA_ENGINE
 REPO = Path(__file__).resolve().parents[2]
 ENVIRON = {"PY": sys.executable, "FAKE_ENGINE": str(FAKE_ARENA_ENGINE)}
 PUBLISHED = ("manifest.json", "config.json", "registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md")
+KERNEL_MODEL_STATES = {
+    "g115": "8139016ca561961714f25e22a9d6f7fc888548fc332e45b6bce402dfc43159f2",
+    "a48": "774e936da26468358257774fe41ae94578265b331d2edb49d017c0835b08699a",
+    "c12": "5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de",
+}
 
 
 def _bot(name: str, label: str, tag: str, **extra: Any) -> dict[str, Any]:
@@ -112,10 +117,18 @@ def test_cli_usage_and_input_errors(tmp_path: Path, capsys: pytest.CaptureFixtur
 def test_the_launch_definitions_parse() -> None:
     benchmark = definition.load_benchmark(REPO / "benchmarks" / "pauper-kernel")
     runner.TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
-    assert definition.placeholder_names(benchmark) == ("MTG_KERNEL_BRIDGE",)
+    assert definition.placeholder_names(benchmark) == (
+        "A48_CHECKPOINT", "A48_SCORER_CONFIG", "C12_CHECKPOINT", "C12_SCORER_CONFIG", "G115_CHECKPOINT",
+        "G115_SCORER_CONFIG", "MTG_KERNEL_BRIDGE", "MTG_KERNEL_FLAT_BOT", "MTG_KERNEL_SCORER", "PYTHON",
+    )
+    assert benchmark.engine_command == ("${MTG_KERNEL_BRIDGE}", "--x-kernel-flat-v4")
     assert benchmark.deck_pool == ("Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries")
-    assert [bot.name for bot in benchmark.bots] == ["uniform", "heuristic", "first"]
+    assert [bot.name for bot in benchmark.bots] == ["uniform", "heuristic", "first", "g115", "a48", "c12"]
     assert benchmark.bot("uniform").display.label == "random"
+    # A rated run is not replayed: the expected model state is what ties each kernel bot's name to its model.
+    for name, state in KERNEL_MODEL_STATES.items():
+        command = benchmark.bot(name).entry["command"]
+        assert command[command.index("--expect-model-state") + 1] == state, name
     assert [item.title for item in definition.load_proposed(REPO / "benchmarks")] == ["FDN Limited", "Standard 2022-25"]
 
 

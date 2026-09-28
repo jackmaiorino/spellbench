@@ -6,8 +6,9 @@ mtg-kernel's ``agent_bridge_v1``) to drive whole games through the reference
 strict JSON (including the ``|x| <= 2^53`` integer bound), message schemas,
 step and group contiguity, provenance pinning, and terminal counts.
 ``SPELLBENCH_ENGINE_DECKS`` (comma-separated, default ``Burn``) lists the
-catalog decks to sweep, each played as a mirror. Skipped when
-``SPELLBENCH_ENGINE_BIN`` is unset.
+catalog decks to sweep, each played as a mirror.
+``SPELLBENCH_ENGINE_ARGS`` (space-separated) is appended to the engine
+command. Skipped when ``SPELLBENCH_ENGINE_BIN`` is unset.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from spellbench.models import Decision, Terminal
 
 ENGINE_BIN = os.environ.get("SPELLBENCH_ENGINE_BIN")
 DECKS = [deck for deck in os.environ.get("SPELLBENCH_ENGINE_DECKS", "Burn").split(",") if deck]
+ENGINE_ARGS = os.environ.get("SPELLBENCH_ENGINE_ARGS", "").split()
 FORMAT = "pauper-bo1"
 STEP_BUDGET = 3_000
 
@@ -29,7 +31,7 @@ pytestmark = pytest.mark.skipif(not ENGINE_BIN, reason="SPELLBENCH_ENGINE_BIN is
 
 def _play(pick, *, deck: str, game_seed: int) -> tuple[Terminal, int]:
     """Play one capped game with ``pick(decision) -> candidate_id``."""
-    with EngineProcess([ENGINE_BIN], timeout_s=120) as engine:
+    with EngineProcess([ENGINE_BIN, *ENGINE_ARGS], timeout_s=120) as engine:
         hello = engine.hello()
         assert FORMAT in hello.formats
         response = engine.reset(
