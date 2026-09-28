@@ -39,19 +39,89 @@ func TestFinalizePutsPassFirstAndOrdersHiddenCandidates(t *testing.T) {
 	}
 }
 
-func TestRouteNamesEveryPoolShape(t *testing.T) {
-	cases := map[string]*decision.Decision{
-		"choose/cost":            {Kind: decision.KChoose, Source: 9, Options: []decision.Option{{Kind: "sacrifice"}}},
-		"choose/cleanup_discard": {Kind: decision.KChoose, Options: []decision.Option{{Kind: "discard"}}},
-		"choose/mana_window":     {Kind: decision.KChoose, Options: []decision.Option{{Kind: "activate"}, {Kind: "done"}}},
-		"choose/pay_pip":         {Kind: decision.KChoose, Options: []decision.Option{{Kind: "pay_R"}, {Kind: "pay_G"}}},
-		"modes/unless":           {Kind: decision.KModes, Options: []decision.Option{{Kind: "mode", Mode: decision.ModeUnlessPay}}},
-		"mulligan/bottom":        {Kind: decision.KMulligan, Options: []decision.Option{{Kind: "bottom"}}},
-		"unmapped:choose/vote":   {Kind: decision.KChoose, Options: []decision.Option{{Kind: "vote"}}},
+func TestFinalizeEnforcesCandidateLimitAndDeadEnd(t *testing.T) {
+	if err := mapping.Finalize(&mapping.Pose{}); !errors.Is(err, mapping.ErrDeadEnd) {
+		t.Fatalf("empty pose: %v", err)
 	}
-	for want, d := range cases {
-		if got := mapping.Route(d); got != want {
-			t.Errorf("Route = %q, want %q", got, want)
+	pose := func(n int) *mapping.Pose {
+		p := &mapping.Pose{Context: protocol.Context{Kind: "choice"}}
+		for i := 0; i < n; i++ {
+			p.Candidates = append(p.Candidates, mapping.Cand{Sem: protocol.ChooseNumber(nil, "other", int32(i), 0, 4096)})
 		}
+		return p
+	}
+	if err := mapping.Finalize(pose(4097)); !errors.Is(err, mapping.ErrCandidateLimit) {
+		t.Fatalf("4097 candidates: %v", err)
+	}
+	if err := mapping.Finalize(pose(4096)); err != nil {
+		t.Fatalf("4096 candidates (the cap): %v", err)
+	}
+}
+
+func TestRouteNamesEveryPoolShape(t *testing.T) {
+	cases := []struct {
+		want string
+		d    *decision.Decision
+	}{
+		// The five direct kinds.
+		{"priority", &decision.Decision{Kind: decision.KPriority}},
+		{"attackers", &decision.Decision{Kind: decision.KAttackers}},
+		{"blockers", &decision.Decision{Kind: decision.KBlockers}},
+		{"target", &decision.Decision{Kind: decision.KTarget}},
+		{"trigger_order", &decision.Decision{Kind: decision.KTriggerOrder}},
+		// Modes: an unless option beats the option-kind checks.
+		{"modes/unless", &decision.Decision{Kind: decision.KModes, Options: []decision.Option{{Kind: "mode", Mode: decision.ModeUnlessPay}}}},
+		{"modes/unless", &decision.Decision{Kind: decision.KModes, Options: []decision.Option{{Kind: "mode", Mode: decision.ModeUnlessDecline}}}},
+		{"modes/discard", &decision.Decision{Kind: decision.KModes, Options: []decision.Option{{Kind: "discard"}}}},
+		{"modes/mode", &decision.Decision{Kind: decision.KModes, Options: []decision.Option{{Kind: "mode"}}}},
+		// Mulligan.
+		{"mulligan/bottom", &decision.Decision{Kind: decision.KMulligan, Options: []decision.Option{{Kind: "bottom"}}}},
+		{"mulligan/keep", &decision.Decision{Kind: decision.KMulligan, Options: []decision.Option{{Kind: "keep"}}}},
+		// Optional triggers and replacements.
+		{"trigger_optional/madness", &decision.Decision{Kind: decision.KTriggerOptional, ResumeKind: "madness", Options: []decision.Option{{Kind: "yes"}, {Kind: "no"}}}},
+		{"trigger_optional/optional", &decision.Decision{Kind: decision.KTriggerOptional, Options: []decision.Option{{Kind: "yes"}, {Kind: "no"}}}},
+		{"replacement/madness", &decision.Decision{Kind: decision.KReplacement, Options: []decision.Option{{Kind: "madness_exile"}, {Kind: "madness_graveyard"}}}},
+		{"replacement/order", &decision.Decision{Kind: decision.KReplacement, Options: []decision.Option{{Kind: "replacement"}, {Kind: "replacement"}}}},
+		// An arrangement routes on its first option's kind.
+		{"arrange/bottom", &decision.Decision{Kind: decision.KArrange, Options: []decision.Option{{Kind: "bottom"}, {Kind: "bottom"}}}},
+		// The choose classes, in the switch's own order.
+		{"choose/mana_window", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "activate"}, {Kind: "done"}}}},
+		{"choose/mana_window", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "done"}}}},
+		{"choose/trigger_cost", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "trigger_cost_pay"}, {Kind: "trigger_cost_decline"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Source: 9, Options: []decision.Option{{Kind: "sacrifice"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "tapcost"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "returncost"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "exile_cost"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "exile"}}}},
+		{"choose/cost", &decision.Decision{Kind: decision.KChoose, Source: 9, Options: []decision.Option{{Kind: "discard"}}}},
+		{"choose/cleanup_discard", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "discard"}}}},
+		{"choose/yesno", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "yes"}, {Kind: "no"}}}},
+		{"choose/explore", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "graveyard"}, {Kind: "top"}}}},
+		{"choose/pay_pip", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "pay_R"}, {Kind: "pay_G"}}}},
+		// Every single-option-kind class.
+		{"choose/search", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "search"}}}},
+		{"choose/hand_move", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "hand_move"}}}},
+		{"choose/dig", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "dig"}}}},
+		{"choose/untap", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "untap"}}}},
+		{"choose/keep", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "keep"}}}},
+		{"choose/x", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "x"}}}},
+		{"choose/number", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "number"}}}},
+		{"choose/color", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "color"}}}},
+		{"choose/type", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "type"}}}},
+		{"choose/name", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "name"}}}},
+		{"choose/division", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "division"}}}},
+		{"choose/mana", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "mana"}}}},
+		// The fallback names the kind and the sorted option kinds.
+		{"unmapped:choose/vote", &decision.Decision{Kind: decision.KChoose, Options: []decision.Option{{Kind: "vote"}}}},
+	}
+	seen := map[string]bool{}
+	for _, tc := range cases {
+		seen[tc.want] = true
+		if got := mapping.Route(tc.d); got != tc.want {
+			t.Errorf("Route(%v) = %q, want %q", tc.d, got, tc.want)
+		}
+	}
+	if len(seen) != 35 {
+		t.Errorf("table names %d distinct shapes, want 35", len(seen))
 	}
 }
