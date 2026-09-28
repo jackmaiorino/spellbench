@@ -31,6 +31,12 @@ Conventions (declared in the artifact's ``notes``):
   leaderboard from each pairing's games alone, with the same anchor and
   prior, through the same code path as the overall table.
 
+Two schemas: ``spellbench-leaderboard/v1`` reproduces the v1 artifacts byte
+for byte; ``spellbench-leaderboard/v2`` adds per-bot attribution to every row
+(overall and deck slices): games played (rated or not), the games halted or
+truncated right after the bot's own selection with their rates, and forfeits
+by cause (spec 11.5); the markdown gains a "Halts and truncations" section.
+
 Statistics seeds (``spellbench-arena-stats-seed-v1``) derive from the
 tournament base seed via one SplitMix64 draw (SplitMix64 as ported in
 ``ratings.py`` from mtg-kernel ``evaluation_stats.py``), masked into the
@@ -65,7 +71,10 @@ _BT_ALGORITHM = (
 )
 VIRTUAL_DRAWS_PER_MATCHUP = 1
 
-NOTES = [
+LEADERBOARD_SCHEMA_V1 = "spellbench-leaderboard/v1"
+LEADERBOARD_SCHEMA_V2 = "spellbench-leaderboard/v2"
+
+NOTES_V1 = [
     "natural results and forfeits are rated (a forfeit is a loss for the forfeiting bot); truncated and halted games are excluded",
     "games/W/D/L count seat-games: a mirror game is two seat-games for the same bot",
     "the Bradley-Terry fit excludes mirror matchups",
@@ -76,6 +85,22 @@ NOTES = [
     "Elo display = rating * 400 / ln(10) + 1000; the anchor displays at exactly 1000",
     "fixed-point integers: rating_log_units_e6 = rating * 1e6, elo_milli = Elo * 1e3",
     "deck slices (when games use more than one deck pairing): each pairing's ratings recomputed from its games alone, with the same anchor and prior and stats seeds derived per slice",
+]
+
+# NOTES_V1 with the CRN line replaced (v2 game secrets are independent within a
+# pair) and the attribution line appended (spec 11.5).
+NOTES_V2 = [
+    "natural results and forfeits are rated (a forfeit is a loss for the forfeiting bot); truncated and halted games are excluded",
+    "games/W/D/L count seat-games: a mirror game is two seat-games for the same bot",
+    "the Bradley-Terry fit excludes mirror matchups",
+    "prior: each rated matchup adds one virtual drawn game to the fit and every bootstrap refit",
+    "ratings, matchup scores, intervals, and sign tests use complete seat-swapped pairs; W/D/L counts every rated game",
+    "the paired bootstrap resamples seat-swapped pairs within each matchup; the two games of a pair have independent game secrets",
+    "subratings per training-style tag are a filtered recomputation over the same ledger",
+    "Elo display = rating * 400 / ln(10) + 1000; the anchor displays at exactly 1000",
+    "fixed-point integers: rating_log_units_e6 = rating * 1e6, elo_milli = Elo * 1e3",
+    "deck slices (when games use more than one deck pairing): each pairing's ratings recomputed from its games alone, with the same anchor and prior and stats seeds derived per slice",
+    "halt and truncation rates count the games halted or truncated right after the bot's own selection, over every game it played",
 ]
 
 
@@ -214,12 +239,54 @@ def _accumulate(
             matchup.a_wins += 1
         else:
             matchup.b_wins += 1
-        matchup.pairs.setdefault(row.pair_index, {})[row.game_index] = row
+        matchup.pairs.setdefault(row.pair_index, {})[row.pair_slot] = row
     return wdl, forfeit_losses, matchups
+
+
+@dataclass
+class _Attribution:
+    """A bot's v2 attribution counts (spec 11.5), over every row, rated or not."""
+
+    games_played: int = 0  # seat-games
+    halts: int = 0
+    truncations: int = 0
+    forfeits_by_cause: dict[str, int] = field(default_factory=dict)
+
+
+def _attribute(rows: Sequence[store.LedgerRow]) -> dict[str, _Attribution]:
+    """Per-bot games played, halts and truncations after its own selection, forfeits by cause."""
+    attributed: dict[str, _Attribution] = {}
+    for row in rows:
+        p0_id = row.bot_id_at("p0")
+        p1_id = row.bot_id_at("p1")
+        for bot_id in {p0_id, p1_id}:
+            attributed.setdefault(bot_id, _Attribution())
+        if p0_id == p1_id:
+            attributed[p0_id].games_played += 2
+        else:
+            attributed[p0_id].games_played += 1
+            attributed[p1_id].games_played += 1
+        if row.classification in ("halted", "truncated") and row.last_selection is not None:
+            entry = attributed.setdefault(row.last_selection.bot_id, _Attribution())
+            if row.classification == "halted":
+                entry.halts += 1
+            else:
+                entry.truncations += 1
+        if row.classification == "forfeit":
+            assert row.adjudication is not None and row.adjudication.loser_seat is not None
+            entry = attributed.setdefault(row.bot_id_at(row.adjudication.loser_seat), _Attribution())
+            cause = row.adjudication.cause
+            entry.forfeits_by_cause[cause] = entry.forfeits_by_cause.get(cause, 0) + 1
+    return attributed
 
 
 def _rational(num: int, den: int) -> dict[str, int]:
     return {"num": num, "den": den}
+
+
+def _rate(num: int, den: int) -> dict[str, int] | None:
+    """An attribution rate; null when the bot played no games."""
+    return None if den == 0 else _rational(num, den)
 
 
 def _prior_pair_records(matchups: Sequence[_Matchup]) -> list[ratings.PairRecord]:
@@ -262,8 +329,16 @@ def build_leaderboard(
     base_seed: int,
     bootstrap_replicates: int,
     format: str,
+    schema: str,
 ) -> tuple[dict[str, Any], str]:
-    """Build the leaderboard JSON document and the markdown rendering."""
+    """Build the leaderboard JSON document and the markdown rendering.
+
+    ``schema`` is required. ``LEADERBOARD_SCHEMA_V1`` reproduces the v1
+    artifacts byte for byte; ``LEADERBOARD_SCHEMA_V2`` adds per-bot halt and
+    truncation attribution (spec 11.5) and the v2 notes.
+    """
+    if schema not in (LEADERBOARD_SCHEMA_V1, LEADERBOARD_SCHEMA_V2):
+        raise ValueError(f"unknown leaderboard schema: {schema!r}")
     document = _build_document(
         rows,
         entries,
@@ -271,6 +346,7 @@ def build_leaderboard(
         base_seed=base_seed,
         bootstrap_replicates=bootstrap_replicates,
         format=format,
+        schema=schema,
     )
     document["slices"] = {
         "deck": _deck_slices(
@@ -280,6 +356,7 @@ def build_leaderboard(
             base_seed=base_seed,
             bootstrap_replicates=bootstrap_replicates,
             format=format,
+            schema=schema,
         )
     }
     return document, render_markdown(document)
@@ -293,6 +370,7 @@ def _build_document(
     base_seed: int,
     bootstrap_replicates: int,
     format: str,
+    schema: str,
 ) -> dict[str, Any]:
     """The leaderboard document for ``rows``, without deck slices."""
     by_id = {entry.bot_id: entry for entry in entries}
@@ -306,6 +384,7 @@ def _build_document(
             counts[row.classification] += 1
 
     wdl, forfeit_losses, matchups = _accumulate(rows)
+    attribution = _attribute(rows) if schema == LEADERBOARD_SCHEMA_V2 else {}
     ordered_matchups = [matchups[key] for key in sorted(matchups)]
 
     # ---------------- matchup panel (paired stats) ----------------
@@ -400,29 +479,40 @@ def _build_document(
         bot_wdl = wdl.get(entry.bot_id, _Wdl())
         rating = ratings_map.get(entry.bot_id)
         ci = intervals.get(entry.bot_id)
-        table_rows.append(
-            {
-                "rank": None,  # assigned after sorting
-                "bot_id": entry.bot_id,
-                "name": entry.name,
-                "version": entry.version,
-                "training_style_tags": list(entry.training_style_tags),
-                "rated": rating is not None,
-                "rating_log_units_e6": None if rating is None else ratings.rating_e6(rating),
-                "elo_milli": None if rating is None else ratings.elo_milli(rating),
-                "ci95_log_units_e6": (
-                    None if ci is None else [ratings.rating_e6(ci[0]), ratings.rating_e6(ci[1])]
-                ),
-                "ci95_elo_milli": (
-                    None if ci is None else [ratings.elo_milli(ci[0]), ratings.elo_milli(ci[1])]
-                ),
-                "games": bot_wdl.games,
-                "wins": bot_wdl.wins,
-                "draws": bot_wdl.draws,
-                "losses": bot_wdl.losses,
-                "forfeit_losses": forfeit_losses.get(entry.bot_id, 0),
-            }
-        )
+        table_row: dict[str, Any] = {
+            "rank": None,  # assigned after sorting
+            "bot_id": entry.bot_id,
+            "name": entry.name,
+            "version": entry.version,
+            "training_style_tags": list(entry.training_style_tags),
+            "rated": rating is not None,
+            "rating_log_units_e6": None if rating is None else ratings.rating_e6(rating),
+            "elo_milli": None if rating is None else ratings.elo_milli(rating),
+            "ci95_log_units_e6": (
+                None if ci is None else [ratings.rating_e6(ci[0]), ratings.rating_e6(ci[1])]
+            ),
+            "ci95_elo_milli": (
+                None if ci is None else [ratings.elo_milli(ci[0]), ratings.elo_milli(ci[1])]
+            ),
+            "games": bot_wdl.games,
+            "wins": bot_wdl.wins,
+            "draws": bot_wdl.draws,
+            "losses": bot_wdl.losses,
+            "forfeit_losses": forfeit_losses.get(entry.bot_id, 0),
+        }
+        if schema == LEADERBOARD_SCHEMA_V2:
+            stats = attribution.get(entry.bot_id, _Attribution())
+            table_row.update(
+                {
+                    "games_played": stats.games_played,
+                    "halts_attributed": stats.halts,
+                    "truncations_attributed": stats.truncations,
+                    "halt_rate": _rate(stats.halts, stats.games_played),
+                    "truncation_rate": _rate(stats.truncations, stats.games_played),
+                    "forfeits_by_cause": dict(sorted(stats.forfeits_by_cause.items())),
+                }
+            )
+        table_rows.append(table_row)
     rated_rows = sorted(
         (row for row in table_rows if row["rated"]),
         key=lambda row: (-row["rating_log_units_e6"], row["bot_id"]),
@@ -440,7 +530,7 @@ def _build_document(
 
     anchor = by_id[anchor_bot_id]
     document: dict[str, Any] = {
-        "schema": store.LEADERBOARD_SCHEMA,
+        "schema": schema,
         "format": format,
         "status": status,
         "fit_error": fit_error,
@@ -457,12 +547,14 @@ def _build_document(
         "rows": table_rows,
         "matchups": matchup_entries,
         "subratings": subratings,
-        "notes": NOTES,
+        "notes": NOTES_V2 if schema == LEADERBOARD_SCHEMA_V2 else NOTES_V1,
     }
     return document
 
 
 def _deck_label(deck: dict[str, Any]) -> str:
+    if "deck_id" in deck:  # a v2 deck entry labels by its deck name
+        return deck["name"]
     if "catalog_id" in deck:
         return deck["catalog_id"]
     return "decklist " + store.sha256_hex(store.canonical_bytes(deck))[:12]
@@ -481,16 +573,24 @@ def _deck_slices(
     base_seed: int,
     bootstrap_replicates: int,
     format: str,
+    schema: str,
 ) -> list[dict[str, Any]]:
     """Per-deck-pairing ratings; empty unless the ledger holds two or more pairings."""
     groups: dict[bytes, list[store.LedgerRow]] = {}
+    decks_by_key: dict[bytes, list[dict[str, Any]]] = {}
     for row in rows:
-        groups.setdefault(store.canonical_bytes(list(row.decks)), []).append(row)
+        # v2 rows carry LedgerDeck dataclasses, which canonical_bytes rejects:
+        # normalize each row's decks once and use them everywhere (R2-8).
+        decks = [deck.to_json() if hasattr(deck, "to_json") else deck for deck in row.decks]
+        key = store.canonical_bytes(decks)
+        groups.setdefault(key, []).append(row)
+        decks_by_key.setdefault(key, decks)
     if len(groups) < 2:
         return []
     slices = []
     for ordinal, key in enumerate(sorted(groups)):
         pairing_rows = groups[key]
+        decks = decks_by_key[key]
         document = _build_document(
             pairing_rows,
             entries,
@@ -498,11 +598,12 @@ def _deck_slices(
             base_seed=deck_slice_seed(base_seed, ordinal),
             bootstrap_replicates=bootstrap_replicates,
             format=format,
+            schema=schema,
         )
         slices.append(
             {
-                "label": _pairing_label(pairing_rows[0].decks),
-                "decks": list(pairing_rows[0].decks),
+                "label": _pairing_label(decks),
+                "decks": decks,
                 "status": document["status"],
                 "fit_error": document["fit_error"],
                 "games": document["games"],
@@ -605,6 +706,11 @@ def _fmt_rational(value: dict[str, int] | None, digits: int = 4) -> str:
     return f"{value['num'] / value['den']:.{digits}f}"
 
 
+def _fmt_rate(value: dict[str, int] | None) -> str:
+    """A v2 attribution rate to three places, or ``-`` with no games."""
+    return "-" if value is None else f"{value['num'] / value['den']:.3f}"
+
+
 _TABLE_HEADER = "| Rank | Bot | Rating | Elo | CI95 (Elo) | Games | W | D | L | Forfeit L |"
 _TABLE_RULE = "| ---: | --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: |"
 
@@ -696,6 +802,22 @@ def render_markdown(document: dict[str, Any]) -> str:
             lines += [_TABLE_HEADER, _TABLE_RULE]
             lines += [_table_row(row) for row in deck_slice["rows"]]
             lines.append("")
+    if document["schema"] == LEADERBOARD_SCHEMA_V2:
+        if lines[-1]:  # the deck slices and subratings end with a blank line; the matchup table does not
+            lines.append("")
+        lines += [
+            "## Halts and truncations after each bot's selection",
+            "",
+            "| Bot | Games | Halts | Halt rate | Truncations | Truncation rate |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for row in document["rows"]:
+            lines.append(
+                f"| {row['name']} {row['version']} | {row['games_played']} | {row['halts_attributed']} "
+                f"| {_fmt_rate(row['halt_rate'])} | {row['truncations_attributed']} "
+                f"| {_fmt_rate(row['truncation_rate'])} |"
+            )
+        lines.append("")
     lines += ["## Notes", ""]
     lines += [f"- {note}" for note in document["notes"]]
     lines.append("")

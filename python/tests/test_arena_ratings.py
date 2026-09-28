@@ -161,7 +161,8 @@ def test_ratings_and_intervals_share_the_complete_pair_sample() -> None:
     a, b = _entry("alpha"), _entry("beta")
     rows = [_row(0, 0, a, b, "a"), _row(0, 1, a, b, "a"), _row(1, 0, a, b, "a"), _row(1, 1, a, b, "halted")]
     document, _ = leaderboard.build_leaderboard(
-        rows, [a, b], anchor_bot_id=a.bot_id, base_seed=1, bootstrap_replicates=1000, format="pauper-bo1"
+        rows, [a, b], anchor_bot_id=a.bot_id, base_seed=1, bootstrap_replicates=1000, format="pauper-bo1",
+        schema=leaderboard.LEADERBOARD_SCHEMA_V1,
     )
     ratings_by_name = {row["name"]: row for row in document["rows"]}
     assert ratings_by_name["beta"]["rating_log_units_e6"] == round(-math.log(5) * 1_000_000)

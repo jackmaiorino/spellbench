@@ -76,7 +76,8 @@ ROWS = (
 
 def _build(rows, base_seed: int = BASE_SEED):
     return leaderboard.build_leaderboard(
-        rows, ENTRIES, anchor_bot_id=ALPHA.bot_id, base_seed=base_seed, bootstrap_replicates=1000, format="pauper-bo1"
+        rows, ENTRIES, anchor_bot_id=ALPHA.bot_id, base_seed=base_seed, bootstrap_replicates=1000,
+        format="pauper-bo1", schema=leaderboard.LEADERBOARD_SCHEMA_V1,
     )
 
 
@@ -183,7 +184,8 @@ def test_the_by_deck_heading_follows_exactly_one_blank_line() -> None:
     tagged = [dataclasses.replace(entry, training_style_tags=("rl",)) for entry in ENTRIES]
     for entries in (ENTRIES, tagged):
         _, markdown = leaderboard.build_leaderboard(
-            ROWS, entries, anchor_bot_id=ALPHA.bot_id, base_seed=BASE_SEED, bootstrap_replicates=1000, format="pauper-bo1"
+            ROWS, entries, anchor_bot_id=ALPHA.bot_id, base_seed=BASE_SEED, bootstrap_replicates=1000,
+            format="pauper-bo1", schema=leaderboard.LEADERBOARD_SCHEMA_V1,
         )
         assert "\n\n## By deck\n" in markdown and "\n\n\n" not in markdown
 
