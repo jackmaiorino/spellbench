@@ -8,14 +8,14 @@ whose ``cause`` is one of the forfeit causes of spec 11.5; nothing the peer said
 Writes are bounded by the same budget as reads (R2-5): a pipe to a bot that stopped reading
 blocks the writer once its OS buffer fills (about 4 KiB on Windows, 64 KiB on Linux), and a
 ``choose`` request carries the whole board, so it is exactly the request most likely to fill
-one. ``_write`` therefore writes on a daemon helper thread and waits at most ``timeout_s``;
-on expiry it closes the peer (killing a subprocess bot) and raises a timeout failure, exactly
-as a read timeout would.
+one. The bound itself lives in :class:`~spellbench.wire.SubprocessPeer.write_line`, which
+every role's peer shares (R2-5); on expiry it raises the same :class:`~spellbench.errors.PeerTimeoutError`
+a stalled read would, so ``_exchange`` maps a write timeout and a read timeout to
+:class:`~spellbench.host.seat.SeatFailure` in exactly the same place, with no separate code path.
 """
 
 from __future__ import annotations
 
-import threading
 from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 from .. import wire
@@ -85,48 +85,23 @@ class AgentProcess:
 
     # ------------------------------------------------------------------
 
-    def _write(self, line: bytes, *, timeout_s: float | None, phase: str) -> None:
-        """Write ``line`` on a helper thread, bounded by ``timeout_s`` (R2-5)."""
-        outcome: list[BaseException | None] = [None]
-
-        def target() -> None:
-            try:
-                self._peer.write_line(line)
-            except BaseException as exc:  # noqa: BLE001 - handed back to the caller to map
-                outcome[0] = exc
-
-        thread = threading.Thread(target=target, daemon=True)
-        thread.start()
-        thread.join(timeout_s)
-        if thread.is_alive():
-            # The bot never read this request: close (kill a subprocess) rather than leak it.
-            self._peer.close()
-            raise SeatFailure("timeout", f"the bot did not read {phase} within {_ms(timeout_s)} ms", diagnostic=self.stderr_text())
-        exc = outcome[0]
-        if exc is None:
-            return
-        if isinstance(exc, PeerTimeoutError):
-            raise SeatFailure(
-                "timeout", f"no answer to {phase} within {_ms(timeout_s)} ms", diagnostic=f"{exc}\n{self.stderr_text()}"
-            ) from exc
-        if isinstance(exc, TransportError):
-            raise SeatFailure(
-                "transport_error", f"the bot process failed during {phase}", diagnostic=f"{exc}\n{self.stderr_text()}"
-            ) from exc
-        raise exc
-
     def _exchange(
         self, request_type: str, payload: Mapping[str, Any], *, timeout_s: float | None, phase: str
     ) -> tuple[str, dict[str, Any]]:
-        """Send one request and return ``(request_id, response)``; an error envelope raises directly."""
+        """Send one request and return ``(request_id, response)``; an error envelope raises directly.
+
+        ``set_timeout`` is applied before the write, not just before the read: the write and the
+        read of one exchange share the same budget (R2-5), and ``write_line`` reads it from the
+        peer just as ``read_line`` does.
+        """
         request_id = f"r-{self._count}"
         self._count += 1
         line = wire.canonical_json_dumps(request(request_type, request_id, payload))
-        self._write(line, timeout_s=timeout_s, phase=phase)
         setter = getattr(self._peer, "set_timeout", None)
         if setter is not None:
             setter(timeout_s)
         try:
+            self._peer.write_line(line)
             raw = self._peer.read_line()
             response = wire.strict_json_loads(raw)
         except PeerTimeoutError as exc:

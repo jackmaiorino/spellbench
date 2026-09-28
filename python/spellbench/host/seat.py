@@ -4,8 +4,8 @@ A ``SeatDriver`` is whatever plays one seat of one game: today a subprocess agen
 (``agent_process.AgentProcess``), later perhaps an in-process bot. ``SeatFailure`` is the
 one exception every driver raises when it cannot serve a request; its ``cause`` is one of
 the forfeit causes of spec 11.5, and its ``diagnostic`` (the bot's stderr, an exception's
-text) never appears in ``str()`` or in any message the host logs (R2-15, R3-32): only the
-deterministic ``detail`` does.
+text) never appears in ``str()``, in ``repr()``, or in any message the host logs (R2-15,
+R3-32): only the deterministic ``detail`` does.
 """
 
 from __future__ import annotations
@@ -34,6 +34,9 @@ class SeatFailure(Exception):
 
     def __str__(self) -> str:
         return f"{self.cause}: {self.detail}"
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self.cause!r}, {self.detail!r})"
 
 
 class SeatDriver(Protocol):

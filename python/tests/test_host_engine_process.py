@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import copy
+import sys
+import threading
+import time
 
 import pytest
 
 from spellbench import wire
-from spellbench.errors import EngineError, ProtocolError
+from spellbench.errors import EngineError, PeerTimeoutError, ProtocolError
 from spellbench.host.engine_process import EngineProcess, TerminalCountError, TerminalReasonError
 from spellbench.messages import ResetRequest
 
@@ -166,3 +169,25 @@ def test_validate_deck_sends_the_catalog_form_and_returns_deck_ok() -> None:
     assert result.request_id == "h-2"
     request = wire.strict_json_loads(peer.sent[1])
     assert request["format"] == "pauper-bo1" and request["deck"] == {"catalog_id": "Burn"}
+
+
+def test_a_real_engine_that_never_reads_its_stdin_times_out_on_a_big_write() -> None:
+    # A real child process, not a mock: it never touches stdin, so a payload bigger than
+    # any OS pipe buffer (about 4 KiB on Windows, 64 KiB on Linux) blocks the write until
+    # SubprocessPeer kills it (R2-5). send_raw needs no prior hello, so the first request is
+    # the oversized one. engine_process.py adds no mapping of its own: a write timeout must
+    # propagate exactly like a read timeout already does, as a bare PeerTimeoutError.
+    engine = EngineProcess([sys.executable, "-c", "import time; time.sleep(60)"], timeout_s=2)
+    huge_request = {"request_type": "hello", "protocol": "spellbench/v2", "request_id": "h-1",
+                     "protocol_minor": 0, "padding": "x" * (4 * 1024 * 1024)}
+    before = {t.ident for t in threading.enumerate()}
+    started = time.monotonic()
+    with pytest.raises(PeerTimeoutError):
+        engine.send_raw(huge_request)
+    elapsed = time.monotonic() - started
+    assert elapsed < 4                                                     # within twice the 2 s timeout
+    peer = engine._peer
+    assert isinstance(peer, wire.SubprocessPeer) and peer._proc.poll() is not None    # the child is dead
+    time.sleep(0.2)                                                        # let a just-finished writer thread drop out
+    assert {t.ident for t in threading.enumerate()} <= before              # no helper thread left alive
+    engine.close()
