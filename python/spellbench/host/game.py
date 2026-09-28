@@ -13,20 +13,28 @@ bot's think time, say). Nothing from an agent enters it.
 
 The host records three endings itself (spec 11.5), each appending one adjudication record
 to the digest and sending ``game_over`` to every started seat it has not closed: a
-``forfeit`` (a seat failed; ``_forfeit_for``), a ``halt`` (a live-validation violation, or
-an engine fault: ``error``, ``timeout``, ``transport``, ``malformed``, ``terminal_counts``
-or ``terminal_reason``; ``_halt``) and, from Part B (Task 29), the mandatory-loop draw. An
-engine terminal (``natural``, ``truncated`` or an engine-reported ``halted``) gets no
-adjudication record: its answer in the chain already records it.
+``forfeit`` (a seat failed, its clock ran out, or it stalled at a cap; ``_forfeit_for``), a
+``halt`` (a live-validation violation, or an engine fault: ``error``, ``timeout``,
+``transport``, ``malformed``, ``terminal_counts`` or ``terminal_reason``; ``_halt``) and the
+mandatory-loop draw (``_draw``). An engine terminal (``natural``, ``truncated`` or an
+engine-reported ``halted``) gets no adjudication record: its answer in the chain already
+records it.
 
 A host fault is never charged to a participant. A seat driver raises only ``SeatFailure``
 (``host.seat``), so any other exception from ``start``, ``choose`` or ``game_over`` is the
 host's, as is ``HostMisuseError`` from the engine client (a call out of sequence, such as a
 reused engine): each propagates out of ``play_game``, and no result is recorded.
 
-Part B (Task 29) wires the bank clock, seat caps and the stalling window through three
-hooks that this task leaves inert: ``_budget_ms`` (``max_decision_ms``), ``_charge`` (given
-whole milliseconds) and ``_after_answer`` (both ``None``, so they never end the game here).
+Clocks and caps (spec 11.4, Task 29) run through three hooks. Each seat has a Fischer clock
+(``host.clock.SeatClock``): ``choose`` shows the bank as it stands before that decision and
+is bounded by ``_budget_ms``, the smaller of the bank and ``max_decision_ms``; ``_charge``
+then charges the answer's wall time, in whole milliseconds rounded up, and an answer over
+either limit is a ``timeout`` forfeit even though it arrived. ``_after_answer`` counts every
+answered decision toward the seat's caps and the stalling window over both seats' last 250
+answers, that one included. When the answer reaches a cap, the host rules at once, before
+that answer's ``step`` is sent (Decision 5), and ``step_count`` still counts it (R3-12): a
+``stalling`` forfeit of the seat with more real choices in the window (on a tie, the seat
+that reached the cap), or, when neither seat made one, the mandatory-loop draw.
 """
 
 from __future__ import annotations
@@ -42,6 +50,7 @@ from ..agent_messages import AgentTerminal, Choice, Clock, choose_payload, game_
 from ..digests import GameDigest
 from ..errors import EngineError, PeerTimeoutError, ProtocolError, TransportError
 from ..messages import Decision, ResetRequest, Terminal, TerminalResult
+from .clock import STALLING_WINDOW, SeatCaps, SeatClock, StallingWindow, is_real_choice
 from .engine_process import EngineProcess, TerminalCountError, TerminalReasonError
 from .seat import SeatDriver, SeatFailure
 from .setup import GameSetup  # re-exported
@@ -58,14 +67,14 @@ class GameResult:
     """One game's outcome, however it ended.
 
     ``adjudication`` is the ledger shape of ``arena.ledger.Adjudication.to_json()``
-    (``{"kind", "detail"}`` for a halt, plus ``cause`` and ``loser_seat`` for a forfeit),
-    or ``None`` for a natural, truncated or engine-reported halted terminal, which needs
-    no host adjudication. ``violation`` is ``{"rule", "detail"}`` when the halt was a
-    live-validation violation, else ``None``. ``step_count`` counts the answered
-    decisions (including one adjudicated right after its answer and before its ``step``
-    was sent, Task 29's Decision 5), and ``decision_count`` the completed groups the
-    validator counted (R3-12). ``last_selection_seat`` is the seat of the last answered
-    decision for a halted or truncated game, else ``None``.
+    (``{"kind", "detail"}`` for a halt or the mandatory-loop draw, plus ``cause`` and
+    ``loser_seat`` for a forfeit), or ``None`` for an engine terminal (natural, truncated
+    or halted), which needs no host adjudication. ``violation`` is ``{"rule", "detail"}``
+    when the halt was a live-validation violation, else ``None``. ``step_count`` counts
+    the answered decisions (including one a cap adjudicates right after its answer,
+    before its ``step`` is sent: Decision 5), and ``decision_count`` the completed groups
+    the validator counted (R3-12). ``last_selection_seat`` is the seat of the last
+    answered decision for a halted or truncated game, else ``None``.
     """
 
     outcome: str
@@ -125,6 +134,14 @@ class _Game:
         self.silenced: set[str] = set()      # seats closed after a timeout or transport failure: sent nothing more (R2-4)
         self.last_seat: str | None = None
         self.diagnostics: list[str] = []
+        # Spec 11.4: each seat's bank clock and caps, and the stalling window over both seats' answers.
+        time_control, limits = setup.time_control, setup.limits
+        self.clocks = {seat: SeatClock(time_control.bank_ms, time_control.increment_ms, time_control.max_decision_ms)
+                       for seat in SEATS}
+        self.caps = SeatCaps(per_turn=limits.max_seat_decisions_per_turn,
+                             groups_per_game=limits.max_seat_decisions_per_game,
+                             steps_per_game=limits.max_seat_steps_per_game)
+        self.window = StallingWindow()
 
     def play(self) -> GameResult:
         failures = self._start_both()        # both seats at once; the results are judged p0 first (R2-26)
@@ -220,10 +237,9 @@ class _Game:
 
     def _ask(self, seat: str, sd: Mapping[str, Any]) -> int | GameResult:
         """The acting seat's answer, a candidate id, or the ``GameResult`` of a forfeit."""
-        time_control = self.setup.time_control
         budget_ms = self._budget_ms(seat)
-        # Spec 10.3: remaining_ms is the seat's bank, which only Part B drains (Task 29).
-        clock = Clock(remaining_ms=time_control.bank_ms, max_decision_ms=time_control.max_decision_ms)
+        # Spec 10.3: remaining_ms is the seat's bank when choose is sent, before this decision is charged.
+        clock = Clock(remaining_ms=self.clocks[seat].remaining_ms, max_decision_ms=self.setup.time_control.max_decision_ms)
         # The driver gets its own copy, the canonical re-serialization of the validated decision (spec 11.2): nothing
         # it does to its payload reaches the host's, which the step echo and the group tracking read.
         forwarded = wire.strict_json_loads(wire.canonical_json_dumps(sd))
@@ -319,18 +335,44 @@ class _Game:
         return (f"terminal step_count {result.step_count}, decision_count {result.decision_count}; "
                 f"host counted {self.validator.answered_steps}, {self.validator.completed_groups}")
 
-    # -- Part B hooks (Task 29): the bank clock, caps and stalling -----------
+    # -- the bank clock, caps and stalling (spec 11.4) ------------------------
 
     def _budget_ms(self, seat: str) -> int:
-        return self.setup.time_control.max_decision_ms
+        """This decision's budget: the smaller of ``max_decision_ms`` and the seat's bank."""
+        return self.clocks[seat].budget_ms()
 
     def _charge(self, seat: str, sd: Mapping[str, Any], elapsed_ms: int) -> GameResult | None:
-        return None
+        """Charge an answer's time to the seat's bank; over ``max_decision_ms`` or the bank, it forfeits ``timeout``."""
+        if self.clocks[seat].charge(elapsed_ms):
+            return None
+        return self._forfeit_for(seat, "timeout",
+                                 f"the answer to choose at seat step {sd['seat_step']} exceeded the seat's clock")
 
     def _after_answer(self, seat: str, sd: Mapping[str, Any], candidate_id: int) -> GameResult | None:
-        return None
+        """Count the answer toward the stalling window and the seat's caps; rule at once if it reaches a cap.
 
-    # -- endings: an engine terminal, a host halt, a forfeit -----------------
+        A cap is reached when the seat's count equals it (Decision 5). ``turn`` is the
+        observation's, and the answer completes a group when it was the group's last substep
+        (spec 8). The window holds this answer too, and the ruling is a ``stalling`` forfeit
+        of ``ruling.loser_seat`` or, with no real choice in the window, the mandatory-loop draw.
+        """
+        group, candidates = sd["group"], sd["candidates"]
+        chosen_kind = candidates[candidate_id]["semantic"]["kind"]
+        self.window.record(seat, real_choice=is_real_choice(len(candidates), chosen_kind))
+        cap = self.caps.record(seat, turn=sd["observation"]["turn"],
+                               completed_group=group["substep_index"] + 1 == group["substep_count"])
+        if cap is None:
+            return None
+        reached = f"{seat} reached {cap} ({getattr(self.setup.limits, cap)})"
+        ruling = self.window.ruling(seat)
+        if ruling.kind == "draw":
+            return self._draw(f"{reached}; no real choice in the last {STALLING_WINDOW} decisions")
+        counts = self.window.counts()
+        return self._forfeit_for(ruling.loser_seat, "stalling",
+                                 f"{reached}; real choices in the last {STALLING_WINDOW} decisions: "
+                                 f"p0 {counts['p0']}, p1 {counts['p1']}")
+
+    # -- endings: an engine terminal, a host halt, a forfeit, a draw ---------
 
     def _terminal(self, response: Terminal) -> GameResult:
         """An engine terminal the client already bound and checked for its reason and ``step_count`` (spec 9.3 to 9.5).
@@ -364,7 +406,7 @@ class _Game:
                             violation=violation_dict)
 
     def _forfeit_for(self, seat: str, cause: str, detail: str) -> GameResult:
-        """Every forfeit ending (spec 11.5): a live seat failure, or (Task 29) stalling."""
+        """Every forfeit ending (spec 11.5): a live seat failure, a late answer, or stalling at a cap (spec 11.4)."""
         winner = _other(seat)
         outcome, reason = f"{winner}_win", f"forfeit:{cause}"
         self.digest.add_adjudication(classification="forfeit", outcome=outcome, reason=reason, winner=winner)
@@ -375,6 +417,13 @@ class _Game:
 
     def _forfeit(self, seat: str, failure: SeatFailure) -> GameResult:
         return self._forfeit_for(seat, failure.cause, failure.detail)
+
+    def _draw(self, detail: str) -> GameResult:
+        """The mandatory-loop draw at a cap (spec 11.4, 11.5): a ``natural`` draw the host records itself (CR 104.4b)."""
+        self.digest.add_adjudication(classification="natural", outcome="draw", reason="mandatory_loop", winner=None)
+        self._send_game_over(outcome="draw", classification="natural", winner=None, reason="mandatory_loop")
+        return self._result(outcome="draw", classification="natural", winner=None, reason="mandatory_loop",
+                            adjudication={"kind": "mandatory_loop", "detail": detail}, last_selection_seat=None)
 
     def _send_game_over(self, *, outcome: str, classification: str, winner: str | None, reason: str) -> None:
         """``game_over`` to every started, unsilenced seat, ignoring its ``SeatFailure`` (spec 10.4, 11.5; R2-4)."""

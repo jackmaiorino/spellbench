@@ -68,3 +68,18 @@ def test_the_window_is_the_last_250_decisions_of_either_seat() -> None:
     for _ in range(249):
         window.record("p0", real_choice=False)
     assert window.ruling("p0") == CapRuling(kind="forfeit", loser_seat="p1")   # the 250th most recent still counts
+
+
+def test_the_window_counts_each_seats_real_choices() -> None:
+    window = StallingWindow()
+    assert window.counts() == {"p0": 0, "p1": 0}
+    window.record("p0", real_choice=True)
+    window.record("p1", real_choice=False)
+    window.record("p1", real_choice=True)
+    assert window.counts() == {"p0": 1, "p1": 1}
+    for _ in range(247):
+        window.record("p1", real_choice=False)
+    assert window.counts() == {"p0": 1, "p1": 1}   # 250 decisions: p0's real choice is the oldest still counted
+    window.record("p1", real_choice=False)
+    assert window.counts() == {"p0": 0, "p1": 1}   # the 251st pushes it out, as it does for the ruling
+    assert window.ruling("p0") == CapRuling(kind="forfeit", loser_seat="p1")

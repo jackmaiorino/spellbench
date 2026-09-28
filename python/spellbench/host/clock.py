@@ -72,10 +72,15 @@ class StallingWindow:
     def record(self, seat: str, *, real_choice: bool) -> None:
         self._entries.append((seat, real_choice))
 
-    def ruling(self, capped_seat: str) -> CapRuling:
+    def counts(self) -> dict[str, int]:
+        """Each seat's real choices in the window, the counts ``ruling`` compares (spec 11.4; R3-12)."""
         real = {"p0": 0, "p1": 0}
         for seat, choice in self._entries:
             real[seat] += choice
+        return real
+
+    def ruling(self, capped_seat: str) -> CapRuling:
+        real = self.counts()
         if real["p0"] == real["p1"] == 0:
             return CapRuling(kind="draw", loser_seat=None)
         if real["p0"] == real["p1"]:
