@@ -171,7 +171,8 @@ def test_each_hostile_bot_mode_maps_to_its_cause(mode: str) -> None:
 
 def test_a_crashing_bot_s_traceback_and_pid_reach_only_the_diagnostic() -> None:
     run = outcome_of_bot("crash")
-    printed = re.search(r"Traceback \(most recent call last\):\nRuntimeError: pid=(\d+)\n", run.stderr)
+    # The bot writes stderr in text mode, so its lines end in \r\n on Windows.
+    printed = re.search(r"Traceback \(most recent call last\):\r?\nRuntimeError: pid=(\d+)\r?\n", run.stderr)
     assert run.failure is not None and printed is not None                    # the bot did print both
     pid = printed.group(1)
     for text in (str(run.failure), repr(run.failure), run.failure.detail):
