@@ -17,12 +17,11 @@ subprocess bot starts, names its config entry and has its ``requires`` met.
 A failure is a :class:`~spellbench.arena.config.TournamentError` naming the
 engine, deck or bot; a bot's stderr never enters it (R3-32).
 
-The per-pairing reset is a probe: it proves the format and the decks, not the
-pregame decisions, so it probes with the mulligan and starting-player values
-the engine settles itself (spec 7.6). A deck's game need not pose the
-resolved ones (the fake engine's built-in games pose none and refuse a
-``london`` reset as ``unsupported_rule`` even where ``london`` is declared),
-and an unmet pregame rule is already refused against ``rules_supported``.
+Each per-pairing reset carries the run's rules, the object every game sends,
+bounded by ``engine_step_ms`` (spec 11.4: it bounds each engine response),
+while process start through ``hello_ok`` is bounded by ``startup_ms``. An
+engine that declares a rule it cannot play with these decks is refused here,
+before any game (spec 11.1), instead of after a schedule's worth of halts.
 
 The schedule is the v1 round robin: matchups in
 ``itertools.combinations_with_replacement`` order over the config's bots
@@ -38,7 +37,7 @@ machine.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from itertools import combinations_with_replacement
 
 from .. import digests
@@ -181,13 +180,13 @@ def preflight(config: TournamentConfig, run_secret: RunSecret, *, pin: EnginePin
         decks = _resolve_decks(config, hello)
         rules = _resolve_rules(config, hello, decks)
         native = _native_id_extensions(config, hello)
-        _reset_pairing(engine, config, run_secret, 0, pairs[0], decks, _probe_rules(rules, hello.profile))
+        _reset_pairing(engine, config, run_secret, 0, pairs[0], decks, rules, hello)
     for index, pair in enumerate(pairs[1:], 1):
         # One engine process per deck pairing: an engine hosts one active game at a
         # time (spec 2), and the preflight never finishes its game.
         with _engine(config) as engine:
-            _hello(engine, pin, config)
-            _reset_pairing(engine, config, run_secret, index, pair, decks, _probe_rules(rules, hello.profile))
+            process_hello = _hello(engine, pin, config)
+            _reset_pairing(engine, config, run_secret, index, pair, decks, rules, process_hello)
     for spec in config.bots:
         if spec.type == "subprocess":
             _preflight_bot(config, hello, rules, spec)
@@ -305,22 +304,6 @@ def _native_id_extensions(config: TournamentConfig, hello: EnvHelloOk) -> tuple[
     return tuple(recorded)
 
 
-def _probe_rules(rules: Rules, profile: EngineProfile) -> Rules:
-    """The rules a preflight reset probes with: the resolved rules, but the mulligan and
-    starting-player values the engine settles itself (spec 7.6).
-
-    The probe proves the format and the decks, not the pregame decisions: a deck's game
-    need not pose the resolved ones (the fake engine's built-in games pose none and
-    refuse a ``london`` reset as ``unsupported_rule`` even where ``london`` is declared),
-    and an unmet pregame rule is already refused against ``rules_supported``.
-    """
-    mulligan_supported = profile.rules_supported["mulligan"]
-    mulligan = "none" if "none" in mulligan_supported else mulligan_supported[0]
-    if "host_assigned" in profile.rules_supported["starting_player"]:
-        return replace(rules, mulligan=mulligan, starting_player="host_assigned", starting_seat="p0")
-    return replace(rules, mulligan=mulligan, starting_player="toss_winner_chooses", starting_seat=None)
-
-
 def _reset_pairing(
     engine: EngineProcess,
     config: TournamentConfig,
@@ -328,15 +311,23 @@ def _reset_pairing(
     index: int,
     pair: tuple[DeckSpec, DeckSpec],
     decks: dict[DeckSpec, ResolvedDeck],
-    probe_rules: Rules,
+    rules: Rules,
+    hello: EnvHelloOk,
 ) -> None:
-    """One preflight reset of deck pairing ``index``, under its preflight secret and id (spec 11.6)."""
+    """One preflight reset of deck pairing ``index``, under its preflight secret and id (spec 11.6).
+
+    The reset carries ``rules``, the object every game sends: a declared rule the engine
+    cannot play with these decks stops the run here, before any game (spec 11.1). It is
+    bounded by ``engine_step_ms`` (spec 11.4: it bounds each engine response), as a game's
+    own reset is.
+    """
+    engine.set_timeout(config.time_control.engine_step_ms / 1000)
     request = ResetRequest(
         request_id=engine.next_request_id(),
         game_id=run_secret.preflight_game_id(index),
         format=config.format,
         seats=(decks[pair[0]].wire(), decks[pair[1]].wire()),
-        rules=probe_rules,
+        rules=rules,
         game_secret=run_secret.preflight_secret(index).hex(),
         max_decisions=config.limits.max_decisions,
         max_steps=config.limits.max_steps,
@@ -346,7 +337,8 @@ def _reset_pairing(
     except (TransportError, RemoteError, ProtocolError) as exc:
         labels = [decks[spec].name for spec in pair]
         raise TournamentError(
-            f"preflight: the engine could not start a game with decks {labels}: {exc}"
+            f"preflight: engine {hello.engine.name} {hello.engine.version} could not start a game "
+            f"with decks {labels}: {exc}"
         ) from exc
 
 
@@ -367,18 +359,18 @@ def _preflight_bot(config: TournamentConfig, hello: EnvHelloOk, rules: Rules, sp
         agent.close()
     if (hello_ok.bot.name, hello_ok.bot.version) != (spec.name, spec.version):
         raise TournamentError(
-            f"preflight: bot {spec.name}: answered hello as {hello_ok.bot.name} {hello_ok.bot.version}"
+            f"preflight: bot {spec.name}: answered hello as {hello_ok.bot.name!r} {hello_ok.bot.version!r}"
         )
     for flag in hello_ok.requires_observation:
         if not hello.profile.observation.get(flag, False):
             raise TournamentError(
-                f"preflight: bot {spec.name}: requires the observation flag {flag}, "
+                f"preflight: bot {spec.name}: requires the observation flag {flag!r}, "
                 "which the engine does not declare"
             )
     for name in hello_ok.requires_extensions:
         if name not in rules.extensions:
             raise TournamentError(
-                f"preflight: bot {spec.name}: requires the extension {name}, which this run does not enable"
+                f"preflight: bot {spec.name}: requires the extension {name!r}, which this run does not enable"
             )
 
 
