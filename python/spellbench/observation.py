@@ -362,7 +362,8 @@ def _record(value: Any, zone_array: str, holder: str, context: str) -> None:
         _permanent(record["permanent"], f"{context}.permanent")
     elif record["permanent"] is not None:
         fail(f"{context}.permanent", f"must be null outside the battlefield, got an object in {zone_array}")
-    if nullable(record["exiled_by"], object_ref, f"{context}.exiled_by") is not None and zone_array != "exile":
+    exiled_by = nullable(record["exiled_by"], object_ref, f"{context}.exiled_by")
+    if exiled_by is not None and zone_array != "exile":
         fail(f"{context}.exiled_by", f"must be null outside exile, got an exiling object in {zone_array}")
 
 
@@ -424,7 +425,9 @@ def _stack_entry(value: Any, context: str) -> None:
 
     A spell has characteristics and a null source; an ability has null
     characteristics, and is nameless when its source is, since it is named
-    after its source (spec 5.1). ``divided`` holds one amount per target.
+    after its source (spec 5.1). ``divided`` holds at most one amount per target:
+    the announced division may cover only some targets, as when a spell also has
+    another target requirement (CR 601.2d).
     """
     entry = as_object(value, context)
     exact_keys(entry, _STACK_FIELDS, context)
@@ -447,8 +450,9 @@ def _stack_entry(value: Any, context: str) -> None:
         _characteristics(entry["characteristics"], f"{context}.characteristics")
     targets = _target_list(entry["targets"], f"{context}.targets")
     divided = nullable(entry["divided"], _u32_list, f"{context}.divided")
-    if divided is not None and len(divided) != len(targets):
-        fail(f"{context}.divided", f"must hold one amount per target ({len(targets)}), got {len(divided)} (CR 601.2d)")
+    if divided is not None and len(divided) > len(targets):
+        fail(f"{context}.divided", f"must hold at most one amount per target ({len(targets)}), got {len(divided)} "
+                                   "(CR 601.2d)")
     nullable(entry["modes"], _u32_list, f"{context}.modes")
     nullable(entry["x_value"], u32, f"{context}.x_value")
     nullable(entry["text"], text, f"{context}.text")

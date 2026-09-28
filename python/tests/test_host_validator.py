@@ -20,6 +20,9 @@ from v2_sample_semantics import R_SPRITE, R_STACK, R_SWIFTSPEAR, SAMPLES, seat_d
 
 ENGINE = Path(__file__).resolve().parent / "fake_v2_engine.py"
 CAPS = {"max_decisions": RESET["max_decisions"], "max_steps": RESET["max_steps"]}      # the spec 9.2 reset's caps
+# A face-down object as a seat that may not look at it sees it: a nameless, colorless 2/2 creature (spec 6.4).
+FACE_DOWN = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2,
+             "toughness": 2, "keywords": []}
 
 
 def _validator(*, hello: dict = HELLO_OK, rules: dict = RULES, **caps: int) -> LiveValidator:
@@ -57,7 +60,7 @@ def test_a_fake_engine_game_passes_and_the_counts_match_its_terminal() -> None:
     "sd",
     [
         seat_decision([SAMPLES["pass"], SAMPLES["pass"]]),                                       # duplicate semantics
-        seat_decision([SAMPLES["play_land"], SAMPLES["pass"]]),                                  # pass not first
+        seat_decision([SAMPLES["choose_boolean"], SAMPLES["pass"]], kind="choice"),             # pass not first
         {**seat_decision(), "x_extra": 1},                                                       # unknown field
         seat_decision(extensions={"kernel": {}}),                                                # not an x_ key
         seat_decision([{"kind": "pay_mana"}]),                                                    # a reserved kind
@@ -76,17 +79,28 @@ def test_v1_dense_ids_and_the_4096_cap() -> None:
     assert _rule(_validator(), seat_decision(many, kind="choice")) == "V1"
 
 
+def _for_p1(sd: dict) -> None:
+    """A decision for p1, which holds priority, carrying p0's view: only V2's viewer rule breaks."""
+    sd.update(acting_seat="p1")
+    sd["observation"]["priority_seat"] = "p1"
+
+
+def _named_face_down(sd: dict) -> None:
+    """p1's Sprite turned face down with the face-down characteristics, still named: only V6's name rule breaks."""
+    sd["observation"]["players"][1]["battlefield"][0].update(face_down=True, characteristics=copy.deepcopy(FACE_DOWN))
+
+
 @pytest.mark.parametrize(
     ("mutate", "rule"),
     [
-        (lambda sd: sd.update(acting_seat="p1"), "V2"),
+        (_for_p1, "V2"),
         (lambda sd: sd.update(seat_step=3), "V3"),
         (lambda sd: sd["candidates"][2]["semantic"]["source"].update(card_name="Chain Lightning"), "V4"),
         (lambda sd: sd["observation"]["players"][1].update(hand=[]), "V5"),
-        (lambda sd: sd["observation"]["players"][1]["battlefield"][0].update(face_down=True), "V6"),
+        (_named_face_down, "V6"),
         (lambda sd: sd["observation"]["players"][0].update(poison=0), "V8"),
         (lambda sd: sd["context"].update(kind="choice"), "V9"),
-        (lambda sd: (sd.update(acting_seat="p1"), sd["candidates"][2]["semantic"]["source"].update(card_name="x")), "V2"),
+        (lambda sd: (_for_p1(sd), sd["candidates"][2]["semantic"]["source"].update(card_name="x")), "V2"),
     ],
 )
 def test_each_rule_is_reported_and_the_lowest_wins(mutate, rule: str) -> None:
@@ -137,7 +151,11 @@ def test_v7_flags_an_id_that_returns_after_leaving_through_a_hidden_zone() -> No
 
 def test_v1_a_library_search_may_find_nothing() -> None:
     search = {**SAMPLES["select_object"], "purpose": "search", "minimum": 1}
-    assert _rule(_validator(), seat_decision([search], kind="choice")) == "V1"            # spec 7.5, F3 (R2-7)
+    finish = {**SAMPLES["finish_selection"], "purpose": "search", "selected_count": 0}       # offered, as M4 requires
+    detail = r"candidates\[0\]\.semantic\.minimum: a library search always allows finding nothing"
+    with pytest.raises(ValidatorViolation, match=detail) as caught:
+        _validator().check(_decision(seat_decision([search, finish], kind="choice")))       # spec 7.5, F3 (R2-7)
+    assert caught.value.rule == "V1"
 
 
 MULLIGAN = {**SAMPLES["mulligan"], "hand_size": 2, "mulligans_taken": 0}                  # the example viewer: 2 cards, 0 taken
@@ -236,16 +254,16 @@ def test_the_caps_are_required_counters() -> None:
     hello, rules = EnvHelloOk.from_json(copy.deepcopy(HELLO_OK)), Rules.from_json(RULES)
     with pytest.raises(TypeError):
         LiveValidator(hello, rules)                                                     # no default: a caller passes both
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="max_decisions"):
         LiveValidator(hello, rules, max_decisions=None, max_steps=100000)
+    with pytest.raises(ValidationError, match="max_steps"):
+        LiveValidator(hello, rules, max_decisions=10000, max_steps="100000")
 
 
 # The validator-stack audit's findings: C1 to C3, I1 to I3 and the minor ones (M1 to M17).
 
 # C1 (spec 6.4, 6.8; V6): a face-down object the viewer may not look at shows only its face-down characteristics.
 
-FACE_DOWN = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2,
-             "toughness": 2, "keywords": []}
 R_HIDDEN_SPRITE = {**R_SPRITE, "card_name": None}
 
 

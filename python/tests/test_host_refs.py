@@ -9,6 +9,10 @@ from spellbench.host.violation import ValidatorViolation
 
 from v2_sample_semantics import R_BOLT, R_STACK, R_SWIFTSPEAR, SAMPLES, seat_decision
 
+# A face-down object as a seat that may not look at it sees it: a nameless, colorless 2/2 creature (spec 6.4).
+FACE_DOWN = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2,
+             "toughness": 2, "keywords": []}
+
 
 def _rule(check, decision) -> str:
     with pytest.raises(ValidatorViolation) as caught:
@@ -24,7 +28,11 @@ def test_a_consistent_decision_passes() -> None:
 
 
 def test_v2_the_viewer_is_the_acting_seat() -> None:
-    assert _rule(check_seat, seat_decision(acting_seat="p1")) == "V2"
+    decision = seat_decision(acting_seat="p1")
+    decision["observation"]["priority_seat"] = "p1"                           # p1 holds priority: only the view is p0's
+    with pytest.raises(ValidatorViolation, match="observation.viewer p0 is not acting_seat p1") as caught:
+        check_seat(decision)
+    assert caught.value.rule == "V2"
 
 
 def test_v2_a_priority_decision_goes_to_the_seat_holding_priority() -> None:
@@ -74,8 +82,11 @@ def test_v4_a_byte_identical_duplicate_id_fails_on_uniqueness_alone() -> None:
 
 def test_v6_face_down_names_are_hidden_from_other_seats() -> None:
     leak = seat_decision()
-    leak["observation"]["players"][1]["battlefield"][0]["face_down"] = True   # p1's face-down Sprite, still named
-    assert _rule(check_face_down, leak) == "V6"
+    sprite = leak["observation"]["players"][1]["battlefield"][0]
+    sprite.update(face_down=True, characteristics=copy.deepcopy(FACE_DOWN))   # p1's face-down Sprite, still named
+    with pytest.raises(ValidatorViolation, match=r"battlefield\[0\]\.card_name must be null") as caught:
+        check_face_down(leak)
+    assert caught.value.rule == "V6"
     own = seat_decision()
     own["observation"]["players"][0]["battlefield"][0]["face_down"] = True    # the viewer's own: it may look (CR 708.5)
     check_face_down(own)
@@ -84,7 +95,8 @@ def test_v6_face_down_names_are_hidden_from_other_seats() -> None:
 def test_v6_a_face_down_record_hides_its_full_name_too() -> None:
     leak = seat_decision()
     sprite = leak["observation"]["players"][1]["battlefield"][0]
-    sprite.update(face_down=True, card_name=None, full_name="Spellstutter Sprite")   # only full_name leaks
+    sprite.update(face_down=True, card_name=None, full_name="Spellstutter Sprite",   # only full_name leaks
+                  characteristics=copy.deepcopy(FACE_DOWN))
     with pytest.raises(ValidatorViolation, match=r"\.full_name"):
         check_face_down(leak)
 
@@ -103,15 +115,13 @@ def _stack_spell(**overrides) -> dict:
 
 def test_v6_face_down_stack_entries_are_hidden_from_other_seats() -> None:
     leak = seat_decision()
-    leak["observation"]["stack"].append(_stack_spell())           # p1's face-down spell, still named
-    assert _rule(check_face_down, leak) == "V6"
+    leak["observation"]["stack"].append(_stack_spell(characteristics=copy.deepcopy(FACE_DOWN)))   # still named
+    with pytest.raises(ValidatorViolation, match=r"stack\[0\]\.card_name must be null") as caught:
+        check_face_down(leak)
+    assert caught.value.rule == "V6"
     own = seat_decision()
     own["observation"]["stack"].append(_stack_spell(owner_seat="p0", controller_seat="p0"))   # the viewer's own
     check_face_down(own)
-
-
-FACE_DOWN = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [], "mana_value": 0, "power": 2,
-             "toughness": 2, "keywords": []}
 
 
 def _morph(**characteristics) -> dict:
