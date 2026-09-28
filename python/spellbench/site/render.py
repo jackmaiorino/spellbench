@@ -10,9 +10,11 @@ rows carry ``bound`` and ``version``, Hero rows and their chips ``bound``,
 deck tables ``fit_error``, and grid cells ``complete_pairs``. The protocol v2
 contract adds the benchmark page's run facts (``protocol``, ``legacy``,
 ``fairness``, ``setup_rules``, ``attribution``, ``newer_runs`` and the run's
-``status``, ``rated``, ``commitment`` and ``run_secret``) and each Hero chip's
-``legacy`` flag. A benchmark view without the v2 keys (the builder before
-Task 42 adds them) renders as a legacy protocol v1 run.
+``status``, ``rated``, ``commitment`` and ``run_secret``) and a ``legacy``
+flag on each Hero chip and Models rating row. A view carries all of the
+benchmark page's v2 keys or none of them (``_protocol_gate``); one with none,
+and a chip or rating row without ``legacy``, comes from the builder before
+Task 42 adds them and renders as a legacy protocol v1 run.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
@@ -21,9 +23,9 @@ Task 42 adds them) renders as a legacy protocol v1 run.
   sit two directories down (``b/<id>/index.html``), so their cross-page
   links start with ``../../``.
 - Every bot name links to its section of the models page
-  (``models.html#model-<name>``): the Hero rows, the leaderboard labels and
-  the matchup grid headers. The link's ``title`` is the bot's description,
-  so hovering names what the bot is.
+  (``models.html#model-<name>``): the Hero rows, the leaderboard labels, the
+  matchup grid headers and the attribution table. The link's ``title`` is
+  the bot's description, so hovering names what the bot is.
 - Pages load nothing external: one inline stylesheet with light and dark
   color tokens, inline SVG charts, and on benchmark pages a few lines of tab
   script. Without script every tab panel shows under its own heading.
@@ -51,9 +53,12 @@ _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) gri
 _BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
 _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
-# A view without the protocol v2 keys comes from the pre-v2 site builder and
-# describes a legacy protocol v1 run; Task 42's builder always sets them.
-_LEGACY_PROTOCOL = {"name": "spellbench/v1", "minor": None}
+# The benchmark page's protocol v2 keys, all present or all absent (_protocol_gate), and the protocol
+# name of a legacy run. A v1 run's margins carry _LEGACY_LABEL in the Hero and on the Models page.
+_V1_PROTOCOL = "spellbench/v1"
+_V2_VIEW_KEYS = ("protocol", "legacy", "fairness", "setup_rules", "attribution", "newer_runs")
+_V2_RUN_KEYS = ("status", "rated", "commitment", "run_secret")
+_LEGACY_LABEL = f"(protocol{_NBSP}v1)"
 
 _NAV = (
     ("Leaderboard", "index.html#hero"),
@@ -293,6 +298,7 @@ svg.bar .arrow { color: var(--text); }
 .validated { color: var(--good-ink); font-weight: 600; }
 .fairness { margin-top: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .legacy { margin-top: 16px; padding: 14px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); }
+.newer-runs { margin-top: 16px; }
 .attribution-section { margin-top: 56px; }
 table.attribution { width: auto; }
 table.attribution caption { padding-bottom: 8px; color: var(--muted); font-size: 14px; text-align: left; }
@@ -335,7 +341,9 @@ table.grid td.none { background: var(--surface); }
   table { font-size: 14px; }
 }
 .details { display: grid; gap: 32px 40px; margin-top: 56px; }
-.details dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 20px; margin: 14px 0 0; font-size: 15px; }
+/* the term column fits its terms up to 40% of the list; a longer term wraps (or breaks, as body lets it)
+   instead of squeezing the values or widening the page */
+.details dl { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); gap: 8px 20px; margin: 14px 0 0; font-size: 15px; }
 .details dt { color: var(--muted); }
 .details dd { margin: 0; }
 .recheck { padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
@@ -411,14 +419,19 @@ def render_home(view: Mapping[str, Any]) -> str:
 
 
 def render_benchmark(view: Mapping[str, Any]) -> str:
-    """``b/<id>/index.html``: one benchmark's latest run, its leaderboards, and its matchups."""
+    """``b/<id>/index.html``: one benchmark's latest run, its leaderboards, and its matchups.
+
+    Raises KeyError for a view with only some of the protocol v2 keys, and
+    ValueError for one whose legacy flag, protocol and fairness disagree.
+    """
+    view = _protocol_gate(view)
     site, engine = view["site"], view["engine"]
     meta = _SEP.join(
         [
             f"engine {_e(engine['name'])} {_e(engine['version'])}",
             _count(len(view["decks"]), "deck"),
             "same deck in both seats",
-            _protocol_label(view),
+            _protocol_label(view["protocol"]),
         ]
     )
     main = [
@@ -428,13 +441,11 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         _run_box(view["run"]),
         _fairness_block(view),
     ]
-    newer_runs = view.get("newer_runs", [])
-    if newer_runs:
-        main.append(_newer_runs_note(newer_runs))
+    if view["newer_runs"]:
+        main.append(_newer_runs_note(view["newer_runs"]))
     main += [_leaderboards(view), _grid(view["grid"])]
-    attribution = view.get("attribution", [])
-    if attribution:
-        main.append(_attribution(attribution))
+    if view["attribution"]:
+        main.append(_attribution(view["attribution"], view["overall"]))
     main.append(_details(view))
     return _page(
         site,
@@ -558,9 +569,12 @@ def _model_rating(row: Mapping[str, Any]) -> str:
 
     The margin and interval use the benchmark pages' conventions: a bound's
     sign before the number (no interval), and a zero-width interval that is
-    not a bound reads "interval not estimable".
+    not a bound reads "interval not estimable". A rating from a protocol v1
+    run says so after the benchmark's name, as its Hero chip does (Decision 1).
     """
     link = f'<a href="{_e(row["href"])}">{_e(row["id"])}</a>'
+    if _legacy(row):
+        link += f" {_LEGACY_LABEL}"
     if row["reference"]:
         return f"<li>{link}: reference</li>"
     if row["margin"] is None:
@@ -655,6 +669,16 @@ def _model_link(root: str, name: str, label: str, description: str) -> str:
     """A bot's label linked to its models page section, with its description on hover."""
     hint = f' title="{_e(description)}"' if description else ""
     return f'<a href="{root}models.html#model-{_e(name)}"{hint}>{_e(label)}</a>'
+
+
+def _legacy(item: Mapping[str, Any]) -> bool:
+    """Whether a Hero chip or a Models rating row shows a protocol v1 run.
+
+    One without a ``legacy`` key comes from the site builder before protocol
+    v2, and every run that builder shows is protocol v1. Task 42 removes this
+    default once build.py emits the key.
+    """
+    return item.get("legacy", True)
 
 
 def _count(number: int, noun: str) -> str:
@@ -781,9 +805,10 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
         who += ' <span class="chip quiet">reference</span>'
     if row["author"]:
         who += f'<span class="by">{_e(row["author"])}</span>'
+    # a chip from a protocol v1 run says so (Decision 1, R3-20); the no-break space keeps the label whole
     chips = " ".join(
         f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
-        f'{" (protocol v1)" if chip.get("legacy", False) else ""}</span>'
+        f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}</span>'
         for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""
@@ -883,19 +908,15 @@ def _proposed_card(card: Mapping[str, Any]) -> str:
 def _run_box(run: Mapping[str, Any]) -> str:
     """The run's name and game counts, its files for download, and the validation mark.
 
-    A run that did not complete or is not rated says so next to its name; the
-    common case (complete and rated) stays unmarked.
+    The run's ``status`` and ``rated`` flag are not shown: the page's run is
+    the latest rated v2 run or the latest v1 run (Decision 3), so they would
+    say nothing.
     """
     games = run["games"]
     rated = f"{games['rated']} rated"
     if games["forfeit"]:
         rated += f" ({_count(games['forfeit'], 'forfeit')})"
     counts = ", ".join([rated] + [f"{games[key]} {key}" for key in ("truncated", "halted") if games[key]])
-    marks = ""
-    if run.get("status", "complete") != "complete":
-        marks += f' <span class="chip quiet">{_e(run["status"])}</span>'
-    if not run.get("rated", True):
-        marks += ' <span class="chip quiet">unrated</span>'
     files = [
         f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
         f'<span class="muted">{_file_size(item["bytes"])}</span></li>'
@@ -904,7 +925,7 @@ def _run_box(run: Mapping[str, Any]) -> str:
     return "\n".join(
         [
             '<div class="run">',
-            f'<p><strong>Run {_e(run["name"])}</strong>{marks} <span class="muted">{_count(games["total"], "game")}: {counts}</span></p>',
+            f'<p><strong>Run {_e(run["name"])}</strong> <span class="muted">{_count(games["total"], "game")}: {counts}</span></p>',
             '<ul class="files">',
             *files,
             f'<li class="validated">validated {_CHECK}</li>',
@@ -914,10 +935,56 @@ def _run_box(run: Mapping[str, Any]) -> str:
     )
 
 
-def _protocol_label(view: Mapping[str, Any]) -> str:
-    """The protocol's display label ("protocol v2"): its name's version suffix."""
-    protocol = view.get("protocol", _LEGACY_PROTOCOL)
+def _protocol_gate(view: Mapping[str, Any]) -> Mapping[str, Any]:
+    """``view`` with every protocol v2 key of the benchmark page, checked or filled in.
+
+    This is the one place a missing key gets a default. A view with none of
+    the keys comes from the site builder before protocol v2, and every run
+    that builder shows is protocol v1: it gets the legacy values (protocol
+    v1, no fairness box, setup rules, attribution or newer runs, and a
+    complete run without a commitment or secret). A view with any of the
+    keys must carry them all, else KeyError, and its legacy flag, protocol
+    name and fairness box must agree, else ValueError; so a half-built view
+    fails instead of rendering a page that is part v1 and part v2. Task 42
+    removes the legacy defaults once build.py emits the keys.
+    """
+    run = view["run"]
+    missing = [key for key in _V2_VIEW_KEYS if key not in view]
+    missing += [f"run.{key}" for key in _V2_RUN_KEYS if key not in run]
+    if len(missing) == len(_V2_VIEW_KEYS) + len(_V2_RUN_KEYS):
+        # the site builder before protocol v2: Task 42 removes this branch once build.py emits the keys
+        return {
+            **view,
+            "protocol": {"name": _V1_PROTOCOL, "minor": None},
+            "legacy": True,
+            "fairness": None,
+            "setup_rules": [],
+            "attribution": [],
+            "newer_runs": [],
+            "run": {**run, "status": "complete", "rated": True, "commitment": None, "run_secret": None},
+        }
+    if missing:
+        raise KeyError(f"benchmark view {view['id']!r} lacks protocol v2 keys: {', '.join(missing)}")
+    legacy, name, fairness = view["legacy"], view["protocol"]["name"], view["fairness"]
+    if not legacy == (name == _V1_PROTOCOL) == (fairness is None):
+        raise ValueError(
+            f"benchmark view {view['id']!r}: legacy {legacy!r}, protocol {name!r} and fairness "
+            f"{'None' if fairness is None else 'set'} disagree: a {_V1_PROTOCOL} run is legacy with fairness None, "
+            "any other run neither"
+        )
+    return view
+
+
+def _protocol_label(protocol: Mapping[str, Any]) -> str:
+    """The meta line's protocol ("protocol v2"): the version suffix of its name."""
     return f"protocol {_e(protocol['name'].rsplit('/', 1)[-1])}"
+
+
+def _protocol_id(protocol: Mapping[str, Any]) -> str:
+    """The Setup list's protocol, its name and minor version ("spellbench/v2.0"); a v1 run has no minor."""
+    if protocol["minor"] is None:
+        return _e(protocol["name"])
+    return f"{_e(protocol['name'])}.{_e(protocol['minor'])}"
 
 
 def _fairness_block(view: Mapping[str, Any]) -> str:
@@ -927,7 +994,7 @@ def _fairness_block(view: Mapping[str, Any]) -> str:
     engine) and links to the fairness contract. A self-reported run's bots ran
     without a verified sandbox (spec 11.7), which the box says next to the label.
     """
-    if view.get("legacy", True):
+    if view["legacy"]:
         return (
             '<p class="legacy">Protocol v1: this run predates the fairness contract, and the two games of '
             "each pair shared one seed. It stays on the board until the benchmark reruns on protocol v2.</p>"
@@ -953,16 +1020,25 @@ def _fairness_block(view: Mapping[str, Any]) -> str:
 def _newer_runs_note(newer_runs: Sequence[Mapping[str, Any]]) -> str:
     """Runs published after the one the page shows, named with their status."""
     listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in newer_runs)
-    return _note(f"Newer runs not shown: {listed}")
+    return f'<p class="note newer-runs">Newer runs not shown: {listed}</p>'
 
 
-def _attribution(rows: Sequence[Mapping[str, Any]]) -> str:
-    """Halts and truncations attributed to the bot whose move preceded them, one row per bot."""
-    body = [
-        f'<tr data-bot="{_e(row["name"])}"><td>{_e(row["label"])}</td><td class="num">{row["games"]}</td>'
-        f'<td class="num">{row["halts"]}</td><td class="num">{row["truncations"]}</td></tr>'
-        for row in rows
-    ]
+def _attribution(rows: Sequence[Mapping[str, Any]], overall: Sequence[Mapping[str, Any]]) -> str:
+    """Halts and truncations attributed to the bot whose move preceded them, one row per bot.
+
+    Each label links to the bot's models section like the leaderboard's, with
+    the description of the overall row of the same name on hover (none when
+    no overall row has that name).
+    """
+    descriptions = {row["name"]: row["description"] for row in overall}
+    body = []
+    for row in rows:
+        link = _model_link("../../", row["name"], row["label"], descriptions.get(row["name"], ""))
+        body.append(
+            f'<tr data-bot="{_e(row["name"])}"><td><span class="label">{link}</span></td>'
+            f'<td class="num">{row["games"]}</td><td class="num">{row["halts"]}</td>'
+            f'<td class="num">{row["truncations"]}</td></tr>'
+        )
     return "\n".join(
         [
             '<section class="attribution-section">',
@@ -1214,11 +1290,11 @@ def _details(view: Mapping[str, Any]) -> str:
     engine, run = view["engine"], view["run"]
     revision = engine["source_revision"]
     facts = [
-        ("Protocol", _protocol_label(view)),
+        ("Protocol", _protocol_id(view["protocol"])),
         ("Format", _e(view["format"])),
         ("Decks", ", ".join(_e(deck) for deck in view["decks"])),
         ("Schedule", f"{_count(view['pairs_per_deck'], 'seat-swapped pair')} per deck in each matchup"),
-        *[(_e(rule["term"]), _e(rule["value"])) for rule in view.get("setup_rules", [])],
+        *[(_e(rule["term"]), _e(rule["value"])) for rule in view["setup_rules"]],
         ("Engine", _e(engine["name"])),
         ("Engine version", _e(engine["version"])),
         ("Source revision", f"<code>{_e(revision)}</code>" if revision else '<span class="muted">not recorded</span>'),
@@ -1235,7 +1311,7 @@ def _details(view: Mapping[str, Any]) -> str:
         _note("Manifest sha256"),
         f'<p><code class="hash">{_e(run["manifest_sha256"])}</code></p>',
     ]
-    commitment, run_secret = run.get("commitment"), run.get("run_secret")
+    commitment, run_secret = run["commitment"], run["run_secret"]
     if commitment is not None:
         recheck += [_note("Commitment"), f'<p><code class="hash">{_e(commitment)}</code></p>']
     if run_secret is not None:

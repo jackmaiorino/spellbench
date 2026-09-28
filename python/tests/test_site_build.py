@@ -180,7 +180,8 @@ def test_the_models_page_shows_each_bots_rating_on_each_benchmark(tree: Path, tm
     models = (out / "models.html").read_text(encoding="utf-8")
     for bench_id in ("alpha", "beta"):
         board = json.loads((tree / bench_id / "runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
-        link = f'<a href="b/{bench_id}/index.html">{bench_id}</a>'
+        # the builder before Task 42 shows v1 runs, which the Models page labels
+        link = f'<a href="b/{bench_id}/index.html">{bench_id}</a> (protocol{NBSP}v1)'
         for row in board["rows"]:
             section = _html(models, "section", "id", f"model-{row['name']}")
             if row["bot_id"] == board["anchor"]["bot_id"]:
@@ -790,7 +791,7 @@ def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, d
         margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
         value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
         assert f'<span class="value">{value}</span>' in item, row["name"]
-        assert f'<span class="chip">gamma {value}</span>' in item, row["name"]
+        assert f'<span class="chip">gamma {value} (protocol{NBSP}v1)</span>' in item, row["name"]  # a v1 run
         if bound is None:
             low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
             detail = f"95% interval {render.format_margin(low)} to {render.format_margin(high)}"
@@ -811,4 +812,4 @@ def test_the_models_page_orders_submitted_models_by_best_rating_then_the_builtin
     assert "submitted model" in one_land and "baseline" in one_land and "version 1.0.0" in one_land
     uniform = _html(models, "section", "id", "model-uniform")
     assert "builtin reference bot" in uniform
-    assert '<li><a href="b/gamma/index.html">gamma</a>: reference</li>' in uniform
+    assert f'<li><a href="b/gamma/index.html">gamma</a> (protocol{NBSP}v1): reference</li>' in uniform
