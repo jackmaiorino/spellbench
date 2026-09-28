@@ -4,14 +4,19 @@
 with one mutation applied at the second decision (step 1, p1's first decision) or at its terminal,
 so exactly one rule or fault shows. ``MODES`` maps each mode to the outcome the host records: a
 validator rule (``"V1"`` to ``"V10"``, spec 11.3) or a fault (``"malformed"``, ``"error"``,
-``"timeout"``, ``"transport"``, ``"terminal_counts"``).
+``"timeout"``, ``"transport"``, ``"terminal_counts"``). ``DETAILS`` maps each mode to a fragment of
+the text that names its cause, specific to the injected fault, so a mode caught by another check
+under the same rule or fault does not pass: a violation's detail, a fault's message, the engine's
+exit code for ``transport``, and for ``bad-terminal-counts`` the count comparison the game loop
+makes (spec 9.5, 11.5; the test writes it as ``terminal decision_count N is not the M completed groups``).
 
 - ``unknown-kind``, ``reserved-kind``: candidate 1's semantic kind is no v2.0 kind / is a reserved one.
 - ``duplicate-semantics``: a third candidate repeats candidate 1's semantic (spec 7.1).
 - ``pass-not-first``: the priority decision offers no ``pass`` at all (spec 7.1, CR 117.3).
-- ``nfd-name``: a hand card's name is NFD, not NFC (spec 4.4).
+- ``nfd-name``: the hand card no candidate references has an NFD name, not NFC (spec 4.4).
 - ``search-minimum``: a ``select_object`` search with ``minimum`` 1, ``finish_selection`` offered (spec 7.5, F3).
-- ``order-pick-source``: an ``order_pick`` trigger item names a source whose name is hidden (spec 5.1, 6.8).
+- ``order-pick-source``: an ``order_pick`` trigger item whose source is a face-down permanent the viewer
+  may not look at, nameless as it must be, still gives ``source_name`` (spec 5.1, 6.8).
 - ``viewer-mismatch``: the observation's viewer is not the acting seat.
 - ``priority-holder``: the priority decision goes to the seat that does not hold priority (spec 6.2, 7.1).
 - ``seat-step-gap``, ``group-skip``: the seat step jumps ahead / the group id skips the next one (spec 8, 9.3).
@@ -21,7 +26,8 @@ validator rule (``"V1"`` to ``"V10"``, spec 11.3) or a fault (``"malformed"``, `
 - ``opponent-hand``, ``hand-count``, ``library-record``, ``known-unsorted`` (with ``--flags known_cards``):
   V5's hand, count, library and known-order rules (spec 6.3, 6.7).
 - ``face-down-name``, ``face-down-characteristics``: a face-down permanent the viewer may not look at
-  still shows its name / its printed characteristics (spec 6.4, 6.8).
+  still shows its name (with the face-down 2/2's characteristics) / its printed characteristics
+  (nameless) (spec 6.4, 6.8).
 - ``id-two-zones`` (at step 2): p0's played Mountain keeps its hand id (spec 5.3).
 - ``undeclared-kind`` (with ``--kinds pass,play_land,cast_spell,declare_attack,declare_block``):
   a ``choose_boolean`` the hello never declared (spec 9.1).
@@ -29,10 +35,6 @@ validator rule (``"V1"`` to ``"V10"``, spec 11.3) or a fault (``"malformed"``, `
 - ``undeclared-extension``: an ``x_leak`` extension key the hello never declared (spec 14).
 - ``family-mismatch``: a ``choose_boolean`` candidate in a priority decision (spec 7.1, 9.3).
 - ``provenance-drift``: the decision's provenance differs from the hello's.
-- ``two-target-group``: a two-target ``choose_target`` posed as a group of 3. No group-shape rule pins
-  a fixed-size target group's size (the R2-7 known gap: ``check_group_shape`` covers only priority,
-  the finish family and arrangement), so the validator passes it; the game then dies at the engine's
-  semantic echo check, an engine error, not V3.
 - ``garbage-json``, ``wrong-request-id``, ``deep-json``: a line that is not JSON, a request id the
   step never sent, an extension nested 70 levels (past the 64-level wire cap, spec 2).
 - ``error-on-step``: the step is answered with an error envelope.
@@ -41,8 +43,8 @@ validator rule (``"V1"`` to ``"V10"``, spec 11.3) or a fault (``"malformed"``, `
 - ``bad-terminal-counts``, ``bad-terminal-steps``: the terminal's ``decision_count`` / ``step_count``
   is one too high (spec 9.5, 11.5).
 
-``MODES``, the fixed engine arguments and the mutation table live at module level (R2-20): importing
-this file for ``MODES`` reads no ``sys.argv`` and serves no stdin.
+``MODES``, ``DETAILS``, the fixed engine arguments and the mutation table live at module level (R2-20):
+importing this file for them reads no ``sys.argv`` and serves no stdin.
 """
 
 from __future__ import annotations
@@ -54,9 +56,14 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from spellbench._schema import REFERENCE_FIELDS
+
 import fake_v2_engine
 
 Mutate = Callable[[int, dict], "dict | bytes"]
+
+# As a macOS file system writes it: NFD, with a combining circumflex (spec 4.4 wants NFC).
+_NFD_VAULT = "Lim-Du\u0302l's Vault"
 
 MODES: dict[str, str] = {
     "unknown-kind": "V1",
@@ -86,7 +93,6 @@ MODES: dict[str, str] = {
     "undeclared-extension": "V8",
     "family-mismatch": "V9",
     "provenance-drift": "V10",
-    "two-target-group": "error",
     "garbage-json": "malformed",
     "wrong-request-id": "malformed",
     "deep-json": "malformed",
@@ -97,14 +103,56 @@ MODES: dict[str, str] = {
     "bad-terminal-steps": "terminal_counts",
 }
 
+# A fragment of the text naming each mode's cause (module docstring): the path and value the mutation
+# broke, so a mode that another check catches under the same rule, or a fault with another cause, fails.
+DETAILS: dict[str, str] = {
+    "unknown-kind": "candidates[1].semantic.kind: 'dance' is an unknown kind",
+    "reserved-kind": "candidates[1].semantic.kind: 'pay_mana' is a reserved kind",
+    "duplicate-semantics": "candidates[2].semantic: duplicates an earlier candidate's semantic",
+    "pass-not-first": "candidates[0].semantic.kind: a priority decision offers pass as candidate 0",
+    "nfd-name": f"observation.players[1].hand[1].card_name: card name {_NFD_VAULT!r} is not in Unicode NFC",
+    "search-minimum": "candidates[0].semantic.minimum: a library search always allows finding nothing",
+    "order-pick-source": "candidates[0].semantic.item.trigger.source_name: must be null when its source's name is hidden",
+    "viewer-mismatch": "observation.viewer p0 is not acting_seat p1",
+    "priority-holder": "observation.priority_seat p0 is not acting_seat p1",
+    "seat-step-gap": "p1 seat_step 5 is not 0",
+    "group-skip": "p1 must start group 0 at substep 0, got 1 at 0",
+    "arrangement-size": "an arrangement of 2 cards is 3 decisions, not 2",
+    "stale-reference": "candidates[1].semantic.source differs from the observation record",
+    "absent-reference": "candidates[1].semantic.source references obj-no-such-object, which is not in the observation",
+    "duplicate-id": "appears twice in the observation (players[1].hand[0] and players[1].hand[1])",
+    "opponent-hand": "observation.players[0].hand must be null",
+    "hand-count": "observation.players[1].hand must hold hand_count 1 records, got 2",
+    "library-record": "observation.players[1].graveyard[0].zone is library",
+    "known-unsorted": "observation.known[0] and observation.known[1] are out of order",
+    "face-down-name": "observation.players[0].battlefield[0].card_name must be null",
+    "face-down-characteristics": "observation.players[0].battlefield[0].characteristics.supertypes must be []",
+    "id-two-zones": "appeared in zones hand and battlefield",
+    "undeclared-kind": "candidates[0].semantic.kind 'choose_boolean' is not in the declared decision_kinds",
+    "flag-off-value": "observation.players[0].poison does not match the poison flag",
+    "undeclared-extension": "extensions key 'x_leak' is not declared in hello_ok.extensions",
+    "family-mismatch": "candidates[2].semantic.kind is 'choose_boolean', a choice kind, in a priority decision",
+    "provenance-drift": "the engine identity drifted from its hello",
+    "garbage-json": "line is not strict JSON",
+    "wrong-request-id": "response request_id mismatch",
+    "deep-json": "JSON nesting deeper than 64 levels",
+    "error-on-step": "unsupported_request: the engine refuses this step",
+    "hang-on-step": "timeout waiting for peer stdout",           # the read timed out, not the write
+    "crash-on-step": "exit code 5",
+    "bad-terminal-counts": "decision_count 5 is not the 4 completed groups",
+    "bad-terminal-steps": "step_count 5 does not match the answered count 4",
+}
+
 # The engine arguments a mode needs beyond what its caller passes.
 FIXED_ARGS: dict[str, tuple[str, ...]] = {
     "known-unsorted": ("--flags", "known_cards"),
     "undeclared-kind": ("--kinds", "pass,play_land,cast_spell,declare_attack,declare_block"),
 }
 
-# As a macOS file system writes it: NFD, with a combining circumflex (spec 4.4 wants NFC).
-_NFD_VAULT = "Lim-Du\u0302l's Vault"
+# Spec 6.4 (CR 708.2): the characteristics a face-down permanent shows a viewer who may not look at it, a
+# colorless nameless 2/2 creature; its keywords stay as the keywords flag has them (V8: null while it is off).
+_FACE_DOWN_2_2: dict[str, Any] = {"supertypes": [], "types": ["creature"], "subtypes": [], "colors": [],
+                                  "mana_value": 0, "power": 2, "toughness": 2}
 
 
 def _is_decision(message: dict[str, Any], step: int) -> bool:
@@ -117,6 +165,18 @@ def _seat_decision(message: dict[str, Any]) -> dict[str, Any]:
 
 def _players(message: dict[str, Any]) -> list[dict[str, Any]]:
     return _seat_decision(message)["observation"]["players"]
+
+
+def _turn_face_down(record: dict[str, Any]) -> dict[str, Any]:
+    """``record`` as a face-down permanent shows to a seat not controlling it: a nameless 2/2 (spec 6.4, 6.8)."""
+    record.update(face_down=True, card_name=None, full_name=None)
+    record["characteristics"].update(copy.deepcopy(_FACE_DOWN_2_2))
+    return record
+
+
+def _reference(record: dict[str, Any]) -> dict[str, Any]:
+    """The object reference equal to ``record`` (spec 5.1), as V4 compares them."""
+    return {field: record[field] for field in REFERENCE_FIELDS}
 
 
 # ---------------------------------------------------------------------------
@@ -153,7 +213,8 @@ def _pass_not_first(step: int, message: dict) -> dict:
 
 def _nfd_name(step: int, message: dict) -> dict:
     if _is_decision(message, 1):
-        _players(message)[1]["hand"][0]["card_name"] = _NFD_VAULT
+        # hand[1]: candidate 1 plays hand[0], so renaming that card would break V4's reference equality too.
+        _players(message)[1]["hand"][1]["card_name"] = _NFD_VAULT
     return message
 
 
@@ -176,12 +237,14 @@ def _search_minimum(step: int, message: dict) -> dict:
 def _order_pick_source(step: int, message: dict) -> dict:
     if _is_decision(message, 1):
         seat_decision = _seat_decision(message)
-        hidden_source = dict(seat_decision["candidates"][1]["semantic"]["source"], card_name=None)
+        # p0's battlefield Mountain, face down and properly hidden from p1 (V6 holds), so the trigger's source
+        # reference equals its record (V4 holds) and only the leaked source_name breaks a rule.
+        hidden = _turn_face_down(_players(message)[0]["battlefield"][0])
         seat_decision["context"]["kind"] = "choice"
         seat_decision["candidates"] = [
             {"candidate_id": 0,
              "semantic": {"kind": "order_pick", "source": None, "purpose": "triggers",
-                          "item": {"trigger": {"source": hidden_source, "source_name": "Mountain",
+                          "item": {"trigger": {"source": _reference(hidden), "source_name": "Mountain",
                                                "ability_index": 0, "event_objects": [], "instance": 0,
                                                "label": None}},
                           "position": 0, "count": 2},
@@ -315,8 +378,11 @@ def _known_unsorted(step: int, message: dict) -> dict:
 
 def _face_down_name(step: int, message: dict) -> dict:
     if _is_decision(message, 1):
-        # p0's battlefield Mountain, face down but still named for a viewer who may not look at it.
-        _players(message)[0]["battlefield"][0]["face_down"] = True
+        # p0's battlefield Mountain, face down with the face-down 2/2's characteristics, but still named for
+        # a viewer who may not look at it: the name is the one thing it leaks.
+        record = _players(message)[0]["battlefield"][0]
+        name = record["card_name"]
+        _turn_face_down(record)["card_name"] = name
     return message
 
 
@@ -386,29 +452,13 @@ def _family_mismatch(step: int, message: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# V10, the known group-size gap, and the wire faults
+# V10 and the wire faults
 # ---------------------------------------------------------------------------
 
 
 def _provenance_drift(step: int, message: dict) -> dict:
     if _is_decision(message, 1):
         message["provenance"]["engine_version"] = "0.0.0"
-    return message
-
-
-def _two_target_group(step: int, message: dict) -> dict:
-    if _is_decision(message, 1):
-        seat_decision = _seat_decision(message)
-        source = seat_decision["candidates"][1]["semantic"]["source"]   # any held reference
-        seat_decision["context"]["kind"] = "choice"
-        seat_decision["group"]["substep_count"] = 3   # a two-target choice is 2 substeps; no rule pins it
-        seat_decision["candidates"] = [
-            {"candidate_id": index,
-             "semantic": {"kind": "choose_target", "source": source, "slot": index,
-                          "target": {"player": target}, "selected_count": 0, "minimum": 2, "maximum": 2},
-             "display_text": None}
-            for index, target in enumerate(("p0", "p1"))
-        ]
     return message
 
 
@@ -504,7 +554,6 @@ MUTATIONS: dict[str, Mutate] = {
     "undeclared-extension": _copied(_undeclared_extension),
     "family-mismatch": _copied(_family_mismatch),
     "provenance-drift": _copied(_provenance_drift),
-    "two-target-group": _copied(_two_target_group),
     "garbage-json": _copied(_garbage_json),
     "wrong-request-id": _copied(_wrong_request_id),
     "deep-json": _copied(_deep_json),
@@ -515,7 +564,7 @@ MUTATIONS: dict[str, Mutate] = {
     "bad-terminal-steps": _copied(_bad_terminal_steps),
 }
 
-assert set(MUTATIONS) == set(MODES)   # every mode has its mutation
+assert set(MUTATIONS) == set(MODES) == set(DETAILS)   # every mode has its mutation and its cause's text
 
 if __name__ == "__main__":
     if len(sys.argv) < 2 or sys.argv[1] not in MODES:

@@ -5,7 +5,9 @@ to ``hello``, ``ack`` to ``game_start`` and ``game_over``, candidate 0 to ``choo
 breaks one request (``choose`` unless named, so a run's preflight accepts the bot and the game
 forfeits it, R3-32). ``MODES`` maps each mode to the outcome ``host.agent_process.AgentProcess``
 records: a ``SeatFailure`` cause (spec 11.5), or ``"ok"`` when this layer accepts the answer and
-the game loop, the drivers or preflight judge it instead.
+the game loop, the drivers or preflight judge it instead. ``PHASES`` maps each mode to the request
+it breaks, which a ``SeatFailure``'s detail names (``"every"`` for the two modes that shape every
+answer instead).
 
 - ``garbage``: answers ``choose`` with a line that is not JSON.
 - ``nested``: answers ``choose`` with a short line nested 5000 levels.
@@ -27,18 +29,19 @@ the game loop, the drivers or preflight judge it instead.
 - ``hang``: reads a ``choose`` and never answers it.
 - ``slow-hello``, ``slow-game-start``: answer that request only after 60 s.
 - ``deaf``: answers ``hello`` and ``game_start``, then never reads stdin again: a small ``choose``
-  times out on the host's read, a large one on its bounded write (R2-5).
+  times out on the host's read, a large one on its bounded write (R2-5). It exits after
+  ``DEAF_SECONDS``, so a host whose write is unbounded fails its test instead of hanging it.
 - ``wrong-echo-step``, ``wrong-echo-semantic``: answer ``choose`` with a wrong echo, which this
   layer keeps raw for the game loop to judge.
 - ``out-of-range``: answers ``choose`` with a ``candidate_id`` past the candidate list (R2-16).
-- ``extra-fields``: answers hold unknown fields, which lenient readers ignore (spec 10).
+- ``extra-fields``: every answer holds unknown fields (``EXTRA_FIELDS``), which lenient readers ignore (spec 10).
 - ``crlf``: terminates every answer with a CRLF, which readers tolerate (spec 2).
 - ``crash-on-game-over``: exits on ``game_over``.
 - ``requires-poison``: answers ``hello`` requiring the ``poison`` observation flag.
 - ``wrong-name``: answers ``hello`` as ``impostor``.
 
-``MODES`` is module level and ``sys.argv`` is read only under ``if __name__ == "__main__":``
-(R2-20), so a test can import the table without the module serving stdin.
+``MODES``, ``PHASES`` and ``EXTRA_FIELDS`` are module level and ``sys.argv`` is read only under
+``if __name__ == "__main__":`` (R2-20), so a test can import the tables without the module serving stdin.
 """
 
 from __future__ import annotations
@@ -81,6 +84,43 @@ MODES: dict[str, str] = {
     "wrong-name": "ok",
 }
 
+# The request each mode breaks (R3-32: choose unless named), as a SeatFailure's detail names it;
+# "every" for extra-fields and crlf, which shape every answer instead.
+PHASES: dict[str, str] = {
+    "garbage": "choose",
+    "nested": "choose",
+    "deep65": "choose",
+    "flood": "choose",
+    "bigint": "choose",
+    "string-id": "choose",
+    "float-id": "choose",
+    "surrogate-error": "choose",
+    "stdout-noise": "hello",
+    "badname": "hello",
+    "error-response": "choose",
+    "decision-pending": "choose",
+    "crash": "choose",
+    "hang": "choose",
+    "slow-hello": "hello",
+    "slow-game-start": "game_start",
+    "deaf": "choose",
+    "wrong-echo-step": "choose",
+    "wrong-echo-semantic": "choose",
+    "out-of-range": "choose",
+    "extra-fields": "every",
+    "crlf": "every",
+    "crash-on-game-over": "game_over",
+    "requires-poison": "hello",
+    "wrong-name": "hello",
+}
+
+# The unknown fields extra-fields adds to every answer (spec 10: the host reads past them).
+EXTRA_FIELDS: dict[str, Any] = {"x_note": "confidence soon", "debug": {"scores": [1, 2, 3]}}
+# How long deaf sleeps after game_start before it exits: far past any budget the tests give its choose.
+DEAF_SECONDS = 30
+
+assert set(PHASES) == set(MODES)   # every mode names the request it breaks
+
 
 def _send(payload: bytes, *, crlf: bool) -> None:
     sys.stdout.buffer.write(payload + (b"\r\n" if crlf else b"\n"))
@@ -93,8 +133,13 @@ def _crash() -> None:
     os._exit(7)
 
 
-def _ack(request_id: str) -> bytes:
-    return wire.canonical_json_dumps({"response_type": "ack", "protocol": PROTOCOL, "request_id": request_id})
+def _encode(message: dict[str, Any], mode: str) -> bytes:
+    """An answer as canonical JSON, with ``EXTRA_FIELDS`` in every answer of ``extra-fields``."""
+    return wire.canonical_json_dumps({**message, **EXTRA_FIELDS} if mode == "extra-fields" else message)
+
+
+def _ack(request_id: str, mode: str) -> bytes:
+    return _encode({"response_type": "ack", "protocol": PROTOCOL, "request_id": request_id}, mode)
 
 
 def _hello_ok(request_id: str, mode: str) -> bytes:
@@ -107,7 +152,7 @@ def _hello_ok(request_id: str, mode: str) -> bytes:
         message["requires"] = {"observation": ["poison"]}
     if mode == "wrong-name":
         message["bot"] = {"name": "impostor", "version": "1.0.0"}
-    return wire.canonical_json_dumps(message)
+    return _encode(message, mode)
 
 
 def _choice(request: dict, mode: str) -> bytes:
@@ -145,10 +190,7 @@ def _choice(request: dict, mode: str) -> bytes:
     elif mode == "wrong-echo-semantic":
         selection["semantic_echo"] = {"kind": "play_land"}   # candidate 0 was pass
     message = {"response_type": "choice", "protocol": PROTOCOL, "request_id": request_id, "selection": selection}
-    if mode == "extra-fields":
-        message["x_note"] = "confidence soon"
-        message["debug"] = {"scores": [1, 2, 3]}
-    return wire.canonical_json_dumps(message)
+    return _encode(message, mode)
 
 
 def main(mode: str) -> int:
@@ -177,10 +219,12 @@ def main(mode: str) -> int:
                 time.sleep(60)
             if kind == "game_over" and mode == "crash-on-game-over":
                 _crash()
-            _send(_ack(request_id), crlf=crlf)
+            _send(_ack(request_id, mode), crlf=crlf)
             if kind == "game_start" and mode == "deaf":
-                while True:
-                    time.sleep(3600)   # answered game_start, then never reads stdin again (R2-5)
+                # Answered game_start, then never reads stdin again (R2-5). Bounded: if the host's write stops
+                # timing out, this exit breaks its pipe and the test fails, rather than hanging on a live orphan.
+                time.sleep(DEAF_SECONDS)
+                os._exit(0)
 
 
 if __name__ == "__main__":
