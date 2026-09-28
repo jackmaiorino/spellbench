@@ -8748,3 +8748,16 @@ The pre-execution review (R1: Tasks 1 to 13, R2: Tasks 14 to 28, R3: Tasks 29 to
 - R3-30: Task 33 (the commitment's benchmark and label checked; test); Task 36 (validated; test).
 - R3-31: Task 30 (abort shuts down without waiting and terminates the workers; test); Task 33 (`deferred_interrupts` while the aborted manifest is written; test).
 - R3-32: Task 28 (the request each mode breaks); Task 25 (a `SeatFailure` wrapped by cause and detail). Changed: `str(SeatFailure)` is `"cause: detail"` as R2-15 asks, not the detail alone; the diagnostic stays out either way.
+
+## Execution rulings (controller, 2026-09-28)
+
+- Wave boundary: `main` (sub-project C's kernel bots and v1 run, the Models page, the CP7 note) is merged into `protocol-v2` rather than rebased, since task branches were already published. The draft pull request runs CI against `main`.
+- Task 28: the extra mode `two-target-group` is dropped. Spec 11.3's V3 is continuity (a mis-sized group is caught when its substeps stop early); the static size checks remain the three of R2-7.
+- Task 25: the probe is cited as spec 9.7 and 12.2 (spec 14 is Extensions), in `schedule.py` and `config.py`.
+- Task 38 view contract, which Task 42 builds and tests:
+  - A benchmark view carries all of `protocol`, `legacy`, `fairness`, `setup_rules`, `attribution`, `newer_runs`, `run.status`, `run.rated`, `run.commitment`, `run.run_secret`, or none of them (the pre-v2 builder, rendered as a legacy run); a partial view raises `KeyError`, and `legacy == (protocol.name == "spellbench/v1") == (fairness is None)` or `ValueError`. Task 42 removes the legacy branch of `render._protocol_gate` once `build.py` emits the keys.
+  - Every Hero chip and every Models rating row (`models[].benchmarks[]`) carries `legacy: bool`; a missing key renders as protocol v1 until Task 42 removes the default in `render._legacy`. The label is `"(protocol v1)"` with a no-break space, so Task 42's test matches that string.
+  - Setup shows the protocol as `spellbench/v2.0` (name and minor) or `spellbench/v1`; the meta line keeps `protocol v2` or `protocol v1`.
+  - Each `attribution[].label` links to the Models page like every bot name, its hover text taken from the `overall` row of that name.
+  - The run box shows no status or rated chips (Decision 3: the board run is the latest rated v2 run or the latest v1 run); `run.status` and `run.rated` stay required keys.
+  - The newer-runs note is `<p class="note newer-runs">`.
