@@ -27,9 +27,10 @@ import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterator, Sequence
+
+from ..arena.manifest import EngineFile
 
 CHUNK_BYTES = 1 << 20
 REGISTER_TIMEOUT_S = 60.0
@@ -44,25 +45,6 @@ _PLACEHOLDER = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
 
 class PinningError(Exception):
     """An engine or bot file could not be resolved, hashed, pinned, verified or registered."""
-
-
-@dataclass(frozen=True)
-class EngineFile:
-    """One file a command runs with: part ``index`` of the command, or, from ``len(command)`` on, a declared
-    file outside the command line (such as a checkpoint).
-
-    ``path`` locates the file on this machine; it is not part of the
-    identity (comparison) or of the published record (:meth:`to_json`).
-    """
-
-    index: int
-    file_name: str
-    sha256: str
-    bytes: int
-    path: Path = field(compare=False)
-
-    def to_json(self) -> dict[str, Any]:
-        return {"index": self.index, "file_name": self.file_name, "sha256": self.sha256, "bytes": self.bytes}
 
 
 def _sha256_file(path: Path) -> tuple[str, int]:
