@@ -10,7 +10,7 @@ so the defaults below are the benchmark values.
 v1 config fields (``base_seed``, ``max_decisions``, ``max_steps``,
 ``choose_timeout_ms``, ``startup_timeout_ms``, ``engine.timeout_ms``) are
 rejected with the name of their v2 replacement. There is no ``probe`` field:
-hosts never enable the probe (spec 14).
+hosts never enable the probe (spec 9.7, 12.2).
 """
 
 from __future__ import annotations
