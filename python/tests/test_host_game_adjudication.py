@@ -21,6 +21,7 @@ from spellbench.arena.drivers import SubprocessDriver
 from spellbench.arena.ledger import LedgerRow, parse_ledger
 from spellbench.digests import deck_id
 from spellbench.host.game import GameResult, play_game
+from spellbench.host.seat import SeatFailure
 from spellbench.messages import Limits, Rules, TimeControl, WireDeck
 
 import fake_v2_scenario_smoke
@@ -283,6 +284,24 @@ def test_a_late_answer_is_a_timeout_whatever_it_says() -> None:
     assert result.adjudication == {"kind": "forfeit", "cause": "timeout", "loser_seat": "p0",
                                    "detail": "the answer to choose at seat step 0 exceeded the seat's clock"}
     assert (result.reason, result.step_count, result.decisions_checked) == ("forfeit:timeout", 0, 1)
+
+
+@pytest.mark.parametrize(("cause", "detail"), [("malformed_response", "the answer to choose was not valid"),
+                                             ("agent_error", "internal_error: the bot gave up")])
+@pytest.mark.parametrize("spent_ms", [800, 801])
+def test_a_late_failed_answer_is_a_timeout_and_an_early_one_is_its_own_cause(cause: str, detail: str, spent_ms: int) -> None:
+    """A malformed answer or an error envelope that arrives past the budget is judged late first, as a late candidate
+    is (spec 11.4: a decision that exceeds its budget is a timeout); in time, it keeps its own cause."""
+    def fail(decision):
+        raise SeatFailure(cause, detail)
+
+    now = [0]
+    result, _ = play(seats={"p0": Seat(thinking(now, spent_ms, answer=fail)), "p1": Seat()},
+                     clock_ns=lambda: now[0], time_control=TimeControl(1000, 1000, 600000, 0, 800, 30000))
+    if spent_ms > 800:
+        cause, detail = "timeout", "the answer to choose at seat step 0 exceeded the seat's clock"
+    assert result.adjudication == {"kind": "forfeit", "cause": cause, "loser_seat": "p0", "detail": detail}
+    assert (result.reason, result.winner, result.step_count) == (f"forfeit:{cause}", "p1", 0)
 
 
 def test_an_answer_that_takes_exactly_its_budget_is_in_time() -> None:

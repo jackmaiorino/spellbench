@@ -250,15 +250,22 @@ class _Game:
         except SeatFailure as failure:
             if failure.cause in _SILENCING_CAUSES:
                 self._silence(seat)
-            return self._forfeit(seat, failure)
-        elapsed_ms = -(-(self.clock_ns() - started_ns) // 1_000_000)     # whole milliseconds, rounded up
-        ruling = self._charge(seat, sd, elapsed_ms)
+                return self._forfeit(seat, failure)
+            # Spec 11.4: a decision that exceeds its budget is a timeout, whatever came back. The peer's write and
+            # read are each bounded by the budget, so a malformed answer or an error envelope can arrive late too.
+            late = self._charge(seat, sd, self._elapsed_ms(started_ns))
+            return late if late is not None else self._forfeit(seat, failure)
+        ruling = self._charge(seat, sd, self._elapsed_ms(started_ns))
         if ruling is not None:
             return ruling
         detail = _invalid_answer(sd, choice)
         if detail is not None:
             return self._forfeit_for(seat, "invalid_selection", detail)
         return choice.candidate_id
+
+    def _elapsed_ms(self, started_ns: int) -> int:
+        """Wall time since ``started_ns`` in whole milliseconds, rounded up."""
+        return -(-(self.clock_ns() - started_ns) // 1_000_000)
 
     def _silence(self, seat: str) -> None:
         self.silenced.add(seat)
@@ -359,6 +366,9 @@ class _Game:
         group, candidates = sd["group"], sd["candidates"]
         chosen_kind = candidates[candidate_id]["semantic"]["kind"]
         self.window.record(seat, real_choice=is_real_choice(len(candidates), chosen_kind))
+        # A group counts once its last substep is answered, even if a rewind later abandons it: spec 8 takes abandoned
+        # groups out of decision_count only, and counting them here keeps spec 11.4's promise that two seats within
+        # their caps never jointly reach a game cap.
         cap = self.caps.record(seat, turn=sd["observation"]["turn"],
                                completed_group=group["substep_index"] + 1 == group["substep_count"])
         if cap is None:
