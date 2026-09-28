@@ -16,10 +16,14 @@ Task 42 adds them) renders as a legacy protocol v1 run.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
-  starts with ``http://`` or ``https://``; otherwise the label is plain text.
+  starts with ``http://`` or ``https://``; otherwise the text is plain text.
 - Links are relative and explicit, never a bare directory. Benchmark pages
   sit two directories down (``b/<id>/index.html``), so their cross-page
   links start with ``../../``.
+- Every bot name links to its section of the models page
+  (``models.html#model-<name>``): the Hero rows, the leaderboard labels and
+  the matchup grid headers. The link's ``title`` is the bot's description,
+  so hovering names what the bot is.
 - Pages load nothing external: one inline stylesheet with light and dark
   color tokens, inline SVG charts, and on benchmark pages a few lines of tab
   script. Without script every tab panel shows under its own heading.
@@ -53,9 +57,15 @@ _LEGACY_PROTOCOL = {"name": "spellbench/v1", "minor": None}
 
 _NAV = (
     ("Leaderboard", "index.html#hero"),
+    ("Models", "models.html"),
     ("Benchmarks", "index.html#benchmarks"),
     ("Join", "join.html"),
     ("Method", "method.html"),
+)
+
+_MODELS_SUBTITLE = (
+    "What each bot on the benchmarks is, and its Elo above the random bot on each benchmark it entered. "
+    "Bot names everywhere on the site link here."
 )
 
 _HERO_SUBTITLE = (
@@ -335,6 +345,12 @@ table.grid td.none { background: var(--surface); }
 @media (min-width: 760px) {
   .details { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 }
+.models { margin-top: 32px; }
+.models section + section { margin-top: 40px; }
+.models h2 .ident { color: var(--muted); font-size: 15px; font-weight: 400; }
+.models p { margin-top: 6px; }
+.ratings { margin: 8px 0 0; padding-left: 1.4em; }
+.ratings li + li { margin-top: 2px; }
 .prose { max-width: 44rem; }
 .prose h2 { margin-top: 32px; font-size: 19px; }
 .prose p, .prose ol { margin-top: 10px; }
@@ -482,6 +498,86 @@ def render_method(view: Mapping[str, Any]) -> str:
     )
 
 
+def render_models(view: Mapping[str, Any]) -> str:
+    """``models.html``: one section per bot, linked from every bot name on the site."""
+    site = view["site"]
+    sections = [_model_section(model) for model in view["models"]]
+    if not sections:
+        sections = ['<p class="empty">No bots yet.</p>']
+    main = [
+        "<h1>Models</h1>",
+        f'<p class="lead">{_MODELS_SUBTITLE}</p>',
+        '<div class="models">',
+        *sections,
+        "</div>",
+    ]
+    return _page(
+        site,
+        title=f"Models{_SEP}{site['title']}",
+        description="The bots on the Spellbench benchmarks: what each one is, and its rating on each benchmark it entered.",
+        main="\n".join(main),
+        current="Models",
+    )
+
+
+# ---------------- models page ----------------
+
+
+def _model_section(model: Mapping[str, Any]) -> str:
+    """One bot: its display text, a facts line, and its rating on each benchmark it entered."""
+    heading = _e(model["label"])
+    if model["name"] != model["label"]:
+        heading += f' <span class="ident">({_e(model["name"])})</span>'
+    facts = [_e(model["kind"])]
+    if model["engine"]:
+        facts.append(f"engine {_e(model['engine'])}")
+    facts.extend(_e(tag) for tag in model["tags"])
+    facts.append(f"version {_e(model['version'])}")
+    lines = [
+        f'<section id="model-{_e(model["name"])}">',
+        f"<h2>{heading}</h2>",
+        f'<p class="by">{_e(model["author"])}</p>',
+    ]
+    if model["description"]:
+        lines.append(f"<p>{_e(model['description'])}</p>")
+    lines.append(f'<p class="meta">{_SEP.join(facts)}</p>')
+    if model["url"] is not None:
+        lines.append(f"<p>{_link(model['url'], model['url'])}</p>")
+    if model["benchmarks"]:
+        lines.append('<ul class="ratings">')
+        lines.extend(_model_rating(row) for row in model["benchmarks"])
+        lines.append("</ul>")
+    else:
+        lines.append('<p class="empty">No rated benchmark yet.</p>')
+    lines.append("</section>")
+    return "\n".join(lines)
+
+
+def _model_rating(row: Mapping[str, Any]) -> str:
+    """One benchmark line of a models section: the bot's rating there, linked to the benchmark's page.
+
+    The margin and interval use the benchmark pages' conventions: a bound's
+    sign before the number (no interval), and a zero-width interval that is
+    not a bound reads "interval not estimable".
+    """
+    link = f'<a href="{_e(row["href"])}">{_e(row["id"])}</a>'
+    if row["reference"]:
+        return f"<li>{link}: reference</li>"
+    if row["margin"] is None:
+        return f'<li>{link}: <span class="muted">unrated</span></li>'
+    rating = _bounded(format_margin(row["margin"]), row["bound"])
+    if row["bound"] is not None:
+        return f"<li>{link}: {rating}</li>"
+    lower, upper = row["lower"], row["upper"]
+    if lower is None or upper is None:
+        detail = "no interval"
+    elif lower == upper:
+        detail = "interval not estimable"
+    else:
+        detail = f"95% interval {format_margin(lower)} to {format_margin(upper)}"
+    return f"<li>{link}: {rating} ({detail})</li>"
+
+
 # ---------------- page shell and small helpers ----------------
 
 
@@ -553,6 +649,12 @@ def _link(url: str | None, text: str) -> str:
     if url is not None and url.startswith(("http://", "https://")):
         return f'<a href="{_e(url)}">{_e(text)}</a>'
     return _e(text)
+
+
+def _model_link(root: str, name: str, label: str, description: str) -> str:
+    """A bot's label linked to its models page section, with its description on hover."""
+    hint = f' title="{_e(description)}"' if description else ""
+    return f'<a href="{root}models.html#model-{_e(name)}"{hint}>{_e(label)}</a>'
 
 
 def _count(number: int, noun: str) -> str:
@@ -674,7 +776,7 @@ def _versus_random(value: float, bound: str | None) -> str:
 
 def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     bound = _hero_bound(row)
-    who = f'<span class="name">{_e(row["label"])}</span>'
+    who = f'<span class="name">{_model_link("", row["name"], row["label"], row["description"])}</span>'
     if row["reference"]:
         who += ' <span class="chip quiet">reference</span>'
     if row["author"]:
@@ -984,8 +1086,7 @@ def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float])
 def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     bound = _row_bound(row)
     rank = "-" if row["rank"] is None else str(row["rank"])
-    hint = f' title="{_e(row["description"])}"' if row["description"] else ""
-    bot = f'<span class="label"{hint}>{_link(row["url"], row["label"])}</span>'
+    bot = f'<span class="label">{_model_link("../../", row["name"], row["label"], row["description"])}</span>'
     marks = ['<span class="chip quiet">anchor</span>'] if row["anchor"] else []
     marks += [f'<span class="chip">{_e(tag)}</span>' for tag in row["tags"]]
     if marks:
@@ -1061,12 +1162,15 @@ def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str
 
 def _grid(grid: Mapping[str, Any]) -> str:
     """The matchup grid: each row bot's share of the points against each column bot."""
-    names, labels = grid["names"], grid["labels"]
-    head = "".join(f'<th scope="col">{_e(label)}</th>' for label in labels)
+    names, labels, descriptions = grid["names"], grid["labels"], grid["descriptions"]
+    head = "".join(
+        f'<th scope="col">{_model_link("../../", name, label, description)}</th>'
+        for name, label, description in zip(names, labels, descriptions, strict=True)
+    )
     body = []
-    for name, label, cells in zip(names, labels, grid["cells"], strict=True):
+    for name, label, description, cells in zip(names, labels, descriptions, grid["cells"], strict=True):
         tds = "".join(_grid_cell(name, other, cell) for other, cell in zip(names, cells, strict=True))
-        body.append(f'<tr><th scope="row">{_e(label)}</th>{tds}</tr>')
+        body.append(f'<tr><th scope="row">{_model_link("../../", name, label, description)}</th>{tds}</tr>')
     return "\n".join(
         [
             '<section class="matchups">',

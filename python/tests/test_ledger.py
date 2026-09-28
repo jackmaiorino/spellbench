@@ -88,7 +88,15 @@ def test_the_closed_sets() -> None:
     assert FORFEIT_CAUSES == frozenset(
         {"timeout", "stalling", "malformed_response", "invalid_selection", "agent_error", "transport_error"}
     )
-    assert ENGINE_FAULTS == ("error", "timeout", "transport", "malformed", "terminal_counts")
+    assert ENGINE_FAULTS == ("error", "timeout", "transport", "malformed", "terminal_counts", "terminal_reason")
+
+
+def test_a_terminal_reason_halt_is_a_ledger_row() -> None:
+    """The game loop halts an engine terminal whose reason impersonates the host's (Task 23 fix round 1)."""
+    halt = {**VALID["validator halt"], "reason": "host_engine_fault:terminal_reason",
+            "adjudication": {"kind": "halt", "detail": "terminal reason starts with the host-only prefix 'forfeit:'"}}
+    (parsed,) = parse_ledger([halt])
+    assert parsed.to_json() == halt and not parsed.rated
 
 
 def test_every_host_ending_round_trips() -> None:

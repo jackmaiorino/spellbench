@@ -35,7 +35,7 @@ jobs:
         run: uv run --no-sync python python/tools/generate_protocol_goldens.py --check
 
       - name: Run tests
-        run: uv run --no-sync pytest python/tests -q
+        run: uv run --no-sync pytest python/tests integrations -q
 
       - name: Validate committed benchmark runs
         run: uv run --no-sync spellbench site benchmarks "${{ runner.temp }}/site-check"

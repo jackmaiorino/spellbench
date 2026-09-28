@@ -36,14 +36,14 @@ HOME: dict[str, Any] = {
     "site": SITE,
     "hero": {
         "rows": [
-            {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "score": 101.4, "lower": 52.0, "upper": 150.5,
-             "approximate": False, "reference": False, "bound": None,
+            {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "description": "heuristic bot",
+             "score": 101.4, "lower": 52.0, "upper": 150.5, "approximate": False, "reference": False, "bound": None,
              "chips": [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": False}]},
-            {"name": "uniform", "label": "random", "author": "Spellbench", "score": 0.0, "lower": 0.0, "upper": 0.0,
-             "approximate": False, "reference": True, "bound": None,
+            {"name": "uniform", "label": "random", "author": "Spellbench", "description": "random bot",
+             "score": 0.0, "lower": 0.0, "upper": 0.0, "approximate": False, "reference": True, "bound": None,
              "chips": [{"benchmark_id": "pauper-kernel", "margin": 0.0, "bound": None, "legacy": False}]},
-            {"name": "first", "label": "first", "author": "Spellbench", "score": -15.2, "lower": -50.0, "upper": 20.0,
-             "approximate": False, "reference": False, "bound": None,
+            {"name": "first", "label": "first", "author": "Spellbench", "description": "first bot",
+             "score": -15.2, "lower": -50.0, "upper": 20.0, "approximate": False, "reference": False, "bound": None,
              "chips": [{"benchmark_id": "pauper-kernel", "margin": -15.2, "bound": None, "legacy": False}]},
         ],
         "benchmark_count": 1,
@@ -92,6 +92,7 @@ BENCH: dict[str, Any] = {
     "grid": {
         "names": ["heuristic", "uniform", "first"],
         "labels": ["heuristic", "random", "first"],
+        "descriptions": ["heuristic bot", "random bot", "first bot"],
         "cells": [
             [None, {"score": 0.6, "games": 64, "complete_pairs": 32}, {"score": 0.7, "games": 64, "complete_pairs": 32}],
             [{"score": 0.4, "games": 64, "complete_pairs": 32}, None, {"score": 0.55, "games": 57, "complete_pairs": 27}],
@@ -102,11 +103,31 @@ BENCH: dict[str, Any] = {
 
 INFO = {"site": SITE}
 
+MODELS: dict[str, Any] = {
+    "site": SITE,
+    "models": [
+        {"name": "g115", "label": "g115", "author": "mipo", "description": "Phase 1 policy network, sampled, no search.",
+         "url": "https://example.com/g115", "kind": "submitted model", "engine": "mtg-kernel",
+         "tags": ["reinforcement-learning"], "version": "1.0.0",
+         "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": False,
+                         "margin": 388.0, "lower": 322.0, "upper": 464.0, "bound": None}]},
+        {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "description": "Fixed priorities.",
+         "url": None, "kind": "builtin reference bot", "engine": None, "tags": ["heuristic"], "version": "1.0.0",
+         "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": False,
+                         "margin": 101.0, "lower": 46.0, "upper": 156.0, "bound": None}]},
+        {"name": "uniform", "label": "random", "author": "Spellbench", "description": "Picks uniformly at random.",
+         "url": None, "kind": "builtin reference bot", "engine": None, "tags": ["baseline"], "version": "1.0.0",
+         "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": True,
+                         "margin": 0.0, "lower": 0.0, "upper": 0.0, "bound": None}]},
+    ],
+}
+
 
 def _pages() -> dict[str, str]:
     return {
         "home": render.render_home(HOME),
         "benchmark": render.render_benchmark(BENCH),
+        "models": render.render_models(MODELS),
         "join": render.render_join(INFO),
         "method": render.render_method(INFO),
     }
@@ -278,8 +299,80 @@ def test_links_between_pages() -> None:
     pages = _pages()
     assert 'href="b/pauper-kernel/index.html"' in pages["home"]
     assert 'href="join.html"' in pages["home"] and 'href="method.html"' in pages["home"]
+    assert 'href="models.html"' in pages["home"]
     assert 'href="../../index.html"' in pages["benchmark"]
     assert 'href="run/matches.jsonl"' in pages["benchmark"]
+    assert 'href="../../models.html"' in pages["benchmark"]
+    assert 'href="b/pauper-kernel/index.html"' in pages["models"]
+
+
+def test_the_nav_has_a_models_item_after_leaderboard() -> None:
+    pages = _pages()
+    for name, page in pages.items():
+        root = "../../" if name == "benchmark" else ""
+        current = ' aria-current="page"' if name == "models" else ""
+        assert f'<li><a href="{root}models.html"{current}>Models</a></li>' in page, name
+    models_nav = re.search(r"<nav.*?</nav>", pages["models"], re.S).group(0)
+    assert (
+        '<li><a href="index.html#hero">Leaderboard</a></li>'
+        '<li><a href="models.html" aria-current="page">Models</a></li>'
+        '<li><a href="index.html#benchmarks">Benchmarks</a></li>'
+    ) in models_nav
+
+
+def test_every_bot_name_links_to_its_models_section_with_the_description_on_hover() -> None:
+    pages = _pages()
+    hero = pages["home"][pages["home"].index('id="hero"'):pages["home"].index("</section>")]
+    assert '<span class="name"><a href="models.html#model-heuristic" title="heuristic bot">heuristic</a></span>' in hero
+    assert '<span class="name"><a href="models.html#model-uniform" title="random bot">random</a></span>' in hero
+    page = pages["benchmark"]
+    overall = page[page.index('data-panel="overall"'):]
+    row = _html(overall, "tr", "data-bot", "first")
+    assert '<span class="label"><a href="../../models.html#model-first" title="first bot">first</a></span>' in row
+    grid = page[page.index('<table class="grid">'):]
+    assert '<th scope="col"><a href="../../models.html#model-first" title="first bot">first</a></th>' in grid
+    assert '<th scope="row"><a href="../../models.html#model-first" title="first bot">first</a></th>' in grid
+
+
+def test_render_models_shows_each_bots_identity_rating_and_anchor() -> None:
+    page = _pages()["models"]
+    for model in MODELS["models"]:
+        text = _element(page, "section", "id", f"model-{model['name']}")
+        for expected in (model["label"], model["author"], model["description"], model["kind"], f"version {model['version']}"):
+            assert expected in text, (model["name"], expected)
+    g115 = _html(page, "section", "id", "model-g115")
+    assert "engine mtg-kernel" in _element(page, "section", "id", "model-g115")
+    assert '<a href="https://example.com/g115">https://example.com/g115</a>' in g115
+    assert (
+        '<li><a href="b/pauper-kernel/index.html">pauper-kernel</a>: +388 (95% interval +322 to +464)</li>' in g115
+    )
+    uniform = _html(page, "section", "id", "model-uniform")
+    assert '<li><a href="b/pauper-kernel/index.html">pauper-kernel</a>: reference</li>' in uniform
+
+
+def test_a_models_section_heading_adds_the_bot_name_when_it_differs_from_the_label() -> None:
+    page = _pages()["models"]
+    assert "<h2>g115</h2>" in _html(page, "section", "id", "model-g115")  # label == name: the label alone
+    uniform = _html(page, "section", "id", "model-uniform")
+    assert "<h2>random <span" in uniform and "(uniform)</span></h2>" in uniform
+
+
+def test_a_models_rating_marks_bounds_and_not_estimable_intervals_like_the_benchmark_pages() -> None:
+    models = copy.deepcopy(MODELS)
+    models["models"][0]["benchmarks"][0].update(margin=864.0, lower=817.0, upper=920.0, bound="lower")
+    models["models"][1]["benchmarks"][0].update(margin=102.0, lower=102.0, upper=102.0)
+    page = render.render_models(models)
+    g115 = _html(page, "section", "id", "model-g115")
+    assert f"pauper-kernel</a>: {GE}{NBSP}+864</li>" in g115 and "95% interval" not in g115
+    heuristic = _html(page, "section", "id", "model-heuristic")
+    assert "pauper-kernel</a>: +102 (interval not estimable)</li>" in heuristic
+
+
+def test_the_models_page_says_so_without_bots_and_a_section_says_so_without_a_rated_benchmark() -> None:
+    assert "No bots yet." in render.render_models({"site": SITE, "models": []})
+    models = copy.deepcopy(MODELS)
+    models["models"][0]["benchmarks"] = []
+    assert "No rated benchmark yet." in _element(render.render_models(models), "section", "id", "model-g115")
 
 
 def test_a_benchmark_without_a_run_has_an_unlinked_card() -> None:
@@ -325,6 +418,12 @@ def test_only_http_urls_become_links() -> None:
     bench["overall"][2]["url"] = "https://example.com/first"
     page = render.render_benchmark(bench)
     assert 'href="javascript:' not in page
+    assert "example.com" not in page  # a bot's own url is linked from its Models page section, not here
+    models = copy.deepcopy(MODELS)
+    models["models"][0]["url"] = "javascript:alert(1)"
+    models["models"][2]["url"] = "https://example.com/first"
+    page = render.render_models(models)
+    assert 'href="javascript:' not in page
     assert 'href="https://example.com/first"' in page
 
 
@@ -354,7 +453,8 @@ def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:
     assert f"engine mtg-kernel {token}" in bench_page
     assert token in _element(bench_page, "tr", "data-bot", "heuristic")
     grid = bench_page[bench_page.index('<table class="grid">'):]
-    assert f'<th scope="col">{token}</th>' in grid and f'<th scope="row">{token}</th>' in grid
+    assert re.search(rf'<th scope="col"><a [^>]*>{token}</a></th>', grid)
+    assert re.search(rf'<th scope="row"><a [^>]*>{token}</a></th>', grid)
     # the grid's screen-reader corner label sits inside the scrolling wrapper
     assert re.search(r'<div class="table-wrap">\s*<table class="grid">\s*<thead><tr><th scope="col"><span class="sr-only">', bench_page)
     for page in (home_page, bench_page):
@@ -510,9 +610,21 @@ def _fuzz_views() -> list[tuple[str, Callable[[Any], str], dict[str, Any]]]:
     bench["overall"][0].update(bound="lower", wins=16, draws=0, losses=0)
     bench["overall"][2].update(url="https://example.com/first", ci_elo_milli=[985_000, 985_000])  # not estimable
     bench["overall"].append(_leader("ghost", "ghost", None, None, None, wins=0, draws=0, losses=0, games=0))
+    models = copy.deepcopy(MODELS)
+    models["models"][0]["benchmarks"][0].update(margin=864.0, lower=817.0, upper=920.0, bound="lower")
+    models["models"][1]["benchmarks"][0].update(margin=102.0, lower=102.0, upper=102.0)  # interval not estimable
+    models["models"][1]["benchmarks"].append(
+        {"id": "new-one", "href": "b/new-one/index.html", "reference": False,
+         "margin": None, "lower": None, "upper": None, "bound": None}  # entered but unrated
+    )
+    models["models"].append(
+        {"name": "ghost", "label": "ghost", "author": "Tests", "description": "", "url": None,
+         "kind": "submitted model", "engine": None, "tags": [], "version": "1.0.0", "benchmarks": []}
+    )
     return [
         ("home", render.render_home, home),
         ("benchmark", render.render_benchmark, bench),
+        ("models", render.render_models, models),
         ("join", render.render_join, copy.deepcopy(INFO)),
         ("method", render.render_method, copy.deepcopy(INFO)),
     ]

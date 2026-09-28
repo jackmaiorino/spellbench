@@ -360,7 +360,9 @@ them. The mtg-kernel bridge emits `x_kernel_v5` carrying the raw
 `ObservationV5` and `LegalActionV5` payloads as JSON text (`observation_json`,
 `legal_actions_json`), since they hold 64-bit hashes outside the integer range
 of Section 2, so that kernel-native models can play without a neutral
-re-encoding. Hosts pass extensions through unchanged.
+re-encoding. Hosts pass extensions through unchanged. Run with
+`--x-kernel-flat-v4`, the bridge also emits `x_kernel_flat_v4`, the acting
+seat's model input for mtg-kernel Phase 1 policies (see the bridge contract).
 
 ## 10. Agent role messages
 
