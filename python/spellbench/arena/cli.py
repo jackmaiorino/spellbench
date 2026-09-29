@@ -8,9 +8,22 @@
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
 - ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
-- ``spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]``: run a
-  benchmark into ``BENCHMARK_DIR/runs/<date>[-N]/`` (the date defaults to
-  today), then validate the run.
+- ``spellbench bench commit BENCHMARK_DIR --placement TEXT [--date
+  YYYY-MM-DD]``: check the rated run's local values, then commit and push
+  the next run's ``COMMITMENT.json`` and only then keep its secret, outside
+  the repository (spec 11.6, Decision 9); record a third-party timestamp
+  for that commit next.
+- ``spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated
+  [--date YYYY-MM-DD] [--placement TEXT])``: play the committed run NAME
+  under its pushed commitment, with REF the commitment's third-party
+  timestamp, or an unrated run under a fresh secret, into
+  ``BENCHMARK_DIR/runs/<name>/``, then validate it.
+- ``spellbench bench reveal BENCHMARK_DIR --run NAME``: publish the secret
+  of a committed run that stopped before its manifest (killed, or never
+  started) as ``REVEAL.json``, then validate it.
+- ``spellbench bench rerun RUN_DIR [--game N]...``: replay a published
+  run's games (all by default) from its revealed secret and report each one
+  whose outcome, winner, reason or game digest differs from the ledger.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
@@ -43,13 +56,24 @@ _USAGE = (
     "  spellbench run CONFIG.json\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
-    "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
+    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
+    "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
+    " [--placement TEXT])\n"
+    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    "  spellbench bench rerun RUN_DIR [--game N]...\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
     "  spellbench bot NAME [--seed N]\n"
     "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
     " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
 )
-_BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
+_BENCH_USAGE = (
+    "usage:\n"
+    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
+    "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
+    " [--placement TEXT])\n"
+    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    "  spellbench bench rerun RUN_DIR [--game N]..."
+)
 _CONFORMANCE_USAGE = (
     "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
     " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
@@ -118,29 +142,119 @@ def _cmd_leaderboard(argv: Sequence[str]) -> int:
     return 0
 
 
-def _cmd_bench(argv: Sequence[str]) -> int:
-    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
-    from ..bench.run import run_benchmark
+def _bench_options(
+    args: Sequence[str], *, values: Sequence[str] = (), flags: Sequence[str] = (), repeated: Sequence[str] = ()
+) -> dict[str, Any] | None:
+    """The options of a ``bench`` command, or None for a usage error: each of ``values`` takes one value and may
+    appear once, each of ``repeated`` takes one value each time (a list), each of ``flags`` stands alone."""
+    options: dict[str, Any] = {name: [] for name in repeated}
+    index = 0
+    while index < len(args):
+        name = args[index]
+        if name in flags and name not in options:
+            options[name] = True
+            index += 1
+        elif name in repeated and index + 1 < len(args):
+            options[name].append(args[index + 1])
+            index += 2
+        elif name in values and name not in options and index + 1 < len(args):
+            options[name] = args[index + 1]
+            index += 2
+        else:
+            return None
+    return options
 
-    if len(argv) < 2 or argv[0] != "run":
-        print(_BENCH_USAGE, file=sys.stderr)
-        return 2
-    date = None
-    rest = list(argv[2:])
-    if rest:
-        if len(rest) != 2 or rest[0] != "--date":
-            print(_BENCH_USAGE, file=sys.stderr)
-            return 2
-        date = rest[1]
-    result = run_benchmark(Path(argv[1]), date=date)
-    print(f"benchmark run published: {result.run_dir}")
-    _print_games(result.summary)
-    if result.failures:
-        for failure in result.failures:
-            print(f"FAIL {failure}", file=sys.stderr)
+
+def _report_failures(failures: Sequence[str]) -> int:
+    """Each validate failure on stderr and exit 1, or ``validate: OK`` and exit 0."""
+    for failure in failures:
+        print(f"FAIL {failure}", file=sys.stderr)
+    if failures:
         return 1
     print("validate: OK")
     return 0
+
+
+def _bench_commit(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench.commit import commit_run
+
+    options = _bench_options(args, values=("--placement", "--date"))
+    if options is None or "--placement" not in options:
+        return None
+    committed = commit_run(directory, placement=options["--placement"], date=options.get("--date"))
+    print(f"commitment pushed: {committed.run_dir / store.COMMITMENT_NAME} in commit {committed.commit}")
+    print(f"commitment: {committed.commitment}")
+    print(f"run secret kept outside the repository: {committed.secret_path}")
+    print(f"next: record a third-party timestamp for commit {committed.commit} (an issue comment, a signed release, "
+          f"or an OpenTimestamps proof), then run: spellbench bench run {directory} --run {committed.run_dir.name} "
+          "--proof <the timestamp's link>")
+    return 0
+
+
+def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench.run import run_benchmark
+
+    options = _bench_options(args, values=("--run", "--proof", "--date", "--placement"), flags=("--unrated",))
+    if options is None:
+        return None
+    committed = {"--run", "--proof"} <= set(options) and not {"--unrated", "--date", "--placement"} & set(options)
+    unrated = "--unrated" in options and not {"--run", "--proof"} & set(options)
+    if not (committed or unrated):
+        return None
+    result = run_benchmark(directory, run=options.get("--run"), proof=options.get("--proof"), unrated=unrated,
+                           date=options.get("--date"), placement=options.get("--placement"))
+    print(f"benchmark run published: {result.run_dir}")
+    _print_games(result.summary)
+    return _report_failures(result.failures)
+
+
+def _bench_reveal(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench import definition
+    from ..bench.commit import reveal_run, run_lock
+
+    options = _bench_options(args, values=("--run",))
+    if options is None or "--run" not in options:
+        return None
+    name = options["--run"]
+    definition.run_sort_key(name)  # a run name, never a path
+    directory = directory.resolve()
+    benchmark = definition.load_benchmark(directory)
+    run_dir = directory / definition.RUNS_DIR / name
+    # Only the invocation that owns the run reveals it, so a run another invocation is playing never is (R3-14).
+    with run_lock(run_dir, benchmark_id=benchmark.id):
+        path = reveal_run(run_dir, benchmark_id=benchmark.id, reason="interrupted")
+    print(f"run revealed: {path}")
+    print("next: commit and push it; spec 11.6 publishes every committed run")
+    return _report_failures(validate_tournament_dir(run_dir))
+
+
+def _bench_rerun(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench.run import rerun_games
+
+    options = _bench_options(args, repeated=("--game",))
+    if options is None or not all(value.isascii() and value.isdigit() for value in options["--game"]):
+        return None
+    mismatches = rerun_games(directory, games=[int(value) for value in options["--game"]] or None)
+    for mismatch in mismatches:
+        print(f"FAIL {mismatch}", file=sys.stderr)
+    if mismatches:
+        return 1
+    print(f"OK {directory}: every replayed game matches the ledger (outcome, winner, reason and game digest)")
+    return 0
+
+
+def _cmd_bench(argv: Sequence[str]) -> int:
+    # Imported inside each command so `spellbench bot`, spawned once per seat per game, starts without the
+    # benchmark modules (and arena modules never import bench at module level, R3-4).
+    commands = {"commit": _bench_commit, "run": _bench_run, "reveal": _bench_reveal, "rerun": _bench_rerun}
+    if len(argv) < 2 or argv[0] not in commands or argv[1].startswith("--"):
+        print(_BENCH_USAGE, file=sys.stderr)
+        return 2
+    code = commands[argv[0]](Path(argv[1]), argv[2:])
+    if code is None:
+        print(_BENCH_USAGE, file=sys.stderr)
+        return 2
+    return code
 
 
 def _cmd_site(argv: Sequence[str]) -> int:

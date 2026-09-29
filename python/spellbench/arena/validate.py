@@ -1,8 +1,10 @@
 """Re-verify a published tournament directory from its files alone (spec 11.3, 11.6, 11.8, 12.2).
 
 :func:`validate_tournament_dir` sends a protocol v2 run (manifest schema ``spellbench-tournament/v2``) to
-:func:`validate_v2_run`, and anything else, the committed v1 runs included, to the frozen legacy verifier
-(``legacy_v1``, Decision 1), which also reports a missing or unreadable manifest.
+:func:`validate_v2_run`, a committed run revealed without a manifest (``REVEAL.json``, spec 11.6) to
+:func:`check_reveal`, and anything else, the committed v1 runs included, to the frozen legacy verifier
+(``legacy_v1``, Decision 1), which also reports a missing or unreadable manifest. The reveal constants live here,
+not in ``bench``, because arena code never imports ``bench`` (R3-4).
 
 :func:`validate_v2_run` trusts nothing it can recompute and fails closed: an unreadable, missing, extra or
 inconsistent file is a failure line naming the file and the problem, never an exception. Each published file is
@@ -44,6 +46,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Sequence, TypeVar
@@ -79,6 +82,14 @@ HASHED_NAMES = (store.COMMITMENT_NAME, *store.DATA_FILE_NAMES)
 # no record cites, so a run directory may hold them.
 THROUGHPUT_NAME = "throughput.jsonl"
 LOCAL_NAMES = (store.DIAGNOSTICS_NAME, THROUGHPUT_NAME)
+# A committed run that stopped before its manifest publishes its secret in this file (spec 11.6, Decision 9).
+REVEAL_NAME = "REVEAL.json"
+REVEAL_SCHEMA = "spellbench-run-reveal/v1"
+# Why such a run stopped: a fixed category, never exception text, which could carry local paths (R3-28).
+REVEAL_REASONS = ("preflight", "guard", "interrupted", "error")
+REVEAL_KEYS = ("schema", "benchmark_id", "run_label", "commitment", "run_secret", "status", "reason")
+# The files a revealed run publishes: its commitment and the reveal.
+REVEALED_NAMES = (store.COMMITMENT_NAME, REVEAL_NAME)
 _SECRETS_KEYS = frozenset({"commitment", "run_secret", "commitment_proof"})
 _HEX64 = re.compile(r"[0-9a-f]{64}")
 # Reasons only the host writes; host/engine_process.py halts an engine terminal carrying one (spec 11.3, 11.5).
@@ -99,13 +110,15 @@ _STAND_IN_SECRET = RunSecret(bytes(32))
 def validate_tournament_dir(directory: Path) -> list[str]:
     """Re-verify a published tournament; returns the failures (empty means OK).
 
-    A v2 manifest goes to :func:`validate_v2_run`; anything else, the committed v1 runs (schema
-    ``spellbench-tournament/v1``) included, to the frozen legacy verifier (Decision 1), which reports a missing
-    manifest or an unknown schema.
+    A v2 manifest goes to :func:`validate_v2_run`; a directory holding ``REVEAL.json`` and no manifest to
+    :func:`check_reveal`; anything else, the committed v1 runs (schema ``spellbench-tournament/v1``) included, to
+    the frozen legacy verifier (Decision 1), which reports a missing manifest or an unknown schema.
     """
     directory = Path(directory)
     if _manifest_schema(directory) == TOURNAMENT_SCHEMA_V2:
         return validate_v2_run(directory)
+    if not os.path.lexists(directory / store.MANIFEST_NAME) and os.path.lexists(directory / REVEAL_NAME):
+        return check_reveal(directory)
     return legacy_v1.validate_v1_run(directory)
 
 
@@ -230,6 +243,70 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# A committed run revealed without a manifest (spec 11.6; Decision 9)
+# ---------------------------------------------------------------------------
+
+
+def check_reveal(directory: Path) -> list[str]:
+    """Re-verify a committed run revealed without a manifest (spec 11.6); returns the failures (empty means OK).
+
+    The directory holds ``COMMITMENT.json`` and ``REVEAL.json`` as regular files and nothing else but the local
+    unhashed files and OS metadata. ``REVEAL.json`` is one canonical JSON object with exactly ``REVEAL_KEYS``:
+    ``REVEAL_SCHEMA``, a benchmark id and a run label, status ``aborted``, a reason from ``REVEAL_REASONS`` (a
+    category, R3-28), and a run secret that hashes to its commitment. ``COMMITMENT.json`` is the commitment record
+    of that secret, benchmark id and run label (R3-30). Never raises, like :func:`validate_v2_run`.
+    """
+    failures: list[str] = []
+    try:
+        _check_reveal(Path(directory), failures)
+    except Exception as exc:  # noqa: BLE001 - fail closed: a value no check foresaw still fails the run
+        failures.append(f"validation stopped: {type(exc).__name__}: {exc}")
+    return [_printable(failure) for failure in failures]
+
+
+def _check_reveal(directory: Path, failures: list[str]) -> None:
+    blobs = _published_files(directory, failures, names=REVEALED_NAMES, others=LOCAL_NAMES)
+    committed = _commitment_file(blobs.get(store.COMMITMENT_NAME), failures)
+    data = blobs.get(REVEAL_NAME)
+    record = None if data is None else _parse(REVEAL_NAME, lambda: _json_object(data), failures)
+    if record is None:
+        return
+    if data != _canonical_line(record):
+        failures.append(f"{REVEAL_NAME} is not canonical JSON (spec 4.3)")
+    if set(record) != set(REVEAL_KEYS):
+        missing, extra = sorted(set(REVEAL_KEYS) - set(record)), sorted(set(record) - set(REVEAL_KEYS))
+        failures.append(f"{REVEAL_NAME} fields mismatch: missing={missing} extra={extra}")
+        return
+    if not _same(record["schema"], REVEAL_SCHEMA):
+        failures.append(f"{REVEAL_NAME} schema must be {REVEAL_SCHEMA!r}")
+    if not _same(record["status"], "aborted"):
+        failures.append(f"{REVEAL_NAME} status must be \"aborted\": a run revealed without a manifest did not finish")
+    if not any(_same(record["reason"], reason) for reason in REVEAL_REASONS):
+        failures.append(f"{REVEAL_NAME} reason must be one of {', '.join(REVEAL_REASONS)}: a category, never "
+                        "exception text (R3-28)")
+    named = True
+    for key in ("benchmark_id", "run_label"):
+        if type(record[key]) is not str or not record[key]:
+            failures.append(f"{REVEAL_NAME} {key} must be a nonempty string")
+            named = False
+    secret = None
+    try:
+        secret = RunSecret.from_hex(record["run_secret"])
+    except ValueError:
+        failures.append(f"{REVEAL_NAME} run_secret is not a revealed run secret: 64 lowercase hex characters "
+                        "(spec 11.6)")
+    commitment = record["commitment"]
+    if type(commitment) is not str or not _HEX64.fullmatch(commitment):
+        failures.append(f"{REVEAL_NAME} commitment is not 64 lowercase hex characters (spec 11.6)")
+    elif secret is not None and secret.commitment() != commitment:
+        failures.append(f"the run secret in {REVEAL_NAME} does not hash to its commitment (spec 11.6)")
+    if committed is not None and secret is not None and named:
+        expected = commitment_record(run_secret=secret, benchmark_id=record["benchmark_id"],
+                                     run_label=record["run_label"])
+        _check_commitment_file(committed, expected, failures)
+
+
+# ---------------------------------------------------------------------------
 # Reading the published files
 # ---------------------------------------------------------------------------
 
@@ -298,21 +375,27 @@ def _os_metadata(name: str) -> bool:
     return name.startswith(".") or name.lower() in _OS_METADATA_NAMES
 
 
-def _published_files(directory: Path, failures: list[str]) -> dict[str, bytes]:
-    """The bytes of each hashed file; any entry but those, the manifest, the local files and OS metadata is a
-    failure."""
+def _published_files(
+    directory: Path,
+    failures: list[str],
+    *,
+    names: Sequence[str] = HASHED_NAMES,
+    others: Sequence[str] = (store.MANIFEST_NAME, *LOCAL_NAMES),
+) -> dict[str, bytes]:
+    """The bytes of each published file of ``names`` (a run's hashed files); any entry but those, ``others`` (the
+    manifest and the local files) and OS metadata is a failure."""
     try:
         listed = {path.name: path for path in directory.iterdir() if not _os_metadata(path.name)}
     except OSError as exc:
         failures.append(f"cannot list the run directory: {exc.strerror or exc}")
         return {}
     for name in sorted(listed):
-        if name not in (store.MANIFEST_NAME, *HASHED_NAMES, *LOCAL_NAMES):
+        if name not in (*others, *names):
             failures.append(f"unexpected file in the run directory: {name}")
         elif not _regular(listed[name]):
             failures.append(f"{name} is not a regular file")
     blobs: dict[str, bytes] = {}
-    for name in HASHED_NAMES:
+    for name in names:
         if name not in listed:
             failures.append(f"missing file: {name}")
         elif _regular(listed[name]):
