@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 40", allow_module_level=True)
-
+import hashlib
 import json
 import math
 import subprocess
@@ -22,6 +19,7 @@ from spellbench.arena.cli import validate_tournament_dir
 
 from arena_helpers import (
     FAKE_ENGINE,
+    TEST_RUN_SECRET,
     builtin,
     cli_bot,
     ledger_rows,
@@ -44,16 +42,15 @@ def test_the_package_version_is_the_project_version() -> None:
 
 
 def test_round_robin_with_every_builtin_bot(tmp_path: Path) -> None:
-    # fake_engine.py always ends in a natural p0 win, so every seat-swapped
-    # pair splits 1-1: each bot finishes 4-0-4 over 8 seat-games (a decisive
-    # mirror game is one win and one loss) and all ratings tie at the anchor.
+    # The fake engine's P0Wins hook always ends in a natural p0 win, so every
+    # seat-swapped pair splits 1-1: each bot finishes 4-0-4 over 8 seat-games
+    # (a decisive mirror game is one win and one loss) and all ratings tie at
+    # the anchor.
     directory = tmp_path / "t"
-    summary = run(make_config(directory, ALL_BUILTINS, engine=FAKE_ENGINE, pairs=1))
+    summary = run(make_config(directory, ALL_BUILTINS, engine=FAKE_ENGINE, decks=("P0Wins", "P0Wins"), pairs=1))
     assert (summary.games_total, summary.games_rated) == (12, 12)
     rows = ledger_rows(directory)
-    assert [row["game_id"] for row in rows] == [
-        f"m{m:04d}p0000g{g}" for m in range(6) for g in (0, 1)
-    ]
+    assert [row["game_id"] for row in rows] == [TEST_RUN_SECRET.game_id(index) for index in range(12)]
     assert {row["outcome"] for row in rows} == {"p0_win"}
     document = leaderboard(directory)
     assert document["status"] == "ok"
@@ -65,10 +62,10 @@ def test_round_robin_with_every_builtin_bot(tmp_path: Path) -> None:
 
 
 def test_outcomes_follow_the_bots_choices(tmp_path: Path) -> None:
-    # fake_arena_engine: heuristic always plays its land (2 points), first
-    # always passes (0 points), so heuristic wins every cross game and both
-    # mirrors draw. One virtual draw per rated matchup keeps the 4-0 record
-    # finite: heuristic 4.5 vs first 0.5, a rating gap of ln(9).
+    # The fake engine's scoring game: heuristic always plays its land (2
+    # points), first always passes (0 points), so heuristic wins every cross
+    # game and both mirrors draw. One virtual draw per rated matchup keeps the
+    # 4-0 record finite: heuristic 4.5 vs first 0.5, a rating gap of ln(9).
     directory = tmp_path / "t"
     run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=2))
     document = leaderboard(directory)
@@ -121,8 +118,8 @@ def test_training_style_subratings_refit_only_games_inside_the_tag(tmp_path: Pat
 
 def test_rerun_of_an_identical_config_is_byte_identical(tmp_path: Path) -> None:
     first_dir, second_dir = tmp_path / "a", tmp_path / "b"
-    run(make_config(first_dir, ALL_BUILTINS, pairs=3))
-    run(make_config(second_dir, ALL_BUILTINS, pairs=3))
+    run(make_config(first_dir, ALL_BUILTINS, pairs=2))
+    run(make_config(second_dir, ALL_BUILTINS, pairs=2))
     for name in ("matches.jsonl", "registry.json", "leaderboard.json", "LEADERBOARD.md"):
         assert (first_dir / name).read_bytes() == (second_dir / name).read_bytes(), name
     # Non-vacuous: uniform's seeded choices must vary the results (a draw
@@ -155,7 +152,7 @@ def _flip_first_cross_game(directory: Path) -> None:
 
 def test_validate_rederives_ratings_and_catches_tampering(tmp_path: Path) -> None:
     directory = tmp_path / "t"
-    run(make_config(directory, ALL_BUILTINS, pairs=2))
+    run(make_config(directory, ALL_BUILTINS, pairs=1))
     assert validate_tournament_dir(directory) == []
 
     _flip_first_cross_game(directory)
@@ -186,7 +183,7 @@ def test_cli_run_validate_and_leaderboard(tmp_path: Path, capsys) -> None:
     capsys.readouterr()
     assert cli_main(["leaderboard", str(directory)]) == 0
     printed = capsys.readouterr().out
-    assert "| 1 | heuristic 1.0.0 |" in printed
+    assert "| 1 | heuristic 2.0.0 |" in printed
     assert cli_main(["validate", str(tmp_path / "missing")]) == 1
     assert cli_main(["run", str(config_path)]) == 1  # refuses to overwrite a published run
     assert cli_main([]) == 2
@@ -200,8 +197,8 @@ def test_builtin_bot_served_over_stdio_plays_like_the_in_process_bot(tmp_path: P
         make_config(
             over_stdio,
             [
-                subprocess_bot("heuristic", cli_bot("heuristic")),
-                subprocess_bot("uniform", cli_bot("uniform", "--seed", "11")),
+                subprocess_bot("heuristic", cli_bot("heuristic"), version="2.0.0"),
+                subprocess_bot("uniform", cli_bot("uniform", "--seed", "11"), version="2.0.0"),
             ],
             pairs=2,
         )
@@ -236,7 +233,7 @@ def test_validate_needs_nothing_outside_the_tournament_directory(tmp_path: Path)
     checkpoint = tmp_path / "weights.bin"
     checkpoint.write_bytes(b"weights")
     bots = [
-        subprocess_bot("heuristic", cli_bot("heuristic"), checkpoint=str(checkpoint)),
+        subprocess_bot("heuristic", cli_bot("heuristic"), version="2.0.0", checkpoint=str(checkpoint)),
         builtin("first"),
     ]
     directory = tmp_path / "t"
@@ -247,18 +244,18 @@ def test_validate_needs_nothing_outside_the_tournament_directory(tmp_path: Path)
 
 def test_validate_requires_every_data_file_in_the_manifest(tmp_path: Path) -> None:
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     _refresh_manifest(directory, edit=lambda manifest: manifest.update(files=[]))
     assert any("manifest" in failure for failure in validate_tournament_dir(directory))
 
 
 def test_validate_checks_the_ledger_against_the_schedule(tmp_path: Path) -> None:
-    # A row moved off its scheduled seed changes no rating, so only a
+    # A row moved off its scheduled game id changes no rating, so only a
     # schedule check can catch it.
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     rows = ledger_rows(directory)
-    rows[0]["game_seed"] += 1
+    rows[0]["game_id"] = TEST_RUN_SECRET.game_id(len(rows))  # another game id of this run, scheduled for no game
     (directory / "matches.jsonl").write_bytes(b"".join(store.canonical_bytes(row) + b"\n" for row in rows))
     _refresh_manifest(directory)
     assert any("schedule" in failure for failure in validate_tournament_dir(directory))
@@ -266,7 +263,7 @@ def test_validate_checks_the_ledger_against_the_schedule(tmp_path: Path) -> None
 
 def test_validate_checks_the_manifest_game_counts(tmp_path: Path) -> None:
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     _refresh_manifest(directory, edit=lambda manifest: manifest["games"].update(natural=0))
     assert any("games" in failure for failure in validate_tournament_dir(directory))
 
@@ -283,7 +280,7 @@ def test_a_run_made_by_another_arena_version_fails_with_one_clear_message(tmp_pa
     # Leaderboard output changes between versions, so recomputing an older
     # run would only report mismatches that read like tampering.
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     _as_published_by_arena_0_1_0(directory)
     message = (
         f"this run was made by spellbench arena 0.1.0; this is {spellbench.__version__}: "
@@ -298,7 +295,7 @@ def test_a_run_made_by_another_arena_version_fails_with_one_clear_message(tmp_pa
 def test_an_unprintable_recorded_version_is_quoted(tmp_path: Path) -> None:
     # The message reaches terminals and CI logs, where a line starting "::" is a workflow command.
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     forged = "0.1.0\n::error::forged"
     _refresh_manifest(directory, edit=lambda manifest: manifest["tournament"].update(arena_version=forged))
     assert validate_tournament_dir(directory) == [
@@ -307,17 +304,41 @@ def test_an_unprintable_recorded_version_is_quoted(tmp_path: Path) -> None:
     ]
 
 
+_VERSION = json.dumps(spellbench.__version__)  # the running version as a failure line quotes it
+
+
 @pytest.mark.parametrize(
-    "edit",
+    ("edit", "expected"),
     [
-        lambda manifest: manifest["tournament"].pop("arena_version"),
-        lambda manifest: manifest["tournament"].update(arena_version=["0.1.0"]),
-        lambda manifest: manifest.update(tournament=[]),
+        (
+            lambda manifest: manifest["tournament"].pop("arena_version"),
+            f"manifest tournament.arena_version is missing; recomputed: {_VERSION}",
+        ),
+        (
+            lambda manifest: manifest["tournament"].update(arena_version=["0.1.0"]),
+            f"manifest tournament.arena_version is a list of 1 items; recomputed: {_VERSION}",
+        ),
+        (
+            lambda manifest: manifest.update(tournament=[]),
+            "manifest tournament is a list of 0 items; recomputed: an object",
+        ),
     ],
     ids=["missing", "not-a-string", "tournament-not-an-object"],
 )
-def test_a_manifest_without_a_version_string_is_a_failure_not_a_crash(tmp_path: Path, edit) -> None:
+def test_a_manifest_without_a_version_string_is_a_failure_not_a_crash(tmp_path: Path, edit, expected: str) -> None:
+    # The version gate reads only a version string; anything else fails the comparison with the rebuilt manifest.
     directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1))
+    run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, include_self_play=False))
     _refresh_manifest(directory, edit=edit)
-    assert validate_tournament_dir(directory) == ["manifest tournament does not match the tournament data"]
+    assert validate_tournament_dir(directory) == [expected]
+
+
+def test_the_two_games_of_a_pair_have_independent_secrets(tmp_path: Path) -> None:
+    directory = tmp_path / "t"
+    run(make_config(directory, [builtin("uniform", seed=11), builtin("first")], decks=("Echo", "Echo"), pairs=1,
+                    include_self_play=False))
+    first, second = ledger_rows(directory)
+    assert (first["pair_index"], second["pair_index"]) == (0, 0)
+    received = [row["reason"] for row in (first, second)]              # the Echo hook reports a hash of the secret it got
+    assert received == ["secret:" + hashlib.sha256(TEST_RUN_SECRET.game_secret(index)).hexdigest()[:8] for index in (0, 1)]
+    assert received[0] != received[1]                                  # what each engine received differs (R3-16)
