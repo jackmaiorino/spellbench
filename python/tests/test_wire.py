@@ -353,6 +353,20 @@ def test_peer_rejects_an_oversized_line_before_it_ends() -> None:
         peer.close()
 
 
+def test_peer_reads_the_next_line_after_an_oversized_one() -> None:
+    # Spec 2: a line is one message. The peer rejects the oversized line, skips the rest of it, and reads the next,
+    # so a bot that flooded one answer is still heard when it acks game_over, instead of costing its whole budget.
+    code = ("import sys, time; sys.stdout.buffer.write(b'x' * 4096 + bytes([10]) + b'{}' + bytes([10]));"
+            " sys.stdout.flush(); time.sleep(30)")
+    peer = _peer_running(code, timeout_s=5, max_line_bytes=1024)
+    try:
+        with pytest.raises(LineTooLongError):
+            peer.read_line()
+        assert peer.read_line() == b"{}"
+    finally:
+        peer.close()
+
+
 def test_peer_caps_captured_stderr() -> None:
     code = (
         "import sys; sys.stderr.buffer.write(b'e' * (1 << 20)); sys.stderr.flush();"

@@ -289,8 +289,15 @@ def _stdout_reader(stream: Any, output: "queue.Queue[bytes | BaseException]", ma
                 output.put(b"")
                 return
             if len(line) > max_line_bytes:
+                # Reported at once; then the rest of that line is skipped in bounded reads, as read_line does, so the
+                # peer's next line is its next message (spec 2): a bot that flooded one answer still acks game_over.
                 output.put(LineTooLongError(f"stdout line exceeds {max_line_bytes} bytes"))
-                return
+                while not line.endswith(b"\n"):
+                    line = stream.readline(min(_DISCARD_CHUNK_BYTES, max_line_bytes))
+                    if line == b"":
+                        output.put(b"")
+                        return
+                continue
             output.put(strip_line_terminator(line))
     except BaseException as exc:
         output.put(exc)
