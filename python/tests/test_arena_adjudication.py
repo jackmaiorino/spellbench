@@ -7,6 +7,10 @@ fake_arena_engine p0 acts at even steps and p1 at odd steps.
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("protocol v1 test, migrated in Task 39", allow_module_level=True)
+
 import math
 import os
 import sys

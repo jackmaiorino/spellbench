@@ -1,17 +1,16 @@
-"""Test fixture: an agent-role bot that plays one land a game, then passes.
+"""Test fixture: an agent-role bot (protocol v2) that plays one land a game, then passes.
 
-On the fake arena engine a seat scores one point per land it plays, so this
-bot's one point loses every game to ``heuristic`` (two points) and wins
-every game against ``first`` (none): whatever the seeds, it has both wins
-and losses, so its rating is never a bound.
+In the fake v2 engine's scoring game a seat scores one point per land it
+plays, so this bot's one point loses every game to ``heuristic`` (two points)
+and wins every game against ``first`` (none): whatever the secrets, it has
+both wins and losses, so its rating is never a bound.
 """
 
 from __future__ import annotations
 
 import sys
 
-from spellbench.agent_server import serve
-from spellbench.models import Decision, GameStartRequest
+from spellbench.bot import Decision, GameStart, serve
 
 BOT_NAME = "one-land"
 BOT_VERSION = "1.0.0"
@@ -21,7 +20,7 @@ class OneLand:
     def __init__(self) -> None:
         self.played = False
 
-    def on_game_start(self, request: GameStartRequest) -> None:
+    def on_game_start(self, game: GameStart) -> None:
         self.played = False
 
     def choose(self, decision: Decision) -> int:
@@ -33,4 +32,4 @@ class OneLand:
 
 
 if __name__ == "__main__":
-    sys.exit(serve(OneLand(), bot_name=BOT_NAME, bot_version=BOT_VERSION))
+    sys.exit(serve(OneLand(), name=BOT_NAME, version=BOT_VERSION))
