@@ -18,12 +18,16 @@
   under its pushed commitment, with REF the commitment's third-party
   timestamp, or an unrated run under a fresh secret, into
   ``BENCHMARK_DIR/runs/<name>/``, then validate it.
-- ``spellbench bench reveal BENCHMARK_DIR --run NAME``: publish the secret
-  of a committed run that stopped before its manifest (killed, or never
-  started) as ``REVEAL.json``, then validate it.
+- ``spellbench bench reveal BENCHMARK_DIR --run NAME [--reason REASON |
+  --withheld]``: publish the secret of a committed run that stopped before
+  its manifest (killed, or never started) as ``REVEAL.json``, with a reason
+  from ``REVEAL_REASONS`` (default ``interrupted``), after moving the
+  attempt's unpublished files beside the secret, then validate it. With
+  ``--withheld``, publish a run whose secret was lost after its push as
+  withheld (spec 11.6).
 - ``spellbench bench rerun RUN_DIR [--game N]...``: replay a published
   run's games (all by default) from its revealed secret and report each one
-  whose outcome, winner, reason or game digest differs from the ledger.
+  whose ledger row differs from the ledger's.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
@@ -49,7 +53,7 @@ from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
 from .throughput import Allocation
-from .validate import validate_tournament_dir
+from .validate import REVEAL_REASONS, validate_tournament_dir
 
 _USAGE = (
     "usage:\n"
@@ -59,7 +63,7 @@ _USAGE = (
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
-    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
     "  spellbench bench rerun RUN_DIR [--game N]...\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
     "  spellbench bot NAME [--seed N]\n"
@@ -71,7 +75,7 @@ _BENCH_USAGE = (
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
-    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
     "  spellbench bench rerun RUN_DIR [--game N]..."
 )
 _CONFORMANCE_USAGE = (
@@ -181,13 +185,17 @@ def _bench_commit(directory: Path, args: Sequence[str]) -> int | None:
     options = _bench_options(args, values=("--placement", "--date"))
     if options is None or "--placement" not in options:
         return None
-    committed = commit_run(directory, placement=options["--placement"], date=options.get("--date"))
-    print(f"commitment pushed: {committed.run_dir / store.COMMITMENT_NAME} in commit {committed.commit}")
-    print(f"commitment: {committed.commitment}")
-    print(f"run secret kept outside the repository: {committed.secret_path}")
-    print(f"next: record a third-party timestamp for commit {committed.commit} (an issue comment, a signed release, "
-          f"or an OpenTimestamps proof), then run: spellbench bench run {directory} --run {committed.run_dir.name} "
-          "--proof <the timestamp's link>")
+    # commit_run holds Ctrl+C until the secret is kept; this hold lasts until the operator has read what was
+    # published, and a Ctrl+C held meanwhile then stops the command (spec 11.6, R3-31).
+    with runner.deferred_interrupts():
+        committed = commit_run(directory, placement=options["--placement"], date=options.get("--date"))
+        print(f"commitment pushed, so it is public: {committed.run_dir / store.COMMITMENT_NAME} in commit "
+              f"{committed.commit}")
+        print(f"commitment: {committed.commitment}")
+        print(f"run secret kept outside the repository: {committed.secret_path}")
+        print(f"next: record a third-party timestamp for commit {committed.commit} (an issue comment, a signed "
+              f"release, or an OpenTimestamps proof), then run: spellbench bench run {directory} --run "
+              f"{committed.run_dir.name} --proof <the timestamp's link>")
     return 0
 
 
@@ -210,10 +218,13 @@ def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
 
 def _bench_reveal(directory: Path, args: Sequence[str]) -> int | None:
     from ..bench import definition
-    from ..bench.commit import reveal_run, run_lock
+    from ..bench.commit import attempt_dir, reveal_run, run_lock, withhold_run
 
-    options = _bench_options(args, values=("--run",))
-    if options is None or "--run" not in options:
+    options = _bench_options(args, values=("--run", "--reason"), flags=("--withheld",))
+    if options is None or "--run" not in options or {"--reason", "--withheld"} <= set(options):
+        return None
+    reason = options.get("--reason", "interrupted")
+    if reason not in REVEAL_REASONS:
         return None
     name = options["--run"]
     definition.run_sort_key(name)  # a run name, never a path
@@ -222,8 +233,21 @@ def _bench_reveal(directory: Path, args: Sequence[str]) -> int | None:
     run_dir = directory / definition.RUNS_DIR / name
     # Only the invocation that owns the run reveals it, so a run another invocation is playing never is (R3-14).
     with run_lock(run_dir, benchmark_id=benchmark.id):
-        path = reveal_run(run_dir, benchmark_id=benchmark.id, reason="interrupted")
-    print(f"run revealed: {path}")
+        attempt = attempt_dir(run_dir, benchmark_id=benchmark.id)
+        before = set(attempt.iterdir()) if attempt.is_dir() else set()
+        if "--withheld" in options:
+            path = withhold_run(run_dir, benchmark_id=benchmark.id)
+        else:
+            path = reveal_run(run_dir, benchmark_id=benchmark.id, reason=reason)
+        moved = sorted(entry.name for entry in (set(attempt.iterdir()) if attempt.is_dir() else set()) - before)
+    if "--withheld" in options:
+        print(f"WARNING: {benchmark.id} run {name} is published as withheld: its secret is lost, so nobody can check "
+              "its commitment, and the site shows the run as withheld (spec 11.6)", file=sys.stderr)
+        print(f"run withheld: {path}")
+    else:
+        print(f"run revealed: {path}")
+    if moved:
+        print(f"the unpublished files of the attempt ({', '.join(moved)}) moved outside the repository, to {attempt}")
     print("next: commit and push it; spec 11.6 publishes every committed run")
     return _report_failures(validate_tournament_dir(run_dir))
 
@@ -239,7 +263,7 @@ def _bench_rerun(directory: Path, args: Sequence[str]) -> int | None:
         print(f"FAIL {mismatch}", file=sys.stderr)
     if mismatches:
         return 1
-    print(f"OK {directory}: every replayed game matches the ledger (outcome, winner, reason and game digest)")
+    print(f"OK {directory}: every replayed game matches its ledger row, field by field")
     return 0
 
 

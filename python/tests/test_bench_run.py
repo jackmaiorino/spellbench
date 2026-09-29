@@ -148,6 +148,8 @@ def test_cli_usage_and_input_errors(tmp_path: Path, capsys: pytest.CaptureFixtur
                  ["bench", "run", "--unrated"], ["bench", "launch", str(directory)],
                  ["bench", "commit", str(directory)], ["bench", "commit", str(directory), "--placement"],
                  ["bench", "reveal", str(directory)], ["bench", "reveal", str(directory), "--run", "a", "--run", "b"],
+                 ["bench", "reveal", str(directory), "--run", "2026-09-26", "--reason", "OSError: disk full"],
+                 ["bench", "reveal", str(directory), "--run", "2026-09-26", "--reason", "error", "--withheld"],
                  ["bench", "rerun", str(directory), "--game", "x"], ["bench", "rerun", str(directory), "--game"]):
         assert cli.main(argv) == 2, argv
         assert "usage:" in capsys.readouterr().err

@@ -6,12 +6,14 @@ environment wins). An unresolved placeholder stops the run before any process st
 
 A committed run (``run=NAME``, ``proof=REF``) plays under the commitment ``bench commit`` pushed
 (:mod:`.commit`). Its directory must hold only ``COMMITMENT.json``, and this invocation owns it through the lock
-beside its secret (R3-14). The secret must hash to the commitment, the commitment must be in a pushed commit,
-unchanged since its first push (R3-8), and the run publishes ``CommitmentProof(commit, proof)``. When it stops
-before the runner publishes its manifest, this invocation reveals it (``REVEAL.json``, reason ``preflight``,
-``interrupted`` or ``error``), so every committed run is published (spec 11.6). An unrated run
-(``unrated=True``) plays under a fresh secret and no proof; the runner writes its commitment before the first
-game.
+beside its secret (R3-14). It is played once: a run whose tournament began before is refused. The secret must hash
+to the commitment, the commitment must be on ``origin``'s default branch, unchanged since its first push (R3-8),
+and the benchmark folder (its runs aside) must be the one the commitment commit holds, at ``HEAD`` and in the work
+tree too, so a kept secret never chooses among definitions (spec 11.6). The run publishes
+``CommitmentProof(commit, proof)``. When it stops before the runner publishes its manifest, this invocation reveals
+it (``REVEAL.json``, reason ``preflight``, ``interrupted`` or ``error``), so every committed run is published
+(spec 11.6). An unrated run (``unrated=True``) plays under a fresh secret and no proof; the runner writes its
+commitment before the first game.
 
 The allocation is unmeasured until the launch guard plans it (Decision 10), so every run publishes as unrated
 for now (Decision 3).
@@ -30,17 +32,20 @@ from typing import Any, Callable, Iterator, Mapping, Sequence
 from ..arena import runner, store
 from ..arena.config import TournamentConfig
 from ..arena.machine import usable_cpus
-from ..arena.manifest import CommitmentProof
+from ..arena.manifest import CommitmentProof, commitment_record
 from ..arena.schedule import preflight, schedule
 from ..arena.throughput import Allocation, Placement, ThroughputError, resource_bound
 from ..arena.validate import validate_tournament_dir
 from ..run_secret import RunSecret
+from ..wire import canonical_json_dumps
 from . import commit, definition
 from .commit import CommitError
 from .definition import BenchmarkError
 
-# The ledger fields a rerun compares with the replayed game (spec 11.8: the digest chains the whole game).
-RERUN_FIELDS = ("outcome", "winner", "reason", "game_digest")
+# A rerun compares every field of a replayed game's ledger row: the ledger is a hashed data file, so it holds no
+# wall-clock value (a game is deterministic given the run secret, spec 11.6, 11.8). A game decided by a clock, a
+# timeout forfeit say, may replay differently, and is then reported like any other difference.
+_SHOWN_LIMIT = 160
 
 
 @dataclass(frozen=True)
@@ -90,7 +95,7 @@ def run_benchmark(
 
     if run is None:
         return _unrated_run(benchmark, benchmark_dir, date=date, placement=placement, resolve=resolve)
-    return _committed_run(benchmark, benchmark_dir, run, proof=proof, resolve=resolve, environ=environ)
+    return _committed_run(benchmark, benchmark_dir, run, proof=proof, environ=environ)
 
 
 def _config(benchmark: definition.Benchmark, name: str) -> TournamentConfig:
@@ -148,21 +153,30 @@ def _committed_run(
     name: str,
     *,
     proof: str,
-    resolve: Callable[[str], str],
     environ: Mapping[str, str],
 ) -> BenchmarkRun:
     run_dir = benchmark_dir / definition.RUNS_DIR / name
     _holds_only_the_commitment(run_dir, benchmark.id)
     with commit.run_lock(run_dir, benchmark_id=benchmark.id, environ=environ):
         _holds_only_the_commitment(run_dir, benchmark.id)  # again, now that no other invocation can start it
+        commit.check_not_started(run_dir, benchmark_id=benchmark.id, environ=environ)  # played once (spec 11.6)
         secret = commit.load_run_secret(run_dir, benchmark_id=benchmark.id, environ=environ)
         commit.load_placement(run_dir, benchmark_id=benchmark.id, environ=environ)  # the guard plans with it
-        commitment_proof = CommitmentProof(commit=commit.pushed_commit(run_dir), timestamp=proof)
-        config = _config(benchmark, name)
+        pushed = commit.pushed_commit(run_dir)
+        # The commitment fixed the benchmark (spec 11.6): the definition is read again once checked, and the run
+        # plays that one.
+        commit.check_definition(benchmark_dir, pushed)
+        checked = definition.load_benchmark(benchmark_dir)
+        values = definition.placeholder_values(
+            definition.placeholder_names(checked), definition.load_local_values(benchmark_dir.parent), environ
+        )
+        config = _config(checked, name)
+        commit.mark_started(run_dir, benchmark_id=benchmark.id, environ=environ)
         with _revealed_on_failure(run_dir, benchmark_id=benchmark.id, environ=environ):
             summary = runner.run_tournament(
-                config, run_secret=secret, allocation=_allocation(config), commitment_proof=commitment_proof,
-                run_label=name, benchmark_id=benchmark.id, resolve=resolve, output_dir=run_dir,
+                config, run_secret=secret, allocation=_allocation(config),
+                commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
+                benchmark_id=checked.id, resolve=lambda text: definition.substitute(text, values), output_dir=run_dir,
             )
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
 
@@ -206,7 +220,9 @@ def _placeholders(config: TournamentConfig) -> list[str]:
     return sorted({name for text in texts for name in definition.PLACEHOLDER_PATTERN.findall(text)})
 
 
-def _revealed_secret(manifest: dict[str, Any]) -> RunSecret:
+def _revealed_secret(run_dir: Path, manifest: dict[str, Any]) -> RunSecret:
+    """The run secret the manifest reveals; it must hash to the manifest's commitment and be the one committed in
+    ``COMMITMENT.json``, for this run (spec 11.6)."""
     secrets = manifest.get("secrets")
     try:
         secret = RunSecret.from_hex(secrets.get("run_secret") if isinstance(secrets, dict) else None)
@@ -214,6 +230,16 @@ def _revealed_secret(manifest: dict[str, Any]) -> RunSecret:
         raise BenchmarkError(f"{store.MANIFEST_NAME} reveals no run secret (spec 11.6)") from None
     if secret.commitment() != secrets.get("commitment"):
         raise BenchmarkError(f"the run secret in {store.MANIFEST_NAME} does not hash to its commitment (spec 11.6)")
+    names = manifest.get("run") if isinstance(manifest.get("run"), dict) else {}
+    expected = commitment_record(run_secret=secret, benchmark_id=names.get("benchmark_id"),
+                                 run_label=names.get("label"))
+    try:
+        committed = store.read_json(run_dir / store.COMMITMENT_NAME)
+    except store.StoreError as exc:
+        raise BenchmarkError(f"no readable commitment for this run: {exc}") from None
+    if canonical_json_dumps(committed) != canonical_json_dumps(expected):
+        raise BenchmarkError(f"the run secret in {store.MANIFEST_NAME} is not the one committed in "
+                             f"{store.COMMITMENT_NAME} for this run (spec 11.6)")
     return secret
 
 
@@ -228,14 +254,28 @@ def _ledger_by_index(run_dir: Path) -> dict[int, dict[str, Any]]:
 
 
 def _shown(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=True)
+    text = json.dumps(value, ensure_ascii=True)
+    return text if len(text) <= _SHOWN_LIMIT else text[: _SHOWN_LIMIT - 3] + "..."
+
+
+def _differences(recorded: dict[str, Any], replayed: dict[str, Any]) -> list[str]:
+    """Each field of a ledger row whose value differs between the ledger and the rerun (JSON values compared as
+    canonical JSON, so ``true`` is not ``1``); a field only one side has differs too."""
+    missing = object()
+    differ = []
+    for field in sorted(set(recorded) | set(replayed)):
+        old, new = recorded.get(field, missing), replayed.get(field, missing)
+        if old is missing or new is missing or canonical_json_dumps(old) != canonical_json_dumps(new):
+            differ.append(f"{field} {'missing' if old is missing else _shown(old)} in the ledger, "
+                          f"{'missing' if new is missing else _shown(new)} in the rerun")
+    return differ
 
 
 def rerun_games(
     run_dir: Path, *, games: Sequence[int] | None = None, environ: Mapping[str, str] | None = None
 ) -> list[str]:
     """Replay games of the published run in ``run_dir`` from its revealed secret; one line per replayed game whose
-    outcome, winner, reason or ``game_digest`` differs from the ledger (empty means every one matches).
+    ledger row differs from the ledger's in any field (empty means every one matches).
 
     ``games`` are game indices (default: every game of the ledger). Placeholders resolve as in
     :func:`run_benchmark`; the schedule is rebuilt from the secret, and after a preflight every chosen game plays
@@ -245,7 +285,7 @@ def rerun_games(
     run_dir = Path(run_dir).resolve()
     manifest = store.read_json(run_dir / store.MANIFEST_NAME)
     config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
-    secret = _revealed_secret(manifest)
+    secret = _revealed_secret(run_dir, manifest)
     ledger = _ledger_by_index(run_dir)
     chosen = list(ledger) if games is None else list(games)
     values = definition.placeholder_values(
@@ -269,12 +309,7 @@ def rerun_games(
         raise result.error
     mismatches = []
     for outcome in result.outcomes:
-        replayed, recorded = outcome.row.to_json(), ledger[outcome.row.game_index]
-        differ = [
-            f"{field} {_shown(recorded.get(field))} in the ledger, {_shown(replayed[field])} in the rerun"
-            for field in RERUN_FIELDS
-            if recorded.get(field) != replayed[field]
-        ]
+        differ = _differences(ledger[outcome.row.game_index], outcome.row.to_json())
         if differ:
             mismatches.append(f"game {outcome.row.game_index} ({outcome.row.game_id}): {'; '.join(differ)}")
     return mismatches

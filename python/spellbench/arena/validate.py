@@ -2,9 +2,10 @@
 
 :func:`validate_tournament_dir` sends a protocol v2 run (manifest schema ``spellbench-tournament/v2``) to
 :func:`validate_v2_run`, a committed run revealed without a manifest (``REVEAL.json``, spec 11.6) to
-:func:`check_reveal`, and anything else, the committed v1 runs included, to the frozen legacy verifier
-(``legacy_v1``, Decision 1), which also reports a missing or unreadable manifest. The reveal constants live here,
-not in ``bench``, because arena code never imports ``bench`` (R3-4).
+:func:`check_reveal` (a revealed run, or a withheld one whose secret was lost), and anything else, the committed
+v1 runs included, to the frozen legacy verifier (``legacy_v1``, Decision 1), which also reports a missing or
+unreadable manifest. The reveal constants live here, not in ``bench``, because arena code never imports ``bench``
+(R3-4).
 
 :func:`validate_v2_run` trusts nothing it can recompute and fails closed: an unreadable, missing, extra or
 inconsistent file is a failure line naming the file and the problem, never an exception. Each published file is
@@ -87,6 +88,10 @@ REVEAL_NAME = "REVEAL.json"
 REVEAL_SCHEMA = "spellbench-run-reveal/v1"
 # Why such a run stopped: a fixed category, never exception text, which could carry local paths (R3-28).
 REVEAL_REASONS = ("preflight", "guard", "interrupted", "error")
+# A committed run whose secret was lost after its commitment was pushed: its REVEAL.json holds "run_secret": null
+# and this reason. Spec 11.6 publishes every committed run, so such a run is published as withheld, never revealed:
+# nothing in it can be checked beyond its commitment and its names, and the site shows it as withheld.
+WITHHELD_REASON = "secret_lost"
 REVEAL_KEYS = ("schema", "benchmark_id", "run_label", "commitment", "run_secret", "status", "reason")
 # The files a revealed run publishes: its commitment and the reveal.
 REVEALED_NAMES = (store.COMMITMENT_NAME, REVEAL_NAME)
@@ -254,7 +259,12 @@ def check_reveal(directory: Path) -> list[str]:
     unhashed files and OS metadata. ``REVEAL.json`` is one canonical JSON object with exactly ``REVEAL_KEYS``:
     ``REVEAL_SCHEMA``, a benchmark id and a run label, status ``aborted``, a reason from ``REVEAL_REASONS`` (a
     category, R3-28), and a run secret that hashes to its commitment. ``COMMITMENT.json`` is the commitment record
-    of that secret, benchmark id and run label (R3-30). Never raises, like :func:`validate_v2_run`.
+    of that secret, benchmark id and run label (R3-30).
+
+    A withheld run (its secret lost after the push) holds ``"run_secret": null`` and ``WITHHELD_REASON``: it is a
+    valid publication (spec 11.6) whose ``COMMITMENT.json`` is checked for the benchmark id, the run label and the
+    commitment the record names, and nothing more, since no secret exists to check. Never raises, like
+    :func:`validate_v2_run`.
     """
     failures: list[str] = []
     try:
@@ -281,7 +291,11 @@ def _check_reveal(directory: Path, failures: list[str]) -> None:
         failures.append(f"{REVEAL_NAME} schema must be {REVEAL_SCHEMA!r}")
     if not _same(record["status"], "aborted"):
         failures.append(f"{REVEAL_NAME} status must be \"aborted\": a run revealed without a manifest did not finish")
-    if not any(_same(record["reason"], reason) for reason in REVEAL_REASONS):
+    withheld = record["run_secret"] is None  # its secret was lost after the push (spec 11.6)
+    if withheld and not _same(record["reason"], WITHHELD_REASON):
+        failures.append(f"{REVEAL_NAME} withholds its run secret (run_secret null), so its reason must be "
+                        f"{WITHHELD_REASON!r}")
+    elif not withheld and not any(_same(record["reason"], reason) for reason in REVEAL_REASONS):
         failures.append(f"{REVEAL_NAME} reason must be one of {', '.join(REVEAL_REASONS)}: a category, never "
                         "exception text (R3-28)")
     named = True
@@ -290,13 +304,15 @@ def _check_reveal(directory: Path, failures: list[str]) -> None:
             failures.append(f"{REVEAL_NAME} {key} must be a nonempty string")
             named = False
     secret = None
-    try:
-        secret = RunSecret.from_hex(record["run_secret"])
-    except ValueError:
-        failures.append(f"{REVEAL_NAME} run_secret is not a revealed run secret: 64 lowercase hex characters "
-                        "(spec 11.6)")
+    if not withheld:
+        try:
+            secret = RunSecret.from_hex(record["run_secret"])
+        except ValueError:
+            failures.append(f"{REVEAL_NAME} run_secret is not a revealed run secret: 64 lowercase hex characters "
+                            "(spec 11.6)")
     commitment = record["commitment"]
-    if type(commitment) is not str or not _HEX64.fullmatch(commitment):
+    well_formed = type(commitment) is str and _HEX64.fullmatch(commitment) is not None
+    if not well_formed:
         failures.append(f"{REVEAL_NAME} commitment is not 64 lowercase hex characters (spec 11.6)")
     elif secret is not None and secret.commitment() != commitment:
         failures.append(f"the run secret in {REVEAL_NAME} does not hash to its commitment (spec 11.6)")
@@ -304,6 +320,11 @@ def _check_reveal(directory: Path, failures: list[str]) -> None:
         expected = commitment_record(run_secret=secret, benchmark_id=record["benchmark_id"],
                                      run_label=record["run_label"])
         _check_commitment_file(committed, expected, failures)
+    elif committed is not None and withheld and named and well_formed:
+        # No secret to hash: the record must name the commitment published before the run (spec 11.6).
+        expected = {**commitment_record(run_secret=_STAND_IN_SECRET, benchmark_id=record["benchmark_id"],
+                                        run_label=record["run_label"]), "commitment": commitment}
+        _check_commitment_file(committed, expected, failures, source=f"the commitment named in {REVEAL_NAME}")
 
 
 # ---------------------------------------------------------------------------
@@ -567,9 +588,16 @@ def _secrets(secrets: Any, failures: list[str]) -> tuple[RunSecret | None, Any, 
     return secret, proof, matches
 
 
-def _check_commitment_file(record: dict[str, Any], expected: dict[str, Any], failures: list[str]) -> None:
+def _check_commitment_file(
+    record: dict[str, Any],
+    expected: dict[str, Any],
+    failures: list[str],
+    *,
+    source: str = "the SHA-256 of the revealed run secret",
+) -> None:
     """``COMMITMENT.json`` is the commitment record of the revealed secret, this benchmark and this run label
-    (spec 11.6, R3-30): a commitment made for another run proves nothing about this one."""
+    (spec 11.6, R3-30): a commitment made for another run proves nothing about this one. ``source`` says where the
+    expected commitment comes from (a withheld run names it instead of revealing its secret)."""
     if set(record) != set(expected):
         failures.append(f"the commitment file {store.COMMITMENT_NAME} has fields {sorted(record)}; a commitment "
                         f"record has {sorted(expected)}")
@@ -583,8 +611,7 @@ def _check_commitment_file(record: dict[str, Any], expected: dict[str, Any], fai
             failures.append(f"the commitment in {store.COMMITMENT_NAME} was made for another run: its {key} is "
                             f"{_shown(record[key])}, this run's {field} is {_shown(expected[key])} (spec 11.6, R3-30)")
     if not _same(record["commitment"], expected["commitment"]):
-        failures.append(f"the commitment in {store.COMMITMENT_NAME} is not the SHA-256 of the revealed run secret "
-                        "(spec 11.6)")
+        failures.append(f"the commitment in {store.COMMITMENT_NAME} is not {source} (spec 11.6)")
 
 
 # ---------------------------------------------------------------------------
