@@ -8761,3 +8761,14 @@ The pre-execution review (R1: Tasks 1 to 13, R2: Tasks 14 to 28, R3: Tasks 29 to
   - Each `attribution[].label` links to the Models page like every bot name, its hover text taken from the `overall` row of that name.
   - The run box shows no status or rated chips (Decision 3: the board run is the latest rated v2 run or the latest v1 run); `run.status` and `run.rated` stay required keys.
   - The newer-runs note is `<p class="note newer-runs">`.
+- Task 29: a late answer is a `timeout` forfeit whatever came back. A malformed answer or an error envelope that arrives past the budget is judged late first, as a late candidate is (spec 11.4); a crashed process stays `transport_error`. A group counts toward `max_seat_decisions_per_game` once completed, even if a rewind later abandons it (spec 8 takes abandoned groups out of `decision_count` only).
+- Task 32 interface: `check_engine(argv, *, format, decks, games=None, timeout_s=30.0, only=None)`; `games=None` plays two seat-swapped games per deck, so every deck is played. The opt-in wrapper reads `SPELLBENCH_ENGINE_FORMAT` (default `pauper-bo1`).
+- Task 32 strictness, so that no correct engine fails on a point the spec leaves open:
+  - A strict-JSON error whose line still has a readable `request_id` (a duplicate key, a fraction, an exponent, an integer past 2^53, deep nesting, a line over 8 MiB) may carry `""` or that id; `""` stays required when the id itself cannot be read (spec 4.1).
+  - The nesting probe sends 66 levels, over the limit however levels are counted; 64 levels must be accepted.
+  - A deck with both `catalog_id` and `decklist` is `malformed_request` whatever the engine's deck sources (spec 9.2: "Any other shape is `malformed_request`").
+- v2.1 errata candidates (the spec stays frozen; these are for the next minor):
+  - `choose_cost_option.choice` is an open engine-defined string, and a decline can be `choose_cost_option` "decline" or `optional_cost` `pay: false`, so two conforming engines can pose "you may sacrifice an artifact or discard a card" differently. Close the vocabulary (the `cost_kind` values plus `decline`) and fix one decomposition for "you may pay A or B".
+  - Spec 4.1 and 9.8: say whether a strict-JSON error with a readable `request_id` answers with that id or `""`.
+  - Spec 2: say how nesting levels are counted.
+  - Decision 12: allow any JSON number in fields an agent answer's receiver ignores.
