@@ -13,6 +13,10 @@
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
   subprocess (so configs can reference builtins over stdio too).
+- ``spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...]
+  [--games N] [--timeout-s SECONDS] -- ENGINE ARGV...``: hold an engine to the
+  conformance checks (``spellbench.conformance``), one line per check; exit 0
+  only when every check passes.
 
 Exit codes: 0 success, 1 validation/run failure, 2 usage.
 """
@@ -21,7 +25,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 from .. import agent_server
 from ..errors import ValidationError
@@ -37,9 +41,15 @@ _USAGE = (
     "  spellbench leaderboard TOURNAMENT_DIR\n"
     "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
-    "  spellbench bot NAME [--seed N]"
+    "  spellbench bot NAME [--seed N]\n"
+    "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
+    " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
 )
 _BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
+_CONFORMANCE_USAGE = (
+    "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
+    " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
+)
 
 
 def _load_config(path: Path) -> runner.TournamentConfig:
@@ -168,6 +178,62 @@ def _cmd_bot(argv: Sequence[str]) -> int:
     )
 
 
+def _conformance_options(argv: Sequence[str]) -> tuple[list[str], dict[str, Any]] | None:
+    """The engine command and the ``check_engine`` keywords of ``conformance engine``, or None for a usage error.
+
+    Everything after the first ``--`` is the engine command, so it may hold ``--`` and option names itself. Only
+    the syntax is checked here: ``check_engine`` refuses values out of range (``games`` below 1, say).
+    """
+    args = list(argv)
+    if not args or args[0] != "engine" or "--" not in args:
+        return None
+    split = args.index("--")
+    options, engine = args[1:split], args[split + 1 :]
+    if not engine or len(options) % 2:
+        return None
+    keywords: dict[str, Any] = {"decks": []}
+    for flag, value in zip(options[::2], options[1::2]):
+        if flag == "--deck":
+            keywords["decks"].append(value)
+        elif flag == "--format" and "format" not in keywords:
+            keywords["format"] = value
+        elif flag == "--games" and "games" not in keywords:
+            if not value.isascii() or not value.isdigit():
+                return None
+            keywords["games"] = int(value)
+        elif flag == "--timeout-s" and "timeout_s" not in keywords:
+            try:
+                keywords["timeout_s"] = float(value)
+            except ValueError:
+                return None
+        else:
+            return None
+    if "format" not in keywords or not keywords["decks"]:
+        return None
+    return engine, keywords
+
+
+def _cmd_conformance(argv: Sequence[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the conformance runner.
+    from .. import conformance
+
+    parsed = _conformance_options(argv)
+    if parsed is None:
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    engine, keywords = parsed
+    try:
+        report = conformance.check_engine(engine, **keywords)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    # An engine's error messages reach the details: escape what stdout cannot encode (a Windows pipe is cp1252).
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(report.render().encode(encoding, "backslashreplace").decode(encoding))
+    return 0 if report.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
@@ -187,6 +253,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_site(rest)
         if command == "bot":
             return _cmd_bot(rest)
+        if command == "conformance":
+            return _cmd_conformance(rest)
     except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
