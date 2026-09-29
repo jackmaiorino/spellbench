@@ -183,7 +183,7 @@ def _legacy_view(**changes: Any) -> dict[str, Any]:
 
 
 def _pre_v2_view() -> dict[str, Any]:
-    """BENCH as the site builder before Task 42 makes it: without any protocol v2 key."""
+    """BENCH without any protocol key, as the site builder made it before protocol v2."""
     view = copy.deepcopy(BENCH)
     for key in V2_EXTRA:
         del view[key]
@@ -339,12 +339,11 @@ def test_a_view_with_only_some_protocol_v2_keys_is_refused(base: str, key: str) 
         render.render_benchmark(_without(view, key))
 
 
-def test_a_view_without_any_protocol_v2_key_renders_as_a_legacy_run() -> None:
-    # the site builder before Task 42 sets none of the keys, and every run it shows is protocol v1
-    view = _pre_v2_view()
-    page = render.render_benchmark(view)
-    assert page == render.render_benchmark(_legacy_view())
-    assert view == _pre_v2_view()  # the renderer fills the defaults in its own copy
+def test_a_view_without_any_protocol_key_is_refused() -> None:
+    # the builder sets every key, a v1 run's too: no view renders as protocol v1 by default any more
+    keys = ", ".join([*V2_EXTRA, *(f"run.{key}" for key in V2_RUN_KEYS)])
+    with pytest.raises(KeyError, match=rf"keys: {re.escape(keys)}\W*$"):
+        render.render_benchmark(_pre_v2_view())
 
 
 @pytest.mark.parametrize(
@@ -413,21 +412,16 @@ def test_a_models_rating_from_a_v1_run_says_so_after_the_benchmark() -> None:
     assert "(protocol" not in render.render_models(MODELS)
 
 
-def test_a_chip_or_rating_without_a_legacy_flag_is_labelled_protocol_v1() -> None:
-    # the site builder before Task 42 sets no legacy flag, and every run it shows is protocol v1
+def test_a_chip_or_rating_without_a_legacy_flag_is_refused() -> None:
+    # the builder flags every chip and rating row: a missing flag no longer reads as protocol v1
     home = copy.deepcopy(HOME)
-    for row in home["hero"]["rows"]:
-        for chip in row["chips"]:
-            del chip["legacy"]
-    page = render.render_home(home)
-    assert f'<span class="chip">pauper-kernel +101 {V1}</span>' in _html(page, "li", "data-bot", "heuristic")
-    assert page.count(V1) == 3
+    del home["hero"]["rows"][2]["chips"][0]["legacy"]
+    with pytest.raises(KeyError, match="legacy"):
+        render.render_home(home)
     models = copy.deepcopy(MODELS)
-    for model in models["models"]:
-        del model["benchmarks"][0]["legacy"]
-    page = render.render_models(models)
-    assert f'<li><a href="b/pauper-kernel/index.html">pauper-kernel</a> {V1}: reference</li>' in page
-    assert page.count(V1) == 3
+    del models["models"][2]["benchmarks"][0]["legacy"]
+    with pytest.raises(KeyError, match="legacy"):
+        render.render_models(models)
 
 
 def test_format_helpers() -> None:
@@ -857,7 +851,7 @@ def _fuzz_views() -> list[tuple[str, Callable[[Any], str], dict[str, Any]]]:
     models["models"][1]["benchmarks"][0].update(margin=102.0, lower=102.0, upper=102.0)  # interval not estimable
     models["models"][1]["benchmarks"].append(
         {"id": "new-one", "href": "b/new-one/index.html", "reference": False,
-         "margin": None, "lower": None, "upper": None, "bound": None}  # entered but unrated; no legacy flag: v1
+         "margin": None, "lower": None, "upper": None, "bound": None, "legacy": True}  # entered but unrated
     )
     models["models"].append(
         {"name": "ghost", "label": "ghost", "author": "Tests", "description": "", "url": None,
