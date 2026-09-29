@@ -142,18 +142,18 @@ def _validate_v2(directory: Path, failures: list[str]) -> None:
                                                         failures)
     if manifest is None:
         return
+    # 2. The arena version gate, first: a run made by another arena version may carry fields this one does not
+    # know, and the useful message is which arena to validate it with.
+    gate = _version_gate(manifest.get("tournament"))
+    if gate is not None:
+        failures.append(gate)
+        return
     missing, extra = sorted(set(MANIFEST_KEYS) - set(manifest)), sorted(set(manifest) - set(MANIFEST_KEYS))
     if missing or extra:
         failures.append(f"{store.MANIFEST_NAME} fields mismatch: missing={missing} extra={extra}")
         return
     if manifest["schema"] != TOURNAMENT_SCHEMA_V2:
         failures.append(f"{store.MANIFEST_NAME} schema must be {TOURNAMENT_SCHEMA_V2!r}")
-        return
-
-    # 2. The arena version gate.
-    gate = _version_gate(manifest["tournament"])
-    if gate is not None:
-        failures.append(gate)
         return
     if raw_manifest != _canonical_line(manifest):
         failures.append(f"{store.MANIFEST_NAME} is not canonical JSON (spec 4.3)")
@@ -288,10 +288,21 @@ def _regular(path: Path) -> bool:
     return path.is_file() and not path.is_symlink()
 
 
+# Names a desktop writes into any folder it shows (Finder, Dolphin, Explorer). They are never read, so ignoring them
+# opens no path for tampering, and a run someone merely browsed still validates.
+_OS_METADATA_NAMES = frozenset({"thumbs.db", "desktop.ini"})
+
+
+def _os_metadata(name: str) -> bool:
+    """A hidden entry (``.DS_Store``, ``.directory``, ...) or a Windows folder file, compared without case."""
+    return name.startswith(".") or name.lower() in _OS_METADATA_NAMES
+
+
 def _published_files(directory: Path, failures: list[str]) -> dict[str, bytes]:
-    """The bytes of each hashed file; any entry but those, the manifest and the local files is a failure."""
+    """The bytes of each hashed file; any entry but those, the manifest, the local files and OS metadata is a
+    failure."""
     try:
-        listed = {path.name: path for path in directory.iterdir()}
+        listed = {path.name: path for path in directory.iterdir() if not _os_metadata(path.name)}
     except OSError as exc:
         failures.append(f"cannot list the run directory: {exc.strerror or exc}")
         return {}
@@ -308,6 +319,9 @@ def _published_files(directory: Path, failures: list[str]) -> dict[str, bytes]:
             data = _parse(f"cannot read {name}", listed[name].read_bytes, failures)
             if data is not None:
                 blobs[name] = data
+                if b"\r\n" in data:  # canonical JSON escapes CR, and the arena writes LF, so a CR LF is a conversion
+                    failures.append(f"{name} has CR LF line endings: published files use LF, so a copy or an edit "
+                                    "outside git changed its bytes")
     return blobs
 
 

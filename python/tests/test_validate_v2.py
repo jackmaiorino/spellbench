@@ -226,6 +226,50 @@ def test_a_parallel_run_validates(tmp_path: Path) -> None:
     assert validate_tournament_dir(directory) == []
 
 
+def test_parallel_invalid_and_aborted_runs_validate(tmp_path: Path) -> None:
+    """Decision 6 with workers > 1: the ledger stops at the violating game, and an aborted run keeps its prefix."""
+    invalid = tmp_path / "invalid"
+    run(make_config(invalid, [builtin("first"), builtin("heuristic")], engine=HOSTILE_ENGINE,
+                    engine_args=("stale-reference",), pairs=2, workers=2))
+    assert manifest(invalid)["run"]["status"] == "invalid"
+    assert validate_tournament_dir(invalid) == []
+    aborted = tmp_path / "aborted"
+    with pytest.raises(KeyboardInterrupt):
+        run(make_config(aborted, BOTS, pairs=2, include_self_play=False, workers=2), on_game=_interrupt_at(1))
+    assert manifest(aborted)["run"]["status"] == "aborted"
+    assert validate_tournament_dir(aborted) == []
+
+
+def test_files_a_desktop_leaves_in_a_browsed_run_are_ignored(published: dict[str, Path], tmp_path: Path) -> None:
+    """Finder, Dolphin and Explorer write these into any folder they show; a browsed honest run still validates."""
+    directory = _copy(published, "aborted", tmp_path)
+    for name in (".DS_Store", ".directory", "Thumbs.db", "desktop.ini"):
+        (directory / name).write_bytes(b"\x00metadata")
+    assert validate_tournament_dir(directory) == []
+    (directory / "notes.txt").write_text("x", encoding="utf-8")                 # anything else still fails
+    assert validate_tournament_dir(directory) == ["unexpected file in the run directory: notes.txt"]
+
+
+def test_a_file_converted_to_crlf_says_so(published: dict[str, Path], tmp_path: Path) -> None:
+    directory = _copy(published, "unrated", tmp_path)
+    path = directory / "config.json"
+    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    assert ("config.json has CR LF line endings: published files use LF, so a copy or an edit outside git changed its "
+            "bytes") in validate_tournament_dir(directory)
+
+
+def test_the_arena_version_is_checked_before_the_manifest_fields(published: dict[str, Path], tmp_path: Path) -> None:
+    """A newer arena may add a manifest field; its run gets the one message naming the arena, not a field list."""
+    directory = _copy(published, "unrated", tmp_path)
+
+    def newer(document: dict) -> None:
+        document["tournament"]["arena_version"] = "9.9.9"
+        document["quarantine"] = []
+
+    _write_manifest(directory, newer)
+    assert validate_tournament_dir(directory) == [validate._version_gate({"arena_version": "9.9.9"})]
+
+
 # ---------------------------------------------------------------------------
 # The plan's tampering cases (a forger who refreshes the digests)
 # ---------------------------------------------------------------------------
