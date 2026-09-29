@@ -4,14 +4,14 @@
 placement to consider, keyed by volume role (``run_dir``, ``pin_root``) and
 never by path; :func:`check_reserve` keeps every target volume
 ``RESERVE_BYTES`` free (ARTIFACT-LAW.md clause 1); :class:`CpuSampler`
-feeds the idle monitor (COMPUTE-POLICY.md item 6).
+feeds the idle monitor (COMPUTE-POLICY.md item 6). An allocation names its
+machine by an alias (:func:`host_name`), never by the machine's own name.
 """
 
 from __future__ import annotations
 
 import math
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -23,12 +23,24 @@ from .allocation import VOLUME_ROLES, MachineFacts, ThroughputError
 # Free space every target volume keeps (ARTIFACT-LAW.md clause 1).
 RESERVE_BYTES = 60 * 2**30
 
+# The alias an allocation publishes for its machine (R3-28): this variable's value, else DEFAULT_HOST_ALIAS.
+HOST_ALIAS_ENV = "SPELLBENCH_HOST_ALIAS"
+DEFAULT_HOST_ALIAS = "local"
+
 _MAX_INT = (1 << 53) - 1
 
 
 def host_name(host: str | None = None) -> str:
-    """``host``, or this machine's network name."""
-    return (platform.node() or "unknown") if host is None else host
+    """The host an allocation records: ``host`` when given, else ``SPELLBENCH_HOST_ALIAS``, else ``"local"``.
+
+    The manifest publishes it, so it is an alias the operator chooses and
+    never this machine's network name (R3-28). It also keys the reuse of
+    local throughput evidence, so machines that share an evidence file need
+    distinct aliases.
+    """
+    if host is not None:
+        return host
+    return os.environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS
 
 
 def cgroup_cpus(text: str | None) -> int | None:

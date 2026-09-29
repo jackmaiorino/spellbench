@@ -1,7 +1,9 @@
 """The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot.
 
-- ``spellbench run CONFIG.json``: run a tournament and publish artifacts
-  into the config's ``tournament_dir``.
+- ``spellbench run CONFIG.json``: run a protocol v2 tournament under a
+  fresh run secret and publish its artifacts into the config's
+  ``tournament_dir``, then print its status and whether it is rated. No
+  launch guard measures it yet, so it publishes as unrated (Decision 3).
 - ``spellbench validate TOURNAMENT_DIR``: verify every manifest digest and
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
@@ -11,8 +13,8 @@
   today), then validate the run.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
-- ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
-  subprocess (so configs can reference builtins over stdio too).
+- ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
+  agent-role subprocess (so configs can reference builtins over stdio too).
 - ``spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...]
   [--games N] [--timeout-s SECONDS] -- ENGINE ARGV...``: hold an engine to the
   conformance checks (``spellbench.conformance``), one line per check; exit 0
@@ -27,11 +29,13 @@ import sys
 from pathlib import Path
 from typing import Any, Sequence
 
-from .. import agent_server
+from .. import bot
+from ..builtins import BUILTIN_VERSIONS, create_builtin_bot
 from ..errors import ValidationError
+from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
-from .bots import BUILTIN_VERSIONS, create_builtin_bot
+from .throughput import Allocation
 from .validate import validate_tournament_dir
 
 _USAGE = (
@@ -79,9 +83,13 @@ def _cmd_run(argv: Sequence[str]) -> int:
         print("usage: spellbench run CONFIG.json", file=sys.stderr)
         return 2
     config = _load_config(Path(argv[0]))
-    summary = runner.run_tournament(config)
+    # A fresh secret per run (spec 11.6); no guard measures the run yet, so it is unrated (Decision 3). The
+    # allocation records the cores each game declares, which cap the workers the runner starts (spec 11.4).
+    allocation = Allocation.unmeasured(config.workers, per_game_cores=config.per_game_cores())
+    summary = runner.run_tournament(config, run_secret=RunSecret.generate(), allocation=allocation)
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
+    print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")
     return 0
 
 
@@ -171,11 +179,7 @@ def _cmd_bot(argv: Sequence[str]) -> int:
         if seed < 0:
             print("--seed must be nonnegative", file=sys.stderr)
             return 2
-    return agent_server.serve(
-        create_builtin_bot(name, seed=seed),
-        bot_name=name,
-        bot_version=BUILTIN_VERSIONS[name],
-    )
+    return bot.serve(create_builtin_bot(name, seed=seed), name=name, version=BUILTIN_VERSIONS[name])
 
 
 def _conformance_options(argv: Sequence[str]) -> tuple[list[str], dict[str, Any]] | None:

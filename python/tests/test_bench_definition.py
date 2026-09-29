@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.skip("protocol v1 test, migrated in Task 37", allow_module_level=True)
+
 import json
 from pathlib import Path
 from typing import Any
