@@ -2,9 +2,10 @@
 
 Beyond the generator's byte check, each golden is checked against what its name and index entry claim, from
 the rows alone and without the generator's tables: every error golden ends with its own code, every game's
-digest is the spec 11.8 chain of its rows, the games are game 0 of the spec 16 vectors on a clock that reads
-0, each seat's session is whole, and only the offending lines of Decision 7 are strings. A golden generated
-wrong, not only one edited by hand, fails here.
+digest is the spec 11.8 chain of its rows, every game's rows come in causal order, every terminal's counts are
+the ones its rows give (Decision 4), the games are game 0 of the spec 16 vectors on a clock that reads 0, each
+seat's session is whole, and only the offending lines of Decision 7 are strings. A golden generated wrong, not
+only one edited by hand, fails here.
 """
 
 from __future__ import annotations
@@ -131,6 +132,46 @@ def _spec_11_8_digest(rows) -> str:
     return "sha256:" + d.hex()
 
 
+def _recounted_terminals(rows) -> list[tuple[dict, int, int, int]]:
+    """Each engine terminal, with the step_count and decision_count its engine rows give and the groups a rewind
+    abandoned, recounted without the host's tracker (spec 8, 9.5; Decision 4).
+
+    Each step answers the pending decision, and the answer to a group's last substep completes the group. A rewind
+    for a seat abandons the rewound priority action's own group (that seat's last completed priority decision, which
+    took an action) and every group completed after it. A refused request, an offending line and a retransmission
+    answer no decision.
+    """
+    engine = [message for direction, message in rows if direction in ("host_to_engine", "engine_to_host")]
+    terminals, seen = [], set()
+    steps, completed, abandoned, pending = 0, [], 0, None
+    for request, answer in zip(engine[::2], engine[1::2]):
+        if isinstance(request, str) or answer["response_type"] == "error" or request["request_id"] in seen:
+            continue
+        seen.add(request["request_id"])
+        if request["request_type"] == "reset":
+            steps, completed, abandoned = 0, [], 0
+        elif request["request_type"] == "step":
+            sd = pending["seat_decision"]
+            steps += 1
+            if sd["group"]["substep_index"] + 1 == sd["group"]["substep_count"]:
+                chosen = sd["candidates"][request["selection"]["candidate_id"]]["semantic"]["kind"]
+                completed.append((sd["acting_seat"], sd["context"]["kind"], chosen))
+        else:
+            continue
+        if answer["response_type"] == "terminal":
+            terminals.append((answer, steps, len(completed), abandoned))
+            continue
+        pending = answer
+        sd = answer["seat_decision"]
+        if sd["context"]["rewind"]:
+            action = max(index for index, (seat, context, _) in enumerate(completed)
+                         if seat == sd["acting_seat"] and context == "priority")
+            assert completed[action][2] != "pass"                   # a rewind undoes an action, never a pass
+            abandoned += len(completed) - action
+            del completed[action:]
+    return terminals
+
+
 # -- the plan's four tests -----------------------------------------------------------------------------------
 
 
@@ -201,6 +242,10 @@ def test_each_error_golden_ends_with_the_error_its_name_gives() -> None:
         offending = [message for direction, message in rows if direction == sent][-1]
         # Spec 4.1: the error echoes the request's id, or "" for a line whose id cannot be read.
         assert last["request_id"] == ("" if isinstance(offending, str) else offending["request_id"]), stem
+        if sent == "host_to_agent":             # one agent process: no id reused, r-0, r-1, ... (spec 4.1)
+            ids = [message["request_id"] for direction, message in rows
+                   if direction == sent and isinstance(message, dict)]
+            assert ids == [f"r-{n}" for n in range(len(ids))], stem
     rows = load_transcript_v2("engine_validate_deck" + SUFFIX)
     answers = [m["error"]["code"] if m["response_type"] == "error" else m["response_type"]
                for direction, m in rows if direction == "engine_to_host"]
@@ -267,14 +312,54 @@ def test_each_request_is_answered_before_the_next_is_sent() -> None:
     for name in golden_index():
         rows = load_transcript_v2(name)
         if name == "agent_error_decision_pending" + SUFFIX:
-            assert [direction for direction, _ in rows[-4:]] == ["host_to_agent"] * 2 + ["agent_to_host"] * 2
-            assert rows[-4][1] == rows[-3][1] and rows[-3][1]["request_type"] == "choose"   # the choose, sent again
-            assert (rows[-2][1]["response_type"], rows[-1][1]["error"]["code"]) == ("choice", "decision_pending")
+            # Spec 10.5: a second choose, under a fresh id (spec 4.1), before the first is answered; the answers
+            # come in order (spec 2), each naming its own request.
+            tail = rows[-4:]
+            assert [direction for direction, _ in tail] == ["host_to_agent"] * 2 + ["agent_to_host"] * 2
+            assert [(m.get("request_type") or m["response_type"], m["request_id"]) for _, m in tail] == \
+                [("choose", "r-2"), ("choose", "r-3"), ("choice", "r-2"), ("error", "r-3")]
+            assert tail[-1][1]["error"]["code"] == "decision_pending"
             rows = rows[:-4]
         assert len(rows) % 2 == 0, name
         for (sent, request), (answered, answer) in zip(rows[::2], rows[1::2]):
             assert sent in ANSWERS and answered == ANSWERS[sent], name
             assert answer["request_id"] == ("" if isinstance(request, str) else request["request_id"]), name
+
+
+def test_each_game_row_follows_what_caused_it() -> None:
+    """Spec 11.2 in wire order: a choose directly after the engine decision it forwards, a step directly after the
+    choice it carries, and after the first game_over no choose and no engine row. A generator that held a seat's
+    rows back past the start would break one of these."""
+    for stem in GAMES:
+        rows = load_transcript_v2(stem + SUFFIX)
+        pairs = zip([(None, None), *rows], rows)            # each row with the one before it; the first has none
+        for number, ((before_direction, before), (direction, message)) in enumerate(pairs, 1):
+            if direction == "host_to_agent" and message["request_type"] == "choose":
+                assert before_direction == "engine_to_host" and before["response_type"] == "decision", (stem, number)
+                assert wire.canonical_json_dumps(before["seat_decision"]) == \
+                    wire.canonical_json_dumps(message["decision"]), (stem, number)
+            elif direction == "host_to_engine" and message["request_type"] == "step":
+                assert before_direction == "agent_to_host" and before["response_type"] == "choice", (stem, number)
+                assert before["selection"]["candidate_id"] == message["selection"]["candidate_id"], (stem, number)
+        first_over = next(index for index, (direction, message) in enumerate(rows)
+                          if direction == "host_to_agent" and message["request_type"] == "game_over")
+        late = [(direction, message.get("request_type") or message["response_type"])
+                for direction, message in rows[first_over:]
+                if direction in ("host_to_engine", "engine_to_host") or message.get("request_type") == "choose"]
+        assert not late, (stem, late)
+
+
+def test_each_terminal_has_the_counts_its_rows_give() -> None:
+    """Spec 9.5 and Decision 4: step_count is the answered decisions, and decision_count the completed groups less
+    the rewound priority action's own group and every group completed after it, recounted from the engine rows."""
+    abandoned = {}
+    for name in golden_index():
+        for terminal, steps, groups, lost in _recounted_terminals(load_transcript_v2(name)):
+            assert (terminal["step_count"], terminal["decision_count"]) == (steps, groups), name
+            abandoned[_stem(name)] = lost
+    assert sorted(abandoned) == ["engine_error_game_already_terminal", "game_board_tour", "game_kinds_tour",
+                                 "game_knowledge_tour", "game_scoring"]
+    assert abandoned["game_kinds_tour"] > 0                     # its rewind abandons groups, so Decision 4 is checked
 
 
 def test_each_seat_plays_one_whole_session() -> None:

@@ -22,8 +22,9 @@ The transcripts are recorded from the reference stack, never written by hand (on
 Determinism (the same bytes on every platform and every run): every clock reads 0 (``clock_ns``), rows are the
 parsed messages re-serialized as canonical JSON (never a child's raw line, whose terminator a Windows pipe may
 change), no path, process id, time or interpreter name is recorded, every iteration is sorted, and files are
-written as bytes with ``\\n`` line ends. The two seats start at once on two threads (spec 11.4), so each seat's
-agent rows are buffered and a transcript lists p0's start exchanges before p1's (``_GameRows``).
+written as bytes with ``\\n`` line ends. The host starts the two seats at once on two threads (its own choice: the
+spec orders neither start), so only their start exchanges wait, and a transcript lists p0's before p1's; every
+other row keeps the order it crossed a pipe in (``_GameRows``).
 
 Run from anywhere: ``uv run python python/tools/generate_goldens_v2.py [--check]``.
 """
@@ -32,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Sequence
@@ -107,21 +109,32 @@ NOTES = (
     "a seat reaches a cap of spec 11.4 when its count equals the cap; the host rules right after that answer, "
     "before sending its step, and the answer still counts toward step_count and the seat's seat_step_count "
     "(game_mandatory_loop, game_stalling_forfeit)",
+    "an invalid selection does not count toward the seat's seat_step_count (p0's game_over in "
+    "game_forfeit_invalid_selection shows 0), while an answer that reaches a cap does",
     # Decision 7.
     "a row's message is a parsed JSON object, except that the offending line of a malformed_json golden or of "
     "engine_error_malformed_request_non_object, which is not a JSON object, is kept as a JSON string holding the "
     "line exactly as sent; digests, engine arguments and replay roles live in this index",
     "error.message is human-facing only (spec 9.8, 10.5): the reference engine and bot server reproduce it, and "
     "another implementation need match only error.code",
+    "some engine goldens show optional or reserved behavior: engine_error_deck_id_mismatch the deck_id check "
+    "(spec 9.2), engine_validate_deck the validate_deck request (spec 9.6), and engine_error_unsupported_request "
+    "and engine_error_probe_refused the probe (spec 9.7), without and with it. An engine that skips the check or "
+    "lacks the request answers otherwise and still conforms",
+    "the engine error goldens send requests crafted for the fake engine (for example, candidate 2 is out of range "
+    "only because the first decision offers 2 candidates), so an adapter author checks the error codes with "
+    "spellbench conformance engine, not by replaying the engine goldens byte for byte",
     "the games ran on a clock that always reads 0, so every decision took 0 ms and each choose shows the seat's "
     "bank grown by increment_ms per answered decision; a host replaying a game uses the same clock",
-    "the spec does not order the two seats' starts, and the host starts both at once: a game transcript lists "
-    "p0's hello and game_start exchanges before p1's, and every other row in the order it crossed a pipe",
+    "the spec orders neither the two seats' starts nor game_start against reset. The reference host chooses to "
+    "start both seats at once, both before reset: a game transcript lists p0's hello and game_start exchanges "
+    "before p1's, and every other row in the order it crossed a pipe",
     "every game and reset uses the spec 16 vector run secret: game 0 (g-f67d7fe78c792984), and game 1 "
     "(g-bb341404cf686511) where a request names another game",
-    "agent_error_decision_pending shows the host bug of spec 10.5: the choose is sent again before it is answered, "
-    "and the agent answers both in order (spec 2), the choice and then decision_pending; that error row is written "
-    "by hand, since the reference bot server reads one line at a time and never sees a decision pending",
+    "agent_error_decision_pending shows the host bug of spec 10.5: a second choose (r-3) arrives before the first "
+    "(r-2) is answered, and the agent answers both in order (spec 2), the choice to r-2 and then decision_pending "
+    "to r-3; that error row is written by hand, since the reference bot server reads one line at a time and never "
+    "sees a decision pending",
     "roles lists the replays that apply: host (the host reproduces every host row and the game digest from the "
     "recorded answers), engine (the listed engine, started with engine_args, reproduces every engine answer) and "
     "bot_server (the reference bot server reproduces every agent answer)",
@@ -278,28 +291,49 @@ NINE = _Bot("golden-nine", lambda decision: 0, hand_built=True)
 
 
 class _GameRows:
-    """One game's rows in wire order.
+    """One game's rows, in the order they crossed a pipe.
 
-    The host starts both seats at once, each on its own thread (spec 11.4), so their ``hello`` and ``game_start``
-    exchanges interleave by timing. Each seat's agent rows wait in ``seats[seat]`` and move into ``rows``, p0's
-    first, before each engine row and at the end: every exchange made one at a time keeps its true place, and the
-    simultaneous start reads as p0's exchanges, then p1's.
+    ``play_game`` starts both seats at once, each on its own thread (the reference host's choice), and joins both
+    threads before it sends anything else, so only the seats' ``hello`` and ``game_start`` exchanges interleave by
+    timing. A row a seat records off the generator's thread is one of those and waits in ``starts[seat]``. The first
+    row recorded on the generator's thread after them, whatever its direction (the ``reset``, or a ``game_over``
+    after a failed start), first moves them into ``rows``, p0's before p1's. Every other row goes straight in. (A
+    start still running at its deadline could record a row later, but the host then forfeits that seat for a
+    timeout, an ending ``_play`` refuses.)
     """
 
     def __init__(self) -> None:
         self.rows: list[tuple[str, Any]] = []
-        self.seats: dict[str, list[tuple[str, Any]]] = {seat: [] for seat in SEATS}
+        self.starts: dict[str, list[tuple[str, Any]]] = {seat: [] for seat in SEATS}
+        self.thread = threading.get_ident()          # the generator's thread, which calls play_game
 
-    def append(self, row: tuple[str, Any]) -> None:
-        """An engine row: the agent rows before it first."""
-        self.flush()
+    def append(self, row: tuple[str, Any], seat: str | None = None) -> None:
+        """Record ``row``, from ``seat``'s peer or (``None``) the engine's."""
+        if seat is not None and threading.get_ident() != self.thread:
+            self.starts[seat].append(row)
+            return
+        self._place_starts()
         self.rows.append(row)
 
-    def flush(self) -> tuple[tuple[str, Any], ...]:
-        for seat in SEATS:
-            self.rows.extend(self.seats[seat])
-            self.seats[seat].clear()
+    def done(self) -> tuple[tuple[str, Any], ...]:
+        self._place_starts()
         return tuple(self.rows)
+
+    def _place_starts(self) -> None:
+        for seat in SEATS:
+            self.rows.extend(self.starts[seat])
+            self.starts[seat].clear()
+
+
+@dataclass(frozen=True)
+class _SeatRows:
+    """What a seat's ``RecordingPeer`` appends to: the game's rows, told which seat recorded each one."""
+
+    game: _GameRows
+    seat: str
+
+    def append(self, row: tuple[str, Any]) -> None:
+        self.game.append(row, self.seat)
 
 
 @dataclass(frozen=True)
@@ -342,7 +376,7 @@ GAMES: dict[str, _Game] = {
 }
 
 
-def _driver(bot: _Bot, rows: list[tuple[str, Any]]) -> SubprocessDriver:
+def _driver(bot: _Bot, rows: _SeatRows) -> SubprocessDriver:
     spec = BotSpec(name=bot.name, version=BOT_VERSION, type="subprocess", command=("in-process",))
     return SubprocessDriver(spec, startup_ms=TIME_CONTROL.startup_ms, agent_factory=lambda: AgentProcess(
         peer=RecordingPeer(bot.peer(), rows, "host_to_agent", "agent_to_host")))
@@ -354,7 +388,7 @@ def _play(name: str, game: _Game) -> Golden:
     seats: dict[str, SubprocessDriver] = {}
     try:
         setup = _setup(engine.hello(), game.deck, game.limits)
-        seats = {seat: _driver(bot, rows.seats[seat]) for seat, bot in zip(SEATS, game.bots)}
+        seats = {seat: _driver(bot, _SeatRows(rows, seat)) for seat, bot in zip(SEATS, game.bots)}
         result = play_game(setup, engine=engine, seats=seats, clock_ns=lambda: 0)
     finally:
         for driver in seats.values():
@@ -363,7 +397,7 @@ def _play(name: str, game: _Game) -> Golden:
     ending = (result.outcome, result.classification, result.reason)
     _expect(ending == game.ending, name, f"ended {ending}, not {game.ending}: {result.adjudication}")
     roles = ("host", "engine") + (() if any(bot.hand_built for bot in game.bots) else ("bot_server",))
-    return Golden(rows.flush(), game.engine, game.engine_args, result.game_digest, roles)
+    return Golden(rows.done(), game.engine, game.engine_args, result.game_digest, roles)
 
 
 # ---------------------------------------------------------------------------
@@ -607,12 +641,14 @@ def _agent_errors(scoring: Golden) -> dict[str, Golden]:
     for code, (lines, pick, bot) in sessions.items():
         rows = _agent_rows(lines, pick, bot)
         goldens[f"agent_error_{code}"] = Golden(tuple(rows), None, (), None, ("bot_server",))
-    # decision_pending: the choose is sent again before it is answered (a host bug, spec 10.5). The session answers
-    # the first copy; the agent's second answer is written by hand, since the reference server never sees it pending.
+    # decision_pending: a second choose, under the next id (spec 4.1), arrives before the first is answered (a host
+    # bug, spec 10.5). The session answers the first; the agent's answer to the second is written by hand, since the
+    # reference server reads one line at a time and never sees a decision pending.
     answered = _agent_rows((hello, game_start, first_choose), FIRST.choose, FIRST.name)
-    pending = {"response_type": "error", "protocol": PROTOCOL, "request_id": choose["request_id"],
+    second = {**choose, "request_id": "r-3"}
+    pending = {"response_type": "error", "protocol": PROTOCOL, "request_id": second["request_id"],
                "error": {"code": "decision_pending", "message": "a choose is still unanswered"}}
-    rows = [*answered[:-1], ("host_to_agent", choose), answered[-1], ("agent_to_host", pending)]
+    rows = [*answered[:-1], ("host_to_agent", second), answered[-1], ("agent_to_host", pending)]
     goldens["agent_error_decision_pending"] = Golden(tuple(rows), None, (), None, ())
     for name, golden in goldens.items():
         direction, answer = golden.rows[-1]
