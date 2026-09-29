@@ -83,10 +83,10 @@ def _cmd_run(argv: Sequence[str]) -> int:
         print("usage: spellbench run CONFIG.json", file=sys.stderr)
         return 2
     config = _load_config(Path(argv[0]))
-    # A fresh secret per run (spec 11.6); no guard measures the run yet, so it is unrated (Decision 3).
-    summary = runner.run_tournament(
-        config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(config.workers)
-    )
+    # A fresh secret per run (spec 11.6); no guard measures the run yet, so it is unrated (Decision 3). The
+    # allocation records the cores each game declares, which cap the workers the runner starts (spec 11.4).
+    allocation = Allocation.unmeasured(config.workers, per_game_cores=config.per_game_cores())
+    summary = runner.run_tournament(config, run_secret=RunSecret.generate(), allocation=allocation)
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
     print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")

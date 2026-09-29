@@ -17,17 +17,19 @@ recompute every id, secret and seed and rerun the schedule.
    capped by the games the declared cores allow at once (spec 11.4, R3-24);
 3. preflight (``schedule.preflight``) with a fresh ``EnginePin``: a config
    error stops the run with nothing written;
-4. prepare the run directory, which may already hold this run's commitment;
-5. write ``COMMITMENT.json``, or check that the one present names this run's
-   commitment, benchmark and run label (spec 11.6, R3-30);
+4. prepare the run directory, which may already hold this run's commitment,
+   and check that a ``COMMITMENT.json`` present names this run's commitment,
+   benchmark and run label (spec 11.6, R3-30);
+5. enter the committed phase (below) and write ``COMMITMENT.json`` unless
+   present;
 6. write ``config.json``, ``registry.json`` and an empty ``matches.jsonl``;
 7. play the schedule through :func:`play_games` (``executor.execute``:
    results in schedule order, and a live-validation violation ends the run
    at that game, Decision 6), checking each game's engine identity against
    the preflight pin before its row is appended (R3-5);
-8. publish the leaderboard, then ``manifest.json`` last. The status, the
-   validator verdict and the rated rule come from the rows actually appended
-   (R3-13).
+8. publish the leaderboard, then ``manifest.json`` last, and leave the
+   committed phase. The status, the validator verdict and the rated rule
+   come from the rows actually appended (R3-13).
 
 Each game (:func:`play_one`) starts its own engine process and seat drivers
 and plays through ``host.game.play_game``, which routes, validates, keeps the
@@ -36,12 +38,33 @@ An engine that cannot start or answer ``hello`` halts only its game (spec
 11.5, R3-23); an engine whose identity drifted from preflight aborts the run
 (R3-5).
 
-Once the commitment is written, an interrupt or an error (Ctrl+C included)
-still publishes the run, with the games recorded so far and the revealed run
-secret, as ``aborted`` unless every game was recorded (R3-13), and is then
-raised again (spec 11.6: every committed run is published). Writing the data files, recording a game and publishing
-run inside :func:`deferred_interrupts`, so a Ctrl+C there waits until those
-files, that row or the manifest are written (R3-31).
+Every committed run is published (spec 11.6). One SIGINT handler covers the
+committed phase, from before ``COMMITMENT.json`` is written (a commitment
+already present is checked against this run first) until ``manifest.json``
+is written (R3-31):
+
+- while games play, a Ctrl+C switches the handler to holding and then raises
+  ``KeyboardInterrupt``, which stops the games;
+- everywhere else in the phase (the commitment and data files, recording a
+  game, winding down and publishing) a Ctrl+C is held. One held while a file
+  or a game's row is written stops the run as soon as that write is done;
+  one held after the games stopped is delivered once, to the handler the run
+  found, after the manifest is written.
+
+So any number of Ctrl+C landing anywhere in the phase, or an exception that
+stops the games (the caller's ``on_game``, an engine that changed identity),
+still publishes the run with the games recorded so far and the revealed run
+secret, as ``aborted`` unless every game was recorded (R3-13); the interrupt
+or error is raised again after the manifest. Only a run killed outright
+(SIGKILL or SIGTERM, say) or unable to write its files misses its manifest,
+and ``bench`` reveals such a committed run (Decision 9).
+
+The handler is installed only in the main thread and only over a SIGINT
+handler set from Python that does not ignore the signal: a process that
+ignores SIGINT keeps ignoring it, and on another thread, where no handler
+can be installed, the run takes no interrupt at all (Python raises
+``KeyboardInterrupt`` in the main thread), so it publishes unless the
+process exits first.
 
 Worker processes are spawned, so a script calling :func:`run_tournament` with
 more than one worker must do so under ``if __name__ == "__main__":``.
@@ -53,7 +76,6 @@ import contextlib
 import dataclasses
 import functools
 import signal
-import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
@@ -115,35 +137,97 @@ class TournamentSummary:
     manifest: dict
 
 
+class _Interrupts:
+    """The one SIGINT handler of a run's committed phase (spec 11.6, R3-31); a context manager.
+
+    Entered, it replaces the SIGINT handler it finds and holds: a SIGINT is
+    recorded, never raised. Inside :meth:`interruptible` (games playing), a
+    SIGINT switches the handler back to holding and only then raises
+    ``KeyboardInterrupt``, so a second Ctrl+C that lands while the games stop
+    and the run publishes is held too; entering it raises at once for a
+    SIGINT held until then, and :meth:`holding` suspends it around a write.
+    On exit the handler found is restored and a SIGINT held meanwhile is
+    delivered to it once, whether the body completed or raised: Python's
+    default handler then raises ``KeyboardInterrupt``.
+
+    Nothing is installed off the main thread (handlers cannot be set there),
+    when the handler in place was not set from Python (it could not be put
+    back), or when SIGINT is ignored: a process that ignores it keeps
+    ignoring it. Every method then only tracks the mode.
+    """
+
+    def __init__(self) -> None:
+        self._found: Any = None  # the handler replaced while ours is installed, else None
+        self._interruptible = False
+        self._held = False
+
+    def __enter__(self) -> _Interrupts:
+        found = signal.getsignal(signal.SIGINT)
+        if found is not None and found != signal.SIG_IGN:
+            try:
+                self._found = signal.signal(signal.SIGINT, self._on_sigint)
+            except ValueError:  # not the main thread of the main interpreter, where alone handlers can be set
+                pass
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self._interruptible = False
+        found, self._found = self._found, None
+        if found is None:
+            return
+        signal.signal(signal.SIGINT, found)
+        if self._held:  # delivered once, now that the body (the publish) is done (R3-31)
+            self._held = False
+            signal.raise_signal(signal.SIGINT)
+
+    def _on_sigint(self, signum: int, frame: Any) -> None:
+        if self._interruptible:
+            self._interruptible = False  # hold from here: the run stops, and still publishes (spec 11.6)
+            raise KeyboardInterrupt
+        self._held = True
+
+    def _resume(self) -> None:
+        """Games again: a SIGINT raises, and one held until now raises at once."""
+        self._interruptible = True
+        if self._held:
+            self._held = False
+            self._interruptible = False
+            raise KeyboardInterrupt
+
+    @contextlib.contextmanager
+    def interruptible(self) -> Iterator[None]:
+        """While the body plays games, a SIGINT raises ``KeyboardInterrupt``; after it, SIGINT is held again."""
+        self._resume()
+        try:
+            yield
+        finally:
+            self._interruptible = False
+
+    @contextlib.contextmanager
+    def holding(self) -> Iterator[None]:
+        """Hold SIGINT while the body writes, even inside :meth:`interruptible`, which resumes after it (so a
+        SIGINT held meanwhile raises then)."""
+        resume, self._interruptible = self._interruptible, False
+        try:
+            yield
+        finally:
+            if resume:
+                self._resume()
+
+
 @contextlib.contextmanager
 def deferred_interrupts() -> Iterator[None]:
-    """Hold back Ctrl+C (SIGINT) while the body runs, then deliver it (R3-31).
+    """Hold back Ctrl+C (SIGINT) while the body runs, then deliver it once (R3-31).
 
-    While a run records a game or publishes its manifest, an interrupt would
-    leave the ledger and the manifest disagreeing, or the run without a
-    manifest. The handler installed here only records the signal. On exit the
-    previous handler is restored and, if a signal arrived meanwhile and the
-    body completed, the signal is delivered to it once: Python's default
-    handler raises ``KeyboardInterrupt``, and a process that ignores SIGINT
-    keeps ignoring it. A body's own exception propagates unchanged. Signal
-    handlers belong to the main thread, so elsewhere this changes nothing, as
-    it does when the handler in place was not set from Python.
+    The holding half of the run's committed-phase handler: a SIGINT that
+    arrives while the body runs is recorded, and on exit, once the previous
+    handler is restored, delivered to it once, whether the body completed or
+    raised (Python's default handler raises ``KeyboardInterrupt``). A process
+    that ignores SIGINT keeps ignoring it; off the main thread, or over a
+    handler not set from Python, this changes nothing.
     """
-    if threading.current_thread() is not threading.main_thread() or signal.getsignal(signal.SIGINT) is None:
+    with _Interrupts():
         yield
-        return
-    received: list[int] = []
-
-    def hold(signum: int, frame: Any) -> None:
-        received.append(signum)
-
-    previous = signal.signal(signal.SIGINT, hold)
-    try:
-        yield
-    finally:
-        signal.signal(signal.SIGINT, previous)
-    if received:
-        signal.raise_signal(signal.SIGINT)
 
 
 def executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> TournamentConfig:
@@ -338,16 +422,17 @@ def _run_allocation(allocation: Allocation, config: TournamentConfig) -> Allocat
         ) from exc
 
 
-def _publish_commitment(directory: Path, record: dict[str, Any]) -> None:
-    """Write ``COMMITMENT.json``, or refuse a present one made for another run (spec 11.6, R3-30).
+def _commitment_present(directory: Path, record: dict[str, Any]) -> bool:
+    """Whether ``COMMITMENT.json`` is already there for this run; one made for another run is refused (spec 11.6,
+    R3-30).
 
     A commitment published before the run (``bench commit``) is kept byte for byte; it must name this run's
-    commitment, benchmark id and run label, and otherwise the run stops before writing anything else.
+    commitment, benchmark id and run label, and otherwise the run stops before writing anything else. The run
+    writes an absent one itself, inside its committed phase.
     """
     path = directory / store.COMMITMENT_NAME
     if not path.exists():
-        store.write_json_atomic(path, record)
-        return
+        return False
     try:
         present = store.read_json(path)
     except store.StoreError as exc:
@@ -360,6 +445,7 @@ def _publish_commitment(directory: Path, record: dict[str, Any]) -> None:
             f"{store.COMMITMENT_NAME} in {directory} was made for another run: its {', '.join(differing)} {verb} "
             "from this run's (spec 11.6)"
         )
+    return True
 
 
 def run_tournament(
@@ -396,11 +482,12 @@ def run_tournament(
     directory = Path(config.tournament_dir if output_dir is None else output_dir)
     store.prepare_tournament_dir(directory, allowed=(store.COMMITMENT_NAME,))
     commitment = commitment_record(run_secret=run_secret, benchmark_id=benchmark_id, run_label=run_label)
-    _publish_commitment(directory, commitment)
+    committed = _commitment_present(directory, commitment)
 
     ledger_path = directory / store.LEDGER_NAME
     rows: list[LedgerRow] = []
     violations: list[dict[str, Any]] = []
+    interrupts = _Interrupts()
 
     def record(outcome: GameOutcome) -> None:
         identity = EngineIdentity.from_json(outcome.engine)
@@ -411,7 +498,7 @@ def run_tournament(
                 f"the engine identity changed during the run: game {outcome.row.game_index}'s engine reported "
                 f"{_identity_text(identity)}; preflight pinned {_identity_text(pin.identity)} (R3-5)"
             ) from None
-        with deferred_interrupts():  # the file, the rows and the violations stay in step (R3-13)
+        with interrupts.holding():  # the file, the rows and the violations stay in step (R3-13)
             store.append_ledger_row(ledger_path, outcome.row.to_json())
             rows.append(outcome.row)
             if outcome.violation is not None:
@@ -421,20 +508,24 @@ def run_tournament(
         if on_game is not None:
             on_game(outcome.row)
 
-    # With the commitment written, every ending from here publishes the run (spec 11.6).
     error: BaseException | None = None
     try:
-        with deferred_interrupts():  # the data files exist before a Ctrl+C can stop the run
-            store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
-            registry.write_registry(directory / store.REGISTRY_NAME, entries_list)
-            ledger_path.write_bytes(b"")  # truncate/create the ledger before the first game
-        result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
-                            workers=allocation.workers, on_outcome=record)
-        error = result.error
-    except BaseException as exc:  # noqa: BLE001 - published as aborted below, then raised again
-        error = exc
-    try:
-        with deferred_interrupts():  # a Ctrl+C now waits for the manifest (R3-31)
+        # The committed phase: one SIGINT handler from before the commitment is written until the manifest is.
+        # Leaving it delivers a Ctrl+C held since the games stopped, once (spec 11.6, R3-31).
+        with interrupts:
+            if not committed:
+                store.write_json_atomic(directory / store.COMMITMENT_NAME, commitment)
+            # Committed: every ending from here publishes the run.
+            try:
+                store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
+                registry.write_registry(directory / store.REGISTRY_NAME, entries_list)
+                ledger_path.write_bytes(b"")  # truncate/create the ledger before the first game
+                with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
+                    result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
+                                        workers=allocation.workers, on_outcome=record)
+                error = result.error
+            except BaseException as exc:  # noqa: BLE001 - published as aborted below, then raised again
+                error = exc
             summary = _publish(
                 directory, config=config, entries=entries_list, setup=setup, rows=rows, violations=violations,
                 scheduled=len(contexts), run_secret=run_secret, commitment_proof=commitment_proof,

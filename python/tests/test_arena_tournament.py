@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import signal
 import subprocess
 import sys
@@ -28,6 +29,17 @@ from arena_helpers import (
 
 BOTS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
 DATA = ("registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md", "COMMITMENT.json")
+
+
+@pytest.fixture(autouse=True)
+def _python_sigint_handler():
+    """Each test starts under Python's own SIGINT handler, whatever the shell passed on, and the handler found is
+    put back afterwards. A background job of a non-interactive shell, ``nohup`` or ``trap '' INT`` starts pytest
+    with SIGINT ignored, and the runner rightly keeps ignoring it, so the interrupt tests would see nothing."""
+    previous = signal.signal(signal.SIGINT, signal.default_int_handler)
+    yield
+    if previous is not None:  # None: a handler not set from Python, which cannot be put back
+        signal.signal(signal.SIGINT, previous)
 
 
 def test_store_schema_constants_match_their_owners() -> None:
@@ -540,6 +552,271 @@ def test_a_held_interrupt_is_delivered_to_the_handler_it_found() -> None:
         signal.signal(signal.SIGINT, before)
 
 
+# ---------------------------------------------------------------------------
+# One SIGINT handler for the committed phase: a Ctrl+C on any line (spec 11.6, R3-31)
+# ---------------------------------------------------------------------------
+
+SWEEP_BOTS = [builtin("uniform", seed=11), builtin("first")]
+
+
+@pytest.fixture(scope="module")
+def recorded_engine_work(tmp_path_factory: pytest.TempPathFactory) -> tuple[dict, dict]:
+    """A two-game config, and one real run's preflight and game outcomes for the sweeps to replay: a sweep plays
+    the run once per line it covers, and only the runner's own lines are under test."""
+    config = make_config(tmp_path_factory.mktemp("sweep") / "t", SWEEP_BOTS, pairs=1, include_self_play=False, workers=1)
+    recorded: dict = {}
+    preflight, play_one = runner.preflight, runner.play_one
+
+    def recording_preflight(config, run_secret, *, pin):
+        recorded["setup"] = preflight(config, run_secret, pin=pin)
+        return recorded["setup"]
+
+    def recording_play_one(config, setup, context, **keywords):
+        recorded[context.game_index] = play_one(config, setup, context, **keywords)
+        return recorded[context.game_index]
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(runner, "preflight", recording_preflight)
+        patch.setattr(runner, "play_one", recording_play_one)
+        run(config)
+    return config, recorded
+
+
+class _CtrlC:
+    """A Ctrl+C landing on the ``at``-th line the runner executes once ``armed`` (through ``sys.settrace``): SIGINT
+    is raised right there, as the operating system could deliver it, and ``where`` names that line. With ``at``
+    None it only counts the lines."""
+
+    def __init__(self, at: int | None = None) -> None:
+        self.at = at
+        self.armed = False
+        self.lines = 0
+        self.where = ""
+
+    def trace(self, frame, event, arg):
+        return self._line if frame.f_code.co_filename == runner.__file__ else None
+
+    def _line(self, frame, event, arg):
+        if event == "line" and self.armed:
+            self.lines += 1
+            if self.lines == self.at:
+                self.where = f"runner.py:{frame.f_lineno} in {frame.f_code.co_name}"
+                signal.raise_signal(signal.SIGINT)
+        return self._line
+
+
+def _under_ctrl_c(monkeypatch: pytest.MonkeyPatch, work: tuple[dict, dict], directory: Path, ctrl_c: _CtrlC,
+                  sweep: str) -> bool:
+    """One replayed run of ``work`` into ``directory`` with ``ctrl_c`` armed where ``sweep`` starts; whether it
+    raised ``KeyboardInterrupt``.
+
+    ``"preflight"`` arms once preflight is done and disarms at the first game; ``"second"`` arms as a first Ctrl+C
+    stops the games after game 0; ``"last"`` arms once the last game is recorded.
+    """
+    config, recorded = work
+
+    def replayed_preflight(config, run_secret, *, pin):
+        pin.check(recorded["setup"].engine)                      # as preflight pins it
+        ctrl_c.armed = sweep == "preflight"
+        return recorded["setup"]
+
+    def replayed_play_one(config, setup, context, **keywords):
+        if sweep == "preflight":
+            ctrl_c.armed = False
+        return recorded[context.game_index]
+
+    def on_game(row) -> None:
+        if sweep == "second" and row.game_index == 0:
+            ctrl_c.armed = True
+            signal.raise_signal(signal.SIGINT)                   # the first Ctrl+C, while games play
+        elif sweep == "last" and row.game_index == 1:
+            ctrl_c.armed = True
+
+    monkeypatch.setattr(runner, "preflight", replayed_preflight)
+    monkeypatch.setattr(runner, "play_one", replayed_play_one)
+    tracing = sys.gettrace()
+    sys.settrace(ctrl_c.trace)
+    try:
+        run(config, output_dir=directory, on_game=on_game)
+    except KeyboardInterrupt:
+        return True
+    finally:
+        sys.settrace(tracing)
+    return False
+
+
+def _sweep(monkeypatch: pytest.MonkeyPatch, work: tuple[dict, dict], tmp_path: Path,
+           sweep: str) -> list[tuple[str, Path]]:
+    """The run once per line the sweep covers, with a Ctrl+C on that line; each must raise ``KeyboardInterrupt``.
+    Returns, in line order, where each Ctrl+C landed and the run's directory."""
+    counting = _CtrlC()
+    _under_ctrl_c(monkeypatch, work, tmp_path / "counted", counting, sweep)
+    assert counting.lines > 10                                   # the sweep covers the phase's lines
+    runs = []
+    for at in range(1, counting.lines + 1):
+        ctrl_c, directory = _CtrlC(at), tmp_path / f"line-{at}"
+        assert _under_ctrl_c(monkeypatch, work, directory, ctrl_c, sweep), f"Ctrl+C at {ctrl_c.where}: not raised"
+        runs.append((ctrl_c.where, directory))
+    return runs
+
+
+def _published(directory: Path, where: str = "") -> dict:
+    """The run's manifest, checked against its files: every digest verifies, and the ledger holds exactly the games
+    the manifest counts, a prefix of the schedule (spec 11.6, R3-13). ``where`` names the Ctrl+C in a failure."""
+    assert (directory / "manifest.json").is_file(), f"Ctrl+C at {where}: a committed run without its manifest"
+    document = manifest(directory)
+    assert store.verify_file_digests(directory, document) == [], where
+    assert [row["game_index"] for row in ledger_rows(directory)] == list(range(document["games"]["total"])), where
+    assert document["secrets"]["run_secret"] == TEST_RUN_SECRET.hex()
+    return document
+
+
+def test_a_second_ctrl_c_on_any_line_after_the_first_waits_for_the_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded_engine_work: tuple[dict, dict]
+) -> None:
+    """A first Ctrl+C stops the games after game 0; a second lands on each line from there to the end, the start
+    of the publish included, where it used to escape before the manifest (uv delivers every Ctrl+C twice)."""
+    for where, directory in _sweep(monkeypatch, recorded_engine_work, tmp_path, "second"):
+        document = _published(directory, where)
+        assert (document["run"]["status"], document["games"]["total"]) == ("aborted", 1), where
+
+
+def test_a_single_ctrl_c_on_any_line_after_the_last_game_publishes_the_complete_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded_engine_work: tuple[dict, dict]
+) -> None:
+    """Once the last game is recorded, one Ctrl+C on any line still leaves the complete run's manifest, and is then
+    raised (R3-13, R3-31)."""
+    for where, directory in _sweep(monkeypatch, recorded_engine_work, tmp_path, "last"):
+        document = _published(directory, where)
+        assert (document["run"]["status"], document["games"]["total"]) == ("complete", 2), where
+
+
+def test_a_ctrl_c_on_any_line_before_the_first_game_publishes_every_committed_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recorded_engine_work: tuple[dict, dict]
+) -> None:
+    """From the end of preflight to the first game: a Ctrl+C before the commitment is written leaves nothing
+    committed, and one after it leaves the run published as aborted with no game (spec 11.6)."""
+    committed = 0
+    for where, directory in _sweep(monkeypatch, recorded_engine_work, tmp_path, "preflight"):
+        if (directory / "COMMITMENT.json").exists():
+            committed += 1
+            document = _published(directory, where)
+            assert (document["run"]["status"], document["games"]["total"]) == ("aborted", 0), where
+        else:
+            assert not (directory / "manifest.json").exists(), where
+    assert committed > 0
+
+
+def test_ctrl_c_held_until_the_manifest_reaches_the_handler_found_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Whatever handler the run found, a Ctrl+C stops the games; the ones that land while the run publishes are
+    held and reach that handler once, after the manifest is written (R3-31)."""
+    directory = tmp_path / "t"
+    deliveries: list[bool] = []
+    signal.signal(signal.SIGINT, lambda signum, frame: deliveries.append((directory / "manifest.json").is_file()))
+    publish = store.publish_manifest
+
+    def publish_under_ctrl_c(directory: Path, document: dict) -> bytes:
+        signal.raise_signal(signal.SIGINT)                 # two more Ctrl+C while the manifest is written
+        signal.raise_signal(signal.SIGINT)
+        return publish(directory, document)
+
+    monkeypatch.setattr(store, "publish_manifest", publish_under_ctrl_c)
+
+    def interrupt(row) -> None:
+        if row.game_index == 0:
+            signal.raise_signal(signal.SIGINT)             # the first Ctrl+C stops the games
+
+    with pytest.raises(KeyboardInterrupt):
+        run(make_config(directory, SWEEP_BOTS, pairs=1, include_self_play=False), on_game=interrupt)
+    assert deliveries == [True]
+    assert _published(directory)["run"]["status"] == "aborted"
+
+
+def test_the_handler_holds_before_it_raises(tmp_path: Path) -> None:
+    """A second Ctrl+C right behind the first, before anything has caught the ``KeyboardInterrupt``, is already
+    held: it reaches the handler found once, after the manifest (R3-31)."""
+    directory = tmp_path / "t"
+    deliveries: list[bool] = []
+    signal.signal(signal.SIGINT, lambda signum, frame: deliveries.append((directory / "manifest.json").is_file()))
+
+    def interrupt(row) -> None:
+        if row.game_index == 0:
+            try:
+                signal.raise_signal(signal.SIGINT)         # stops the games
+            finally:
+                signal.raise_signal(signal.SIGINT)         # while the first unwinds
+
+    with pytest.raises(KeyboardInterrupt):
+        run(make_config(directory, SWEEP_BOTS, pairs=1, include_self_play=False), on_game=interrupt)
+    assert deliveries == [True]
+    assert _published(directory)["run"]["status"] == "aborted"
+
+
+def test_a_run_that_ignores_sigint_keeps_ignoring_it(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """``nohup`` or a background job: Ctrl+C neither stops the games nor reaches the run after its manifest."""
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    seen: list[object] = []
+    publish = store.publish_manifest
+
+    def publish_under_ctrl_c(directory: Path, document: dict) -> bytes:
+        signal.raise_signal(signal.SIGINT)
+        return publish(directory, document)
+
+    def interrupt(row) -> None:
+        seen.append(signal.getsignal(signal.SIGINT))
+        signal.raise_signal(signal.SIGINT)
+
+    monkeypatch.setattr(store, "publish_manifest", publish_under_ctrl_c)
+    try:
+        summary = run(make_config(tmp_path / "t", SWEEP_BOTS, pairs=1, include_self_play=False), on_game=interrupt)
+    except KeyboardInterrupt:
+        pytest.fail("a Ctrl+C reached a run that ignores SIGINT")    # fail the test, not the session
+    assert summary.status == "complete" and seen == [signal.SIG_IGN, signal.SIG_IGN]
+    assert signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+
+
+def test_a_run_off_the_main_thread_installs_no_handler_and_publishes(tmp_path: Path) -> None:
+    """Signal handlers belong to the main thread: elsewhere the run leaves SIGINT to it, and still publishes."""
+    seen: list[object] = []
+    summaries: list[runner.TournamentSummary] = []
+    config = make_config(tmp_path / "t", SWEEP_BOTS, pairs=1, include_self_play=False)
+    thread = threading.Thread(target=lambda: summaries.append(run(config, on_game=lambda row: seen.append(
+        signal.getsignal(signal.SIGINT)))))
+    thread.start()
+    thread.join()
+    assert [summary.status for summary in summaries] == ["complete"]
+    assert seen == [signal.default_int_handler, signal.default_int_handler]
+
+
+def test_the_cli_records_the_cores_each_game_declares(tmp_path: Path) -> None:
+    resources = {"cpus": 1, "memory_mb": 4096, "gpu": False, "engine_cpus": 2}
+    value = make_config(tmp_path / "t", SWEEP_BOTS, pairs=1, include_self_play=False, resources=resources)
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(value), encoding="utf-8")
+    assert cli.main(["run", str(path)]) == 0
+    per_game = TournamentConfig.from_json(value).per_game_cores()
+    assert manifest(tmp_path / "t")["allocation"]["per_game_cores"] == per_game == 2   # the cap the runner applied (spec 11.4)
+
+
+def test_no_published_file_names_the_machine_unless_the_alias_is_set_to_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The allocation's host is an alias, ``local`` by default, never ``platform.node()`` (R3-28)."""
+    name = "machine-name-7f3a9c"
+    monkeypatch.setattr(platform, "node", lambda: name)
+    monkeypatch.delenv("SPELLBENCH_HOST_ALIAS", raising=False)
+    for label, alias in (("default", None), ("aliased", name)):
+        if alias is not None:
+            monkeypatch.setenv("SPELLBENCH_HOST_ALIAS", alias)
+        directory = tmp_path / label
+        path = tmp_path / f"{label}.json"
+        path.write_text(json.dumps(make_config(directory, SWEEP_BOTS, pairs=1, include_self_play=False)), encoding="utf-8")
+        assert cli.main(["run", str(path)]) == 0
+        assert manifest(directory)["allocation"]["host"] == (alias or "local")
+        named = sorted(file.name for file in directory.iterdir() if name.encode() in file.read_bytes())
+        assert named == ([] if alias is None else ["manifest.json"])
+
+
 def test_the_ported_one_land_bot_plays_v2(tmp_path: Path) -> None:
     one_land = subprocess_bot("one-land", [sys.executable, str(TESTS_DIR / "bot_one_land.py")])
     directory = tmp_path / "t"
@@ -558,6 +835,12 @@ def test_the_ported_slow_start_bot_plays_v2_within_its_startup_budget(tmp_path: 
     assert (summary.status, summary.games_total, summary.games_forfeit) == ("complete", 2, 0)
 
 
+def _default_sigint() -> None:
+    """Run in the CLI child before it starts: SIGINT back to its default disposition, so the child's Python
+    installs its KeyboardInterrupt handler even when the shell started the tests with SIGINT ignored."""
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX signals; the in-process interrupts above cover Windows")
 @pytest.mark.parametrize("workers", [1, 2])
 def test_a_real_ctrl_c_publishes_the_run_as_aborted_and_the_command_exits_nonzero(tmp_path: Path, workers: int) -> None:
@@ -567,7 +850,7 @@ def test_a_real_ctrl_c_publishes_the_run_as_aborted_and_the_command_exits_nonzer
     path = tmp_path / "config.json"
     path.write_text(json.dumps(make_config(directory, BOTS, pairs=20, workers=workers)), encoding="utf-8")
     process = subprocess.Popen([sys.executable, "-m", "spellbench.arena.cli", "run", str(path)],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=_default_sigint)
     try:
         deadline = time.monotonic() + 120
         ledger_path = directory / "matches.jsonl"

@@ -6,6 +6,7 @@ import heapq
 import io
 import json
 import os
+import platform
 import random
 import stat
 from dataclasses import replace
@@ -15,7 +16,7 @@ from typing import Any
 import pytest
 
 from spellbench.arena import qualification
-from spellbench.arena.machine import cgroup_cpus
+from spellbench.arena.machine import cgroup_cpus, host_name
 from spellbench.arena.throughput import (
     RESERVE_BYTES, SUBSTANTIAL_RUN_SECONDS, Allocation, Budget, CpuSampler, IdleMonitor, MachineFacts, Placement,
     PlayedGame, ThroughputError, check_reserve, free_bytes, machine_facts, nvidia_gpus, plan_allocation, resource_bound,
@@ -360,6 +361,20 @@ def test_an_unmeasured_allocation_round_trips_and_is_not_measured() -> None:
     allocation = Allocation.unmeasured(2, cpu_count=4, host="h")
     assert not allocation.measured and Allocation.from_json(allocation.to_json()) == allocation
     assert allocation.label == "unmeasured" and allocation.qualified_rate is None
+
+
+def test_the_host_is_an_alias_and_never_the_machine_name(monkeypatch) -> None:
+    """R3-28: ``local`` unless ``SPELLBENCH_HOST_ALIAS`` names another alias; a host passed in wins."""
+    monkeypatch.setattr(platform, "node", lambda: "machine-name")
+    monkeypatch.delenv("SPELLBENCH_HOST_ALIAS", raising=False)
+    play, _ = _player(0.5, {})
+    assert host_name() == "local" and Allocation.unmeasured(1, cpu_count=4).host == "local"
+    assert _plan(play, games_total=8, cap=2, placement=None, host=None).host == "local"
+    monkeypatch.setenv("SPELLBENCH_HOST_ALIAS", " rig-2 ")
+    assert host_name() == "rig-2" and _plan(play, games_total=8, cap=2, placement=None, host=None).host == "rig-2"
+    assert host_name("given") == "given" and Allocation.unmeasured(1, cpu_count=4, host="given").host == "given"
+    monkeypatch.setenv("SPELLBENCH_HOST_ALIAS", "  ")
+    assert host_name() == "local"
 
 
 def test_a_measured_allocation_round_trips_and_parsing_is_strict() -> None:
