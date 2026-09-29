@@ -8772,3 +8772,17 @@ The pre-execution review (R1: Tasks 1 to 13, R2: Tasks 14 to 28, R3: Tasks 29 to
   - Spec 4.1 and 9.8: say whether a strict-JSON error with a readable `request_id` answers with that id or `""`.
   - Spec 2: say how nesting levels are counted.
   - Decision 12: allow any JSON number in fields an agent answer's receiver ignores.
+- Task 33: one SIGINT handler covers the committed phase, from before `COMMITMENT.json` is written until `manifest.json` is written. Only while games play does a Ctrl+C raise, and it switches the handler to holding before it raises. Every other Ctrl+C in the phase is held and delivered once after the manifest. The allocation records the config's per-game cores, and its host is the alias (`SPELLBENCH_HOST_ALIAS`, default `local`), never the machine name (R3-28).
+- Task 36: run validation ignores the files a desktop writes into a browsed folder (dot files, `Thumbs.db`, `desktop.ini`), names a CR LF conversion of a hashed file, and checks the arena version before the manifest's field set.
+- Task 41, so that a kept secret never chooses what is published (spec 11.6):
+  - The commitment fixes the benchmark's definition through git. A committed run refuses unless every file of the benchmark folder but `runs/` is the same at the commitment commit, at `HEAD` and in the work tree, with nothing untracked beside them.
+  - `bench commit` starts from a clean tracked tree whose `HEAD` is the tip of `origin/<default branch>`, and pushes only the commitment commit to that branch. It holds Ctrl+C until the secret is kept, withdraws the local commit on any failure before the push is confirmed, and after a push reported as failed checks the remote before dropping the secret. When the remote cannot be read, the secret is dropped rather than kept for a commitment nobody can see.
+  - `pushed_commit` requires the commitment commit on `origin/<default branch>`.
+  - One play per commitment: a `<run>.started` marker beside the secret.
+  - `bench reveal` moves a failed attempt's partial files to `<secrets dir>/<id>/<run>.attempt/`, so the published folder holds only `COMMITMENT.json` and `REVEAL.json`, and takes `--reason`.
+  - A lost secret has one honest outlet: `bench reveal --withheld` writes `REVEAL.json` with `"run_secret": null` and reason `validate.WITHHELD_REASON` (`"secret_lost"`), refused while the secret file exists.
+  - The secrets directory must be absolute and outside every git work tree, checked at every use.
+- Task 44, from the Task 41 rulings:
+  - The history check also compares each committed run's `config.json` with the definition at its commitment commit.
+  - A withheld run counts as published, and the site lists it prominently as withheld, beside revealed and pending runs.
+- Task 43: the placement note is parsed with `Placement.parse` (the plan's `parse_placement` does not exist), and a guard failure of a committed run is revealed through Task 41's failure path with reason `guard`.
