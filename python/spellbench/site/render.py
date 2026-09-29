@@ -11,10 +11,10 @@ deck tables ``fit_error``, and grid cells ``complete_pairs``. The protocol v2
 contract adds the benchmark page's run facts (``protocol``, ``legacy``,
 ``fairness``, ``setup_rules``, ``attribution``, ``newer_runs`` and the run's
 ``status``, ``rated``, ``commitment`` and ``run_secret``) and a ``legacy``
-flag on each Hero chip and Models rating row. A view carries all of the
-benchmark page's v2 keys or none of them (``_protocol_gate``); one with none,
-and a chip or rating row without ``legacy``, comes from the builder before
-Task 42 adds them and renders as a legacy protocol v1 run.
+flag on each Hero chip and Models rating row. A benchmark view must carry
+every one of the page's protocol keys, a protocol v1 run's too, and they must
+agree (``_protocol_gate``); a chip or rating row must carry its ``legacy``
+flag. A missing key raises KeyError, so a half-built view fails loudly.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
@@ -53,8 +53,8 @@ _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) gri
 _BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
 _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
-# The benchmark page's protocol v2 keys, all present or all absent (_protocol_gate), and the protocol
-# name of a legacy run. A v1 run's margins carry _LEGACY_LABEL in the Hero and on the Models page.
+# The benchmark page's protocol keys, every one required (_protocol_gate), and the protocol name of a
+# legacy run. A v1 run's margins carry _LEGACY_LABEL in the Hero and on the Models page.
 _V1_PROTOCOL = "spellbench/v1"
 _V2_VIEW_KEYS = ("protocol", "legacy", "fairness", "setup_rules", "attribution", "newer_runs")
 _V2_RUN_KEYS = ("status", "rated", "commitment", "run_secret")
@@ -419,10 +419,10 @@ def render_home(view: Mapping[str, Any]) -> str:
 
 
 def render_benchmark(view: Mapping[str, Any]) -> str:
-    """``b/<id>/index.html``: one benchmark's latest run, its leaderboards, and its matchups.
+    """``b/<id>/index.html``: one benchmark's board run, its leaderboards, and its matchups.
 
-    Raises KeyError for a view with only some of the protocol v2 keys, and
-    ValueError for one whose legacy flag, protocol and fairness disagree.
+    Raises KeyError for a view without every protocol key, and ValueError
+    for one whose legacy flag, protocol and fairness disagree.
     """
     view = _protocol_gate(view)
     site, engine = view["site"], view["engine"]
@@ -672,13 +672,8 @@ def _model_link(root: str, name: str, label: str, description: str) -> str:
 
 
 def _legacy(item: Mapping[str, Any]) -> bool:
-    """Whether a Hero chip or a Models rating row shows a protocol v1 run.
-
-    One without a ``legacy`` key comes from the site builder before protocol
-    v2, and every run that builder shows is protocol v1. Task 42 removes this
-    default once build.py emits the key.
-    """
-    return item.get("legacy", True)
+    """Whether a Hero chip or a Models rating row shows a protocol v1 run; KeyError without the flag."""
+    return item["legacy"]
 
 
 def _count(number: int, noun: str) -> str:
@@ -936,33 +931,18 @@ def _run_box(run: Mapping[str, Any]) -> str:
 
 
 def _protocol_gate(view: Mapping[str, Any]) -> Mapping[str, Any]:
-    """``view`` with every protocol v2 key of the benchmark page, checked or filled in.
+    """``view``, once every protocol key of the benchmark page is checked.
 
-    This is the one place a missing key gets a default. A view with none of
-    the keys comes from the site builder before protocol v2, and every run
-    that builder shows is protocol v1: it gets the legacy values (protocol
-    v1, no fairness box, setup rules, attribution or newer runs, and a
-    complete run without a commitment or secret). A view with any of the
-    keys must carry them all, else KeyError, and its legacy flag, protocol
-    name and fairness box must agree, else ValueError; so a half-built view
-    fails instead of rendering a page that is part v1 and part v2. Task 42
-    removes the legacy defaults once build.py emits the keys.
+    The site builder sets every key for a protocol v1 run too (protocol v1,
+    no fairness box, setup rules or attribution, and a complete run without a
+    commitment or secret). A view lacking any key raises KeyError naming them
+    all, and one whose legacy flag, protocol name and fairness box disagree
+    raises ValueError; so a half-built view fails instead of rendering a page
+    that is part v1 and part v2.
     """
     run = view["run"]
     missing = [key for key in _V2_VIEW_KEYS if key not in view]
     missing += [f"run.{key}" for key in _V2_RUN_KEYS if key not in run]
-    if len(missing) == len(_V2_VIEW_KEYS) + len(_V2_RUN_KEYS):
-        # the site builder before protocol v2: Task 42 removes this branch once build.py emits the keys
-        return {
-            **view,
-            "protocol": {"name": _V1_PROTOCOL, "minor": None},
-            "legacy": True,
-            "fairness": None,
-            "setup_rules": [],
-            "attribution": [],
-            "newer_runs": [],
-            "run": {**run, "status": "complete", "rated": True, "commitment": None, "run_secret": None},
-        }
     if missing:
         raise KeyError(f"benchmark view {view['id']!r} lacks protocol v2 keys: {', '.join(missing)}")
     legacy, name, fairness = view["legacy"], view["protocol"]["name"], view["fairness"]
