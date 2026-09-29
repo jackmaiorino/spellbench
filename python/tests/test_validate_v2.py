@@ -163,7 +163,7 @@ def test_halts_loop_draws_decklists_and_local_files_validate(tmp_path: Path) -> 
     reasons = {row["reason"] for row in ledger_rows(directory)}
     assert reasons == {"engine_contract_failure:test_hook", "mandatory_loop", "host_engine_fault:transport", "score"}
     assert (directory / "diagnostics.jsonl").is_file()                                   # the crashed engine's
-    (directory / "throughput.jsonl").write_text('{"warning":"idle capacity"}\n', encoding="utf-8")   # Task 43's
+    (directory / "throughput.jsonl").write_text('{"warning":"idle capacity"}\n', encoding="utf-8", newline="\n")   # Task 43's
     assert validate_tournament_dir(directory) == []
     names = ["Lightning Bolt", "Mountain"]                        # the catalog decks' names, not the Relics deck's
     domain = {"domain_id": "sha256:" + hashlib.sha256(store.canonical_bytes(names)).hexdigest(), "names": names}
@@ -421,7 +421,7 @@ CORRUPTIONS = {
                                      "'note', 'protocol', 'run_label', 'schema']; a commitment record has "
                                      "['benchmark_id', 'commitment', 'protocol', 'run_label', 'schema']"]),
     "commitment-file-not-canonical": ("unrated", lambda d: ((d / "COMMITMENT.json").write_text(
-        json.dumps(json.loads((d / "COMMITMENT.json").read_text(encoding="utf-8"))) + "\n", encoding="utf-8"),
+        json.dumps(json.loads((d / "COMMITMENT.json").read_text(encoding="utf-8"))) + "\n", encoding="utf-8", newline="\n"),
         _rewrite(d)), ["COMMITMENT.json is not canonical JSON (spec 4.3)"]),
     "commitment-malformed": ("unrated", lambda d: _write_manifest(d, _set("secrets.commitment", "X" * 64)),
                              ["manifest secrets.commitment is not 64 lowercase hex characters (spec 11.6)",
@@ -445,10 +445,10 @@ CORRUPTIONS = {
                   ["the ledger has 5 games but the schedule has 4", BOARD_JSON, BOARD_MD, "manifest validator.decisions_checked is 16; recomputed: 20 (spec 11.3)",
                    "manifest games.natural is 4; recomputed: 5", "manifest games.total is 4; recomputed: 5"]),
     "ledger-not-canonical": ("unrated", lambda d: ((d / "matches.jsonl").write_text(
-        "".join(json.dumps(row) + "\n" for row in ledger_rows(d)), encoding="utf-8"), _rewrite(d)),
+        "".join(json.dumps(row) + "\n" for row in ledger_rows(d)), encoding="utf-8", newline="\n"), _rewrite(d)),
                              ["matches.jsonl line 1 is not its row in canonical form (spec 4.3)"]),
     "config-not-canonical": ("unrated", lambda d: ((d / "config.json").write_text(
-        json.dumps(json.loads((d / "config.json").read_text(encoding="utf-8"))) + "\n", encoding="utf-8"), _rewrite(d)),
+        json.dumps(json.loads((d / "config.json").read_text(encoding="utf-8"))) + "\n", encoding="utf-8", newline="\n"), _rewrite(d)),
                              ["config.json is not its config in the normalized canonical form the arena writes"]),
     "config-not-normalized": ("unrated", lambda d: _edit_json(d, "config.json", lambda c: c.pop("workers")),
                               ["config.json is not its config in the normalized canonical form the arena writes"]),
@@ -458,7 +458,7 @@ CORRUPTIONS = {
     "extra-file": ("unrated", lambda d: (d / "notes.txt").write_text("x", encoding="utf-8"),
                    ["unexpected file in the run directory: notes.txt"]),
     "extra-directory": ("unrated", lambda d: (d / "extra").mkdir(), ["unexpected file in the run directory: extra"]),
-    "extra-reveal": ("unrated", lambda d: (d / "REVEAL.json").write_text("{}\n", encoding="utf-8"),
+    "extra-reveal": ("unrated", lambda d: (d / "REVEAL.json").write_text("{}\n", encoding="utf-8", newline="\n"),
                      ["unexpected file in the run directory: REVEAL.json"]),
     "extra-listed-file": ("unrated", lambda d: ((d / "notes.txt").write_text("x", encoding="utf-8"),
                                                 _rewrite(d, edit=lambda m: m["files"].append({"path": "notes.txt"}))),
@@ -834,7 +834,7 @@ def test_a_manifest_that_is_not_the_v2_record_fails_before_anything_else(publish
                                                                          tmp_path: Path) -> None:
     directory = _copy(published, "unrated", tmp_path)
     document = manifest(directory)
-    (directory / "manifest.json").write_text(json.dumps(document) + "\n", encoding="utf-8")
+    (directory / "manifest.json").write_text(json.dumps(document) + "\n", encoding="utf-8", newline="\n")
     assert validate_tournament_dir(directory) == ["manifest.json is not canonical JSON (spec 4.3)"]
     _write_manifest(directory, lambda m: m.pop("engine_files"))
     assert validate_tournament_dir(directory) == ["manifest.json fields mismatch: missing=['engine_files'] extra=[]"]
