@@ -1,7 +1,9 @@
 """The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot.
 
-- ``spellbench run CONFIG.json``: run a tournament and publish artifacts
-  into the config's ``tournament_dir``.
+- ``spellbench run CONFIG.json``: run a protocol v2 tournament under a
+  fresh run secret and publish its artifacts into the config's
+  ``tournament_dir``, then print its status and whether it is rated. No
+  launch guard measures it yet, so it publishes as unrated (Decision 3).
 - ``spellbench validate TOURNAMENT_DIR``: verify every manifest digest and
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
@@ -11,8 +13,12 @@
   today), then validate the run.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
-- ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
-  subprocess (so configs can reference builtins over stdio too).
+- ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
+  agent-role subprocess (so configs can reference builtins over stdio too).
+- ``spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...]
+  [--games N] [--timeout-s SECONDS] -- ENGINE ARGV...``: hold an engine to the
+  conformance checks (``spellbench.conformance``), one line per check; exit 0
+  only when every check passes.
 
 Exit codes: 0 success, 1 validation/run failure, 2 usage.
 """
@@ -21,13 +27,15 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
-from .. import agent_server
+from .. import bot
+from ..builtins import BUILTIN_VERSIONS, create_builtin_bot
 from ..errors import ValidationError
+from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
-from .bots import BUILTIN_VERSIONS, create_builtin_bot
+from .throughput import Allocation
 from .validate import validate_tournament_dir
 
 _USAGE = (
@@ -37,9 +45,15 @@ _USAGE = (
     "  spellbench leaderboard TOURNAMENT_DIR\n"
     "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
-    "  spellbench bot NAME [--seed N]"
+    "  spellbench bot NAME [--seed N]\n"
+    "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
+    " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
 )
 _BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
+_CONFORMANCE_USAGE = (
+    "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
+    " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
+)
 
 
 def _load_config(path: Path) -> runner.TournamentConfig:
@@ -69,9 +83,13 @@ def _cmd_run(argv: Sequence[str]) -> int:
         print("usage: spellbench run CONFIG.json", file=sys.stderr)
         return 2
     config = _load_config(Path(argv[0]))
-    summary = runner.run_tournament(config)
+    # A fresh secret per run (spec 11.6); no guard measures the run yet, so it is unrated (Decision 3).
+    summary = runner.run_tournament(
+        config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(config.workers)
+    )
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
+    print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")
     return 0
 
 
@@ -161,11 +179,63 @@ def _cmd_bot(argv: Sequence[str]) -> int:
         if seed < 0:
             print("--seed must be nonnegative", file=sys.stderr)
             return 2
-    return agent_server.serve(
-        create_builtin_bot(name, seed=seed),
-        bot_name=name,
-        bot_version=BUILTIN_VERSIONS[name],
-    )
+    return bot.serve(create_builtin_bot(name, seed=seed), name=name, version=BUILTIN_VERSIONS[name])
+
+
+def _conformance_options(argv: Sequence[str]) -> tuple[list[str], dict[str, Any]] | None:
+    """The engine command and the ``check_engine`` keywords of ``conformance engine``, or None for a usage error.
+
+    Everything after the first ``--`` is the engine command, so it may hold ``--`` and option names itself. Only
+    the syntax is checked here: ``check_engine`` refuses values out of range (``games`` below 1, say).
+    """
+    args = list(argv)
+    if not args or args[0] != "engine" or "--" not in args:
+        return None
+    split = args.index("--")
+    options, engine = args[1:split], args[split + 1 :]
+    if not engine or len(options) % 2:
+        return None
+    keywords: dict[str, Any] = {"decks": []}
+    for flag, value in zip(options[::2], options[1::2]):
+        if flag == "--deck":
+            keywords["decks"].append(value)
+        elif flag == "--format" and "format" not in keywords:
+            keywords["format"] = value
+        elif flag == "--games" and "games" not in keywords:
+            if not value.isascii() or not value.isdigit():
+                return None
+            keywords["games"] = int(value)
+        elif flag == "--timeout-s" and "timeout_s" not in keywords:
+            try:
+                keywords["timeout_s"] = float(value)
+            except ValueError:
+                return None
+        else:
+            return None
+    if "format" not in keywords or not keywords["decks"]:
+        return None
+    return engine, keywords
+
+
+def _cmd_conformance(argv: Sequence[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the conformance runner.
+    from .. import conformance
+
+    parsed = _conformance_options(argv)
+    if parsed is None:
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    engine, keywords = parsed
+    try:
+        report = conformance.check_engine(engine, **keywords)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    # An engine's error messages reach the details: escape what stdout cannot encode (a Windows pipe is cp1252).
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    print(report.render().encode(encoding, "backslashreplace").decode(encoding))
+    return 0 if report.passed else 1
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -187,6 +257,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_site(rest)
         if command == "bot":
             return _cmd_bot(rest)
+        if command == "conformance":
+            return _cmd_conformance(rest)
     except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

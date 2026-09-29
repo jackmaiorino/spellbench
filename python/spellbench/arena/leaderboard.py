@@ -55,9 +55,15 @@ for ``matchup_stat_seed``, and the slice's ordinal in ``slices.deck`` for
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Sequence
+from typing import TYPE_CHECKING, Any, Sequence
 
 from . import ratings, registry, store
+
+if TYPE_CHECKING:  # annotations only; legacy_v1 imports this module
+    from .ledger import LedgerRow
+    from .legacy_v1 import LegacyLedgerRow
+
+    _Row = LedgerRow | LegacyLedgerRow  # a v2 ledger row, or a frozen v1 one
 
 _MASK64 = 0xFFFF_FFFF_FFFF_FFFF
 _GOLDEN_RATIO_64 = 0x9E37_79B9_7F4A_7C15  # SplitMix64 increment (see ratings.py)
@@ -138,7 +144,7 @@ class _Matchup:
     draws: int = 0
     b_wins: int = 0
     # pair_index -> {game_index: row}; rated rows only
-    pairs: dict[int, dict[int, store.LedgerRow]] = field(default_factory=dict)
+    pairs: dict[int, dict[int, _Row]] = field(default_factory=dict)
 
     @property
     def mirror(self) -> bool:
@@ -189,7 +195,7 @@ class _Matchup:
 
 
 def _accumulate(
-    rows: Sequence[store.LedgerRow],
+    rows: Sequence[_Row],
 ) -> tuple[dict[str, _Wdl], dict[str, int], dict[tuple[str, str], _Matchup]]:
     """Per-bot seat-game W/D/L, per-bot forfeit losses, and the matchup panel."""
     wdl: dict[str, _Wdl] = {}
@@ -253,7 +259,7 @@ class _Attribution:
     forfeits_by_cause: dict[str, int] = field(default_factory=dict)
 
 
-def _attribute(rows: Sequence[store.LedgerRow]) -> dict[str, _Attribution]:
+def _attribute(rows: Sequence[_Row]) -> dict[str, _Attribution]:
     """Per-bot games played, halts and truncations after its own selection, forfeits by cause."""
     attributed: dict[str, _Attribution] = {}
     for row in rows:
@@ -322,7 +328,7 @@ def _fit_or_none(
 
 
 def build_leaderboard(
-    rows: Sequence[store.LedgerRow],
+    rows: Sequence[_Row],
     entries: Sequence[registry.RegistryEntry],
     *,
     anchor_bot_id: str,
@@ -363,7 +369,7 @@ def build_leaderboard(
 
 
 def _build_document(
-    rows: Sequence[store.LedgerRow],
+    rows: Sequence[_Row],
     entries: Sequence[registry.RegistryEntry],
     *,
     anchor_bot_id: str,
@@ -566,7 +572,7 @@ def _pairing_label(decks: Sequence[dict[str, Any]]) -> str:
 
 
 def _deck_slices(
-    rows: Sequence[store.LedgerRow],
+    rows: Sequence[_Row],
     entries: Sequence[registry.RegistryEntry],
     *,
     anchor_bot_id: str,
@@ -576,7 +582,7 @@ def _deck_slices(
     schema: str,
 ) -> list[dict[str, Any]]:
     """Per-deck-pairing ratings; empty unless the ledger holds two or more pairings."""
-    groups: dict[bytes, list[store.LedgerRow]] = {}
+    groups: dict[bytes, list[_Row]] = {}
     decks_by_key: dict[bytes, list[dict[str, Any]]] = {}
     for row in rows:
         # v2 rows carry LedgerDeck dataclasses, which canonical_bytes rejects:
@@ -616,7 +622,7 @@ def _deck_slices(
 
 def _build_subrating(
     tag: str,
-    rows: Sequence[store.LedgerRow],
+    rows: Sequence[_Row],
     entries: Sequence[registry.RegistryEntry],
     anchor_bot_id: str,
 ) -> dict[str, Any]:
