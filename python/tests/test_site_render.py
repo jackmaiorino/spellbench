@@ -38,13 +38,13 @@ HOME: dict[str, Any] = {
         "rows": [
             {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "score": 101.4, "lower": 52.0, "upper": 150.5,
              "approximate": False, "reference": False, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": False}]},
             {"name": "uniform", "label": "random", "author": "Spellbench", "score": 0.0, "lower": 0.0, "upper": 0.0,
              "approximate": False, "reference": True, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": 0.0, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": 0.0, "bound": None, "legacy": False}]},
             {"name": "first", "label": "first", "author": "Spellbench", "score": -15.2, "lower": -50.0, "upper": 20.0,
              "approximate": False, "reference": False, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": -15.2, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": -15.2, "bound": None, "legacy": False}]},
         ],
         "benchmark_count": 1,
         "approximate": False,
@@ -67,6 +67,12 @@ BENCH: dict[str, Any] = {
     "engine": {"name": "mtg-kernel", "version": "0.4.0", "source_revision": "abc123", "rules_snapshot_id": "rules-1", "card_pool_identity": "pool-1"},
     "decks": ["Burn", "Elves"],
     "pairs_per_deck": 4,
+    "protocol": {"name": "spellbench/v2", "minor": 0},
+    "legacy": False,
+    "fairness": {"label": "validator only", "verdict": "pass", "decisions_checked": 18123, "violations": 0, "self_reported": False},
+    "setup_rules": [{"term": "Opponent decklist", "value": "visible"}, {"term": "Mulligan", "value": "none (the engine offers no mulligans)"}],
+    "attribution": [{"name": "heuristic", "label": "heuristic", "games": 64, "halts": 1, "truncations": 0}],
+    "newer_runs": [{"name": "2026-10-02", "status": "invalid", "rated": False}],
     "run": {
         "name": "2026-09-26",
         "games": {"total": 192, "rated": 190, "forfeit": 1, "truncated": 1, "halted": 1},
@@ -74,6 +80,7 @@ BENCH: dict[str, Any] = {
         "files": [{"name": "matches.jsonl", "href": "run/matches.jsonl", "bytes": 12345},
                   {"name": "manifest.json", "href": "run/manifest.json", "bytes": 999}],
         "validate_command": "uv run spellbench validate benchmarks/pauper-kernel/runs/2026-09-26",
+        "status": "complete", "rated": True, "commitment": "ab" * 32, "run_secret": "cd" * 32,
     },
     "overall": OVERALL,
     "deck_tables": [
@@ -122,6 +129,81 @@ def _aria(fragment: str) -> str:
     match = re.search(r'aria-label="([^"]*)"', fragment)
     assert match, "no aria-label"
     return html.unescape(match.group(1))
+
+
+V2_EXTRA = {
+    "protocol": {"name": "spellbench/v2", "minor": 0}, "legacy": False,
+    "fairness": {"label": "validator only", "verdict": "pass", "decisions_checked": 18123, "violations": 0, "self_reported": False},
+    "setup_rules": [{"term": "Opponent decklist", "value": "visible"}, {"term": "Mulligan", "value": "none (the engine offers no mulligans)"}],
+    "attribution": [{"name": "heuristic", "label": "heuristic", "games": 64, "halts": 1, "truncations": 0}],
+    "newer_runs": [{"name": "2026-10-02", "status": "invalid", "rated": False}],
+}
+
+
+def _v2_page(**changes) -> str:
+    view = copy.deepcopy(BENCH)
+    view.update(copy.deepcopy(V2_EXTRA))
+    view["run"].update(status="complete", rated=True, commitment="ab" * 32, run_secret="cd" * 32)
+    view.update(changes)
+    return render.render_benchmark(view)
+
+
+def test_a_v2_page_shows_protocol_fairness_rules_and_attribution() -> None:
+    page = _v2_page()
+    assert "protocol v2" in page and 'class="fairness"' in page and "18123 decisions" in page
+    assert "SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract" in page
+    assert "Mulligan" in page and 'class="attribution"' in page and "Newer runs not shown: 2026-10-02 (invalid)" in page
+    assert "ab" * 32 in page and "cd" * 32 in page
+
+
+def test_a_legacy_page_says_so_and_shows_no_fairness_box() -> None:
+    page = _v2_page(protocol={"name": "spellbench/v1", "minor": None}, legacy=True, fairness=None, setup_rules=[], attribution=[])
+    assert 'class="legacy"' in page and "predates the fairness contract" in page and 'class="fairness"' not in page
+
+
+def test_a_view_without_the_v2_keys_renders_as_a_legacy_v1_run() -> None:
+    view = copy.deepcopy(BENCH)
+    for key in ("protocol", "legacy", "fairness", "setup_rules", "attribution", "newer_runs"):
+        del view[key]
+    for key in ("status", "rated", "commitment", "run_secret"):
+        del view["run"][key]
+    page = render.render_benchmark(view)
+    assert 'class="legacy"' in page and "predates the fairness contract" in page and "protocol v1" in page
+    assert 'class="fairness"' not in page and 'class="attribution"' not in page
+    assert "Commitment" not in page and "Run secret" not in page
+
+    home = copy.deepcopy(HOME)
+    for row in home["hero"]["rows"]:
+        for chip in row["chips"]:
+            del chip["legacy"]
+    hero = render.render_home(home)
+    assert hero.count("(protocol v1)") == len(home["hero"]["rows"])                                          # R3-20
+
+
+def test_setup_rule_values_are_escaped() -> None:
+    assert "&lt;script&gt;" in _v2_page(setup_rules=[{"term": "x", "value": "<script>"}])
+
+
+def test_method_and_join_describe_v2() -> None:
+    method = render.render_method(INFO)
+    assert "own secret" in method and "Fairness" in method
+    assert "must never" in method and "cannot see hidden state" in method and "self-reported" in method   # R3-21
+    join = render.render_join(INFO)
+    assert "SPELLBENCH_PROTOCOL_V2.md" in join and "examples/minimal_bot.py" in join
+
+
+def test_a_self_reported_run_says_so_next_to_the_fairness_label() -> None:
+    fairness = {**V2_EXTRA["fairness"], "self_reported": True}
+    page = _v2_page(fairness=fairness)
+    assert "self-reported" in _html(page, "section", "class", "fairness")                                  # R3-9
+    assert "self-reported" not in _html(_v2_page(), "section", "class", "fairness")
+
+
+def test_a_legacy_hero_chip_is_labelled() -> None:
+    home = copy.deepcopy(HOME)
+    home["hero"]["rows"][0]["chips"] = [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": True}]
+    assert "(protocol v1)" in _html(render.render_home(home), "li", "data-bot", "heuristic")               # R3-20
+    assert "(protocol v1)" not in render.render_home(HOME)
 
 
 def test_format_helpers() -> None:
@@ -341,7 +423,7 @@ def test_a_bounded_hero_row_reads_as_a_bound_with_an_arrow() -> None:
     home = copy.deepcopy(HOME)
     home["hero"]["rows"][0].update(
         score=864.0, lower=817.0, upper=920.0, bound="lower",
-        chips=[{"benchmark_id": "pauper-kernel", "margin": 864.0, "bound": "lower"}],
+        chips=[{"benchmark_id": "pauper-kernel", "margin": 864.0, "bound": "lower", "legacy": False}],
     )
     page = render.render_home(home)
     row = _html(page, "li", "data-bot", "heuristic")
@@ -380,7 +462,7 @@ def test_the_hero_states_each_margin_in_words(score: float, bound: str | None, p
     home = copy.deepcopy(HOME)
     home["hero"]["rows"][2].update(
         score=score, lower=score - 30, upper=score + 30, bound=bound,
-        chips=[{"benchmark_id": "pauper-kernel", "margin": score, "bound": bound}],
+        chips=[{"benchmark_id": "pauper-kernel", "margin": score, "bound": bound, "legacy": False}],
     )
     label = _aria(_html(render.render_home(home), "li", "data-bot", "first"))
     assert label.startswith(phrase + ",")
@@ -441,7 +523,7 @@ def _inject(value: Any, payload: str, keep: frozenset[str] = frozenset()) -> Any
 def _fuzz_views() -> list[tuple[str, Callable[[Any], str], dict[str, Any]]]:
     """Each page's renderer with a view that takes every branch that shows data."""
     home = copy.deepcopy(HOME)
-    home["hero"]["rows"][0].update(bound="lower", chips=[{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": "lower"}])
+    home["hero"]["rows"][0].update(bound="lower", chips=[{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": "lower", "legacy": False}])
     home["hero"]["rows"][2]["approximate"] = home["hero"]["approximate"] = True
     bench = copy.deepcopy(BENCH)
     bench["overall"][0].update(bound="lower", wins=16, draws=0, losses=0)

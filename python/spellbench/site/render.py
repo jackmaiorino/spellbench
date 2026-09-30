@@ -7,7 +7,12 @@ shapes and the markup hooks the build relies on (``data-bot``,
 ``id="hero"``, ``id="benchmarks"``) are the Task 6 and Task 8 contract in
 ``docs/design/2026-09-26-benchmark-site-plan.md``, extended since: leaderboard
 rows carry ``bound`` and ``version``, Hero rows and their chips ``bound``,
-deck tables ``fit_error``, and grid cells ``complete_pairs``.
+deck tables ``fit_error``, and grid cells ``complete_pairs``. The protocol v2
+contract adds the benchmark page's run facts (``protocol``, ``legacy``,
+``fairness``, ``setup_rules``, ``attribution``, ``newer_runs`` and the run's
+``status``, ``rated``, ``commitment`` and ``run_secret``) and each Hero chip's
+``legacy`` flag. A benchmark view without the v2 keys (the builder before
+Task 42 adds them) renders as a legacy protocol v1 run.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
@@ -42,6 +47,10 @@ _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) gri
 _BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
 _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
+# A view without the protocol v2 keys comes from the pre-v2 site builder and
+# describes a legacy protocol v1 run; Task 42's builder always sets them.
+_LEGACY_PROTOCOL = {"name": "spellbench/v1"}
+
 _NAV = (
     ("Leaderboard", "index.html#hero"),
     ("Benchmarks", "index.html#benchmarks"),
@@ -64,9 +73,21 @@ _JOIN_INTRO = (
 _METHOD_SECTIONS = (
     (
         "Games",
-        "Each benchmark is a round robin. Every matchup is played as pairs of games that share one random "
-        "seed with the seats swapped, so both bots face the same shuffles. Each pair uses the next deck of "
-        "the benchmark's pool in both seats, and a bot never plays itself.",
+        "Each benchmark is a round robin. Every matchup is played as pairs of games with the seats swapped, "
+        "each pair using the next deck of the benchmark's pool in both seats; a bot never plays itself. "
+        "Every game has its own secret, so the two games of a pair shuffle independently, and ratings still "
+        "count them as a pair. The run publishes a commitment to its secret before the first game and "
+        "reveals the secret afterwards, so anyone can recompute every game's randomness.",
+    ),
+    (
+        "Fairness",
+        "Engines must never show a bot the other player's hand or either library, beyond what the rules let "
+        "it know. The host checks what it can see in every decision before forwarding it, and publishes the "
+        "verdict with the run; it cannot see hidden state. What the protocol does not close (spec 13): "
+        "timing, since a bot can measure how long its opponent takes; adapter faithfulness, since a leak "
+        "through an engine's text or extensions goes unnoticed until an audit; rules errors in an engine; "
+        "trust in the operator, who holds the run secret during the run; and self-reported runs, whose bots "
+        "ran without a verified sandbox.",
     ),
     (
         "What counts",
@@ -260,6 +281,12 @@ svg.bar .arrow { color: var(--text); }
 .run { margin-top: 24px; padding: 14px 18px; border-radius: 12px; background: var(--surface); }
 .files { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 14px; }
 .validated { color: var(--good-ink); font-weight: 600; }
+.fairness { margin-top: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.legacy { margin-top: 16px; padding: 14px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); }
+.attribution-section { margin-top: 56px; }
+table.attribution { width: auto; }
+table.attribution caption { padding-bottom: 8px; color: var(--muted); font-size: 14px; text-align: left; }
+table.attribution tbody tr { border-bottom: 1px solid var(--border); }
 .leaderboards { margin-top: 40px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 .tabs button { padding: 6px 12px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -375,6 +402,7 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
             f"engine {_e(engine['name'])} {_e(engine['version'])}",
             _count(len(view["decks"]), "deck"),
             "same deck in both seats",
+            _protocol_label(view),
         ]
     )
     main = [
@@ -382,10 +410,16 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         f'<p class="lead">{_e(view["summary"])}</p>',
         f'<p class="meta">{meta}</p>',
         _run_box(view["run"]),
-        _leaderboards(view),
-        _grid(view["grid"]),
-        _details(view),
+        _fairness_block(view),
     ]
+    newer_runs = view.get("newer_runs", [])
+    if newer_runs:
+        main.append(_newer_runs_note(newer_runs))
+    main += [_leaderboards(view), _grid(view["grid"])]
+    attribution = view.get("attribution", [])
+    if attribution:
+        main.append(_attribution(attribution))
+    main.append(_details(view))
     return _page(
         site,
         title=f"{view['title']}{_SEP}{site['title']}",
@@ -400,8 +434,9 @@ def render_join(view: Mapping[str, Any]) -> str:
     """``join.html``: how to put a bot on the benchmark (a placeholder until the join kit)."""
     site = view["site"]
     repo = site["repo_url"]
-    spec = _link(repo + "/blob/main/spec/SPELLBENCH_PROTOCOL_V1.md", "protocol spec")
+    spec = _link(repo + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md", "protocol spec")
     readme = _link(repo + "#write-a-bot", '"Write a bot" section')
+    minimal = _link(repo + "/blob/main/examples/minimal_bot.py", "examples/minimal_bot.py")
     issues = _link(repo + "/issues", "open an issue on the repository")
     main = [
         '<div class="prose">',
@@ -411,6 +446,7 @@ def render_join(view: Mapping[str, Any]) -> str:
         "<ol>",
         f"<li>Read the {spec}.</li>",
         f"<li>Start from the README's {readme}.</li>",
+        f"<li>The smallest bot is about 15 lines: {minimal}.</li>",
         "<li>Play your bot against the builtin bots with <code>spellbench run</code>.</li>",
         "</ol>",
         f"<p>A submission guide and form are on the way. Until then, {issues}.</p>",
@@ -644,7 +680,8 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     if row["author"]:
         who += f'<span class="by">{_e(row["author"])}</span>'
     chips = " ".join(
-        f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}</span>'
+        f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
+        f'{" (protocol v1)" if chip.get("legacy", True) else ""}</span>'
         for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""
@@ -742,12 +779,21 @@ def _proposed_card(card: Mapping[str, Any]) -> str:
 
 
 def _run_box(run: Mapping[str, Any]) -> str:
-    """The run's name and game counts, its files for download, and the validation mark."""
+    """The run's name and game counts, its files for download, and the validation mark.
+
+    A run that did not complete or is not rated says so next to its name; the
+    common case (complete and rated) stays unmarked.
+    """
     games = run["games"]
     rated = f"{games['rated']} rated"
     if games["forfeit"]:
         rated += f" ({_count(games['forfeit'], 'forfeit')})"
     counts = ", ".join([rated] + [f"{games[key]} {key}" for key in ("truncated", "halted") if games[key]])
+    marks = ""
+    if run.get("status", "complete") != "complete":
+        marks += f' <span class="chip quiet">{_e(run["status"])}</span>'
+    if not run.get("rated", True):
+        marks += ' <span class="chip quiet">unrated</span>'
     files = [
         f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
         f'<span class="muted">{_file_size(item["bytes"])}</span></li>'
@@ -756,12 +802,79 @@ def _run_box(run: Mapping[str, Any]) -> str:
     return "\n".join(
         [
             '<div class="run">',
-            f'<p><strong>Run {_e(run["name"])}</strong> <span class="muted">{_count(games["total"], "game")}: {counts}</span></p>',
+            f'<p><strong>Run {_e(run["name"])}</strong>{marks} <span class="muted">{_count(games["total"], "game")}: {counts}</span></p>',
             '<ul class="files">',
             *files,
             f'<li class="validated">validated {_CHECK}</li>',
             "</ul>",
             "</div>",
+        ]
+    )
+
+
+def _protocol_label(view: Mapping[str, Any]) -> str:
+    """The protocol's display label ("protocol v2"): its name's version suffix."""
+    protocol = view.get("protocol", _LEGACY_PROTOCOL)
+    return f"protocol {_e(protocol['name'].rsplit('/', 1)[-1])}"
+
+
+def _fairness_block(view: Mapping[str, Any]) -> str:
+    """The run's fairness verdict under the run box; a legacy run gets a note instead (spec 13, R3-9).
+
+    The label comes from the manifest (spec 16: "validator only" for every v2.0
+    engine) and links to the fairness contract. A self-reported run's bots ran
+    without a verified sandbox (spec 11.7), which the box says next to the label.
+    """
+    if view.get("legacy", True):
+        return (
+            '<p class="legacy">Protocol v1: this run predates the fairness contract, and the two games of '
+            "each pair shared one seed. It stays on the board until the benchmark reruns on protocol v2.</p>"
+        )
+    fairness = view["fairness"]
+    label = _link(
+        view["site"]["repo_url"] + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract",
+        fairness["label"],
+    )
+    if fairness["self_reported"]:
+        label += ' <span class="chip quiet">self-reported</span>'
+    text = (
+        f"Fairness: {label}. The host checked every decision before a bot saw it "
+        f"({fairness['decisions_checked']} decisions, verdict {_e(fairness['verdict'])}). "
+        "It cannot see hidden state, so an engine adapter that leaked through its text or extensions "
+        "would go unnoticed."
+    )
+    if fairness["self_reported"]:
+        text += " Its bots ran without a verified sandbox (spec 11.7), so the run cannot claim isolation."
+    return f'<section class="fairness">\n<p>{text}</p>\n</section>'
+
+
+def _newer_runs_note(newer_runs: Sequence[Mapping[str, Any]]) -> str:
+    """Runs published after the one the page shows, named with their status."""
+    listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in newer_runs)
+    return _note(f"Newer runs not shown: {listed}")
+
+
+def _attribution(rows: Sequence[Mapping[str, Any]]) -> str:
+    """Halts and truncations attributed to the bot whose move preceded them, one row per bot."""
+    body = [
+        f'<tr data-bot="{_e(row["name"])}"><td>{_e(row["label"])}</td><td class="num">{row["games"]}</td>'
+        f'<td class="num">{row["halts"]}</td><td class="num">{row["truncations"]}</td></tr>'
+        for row in rows
+    ]
+    return "\n".join(
+        [
+            '<section class="attribution-section">',
+            '<div class="table-wrap">',
+            '<table class="attribution">',
+            "<caption>Halts and truncations after each bot's move</caption>",
+            '<thead><tr><th scope="col">Bot</th><th scope="col" class="num">Games</th>'
+            '<th scope="col" class="num">Halts</th><th scope="col" class="num">Truncations</th></tr></thead>',
+            "<tbody>",
+            *body,
+            "</tbody>",
+            "</table>",
+            "</div>",
+            "</section>",
         ]
     )
 
@@ -996,17 +1109,37 @@ def _details(view: Mapping[str, Any]) -> str:
     """The run's setup with the engine identity, and how to re-check the run."""
     engine, run = view["engine"], view["run"]
     revision = engine["source_revision"]
-    facts = (
+    facts = [
+        ("Protocol", _protocol_label(view)),
         ("Format", _e(view["format"])),
         ("Decks", ", ".join(_e(deck) for deck in view["decks"])),
         ("Schedule", f"{_count(view['pairs_per_deck'], 'seat-swapped pair')} per deck in each matchup"),
+        *[(_e(rule["term"]), _e(rule["value"])) for rule in view.get("setup_rules", [])],
         ("Engine", _e(engine["name"])),
         ("Engine version", _e(engine["version"])),
         ("Source revision", f"<code>{_e(revision)}</code>" if revision else '<span class="muted">not recorded</span>'),
         ("Rules snapshot", f"<code>{_e(engine['rules_snapshot_id'])}</code>"),
         ("Card pool", f"<code>{_e(engine['card_pool_identity'])}</code>"),
-    )
+    ]
     clone = _link(view["site"]["repo_url"], "Clone the repository")
+    recheck = [
+        '<section class="recheck">',
+        "<h2>Re-check this run</h2>",
+        f"<p>{clone}, then run:</p>",
+        f"<pre><code>{_e(run['validate_command'])}</code></pre>",
+        _note("It checks every file's hash and recomputes every rating from the ledger."),
+        _note("Manifest sha256"),
+        f'<p><code class="hash">{_e(run["manifest_sha256"])}</code></p>',
+    ]
+    commitment, run_secret = run.get("commitment"), run.get("run_secret")
+    if commitment is not None:
+        recheck += [_note("Commitment"), f'<p><code class="hash">{_e(commitment)}</code></p>']
+    if run_secret is not None:
+        recheck += [
+            _note("Run secret (revealed after the run)"),
+            f'<p><code class="hash">{_e(run_secret)}</code></p>',
+        ]
+    recheck.append("</section>")
     return "\n".join(
         [
             '<div class="details">',
@@ -1016,14 +1149,7 @@ def _details(view: Mapping[str, Any]) -> str:
             *(f"<dt>{term}</dt><dd>{value}</dd>" for term, value in facts),
             "</dl>",
             "</section>",
-            '<section class="recheck">',
-            "<h2>Re-check this run</h2>",
-            f"<p>{clone}, then run:</p>",
-            f"<pre><code>{_e(run['validate_command'])}</code></pre>",
-            _note("It checks every file's hash and recomputes every rating from the ledger."),
-            _note("Manifest sha256"),
-            f'<p><code class="hash">{_e(run["manifest_sha256"])}</code></p>',
-            "</section>",
+            *recheck,
             "</div>",
         ]
     )

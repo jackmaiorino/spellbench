@@ -698,7 +698,7 @@ def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, d
         margin, bound = (row["elo_milli"] - 1_000_000) / 1000, _bound(row, board)
         value = {"lower": GE + NBSP, "upper": LE + NBSP}.get(bound, "") + render.format_margin(margin)
         assert f'<span class="value">{value}</span>' in item, row["name"]
-        assert f'<span class="chip">gamma {value}</span>' in item, row["name"]
+        assert f'<span class="chip">gamma {value} (protocol v1)</span>' in item, row["name"]
         if bound is None:
             low, high = ((end - 1_000_000) / 1000 for end in row["ci95_elo_milli"])
             detail = f"95% interval {render.format_margin(low)} to {render.format_margin(high)}"
