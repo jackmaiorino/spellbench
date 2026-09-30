@@ -3,13 +3,14 @@
 ``build_site(benchmarks_dir, out_dir)`` loads every ``<benchmarks_dir>/<id>/``
 definition and finds each benchmark's board run (:func:`board_run_dir`): its
 latest published run that is a rated protocol v2 run or a protocol v1 run
-(Decisions 1 and 3). It re-validates the board run and every run published
-after it with the checks of ``spellbench validate``, and refuses to build if
-any fails. It then computes the Hero table, builds the view-model dicts that
-``render`` turns into pages (the contract in ``render``'s docstring), and
-writes ``index.html``, ``models.html``, ``join.html``, ``method.html``,
-``b/<id>/index.html``, and byte copies of the board run's published files
-under ``b/<id>/run/`` for download.
+(Decisions 1 and 3). It re-validates the board run, every run published
+after it, and every run revealed without a manifest with the checks of
+``spellbench validate``, and refuses to build if any fails. It then computes
+the Hero table, builds the view-model dicts that ``render`` turns into pages
+(the contract in ``render``'s docstring), and writes ``index.html``,
+``models.html``, ``join.html``, ``method.html``, ``b/<id>/index.html``, and
+byte copies of the board run's published files under ``b/<id>/run/`` for
+download.
 
 - Every page and file is planned in memory before anything is written, so a
   refused build leaves ``out_dir`` as it was. The build replaces ``out_dir``
@@ -22,10 +23,16 @@ under ``b/<id>/run/`` for download.
   name and version.
 - Runs published after the board run are unrated protocol v2 runs (aborted,
   invalid, or complete without everything Decision 3 asks): the page lists
-  them with their status, and the build warns. A run directory holding
-  ``REVEAL.json`` and no manifest, a committed run revealed after an abort,
-  is warned about by that file's name alone; one holding neither is an
-  unfinished run.
+  them with their status, and the build warns. Every committed run is
+  published (spec 11.6), so the page lists two more kinds of run directory,
+  unrated, when newer than the board run: a run revealed without a manifest
+  (``REVEAL.json``, validated like a published run; status ``aborted``) and a
+  pending commitment (``COMMITMENT.json`` alone, whose contents are left to
+  its run's validation and to CI's run-history check; status ``pending``).
+  A withheld run (a ``REVEAL.json`` without its secret, which was lost) is
+  listed whatever its age, in a note of its own, since none of its games can
+  be checked. Anything else without a manifest is an unfinished run: the
+  build warns, and the page leaves it out.
 - A protocol v2 board run carries its protocol, fairness verdict (with the
   isolation record's ``self_reported`` flag), information rules, the halts
   and truncations attributed to each bot, and its commitment and revealed
