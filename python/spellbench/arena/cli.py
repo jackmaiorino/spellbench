@@ -25,11 +25,13 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from .. import agent_server
+from ..bot import serve as serve_bot
+from ..builtins import BUILTIN_VERSIONS, create_builtin_bot
 from ..errors import ValidationError
+from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
-from .bots import BUILTIN_VERSIONS, create_builtin_bot
+from .throughput import Allocation
 from .validate import validate_tournament_dir
 
 _USAGE = (
@@ -73,9 +75,13 @@ def _cmd_run(argv: Sequence[str]) -> int:
         print("usage: spellbench run CONFIG.json", file=sys.stderr)
         return 2
     config = _load_config(Path(argv[0]))
-    summary = runner.run_tournament(config)
+    # The launch guard of Task 43 is not wired yet: the CLI runs unmeasured, hence unrated.
+    summary = runner.run_tournament(
+        config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(config.workers)
+    )
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
+    print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")
     return 0
 
 
@@ -165,10 +171,10 @@ def _cmd_bot(argv: Sequence[str]) -> int:
         if seed < 0:
             print("--seed must be nonnegative", file=sys.stderr)
             return 2
-    return agent_server.serve(
+    return serve_bot(
         create_builtin_bot(name, seed=seed),
-        bot_name=name,
-        bot_version=BUILTIN_VERSIONS[name],
+        name=name,
+        version=BUILTIN_VERSIONS[name],
     )
 
 
