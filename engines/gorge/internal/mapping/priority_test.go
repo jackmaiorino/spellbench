@@ -349,6 +349,9 @@ func TestNonManaAbilityIndexFailsClosed(t *testing.T) {
 		{"SVar-granted by another object", abilityObj(0, abs...), decision.Option{Ability: 2, SVar: "GrantedAbility", GrantSource: 9}},
 		{"granted by another object", abilityObj(0, abs...), decision.Option{Ability: 2, GrantSource: 9}},
 		{"gained", abilityObj(0, abs...), decision.Option{Ability: 2, GainedSource: 9, GainedIdx: 1}},
+		// gorge's GainedIdx is face-local and can be 0 (legal.go), so only
+		// GainedSource tells a gained ability apart.
+		{"gained at index 0", abilityObj(0, abs...), decision.Option{Ability: 2, GainedSource: 9, GainedIdx: 0}},
 		{"a mutated pile", abilityObj(1, abs...), decision.Option{Ability: 2}},
 		{"a mana ability", abilityObj(0, abs...), decision.Option{Ability: 1}},
 		{"a spell ability", abilityObj(0, abs...), decision.Option{Ability: 0}},
@@ -522,6 +525,11 @@ func TestPriorityOptionalAdditionalCost(t *testing.T) {
 	}
 	na := candidateFor(t, env, p, "cast_spell", a, "method", "normal")
 	nb := candidateFor(t, env, p, "cast_spell", b, "method", "normal")
+	// Covers names every native variant, the optional-cost one first, even
+	// when the plain variant is native option 0.
+	if !reflect.DeepEqual(p.Candidates[na].Op.Covers, []int{1, 0}) || !reflect.DeepEqual(p.Candidates[nb].Op.Covers, []int{2}) {
+		t.Fatalf("covers %s and %s", semJSON(p.Candidates[na].Op), semJSON(p.Candidates[nb].Op))
+	}
 	for _, c := range []struct {
 		cand, paid, plain int
 	}{{na, 1, 0}, {nb, 2, -1}} {
