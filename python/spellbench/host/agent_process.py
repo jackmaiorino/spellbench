@@ -19,10 +19,10 @@ from __future__ import annotations
 from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 from .. import wire
-from .._client import Peer
 from ..agent_messages import AGENT_ERROR_CODES, AgentHelloOk, Choice, read_ack, read_error, request
 from ..errors import MalformedJsonError, PeerTimeoutError, TransportError, ValidationError
 from ..messages import PROTOCOL_MINOR
+from ..wire import Peer
 from .seat import SeatFailure
 
 _T = TypeVar("_T")

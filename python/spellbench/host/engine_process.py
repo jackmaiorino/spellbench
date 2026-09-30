@@ -31,7 +31,6 @@ import unicodedata
 from typing import Any, Mapping, Sequence
 
 from .. import wire
-from .._client import Peer
 from ..errors import EngineError, ProtocolError, ValidationError
 from ..messages import (
     ENGINE_ERROR_CODES,
@@ -48,6 +47,7 @@ from ..messages import (
     Terminal,
     ValidateDeckRequest,
 )
+from ..wire import Peer
 
 # Reason prefixes only the host records (spec 11.3, 11.5): an engine terminal
 # carrying one impersonates the host.

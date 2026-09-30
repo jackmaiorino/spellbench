@@ -121,25 +121,6 @@ def test_canonical_dumps_rejects_non_canonical_values(value: object) -> None:
         wire.canonical_json_dumps(value)
 
 
-def test_candidates_sha256_matches_spec_reduction() -> None:
-    candidates = [
-        {"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": "Pass priority"},
-        {
-            "candidate_id": 1,
-            "semantic": {"kind": "choose_boolean", "source": None, "value": True},
-            "display_text": "Yes",
-        },
-    ]
-    reduced = b'[{"candidate_id":0,"semantic":{"kind":"pass"}},' b'{"candidate_id":1,"semantic":{"kind":"choose_boolean","source":null,"value":true}}]'
-    assert wire.candidates_sha256(candidates) == hashlib.sha256(reduced).hexdigest()
-
-
-def test_candidates_sha256_ignores_display_text() -> None:
-    base = [{"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": "Pass"}]
-    other = [{"candidate_id": 0, "semantic": {"kind": "pass"}, "display_text": "different text"}]
-    assert wire.candidates_sha256(base) == wire.candidates_sha256(other)
-
-
 def test_read_line_eof_returns_none() -> None:
     assert wire.read_line(io.BytesIO(b"")) is None
 

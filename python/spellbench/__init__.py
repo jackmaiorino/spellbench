@@ -1,15 +1,20 @@
-"""Spellbench protocol reference stack (spec/SPELLBENCH_PROTOCOL_V1.md)."""
+"""Spellbench protocol v2 reference stack (spec/SPELLBENCH_PROTOCOL_V2.md).
+
+``messages`` holds the environment-role messages, ``wire`` the strict NDJSON framing and canonical JSON, and
+``bot`` the reference agent-role server (``serve``). ``host`` plays one game (``EngineProcess`` and
+``AgentProcess`` are its role clients) and ``arena`` runs tournaments. Committed protocol v1 runs stay checkable
+through the frozen verifier ``arena.legacy_v1``; no other protocol v1 code is left.
+"""
 
 from __future__ import annotations
 
-from . import models, wire
+from . import bot, messages, wire
 from .errors import (
-    AGENT_ERROR_CODES,
-    ENGINE_ERROR_CODES,
     AgentError,
     EngineError,
     LineTooLongError,
     MalformedJsonError,
+    PeerTimeoutError,
     ProtocolError,
     RemoteError,
     SpellbenchError,
@@ -17,23 +22,23 @@ from .errors import (
     ValidationError,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "__version__",
-    "models",
+    "messages",
     "wire",
+    "bot",
     "SpellbenchError",
     "ProtocolError",
     "MalformedJsonError",
     "LineTooLongError",
     "ValidationError",
     "TransportError",
+    "PeerTimeoutError",
     "RemoteError",
     "EngineError",
     "AgentError",
-    "ENGINE_ERROR_CODES",
-    "AGENT_ERROR_CODES",
     "EngineProcess",
     "AgentProcess",
     "serve",
@@ -41,17 +46,17 @@ __all__ = [
 
 
 def __getattr__(name: str):
-    # Lazy so that importing spellbench.errors/wire/models stays lightweight.
+    # Lazy, so that importing spellbench stays light: a bot process needs neither host client.
     if name == "EngineProcess":
-        from .engine_client import EngineProcess
+        from .host.engine_process import EngineProcess
 
         return EngineProcess
     if name == "AgentProcess":
-        from .agent_client import AgentProcess
+        from .host.agent_process import AgentProcess
 
         return AgentProcess
     if name == "serve":
-        from .agent_server import serve
+        from .bot import serve
 
         return serve
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

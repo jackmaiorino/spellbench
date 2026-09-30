@@ -10,7 +10,6 @@ and ``:``, and no insignificant whitespace.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import queue
@@ -19,7 +18,7 @@ import shutil
 import signal
 import subprocess
 import threading
-from typing import Any, Iterator, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Protocol, Sequence
 
 from .errors import (
     LineTooLongError,
@@ -238,19 +237,6 @@ def canonical_json_line(value: Any) -> bytes:
     return canonical_json_dumps(value) + b"\n"
 
 
-def candidates_sha256(candidates: Sequence[Mapping[str, Any]]) -> str:
-    """SHA-256 over the candidates reduced to semantic content (spec section 4.3).
-
-    ``display_text`` is excluded; the reduction is an array of
-    ``{"candidate_id": <id>, "semantic": {...}}`` in decision order.
-    """
-    reduced = [
-        {"candidate_id": candidate["candidate_id"], "semantic": candidate["semantic"]}
-        for candidate in candidates
-    ]
-    return hashlib.sha256(canonical_json_dumps(reduced)).hexdigest()
-
-
 def strip_line_terminator(line: bytes) -> bytes:
     """Remove the ``\\n`` terminator (a single trailing ``\\r`` is tolerated)."""
     if line.endswith(b"\n"):
@@ -337,10 +323,25 @@ def _kill_process_tree(proc: "subprocess.Popen[bytes]") -> None:
         pass
 
 
+class Peer(Protocol):
+    """The framed line transport the host's role clients speak through (``host.engine_process``,
+    ``host.agent_process``): a :class:`SubprocessPeer`, or an in-process stand-in in tests.
+
+    Payloads exclude the line terminator; the transport adds it on write and
+    strips it on read.
+    """
+
+    def write_line(self, payload: bytes) -> None: ...
+
+    def read_line(self) -> bytes: ...
+
+    def close(self) -> None: ...
+
+
 class SubprocessPeer:
     """A child-process peer with framed stdin/stdout (spec section 2).
 
-    Implements the ``Peer`` protocol used by the role clients:
+    Implements the :class:`Peer` protocol used by the role clients:
     ``write_line(payload)``, ``read_line() -> bytes``, ``close()``.
     """
 
