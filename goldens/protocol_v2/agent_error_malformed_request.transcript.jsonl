@@ -1,0 +1,2 @@
+{"dir":"host_to_agent","message":{"protocol":"spellbench/v2","request_type":"hello"}}
+{"dir":"agent_to_host","message":{"error":{"code":"malformed_request","message":"request_id must be a nonempty string"},"protocol":"spellbench/v2","request_id":"","response_type":"error"}}

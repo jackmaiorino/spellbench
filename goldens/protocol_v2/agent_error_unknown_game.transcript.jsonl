@@ -1,0 +1,2 @@
+{"dir":"host_to_agent","message":{"clock":{"max_decision_ms":60000,"remaining_ms":600000},"decision":{"acting_seat":"p0","candidates":[{"candidate_id":0,"display_text":null,"semantic":{"kind":"pass"}}],"seat_step":0},"game_id":"g-0000000000000000","protocol":"spellbench/v2","request_id":"r-0","request_type":"choose"}}
+{"dir":"agent_to_host","message":{"error":{"code":"unknown_game","message":"game_id names no active game"},"protocol":"spellbench/v2","request_id":"r-0","response_type":"error"}}

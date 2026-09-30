@@ -1,0 +1,4 @@
+{"dir":"host_to_engine","message":{"deck":{"catalog_id":"Burn"},"format":"pauper-bo1","protocol":"spellbench/v2","request_id":"h-1","request_type":"validate_deck"}}
+{"dir":"engine_to_host","message":{"protocol":"spellbench/v2","request_id":"h-1","response_type":"deck_ok"}}
+{"dir":"host_to_engine","message":{"deck":{"catalog_id":"Storm"},"format":"pauper-bo1","protocol":"spellbench/v2","request_id":"h-2","request_type":"validate_deck"}}
+{"dir":"engine_to_host","message":{"error":{"code":"unsupported_deck","message":"catalog_id 'Storm' is not in this engine's catalog"},"protocol":"spellbench/v2","request_id":"h-2","response_type":"error"}}

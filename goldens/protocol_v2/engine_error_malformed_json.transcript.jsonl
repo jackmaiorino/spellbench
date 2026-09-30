@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":"{not json"}
+{"dir":"engine_to_host","message":{"error":{"code":"malformed_json","message":"line is not strict JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"},"protocol":"spellbench/v2","request_id":"","response_type":"error"}}
