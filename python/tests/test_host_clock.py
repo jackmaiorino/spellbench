@@ -45,6 +45,14 @@ def test_real_choices_are_non_pass_selections_among_several() -> None:
     assert not is_real_choice(1, "cast_spell")
 
 
+def test_the_window_counts_each_seats_real_choices() -> None:
+    window = StallingWindow()
+    window.record("p0", real_choice=True)
+    window.record("p1", real_choice=False)
+    window.record("p1", real_choice=True)
+    assert window.counts() == {"p0": 1, "p1": 1}
+
+
 def test_stalling_rulings() -> None:
     window = StallingWindow()
     for _ in range(10):
