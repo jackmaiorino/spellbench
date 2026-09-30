@@ -395,7 +395,8 @@ def test_posed_and_scenario_defaults() -> None:
 def test_the_fixture_cards_carry_spec_6_characteristics() -> None:
     assert {"Mountain", "Island", "Lightning Bolt", "Counterspell", "Brainstorm", "Preordain", "Grizzly Bears",
             "Monastery Swiftspear", "Spellstutter Sprite", "Chainer's Edict", VAULT, "Barbarian Class",
-            "Relic of Progenitus", "Pithing Needle", "Journey to Nowhere", "Rancor", "Fact or Fiction"} <= set(CARDS)
+            "Relic of Progenitus", "Pithing Needle", "Journey to Nowhere", "Rancor", "Fact or Fiction",
+            "Force Spike", "Night Market Guard"} <= set(CARDS)
     for name, card in CARDS.items():
         assert unicodedata.is_normalized("NFC", name), name
         assert card["colors"] == [color for color in COLOR_ORDER if color in card["colors"]], name
@@ -404,3 +405,13 @@ def test_the_fixture_cards_carry_spec_6_characteristics() -> None:
     features = set().union(*(card["types"] + card["subtypes"] + card["keywords"] for card in CARDS.values()))
     assert {"planeswalker", "aura", "morph", "kicker", "madness"} <= features
     assert any(card["full_name"] for card in CARDS.values())                                # "A // B"
+
+
+def test_the_t26b_cards_match_their_oracle_text() -> None:
+    """T26b: Force Spike's {1} unless-cost and Night Market Guard's extra block are what the kinds tour plays."""
+    spike = CARDS["Force Spike"]                       # "Counter target spell unless its controller pays {1}."
+    assert (spike["types"], spike["colors"], spike["mana_value"], spike["keywords"]) == (["instant"], ["blue"], 1, [])
+    guard = CARDS["Night Market Guard"]                # "can block an additional creature each combat"
+    assert (guard["types"], guard["subtypes"], guard["colors"], guard["mana_value"]) == (
+        ["artifact", "creature"], ["construct"], [], 3)
+    assert (guard["power"], guard["toughness"], guard["keywords"]) == (3, 1, [])

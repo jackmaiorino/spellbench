@@ -6,10 +6,12 @@ stack) is visible to p0 whichever seat holds it, so p0's decisions show both pla
 every optional field whose flag the engine does not declare (spec 6.9), so the same script serves the
 ``--all-flags`` run and the run without flags.
 
-Decisions after the pregame (each a legal state, the turns between them off screen): turn 5, while p1's Relic
-of Progenitus ability resolves and p0 chooses the card it exiles (so triggers can be pending, spec 6.6); turn 5
-again, in the declare blockers step (an attack on a planeswalker, a blocker and the attacker it blocks); and
-turn 7, which became night because p1 cast no spell in turn 6 (CR 730.2), with a face-down spell on the stack.
+Decisions after the pregame (each a legal state, the turns between them off screen): turn 5 opens with p0
+ordering the two triggers its just-cast Fireball set off — the one window in which a trigger can still be
+waiting to go on the stack (spec 6.6, CR 117.5 and 603.3); then, the stack built and both seats passed, p0
+chooses the card p1's Relic of Progenitus ability exiles as it resolves; turn 5 again, in the declare
+blockers step (an attack on a planeswalker, a blocker and the attacker it blocks); and turn 7, which became
+night because p1 cast no spell in turn 6 (CR 730.2), with a face-down spell on the stack.
 Answers: candidate 0 (the tour has no ``pick``); ``ask`` stops the tour loudly if the pregame is answered
 otherwise.
 """
@@ -77,7 +79,7 @@ def _script(world):
                             "ring_tempted": 1, "speed": 2}
     world.add("Lightning Bolt", owner="p0", zone="graveyard")
     world.add("Rancor", owner="p0", zone="graveyard")      # its enchanted creature died this turn
-    world.add("Chandra, Torch of Defiance Emblem", owner="p0", zone="command")     # an emblem, not a deck card
+    emblem = world.add("Chandra, Torch of Defiance Emblem", owner="p0", zone="command")   # not a deck card
     # Object records (spec 6.4): a modal double-faced land (full_name), tapped, phased out, with a counter.
     world.add("Spikefield Cave", owner="p0", zone="battlefield", tapped=True, phased_out=True, counters={"charge": 1})
     # A face-down creature of each seat: p0 sees its own name, p1's shows card_name null (CR 708.5).
@@ -98,14 +100,29 @@ def _script(world):
     sprite = world.add("Spellstutter Sprite", owner="p1", zone="battlefield")
     world.add("Grizzly Bears", owner="p1", zone="battlefield", statuses=["goaded"])
     relic = world.add("Relic of Progenitus", owner="p1", zone="battlefield", tapped=True)
-    hidden = world.add("Fiery Temper", owner="p1", zone="hand")
 
-    # The stack (spec 6.5), bottom first: p0's Fireball (X 2); a copy of Forked Bolt whose first target left,
-    # with the damage divided as announced; p1's Cryptic Command (modes: counter target spell, draw a card)
-    # countering the Fireball; p0's Rancor trigger, whose source left the battlefield; and p1's Relic ability,
-    # which resolves now.
+    # p0 has just cast its Fireball (X 2), a red noncreature spell: the Swiftspear's prowess trigger and
+    # the trigger of p0's red-spell emblem are waiting to go on the stack (spec 6.6). A waiting trigger
+    # goes on the stack before anyone next receives priority (CR 117.5, 603.3), so an observation can
+    # show one only in a window without priority — here, while p0 orders its two triggers. The Relic
+    # decision below can therefore show none pending.
     fireball = world.add("Fireball", owner="p0", zone="stack")
     world.stack.append(StackItem(fireball, "spell", None, [{"player": "p1"}], x_value=2))
+    waiting = ((swiftspear, "Monastery Swiftspear"), (emblem, "Chandra, Torch of Defiance Emblem"))
+    world.pending_triggers = [{"source": source, "source_name": name, "controller_seat": "p0", "label": None,
+                               "optional": False} for source, name in waiting]
+    yield from ask(Posed("p0", [{"kind": "order_pick", "source": None, "purpose": "triggers",
+                                 "item": {"trigger": {"source": {"$obj": source}, "source_name": name,
+                                                      "ability_index": 0, "event_objects": [{"$obj": fireball}],
+                                                      "instance": 0, "label": None}},
+                                 "position": 0, "count": 2} for source, name in waiting]))
+
+    # Off screen the two triggers go on the stack and resolve, and the stack (spec 6.5) builds on the
+    # Fireball, bottom first: a copy of p0's Forked Bolt whose first target left, with the damage divided
+    # as announced; p1's Cryptic Command (modes: counter target spell, draw a card) countering the
+    # Fireball; p0's Rancor trigger, whose source left the battlefield; and p1's Relic ability. Both seats
+    # passed, so the Relic ability resolves now.
+    world.pending_triggers = []
     copy = world.add("Forked Bolt", owner="p0", zone="stack", copy=True)
     world.stack.append(StackItem(copy, "spell", None, [{"object": None}, {"player": "p1"}], divided=[1, 1],
                                  text="Forked Bolt deals 2 damage divided as you choose among one or two targets."))
@@ -117,11 +134,6 @@ def _script(world):
     world.stack.append(StackItem(ability, "activated_ability", relic, [{"player": "p0"}],
                                  text="Target player exiles a card from their graveyard."))
     world.passed_seats = ["p0", "p1"]                      # both passed: the Relic ability resolves
-    # Pending triggers (spec 6.6): p0's prowess trigger, and one from the card in p1's hand, omitted for p0.
-    world.pending_triggers.append({"source": swiftspear, "source_name": "Monastery Swiftspear",
-                                   "controller_seat": "p0", "label": None, "optional": False})
-    world.pending_triggers.append({"source": hidden, "source_name": "Fiery Temper", "controller_seat": "p1",
-                                   "label": None, "optional": True})
     graveyard = [internal for internal, obj in world.objects.items() if obj.zone == "graveyard" and obj.owner == "p0"]
     answer = yield from ask(Posed("p0", [{"kind": "select_object", "source": {"$obj": ability}, "purpose": "exile",
                                           "choice": {"object": {"$obj": card}}, "selected_count": 0, "minimum": 1,
@@ -138,7 +150,7 @@ def _script(world):
     for spell in (fireball, cryptic):
         world.move(spell, "graveyard")
     _draw(world, "p1", 1)
-    world.passed_seats, world.pending_triggers, world.known["p0"] = [], [], []
+    world.passed_seats, world.known["p0"] = [], []
     world.mana_pool["p0"]["R"] = 0
     # --- Turn 5, declare blockers step: p0's Swiftspear attacks Chandra, and its Bears, blocked by the Sprite. ---
     world.phase_step, world.priority_seat = "declare_blockers", "p0"
@@ -162,8 +174,8 @@ def _script(world):
 SCENARIO = Scenario(
     name="board",
     decklist=[{"name": "Mountain", "count": 16}, {"name": "Island", "count": 8}, {"name": SPIKEFIELD, "count": 1},
-              {"name": "Lightning Bolt", "count": 2}, {"name": "Fiery Temper", "count": 1},
-              {"name": "Relic of Progenitus", "count": 1}, {"name": "Fathom Seer", "count": 2},
+              {"name": "Lightning Bolt", "count": 2}, {"name": "Relic of Progenitus", "count": 1},
+              {"name": "Fathom Seer", "count": 2},
               {"name": "Journey to Nowhere", "count": 1}, {"name": "Grizzly Bears", "count": 4},
               {"name": "Rancor", "count": 2}, {"name": "Chandra, Torch of Defiance", "count": 1},
               {"name": "Monastery Swiftspear", "count": 1}, {"name": "Spellstutter Sprite", "count": 1},

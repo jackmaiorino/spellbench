@@ -336,3 +336,44 @@ def test_a_step_that_assumes_an_answer_fails_loudly_when_given_another() -> None
     world = World(b"\x22" * 32, flags=dict.fromkeys(OBSERVATION_FLAGS, False))
     with pytest.raises(AssertionError, match="play_land"):
         _drive(fake_v2_scenario_kinds.SCENARIO.script(world), passes_instead_of_playing_a_land)
+
+
+# T26b (Task 26 re-review): the tours play only cards whose rules text fits the play, show a waiting
+# trigger only in the one window the rules allow it, and decline an attack.
+
+def test_the_unless_payment_is_a_force_spike() -> None:
+    # Counterspell imposes no unless-payment, and Mana Leak's {3} would break the one-activation payment.
+    payments = [c["semantic"] for sd in play_tour(fake_v2_scenario_kinds) for c in sd["candidates"]
+                if c["semantic"].get("cost") == "unless_payment"]
+    assert payments and all(semantic["source"]["card_name"] == "Force Spike" for semantic in payments)
+
+
+def test_the_additional_blocker_is_a_night_market_guard() -> None:
+    extra = []
+    for sd, answer in _answered(play_tour(fake_v2_scenario_kinds), fake_v2_scenario_kinds):
+        if answer["kind"] == "declare_block" and answer["attacker"] is not None:
+            record = _records(sd["observation"])[answer["blocker"]["object_id"]]
+            if record["permanent"]["blocked_attackers"]:            # already blocking one: an additional block
+                extra.append(record["card_name"])
+    assert extra == ["Night Market Guard"]       # the only catalog card that can block a second creature
+
+
+def test_a_waiting_trigger_shows_only_while_its_controller_orders_it() -> None:
+    for sd in play_tour(fake_v2_scenario_board, "--all-flags"):
+        triggers = sd["observation"]["pending_triggers"] or []
+        if not triggers:
+            continue
+        # CR 117.5 and 603.3: a waiting trigger goes on the stack before anyone next receives priority, so
+        # an observation can show one only in a window without priority — here, while p0 orders its triggers.
+        assert sd["observation"]["priority_seat"] is None
+        assert any(c["semantic"]["kind"] == "order_pick" and c["semantic"].get("purpose") == "triggers"
+                   for c in sd["candidates"])
+        assert any(trigger["source_name"] == "Monastery Swiftspear" and trigger["controller_seat"] == "p0"
+                   for trigger in triggers)                        # the prowess trigger the re-review held
+
+
+def test_the_kinds_tour_holds_one_creature_back() -> None:
+    answers = [answer for _, answer in _answered(play_tour(fake_v2_scenario_kinds), fake_v2_scenario_kinds)
+               if answer["kind"] == "declare_attack"]
+    assert sum(answer["defender"] is not None for answer in answers) == 2
+    assert any(answer["defender"] is None for answer in answers)   # a declined attack (declare with nothing)
