@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"no_such_field":1,"protocol":"spellbench/v2","protocol_minor":0,"request_id":"h-1","request_type":"hello"}}
+{"dir":"engine_to_host","message":{"error":{"code":"malformed_request","message":"hello: fields mismatch: missing=[] extra=['no_such_field']"},"protocol":"spellbench/v2","request_id":"h-1","response_type":"error"}}

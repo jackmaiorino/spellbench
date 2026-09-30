@@ -1,0 +1,4 @@
+{"dir":"host_to_agent","message":{"game_id":"g-f67d7fe78c792984","protocol":"spellbench/v2","request_id":"r-0","request_type":"game_start","seat":"p0"}}
+{"dir":"agent_to_host","message":{"protocol":"spellbench/v2","request_id":"r-0","response_type":"ack"}}
+{"dir":"host_to_agent","message":{"clock":{"max_decision_ms":60000,"remaining_ms":600000},"decision":{"acting_seat":"p0","candidates":[{"candidate_id":0,"display_text":null,"semantic":{"kind":"pass"}}],"seat_step":0},"game_id":"g-f67d7fe78c792984","protocol":"spellbench/v2","request_id":"r-1","request_type":"choose"}}
+{"dir":"agent_to_host","message":{"error":{"code":"internal_error","message":"choose returned a candidate_id that was not offered"},"protocol":"spellbench/v2","request_id":"r-1","response_type":"error"}}

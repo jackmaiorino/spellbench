@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":"[1,2]"}
+{"dir":"engine_to_host","message":{"error":{"code":"malformed_request","message":"top-level JSON value is not an object"},"protocol":"spellbench/v2","request_id":"","response_type":"error"}}

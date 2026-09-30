@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"game_id":"g-f67d7fe78c792984","protocol":"spellbench/v2","request_id":"h-1","request_type":"probe_resample","samples":1}}
+{"dir":"engine_to_host","message":{"error":{"code":"unsupported_request","message":"this engine has no probe (spec 9.7)"},"protocol":"spellbench/v2","request_id":"h-1","response_type":"error"}}

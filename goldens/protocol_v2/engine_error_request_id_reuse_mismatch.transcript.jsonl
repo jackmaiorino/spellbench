@@ -1,0 +1,4 @@
+{"dir":"host_to_engine","message":{"deck":{"catalog_id":"Burn"},"format":"pauper-bo1","protocol":"spellbench/v2","request_id":"h-1","request_type":"validate_deck"}}
+{"dir":"engine_to_host","message":{"protocol":"spellbench/v2","request_id":"h-1","response_type":"deck_ok"}}
+{"dir":"host_to_engine","message":{"deck":{"catalog_id":"Storm"},"format":"pauper-bo1","protocol":"spellbench/v2","request_id":"h-1","request_type":"validate_deck"}}
+{"dir":"engine_to_host","message":{"error":{"code":"request_id_reuse_mismatch","message":"request_id 'h-1' was just used with another payload (spec 4.1)"},"protocol":"spellbench/v2","request_id":"h-1","response_type":"error"}}
