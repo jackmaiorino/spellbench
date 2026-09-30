@@ -1,4 +1,4 @@
-"""The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot.
+"""The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot / conformance.
 
 - ``spellbench run CONFIG.json``: run a tournament and publish artifacts
   into the config's ``tournament_dir``.
@@ -13,6 +13,8 @@
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
   subprocess (so configs can reference builtins over stdio too).
+- ``spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV...``:
+  run the engine conformance checks against an engine command.
 
 Exit codes: 0 success, 1 validation/run failure, 2 usage.
 """
@@ -37,9 +39,11 @@ _USAGE = (
     "  spellbench leaderboard TOURNAMENT_DIR\n"
     "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
-    "  spellbench bot NAME [--seed N]"
+    "  spellbench bot NAME [--seed N]\n"
+    "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV..."
 )
 _BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
+_CONFORMANCE_USAGE = "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV..."
 
 
 def _load_config(path: Path) -> runner.TournamentConfig:
@@ -168,6 +172,51 @@ def _cmd_bot(argv: Sequence[str]) -> int:
     )
 
 
+def _cmd_conformance(argv: Sequence[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the conformance stack.
+    from ..conformance import check_engine
+
+    if not argv or argv[0] != "engine":
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    format_id = None
+    decks: list[str] = []
+    games = 4
+    engine_argv: list[str] | None = None
+    rest = list(argv[1:])
+    while rest:
+        argument = rest.pop(0)
+        if argument == "--":
+            engine_argv = rest
+            break
+        if not rest:
+            print(_CONFORMANCE_USAGE, file=sys.stderr)
+            return 2
+        value = rest.pop(0)
+        if argument == "--format" and format_id is None:
+            format_id = value
+        elif argument == "--deck":
+            decks.append(value)
+        elif argument == "--games":
+            try:
+                games = int(value)
+            except ValueError:
+                print("--games must be an integer", file=sys.stderr)
+                return 2
+            if games < 1:
+                print("--games must be at least 1", file=sys.stderr)
+                return 2
+        else:
+            print(_CONFORMANCE_USAGE, file=sys.stderr)
+            return 2
+    if engine_argv is None or not engine_argv or format_id is None or not decks:
+        print(_CONFORMANCE_USAGE, file=sys.stderr)
+        return 2
+    report = check_engine(engine_argv, format=format_id, decks=decks, games=games)
+    print(report.render())
+    return 0 if report.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
@@ -187,6 +236,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_site(rest)
         if command == "bot":
             return _cmd_bot(rest)
+        if command == "conformance":
+            return _cmd_conformance(rest)
     except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
