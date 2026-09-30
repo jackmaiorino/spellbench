@@ -235,7 +235,7 @@ def _script(world):
     _library(world, "p0", "Mountain", "Mountain", "Island", "Grizzly Bears", "Lightning Bolt", "Mountain", "Island",
              "Burst Lightning", "Island", "Fiery Temper", "Chainer's Edict", SPIKEFIELD, "Fathom Seer",
              "Faithless Looting", *P0_LIBRARY)
-    _library(world, "p1", "Island", "Island", "Island", "Spellstutter Sprite", "Grizzly Bears", "Counterspell",
+    _library(world, "p1", "Island", "Island", "Island", "Spellstutter Sprite", "Night Market Guard", "Force Spike",
              "Mountain", *P1_LIBRARY)
     yield from ask(Posed("p0", [{"kind": "choose_starting_player", "player": seat} for seat in ("p0", "p1")]),
                    expect={"kind": "choose_starting_player", "player": "p0"})
@@ -262,13 +262,13 @@ def _script(world):
                                              ("Island", "Mountain", "Evolving Wilds", "Relic of Progenitus",
                                               "Grizzly Bears"))
     for card in _zone(world, "p1", "hand"):
-        if world.objects[card].name in ("Island", "Spellstutter Sprite", "Grizzly Bears"):
+        if world.objects[card].name in ("Island", "Spellstutter Sprite", "Night Market Guard"):
             world.move(card, "battlefield")
     for permanent in _zone(world, "p0", "battlefield") + _zone(world, "p1", "battlefield"):
         world.objects[permanent].summoning_sick = False
     _draw(world, "p0", 4)
     _draw(world, "p1", 4)
-    sprite, bears1 = _creatures(world, "p1")
+    sprite, guard = _creatures(world, "p1")
     mountain_in_hand, preordain, fact = _zone(world, "p0", "hand")[5:8]
     world.turn, world.phase_step, world.priority_seat = 9, "precombat_main", "p0"
 
@@ -456,10 +456,12 @@ def _script(world):
     _resolved(world, madness)
     world.move(temper, "graveyard")
 
-    # --- A resolution-time payment (spec 7.1): p1's counterspell resolves, p0 may pay or lose its spell. ---
+    # --- A resolution-time payment (spec 7.1): p1's Force Spike resolves; p0 may pay its {1} or lose the spell.
+    #     (A plain Counterspell imposes no unless-payment, and Mana Leak's {3} would break the one-activation
+    #     payment below.)
     bolt = _spell(world, "Lightning Bolt")
     _item(world, bolt).targets.append({"player": "p1"})
-    counter = next(card for card in _zone(world, "p1", "hand") if world.objects[card].name == "Counterspell")
+    counter = next(card for card in _zone(world, "p1", "hand") if world.objects[card].name == "Force Spike")
     world.move(counter, "stack")
     world.stack.append(StackItem(counter, "spell", None, [_target(bolt)]))
 
@@ -523,8 +525,8 @@ def _script(world):
                                  "replacement_source": None, "replacement_index": index, "replacement_count": 2}
                                 for index in (0, 1)]))
 
-    # --- Turn 10 off screen: p1 destroys two Swiftspears and Fathom Seer. Turn 11: combat. ---
-    for creature in (*swiftspears[1:], seer):
+    # --- Turn 10 off screen: p1 destroys one Swiftspear and the Fathom Seer. Turn 11: combat. ---
+    for creature in (swiftspears[2], seer):
         world.move(creature, "graveyard")
     for seat in ("p0", "p1"):
         world.mana_pool[seat] = dict.fromkeys(world.mana_pool[seat], 0)
@@ -536,18 +538,21 @@ def _script(world):
     _draw(world, "p0")
     world.turn, world.phase_step, world.priority_seat = 11, "declare_attackers", None   # a turn-based action
     attackers = _creatures(world, "p0")
+    held_back = attackers[-1]                            # p0 declines to attack with the newest Swiftspear
     for index, creature in enumerate(attackers):           # the active player attacks (CR 508.1)
+        defenders = (None, {"player": "p1"}) if creature == held_back else ({"player": "p1"}, None)
         answer = yield from ask(Posed("p0", [{"kind": "declare_attack", "attacker": _ref(creature), "defender": defender}
-                                             for defender in ({"player": "p1"}, None)],
+                                             for defender in defenders],
                                       substep=(index, len(attackers))))
         if answer["defender"] is not None:
             world.objects[creature].attack_target = answer["defender"]
             world.objects[creature].tapped = True
     attacking = [creature for creature in attackers if world.objects[creature].attack_target is not None]
 
-    # Blocks: the defending player, one decision per potential blocker and one more for an additional block.
+    # Blocks: the defending player, one decision per potential blocker and one more for an additional block,
+    # which the Night Market Guard's text ("can block an additional creature each combat") allows it to make.
     world.phase_step = "declare_blockers"
-    blocks = [sprite, bears1, bears1]
+    blocks = [sprite, guard, guard]
     for index, blocker in enumerate(blocks):
         blocked = world.objects[blocker].blocking or []
         answer = yield from ask(Posed("p1", [{"kind": "declare_block", "blocker": _ref(blocker), "attacker": attacker}
@@ -630,11 +635,13 @@ DECKLIST = [
     {"name": "Mountain", "count": 8}, {"name": "Island", "count": 10}, {"name": SPIKEFIELD, "count": 1},
     {"name": "Fathom Seer", "count": 1}, {"name": "Relic of Progenitus", "count": 1},
     {"name": "Evolving Wilds", "count": 1}, {"name": "Grizzly Bears", "count": 2},
+    {"name": "Night Market Guard", "count": 1},
     {"name": "Spellstutter Sprite", "count": 1}, {"name": "Monastery Swiftspear", "count": 3},
     {"name": "Ghostly Flicker", "count": 1}, {"name": "Forked Bolt", "count": 1}, {"name": "Cryptic Command", "count": 1},
     {"name": "Borrowed Hostility", "count": 1}, {"name": "Fireball", "count": 1}, {"name": "Pithing Needle", "count": 1},
     {"name": "Faithless Looting", "count": 1}, {"name": "Fiery Temper", "count": 1}, {"name": "Chainer's Edict", "count": 1},
     {"name": "Burst Lightning", "count": 2}, {"name": "Lightning Bolt", "count": 4}, {"name": "Counterspell", "count": 3},
+    {"name": "Force Spike", "count": 1},
     {"name": "Brainstorm", "count": 4}, {"name": "Preordain", "count": 1}, {"name": "Fact or Fiction", "count": 1},
 ]
 

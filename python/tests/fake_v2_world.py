@@ -104,6 +104,11 @@ CARDS: dict[str, dict[str, Any]] = {
     "Borrowed Hostility": _card(["instant"], 1, colors=["red"], keywords=["escalate"]),     # choose one or both modes
     "Evolving Wilds": _card(["land"], 0),                       # a library search
     "Faithless Looting": _card(["sorcery"], 1, colors=["red"], keywords=["flashback"]),     # discard two
+    # T26b (the kinds tour's re-review): an unless-payment Counterspell cannot impose, and a second block
+    # Grizzly Bears cannot make, so the tour plays these two instead.
+    "Force Spike": _card(["instant"], 1, colors=["blue"]),      # "Counter target spell unless its controller pays {1}."
+    "Night Market Guard": _card(["artifact", "creature"], 3, subtypes=["construct"], power=3, toughness=1),
+                                                                # it can block an additional creature each combat
 }
 
 # A face-down spell or permanent: a nameless, colorless 2/2 creature with no text (CR 708.2a).
