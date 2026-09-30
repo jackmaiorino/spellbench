@@ -26,10 +26,27 @@ func untappedBridge(d *decision.Decision, e *rules.Engine) bool {
 	return false
 }
 
+// payableGate is a priority decision offering Heap Gate's {1} ability: the
+// pool can pay for it, so both of the gate's mana abilities are available.
+func payableGate(d *decision.Decision, e *rules.Engine) bool {
+	if d.Kind != decision.KPriority {
+		return false
+	}
+	for _, o := range d.Options {
+		if o.Kind == "activate" && o.Cost != "" && e.G.Obj(o.Obj).Face().Name == "Heap Gate" {
+			return true // the {1} ability is payable from the pool
+		}
+	}
+	return false
+}
+
 func TestDualLandExpandsIntoOneCandidatePerColour(t *testing.T) {
 	g := untilPending(t, "Wildfire", 1, untappedBridge)
 	env := envFor(t, g)
-	tx, _ := mapping.Begin(env, g.E.Pending())
+	tx, err := mapping.Begin(env, g.E.Pending())
+	if err != nil {
+		t.Fatal(err)
+	}
 	p, err := tx.Pose()
 	if err != nil {
 		t.Fatal(err)
@@ -73,20 +90,13 @@ func TestDualLandExpandsIntoOneCandidatePerColour(t *testing.T) {
 // its colour: both asks fold into one decision, and each candidate names its
 // ability by index (G2-1, G2-11).
 func TestHeapGateFoldsItsTwoAbilitiesAndTheColourAsk(t *testing.T) {
-	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		if d.Kind != decision.KPriority {
-			return false
-		}
-		for _, o := range d.Options {
-			if o.Kind == "activate" && o.Cost != "" && e.G.Obj(o.Obj).Face().Name == "Heap Gate" {
-				return true // the {1} ability is payable from the pool
-			}
-		}
-		return false
-	})
+	g := untilPending(t, "CawGates", 1, payableGate)
 	env := envFor(t, g)
 	d := g.E.Pending()
-	tx, _ := mapping.Begin(env, d)
+	tx, err := mapping.Begin(env, d)
+	if err != nil {
+		t.Fatal(err)
+	}
 	p, err := tx.Pose()
 	if err != nil {
 		t.Fatal(err)
@@ -206,17 +216,7 @@ func TestPlainLandIsOneCandidateWithoutAManaChoice(t *testing.T) {
 // native follow-up in Followups, keyed "<option>" and, past a stage-1 ask,
 // "<option>/<stage-1 option>".
 func TestFoldedFollowupsAreRecordedAndDeterministic(t *testing.T) {
-	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		if d.Kind != decision.KPriority {
-			return false
-		}
-		for _, o := range d.Options {
-			if o.Kind == "activate" && o.Cost != "" && e.G.Obj(o.Obj).Face().Name == "Heap Gate" {
-				return true
-			}
-		}
-		return false
-	})
+	g := untilPending(t, "CawGates", 1, payableGate)
 	env := envFor(t, g)
 	d := g.E.Pending()
 	opt := -1

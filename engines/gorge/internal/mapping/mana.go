@@ -102,7 +102,10 @@ func expandActivate(env *Env, d *decision.Decision, o decision.Option, src proto
 			if n2 := sameSeatChoose(c2, d.Player); n2 != nil && n2.Options[0].Kind == "mana" {
 				folds[fmt.Sprint(key, "/", co.Index)] = n2
 				for _, col := range n2.Options {
-					sym, _ := ManaSymbol(col)
+					sym, ok := ManaSymbol(col)
+					if !ok {
+						return nil, nil, fmt.Errorf("%w:mana_option/%q", ErrUnmapped, col.Label)
+					}
 					out = append(out, Cand{Sem: protocol.ActivateManaAbility(src, 0, &sym, &ct),
 						Op: NativeOp{Op: "choose", Option: o.Index, Followup: []int{co.Index, col.Index}}})
 				}
