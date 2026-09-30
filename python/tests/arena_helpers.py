@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from spellbench.arena import runner
+from spellbench.arena import machine, runner
 from spellbench.arena.config import TournamentConfig
 from spellbench.arena.manifest import CommitmentProof, EngineFile
 from spellbench.arena.throughput import Allocation, MachineFacts, PlayedGame, plan_allocation, spot_check_game
@@ -47,6 +47,21 @@ def small_allocation(workers: int = 1) -> Allocation:
                                  placement=None, cpu_count=max(workers, os.cpu_count() or 1), host="test-host",
                                  machine=_MACHINE)
     return allocation.with_spot_check(spot_check_game(games_total), recorded_digest=_DIGEST, replayed_digest=_DIGEST)
+
+
+# Free bytes a test machine reports on every volume: room above the 60 GiB reserve (ARTIFACT-LAW clause 1).
+ROOMY_FREE_BYTES = 2**42
+# The snippet a CLI child process runs first to see the same machine (see roomy_machine).
+ROOMY_CHILD = f"from spellbench.arena import machine; machine.free_bytes = lambda path: {ROOMY_FREE_BYTES}\n"
+
+
+def roomy_machine(monkeypatch: Any, free: Any = None) -> None:
+    """The machine a guarded launch sees in tests: ``free(path)`` free bytes on every volume (default
+    ``ROOMY_FREE_BYTES``, so no test needs 60 GiB free), a fixed memory size and no GPU, so no test reads the real
+    disk or runs nvidia-smi. The launch guard reads these probes from ``spellbench.arena.machine`` at call time."""
+    monkeypatch.setattr(machine, "free_bytes", free or (lambda path: ROOMY_FREE_BYTES))
+    monkeypatch.setattr(machine, "total_memory", lambda: 2**36)
+    monkeypatch.setattr(machine, "nvidia_gpus", lambda **kwargs: ())
 
 
 def builtin(name: str, **extra: Any) -> dict[str, Any]:

@@ -11,4 +11,6 @@ out/
 target/
 benchmarks/local.json
 benchmarks/**/diagnostics.jsonl
+benchmarks/**/throughput.jsonl
+**/throughput-evidence.jsonl
 /site/

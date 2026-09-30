@@ -39,7 +39,8 @@ from spellbench.bench.commit import (
 from spellbench.bench.run import rerun_games, run_benchmark
 from spellbench.run_secret import RunSecret
 
-from test_bench_run import ENVIRON, _write_benchmark
+from arena_helpers import roomy_machine
+from test_bench_run import ENVIRON, REPO, _write_benchmark
 
 PLACEMENT = ("main-pc=used: fastest measured; haleyspc=slower: about half the speed per game; "
              "runpod=not_authorized: not needed for a 1 h run")
@@ -90,6 +91,12 @@ def git_guard(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespac
     return SimpleNamespace(pushes=pushes)
 
 
+@pytest.fixture(autouse=True)
+def _roomy_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every benchmark run is a guarded launch (Decision 10): the tests fake the disk it checks."""
+    roomy_machine(monkeypatch)
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     remote, work = tmp_path / "remote.git", tmp_path / "work"
@@ -105,6 +112,9 @@ def repo(tmp_path: Path) -> Path:
     git(work, "remote", "add", "origin", str(remote))
     (work / "benchmarks").mkdir()
     _write_benchmark(work / "benchmarks")
+    # The repository's own ignore rules: the local, unhashed files a run writes (the throughput evidence in the
+    # benchmark's folder, say) are never untracked changes to the committed benchmark.
+    (work / ".gitignore").write_bytes((REPO / ".gitignore").read_bytes().replace(b"\r\n", b"\n"))
     git(work, "add", "-A")
     git(work, "commit", "-q", "-m", "benchmark")
     git(work, "push", "-q", "origin", "HEAD:main")

@@ -26,8 +26,14 @@ recompute every id, secret and seed and rerun the schedule.
 7. play the schedule through :func:`play_games` (``executor.execute``:
    results in schedule order, and a live-validation violation ends the run
    at that game, Decision 6), checking each game's engine identity against
-   the preflight pin before its row is appended (R3-5);
-8. publish the leaderboard, then ``manifest.json`` last, and leave the
+   the preflight pin before its row is appended (R3-5). With more than one
+   worker the idle monitor watches the pool (COMPUTE-POLICY.md item 6, R3-6):
+   each warning is appended to the run's unhashed ``throughput.jsonl`` and
+   written to stderr as it happens, and no manifest lists that file;
+8. spot-check a small allocation (Decision 3, Task 5): a complete run that
+   could otherwise be rated replays one scheduled game serially, and the
+   allocation records whether its ledger row came back byte for byte;
+9. publish the leaderboard, then ``manifest.json`` last, and leave the
    committed phase. The status, the validator verdict and the rated rule
    come from the rows actually appended (R3-13).
 
@@ -75,7 +81,10 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import hashlib
 import signal
+import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
@@ -104,18 +113,21 @@ from .manifest import (
 )
 from .registry import RegistryEntry
 from .schedule import EnginePin, GameContext, RunSetup, game_setup, preflight, schedule
-from .throughput import Allocation, IdleMonitor, resource_bound
+from .throughput import Allocation, CpuSampler, IdleMonitor, resource_bound, warning_sink
+from .validate import THROUGHPUT_NAME
 
 __all__ = [
     "BotSpec",
     "TournamentConfig",
     "TournamentError",
+    "TimedOutcome",
     "TournamentSummary",
     "deferred_interrupts",
     "executed_config",
     "play_games",
     "play_one",
     "registry_entries",
+    "row_digest",
     "run_tournament",
 ]
 
@@ -378,6 +390,29 @@ def _outcome(
     return GameOutcome(row=row, diagnostics=result.diagnostics, violation=violation, engine=identity.to_json())
 
 
+@dataclass(frozen=True)
+class TimedOutcome(GameOutcome):
+    """A played game and its own time in seconds, measured in the process that played it: from the game's start
+    (its engine and seat processes starting) to its result. Qualification ranks worker counts by these times
+    (Task 5: ``PlayedGame.seconds``)."""
+
+    seconds: float
+
+
+def _timed(play: Callable[[GameContext], GameOutcome], context: GameContext) -> TimedOutcome:
+    """``play(context)`` with the game's own time; top level, so worker processes can run it."""
+    started = time.perf_counter()
+    outcome = play(context)
+    fields = {field.name: getattr(outcome, field.name) for field in dataclasses.fields(outcome)}
+    return TimedOutcome(**fields, seconds=time.perf_counter() - started)
+
+
+def row_digest(row: LedgerRow) -> str:
+    """``"sha256:"`` and the hex SHA-256 of a game's canonical ledger row, the bytes the run hashes: a
+    qualification game's digest and a spot check's (Task 5)."""
+    return "sha256:" + hashlib.sha256(store.canonical_bytes(row.to_json())).hexdigest()
+
+
 def play_games(
     config: TournamentConfig,
     setup: RunSetup,
@@ -390,11 +425,15 @@ def play_games(
     on_outcome: Callable[[GameOutcome], None] | None = None,
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
+    timed: bool = False,
 ) -> ExecutionResult:
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
     workers through ``executor.execute``: outcomes in the order given, the rest stopped at a violation when
-    ``stop_on_violation`` (Decision 6), and any exception reported in the result's ``error`` (spec 11.3)."""
+    ``stop_on_violation`` (Decision 6), and any exception reported in the result's ``error`` (spec 11.3). With
+    ``timed``, each outcome is a :class:`TimedOutcome`."""
     play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries)
+    if timed:
+        play = functools.partial(_timed, play)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
                    monitor=monitor, on_warning=on_warning)
 
@@ -448,6 +487,52 @@ def _commitment_present(directory: Path, record: dict[str, Any]) -> bool:
     return True
 
 
+def _spot_check_game(
+    allocation: Allocation,
+    *,
+    scheduled: int,
+    recorded: int,
+    violations: int,
+    commitment_proof: CommitmentProof | None,
+    engine_files: Sequence[EngineFile],
+) -> int | None:
+    """The game a small run replays before its manifest, or None when no replay is due.
+
+    Only a small allocation planned for this schedule and not spot-checked yet needs one (Task 5), and only a
+    complete run that Decision 3 could otherwise rate (a commitment proof and pinned engine files) is worth the
+    extra game: an unrated run stays unrated whatever its spot check says (COMPUTE-POLICY.md).
+    """
+    if (
+        allocation.kind != "small" or allocation.spot_check is not None or allocation.rules is None
+        or allocation.games_total != scheduled or recorded != scheduled or violations
+        or commitment_proof is None or not engine_files
+    ):
+        return None
+    return allocation.rules.spot_check_game(scheduled)
+
+
+def _spot_checked(
+    allocation: Allocation,
+    index: int,
+    *,
+    config: TournamentConfig,
+    setup: RunSetup,
+    context: GameContext,
+    row: LedgerRow,
+    run_secret: RunSecret,
+    entries: dict[str, RegistryEntry],
+) -> tuple[Allocation, BaseException | None]:
+    """Replay scheduled game ``index`` serially and record whether its ledger row matches the recorded one
+    (``Allocation.with_spot_check``). A replay that raises leaves the allocation unchecked, so the run publishes
+    as unrated; the exception is returned for the caller to note, or to raise after the manifest."""
+    result = play_games(config, setup, [context], run_secret=run_secret, entries=entries, workers=1,
+                        stop_on_violation=False)
+    if result.error is not None or len(result.outcomes) != 1:
+        return allocation, result.error
+    replayed = result.outcomes[0].row
+    return allocation.with_spot_check(index, recorded_digest=row_digest(row), replayed_digest=row_digest(replayed)), None
+
+
 def run_tournament(
     config: TournamentConfig,
     *,
@@ -467,7 +552,7 @@ def run_tournament(
     or locates the file; every published artifact records ``config`` as written. ``output_dir`` publishes into
     that directory instead of ``config.tournament_dir``. ``on_game`` sees each row once it is appended. A run is
     rated only under Decision 3 (``manifest.is_rated``): complete, a passing verdict, ``commitment_proof``, a
-    measured ``allocation`` and pinned ``engine_files``.
+    measured ``allocation`` (a small one once its spot check passed) and pinned ``engine_files``.
     """
     refusals = isolation_refusals(config)
     if refusals:
@@ -508,6 +593,15 @@ def run_tournament(
         if on_game is not None:
             on_game(outcome.row)
 
+    # With more than one worker, the idle monitor reports unused capacity and throughput below the qualified rate
+    # as it happens: each warning goes to the run's unhashed throughput.jsonl, flushed, and to stderr, and never
+    # into a manifest (COMPUTE-POLICY.md item 6, R3-6).
+    monitor: IdleMonitor | None = None
+    on_warning: Callable[[str], None] | None = None
+    if allocation.workers > 1:
+        monitor = IdleMonitor(allocation.workers, qualified_rate=allocation.qualified_rate, cpu=CpuSampler().sample)
+        on_warning = warning_sink(directory / THROUGHPUT_NAME, stream=sys.stderr)
+
     error: BaseException | None = None
     try:
         # The committed phase: one SIGINT handler from before the commitment is written until the manifest is.
@@ -522,8 +616,25 @@ def run_tournament(
                 ledger_path.write_bytes(b"")  # truncate/create the ledger before the first game
                 with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
                     result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
-                                        workers=allocation.workers, on_outcome=record)
+                                        workers=allocation.workers, on_outcome=record, monitor=monitor,
+                                        on_warning=on_warning)
                 error = result.error
+                game = None if error is not None else _spot_check_game(
+                    allocation, scheduled=len(contexts), recorded=len(rows), violations=len(violations),
+                    commitment_proof=commitment_proof, engine_files=engine_files,
+                )
+                if game is not None:
+                    with interrupts.interruptible():  # a Ctrl+C stops the replay; the run still publishes
+                        allocation, failure = _spot_checked(
+                            allocation, game, config=executed, setup=setup, context=contexts[game], row=rows[game],
+                            run_secret=run_secret, entries=entries,
+                        )
+                    if isinstance(failure, Exception):  # noted, never fatal: the run publishes as not spot-checked
+                        with interrupts.holding():
+                            store.append_diagnostics(directory / store.DIAGNOSTICS_NAME, contexts[game].game_id,
+                                                     (f"spot check replay: {type(failure).__name__}: {failure}",))
+                    elif failure is not None:
+                        error = failure  # a Ctrl+C: raised again after the manifest
             except BaseException as exc:  # noqa: BLE001 - published as aborted below, then raised again
                 error = exc
             summary = _publish(
