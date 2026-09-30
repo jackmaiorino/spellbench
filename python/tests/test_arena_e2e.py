@@ -27,12 +27,19 @@ from arena_helpers import (
     make_config,
     matchup_by_names,
     row_by_name,
+    roomy_machine,
     run,
     subprocess_bot,
 )
 
 ALL_BUILTINS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
 REPO = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _roomy_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``spellbench run`` is a guarded launch (Decision 10): the tests fake the disk it checks."""
+    roomy_machine(monkeypatch)
 
 
 def test_the_package_version_is_the_project_version() -> None:

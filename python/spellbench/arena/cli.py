@@ -1,9 +1,12 @@
 """The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot.
 
-- ``spellbench run CONFIG.json``: run a protocol v2 tournament under a
-  fresh run secret and publish its artifacts into the config's
-  ``tournament_dir``, then print its status and whether it is rated. No
-  launch guard measures it yet, so it publishes as unrated (Decision 3).
+- ``spellbench run CONFIG.json [--placement TEXT]``: run a protocol v2
+  tournament under a fresh run secret and publish its artifacts into the
+  config's ``tournament_dir``, then print its status, whether it is rated
+  (never: it has no commitment proof, Decision 3) and its allocation. The
+  launch guard plans it first (Decision 10): a substantial run needs the
+  placement note, the evidence file sits beside the run directory, and a
+  run that would breach the 60 GiB disk reserve is refused.
 - ``spellbench validate TOURNAMENT_DIR``: verify every manifest digest and
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
@@ -17,7 +20,8 @@
   [--date YYYY-MM-DD] [--placement TEXT])``: play the committed run NAME
   under its pushed commitment, with REF the commitment's third-party
   timestamp, or an unrated run under a fresh secret, into
-  ``BENCHMARK_DIR/runs/<name>/``, then validate it.
+  ``BENCHMARK_DIR/runs/<name>/``, guarded (Decision 10), then validate it
+  and print its allocation.
 - ``spellbench bench reveal BENCHMARK_DIR --run NAME [--reason REASON |
   --withheld]``: publish the secret of a committed run that stopped before
   its manifest (killed, or never started) as ``REVEAL.json``, with a reason
@@ -25,9 +29,10 @@
   attempt's unpublished files beside the secret, then validate it. With
   ``--withheld``, publish a run whose secret was lost after its push as
   withheld (spec 11.6).
-- ``spellbench bench rerun RUN_DIR [--game N]...``: replay a published
-  run's games (all by default) from its revealed secret and report each one
-  whose ledger row differs from the ledger's.
+- ``spellbench bench rerun RUN_DIR [--game N]... [--placement TEXT]``:
+  replay a published run's games (all by default) from its revealed secret,
+  planned like any launch, and report each one whose ledger row differs from
+  the ledger's.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
@@ -37,7 +42,8 @@
   conformance checks (``spellbench.conformance``), one line per check; exit 0
   only when every check passes.
 
-Exit codes: 0 success, 1 validation/run failure, 2 usage.
+Exit codes: 0 success, 1 validation/run failure (a launch guard's refusal
+included), 2 usage.
 """
 
 from __future__ import annotations
@@ -52,19 +58,19 @@ from ..errors import ValidationError
 from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
-from .throughput import Allocation
+from .throughput import ThroughputError
 from .validate import REVEAL_REASONS, validate_tournament_dir
 
 _USAGE = (
     "usage:\n"
-    "  spellbench run CONFIG.json\n"
+    "  spellbench run CONFIG.json [--placement TEXT]\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
     f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
-    "  spellbench bench rerun RUN_DIR [--game N]...\n"
+    "  spellbench bench rerun RUN_DIR [--game N]... [--placement TEXT]\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
     "  spellbench bot NAME [--seed N]\n"
     "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
@@ -76,7 +82,7 @@ _BENCH_USAGE = (
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
     f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
-    "  spellbench bench rerun RUN_DIR [--game N]..."
+    "  spellbench bench rerun RUN_DIR [--game N]... [--placement TEXT]"
 )
 _CONFORMANCE_USAGE = (
     "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
@@ -106,18 +112,32 @@ def _print_games(summary: runner.TournamentSummary) -> None:
     print(f"leaderboard status: {summary.leaderboard_status}")
 
 
+def _print_allocation(summary: runner.TournamentSummary) -> None:
+    """The last line of ``run`` and ``bench run``: the allocation the launch guard planned (Decision 10)."""
+    allocation = summary.manifest["allocation"]
+    print(f"allocation: {allocation['kind']} ({allocation['workers']} workers)")
+
+
 def _cmd_run(argv: Sequence[str]) -> int:
-    if len(argv) != 1:
-        print("usage: spellbench run CONFIG.json", file=sys.stderr)
+    if len(argv) not in (1, 3) or (len(argv) == 3 and argv[1] != "--placement"):
+        print("usage: spellbench run CONFIG.json [--placement TEXT]", file=sys.stderr)
         return 2
+    from ..bench.run import EVIDENCE_NAME, plan_for, run_files  # arena never imports bench at module level (R3-4)
+
     config = _load_config(Path(argv[0]))
-    # A fresh secret per run (spec 11.6); no guard measures the run yet, so it is unrated (Decision 3). The
-    # allocation records the cores each game declares, which cap the workers the runner starts (spec 11.4).
-    allocation = Allocation.unmeasured(config.workers, per_game_cores=config.per_game_cores())
+    directory = Path(config.tournament_dir)
+    if directory.exists():  # a published run is refused before the guard plays a qualification game
+        store.prepare_tournament_dir(directory, allowed=(store.COMMITMENT_NAME,))
+    # The launch guard plans the run (Decision 10), its evidence beside the run directory; nothing is pinned. A
+    # fresh secret per run (spec 11.6), and no commitment proof, so the run is unrated (Decision 3).
+    allocation = plan_for(config, placement=argv[2] if len(argv) == 3 else None,
+                          evidence=directory.parent / EVIDENCE_NAME, volumes={"run_dir": directory.parent},
+                          files=run_files(config))
     summary = runner.run_tournament(config, run_secret=RunSecret.generate(), allocation=allocation)
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
     print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")
+    _print_allocation(summary)
     return 0
 
 
@@ -213,7 +233,9 @@ def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
                            date=options.get("--date"), placement=options.get("--placement"))
     print(f"benchmark run published: {result.run_dir}")
     _print_games(result.summary)
-    return _report_failures(result.failures)
+    code = _report_failures(result.failures)
+    _print_allocation(result.summary)
+    return code
 
 
 def _bench_reveal(directory: Path, args: Sequence[str]) -> int | None:
@@ -255,10 +277,11 @@ def _bench_reveal(directory: Path, args: Sequence[str]) -> int | None:
 def _bench_rerun(directory: Path, args: Sequence[str]) -> int | None:
     from ..bench.run import rerun_games
 
-    options = _bench_options(args, repeated=("--game",))
+    options = _bench_options(args, values=("--placement",), repeated=("--game",))
     if options is None or not all(value.isascii() and value.isdigit() for value in options["--game"]):
         return None
-    mismatches = rerun_games(directory, games=[int(value) for value in options["--game"]] or None)
+    mismatches = rerun_games(directory, games=[int(value) for value in options["--game"]] or None,
+                             placement=options.get("--placement"))
     for mismatch in mismatches:
         print(f"FAIL {mismatch}", file=sys.stderr)
     if mismatches:
@@ -397,11 +420,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_bot(rest)
         if command == "conformance":
             return _cmd_conformance(rest)
-    except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
+    except Exception as exc:
+        if not _input_error(exc):
+            raise
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(_USAGE, file=sys.stderr)
     return 2
+
+
+def _input_error(exc: Exception) -> bool:
+    """Whether ``main`` reports ``exc`` as ``error: ...`` with exit 1 rather than a traceback (R3-29): an input
+    error, or a launch guard's refusal (``ThroughputError``, ``PinningError``: neither is a ``ValueError``).
+    ``PinningError`` is raised by bench code alone, which the command imported, so it is looked up here
+    (arena never imports bench at module level, R3-4)."""
+    from ..bench.pinning import PinningError
+
+    return isinstance(exc, (runner.TournamentError, store.StoreError, ValidationError, ValueError, ThroughputError,
+                            PinningError))
 
 
 if __name__ == "__main__":

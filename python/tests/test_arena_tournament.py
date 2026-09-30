@@ -23,12 +23,18 @@ from spellbench.errors import ValidationError
 from spellbench.run_secret import RunSecret
 
 from arena_helpers import (
-    BOT_SLOW_START, HOSTILE_ENGINE, TEST_RUN_SECRET, TESTS_DIR, builtin, cli_bot, ledger_rows, make_config, manifest, run,
-    subprocess_bot,
+    BOT_SLOW_START, HOSTILE_ENGINE, ROOMY_CHILD, TEST_RUN_SECRET, TESTS_DIR, builtin, cli_bot, ledger_rows, make_config,
+    manifest, roomy_machine, run, subprocess_bot,
 )
 
 BOTS = [builtin("uniform", seed=11), builtin("heuristic"), builtin("first")]
 DATA = ("registry.json", "matches.jsonl", "leaderboard.json", "LEADERBOARD.md", "COMMITMENT.json")
+
+
+@pytest.fixture(autouse=True)
+def _roomy_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``spellbench run`` is a guarded launch (Decision 10): the tests fake the disk it checks."""
+    roomy_machine(monkeypatch)
 
 
 @pytest.fixture(autouse=True)
@@ -849,7 +855,9 @@ def test_a_real_ctrl_c_publishes_the_run_as_aborted_and_the_command_exits_nonzer
     directory = tmp_path / "t"
     path = tmp_path / "config.json"
     path.write_text(json.dumps(make_config(directory, BOTS, pairs=20, workers=workers)), encoding="utf-8")
-    process = subprocess.Popen([sys.executable, "-m", "spellbench.arena.cli", "run", str(path)],
+    # spellbench run, in a child that sees room above the 60 GiB reserve, as the in-process tests do (Decision 10).
+    child = ROOMY_CHILD + "import sys\nfrom spellbench.arena import cli\nsys.exit(cli.main(sys.argv[1:]))\n"
+    process = subprocess.Popen([sys.executable, "-c", child, "run", str(path)],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=_default_sigint)
     try:
         deadline = time.monotonic() + 120

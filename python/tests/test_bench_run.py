@@ -16,7 +16,7 @@ from spellbench.bench import definition
 from spellbench.bench.definition import BenchmarkError
 from spellbench.bench.run import run_benchmark
 
-from arena_helpers import FAKE_ENGINE
+from arena_helpers import FAKE_ENGINE, roomy_machine
 
 REPO = Path(__file__).resolve().parents[2]
 ENVIRON = {"PY": sys.executable, "FAKE_ENGINE": str(FAKE_ENGINE)}
@@ -27,6 +27,12 @@ KERNEL_MODEL_STATES = {
     "a48": "774e936da26468358257774fe41ae94578265b331d2edb49d017c0835b08699a",
     "c12": "5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de",
 }
+
+
+@pytest.fixture(autouse=True)
+def _roomy_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every benchmark run is a guarded launch (Decision 10): the tests fake the disk it checks."""
+    roomy_machine(monkeypatch)
 
 
 def _bot(name: str, label: str, tag: str, **extra: Any) -> dict[str, Any]:

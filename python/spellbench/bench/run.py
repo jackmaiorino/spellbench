@@ -1,4 +1,4 @@
-"""Run a benchmark, committed or unrated, and rerun a published run's games (spec 11.1, 11.6; Decisions 3, 9).
+"""Run a benchmark, committed or unrated, and rerun a published run's games (spec 11.1, 11.6; Decisions 3, 9, 10).
 
 A run lands in ``<benchmark_dir>/runs/<date>[-N]/``. Its recorded config keeps the definition's ``${NAME}``
 placeholders; processes start with the values from the environment or ``benchmarks/local.json`` (the
@@ -11,12 +11,18 @@ to the commitment, the commitment must be on ``origin``'s default branch, unchan
 and the benchmark folder (its runs aside) must be the one the commitment commit holds, at ``HEAD`` and in the work
 tree too, so a kept secret never chooses among definitions (spec 11.6). The run publishes
 ``CommitmentProof(commit, proof)``. When it stops before the runner publishes its manifest, this invocation reveals
-it (``REVEAL.json``, reason ``preflight``, ``interrupted`` or ``error``), so every committed run is published
-(spec 11.6). An unrated run (``unrated=True``) plays under a fresh secret and no proof; the runner writes its
-commitment before the first game.
+it (``REVEAL.json``, reason ``preflight``, ``guard``, ``interrupted`` or ``error``), so every committed run is
+published (spec 11.6). An unrated run (``unrated=True``) plays under a fresh secret and no proof; the runner writes
+its commitment before the first game.
 
-The allocation is unmeasured until the launch guard plans it (Decision 10), so every run publishes as unrated
-for now (Decision 3).
+Every launch is guarded (Decision 10; COMPUTE-POLICY.md, ARTIFACT-LAW.md clauses 1, 4 and 9): :func:`plan_for`
+measures the allocation on games sampled across the matchups, reusing compatible local evidence
+(``EVIDENCE_NAME``, in the benchmark's folder, git-ignored), and refuses a run that would leave less than the 60 GiB
+reserve free, before the first game. A committed run also pins its engine and bot files by SHA-256 under
+``SPELLBENCH_PIN_ROOT`` and registers each pin, live, with ``SPELLBENCH_ARTIFACT_REGISTER`` before its first game;
+once published, its pins are registered again as frozen and its run directory as closed. A guard's refusal of a
+committed run reveals it with reason ``guard``, since its commitment is already public. :func:`rerun_games` plans
+its replay the same way (R3-6).
 """
 
 from __future__ import annotations
@@ -25,27 +31,268 @@ import contextlib
 import datetime
 import json
 import os
+import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
 
-from ..arena import runner, store
+from .. import __version__
+from ..arena import machine, runner, store
 from ..arena.config import TournamentConfig
-from ..arena.machine import usable_cpus
-from ..arena.manifest import CommitmentProof, commitment_record
-from ..arena.schedule import preflight, schedule
-from ..arena.throughput import Allocation, Placement, ThroughputError, resource_bound
+from ..arena.machine import DEFAULT_HOST_ALIAS, HOST_ALIAS_ENV, usable_cpus
+from ..arena.manifest import CommitmentProof, EngineFile, commitment_record, isolation_refusals
+from ..arena.schedule import RunSetup, preflight, schedule
+from ..arena.throughput import (
+    Allocation, MachineFacts, Placement, PlayedGame, ThroughputError, check_reserve, plan_allocation, resource_bound,
+    sample_order, workload_id,
+)
 from ..arena.validate import validate_tournament_dir
+from ..errors import ProtocolError, RemoteError, TransportError
+from ..host.engine_process import EngineProcess
+from ..messages import EngineIdentity
 from ..run_secret import RunSecret
 from ..wire import canonical_json_dumps
-from . import commit, definition
+from . import commit, definition, pinning
 from .commit import CommitError
 from .definition import BenchmarkError
+from .pinning import PinningError
 
 # A rerun compares every field of a replayed game's ledger row: the ledger is a hashed data file, so it holds no
 # wall-clock value (a game is deterministic given the run secret, spec 11.6, 11.8). A game decided by a clock, a
 # timeout forfeit say, may replay differently, and is then reported like any other difference.
 _SHOWN_LIMIT = 160
+
+# The local, unhashed, git-ignored throughput evidence (R1-6): a cache of measured allocations, kept in the
+# benchmark's folder (for spellbench run, beside the run directory), so an unchanged launch is not measured again.
+# Pruning it only costs a requalification.
+EVIDENCE_NAME = "throughput-evidence.jsonl"
+# The artifact catalog's owner of a rated run's pins and run directory (a local value; ARTIFACT-LAW.md clause 9).
+OWNER_NAME = "SPELLBENCH_ARTIFACT_OWNER"
+DEFAULT_OWNER = "spellbench"
+PINS_PURPOSE = "pinned engine and bot files of spellbench runs"
+RUN_PURPOSE = "a published spellbench benchmark run"
+
+
+class GuardError(BenchmarkError):
+    """A rated run lacks a local value the launch guard needs (``SPELLBENCH_PIN_ROOT``,
+    ``SPELLBENCH_ARTIFACT_REGISTER``; Decision 10): it stops before its first game."""
+
+
+# The launch guard's refusals: a committed run they stop is revealed with reason "guard" (Decision 10).
+_GUARD_ERRORS = (ThroughputError, PinningError, GuardError)
+
+Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
+
+
+# ---------------------------------------------------------------------------
+# The launch guard (Decision 10)
+# ---------------------------------------------------------------------------
+
+
+def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None) -> Play:
+    """The ``play`` a qualification calls (``throughput.plan_allocation``).
+
+    ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
+    schedule indices a launch plays, when given) with ``workers`` workers through ``runner.play_games``, and
+    returns the wall seconds and one ``PlayedGame`` per position: its own time (``runner.TimedOutcome``), the
+    digest of its canonical ledger row and that row's bytes, newline included. Every call plays under one
+    throwaway secret (``RunSecret.generate()``), so the rungs play identical games; the one preflight runs at the
+    first call, so a reused measurement starts no process. The caller samples positions across the matchups
+    (:func:`plan_for`, R3-6). ``config`` is the executed config.
+    """
+    secret = RunSecret.generate()
+    contexts = schedule(config, secret)
+    chosen = contexts if games is None else [contexts[index] for index in games]
+    entries = {entry.name: entry for entry in runner.registry_entries(config, config)}
+    setups: list[RunSetup] = []
+
+    def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
+        if not setups:
+            setups.append(preflight(config, secret))
+        started = time.perf_counter()
+        result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
+                                   run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
+                                   timed=True)
+        wall = time.perf_counter() - started
+        if result.error is not None:
+            raise result.error
+        played = []
+        for position, outcome in zip(positions, result.outcomes):
+            assert isinstance(outcome, runner.TimedOutcome)
+            played.append(PlayedGame(index=position, seconds=outcome.seconds, digest=runner.row_digest(outcome.row),
+                                     row_bytes=len(store.canonical_bytes(outcome.row.to_json())) + 1))
+        return wall, tuple(played)
+
+    return play
+
+
+def _distinct(files: Sequence[EngineFile]) -> tuple[EngineFile, ...]:
+    """Each file once (the same name and bytes, such as the interpreter of the engine and of a bot), in order."""
+    seen: set[tuple[str, str]] = set()
+    kept = []
+    for file in files:
+        if (file.file_name, file.sha256) not in seen:
+            seen.add((file.file_name, file.sha256))
+            kept.append(file)
+    return tuple(kept)
+
+
+def _launch_files(config: TournamentConfig) -> tuple[tuple[EngineFile, ...], tuple[EngineFile, ...]]:
+    """The engine command's files (a manifest's ``engine_files``) and :func:`run_files`, each file hashed once, so
+    the manifest records the very bytes that were pinned."""
+    engine = pinning.engine_files(config.engine_command)
+    commands: list[EngineFile] = []
+    checkpoints: list[EngineFile] = []
+    for spec in config.bots:
+        if spec.type != "subprocess":
+            continue
+        files = pinning.engine_files(spec.command, extra=() if spec.checkpoint is None else (spec.checkpoint,))
+        commands += [file for file in files if file.index < len(spec.command)]
+        checkpoints += [file for file in files if file.index >= len(spec.command)]
+    return engine, _distinct((*engine, *commands, *checkpoints))
+
+
+def run_files(config: TournamentConfig) -> tuple[EngineFile, ...]:
+    """The files a run pins, each once: the engine command's (``pinning.engine_files``), then each subprocess bot
+    command's, then each bot checkpoint (ARTIFACT-LAW.md clause 4: ``registry.json`` cites checkpoint hashes
+    through bot ids, R3-7). ``config`` is the executed config, its placeholders resolved."""
+    return _launch_files(config)[1]
+
+
+def _machine_facts(volumes: Mapping[str, Path]) -> MachineFacts:
+    """This machine's memory, GPUs and free space per volume role, read through :mod:`arena.machine` at call time."""
+    return machine.machine_facts(volumes, memory=machine.total_memory, gpus=machine.nvidia_gpus,
+                                 disk_free=machine.free_bytes)
+
+
+def _free_space(volumes: Mapping[str, Path]) -> MachineFacts:
+    """The free space of each volume role, read again now."""
+    return machine.machine_facts(volumes, memory=lambda: None, gpus=tuple, disk_free=machine.free_bytes)
+
+
+def plan_for(
+    config: TournamentConfig,
+    *,
+    placement: str | None,
+    evidence: Path,
+    volumes: Mapping[str, Path],
+    files: Sequence[EngineFile] = (),
+    games: Sequence[int] | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> Allocation:
+    """Plan a launch's allocation before its first game (Decision 10; COMPUTE-POLICY.md; ARTIFACT-LAW.md clause 1).
+
+    ``config`` is the executed config. Unvetted subprocess entries are refused first, as the runner refuses them,
+    before any process starts (spec 11.7, R3-9). ``throughput.plan_allocation`` then measures the schedule (or the
+    scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking each matchup's first
+    game in schedule order, then each matchup's second, and so on, so a pool that opens with builtins still
+    measures the slow bots (R3-6). ``placement`` is the note a substantial run needs. ``evidence`` is the local
+    evidence file: a measurement of the same workload (the config minus ``tournament_dir``, the ``files``'
+    SHA-256 values, the rerun's games and the arena version) on the same host, cores and hardware is reused, and a
+    fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in ``environ`` (default
+    ``os.environ``), else ``"local"``, never the machine's name (R3-28).
+
+    ``volumes`` names the ``run_dir`` volume (where the run lands) and, when the launch pins ``files``, the
+    ``pin_root`` volume: the pinned bytes then join the budget. A launch that pins nothing checks its run volume
+    in both roles. Every volume must keep ``RESERVE_BYTES`` (60 GiB) free after the projected bytes: before the
+    first qualification game, after the probe, and once more, read afresh, when the plan is done. A projection
+    past the cap or a breached reserve is a ``ThroughputError`` before the run's first game.
+    """
+    refusals = isolation_refusals(config)
+    if refusals:
+        raise runner.TournamentError("; ".join(refusals))
+    if "run_dir" not in volumes:
+        raise ThroughputError("the launch guard needs the run_dir volume (ARTIFACT-LAW.md clause 1)")
+    roles = {name: Path(path) for name, path in volumes.items()}
+    pinned_bytes = sum(file.bytes for file in files) if "pin_root" in roles else 0
+    roles.setdefault("pin_root", roles["run_dir"])
+    contexts = schedule(config, RunSecret.generate())  # the schedule's shape: its games' matchups, no process
+    positions = list(range(len(contexts))) if games is None else list(games)
+    matchups: dict[int, list[int]] = {}
+    for position, index in enumerate(positions):
+        matchups.setdefault(contexts[index].matchup_index, []).append(position)
+    environ = os.environ if environ is None else environ
+    host = environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS
+    shape = {key: value for key, value in config.to_json().items() if key != "tournament_dir"}
+    workload = workload_id({"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
+                            "games": None if games is None else positions})
+    allocation = plan_allocation(
+        games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
+        play=qualification_play(config, games=None if games is None else positions),
+        placement=placement, host=host, sample=sample_order(list(matchups.values())), workload=workload,
+        evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
+    )
+    assert allocation.budget is not None
+    # The disk may have filled while the qualification played: the reserve holds now, just before the first game.
+    check_reserve(_free_space(roles), allocation.budget.projected_bytes)
+    return allocation
+
+
+@dataclass(frozen=True)
+class _Catalog:
+    """Where a rated run's pins go and how the artifact catalog lists them (ARTIFACT-LAW.md clauses 4 and 9)."""
+
+    pin_root: Path
+    register: Path
+    owner: str
+
+
+def _catalog(environ: Mapping[str, str], local: Mapping[str, str]) -> _Catalog:
+    """The rated run's local values, from the environment, then ``benchmarks/local.json`` (Decision 10); a missing
+    one is a :class:`GuardError`."""
+    def value(name: str) -> str | None:
+        return environ.get(name) or local.get(name) or None
+
+    where = "set it in the environment or in benchmarks/local.json"
+    pin_root, register = value(commit.PIN_ROOT_NAME), value(commit.REGISTER_NAME)
+    if not pin_root:
+        raise GuardError(f"{commit.PIN_ROOT_NAME} is not set: a rated run pins its engine and bot files under it "
+                         f"before its first game (Decision 10); {where}")
+    if not register:
+        raise GuardError(f"{commit.REGISTER_NAME} is not set: a rated run registers its pinned files with that "
+                         f"script (ARTIFACT-LAW.md clause 9); {where}")
+    if not Path(register).expanduser().is_file():
+        raise GuardError(f"{commit.REGISTER_NAME} names {register}, which is not a file; {where}")
+    return _Catalog(pin_root=Path(pin_root).expanduser().resolve(), register=Path(register).expanduser(),
+                    owner=value(OWNER_NAME) or DEFAULT_OWNER)
+
+
+def _engine_identity(config: TournamentConfig) -> EngineIdentity:
+    """The identity the engine reports in ``hello`` (name, version, source revision), for its pins' catalog rows."""
+    try:
+        with EngineProcess(list(config.engine_command), timeout_s=config.time_control.startup_ms / 1000) as engine:
+            return engine.hello().engine
+    except (TransportError, ProtocolError, RemoteError) as exc:
+        raise runner.TournamentError(f"the engine did not start and answer hello: {exc}") from exc
+
+
+def _warn(text: str) -> None:
+    print(f"warning: {text}", file=sys.stderr)
+
+
+def _close_run(run_dir: Path, pins: Sequence[Path], catalog: _Catalog, *, cited_by: str, regen: str,
+               failing: bool) -> None:
+    """A published run's closure (ARTIFACT-LAW.md clause 9): its pins frozen, citing this run, then the run
+    directory registered, closed and kept in full. A pin that stays live is a warning, since the pins are
+    catalogued already; an unregistered run directory is an error, unless the run is failing already (the run's
+    own exception follows). A run revealed without its manifest has no closure here."""
+    if not store.is_published(run_dir):
+        return
+    doc = str(run_dir / store.MANIFEST_NAME)
+    with runner.deferred_interrupts():
+        try:
+            pinning.register_pins(catalog.register, pins, owner=catalog.owner, purpose=PINS_PURPOSE, doc=doc,
+                                  regen=regen, cited_by=cited_by, status=pinning.CLOSURE_STATUS)
+        except PinningError as exc:
+            _warn(f"the pins of {cited_by} stay catalogued as live, not {pinning.CLOSURE_STATUS}: {exc}")
+        try:
+            pinning.register_tree(catalog.register, run_dir, owner=catalog.owner, status="closed",
+                                  purpose=RUN_PURPOSE, doc=doc, regen=f"spellbench bench rerun {run_dir}")
+        except PinningError as exc:
+            if not failing:
+                raise
+            _warn(f"the run directory of {cited_by} is not registered: {exc}")
 
 
 @dataclass(frozen=True)
@@ -94,18 +341,13 @@ def run_benchmark(
         return definition.substitute(text, values)
 
     if run is None:
-        return _unrated_run(benchmark, benchmark_dir, date=date, placement=placement, resolve=resolve)
+        return _unrated_run(benchmark, benchmark_dir, date=date, placement=placement, resolve=resolve,
+                            environ=environ)
     return _committed_run(benchmark, benchmark_dir, run, proof=proof, environ=environ)
 
 
 def _config(benchmark: definition.Benchmark, name: str) -> TournamentConfig:
     return TournamentConfig.from_json(benchmark.tournament_config(f"{definition.RUNS_DIR}/{name}"))
-
-
-def _allocation(config: TournamentConfig) -> Allocation:
-    """Unmeasured until the launch guard plans the run (Decision 10); it records the cores each game declares,
-    which cap the workers the runner starts (spec 11.4)."""
-    return Allocation.unmeasured(config.workers, per_game_cores=config.per_game_cores())
 
 
 def _unrated_run(
@@ -115,6 +357,7 @@ def _unrated_run(
     date: str | None,
     placement: str | None,
     resolve: Callable[[str], str],
+    environ: Mapping[str, str],
 ) -> BenchmarkRun:
     name = definition.next_run_name(benchmark_dir, datetime.date.today().isoformat() if date is None else date)
     if placement is not None:
@@ -124,9 +367,14 @@ def _unrated_run(
             raise BenchmarkError(f"the placement note: {exc}") from None
     config = _config(benchmark, name)
     run_dir = benchmark_dir / definition.RUNS_DIR / name
+    executed = runner.executed_config(config, resolve)
+    engine, files = _launch_files(executed)
+    # Nothing is pinned: the run's volume keeps the reserve, and the files' hashes key the evidence (R1-6).
+    allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
+                          volumes={"run_dir": benchmark_dir}, files=files, environ=environ)
     summary = runner.run_tournament(
-        config, run_secret=RunSecret.generate(), allocation=_allocation(config), run_label=name,
-        benchmark_id=benchmark.id, resolve=resolve, output_dir=run_dir,
+        config, run_secret=RunSecret.generate(), allocation=allocation, run_label=name, benchmark_id=benchmark.id,
+        engine_files=engine, resolve=resolve, output_dir=run_dir,
     )
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
 
@@ -161,23 +409,46 @@ def _committed_run(
         _holds_only_the_commitment(run_dir, benchmark.id)  # again, now that no other invocation can start it
         commit.check_not_started(run_dir, benchmark_id=benchmark.id, environ=environ)  # played once (spec 11.6)
         secret = commit.load_run_secret(run_dir, benchmark_id=benchmark.id, environ=environ)
-        commit.load_placement(run_dir, benchmark_id=benchmark.id, environ=environ)  # the guard plans with it
+        placement = commit.load_placement(run_dir, benchmark_id=benchmark.id, environ=environ)  # recorded (R3-14)
         pushed = commit.pushed_commit(run_dir)
         # The commitment fixed the benchmark (spec 11.6): the definition is read again once checked, and the run
         # plays that one.
         commit.check_definition(benchmark_dir, pushed)
         checked = definition.load_benchmark(benchmark_dir)
-        values = definition.placeholder_values(
-            definition.placeholder_names(checked), definition.load_local_values(benchmark_dir.parent), environ
-        )
+        local = definition.load_local_values(benchmark_dir.parent)
+        values = definition.placeholder_values(definition.placeholder_names(checked), local, environ)
         config = _config(checked, name)
+
+        def resolve(text: str) -> str:
+            return definition.substitute(text, values)
+
         commit.mark_started(run_dir, benchmark_id=benchmark.id, environ=environ)
+        # From here every ending publishes the run: a guard's refusal reveals it with reason "guard" (Decision 10).
         with _revealed_on_failure(run_dir, benchmark_id=benchmark.id, environ=environ):
-            summary = runner.run_tournament(
-                config, run_secret=secret, allocation=_allocation(config),
-                commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
-                benchmark_id=checked.id, resolve=lambda text: definition.substitute(text, values), output_dir=run_dir,
-            )
+            catalog = _catalog(environ, local)
+            executed = runner.executed_config(config, resolve)
+            engine, files = _launch_files(executed)
+            # Planned before pinning, so the pins' volume keeps its reserve too (ARTIFACT-LAW.md clause 1).
+            allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
+                                  volumes={"run_dir": benchmark_dir, "pin_root": catalog.pin_root}, files=files,
+                                  environ=environ)
+            identity = _engine_identity(executed)
+            cited_by = f"{checked.id} run {name}"
+            regen = f"build {identity.name} {identity.version} at {identity.source_revision or 'unknown'}"
+            # Each pin is catalogued, live, before its copy lands, so a crash never leaves a pin uncatalogued (R3-7).
+            pins = pinning.pin_and_register(files, catalog.pin_root, catalog.register, owner=catalog.owner,
+                                            purpose=PINS_PURPOSE, doc=str(run_dir / store.MANIFEST_NAME),
+                                            regen=regen, cited_by=cited_by)
+            try:
+                summary = runner.run_tournament(
+                    config, run_secret=secret, allocation=allocation,
+                    commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
+                    benchmark_id=checked.id, engine_files=engine, resolve=resolve, output_dir=run_dir,
+                )
+            except BaseException:
+                _close_run(run_dir, pins, catalog, cited_by=cited_by, regen=regen, failing=True)
+                raise
+            _close_run(run_dir, pins, catalog, cited_by=cited_by, regen=regen, failing=False)
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
 
 
@@ -197,10 +468,13 @@ def _revealed_on_failure(run_dir: Path, *, benchmark_id: str, environ: Mapping[s
 
 
 def _reveal_reason(exc: BaseException, run_dir: Path) -> str:
-    """The reveal's category, never the exception's text: ``interrupted`` for a Ctrl+C, ``preflight`` for a
-    tournament error before any game was recorded (a config error, spec 11.1), ``error`` otherwise."""
+    """The reveal's category, never the exception's text: ``interrupted`` for a Ctrl+C, ``guard`` for a launch
+    guard's refusal (Decision 10), ``preflight`` for a tournament error before any game was recorded (a config
+    error, spec 11.1), ``error`` otherwise."""
     if isinstance(exc, KeyboardInterrupt):
         return "interrupted"
+    if isinstance(exc, _GUARD_ERRORS):
+        return "guard"
     ledger = run_dir / store.LEDGER_NAME
     if isinstance(exc, runner.TournamentError) and not (ledger.is_file() and ledger.stat().st_size):
         return "preflight"
@@ -271,15 +545,32 @@ def _differences(recorded: dict[str, Any], replayed: dict[str, Any]) -> list[str
     return differ
 
 
+def _recorded_placement(run_dir: Path, manifest: dict[str, Any], environ: Mapping[str, str]) -> str | None:
+    """The placement note ``bench commit`` recorded for a committed run, when this machine keeps it; else None."""
+    secrets, names = manifest.get("secrets"), manifest.get("run")
+    if not isinstance(secrets, dict) or secrets.get("commitment_proof") is None or not isinstance(names, dict):
+        return None
+    try:
+        return commit.load_placement(run_dir, benchmark_id=names.get("benchmark_id"), environ=environ)
+    except CommitError:
+        return None
+
+
 def rerun_games(
-    run_dir: Path, *, games: Sequence[int] | None = None, environ: Mapping[str, str] | None = None
+    run_dir: Path,
+    *,
+    games: Sequence[int] | None = None,
+    placement: str | None = None,
+    environ: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Replay games of the published run in ``run_dir`` from its revealed secret; one line per replayed game whose
     ledger row differs from the ledger's in any field (empty means every one matches).
 
     ``games`` are game indices (default: every game of the ledger). Placeholders resolve as in
-    :func:`run_benchmark`; the schedule is rebuilt from the secret, and after a preflight every chosen game plays
-    to its end through ``runner.play_games``.
+    :func:`run_benchmark`; the schedule is rebuilt from the secret. The replay is a launch like any other
+    (R3-6): :func:`plan_for` plans it, with ``placement`` or else the placement a committed run recorded at
+    ``bench commit``, its evidence in the benchmark's folder. Then, after a preflight, every chosen game plays to
+    its end through ``runner.play_games`` with the planned workers.
     """
     environ = os.environ if environ is None else environ
     run_dir = Path(run_dir).resolve()
@@ -300,9 +591,14 @@ def rerun_games(
         raise BenchmarkError("each game is rerun once")
     if not chosen:
         return []
+    allocation = plan_for(
+        executed, placement=_recorded_placement(run_dir, manifest, environ) if placement is None else placement,
+        evidence=run_dir.parent.parent / EVIDENCE_NAME, volumes={"run_dir": run_dir}, files=run_files(executed),
+        games=chosen, environ=environ,
+    )
     setup = preflight(executed, secret)
     entries = {entry.name: entry for entry in runner.registry_entries(config, executed)}
-    workers = min(config.workers, resource_bound(usable_cpus(), config.per_game_cores()))
+    workers = min(allocation.workers, resource_bound(usable_cpus(), config.per_game_cores()))
     result = runner.play_games(executed, setup, [contexts[index] for index in chosen], run_secret=secret,
                                entries=entries, workers=workers, stop_on_violation=False)
     if result.error is not None:
