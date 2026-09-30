@@ -49,7 +49,7 @@ _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
 # A view without the protocol v2 keys comes from the pre-v2 site builder and
 # describes a legacy protocol v1 run; Task 42's builder always sets them.
-_LEGACY_PROTOCOL = {"name": "spellbench/v1", "minor": None}
+_LEGACY_PROTOCOL = {"name": "spellbench/v1"}
 
 _NAV = (
     ("Leaderboard", "index.html#hero"),
@@ -681,7 +681,7 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
         who += f'<span class="by">{_e(row["author"])}</span>'
     chips = " ".join(
         f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
-        f'{" (protocol v1)" if chip.get("legacy", False) else ""}</span>'
+        f'{" (protocol v1)" if chip.get("legacy", True) else ""}</span>'
         for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""

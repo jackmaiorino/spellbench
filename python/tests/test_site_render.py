@@ -161,6 +161,25 @@ def test_a_legacy_page_says_so_and_shows_no_fairness_box() -> None:
     assert 'class="legacy"' in page and "predates the fairness contract" in page and 'class="fairness"' not in page
 
 
+def test_a_view_without_the_v2_keys_renders_as_a_legacy_v1_run() -> None:
+    view = copy.deepcopy(BENCH)
+    for key in ("protocol", "legacy", "fairness", "setup_rules", "attribution", "newer_runs"):
+        del view[key]
+    for key in ("status", "rated", "commitment", "run_secret"):
+        del view["run"][key]
+    page = render.render_benchmark(view)
+    assert 'class="legacy"' in page and "predates the fairness contract" in page and "protocol v1" in page
+    assert 'class="fairness"' not in page and 'class="attribution"' not in page
+    assert "Commitment" not in page and "Run secret" not in page
+
+    home = copy.deepcopy(HOME)
+    for row in home["hero"]["rows"]:
+        for chip in row["chips"]:
+            del chip["legacy"]
+    hero = render.render_home(home)
+    assert hero.count("(protocol v1)") == len(home["hero"]["rows"])                                          # R3-20
+
+
 def test_setup_rule_values_are_escaped() -> None:
     assert "&lt;script&gt;" in _v2_page(setup_rules=[{"term": "x", "value": "<script>"}])
 
