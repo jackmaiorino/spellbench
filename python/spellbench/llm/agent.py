@@ -116,6 +116,8 @@ class LlmAgent:
                               system_fingerprint=completion.system_fingerprint,
                               prompt_tokens=completion.prompt_tokens, completion_tokens=completion.completion_tokens,
                               response_content_sha256=sha256(completion.content.encode("utf-8")))
+                if completion.completion_tokens > self.max_completion_tokens:
+                    raise ProviderError("output_token_limit_exceeded")
                 if (self._monotonic() - started) * 1000 >= budget_ms:
                     raise ProviderError("timeout")
                 if self._tokens > self.config.max_tokens_per_game:

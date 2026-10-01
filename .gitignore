@@ -12,3 +12,6 @@ target/
 benchmarks/local.json
 benchmarks/**/diagnostics.jsonl
 /site/
+*.credentials
+chatgpt.host-id
+.chatgpt-*

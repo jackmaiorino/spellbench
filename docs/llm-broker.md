@@ -23,6 +23,8 @@ serve_broker(session)
 
 The child command is `python -m spellbench.llm --broker-stdio --model MODEL`. Its model argument is descriptive; the broker's configured provider and returned model are authoritative and logged. Align child and broker settings in the roster. Child prompt code may be customized, but it receives only the seat-visible request that the arena already licensed to it.
 
+A host may instead construct `ChatGptProvider(ChatGptConfig(...))` using its own [Spellbench plan credentials](llm-agents.md#chatgpt-subscription-usage). Pass the provider's public settings and an explicit acceptance limit to the same broker. The child still uses `--broker-stdio`; it receives no OAuth credentials. The plan API has no server-side output-token cap: the host records actual usage and rejects a response above its configured output limit after that usage occurs. Keep sign-in and credentials outside the confined child and complete a small correctness pilot before using this route for measurement.
+
 ## Capability and budgets
 
 An internal inference request has exactly `broker`, `request_id`, `messages` and `timeout_ms`. The broker name is `spellbench-inference/v1`. Messages contain only text roles `system`, `user` or `assistant`; there are no tool calls, endpoint URLs, model overrides, generation-setting overrides or credentials in the request schema. The child cannot extend its clock, trigger inference outside an active choose request, ask twice for one decision or invoke inference for a forced choice.

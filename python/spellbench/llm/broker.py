@@ -157,6 +157,8 @@ class BrokerSession:
             fields.update(unknown_usage=False, returned_model=result.model, prompt_tokens=result.prompt_tokens,
                           completion_tokens=result.completion_tokens, response_id=result.response_id,
                           system_fingerprint=result.system_fingerprint)
+            if result.completion_tokens > self.max_completion_tokens:
+                raise ProviderError("output_token_limit_exceeded")
             if self._tokens > self.limits.max_tokens_total or self._game_tokens > self.config.max_tokens_per_game:
                 raise ProviderError("token_budget_exceeded")
             if self.now() >= deadline:
