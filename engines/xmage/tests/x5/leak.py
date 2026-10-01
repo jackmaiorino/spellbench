@@ -38,6 +38,7 @@ Positions:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import multiprocessing
 import multiprocessing.util
@@ -265,11 +266,10 @@ def _open_engine(argv: list[str], salt: str | None) -> EngineProcess:
 
 
 def _close() -> None:
-    for key in ("A", "B"):
-        engines = _W.get("engines", {})
-        for salted, engine in list(engines.items()):
-            engine.close()
-        engines.clear()
+    engines = _W.get("engines", {})
+    for engine in engines.values():
+        engine.close()
+    engines.clear()
 
 
 def _init(argv: list[str], position: str, setups: dict, secret_hex: str) -> None:
@@ -284,7 +284,8 @@ def _engine(world: str, salted: str) -> EngineProcess:
     return _W["engines"][key]
 
 
-def _bot(spec_or_class, seed_name: str):
+def _bot(spec_or_class):
+    """A factory: a builtin by name (seeded from the game's agent_seed at game_start), or a scripted bot class."""
     if isinstance(spec_or_class, str):
         return lambda: create_builtin_bot(spec_or_class, seed=0)
     return spec_or_class
@@ -304,14 +305,14 @@ def play_pair(task: tuple[int, int]) -> dict[str, Any]:
     # the schedule has two games (one seat-swapped pair); the leak test uses its own index for the secret
     context = contexts[0]
     game = game_setup(config, setup, context, secret)
-    game = type(game)(**{**game.__dict__, "game_index": index, "game_id": secret.game_id(index),
-                         "game_secret_hex": secret.game_secret(index).hex(),
-                         "agent_seeds": (secret.agent_seed(index, "p0"), secret.agent_seed(index, "p1"))})
+    game = dataclasses.replace(game, game_index=index, game_id=secret.game_id(index),
+                               game_secret_hex=secret.game_secret(index).hex(),
+                               agent_seeds=(secret.agent_seed(index, "p0"), secret.agent_seed(index, "p1")))
     for world in ("A", "B"):
         logs = {"p0": [], "p1": []}
         seats = {}
         for seat in ("p0", "p1"):
-            inner_factory = _bot(spec["bots"][seat], seat)
+            inner_factory = _bot(spec["bots"][seat])
             seats[seat] = BuiltinDriver(context.seat_specs[0][1],
                                         factory=lambda f=inner_factory, s=seat: Recording(f(), logs[s]))
         engine = _engine(world, salted)

@@ -1,0 +1,219 @@
+{
+ "decks": [
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 62,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "standard-2022-25-bo1",
+   "cards": 60,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 49,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 41,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  },
+  {
+   "catalog_id": "deck_ok",
+   "format": "fdn-limited-bo1",
+   "cards": 40,
+   "decklist": "deck_ok"
+  }
+ ],
+ "failures": [],
+ "hello": {
+  "formats": [
+   "fdn-limited-bo1",
+   "standard-2022-25-bo1"
+  ],
+  "deck_sources": [
+   "catalog",
+   "decklist"
+  ],
+  "fairness": {
+   "noninterference_probe": false
+  },
+  "catalog_size": 32,
+  "engine": {
+   "card_pool_identity": "xmage-sets-3c333c4538a45690b640b4520b6572c40da80cb9-xpat-94cbe27a7907a9c2ac6a4bc22e3b152270493eb3da92e8449331ea0ccef6997c",
+   "name": "xmage-spellbench",
+   "rules_snapshot_id": "xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-8c2578bef233c7d26ca090613cad5b11e198d21a49b0f67edb964bd782aeec6b",
+   "source_revision": null,
+   "version": "0.1.0"
+  }
+ },
+ "verdict": "PASS"
+}
