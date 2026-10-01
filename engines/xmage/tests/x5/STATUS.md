@@ -1,5 +1,13 @@
 # X5 status (for the coordinator)
 
+## 18:50 EDT: standing by
+
+- The writer on HaleysPC was a Codex cloud task building mtg-kernel FDN fixture tests into
+  `C:/Users/haley/mtg-kernel-fdn-batch-b-target` and `mtg-kernel-fdn-target` (coordinator); not ours, untouched.
+- Waiting for "X5 resume" naming the machine. On resume, `x5run.py run` with the same machine label skips the 3,544
+  recorded games and plays the other 6,568, then the 1,011-game hash recheck and the summary. On Jack's PC, the
+  rows from HaleysPC are copied over first so the plan's game split is unchanged, and the guard re-qualifies there.
+
 ## 18:40 EDT: HaleysPC run stopped at the reserve (3,544 of 10,112 games)
 
 - **Stopped by me at 18:20** when C: free fell to 60.5 GiB, so the volume stays above the 60 GiB reserve. My run's
