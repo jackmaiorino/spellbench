@@ -1,6 +1,6 @@
 # XMage engine for Spellbench (sub-project X)
 
-Status: spike through tasks X0 (pin and build) and X1 (determinism and secrets). There is no v2 server yet (X2), no observation builder (X3) and no decision mapping (X4), so this engine cannot serve games to a Spellbench host. Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
+Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton) and X3 (observation builder). Decisions are not mapped yet (X4), so the server halts every game at its first prompt. Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
 
 ## Pins
 
@@ -27,10 +27,11 @@ The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit
 - `vendor/cabt/`: CABT's `Mage.Player.AI` overlay, its `LICENSE`, and `services/engine/prepare_reference.py`.
 - `patches/xmage/`: the core patch series, applied in name order (below).
 - `patches/build-only/`: build-only patches, applied to every build. Today this is one patch, which pins the jar manifest's `Build-Time`.
-- `overlay/`: the `mage.player.spellbench` package. It holds the Section 11.6 and 5.3 derivations (`Secrets`, `ids.ObjectIds`), the stream router (`rng`, patched builds only), and the X1 harness (`x1`).
+- `overlay/`: the `mage.player.spellbench` package. It holds the Section 11.6 and 5.3 derivations (`Secrets`, `ids.ObjectIds`), the stream router (`rng`, patched builds only), the v2 server (`server`), the observation builder (`observe`), and the X1 and X3 harnesses (`x1`, `x3`).
 - `scripts/build.sh`: one build for Windows (Git Bash) and Linux; `--stock` builds the negative control.
-- `scripts/x1-determinism.sh`: the X1 evidence run.
+- `scripts/x1-determinism.sh`, `scripts/x3-observe.sh`: the X1 and X3 evidence runs.
 - `tests/x1/decks/`: two MIT decks from MageZero's pool (see `NOTICE`).
+- `tests/x3/`: the X3 checker, its mutation test, face-down test decks and evidence.
 
 ## Patch series
 
@@ -110,6 +111,26 @@ What it took beyond the patch series:
 - **Boot warm-up.** Every framework class is initialized under a fixed boot id stream before the first game. `StackAbility` mints an id in a static initializer, mid-game. Without the warm-up, the first game in a JVM consumed an id that reruns did not, and the third game diverged at decision 147 (exile zones keyed by a shifted id). `-Dspellbench.trace.clinit=true` reports any id a game draws inside a static initializer; the final runs report none.
 - **Deck card classes.** These are initialized under the boot stream at each game's setup.
 
+## X3 observation
+
+`observe.ObservationBuilder` builds the Section 6 observation of a live game for either seat, read while the game thread is parked at a prompt (design D4). One builder serves one game and owns its per-viewer id state.
+
+- **API for X4.** `ObservationBuilder.forSession(game, gameSecret, flags)` (flags from `EngineProfile`); per posed decision, `build(seat, priorityHolder.holder(seat, isPriority), looks)` with `Looks.fromPrompt(...)` or exact looks; candidates take their references from `Observation.reference(uuid)` and `Observation.target(uuid)`, which equal the records field for field. Build only for posed decisions: each build is one observation of that seat's stream. Any failure is an `ObservationException`, whose `cause` ends the game halted.
+- **Visibility.** A face-down object is named only where XMage's `CardUtil.canShowAsControlled` allows (its controller on the battlefield and the stack, its owner in exile). The other seat's hand and both libraries are counts, plus the cards the current decision offers (`known`, Section 6.7 with `known_cards` false). Nothing is read from CABT's serializer or XMage's sideboard.
+- **Ids.** `ids.ObjectIds` over `<uuid>:z<zone change counter>`, per viewer. A look id lasts while that seat's consecutive observations show the card. An internal key that returns after leaving a seat's observation (XMage restores zone change counters when it rolls back a failed action) is minted as `<key>:r<n>`, so an id never returns. A collision halts the game.
+- **Flags.** Exactly `EngineProfile.observationFlags`; a flag the builder does not implement must be false.
+
+Interpretations:
+
+- `known`: a library card is `searching` with no position, since its position may have changed since the seat saw it; X4 passes positions for scry, surveil and look-at-top. An other-seat hand card is `revealed` when XMage revealed it to both players, else `looked_at`.
+- Keywords a public effect grants a face-down object are withheld from the seat that may not look at it (only `ward` is kept), because validator V6 allows no other.
+- A face-up object without a name (a copy of a face-down permanent) has `card_name` null.
+- Exile is ordered by when that seat's observations first showed each card: XMage's exile zones are a hash map.
+- `priority_seat` comes from `PriorityHolder` (the seat at a priority prompt, kept through the prompts of the action it took, null after a pass); in pregame, `active_seat` is the host-assigned starting seat.
+- Names are XMage's, in NFC; there is no Oracle name table yet (design Section 3.3 `names`). Token names are XMage's ("Map Token", "Monster"); emblems are "<planeswalker> Emblem".
+
+Evidence: `tests/x3/README.md` (360 games, 539,524 observations, zero failures).
+
 ## Byte budget and prune record
 
 Scratch root `D:/e-scratch/xmage-x-spike/` is registered in `collab/ARTIFACTS/catalog.jsonl`, with a projected 3 GiB and a cap of 6 GiB. Linux builds live in WSL `~/x-spike/`.
@@ -128,3 +149,5 @@ Kept:
 - `x1-final/` (transcripts, summaries, logs);
 - the build logs;
 - in WSL: `build-l1`, `build-l2`, `build-lstock` and `x1-linux` (not pruned: WSL stayed off at the request of another lane's timing run).
+
+X3 (2026-10-01, HaleysPC `~/x-spike/x3/`): the 360 per-game observation files (449 MB gzipped) and every per-process database copy were pruned after the check, leaving 301 KB of logs and summaries; `scripts/x3-observe.sh` regenerates them. The evidence is in `tests/x3/evidence/`.
