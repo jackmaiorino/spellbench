@@ -1,5 +1,13 @@
 # X5 status (for the coordinator)
 
+## 18:20 EDT: disk note
+
+- 3,025 of 10,112 games at 66 games/min, 0 violations, 0 halts; ETA for the run about 20:00 EDT.
+- HaleysPC C: free fell from 69.5 GiB at launch to 62.9 GiB. My run's footprint is constant: 1.55 GB of engine
+  scratch (6 card-database copies) and 8 MB of rows. Something else on the machine is writing; I could not pin it
+  down quickly (no growth in `~/x-spike/x5`, Temp or the dated `C:\mtg-*` folders). A monitor stops my waiting at
+  61 GiB; if C: nears 60 GiB I will stop the run (resumable: finished rows are kept) and report.
+
 ## 17:35 EDT: final run on HaleysPC in progress
 
 - Reserve re-checked before start: C: 69.5 GiB free (guard's facts: 73.8 GB at qualification, 71.5 GB during the
