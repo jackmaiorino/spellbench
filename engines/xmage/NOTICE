@@ -1,0 +1,17 @@
+Spellbench XMage engine (engines/xmage), part of Spellbench (MIT, see ../../LICENSE.txt).
+
+This directory carries third-party code and data under their own MIT licenses:
+
+- XMage (https://github.com/magefree/mage), MIT License, Copyright (c) 2010 betasteward@gmail.com.
+  Not vendored: scripts/build.sh fetches the pinned commit (pins.env). patches/xmage/ and patches/build/ are
+  diffs against that commit and are offered upstream under the same license.
+
+- CABT (https://github.com/NMaass/mtg-rl-tools), MIT License, Copyright (c) 2026 Nick Maassen.
+  Vendored unchanged under vendor/cabt/ at commit bc1cf38c75ee3b3922b174bf20bc6e180e1f7a26; its LICENSE is at
+  vendor/cabt/LICENSE.
+
+- tests/x1/decks/Standard16-RG.dck and Standard16-UB.dck come from MageZero's XMage fork
+  (https://github.com/WillWroble/mage, commit cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f, Mage.Tests/decks/),
+  MIT License (XMage's LICENSE.txt in that fork; MageZero itself is MIT, Copyright (c) 2025 Will Wroble).
+
+Card names and rules text are the property of Wizards of the Coast.
