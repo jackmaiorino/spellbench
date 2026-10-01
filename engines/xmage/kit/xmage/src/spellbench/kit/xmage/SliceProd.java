@@ -588,7 +588,7 @@ final class SliceProd {
                 for (String mode : new String[]{"kit", "oracle"}) {
                     KitContext.reset();
                     KitContext.mctsIterations = 400;
-                    KitContext.rolloutCap = 300;
+                    KitContext.rolloutCap = 1000; // the frozen kit-mcts cap (cap 300 rejected by the E4 clause 2 threshold)
                     KitMcts[] m = new KitMcts[1];
                     KitRandom random = KitRandom.install(Seeds.worldSeed(Slice.GAME_KEY, Json.num(d0, "seat_step", 0), 0), Slice.ID_SEED);
                     WorldBuilder.Spec spec = new WorldBuilder.Spec();

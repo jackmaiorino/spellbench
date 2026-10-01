@@ -47,7 +47,7 @@ the digest.
 |---|---|---|---:|---|
 | `h1` | `kit-mad-1` | ComputerPlayer7 search in the main phases and declare steps, its own pass elsewhere; MAD combat | 1 | 5000 nodes, 2000 options, 20 000 operations |
 | `h2` | `kit-mad-k` | as h1, vote over K worlds | 4 | as h1, per world |
-| `h3` | `kit-mcts` | MCTS at every priority decision and for combat (upstream dispatch); truncated rollouts scored by the evaluator against the decision's score (design 5.6), labelled | 1 | 30 iterations, rollout cap 300, 20 000 operations, 2000 options |
+| `h3` | `kit-mcts` | MCTS at every priority decision and for combat (upstream dispatch); a rollout stopped by a cap or horizon is scored by the evaluator against the decision's score (design 5.6) | 1 | 30 iterations, rollout cap 1000, 20 000 operations, 2000 options |
 
 All entries: ComputerPlayer dialog heuristics (the same in both upstream bots); a world with a horizon-flagged stack
 object, dropped pending triggers or an unsupported state is not searched and the front declines (wrapper); a chosen

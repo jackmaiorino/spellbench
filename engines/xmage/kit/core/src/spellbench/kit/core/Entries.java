@@ -66,7 +66,7 @@ public final class Entries {
                 break;
             case "h3":
                 c = Json.map("name", "kit-mcts", "bot", "mcts", "worlds", 1L, "skill", 6L,
-                        "budgets", Json.map("iterations", 30L, "rollout", 300L, "operations", 20000L, "options", 2000L),
+                        "budgets", Json.map("iterations", 30L, "rollout", 1000L, "operations", 20000L, "options", 2000L),
                         "aggregation", "visits per priority key (one world)",
                         "priority", "MCTS at every priority decision with more than one candidate (upstream dispatch)",
                         "combat", "MCTS selectAttackers/selectBlockers (upstream dispatch)",
