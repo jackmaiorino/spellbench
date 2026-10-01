@@ -31,7 +31,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | X0 | Pin and build | done (2026-09-30) | | | two clean builds identical per platform; pins and identity strings in README |
 | X1 | Determinism and secrets (X-P1 to X-P3, router, per-viewer ids, boot warm-up) | done (2026-09-30) | | | `x1-determinism.sh` PASS on Windows and Linux; stock diverges |
 | X1f (#14) | X1 follow-ups: prune WSL `~/x-spike`; strip Maven 3.6 ANSI from the build manifest | ready (after the research lead's quiet window, about 03:35 EDT 10-01) | | 0.1 | done and rebuilt once |
-| X2 (#15) | v2 server skeleton: strict I-JSON reader, envelope, retransmission cache, `hello`/`reset`/`step`/`terminal`/`error`, caps, `validate_deck`, stdout isolation, terminal reasons from player state; `reset` drives the X1 router and per-viewer ids | ready | X1 | 2 | P's envelope goldens replay green for the messages X2 covers |
+| X2 (#15) | v2 server skeleton: strict I-JSON reader, envelope, retransmission cache, `hello`/`reset`/`step`/`terminal`/`error`, caps, `validate_deck`, stdout isolation, terminal reasons from player state; `reset` drives the X1 router and per-viewer ids | done (2026-10-01): wire contract only | X1 | 2 | P's conformance runner passes 11 of 20 checks; the 9 that need a posed decision move to X3/X4 (`tests/x2/`) |
 | X3 (#16) | Observation (Section 6) on `CardView` visibility, normalization tables (Section 6.10), conservative flags (`known_cards` false), per-viewer ids with look counters | blocked: X2 | X2 | 4 to 5 | P's host validator accepts observations over random games; paired-world check on hand and library |
 | X4a (#17) | Decision mapping, base: priority kinds, targets, choices, modes, numbers, booleans, mulligan, triggers, replacements, piles | blocked: X3 | X3 | 3 | every kind the engine emits round-trips through P's validator |
 | X4b (#18) | Arrangement overrides: scry, surveil, library order (top inverted), London bottom as `2n - 1` and `order_pick` | blocked: X4a | X4a | 1.5 | goldens for each arrangement |
@@ -48,7 +48,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
-| A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | ready | | 2 | design doc reviewed, dispositions recorded |
+| A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | drafted (2026-10-01): `x-agent-kit-design.md`, Sol review next | | 2 | design doc reviewed, dispositions recorded |
 | A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | blocked: A0, X3 | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
 | A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
 | A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
@@ -67,7 +67,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
-| R0 | Outreach drafts for CABT, DraftZero and MageZero (brief 5.5, draft section 8), for Jack to send | ready | | 0.5 | drafts in `E:/spellbench-archive/program-research/`; Jack sends |
+| R0 | Outreach drafts for CABT, DraftZero and MageZero (brief 5.5, draft section 8), for Jack to send | drafted (2026-10-01): `x-outreach-drafts.md`, awaiting Jack | | 0.5 | drafts in `E:/spellbench-archive/program-research/`; Jack sends |
 | R1 | Checkpoint handling: convert gzipped `torch.save` pickles to safetensors plus vocabulary JSON, inside the no-network container only | blocked: D-sandbox | D-sandbox, R0 answers | 1 | weights-only files with hashes |
 | R2 | MageZero entry: their fork's `StateEncoder` and MCTS on the kit's sampled worlds, hidden-info key fixed, one entry per (deck, model) | blocked: A2, R1 | A2, R1, D-sandbox | 4 to 6 | entries pass A3's paired-world tests |
 | R3 | DraftZero entry (ideally owned by DraftZero, their experiment 3): StateSpec rebuild plus K-determinized `coach` | blocked: A2, R1 | A2, R1, D-sandbox, R0 | 4 to 8 | as R2 |
@@ -90,5 +90,8 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 ## Log
 
+- 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
+- 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01: R0 outreach drafts written for Jack (`E:/spellbench-archive/program-research/x-outreach-drafts.md`).
 - 2026-09-30: issues #13 to #36 opened; branch pushed, PR into `board-program`.
 - 2026-09-30: X0 and X1 done (README evidence). Tracker created. Critical path to M2: X2, X3, X4, X5, X5m, plus A0 to A2 in parallel once X3 fixes the observation shape.
