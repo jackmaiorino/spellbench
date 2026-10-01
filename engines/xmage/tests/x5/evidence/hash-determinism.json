@@ -1,0 +1,111 @@
+{
+ "a": "D:/e-scratch/xmage-x-spike/x5/final/run/rows-main-pc.jsonl",
+ "b": "D:/e-scratch/xmage-x-spike/x5/final/run/rows-main-pc-hash.jsonl",
+ "shared": 1011,
+ "equal": 994,
+ "differ": [
+  {
+   "gid": 2540,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 2585,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 2605,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 2765,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 2842,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 2872,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3067,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 3227,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3257,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3322,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3352,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 3437,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3482,
+   "workload": "standard-hu",
+   "a": "p0_poison",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 3707,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 3897,
+   "workload": "standard-hu",
+   "a": "p1_life_zero",
+   "b": "p1_life_zero"
+  },
+  {
+   "gid": 3992,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  },
+  {
+   "gid": 4187,
+   "workload": "standard-hu",
+   "a": "p0_life_zero",
+   "b": "p0_life_zero"
+  }
+ ],
+ "verdict": "FAIL"
+}

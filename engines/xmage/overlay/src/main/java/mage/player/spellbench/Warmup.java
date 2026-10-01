@@ -29,7 +29,17 @@ public final class Warmup {
      * draw ids that a rerun does not, and every later id would shift.
      */
     public static int[] framework() throws IOException {
-        URL location = MageSingleton.class.getProtectionDomain().getCodeSource().getLocation();
+        int[] core = classesOf(MageSingleton.class, "");
+        // The AI package (X5): engine autopay's object choices (PayChoice) score permanents with XMage's
+        // ArtificialScoringSystem, whose MagicAbility initializer mints ids. Initialized mid-game, it drew from that
+        // game's stream only in the first such game of a process, so digests depended on process history.
+        int[] ai = classesOf(mage.player.ai.ComputerPlayer.class, "mage/player/ai/");
+        return new int[]{core[0] + ai[0], core[1] + ai[1]};
+    }
+
+    /** Initializes, in name order, every class under {@code prefix} in the jar or directory holding {@code anchor}. */
+    private static int[] classesOf(Class<?> anchor, String prefix) throws IOException {
+        URL location = anchor.getProtectionDomain().getCodeSource().getLocation();
         File file;
         try {
             file = new File(location.toURI());
@@ -41,13 +51,15 @@ public final class Warmup {
             Path root = file.toPath();
             try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
                 walk.filter(p -> p.toString().endsWith(".class"))
-                        .forEach(p -> names.add(root.relativize(p).toString().replace(File.separatorChar, '/')));
+                        .map(p -> root.relativize(p).toString().replace(File.separatorChar, '/'))
+                        .filter(n -> n.startsWith(prefix))
+                        .forEach(names::add);
             }
         } else {
             try (JarFile jar = new JarFile(file)) {
                 for (Enumeration<JarEntry> e = jar.entries(); e.hasMoreElements(); ) {
                     String name = e.nextElement().getName();
-                    if (name.endsWith(".class")) {
+                    if (name.endsWith(".class") && name.startsWith(prefix)) {
                         names.add(name);
                     }
                 }
