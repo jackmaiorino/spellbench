@@ -60,6 +60,13 @@ echo "[$(stamp)] run: $WORKERS workers"
 python "$HERE/tests/x5/x5run.py" run --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE" --workers "$WORKERS" \
   --fraction 1.0 --part A --out "$(native "$SCRATCH/run")" -- "${ENGINE[@]}"
 
+echo "[$(stamp)] determinism: every tenth game again under another identity-hash mode (X4h's perturbation)"
+JAVA_TOOL_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919" \
+  python "$HERE/tests/x5/x5run.py" run --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE-hash" \
+  --workers "$WORKERS" --fraction 0.1 --part A --out "$(native "$SCRATCH/run")" -- "${ENGINE[@]}"
+python "$HERE/tests/x5/x5run.py" compare "$SCRATCH/run/rows-$MACHINE.jsonl" "$SCRATCH/run/rows-$MACHINE-hash.jsonl" \
+  --out "$SCRATCH/run/hash-determinism.json" || true
+
 echo "[$(stamp)] summary"
 python "$HERE/tests/x5/x5run.py" summarize --plan "$HERE/tests/x5/plan.json" "$SCRATCH/run/rows-$MACHINE.jsonl" \
   --stats "$SCRATCH/run/stats-$MACHINE" --out "$SCRATCH/run/summary.json"

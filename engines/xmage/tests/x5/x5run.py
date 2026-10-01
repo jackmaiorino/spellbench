@@ -464,6 +464,28 @@ def cmd_summarize(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    """Game digests of the games two row files share: equal for every game, or the run is not deterministic."""
+    def load(path: str) -> dict[int, dict[str, Any]]:
+        out = {}
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                r = json.loads(line)
+                out[r["gid"]] = r
+        return out
+
+    a, b = load(args.a), load(args.b)
+    shared = sorted(set(a) & set(b))
+    differ = [g for g in shared if a[g]["row"]["game_digest"] != b[g]["row"]["game_digest"]]
+    report = {"a": args.a, "b": args.b, "shared": len(shared), "equal": len(shared) - len(differ),
+              "differ": [{"gid": g, "workload": a[g]["workload"], "a": a[g]["row"]["reason"],
+                          "b": b[g]["row"]["reason"]} for g in differ[:50]],
+              "verdict": "PASS" if shared and not differ else "FAIL"}
+    Path(args.out).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8", newline="\n")
+    print(json.dumps({k: report[k] for k in ("shared", "equal", "verdict")}))
+    return 0 if report["verdict"] == "PASS" else 1
+
+
 def main(argv: list[str]) -> int:
     rest, engine = (argv, []) if "--" not in argv else _engine_argv(argv)
     parser = argparse.ArgumentParser()
@@ -491,6 +513,10 @@ def main(argv: list[str]) -> int:
     s.add_argument("rows", nargs="+")
     s.add_argument("--stats", action="append")
     s.add_argument("--out", required=True)
+    c = sub.add_parser("compare")
+    c.add_argument("a")
+    c.add_argument("b")
+    c.add_argument("--out", required=True)
     args = parser.parse_args(rest)
     if args.command == "plan":
         make_plan(Path(args.out))
@@ -499,6 +525,8 @@ def main(argv: list[str]) -> int:
         return cmd_qualify(args, engine)
     if args.command == "run":
         return cmd_run(args, engine)
+    if args.command == "compare":
+        return cmd_compare(args)
     return cmd_summarize(args)
 
 
