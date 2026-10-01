@@ -63,7 +63,7 @@ RULES_ID=$(grep -o '"rules_snapshot_id": "[^"]*"' "$ENGINE/BUILD-MANIFEST.json" 
 SRC_DIGEST=$(cd "$HERE" && find core/src xmage/src xmage/resources -type f | LC_ALL=C sort | while read -r f; do printf '%s  %s\n' "$(sha256 < "$f")" "$f"; done | sha256)
 {
   echo "{"
-  echo "  \"kit_version\": \"0.1.0\","
+  echo "  \"kit_version\": \"0.2.0\","
   echo "  \"engine_lib_digest\": \"$ENGINE_DIGEST\","
   echo "  \"engine_rules_snapshot_id\": \"$RULES_ID\","
   echo "  \"kit_source_digest\": \"$SRC_DIGEST\","

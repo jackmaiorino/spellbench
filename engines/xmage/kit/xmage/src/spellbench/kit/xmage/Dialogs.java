@@ -141,6 +141,26 @@ public final class Dialogs {
                 // (PlayerImpl.scry and doSurveil ask chooseTarget among the looked-at cards)
                 List<UUID> cards = new ArrayList<>();
                 List<String> ids = new ArrayList<>();
+                // an arrangement decision shows one card at a time: the looked-at cards are the viewer's library
+                // known entries above card_count, top first, plus the candidates' cards
+                long lookCount = Json.num(first, "card_count", 0);
+                Map<String, Object> obs = Json.obj(decision, "observation");
+                java.util.TreeMap<Long, String> byPosition = new java.util.TreeMap<>();
+                for (Object o : Json.arr(obs, "known")) {
+                    Map<String, Object> k = Json.obj(o);
+                    Object pos = k.get("position_from_top");
+                    if ("library".equals(Json.str(k, "zone")) && Json.str(obs, "viewer").equals(Json.str(k, "owner_seat"))
+                            && k.get("object_id") != null && pos instanceof Number && ((Number) pos).longValue() < lookCount) {
+                        byPosition.put(((Number) pos).longValue(), Json.str(k, "object_id"));
+                    }
+                }
+                for (String oid : byPosition.values()) {
+                    UUID u = w.idToUuid.get(oid);
+                    if (u != null && !cards.contains(u)) {
+                        cards.add(u);
+                        ids.add(oid);
+                    }
+                }
                 for (Object c : cands) {
                     Map<String, Object> sem = Json.obj(Json.obj(c), "semantic");
                     String oid = Json.str(Json.obj(sem, "card"), "object_id");

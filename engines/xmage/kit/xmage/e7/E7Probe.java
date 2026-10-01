@@ -24,6 +24,9 @@ public class E7Probe extends ComputerPlayer7 {
 
     public E7Probe(String name, int skill) {
         super(name, RangeOfInfluence.ALL, skill);
+        // the kit searches synchronously, bounded by nodes; upstream's wall-clock limit (skill x 3 s) would make the
+        // reference depend on machine load, so the reference gets enough wall time to finish by its node budget
+        setMaxThinkTimeSecs(3600);
     }
 
     protected E7Probe(final E7Probe p) {

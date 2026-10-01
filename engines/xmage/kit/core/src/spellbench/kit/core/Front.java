@@ -472,12 +472,12 @@ public final class Front {
         if (src == null ? openDialog.get("source") != null : !src.equals(openDialog.get("source"))) {
             return false;
         }
-        Map<String, Object> group = Json.obj(d, "group");
+        Map<String, Object> group = fixedGroup(d);
         if (group != null) {
             return Json.num(group, "group_id", -1) == Json.num(openDialog, "group_id", -2)
                     && Json.num(group, "substep_index", 0) > 0;
         }
-        return dialogFamily(d).equals(openDialog.get("family"));
+        return openDialog.get("group_id") == null && dialogFamily(d).equals(openDialog.get("family"));
     }
 
     /** A decision's answer completes its logical dialog: a finish, a fixed group's last substep, the maximum reached,
@@ -487,7 +487,7 @@ public final class Front {
         if (kind.startsWith("finish_")) {
             return true;
         }
-        Map<String, Object> group = Json.obj(d, "group");
+        Map<String, Object> group = fixedGroup(d);
         if (group != null) {
             return Json.num(group, "substep_index", 0) >= Json.num(group, "substep_count", 1) - 1;
         }
@@ -497,10 +497,20 @@ public final class Front {
         return true;
     }
 
+    /** The decision's group when it is a fixed group (more than one substep); every decision carries a group. */
+    static Map<String, Object> fixedGroup(Map<String, Object> d) {
+        Map<String, Object> g = Json.obj(d, "group");
+        return g != null && Json.num(g, "substep_count", 1) > 1 ? g : null;
+    }
+
     void trackDialog(Map<String, Object> d, Map<String, Object> chosen) {
         if (!continuesOpenDialog(d)) {
+            // the plan made at this decision (its first) belongs to the dialog it opens; any other is stale
+            Map<String, Object> plan = dialogPlan != null && Json.num(dialogPlan, "made_at", -1) == Json.num(d, "seat_step", -2)
+                    ? dialogPlan : null;
             closeDialog();
-            Map<String, Object> group = Json.obj(d, "group");
+            dialogPlan = plan;
+            Map<String, Object> group = fixedGroup(d);
             openDialog = Json.map("source", contextSource(d), "family", dialogFamily(d),
                     "group_id", group == null ? null : group.get("group_id"), "seat_step", d.get("seat_step"),
                     "picks", new ArrayList<Object>(), "known", Json.copy(Json.arr(Json.obj(d, "observation"), "known")));
@@ -1015,7 +1025,7 @@ public final class Front {
             a.detail.putAll(detail);
             return a;
         }
-        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", path);
+        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", path, "made_at", d.get("seat_step"));
         Answer a = answerFromPlan(d, dialogPlan);
         a.detail.putAll(detail);
         return a;
@@ -1143,7 +1153,7 @@ public final class Front {
             return null;
         }
         count("continuation_used");
-        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", "continuation");
+        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", "continuation", "made_at", d.get("seat_step"));
         Answer a = answerFromPlan(d, dialogPlan);
         a.detail.put("continuation", true);
         a.detail.put("continuation_replayed", w.get("replayed"));

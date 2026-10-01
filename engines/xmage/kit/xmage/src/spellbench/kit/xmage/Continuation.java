@@ -186,6 +186,10 @@ public final class Continuation {
         // ------------------------------------------------------------------ target and selection dialogs
 
         private boolean targetDialog(Target target, Ability source, Game game, BooleanSupplier bot) {
+            return targetDialog(target, null, source, game, bot);
+        }
+
+        private boolean targetDialog(Target target, Cards cards, Ability source, Game game, BooleanSupplier bot) {
             if (target == lastTarget) {
                 // XMage asks again with the same target until nothing is added (TargetCardInLibrary.choose, the
                 // library-order loops): one logical dialog, already answered in full, so this call adds nothing
@@ -232,7 +236,7 @@ public final class Continuation {
                 }
                 compare(game);
                 boolean r = callBot(bot);
-                result.put("picks", "arrange_card".equals(kind) ? arrangement(target) : refs(target, game));
+                result.put("picks", "arrange_card".equals(kind) ? arrangement(target, cards) : refs(target, game));
                 if (!finish) {
                     throw new Stop();
                 }
@@ -242,9 +246,19 @@ public final class Continuation {
         }
 
         /** The current arrangement decision's plan: the bot's chosen cards leave the top; order by candidate order. */
-        private List<Object> arrangement(Target target) {
+        private List<Object> arrangement(Target target, Cards cards) {
             List<String> ids = new ArrayList<>();
             String purpose = null;
+            if (cards != null) {
+                // the looked-at cards themselves, top first (an arrangement decision shows one card at a time)
+                for (UUID u : cards) {
+                    String oid = w.uuidToId.get(u);
+                    if (oid == null) {
+                        fail("arrangement: a looked-at card has no current id");
+                    }
+                    ids.add(oid);
+                }
+            }
             for (Object c : Json.arr(decision, "candidates")) {
                 Map<String, Object> sem = Json.obj(Json.obj(c), "semantic");
                 if (!"arrange_card".equals(Json.str(sem, "kind"))) {
@@ -252,7 +266,7 @@ public final class Continuation {
                 }
                 purpose = Json.str(sem, "purpose");
                 String oid = Json.str(Json.obj(sem, "card"), "object_id");
-                if (oid != null && !ids.contains(oid)) {
+                if (cards == null && oid != null && !ids.contains(oid)) {
                     ids.add(oid);
                 }
             }
@@ -310,7 +324,7 @@ public final class Continuation {
             if (!active(game)) {
                 return super.choose(outcome, cards, target, source, game);
             }
-            return targetDialog(target, source, game, () -> super.choose(outcome, cards, target, source, game));
+            return targetDialog(target, cards, source, game, () -> super.choose(outcome, cards, target, source, game));
         }
 
         @Override
@@ -318,7 +332,7 @@ public final class Continuation {
             if (!active(game)) {
                 return super.chooseTarget(outcome, cards, target, source, game);
             }
-            return targetDialog(target, source, game, () -> super.chooseTarget(outcome, cards, target, source, game));
+            return targetDialog(target, cards, source, game, () -> super.chooseTarget(outcome, cards, target, source, game));
         }
 
         @Override

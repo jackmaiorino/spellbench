@@ -1714,7 +1714,13 @@ public final class Slice {
             if (Json.canonical(us).equals(Json.canonical(ks))) {
                 equal++;
             } else {
-                differ.add(Json.map("file", f.getName(), "kit", ks, "upstream", us));
+                List<Object> roots = new ArrayList<>();
+                for (int i = 0; i < ok.stats.size(); i++) {
+                    roots.add(Json.map("semantic", ok.statSemantics.get(i), "adjusted", ok.stats.get(i).adjusted,
+                            "tie", ok.stats.get(i).tie, "reason", ok.stats.get(i).reason));
+                }
+                differ.add(Json.map("file", f.getName(), "kit", ks, "upstream", us, "kit_counters", cc, "flags", wk.flags,
+                        "kit_root", roots));
             }
           } catch (RuntimeException ex) {
             errors++;

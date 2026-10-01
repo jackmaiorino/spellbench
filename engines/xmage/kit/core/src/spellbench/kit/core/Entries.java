@@ -125,4 +125,14 @@ public final class Entries {
     public static String version(Map<String, Object> config) {
         return KIT_VERSION + "+" + digest(config);
     }
+
+    /** Prints an entry's identity (name, tab, version) for the game scripts: {@code Entries h1 [--worlds 2 ...]}. */
+    public static void main(String[] args) {
+        Map<String, String> opts = new LinkedHashMap<>();
+        for (int i = 1; i + 1 < args.length; i += 2) {
+            opts.put(args[i].replaceFirst("^--", ""), args[i + 1]);
+        }
+        Map<String, Object> c = configure(args[0], opts);
+        System.out.println(c.get("name") + "\t" + version(c));
+    }
 }

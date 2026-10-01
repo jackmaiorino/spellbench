@@ -1918,10 +1918,7 @@
      "no_arg": true
     }
    ],
-   "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ]
+   "status": "supported"
   },
   "Karplusan Forest": {
    "class": "mage.cards.k.KarplusanForest",
@@ -2216,10 +2213,7 @@
   "Mishra's Foundry": {
    "activated": "plain",
    "class": "mage.cards.m.MishrasFoundry",
-   "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ]
+   "status": "supported"
   },
   "Monastery Swiftspear": {
    "class": "mage.cards.m.MonasterySwiftspear",
@@ -2524,9 +2518,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessBivouac",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2537,7 +2528,6 @@
    "class": "mage.cards.r.RestlessCottage",
    "status": "supported",
    "tokens": [
-    "CreatureToken",
     "FoodToken"
    ],
    "trigger_classes": [
@@ -2549,9 +2539,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessFortress",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2561,9 +2548,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessPrairie",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2573,9 +2557,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessReef",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2585,9 +2566,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessRidgeline",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2597,9 +2575,6 @@
    "activated": "plain",
    "class": "mage.cards.r.RestlessVinestalk",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "AttacksTriggeredAbility"
    ],
@@ -2930,10 +2905,7 @@
   "Soulstone Sanctuary": {
    "activated": "plain",
    "class": "mage.cards.s.SoulstoneSanctuary",
-   "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ]
+   "status": "supported"
   },
   "Sower of Chaos": {
    "activated": "plain",
@@ -3546,9 +3518,6 @@
   "Zoetic Glyph": {
    "class": "mage.cards.z.ZoeticGlyph",
    "status": "supported",
-   "tokens": [
-    "CreatureToken"
-   ],
    "trigger_classes": [
     "PutIntoGraveFromBattlefieldSourceTriggeredAbility"
    ],

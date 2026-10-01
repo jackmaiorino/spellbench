@@ -181,6 +181,8 @@ def scan_card(name, cls, sets_root, lib, cache):
         entry["non_stack_choices"] = non_stack
         why_approx.append("non-stack action asks a choice (the kit declines that action, review change 4)")
     tokens = sorted(set(re.findall(r"new\s+([A-Z]\w*Token)\s*\(", text)))
+    # CreatureToken describes what a permanent becomes ("becomes a creature"), not a created token
+    tokens = [t for t in tokens if t != "CreatureToken"]
     if tokens:
         entry["tokens"] = tokens
     if RESTRICTED_MANA.search(raw):

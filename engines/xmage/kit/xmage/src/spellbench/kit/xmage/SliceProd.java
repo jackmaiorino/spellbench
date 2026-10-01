@@ -104,9 +104,11 @@ final class SliceProd {
         int n;
 
         FrontSeat(String label, String entry, Map<String, Object> gs, String... extra) throws Exception {
-            work = new File(System.getProperty("java.io.tmpdir"), "kit-slice-" + label + "-" + System.nanoTime());
+            work = new File(System.getProperty("kit.front.work", System.getProperty("java.io.tmpdir")),
+                    "kit-slice-" + label + "-" + System.nanoTime());
             work.mkdirs();
-            copyTree(Paths.get("db"), work.toPath().resolve("db"));
+            // each runner gets its own copy of the template database (this JVM holds ./db open)
+            copyTree(Paths.get(System.getProperty("kit.db.template", "db")), work.toPath().resolve("db"));
             Map<String, String> opts = new LinkedHashMap<>();
             opts.put("entry", entry);
             opts.put("work", work.getPath());
@@ -393,19 +395,30 @@ final class SliceProd {
                 }
             }
             List<String> expect = new ArrayList<>();
+            List<String> expectBottom = new ArrayList<>();
             if (plan != null) {
                 for (Object id : Json.arr(plan, "order")) {
-                    if ("top".equals(Json.obj(plan, "dest").get(id))) {
-                        expect.add(nameOf.get(String.valueOf(id)));
-                    }
+                    String dest = String.valueOf(Json.obj(plan, "dest").get(id));
+                    (dest.equals("top") ? expect : expectBottom).add(nameOf.get(String.valueOf(id)));
                 }
             }
+            List<Card> lib = e.player("p0").getLibrary().getCards(e.game);
             List<String> top = new ArrayList<>();
-            for (Card card : e.player("p0").getLibrary().getTopCards(e.game, Math.max(1, expect.size()))) {
-                top.add(card.getName());
+            List<String> bottom = new ArrayList<>();
+            for (int i = 0; i < expect.size() && i < lib.size(); i++) {
+                top.add(lib.get(i).getName());
             }
-            check("S4P.assert.library_follows_plan", plan != null && !expect.isEmpty() && top.equals(expect),
-                    Json.map("plan", plan, "names", nameOf, "expected_top", expect, "engine_top", top));
+            for (int i = Math.max(0, lib.size() - expectBottom.size()); i < lib.size(); i++) {
+                bottom.add(lib.get(i).getName());
+            }
+            List<String> sb = new ArrayList<>(bottom);
+            List<String> se = new ArrayList<>(expectBottom);
+            java.util.Collections.sort(sb);
+            java.util.Collections.sort(se);
+            check("S4P.assert.library_follows_plan", plan != null && expect.size() + expectBottom.size() == 2
+                            && top.equals(expect) && sb.equals(se),
+                    Json.map("plan", plan, "names", nameOf, "expected_top", expect, "engine_top", top,
+                            "expected_bottom", expectBottom, "engine_bottom", bottom));
         } finally {
             f.close();
         }
@@ -498,6 +511,8 @@ final class SliceProd {
             for (String entry : new String[]{"h1", "h2", "h3"}) {
                 Map<String, Object> answers = new LinkedHashMap<>();
                 List<String> inputs = new ArrayList<>();
+                List<Map<String, Object>> decisions = new ArrayList<>();
+                List<String> starts = new ArrayList<>();
                 for (int w = 1; w <= 2; w++) {
                     SeatSetup[] s = position(p[0], p[w]);
                     EnginePos e = EnginePos.start("A3-" + p[0], s[0], s[1]); // one secret per pair: same ids
@@ -507,6 +522,8 @@ final class SliceProd {
                     }
                     Map<String, Object> gs = Slice.gameStart("p0", s[0], s[1]);
                     inputs.add(Json.canonical(Json.map("game_start", gs, "decision", e.decision())));
+                    decisions.add(e.decision());
+                    starts.add(Json.canonical(gs));
                     FrontSeat f = new FrontSeat("A3-" + p[0] + p[w] + entry, entry, gs);
                     try {
                         Map<String, Object> r = f.choose(e.decision());
@@ -517,13 +534,43 @@ final class SliceProd {
                         f.close();
                     }
                 }
-                boolean sameInputs = inputs.get(0).equals(inputs.get(1));
-                Object c1 = Json.obj(answers.get(p[1])).get("candidate");
-                Object c2 = Json.obj(answers.get(p[2])).get("candidate");
-                check("A3." + p[0] + "." + entry + ".identical_inputs_identical_answer", sameInputs && c1 != null && c1.equals(c2),
-                        Json.map("permitted_inputs_identical", sameInputs, "answers", answers));
+                // the engine mints object ids from its own UUIDs, which the hidden cards shift, so the two inputs
+                // may differ in ids only: identical, or equal modulo ids (same game_start, observations equal modulo
+                // ids, same candidate list modulo ids); answers are compared as semantics modulo ids
+                boolean identical = inputs.get(0).equals(inputs.get(1));
+                List<String> obsDiff = spellbench.kit.core.ObsCompare.diff(obsOf(decisions.get(0)), obsOf(decisions.get(1)), 20);
+                boolean sameCands = Json.canonical(stripIds(Json.arr(decisions.get(0), "candidates")))
+                        .equals(Json.canonical(stripIds(Json.arr(decisions.get(1), "candidates"))));
+                boolean moduloIds = starts.get(0).equals(starts.get(1)) && obsDiff.isEmpty() && sameCands;
+                Object s1 = stripIds(Json.obj(answers.get(p[1])).get("semantic"));
+                Object s2 = stripIds(Json.obj(answers.get(p[2])).get("semantic"));
+                boolean sameAnswer = Json.canonical(s1).equals(Json.canonical(s2));
+                check("A3." + p[0] + "." + entry + ".identical_inputs_identical_answer", (identical || moduloIds) && sameAnswer,
+                        Json.map("permitted_inputs", identical ? "identical" : moduloIds ? "equal_modulo_ids" : "different",
+                                "observation_diff_modulo_ids", obsDiff, "answers", answers));
             }
         }
+    }
+
+    /** A copy without object ids (fields named object_id), for comparisons modulo ids. */
+    static Object stripIds(Object v) {
+        if (v instanceof Map) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> e : Json.obj(v).entrySet()) {
+                if (!"object_id".equals(e.getKey())) {
+                    out.put(e.getKey(), stripIds(e.getValue()));
+                }
+            }
+            return out;
+        }
+        if (v instanceof List) {
+            List<Object> out = new ArrayList<>();
+            for (Object o : Json.arr(v)) {
+                out.add(stripIds(o));
+            }
+            return out;
+        }
+        return v;
     }
 
     /** The powered C-MCTS pilot: kit and oracle MCTS on each world with every root child at 40 or more visits. */
