@@ -238,8 +238,39 @@ public final class WorldBuilder {
         game.getState().resetWatchers();
         flag("approximate:watchers_reset");
         game.applyEffects();
+        checkCharacteristics();
         game.getOptions().stopOnTurn = null;
         random.scopeWorld("play");
+    }
+
+    /**
+     * Design 3.2: a difference between the world's power, toughness or keywords and the observation (an until-end-of-
+     * turn effect, a condition) marks the world approximate:unexplained_characteristics; nothing compensates it.
+     */
+    private void checkCharacteristics() {
+        for (Map<String, Object> pm : playersObs.values()) {
+            for (Object o : Json.arr(pm, "battlefield")) {
+                Map<String, Object> rec = Json.obj(o);
+                Map<String, Object> ch = Json.obj(rec, "characteristics");
+                UUID u = world.idToUuid.get(Json.str(rec, "object_id"));
+                Permanent p = u == null ? null : game.getPermanent(u);
+                if (ch == null || p == null || Json.bool(rec, "face_down")) {
+                    continue;
+                }
+                boolean differs = false;
+                if (ch.get("power") instanceof Number && p.isCreature(game)) {
+                    differs |= ((Number) ch.get("power")).intValue() != p.getPower().getValue()
+                            || ((Number) ch.get("toughness")).intValue() != p.getToughness().getValue();
+                }
+                List<Object> kw = KitBridge.keywords(p.getAbilities(game));
+                if (ch.get("keywords") instanceof List && kw != null) {
+                    differs |= !new java.util.HashSet<>(Json.arr(ch, "keywords")).equals(new java.util.HashSet<>(kw));
+                }
+                if (differs) {
+                    flag("approximate:unexplained_characteristics");
+                }
+            }
+        }
     }
 
     private final Map<String, Player> created = new HashMap<>();
@@ -834,7 +865,7 @@ public final class WorldBuilder {
         game.getState().setPriorityPlayerId(world.player(prio == null ? active : prio));
         List<Object> passed = Json.arr(obs, "passed_seats");
         for (String seat : SEATS) {
-            boolean p = spec.mode == Mode.PRIORITY && passed.contains(seat) && !seat.equals(world.viewer);
+            boolean p = passed.contains(seat) && !(spec.mode == Mode.PRIORITY && seat.equals(world.viewer));
             Reflect.set(PlayerImpl.class, player(seat), "passed", p);
         }
     }
@@ -989,6 +1020,17 @@ public final class WorldBuilder {
                 game.getStack().push(game, sa);
                 world.bind(id, sa.getId());
                 choices(copy, e);
+                if (departedNext) {
+                    // the source has left (spec 6.5 source null): the ability remembers an earlier incarnation of it
+                    int zcc = game.getState().getZoneChangeCounter(copy.getSourceId());
+                    copy.setSourceObjectZoneChangeCounter(zcc + 7);
+                    departedNext = false;
+                }
+                if (horizonNext) {
+                    KitContext.horizon.add(sa.getId());
+                    flag("horizon:stack_object");
+                    horizonNext = false;
+                }
             }
         }
     }
@@ -1006,6 +1048,7 @@ public final class WorldBuilder {
             source = u == null ? null : game.getObject(u);
         }
         if (source == null) {
+            departedNext = true;
             // lineage on the name: the source left (Burnished Hart sacrificed itself); a public card of that name
             String name = Json.str(e, "card_name");
             List<MageObject> found = new ArrayList<>();
@@ -1026,6 +1069,7 @@ public final class WorldBuilder {
                 if (c != null) {
                     found.add(c);
                     flag("approximate:stack_source_recreated");
+                    horizonNext = true;
                 }
             }
             if (found.size() != 1) {
@@ -1033,9 +1077,10 @@ public final class WorldBuilder {
                 if (found.isEmpty()) {
                     return null;
                 }
+                horizonNext = true;
             }
             source = found.get(0);
-            flag("approximate:stack_source_by_lineage");
+            flag("lineage:stack_source"); // a unique public card of that name: the departed source (N3)
         }
         List<Ability> ofKind = new ArrayList<>();
         Iterable<Ability> abilities = source instanceof Permanent ? ((Permanent) source).getAbilities(game)
@@ -1048,10 +1093,16 @@ public final class WorldBuilder {
         }
         if (ofKind.size() != 1) {
             flag("approximate:stack_ability_identity");
-            return null;
+            if (ofKind.isEmpty()) {
+                return null;
+            }
+            horizonNext = true; // the first ability of the kind keeps the entry's name and kind; never resolved in search
         }
         return ofKind.get(0);
     }
+
+    private boolean horizonNext;
+    private boolean departedNext;
 
     /** A stack object the world cannot rebuild: kept for the stack's shape, flagged, never resolved in search. */
     private void placeholder(Map<String, Object> e, UUID controller) {

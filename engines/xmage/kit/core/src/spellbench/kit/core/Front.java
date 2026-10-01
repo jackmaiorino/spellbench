@@ -42,6 +42,7 @@ public final class Front {
     final long overheadMs;
     final Map<String, Object> budgets = new LinkedHashMap<>();
     final long hangAt;
+    final boolean roundtrip;
     final RunnerLink runner;
     final PrintStream log;
 
@@ -62,7 +63,7 @@ public final class Front {
     int combatDamageSeen;
     final Map<String, Long> stats = new LinkedHashMap<>();
 
-    Front(Map<String, String> opts, List<String> runnerCmd) throws IOException {
+    public Front(Map<String, String> opts, List<String> runnerCmd) throws IOException {
         entry = opts.getOrDefault("entry", "h1");
         worlds = Integer.parseInt(opts.getOrDefault("worlds", entry.equals("h1") ? "1" : "4"));
         skill = Integer.parseInt(opts.getOrDefault("skill", "6"));
@@ -71,6 +72,7 @@ public final class Front {
         graceMs = Long.parseLong(opts.getOrDefault("grace-ms", "5000"));
         overheadMs = Long.parseLong(opts.getOrDefault("overhead-ms", "1500"));
         hangAt = Long.parseLong(opts.getOrDefault("hang-at", "-1"));
+        roundtrip = "1".equals(opts.get("roundtrip"));
         for (String b : new String[]{"nodes", "options", "operations", "iterations", "rollout"}) {
             if (opts.containsKey(b)) {
                 budgets.put(b, Long.parseLong(opts.get(b)));
@@ -236,6 +238,9 @@ public final class Front {
         }
         recordAnswer(d, a);
         long ms = (System.nanoTime() - t0) / 1_000_000;
+        if (roundtrip && cands.size() > 1 && budget > 10_000) {
+            roundTrip(d, budget);
+        }
         count("tag:" + a.tag);
         count("path:" + a.path);
         Map<String, Object> line = Json.map("event", "decision", "seat_step", d.get("seat_step"),
@@ -246,6 +251,25 @@ public final class Front {
         return Json.map("response_type", "choice", "protocol", PROTOCOL, "request_id", requestId,
                 "selection", Json.map("candidate_id", (long) a.candidate),
                 "x_kit", Json.map("tag", a.tag, "path", a.path));
+    }
+
+    /**
+     * Diagnostics (design Section 7.2, never a gate): the world built from this decision, projected back through
+     * the engine's observation builder, against the received observation modulo ids. Logged, not used.
+     */
+    void roundTrip(Map<String, Object> d, long budget) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        Map<String, Object> r = call(request("roundtrip", d, 1, budget), budget, detail);
+        if (r == null || Json.arr(r, "worlds").isEmpty()) {
+            logLine(Json.map("event", "roundtrip", "seat_step", d.get("seat_step"), "failed", true, "detail", detail));
+            return;
+        }
+        Map<String, Object> w = Json.obj(Json.arr(r, "worlds").get(0));
+        List<Object> diff = Json.arr(w, "diff");
+        logLine(Json.map("event", "roundtrip", "seat_step", d.get("seat_step"), "kind", firstKind(d),
+                "phase_step", Json.str(Json.obj(d, "observation"), "phase_step"), "exact", diff.isEmpty(),
+                "diff", diff.size() > 8 ? diff.subList(0, 8) : diff, "diff_count", (long) diff.size(),
+                "flags", w.get("flags")));
     }
 
     static String firstKind(Map<String, Object> d) {
@@ -264,6 +288,10 @@ public final class Front {
     }
 
     private void recordAnswer(Map<String, Object> d, Answer a) {
+        Map<String, Object> o = Json.obj(d, "observation");
+        Map<String, Object> chosen = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
+        lastWasEmptyPassAtCombatDamage = "combat_damage".equals(Json.str(o, "phase_step"))
+                && Json.arr(o, "stack").isEmpty() && "pass".equals(Json.str(chosen, "kind"));
         Map<String, Object> ctx = Json.obj(d, "context");
         Map<String, Object> src = ctx == null ? null : Json.obj(ctx, "source");
         if (src != null && !"priority".equals(Json.str(ctx, "kind"))) {
@@ -829,41 +857,79 @@ public final class Front {
 
     /**
      * Own history for the first-strike damage step (Section 3.3): XMage has two combat damage steps where v2 has one.
-     * The first combat_damage priority decision of a turn with a first or double striker in combat is the
-     * first-strike step; a later one in the same turn, after the board changed, is the regular step.
+     * A combat damage step ends only when both seats pass in succession with an empty stack, and the viewer always
+     * acts again before a later object resolves, so: the first combat_damage decision of a turn is in the first
+     * damage step, and a combat_damage decision that follows the viewer's own pass with an empty stack at
+     * combat_damage is in the next one.
      */
     private void trackCombatDamage(Map<String, Object> obs, boolean priority) {
         long turn = Json.num(obs, "turn", -1);
+        if (!"combat_damage".equals(Json.str(obs, "phase_step"))) {
+            return;
+        }
         if (turn != lastCombatDamageTurn) {
-            combatDamageSeen = 0;
-        }
-        if ("combat_damage".equals(Json.str(obs, "phase_step")) && priority) {
-            if (turn != lastCombatDamageTurn) {
-                lastCombatDamageTurn = turn;
-            }
-            String digest = Json.canonical(lifeAndDamage(obs));
-            if (!digest.equals(lastDamageDigest)) {
-                combatDamageSeen++;
-                lastDamageDigest = digest;
-            }
+            lastCombatDamageTurn = turn;
+            combatDamageSeen = 1;
+        } else if (lastWasEmptyPassAtCombatDamage) {
+            combatDamageSeen++;
         }
     }
 
-    private String lastDamageDigest;
-
-    static List<Object> lifeAndDamage(Map<String, Object> obs) {
-        List<Object> out = new ArrayList<>();
-        for (Object p : Json.arr(obs, "players")) {
-            Map<String, Object> pm = Json.obj(p);
-            out.add(pm.get("life"));
-            for (Object o : Json.arr(pm, "battlefield")) {
-                Map<String, Object> perm = Json.obj(Json.obj(o), "permanent");
-                out.add(perm == null ? null : perm.get("damage"));
-            }
-            out.add((long) Json.arr(pm, "graveyard").size());
-        }
-        return out;
+    /** For the slice fixtures (S6): the damage step the front would name for this decision. */
+    public String ownHistoryStep(Map<String, Object> d) {
+        trackCombatDamage(Json.obj(d, "observation"), true);
+        return combatDamageStep(d);
     }
+
+    /** For the slice fixtures: records that this seat answered {@code d} with {@code candidate}. */
+    public void answeredForTest(Map<String, Object> d, int candidate) {
+        Answer a = new Answer(candidate, "bot", "fixture");
+        recordAnswer(d, a);
+    }
+
+    /** For the slice fixtures: decides {@code d} as a choose request would, returning {candidate, tag, path}. */
+    public Map<String, Object> decideForTest(Map<String, Object> d, long budget) {
+        Answer a = decide(d, budget);
+        recordAnswer(d, a);
+        return Json.map("candidate", (long) a.candidate, "tag", a.tag, "path", a.path);
+    }
+
+    /** For the slice fixtures: opens the plan of a priority pick and saves an anchor, as the priority path does. */
+    public void pickedForTest(Map<String, Object> d, Map<String, Object> semantic, Map<String, Object> payload,
+                              List<Map<String, Object>> answers, List<Object> worldSeeds) {
+        plans.open(Json.num(d, "seat_step", 0), semantic, Json.obj(d, "observation"), payload, answers);
+        List<Object> stack = Json.arr(Json.obj(d, "observation"), "stack");
+        if (!stack.isEmpty()) {
+            String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
+            anchors.put(top, Json.map("decision", d, "world_seeds", worldSeeds, "seat_step", d.get("seat_step")));
+        }
+    }
+
+    /** For the slice fixtures: saves an anchor for the top of the stack at {@code d}. */
+    public void anchorForTest(Map<String, Object> d, List<Object> worldSeeds) {
+        List<Object> stack = Json.arr(Json.obj(d, "observation"), "stack");
+        if (!stack.isEmpty()) {
+            String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
+            anchors.put(top, Json.map("decision", d, "world_seeds", worldSeeds, "seat_step", d.get("seat_step")));
+        }
+    }
+
+    public PlanBook plansForTest() {
+        return plans;
+    }
+
+    /** For the slice fixtures (S5): the front's provisional records. */
+    public Map<String, Object> recordsForTest() {
+        long answers = 0;
+        for (List<Map<String, Object>> l : sourceAnswers.values()) {
+            answers += l.size();
+        }
+        return Json.map("plan", plans.active == null ? null : plans.active.actionId(), "anchors", new ArrayList<Object>(anchors.keySet()),
+                "source_answers", answers, "plan_counters", new LinkedHashMap<String, Object>(plans.counters));
+    }
+
+    /** Set after each answer: the viewer passed priority with an empty stack at combat_damage. */
+    private boolean lastWasEmptyPassAtCombatDamage;
 
     String combatDamageStep(Map<String, Object> d) {
         Map<String, Object> obs = Json.obj(d, "observation");

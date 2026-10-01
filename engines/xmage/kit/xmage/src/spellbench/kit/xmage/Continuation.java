@@ -55,6 +55,7 @@ public final class Continuation {
     static final class Continuer extends KitMad {
         private static final long serialVersionUID = 1L;
         transient boolean armed;
+        transient boolean finish;
         transient Map<String, Object> current;
         transient Map<String, Object> flags;
         transient World w;
@@ -75,6 +76,9 @@ public final class Continuation {
 
         private void intercept(Target target, Game game) {
             armed = false;
+            result.put("hand_at_dialog", (long) w.viewerPlayer().getHand().size());
+            result.put("library_at_dialog", (long) w.viewerPlayer().getLibrary().size());
+            bindLooks(game);
             Map<String, Object> projected;
             try {
                 projected = RoundTrip.project(w, flags, Json.str(current, "priority_seat"), Json.arr(current, "known"));
@@ -92,6 +96,44 @@ public final class Continuation {
             result.put("match", true);
             result.put("align", ObsCompare.alignIds(projected, current));
             result.put("projected", projected);
+        }
+
+        /**
+         * The cards the current decision shows (known entries with ids) are the world's cards at those places: a
+         * positional library entry is the card at that position, a searched one the first unbound card of that name
+         * in that library, another seat's hand entry the first unbound card of that name in that hand.
+         */
+        private void bindLooks(Game game) {
+            java.util.Set<UUID> used = new java.util.HashSet<>(w.idToUuid.values());
+            for (Object o : Json.arr(current, "known")) {
+                Map<String, Object> k = Json.obj(o);
+                String oid = Json.str(k, "object_id");
+                if (oid == null || w.idToUuid.containsKey(oid)) {
+                    continue;
+                }
+                Player owner = game.getPlayer(w.player(Json.str(k, "owner_seat")));
+                List<mage.cards.Card> zone = "library".equals(Json.str(k, "zone"))
+                        ? owner.getLibrary().getCards(game) : new ArrayList<>(owner.getHand().getCards(game));
+                mage.cards.Card pick = null;
+                Object top = k.get("position_from_top");
+                Object bottom = k.get("position_from_bottom");
+                if (top instanceof Number && ((Number) top).intValue() < zone.size()) {
+                    pick = zone.get(((Number) top).intValue());
+                } else if (bottom instanceof Number && ((Number) bottom).intValue() < zone.size()) {
+                    pick = zone.get(zone.size() - 1 - ((Number) bottom).intValue());
+                } else {
+                    for (mage.cards.Card c : zone) {
+                        if (!used.contains(c.getId()) && c.getName().equals(Json.str(k, "card_name"))) {
+                            pick = c;
+                            break;
+                        }
+                    }
+                }
+                if (pick != null && pick.getName().equals(Json.str(k, "card_name"))) {
+                    w.bind(oid, pick.getId());
+                    used.add(pick.getId());
+                }
+            }
         }
 
         private List<Object> picks(Target target, Game game) {
@@ -132,7 +174,10 @@ public final class Continuation {
             intercept(target, game);
             boolean r = super.choose(outcome, target, source, game, options);
             result.put("picks", picks(target, game));
-            throw new Stop();
+            if (!finish) {
+                throw new Stop();
+            }
+            return true;
         }
 
         @Override
@@ -143,7 +188,24 @@ public final class Continuation {
             intercept(target, game);
             super.choose(outcome, cards, target, source, game);
             result.put("picks", picks(target, game));
-            throw new Stop();
+            if (!finish) {
+                throw new Stop();
+            }
+            return true;
+        }
+
+        @Override
+        public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
+            if (!armed || game.isSimulation()) {
+                return super.chooseTarget(outcome, cards, target, source, game);
+            }
+            intercept(target, game);
+            super.chooseTarget(outcome, cards, target, source, game);
+            result.put("picks", picks(target, game));
+            if (!finish) {
+                throw new Stop();
+            }
+            return true;
         }
 
         @Override
@@ -154,7 +216,10 @@ public final class Continuation {
             intercept(target, game);
             super.chooseTarget(outcome, target, source, game);
             result.put("picks", picks(target, game));
-            throw new Stop();
+            if (!finish) {
+                throw new Stop();
+            }
+            return true;
         }
     }
 
@@ -164,6 +229,16 @@ public final class Continuation {
      */
     public static Map<String, Object> run(Map<String, Object> gameStart, byte[] idSeed, Map<String, Object> anchor,
                                           List<Object> earlier, Map<String, Object> decision, int skill) {
+        return run(gameStart, idSeed, anchor, earlier, decision, skill, false);
+    }
+
+    /**
+     * With {@code finish}, the bot's answer at the current dialog does not end the resolution: it completes (later
+     * dialogs answered by the bot), and the result carries the world's observation after it ("after"), with priority
+     * to the active seat: the fixtures' resolution transition (design Section 7.1).
+     */
+    public static Map<String, Object> run(Map<String, Object> gameStart, byte[] idSeed, Map<String, Object> anchor,
+                                          List<Object> earlier, Map<String, Object> decision, int skill, boolean finish) {
         Map<String, Object> out = new LinkedHashMap<>();
         if (!earlier.isEmpty()) {
             out.put("match", false);
@@ -203,6 +278,20 @@ public final class Continuation {
             known.add(Json.map("owner_seat", viewer, "zone", "library", "card_name", drawn.get(i), "object_id", null,
                     "position_from_top", (long) i, "position_from_bottom", null, "how", "looked_at"));
         }
+        // what the current decision shows of the viewer's library is pinned too, at the anchor's positions (the
+        // drawn cards were above it then), with its current ids so the world's cards answer to them
+        for (Object o : Json.arr(current, "known")) {
+            Map<String, Object> k = Json.obj(o);
+            if (!"library".equals(Json.str(k, "zone")) || !viewer.equals(Json.str(k, "owner_seat"))) {
+                continue;
+            }
+            Object top = k.get("position_from_top");
+            Map<String, Object> pin = new LinkedHashMap<>(k);
+            if (top instanceof Number) {
+                pin.put("position_from_top", ((Number) top).longValue() + drawn.size());
+            }
+            known.add(pin);
+        }
         aobs.put("known", known);
         out.put("conditioned_drawn", new ArrayList<Object>(drawn));
         // 2. the anchor world
@@ -239,6 +328,7 @@ public final class Continuation {
         c.flags = RoundTrip.flagsFrom(decision);
         c.result = out;
         c.armed = true;
+        c.finish = finish;
         // 3. both seats pass; S resolves (ComputerPlayer6.resolve, without the search hints)
         for (UUID pid : w.seatPlayer.values()) {
             Player p = game.getPlayer(pid);
@@ -249,15 +339,18 @@ public final class Continuation {
         int libraryBefore = w.viewerPlayer().getLibrary().size();
         try {
             top.resolve(game);
-            out.put("match", false);
-            out.putIfAbsent("diff", java.util.Collections.singletonList("resolution ended without a dialog"));
+            if (!out.containsKey("match")) {
+                out.put("match", false);
+                out.put("diff", java.util.Collections.singletonList("resolution ended without a dialog"));
+            }
+            if (finish && Boolean.TRUE.equals(out.get("match"))) {
+                out.put("after", Resolver.finishAndProject(w, top, RoundTrip.flagsFrom(decision)));
+            }
         } catch (Stop stop) {
             // the current dialog was reached
         }
         out.put("hand_before", (long) handBefore);
         out.put("library_before", (long) libraryBefore);
-        out.put("hand_at_dialog", (long) w.viewerPlayer().getHand().size());
-        out.put("library_at_dialog", (long) w.viewerPlayer().getLibrary().size());
         out.remove("align");
         out.remove("projected");
         return out;

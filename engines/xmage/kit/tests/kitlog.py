@@ -56,7 +56,26 @@ def summarize(rows):
     caps = [r for r in d if r["tag"] == "cap"]
     wrappers = Counter(r["path"] for r in d if r["tag"] == "wrapper")
     overs = [r for r in rows if r.get("event") == "game_over"]
+    rts = [r for r in rows if r.get("event") == "roundtrip" and not r.get("failed")]
+    rt_paths = Counter()
+    for r in rts:
+        for dpath in r.get("diff") or []:
+            rt_paths["/".join(p for p in dpath.split(" ")[0].split("/") if not p.isdigit())] += 1
+    roundtrip = {
+        "checked": len(rts),
+        "failed_calls": sum(1 for r in rows if r.get("event") == "roundtrip" and r.get("failed")),
+        "exact": sum(1 for r in rts if r.get("exact")),
+        "exact_rate": round(sum(1 for r in rts if r.get("exact")) / len(rts), 4) if rts else None,
+        "by_kind": {k: {"checked": sum(1 for r in rts if r.get("kind") == k),
+                        "exact": sum(1 for r in rts if r.get("kind") == k and r.get("exact"))}
+                    for k in sorted({r.get("kind") for r in rts})},
+        "by_phase": {k: {"checked": sum(1 for r in rts if r.get("phase_step") == k),
+                         "exact": sum(1 for r in rts if r.get("phase_step") == k and r.get("exact"))}
+                     for k in sorted({r.get("phase_step") for r in rts})},
+        "diff_paths": dict(rt_paths.most_common(25)),
+    } if rts else None
     return {
+        "roundtrip": roundtrip,
         "decisions": len(d),
         "tags": dict(tags),
         "cap_rate": round(len(caps) / len(d), 4) if d else None,

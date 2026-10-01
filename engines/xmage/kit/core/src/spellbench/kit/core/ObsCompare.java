@@ -26,9 +26,8 @@ public final class ObsCompare {
     @SuppressWarnings("unchecked")
     private static Object relabel(Object v, Map<String, String> labels) {
         if (v instanceof Map) {
-            TreeMap<String, Object> sorted = new TreeMap<>((Map<String, Object>) v);
             Map<String, Object> out = new LinkedHashMap<>();
-            for (Map.Entry<String, Object> e : sorted.entrySet()) {
+            for (Map.Entry<String, Object> e : ordered((Map<String, Object>) v).entrySet()) {
                 if (e.getKey().equals("object_id") && e.getValue() instanceof String) {
                     String id = (String) e.getValue();
                     String l = labels.get(id);
@@ -54,6 +53,25 @@ public final class ObsCompare {
             return ((Integer) v).longValue();
         }
         return v;
+    }
+
+    /**
+     * Keys in traversal order: zone arrays and the stack first (where objects live), references elsewhere later, so a
+     * difference in pending triggers or knowledge does not shift the labels of the zones.
+     */
+    static Map<String, Object> ordered(Map<String, Object> m) {
+        Map<String, Object> out = new LinkedHashMap<>();
+        for (String k : new String[]{"seat", "hand", "battlefield", "graveyard", "exile", "command", "players", "stack"}) {
+            if (m.containsKey(k)) {
+                out.put(k, m.get(k));
+            }
+        }
+        for (Map.Entry<String, Object> e : new TreeMap<>(m).entrySet()) {
+            if (!out.containsKey(e.getKey())) {
+                out.put(e.getKey(), e.getValue());
+            }
+        }
+        return out;
     }
 
     /** Paths where the two values differ after relabelling (at most {@code limit}). */
@@ -115,7 +133,7 @@ public final class ObsCompare {
     @SuppressWarnings("unchecked")
     private static void align(Object a, Object b, Map<String, String> out) {
         if (a instanceof Map && b instanceof Map) {
-            TreeMap<String, Object> ma = new TreeMap<>((Map<String, Object>) a);
+            Map<String, Object> ma = ordered((Map<String, Object>) a);
             Map<String, Object> mb = (Map<String, Object>) b;
             for (Map.Entry<String, Object> e : ma.entrySet()) {
                 Object other = mb.get(e.getKey());

@@ -266,6 +266,14 @@ public final class PlanBook {
             List<Object> slots = Json.arr(p.payload, "targets");
             if (slot < slots.size()) {
                 out.addAll(Json.arr(slots.get(slot)));
+            } else {
+                // no executed object (an activation that failed in the world): the recorded live target dialogs
+                int k = 0;
+                for (Map<String, Object> a : p.answers) {
+                    if ("target".equals(a.get("family")) && k++ == slot) {
+                        out.addAll(Json.arr(a.get("value")));
+                    }
+                }
             }
         } else if (fam.equals("modes")) {
             out.addAll(Json.arr(p.payload, "modes"));
