@@ -73,7 +73,7 @@
                  throw new IllegalStateException("AI ERROR: too much nodes (possible actions)");
              }
              if (SimulationNode2.nodeCount > maxNodes) {
-@@ -439,8 +441,21 @@
+@@ -439,8 +441,29 @@
          // TODO: all actions added and calculated one by one,
          //  multithreading do not supported here
          // run new game simulation in parallel thread
@@ -89,14 +89,22 @@
 +            }
 +        }
 +        if (true) {
-+            return addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE);
++            try {
++                return addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE);
++            } catch (RuntimeException e) {
++                // as upstream's ExecutionException branch below: a game error inside the search ends it with what it
++                // found so far (the root keeps the best child chosen before the error)
++                KitContext.count("search_error:" + e.getClass().getSimpleName());
++                logger.error("AI simulation catch game error: " + e, e);
++                return 0;
++            }
 +        }
          FutureTask<Integer> task = new FutureTask<>(() -> addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE));
 -        threadPoolSimulations.execute(task);
          try {
              int maxSeconds = maxThinkTimeSecs;
              if (COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS) {
-@@ -533,18 +548,55 @@
+@@ -533,18 +556,55 @@
          }
          int actionNumber = 0;
          int bestValSubNodes = Integer.MIN_VALUE;
@@ -154,7 +162,7 @@
                      continue;
                  }
                  if (!sim.checkIfGameIsOver()
-@@ -556,9 +608,8 @@
+@@ -556,9 +616,8 @@
                          nextPlayerId = sim.getPlayerList().getNext();
                      } while (!Objects.equals(nextPlayerId, this.getId()));
                  }
@@ -165,7 +173,7 @@
                  if (action instanceof PassAbility && sim.getStack().isEmpty()) {
                      // no more next actions, it's a final score
                      finalScore = GameStateEvaluator2.evaluate(this.getId(), sim).getTotalScore();
-@@ -566,6 +617,12 @@
+@@ -566,6 +625,12 @@
                      // resolve current action and calc all next actions to find best score (return max possible score)
                      finalScore = addActions(newNode, depth - 1, alpha, beta);
                  }
@@ -178,7 +186,7 @@
                  logger.debug("Sim Prio " + BLANKS.substring(0, 2 + (maxDepth - depth) * 3) + '[' + depth + "]#" + actionNumber + " <" + finalScore + "> - (" + action + ") ");
  
                  // Hints on data:
-@@ -665,6 +722,9 @@
+@@ -665,6 +730,9 @@
                  }
  
                  if (currentPlayer.getId().equals(playerId)) {
@@ -188,7 +196,7 @@
                      if (finalScore > bestValSubNodes) {
                          bestValSubNodes = finalScore;
                      }
-@@ -672,11 +732,19 @@
+@@ -672,11 +740,19 @@
                              && action instanceof PassAbility) {
                          finalScore = finalScore - PASSIVITY_PENALTY; // passivity penalty
                      }
@@ -208,7 +216,7 @@
                          bestNode = newNode;
                          bestNode.setScore(finalScore);
                          if (!newNode.getChildren().isEmpty()) {
-@@ -696,6 +764,7 @@
+@@ -696,6 +772,7 @@
                      // no need to check other actions
                      if (finalScore == GameStateEvaluator2.WIN_GAME_SCORE) {
                          logger.debug("Sim Prio -- win - break");
@@ -216,7 +224,7 @@
                          break;
                      }
                  } else {
-@@ -711,21 +780,37 @@
+@@ -711,21 +788,37 @@
                      // no need to check other actions
                      if (finalScore == GameStateEvaluator2.LOSE_GAME_SCORE) {
                          logger.debug("Sim Prio -- lose - break");

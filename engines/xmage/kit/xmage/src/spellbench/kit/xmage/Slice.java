@@ -1532,9 +1532,15 @@ public final class Slice {
             KitMad[] dec = new KitMad[1];
             World w = world(gs, d0, "oracle".equals(mode) ? oracle(e, obsOf(d0)) : null, WorldBuilder.Mode.PRIORITY, 0, dec, null);
             KitMad.PriorityOutcome o = dec[0].decidePriority(w, new ObsIndex(obsOf(d0)), false);
+            Map<String, Object> scores = new LinkedHashMap<>();
+            for (int i = 0; i < o.stats.size(); i++) {
+                Map<String, Object> ss = o.statSemantics.get(i);
+                String option = ss == null ? "?" : ss.get("source") == null ? Json.str(ss, "kind") : Json.str(Json.obj(ss, "source"), "card_name");
+                scores.put(option, o.stats.get(i).adjusted == null ? o.stats.get(i).reason : o.stats.get(i).adjusted);
+            }
             rows.put("mad_" + mode, Json.map("decision", o.semantic == null || o.semantic.get("source") == null
                             ? (o.semantic == null ? null : o.semantic.get("kind")) : Json.str(Json.obj(o.semantic, "source"), "card_name"),
-                    "counters", KitContext.counters(), "nodes", (long) mage.player.ai.KitNodes.count()));
+                    "root_scores", scores, "counters", KitContext.counters(), "nodes", (long) mage.player.ai.KitNodes.count()));
             KitContext.reset();
             KitContext.mctsIterations = 30;
             KitContext.rolloutCap = 2000;
