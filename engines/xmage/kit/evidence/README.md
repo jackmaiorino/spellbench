@@ -35,8 +35,8 @@ implemented.
 | E1 exact transitions | PASS: 9 observation transitions in S1 to S6 equal modulo ids, plus hand-written assertions | S5 is a front-level rollback test (no kit world executes the failed cast) |
 | E2 budgets | PASS: values below; none fires on S1 to S9 except the H3 rollout cap at the debugging cap of 400 in S7 (see E4); the runaway position (Arc Lightning over 30 creatures, plus Shock) fires the option budget, the operation cap, the node budget, the MCTS iteration count and the rollout cap, each answered in under 3 s; `KitBudgetExceeded` thrown 16, caught at the kit's boundary 16 (none swallowed) | the stop is an `Error`, so XMage's `catch (Exception)` blocks cannot swallow it |
 | E3 termination | PASS: link check (`e3-termination.jsonl`): stale reply discarded, hung request answered in 3.0 s for a 2 s deadline plus 1 s grace, exit confirmed (kill to exit 0 ms), fresh runner served the next request. In game (`e3-game/`): a priority search that ignores interruption at seat step 48, `max_decision_ms` 20 000: fallback answered in 18.5 s tagged `cap`, runner killed and exit confirmed, the stale H2 lock removed, a replacement booted in the background (12 s), the game ended naturally, zero violations | anchors are kept in the front as inputs (decision and world seed), so a restart loses none |
-| E4 horizon | threshold written before measuring (`E4-threshold.md`). S1 to S9 and the DraftZero positions: 0 flagged stack objects, MAD horizon 0; MCTS truncation 0% at rollout caps 1000 and 5000, 100% at 200. Game set (`e4-horizon-games.json`): 13 anchors held a flagged object, all above clause 1's 25%, cause `stack_ability_identity` (a source with several triggered abilities, for example Emberheart Challenger) and one `stack_source_ambiguous`: **these kinds now go without search** (the kit declines, tagged wrapper), implemented after the measurement. H3 in game at cap 300: 32.6% truncated (clause 2 not crossed) | outcome is a register change, see Deviations |
-| E5 determinism (R-1) | PASS: one schedule (4 games, H1 against heuristic) twice, concurrently, separate processes and work directories: 4/4 game digests equal, 694/694 kit answers equal; earlier code gave the same four digests | `r1/`, `r1-pre-e4/`; same machine only (Jack's PC was off limits); `game_id` not varied (the kit's seeds read only `agent_seed`) |
+| E4 horizon | threshold written before measuring (`E4-threshold.md`). S1 to S9 and the DraftZero positions: 0 flagged stack objects, MAD horizon 0; MCTS truncation 0% at rollout caps 1000 and 5000, 100% at 200. Game set (`e4-horizon-games.json`): 13 anchors held a flagged object, all above clause 1's 25%, cause `stack_ability_identity` (a source with several triggered abilities, for example Emberheart Challenger) and one `stack_source_ambiguous`: **these kinds now go without search** (the kit declines, tagged wrapper), implemented after the measurement; in the final set 17 such decisions were declined and none searched (`e4-horizon-final-games.json`). H3 in game at cap 300: 32.6% truncated (clause 2 not crossed) | outcome is a register change, see Deviations |
+| E5 determinism (R-1) | PASS: one schedule (4 games, H1 against heuristic) twice, concurrently, separate processes and work directories: 4/4 game digests equal and 657/657 kit answers equal on the final code; the pre-E4 code also gave 4/4 (694 answers, `r1-pre-e4/`) | `r1/`, `r1-pre-e4/`; same machine only (Jack's PC was off limits); `game_id` not varied (the kit's seeds read only `agent_seed`) |
 | E6 MCTS knowledge | PASS: S7 (a) to (e); C-MCTS pilot measured (below) and its A3 expectation written | |
 | E7 behaviour preservation | PASS: MAD 72/72 positions (dumped from H1 games) same choice as upstream `ComputerPlayer7` from the pristine sources with the same X-P4 build; 10 skipped because a cap or horizon was active; MCTS: with no knowledge the re-deal keeps upstream's semantics (decider hand untouched, sizes and multisets conserved, every unseen name reaches the opponent's hand over 200 re-deals) | `kit-upstream.jar` from `scripts/upstream.sh`; never on an entry's classpath |
 | E8 costs | measured (below) | |
@@ -54,17 +54,44 @@ implemented.
 | 7 | PASS (SliceCore): disjoint allocation with an unknown face-down battlefield card (U = 18, public 2, physical 20, multiset exact) |
 | 8 | Recorded: the StateSpec adapter (R3, not in this slice) maps a returned label only when it names exactly one candidate key, until a complete public-equivalence rule is validated |
 
+## Sensitivity pilots and the A3 expectations they fix (Section 7.3)
+
+DraftZero's two positions rebuilt with FDN cards (`DZ.*` notes in `slice-xmage.jsonl`), each decided on a kit-sampled
+world and on the oracle world:
+
+| Position | MAD kit | MAD oracle | MCTS kit / oracle (30 iterations, cap 2000) |
+|---|---|---|---|
+| counterspell R (Refute in hand) | Serra Angel (2875 vs pass 415) | Serra Angel (2875) | Serra Angel / Serra Angel; every root child 7 to 8 visits, all won |
+| counterspell N (Island) | Serra Angel (2875) | Serra Angel (2875) | same |
+| cantrip E (Llanowar Elves on top) | Helpful Hunter (3192) | Helpful Hunter (2148) | Helpful Hunter / Helpful Hunter; 6 visits per child |
+| cantrip L (Plains on top) | Helpful Hunter (3192) | Helpful Hunter (3192) | same |
+
+- C-MAD: the oracle world reproduces the own-draw dependence (Helpful Hunter's root score moves from 3192 to 2148
+  with the hidden top card); the kit's worlds give the same scores in E and L. No expectation for the counterspell
+  pair: MAD never models the response, and neither mode changes. Expectation fixed for A3: kit mode identical
+  across each pair; oracle mode may differ in the cantrip pair.
+- C-MCTS: at the slice budget upstream UCT (with its integer exploitation term) spreads the iterations evenly over
+  the root children, so neither mode shows sensitivity. Expectation fixed for A3: none until the iteration budget
+  gives every root child at least 40 visits; then the C-MCTS row is re-measured before A3 runs.
+
 ## Game set (H1 entry, through P's host and live validator)
 
 Final code (`games/`), seat-swapped pairs over Standard16-RG and Standard16-UB, run secrets in each `summary.json`:
 
-GAMESET_TABLE
+| Set | Games | Endings | Validator violations | Forfeits, halts | Decisions checked | Kit wins | Kit answers: bot / wrapper / cap | Mean game wall s |
+|---|---:|---|---:|---|---:|---:|---|---:|
+| H1 vs heuristic | 8 | 8 natural | 0 | 0, 0 | 2822 | 6 | 1408 / 24 / 0 | 33.27 |
+| H1 vs uniform (round trip on) | 4 | 4 natural | 0 | 0, 0 | 2003 | 3 | 1005 / 23 / 0 | 57.67 |
+| H2 (K = 4) vs heuristic | 2 | 2 natural | 0 | 0, 0 | 667 | 2 | 338 / 18 / 0 | 32.05 |
+| H3 (K = 1, 20 iterations, rollout cap 300) vs heuristic | 1 | 1 natural | 0 | 0, 0 | 566 | 1 | 281 / 4 / 0 | 273.53 |
+
+Total: 15 games, 6058 decisions checked by P's live validator, 0 violations. Wrapper answers by path are in each `kitlog-summary.json` (`wrapper_paths`): kinds the current dialog does not synthesize yet (`choose_option`, trigger `order_pick`, non-combat `distribute`), the E4 decline, and a few MAD choices with no offered candidate (`priority_unmapped`).
 
 ## Numbers the design left to the slice
 
 | Number | Value | Basis |
 |---|---|---|
-| MAD node budget | 5000 (upstream default; error threshold budget + 100) | E7 equality; fired in 3 of 324 game anchors |
+| MAD node budget | 5000 (upstream default; error threshold budget + 100) | E7 equality; fired in 4 of about 377 game anchors |
 | Option-generation budget | 2000 options per playable | fired only in the runaway position |
 | Operation cap | 20 000 callbacks per MAD root alternative or MCTS iteration | never fired outside E2 |
 | MCTS iterations | 20 to 30 per world per decision in the slice | 0.09 to 0.2 s per iteration unloaded (0.5 to 1.2 s under load); the upstream UCT term spreads 30 iterations almost evenly over the root children |
@@ -76,21 +103,31 @@ GAMESET_TABLE
 
 ## Measured costs (E8; replaces Section 8.1 and 9.2 guesses)
 
-Runtime, HaleysPC: COSTS_TABLE
+Runtime, HaleysPC, final game set (`costs.json`):
 
-Integration (this agent's wall clock, 2026-10-01, about 04:40 to 07:45 EDT, including a 30 minute machine hold): the
-whole slice took about 3 agent-hours against the provisional 7 to 10 agent-days. Per case, from first code to a
+| Set | Kit decisions per seat per game | Answered without a world | Anchors per game | World build ms (median, p90, max) | Search ms per anchor, world 0 (median, p90, max) | Kit s per seat per game | Node cap fired |
+|---|---:|---:|---:|---|---|---:|---:|
+| H1 vs heuristic | 179.0 | 0.786 | 21.2 | 8.0, 21, 724 | 90.0, 1096, 19017 | 14.9 | 1 |
+| H1 vs uniform (round trip on) | 257.0 | 0.758 | 36.8 | 4, 11, 156 | 106, 1837, 12612 | 35.9 | 3 |
+| H2 (K = 4) vs heuristic | 178.0 | 0.758 | 14.0 | 6.0, 46, 145 | 106.5, 861, 1128 | 12.6 | 0 |
+| H3 (K = 1, 20 iterations, rollout cap 300) vs heuristic | 285.0 | 0.807 | 33.0 | 5, 13, 110 | 8727, 10585, 10932 | 255.1 | 0 |
+
+Design guesses replaced: world build 3 to 7 ms (M1) is 5 to 9 ms median here; MAD 0.2 to 2 s per world is a median of about 0.1 s with a long tail (p90 1 to 2 s; worst 19 s in the final set, 79 s in an earlier set run while the machine was loaded, both at the 5000-node budget); 10 to 160 s per seat per game at K = 1 is 15 to 36 s. Runner boot 12 to 14 s per agent process (`game_start`), a replacement 12 s after a kill. H3: 0.09 to 0.2 s per completed MCTS iteration unloaded, so 20 iterations cost about 9 s per decision in game and K = 4 with 300 iterations would cost minutes per decision.
+
+Integration (this agent's wall clock, 2026-10-01, about 04:40 to 08:10 EDT, including a 20 minute machine hold): the
+whole slice took about 3.5 agent-hours against the provisional 7 to 10 agent-days. Per case, from first code to a
 passing check: skeleton (front, runner, world builder, sampler, MAD diff, plans) 50 min to the first H1 game; S1 10
 min; S2 15 min (departed-source rebuild); S3 10 min; S4 15 min (looked-at cards in the continuation); S5 10 min; S6
 10 min (the own-history rule had to be rewritten); S7 and the MCTS diff 25 min; S8 5 min; S9, sentinel and E2 15
 min; E3 30 min (two real faults: an H2 lock left by a killed runner, and a self-join in the restart path); E5 5 min;
-E7 20 min. The provisional estimates of 9.2 are agent-days of a slower process; on this evidence the remaining items
-(A1 build-out, A2, H3, A3) are dominated by register coverage (cards and mechanics), not by architecture.
+E7 20 min; final runs and evidence 40 min. On this evidence the remaining items (A1 build-out, A2, H3, A3) are
+dominated by register coverage (cards, mechanics, dialog kinds) and machine time for games, not by architecture: a
+plausible re-estimate is hours per item, with A3's game volume and H3's search cost the largest terms.
 
 ## Diagnostics (Section 7.2, never gates)
 
 Observation round trip (the world projected through the engine's own `ObservationBuilder`, compared modulo ids):
-ROUNDTRIP. World flags over the H1 anchors: FLAGS.
+91 of 347 decisions in the uniform set round-trip exactly (26%); by kind activate_ability 7/43, arrange_card 2/2, cast_spell 45/161, choose_boolean 0/2, choose_cost_target 0/1, choose_spell_mode 2/2, choose_target 3/7, declare_attack 4/53, declare_block 2/16, distribute 1/4, mulligan 4/4, order_pick 0/6, play_land 21/40, select_object 0/6. The differences are characteristics (`/players/battlefield/characteristics/keywords` 381, `/players/battlefield/characteristics/power` 337, `/players/battlefield/characteristics/toughness` 256, `/players/battlefield/characteristics/types` 235, `/players/battlefield/characteristics/colors` 161, `/players/battlefield/characteristics/subtypes` 103): until-end-of-turn effects, Kaito's turn-dependent creature form, and Role tokens the world does not rebuild, which the worlds flag `approximate:unexplained_characteristics`, plus graveyard labels shifted by them. World flags over all anchors of the final game set: `approximate:watchers_reset` 387, `approximate:unexplained_characteristics` 226, `unsupported:command_zone` 134, `approximate:activation_usage_other_seat` 40, `own_history:loyalty_used` 25, `horizon:stack_object` 17, `approximate:stack_ability_identity` 16, `unsupported:token` 16, `approximate:token_characteristics` 14, `lineage:stack_source` 4, `approximate:stack_source_ambiguous` 2, `approximate:stack_placeholder` 1, `approximate:blocked_status_from_observation` 1 (of about 377 anchors).
 
 ## Deviations from the design
 
@@ -99,7 +136,8 @@ ROUNDTRIP. World flags over the H1 anchors: FLAGS.
 2. Chains are replanned at every priority decision (Section 6.1 allows it); ComputerPlayer7's `actionCache` does not
    carry across decisions, since each world has a fresh decider.
 3. ComputerPlayer7 passes without searching outside the main phases and the declare steps; the front answers those
-   pass decisions itself, without a world (the bot's own answer; saves about 40% of anchors).
+   pass decisions itself, without a world (the bot's own answer; a fifth to a quarter of the multi-candidate
+   decisions).
 4. Non-stack actions: live dialog answers recorded; the transient executed copy is not captured (addendum 5).
 5. Triggered abilities on the stack are rebuilt when their source has exactly one triggered ability; whether the
    resolution reads an event object is not checked (register row "triggered abilities" stays approximate in A1).

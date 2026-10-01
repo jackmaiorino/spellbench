@@ -1,0 +1,104 @@
+{
+ "cap_rate": 0.0,
+ "continuation_mismatch": 0,
+ "decisions": 285,
+ "games_over": 1,
+ "paths": {
+  "combat_anchor": 14,
+  "cp7_passes_in_step": 15,
+  "dialog": 3,
+  "fallback_lowest": 4,
+  "plan": 6,
+  "plan_forced": 5,
+  "pregame_anchor": 1,
+  "priority_anchor": 33,
+  "single": 204
+ },
+ "priority_anchor": {
+  "approximate_world_share": 1.0,
+  "build_ms": {
+   "max": 110,
+   "median": 5,
+   "p90": 13
+  },
+  "count": 33,
+  "decision_ms": {
+   "max": 11049,
+   "median": 8738,
+   "p90": 10592
+  },
+  "nodes": {
+   "max": 0,
+   "median": 0
+  },
+  "search_ms": {
+   "max": 10932,
+   "median": 8727,
+   "p90": 10585
+  }
+ },
+ "rewinds": 0,
+ "roundtrip": null,
+ "runner": [
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 12184,
+   "late_discarded": 0,
+   "restarts": 0
+  }
+ ],
+ "search_counters": {
+  "budget_caught:mcts_rollout": 215,
+  "cap:rollout": 215,
+  "mcts:iterations": 660,
+  "mcts:simulations": 660,
+  "mcts:truncated_rollouts": 215,
+  "redeal": 693,
+  "simulate": 660
+ },
+ "tags": {
+  "bot": 281,
+  "wrapper": 4
+ },
+ "tags_by_kind": {
+  "cast_spell": {
+   "bot": 35
+  },
+  "choose_option": {
+   "wrapper": 4
+  },
+  "choose_target": {
+   "bot": 12
+  },
+  "declare_attack": {
+   "bot": 10
+  },
+  "declare_block": {
+   "bot": 4
+  },
+  "mulligan": {
+   "bot": 1
+  },
+  "optional_cost": {
+   "bot": 3
+  },
+  "pass": {
+   "bot": 202
+  },
+  "play_land": {
+   "bot": 13
+  },
+  "select_object": {
+   "bot": 1
+  }
+ },
+ "world_flags": {
+  "approximate:unexplained_characteristics": 24,
+  "approximate:watchers_reset": 33
+ },
+ "wrapper_paths": {
+  "fallback_lowest:no_dialog:choose_option": 4
+ },
+ "wrapper_rate": 0.014
+}

@@ -327,7 +327,14 @@ public final class Front {
         for (Map<String, Object> m : ownActivations) {
             if (!Json.bool(m, "confirmed") && Json.num(m, "turn", -2) == turn) {
                 long now = loyalty(obs, Json.str(m, "object_id"));
-                if (now >= 0 && now != Json.num(m, "loyalty_before", -1)) {
+                boolean onStack = false; // a loyalty ability costing 0 changes no counter: its stack entry confirms it
+                for (Object o : Json.arr(obs, "stack")) {
+                    Map<String, Object> e = Json.obj(o);
+                    Map<String, Object> src = Json.obj(e, "source");
+                    onStack |= "activated_ability".equals(Json.str(e, "stack_kind")) && src != null
+                            && Json.str(m, "object_id").equals(Json.str(src, "object_id"));
+                }
+                if ((now >= 0 && now != Json.num(m, "loyalty_before", -1)) || onStack) {
                     m.put("confirmed", true);
                 }
             }
