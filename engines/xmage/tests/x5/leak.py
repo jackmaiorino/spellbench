@@ -420,8 +420,23 @@ def main(argv: list[str]) -> int:
     kept: list[dict[str, Any]] = []
     tally: Counter[str] = Counter()
     results = (out / f"{args.position}-pairs.jsonl").open("w", encoding="utf-8", newline="\n")
+    def pairs():
+        """Results in task order, with at most two tasks per worker outstanding, so stopping early is cheap."""
+        pending: list = []
+        queue = iter(tasks)
+        for task in queue:
+            pending.append(pool.apply_async(play_pair, (task,)))
+            if len(pending) >= 2 * args.workers:
+                break
+        while pending:
+            result = pending.pop(0).get()
+            nxt = next(queue, None)
+            if nxt is not None:
+                pending.append(pool.apply_async(play_pair, (nxt,)))
+            yield result, pending
+
     try:
-        for pair in pool.imap(play_pair, tasks, chunksize=1):
+        for pair, pending in pairs():
             ok, why = keep_pair(args.position, pair)
             tally["played"] += 1
             if not ok:
@@ -448,7 +463,7 @@ def main(argv: list[str]) -> int:
             kept.append(row)
             if len(kept) >= args.pairs:
                 break
-        pool.close()
+        pool.close()  # the outstanding tasks (at most two per worker) finish; their results are dropped
         pool.join()
     except BaseException:
         pool.terminate()
