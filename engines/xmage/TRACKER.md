@@ -92,6 +92,13 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 18:45: X5 final rerun paused at 3,544 of 10,112 games.
+  - So far on the final build (`d74803d5`, HaleysPC, guard chose 6 workers): 0 violations over 2,030,290 decisions, 0 halts.
+  - Digests vs the earlier Jack's PC run: all 1,772 FDN games equal; 1,617 of 1,772 Standard games equal, and the 155 that changed are in the decks the two determinism fixes target.
+  - Paused because HaleysPC C: fell back to the reserve: a Codex cloud task's cargo builds into `C:/Users/haley/mtg-kernel-fdn-*-target` (about 21 GB, growing). Resumes on Jack's PC after tonight's evaluation, or on HaleysPC with 2 GiB or more of headroom.
+- 2026-10-01 18:00: Jack delegated the `C:/mtg-node` decisions.
+  - The sole-copy D4 production worker outputs (52 GB) are being copied to E: with full hash verification.
+  - Deduping the seven E:-covered trees (about 117 GB) is scheduled after tonight's evaluation, with full-file hash checks first.
 - 2026-10-01 17:30: HaleysPC C: raised from 35.3 GB to 69.51 GiB free, above the 60 GiB reserve.
   - The build.rs session deleted its 23 GB build cache.
   - Jack's April XMage RL snapshots and logs (93 files, 12.14 GiB) moved to `E:/haleyspc-archive/mage-airl-profiles-202604/` with a hash-verified manifest (`MOVED.md`, registered in the catalog).
