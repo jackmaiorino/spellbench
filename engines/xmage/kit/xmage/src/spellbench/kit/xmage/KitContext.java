@@ -25,6 +25,12 @@ public final class KitContext {
     public static int optionBudget = 2000;
     /** Callbacks of the simulated players per simulation (one root alternative of MAD, one MCTS iteration). */
     public static int opCap = 20000;
+    /**
+     * MCTS combat engagements per expansion (H3): upstream enumerates every attack subset and block assignment, each a
+     * child game copy, which ran the runner out of heap in a kit-mcts game (8 combatants); the first engagements in
+     * upstream's order are kept and the cap firing is counted.
+     */
+    public static int combatOptionBudget = 128;
     /** MCTS completed iterations per world. */
     public static int mctsIterations = 300;
     /** MCTS rollout length cap (priority callbacks in one rollout). */

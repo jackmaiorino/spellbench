@@ -72,6 +72,84 @@ H3COST measured 0% at caps 1000 and 5000 and 100% at 200 on the cantrip position
 (2026-10-01): kit-mcts is re-frozen at rollout cap 1000 (new configuration digest); cap 300 is not kept under any
 label. A4 measures the extra cost per decision before any rating. Rerun at cap 1000 in the final run: 0 of 400 rollouts truncated in all eight runs.
 
+## Second result review (Sol, NOT READY: changes 2, 3, 4, 6 and 7 partial): items 1 to 5 and regressions
+
+Review: `E:/spellbench-archive/program-research/reviews/a1b-sol-opinion.md`. Branch merged with `origin/xmage-x0-x1`
+first (X5's `ability_index` order: own abilities, then granted ones by rule text; the kit maps through the engine's
+own `SeatPlayer.abilityIndex` via `KitBridge`, so it agrees by construction; engine rebuilt, `lib_digest`
+`d74803d5...`). Records in `buildout/second/`.
+
+| Item | Fix | Test (HaleysPC, final build) |
+|---|---|---|
+| 1 latch an unconfirmed runner exit | `RunnerLink`: an unconfirmed kill latches the link; no replacement starts (start, `startAsync`) and requests are refused with `Busy("runner_exit_unconfirmed")` until the killed process is seen gone, which clears the latch and removes the locks | FrontCheck `latch.unconfirmed_exit_blocks_restart` (fallback in time, no restart while latched) and `latch.clears_after_confirmed_exit`: PASS |
+| 2 skip enforcement and attribution | placeholders take `horizon:stack_object` (no search); a skipped combat world answers the declining candidate tagged `wrapper` | Slice `REG.placeholder_no_search`, FrontCheck `skip.combat_is_wrapper`: PASS |
+| 3 H3 non-stack rejection | the vendored MCTS players count every dialog; at the root an action that leaves no stack object and asked a dialog is never a child (`mcts:non_stack_dialog_excluded`) | Slice `REG.h3_non_stack_excluded_before_selection` (Thriving Bluff excluded, a plain Mountain play kept): PASS |
+| 4 complete identity | clock policy (grace, overhead, kill reserve) and diagnostics (round trip, hang hook) are in the configuration and its digest; any change gives `-custom`; `--name` and `--version` are refused | FrontCheck `identity.full_configuration`: PASS |
+| 5 E4 over all MCTS work | every MCTS search counted once (priority and combat); iterations split into actual rollouts (`simulate`), terminal-node results (new counter) and empty expansions; clause 2 = truncated rollouts over actual rollouts, with denominators per kind and in total | `tests/e4.py` on the final kit-mcts game, below |
+| opponent-turn regression | Slice OPPTURN: the opponent casts Serra Angel on its turn; the kit (kit-mad-1, through a real front and runner) searches its own options and casts Refute; seats swapped | `OPPTURN.p1` and `OPPTURN.p0`: PASS |
+| nine positions | replayed and archived (`buildout/unmapped/positions/`, diagnosis on the final build in `unmapped-final.jsonl`): all nine choose offered candidates. Seven are the original positions; the uniform game diverged after step 315 on the X-P4 engine, so its last two originals (460, 462) could not be reproduced and the two unmapped positions of the replay (494, 504) stand in for them | UNMAPPED: PASS |
+
+**A further discrepancy found and fixed.** The first final-build kit-mcts game had 1 unmapped choice in 37 searches:
+MCTS chose Fountainport's `{3}, {T}, Pay 1 life` ability, which the engine did not offer. The game replayed with
+dumps (same digest, `sha256:1ac71f9f...`), and Slice PLAYABLE showed 6 of 38 positions where XMage's playable list on
+the world holds a Fountainport ability the engine does not offer (the engine offers only what its autopay can pay;
+the land's own tap cost cannot also pay for it). Both bots now take root alternatives only among the decision's
+offered candidates (`KitContext.rootFilter`, set by the runner for priority searches; MAD records the others as
+`not_offered` root statistics). Slice OFFERED on those six positions: MAD and MCTS choose offered actions: PASS. E7
+compares the search with the filter off.
+
+**Two kit-mcts faults found by the smoke games and fixed.** (a) A runner error, `IndexOutOfBoundsException` in the
+vendored `SelectBlockersNextAction`: upstream declares a block against `getAttackers().get(0)` of a combat group whose
+attacker had left combat; reproduced from a dump (Slice OFFERED, position 214) and fixed (such groups are skipped;
+`ComputerPlayerMCTS.selectBlockers` likewise). (b) `OutOfMemoryError` in MCTS blocking with 8 combatants: upstream
+enumerates every block assignment, each a child game copy. A combat option budget (`combat_options`, 128
+engagements per expansion, upstream order, `cap:combat_options` counted) is now part of kit-mcts, which therefore
+has a new identity.
+
+Final build results (`buildout/second/`): kit-core SliceCore 12/12, TerminationCheck PASS, FrontCheck 15/15;
+Slice `finalA.jsonl` 76/76 (S1 to S9, SENTINEL, E2, E7MCTS, E7MAD 61/61, S2P, S3P, S4P, S10P, REG with the
+placeholder, H3 non-stack and Thriving Bluff cases, POOLAUDIT, OPPTURN both seats, OFFERED 7 positions);
+`finalB.jsonl` 8/8 (A3 for the three entries, MCTSPOWER at cap 1000: 0 of 400 rollouts truncated). Games (P's
+host, live validator, Standard16-UB and -GB):
+
+| Entry and identity | Games | Endings | Violations, forfeits, halts | Decisions checked | Kit wins | Searched priority, unmapped | Decision ms median, p90, max |
+|---|---:|---|---|---:|---:|---|---|
+| kit-mad-1 `0.2.0+da7301f729c0` | 2 | natural | 0, 0, 0 | 768 | 1 | 48, 0 | 154, 5852, 17003 |
+| kit-mad-k `0.2.0+6f73bc90a85d` | 2 | natural | 0, 0, 0 | 801 | 1 | 51, 0 | 485, 14364, 70274 |
+| kit-mcts `0.2.0+61e5852dd13f`, replay of the runner-error game | 1 | natural | 0, 0, 0 | 423 | 1 | 39, 0 | 16168, 40930, 43885 |
+| kit-mcts, replay of the Fountainport game (out-of-memory blocks in the round before) | 1 | natural | 0, 0, 0 | 713 | 1 | 63, 0 | 12357, 19241, 31143 |
+
+E4 over all MCTS work in these two games (`tests/e4.py`): 44 and 71 searches (5 and 8 combat); actual rollouts 1286
+and 2128, terminal-node results 34 and 2, empty expansions 0; truncated rollouts 13 of 1286 (1.0%) and 1 of 2128
+(0.05%): clause 2 not crossed; truncated expansions 0 of 3285 and 0 of 6901. kit-mad-k's decision maximum (70 s
+in this run, 87 s in the previous) leaves 50 s and 33 s under the 120 s limit; it searches the opponent's turn
+since the current-player fix.
+
+Reproducibility observed on the way (not a qualification): the kit-mcts game replays matched their originals'
+digests (`sha256:1ac71f9f...`, `sha256:750c34bc...`) before the later fixes changed the code.
+
+## Change 8 plan (not started; waits for a coordinator go)
+
+Entries: kit-mad-1 and kit-mad-k enter the first soak; kit-mcts waits for its own qualification with the provisional
+profile 120 s per decision, a 3,600 s bank, 2 s increments and 300 s startup and game start (cap 1000 and 30
+iterations kept; cap 300 stays rejected). Pass criteria, from the review's last section:
+
+1. Qualified allocation: one worker against increasing worker counts on identical representative inputs; Jack's
+   PC, HaleysPC and RunPod availability checked; completed-game throughput including database copies, JVM start,
+   search, mapping, validation, output and recovery; the fastest eligible allocation recorded in the small manifest;
+   the launcher refuses missing or incompatible qualification evidence before spawning the soak.
+2. Preserved outputs and usable clocks: matched game digests across worker counts; decision tails, combat costs,
+   bank consumption, cap firings, restarts and resources at the selected concurrency; the clock profile frozen before
+   the soak, the same for every opponent.
+3. The soak: 1,000 games per admitted entry against P's builtins on `fdn-mirror-v0`, then the declared cross-entry
+   games, covering the pool and both seats, with the 20-game R-1 replay on the final build.
+4. Passing results: zero `invalid_selection` and `malformed_response`; pool deficits and surpluses zero or
+   explained; timeouts, halts and resource failures kept and accounted for; wrapper and cap rates by kind and
+   mechanic; E4 over all MCTS work.
+5. Rated admission: engine, entry configuration, clock profile and admitted pool equal to the qualification's;
+   per-game isolation verified (no writable state survives into another game). The pool audit shows availability,
+   not exact reconstruction.
+
 ## Cases (Section 9.1)
 
 | Case | Result | Evidence |

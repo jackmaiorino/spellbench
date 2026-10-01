@@ -175,6 +175,7 @@ public final class Runner {
             KitContext.opCap = (int) Json.num(budgets, "operations", KitContext.opCap);
             KitContext.mctsIterations = (int) Json.num(budgets, "iterations", KitContext.mctsIterations);
             KitContext.rolloutCap = (int) Json.num(budgets, "rollout", KitContext.rolloutCap);
+            KitContext.combatOptionBudget = (int) Json.num(budgets, "combat_options", KitContext.combatOptionBudget);
         }
         long deadline = Json.num(req, "deadline_ms", 0);
         KitContext.hangHook = Json.bool(req, "hang");

@@ -66,7 +66,8 @@ public final class Entries {
                 break;
             case "h3":
                 c = Json.map("name", "kit-mcts", "bot", "mcts", "worlds", 1L, "skill", 6L,
-                        "budgets", Json.map("iterations", 30L, "rollout", 1000L, "operations", 20000L, "options", 2000L),
+                        "budgets", Json.map("iterations", 30L, "rollout", 1000L, "operations", 20000L, "options", 2000L,
+                                "combat_options", 128L),
                         "aggregation", "visits per priority key (one world)",
                         "priority", "MCTS at every priority decision with more than one candidate (upstream dispatch)",
                         "combat", "MCTS selectAttackers/selectBlockers (upstream dispatch)",
@@ -101,7 +102,7 @@ public final class Entries {
             overridden.add("skill");
         }
         Map<String, Object> b = new LinkedHashMap<>((Map<String, Object>) c.get("budgets"));
-        for (String k : new String[]{"nodes", "options", "operations", "iterations", "rollout"}) {
+        for (String k : new String[]{"nodes", "options", "operations", "iterations", "rollout", "combat_options"}) {
             if (opts.containsKey(k) && !Long.valueOf(Long.parseLong(opts.get(k))).equals(b.get(k))) {
                 b.put(k, Long.parseLong(opts.get(k)));
                 overridden.add(k);

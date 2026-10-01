@@ -109,6 +109,10 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
         int powerElements = (int) Math.pow(2, attackersList.size());
         StringBuilder binary = new StringBuilder();
         for (int i = powerElements - 1; i >= 0; i--) {
+            if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT: combat option budget
+                spellbench.kit.xmage.KitContext.count("cap:combat_options");
+                break;
+            }
             binary.setLength(0);
             binary.append(Integer.toBinaryString(i));
             while (binary.length() < attackersList.size()) {
@@ -156,6 +160,10 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
     protected void addBlocker(Game game, List<List<UUID>> engagement, List<Permanent> blockers, List<List<List<UUID>>> engagements) {
         if (blockers.isEmpty())
             return;
+        if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT: combat option budget
+            spellbench.kit.xmage.KitContext.count("cap:combat_options");
+            return;
+        }
         int numGroups = game.getCombat().getGroups().size();
         //try to block each attacker with each potential blocker
         Permanent blocker = blockers.get(0);
@@ -166,6 +174,10 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
             if (game.getCombat().getGroups().get(i).canBlock(blocker, game)) {
                 List<List<UUID>> newEngagement = copyEngagement(engagement);
                 newEngagement.get(i).add(blocker.getId());
+                if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT
+                    spellbench.kit.xmage.KitContext.count("cap:combat_options");
+                    return;
+                }
                 engagements.add(newEngagement);
 //                    logger.debug("simulating -- found redundant block combination");
                 addBlocker(game, newEngagement, remaining, engagements);  // and recurse minus the used blocker
