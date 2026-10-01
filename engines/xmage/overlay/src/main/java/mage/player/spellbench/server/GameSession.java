@@ -107,7 +107,11 @@ final class GameSession {
         report();
     }
 
-    /** Per-game mapping counters for the X4 evidence: stderr, and a file named by SPELLBENCH_XMAGE_STATS. */
+    /**
+     * Per-game mapping counters for the X4 evidence: stderr, and, when SPELLBENCH_XMAGE_STATS names a directory, one
+     * JSON line per game in {@code stats-<process id>.jsonl} there (one file per engine process: concurrent appends
+     * to one file can interleave). Engine-side only; never sent to agents.
+     */
     private void report() {
         Map<String, Object> line = new LinkedHashMap<>();
         line.put("game_id", gameId);
@@ -122,9 +126,10 @@ final class GameSession {
         line.put("stats", counts);
         byte[] bytes = StrictJson.canonical(line);
         System.err.println("x4-stats " + new String(bytes, StandardCharsets.UTF_8));
-        String path = System.getenv("SPELLBENCH_XMAGE_STATS");
-        if (path != null && !path.isEmpty()) {
-            try (OutputStream out = new FileOutputStream(path, true)) {
+        String dir = System.getenv("SPELLBENCH_XMAGE_STATS");
+        if (dir != null && !dir.isEmpty() && new java.io.File(dir).isDirectory()) {
+            String pid = java.lang.management.ManagementFactory.getRuntimeMXBean().getName().split("@")[0];
+            try (OutputStream out = new FileOutputStream(new java.io.File(dir, "stats-" + pid + ".jsonl"), true)) {
                 out.write(bytes);
                 out.write('\n');
             } catch (IOException e) {

@@ -58,7 +58,8 @@ final class Display {
             case "choose_name":
                 return String.valueOf(s.get("value"));
             case "choose_option":
-                return s.get("option_label") == null ? "Option " + s.get("option_index") : (String) s.get("option_label");
+                return s.get("option_label") == null ? "Option " + s.get("option_index")
+                        : (String) s.get("option_label");
             case "distribute":
                 return s.get("amount") + " to " + target(s.get("recipient"));
             case "arrange_card":

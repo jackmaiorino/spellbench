@@ -39,7 +39,8 @@ def main() -> int:
         rules = Rules(opponent_decklist="visible", mulligan="london", starting_player="host_assigned",
                       starting_seat="p0", card_name_domain=domain, extensions=(), probe=False)
         for game, (max_decisions, max_steps, seed) in enumerate(CASES):
-            request = ResetRequest(request_id=f"caps-{game}", game_id=secret.game_id(game), format="standard-2022-25-bo1",
+            request = ResetRequest(request_id=f"caps-{game}", game_id=secret.game_id(game),
+                                   format="standard-2022-25-bo1",
                                    seats=(wire, wire), rules=rules, game_secret=secret.game_secret(game).hex(),
                                    max_decisions=max_decisions, max_steps=max_steps)
             validator = LiveValidator(hello, rules, max_decisions=max_decisions, max_steps=max_steps)

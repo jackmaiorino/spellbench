@@ -27,6 +27,8 @@ public final class GameRandom implements RandomUtil.Source {
     private static final byte[] BOOT_SECRET = Secrets.sha256("spellbench/xmage/boot-ids".getBytes(StandardCharsets.US_ASCII));
 
     private static final boolean TRACE_CLINIT = Boolean.getBoolean("spellbench.trace.clinit");
+    /** Diagnostic: a file that gets every game id draw with its callers (-Dspellbench.trace.ids=PATH). */
+    private static final String TRACE_IDS = System.getProperty("spellbench.trace.ids");
 
     private final byte[] gameSecret;
     private final boolean boot;
@@ -61,6 +63,7 @@ public final class GameRandom implements RandomUtil.Source {
         }
         GameRandom router = new GameRandom(gameSecret, false);
         RandomUtil.setSource(router);
+        trace("game " + Secrets.toHex(Secrets.sha256(gameSecret)).substring(0, 16));
         return router;
     }
 
@@ -99,6 +102,22 @@ public final class GameRandom implements RandomUtil.Source {
         if (TRACE_CLINIT && !boot) {
             traceClassInit();
         }
+        if (TRACE_IDS != null && !boot) {
+            StringBuilder sb = new StringBuilder("id");
+            int n = 0;
+            for (StackTraceElement e : new Throwable().getStackTrace()) {
+                String c = e.getClassName();
+                if (c.startsWith("mage.player.spellbench.rng") || c.startsWith("mage.util.RandomUtil")) {
+                    continue;
+                }
+                sb.append(' ').append(c.substring(c.lastIndexOf('.') + 1)).append('.').append(e.getMethodName())
+                        .append(':').append(e.getLineNumber());
+                if (++n == 14) {
+                    break;
+                }
+            }
+            trace(sb.toString());
+        }
         byte[] b = new byte[16];
         stream("shared", "object_id").nextBytes(b);
         b[6] = (byte) ((b[6] & 0x0f) | 0x40); // version 4 layout, as UUID.randomUUID()
@@ -134,6 +153,17 @@ public final class GameRandom implements RandomUtil.Source {
                 System.err.println("spellbench.trace.clinit: id drawn during static init of " + e.getClassName());
                 return;
             }
+        }
+    }
+
+    private static void trace(String line) {
+        if (TRACE_IDS == null) {
+            return;
+        }
+        try (java.io.FileOutputStream out = new java.io.FileOutputStream(TRACE_IDS, true)) {
+            out.write((line + '\n').getBytes(StandardCharsets.UTF_8));
+        } catch (java.io.IOException e) {
+            // diagnostic only
         }
     }
 

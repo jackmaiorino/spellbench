@@ -27,6 +27,12 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$BUILD" ] && [ -n "$DB" ] && [ -n "$P2" ] && [ -n "$WORK" ] || { echo "need --build, --db, --p2 and --work" >&2; exit 2; }
 native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
+# a shared machine: this script and every process it starts (children inherit it) run at below-normal priority
+if [ -r /proc/$$/winpid ] && command -v powershell >/dev/null 2>&1; then
+  powershell -NoProfile -Command "(Get-Process -Id $(cat /proc/$$/winpid)).PriorityClass = 'BelowNormal'"       >/dev/null 2>&1 || true
+else
+  renice -n 10 $$ >/dev/null 2>&1 || true
+fi
 PYTHON=python3
 "$PYTHON" -c 'import sys' >/dev/null 2>&1 || PYTHON=python
 BASH_EXE=$(native "$(command -v bash)")
@@ -39,7 +45,9 @@ export PYTHONPATH="$(native "$P2/python")"
 ENGINE=("$BASH_EXE" "$(native "$HERE/scripts/engine.sh")" --build "$(native "$BUILD")" --db "$(native "$DB")"
         --work "$(native "$WORK/engines")" --xmx 1536m)
 SOAK="$(native "$HERE/tests/x4/soak.py")"
-stats() { export SPELLBENCH_XMAGE_STATS="$(native "$OUT/stats-$1.jsonl")"; }
+stats() { mkdir -p "$OUT/stats-$1"; export SPELLBENCH_XMAGE_STATS="$(native "$OUT/stats-$1")"; }
+AGG="$(native "$HERE/tests/x4/agg.py")"
+counters() { "$PYTHON" "$AGG" "$(native "$OUT/stats-$1")" --json "$(native "$OUT/counters-$1.json")" > /dev/null; }
 
 echo "== conformance (20 checks plus 20 games)"
 ( cd "$P2" && time "$PYTHON" -c "import sys; from spellbench.arena.cli import main; sys.exit(main(sys.argv[1:]))" \
@@ -53,6 +61,7 @@ SECRET=$("$PYTHON" -c "import secrets; print(secrets.token_hex(32))")
 "$PYTHON" "$SOAK" --games "$GAMES" --shards "$SHARDS" --run-secret "$SECRET" --out "$(native "$OUT/soak.jsonl")" \
     -- "${ENGINE[@]}" > "$OUT/soak-summary.json" 2> "$OUT/soak.log"
 cat "$OUT/soak-summary.json"
+counters soak
 
 echo "== rerun of the same schedule in fresh processes, another shard split"
 stats rerun
@@ -66,6 +75,7 @@ differ = sorted(i for i in a if a[i] != b.get(i))
 print(json.dumps({"games": len(a), "equal_digests": len(a) - len(differ), "differ": differ}, indent=1))
 EOF
 cat "$OUT/determinism.json"
+counters rerun
 
 echo "== replay of game 0: twice in one process, twice in a second process"
 stats replay
@@ -89,5 +99,5 @@ D="$HERE/tests/x3/decks"
 "$PYTHON" "$SOAK" --games 60 --shards "$SHARDS" --bots uniform --decklist "$(native "$D/BGRoots.dck")" \
     --decklist "$(native "$D/Standard-MonoG.dck")" --decklist "$(native "$D/X3-FaceDown-UG.dck")" \
     --out "$(native "$OUT/facedown.jsonl")" -- "${ENGINE[@]}" > "$OUT/facedown-summary.json" 2> "$OUT/facedown.log" || true
-for s in uniform heuristic facedown; do echo "-- $s"; cat "$OUT/$s-summary.json"; done
+for s in uniform heuristic facedown; do echo "-- $s"; counters "$s"; cat "$OUT/$s-summary.json"; done
 echo "== done: $OUT"

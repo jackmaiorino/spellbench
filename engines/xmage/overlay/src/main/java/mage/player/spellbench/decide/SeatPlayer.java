@@ -1336,7 +1336,12 @@ final class SeatPlayer extends AutoPayPlayer {
 
     private static final java.util.regex.Pattern MANA_RUN = java.util.regex.Pattern.compile("(\\{[^}]+\\})+");
 
-    /** The mana of the first run of mana symbols in an XMage prompt text, or null when it has none. */
+    /**
+     * The mana of the first run of mana symbols in an XMage prompt text, or null when it has none. Parsed here,
+     * never with {@code ManaCostsImpl(String)}: that constructor caches parsed costs process-wide and mints object
+     * ids only on a cache miss, so a parse in a game would draw ids depending on the games the process played
+     * before (found by the X4 cross-process rerun). Hybrid and Phyrexian symbols count as one generic mana.
+     */
     static mage.Mana manaIn(String text) {
         if (text == null) {
             return null;
@@ -1345,13 +1350,37 @@ final class SeatPlayer extends AutoPayPlayer {
         if (!m.find()) {
             return null;
         }
-        try {
-            mage.abilities.costs.mana.ManaCosts<ManaCost> costs =
-                    new mage.abilities.costs.mana.ManaCostsImpl<>(m.group());
-            return costs.isEmpty() ? null : costs.getMana();
-        } catch (RuntimeException e) {
-            return null;
+        mage.Mana mana = new mage.Mana();
+        java.util.regex.Matcher symbol = java.util.regex.Pattern.compile("\\{([^}]+)\\}").matcher(m.group());
+        boolean any = false;
+        while (symbol.find()) {
+            String sym = symbol.group(1);
+            any = true;
+            mage.constants.ManaType type;
+            int amount = 1;
+            if (sym.matches("[0-9]+")) {
+                type = mage.constants.ManaType.GENERIC;
+                amount = Integer.parseInt(sym);
+            } else if (sym.equals("W")) {
+                type = mage.constants.ManaType.WHITE;
+            } else if (sym.equals("U")) {
+                type = mage.constants.ManaType.BLUE;
+            } else if (sym.equals("B")) {
+                type = mage.constants.ManaType.BLACK;
+            } else if (sym.equals("R")) {
+                type = mage.constants.ManaType.RED;
+            } else if (sym.equals("G")) {
+                type = mage.constants.ManaType.GREEN;
+            } else if (sym.equals("C")) {
+                type = mage.constants.ManaType.COLORLESS;
+            } else if (sym.equals("X")) {
+                continue;
+            } else {
+                type = mage.constants.ManaType.GENERIC;
+            }
+            mana.add(new mage.Mana(type, amount));
         }
+        return any ? mana : null;
     }
 
     /** Section 7.4 {@code optional_cost.cost} of the calling cost class, or null for a plain yes/no. */
@@ -1502,7 +1531,8 @@ final class SeatPlayer extends AutoPayPlayer {
      */
     private Pose castMethodChoice(Choice choice, List<String> labels, Game game, List<Integer> index) {
         String message = choice.getMessage();
-        if (message == null || !message.toLowerCase(Locale.ROOT).contains("alternative cost") || game.getStack().isEmpty()) {
+        if (message == null || !message.toLowerCase(Locale.ROOT).contains("alternative cost")
+                || game.getStack().isEmpty()) {
             return null;
         }
         UUID spell = game.getStack().getFirst().getId();
@@ -2218,7 +2248,8 @@ final class SeatPlayer extends AutoPayPlayer {
         if (object == null) {
             return -1;
         }
-        Iterable<Ability> abilities = object instanceof Card ? ((Card) object).getAbilities(game) : object.getAbilities();
+        Iterable<Ability> abilities = object instanceof Card ? ((Card) object).getAbilities(game)
+                : object.getAbilities();
         long index = 0;
         for (Ability ab : abilities) {
             if (!(ab instanceof TriggeredAbility)) {
