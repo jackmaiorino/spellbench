@@ -11,7 +11,7 @@ notes for the coordinator are in `STATUS.md`.
 | Catalog | 32 decks (16 Standard 2022-25, 16 FDN), all `deck_ok` in `validate_deck`, none left out |
 | Live-validated games, final build | 10,112 games, 0 validator violations (`evidence/final-summary.json`) |
 | Halts and truncations, final build | 0 halted, 0 truncated, 0 forfeits: all 10,112 natural (run 1 on the earlier build: 62 halts from two causes, fixed) |
-| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ, all `heuristic` against `uniform` in three Standard decks; the cause is process history (below), with a fix committed but not yet verified |
+| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes: process history (fixed by the boot warm-up and verified) and identity-hash order of abilities granted by Agatha's Soul Cauldron in Standard16-UG (open, below) |
 | Paired-world leak tests, final build (`evidence/leak/`) | counterspell 50 pairs, cantrip 50 pairs and 200 randomized pairs PASS, 0 unexplained divergences; comparator self-tests PASS |
 | Fairness label | "fairness: validator only" (`hello_ok.fairness.noninterference_probe` false; README) |
 
@@ -178,13 +178,32 @@ hit the completion budget (all candidates kept, no halt). Engine autopay inside 
   ranks with XMage's `ArtificialScoringSystem`) initializes the AI class `MagicAbility`, whose static initializer
   mints ids. X1's boot warm-up initializes only the framework jar's classes, so in each process the first game to
   reach that path drew those ids from its own stream.
-- Fix, committed but not yet built or verified (Jack's PC was released at the end of the run): the boot warm-up
-  also initializes every class under `mage/player/ai/` (`Warmup`). With it, no game draws those ids, which is what
-  most main-run games already saw (their process had initialized the class earlier), so only the games that
-  first reached such a class in their process (a few per worker) should change. Verification is a rebuild plus a replay of the main run's
-  games of those three decks and matchup, then this hash check again (leftover for HaleysPC).
-- So the run's outcomes and validator verdict stand; its digests are reproducible for at least 98.3% of the sampled
-  games today, and the remainder awaits that fix.
+- Fix: the boot warm-up also initializes every class under `mage/player/ai/` (`Warmup`), so no game draws those
+  ids. Verified on HaleysPC (build `e8e5a42b`, commit `b5ce052`, below-normal priority; `evidence/warmup-verify.json`
+  and `.tsv`), each set played under the default identity hash and under `-XX:hashCode=3` with a hash warm-up, in
+  different process layouts:
+
+  | Set | Games | Equal across hash modes | Equal to the main run |
+  |---|---:|---:|---:|
+  | the 17 divergent games: Standard16-RW, Standard-MonoW | 10 | 10 | 10 |
+  | the 17 divergent games: Standard16-UG | 7 | 2 | 2 |
+  | 200 more: `heuristic` against `uniform` in Standard16-RW, -MonoW, -UG | 46, 44, 47 | 46, 44, 31 | 46, 43, 31 |
+  | 200 more: 80 games of the other cells | 80 | 80 | 80 |
+
+  0 violations, all natural. Outside Standard16-UG the 169 games of the check are reproducible across hash modes
+  and process layouts. 168 of them equal the main run; the other (a Standard-MonoW game) was, as expected, a
+  game that reached the AI class first in its main-run process.
+- **Second cause, open: Standard16-UG.** 16 of 47 games still change with the identity-hash mode, in the same process
+  layout. In the first one traced (game 4187) the streams first differ in a priority decision's
+  `activate_ability.ability_index` (0 against 1) for Sentinel of the Nameless City. It carries activated abilities
+  granted by Agatha's Soul Cauldron (all activated abilities of the creature cards it exiled), and the order in
+  which XMage lists those granted abilities follows identity hash codes (the collection is not yet identified). Spec 7.2 orders granted abilities by timestamp; these share one
+  effect, so they tie. Proposed fix in the mapper's `abilityIndex`: printed abilities in XMage's order, then
+  granted ones ordered by a visible key (the name of the card the ability comes from, then rule text). A core patch to the effect would
+  also do it, but would change `card_pool_identity`.
+- So the run's outcomes and validator verdict stand. Its digests are reproducible outside the
+  Standard16-UG deck, which plays 316 of the 10,112 games (3 percent), once
+  the warm-up fix is in.
 
 ## Paired-world leak tests (spec 13 F1, F3; design draft section 6)
 
