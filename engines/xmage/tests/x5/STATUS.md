@@ -1,5 +1,23 @@
 # X5 status (for the coordinator)
 
+## 13:00 EDT: ability-order fix verified on HaleysPC
+
+- Implemented as decided (overlay, commit `4125a61`). A single ordering, `SeatPlayer.orderedAbilities`, now feeds
+  every `ability_index`: activated abilities and trigger items. The object's own abilities (both faces, the token's,
+  or the copied object's for a copy) keep XMage's order; granted ones follow, ordered by rule text, then the
+  original ability id (which only orders identical text). The observation has no `ability_index`, so candidates
+  and observation cannot disagree. XMage does not record which effect granted an ability, so the granting card's
+  name could not be a key.
+- Same pattern elsewhere: six more cards grant abilities from a `Set<Ability>` (Hazel's Brewmaster, Idris, Mirran
+  Safehouse, Necrotic Ooze, Thranduil, Trazyn), none in the catalog; the fix covers them anyway. Mage core has none.
+- Verified on HaleysPC at below-normal priority (`d74803d5`, commit `213d95a`): all 47 Standard16-UG
+  `heuristic`-vs-`uniform` games of the earlier check plus 51 others (1 UG mirror, 20 RW and MonoW, 30 other cells,
+  both pools), each under both hash modes with 3 and 2 workers: **98 of 98 equal across modes**, 0 violations, all
+  natural. 16 UG digests changed from the previous build (their granted abilities now sort differently), and the
+  other 50 games are unchanged (`evidence/ability-order-verify.json`).
+- HaleysPC: builds and sources deleted again; `~/x-spike/x5` holds 2 MB of rows and summaries. Nothing of mine
+  runs there. The full 1,011-game recheck waits for Jack's PC.
+
 ## 12:35 EDT: warm-up fix verified on HaleysPC
 
 - Rebuilt on HaleysPC at below-normal priority (`lib_digest e8e5a42b`, commit `b5ce052`), stayed out of

@@ -11,7 +11,7 @@ notes for the coordinator are in `STATUS.md`.
 | Catalog | 32 decks (16 Standard 2022-25, 16 FDN), all `deck_ok` in `validate_deck`, none left out |
 | Live-validated games, final build | 10,112 games, 0 validator violations (`evidence/final-summary.json`) |
 | Halts and truncations, final build | 0 halted, 0 truncated, 0 forfeits: all 10,112 natural (run 1 on the earlier build: 62 halts from two causes, fixed) |
-| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes: process history (fixed by the boot warm-up and verified) and identity-hash order of abilities granted by Agatha's Soul Cauldron in Standard16-UG (open, below) |
+| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes, both fixed and verified on HaleysPC: process history (boot warm-up) and the identity-hash order of abilities granted by Agatha's Soul Cauldron (ability ordering in the mapper) |
 | Paired-world leak tests, final build (`evidence/leak/`) | counterspell 50 pairs, cantrip 50 pairs and 200 randomized pairs PASS, 0 unexplained divergences; comparator self-tests PASS |
 | Fairness label | "fairness: validator only" (`hello_ok.fairness.noninterference_probe` false; README) |
 
@@ -193,17 +193,35 @@ hit the completion budget (all candidates kept, no halt). Engine autopay inside 
   0 violations, all natural. Outside Standard16-UG the 169 games of the check are reproducible across hash modes
   and process layouts. 168 of them equal the main run; the other (a Standard-MonoW game) was, as expected, a
   game that reached the AI class first in its main-run process.
-- **Second cause, open: Standard16-UG.** 16 of 47 games still change with the identity-hash mode, in the same process
-  layout. In the first one traced (game 4187) the streams first differ in a priority decision's
-  `activate_ability.ability_index` (0 against 1) for Sentinel of the Nameless City. It carries activated abilities
-  granted by Agatha's Soul Cauldron (all activated abilities of the creature cards it exiled), and the order in
-  which XMage lists those granted abilities follows identity hash codes (the collection is not yet identified). Spec 7.2 orders granted abilities by timestamp; these share one
-  effect, so they tie. Proposed fix in the mapper's `abilityIndex`: printed abilities in XMage's order, then
-  granted ones ordered by a visible key (the name of the card the ability comes from, then rule text). A core patch to the effect would
-  also do it, but would change `card_pool_identity`.
-- So the run's outcomes and validator verdict stand. Its digests are reproducible outside the
-  Standard16-UG deck, which plays 316 of the 10,112 games (3 percent), once
-  the warm-up fix is in.
+- **Second cause: Standard16-UG, fixed.** 16 of 47 UG games still changed with the identity-hash mode in one
+  process layout. In game 4187 the streams first differ in a priority decision's `activate_ability.ability_index`
+  (0 against 1) for Sentinel of the Nameless City, which carries the activated abilities Agatha's Soul Cauldron
+  grants (those of the creature cards it exiled). The Cauldron's effect collects them with
+  `Collectors.toSet()`, a hash set of abilities, and XMage lists granted abilities in the order effects add
+  them. Six more Mage.Sets cards grant abilities from a `Set<Ability>` (Hazel's Brewmaster, Idris, Mirran
+  Safehouse, Necrotic Ooze, Thranduil, Trazyn); none is in the catalog, and Mage core has no such set.
+- Fix (overlay, commit `4125a61`): one ordering, `SeatPlayer.orderedAbilities`, now feeds every `ability_index`,
+  for activated abilities (`activate_ability`) and triggered ones (`order_pick` trigger items) alike. Printed
+  abilities come first in XMage's order: the card's, both faces', the token's, or, for a copy, the copied object's.
+  Granted ones follow, ordered by rule text (code point order) and then the original ability's id. The id only
+  orders abilities with identical text, so it tells the seat nothing. XMage does not record which effect granted
+  an ability, so the granting card's name cannot be a key. The observation carries no `ability_index`, and every
+  candidate takes it from that one ordering (Section 5.1). Verified on HaleysPC (`d74803d5`, commit `213d95a`;
+  `evidence/ability-order-verify.json`, `.tsv`), each game under both hash modes in different process layouts:
+
+  | Set | Games | Equal across hash modes | Equal to the previous build | Equal to the main run |
+  |---|---:|---:|---:|---:|
+  | Standard16-UG, `heuristic` against `uniform` (all 47 of the check) | 47 | 47 | 32 | 30 |
+  | Standard16-UG, `uniform` mirror | 1 | 1 | 0 | 0 |
+  | Standard16-RW, Standard-MonoW | 20 | 20 | 20 | 19 |
+  | 30 games of other cells (both pools) | 30 | 30 | 30 | 30 |
+
+  0 violations, all natural. The UG games whose digest changed are the ones whose granted abilities now sort
+  differently; the MonoW game is the first-in-process game described above.
+- So the run's outcomes and validator verdict stand. On the current build every game checked is reproducible
+  across hash modes and process layouts. Main-run digests are stale for games that reach a granted-ability
+  ordering or that first loaded an AI class in their process; the full 1,011-game recheck (Jack's PC) will
+  measure how many.
 
 ## Paired-world leak tests (spec 13 F1, F3; design draft section 6)
 
