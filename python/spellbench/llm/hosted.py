@@ -38,15 +38,20 @@ class BoundedLog:
 
 class PlanProvider:
     """Load the already renewed app profile only when inference is needed."""
-    def __init__(self, model: str, credentials: Path, effort: str):
+    def __init__(self, model: str, credentials: Path, effort: str, *, budget: RunBudget):
         self.model, self.credentials, self.effort = model, credentials, effort
+        self.budget = budget
         self.provider = None
 
     def renew_before_game(self):
-        profile = refresh_credentials(self.credentials)
-        self.provider = ChatGptProvider(ChatGptConfig(
-            self.model, profile["access_token"], self.effort, profile["expires_at"],
-        ))
+        try:
+            profile = refresh_credentials(self.credentials)
+            self.provider = ChatGptProvider(ChatGptConfig(
+                self.model, profile["access_token"], self.effort, profile["expires_at"],
+            ))
+        except Exception:
+            self.budget.fail("profile_renewal_failed")
+            raise ProviderError("profile_renewal_failed") from None
 
     def complete(self, prompt, *, timeout_s):
         if self.provider is None:
@@ -98,7 +103,8 @@ def main() -> int:
                                             "max_reported_tokens": args.max_run_tokens,
                                             "max_wall_seconds": args.max_run_wall_seconds,
                                             "max_inflight": args.max_inflight})
-        plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort)
+        plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort,
+                            budget=budget)
         provider = BudgetedProvider(plan, budget,
                                     output_tokens=args.max_completion_tokens)
         args.log_dir.mkdir(parents=True, exist_ok=True)

@@ -6,17 +6,19 @@ import io
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from spellbench import wire
-from spellbench.arena.config import TournamentConfig
+from spellbench.arena.config import BotSpec, TournamentConfig
 from spellbench.arena.schedule import schedule
 from spellbench.bench.definition import load_benchmark
 from spellbench.llm import hosted
 from spellbench.llm.broker import BrokerSession, serve_broker
 from spellbench.llm.provider import ProviderError
-from spellbench.llm.run_budget import RunBudget
+from spellbench.llm.run_budget import RunBudget, check_hosted_budgets
+from test_llm_run_budget import PROMPT
 from spellbench.run_secret import RunSecret
 
 
@@ -78,15 +80,62 @@ def test_log_cap_is_checked_before_writing():
     assert stream.getvalue() == "é"
 
 
-def test_explicit_profile_renewal_is_before_game_start_and_makes_no_inference(monkeypatch):
+def test_explicit_profile_renewal_is_before_game_start_and_makes_no_inference(tmp_path, monkeypatch):
     calls = []
     monkeypatch.setattr(hosted, "refresh_credentials", lambda path: calls.append("refresh") or
                         {"access_token": "host-only-token", "expires_at": 9999999999})
     monkeypatch.setattr(hosted, "ChatGptProvider", lambda config: calls.append("configure") or object())
-    plan = hosted.PlanProvider("luna", Path("host.credentials"), "low")
+    path = tmp_path / "budget.sqlite3"
+    RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60)
+    budget = RunBudget(path, model="luna")
+    plan = hosted.PlanProvider("luna", Path("host.credentials"), "low", budget=budget)
     plan.renew_before_game()
     assert calls == ["refresh", "configure"]
     assert plan.provider is not None
+    assert budget.summary()["policy"]["terminal_error"] is None
+    assert budget.summary()["requests"] == 0
+
+
+@pytest.mark.parametrize("failure", [ProviderError("browser_sign_in_required"),
+                                     RuntimeError("private renewal details")])
+def test_hosted_renewal_failure_stops_all_workers_and_the_next_phase(tmp_path, monkeypatch, failure):
+    path = tmp_path / "budget.sqlite3"
+    RunBudget.create(path, model="luna", requests=4096, tokens=10_000_000, wall_seconds=7200)
+    source = io.BytesIO(wire.canonical_json_line(
+        {"protocol": "spellbench/v2", "request_type": "game_start", "request_id": "g-1", "game_id": "g"}))
+    children = []
+
+    def child(image, command):
+        result = Peer(image, command)
+        children.append(result)
+        return result
+
+    def renew(path):
+        assert children[0].raw is None
+        raise failure
+
+    monkeypatch.setattr(hosted, "DockerPeer", child)
+    monkeypatch.setattr(hosted, "refresh_credentials", renew)
+    monkeypatch.setattr(hosted, "ChatGptProvider", lambda *args: pytest.fail("renewal failure sent inference"))
+    monkeypatch.setattr(sys, "stdin", type("Input", (), {"buffer": source})())
+    monkeypatch.setattr(sys, "stdout", type("Output", (), {"buffer": io.BytesIO()})())
+    monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--image", "sha256:" + "a" * 64,
+                                    "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
+                                    "--renew-profile-before-game"])
+    assert hosted.main() == 2
+    assert children[0].closed and children[0].raw is None
+    budget = RunBudget(path, model="luna")
+    summary = budget.summary()
+    assert summary["policy"]["terminal_error"] == "profile_renewal_failed"
+    assert summary["requests"] == summary["unknown_usage"] == 0
+    assert summary["reported_input_tokens"] == summary["reported_output_tokens"] == 0
+    assert "private renewal details" not in json.dumps(summary)
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        budget.reserve(PROMPT, output_tokens=1024)
+    bot = BotSpec("luna", "0.1", "subprocess", command=("python", "llm_hosted_bot.py", "--model", "luna",
+                                                         "--run-budget=" + str(path)))
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        check_hosted_budgets(SimpleNamespace(bots=(bot,)), allow_pending=True)
 
 
 def test_stdio_renews_before_forwarding_game_start_and_closes_on_failure():

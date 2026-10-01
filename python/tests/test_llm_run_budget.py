@@ -86,6 +86,22 @@ def test_reported_usage_replaces_reservation_and_is_not_double_counted(tmp_path)
     assert summary["unknown_usage"] == summary["pending"] == summary["failed"] == 0
 
 
+def test_host_failure_preserves_inflight_usage_and_cannot_be_cleared_by_another_worker(tmp_path):
+    state = budget(tmp_path)
+    request, _ = state.reserve(PROMPT, output_tokens=1024)
+    other = RunBudget(state.path, model="luna")
+    other.fail("profile_renewal_failed")
+    state.finish(request, result=Completion("choice", "luna", 100, 20), elapsed_ms=1)
+    state.fail("later_host_failure")
+    summary = RunBudget(state.path, model="luna").summary()
+    assert summary["policy"]["terminal_error"] == "profile_renewal_failed"
+    assert summary["requests"] == summary["completed"] == 1
+    assert summary["reported_input_tokens"] == 100 and summary["reported_output_tokens"] == 20
+    assert summary["unknown_usage"] == summary["pending"] == 0
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        other.reserve(PROMPT, output_tokens=1024)
+
+
 @pytest.mark.parametrize("result,code,unknown", [
     (ProviderError("transport_error"), "transport_error", 1),
     (RuntimeError("never log this provider detail"), "provider_internal_error", 1),

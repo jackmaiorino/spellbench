@@ -49,7 +49,8 @@ class RunBudget:
         policy = {"schema": SCHEMA, "model": model, "max_requests": requests,
                   "max_reported_tokens": tokens, "deadline": time.time() + wall_seconds,
                   "created_at": created, "max_wall_seconds": wall_seconds,
-                  "max_inflight": max_inflight, "provider_output_cap": False}
+                  "max_inflight": max_inflight, "provider_output_cap": False,
+                  "terminal_error": None}
         with sqlite3.connect(path) as database:
             database.executescript("""
                 CREATE TABLE policy (id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL);
@@ -94,7 +95,28 @@ class RunBudget:
                 for name in ("created_at", "deadline"))
                 or not 0 < value["deadline"] - value["created_at"] <= value["max_wall_seconds"] + 1):
             raise ValueError("invalid budget deadline")
+        if value.get("terminal_error") is not None and not self._error_code(value["terminal_error"]):
+            raise ValueError("invalid terminal error")
         return value
+
+    @staticmethod
+    def _error_code(code):
+        return (isinstance(code, str) and 0 < len(code) <= 64
+                and all(char in "abcdefghijklmnopqrstuvwxyz0123456789_" for char in code))
+
+    def fail(self, code: str) -> None:
+        """Stop every worker after a host failure without inventing a request.
+
+        Store only a fixed error category, never provider exception details.
+        Existing in-flight requests can still report their actual usage.
+        """
+        if not self._error_code(code):
+            raise ValueError("a fixed error category is required")
+        with self._transaction() as database:
+            policy = self._policy(database)
+            if policy.get("terminal_error") is None:
+                policy["terminal_error"] = code
+                database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy, sort_keys=True),))
 
     def reserve(self, prompt: Prompt, *, output_tokens: int, timeout_s: float = 20) -> tuple[int, float]:
         if type(output_tokens) is not int or output_tokens < 1:
@@ -102,7 +124,7 @@ class RunBudget:
         with self._transaction() as database:
             policy = self._policy(database)
             rows = database.execute("SELECT * FROM requests").fetchall()
-            if any(row["status"] == "failed" for row in rows):
+            if policy.get("terminal_error") or any(row["status"] == "failed" for row in rows):
                 raise ProviderError("run_budget_already_failed")
             pending = [row for row in rows if row["status"] == "pending"]
             # Allow cleanup time after the request's own timeout. A worker
@@ -231,7 +253,8 @@ def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
             "max_inflight": int(option("--max-inflight", 4)),
         })
         summary = budget.summary()
-        if summary["failed"] or (summary["unknown_usage"] > summary["pending"]):
+        if (summary["policy"].get("terminal_error") or summary["failed"]
+                or (summary["unknown_usage"] > summary["pending"])):
             raise ProviderError("run_budget_already_failed")
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
