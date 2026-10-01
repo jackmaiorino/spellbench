@@ -92,6 +92,11 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 10:15: A1 build-out.
+  - Changes 1 to 7 built and mostly run: continuation passes on real positions; all clock checks pass; register and pool audit clean (394 cards); the A3 cantrip pair is identical for all three entries; E7 matches upstream 61/61. Five bugs found and fixed.
+  - Decision (coordinator, standing authorization): the pre-registered 50% truncation threshold fired for `kit-mcts` at rollout cap 300 (97 to 100% truncated), so the entry is re-frozen at cap 1000 (0% truncated measured). A4 measures the cost before any rating.
+  - The final consolidated run waits for HaleysPC, which is held for another session's timing pass.
+  - HaleysPC C: is down to 35 GB free (mostly not ours).
 - 2026-10-01 09:00: X5 status.
   - The 10,112-game run started on Jack's PC at 08:15. It was stopped at 08:2x so the research lead's calibration could have the PC (until about 11:30 EDT). 2,216 games had finished, with 0 violations and 62 halts from two decks; both causes are fixed (`dead_end:choose_target` for "two targets with different controllers", `unsupported:multi_amount` for "mana in any combination").
   - Leak test: 50 counterspell-position pairs give identical acting-seat streams.
