@@ -79,7 +79,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Owner | Need | Status 2026-09-30 |
 |---|---|---|---|
 | P-host | P (protocol-v2 branches) | host, live validator, builtins, goldens | exists on `protocol-v2` (P task 37) |
-| P-v2.1 | P | deltas S1 to S10 of the design draft (rotating pairs, hidden lists, fixed-deck section 15, legality lists, time-control profiles, D6a to D6c rulings, Annex C corrections) | not started; request to be filed with P |
+| P-v2.1 | P | deltas S1 to S10 of the design draft (rotating pairs, hidden lists, fixed-deck section 15, legality lists, time-control profiles, D6a to D6c rulings, Annex C corrections) | not started; requests and rulings filed with P as #40 (2026-10-01) |
 | D-sandbox | D (join kit) | network-less Docker runner for JVM, GPU and pickle agents; stdio relay | not started |
 
 ## Decisions (Jack, 2026-09-30: "I'll take your recs for those")
