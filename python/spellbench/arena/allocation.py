@@ -97,9 +97,12 @@ def projected_row_bytes(probe: Trial, games_total: int) -> int:
     return -(-probe.row_bytes * games_total // probe.games)
 
 
-def fastest_workers(trials: Sequence[Trial]) -> int:
-    """The rung with the most games per second of busy time; the fewer workers on a tie."""
-    return max(trials, key=lambda trial: (trial.rate, -trial.workers)).workers
+def fastest_workers(trials: Sequence[Trial], *, method: str = "busy") -> int:
+    """The fastest measured rung under the recorded method; fewer workers on a tie."""
+    if method not in ("busy", "wall"):
+        raise ValueError("worker selection must be busy or wall")
+    return max(trials, key=lambda trial: (trial.wall_rate if method == "wall" else trial.rate,
+                                         -trial.workers)).workers
 
 
 # ---------------------------------------------------------------------------
@@ -128,12 +131,16 @@ class QualificationRules:
     probe_games: int
     ladder_divisors: tuple[int, ...]
     spot_check_divisor: int
+    # Existing manifests select by busy time; a new benchmark may record wall completion.
+    worker_selection: str = "busy"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "ladder_divisors", tuple(self.ladder_divisors))
         _count(self.substantial_run_seconds, "rules.substantial_run_seconds")
         for name in ("budget_percent", "games_per_worker", "probe_games", "spot_check_divisor"):
             _count(getattr(self, name), f"rules.{name}", 1)
+        if self.worker_selection not in ("busy", "wall"):
+            raise ValidationError("rules.worker_selection: must be busy or wall")
         divisors = self.ladder_divisors
         if (
             not divisors
@@ -169,7 +176,7 @@ class QualificationRules:
         return games_total // self.spot_check_divisor
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        record = {
             "substantial_run_seconds": self.substantial_run_seconds,
             "budget_percent": self.budget_percent,
             "games_per_worker": self.games_per_worker,
@@ -177,10 +184,15 @@ class QualificationRules:
             "ladder_divisors": list(self.ladder_divisors),
             "spot_check_divisor": self.spot_check_divisor,
         }
+        # Preserve the exact serialization and selection rule of existing runs.
+        if self.worker_selection != "busy":
+            record["worker_selection"] = self.worker_selection
+        return record
 
     @classmethod
     def from_json(cls, value: Any, context: str = "rules") -> QualificationRules:
-        exact_keys(_object(value, context), _RULES_KEYS, context)
+        value = _object(value, context)
+        exact_keys(value, _RULES_KEYS + (("worker_selection",) if "worker_selection" in value else ()), context)
         if not isinstance(value["ladder_divisors"], list):
             raise ValidationError(f"{context}.ladder_divisors: must be a list")
         try:
@@ -249,6 +261,11 @@ class Trial:
     def rate(self) -> Fraction:
         """Completed games per millisecond at this worker count: ``workers * games / busy_milli``, exactly."""
         return Fraction(self.workers * self.games, max(self.busy_milli, 1))
+
+    @property
+    def wall_rate(self) -> Fraction:
+        """Completed games per millisecond including queueing, startup and storage."""
+        return Fraction(self.games, max(self.seconds_milli, 1))
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -496,7 +513,8 @@ class Allocation:
         if self.kind != "substantial":
             return None
         chosen = next(trial for trial in self.trials if trial.workers == self.workers)
-        return float(chosen.rate * 1000)
+        rate = chosen.wall_rate if self.rules.worker_selection == "wall" else chosen.rate
+        return float(rate * 1000)
 
     def with_spot_check(self, game_index: int, *, recorded_digest: str, replayed_digest: str) -> Allocation:
         """This small allocation with the result of its spot check (the game its rules name)."""
@@ -635,8 +653,8 @@ def _check_allocation(allocation: Allocation) -> None:
         )
     if allocation.placement is None or allocation.spot_check is not None:
         raise ValidationError("allocation: a substantial allocation needs its placement and has no spot check")
-    if allocation.workers != fastest_workers(trials):
-        raise ValidationError("allocation.workers: must be the rung with the most games per second of busy time")
+    if allocation.workers != fastest_workers(trials, method=rules.worker_selection):
+        raise ValidationError("allocation.workers: must be the fastest rung under its recorded selection rule")
     same = len({trial.outputs_digest for trial in trials}) == 1
     if allocation.outputs_identical is not same or (allocation.outputs_note is None) is not same:
         raise ValidationError(

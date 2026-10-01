@@ -353,6 +353,7 @@ def plan_allocation(
     volumes: Mapping[str, Path] | None = None,
     pinned_bytes: int = 0,
     cap_bytes: int | None = None,
+    rules: QualificationRules | None = None,
     clock: Callable[[], float] = time.monotonic,
 ) -> Allocation:
     """Choose how many games run at once, and record why.
@@ -393,7 +394,9 @@ def plan_allocation(
             raise ThroughputError(f"{label}: must be a non-negative integer, got {value!r}")
     order = _sample(sample, games_total)
     note = _placement(placement)
-    rules = current_rules()
+    rules = current_rules() if rules is None else rules
+    if not isinstance(rules, QualificationRules):
+        raise ThroughputError("rules must be QualificationRules")
     if machine is None:
         if volumes is None:
             raise ThroughputError(f"the {RESERVE_BYTES // 2**30} GiB reserve check needs the run_dir and pin_root "
@@ -436,7 +439,7 @@ def plan_allocation(
             trials.append(trial)
             rung_digests.append(digests)
         identical, outputs_note = _outputs(play, indices, rung_digests)
-        allocation = Allocation(kind="substantial", workers=fastest_workers(trials), trials=tuple(trials),
+        allocation = Allocation(kind="substantial", workers=fastest_workers(trials, method=rules.worker_selection), trials=tuple(trials),
                                 outputs_identical=identical, outputs_note=outputs_note,
                                 qualification_seconds_milli=_since(clock, started), **common)
     if evidence is not None:

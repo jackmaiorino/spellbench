@@ -33,7 +33,7 @@ import copy
 import datetime
 import re
 import unicodedata
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping
 
@@ -92,6 +92,8 @@ _OPTIONAL_FIELDS = (
     "resources",
     "bootstrap_replicates",
     "workers",
+    "qualification_budget_percent",
+    "qualification_worker_selection",
 )
 # Protocol v1 fields and the v2 field that replaces each (spec 11.4: the clocks are time_control).
 _V1_FIELDS = {
@@ -154,6 +156,14 @@ class Benchmark:
     bootstrap_replicates: int
     workers: int
     bots: tuple[BenchmarkBot, ...]
+    qualification_budget_percent: int | None = None
+    qualification_worker_selection: str = "busy"
+
+    def qualification_rules(self):
+        from ..arena.qualification import current_rules
+        rules = current_rules()
+        return replace(rules, budget_percent=self.qualification_budget_percent or rules.budget_percent,
+                       worker_selection=self.qualification_worker_selection)
 
     def bot(self, name: str) -> BenchmarkBot | None:
         """The roster bot named ``name``, or None."""
@@ -465,6 +475,12 @@ def parse_benchmark(value: Any) -> Benchmark:
         )
     engine_name, engine_command = _parse_engine(document["engine"], f"{context}.engine")
     extensions = _parse_extensions(document.get("extensions", []), f"{context}.extensions")
+    selection = document.get("qualification_worker_selection", "busy")
+    if selection not in ("busy", "wall"):
+        raise BenchmarkError("benchmark.qualification_worker_selection: must be busy or wall")
+    overhead = document.get("qualification_budget_percent")
+    if "qualification_budget_percent" in document:
+        overhead = _integer(overhead, "benchmark.qualification_budget_percent", minimum=1, maximum=100)
     benchmark = Benchmark(
         id=bench_id,
         title=_string(document["title"], f"{context}.title"),
@@ -492,6 +508,8 @@ def parse_benchmark(value: Any) -> Benchmark:
             document.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         ),
         bots=_parse_bots(document["bots"], f"{context}.bots"),
+        qualification_budget_percent=overhead,
+        qualification_worker_selection=selection,
     )
     _check_placeholders(benchmark, context)
     _check_arena_config(benchmark, context)

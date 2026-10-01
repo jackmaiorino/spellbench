@@ -162,6 +162,8 @@ class RunBudget:
                     "completed": sum(row["status"] == "completed" for row in rows),
                     "failed": sum(row["status"] == "failed" for row in rows),
                     "pending": sum(row["status"] == "pending" for row in rows),
+                    "expired_pending": sum(row["status"] == "pending" and row["lease_deadline"] < time.time()
+                                           for row in rows),
                     "unknown_usage": sum(row["input_tokens"] is None for row in rows),
                     "reported_input_tokens": sum(row["input_tokens"] or 0 for row in rows),
                     "reported_output_tokens": sum(row["output_tokens"] or 0 for row in rows)}
@@ -200,6 +202,45 @@ class BudgetedProvider:
         if error is not None:
             raise ProviderError(error)
         return result
+
+
+def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
+    """The launcher's phase/row check for the maintainer-owned hosted entry.
+
+    A depleted or failed shared run budget aborts the evaluation; it must not
+    turn every remaining Luna game into an immediate budget-related forfeit.
+    During parallel play other workers can legitimately have pending requests.
+    """
+    for bot in config.bots:
+        command = bot.command
+        if not (any(Path(part).name == "llm_hosted_bot.py" for part in command)
+                or "spellbench.llm.hosted" in command):
+            continue
+
+        def option(name, default=None):
+            found = [part.split("=", 1)[1] for part in command if part.startswith(name + "=")]
+            found += [command[index + 1] for index, part in enumerate(command[:-1]) if part == name]
+            if len(found) > 1:
+                raise ProviderError("run_budget_ambiguous_command")
+            return found[0] if found else default
+
+        budget = RunBudget(Path(option("--run-budget")), model=option("--model"), expected_limits={
+            "max_requests": int(option("--max-run-requests", 4096)),
+            "max_reported_tokens": int(option("--max-run-tokens", 10_000_000)),
+            "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
+            "max_inflight": int(option("--max-inflight", 4)),
+        })
+        summary = budget.summary()
+        if summary["failed"] or (summary["unknown_usage"] > summary["pending"]):
+            raise ProviderError("run_budget_already_failed")
+        if summary["expired_pending"] or (summary["pending"] and not allow_pending):
+            raise ProviderError("run_budget_unresolved_request")
+        if summary["policy"]["deadline"] <= time.time():
+            raise ProviderError("run_budget_deadline_exhausted")
+        if summary["requests"] >= summary["policy"]["max_requests"]:
+            raise ProviderError("run_budget_requests_exhausted")
+        if summary["reported_input_tokens"] + summary["reported_output_tokens"] >= summary["policy"]["max_reported_tokens"]:
+            raise ProviderError("run_budget_tokens_exhausted")
 
 
 def main() -> int:

@@ -33,6 +33,7 @@ import json
 import os
 import sys
 import time
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Sequence
@@ -45,13 +46,15 @@ from ..arena.manifest import CommitmentProof, EngineFile, commitment_record, iso
 from ..arena.schedule import RunSetup, preflight, schedule
 from ..arena.throughput import (
     Allocation, MachineFacts, Placement, PlayedGame, ThroughputError, check_reserve, plan_allocation, resource_bound,
-    sample_order, workload_id,
+    sample_order, workload_id, QualificationRules,
 )
 from ..arena.validate import validate_tournament_dir
 from ..errors import ProtocolError, RemoteError, TransportError
 from ..host.engine_process import EngineProcess
 from ..messages import EngineIdentity
 from ..run_secret import RunSecret
+from ..llm.provider import ProviderError
+from ..llm.run_budget import check_hosted_budgets
 from ..wire import canonical_json_dumps
 from . import commit, definition, pinning
 from .commit import CommitError
@@ -90,7 +93,8 @@ Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
 # ---------------------------------------------------------------------------
 
 
-def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None) -> Play:
+def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None,
+                       storage_dir: Path | None = None) -> Play:
     """The ``play`` a qualification calls (``throughput.plan_allocation``).
 
     ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
@@ -106,25 +110,52 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     chosen = contexts if games is None else [contexts[index] for index in games]
     entries = {entry.name: entry for entry in runner.registry_entries(config, config)}
     setups: list[RunSetup] = []
+    stored: list[Path] = []
+    trial_number = 0
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
+        nonlocal trial_number
+        _hosted_budget_guard(config)
         if not setups:
             setups.append(preflight(config, secret))
+        if not stored:
+            parent = None if storage_dir is None else storage_dir / ".qualification-records"
+            if parent is not None:
+                parent.mkdir(parents=True, exist_ok=True)
+            stored.append(Path(tempfile.mkdtemp(prefix="qualification-", dir=parent)))
+        trial_number += 1
+        ledger = stored[0] / f"trial-{trial_number}-workers-{workers}.jsonl"
+        write_seconds = {}
+
+        def record(outcome):
+            started_write = time.perf_counter()
+            store.append_ledger_row(ledger, outcome.row.to_json())
+            write_seconds[outcome.row.game_index] = time.perf_counter() - started_write
+            _hosted_budget_guard(config, allow_pending=True)
+
         started = time.perf_counter()
         result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
                                    run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
-                                   timed=True)
+                                   timed=True, on_outcome=record)
         wall = time.perf_counter() - started
         if result.error is not None:
             raise result.error
         played = []
         for position, outcome in zip(positions, result.outcomes):
             assert isinstance(outcome, runner.TimedOutcome)
-            played.append(PlayedGame(index=position, seconds=outcome.seconds, digest=runner.row_digest(outcome.row),
+            played.append(PlayedGame(index=position, seconds=outcome.seconds + write_seconds[outcome.row.game_index],
+                                     digest=runner.row_digest(outcome.row),
                                      row_bytes=len(store.canonical_bytes(outcome.row.to_json())) + 1))
         return wall, tuple(played)
 
     return play
+
+
+def _hosted_budget_guard(config: TournamentConfig, *, allow_pending: bool = False) -> None:
+    try:
+        check_hosted_budgets(config, allow_pending=allow_pending)
+    except (ProviderError, ValueError, TypeError) as exc:
+        raise ThroughputError("hosted inference budget is failed, expired or unresolved; refusing further evaluation") from exc
 
 
 def _distinct(files: Sequence[EngineFile]) -> tuple[EngineFile, ...]:
@@ -180,6 +211,7 @@ def plan_for(
     files: Sequence[EngineFile] = (),
     games: Sequence[int] | None = None,
     environ: Mapping[str, str] | None = None,
+    rules: QualificationRules | None = None,
 ) -> Allocation:
     """Plan a launch's allocation before its first game (Decision 10; COMPUTE-POLICY.md; ARTIFACT-LAW.md clause 1).
 
@@ -217,15 +249,18 @@ def plan_for(
     shape = {key: value for key, value in config.to_json().items() if key != "tournament_dir"}
     workload = workload_id({"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
                             "games": None if games is None else positions})
+    _hosted_budget_guard(config)
     allocation = plan_allocation(
         games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
-        play=qualification_play(config, games=None if games is None else positions),
+        play=qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"]),
         placement=placement, host=host, sample=sample_order(list(matchups.values())), workload=workload,
         evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
+        rules=rules,
     )
     assert allocation.budget is not None
     # The disk may have filled while the qualification played: the reserve holds now, just before the first game.
     check_reserve(_free_space(roles), allocation.budget.projected_bytes)
+    _hosted_budget_guard(config)
     return allocation
 
 
@@ -371,10 +406,12 @@ def _unrated_run(
     engine, files = _launch_files(executed)
     # Nothing is pinned: the run's volume keeps the reserve, and the files' hashes key the evidence (R1-6).
     allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
-                          volumes={"run_dir": benchmark_dir}, files=files, environ=environ)
+                          volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
+                          rules=benchmark.qualification_rules())
     summary = runner.run_tournament(
         config, run_secret=RunSecret.generate(), allocation=allocation, run_label=name, benchmark_id=benchmark.id,
         engine_files=engine, resolve=resolve, output_dir=run_dir,
+        on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
     )
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
 
@@ -431,7 +468,7 @@ def _committed_run(
             # Planned before pinning, so the pins' volume keeps its reserve too (ARTIFACT-LAW.md clause 1).
             allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                                   volumes={"run_dir": benchmark_dir, "pin_root": catalog.pin_root}, files=files,
-                                  environ=environ)
+                                  environ=environ, rules=checked.qualification_rules())
             identity = _engine_identity(executed)
             cited_by = f"{checked.id} run {name}"
             regen = f"build {identity.name} {identity.version} at {identity.source_revision or 'unknown'}"
@@ -444,6 +481,7 @@ def _committed_run(
                     config, run_secret=secret, allocation=allocation,
                     commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
                     benchmark_id=checked.id, engine_files=engine, resolve=resolve, output_dir=run_dir,
+                    on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
                 )
             except BaseException:
                 _close_run(run_dir, pins, catalog, cited_by=cited_by, regen=regen, failing=True)

@@ -16,7 +16,7 @@ import pytest
 from spellbench.arena import cli, qualification, runner, throughput
 from spellbench.arena.config import TournamentConfig
 from spellbench.arena.schedule import schedule
-from spellbench.bench.commit import commit_run
+from spellbench.bench.commit import check_definition, commit_run
 from spellbench.bench.definition import BenchmarkError
 from spellbench.bench.run import EVIDENCE_NAME, rerun_games, run_benchmark, run_files
 from spellbench.run_secret import RunSecret
@@ -120,6 +120,9 @@ def test_a_rated_run_is_measured_pinned_and_registered(repo: Path, tmp_path: Pat
     assert result.failures == ()
     assert (repo / "benchmarks" / "fake-pool" / EVIDENCE_NAME).is_file()          # the local evidence (R1-6)
     assert git(repo, "status", "--porcelain", "--untracked-files=all", "--", "benchmarks/fake-pool/throughput-evidence.jsonl") == ""
+    trials = tuple((repo / "benchmarks/fake-pool/.qualification-records").glob("qualification-*/*.jsonl"))
+    assert trials and all(path.stat().st_size > 0 for path in trials)
+    check_definition(repo / "benchmarks/fake-pool", manifest["secrets"]["commitment_proof"]["commit"])
 
 
 def test_a_rated_run_without_pin_values_stops_and_is_revealed(repo: Path, tmp_path: Path) -> None:

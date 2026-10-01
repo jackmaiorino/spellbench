@@ -13,6 +13,7 @@ benchmarks/local.json
 benchmarks/**/diagnostics.jsonl
 benchmarks/**/throughput.jsonl
 **/throughput-evidence.jsonl
+**/.qualification-records/
 /site/
 *.credentials
 chatgpt.host-id

@@ -117,5 +117,5 @@ def test_definition_has_complete_seat_swapped_schedule_and_fixed_settings():
     for first, second in zip(contexts[::2], contexts[1::2]):
         assert [bot.name for _, bot in first.seat_specs] == [bot.name for _, bot in second.seat_specs][::-1]
         assert first.decks == second.decks
-    assert "gpt-6-luna" in luna.command and "${SPELLBENCH_LLM_RUN_BUDGET}" in luna.command
+    assert "gpt-6-luna" in luna.command and "--run-budget=${SPELLBENCH_LLM_RUN_BUDGET}" in luna.command
     assert config.workers == 4 and config.stats_seed == 20261001
