@@ -308,32 +308,23 @@ final class SeatPlayer extends AutoPayPlayer {
 
     /**
      * Counts declarations XMage changed after they were posed: for a computer player, its combat checks remove
-     * attackers and blockers that break a restriction and add required blocks instead of asking again (the
-     * completability oracle of stage 2 makes every candidate legal up front).
+     * attackers and blockers that break a restriction and add required blocks instead of asking again. The
+     * completability oracle makes every posed declaration one the checks accept unchanged, so these stay 0.
+     * Creatures an effect adds to combat later are not alterations; a declared pair that is gone is.
      */
     private void checkCombatAsDeclared(Game game) {
         if (ex().declaredAttack != null) {
-            Map<UUID, UUID> now = new LinkedHashMap<>();
-            for (CombatGroup group : game.getCombat().getGroups()) {
-                for (UUID attacker : group.getAttackers()) {
-                    now.put(attacker, group.getDefenderId());
+            Map<UUID, UUID> now = CombatOracle.attackers(game.getCombat());
+            for (Map.Entry<UUID, UUID> e : ex().declaredAttack.entrySet()) {
+                if (!e.getValue().equals(now.get(e.getKey()))) {
+                    ex().stats.add("attack_altered_by_engine");
+                    break;
                 }
-            }
-            if (!now.equals(ex().declaredAttack)) {
-                ex().stats.add("attack_altered_by_engine");
             }
             ex().declaredAttack = null;
         }
         if (ex().declaredBlock != null) {
-            Set<String> now = new LinkedHashSet<>();
-            for (CombatGroup group : game.getCombat().getGroups()) {
-                for (UUID blocker : group.getBlockers()) {
-                    for (UUID attacker : group.getAttackers()) {
-                        now.add(blocker + ">" + attacker);
-                    }
-                }
-            }
-            if (!now.equals(ex().declaredBlock)) {
+            if (!CombatOracle.blocks(game.getCombat()).containsAll(ex().declaredBlock)) {
                 ex().stats.add("block_altered_by_engine");
             }
             ex().declaredBlock = null;
@@ -539,13 +530,74 @@ final class SeatPlayer extends AutoPayPlayer {
         }
     }
 
+    /**
+     * "You may play that card" for free (CardUtil's free plays): XMage's PlayerImpl answers with the card's spell
+     * ability and never asks. Posed when the card can be played more than one way: as {@code choose_option}, one
+     * option per way ("play_land", or "cast:" and the Section 7.4 method), since v2.0 has no kind for a land or a
+     * spell (a question for P).
+     */
+    @Override
+    public ActivatedAbility chooseLandOrSpellAbility(Card card, Game game, boolean noMana) {
+        live(game, "chooseLandOrSpellAbility");
+        try {
+            MageObject object = game.getObject(card.getId());
+            if (object == null) {
+                return card.getSpellAbility();
+            }
+            List<ActivatedAbility> options = new ArrayList<>();
+            for (SpellAbility a : PlayerImpl.getCastableSpellAbilities(game, getId(), object,
+                    game.getState().getZone(object.getId()), noMana).values()) {
+                if (a.getTargets().canChoose(getId(), a, game)) {
+                    options.add(a);
+                }
+            }
+            if (canPlayLand() && game.isActivePlayer(getId())) {
+                for (Ability a : card.getAbilities(game)) {
+                    if (a instanceof mage.abilities.PlayLandAbility) {
+                        options.add((ActivatedAbility) a);
+                    }
+                }
+            }
+            if (options.isEmpty()) {
+                return card.getSpellAbility();
+            }
+            if (options.size() == 1) {
+                return options.get(0);
+            }
+            UUID cardId = card.getId();
+            Pose pose = new Pose(seat(), false, "choose_option:land_or_spell");
+            pose.sort = false;
+            long count = options.size();
+            for (int i = 0; i < options.size(); i++) {
+                ActivatedAbility a = options.get(i);
+                String label = a instanceof SpellAbility ? "cast:" + castMethod((SpellAbility) a) : "play_land";
+                long idx = i;
+                pose.add(o -> {
+                    Map<String, Object> s = sem("choose_option");
+                    s.put("source", o.reference(cardId));
+                    s.put("purpose", "effect_option");
+                    s.put("option_index", idx);
+                    s.put("option_count", count);
+                    s.put("option_label", label);
+                    return s;
+                }, cardId);
+            }
+            ex().stats.add("land_or_spell_posed");
+            return options.get(ask(pose));
+        } catch (Exchange.Closed e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw fail(e);
+        }
+    }
+
     // =============================================================================================
     // targets and selections (Sections 7.3 and 7.5)
 
     @Override
     public boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
         if (isInPayManaMode()) {
-            return super.chooseTarget(outcome, target, source, game);
+            return payChoose("chooseTarget", outcome, target, source, game, null);
         }
         live(game, "chooseTarget");
         return selectGuarded(true, outcome, target, source, game, null);
@@ -554,7 +606,7 @@ final class SeatPlayer extends AutoPayPlayer {
     @Override
     public boolean choose(Outcome outcome, Target target, Ability source, Game game) {
         if (isInPayManaMode()) {
-            return super.choose(outcome, target, source, game);
+            return payChoose("choose", outcome, target, source, game, null);
         }
         live(game, "choose");
         return selectGuarded(false, outcome, target, source, game, null);
@@ -564,7 +616,7 @@ final class SeatPlayer extends AutoPayPlayer {
     public boolean choose(Outcome outcome, Target target, Ability source, Game game,
                           Map<String, Serializable> options) {
         if (isInPayManaMode()) {
-            return super.choose(outcome, target, source, game, options);
+            return payChoose("choose", outcome, target, source, game, null);
         }
         live(game, "choose");
         return selectGuarded(false, outcome, target, source, game, null);
@@ -573,7 +625,7 @@ final class SeatPlayer extends AutoPayPlayer {
     @Override
     public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
         if (isInPayManaMode()) {
-            return super.chooseTarget(outcome, cards, target, source, game);
+            return payChoose("chooseTarget:cards", outcome, target, source, game, cards);
         }
         live(game, "chooseTarget");
         if (cards == null || cards.isEmpty()) {
@@ -585,7 +637,7 @@ final class SeatPlayer extends AutoPayPlayer {
     @Override
     public boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
         if (isInPayManaMode()) {
-            return super.choose(outcome, cards, target, source, game);
+            return payChoose("choose:cards", outcome, target, source, game, cards);
         }
         live(game, "choose");
         if (cards == null || cards.isEmpty()) {
@@ -603,6 +655,7 @@ final class SeatPlayer extends AutoPayPlayer {
     @Override
     public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {
         if (isInPayManaMode()) {
+            ex().stats.add("autopay_default:chooseTargetAmount");
             return super.chooseTargetAmount(outcome, target, source, game);
         }
         live(game, "chooseTargetAmount");
@@ -669,6 +722,40 @@ final class SeatPlayer extends AutoPayPlayer {
             throw e;
         } catch (RuntimeException e) {
             throw fail(e);
+        }
+    }
+
+    /** An object choice inside a payment: engine autopay's, made by {@link PayChoice} (Section 7.6). */
+    private boolean payChoose(String method, Outcome outcome, Target target, Ability source, Game game,
+                              Cards cards) {
+        ex().stats.add("autopay_default:" + method);
+        return PayChoice.choose(this, outcome, target, source, game, cards);
+    }
+
+    /** Gives a choice whose options came in a hash collection a code point order before XMage reads it (X4h). */
+    private void visibleChoiceOrder(Choice choice) {
+        if (choice.isKeyChoice()) {
+            Map<String, String> m = choice.getKeyChoices();
+            if (m instanceof java.util.HashMap && !(m instanceof LinkedHashMap)) {
+                List<String> keys = new ArrayList<>(m.keySet());
+                List<String> values = new ArrayList<>();
+                for (String k : keys) {
+                    values.add(m.get(k));
+                }
+                sortByValue(keys, values);
+                Map<String, String> sorted = new LinkedHashMap<>();
+                for (int i = 0; i < keys.size(); i++) {
+                    sorted.put(keys.get(i), values.get(i));
+                }
+                choice.setKeyChoices(sorted);
+            }
+        } else {
+            Set<String> c = choice.getChoices();
+            if (c instanceof java.util.HashSet && !(c instanceof LinkedHashSet)) {
+                List<String> values = new ArrayList<>(c);
+                values.sort(HiddenOrder::codePoints);
+                choice.setChoices(new LinkedHashSet<>(values));
+            }
         }
     }
 
@@ -1256,6 +1343,7 @@ final class SeatPlayer extends AutoPayPlayer {
     public boolean chooseUse(Outcome outcome, String message, String secondMessage, String trueText,
                              String falseText, Ability source, Game game) {
         if (isInPayManaMode()) {
+            ex().stats.add("autopay_default:chooseUse");
             return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
         }
         live(game, "chooseUse");
@@ -1425,6 +1513,7 @@ final class SeatPlayer extends AutoPayPlayer {
     public boolean choose(Outcome outcome, Choice choice, Game game) {
         if (isInPayManaMode() || outcome == Outcome.PutManaInPool) {
             ex().stats.add("autopay_choice");
+            visibleChoiceOrder(choice);
             return super.choose(outcome, choice, game);
         }
         live(game, "choose");
@@ -1445,6 +1534,13 @@ final class SeatPlayer extends AutoPayPlayer {
             }
             if (keys.isEmpty()) {
                 return false;
+            }
+            Object source = choice.isKeyChoice() ? choice.getKeyChoices() : choice.getChoices();
+            if (source instanceof java.util.HashMap && !(source instanceof LinkedHashMap)
+                    || source instanceof java.util.HashSet && !(source instanceof LinkedHashSet)) {
+                // the card's options came in a hash collection: a visible order instead of the hash order (X4h)
+                sortByValue(keys, values);
+                ex().stats.add("choice_hash_order_sorted");
             }
             Pose pose;
             List<Integer> index = new ArrayList<>();
@@ -1471,7 +1567,23 @@ final class SeatPlayer extends AutoPayPlayer {
                 String namePurpose = namePurpose(choice, values);
                 if (namePurpose != null) {
                     pose = new Pose(seat(), false, "choose_name:" + namePurpose);
+                    // names in code point order of their wire value, whatever order XMage's set holds (X4h)
+                    List<Integer> byName = new ArrayList<>();
+                    List<String> wire = new ArrayList<>();
                     for (int i = 0; i < keys.size(); i++) {
+                        byName.add(i);
+                        wire.add(nameValue(namePurpose, values.get(i)));
+                    }
+                    byName.sort((x, y) -> {
+                        String a = wire.get(x);
+                        String b = wire.get(y);
+                        if (a == null || b == null) {
+                            return a == null ? (b == null ? Integer.compare(x, y) : 1) : -1;
+                        }
+                        int c = HiddenOrder.codePoints(a, b);
+                        return c != 0 ? c : Integer.compare(x, y);
+                    });
+                    for (int i : byName) {
                         String raw = values.get(i);
                         String value = nameValue(namePurpose, raw);
                         if (value == null) {
@@ -1570,6 +1682,29 @@ final class SeatPlayer extends AutoPayPlayer {
             }
         }
         return "alternative";
+    }
+
+    /** Sorts parallel key and value lists by value, then key, in code point order. */
+    private static void sortByValue(List<String> keys, List<String> values) {
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < keys.size(); i++) {
+            order.add(i);
+        }
+        java.util.Comparator<String> cp = HiddenOrder::codePoints;
+        order.sort((x, y) -> {
+            int c = cp.compare(values.get(x), values.get(y));
+            return c != 0 ? c : cp.compare(keys.get(x), keys.get(y));
+        });
+        List<String> k = new ArrayList<>();
+        List<String> v = new ArrayList<>();
+        for (int i : order) {
+            k.add(keys.get(i));
+            v.add(values.get(i));
+        }
+        keys.clear();
+        keys.addAll(k);
+        values.clear();
+        values.addAll(v);
     }
 
     private static long colorRank(String color) {
@@ -1810,6 +1945,7 @@ final class SeatPlayer extends AutoPayPlayer {
     @Override
     public int getAmount(int min, int max, String message, Ability source, Game game) {
         if (isInPayManaMode()) {
+            ex().stats.add("autopay_default:getAmount");
             return super.getAmount(min, max, message, source, game);
         }
         live(game, "getAmount");
@@ -1860,6 +1996,7 @@ final class SeatPlayer extends AutoPayPlayer {
                                                                  int totalMin, int totalMax, MultiAmountType type,
                                                                  Game game) {
         if (isInPayManaMode()) {
+            ex().stats.add("autopay_default:getMultiAmount");
             return super.getMultiAmountWithIndividualConstraints(outcome, messages, totalMin, totalMax, type, game);
         }
         live(game, "getMultiAmount");
@@ -1998,23 +2135,29 @@ final class SeatPlayer extends AutoPayPlayer {
     }
 
     // =============================================================================================
-    // combat declarations (Section 7.5): one decision per creature, one group
+    // combat declarations (Section 7.5): one decision per creature (per block), one group, every candidate checked
+    // by the completability oracle (Section 7.1; CombatOracle)
 
     @Override
     public void selectAttackers(Game game, UUID attackingPlayerId) {
         live(game, "selectAttackers");
         try {
-            if (!game.getCombat().getAttackers().isEmpty()) {
-                // XMage re-asks after an illegal declaration: start again from no attackers
-                ex().stats.add("attack_redeclared");
-                for (UUID id : new ArrayList<>(game.getCombat().getAttackers())) {
-                    game.getCombat().removeAttacker(id, game);
-                }
-                if (++st.attackAttempts > 20) {
+            if (ex().declaredAttack != null && st.attackTurn == game.getTurnNum()) {
+                // XMage asks again only after rejecting a declaration: the oracle let a bad one through
+                ex().stats.add("attack_rejected");
+                if (++st.attackRejections >= 3) {
                     throw ex().halt("dead_end:declare_attack");
                 }
             } else {
-                st.attackAttempts = 0;
+                st.attackRejections = 0;
+            }
+            st.attackTurn = game.getTurnNum();
+            ex().declaredAttack = null;
+            // start from no attackers: XMage pre-declares creatures that must attack one defender
+            // (Combat.checkAttackRequirements); the seat declares them, the oracle keeps the requirement
+            for (UUID id : new ArrayList<>(game.getCombat().getAttackers())) {
+                game.getCombat().removeAttacker(id, game);
+                ex().stats.add("attack_predeclared_by_engine");
             }
             FilterCreatureForCombat filter = new FilterCreatureForCombat();
             filter.add(new ControllerIdPredicate(attackingPlayerId));
@@ -2027,61 +2170,39 @@ final class SeatPlayer extends AutoPayPlayer {
             if (attackers.isEmpty()) {
                 return;
             }
-            List<UUID> defenders = new ArrayList<>(game.getCombat().getDefenders());
-            Map<UUID, Set<UUID>> forced = game.getCombat().getCreaturesForcedToAttack();
-            int n = attackers.size();
-            List<UUID[]> declared = new ArrayList<>();
-            for (int i = 0; i < n; i++) {
-                Permanent attacker = attackers.get(i);
-                UUID aid = attacker.getId();
-                List<UUID> legal = new ArrayList<>();
-                for (UUID d : defenders) {
-                    if (attacker.canAttack(d, game)) {
-                        Set<UUID> must = forced.get(aid);
-                        if (must == null || must.isEmpty() || must.contains(d)) {
-                            legal.add(d);
-                        }
-                    }
-                }
-                boolean mustAttack = forced.containsKey(aid) && !legal.isEmpty();
-                if (st.attackAttempts >= 3 && !mustAttack) {
-                    // XMage rejected this seat's declarations three times (a restriction the per-creature
-                    // decisions cannot see; stage 2 adds the completability oracle): the creatures that need not
-                    // attack stay home
-                    legal.clear();
-                }
-                Pose pose = new Pose(seat(), false, "declare_attack").substep(i, n);
-                List<UUID> options = new ArrayList<>();
-                if (!mustAttack) {
-                    options.add(null);
-                    pose.add(o -> {
-                        Map<String, Object> s = sem("declare_attack");
-                        s.put("attacker", ref(o, aid));
-                        s.put("defender", null);
-                        return s;
-                    }, aid).order(0, null, 0);
-                }
-                for (UUID d : legal) {
-                    options.add(d);
-                    pose.add(o -> {
-                        Map<String, Object> s = sem("declare_attack");
-                        s.put("attacker", ref(o, aid));
-                        s.put("defender", target(o, d));
-                        return s;
-                    }, aid).order(1, d, seatMinor(d));
-                }
-                if (options.isEmpty()) {
-                    throw ex().halt("dead_end:declare_attack");
-                }
-                UUID d = options.get(ask(pose));
-                if (d != null) {
-                    declared.add(new UUID[]{aid, d});
+            // defenders in a visible order (Combat keeps them in a HashSet): players by seat, then permanents in
+            // battlefield order
+            List<UUID> defenders = new ArrayList<>();
+            for (String s : Exchange.SEATS) {
+                UUID p = ex().playerId(s);
+                if (game.getCombat().getDefenders().contains(p)) {
+                    defenders.add(p);
                 }
             }
+            for (Permanent p : game.getBattlefield().getAllActivePermanents()) {
+                if (game.getCombat().getDefenders().contains(p.getId())) {
+                    defenders.add(p.getId());
+                }
+            }
+            if (defenders.size() != game.getCombat().getDefenders().size()) {
+                throw ex().halt("unsupported:defenders");
+            }
+            CombatOracle oracle = CombatOracle.attack(game, attackingPlayerId, attackers, defenders, ex().stats);
+            UUID[] decl = declare(oracle, "declare_attack", (aid, d) -> o -> {
+                Map<String, Object> s = sem("declare_attack");
+                s.put("attacker", ref(o, aid));
+                s.put("defender", d == null ? null : target(o, d));
+                return s;
+            });
             Map<UUID, UUID> record = new LinkedHashMap<>();
-            for (UUID[] a : declared) {
-                declareAttacker(a[0], a[1], game, false);
-                record.put(a[0], a[1]);
+            for (int i = 0; i < decl.length; i++) {
+                if (decl[i] != null) {
+                    declareAttacker(oracle.creatures.get(i), decl[i], game, false);
+                    record.put(oracle.creatures.get(i), decl[i]);
+                }
+            }
+            if (!CombatOracle.attackers(game.getCombat()).equals(record)) {
+                ex().stats.add("attack_not_as_declared");
             }
             ex().declaredAttack = record;
         } catch (Exchange.Closed e) {
@@ -2095,68 +2216,73 @@ final class SeatPlayer extends AutoPayPlayer {
     public void selectBlockers(Ability source, Game game, UUID defendingPlayerId) {
         live(game, "selectBlockers");
         try {
-            if (!game.getCombat().getBlockers().isEmpty()) {
-                ex().stats.add("block_redeclared");
-                for (UUID id : new ArrayList<>(game.getCombat().getBlockers())) {
-                    game.getCombat().removeBlocker(id, game);
-                }
-                if (++st.blockAttempts > 20) {
+            if (ex().declaredBlock != null && st.blockTurn == game.getTurnNum()) {
+                ex().stats.add("block_rejected");
+                if (++st.blockRejections >= 3) {
                     throw ex().halt("dead_end:declare_block");
                 }
             } else {
-                st.blockAttempts = 0;
+                st.blockRejections = 0;
+            }
+            st.blockTurn = game.getTurnNum();
+            ex().declaredBlock = null;
+            // start from no blockers: XMage pre-declares a block for each creature that must block
+            // (Combat.retrieveMustBlockAttackerRequirements); the seat declares them, XMage's checks in the
+            // oracle keep the requirement
+            for (UUID id : new ArrayList<>(game.getCombat().getBlockers())) {
+                game.getCombat().removeBlocker(id, game);
+                ex().stats.add("block_predeclared_by_engine");
             }
             FilterCreatureForCombatBlock filter = new FilterCreatureForCombatBlock();
             filter.add(new ControllerIdPredicate(defendingPlayerId));
             List<Permanent> blockers = new ArrayList<>();
-            List<UUID> attackers = new ArrayList<>(game.getCombat().getAttackers());
+            List<Integer> blocks = new ArrayList<>();
+            List<UUID> attackers = new ArrayList<>();
+            for (CombatGroup group : game.getCombat().getGroups()) {
+                attackers.addAll(group.getAttackers()); // XMage's group order, the order attacks were declared
+            }
             for (Permanent p : game.getBattlefield().getActivePermanents(filter, defendingPlayerId, game)) {
+                int can = 0;
                 for (UUID a : attackers) {
-                    if (p.canBlock(a, game)) {
-                        blockers.add(p);
-                        break;
+                    CombatGroup g = game.getCombat().findGroup(a);
+                    if (g != null && g.canBlock(p, game)) {
+                        can++;
                     }
+                }
+                if (can > 0) {
+                    blockers.add(p);
+                    // a creature that can block additional attackers gets one decision per block (Section 7.5)
+                    blocks.add(p.getMaxBlocks() == 0 ? can : Math.min(can, p.getMaxBlocks()));
                 }
             }
             ex().stats.add("blockers_called:" + attackers.size() + ":" + blockers.size());
             if (blockers.isEmpty()) {
                 return;
             }
-            int n = blockers.size();
-            List<UUID[]> declared = new ArrayList<>();
-            for (int i = 0; i < n; i++) {
-                Permanent blocker = blockers.get(i);
-                UUID bid = blocker.getId();
-                Pose pose = new Pose(seat(), false, "declare_block").substep(i, n);
-                List<UUID> options = new ArrayList<>();
-                options.add(null);
-                pose.add(o -> {
-                    Map<String, Object> s = sem("declare_block");
-                    s.put("blocker", ref(o, bid));
-                    s.put("attacker", null);
-                    return s;
-                }, bid).order(0, null, 0);
-                for (UUID a : attackers) {
-                    if (!blocker.canBlock(a, game) || st.blockAttempts >= 3) {
-                        continue; // after three rejected declarations, no blocks (see selectAttackers)
-                    }
-                    options.add(a);
-                    pose.add(o -> {
-                        Map<String, Object> s = sem("declare_block");
-                        s.put("blocker", ref(o, bid));
-                        s.put("attacker", ref(o, a));
-                        return s;
-                    }, bid).order(1, a, 0);
-                }
-                UUID a = options.get(ask(pose));
-                if (a != null) {
-                    declared.add(new UUID[]{bid, a});
+            CombatOracle oracle = CombatOracle.block(game, defendingPlayerId, blockers, blocks, attackers,
+                    ex().stats);
+            UUID[] decl = declare(oracle, "declare_block", (bid, a) -> o -> {
+                Map<String, Object> s = sem("declare_block");
+                s.put("blocker", ref(o, bid));
+                s.put("attacker", a == null ? null : ref(o, a));
+                return s;
+            });
+            for (int i = 0; i < decl.length; i++) {
+                if (decl[i] != null) {
+                    declareBlocker(defendingPlayerId, oracle.creatures.get(i), decl[i], game);
                 }
             }
             Set<String> record = new LinkedHashSet<>();
-            for (UUID[] b : declared) {
-                declareBlocker(defendingPlayerId, b[0], b[1], game);
-                record.add(b[0] + ">" + b[1]);
+            List<String> pairs = new ArrayList<>();
+            for (int i = 0; i < decl.length; i++) {
+                if (decl[i] != null) {
+                    pairs.add(oracle.creatures.get(i) + ">" + decl[i]);
+                }
+            }
+            Collections.sort(pairs);
+            record.addAll(pairs);
+            if (!CombatOracle.blocks(game.getCombat()).equals(record)) {
+                ex().stats.add("block_not_as_declared");
             }
             ex().declaredBlock = record;
         } catch (Exchange.Closed e) {
@@ -2164,6 +2290,46 @@ final class SeatPlayer extends AutoPayPlayer {
         } catch (RuntimeException e) {
             throw fail(e);
         }
+    }
+
+    /** A combat candidate's semantic for a slot's creature and choice (null: does not attack or block). */
+    private interface CombatSemantic {
+        Pose.Semantic of(UUID creature, UUID choice);
+    }
+
+    /**
+     * Poses a declaration group: one decision per oracle slot, each offering the choices the oracle completes
+     * (null first, then attackers or defenders in observation order). Returns the declaration.
+     */
+    private UUID[] declare(CombatOracle oracle, String kind, CombatSemantic semantic) {
+        int n = oracle.slots();
+        UUID[] decl = new UUID[n];
+        for (int i = 0; i < n; i++) {
+            Map<Integer, UUID[]> ok = oracle.completable(decl, i);
+            if (ok.isEmpty()) {
+                throw ex().halt("dead_end:" + kind);
+            }
+            UUID creature = oracle.creatures.get(i);
+            List<UUID> choices = oracle.options.get(i);
+            Pose pose = new Pose(seat(), false, kind).substep(i, n);
+            List<UUID> offered = new ArrayList<>();
+            for (Integer k : ok.keySet()) {
+                UUID c = choices.get(k);
+                offered.add(c);
+                Pose.Cand cand = c == null ? pose.add(semantic.of(creature, null), creature)
+                        : pose.add(semantic.of(creature, c), creature);
+                if (c == null) {
+                    cand.order(0, null, 0);
+                } else {
+                    cand.order(1, c, seatMinor(c));
+                }
+            }
+            if (offered.size() < choices.size()) {
+                ex().stats.add("combat_candidate_not_completable:" + kind);
+            }
+            decl[i] = offered.get(ask(pose));
+        }
+        return decl;
     }
 
     // =============================================================================================

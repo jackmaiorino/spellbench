@@ -57,6 +57,7 @@ public final class EngineServer {
         OutputStream protocolOut = new FileOutputStream(FileDescriptor.out);
         System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.err), true));
         GameRandom.installBoot();
+        mage.player.spellbench.decide.Exchange.hashWarmup(); // X4h test hook: a no-op unless set
         int[] warmed = Warmup.framework();
         System.err.println("xmage-spellbench: framework classes initialized " + warmed[0] + ", failed " + warmed[1]);
         CardScanner.scan();

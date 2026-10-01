@@ -35,8 +35,11 @@ final class SeatState {
     /** Set when autopay could not pay during the current priority action (for the X4 evidence counters). */
     boolean autopayFailed;
 
-    int attackAttempts;
-    int blockAttempts;
+    /** Combat declarations XMage rejected in a row, and the turn of the last declaration (CombatOracle). */
+    int attackRejections;
+    int blockRejections;
+    int attackTurn = -1;
+    int blockTurn = -1;
 
     SeatState(String seat) {
         this.seat = seat;

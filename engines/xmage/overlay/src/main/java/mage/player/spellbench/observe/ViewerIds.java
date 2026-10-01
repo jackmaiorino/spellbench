@@ -80,6 +80,14 @@ final class ViewerIds {
         return id;
     }
 
+    /**
+     * A sort key for objects that have no visible order among themselves: the id the object's first incarnation
+     * would get, computed without minting anything (a keyed hash: no internal id order shows through).
+     */
+    String tieKey(String key) {
+        return ids.visible(viewer, key);
+    }
+
     /** The look id of a card in a zone hidden from the viewer that the current decision shows. */
     String look(String key) throws ObservationException {
         String id = currentLooks.get(key);
