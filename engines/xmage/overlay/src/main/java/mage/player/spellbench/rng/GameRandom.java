@@ -29,6 +29,8 @@ public final class GameRandom implements RandomUtil.Source {
     private static final boolean TRACE_CLINIT = Boolean.getBoolean("spellbench.trace.clinit");
     /** Diagnostic: a file that gets every game id draw with its callers (-Dspellbench.trace.ids=PATH). */
     private static final String TRACE_IDS = System.getProperty("spellbench.trace.ids");
+    /** Test hook for the X5 paired-world leak tests; see {@link #worldPurpose}. */
+    private static final String WORLD_SALT = System.getProperty("spellbench.test.worldSalt");
 
     private final byte[] gameSecret;
     private final boolean boot;
@@ -169,7 +171,20 @@ public final class GameRandom implements RandomUtil.Source {
 
     private HmacStream stream(String scope, String purpose) {
         return streams.computeIfAbsent(scope + ":" + purpose,
-                k -> new HmacStream(Secrets.streamSeed(gameSecret, scope, purpose, 0)));
+                k -> new HmacStream(Secrets.streamSeed(gameSecret, scope, worldPurpose(scope, purpose), 0)));
+    }
+
+    /**
+     * The purpose a stream is seeded with: the purpose itself, except under the X5 paired-world test hook
+     * ({@code -Dspellbench.test.worldSalt=SEAT:SALT}, a no-op unless set), where every stream of that seat's
+     * scope gets {@code ":world:SALT"} appended. Two runs of one game secret then differ only in that seat's
+     * hidden randomness (its library order and its random cards); shared streams and object ids are untouched.
+     */
+    private String worldPurpose(String scope, String purpose) {
+        if (boot || WORLD_SALT == null || "shared".equals(scope) || !WORLD_SALT.startsWith(scope + ":")) {
+            return purpose;
+        }
+        return purpose + ":world:" + WORLD_SALT.substring(scope.length() + 1);
     }
 
     private synchronized int drawUntagged(int bits) {

@@ -130,7 +130,7 @@ def make_plan(out: Path) -> None:
                               "run_secret": derived})
     plan = {"schema": "spellbench-x5-plan/v1", "master_secret": master, "workloads": workloads,
             "games_total": sum(w["games"] for w in workloads)}
-    out.write_text(json.dumps(plan, indent=1) + "\n", encoding="utf-8")
+    out.write_text(json.dumps(plan, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(f"plan: {plan['games_total']} games in {len(workloads)} workloads -> {out}")
 
 
@@ -142,7 +142,14 @@ _W: dict[str, Any] = {}
 
 
 def _setups(sched: Schedule) -> dict[str, Any]:
-    """P's preflight once per pool (the setup depends on the decks and rules, not the bots), pools in parallel."""
+    """P's preflight once per pool (the setup depends on the decks and rules, not the bots), pools in parallel.
+
+    Diagnostics only: ``X5_SETUP_CACHE`` names a pickle that keeps the setups between invocations."""
+    cache = os.environ.get("X5_SETUP_CACHE")
+    if cache and os.path.exists(cache):
+        import pickle
+        with open(cache, "rb") as f:
+            return pickle.load(f)
     setups: dict[str, Any] = {}
     errors: list[BaseException] = []
     pin = EnginePin()
@@ -163,10 +170,15 @@ def _setups(sched: Schedule) -> dict[str, Any]:
         t.join()
     if errors:
         raise errors[0]
+    if cache:
+        import pickle
+        with open(cache, "wb") as f:
+            pickle.dump(setups, f)
     return setups
 
 
-def _init(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], stats_dir: str | None) -> None:
+def _init(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], stats_dir: str | None,
+          prewarm: bool = False) -> None:
     if stats_dir:
         os.environ["SPELLBENCH_XMAGE_STATS"] = stats_dir
     sched = Schedule(plan, engine)
@@ -176,6 +188,10 @@ def _init(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], stats
     for item in sched.workloads:
         executed = runner.executed_config(item["config"], lambda text: text)
         item["entries"] = {e.name: e for e in runner.registry_entries(item["config"], executed)}
+    if prewarm:  # the engine starts before the worker takes its first game (startup is timed separately)
+        started = time.monotonic()
+        _engine()
+        _W["startup_s"] = time.monotonic() - started
 
 
 def _engine() -> EngineProcess:
@@ -221,6 +237,7 @@ def play_global(gid: int) -> dict[str, Any]:
         "host_halt": host_halt,
         "diagnostics": list(result.diagnostics)[:20] if result.classification != "natural" else [],
         "pid": os.getpid(),
+        "engine_startup_s": _W.pop("startup_s", None),
     }
 
 
@@ -231,12 +248,12 @@ def _close() -> None:
 
 
 def run_games(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], gids: list[int], workers: int,
-              stats_dir: str | None, on_row=None) -> tuple[float, list[dict[str, Any]]]:
+              stats_dir: str | None, on_row=None, prewarm: bool = False) -> tuple[float, list[dict[str, Any]]]:
     """Play ``gids`` with ``workers`` worker processes (fresh ones); rows in the order given."""
     ctx = multiprocessing.get_context("spawn")
     start = time.monotonic()
     rows: dict[int, dict[str, Any]] = {}
-    pool = ctx.Pool(workers, initializer=_init, initargs=(plan, engine, setups, stats_dir))
+    pool = ctx.Pool(workers, initializer=_init, initargs=(plan, engine, setups, stats_dir, prewarm))
     try:
         for row in pool.imap_unordered(play_global, gids, chunksize=1):
             rows[row["gid"]] = row
@@ -273,7 +290,7 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, list[PlayedGame]]:
         gids = [sched.order[p] for p in positions]
         print(f"[{time.strftime('%H:%M:%S')}] rung: {workers} workers, {len(gids)} games", flush=True)
-        wall, rows = run_games(plan, engine, setups, gids, workers, stats_dir)
+        wall, rows = run_games(plan, engine, setups, gids, workers, stats_dir, prewarm=True)
         for p, row in zip(positions, rows):
             trials_log.write(json.dumps({"workers": workers, "position": p, **row}, sort_keys=True) + "\n")
         trials_log.flush()

@@ -62,6 +62,7 @@ public final class EngineServer {
         System.err.println("xmage-spellbench: framework classes initialized " + warmed[0] + ", failed " + warmed[1]);
         CardScanner.scan();
         EngineServer server = new EngineServer(EngineProfile.load(), new CardResolver());
+        mage.player.spellbench.ManaCostCache.snapshot(); // every game starts from this cache state (X5)
         server.serve(new BufferedInputStream(System.in, 1 << 16), protocolOut);
         System.exit(0); // XMage keeps executor threads alive
     }
