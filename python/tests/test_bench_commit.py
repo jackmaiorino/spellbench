@@ -129,6 +129,32 @@ def env(tmp_path: Path) -> dict[str, str]:
             "SPELLBENCH_ARTIFACT_REGISTER": str(register)}
 
 
+def test_author_commitment_stays_on_its_review_branch_until_merged(repo: Path, tmp_path: Path):
+    base = git(repo, "rev-parse", "HEAD")
+    git(repo, "switch", "-c", "codex/commitment-review")
+    committed = commit_run(repo / "benchmarks/fake-pool", date=RUN, placement=PLACEMENT,
+                           environ=env(tmp_path), review_branch="codex/commitment-review")
+    assert git(repo, "rev-parse", "origin/main") == base
+    assert committed.secret_path.is_file()
+    with pytest.raises(CommitError, match="not on origin/main"):
+        pushed_commit(committed.run_dir)
+    assert not list((tmp_path / "secrets").rglob("*.started"))
+    # Simulate the review merge only in this fixture's local bare repository.
+    git(repo, "push", "origin", f"{committed.commit}:main")
+    assert pushed_commit(committed.run_dir) == committed.commit
+    assert RunSecret.from_hex(committed.secret_path.read_text().strip()).commitment() == committed.commitment
+
+
+@pytest.mark.parametrize("branch", ["main", "someone-else"])
+def test_review_commitment_refuses_default_or_another_checkout_branch(repo, tmp_path, branch):
+    base = git(repo, "rev-parse", "HEAD")
+    with pytest.raises(CommitError, match="author branch|check out your own review branch"):
+        commit_run(repo / "benchmarks/fake-pool", date=RUN, placement=PLACEMENT,
+                   environ=env(tmp_path), review_branch=branch)
+    assert git(repo, "rev-parse", "HEAD") == base
+    assert not (tmp_path / "secrets/fake-pool").exists()
+
+
 def _names(directory: Path) -> list[str]:
     return sorted(path.name for path in directory.iterdir())
 

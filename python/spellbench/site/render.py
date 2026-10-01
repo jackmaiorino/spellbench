@@ -443,6 +443,10 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
     ]
     if view["newer_runs"]:
         main.append(_newer_runs_note(view["newer_runs"]))
+    if view.get("withheld_runs"):
+        listed = ", ".join(_e(run["name"]) + " (withheld)" for run in view["withheld_runs"])
+        main.append(f'<p class="note withheld-runs">Withheld runs: {listed}. Their secrets were lost; '
+                    'no games can be verified.</p>')
     main += [_leaderboards(view), _grid(view["grid"])]
     if view["attribution"]:
         main.append(_attribution(view["attribution"], view["overall"]))

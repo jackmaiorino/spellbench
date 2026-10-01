@@ -18,6 +18,8 @@ import pytest
 
 from spellbench.arena import cli, runner, store
 from spellbench.arena.config import TournamentConfig
+from spellbench.arena.manifest import commitment_record
+from spellbench.arena.validate import REVEAL_SCHEMA, WITHHELD_REASON
 from spellbench.bench import definition
 from spellbench.run_secret import RunSecret
 from spellbench.site import build, render
@@ -351,6 +353,37 @@ def test_an_unfinished_run_is_skipped_with_a_warning(copy_tree: Path, tmp_path: 
     warnings = build_site(copy_tree, out)
     assert "alpha: runs/2026-09-27 has no manifest.json (an unfinished run); showing runs/2026-09-26" in warnings
     assert "2026-09-26" in (out / "b/alpha/index.html").read_text(encoding="utf-8")
+
+
+def test_revealed_and_pending_runs_are_listed_and_reveals_are_checked(copy_tree, tmp_path):
+    bench, secret = copy_tree / "alpha", RunSecret(bytes(range(32)))
+    for name in ("2026-09-27", "2026-09-28"):
+        (bench / "runs" / name).mkdir()
+        store.write_json_atomic(bench / "runs" / name / "COMMITMENT.json",
+                                commitment_record(run_secret=secret, benchmark_id="alpha", run_label=name))
+    reveal = {"schema": REVEAL_SCHEMA, "benchmark_id": "alpha", "run_label": "2026-09-28",
+              "commitment": secret.commitment(), "run_secret": secret.hex(), "status": "aborted", "reason": "error"}
+    store.write_json_atomic(bench / "runs/2026-09-28/REVEAL.json", reveal)
+    build_site(copy_tree, tmp_path / "site")
+    page = (tmp_path / "site/b/alpha/index.html").read_text(encoding="utf-8")
+    assert "2026-09-27 (pending)" in page and "2026-09-28 (aborted)" in page
+    store.write_json_atomic(bench / "runs/2026-09-28/REVEAL.json", {**reveal, "run_secret": "11" * 32})
+    with pytest.raises(SiteError, match="2026-09-28"):
+        build_site(copy_tree, tmp_path / "site-2")
+
+
+def test_withheld_run_remains_visible_after_a_newer_board_run(copy_tree, tmp_path):
+    bench, name, secret = copy_tree / "alpha", "2026-09-25", RunSecret(bytes(range(32)))
+    folder = bench / "runs" / name
+    folder.mkdir()
+    store.write_json_atomic(folder / "COMMITMENT.json",
+                            commitment_record(run_secret=secret, benchmark_id="alpha", run_label=name))
+    store.write_json_atomic(folder / "REVEAL.json", {"schema": REVEAL_SCHEMA, "benchmark_id": "alpha",
+                            "run_label": name, "commitment": secret.commitment(), "run_secret": None,
+                            "status": "aborted", "reason": WITHHELD_REASON})
+    build_site(copy_tree, tmp_path / "site")
+    page = (tmp_path / "site/b/alpha/index.html").read_text(encoding="utf-8")
+    assert "Withheld runs: 2026-09-25 (withheld)" in page and "no games can be verified" in page
 
 
 def test_a_changed_definition_still_renders_the_run_and_warns(copy_tree: Path, tmp_path: Path) -> None:

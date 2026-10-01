@@ -12,9 +12,10 @@
   bytes.
 - ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
 - ``spellbench bench commit BENCHMARK_DIR --placement TEXT [--date
-  YYYY-MM-DD]``: check the rated run's local values, then commit and push
+  YYYY-MM-DD] [--review-branch BRANCH]``: check the rated run's local values, then commit and push
   the next run's ``COMMITMENT.json`` and only then keep its secret, outside
-  the repository (spec 11.6, Decision 9); record a third-party timestamp
+  the repository (spec 11.6, Decision 9). A review branch stages it for a PR and cannot play before merge;
+  record a third-party timestamp
   for that commit next.
 - ``spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated
   [--date YYYY-MM-DD] [--placement TEXT])``: play the committed run NAME
@@ -66,7 +67,7 @@ _USAGE = (
     "  spellbench run CONFIG.json [--placement TEXT]\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
-    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
+    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD] [--review-branch BRANCH]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
     f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
@@ -202,17 +203,22 @@ def _report_failures(failures: Sequence[str]) -> int:
 def _bench_commit(directory: Path, args: Sequence[str]) -> int | None:
     from ..bench.commit import commit_run
 
-    options = _bench_options(args, values=("--placement", "--date"))
+    options = _bench_options(args, values=("--placement", "--date", "--review-branch"))
     if options is None or "--placement" not in options:
         return None
     # commit_run holds Ctrl+C until the secret is kept; this hold lasts until the operator has read what was
     # published, and a Ctrl+C held meanwhile then stops the command (spec 11.6, R3-31).
     with runner.deferred_interrupts():
-        committed = commit_run(directory, placement=options["--placement"], date=options.get("--date"))
+        committed = commit_run(directory, placement=options["--placement"], date=options.get("--date"),
+                               review_branch=options.get("--review-branch"))
         print(f"commitment pushed, so it is public: {committed.run_dir / store.COMMITMENT_NAME} in commit "
               f"{committed.commit}")
         print(f"commitment: {committed.commitment}")
         print(f"run secret kept outside the repository: {committed.secret_path}")
+        if "--review-branch" in options:
+            print(f"review required: open a PR from {options['--review-branch']}; play is refused until its "
+                  "commitment reaches origin's default branch. Use your own run worktree at the reviewed commit "
+                  "and retain the existing private secret.")
         print(f"next: record a third-party timestamp for commit {committed.commit} (an issue comment, a signed "
               f"release, or an OpenTimestamps proof), then run: spellbench bench run {directory} --run "
               f"{committed.run_dir.name} --proof <the timestamp's link>")

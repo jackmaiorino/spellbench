@@ -53,7 +53,7 @@ download.
 from __future__ import annotations
 
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -78,8 +78,7 @@ _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
 _ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
 _ANCHOR_ELO_MILLI = 1_000_000  # the anchor's fixed Elo in milli-Elo (hero.py)
 _V1_PROTOCOL = "spellbench/v1"
-# A committed run that failed before its manifest publishes this file (Decision 9); Task 41 validates it and
-# Task 44 lists it. Until then the build detects it by name alone.
+# A committed run that failed before its manifest publishes this file (Decision 9); validate before listing it.
 _REVEAL_NAME = "REVEAL.json"
 # Each engine default (spec 7.6) by its Setup term; a null default means the bots are asked.
 _ENGINE_DEFAULT_TERMS = {
@@ -114,8 +113,9 @@ class _Listing:
     unpublished: tuple[Path, ...]
 
     def checked(self) -> tuple[Path, ...]:
-        """The runs the build validates: the board run, then every run published after it."""
-        return ((self.board,) if self.board is not None else ()) + self.newer
+        """The board run, newer manifests and every revealed or withheld publication."""
+        reveals = tuple(path for path in self.unpublished if (path / _REVEAL_NAME).is_file())
+        return ((self.board,) if self.board is not None else ()) + self.newer + reveals
 
 
 @dataclass(frozen=True)
@@ -135,6 +135,7 @@ class _Run:
     config: TournamentConfig | None  # the recorded v2 config, for the drift check; None for a v1 run
     manifest: dict[str, Any] | None  # the v2 manifest; None for a v1 run
     newer_runs: tuple[dict[str, Any], ...]  # the runs published after this one: name, status, rated
+    withheld_runs: tuple[dict[str, Any], ...] = ()
 
 
 def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
@@ -167,9 +168,12 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             "refusing to build: every board run, and every run published after it, must pass validation\n"
             + "\n".join(f"  {failure}" for failure in failures)
         )
-    newer = {bench_id: tuple(map(_newer_run, listing.newer)) for bench_id, listing in listings.items()}
+    newer = {bench_id: _other_runs(listing) for bench_id, listing in listings.items()}
     runs = {
-        bench_id: _read_run(listing.board, newer[bench_id])
+        bench_id: replace(_read_run(listing.board, newer[bench_id]), withheld_runs=tuple(
+            _newer_run(path) for path in listing.unpublished
+            if (path / _REVEAL_NAME).is_file() and _newer_run(path)["status"] == "withheld"
+        ))
         for bench_id, listing in listings.items()
         if listing.board is not None
     }
@@ -268,7 +272,10 @@ def _listing_warnings(
     warnings = []
     for run_dir in listing.unpublished:
         if (run_dir / _REVEAL_NAME).is_file():
-            detail = f"was revealed after an abort ({_REVEAL_NAME}, no {store.MANIFEST_NAME})"
+            if _newer_run(run_dir)["status"] == "withheld":
+                detail = f"was withheld after its secret was lost ({_REVEAL_NAME}); no games can be verified"
+            else:
+                detail = f"was revealed after an abort ({_REVEAL_NAME}, no {store.MANIFEST_NAME})"
         else:
             detail = f"has no {store.MANIFEST_NAME} (an unfinished run)"
         warnings.append(f"{bench_id}: runs/{run_dir.name} {detail}; showing {showing}")
@@ -309,8 +316,28 @@ def _load_proposed(benchmarks_dir: Path) -> tuple[definition.ProposedBenchmark, 
         raise SiteError(str(exc)) from exc
 
 
+def _other_runs(listing: _Listing) -> tuple[dict[str, Any], ...]:
+    """Newer unrated publications and pending commitments; lost secrets have their own note at every age."""
+    records = [_newer_run(path) for path in listing.newer]
+    for path in listing.unpublished:
+        if not ((path / _REVEAL_NAME).is_file() or (path / store.COMMITMENT_NAME).is_file()):
+            continue
+        record = _newer_run(path)
+        if record["status"] != "withheld" and (listing.board is None or
+                definition.run_sort_key(path.name) > definition.run_sort_key(listing.board.name)):
+            records.append(record)
+    return tuple(sorted(records, key=lambda record: definition.run_sort_key(record["name"])))
+
+
 def _newer_run(run_dir: Path) -> dict[str, Any]:
-    """A run published after the board run, as the page lists it; it passed validation, so it is an unrated v2 run."""
+    """A non-board run's public status; revealed records passed validation first."""
+    if not (run_dir / store.MANIFEST_NAME).is_file():
+        if (run_dir / _REVEAL_NAME).is_file():
+            record = store.read_json(run_dir / _REVEAL_NAME)
+            status = "withheld" if record["run_secret"] is None else "aborted"
+        else:
+            status = "pending"
+        return {"name": run_dir.name, "status": status, "rated": False}
     manifest = store.read_json(run_dir / store.MANIFEST_NAME, schema=store.TOURNAMENT_SCHEMA)
     return {"name": run_dir.name, "status": manifest["run"]["status"], "rated": manifest["run"]["rated"]}
 
@@ -685,6 +712,7 @@ def _protocol_view(run: _Run, display: Mapping[str, Mapping[str, Any]]) -> dict[
             "setup_rules": [],
             "attribution": [],
             "newer_runs": newer_runs,
+            "withheld_runs": [dict(item) for item in run.withheld_runs],
         }
     manifest, config = run.manifest, run.config
     assert manifest is not None and config is not None
@@ -711,6 +739,7 @@ def _protocol_view(run: _Run, display: Mapping[str, Mapping[str, Any]]) -> dict[
             for row in run.board["rows"]
         ],
         "newer_runs": newer_runs,
+        "withheld_runs": [dict(item) for item in run.withheld_runs],
     }
 
 

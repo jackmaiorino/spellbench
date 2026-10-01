@@ -9,10 +9,12 @@ order (R3-8, R3-14):
 2. It picks the next run name (``<date>``, then ``<date>-2``, ...) and refuses a secrets directory given as a
    relative path, or lying inside any git work tree or repository (Review Focus 5).
 3. It fetches ``origin`` and refuses unless tracked files are unchanged, ``HEAD`` is the tip of ``origin``'s
-   default branch, and the benchmark folder holds no untracked file: the commitment commit then sits directly on
-   that branch, publishes nothing else, and fixes the benchmark as committed.
+   default branch, and the benchmark folder holds no untracked file: the commitment commit then adds only its
+   commitment, and fixes the benchmark as committed. ``review_branch`` requires a checked-out author branch
+   starting at that tip; it publishes there for a PR instead of pushing to the default branch.
 4. It generates the run secret in memory, writes ``runs/<run>/COMMITMENT.json``, commits that file alone and pushes
-   that one commit to the default branch. Ctrl+C is held from before the commit until the secret is kept. Any
+   that one commit to the selected branch. A review branch must reach the default branch before play. Ctrl+C is
+   held from before the commit until the secret is kept. Any
    failure before the push is confirmed withdraws the commitment (its local commit, index entry and file; the
    operator's own work stays) and drops the secret, so no usable secret exists without a public commitment. A
    push reported as failed is checked against ``origin``: a commitment that reached it is public, so its secret is
@@ -386,12 +388,15 @@ def check_definition(benchmark_dir: Path, commit: str) -> None:
 
 
 def commit_run(
-    benchmark_dir: Path, *, placement: str, date: str | None = None, environ: Mapping[str, str] | None = None
+    benchmark_dir: Path, *, placement: str, date: str | None = None, environ: Mapping[str, str] | None = None,
+    review_branch: str | None = None,
 ) -> CommittedRun:
     """Publish the commitment of the benchmark's next run, then keep its secret (the module docstring gives the
     order). ``date`` (YYYY-MM-DD) defaults to today, ``environ`` to ``os.environ``. Every failure is a
     ``CommitError`` naming what to fix; one raised before the push is confirmed leaves nothing published and no
-    secret."""
+    secret. With ``review_branch``, publish on that checked-out author branch for a PR; the benchmark must still
+    start at the default branch's tip. The existing run check refuses play until review merges its commitment
+    onto the default branch. No secret enters the PR."""
     environ = os.environ if environ is None else environ
     benchmark_dir = Path(benchmark_dir).resolve()
     benchmark = definition.load_benchmark(benchmark_dir)
@@ -405,8 +410,8 @@ def commit_run(
         if os.path.lexists(path):
             raise CommitError(f"{path} already exists, so {benchmark.id} run {name} was committed before; its run "
                               "directory must stay published (spec 11.6)")
-    # 3. A clean repository on origin's default branch: the commitment commit publishes nothing else.
-    branch, base = _ready_to_publish(benchmark_dir)
+    # 3. A clean repository at origin's default tip: the commitment publishes nothing else, directly or by PR.
+    branch, base = _ready_to_publish(benchmark_dir, review_branch=review_branch)
     try:
         files.secret.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     except OSError as exc:
@@ -420,9 +425,10 @@ def commit_run(
     return CommittedRun(run_dir=run_dir, commitment=secret.commitment(), secret_path=files.secret, commit=commit)
 
 
-def _ready_to_publish(benchmark_dir: Path) -> tuple[str, str]:
+def _ready_to_publish(benchmark_dir: Path, *, review_branch: str | None = None) -> tuple[str, str]:
     """Step 3 of :func:`commit_run`: ``origin``'s default branch and ``HEAD``, once ``origin`` is fetched, tracked
-    files are unchanged, ``HEAD`` is that branch's tip and the benchmark folder holds no untracked file."""
+    files are unchanged, ``HEAD`` is that branch's tip and the benchmark folder holds no untracked file. With
+    ``review_branch``, return that checked-out author branch as the push target, keeping the same base."""
     fetch = _fetch(benchmark_dir)
     if fetch.returncode != 0:
         raise CommitError(f"cannot publish the commitment: git fetch {REMOTE} failed: {_git_error(fetch)}; nothing "
@@ -440,12 +446,20 @@ def _ready_to_publish(benchmark_dir: Path) -> tuple[str, str]:
     base = _head(benchmark_dir)
     if base != tip:
         raise CommitError(f"HEAD ({base or 'no commit'}) is not {REMOTE}/{branch} ({tip}), the tip of the default "
-                          f"branch of {REMOTE}: the commitment commit goes directly on it and its push publishes "
-                          "nothing else; pull, or push or set aside your local commits, before bench commit")
+                          f"branch of {REMOTE}: the commitment must start there and publish nothing else; update "
+                          "your own author checkout to that tip before bench commit")
     untracked = definition_changes(benchmark_dir, base)
     if untracked is not None:
         raise CommitError(f"{untracked} is not committed: the commitment fixes the benchmark as committed "
                           "(spec 11.6); commit or delete it before bench commit")
+    if review_branch is not None:
+        if (review_branch in (branch, "main", "master")
+                or _git(benchmark_dir, "check-ref-format", "--branch", review_branch).returncode != 0):
+            raise CommitError("the review branch must be a valid author branch, separate from the default branch")
+        current = _git(benchmark_dir, "symbolic-ref", "--quiet", "--short", "HEAD")
+        if current.returncode != 0 or (current.stdout or "").strip() != review_branch:
+            raise CommitError(f"check out your own review branch {review_branch} at {REMOTE}/{branch} before bench commit")
+        branch = review_branch
     return branch, base
 
 
@@ -689,7 +703,7 @@ def pushed_commit(run_dir: Path) -> str:
     It fetches ``origin`` first (pruning deleted branches), so the check reads the remote's current state. The file
     must be tracked and unchanged from ``HEAD``, exactly one commit may touch it (the one that added it: a
     commitment changed, or removed and added again, after its first push proves nothing), and that commit must lie
-    on ``origin``'s default branch, where :func:`commit_run` pushes it: a side branch can be deleted.
+    on ``origin``'s default branch, directly or after review merges it: a side branch can be deleted.
     """
     run_dir = Path(run_dir)
     name = store.COMMITMENT_NAME
