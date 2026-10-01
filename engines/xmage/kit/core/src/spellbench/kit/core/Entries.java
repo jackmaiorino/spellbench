@@ -78,6 +78,9 @@ public final class Entries {
                 throw new IllegalArgumentException("unknown entry " + entry);
         }
         c.put("policies", commonPolicies());
+        // the clock policy is part of the entry (second review, item 4)
+        c.put("clock", Json.map("grace_ms", 5000L, "overhead_ms", 1500L, "kill_reserve_ms", 300L));
+        c.put("diagnostics", Json.map("roundtrip", false, "hang_at", -1L));
         return c;
     }
 
@@ -105,6 +108,20 @@ public final class Entries {
             }
         }
         c.put("budgets", b);
+        Map<String, Object> clock = new LinkedHashMap<>((Map<String, Object>) c.get("clock"));
+        for (String[] k : new String[][]{{"grace-ms", "grace_ms"}, {"overhead-ms", "overhead_ms"}, {"kill-reserve-ms", "kill_reserve_ms"}}) {
+            if (opts.containsKey(k[0]) && !Long.valueOf(Long.parseLong(opts.get(k[0]))).equals(clock.get(k[1]))) {
+                clock.put(k[1], Long.parseLong(opts.get(k[0])));
+                overridden.add(k[1]);
+            }
+        }
+        c.put("clock", clock);
+        if ("1".equals(opts.get("roundtrip")) || (opts.containsKey("hang-at") && Long.parseLong(opts.get("hang-at")) >= 0)) {
+            // round-trip diagnostics spend the decision's clock; the hang hook is a test: both change behaviour
+            c.put("diagnostics", Json.map("roundtrip", "1".equals(opts.get("roundtrip")),
+                    "hang_at", Long.parseLong(opts.getOrDefault("hang-at", "-1"))));
+            overridden.add("diagnostics");
+        }
         if ("1".equals(opts.get("search-flagged"))) {
             c.put("search_flagged", true); // measurement mode (E4): flagged worlds are searched up to the horizon
             overridden.add("search_flagged");

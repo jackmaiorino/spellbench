@@ -468,6 +468,48 @@ final class SliceProd {
     }
 
     // =============================================================================================
+    // OPPTURN (second review): on the other seat's turn the kit searches its own options and responds, seats swapped
+
+    static void oppTurn() throws Exception {
+        for (String viewer : new String[]{"p1", "p0"}) {
+            String other = "p0".equals(viewer) ? "p1" : "p0";
+            SeatSetup kit = new SeatSetup().lib("Island", 8);
+            kit.hand.addAll(Arrays.asList("Refute", "Island"));
+            kit.battlefield.addAll(Arrays.asList("Island", "Island", "Island"));
+            SeatSetup opp = new SeatSetup().lib("Plains", 8);
+            opp.hand.add("Serra Angel");
+            opp.battlefield.addAll(Arrays.asList("Plains", "Plains", "Plains", "Plains", "Plains"));
+            SeatSetup s0 = "p0".equals(viewer) ? kit : opp;
+            SeatSetup s1 = "p0".equals(viewer) ? opp : kit;
+            EnginePos e = EnginePos.start("OPPTURN-" + viewer, s0, s1);
+            boolean ok = e.advance(d -> priorityOf(d, other, "precombat_main"), 80)
+                    && answerWhere(e, sm -> "cast_spell".equals(sm.get("kind")) && "Serra Angel".equals(Json.str(Json.obj(sm, "source"), "card_name")));
+            ok = ok && e.advance(d -> priorityOf(d, viewer, null) && !Json.arr(obsOf(d), "stack").isEmpty(), 30);
+            if (!ok) {
+                check("OPPTURN." + viewer + ".reach_position", false, e.trail);
+                continue;
+            }
+            Map<String, Object> d = e.decision();
+            FrontSeat f = new FrontSeat("OPPTURN-" + viewer, "h1", Slice.gameStart(viewer, s0, s1));
+            try {
+                Map<String, Object> r = f.choose(d);
+                Map<String, Object> sem = Json.obj(Json.obj(Json.arr(d, "candidates").get(((Number) r.get("candidate")).intValue())), "semantic");
+                Map<String, Object> line = Json.obj(r, "line");
+                Map<String, Object> src = Json.obj(sem, "source");
+                boolean own = src != null && viewer.equals(Json.str(src, "controller_seat"));
+                check("OPPTURN." + viewer + ".searches_and_responds", "priority_anchor".equals(r.get("path"))
+                                && "cast_spell".equals(sem.get("kind")) && own && "Refute".equals(Json.str(src, "card_name"))
+                                && line.get("unmapped") == null,
+                        Json.map("active_seat", Json.str(obsOf(d), "active_seat"), "viewer", viewer, "path", r.get("path"),
+                                "tag", r.get("tag"), "answer", sem, "root_alternatives", line.get("root_alternatives"),
+                                "candidates", (long) Json.arr(d, "candidates").size()));
+            } finally {
+                f.close();
+            }
+        }
+    }
+
+    // =============================================================================================
     // A3 (change 7): identical permitted inputs across hidden worlds; the powered C-MCTS pilot
 
     static SeatSetup[] counterspell(String world) {
@@ -753,6 +795,84 @@ final class SliceProd {
                             "world_command", worldCommand));
         }
         regNonStack();
+        regNonStackH3();
+        regPlaceholder();
+    }
+
+    /** Second review, item 3: H3 never makes such an action a root child; a plain land play stays one (control). */
+    static void regNonStackH3() {
+        SeatSetup a = new SeatSetup().lib("Mountain", 8);
+        a.hand.addAll(Arrays.asList("Thriving Bluff", "Mountain"));
+        a.battlefield.add("Mountain");
+        SeatSetup b = new SeatSetup().lib("Island", 8);
+        b.battlefield.add("Island");
+        EnginePos e = EnginePos.start("REG6", a, b);
+        e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50);
+        Map<String, Object> d = e.decision();
+        Map<String, Object> gs = Slice.gameStart("p0", a, b);
+        KitContext.reset();
+        KitContext.mctsIterations = 12;
+        KitContext.rolloutCap = 1000;
+        KitMcts[] m = new KitMcts[1];
+        KitRandom random = KitRandom.install(Seeds.worldSeed(Slice.GAME_KEY, Json.num(d, "seat_step", 0), 0), Slice.ID_SEED);
+        WorldBuilder.Spec spec = new WorldBuilder.Spec();
+        spec.gameStart = gs;
+        spec.observation = obsOf(d);
+        spec.sample = Sampler.sample(gs, obsOf(d), random.stream("sampler"));
+        spec.random = random;
+        spec.mode = WorldBuilder.Mode.PRIORITY;
+        spec.viewerFactory = seat -> {
+            m[0] = new KitMcts(seat, 6);
+            return m[0];
+        };
+        spec.otherFactory = Puppet::new;
+        World w = WorldBuilder.build(spec);
+        KnowledgeWatcher.install(w.game, w.player("p0"));
+        Map<String, Object> res = m[0].decidePriority(w, new ObsIndex(obsOf(d)));
+        List<Object> children = new ArrayList<>();
+        boolean bluff = false;
+        boolean mountain = false;
+        for (Object o : Json.arr(res, "root_stats")) {
+            Map<String, Object> sem = Json.obj(Json.obj(o), "semantic");
+            String name = sem == null || sem.get("source") == null ? (sem == null ? null : Json.str(sem, "kind"))
+                    : Json.str(Json.obj(sem, "source"), "card_name");
+            children.add(name);
+            bluff |= "Thriving Bluff".equals(name);
+            mountain |= "Mountain".equals(name) && "play_land".equals(Json.str(sem, "kind"));
+        }
+        long excluded = KitContext.counter("mcts:non_stack_dialog_excluded");
+        KitContext.mctsIterations = 300;
+        KitContext.rolloutCap = 2000;
+        check("REG.h3_non_stack_excluded_before_selection", !bluff && mountain && excluded >= 1,
+                Json.map("root_children", children, "excluded", excluded, "offered_land_plays",
+                        candidateWhere(d, "play_land", "Thriving Bluff") >= 0));
+    }
+
+    /** Second review, item 2: a stack object the world cannot rebuild (a placeholder) takes the no-search policy. */
+    static void regPlaceholder() {
+        SeatSetup a = new SeatSetup().lib("Swamp", 8);
+        a.hand.add("Shock");
+        a.battlefield.add("Mountain");
+        SeatSetup b = new SeatSetup().lib("Island", 8);
+        b.battlefield.addAll(Arrays.asList("Island", "Grizzly Bears"));
+        EnginePos e = EnginePos.start("REG7", a, b);
+        e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50);
+        boolean ok = answerWhere(e, s -> "cast_spell".equals(s.get("kind")) && "Shock".equals(Json.str(Json.obj(s, "source"), "card_name")));
+        ok = ok && e.advance(d -> priorityOf(d, "p0", null) && Json.arr(obsOf(d), "stack").size() == 1, 20);
+        World w = null;
+        if (ok) {
+            // the same decision, with its stack entry turned into an ability no public object of that name explains
+            @SuppressWarnings("unchecked")
+            Map<String, Object> d = (Map<String, Object>) Json.copy(e.decision());
+            Map<String, Object> entry = Json.obj(Json.arr(obsOf(d), "stack").get(0));
+            entry.put("stack_kind", "activated_ability");
+            entry.put("source", null);
+            entry.put("card_name", "Kit Test Unknown Source");
+            w = worldAt(Slice.gameStart("p0", a, b), d);
+        }
+        check("REG.placeholder_no_search", w != null && w.flags.contains("approximate:stack_placeholder")
+                        && w.flags.contains("horizon:stack_object") && Runner.skipReason(w, "priority") != null,
+                Json.map("reached", ok, "flags", w == null ? null : w.flags));
     }
 
     /** Review change 4: a non-stack action that asks a dialog while it executes is detected (and then declined). */

@@ -125,6 +125,7 @@ public final class Slice {
                     case "REG": SliceProd.reg(); break;
                     case "POOLAUDIT": SliceProd.poolAudit(); break;
                     case "UNMAPPED": SliceProd.unmapped(); break;
+                    case "OPPTURN": SliceProd.oppTurn(); break;
                     default: note("unknown_case", c);
                 }
             } catch (Throwable t) {

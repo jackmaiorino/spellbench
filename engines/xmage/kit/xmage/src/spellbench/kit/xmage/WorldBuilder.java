@@ -1209,6 +1209,7 @@ public final class WorldBuilder {
         world.bind(Json.str(e, "object_id"), sa.getId());
         KitContext.horizon.add(sa.getId());
         flag("approximate:stack_placeholder");
+        flag("horizon:stack_object"); // the no-search policy covers placeholders too (second review, item 2)
     }
 
     /**

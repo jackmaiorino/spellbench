@@ -26,7 +26,10 @@ import java.util.concurrent.TimeUnit;
  * reply time minus the grace period) and the kill all fit inside that window. A request with no reply by
  * {@code waitUntil} ends the runner: it is destroyed forcibly and its exit confirmed until {@code answerBy}; when the
  * exit cannot be confirmed in time, a reaper thread confirms it in the background, and the next start waits for the
- * reaper (a killed H2 process can leave a lock file, removed only after the confirmed exit). A request that cannot get
+ * reaper (a killed H2 process can leave a lock file, removed only after the confirmed exit). Until the exit is
+ * confirmed the link is latched (second result review, item 1): no replacement starts and every request is refused
+ * with {@code Busy("runner_exit_unconfirmed")}, so the caller answers by fallback; the latch clears only when the
+ * killed process is seen gone (then its locks are removed and a replacement may start). A request that cannot get
  * a runner in time (a replacement still booting, too little time left) is refused with {@link Busy}: nothing is sent
  * and nothing is killed.
  */
@@ -72,6 +75,11 @@ public final class RunnerLink {
     private boolean everStarted;
     private volatile Thread starting;
     private volatile Thread reaper;
+    /** The killed runner whose exit is not confirmed yet (the latch); null when every killed runner is confirmed gone. */
+    private volatile Process unconfirmed;
+    /** Fixture hook: kills report the exit as unconfirmed and the reaper gives up at once (latch tests). */
+    public volatile boolean simulateUnconfirmedExit;
+    public long exitUnconfirmedRefusals;
     /** Measurements for the evidence (E3, E8, review change 2). */
     public long restarts;
     public long kills;
@@ -106,6 +114,17 @@ public final class RunnerLink {
         return TimeUnit.MILLISECONDS.toNanos(ms);
     }
 
+    /** True while a killed runner's exit is unconfirmed; rechecks the process first (it may have exited since). */
+    public synchronized boolean exitLatched() {
+        Process u = unconfirmed;
+        if (u != null && !u.isAlive() && !simulateUnconfirmedExit) {
+            unconfirmed = null;
+            exitsConfirmedLate++;
+            removeStaleLocks();
+        }
+        return unconfirmed != null;
+    }
+
     private void start() throws IOException, Timeout {
         Thread r = reaper;
         if (r != null && r != Thread.currentThread()) {
@@ -114,6 +133,9 @@ public final class RunnerLink {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+        if (exitLatched()) {
+            throw new IOException("a killed runner's exit is not confirmed: no replacement starts");
         }
         long t0 = System.nanoTime();
         ProcessBuilder pb = new ProcessBuilder(command);
@@ -168,6 +190,11 @@ public final class RunnerLink {
             throws IOException, Timeout, Busy {
         long t0 = System.nanoTime();
         boolean decisionRequest = request.containsKey("deadline_ms");
+        if (Thread.currentThread() != starting && exitLatched()) {
+            exitUnconfirmedRefusals++;
+            busyRefusals++;
+            throw new Busy("runner_exit_unconfirmed", ms(System.nanoTime() - t0));
+        }
         if (Thread.currentThread() != starting) {
             if (!alive() && !restarting()) {
                 startAsync(); // first use, a crashed runner, or a kill the caller did not follow with a restart
@@ -244,7 +271,7 @@ public final class RunnerLink {
 
     /** Starts a replacement runner in the background (after a kill); requests wait for it within their clocks. */
     public synchronized void startAsync() {
-        if (alive() || restarting()) {
+        if (alive() || restarting() || exitLatched()) {
             return;
         }
         Thread t = new Thread(() -> {
@@ -304,24 +331,27 @@ public final class RunnerLink {
             Thread.currentThread().interrupt();
             exited = !p.isAlive();
         }
-        if (exited) {
+        if (exited && !simulateUnconfirmedExit) {
             killToExitMs.add(ms(System.nanoTime() - t0));
             removeStaleLocks();
             return true;
         }
+        synchronized (this) {
+            unconfirmed = p; // latched until the exit is seen
+        }
         Thread r = new Thread(() -> {
             boolean gone;
             try {
-                gone = p.waitFor(30, TimeUnit.SECONDS);
+                gone = !simulateUnconfirmedExit && p.waitFor(30, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 gone = !p.isAlive();
             }
             if (gone) {
                 killToExitMs.add(ms(System.nanoTime() - t0));
-                exitsConfirmedLate++;
-                removeStaleLocks();
+                exitLatched(); // confirms, clears the latch and removes the locks
             } else {
-                System.err.println("kit-front: a killed runner did not exit within 30 s");
+                // the reaper gives up; the latch stays until a later check sees the process gone
+                System.err.println("kit-front: a killed runner's exit is unconfirmed; replacement blocked");
             }
         }, "kit-runner-reaper");
         r.setDaemon(true);

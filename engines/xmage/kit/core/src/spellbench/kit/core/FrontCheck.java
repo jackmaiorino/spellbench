@@ -85,6 +85,9 @@ public final class FrontCheck {
                     Thread.sleep(3_600_000L); // ignores everything; only a kill ends it
                 }
                 Map<String, Object> w = Json.map("index", 0L, "flags", new ArrayList<>(), "counters", new LinkedHashMap<>());
+                if (Json.arr(cfg, "skip").contains(path)) {
+                    w.put("skipped", "unsupported_state:test");
+                }
                 switch (path) {
                     case "priority":
                         w.put("semantic", Json.map("kind", "pass"));
@@ -266,6 +269,9 @@ public final class FrontCheck {
         clockRemainingAndReboot(root);
         clockContinuationThenDialog(root);
         clockDiagnostics(root);
+        exitLatch(root);
+        identities();
+        skippedCombat(root);
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -375,6 +381,71 @@ public final class FrontCheck {
                 Json.map("answer_ms", r.get("ms"), "limit_ms", 4000L, "path", r.get("path"), "tag", r.get("tag"),
                         "continuation_requests", a.decides("continuation"), "dialog_requests", a.decides("dialog"),
                         "line", r.get("line")));
+        a.close();
+    }
+
+    /**
+     * Second review, item 1: a killed runner whose exit is not confirmed latches the link: no replacement starts and
+     * decisions are answered by fallback in time; once the exit is seen, the latch clears and a runner serves again.
+     */
+    static void exitLatch(File root) throws Exception {
+        Agent a = new Agent(root, "exit-latch", Json.map("hang", Arrays.asList("priority")));
+        a.front.runner.simulateUnconfirmedExit = true;
+        Map<String, Object> r1 = a.choose(priority(70, new ArrayList<>()), 4000, 600_000);
+        boolean latched = a.front.runner.exitLatched();
+        Map<String, Object> r2 = a.choose(priority(72, new ArrayList<>()), 4000, 600_000);
+        Map<String, Object> l2 = Json.obj(r2, "line");
+        boolean noRestart = !a.front.runner.alive() && !a.front.runner.restarting() && a.front.runner.restarts == 0;
+        check("FRONT.latch.unconfirmed_exit_blocks_restart", latched && noRestart && "runner_exit_unconfirmed".equals(l2.get("cap"))
+                        && ((Number) r2.get("ms")).longValue() <= 4000,
+                Json.map("first", Json.map("tag", r1.get("tag"), "path", r1.get("path")), "latched", latched,
+                        "second_cap", l2.get("cap"), "second_ms", r2.get("ms"), "restarts", a.front.runner.restarts,
+                        "alive", a.front.runner.alive()));
+        a.front.runner.simulateUnconfirmedExit = false; // the exit is now observable
+        Map<String, Object> r3 = a.choose(priority(74, new ArrayList<>()), 20_000, 600_000);
+        check("FRONT.latch.clears_after_confirmed_exit", !a.front.runner.exitLatched() && "priority_anchor".equals(r3.get("path"))
+                        && a.front.runner.restarts == 1,
+                Json.map("path", r3.get("path"), "restarts", a.front.runner.restarts, "exits_confirmed_late",
+                        a.front.runner.exitsConfirmedLate));
+        a.close();
+    }
+
+    /** Second review, item 4: the clock policy and diagnostics are in the identity; names cannot be overridden. */
+    static void identities() {
+        Map<String, Object> frozen = Entries.configure("h1", new LinkedHashMap<String, String>());
+        Map<String, String> g = new LinkedHashMap<>();
+        g.put("grace-ms", "1000");
+        Map<String, Object> grace = Entries.configure("h1", g);
+        Map<String, String> rt = new LinkedHashMap<>();
+        rt.put("roundtrip", "1");
+        Map<String, Object> diag = Entries.configure("h1", rt);
+        boolean refused = false;
+        try {
+            Map<String, String> o = new LinkedHashMap<>();
+            o.put("name", "kit-mad-1");
+            o.put("grace-ms", "1000");
+            new Front(o, Arrays.asList("none"));
+        } catch (IllegalArgumentException | java.io.IOException e) {
+            refused = true;
+        }
+        check("FRONT.identity.full_configuration", "kit-mad-1".equals(frozen.get("name"))
+                        && "kit-mad-1-custom".equals(grace.get("name")) && "kit-mad-1-custom".equals(diag.get("name"))
+                        && !Entries.digest(frozen).equals(Entries.digest(grace)) && !Entries.digest(frozen).equals(Entries.digest(diag))
+                        && refused,
+                Json.map("frozen", Entries.version(frozen), "grace_override", grace.get("name") + " " + Entries.version(grace),
+                        "roundtrip_override", diag.get("name") + " " + Entries.version(diag), "name_override_refused", refused));
+    }
+
+    /** Second review, item 2: a combat world skipped as unsupported is a wrapper answer (declining), not a bot plan. */
+    static void skippedCombat(File root) throws Exception {
+        Agent a = new Agent(root, "skipped-combat", Json.map("skip", Arrays.asList("attack")));
+        Map<String, Object> d = Json.map("seat_step", 80L, "acting_seat", "p0", "context", Json.map("kind", "choice"),
+                "group", group(11, 0, 1), "observation", observation(new ArrayList<>()),
+                "candidates", Arrays.asList(cand(0, Json.map("kind", "declare_attack", "attacker", ref("o-c"), "defender", Json.map("player", "p1"))),
+                        cand(1, Json.map("kind", "declare_attack", "attacker", ref("o-c"), "defender", null))));
+        Map<String, Object> r = a.choose(d, 20_000, 600_000);
+        check("FRONT.skip.combat_is_wrapper", "wrapper".equals(r.get("tag")) && Long.valueOf(1).equals(r.get("candidate")),
+                Json.map("tag", r.get("tag"), "path", r.get("path"), "candidate", r.get("candidate")));
         a.close();
     }
 

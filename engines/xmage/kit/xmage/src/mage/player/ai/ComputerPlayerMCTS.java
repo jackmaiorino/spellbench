@@ -248,9 +248,15 @@ public class ComputerPlayerMCTS extends KitPayPlayer { // KIT: deterministic pro
 
                         // Simulation
                         current = current.select(this.playerId);
-                        result = current.isTerminal() ? current.kitTerminalResult(this.playerId) : current.simulate(this.playerId); // KIT
+                        if (current.isTerminal()) { // KIT: a terminal-node result is not a rollout (E4 accounting)
+                            KitContext.count("mcts:terminal_results");
+                            result = current.kitTerminalResult(this.playerId);
+                        } else {
+                            result = current.simulate(this.playerId);
+                        }
                         simCount++;
                     } else {
+                        KitContext.count("mcts:terminal_results"); // KIT
                         result = current.kitTerminalResult(this.playerId); // KIT: truncated nodes take the truncation result
                     }
                     // Backpropagation

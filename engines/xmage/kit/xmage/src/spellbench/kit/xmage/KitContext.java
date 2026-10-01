@@ -67,6 +67,17 @@ public final class KitContext {
         counters.merge(key, n, Long::sum);
     }
 
+    /** Dialogs answered by the vendored MCTS players (H3 non-stack detection, second review item 3). */
+    private static long dialogs;
+
+    public static synchronized void dialog() {
+        dialogs++;
+    }
+
+    public static synchronized long dialogs() {
+        return dialogs;
+    }
+
     public static synchronized long counter(String key) {
         Long v = counters.get(key);
         return v == null ? 0 : v;

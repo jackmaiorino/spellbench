@@ -103,13 +103,19 @@ public final class Front {
         worlds = (int) Json.num(config, "worlds", 1);
         skill = (int) Json.num(config, "skill", 6);
         botKind = Json.str(config, "bot");
-        botName = opts.containsKey("name") ? opts.get("name") : Json.str(config, "name");
-        botVersion = opts.containsKey("version") ? opts.get("version") : Entries.version(config);
-        graceMs = Long.parseLong(opts.getOrDefault("grace-ms", "5000"));
-        overheadMs = Long.parseLong(opts.getOrDefault("overhead-ms", "1500"));
-        killReserveMs = Long.parseLong(opts.getOrDefault("kill-reserve-ms", "300"));
-        hangAt = Long.parseLong(opts.getOrDefault("hang-at", "-1"));
-        roundtrip = "1".equals(opts.get("roundtrip"));
+        if (opts.containsKey("name") || opts.containsKey("version")) {
+            // the identity is always the configuration's (second review, item 4): no override can advertise it
+            throw new IllegalArgumentException("--name and --version are not accepted: the identity follows the configuration");
+        }
+        botName = Json.str(config, "name");
+        botVersion = Entries.version(config);
+        Map<String, Object> clockPolicy = Json.obj(config, "clock");
+        graceMs = Json.num(clockPolicy, "grace_ms", 5000);
+        overheadMs = Json.num(clockPolicy, "overhead_ms", 1500);
+        killReserveMs = Json.num(clockPolicy, "kill_reserve_ms", 300);
+        Map<String, Object> diag = Json.obj(config, "diagnostics");
+        hangAt = Json.num(diag, "hang_at", -1);
+        roundtrip = Json.bool(diag, "roundtrip");
         keepLines = "1".equals(opts.get("keep-lines"));
         dumpDir = opts.get("dump");
         budgets.putAll(Json.obj(config, "budgets"));
@@ -914,6 +920,16 @@ public final class Front {
             groupPlan = null;
             Map<String, Object> r = worldsCall(request(kind.equals("declare_attack") ? "attack" : "block", d, worlds),
                     clock, detail);
+            boolean skipped = false;
+            for (Object o : r == null ? new ArrayList<>() : Json.arr(r, "worlds")) {
+                skipped |= Json.obj(o).get("skipped") != null;
+            }
+            if (skipped) {
+                // an unsupported state: not searched, so no bot plan (second review, item 2); declining, wrapper
+                Answer a = fallback(d, null, "wrapper", "approximate_state_without_search");
+                a.detail.putAll(detail);
+                return a;
+            }
             if (r != null) {
                 Map<String, Integer> votes = new LinkedHashMap<>();
                 Map<String, Object> byKey = new LinkedHashMap<>();

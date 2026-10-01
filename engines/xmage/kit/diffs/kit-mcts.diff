@@ -69,7 +69,7 @@
                      current = root;
  
                      // Selection
-@@ -233,17 +239,25 @@
+@@ -233,17 +239,31 @@
                      if (!current.isTerminal()) {
                          // Expansion
                          current.expand();
@@ -82,10 +82,16 @@
                          // Simulation
                          current = current.select(this.playerId);
 -                        result = current.simulate(this.playerId);
-+                        result = current.isTerminal() ? current.kitTerminalResult(this.playerId) : current.simulate(this.playerId); // KIT
++                        if (current.isTerminal()) { // KIT: a terminal-node result is not a rollout (E4 accounting)
++                            KitContext.count("mcts:terminal_results");
++                            result = current.kitTerminalResult(this.playerId);
++                        } else {
++                            result = current.simulate(this.playerId);
++                        }
                          simCount++;
                      } else {
 -                        result = current.isWinner(this.playerId) ? 1 : -1;
++                        KitContext.count("mcts:terminal_results"); // KIT
 +                        result = current.kitTerminalResult(this.playerId); // KIT: truncated nodes take the truncation result
                      }
                      // Backpropagation
@@ -97,7 +103,7 @@
                  logger.info("Simulated " + simCount + " games - nodes in tree: " + root.size());
              }
  //            displayMemory();
-@@ -303,25 +317,19 @@
+@@ -303,25 +323,19 @@
              MCTSPlayer newPlayer = new MCTSPlayer(copyPlayer.getId());
              newPlayer.restore(origPlayer);
              newPlayer.setMatchPlayer(origPlayer.getMatchPlayer());
@@ -182,7 +188,7 @@
          return sim;
      }
  
-@@ -281,7 +299,45 @@
+@@ -281,7 +299,49 @@
      }
  
      public boolean isTerminal() {
@@ -214,6 +220,10 @@
 +
 +    public List<MCTSNode> kitChildren() {
 +        return new ArrayList<>(children);
++    }
++
++    public boolean kitIsRoot() {
++        return parent == null;
 +    }
 +
 +    public UUID kitTargetPlayer() {
@@ -257,7 +267,7 @@
              if (options.isEmpty()) {
                  if (!ability.getManaCosts().getVariableCosts().isEmpty()) {
                      simulateVariableCosts(ability, all, game);
-@@ -179,6 +188,26 @@
+@@ -179,6 +188,68 @@
          return false;
      }
  
@@ -276,9 +286,51 @@
 +
 +    @Override
 +    public boolean chooseTarget(mage.constants.Outcome outcome, mage.cards.Cards cards, mage.target.TargetCard target, Ability source, Game game) {
++        spellbench.kit.xmage.KitContext.dialog(); // KIT: dialog count (H3 non-stack detection)
 +        // a choice among library cards shows them to the chooser (scry, surveil, look at the top)
 +        spellbench.kit.xmage.KnowledgeWatcher.looked(game, playerId, cards, false);
 +        return super.chooseTarget(outcome, cards, target, source, game);
++    }
++
++    @Override
++    // KIT: every dialog is counted, so an action that leaves no stack object and asked one is detected at the root
++    @Override
++    public boolean chooseUse(mage.constants.Outcome outcome, String message, String secondMessage, String trueText,
++                             String falseText, Ability source, Game game) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
++    }
++
++    @Override
++    public boolean choose(mage.constants.Outcome outcome, mage.choices.Choice choice, Game game) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.choose(outcome, choice, game);
++    }
++
++    @Override
++    public boolean choose(mage.constants.Outcome outcome, mage.target.Target target, Ability source, Game game,
++                          java.util.Map<String, java.io.Serializable> options) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.choose(outcome, target, source, game, options);
++    }
++
++    @Override
++    public boolean choose(mage.constants.Outcome outcome, mage.cards.Cards cards, mage.target.TargetCard target,
++                          Ability source, Game game) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.choose(outcome, cards, target, source, game);
++    }
++
++    @Override
++    public boolean chooseTarget(mage.constants.Outcome outcome, mage.target.Target target, Ability source, Game game) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.chooseTarget(outcome, target, source, game);
++    }
++
++    @Override
++    public int getAmount(int min, int max, String message, Ability source, Game game) {
++        spellbench.kit.xmage.KitContext.dialog();
++        return super.getAmount(min, max, message, source, game);
 +    }
 +
      @Override
@@ -286,7 +338,7 @@
          game.pause();
 --- upstream/Mage.Player.AIMCTS/src/mage/player/ai/PriorityNextAction.java
 +++ kit/xmage/src/mage/player/ai/PriorityNextAction.java
-@@ -20,9 +20,41 @@
+@@ -20,9 +20,49 @@
          for (Ability ability: abilities) {
              Game sim = game.createSimulationForAI();
              MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
@@ -294,12 +346,20 @@
 -            sim.resume();
 -            children.add(new MCTSNode(node, sim, ability));
 +            int before = sim.getStack().size();
++            long dialogsBefore = spellbench.kit.xmage.KitContext.dialogs(); // KIT
 +            try { // KIT: option-generation and operation budgets in expansion (addendum change 2)
 +                simPlayer.activateAbility((ActivatedAbility)ability, sim);
 +            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
 +                spellbench.kit.xmage.KitContext.caught("mcts_expansion_activation");
 +                spellbench.kit.xmage.KitContext.count("mcts:options_capped");
 +                continue; // the child is dropped
++            }
++            // KIT: an action at the root that leaves no stack object and asked a dialog while it executed carries
++            // its choices in no executed copy: unsupported (review change 4), so it is never a root child
++            if (node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
++                    && sim.getStack().size() <= before && spellbench.kit.xmage.KitContext.dialogs() > dialogsBefore) {
++                spellbench.kit.xmage.KitContext.count("mcts:non_stack_dialog_excluded");
++                continue;
 +            }
 +            // KIT: payload witness (design 5.3 N1): read from the executed object before the game resumes
 +            java.util.Map<String, Object> payload = spellbench.kit.xmage.KitContext.witness(sim, before);

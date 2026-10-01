@@ -329,6 +329,10 @@ public class MCTSNode {
         return new ArrayList<>(children);
     }
 
+    public boolean kitIsRoot() {
+        return parent == null;
+    }
+
     public UUID kitTargetPlayer() {
         return targetPlayer;
     }

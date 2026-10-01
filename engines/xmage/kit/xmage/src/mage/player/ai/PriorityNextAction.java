@@ -22,12 +22,20 @@ public class PriorityNextAction implements MCTSNodeNextAction{
             Game sim = game.createSimulationForAI();
             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
             int before = sim.getStack().size();
+            long dialogsBefore = spellbench.kit.xmage.KitContext.dialogs(); // KIT
             try { // KIT: option-generation and operation budgets in expansion (addendum change 2)
                 simPlayer.activateAbility((ActivatedAbility)ability, sim);
             } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
                 spellbench.kit.xmage.KitContext.caught("mcts_expansion_activation");
                 spellbench.kit.xmage.KitContext.count("mcts:options_capped");
                 continue; // the child is dropped
+            }
+            // KIT: an action at the root that leaves no stack object and asked a dialog while it executed carries
+            // its choices in no executed copy: unsupported (review change 4), so it is never a root child
+            if (node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
+                    && sim.getStack().size() <= before && spellbench.kit.xmage.KitContext.dialogs() > dialogsBefore) {
+                spellbench.kit.xmage.KitContext.count("mcts:non_stack_dialog_excluded");
+                continue;
             }
             // KIT: payload witness (design 5.3 N1): read from the executed object before the game resumes
             java.util.Map<String, Object> payload = spellbench.kit.xmage.KitContext.witness(sim, before);

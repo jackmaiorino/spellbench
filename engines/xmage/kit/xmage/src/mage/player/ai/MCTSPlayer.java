@@ -204,9 +204,51 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
 
     @Override
     public boolean chooseTarget(mage.constants.Outcome outcome, mage.cards.Cards cards, mage.target.TargetCard target, Ability source, Game game) {
+        spellbench.kit.xmage.KitContext.dialog(); // KIT: dialog count (H3 non-stack detection)
         // a choice among library cards shows them to the chooser (scry, surveil, look at the top)
         spellbench.kit.xmage.KnowledgeWatcher.looked(game, playerId, cards, false);
         return super.chooseTarget(outcome, cards, target, source, game);
+    }
+
+    @Override
+    // KIT: every dialog is counted, so an action that leaves no stack object and asked one is detected at the root
+    @Override
+    public boolean chooseUse(mage.constants.Outcome outcome, String message, String secondMessage, String trueText,
+                             String falseText, Ability source, Game game) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+    }
+
+    @Override
+    public boolean choose(mage.constants.Outcome outcome, mage.choices.Choice choice, Game game) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.choose(outcome, choice, game);
+    }
+
+    @Override
+    public boolean choose(mage.constants.Outcome outcome, mage.target.Target target, Ability source, Game game,
+                          java.util.Map<String, java.io.Serializable> options) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.choose(outcome, target, source, game, options);
+    }
+
+    @Override
+    public boolean choose(mage.constants.Outcome outcome, mage.cards.Cards cards, mage.target.TargetCard target,
+                          Ability source, Game game) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.choose(outcome, cards, target, source, game);
+    }
+
+    @Override
+    public boolean chooseTarget(mage.constants.Outcome outcome, mage.target.Target target, Ability source, Game game) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.chooseTarget(outcome, target, source, game);
+    }
+
+    @Override
+    public int getAmount(int min, int max, String message, Ability source, Game game) {
+        spellbench.kit.xmage.KitContext.dialog();
+        return super.getAmount(min, max, message, source, game);
     }
 
     @Override
