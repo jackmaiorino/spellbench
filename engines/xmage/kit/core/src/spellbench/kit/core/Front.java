@@ -590,6 +590,13 @@ public final class Front {
             detail.put("search_ms", w0.get("search_ms"));
         }
         String tag = detail.containsKey("cap") ? "cap" : "bot";
+        // E4 outcome (evidence/E4-threshold.md clause 1, measured on the slice's game set): an approximate stack
+        // object of a kind above the horizon threshold is decided without search: the declining candidate, wrapper
+        if (dedupe(flags).contains("horizon:stack_object")) {
+            Answer a = fallback(d, null, "wrapper", "approximate_stack_without_search");
+            a.detail.putAll(detail);
+            return a;
+        }
         Integer c = agg.winner == null ? null : candidateOf.get(agg.winner);
         if (c == null) {
             detail.put("unmapped_winner", agg.winner);

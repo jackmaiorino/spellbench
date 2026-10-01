@@ -301,6 +301,13 @@ public final class Runner {
         ObsIndex index = new ObsIndex(obs);
         Game game = w.game;
         KitMad bot0 = decider[0];
+        if ("priority".equals(path) && w.flags.contains("horizon:stack_object") && !Json.bool(req, "search_flagged")) {
+            // E4 outcome: a flagged stack object's kind is decided without search (the front declines)
+            res.put("skipped", "approximate_stack_without_search");
+            res.put("search_ms", 0L);
+            res.put("counters", KitContext.counters());
+            return res;
+        }
         if (useMcts) {
             // H3: the branch-local knowledge starts from the world's pins (design 5.3 item 1)
             KnowledgeWatcher kw = KnowledgeWatcher.install(game, w.player(w.viewer));
