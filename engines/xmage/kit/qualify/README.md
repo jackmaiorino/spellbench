@@ -15,8 +15,6 @@ Per-game isolation: every kit seat is a fresh agent process per game (front and 
 directory with its own database copy, removed on exit); leftovers are recorded and then removed. Each kit seat
 writes its own log (`--log-dir`: `<game_id>-<seat>.jsonl`).
 
-Open choice for the coordinator: the clock profile. The default is the staged benchmark's (`fdn-mirror-v0`: 30 s
-per decision, 600 s bank, 2 s increment, 60 s game start, 180 s startup); `--clock kit` is the smoke profile
-(120 s, 3,600 s, 2 s, 300 s, 300 s) proposed for kit-mcts. kit-mad-k's slowest decisions in the smoke games were 70
-and 87 s, so under 30 s some of its searches end at the runner's safety deadline (tagged `cap`); qualification
-measures how often.
+Clock profile (coordinator decision, 2026-10-01): `kit`, for qualification, the soak and `fdn-mirror-v0` itself,
+every entry and builtin alike: 120 s per decision, 3,600 s bank, 2 s increment, 300 s startup and game start, 120 s
+engine step (the staged `benchmark.json` carries the same values).

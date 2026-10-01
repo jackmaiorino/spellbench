@@ -24,7 +24,7 @@ Launch guard (COMPUTE-POLICY.md; the third review's change 8 criteria):
 - ``replay`` is R-1: a fixed 20-game sample replayed serially, digests compared with the run's.
 - ``summarize`` applies the pass criteria and writes ``SOAK-SUMMARY.json``.
 
-    python kitrun.py plan --entry h1 --entry h2 --kit KIT --clock fdn-mirror-v0 --out plan.json
+    python kitrun.py plan --entry h1 --entry h2 --kit KIT --clock kit --out plan.json
     python kitrun.py qualify --plan plan.json --kit KIT --engine-build ENGINE --db DB --cap N --placement TEXT \\
         --p2-commit SHA --out DIR -- ENGINE_ARGV...
     python kitrun.py run --plan plan.json --kit KIT --engine-build ENGINE --db DB --qualification DIR/QUALIFICATION.json \\
@@ -64,15 +64,12 @@ BASH_EXE = "C:/Program Files/Git/bin/bash.exe" if os.name == "nt" else "bash"
 PER_GAME_CORES = 2  # the kit's runner JVM and the engine's share; P's builtin opponent is in-process
 BOUND_MS = 300_000
 
-# Clock profiles (frozen in the plan; the run and every opponent use the plan's profile).
-CLOCKS = {
-    # the staged fdn-mirror-v0 benchmark (E:/spellbench-archive/program-research/x5m/benchmark.json)
-    "fdn-mirror-v0": {"startup_ms": 180000, "game_start_ms": 60000, "bank_ms": 600000, "increment_ms": 2000,
-                      "max_decision_ms": 30000, "engine_step_ms": 120000},
-    # the kit smoke profile (tests/play.py), the provisional kit-mcts qualification profile of the third review
-    "kit": {"startup_ms": 300000, "game_start_ms": 300000, "bank_ms": 3600000, "increment_ms": 2000,
-            "max_decision_ms": 120000, "engine_step_ms": 300000},
-}
+# Clock profiles (frozen in the plan; the run and every opponent use the plan's profile). Coordinator decision
+# (2026-10-01): the soak, qualification and fdn-mirror-v0 itself use the kit profile, for every entry and builtin;
+# the staged benchmark.json carries the same values.
+KIT_CLOCK = {"startup_ms": 300000, "game_start_ms": 300000, "bank_ms": 3600000, "increment_ms": 2000,
+             "max_decision_ms": 120000, "engine_step_ms": 120000}
+CLOCKS = {"kit": KIT_CLOCK, "fdn-mirror-v0": KIT_CLOCK}
 # Pairs per workload (multiples of 16: every deck the same share).
 PAIRS = {"heuristic": 256, "uniform": 256, "cross": 64}
 ENTRY_DESCRIPTIONS = {
@@ -606,7 +603,7 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("plan")
     p.add_argument("--entry", action="append", required=True, choices=("h1", "h2", "h3"))
     p.add_argument("--kit", required=True)
-    p.add_argument("--clock", choices=sorted(CLOCKS), default="fdn-mirror-v0")
+    p.add_argument("--clock", choices=sorted(CLOCKS), default="kit")
     p.add_argument("--allow-mcts", action="store_true")
     p.add_argument("--out", required=True)
     for name in ("qualify", "run", "replay"):

@@ -12,7 +12,7 @@
 #   CAP      qualify: the top rung's workers       PLACEMENT  qualify: 'main-pc=...: why; haleyspc=...: why; runpod=...: why'
 #   FRACTION, PART  run: this machine's share of the order (one machine: 1.0, A)
 #   ENTRIES  plan: entries, default "h1 h2" (kit-mcts waits for its own qualification)
-#   CLOCK    plan: fdn-mirror-v0 (default; the benchmark's profile) or kit
+#   CLOCK    plan: kit (default; the profile fdn-mirror-v0 freezes for every entry and builtin)
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
 STEP=${1:?step}
@@ -32,7 +32,7 @@ mkdir -p "$OUT/engines"
 case "$STEP" in
   plan)
     args=(); for e in ${ENTRIES:-h1 h2}; do args+=(--entry "$e"); done
-    python "$HERE/kitrun.py" plan "${args[@]}" --kit "$(native "$KIT")" --clock "${CLOCK:-fdn-mirror-v0}" --out "$(native "$PLAN")" ;;
+    python "$HERE/kitrun.py" plan "${args[@]}" --kit "$(native "$KIT")" --clock "${CLOCK:-kit}" --out "$(native "$PLAN")" ;;
   qualify)
     python "$HERE/kitrun.py" qualify "${COMMON[@]}" --cap "${CAP:?}" --placement "${PLACEMENT:?}" -- "${ENGINE_ARGV[@]}" ;;
   run)
