@@ -1005,24 +1005,21 @@ def test_a_benchmark_whose_runs_are_all_unrated_has_no_page(copy_tree: Path, tmp
         build_site(copy_tree, tmp_path / "site-2")
 
 
-def test_a_run_revealed_after_an_abort_is_warned_about_by_its_file_name(copy_tree: Path, tmp_path: Path) -> None:
-    # Task 41 validates REVEAL.json; until then the name alone says what the directory is, whatever it holds.
+def test_malformed_and_orphan_reveals_refuse_the_site_before_writing(copy_tree: Path, tmp_path: Path) -> None:
     runs = copy_tree / "alpha" / "runs"
     for name, files in (("2026-09-27", ("COMMITMENT.json",)), ("2026-09-28", ("COMMITMENT.json", "REVEAL.json")),
                         ("2026-09-29", ("REVEAL.json",))):
         (runs / name).mkdir()
         for file in files:
             (runs / name / file).write_bytes(b"not read before Task 41\n")
-    warnings = build_site(copy_tree, tmp_path / "site")
-    assert "alpha: runs/2026-09-27 has no manifest.json (an unfinished run); showing runs/2026-09-26" in warnings
+    out = tmp_path / "site"
+    with pytest.raises(SiteError) as failure:
+        build_site(copy_tree, out)
     for name in ("2026-09-28", "2026-09-29"):
-        assert (
-            f"alpha: runs/{name} was revealed after an abort (REVEAL.json, no manifest.json); showing runs/2026-09-26"
-            in warnings
-        )
-    assert len(warnings) == 3
-    page = (tmp_path / "site/b/alpha/index.html").read_text(encoding="utf-8")
-    assert "Run 2026-09-26" in page and '<p class="note newer-runs">' not in page
+        assert f"alpha runs/{name}" in str(failure.value)
+    assert "missing file: COMMITMENT.json" in str(failure.value)
+    assert "not strict JSON" in str(failure.value)
+    assert not out.exists()
 
 
 # ---------------- a protocol v2 board run ----------------
