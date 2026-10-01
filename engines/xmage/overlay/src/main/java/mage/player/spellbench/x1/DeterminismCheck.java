@@ -109,8 +109,8 @@ public final class DeterminismCheck {
         boolean patched = RouterBridge.available();
         if (patched) {
             RouterBridge.installBoot();
-            int n = warmSingletons();
-            System.err.println("x1: boot router installed, " + n + " singleton classes initialized");
+            int[] n = warmFramework();
+            System.err.println("x1: boot router installed; framework classes initialized " + n[0] + ", failed " + n[1]);
         }
         long t0 = System.nanoTime();
         CardScanner.scan();
@@ -362,10 +362,12 @@ public final class DeterminismCheck {
     }
 
     /**
-     * Initializes every concrete {@link MageSingleton} in the framework jar under the boot router, so the ids
-     * their static instances mint never come from (and never shift) a game's id stream.
+     * Initializes every class of the XMage framework jar, in name order, under the boot router. Static
+     * initializers that mint ids (MageSingleton abilities, StackAbility's empty costs, ...) then draw from the
+     * fixed boot stream once per process, never from a game's stream: otherwise the first game in a JVM would
+     * draw ids that a rerun does not, and every later id would shift.
      */
-    private static int warmSingletons() throws IOException {
+    private static int[] warmFramework() throws IOException {
         URL location = MageSingleton.class.getProtectionDomain().getCodeSource().getLocation();
         File file;
         try {
@@ -392,21 +394,18 @@ public final class DeterminismCheck {
         }
         Collections.sort(names);
         ClassLoader loader = DeterminismCheck.class.getClassLoader();
-        int count = 0;
+        int ok = 0;
+        int failed = 0;
         for (String name : names) {
             String cls = name.substring(0, name.length() - 6).replace('/', '.');
             try {
-                Class<?> c = Class.forName(cls, false, loader);
-                if (MageSingleton.class.isAssignableFrom(c) && !c.isInterface()
-                        && !java.lang.reflect.Modifier.isAbstract(c.getModifiers())) {
-                    Class.forName(cls, true, loader);
-                    count++;
-                }
+                Class.forName(cls, true, loader);
+                ok++;
             } catch (Throwable t) {
-                // classes that cannot load outside a game are not singletons we need
+                failed++; // a class whose initializer needs a running game; reported, not fatal
             }
         }
-        return count;
+        return new int[]{ok, failed};
     }
 
     static String hex(byte[] b) {

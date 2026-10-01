@@ -26,7 +26,10 @@ public final class GameRandom implements RandomUtil.Source {
 
     private static final byte[] BOOT_SECRET = Secrets.sha256("spellbench/xmage/boot-ids".getBytes(StandardCharsets.US_ASCII));
 
+    private static final boolean TRACE_CLINIT = Boolean.getBoolean("spellbench.trace.clinit");
+
     private final byte[] gameSecret;
+    private final boolean boot;
     private final Map<UUID, String> seats = new HashMap<>();
     private final Map<String, HmacStream> streams = new HashMap<>();
     private long untaggedDraws;
@@ -44,8 +47,9 @@ public final class GameRandom implements RandomUtil.Source {
         }
     };
 
-    private GameRandom(byte[] gameSecret) {
+    private GameRandom(byte[] gameSecret, boolean boot) {
         this.gameSecret = gameSecret.clone();
+        this.boot = boot;
     }
 
     /**
@@ -55,7 +59,7 @@ public final class GameRandom implements RandomUtil.Source {
         if (gameSecret.length != 32) {
             throw new IllegalArgumentException("game_secret must be 32 bytes");
         }
-        GameRandom router = new GameRandom(gameSecret);
+        GameRandom router = new GameRandom(gameSecret, false);
         RandomUtil.setSource(router);
         return router;
     }
@@ -65,7 +69,7 @@ public final class GameRandom implements RandomUtil.Source {
      * the same in every process.
      */
     public static GameRandom installBoot() {
-        GameRandom router = new GameRandom(BOOT_SECRET);
+        GameRandom router = new GameRandom(BOOT_SECRET, true);
         RandomUtil.setSource(router);
         return router;
     }
@@ -92,6 +96,9 @@ public final class GameRandom implements RandomUtil.Source {
 
     @Override
     public synchronized UUID newId() {
+        if (TRACE_CLINIT && !boot) {
+            traceClassInit();
+        }
         byte[] b = new byte[16];
         stream("shared", "object_id").nextBytes(b);
         b[6] = (byte) ((b[6] & 0x0f) | 0x40); // version 4 layout, as UUID.randomUUID()
@@ -115,6 +122,19 @@ public final class GameRandom implements RandomUtil.Source {
         }
         out.put("shared:untagged:*", untaggedDraws);
         return out;
+    }
+
+    /**
+     * Diagnostic (-Dspellbench.trace.clinit=true): reports an id drawn from a game's stream inside a static
+     * initializer. Such a draw happens only in the first game of a JVM and shifts every later id.
+     */
+    private void traceClassInit() {
+        for (StackTraceElement e : new Throwable().getStackTrace()) {
+            if ("<clinit>".equals(e.getMethodName())) {
+                System.err.println("spellbench.trace.clinit: id drawn during static init of " + e.getClassName());
+                return;
+            }
+        }
     }
 
     private HmacStream stream(String scope, String purpose) {
