@@ -151,6 +151,19 @@ def test_content_type_must_be_stream(endpoint):
         provider(endpoint).complete(render_prompt(decision()), timeout_s=2)
 
 
+def test_plain_text_sse_requires_an_authoritative_completed_event(endpoint):
+    endpoint.content_type = "text/plain"
+    assert provider(endpoint).complete(render_prompt(decision()), timeout_s=2).model == "snapshot-test"
+
+
+@pytest.mark.parametrize("body", [b"ordinary text", b'{"candidate_id":1}',
+                                   sse({"type": "response.output_text.delta", "delta": '{"candidate_id":1}'})])
+def test_plain_text_without_completed_sse_is_rejected(endpoint, body):
+    endpoint.content_type, endpoint.body = "text/plain", body
+    with pytest.raises(ProviderError, match="interrupted_stream"):
+        provider(endpoint).complete(render_prompt(decision()), timeout_s=2)
+
+
 def test_expiring_credentials_are_rejected_before_any_request(endpoint):
     with pytest.raises(ProviderError, match="credentials_expired"):
         provider(endpoint, expires_at=time.time() + 30).complete(render_prompt(decision()), timeout_s=2)

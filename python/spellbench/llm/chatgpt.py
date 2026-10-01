@@ -143,7 +143,10 @@ class ChatGptProvider:
                                           "Authorization": "Bearer " + self.config.access_token})
         try:
             with self._opener.open(request, timeout=timeout_s) as response:
-                if response.headers.get_content_type() != "text/event-stream":
+                # The plan gateway has also returned text/plain responses.
+                # Its content must still pass the same completed-event parser;
+                # ordinary text, JSON, deltas and interrupted streams fail.
+                if response.headers.get_content_type() not in {"text/event-stream", "text/plain"}:
                     raise ProviderError("invalid_stream_content_type")
                 return read_completion(response)
         except urllib.error.HTTPError as exc:
