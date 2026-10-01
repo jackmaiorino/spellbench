@@ -260,7 +260,8 @@ class BrokerPeer:
         self.session.peer.close()
 
 
-def serve_broker(session: BrokerSession, *, stdin: Any = None, stdout: Any = None) -> int:
+def serve_broker(session: BrokerSession, *, stdin: Any = None, stdout: Any = None,
+                 before_game_start: Callable[[], None] | None = None) -> int:
     incoming = sys.stdin.buffer if stdin is None else stdin
     outgoing = sys.stdout.buffer if stdout is None else stdout
     try:
@@ -268,7 +269,11 @@ def serve_broker(session: BrokerSession, *, stdin: Any = None, stdout: Any = Non
             line = wire.read_line(incoming)
             if line is None:
                 return 0
-            response = session.exchange(wire.strict_json_loads(line))
+            request = wire.strict_json_loads(line)
+            if (before_game_start is not None and request.get("protocol") == "spellbench/v2"
+                    and request.get("request_type") == "game_start"):
+                before_game_start()
+            response = session.exchange(request)
             outgoing.write(wire.canonical_json_line(response))
             outgoing.flush()
             if session._failed:

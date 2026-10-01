@@ -22,6 +22,7 @@ from spellbench.llm.agent import AgentConfig
 from spellbench.llm.broker import BrokerLimits, BrokerPeer, BrokerSession, serve_broker
 from spellbench.llm.docker_peer import DockerPeer
 from spellbench.llm.provider import ChatCompletionsProvider, ProviderConfig
+from spellbench.llm.run_budget import RunBudget
 
 from test_host_game import Seat, real_engine, setup
 from test_llm_http import endpoint  # actual loopback HTTP fixture
@@ -46,6 +47,24 @@ def removed(name: str, timeout: float = 12) -> None:
             return
         time.sleep(0.2)
     pytest.fail("the owned container survived teardown")
+
+
+def test_hosted_arena_entry_hello_needs_no_credentials_or_inference(image, tmp_path):
+    budget_path = tmp_path / "run.sqlite3"
+    RunBudget.create(budget_path, model="test-model", requests=2, tokens=10000, wall_seconds=60)
+    logs = tmp_path / "logs"
+    command = [sys.executable, "-m", "spellbench.llm.hosted", "--model", "test-model", "--image", image,
+               "--run-budget", str(budget_path), "--log-dir", str(logs),
+               "--credentials", str(tmp_path / "does-not-exist.credentials"), "--renew-profile-before-game",
+               "--max-run-requests", "2", "--max-run-tokens", "10000", "--max-run-wall-seconds", "60"]
+    agent = AgentProcess(command, startup_timeout_s=30)
+    try:
+        assert agent.hello().bot.name == "llm-test-model"
+    finally:
+        agent.close()
+    metadata = json.loads(next(logs.glob("broker-*.jsonl")).read_text().splitlines()[0])
+    removed(metadata["provider"]["container_name"], timeout=40)
+    assert RunBudget(budget_path, model="test-model").summary()["requests"] == 0
 
 
 def test_real_child_cannot_reach_host_network_credentials_files_or_controller(image, tmp_path, monkeypatch):
