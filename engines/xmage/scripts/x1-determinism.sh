@@ -30,6 +30,8 @@ PYTHON=python3
 
 S=7648831b4ae4148770e13149d5ebbe1c4991168413d4b38e49292cfc5538980e
 S2=952ea875cce08bf7706f87a89ae6a4e318a1bc4b46d6b506f8bb8505c518238e
+# soak: game_secret(2..5) of the same run secret
+SOAK="61d80bc8e83cfbadfcebe7d7333a58adca5855e91a958b50bfb2d0fac8de6736 c887c54935e811a529c7646e4be95be54e3f8ec3acda935d26122ca533657de5 cca9db8b8f0f6f6a9ba99e520702c052eb50fcdf43bb200643787b73d47561b1 17d93aca04922227c07d61db5c203acdc90a889c751f4b8d95d991e2980b5e52"
 DECK0=$(native "$HERE/tests/x1/decks/Standard16-RG.dck")
 DECK1=$(native "$HERE/tests/x1/decks/Standard16-UB.dck")
 MAIN=mage.player.spellbench.x1.DeterminismCheck
@@ -77,6 +79,13 @@ run "$BUILD" patched-fresh1 "replay:$S:$(native "$A/patched-S.txt")" &
 run "$BUILD" patched-fresh2 "replay:$S:$(native "$A/patched-S.txt")" &
 wait
 
+echo "== patched soak: four more games recorded in one JVM, replayed in reverse order in another"
+REC=()
+REP=()
+for x in $SOAK; do REC+=("record:$x:$(native "$A/patched-$x.txt")"); REP=("replay:$x:$(native "$A/patched-$x.txt")" "${REP[@]}"); done
+run "$BUILD" soak-record "${REC[@]}"
+run "$BUILD" soak-replay "${REP[@]}"
+
 echo "== stock (negative control): record S with CABT's seeding, then the same reruns"
 run "$STOCK" stock-record "record:$S:$(native "$A/stock-S.txt")"
 run "$STOCK" stock-jvm "replay:$S:$(native "$A/stock-S.txt")" "record:$S2:$(native "$A/stock-S2.txt")" \
@@ -102,6 +111,14 @@ for build, expect in (("patched", True), ("stock", False)):
     print("%s: %d runs of S; digests %s; content digests %s" % (build, len(s), "IDENTICAL" if same else "DIFFER",
           "IDENTICAL" if same_content else "DIFFER"))
     verdict &= (same == expect)
+soak = {}
+for r in rows:
+    if r["run"].startswith("soak"):
+        soak.setdefault(r["secret"], []).append(r)
+for sec, rs in sorted(soak.items()):
+    same = len(rs) == 2 and len({r["digest"] for r in rs}) == 1
+    print("soak %s: %s" % (sec, "IDENTICAL" if same else "DIFFER"))
+    verdict &= same
 print("X1 verdict:", "PASS" if verdict else "FAIL")
 sys.exit(0 if verdict else 1)
 EOF
