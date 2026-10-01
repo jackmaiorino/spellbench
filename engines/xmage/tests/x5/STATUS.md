@@ -1,5 +1,15 @@
 # X5 status (for the coordinator)
 
+## 17:35 EDT: final run on HaleysPC in progress
+
+- Reserve re-checked before start: C: 69.5 GiB free (guard's facts: 73.8 GB at qualification, 71.5 GB during the
+  run with 6 engine copies). Build `d74803d5` (commit `71e32fc`), byte-identical to the verified ability-order
+  build. All 32 decks `deck_ok`.
+- P's guard on HaleysPC (ladder 1, 6, 12; 24 games per rung): busy-time rates 17.9, 49.0 and 46.8 games/min,
+  outputs identical; verdict `substantial`, 6 workers. Running at 63 games/min, CPU 61 to 67 percent (16 logical
+  on 8 cores), 0 violations and 0 halts in the first 350 games. ETA for the 10,112 games about 20:05 EDT, then the
+  1,011-game hash recheck (about 16 min), so about 20:25.
+
 ## 13:00 EDT: ability-order fix verified on HaleysPC
 
 - Implemented as decided (overlay, commit `4125a61`). A single ordering, `SeatPlayer.orderedAbilities`, now feeds
