@@ -92,6 +92,10 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 14:30: X5 determinism fixed and verified on HaleysPC.
+  - All `ability_index` values now come from one ordering: own abilities in XMage's order, then granted abilities by rule text. This covers Agatha's Soul Cauldron and six more cards that grant abilities from a hash set.
+  - 98/98 games are digest-identical under both identity-hash modes, including all 47 Standard16-UG games.
+  - Some main-run digests changed, so the full 10,112-game run is repeated on the final build. Queued for Jack's PC tonight, with the kit qualification and soak and `fdn-mirror-v0`.
 - 2026-10-01 13:30: kit build-out done (branch `xmage-agent-kit` f14bb44).
   - Frozen entries: `kit-mad-1` 0.2.0+71444ecbf4b3, `kit-mad-k` 0.2.0+b0baca643a2a, `kit-mcts` 0.2.0+b1166f62616a (rollout cap 1000).
   - Real bug found and fixed: the rebuilt world made the active player XMage's current player, so MAD searched the opponent's options on the opponent's turn.
