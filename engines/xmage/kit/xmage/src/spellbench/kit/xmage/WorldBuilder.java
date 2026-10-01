@@ -895,6 +895,10 @@ public final class WorldBuilder {
             prio = world.viewer;
         }
         game.getState().setPriorityPlayerId(world.player(prio == null ? active : prio));
+        // the player list's current player is the one holding priority, as in XMage's own priority loop: MAD's
+        // search takes its root player from it (simulatePriority), so on the other seat's turn it must be the viewer
+        // (A1 result review change 5: all nine unmapped choices were the active opponent's options)
+        game.getState().getPlayerList().setCurrent(game.getState().getPriorityPlayerId());
         List<Object> passed = Json.arr(obs, "passed_seats");
         for (String seat : SEATS) {
             boolean p = passed.contains(seat) && !(spec.mode == Mode.PRIORITY && seat.equals(world.viewer));
