@@ -92,6 +92,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01: A0 review (GPT-6.1 Sol, xhigh): BLOCK with 12 required changes (MCTS rollouts re-deal hidden cards; whole-resolution replay repeats effects; MAD is not deterministic; plan identities break across zone changes; percentage rebuild bars hide rare decisive errors). Revision 2 in progress; A1 waits for approval. Log: `E:/spellbench-archive/program-research/reviews/REVIEWS.md`.
 - 2026-10-01: R0 outreach drafts written for Jack (`E:/spellbench-archive/program-research/x-outreach-drafts.md`).
 - 2026-09-30: issues #13 to #36 opened; branch pushed, PR into `board-program`.
 - 2026-09-30: X0 and X1 done (README evidence). Tracker created. Critical path to M2: X2, X3, X4, X5, X5m, plus A0 to A2 in parallel once X3 fixes the observation shape.
