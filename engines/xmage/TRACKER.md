@@ -82,11 +82,11 @@ Status values: `done`, `ready` (no open dependency), `blocked` (names its blocke
 | P-v2.1 | P | deltas S1 to S10 of the design draft (rotating pairs, hidden lists, fixed-deck section 15, legality lists, time-control profiles, D6a to D6c rulings, Annex C corrections) | not started; request to be filed with P |
 | D-sandbox | D (join kit) | network-less Docker runner for JVM, GPU and pickle agents; stdio relay | not started |
 
-## Decisions for Jack
+## Decisions (Jack, 2026-09-30: "I'll take your recs for those")
 
-- **Q1.** Push the `xmage-x0-x1` branch? It lives in a local clone (`D:/spellbench-x/spellbench`), because the spellbench repository is public and git_sync pushes every branch hourly. Merging means fetching it into the main repository, which makes it public on the next sync.
-- **Q2.** Heuristic bots through the agent kit (fair by construction, shared with MageZero and DraftZero), or also as quick engine-side "house pilots" reading the real game? Recommendation: the kit only. Engine-side pilots read hidden state, which v2's contract forbids.
-- **Q3.** Mirror this tracker to GitHub issues on the public repository? Recommendation: after Q1, and without the RL authors' names until R0's outreach has gone out.
+- **Q1, push: yes.** The branch moves into the main spellbench repository (public; backed up by git_sync) and gets a PR into `board-program`. Work continues in a worktree of the main repository; the local clone `D:/spellbench-x/spellbench` is retired.
+- **Q2, heuristic bots: agent kit only.** No engine-side "house pilots" that read the real game.
+- **Q3, GitHub issues: yes, mirrored.** Issues for tracks X, A and H. The RL track gets one generic issue that names no RL project until R0's outreach has gone out. This file stays the detailed source; issues link here.
 
 ## Log
 
