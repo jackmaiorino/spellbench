@@ -92,9 +92,11 @@ def _completion(response: dict[str, Any]) -> Completion:
 
 
 def read_completion(stream: Any) -> Completion:
-    """Consume SSE until its authoritative completed event, never use a delta."""
+    """Use finalized items only after their response's completed event."""
     total = 0
     data: list[bytes] = []
+    response_id: str | None = None
+    finalized: dict[int, dict[str, Any]] = {}
     while True:
         line = stream.readline(MAX_RESPONSE_BYTES - total + 1)
         total += len(line)
@@ -111,11 +113,37 @@ def read_completion(stream: Any) -> Completion:
             try:
                 event = json.loads(raw, object_pairs_hook=_unique)
                 kind = event["type"]
+                if kind == "response.created":
+                    current_id = event["response"]["id"]
+                    if response_id is not None or not isinstance(current_id, str) or not current_id:
+                        raise ProviderError("invalid_stream_identity")
+                    response_id = current_id
+                if kind == "response.output_item.done":
+                    index, item = event["output_index"], event["item"]
+                    if (type(index) is not int or not 0 <= index < 128 or index in finalized
+                            or not isinstance(item, dict) or response_id is None):
+                        raise ProviderError("invalid_finalized_item")
+                    finalized[index] = item
                 if kind == "response.completed":
-                    return _completion(event["response"])
+                    response = event["response"]
+                    if response_id is not None and response["id"] != response_id:
+                        raise ProviderError("stream_identity_mismatch")
+                    # Some plan responses leave output empty in the terminal
+                    # envelope. Reconstruct from finalized item snapshots, not
+                    # text deltas, and only after the matching completed event.
+                    if response.get("output") == [] and finalized:
+                        if response_id is None or sorted(finalized) != list(range(len(finalized))):
+                            raise ProviderError("incomplete_finalized_items")
+                        response = {**response, "output": [finalized[index] for index in sorted(finalized)]}
+                    elif finalized:
+                        output = response.get("output")
+                        if (not isinstance(output, list) or any(index >= len(output) or output[index] != item
+                                                               for index, item in finalized.items())):
+                            raise ProviderError("finalized_item_mismatch")
+                    return _completion(response)
                 if kind in {"response.failed", "response.incomplete", "error"}:
                     raise ProviderError("inference_failed" if kind != "response.incomplete" else "incomplete_response")
-            except (KeyError, ValueError, TypeError):
+            except (KeyError, ValueError, TypeError, AttributeError):
                 raise ProviderError("invalid_stream_event") from None
 
 

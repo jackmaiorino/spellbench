@@ -51,6 +51,36 @@ def test_completed_event_is_authoritative_and_deltas_never_select_a_choice():
     assert result.content == '{"candidate_id":1}' and result.completion_tokens == 10
 
 
+def finalized_stream(*, terminal=True, response_id="response-test", index=0):
+    events = [{"type": "response.created", "response": {"id": "response-test"}},
+              {"type": "response.output_text.delta", "delta": '{"candidate_id":999}'},
+              {"type": "response.output_item.done", "output_index": index, "item": completed()["output"][1]}]
+    if terminal:
+        events.append({"type": "response.completed", "response": completed(id=response_id, output=[])})
+    return events
+
+
+def test_empty_terminal_output_uses_finalized_message_only_after_matching_completion():
+    result = read_completion(io.BytesIO(sse(*finalized_stream())))
+    assert result.content == '{"candidate_id":1}' and result.model == "snapshot-test"
+    assert result.prompt_tokens == 50 and result.completion_tokens == 10
+
+
+@pytest.mark.parametrize("events,code", [
+    (finalized_stream(terminal=False), "interrupted_stream"),
+    (finalized_stream(response_id="different"), "stream_identity_mismatch"),
+    (finalized_stream(index=1), "incomplete_finalized_items"),
+    (finalized_stream(index=True), "invalid_finalized_item"),
+    (finalized_stream()[1:], "invalid_finalized_item"),
+    (finalized_stream()[:3] + finalized_stream()[2:], "invalid_finalized_item"),
+    (finalized_stream()[:3] + [{"type": "response.failed"}], "inference_failed"),
+    (finalized_stream()[:3] + [{"type": "response.completed", "response": completed(output=[{"type": "function_call"}])}], "finalized_item_mismatch"),
+])
+def test_finalized_items_cannot_bypass_failure_identity_or_output_integrity(events, code):
+    with pytest.raises(ProviderError, match=code):
+        read_completion(io.BytesIO(sse(*events)))
+
+
 @pytest.mark.parametrize("stream,code", [
     (sse({"type": "response.output_text.delta", "delta": '{"candidate_id":1}'}), "interrupted_stream"),
     (sse({"type": "response.output_text.delta", "delta": '{"candidate_id":1}'},
