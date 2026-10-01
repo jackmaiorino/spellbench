@@ -13,5 +13,8 @@ This directory carries third-party code and data under their own MIT licenses:
 - tests/x1/decks/Standard16-RG.dck and Standard16-UB.dck come from MageZero's XMage fork
   (https://github.com/WillWroble/mage, commit cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f, Mage.Tests/decks/),
   MIT License (XMage's LICENSE.txt in that fork; MageZero itself is MIT, Copyright (c) 2025 Will Wroble).
+  tests/x3/decks/BGRoots.dck and Standard-MonoG.dck come from the same fork, commit and directory, under the
+  same license; X3 uses them for their face-down cards (disguise, face-down exile).
+  tests/x3/decks/X3-FaceDown-UG.dck is Spellbench's own test list (foretell, disguise, manifest dread, cloak).
 
 Card names and rules text are the property of Wizards of the Coast.

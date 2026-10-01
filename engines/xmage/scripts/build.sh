@@ -89,7 +89,7 @@ RES="$MOD/src/main/resources/mage/player/spellbench"
 mkdir -p "$OVL" "$RES"
 cp -R "$HERE/overlay/src/main/java/mage/player/spellbench/." "$OVL/"
 cp -R "$HERE/overlay/src/main/resources/mage/player/spellbench/." "$RES/"
-[ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server"
+[ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server" "$OVL/x3"
 printf 'rules_snapshot_id=%s\ncard_pool_identity=%s\n' "$RULES_ID" "$POOL_ID" > "$RES/engine-identity.properties"
 
 # 6. compile and package (no install: stock and patched builds never share Maven coordinates)

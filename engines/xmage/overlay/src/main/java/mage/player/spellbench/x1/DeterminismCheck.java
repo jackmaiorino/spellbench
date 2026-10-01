@@ -311,7 +311,7 @@ public final class DeterminismCheck {
     /**
      * XMage .dck: "N [SET:NUM] Name" or "N Name"; sideboard ("SB:") and metadata lines are ignored (BO1).
      */
-    static List<CabtDeckFactory.Entry> readDeck(Path path) throws IOException {
+    public static List<CabtDeckFactory.Entry> readDeck(Path path) throws IOException {
         List<CabtDeckFactory.Entry> entries = new ArrayList<>();
         for (String raw : Files.readAllLines(path, StandardCharsets.UTF_8)) {
             String line = raw.trim();
