@@ -195,4 +195,81 @@ public final class Mapping {
     public static boolean isActivated(Ability a) {
         return a instanceof ActivatedAbility;
     }
+
+    /**
+     * Why {@code a} has no offered v2 form on this world (A1 result review, change 5), or null when its semantic
+     * maps: {@code no_source}, {@code source_unbound} (the source has no v2 id in this world: an object the world
+     * created, or one the observation does not show), {@code source_not_in_observation}, {@code ability_type:T} (a
+     * kind the priority candidates never carry), {@code ability_index_unresolved} (the engine's index function does not
+     * list the ability on its object).
+     */
+    public static String failure(World w, Game game, Ability a, ObsIndex obs) {
+        if (a == null || a instanceof PassAbility) {
+            return null;
+        }
+        UUID src = a.getSourceId();
+        if (src == null) {
+            return "no_source";
+        }
+        String oid = w.uuidToId.get(src);
+        if (oid == null) {
+            return "source_unbound";
+        }
+        if (obs.ref(oid) == null) {
+            return "source_not_in_observation";
+        }
+        switch (a.getAbilityType()) {
+            case PLAY_LAND:
+            case SPELL:
+            case SPECIAL_ACTION:
+                return null;
+            case ACTIVATED_NONMANA:
+                return KitBridge.abilityIndex(game, a) < 0 ? "ability_index_unresolved" : null;
+            default:
+                return "ability_type:" + a.getAbilityType();
+        }
+    }
+
+    /** What an action is, for the mapping diagnostics: class, type, source, zone, rule text. */
+    public static Map<String, Object> describe(World w, Game game, Ability a) {
+        if (a == null) {
+            return null;
+        }
+        UUID src = a.getSourceId();
+        mage.MageObject so = src == null ? null : game.getObject(src);
+        String rule;
+        try {
+            rule = a.getRule();
+        } catch (RuntimeException e) {
+            rule = "rule unavailable: " + e.getClass().getSimpleName();
+        }
+        if (rule != null && rule.length() > 240) {
+            rule = rule.substring(0, 240);
+        }
+        long index;
+        try {
+            index = a.getAbilityType() == mage.constants.AbilityType.ACTIVATED_NONMANA ? KitBridge.abilityIndex(game, a) : -2;
+        } catch (RuntimeException e) {
+            index = -3;
+        }
+        return Json.map("class", a.getClass().getName(), "type", String.valueOf(a.getAbilityType()),
+                "source_name", so == null ? null : so.getName(), "source_object_id", src == null ? null : w.uuidToId.get(src),
+                "source_zone", src == null ? null : String.valueOf(game.getState().getZone(src)),
+                "ability_index", index, "rule", rule);
+    }
+
+    /** The world's playable non-mana action whose v2 semantic is {@code semantic} (the mapping, inverted). */
+    public static ActivatedAbility findPlayable(World w, mage.players.Player p, Map<String, Object> semantic, ObsIndex idx) {
+        String want = Json.canonical(semantic);
+        for (ActivatedAbility a : p.getPlayable(w.game, true)) {
+            if (a.getAbilityType() == mage.constants.AbilityType.ACTIVATED_MANA) {
+                continue;
+            }
+            Map<String, Object> s = prioritySemantic(w, w.game, a, idx);
+            if (s != null && want.equals(Json.canonical(s))) {
+                return a;
+            }
+        }
+        return null;
+    }
 }

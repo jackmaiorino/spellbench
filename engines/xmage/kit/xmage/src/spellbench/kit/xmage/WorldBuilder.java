@@ -209,6 +209,9 @@ public final class WorldBuilder {
         for (String seat : SEATS) {
             attach(seat);
         }
+        for (String seat : SEATS) {
+            command(seat);
+        }
         ownHistory();
 
         // ---- 3. players' public state and the turn position
@@ -235,6 +238,7 @@ public final class WorldBuilder {
         }
         if (!Json.arr(obs, "pending_triggers").isEmpty()) {
             flag("approximate:pending_triggers_dropped");
+            flag("horizon:pending_triggers"); // the register (review change 3): such a world is not searched
         }
         game.getState().clearTriggeredAbilities();
         ((List<?>) Reflect.get(GameState.class, game.getState(), "simultaneousEvents")).clear();
@@ -330,9 +334,6 @@ public final class WorldBuilder {
             if ("spell".equals(Json.str(e, "stack_kind"))) {
                 records.add(e);
             }
-        }
-        if (!Json.arr(pm, "command").isEmpty()) {
-            flag("unsupported:command_zone:" + seat);
         }
         for (Map<String, Object> rec : records) {
             if (!seat.equals(Json.str(rec, "owner_seat")) || Json.bool(rec, "token")) {
@@ -569,10 +570,8 @@ public final class WorldBuilder {
 
     private static final Map<String, List<Token>> TOKEN_CACHE = new HashMap<>();
 
-    private Token resolveToken(String name, Map<String, Object> ch) {
-        if (name == null) {
-            return null;
-        }
+    /** The token repository's classes whose instance has this name (no-argument constructors), cached per name. */
+    static List<Token> tokenCandidates(String name) {
         List<Token> candidates;
         synchronized (TOKEN_CACHE) {
             candidates = TOKEN_CACHE.get(name);
@@ -604,6 +603,14 @@ public final class WorldBuilder {
                 TOKEN_CACHE.put(name, candidates);
             }
         }
+        return candidates;
+    }
+
+    private Token resolveToken(String name, Map<String, Object> ch) {
+        if (name == null) {
+            return null;
+        }
+        List<Token> candidates = tokenCandidates(name);
         for (Token t : candidates) {
             if (ch == null) {
                 return t.copy();
@@ -1031,7 +1038,19 @@ public final class WorldBuilder {
                 }
                 world.bind(id, spell.getId());
                 world.alias(c.getId(), id);
-                choices(spell.getSpellAbility(), e);
+                boolean incomplete = choices(spell.getSpellAbility(), e);
+                String why = null;
+                if (incomplete) {
+                    why = "approximate:stack_targets_incomplete";
+                } else if (Register.optionalCosts(Json.str(e, "card_name"))) {
+                    // kicker, flashback, gift...: whether they were paid is not observed (register row)
+                    why = "approximate:optional_cost_state";
+                }
+                if (why != null) {
+                    flag(why);
+                    KitContext.horizon.add(spell.getId());
+                    flag("horizon:stack_object");
+                }
             } else {
                 Ability ability = stackAbilitySource(e);
                 if (ability == null) {
@@ -1044,7 +1063,10 @@ public final class WorldBuilder {
                 StackAbility sa = new StackAbility(copy, controller);
                 game.getStack().push(game, sa);
                 world.bind(id, sa.getId());
-                choices(copy, e);
+                if (choices(copy, e)) {
+                    flag("approximate:stack_targets_incomplete");
+                    horizonNext = true;
+                }
                 if (departedNext) {
                     // the source has left (spec 6.5 source null): the ability remembers an earlier incarnation of it
                     int zcc = game.getState().getZoneChangeCounter(copy.getSourceId());
@@ -1123,11 +1145,55 @@ public final class WorldBuilder {
             }
             horizonNext = true; // the first ability of the kind keeps the entry's name and kind; never resolved in search
         }
+        // the register (design 3.4, review change 3): a trigger is supported only when its resolution reads no event
+        // object or captured value, an activation only when it reads no captured value or paid cost
+        String sourceName = source.getName();
+        if (triggered && !Register.triggersEventFree(sourceName)) {
+            flag("approximate:trigger_event_data");
+            horizonNext = true;
+        }
+        if (!triggered && Register.activationReadsCaptured(sourceName)) {
+            flag("approximate:activation_captured_value");
+            horizonNext = true;
+        }
         return ofKind.get(0);
     }
 
     private boolean horizonNext;
     private boolean departedNext;
+
+    // =============================================================================================
+    // the command zone (review change 3): emblems rebuilt from the register, anything else unsupported
+
+    private void command(String seat) {
+        for (Object o : Json.arr(playersObs.get(seat), "command")) {
+            Map<String, Object> rec = Json.obj(o);
+            String name = Json.str(rec, "card_name");
+            String id = Json.str(rec, "object_id");
+            String sourceName = name != null && name.endsWith(" Emblem") ? name.substring(0, name.length() - " Emblem".length()) : null;
+            String cls = sourceName == null ? null : Register.emblemClass(sourceName);
+            if (cls == null) {
+                flag("unsupported:command_object:" + name);
+                continue;
+            }
+            try {
+                spec.random.scopeObject(id + ":command");
+                mage.game.command.Emblem emblem = (mage.game.command.Emblem) Class.forName(cls).getConstructor().newInstance();
+                Card sourceCard = newCard(sourceName, world.player(seat));
+                int before = game.getState().getCommand().size();
+                game.addEmblem(emblem, sourceCard, world.player(seat));
+                if (game.getState().getCommand().size() != before + 1) {
+                    flag("unsupported:command_object:" + name);
+                    continue;
+                }
+                mage.game.command.CommandObject added = game.getState().getCommand().get(before);
+                world.bind(id, added.getId());
+                flag("rebuilt:emblem");
+            } catch (ReflectiveOperationException | RuntimeException | LinkageError ex) {
+                flag("unsupported:command_object:" + name);
+            }
+        }
+    }
 
     /** A stack object the world cannot rebuild: kept for the stack's shape, flagged, never resolved in search. */
     private void placeholder(Map<String, Object> e, UUID controller) {
@@ -1141,8 +1207,11 @@ public final class WorldBuilder {
         flag("approximate:stack_placeholder");
     }
 
-    /** Modes, targets, divided amounts and X of a rebuilt stack object, as observed. */
-    private void choices(Ability ability, Map<String, Object> e) {
+    /**
+     * Modes, targets, divided amounts and X of a rebuilt stack object, as observed; true when an observed target could
+     * not be placed (the object is then approximate, review change 3).
+     */
+    private boolean choices(Ability ability, Map<String, Object> e) {
         Modes modes = ability.getModes();
         List<Object> observedModes = Json.arr(e, "modes");
         if (e.get("modes") != null && modes.size() > 1) {
@@ -1157,6 +1226,7 @@ public final class WorldBuilder {
         }
         List<Object> targets = Json.arr(e, "targets");
         List<Object> divided = Json.arr(e, "divided");
+        boolean incomplete = false;
         int ti = 0;
         int di = 0;
         for (UUID modeId : modes.getSelectedModes()) {
@@ -1172,6 +1242,7 @@ public final class WorldBuilder {
                     UUID u = to == null ? null : targetUuid(Json.obj(to));
                     if (u == null) {
                         flag("approximate:stack_target_left");
+                        incomplete = true;
                         continue;
                     }
                     if (t instanceof TargetAmount && di < divided.size()) {
@@ -1184,10 +1255,12 @@ public final class WorldBuilder {
         }
         if (ti < targets.size()) {
             flag("approximate:stack_targets_unplaced");
+            incomplete = true;
         }
         Object x = e.get("x_value");
         if (x instanceof Number) {
             ability.setCostsTag("X", ((Number) x).intValue());
         }
+        return incomplete;
     }
 }

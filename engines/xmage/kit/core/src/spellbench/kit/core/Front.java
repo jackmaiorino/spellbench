@@ -5,26 +5,31 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.PrintStream;
-import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * The kit's front process (design Section 2.1): speaks the protocol v2 agent role over stdio (Section 10), keeps the
  * permitted-input history, plans, saved anchors and the fallback, and never runs a search: every world is built and
  * searched by the runner, a child JVM with XMage. Its stdout carries only protocol lines.
  * <p>
- * Decision paths (Section 5.1, 6.2): the action's plan; single-candidate fast path; CP7's passing steps (ComputerPlayer7
- * passes without thinking outside the main phases and the declare steps, so the kit answers pass there without a
- * world, which is the bot's own answer); priority anchor (K worlds, vote); combat anchors; mulligan; saved-anchor
- * continuation, else current dialog; fallback. Every answer is tagged {@code bot}, {@code wrapper} or {@code cap}
- * (Section 6.5) in the evidence log.
+ * Decision paths (Section 5.1, 6.2): the action's plan; single-candidate fast path; MAD's passing steps (for the MAD
+ * entries: ComputerPlayer7 passes without thinking outside the main phases and the declare steps, so the kit answers
+ * pass there without a world, which is the bot's own answer); priority anchor (K worlds, vote or visits); combat
+ * anchors; mulligan; a later decision of a planned logical dialog from its plan; saved-anchor continuation, else
+ * current dialog; fallback. Every answer is tagged {@code bot}, {@code wrapper} or {@code cap} (Section 6.5) in the
+ * evidence log.
+ * <p>
+ * Clock (A1 result review, change 2): a {@code choose} gets one absolute answer time, {@code min(max_decision_ms,
+ * remaining_ms)} after it arrived minus the response overhead. Every step of the answer (waiting for a replacement
+ * runner, the priority search, continuation, the current-dialog search after a failed continuation, diagnostics and
+ * the kill of a runner that does not reply) shares it; none gets a fresh budget.
  */
 public final class Front {
 
@@ -34,12 +39,16 @@ public final class Front {
 
     // configuration
     final String entry;
+    final Map<String, Object> config;
     final int worlds;
     final int skill;
+    final String botKind;
     final String botName;
     final String botVersion;
     final long graceMs;
     final long overheadMs;
+    /** Reserved at the end of every clock for a kill and the fallback answer. */
+    final long killReserveMs;
     final Map<String, Object> budgets = new LinkedHashMap<>();
     final long hangAt;
     final boolean roundtrip;
@@ -48,17 +57,31 @@ public final class Front {
     final String dumpDir;
     final RunnerLink runner;
     final PrintStream log;
+    /** Fixture option: decision lines are kept in memory too. */
+    public final List<Map<String, Object>> keptLines = new ArrayList<>();
+    boolean keepLines;
 
     // game state (permitted inputs only)
     Map<String, Object> gameStart;
     byte[] gameKey;
     String gameId;
     final PlanBook plans = new PlanBook();
-    /** Saved anchors by stack object id (Section 5.1): the priority decision and world seeds where it was on top. */
+    /**
+     * Saved anchors by stack object id (Section 5.1): the inputs (decision and world seed) of the viewer's last
+     * priority decision with that object on top. Kept for every such decision, searched or not, since they are inputs
+     * only (a world is built from them at the continuation).
+     */
     final Map<String, Map<String, Object>> anchors = new LinkedHashMap<>();
-    /** This seat's answers with a choice source, by source object id (continuation replays earlier dialogs). */
-    final Map<String, List<Map<String, Object>>> sourceAnswers = new LinkedHashMap<>();
-    /** Combat and group plans: substep answers decided at substep 0. */
+    /**
+     * This seat's logical dialogs with a choice source (Section 5.1 step 3), completed, in order, by source object id:
+     * {family, group_id, seat_step, picks (the chosen semantics), known (the first decision's known entries)}.
+     */
+    final Map<String, List<Map<String, Object>>> dialogs = new LinkedHashMap<>();
+    /** The logical dialog in progress, or null. */
+    Map<String, Object> openDialog;
+    /** The plan of the logical dialog in progress: {picks, cursor, path}; null when none was planned. */
+    Map<String, Object> dialogPlan;
+    /** Combat plan: the winning assignment, the plan of every substep of its group. */
     Map<String, Object> groupPlan;
     long groupPlanGroupId = -1;
     /** Own history (Section 3.3): the last combat_damage observation of this turn. */
@@ -70,23 +93,26 @@ public final class Front {
      * loyalty cost paid. Sent to the runner as {@code x_history.loyalty_used} for the current turn.
      */
     final List<Map<String, Object>> ownActivations = new ArrayList<>();
+    /** Fixture hook: the next priority decision at this seat step executes this semantic instead of searching. */
+    Map<String, Object> forced;
+    long forcedAt = -1;
 
     public Front(Map<String, String> opts, List<String> runnerCmd) throws IOException {
         entry = opts.getOrDefault("entry", "h1");
-        worlds = Integer.parseInt(opts.getOrDefault("worlds", entry.equals("h1") ? "1" : "4"));
-        skill = Integer.parseInt(opts.getOrDefault("skill", "6"));
-        botName = opts.getOrDefault("name", "kit-" + (entry.equals("h3") ? "mcts" : "mad") + "-k" + worlds + "-s" + skill);
-        botVersion = opts.getOrDefault("version", "0.1.0");
+        config = Entries.configure(entry, opts);
+        worlds = (int) Json.num(config, "worlds", 1);
+        skill = (int) Json.num(config, "skill", 6);
+        botKind = Json.str(config, "bot");
+        botName = opts.containsKey("name") ? opts.get("name") : Json.str(config, "name");
+        botVersion = opts.containsKey("version") ? opts.get("version") : Entries.version(config);
         graceMs = Long.parseLong(opts.getOrDefault("grace-ms", "5000"));
         overheadMs = Long.parseLong(opts.getOrDefault("overhead-ms", "1500"));
+        killReserveMs = Long.parseLong(opts.getOrDefault("kill-reserve-ms", "300"));
         hangAt = Long.parseLong(opts.getOrDefault("hang-at", "-1"));
         roundtrip = "1".equals(opts.get("roundtrip"));
+        keepLines = "1".equals(opts.get("keep-lines"));
         dumpDir = opts.get("dump");
-        for (String b : new String[]{"nodes", "options", "operations", "iterations", "rollout"}) {
-            if (opts.containsKey(b)) {
-                budgets.put(b, Long.parseLong(opts.get(b)));
-            }
-        }
+        budgets.putAll(Json.obj(config, "budgets"));
         File work = new File(opts.getOrDefault("work", "."));
         File err = new File(opts.getOrDefault("runner-log", new File(work, "runner-stderr.log").getPath()));
         runner = new RunnerLink(runnerCmd, work, err);
@@ -118,18 +144,24 @@ public final class Front {
             Map<String, Object> resp = f.handle(line);
             protocol.println(Json.canonical(resp));
             protocol.flush();
-            if (f.gameId != null && !f.runner.alive() && f.runner.kills > 0 && !f.runner.restarting()) {
-                // a killed runner is replaced in the background right after the answer: decisions that need no
-                // world are served meanwhile, and one that does waits for it within its own budget
-                f.runner.startAsync();
-                f.logLine(Json.map("event", "runner_restart_started", "stale_locks_removed", f.runner.staleLocksRemoved,
-                        "kill_to_exit_ms", f.runner.killToExitMs));
-            }
+            f.afterAnswer();
         }
         f.runner.close();
     }
 
-    Map<String, Object> handle(String line) {
+    /**
+     * After an answer is out: a killed runner is replaced in the background, so decisions that need no world are
+     * served meanwhile, and one that does waits for it within its own clock.
+     */
+    public void afterAnswer() {
+        if (gameId != null && !runner.alive() && runner.kills > 0 && !runner.restarting()) {
+            runner.startAsync();
+            logLine(Json.map("event", "runner_restart_started", "stale_locks_removed", runner.staleLocksRemoved,
+                    "kill_to_exit_ms", new ArrayList<Object>(runner.killToExitMs)));
+        }
+    }
+
+    public Map<String, Object> handle(String line) {
         Map<String, Object> req;
         try {
             req = Json.parseObject(line);
@@ -194,7 +226,8 @@ public final class Front {
             System.err.println("kit-front: runner start failed: " + e);
         }
         logLine(Json.map("event", "game_start", "seat", Json.str(req, "seat"), "boot_ms", runner.lastBootMs,
-                "restart_ms", runner.lastRestartMs));
+                "restart_ms", runner.lastRestartMs, "entry", Json.map("name", botName, "version", botVersion,
+                        "config", config)));
         return Json.map("response_type", "ack", "protocol", PROTOCOL, "request_id", requestId);
     }
 
@@ -209,13 +242,45 @@ public final class Front {
     void gameOver(Map<String, Object> req) {
         logLine(Json.map("event", "game_over", "terminal", req.get("terminal"), "stats", stats, "plans", plans.counters,
                 "runner", Json.map("restarts", runner.restarts, "kills", runner.kills, "late_discarded", runner.lateDiscarded,
-                        "kill_to_exit_ms", runner.killToExitMs, "last_restart_ms", runner.lastRestartMs)));
+                        "kill_to_exit_ms", new ArrayList<Object>(runner.killToExitMs), "last_restart_ms", runner.lastRestartMs,
+                        "exits_confirmed_late", runner.exitsConfirmedLate, "busy_refusals", runner.busyRefusals)));
         plans.close();
         anchors.clear();
-        sourceAnswers.clear();
+        dialogs.clear();
+        openDialog = null;
+        dialogPlan = null;
         gameStart = null;
         gameId = null;
         runner.close();
+    }
+
+    // =============================================================================================
+    // the clock of one choose (review change 2)
+
+    /** One absolute answer time for every step of a choose. */
+    public static final class Clock {
+        final long start;
+        final long answerBy;
+        final long limitMs;
+
+        Clock(long start, long limitMs, long overheadMs) {
+            this.start = start;
+            this.limitMs = limitMs;
+            this.answerBy = start + TimeUnit.MILLISECONDS.toNanos(Math.max(0, limitMs - overheadMs));
+        }
+
+        long leftMs() {
+            return (answerBy - System.nanoTime()) / 1_000_000;
+        }
+
+        long elapsedMs() {
+            return (System.nanoTime() - start) / 1_000_000;
+        }
+    }
+
+    /** True when the clock leaves room for a runner request: the grace period, the kill reserve and some work. */
+    boolean roomForRunner(Clock clock) {
+        return clock.leftMs() >= graceMs + killReserveMs + RunnerLink.MIN_WORK_MS;
     }
 
     // =============================================================================================
@@ -238,12 +303,13 @@ public final class Front {
     Map<String, Object> choose(Map<String, Object> req, String requestId) {
         long t0 = System.nanoTime();
         Map<String, Object> d = Json.obj(req, "decision");
-        Map<String, Object> clock = Json.obj(req, "clock");
-        long budget = Math.min(clock == null ? 60_000 : Json.num(clock, "max_decision_ms", 60_000),
-                clock == null ? 60_000 : Json.num(clock, "remaining_ms", 60_000));
+        Map<String, Object> clockIn = Json.obj(req, "clock");
+        long limit = Math.min(clockIn == null ? 60_000 : Json.num(clockIn, "max_decision_ms", 60_000),
+                clockIn == null ? 60_000 : Json.num(clockIn, "remaining_ms", 60_000));
+        Clock clock = new Clock(t0, limit, overheadMs);
         Answer a;
         try {
-            a = decide(d, budget);
+            a = decide(d, clock);
         } catch (RuntimeException e) {
             e.printStackTrace(System.err);
             a = fallback(d, null, "wrapper", "error:" + e.getClass().getSimpleName());
@@ -253,15 +319,15 @@ public final class Front {
             a = fallback(d, null, "wrapper", "out_of_range");
         }
         recordAnswer(d, a);
-        long ms = (System.nanoTime() - t0) / 1_000_000;
-        if (roundtrip && cands.size() > 1 && budget > 10_000) {
-            roundTrip(d, budget);
+        long ms = clock.elapsedMs();
+        if (roundtrip && cands.size() > 1 && clock.leftMs() >= graceMs + killReserveMs + 1000) {
+            roundTrip(d, clock); // diagnostics share the clock: they never delay the answer past it
         }
         count("tag:" + a.tag);
         count("path:" + a.path);
         Map<String, Object> line = Json.map("event", "decision", "seat_step", d.get("seat_step"),
                 "kind", firstKind(d), "candidates", (long) cands.size(), "candidate", (long) a.candidate,
-                "tag", a.tag, "path", a.path, "ms", ms, "budget_ms", budget);
+                "tag", a.tag, "path", a.path, "ms", ms, "limit_ms", limit, "answer_ms", clock.elapsedMs());
         line.putAll(a.detail);
         logLine(line);
         return Json.map("response_type", "choice", "protocol", PROTOCOL, "request_id", requestId,
@@ -273,9 +339,9 @@ public final class Front {
      * Diagnostics (design Section 7.2, never a gate): the world built from this decision, projected back through
      * the engine's observation builder, against the received observation modulo ids. Logged, not used.
      */
-    void roundTrip(Map<String, Object> d, long budget) {
+    void roundTrip(Map<String, Object> d, Clock clock) {
         Map<String, Object> detail = new LinkedHashMap<>();
-        Map<String, Object> r = call(request("roundtrip", d, 1, budget), budget, detail);
+        Map<String, Object> r = call(request("roundtrip", d, 1), clock, detail);
         if (r == null || Json.arr(r, "worlds").isEmpty()) {
             logLine(Json.map("event", "roundtrip", "seat_step", d.get("seat_step"), "failed", true, "detail", detail));
             return;
@@ -314,7 +380,8 @@ public final class Front {
             for (Object o : Json.arr(pm, "battlefield")) {
                 Map<String, Object> r = Json.obj(o);
                 if (objectId.equals(r.get("object_id"))) {
-                    Map<String, Object> c = Json.obj(Json.obj(r, "permanent"), "counters");
+                    Map<String, Object> perm = Json.obj(r, "permanent");
+                    Map<String, Object> c = perm == null ? null : Json.obj(perm, "counters");
                     return c == null ? -1 : Json.num(c, "loyalty", -1);
                 }
             }
@@ -354,34 +421,113 @@ public final class Front {
     }
 
     private void recordAnswer(Map<String, Object> d, Answer a) {
-        Map<String, Object> picked = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
-        if ("activate_ability".equals(Json.str(picked, "kind"))) {
-            String oid = Json.str(Json.obj(picked, "source"), "object_id");
-            long before = loyalty(Json.obj(d, "observation"), oid);
+        Map<String, Object> o = Json.obj(d, "observation");
+        Map<String, Object> chosen = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
+        if ("activate_ability".equals(Json.str(chosen, "kind")) && chosen.get("source") != null) {
+            String oid = Json.str(Json.obj(chosen, "source"), "object_id");
+            long before = loyalty(o, oid);
             if (before >= 0) {
-                ownActivations.add(Json.map("seat_step", d.get("seat_step"), "turn", Json.obj(d, "observation").get("turn"),
+                ownActivations.add(Json.map("seat_step", d.get("seat_step"), "turn", o.get("turn"),
                         "object_id", oid, "loyalty_before", before, "confirmed", false));
             }
         }
-        Map<String, Object> o = Json.obj(d, "observation");
-        Map<String, Object> chosen = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
         lastWasEmptyPassAtCombatDamage = "combat_damage".equals(Json.str(o, "phase_step"))
                 && Json.arr(o, "stack").isEmpty() && "pass".equals(Json.str(chosen, "kind"));
         Map<String, Object> ctx = Json.obj(d, "context");
-        Map<String, Object> src = ctx == null ? null : Json.obj(ctx, "source");
-        if (src != null && !"priority".equals(Json.str(ctx, "kind"))) {
-            String id = Json.str(src, "object_id");
-            List<Map<String, Object>> l = sourceAnswers.get(id);
-            if (l == null) {
-                l = new ArrayList<>();
-                sourceAnswers.put(id, l);
-            }
-            l.add(Json.map("seat_step", d.get("seat_step"), "candidate", (long) a.candidate,
-                    "semantic", Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic")));
+        if (ctx == null || !"priority".equals(Json.str(ctx, "kind"))) {
+            trackDialog(d, chosen);
         }
     }
 
-    Answer decide(Map<String, Object> d, long budget) {
+    // ---------------------------------------------------------------------------------------------
+    // logical dialogs (Section 5.1 step 3, Section 6.3)
+
+    static String contextSource(Map<String, Object> d) {
+        Map<String, Object> ctx = Json.obj(d, "context");
+        Map<String, Object> src = ctx == null ? null : Json.obj(ctx, "source");
+        return src == null ? null : Json.str(src, "object_id");
+    }
+
+    /** The family of a choice decision: the plan family where the plan has one, else the kind and its purpose. */
+    static String dialogFamily(Map<String, Object> d) {
+        String f = PlanBook.family(d);
+        if (f != null) {
+            return f;
+        }
+        String kind = firstKind(d);
+        Map<String, Object> sem = firstSemantic(d, kind);
+        String purpose = sem == null ? null : Json.str(sem, "purpose");
+        if ("arrange_card".equals(kind) || "order_pick".equals(kind) && !"mulligan_bottom".equals(purpose)) {
+            return "arrange"; // an arrangement group: arrange_card substeps, then its order picks
+        }
+        return kind + (purpose == null ? "" : ":" + purpose);
+    }
+
+    /** True when {@code d} continues the logical dialog in progress (same source, same group or family). */
+    boolean continuesOpenDialog(Map<String, Object> d) {
+        if (openDialog == null) {
+            return false;
+        }
+        String src = contextSource(d);
+        if (src == null ? openDialog.get("source") != null : !src.equals(openDialog.get("source"))) {
+            return false;
+        }
+        Map<String, Object> group = Json.obj(d, "group");
+        if (group != null) {
+            return Json.num(group, "group_id", -1) == Json.num(openDialog, "group_id", -2)
+                    && Json.num(group, "substep_index", 0) > 0;
+        }
+        return dialogFamily(d).equals(openDialog.get("family"));
+    }
+
+    /** A decision's answer completes its logical dialog: a finish, a fixed group's last substep, the maximum reached,
+     * or a single-step kind. */
+    static boolean closesDialog(Map<String, Object> d, Map<String, Object> chosen) {
+        String kind = Json.str(chosen, "kind");
+        if (kind.startsWith("finish_")) {
+            return true;
+        }
+        Map<String, Object> group = Json.obj(d, "group");
+        if (group != null) {
+            return Json.num(group, "substep_index", 0) >= Json.num(group, "substep_count", 1) - 1;
+        }
+        if (chosen.get("maximum") instanceof Number) {
+            return Json.num(chosen, "selected_count", 0) + 1 >= Json.num(chosen, "maximum", 0);
+        }
+        return true;
+    }
+
+    void trackDialog(Map<String, Object> d, Map<String, Object> chosen) {
+        if (!continuesOpenDialog(d)) {
+            closeDialog();
+            Map<String, Object> group = Json.obj(d, "group");
+            openDialog = Json.map("source", contextSource(d), "family", dialogFamily(d),
+                    "group_id", group == null ? null : group.get("group_id"), "seat_step", d.get("seat_step"),
+                    "picks", new ArrayList<Object>(), "known", Json.copy(Json.arr(Json.obj(d, "observation"), "known")));
+        }
+        Json.arr(openDialog, "picks").add(chosen);
+        if (closesDialog(d, chosen)) {
+            closeDialog();
+        }
+    }
+
+    void closeDialog() {
+        if (openDialog != null) {
+            String src = (String) openDialog.get("source");
+            if (src != null) {
+                List<Map<String, Object>> l = dialogs.get(src);
+                if (l == null) {
+                    l = new ArrayList<>();
+                    dialogs.put(src, l);
+                }
+                l.add(openDialog);
+            }
+        }
+        openDialog = null;
+        dialogPlan = null;
+    }
+
+    Answer decide(Map<String, Object> d, Clock clock) {
         Map<String, Object> ctx = Json.obj(d, "context");
         Map<String, Object> obs = Json.obj(d, "observation");
         List<Object> cands = Json.arr(d, "candidates");
@@ -404,11 +550,19 @@ public final class Front {
                 }
             }
             int answersDropped = 0;
-            for (List<Map<String, Object>> l : sourceAnswers.values()) {
-                int before = l.size();
-                l.removeIf(m -> Json.num(m, "seat_step", 0) >= since);
-                answersDropped += before - l.size();
+            if (openDialog != null && Json.num(openDialog, "seat_step", 0) >= since) {
+                answersDropped += Json.arr(openDialog, "picks").size();
+                openDialog = null;
             }
+            for (List<Map<String, Object>> l : dialogs.values()) {
+                for (Map<String, Object> m : new ArrayList<>(l)) {
+                    if (Json.num(m, "seat_step", 0) >= since) {
+                        answersDropped += Json.arr(m, "picks").size();
+                        l.remove(m);
+                    }
+                }
+            }
+            dialogPlan = null;
             groupPlan = null;
             ownActivations.removeIf(m -> Json.num(m, "seat_step", 0) >= since);
             count("rewinds");
@@ -431,6 +585,18 @@ public final class Front {
             }
         } else if (priority) {
             plans.close();
+            closeDialog();
+            saveAnchor(d);
+        }
+
+        // a later decision of a planned logical dialog: its plan (no new world)
+        boolean mid = !priority && continuesOpenDialog(d);
+        if (mid && dialogPlan != null) {
+            Answer a = answerFromPlan(d, dialogPlan);
+            if (cands.size() == 1) {
+                return new Answer(0, "bot", "single");
+            }
+            return a;
         }
 
         // fast path: one candidate
@@ -439,12 +605,15 @@ public final class Front {
         }
 
         if (priority) {
+            if (forced != null && seatStep == forcedAt) {
+                return priorityAnchor(d, clock);
+            }
             String step = Json.str(obs, "phase_step");
             boolean passFirst = "pass".equals(Json.str(Json.obj(Json.obj(cands.get(0)), "semantic"), "kind"));
-            if (passFirst && CP7_PASS_STEPS.contains(step)) {
+            if ("mad".equals(botKind) && passFirst && CP7_PASS_STEPS.contains(step)) {
                 return new Answer(0, "bot", "cp7_passes_in_step");
             }
-            return priorityAnchor(d, budget);
+            return priorityAnchor(d, clock);
         }
         String kind = firstKind(d);
         Map<String, Object> group = Json.obj(d, "group");
@@ -452,24 +621,30 @@ public final class Front {
         switch (kind) {
             case "declare_attack":
             case "declare_block":
-                return combat(d, budget, kind, groupId);
+                return combat(d, clock, kind, groupId);
             case "mulligan":
-                return mulligan(d, budget);
+                return mulligan(d, clock);
             default:
                 break;
         }
         if ("order_pick".equals(kind) && "mulligan_bottom".equals(Json.str(firstSemantic(d, "order_pick"), "purpose"))) {
-            return groupDialog(d, budget, "mulligan_bottom", groupId);
+            return dialog(d, clock, "mulligan_bottom");
         }
-        // saved-anchor continuation, else the current dialog
-        String src = PlanBook.sourceId(d);
-        if (src != null && anchors.containsKey(src)) {
-            Answer cont = continuation(d, budget, src);
+        // saved-anchor continuation at the first decision of a logical dialog, else the current dialog
+        String src = contextSource(d);
+        Map<String, Object> contDetail = null;
+        if (!mid && src != null && anchors.containsKey(src)) {
+            contDetail = new LinkedHashMap<>();
+            Answer cont = continuation(d, clock, src, contDetail);
             if (cont != null) {
                 return cont;
             }
         }
-        return groupDialog(d, budget, "dialog", groupId);
+        Answer a = dialog(d, clock, "dialog");
+        if (contDetail != null) {
+            a.detail.put("continuation_failed", contDetail);
+        }
+        return a;
     }
 
     static Map<String, Object> firstSemantic(Map<String, Object> d, String kind) {
@@ -486,24 +661,40 @@ public final class Front {
 
     private List<Object> worldSeeds(long seatStep, int k) {
         List<Object> out = new ArrayList<>();
-        for (int i = 0; i < k; i++) {
+        for (int i = 0; i < k && gameKey != null; i++) {
             out.add(Seeds.hex(Seeds.worldSeed(gameKey, seatStep, i)));
         }
         return out;
     }
 
-    private Map<String, Object> request(String path, Map<String, Object> d, int k, long budget) {
+    /** Saves the inputs of this priority decision as the anchor of the stack's top object. */
+    private void saveAnchor(Map<String, Object> d) {
+        List<Object> stack = Json.arr(Json.obj(d, "observation"), "stack");
+        if (stack.isEmpty() || gameKey == null) {
+            return;
+        }
+        String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
+        Map<String, Object> decision = new LinkedHashMap<>(d);
+        decision.put("x_history", Json.map("loyalty_used", loyaltyUsed(Json.obj(d, "observation"))));
+        anchors.put(top, Json.map("decision", decision, "world_seeds", worldSeeds(Json.num(d, "seat_step", 0), 1),
+                "seat_step", d.get("seat_step")));
+    }
+
+    private Map<String, Object> request(String path, Map<String, Object> d, int k) {
         long seatStep = Json.num(d, "seat_step", 0);
         Map<String, Object> decision = new LinkedHashMap<>(d);
         decision.put("x_history", Json.map("loyalty_used", loyaltyUsed(Json.obj(d, "observation"))));
-        Map<String, Object> profile = Json.obj(gameStart, "engine_profile");
+        Map<String, Object> profile = gameStart == null ? null : Json.obj(gameStart, "engine_profile");
         if (profile != null && profile.get("observation") != null) {
             decision.put("x_observation_flags", profile.get("observation"));
         }
         Map<String, Object> r = Json.map("op", "decide", "path", path, "decision", decision,
                 "world_seeds", worldSeeds(seatStep, k), "budgets", budgets,
-                "bot", Json.map("kind", entry.equals("h3") ? "mcts" : "mad", "skill", (long) skill),
-                "deadline_ms", runnerDeadline(budget), "combat_damage_step", combatDamageStep(d));
+                "bot", Json.map("kind", botKind, "skill", (long) skill),
+                "deadline_ms", 0L, "combat_damage_step", combatDamageStep(d));
+        if (Json.bool(config, "search_flagged")) {
+            r.put("search_flagged", true);
+        }
         if (hangAt >= 0 && !hangUsed && seatStep >= hangAt && "priority".equals(path)) {
             r.put("hang", true); // E3 test hook: this request's search never returns
             hangUsed = true;
@@ -512,16 +703,11 @@ public final class Front {
         return r;
     }
 
-    /** The runner's safety deadline: the decision budget minus the grace period and the response overhead. */
-    long runnerDeadline(long budget) {
-        return Math.max(100, budget - graceMs - overheadMs);
-    }
-
-    /** Calls the runner; null on a timeout (the runner was killed), recorded in {@code a}'s detail. */
-    private Map<String, Object> call(Map<String, Object> request, long budget, Map<String, Object> detail) {
-        long deadline = Json.num(request, "deadline_ms", 1000);
+    /** Calls the runner within the clock; null on a timeout (the runner was killed) or a refusal, recorded in detail. */
+    private Map<String, Object> call(Map<String, Object> request, Clock clock, Map<String, Object> detail) {
+        long waitUntil = clock.answerBy - TimeUnit.MILLISECONDS.toNanos(killReserveMs);
         try {
-            Map<String, Object> r = runner.call(request, deadline, graceMs);
+            Map<String, Object> r = runner.call(request, waitUntil, clock.answerBy, graceMs);
             if (!Json.bool(r, "ok")) {
                 detail.put("runner_error", r.get("error"));
                 return null;
@@ -529,10 +715,15 @@ public final class Front {
             if (Json.bool(r, "interrupted")) {
                 detail.put("cap", "deadline_interrupt");
             }
+            detail.put("runner_deadline_ms", request.get("deadline_ms"));
             return r;
         } catch (RunnerLink.Timeout e) {
             detail.put("cap", "runner_killed");
             detail.put("exit_confirmed", e.exitConfirmed);
+            detail.put("waited_ms", e.waitedMs);
+            return null;
+        } catch (RunnerLink.Busy e) {
+            detail.put("cap", e.why);
             detail.put("waited_ms", e.waitedMs);
             return null;
         } catch (IOException e) {
@@ -541,22 +732,36 @@ public final class Front {
         }
     }
 
-    Answer priorityAnchor(Map<String, Object> d, long budget) {
-        Map<String, Object> detail = new LinkedHashMap<>();
-        if (budget < graceMs + overheadMs + 200) {
-            Answer a = fallback(d, null, "cap", "clock_low");
-            return a;
+    /** The world results of a request, or null when the clock had no room or the call failed (detail says which). */
+    private Map<String, Object> worldsCall(Map<String, Object> request, Clock clock, Map<String, Object> detail) {
+        if (!roomForRunner(clock)) {
+            detail.put("cap", "clock_low");
+            return null;
         }
-        Map<String, Object> req = request("priority", d, worlds, budget);
+        return call(request, clock, detail);
+    }
+
+    Answer priorityAnchor(Map<String, Object> d, Clock clock) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        long seatStep = Json.num(d, "seat_step", 0);
+        Map<String, Object> req = request("priority", d, worlds);
+        boolean forcing = forced != null && seatStep == forcedAt;
+        if (forcing) {
+            req.put("force_semantic", forced); // fixture hook: the runner executes this action instead of searching
+            req.put("world_seeds", worldSeeds(seatStep, 1));
+            detail.put("forced", true);
+            forced = null;
+        }
         if (dumpDir != null) {
             try (java.io.Writer wr = new java.io.OutputStreamWriter(new FileOutputStream(new File(dumpDir,
-                    "decision-" + gameId + "-" + Json.num(d, "seat_step", 0) + ".json")), StandardCharsets.UTF_8)) {
-                wr.write(Json.canonical(Json.map("game_start", stripEnvelope(gameStart), "decision", d)));
+                    "decision-" + gameId + "-" + seatStep + ".json")), StandardCharsets.UTF_8)) {
+                // the decision as the runner receives it (with this seat's own history), so a dump replays exactly
+                wr.write(Json.canonical(Json.map("game_start", stripEnvelope(gameStart), "decision", req.get("decision"))));
             } catch (IOException e) {
                 System.err.println("kit-front: dump failed: " + e);
             }
         }
-        Map<String, Object> r = call(req, budget, detail);
+        Map<String, Object> r = worldsCall(req, clock, detail);
         if (r == null) {
             Answer a = fallback(d, null, detail.containsKey("cap") ? "cap" : "wrapper", "priority_failed");
             a.detail.putAll(detail);
@@ -567,17 +772,32 @@ public final class Front {
         List<Aggregate.WorldVote> votes = new ArrayList<>();
         List<Object> flags = new ArrayList<>();
         long nodes = 0;
-        long rootAlternatives = 0;
+        long evaluated = 0;
+        long horizonAlternatives = 0;
+        List<Object> unmapped = new ArrayList<>();
+        boolean skipped = false;
         for (Object o : results) {
             Map<String, Object> w = Json.obj(o);
             votes.add(Aggregate.fromRunner(w));
             flags.addAll(Json.arr(w, "flags"));
             nodes += Json.num(w, "nodes", 0);
-            rootAlternatives += Json.arr(w, "root_stats").size();
+            skipped |= w.get("skipped") != null;
+            for (Object so : Json.arr(w, "root_stats")) {
+                Map<String, Object> s = Json.obj(so);
+                if (s.get("adjusted") instanceof Number || s.get("visits") instanceof Number) {
+                    evaluated++;
+                }
+                if (Json.num(s, "horizon_hits", 0) > 0 || Json.bool(s, "truncated")) {
+                    horizonAlternatives++;
+                }
+            }
+            if (w.get("mapping_failure") != null) {
+                unmapped.add(Json.map("world", w.get("index"), "chosen", w.get("chosen"), "reason", w.get("mapping_failure")));
+            }
             mergeCounters(detail, Json.obj(w, "counters"));
         }
         Aggregate.Result agg;
-        if (entry.equals("h3")) {
+        if ("mcts".equals(botKind)) {
             List<Map<String, Object>> ws = new ArrayList<>();
             for (Object o : results) {
                 ws.add(Json.obj(o));
@@ -590,32 +810,39 @@ public final class Front {
         detail.put("world_flags", dedupe(flags));
         detail.put("runner_ms", r.get("ms"));
         detail.put("nodes", nodes);
-        detail.put("root_alternatives", rootAlternatives);
+        // E4 accounting (review change 7): root alternatives evaluated, and those whose subtree met a horizon or
+        // whose rollouts were truncated; the encounters are the counters (horizon:mad, horizon:mcts_*)
+        detail.put("root_alternatives", evaluated);
+        detail.put("root_alternatives_horizon", horizonAlternatives);
         if (!results.isEmpty()) {
             Map<String, Object> w0 = Json.obj(results.get(0));
             detail.put("build_ms", w0.get("build_ms"));
             detail.put("search_ms", w0.get("search_ms"));
         }
         String tag = detail.containsKey("cap") ? "cap" : "bot";
-        // E4 outcome (evidence/E4-threshold.md clause 1, measured on the slice's game set): an approximate stack
-        // object of a kind above the horizon threshold is decided without search: the declining candidate, wrapper
-        if (dedupe(flags).contains("horizon:stack_object")) {
-            Answer a = fallback(d, null, "wrapper", "approximate_stack_without_search");
+        // E4 outcome and the register (review change 3): a world with a horizon-flagged stack object, dropped
+        // pending triggers or an unsupported state is not searched; the front declines (wrapper)
+        if (skipped) {
+            Answer a = fallback(d, null, "wrapper", "approximate_state_without_search");
             a.detail.putAll(detail);
             return a;
         }
         Integer c = agg.winner == null ? null : candidateOf.get(agg.winner);
         if (c == null) {
             detail.put("unmapped_winner", agg.winner);
-            Answer a = rankedFallback(d, agg, candidateOf, "wrapper", "priority_unmapped");
+            detail.put("unmapped", unmapped);
+            count("unmapped");
+            Answer a = rankedFallback(d, agg, candidateOf, "wrapper", "priority_unmapped", null);
             a.detail.putAll(detail);
             return a;
         }
-        // save an anchor for the stack's top object (continuation, Section 5.1)
-        List<Object> stack = Json.arr(Json.obj(d, "observation"), "stack");
-        if (!stack.isEmpty()) {
-            String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
-            anchors.put(top, Json.map("decision", d, "world_seeds", req.get("world_seeds"), "seat_step", d.get("seat_step")));
+        // an action that does not use the stack and asked a dialog while it executed: no executed copy carries its
+        // choices, so the state is unsupported (review change 4); the next ranked candidate answers
+        if (agg.planWorld >= 0 && Json.num(Json.obj(results.get(agg.planWorld)), "non_stack_dialogs", 0) > 0) {
+            detail.put("non_stack_winner", agg.winner);
+            Answer a = rankedFallback(d, agg, candidateOf, "wrapper", "unsupported_non_stack_payload", agg.winner);
+            a.detail.putAll(detail);
+            return a;
         }
         Map<String, Object> sem = Json.obj(Json.obj(Json.arr(d, "candidates").get(c)), "semantic");
         if (!"pass".equals(Json.str(sem, "kind"))) {
@@ -625,10 +852,10 @@ public final class Front {
                     answers.add(Json.obj(o));
                 }
             }
-            plans.open(Json.num(d, "seat_step", 0), sem, Json.obj(d, "observation"), agg.planPayload, answers);
+            plans.open(seatStep, sem, Json.obj(d, "observation"), agg.planPayload, answers);
             detail.put("plan_payload", agg.planPayload);
         }
-        Answer a = new Answer(c, tag, "priority_anchor");
+        Answer a = new Answer(c, tag, forcing ? "priority_forced" : "priority_anchor");
         a.detail.putAll(detail);
         return a;
     }
@@ -671,17 +898,17 @@ public final class Front {
     // ---------------------------------------------------------------------------------------------
     // combat (Section 5.5.4: a vote per combat key; the winning assignment is the plan of every substep)
 
-    @SuppressWarnings("unchecked")
-    Answer combat(Map<String, Object> d, long budget, String kind, long groupId) {
+    Answer combat(Map<String, Object> d, Clock clock, String kind, long groupId) {
         Map<String, Object> detail = new LinkedHashMap<>();
         if (groupPlan == null || groupPlanGroupId != groupId) {
             groupPlan = null;
-            Map<String, Object> r = budget < graceMs + overheadMs + 200 ? null
-                    : call(request(kind.equals("declare_attack") ? "attack" : "block", d, worlds, budget), budget, detail);
+            Map<String, Object> r = worldsCall(request(kind.equals("declare_attack") ? "attack" : "block", d, worlds),
+                    clock, detail);
             if (r != null) {
                 Map<String, Integer> votes = new LinkedHashMap<>();
                 Map<String, Object> byKey = new LinkedHashMap<>();
                 for (Object o : Json.arr(r, "worlds")) {
+                    mergeCounters(detail, Json.obj(Json.obj(o), "counters"));
                     List<Object> pairs = Json.arr(Json.obj(o), "pairs");
                     String key = Json.canonical(sortPairs(pairs));
                     votes.merge(key, 1, Integer::sum);
@@ -720,13 +947,17 @@ public final class Front {
             if (kind.equals("declare_attack")) {
                 Object def = sem.get("defender");
                 if (want == null ? def == null : (def != null && PlanBook.sameTarget(Json.obj(def), want))) {
-                    return new Answer(i, "bot", "combat_anchor");
+                    Answer a = new Answer(i, "bot", "combat_anchor");
+                    a.detail.putAll(detail);
+                    return a;
                 }
             } else {
                 Object atk = sem.get("attacker");
                 if (want == null ? atk == null
                         : (atk != null && want.equals(Json.str(Json.obj(atk), "object_id")))) {
-                    return new Answer(i, "bot", "combat_anchor");
+                    Answer a = new Answer(i, "bot", "combat_anchor");
+                    a.detail.putAll(detail);
+                    return a;
                 }
             }
         }
@@ -748,9 +979,9 @@ public final class Front {
         return out;
     }
 
-    Answer mulligan(Map<String, Object> d, long budget) {
+    Answer mulligan(Map<String, Object> d, Clock clock) {
         Map<String, Object> detail = new LinkedHashMap<>();
-        Map<String, Object> r = call(request("mulligan", d, 1, budget), budget, detail);
+        Map<String, Object> r = worldsCall(request("mulligan", d, 1), clock, detail);
         if (r == null || Json.arr(r, "worlds").isEmpty()) {
             Answer a = fallback(d, null, detail.containsKey("cap") ? "cap" : "wrapper", "mulligan_failed");
             a.detail.putAll(detail);
@@ -768,41 +999,41 @@ public final class Front {
     }
 
     /**
-     * A choice through the current dialog (or the London bottom on the pregame anchor): substep 0 plans the whole
-     * logical dialog; later substeps look the plan up and are re-checked against their actual candidates.
+     * The current-dialog path (or the London bottom on the pregame anchor) at the first decision of a logical
+     * dialog: the runner plans the whole dialog, and this decision is answered from that plan.
      */
-    Answer groupDialog(Map<String, Object> d, long budget, String path, long groupId) {
+    Answer dialog(Map<String, Object> d, Clock clock, String path) {
         Map<String, Object> detail = new LinkedHashMap<>();
-        Map<String, Object> group = Json.obj(d, "group");
-        long sub = group == null ? 0 : Json.num(group, "substep_index", 0);
-        if (groupPlan == null || groupPlanGroupId != groupId || sub == 0) {
-            groupPlan = null;
-            Map<String, Object> r = budget < graceMs + overheadMs + 200 ? null : call(request(path, d, 1, budget), budget, detail);
-            List<Object> picks = r == null || Json.arr(r, "worlds").isEmpty() ? null
-                    : Json.arr(Json.obj(Json.arr(r, "worlds").get(0)), "picks");
-            if (r != null && !Json.arr(r, "worlds").isEmpty() && Json.obj(Json.arr(r, "worlds").get(0)).get("picks") == null) {
-                picks = null;
-            }
-            if (picks != null) {
-                groupPlan = Json.map("picks", picks, "cursor", 0L);
-                groupPlanGroupId = groupId;
-            }
+        dialogPlan = null;
+        Map<String, Object> r = worldsCall(request(path, d, 1), clock, detail);
+        Map<String, Object> w = r == null || Json.arr(r, "worlds").isEmpty() ? null : Json.obj(Json.arr(r, "worlds").get(0));
+        if (w != null) {
+            mergeCounters(detail, Json.obj(w, "counters"));
         }
-        if (groupPlan == null) {
+        if (w == null || w.get("picks") == null) {
             Answer a = fallback(d, null, detail.containsKey("cap") ? "cap" : "wrapper", "no_dialog:" + firstKind(d));
             a.detail.putAll(detail);
             return a;
         }
-        List<Object> picks = Json.arr(groupPlan, "picks");
-        int cursor = (int) Json.num(groupPlan, "cursor", 0);
-        groupPlan.put("cursor", (long) (cursor + 1));
+        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", path);
+        Answer a = answerFromPlan(d, dialogPlan);
+        a.detail.putAll(detail);
+        return a;
+    }
+
+    /** Answers {@code d} from a logical dialog's plan; the cursor advances. */
+    Answer answerFromPlan(Map<String, Object> d, Map<String, Object> plan) {
+        String path = Json.str(plan, "path");
+        List<Object> picks = Json.arr(plan, "picks");
+        int cursor = (int) Json.num(plan, "cursor", 0);
+        plan.put("cursor", (long) (cursor + 1));
         List<Object> cands = Json.arr(d, "candidates");
         if (!picks.isEmpty() && picks.get(0) instanceof Map && Json.bool(Json.obj(picks.get(0)), "arrangement")) {
             // an arrangement (Section 6.3): partition from the plan; the ordering is recomputed from the actual
             // partition, since its candidates are the unplaced cards of the current destination
-            Map<String, Object> plan = Json.obj(picks.get(0));
-            Map<String, Object> dest = Json.obj(plan, "dest");
-            List<Object> order = Json.arr(plan, "order");
+            Map<String, Object> arrangement = Json.obj(picks.get(0));
+            Map<String, Object> dest = Json.obj(arrangement, "dest");
+            List<Object> order = Json.arr(arrangement, "order");
             int best = -1;
             int bestRank = Integer.MAX_VALUE;
             for (int i = 0; i < cands.size(); i++) {
@@ -813,7 +1044,8 @@ public final class Front {
                         return new Answer(i, "bot", path + ":arrangement");
                     }
                 } else if ("order_pick".equals(Json.str(sem, "kind"))) {
-                    Map<String, Object> o = Json.obj(Json.obj(sem, "item"), "object");
+                    Map<String, Object> item = Json.obj(sem, "item");
+                    Map<String, Object> o = item == null ? null : Json.obj(item, "object");
                     int rank = o == null ? -1 : order.indexOf(Json.str(o, "object_id"));
                     if (rank >= 0 && rank < bestRank) {
                         bestRank = rank;
@@ -824,9 +1056,7 @@ public final class Front {
             if (best >= 0) {
                 return new Answer(best, "bot", path + ":arrangement_order");
             }
-            Answer a = fallback(d, null, "wrapper", path + "_arrangement_not_offered");
-            a.detail.putAll(detail);
-            return a;
+            return fallback(d, null, "wrapper", path + "_arrangement_not_offered");
         }
         if (cursor < picks.size()) {
             Object want = picks.get(cursor);
@@ -840,12 +1070,12 @@ public final class Front {
             for (int i = 0; i < cands.size(); i++) {
                 Map<String, Object> sem = Json.obj(Json.obj(cands.get(i)), "semantic");
                 if (Json.str(sem, "kind").startsWith("finish_")) {
-                    return new Answer(i, "bot", path);
+                    return new Answer(i, "bot", path + ":finish");
                 }
             }
         }
         Answer a = fallback(d, null, "wrapper", path + "_pick_not_offered");
-        a.detail.putAll(detail);
+        a.detail.put("plan_cursor", (long) cursor);
         return a;
     }
 
@@ -855,7 +1085,9 @@ public final class Front {
             return want.equals(sem.get("value")) || want.equals(sem.get("pay")) || want.equals(sem.get("keep"));
         }
         if (want instanceof Number) {
-            return sem.get("value") instanceof Number && ((Number) sem.get("value")).longValue() == ((Number) want).longValue();
+            long w = ((Number) want).longValue();
+            return (sem.get("value") instanceof Number && ((Number) sem.get("value")).longValue() == w)
+                    || ("choose_spell_mode".equals(kind) && Json.num(sem, "mode_index", -1) == w);
         }
         switch (kind) {
             case "select_object":
@@ -875,44 +1107,62 @@ public final class Front {
         }
     }
 
-    /** Saved-anchor continuation (Section 5.1); null when it does not apply, so the current dialog answers. */
-    Answer continuation(Map<String, Object> d, long budget, String source) {
+    /**
+     * Saved-anchor continuation (Section 5.1) at the first decision of a logical dialog: the runner rebuilds the
+     * anchor world, replays this resolution's earlier dialogs from this seat's own answers, and plans the current
+     * dialog where the world's projected observation equals the received one. Null when it does not apply (then the
+     * current dialog answers, within the same clock); {@code why} says why.
+     */
+    Answer continuation(Map<String, Object> d, Clock clock, String source, Map<String, Object> why) {
         Map<String, Object> anchor = anchors.get(source);
-        Map<String, Object> detail = new LinkedHashMap<>();
-        Map<String, Object> req = request("continuation", d, 1, budget);
+        Map<String, Object> req = request("continuation", d, 1);
         req.put("anchor", anchor);
-        req.put("earlier", sourceAnswers.getOrDefault(source, new ArrayList<Map<String, Object>>()));
-        Map<String, Object> r = budget < graceMs + overheadMs + 200 ? null : call(req, budget, detail);
+        // the earlier dialogs of this resolution: this source's dialogs after the anchor (casting-time and
+        // trigger-placement choices precede the viewer's last priority decision with the object on top)
+        List<Object> earlier = new ArrayList<>();
+        long anchorStep = Json.num(anchor, "seat_step", 0);
+        for (Map<String, Object> m : dialogs.containsKey(source) ? dialogs.get(source) : new ArrayList<Map<String, Object>>()) {
+            if (Json.num(m, "seat_step", 0) > anchorStep) {
+                earlier.add(m);
+            }
+        }
+        req.put("earlier", earlier);
+        Map<String, Object> r = worldsCall(req, clock, why);
         if (r == null || Json.arr(r, "worlds").isEmpty()) {
             count("continuation_failed");
             return null;
         }
         Map<String, Object> w = Json.obj(Json.arr(r, "worlds").get(0));
+        mergeCounters(why, Json.obj(w, "counters"));
         if (!Json.bool(w, "match") || w.get("picks") == null) {
             count("continuation_mismatch");
-            logLine(Json.map("event", "continuation_mismatch", "seat_step", d.get("seat_step"), "diff", w.get("diff")));
+            why.put("mismatch", w.get("diff"));
+            why.put("replayed", w.get("replayed"));
+            logLine(Json.map("event", "continuation_mismatch", "seat_step", d.get("seat_step"), "diff", w.get("diff"),
+                    "replayed", w.get("replayed"), "earlier_dialogs", (long) Json.arr(req, "earlier").size()));
             return null;
         }
-        Map<String, Object> group = Json.obj(d, "group");
-        groupPlan = Json.map("picks", w.get("picks"), "cursor", 0L);
-        groupPlanGroupId = group == null ? -1 : Json.num(group, "group_id", -1);
         count("continuation_used");
-        Answer a = groupDialog(d, budget, "continuation", groupPlanGroupId);
+        dialogPlan = Json.map("picks", w.get("picks"), "cursor", 0L, "path", "continuation");
+        Answer a = answerFromPlan(d, dialogPlan);
         a.detail.put("continuation", true);
+        a.detail.put("continuation_replayed", w.get("replayed"));
         a.detail.put("continuation_flags", w.get("flags"));
+        a.detail.put("picks", w.get("picks"));
         return a;
     }
 
     // ---------------------------------------------------------------------------------------------
     // fallback (Section 6.5)
 
-    Answer rankedFallback(Map<String, Object> d, Aggregate.Result agg, Map<String, Integer> candidateOf, String tag, String why) {
+    /** The best-ranked offered key other than {@code exclude}, else {@link #fallback}. */
+    Answer rankedFallback(Map<String, Object> d, Aggregate.Result agg, Map<String, Integer> candidateOf, String tag,
+                          String why, String exclude) {
         if (agg != null) {
             for (String k : agg.ranking) {
                 Integer c = candidateOf.get(k);
-                if (c != null) {
-                    Answer a = new Answer(c, tag, "fallback_ranked:" + why);
-                    return a;
+                if (c != null && !k.equals(exclude)) {
+                    return new Answer(c, tag, "fallback_ranked:" + why);
                 }
             }
         }
@@ -986,13 +1236,13 @@ public final class Front {
     }
 
     /** For the slice fixtures: decides {@code d} as a choose request would, returning {candidate, tag, path}. */
-    public Map<String, Object> decideForTest(Map<String, Object> d, long budget) {
-        Answer a = decide(d, budget);
+    public Map<String, Object> decideForTest(Map<String, Object> d, long limitMs) {
+        Answer a = decide(d, new Clock(System.nanoTime(), limitMs, overheadMs));
         recordAnswer(d, a);
         return Json.map("candidate", (long) a.candidate, "tag", a.tag, "path", a.path);
     }
 
-    /** For the slice fixtures: opens the plan of a priority pick and saves an anchor, as the priority path does. */
+    /** For the slice fixtures: opens the plan of a priority pick, as the priority path does. */
     public void pickedForTest(Map<String, Object> d, Map<String, Object> semantic, Map<String, Object> payload,
                               List<Map<String, Object>> answers, List<Object> worldSeeds) {
         plans.open(Json.num(d, "seat_step", 0), semantic, Json.obj(d, "observation"), payload, answers);
@@ -1003,13 +1253,14 @@ public final class Front {
         }
     }
 
-    /** For the slice fixtures: saves an anchor for the top of the stack at {@code d}. */
-    public void anchorForTest(Map<String, Object> d, List<Object> worldSeeds) {
-        List<Object> stack = Json.arr(Json.obj(d, "observation"), "stack");
-        if (!stack.isEmpty()) {
-            String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
-            anchors.put(top, Json.map("decision", d, "world_seeds", worldSeeds, "seat_step", d.get("seat_step")));
-        }
+    /**
+     * Fixture hook (production-path cases): at the priority decision with this seat step the runner executes
+     * {@code semantic} on world 0 instead of searching; the plan, anchors and everything after are the production
+     * path's. Logged as {@code priority_forced}.
+     */
+    public void forceForTest(long seatStep, Map<String, Object> semantic) {
+        forced = semantic;
+        forcedAt = seatStep;
     }
 
     public PlanBook plansForTest() {
@@ -1018,9 +1269,11 @@ public final class Front {
 
     /** For the slice fixtures (S5): the front's provisional records. */
     public Map<String, Object> recordsForTest() {
-        long answers = 0;
-        for (List<Map<String, Object>> l : sourceAnswers.values()) {
-            answers += l.size();
+        long answers = openDialog == null ? 0 : Json.arr(openDialog, "picks").size();
+        for (List<Map<String, Object>> l : dialogs.values()) {
+            for (Map<String, Object> m : l) {
+                answers += Json.arr(m, "picks").size();
+            }
         }
         return Json.map("plan", plans.active == null ? null : plans.active.actionId(), "anchors", new ArrayList<Object>(anchors.keySet()),
                 "source_answers", answers, "plan_counters", new LinkedHashMap<String, Object>(plans.counters));
@@ -1038,8 +1291,11 @@ public final class Front {
     }
 
     void logLine(Map<String, Object> m) {
+        m.put("game_id", gameId);
+        if (keepLines) {
+            keptLines.add(m);
+        }
         if (log != null) {
-            m.put("game_id", gameId);
             log.println(Json.canonical(m));
         }
     }

@@ -74,7 +74,27 @@ def summarize(rows):
                      for k in sorted({r.get("phase_step") for r in rts})},
         "diff_paths": dict(rt_paths.most_common(25)),
     } if rts else None
+    # mapping failures (A1 result review, change 5): per searched priority decision and per mechanic
+    searched = [r for r in d if r["path"] in ("priority_anchor", "priority_forced") or "priority_unmapped" in r["path"]
+                or "unsupported_non_stack_payload" in r["path"]]
+    unmapped = [r for r in d if "priority_unmapped" in r["path"]]
+    by_mechanic = Counter()
+    by_reason = Counter()
+    for r in unmapped:
+        for u in r.get("unmapped") or [{}]:
+            ch = u.get("chosen") or {}
+            by_mechanic[(ch.get("type") or "unknown") + ":" + (ch.get("class") or "?").split(".")[-1]] += 1
+            by_reason[u.get("reason") or ("not_offered" if r.get("unmapped_winner") else "unknown")] += 1
+    mapping = {
+        "searched_priority_decisions": len(searched),
+        "unmapped": len(unmapped),
+        "unmapped_rate": round(len(unmapped) / len(searched), 4) if searched else None,
+        "by_mechanic": dict(by_mechanic),
+        "by_reason": dict(by_reason),
+        "non_stack_unsupported": sum(1 for r in d if "unsupported_non_stack_payload" in r["path"]),
+    }
     return {
+        "mapping": mapping,
         "roundtrip": roundtrip,
         "decisions": len(d),
         "tags": dict(tags),

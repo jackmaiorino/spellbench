@@ -286,7 +286,7 @@
          game.pause();
 --- upstream/Mage.Player.AIMCTS/src/mage/player/ai/PriorityNextAction.java
 +++ kit/xmage/src/mage/player/ai/PriorityNextAction.java
-@@ -20,9 +20,38 @@
+@@ -20,9 +20,41 @@
          for (Ability ability: abilities) {
              Game sim = game.createSimulationForAI();
              MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
@@ -309,6 +309,7 @@
 +                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
 +                child.kitSetPayload(payload);
 +                spellbench.kit.xmage.KitContext.count("horizon:mcts_expansion");
++                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
 +                children.add(child);
 +                continue;
 +            }
@@ -316,6 +317,7 @@
 +                sim.resume();
 +            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
 +                spellbench.kit.xmage.KitContext.caught("mcts_expansion_resume");
++                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
 +                MCTSNode child = new MCTSNode(node, sim, ability);
 +                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
 +                child.kitSetPayload(payload);
@@ -325,6 +327,51 @@
 +            MCTSNode child = new MCTSNode(node, sim, ability);
 +            child.kitSetPayload(payload);
 +            children.add(child);
++            spellbench.kit.xmage.KitContext.count("mcts:expanded_children"); // KIT: E4 accounting denominator
+         }
+ 
+         return children;
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/SelectAttackersNextAction.java
++++ kit/xmage/src/mage/player/ai/SelectAttackersNextAction.java
+@@ -24,8 +24,18 @@
+             for (UUID attackerId: attack) {
+                 simPlayer.declareAttacker(attackerId, defenderId, sim, false);
+             }
+-            sim.resume();
++            try { // KIT: operation budget in combat expansion (MCTS combat dispatch, A1 result review change 6)
++                sim.resume();
++            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
++                spellbench.kit.xmage.KitContext.caught("mcts_combat_expansion");
++                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
++                MCTSNode child = new MCTSNode(node, sim, sim.getCombat());
++                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
++                children.add(child);
++                continue;
++            }
+             children.add(new MCTSNode(node, sim, sim.getCombat()));
++            spellbench.kit.xmage.KitContext.count("mcts:expanded_children"); // KIT: E4 accounting denominator
+         }
+ 
+         return children;
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/SelectBlockersNextAction.java
++++ kit/xmage/src/mage/player/ai/SelectBlockersNextAction.java
+@@ -29,8 +29,18 @@
+                     }
+                 }
+             }
+-            sim.resume();
++            try { // KIT: operation budget in combat expansion (MCTS combat dispatch, A1 result review change 6)
++                sim.resume();
++            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
++                spellbench.kit.xmage.KitContext.caught("mcts_combat_expansion");
++                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
++                MCTSNode child = new MCTSNode(node, sim, sim.getCombat());
++                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
++                children.add(child);
++                continue;
++            }
+             children.add(new MCTSNode(node, sim, sim.getCombat()));
++            spellbench.kit.xmage.KitContext.count("mcts:expanded_children"); // KIT: E4 accounting denominator
          }
  
          return children;

@@ -37,6 +37,7 @@ public class PriorityNextAction implements MCTSNodeNextAction{
                 child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
                 child.kitSetPayload(payload);
                 spellbench.kit.xmage.KitContext.count("horizon:mcts_expansion");
+                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
                 children.add(child);
                 continue;
             }
@@ -44,6 +45,7 @@ public class PriorityNextAction implements MCTSNodeNextAction{
                 sim.resume();
             } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
                 spellbench.kit.xmage.KitContext.caught("mcts_expansion_resume");
+                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
                 MCTSNode child = new MCTSNode(node, sim, ability);
                 child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
                 child.kitSetPayload(payload);
@@ -53,6 +55,7 @@ public class PriorityNextAction implements MCTSNodeNextAction{
             MCTSNode child = new MCTSNode(node, sim, ability);
             child.kitSetPayload(payload);
             children.add(child);
+            spellbench.kit.xmage.KitContext.count("mcts:expanded_children"); // KIT: E4 accounting denominator
         }
 
         return children;

@@ -42,6 +42,11 @@ javac "${JAVAC_OPTS[@]}" -d "$(native "$OUT/classes-core")" @"$(native "$OUT/cor
 javac "${JAVAC_OPTS[@]}" -cp "$(native "$OUT/classes-core")${SEP}$(native "$ENGINE/lib")/*" \
   -d "$(native "$OUT/classes-xmage")" @"$(native "$OUT/xmage-sources.txt")"
 
+# resources (the mechanics register) go into the kit-xmage jar
+if [ -d "$HERE/xmage/resources" ]; then
+  cp -R "$HERE/xmage/resources/." "$OUT/classes-xmage/"
+fi
+
 # reproducible jars: fixed entry order and times (jar from the javac's JDK when it is not on the PATH)
 JAR=jar
 if ! command -v jar >/dev/null 2>&1; then
@@ -55,7 +60,7 @@ STAMP=2026-09-18T22:54:08Z
 
 ENGINE_DIGEST=$(grep -o '"lib_digest": "[0-9a-f]*"' "$ENGINE/BUILD-MANIFEST.json" | cut -d'"' -f4)
 RULES_ID=$(grep -o '"rules_snapshot_id": "[^"]*"' "$ENGINE/BUILD-MANIFEST.json" | cut -d'"' -f4)
-SRC_DIGEST=$(cd "$HERE" && find core/src xmage/src -name '*.java' | LC_ALL=C sort | while read -r f; do printf '%s  %s\n' "$(sha256 < "$f")" "$f"; done | sha256)
+SRC_DIGEST=$(cd "$HERE" && find core/src xmage/src xmage/resources -type f | LC_ALL=C sort | while read -r f; do printf '%s  %s\n' "$(sha256 < "$f")" "$f"; done | sha256)
 {
   echo "{"
   echo "  \"kit_version\": \"0.1.0\","

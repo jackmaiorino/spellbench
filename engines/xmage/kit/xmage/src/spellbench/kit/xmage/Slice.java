@@ -116,6 +116,15 @@ public final class Slice {
                     case "E7MAD": e7mad(); break;
                     case "DZ": dzPositions(); break;
                     case "H3COST": h3cost(); break;
+                    case "S2P": SliceProd.s2p(); break;
+                    case "S3P": SliceProd.s3p(); break;
+                    case "S4P": SliceProd.s4p(); break;
+                    case "S10P": SliceProd.s10p(); break;
+                    case "A3": SliceProd.a3(); break;
+                    case "MCTSPOWER": SliceProd.mctsPowered(); break;
+                    case "REG": SliceProd.reg(); break;
+                    case "POOLAUDIT": SliceProd.poolAudit(); break;
+                    case "UNMAPPED": SliceProd.unmapped(); break;
                     default: note("unknown_case", c);
                 }
             } catch (Throwable t) {

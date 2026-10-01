@@ -572,9 +572,18 @@ public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic produc
             }
         }
         String cutReason = null;
+        RootStat horizonStat = null; // KIT: horizon encounters per root alternative (E4 accounting)
+        long horizonBefore = 0; // KIT
         for (Ability action : allActions) {
             actionNumber++;
             RootStat rs = atRoot ? rootStats.get(actionNumber - 1) : null; // KIT
+            if (atRoot) { // KIT: the previous alternative's subtree is complete
+                if (horizonStat != null) {
+                    horizonStat.horizonHits = KitContext.counter("horizon:mad") - horizonBefore;
+                }
+                horizonStat = rs;
+                horizonBefore = KitContext.counter("horizon:mad");
+            }
             if (!COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS && Thread.currentThread().isInterrupted()) {
                 logger.info("Sim Prio [" + depth + "] -- interrupted");
                 cutReason = "cut_interrupt"; // KIT
@@ -808,6 +817,9 @@ public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic produc
             }
         } // end of for (allActions)
         if (atRoot) { // KIT: options never evaluated, and the per-world best
+            if (horizonStat != null) {
+                horizonStat.horizonHits = KitContext.counter("horizon:mad") - horizonBefore;
+            }
             if (cutReason != null) {
                 for (int i = actionNumber; i < allActions.size(); i++) {
                     rootStats.get(i).reason = cutReason;

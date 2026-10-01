@@ -1,13 +1,17 @@
 package spellbench.kit.xmage;
 
 import mage.abilities.Ability;
+import mage.abilities.Mode;
+import mage.abilities.Modes;
 import mage.cards.Cards;
+import mage.choices.Choice;
 import mage.constants.Outcome;
 import mage.game.Game;
 import mage.game.stack.StackObject;
 import mage.players.Player;
 import mage.players.PlayerImpl;
 import mage.target.Target;
+import mage.target.TargetAmount;
 import mage.target.TargetCard;
 import spellbench.kit.core.Json;
 import spellbench.kit.core.ObsCompare;
@@ -15,27 +19,35 @@ import spellbench.kit.core.Sampler;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 /**
- * Saved-anchor continuation (design Section 5.1). The anchor is the priority decision at which the resolving object
- * S was on top of the stack; the front keeps its inputs (observation and world seed), so an anchor survives a runner
- * restart (it is rebuilt, never held in runner memory). Steps:
+ * Saved-anchor continuation (design Section 5.1). The anchor is the viewer's last priority decision at which the
+ * resolving object S was on top of the stack; the front keeps its inputs (observation and world seed), so an anchor
+ * survives a runner restart (it is rebuilt, never held in runner memory). Steps:
  * <ol>
- * <li>condition the anchor's hidden zones on the current observation: cards that entered the viewer's hand since the
- * anchor are pinned on top of its library, in order (the effect drew them from there);</li>
+ * <li>condition the anchor's hidden zones on what the current decision and this resolution's earlier dialogs show:
+ * cards that entered the viewer's hand since the anchor are pinned on top of its library, in order (the effect drew
+ * them from there), and library cards those decisions showed are pinned in that library;</li>
  * <li>rebuild the anchor world, let both seats pass, and resolve S (nothing is re-executed from a later snapshot, so no
  * effect is repeated);</li>
- * <li>at the first dialog of the resolution, compare the world's projected observation with the received one modulo
- * ids; on equality the bot answers there, else the caller takes the current-dialog path.</li>
+ * <li>the resolution's earlier dialogs are answered from this seat's own recorded answers (the front sends them, one
+ * entry per logical dialog, in order), mapped to the world through the ids those decisions showed;</li>
+ * <li>at the current dialog, compare the world's projected observation with the received one modulo ids; on equality
+ * the bot answers there and its answer is the plan of the whole logical dialog, else the caller takes the
+ * current-dialog path.</li>
  * </ol>
- * This release continues only at the first dialog of a resolution (earlier dialogs would be replayed from the
- * recorded answers; with none recorded the case does not arise for the slice's cards).
+ * Dialog kinds: target and selection dialogs, yes/no, numbers and modes are replayed and planned; an arrangement is
+ * planned (partition from the bot's choice, order recomputed by the front) but not replayed; a choice among named
+ * options, divided amounts and library orderings are not continued (mismatch, so the current dialog answers).
  */
 public final class Continuation {
 
@@ -51,15 +63,22 @@ public final class Continuation {
         }
     }
 
-    /** The decider during a continuation: intercepts the first dialog of the resolution. */
+    /** The decider during a continuation: replays the earlier dialogs and intercepts the current one. */
     static final class Continuer extends KitMad {
         private static final long serialVersionUID = 1L;
         transient boolean armed;
         transient boolean finish;
+        transient Map<String, Object> decision;
         transient Map<String, Object> current;
         transient Map<String, Object> flags;
+        transient List<Object> earlier = new ArrayList<>();
         transient World w;
         transient Map<String, Object> result;
+        /** XMage dialogs met so far in this resolution (outermost calls of the live game). */
+        transient int index;
+        transient int depth;
+        /** The target of the last selection dialog: a repeated call with it continues that dialog. */
+        transient Object lastTarget;
 
         Continuer(String name, int skill) {
             super(name, skill);
@@ -74,18 +93,38 @@ public final class Continuation {
             return new Continuer(this);
         }
 
-        private void intercept(Target target, Game game) {
-            armed = false;
+        private boolean active(Game game) {
+            return armed && depth == 0 && game != null && !game.isSimulation();
+        }
+
+        private void fail(String why) {
+            result.put("match", false);
+            result.put("diff", Collections.singletonList(why));
+            result.put("replayed", (long) Math.min(index, earlier.size()));
+            throw new Stop();
+        }
+
+        private boolean callBot(BooleanSupplier bot) {
+            depth++;
+            try {
+                return bot.getAsBoolean();
+            } finally {
+                depth--;
+            }
+        }
+
+        /** The current dialog: the world's projection must equal the received observation (modulo ids). */
+        private void compare(Game game) {
             result.put("hand_at_dialog", (long) w.viewerPlayer().getHand().size());
             result.put("library_at_dialog", (long) w.viewerPlayer().getLibrary().size());
-            bindLooks(game);
+            result.put("replayed", (long) earlier.size());
+            bindLooks(game, Json.arr(current, "known"));
             Map<String, Object> projected;
             try {
                 projected = RoundTrip.project(w, flags, Json.str(current, "priority_seat"), Json.arr(current, "known"));
             } catch (Exception e) {
-                result.put("match", false);
-                result.put("diff", java.util.Collections.singletonList("projection failed: " + e));
-                throw new Stop();
+                fail("projection failed: " + e);
+                return;
             }
             List<String> diff = ObsCompare.diff(current, projected, 40);
             result.put("diff", new ArrayList<Object>(diff));
@@ -99,19 +138,23 @@ public final class Continuation {
         }
 
         /**
-         * The cards the current decision shows (known entries with ids) are the world's cards at those places: a
-         * positional library entry is the card at that position, a searched one the first unbound card of that name
-         * in that library, another seat's hand entry the first unbound card of that name in that hand.
+         * The cards a decision shows (known entries with ids) are the world's cards at those places: a positional
+         * library entry is the card at that position, a searched one the first unbound card of that name in that
+         * library, another seat's hand entry the first unbound card of that name in that hand. An id already bound
+         * keeps its card.
          */
-        private void bindLooks(Game game) {
-            java.util.Set<UUID> used = new java.util.HashSet<>(w.idToUuid.values());
-            for (Object o : Json.arr(current, "known")) {
+        private void bindLooks(Game game, List<Object> known) {
+            Set<UUID> used = new HashSet<>(w.idToUuid.values());
+            for (Object o : known) {
                 Map<String, Object> k = Json.obj(o);
                 String oid = Json.str(k, "object_id");
-                if (oid == null || w.idToUuid.containsKey(oid)) {
+                if (oid == null || w.idToUuid.containsKey(oid) || Json.str(k, "owner_seat") == null) {
                     continue;
                 }
                 Player owner = game.getPlayer(w.player(Json.str(k, "owner_seat")));
+                if (owner == null) {
+                    continue;
+                }
                 List<mage.cards.Card> zone = "library".equals(Json.str(k, "zone"))
                         ? owner.getLibrary().getCards(game) : new ArrayList<>(owner.getHand().getCards(game));
                 mage.cards.Card pick = null;
@@ -136,21 +179,109 @@ public final class Continuation {
             }
         }
 
-        private List<Object> picks(Target target, Game game) {
+        private List<Object> picksOf(int i) {
+            return Json.arr(Json.obj(earlier.get(i)), "picks");
+        }
+
+        // ------------------------------------------------------------------ target and selection dialogs
+
+        private boolean targetDialog(Target target, Ability source, Game game, BooleanSupplier bot) {
+            if (target == lastTarget) {
+                // XMage asks again with the same target until nothing is added (TargetCardInLibrary.choose, the
+                // library-order loops): one logical dialog, already answered in full, so this call adds nothing
+                return false;
+            }
+            lastTarget = target;
+            int i = index++;
+            if (i < earlier.size()) {
+                Map<String, Object> dialog = Json.obj(earlier.get(i));
+                String fam = Json.str(dialog, "family");
+                if ("arrange".equals(fam)) {
+                    fail("unsupported replay: an arrangement");
+                }
+                bindLooks(game, Json.arr(dialog, "known"));
+                for (Object p : picksOf(i)) {
+                    Map<String, Object> sem = Json.obj(p);
+                    String kind = Json.str(sem, "kind");
+                    if (kind.startsWith("finish_")) {
+                        continue;
+                    }
+                    if (!"select_object".equals(kind) && !"choose_target".equals(kind) && !"choose_cost_target".equals(kind)) {
+                        fail("replay: a " + kind + " answer at a selection dialog");
+                    }
+                    UUID u = Dialogs.uuidOf(w, sem);
+                    if (u == null) {
+                        fail("replay: a pick the anchor world cannot name");
+                    }
+                    if (target.isNotTarget()) {
+                        target.add(u, game);
+                    } else {
+                        target.addTarget(u, source, game);
+                    }
+                }
+                return true;
+            }
+            if (i == earlier.size()) {
+                if (target instanceof TargetAmount) {
+                    fail("unsupported continuation: divided amounts");
+                }
+                String kind = Front_firstKind(decision);
+                if (!"select_object".equals(kind) && !"choose_target".equals(kind) && !"choose_cost_target".equals(kind)
+                        && !"arrange_card".equals(kind)) {
+                    fail("dialog kinds differ: the world asks a selection, the decision is " + kind);
+                }
+                compare(game);
+                boolean r = callBot(bot);
+                result.put("picks", "arrange_card".equals(kind) ? arrangement(target) : refs(target, game));
+                if (!finish) {
+                    throw new Stop();
+                }
+                return r;
+            }
+            return callBot(bot);
+        }
+
+        /** The current arrangement decision's plan: the bot's chosen cards leave the top; order by candidate order. */
+        private List<Object> arrangement(Target target) {
+            List<String> ids = new ArrayList<>();
+            String purpose = null;
+            for (Object c : Json.arr(decision, "candidates")) {
+                Map<String, Object> sem = Json.obj(Json.obj(c), "semantic");
+                if (!"arrange_card".equals(Json.str(sem, "kind"))) {
+                    continue;
+                }
+                purpose = Json.str(sem, "purpose");
+                String oid = Json.str(Json.obj(sem, "card"), "object_id");
+                if (oid != null && !ids.contains(oid)) {
+                    ids.add(oid);
+                }
+            }
+            String away = "surveil".equals(purpose) ? "graveyard" : "bottom";
+            Map<String, Object> dest = new LinkedHashMap<>();
+            List<Object> order = new ArrayList<>();
+            for (String oid : ids) {
+                UUID u = w.idToUuid.get(oid);
+                dest.put(oid, u != null && target.getTargets().contains(u) ? away : "top");
+                order.add(oid);
+            }
+            List<Object> picks = new ArrayList<>();
+            picks.add(Json.map("arrangement", true, "dest", dest, "order", order));
+            return picks;
+        }
+
+        private List<Object> refs(Target target, Game game) {
             @SuppressWarnings("unchecked")
             Map<String, String> align = (Map<String, String>) result.get("align");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> projected = (Map<String, Object>) result.get("projected");
             List<Object> out = new ArrayList<>();
             for (UUID id : target.getTargets()) {
                 Map<String, Object> ref = Mapping.targetRef(w, id);
-                if (ref != null && ref.get("object_id") != null) {
-                    out.add(ref); // an object the world bound to a current id (visible since the anchor)
+                if (ref != null && (ref.get("object_id") != null || ref.get("player") != null)) {
+                    out.add(ref); // an object the world bound to a current id, or a player
                     continue;
                 }
                 // an object the world created as hidden: find it through the projection
                 String projectedId = projectedIdOf(game, id);
-                String currentId = projectedId == null ? null : align.get(projectedId);
+                String currentId = projectedId == null || align == null ? null : align.get(projectedId);
                 out.add(currentId == null ? null : Json.map("object_id", currentId));
             }
             return out;
@@ -168,64 +299,222 @@ public final class Continuation {
 
         @Override
         public boolean choose(Outcome outcome, Target target, Ability source, Game game, Map<String, Serializable> options) {
-            if (!armed || game.isSimulation()) {
+            if (!active(game)) {
                 return super.choose(outcome, target, source, game, options);
             }
-            intercept(target, game);
-            boolean r = super.choose(outcome, target, source, game, options);
-            result.put("picks", picks(target, game));
-            if (!finish) {
-                throw new Stop();
-            }
-            return true;
+            return targetDialog(target, source, game, () -> super.choose(outcome, target, source, game, options));
         }
 
         @Override
         public boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
-            if (!armed || game.isSimulation()) {
+            if (!active(game)) {
                 return super.choose(outcome, cards, target, source, game);
             }
-            intercept(target, game);
-            super.choose(outcome, cards, target, source, game);
-            result.put("picks", picks(target, game));
-            if (!finish) {
-                throw new Stop();
-            }
-            return true;
+            return targetDialog(target, source, game, () -> super.choose(outcome, cards, target, source, game));
         }
 
         @Override
         public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
-            if (!armed || game.isSimulation()) {
+            if (!active(game)) {
                 return super.chooseTarget(outcome, cards, target, source, game);
             }
-            intercept(target, game);
-            super.chooseTarget(outcome, cards, target, source, game);
-            result.put("picks", picks(target, game));
-            if (!finish) {
-                throw new Stop();
-            }
-            return true;
+            return targetDialog(target, source, game, () -> super.chooseTarget(outcome, cards, target, source, game));
         }
 
         @Override
         public boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
-            if (!armed || game.isSimulation()) {
+            if (!active(game)) {
                 return super.chooseTarget(outcome, target, source, game);
             }
-            intercept(target, game);
-            super.chooseTarget(outcome, target, source, game);
-            result.put("picks", picks(target, game));
-            if (!finish) {
-                throw new Stop();
+            return targetDialog(target, source, game, () -> super.chooseTarget(outcome, target, source, game));
+        }
+
+        @Override
+        public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {
+            if (!active(game)) {
+                return super.chooseTargetAmount(outcome, target, source, game);
             }
-            return true;
+            if (index++ <= earlier.size()) {
+                fail("unsupported continuation: divided amounts");
+            }
+            return callBot(() -> super.chooseTargetAmount(outcome, target, source, game));
+        }
+
+        // ------------------------------------------------------------------ yes/no, numbers, modes, options
+
+        @Override
+        public boolean chooseUse(Outcome outcome, String message, String secondMessage, String trueText, String falseText,
+                                 Ability source, Game game) {
+            if (!active(game)) {
+                return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
+            }
+            int i = index++;
+            if (i < earlier.size()) {
+                Object v = valueOf(picksOf(i), "choose_boolean", "optional_cost");
+                if (!(v instanceof Boolean)) {
+                    fail("replay: no yes/no answer for a yes/no dialog");
+                }
+                return (Boolean) v;
+            }
+            if (i == earlier.size()) {
+                String kind = Front_firstKind(decision);
+                if (!"choose_boolean".equals(kind) && !"optional_cost".equals(kind)) {
+                    fail("dialog kinds differ: the world asks yes/no, the decision is " + kind);
+                }
+                compare(game);
+                boolean r = callBot(() -> super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game));
+                List<Object> picks = new ArrayList<>();
+                picks.add(r);
+                result.put("picks", picks);
+                if (!finish) {
+                    throw new Stop();
+                }
+                return r;
+            }
+            return callBot(() -> super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game));
+        }
+
+        private int number(Game game, java.util.function.IntSupplier bot) {
+            int i = index++;
+            if (i < earlier.size()) {
+                Object v = valueOf(picksOf(i), "choose_number", null);
+                if (!(v instanceof Number)) {
+                    fail("replay: no number for a number dialog");
+                }
+                return ((Number) v).intValue();
+            }
+            if (i == earlier.size()) {
+                String kind = Front_firstKind(decision);
+                if (!"choose_number".equals(kind)) {
+                    fail("dialog kinds differ: the world asks a number, the decision is " + kind);
+                }
+                compare(game);
+                depth++;
+                int r;
+                try {
+                    r = bot.getAsInt();
+                } finally {
+                    depth--;
+                }
+                List<Object> picks = new ArrayList<>();
+                picks.add((long) r);
+                result.put("picks", picks);
+                if (!finish) {
+                    throw new Stop();
+                }
+                return r;
+            }
+            depth++;
+            try {
+                return bot.getAsInt();
+            } finally {
+                depth--;
+            }
+        }
+
+        @Override
+        public int getAmount(int min, int max, String message, Ability source, Game game) {
+            if (!active(game)) {
+                return super.getAmount(min, max, message, source, game);
+            }
+            return number(game, () -> super.getAmount(min, max, message, source, game));
+        }
+
+        @Override
+        public int announceX(int min, int max, String message, Game game, Ability source, boolean isManaPay) {
+            if (!active(game)) {
+                return super.announceX(min, max, message, game, source, isManaPay);
+            }
+            return number(game, () -> super.announceX(min, max, message, game, source, isManaPay));
+        }
+
+        @Override
+        public Mode chooseMode(Modes modes, Ability source, Game game) {
+            if (!active(game)) {
+                return super.chooseMode(modes, source, game);
+            }
+            int i = index++;
+            List<Mode> all = new ArrayList<>(modes.values());
+            if (i < earlier.size()) {
+                Object v = valueOf(picksOf(i), "choose_spell_mode", null);
+                if (!(v instanceof Number) || ((Number) v).intValue() >= all.size()) {
+                    fail("replay: no mode for a mode dialog");
+                }
+                return all.get(((Number) v).intValue());
+            }
+            if (i == earlier.size()) {
+                if (!"choose_spell_mode".equals(Front_firstKind(decision))) {
+                    fail("dialog kinds differ: the world asks a mode, the decision is " + Front_firstKind(decision));
+                }
+                compare(game);
+                depth++;
+                Mode m;
+                try {
+                    m = super.chooseMode(modes, source, game);
+                } finally {
+                    depth--;
+                }
+                List<Object> picks = new ArrayList<>();
+                picks.add((long) all.indexOf(m));
+                result.put("picks", picks);
+                if (!finish) {
+                    throw new Stop();
+                }
+                return m;
+            }
+            depth++;
+            try {
+                return super.chooseMode(modes, source, game);
+            } finally {
+                depth--;
+            }
+        }
+
+        @Override
+        public boolean choose(Outcome outcome, Choice choice, Game game) {
+            if (!active(game)) {
+                return super.choose(outcome, choice, game);
+            }
+            if (index++ <= earlier.size()) {
+                fail("unsupported continuation: a choice among named options");
+            }
+            return callBot(() -> super.choose(outcome, choice, game));
+        }
+
+        /** The value of a recorded dialog's first answer of these kinds (value, pay or mode_index). */
+        private static Object valueOf(List<Object> picks, String kind, String altKind) {
+            for (Object p : picks) {
+                Map<String, Object> sem = Json.obj(p);
+                String k = Json.str(sem, "kind");
+                if (k.equals(kind) || k.equals(altKind)) {
+                    if (sem.containsKey("value")) {
+                        return sem.get("value");
+                    }
+                    if (sem.containsKey("pay")) {
+                        return sem.get("pay");
+                    }
+                    return sem.get("mode_index");
+                }
+            }
+            return null;
         }
     }
 
+    static String Front_firstKind(Map<String, Object> d) {
+        for (Object o : Json.arr(d, "candidates")) {
+            String k = Json.str(Json.obj(Json.obj(o), "semantic"), "kind");
+            if (!k.equals("pass") && !k.startsWith("finish_")) {
+                return k;
+            }
+        }
+        List<Object> c = Json.arr(d, "candidates");
+        return c.isEmpty() ? null : Json.str(Json.obj(Json.obj(c.get(0)), "semantic"), "kind");
+    }
+
     /**
-     * Runs one continuation. {@code anchor} = {decision, world_seeds, seat_step}; {@code earlier} = this seat's answers
-     * with this source so far; returns {match, picks, diff, flags}.
+     * Runs one continuation. {@code anchor} = {decision, world_seeds, seat_step}; {@code earlier} = this resolution's
+     * earlier logical dialogs of this seat, in order ({family, picks, known}); returns {match, picks, diff, flags,
+     * replayed}.
      */
     public static Map<String, Object> run(Map<String, Object> gameStart, byte[] idSeed, Map<String, Object> anchor,
                                           List<Object> earlier, Map<String, Object> decision, int skill) {
@@ -240,9 +529,9 @@ public final class Continuation {
     public static Map<String, Object> run(Map<String, Object> gameStart, byte[] idSeed, Map<String, Object> anchor,
                                           List<Object> earlier, Map<String, Object> decision, int skill, boolean finish) {
         Map<String, Object> out = new LinkedHashMap<>();
-        if (!earlier.isEmpty()) {
+        if (anchor == null) {
             out.put("match", false);
-            out.put("diff", java.util.Collections.singletonList("unsupported: a later dialog of the same resolution"));
+            out.put("diff", Collections.singletonList("no anchor"));
             return out;
         }
         Map<String, Object> anchorDecision = Json.obj(anchor, "decision");
@@ -262,11 +551,13 @@ public final class Continuation {
             }
         }
         List<String> drawn = new ArrayList<>();
+        Set<String> handNow = new HashSet<>();
         for (Object p : Json.arr(current, "players")) {
             Map<String, Object> pm = Json.obj(p);
             if (viewer.equals(Json.str(pm, "seat"))) {
                 for (Object o : Json.arr(pm, "hand")) {
                     Map<String, Object> rec = Json.obj(o);
+                    handNow.add(Json.str(rec, "object_id"));
                     if (!before.contains(Json.str(rec, "object_id"))) {
                         drawn.add(Json.str(rec, "card_name"));
                     }
@@ -278,12 +569,23 @@ public final class Continuation {
             known.add(Json.map("owner_seat", viewer, "zone", "library", "card_name", drawn.get(i), "object_id", null,
                     "position_from_top", (long) i, "position_from_bottom", null, "how", "looked_at"));
         }
-        // what the current decision shows of the viewer's library is pinned too, at the anchor's positions (the
-        // drawn cards were above it then), with its current ids so the world's cards answer to them
-        for (Object o : Json.arr(current, "known")) {
+        // what the earlier dialogs and the current decision show of the viewer's library is pinned too, at the
+        // anchor's positions (the drawn cards were above it then), with its ids so the world's cards answer to them
+        Set<String> pinnedIds = new HashSet<>();
+        List<Object> shown = new ArrayList<>();
+        for (Object e : earlier) {
+            shown.addAll(Json.arr(Json.obj(e), "known"));
+        }
+        shown.addAll(Json.arr(current, "known"));
+        for (Object o : shown) {
             Map<String, Object> k = Json.obj(o);
-            if (!"library".equals(Json.str(k, "zone")) || !viewer.equals(Json.str(k, "owner_seat"))) {
+            String oid = Json.str(k, "object_id");
+            if (!"library".equals(Json.str(k, "zone")) || !viewer.equals(Json.str(k, "owner_seat"))
+                    || (oid != null && (pinnedIds.contains(oid) || handNow.contains(oid)))) {
                 continue;
+            }
+            if (oid != null) {
+                pinnedIds.add(oid);
             }
             Object top = k.get("position_from_top");
             Map<String, Object> pin = new LinkedHashMap<>(k);
@@ -305,6 +607,7 @@ public final class Continuation {
         spec.sample = sample;
         spec.random = random;
         spec.mode = WorldBuilder.Mode.PRIORITY;
+        spec.history = Json.obj(anchorDecision, "x_history");
         final Continuer[] decider = new Continuer[1];
         spec.viewerFactory = seat -> {
             decider[0] = new Continuer(seat, skill);
@@ -319,14 +622,29 @@ public final class Continuation {
         StackObject top = game.getStack().getFirstOrNull();
         if (s == null || top == null || !top.getId().equals(s)) {
             out.put("match", false);
-            out.put("diff", java.util.Collections.singletonList("the anchor's top object is not the source"));
+            out.put("diff", Collections.singletonList("the anchor's top object is not the source"));
             return out;
+        }
+        if (KitContext.horizon.contains(top.getId())) {
+            // design 5.1 step 4: an approximate source takes the current-dialog path
+            out.put("match", false);
+            out.put("diff", Collections.singletonList("the source is flagged approximate (horizon)"));
+            return out;
+        }
+        for (String f : w.flags) {
+            if (f.startsWith("unsupported:")) {
+                out.put("match", false);
+                out.put("diff", Collections.singletonList("unsupported state: " + f));
+                return out;
+            }
         }
         Continuer c = decider[0];
         c.w = w;
+        c.decision = decision;
         c.current = current;
         c.flags = RoundTrip.flagsFrom(decision);
         c.result = out;
+        c.earlier = new ArrayList<>(earlier);
         c.armed = true;
         c.finish = finish;
         // 3. both seats pass; S resolves (ComputerPlayer6.resolve, without the search hints)
@@ -341,13 +659,17 @@ public final class Continuation {
             top.resolve(game);
             if (!out.containsKey("match")) {
                 out.put("match", false);
-                out.put("diff", java.util.Collections.singletonList("resolution ended without a dialog"));
+                out.put("diff", Collections.singletonList(c.index < earlier.size()
+                        ? "the resolution ended before the earlier dialogs were replayed"
+                        : "resolution ended without the current dialog"));
+                out.put("replayed", (long) Math.min(c.index, earlier.size()));
             }
             if (finish && Boolean.TRUE.equals(out.get("match"))) {
+                c.armed = false;
                 out.put("after", Resolver.finishAndProject(w, top, RoundTrip.flagsFrom(decision)));
             }
         } catch (Stop stop) {
-            // the current dialog was reached
+            // the current dialog was reached, or the replay failed
         }
         out.put("hand_before", (long) handBefore);
         out.put("library_before", (long) libraryBefore);

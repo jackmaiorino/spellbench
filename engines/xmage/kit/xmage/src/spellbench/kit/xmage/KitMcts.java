@@ -66,9 +66,49 @@ public class KitMcts extends ComputerPlayerMCTS {
         for (MCTSNode child : root.kitChildren()) {
             Ability a = child.getAction();
             Map<String, Object> sem = a == null ? null : Mapping.prioritySemantic(world, world.game, a, obs);
-            stats.add(Json.map("index", (long) i++, "semantic", sem, "visits", (long) child.getVisits(),
-                    "wins", (long) child.kitWins(), "payload", child.kitPayload(), "truncated", child.kitIsTruncated()));
+            Map<String, Object> st = Json.map("index", (long) i++, "semantic", sem, "visits", (long) child.getVisits(),
+                    "wins", (long) child.kitWins(), "payload", child.kitPayload(), "truncated", child.kitIsTruncated());
+            if (a == null && child.getCombat() != null) {
+                st.put("combat", combatPairs(child.getCombat()));
+            }
+            stats.add(st);
         }
+    }
+
+    /** A combat's pairs through the world's id map: attacker and defender, or blocker and attacker. */
+    List<Object> combatPairs(mage.game.combat.Combat combat) {
+        List<Object> pairs = new ArrayList<>();
+        for (mage.game.combat.CombatGroup g : combat.getGroups()) {
+            for (java.util.UUID at : g.getAttackers()) {
+                if (g.getBlockers().isEmpty()) {
+                    pairs.add(Json.map("attacker", world.uuidToId.get(at), "defender", Mapping.targetRef(world, g.getDefenderId())));
+                }
+                for (java.util.UUID b : g.getBlockers()) {
+                    pairs.add(Json.map("blocker", world.uuidToId.get(b), "attacker", world.uuidToId.get(at)));
+                }
+            }
+        }
+        return pairs;
+    }
+
+    /**
+     * Upstream dispatch for combat (A1 result review, change 6): {@code ComputerPlayerMCTS.selectAttackers} or
+     * {@code selectBlockers} on the world, which search with MCTS and declare the best child's combat; root
+     * statistics per child (visits, wins, the child's combat).
+     */
+    public Map<String, Object> decideCombat(World w, ObsIndex index, boolean attack) {
+        Game game = w.game;
+        attach(w, index);
+        KitContext.world = w;
+        KitContext.baseline = GameStateEvaluator2.evaluate(playerId, game).getTotalScore();
+        if (attack) {
+            selectAttackers(game, playerId);
+        } else {
+            selectBlockers(null, game, playerId);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("root_stats", stats);
+        return out;
     }
 
     /** The search on the world: root statistics per child, and the upstream best child's action and payload. */

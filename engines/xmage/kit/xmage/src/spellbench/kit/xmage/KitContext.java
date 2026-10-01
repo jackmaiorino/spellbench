@@ -67,6 +67,11 @@ public final class KitContext {
         counters.merge(key, n, Long::sum);
     }
 
+    public static synchronized long counter(String key) {
+        Long v = counters.get(key);
+        return v == null ? 0 : v;
+    }
+
     public static synchronized Map<String, Long> counters() {
         return new LinkedHashMap<>(counters);
     }

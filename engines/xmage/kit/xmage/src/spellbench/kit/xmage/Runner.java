@@ -242,6 +242,20 @@ public final class Runner {
         }
     }
 
+    /** Flags whose world is not searched (E4 outcome; the register, A1 result review change 3). */
+    static String skipReason(World w, String path) {
+        for (String f : w.flags) {
+            if (f.startsWith("unsupported:") && !"dialog".equals(path) && !"roundtrip".equals(path)
+                    && !"mulligan_bottom".equals(path)) {
+                return "unsupported_state:" + f.substring("unsupported:".length());
+            }
+            if ("priority".equals(path) && (f.equals("horizon:stack_object") || f.equals("horizon:pending_triggers"))) {
+                return "approximate_state_without_search:" + f;
+            }
+        }
+        return null;
+    }
+
     private Map<String, Object> oneWorld(String path, Map<String, Object> req, Map<String, Object> decision,
                                          byte[] worldSeed, int k) {
         KitContext.reset();
@@ -263,7 +277,11 @@ public final class Runner {
         int skill = bot == null ? 6 : (int) Json.num(bot, "skill", 6);
         final KitMad[] decider = new KitMad[1];
         final KitMcts[] mcts = new KitMcts[1];
-        final boolean useMcts = bot != null && "mcts".equals(Json.str(bot, "kind")) && "priority".equals(path);
+        final boolean forcing = req.get("force_semantic") != null;
+        // H3: upstream MCTS dispatch for priority and combat (review change 6); dialogs and mulligan use the
+        // ComputerPlayer heuristics, which are the same in both upstream bots
+        final boolean useMcts = bot != null && "mcts".equals(Json.str(bot, "kind")) && !forcing
+                && ("priority".equals(path) || "attack".equals(path) || "block".equals(path));
         spec.viewerFactory = seat -> {
             if (useMcts) {
                 mcts[0] = new KitMcts(seat, skill);
@@ -301,9 +319,10 @@ public final class Runner {
         ObsIndex index = new ObsIndex(obs);
         Game game = w.game;
         KitMad bot0 = decider[0];
-        if ("priority".equals(path) && w.flags.contains("horizon:stack_object") && !Json.bool(req, "search_flagged")) {
-            // E4 outcome: a flagged stack object's kind is decided without search (the front declines)
-            res.put("skipped", "approximate_stack_without_search");
+        String skip = forcing || Json.bool(req, "search_flagged") ? null : skipReason(w, path);
+        if (skip != null) {
+            // the E4 outcome and the register: this world is not searched; the front declines (wrapper)
+            res.put("skipped", skip);
             res.put("search_ms", 0L);
             res.put("counters", KitContext.counters());
             return res;
@@ -318,25 +337,49 @@ public final class Runner {
             for (java.util.UUID id : w.pinnedLibrary) {
                 kw.pinLibrary(game.getCard(id).getOwnerId(), id);
             }
-            res.putAll(mcts[0].decidePriority(w, index));
+            if ("priority".equals(path)) {
+                res.putAll(mcts[0].decidePriority(w, index));
+            } else {
+                res.putAll(mcts[0].decideCombat(w, index, "attack".equals(path)));
+                res.put("pairs", combatPairs(w, game, "attack".equals(path)));
+            }
             res.put("search_ms", (System.nanoTime() - built) / 1_000_000);
             res.put("counters", KitContext.counters());
             return res;
         }
         switch (path) {
             case "priority": {
-                KitMad.PriorityOutcome o = bot0.decidePriority(w, index, true);
+                KitMad.PriorityOutcome o;
+                if (forcing) {
+                    o = forced(w, bot0, Json.obj(req, "force_semantic"), index);
+                } else {
+                    o = bot0.decidePriority(w, index, true);
+                }
                 res.put("pass", o.pass);
                 res.put("reason", o.reason);
                 res.put("semantic", o.semantic);
                 res.put("option_payload", o.optionPayload);
                 res.put("executed_payload", o.executedPayload);
                 res.put("activated", o.activated);
+                if (o.chosen != null) {
+                    // mapping diagnostics (review change 5): what MAD chose, and why it has no v2 form if it has none
+                    res.put("chosen", Mapping.describe(w, game, o.chosen));
+                    String why = Mapping.failure(w, game, o.chosen, index);
+                    if (why != null || o.semantic == null) {
+                        res.put("mapping_failure", why == null ? "no_semantic" : why);
+                    }
+                }
                 List<Object> answers = new ArrayList<>();
+                List<Object> families = new ArrayList<>();
                 for (KitMad.Answer a : o.answers) {
                     answers.add(Json.map("family", a.family, "value", a.value));
+                    families.add(a.family);
                 }
                 res.put("answers", answers);
+                if (o.nonStack && !o.answers.isEmpty()) {
+                    res.put("non_stack_dialogs", (long) o.answers.size());
+                    res.put("non_stack_families", families);
+                }
                 List<Object> stats = new ArrayList<>();
                 for (int i = 0; i < o.stats.size(); i++) {
                     RootStat rs = o.stats.get(i);
@@ -344,7 +387,8 @@ public final class Runner {
                             "payload", o.statPayloads.get(i), "raw", rs.raw, "adjusted", rs.adjusted,
                             "alpha_before", rs.alphaBefore == null || rs.alphaBefore == Integer.MIN_VALUE ? null : rs.alphaBefore,
                             "beta", rs.beta == null || rs.beta == Integer.MAX_VALUE ? null : rs.beta,
-                            "bound", rs.bound, "tie", rs.tie, "reason", rs.reason, "best", rs.best));
+                            "bound", rs.bound, "tie", rs.tie, "reason", rs.reason, "best", rs.best,
+                            "horizon_hits", rs.horizonHits));
                 }
                 res.put("root_stats", stats);
                 res.put("nodes", (long) mage.player.ai.KitNodes.count());
@@ -352,26 +396,12 @@ public final class Runner {
             }
             case "attack": {
                 bot0.selectAttackers(game, w.player(w.viewer));
-                List<Object> pairs = new ArrayList<>();
-                for (CombatGroup g : game.getCombat().getGroups()) {
-                    for (UUID a : g.getAttackers()) {
-                        pairs.add(Json.map("attacker", w.uuidToId.get(a), "defender", Mapping.targetRef(w, g.getDefenderId())));
-                    }
-                }
-                res.put("pairs", pairs);
+                res.put("pairs", combatPairs(w, game, true));
                 break;
             }
             case "block": {
                 bot0.selectBlockers(null, game, w.player(w.viewer));
-                List<Object> pairs = new ArrayList<>();
-                for (CombatGroup g : game.getCombat().getGroups()) {
-                    for (UUID b : g.getBlockers()) {
-                        for (UUID a : g.getAttackers()) {
-                            pairs.add(Json.map("blocker", w.uuidToId.get(b), "attacker", w.uuidToId.get(a)));
-                        }
-                    }
-                }
-                res.put("pairs", pairs);
+                res.put("pairs", combatPairs(w, game, false));
                 break;
             }
             case "mulligan": {
@@ -393,5 +423,44 @@ public final class Runner {
         res.put("search_ms", (System.nanoTime() - built) / 1_000_000);
         res.put("counters", KitContext.counters());
         return res;
+    }
+
+    static List<Object> combatPairs(World w, Game game, boolean attack) {
+        List<Object> pairs = new ArrayList<>();
+        for (CombatGroup g : game.getCombat().getGroups()) {
+            if (attack) {
+                for (UUID a : g.getAttackers()) {
+                    pairs.add(Json.map("attacker", w.uuidToId.get(a), "defender", Mapping.targetRef(w, g.getDefenderId())));
+                }
+            } else {
+                for (UUID b : g.getBlockers()) {
+                    for (UUID a : g.getAttackers()) {
+                        pairs.add(Json.map("blocker", w.uuidToId.get(b), "attacker", w.uuidToId.get(a)));
+                    }
+                }
+            }
+        }
+        return pairs;
+    }
+
+    /**
+     * Fixture hook (production-path cases): executes the playable action with this v2 semantic on the world, as the
+     * priority path executes MAD's pick (live dialogs recorded, executed payload read from the executed object).
+     */
+    static KitMad.PriorityOutcome forced(World w, KitMad bot, Map<String, Object> semantic, ObsIndex index) {
+        KitMad.PriorityOutcome o = new KitMad.PriorityOutcome();
+        w.game.getState().setPriorityPlayerId(w.player(w.viewer));
+        mage.abilities.ActivatedAbility a = Mapping.findPlayable(w, w.viewerPlayer(), semantic, index);
+        if (a == null) {
+            o.pass = true;
+            o.reason = "forced_action_not_playable";
+            o.semantic = Json.map("kind", "pass");
+            return o;
+        }
+        o.chosen = a;
+        o.semantic = Mapping.prioritySemantic(w, w.game, a, index);
+        o.optionPayload = Mapping.payload(w, a, w.game);
+        bot.execute(w, a, o);
+        return o;
     }
 }

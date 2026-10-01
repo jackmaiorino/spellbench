@@ -8,6 +8,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -17,12 +18,22 @@ import java.util.concurrent.TimeUnit;
 /**
  * The front's link to its runner process (design Section 2.1). One request at a time; every request carries a
  * sequence number, and a reply whose number is not the pending one is discarded (late results never answer a later
- * request). A request that has no reply by its deadline plus the grace period ends the runner: it is destroyed
- * forcibly, its exit is confirmed (Process.destroyForcibly may return before the process ends), and the next request
- * starts a fresh runner, which boots and receives the game again. The runner's stderr goes to a log file, never to
- * the front's stdout.
+ * request). The runner's stderr goes to a log file, never to the front's stdout.
+ * <p>
+ * Every request of a {@code choose} shares that request's clock (A1 result review, change 2): the caller passes the
+ * absolute time by which it must have the reply ({@code waitUntil}) and the time by which its answer leaves
+ * ({@code answerBy}). Waiting for a replacement runner that is still booting, the runner's own safety deadline (the
+ * reply time minus the grace period) and the kill all fit inside that window. A request with no reply by
+ * {@code waitUntil} ends the runner: it is destroyed forcibly and its exit confirmed until {@code answerBy}; when the
+ * exit cannot be confirmed in time, a reaper thread confirms it in the background, and the next start waits for the
+ * reaper (a killed H2 process can leave a lock file, removed only after the confirmed exit). A request that cannot get
+ * a runner in time (a replacement still booting, too little time left) is refused with {@link Busy}: nothing is sent
+ * and nothing is killed.
  */
 public final class RunnerLink {
+
+    /** Less than this between the runner's safety deadline and now: no request is sent. */
+    public static final long MIN_WORK_MS = 200;
 
     /** No reply in time: the runner was killed; the caller answers by fallback (tagged cap). */
     public static final class Timeout extends Exception {
@@ -37,23 +48,40 @@ public final class RunnerLink {
         }
     }
 
+    /** The request was not sent: a replacement runner is booting, or the clock is too short. */
+    public static final class Busy extends Exception {
+        private static final long serialVersionUID = 1L;
+        public final String why;
+        public final long waitedMs;
+
+        Busy(String why, long waitedMs) {
+            super(why + " after " + waitedMs + " ms");
+            this.why = why;
+            this.waitedMs = waitedMs;
+        }
+    }
+
     private final List<String> command;
     private final File workDir;
     private final File stderrLog;
     private Process process;
     private Writer toRunner;
-    private BlockingQueue<String> replies;
-    private Thread reader;
+    private volatile BlockingQueue<String> replies;
     private long seq;
     private Map<String, Object> gameMessage;
-    /** Measurements for the evidence (E3, E8). */
+    private boolean everStarted;
+    private volatile Thread starting;
+    private volatile Thread reaper;
+    /** Measurements for the evidence (E3, E8, review change 2). */
     public long restarts;
     public long kills;
     public long lastBootMs;
     public long lastRestartMs;
     public long lateDiscarded;
     public long staleLocksRemoved;
-    public final List<Long> killToExitMs = new ArrayList<>();
+    public long exitsConfirmedLate;
+    public long busyRefusals;
+    public final List<Long> killToExitMs = Collections.synchronizedList(new ArrayList<Long>());
 
     public RunnerLink(List<String> command, File workDir, File stderrLog) {
         this.command = new ArrayList<>(command);
@@ -61,7 +89,7 @@ public final class RunnerLink {
         this.stderrLog = stderrLog;
     }
 
-    public boolean alive() {
+    public synchronized boolean alive() {
         return process != null && process.isAlive();
     }
 
@@ -70,17 +98,35 @@ public final class RunnerLink {
         this.gameMessage = game;
     }
 
+    private static long ms(long nanos) {
+        return nanos / 1_000_000;
+    }
+
+    private static long nanos(long ms) {
+        return TimeUnit.MILLISECONDS.toNanos(ms);
+    }
+
     private void start() throws IOException, Timeout {
+        Thread r = reaper;
+        if (r != null && r != Thread.currentThread()) {
+            try {
+                r.join(40_000); // the killed runner's exit and lock removal come first
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
         long t0 = System.nanoTime();
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workDir);
         pb.redirectError(ProcessBuilder.Redirect.appendTo(stderrLog));
-        process = pb.start();
-        toRunner = new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8);
+        Process p = pb.start();
         final BlockingQueue<String> queue = new ArrayBlockingQueue<>(64);
-        replies = queue;
-        final Process p = process;
-        reader = new Thread(() -> {
+        synchronized (this) {
+            process = p;
+            toRunner = new OutputStreamWriter(p.getOutputStream(), StandardCharsets.UTF_8);
+            replies = queue;
+        }
+        Thread reader = new Thread(() -> {
             try (BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = in.readLine()) != null) {
@@ -97,54 +143,90 @@ public final class RunnerLink {
         if (gameMessage != null) {
             call(gameMessage, 600_000, 10_000);
         }
-        lastRestartMs = (System.nanoTime() - t0) / 1_000_000;
+        lastRestartMs = ms(System.nanoTime() - t0);
     }
 
-    /** Sends one request and waits for its reply until {@code deadlineMs} + {@code graceMs}. */
+    /**
+     * Sends one request and waits for its reply until {@code deadlineMs} + {@code graceMs} from now (boot, game and
+     * the fixtures' calls; a kill may wait up to 30 s for the exit).
+     */
     public Map<String, Object> call(Map<String, Object> request, long deadlineMs, long graceMs) throws IOException, Timeout {
+        long until = System.nanoTime() + nanos(deadlineMs + graceMs);
+        try {
+            return call(request, until, until + nanos(30_000), graceMs);
+        } catch (Busy b) {
+            throw new Timeout(b.waitedMs, true);
+        }
+    }
+
+    /**
+     * Sends one request of a decision whose reply is needed by {@code waitUntil} (nanoTime) and whose answer leaves
+     * by {@code answerBy}. A request carrying {@code deadline_ms} gets the runner's safety deadline written into it
+     * when it is sent: the time left to {@code waitUntil} minus {@code graceMs}.
+     */
+    public Map<String, Object> call(Map<String, Object> request, long waitUntil, long answerBy, long graceMs)
+            throws IOException, Timeout, Busy {
         long t0 = System.nanoTime();
-        Thread booting = starting;
-        if (booting != null && booting != Thread.currentThread()) {
-            // a replacement runner is booting (started right after a kill): wait for it within this request's budget
-            try {
-                booting.join(Math.max(1, deadlineMs));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+        boolean decisionRequest = request.containsKey("deadline_ms");
+        if (Thread.currentThread() != starting) {
+            if (!alive() && !restarting()) {
+                startAsync(); // first use, a crashed runner, or a kill the caller did not follow with a restart
             }
-            if (booting.isAlive()) {
-                throw new Timeout((System.nanoTime() - t0) / 1_000_000, true);
+            Thread booting = starting;
+            if (booting != null) {
+                long joinMs = ms(waitUntil - System.nanoTime()) - (decisionRequest ? graceMs + MIN_WORK_MS : 0);
+                try {
+                    if (joinMs > 0) {
+                        booting.join(joinMs);
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                if (booting.isAlive()) {
+                    busyRefusals++;
+                    throw new Busy("runner_restarting", ms(System.nanoTime() - t0));
+                }
+                synchronized (this) {
+                    if (starting == booting) {
+                        starting = null;
+                    }
+                }
+                if (!alive()) {
+                    throw new IOException("runner failed to start");
+                }
             }
-            starting = null;
         }
-        ensureStarted();
-        // a restart inside this request's window spends its budget: the runner gets what is left
-        long spent = (System.nanoTime() - t0) / 1_000_000;
-        if (spent > 0 && request.get("deadline_ms") instanceof Number) {
-            long left = deadlineMs - spent;
-            if (left < 200) {
-                throw new Timeout(spent, true);
+        long left = ms(waitUntil - System.nanoTime());
+        if (decisionRequest) {
+            long runnerDeadline = left - graceMs;
+            if (runnerDeadline < MIN_WORK_MS) {
+                busyRefusals++;
+                throw new Busy("clock_low", ms(System.nanoTime() - t0));
             }
-            deadlineMs = left;
-            request.put("deadline_ms", left);
+            request.put("deadline_ms", runnerDeadline);
         }
-        long mySeq = ++seq;
-        request.put("seq", mySeq);
-        toRunner.write(Json.canonical(request));
-        toRunner.write('\n');
-        toRunner.flush();
-        long until = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(deadlineMs + graceMs);
+        BlockingQueue<String> queue;
+        long mySeq;
+        synchronized (this) {
+            mySeq = ++seq;
+            request.put("seq", mySeq);
+            queue = replies;
+            toRunner.write(Json.canonical(request));
+            toRunner.write('\n');
+            toRunner.flush();
+        }
         while (true) {
-            long left = until - System.nanoTime();
+            long wait = waitUntil - System.nanoTime();
             String line;
             try {
-                line = left <= 0 ? null : replies.poll(left, TimeUnit.NANOSECONDS);
+                line = wait <= 0 ? null : queue.poll(wait, TimeUnit.NANOSECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 line = null;
             }
             if (line == null) {
-                boolean confirmed = kill();
-                throw new Timeout(deadlineMs + graceMs, confirmed);
+                boolean confirmed = kill(answerBy);
+                throw new Timeout(ms(System.nanoTime() - t0), confirmed);
             }
             Map<String, Object> reply;
             try {
@@ -160,11 +242,9 @@ public final class RunnerLink {
         }
     }
 
-    private volatile Thread starting;
-
-    /** Starts a replacement runner in the background (after a kill); requests wait for it within their budgets. */
+    /** Starts a replacement runner in the background (after a kill); requests wait for it within their clocks. */
     public synchronized void startAsync() {
-        if (alive() || starting != null) {
+        if (alive() || restarting()) {
             return;
         }
         Thread t = new Thread(() -> {
@@ -184,59 +264,105 @@ public final class RunnerLink {
         return t != null && t.isAlive();
     }
 
-    /** Starts a runner if none is alive (after a kill the front calls this once its answer is out). */
-    public synchronized void ensureStarted() throws IOException, Timeout {
+    /** Starts a runner if none is alive, synchronously (the restart thread, the fixtures). */
+    public void ensureStarted() throws IOException, Timeout {
         if (!alive()) {
-            if (process != null) {
+            if (everStarted) {
                 restarts++;
             }
+            everStarted = true;
             start();
         }
     }
 
-    /** Destroys the runner and confirms its exit; true when the process is gone. */
+    /** Destroys the runner and confirms its exit, waiting up to 30 s; true when the process is gone. */
     public boolean kill() {
-        if (process == null) {
-            return true;
+        return kill(System.nanoTime() + nanos(30_000));
+    }
+
+    /**
+     * Destroys the runner and confirms its exit until {@code confirmBy} (nanoTime); true when confirmed in time. Past
+     * that, a reaper thread waits for the exit (up to 30 s more) and removes the stale lock files after it.
+     */
+    public boolean kill(long confirmBy) {
+        final Process p;
+        synchronized (this) {
+            p = process;
+            if (p == null) {
+                return true;
+            }
+            process = null;
+            replies = new ArrayBlockingQueue<>(64); // nothing the dead runner wrote can answer a later request
         }
         kills++;
-        long t0 = System.nanoTime();
-        process.destroyForcibly();
+        final long t0 = System.nanoTime();
+        p.destroyForcibly();
         boolean exited;
         try {
-            exited = process.waitFor(30, TimeUnit.SECONDS);
+            exited = p.waitFor(Math.max(0, Math.min(30_000, ms(confirmBy - System.nanoTime()))), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            exited = !process.isAlive();
+            exited = !p.isAlive();
         }
-        killToExitMs.add((System.nanoTime() - t0) / 1_000_000);
-        replies = new ArrayBlockingQueue<>(64); // nothing the dead runner wrote can answer a later request
         if (exited) {
-            // the runner's card database copy is private to this agent and its owner is confirmed gone: a lock file
-            // a killed H2 process leaves behind would make the next runner wait for it (addendum change 3)
-            File[] locks = new File(workDir, "db").listFiles((dir, name) -> name.endsWith(".lock.db"));
-            if (locks != null) {
-                for (File f : locks) {
-                    if (f.delete()) {
-                        staleLocksRemoved++;
-                    }
+            killToExitMs.add(ms(System.nanoTime() - t0));
+            removeStaleLocks();
+            return true;
+        }
+        Thread r = new Thread(() -> {
+            boolean gone;
+            try {
+                gone = p.waitFor(30, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                gone = !p.isAlive();
+            }
+            if (gone) {
+                killToExitMs.add(ms(System.nanoTime() - t0));
+                exitsConfirmedLate++;
+                removeStaleLocks();
+            } else {
+                System.err.println("kit-front: a killed runner did not exit within 30 s");
+            }
+        }, "kit-runner-reaper");
+        r.setDaemon(true);
+        reaper = r;
+        r.start();
+        return false;
+    }
+
+    /**
+     * The runner's card database copy is private to this agent and its owner is confirmed gone: a lock file a killed
+     * H2 process leaves behind would make the next runner wait for it (addendum change 3).
+     */
+    private void removeStaleLocks() {
+        File[] locks = new File(workDir, "db").listFiles((dir, name) -> name.endsWith(".lock.db"));
+        if (locks != null) {
+            for (File f : locks) {
+                if (f.delete()) {
+                    staleLocksRemoved++;
                 }
             }
         }
-        return exited;
     }
 
     public void close() {
-        if (process != null) {
+        Process p;
+        Writer w;
+        synchronized (this) {
+            p = process;
+            w = toRunner;
+            process = null;
+        }
+        if (p != null) {
             try {
-                toRunner.close();
+                w.close();
             } catch (IOException ignored) {
                 // closing stdin ends the runner
             }
             try {
-                if (!process.waitFor(5, TimeUnit.SECONDS)) {
-                    process.destroyForcibly();
-                    process.waitFor(10, TimeUnit.SECONDS);
+                if (!p.waitFor(5, TimeUnit.SECONDS)) {
+                    p.destroyForcibly();
+                    p.waitFor(10, TimeUnit.SECONDS);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

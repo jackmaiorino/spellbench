@@ -24,6 +24,8 @@ public final class RootStat {
      * cut_interrupt, options_capped, budget_stop. Null when evaluated. */
     public String reason;
     public boolean best;
+    /** Horizon encounters (design 5.6) inside this alternative's subtree (A1 result review, change 7). */
+    public long horizonHits;
 
     public RootStat(int index, Ability ability) {
         this.index = index;

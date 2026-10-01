@@ -90,6 +90,8 @@ public class KitMad extends ComputerPlayer7 {
         public List<Map<String, Object>> statPayloads = new ArrayList<>();
         public boolean activated;
         public List<Answer> answers = new ArrayList<>();
+        /** The executed action did not use the stack (A1 result review, change 4). */
+        public boolean nonStack;
     }
 
     /** CP7 thinks in these steps and passes in the others (ComputerPlayer7.priorityPlay). */
@@ -163,6 +165,9 @@ public class KitMad extends ComputerPlayer7 {
             StackObject top = game.getStack().getFirstOrNull();
             out.executedPayload = Mapping.payload(w, Mapping.executedAbility(top), game);
         } else {
+            // an action that does not use the stack (a land, a special action) leaves no executed object: what it
+            // asked while executing is carried by no copy, so such a state is unsupported when it asked anything
+            out.nonStack = out.activated;
             out.executedPayload = new java.util.LinkedHashMap<>();
         }
     }

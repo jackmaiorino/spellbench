@@ -25,8 +25,18 @@ public class SelectAttackersNextAction implements MCTSNodeNextAction{
             for (UUID attackerId: attack) {
                 simPlayer.declareAttacker(attackerId, defenderId, sim, false);
             }
-            sim.resume();
+            try { // KIT: operation budget in combat expansion (MCTS combat dispatch, A1 result review change 6)
+                sim.resume();
+            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
+                spellbench.kit.xmage.KitContext.caught("mcts_combat_expansion");
+                spellbench.kit.xmage.KitContext.count("mcts:truncated_expansions");
+                MCTSNode child = new MCTSNode(node, sim, sim.getCombat());
+                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
+                children.add(child);
+                continue;
+            }
             children.add(new MCTSNode(node, sim, sim.getCombat()));
+            spellbench.kit.xmage.KitContext.count("mcts:expanded_children"); // KIT: E4 accounting denominator
         }
 
         return children;
