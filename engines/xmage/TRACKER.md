@@ -49,7 +49,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
 | A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | done (2026-10-01): revision 3 approved with changes by Sol (round 3); eight changes bound to the A1 slice | | 2 | design doc reviewed, dispositions recorded |
-| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | in progress (2026-10-01): vertical slice on branch `xmage-agent-kit` | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
+| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed (2026-10-01, branch `xmage-agent-kit` b9bd4f5); result review by Sol, then build-out | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
 | A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
 | A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
 | A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
@@ -92,6 +92,12 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01: A1 vertical slice passed (S1 to S9, E1 to E8 and the eight review changes, two partial items). H1 played 12 games and H2/H3 3 more through P's host with 0 violations. Costs: world build 5 to 9 ms, MAD about 0.1 s median per decision, 76 to 81% of decisions need no world, slice 3.5 agent-hours. Coordinator decisions under Jack's standing authorization:
+  1. H3 uses truncated rollouts, labelled on the board;
+  2. watcher reset is an approximate-world baseline flag, with watcher history for pool cards as build-out;
+  3. E4's pre-registered decline on ambiguous stack triggers stands, with exact multi-trigger identity as build-out.
+  Open: 9 of 2,460 H1 answers were MAD choices the engine did not offer.
+- 2026-10-01: X5 started (pools, leak tests, then the 10,000-game run on Jack's PC and HaleysPC, until about 11:00 EDT).
 - 2026-10-01: X4 stage 2 done: goldens (X4b), fallback audit (X4c), combat oracle (X4d), hash-order audit (X4h); `rules_snapshot_id` unchanged; conformance 20/20 and 200-game soak still clean. Gap: attacks or blocks with a cost are never offered. Evidence `tests/x4s2/`.
 - 2026-10-01: X5 plan: after X4 stage 2 and once Jack's PC is free (about 07:00 EDT), run the compute-policy scaling comparison through P's run machinery (Jack's PC 24 threads, HaleysPC 16 cores shared, RunPod costed), then the 10,000-game live-validated run on the chosen allocation, then `fdn-mirror-v0`.
 - 2026-10-01: started X4 stage 2 (X4b goldens, X4c audit, X4d oracle, X4h audit) on `xmage-x0-x1` and the A1 vertical slice on `xmage-agent-kit` (worktree `D:/spellbench-wt/xmage-kit`), both building on HaleysPC at below-normal priority (shared with an mtg-kernel session; Jack's PC held for the research lead's calibration until about 07:00 EDT).
