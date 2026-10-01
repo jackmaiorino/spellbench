@@ -44,11 +44,12 @@ def finish(m):
     return m
 
 
-def main():
+def summarize(paths):
+    """The E4 report over these kit logs (MAD clause 1, MCTS clause 2), as a dict."""
     anchors = []
     declined = 0
     mcts = {"priority": mcts_block(), "combat": mcts_block()}
-    for path in sys.argv[1:]:
+    for path in paths:
         for line in open(path, encoding="utf-8"):
             r = json.loads(line)
             if r.get("event") != "decision":
@@ -88,7 +89,11 @@ def main():
                    "shares_above_one": sum(1 for a in anchors if a["share"] is not None and a["share"] > 1),
                    "declined_without_search": declined, "anchors": anchors},
            "mcts": {"priority": finish(mcts["priority"]), "combat": finish(mcts["combat"]), "total": finish(total)}}
-    print(json.dumps(out, indent=1))
+    return out
+
+
+def main():
+    print(json.dumps(summarize(sys.argv[1:]), indent=1))
 
 
 if __name__ == "__main__":

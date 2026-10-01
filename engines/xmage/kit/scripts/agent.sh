@@ -8,7 +8,7 @@
 # --engine-build  output of engines/xmage/scripts/build.sh (the exact engine jars, K2)
 # --db            the card database template (each agent copies it into its own work directory)
 # --work          where per-agent work directories go (default: the system temp directory)
-# Front options (passed through): --entry h1|h2|h3 --worlds K --skill S --log FILE --grace-ms N --overhead-ms N
+# Front options (passed through): --entry h1|h2|h3 --worlds K --skill S --log FILE --log-dir DIR (one log per game) --grace-ms N --overhead-ms N
 #   --nodes N --options N --operations N --iterations N --rollout N --hang-at SEAT_STEP (the identity follows the configuration; overrides give a -custom name)
 #
 # The work directory (database copy, runner stderr) is removed when the front exits.

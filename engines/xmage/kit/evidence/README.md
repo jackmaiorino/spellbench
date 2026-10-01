@@ -128,6 +128,17 @@ since the current-player fix.
 Reproducibility observed on the way (not a qualification): the kit-mcts game replays matched their originals'
 digests (`sha256:1ac71f9f...`, `sha256:750c34bc...`) before the later fixes changed the code.
 
+## Third result review (Sol): READY FOR QUALIFICATION at `4580f8f`
+
+Review: `E:/spellbench-archive/program-research/reviews/a1c-sol-opinion.md`. The 128-engagement combat cap is
+accepted as a labelled baseline: it keeps a prefix of upstream's enumeration, so it is biased toward that prefix
+(with eight available attackers the no-attack engagement is outside it); kit-mcts's description says so
+(`qualify/kitrun.py`, `ENTRY_DESCRIPTIONS`; kit README), and cap firings are reported separately for attack and
+block decisions (`tests/kitlog.py`, `combat_option_cap`). Change 8 is prepared in `qualify/` (README there) and not
+run: it waits for a guarded machine and the coordinator's go. Prepared since: per-game kit logs (`--log-dir`,
+checked in one FDN game on HaleysPC, not a qualification), `kitrun.py` (plan, P's `plan_allocation` qualification,
+guarded run, R-1 replay, summary with the pass criteria), `launch.sh`.
+
 ## Change 8 plan (not started; waits for a coordinator go)
 
 Entries: kit-mad-1 and kit-mad-k enter the first soak; kit-mcts waits for its own qualification with the provisional

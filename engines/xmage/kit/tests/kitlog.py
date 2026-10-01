@@ -54,6 +54,11 @@ def summarize(rows):
         for k, v in (r.get("counters") or {}).items():
             counters[k] += v
     caps = [r for r in d if r["tag"] == "cap"]
+    # combat option budget firings (kit-mcts), attack and block decisions separately (third review)
+    combat_caps = {k: sum((r.get("counters") or {}).get("cap:combat_options", 0) for r in d if r["kind"] == k)
+                   for k in ("declare_attack", "declare_block")}
+    combat_searches = {k: sum(1 for r in d if r["kind"] == k and (r.get("counters") or {}).get("mcts:iterations"))
+                       for k in ("declare_attack", "declare_block")}
     wrappers = Counter(r["path"] for r in d if r["tag"] == "wrapper")
     overs = [r for r in rows if r.get("event") == "game_over"]
     rts = [r for r in rows if r.get("event") == "roundtrip" and not r.get("failed")]
@@ -94,6 +99,7 @@ def summarize(rows):
         "non_stack_unsupported": sum(1 for r in d if "unsupported_non_stack_payload" in r["path"]),
     }
     return {
+        "combat_option_cap": {"firings": combat_caps, "mcts_searches": combat_searches},
         "mapping": mapping,
         "roundtrip": roundtrip,
         "decisions": len(d),

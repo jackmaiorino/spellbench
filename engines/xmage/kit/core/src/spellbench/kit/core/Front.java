@@ -56,7 +56,9 @@ public final class Front {
     /** Evidence option: priority-anchor decisions and game_start are written here (E7 positions). */
     final String dumpDir;
     final RunnerLink runner;
-    final PrintStream log;
+    PrintStream log;
+    /** Evidence option: one log file per game in this directory, named by the game id (soak isolation). */
+    final String logDir;
     /** Fixture option: decision lines are kept in memory too. */
     public final List<Map<String, Object>> keptLines = new ArrayList<>();
     boolean keepLines;
@@ -124,6 +126,7 @@ public final class Front {
         runner = new RunnerLink(runnerCmd, work, err);
         String logPath = opts.get("log");
         log = logPath == null ? null : new PrintStream(new FileOutputStream(logPath, true), true, "UTF-8");
+        logDir = opts.get("log-dir");
     }
 
     public static void main(String[] args) throws Exception {
@@ -220,6 +223,13 @@ public final class Front {
         }
         gameStart = req;
         gameId = Json.str(req, "game_id");
+        if (logDir != null) {
+            try {
+                log = new PrintStream(new FileOutputStream(new File(logDir, gameId + "-" + Json.str(req, "seat") + ".jsonl"), true), true, "UTF-8");
+            } catch (IOException e) {
+                System.err.println("kit-front: per-game log unavailable: " + e);
+            }
+        }
         long agentSeed = Json.num(req, "agent_seed", 0);
         gameKey = Seeds.gameKey(agentSeed);
         Map<String, Object> game = Json.map("op", "game", "game_start", stripEnvelope(req),
@@ -258,6 +268,10 @@ public final class Front {
         gameStart = null;
         gameId = null;
         runner.close();
+        if (logDir != null && log != null) {
+            log.close(); // the game's own log file is complete
+            log = null;
+        }
     }
 
     // =============================================================================================
