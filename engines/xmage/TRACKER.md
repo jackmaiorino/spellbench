@@ -39,7 +39,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | X4d (#20) | Combat as per-creature groups with a completability oracle on a callback-free copy | done (2026-10-01): oracle, 2,000 games, 0 rejected declarations | X4a | 2 | no dead end over 10,000 random games |
 | X4e (#21) | Rewind on rejected activations; `engine_autopay` | done (2026-10-01, stage 1): overlay autopay planner with insertion-ordered ties; rewinds 1.2 per game | X4a | 1 | rewind golden; no payment loop in the soak |
 | X4h (#22) | Hash-order audit of candidate paths (no `HashSet` or UUID order reaches candidate order) | done (2026-10-01): digests equal under three identity-hash modes | X4a | 0.5 | audit note plus a test that shuffles hash seeds |
-| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | in progress: pools integrated, 2,216 of 10,112 games done with 0 violations before an interruption; halt causes fixed; full rerun waits for Jack's PC | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
+| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | nearly done (2026-10-01): 10,112 games, 0 violations, 0 halts; leak tests pass; warm-up fix for 17/1,011 hash-replay divergences in verification | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
 | X5m (#24) | `fdn-mirror-v0` benchmark (v2.0 as written: frozen pool of 16 FDN decks from DraftZero's eval split as mirrors, visible lists, CC BY 4.0 attribution) and a first rated run with `uniform`, `first`, `heuristic` | staged (2026-10-01): 16 FDN eval-split sample decks and a draft benchmark.json in `E:/spellbench-archive/program-research/x5m/`; integrates after X4 stage 2 | X5, compute policy | 1 | ledger published; halt and truncation rates shown |
 | X5b (#25) | Optional `probe_resample` | later | X5, P enabling the probe | 2 to 3 | "validator and probe" label |
 | X6 (#26) | Manifests `fdn-limited-v1` (rotating pairs, hidden lists) and `standard-2022-25` (fixed-deck, 16 house decks, legality list) | blocked: P-v2.1 | X5, P-v2.1 | 1 to 2 | both validate against P's v2.1 schema |
@@ -49,9 +49,9 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
 | A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | done (2026-10-01): revision 3 approved with changes by Sol (round 3); eight changes bound to the A1 slice | | 2 | design doc reviewed, dispositions recorded |
-| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed; Sol result review PROCEED WITH CHANGES (8 changes); build-out next | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
-| A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
-| A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
+| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | done (2026-10-01): build-out changes 1 to 7 pass (71/71 slice, 8/8 A3 and pilot); Sol check before qualification | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
+| A2 (#29) | Action to candidate mapping across group substeps | done (2026-10-01): action-to-candidate mapping; 0 unmapped in 222 searched decisions after the current-player fix | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
+| A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | done (2026-10-01): paired-world tests for all three entries; same answer within each pair | A2 | 1.5 | identical answers across hidden worlds where they must be |
 | A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
 
 ## Heuristic bot track (H)
@@ -92,6 +92,24 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 14:30: X5 determinism fixed and verified on HaleysPC.
+  - All `ability_index` values now come from one ordering: own abilities in XMage's order, then granted abilities by rule text. This covers Agatha's Soul Cauldron and six more cards that grant abilities from a hash set.
+  - 98/98 games are digest-identical under both identity-hash modes, including all 47 Standard16-UG games.
+  - Some main-run digests changed, so the full 10,112-game run is repeated on the final build. Queued for Jack's PC tonight, with the kit qualification and soak and `fdn-mirror-v0`.
+- 2026-10-01 13:30: kit build-out done (branch `xmage-agent-kit` f14bb44).
+  - Frozen entries: `kit-mad-1` 0.2.0+71444ecbf4b3, `kit-mad-k` 0.2.0+b0baca643a2a, `kit-mcts` 0.2.0+b1166f62616a (rollout cap 1000).
+  - Real bug found and fixed: the rebuilt world made the active player XMage's current player, so MAD searched the opponent's options on the opponent's turn.
+  - 13 games through P's host, 0 violations.
+  - `kit-mcts` costs 17.9 s median per MCTS decision (max 51 s).
+  - Change 8 (guarded qualification, then a soak) waits for a Sol check and a machine. Jack's PC is held for the research lead until tonight. HaleysPC is refused by the disk reserve (37 GB free of 60).
+- 2026-10-01 12:30: X5 determinism. The warm-up fix verified on 169 games. A second cause in Standard16-UG (abilities granted by Agatha's Soul Cauldron listed in identity-hash order) is getting an overlay fix: granted abilities ordered by public keys, so `card_pool_identity` stays unchanged.
+- 2026-10-01 11:50: X5.
+  - Final run on Jack's PC through P's `plan_allocation` guard (12 workers chosen; 1, 12 and 24 measured): 10,112 games on both pools (32 decks, all accepted), 0 validator violations over 5,982,064 decisions, 0 halts, 0 truncations, 200.6 games per minute.
+  - Paired-world leak tests pass: counterspell 50 pairs, cantrip 50, randomized 200, and a 5/5 injected-leak self-test.
+  - New core patch X-P4 (hash-ordered token creation): `rules_snapshot_id` is now `...-xpat-6f8a902b...`.
+  - Open: 17 of 1,011 identity-hash replays differed, caused by an AI scoring class that mints ids on first load. The warm-up fix is committed and being verified on HaleysPC.
+  - Label: "fairness: validator only".
+  - Jack's PC is off-limits to us from 14:00 for the research lead's timing and screen training (6 to 11 hours).
 - 2026-10-01 10:15: A1 build-out.
   - Changes 1 to 7 built and mostly run: continuation passes on real positions; all clock checks pass; register and pool audit clean (394 cards); the A3 cantrip pair is identical for all three entries; E7 matches upstream 61/61. Five bugs found and fixed.
   - Decision (coordinator, standing authorization): the pre-registered 50% truncation threshold fired for `kit-mcts` at rollout cap 300 (97 to 100% truncated), so the entry is re-frozen at cap 1000 (0% truncated measured). A4 measures the cost before any rating.

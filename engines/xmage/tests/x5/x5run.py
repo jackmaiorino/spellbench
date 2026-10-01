@@ -323,6 +323,9 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
             if line.strip():
                 done.add(json.loads(line)["gid"])
     gids = [g for g in sched.share(args.fraction, args.part) if g not in done]
+    if args.gids_file:  # a chosen subset (verification checks), in the file's order
+        wanted = [int(x) for x in Path(args.gids_file).read_text(encoding="utf-8").split()]
+        gids = [g for g in wanted if g not in done]
     if args.limit:
         gids = gids[: args.limit]
     print(f"[{time.strftime('%H:%M:%S')}] {args.machine}: {len(gids)} games to play ({len(done)} already), "
@@ -507,6 +510,7 @@ def main(argv: list[str]) -> int:
     r.add_argument("--fraction", type=float, required=True)
     r.add_argument("--part", choices=("A", "B"), required=True)
     r.add_argument("--limit", type=int, default=0)
+    r.add_argument("--gids-file", default=None, help="play only these global ids (whitespace separated)")
     r.add_argument("--out", required=True)
     s = sub.add_parser("summarize")
     s.add_argument("--plan", required=True)

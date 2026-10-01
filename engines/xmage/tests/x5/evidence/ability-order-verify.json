@@ -1,0 +1,42 @@
+{
+ "build": "lib_digest d74803d53e8192ab32a1626cbc5e3effa39c1aa49b362280acb3f3b0fd724ca3 (commit 213d95a, HaleysPC)",
+ "layout": "3 workers default hash, 2 workers -XX:hashCode=3 with hash warm-up",
+ "violations": 0,
+ "cells": {
+  "standard-hu:Standard16-UG": {
+   "games": 47,
+   "equal_across_modes": 47,
+   "equal_to_previous_build": 32,
+   "equal_to_main_run": 30,
+   "non_natural": 0
+  },
+  "standard-uu:Standard16-UG": {
+   "games": 1,
+   "equal_across_modes": 1,
+   "equal_to_previous_build": 0,
+   "equal_to_main_run": 0,
+   "non_natural": 0
+  },
+  "standard-hu:Standard16-RW": {
+   "games": 10,
+   "equal_across_modes": 10,
+   "equal_to_previous_build": 10,
+   "equal_to_main_run": 10,
+   "non_natural": 0
+  },
+  "standard-hu:Standard-MonoW": {
+   "games": 10,
+   "equal_across_modes": 10,
+   "equal_to_previous_build": 10,
+   "equal_to_main_run": 9,
+   "non_natural": 0
+  },
+  "other": {
+   "games": 30,
+   "equal_across_modes": 30,
+   "equal_to_previous_build": 30,
+   "equal_to_main_run": 30,
+   "non_natural": 0
+  }
+ }
+}

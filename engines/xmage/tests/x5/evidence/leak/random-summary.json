@@ -1,0 +1,16 @@
+{
+ "position": "random",
+ "pairs_kept": 200,
+ "tally": {
+  "played": 200,
+  "p1:public": 100,
+  "p0:public": 98,
+  "p0:own_effect_look": 2,
+  "streams_saved": 2
+ },
+ "decisions_compared_identical": 2798,
+ "whole_game_identical": 0,
+ "unexplained": 0,
+ "violations": 0,
+ "verdict": "PASS"
+}

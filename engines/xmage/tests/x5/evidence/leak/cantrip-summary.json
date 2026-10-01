@@ -1,0 +1,16 @@
+{
+ "position": "cantrip",
+ "pairs_kept": 50,
+ "tally": {
+  "played": 248,
+  "p1:public": 50,
+  "p0:own_look": 40,
+  "not_kept": 198,
+  "p0:own_hand": 10
+ },
+ "decisions_compared_identical": 3799,
+ "whole_game_identical": 0,
+ "unexplained": 0,
+ "violations": 0,
+ "verdict": "PASS"
+}

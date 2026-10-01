@@ -1,34 +1,52 @@
 # X5 status (for the coordinator)
 
-## 10:40 EDT
+## 13:00 EDT: ability-order fix verified on HaleysPC
 
-- Final run on Jack's PC: P's guard chose 12 workers again (busy-time rates 37.8, 116.3, 106.5 games per minute at
-  1, 12, 24 workers; outputs identical). 4,800 of 10,112 games played at 205 per minute, 0 validator violations,
-  0 halts. Run ends about 11:06, the hash-perturbation check about 11:12.
-- **Estimate past 75 minutes:** after the run I rerun the leak suite on the final build (about 15 min) and
-  regenerate the X4b goldens (the catalog and X-P4 change `hello_ok`, which they embed; about 3 min), so Jack's
-  PC is clear about 11:30, 84 min after "go". Tell me to skip either and I will run it on HaleysPC later instead.
+- Implemented as decided (overlay, commit `4125a61`). A single ordering, `SeatPlayer.orderedAbilities`, now feeds
+  every `ability_index`: activated abilities and trigger items. The object's own abilities (both faces, the token's,
+  or the copied object's for a copy) keep XMage's order; granted ones follow, ordered by rule text, then the
+  original ability id (which only orders identical text). The observation has no `ability_index`, so candidates
+  and observation cannot disagree. XMage does not record which effect granted an ability, so the granting card's
+  name could not be a key.
+- Same pattern elsewhere: six more cards grant abilities from a `Set<Ability>` (Hazel's Brewmaster, Idris, Mirran
+  Safehouse, Necrotic Ooze, Thranduil, Trazyn), none in the catalog; the fix covers them anyway. Mage core has none.
+- Verified on HaleysPC at below-normal priority (`d74803d5`, commit `213d95a`): all 47 Standard16-UG
+  `heuristic`-vs-`uniform` games of the earlier check plus 51 others (1 UG mirror, 20 RW and MonoW, 30 other cells,
+  both pools), each under both hash modes with 3 and 2 workers: **98 of 98 equal across modes**, 0 violations, all
+  natural. 16 UG digests changed from the previous build (their granted abilities now sort differently), and the
+  other 50 games are unchanged (`evidence/ability-order-verify.json`).
+- HaleysPC: builds and sources deleted again; `~/x-spike/x5` holds 2 MB of rows and summaries. Nothing of mine
+  runs there. The full 1,011-game recheck waits for Jack's PC.
 
-## 10:10 EDT
+## 12:35 EDT: warm-up fix verified on HaleysPC
 
-- "Jack's PC go" received 10:06. Running `tests/x5/run-final.sh` on Jack's PC at below-normal priority, no WSL:
-  build, validate_deck, P's guard (`plan_allocation`, ladder 1, 12, 24 workers), the full 10,112 games on the
-  final build, then every tenth game again under another identity-hash mode, then the summary. Then the leak
-  suite again on the final build (about 15 min). Estimate: about 65 min for the run, about 80 min with the leak
-  suite, so the whole lot slightly exceeds 75 min; the 10,112-game run itself stays under it.
-- HaleysPC: idle on my side since 10:05 as asked (no process of mine there).
-- New since 08:35:
-  - **X-P4 (core patch).** Games with Reckoner Bankbuster were not reproducible run to run: its Treasure and
-    Pilot tokens entered in identity-hash order (`CreateTokenEvent` keeps tokens in a `HashMap` keyed by token
-    objects). X-P4 makes that map and `TokenImpl`'s created-token set insertion-ordered. The game that showed it
-    gave 4 different digests in 6 runs before and 1 digest in 6 runs after. `rules_snapshot_id` changes to
-    `...-xpat-6f8a902b...`; `card_pool_identity` is unchanged.
-  - **Halt fixes** (overlay): Run Away Together (dependent targets) now rewinds instead of halting; any-combination
-    mana is a `choose_color` group; other multi-amount questions outside combat (Glissa Sunslayer removing
-    counters) are a `choose_number` group. All 62 games that halted in run 1 end naturally on the fixed build.
-  - **Leak tests (HaleysPC, previous build):** counterspell 50 pairs PASS (whole game identical every time; p0
-    made 1,001 decisions with its spell on the stack while p1 held Counterspell over two open Islands); cantrip
-    50 pairs PASS; randomized 200 pairs flagged 2 divergences, both at a choice decision on turn 1 or 3 of a
-    Standard16-RB or Standard16-GB game. Both decks play Duress, which shows the observer the other hand on its
-    own spell: a legitimate look the classifier did not know yet. The classifier now accepts exactly that case,
-    the rerun on the final build saves the streams of any such pair, and I check them by hand.
+- Rebuilt on HaleysPC at below-normal priority (`lib_digest e8e5a42b`, commit `b5ce052`), stayed out of
+  `x-spike/kit`. Small check only: 17 + 217 games, each under the default identity hash and `-XX:hashCode=3`,
+  in different process layouts. 0 violations, all natural (`evidence/warmup-verify.json`).
+- **Warm-up fix works.** All 10 divergent games of Standard16-RW and -MonoW now give one digest in both modes, equal
+  to the main run. The check's 169 games outside Standard16-UG (46 RW, 44 MonoW, 80 other cells) are all equal
+  across modes; 168 equal the main run, and the remaining one was a first-in-process game in the main run.
+- **Second cause, open (Standard16-UG only):** 16 of 47 UG `heuristic`-vs-`uniform` games (and 5 of its 7
+  divergent ones) still change with the hash mode. Traced in game 4187 to `ability_index` of abilities that
+  Agatha's Soul Cauldron grants to Sentinel of the Nameless City: their order follows identity hash codes.
+  Proposed mapper fix (visible ordering of granted abilities) in `README.md`; not implemented. UG plays 316 of the
+  10,112 games.
+- HaleysPC `~/x-spike/x5` pruned to 1.4 MB (rows, comparisons, leak summaries); builds and sources removed.
+  Nothing of mine is running there. The full 1,011-game recheck waits for Jack's PC.
+
+## 11:50 EDT: final
+
+- **Jack's PC is clear.** No java, javac, maven or engine process of mine remains (checked); engine work
+  directories removed; scratch `D:/e-scratch/xmage-x-spike` pruned to 0.8 GiB (cap 6 GiB). WSL distributions
+  "Ubuntu" and "docker-desktop" are running, but I did not start them (none ran at 07:10 or 08:28; I never ran a
+  WSL command other than listing), so I left them alone.
+- **HaleysPC:** idle on my side since 10:05. Leftover scratch there: `~/x-spike/x5` (builds, about 1.2 GiB).
+- **Final run** (Jack's PC, P's guard chose 12 workers): 10,112 games in 50 min (200.6 per minute), all natural,
+  **0 validator violations** over 5,982,064 decisions, 0 halts, 0 truncations. Leak suite on the final build:
+  counterspell 50, cantrip 50, randomized 200 pairs, all PASS. X4b goldens regenerated (5 of 5 PASS).
+- **Open (needs HaleysPC or Jack's PC later):** every tenth game replayed under another identity-hash mode: 994 of
+  1,011 equal, 17 differ. Traced: process history, not hashing. XMage's AI class `MagicAbility` mints ids in its
+  static initializer, which first runs mid-game when engine autopay ranks objects. The fix (boot warm-up also
+  initializes `mage/player/ai/`, `Warmup.java`) is committed but not built or verified: rebuild, replay the
+  affected games (Standard16-UG, -RW, -MonoW, `heuristic` against `uniform`), rerun the hash check.
+- Details, numbers and questions for P: `README.md`.
