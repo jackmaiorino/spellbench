@@ -39,7 +39,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | X4d (#20) | Combat as per-creature groups with a completability oracle on a callback-free copy | done (2026-10-01): oracle, 2,000 games, 0 rejected declarations | X4a | 2 | no dead end over 10,000 random games |
 | X4e (#21) | Rewind on rejected activations; `engine_autopay` | done (2026-10-01, stage 1): overlay autopay planner with insertion-ordered ties; rewinds 1.2 per game | X4a | 1 | rewind golden; no payment loop in the soak |
 | X4h (#22) | Hash-order audit of candidate paths (no `HashSet` or UUID order reaches candidate order) | done (2026-10-01): digests equal under three identity-hash modes | X4a | 0.5 | audit note plus a test that shuffles hash seeds |
-| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | in progress: pools integrated, 2,216 of 10,112 games done with 0 violations before an interruption; halt causes fixed; full rerun waits for Jack's PC | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
+| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | nearly done (2026-10-01): 10,112 games, 0 violations, 0 halts; leak tests pass; warm-up fix for 17/1,011 hash-replay divergences in verification | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
 | X5m (#24) | `fdn-mirror-v0` benchmark (v2.0 as written: frozen pool of 16 FDN decks from DraftZero's eval split as mirrors, visible lists, CC BY 4.0 attribution) and a first rated run with `uniform`, `first`, `heuristic` | staged (2026-10-01): 16 FDN eval-split sample decks and a draft benchmark.json in `E:/spellbench-archive/program-research/x5m/`; integrates after X4 stage 2 | X5, compute policy | 1 | ledger published; halt and truncation rates shown |
 | X5b (#25) | Optional `probe_resample` | later | X5, P enabling the probe | 2 to 3 | "validator and probe" label |
 | X6 (#26) | Manifests `fdn-limited-v1` (rotating pairs, hidden lists) and `standard-2022-25` (fixed-deck, 16 house decks, legality list) | blocked: P-v2.1 | X5, P-v2.1 | 1 to 2 | both validate against P's v2.1 schema |
@@ -92,6 +92,13 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 11:50: X5.
+  - Final run on Jack's PC through P's `plan_allocation` guard (12 workers chosen; 1, 12 and 24 measured): 10,112 games on both pools (32 decks, all accepted), 0 validator violations over 5,982,064 decisions, 0 halts, 0 truncations, 200.6 games per minute.
+  - Paired-world leak tests pass: counterspell 50 pairs, cantrip 50, randomized 200, and a 5/5 injected-leak self-test.
+  - New core patch X-P4 (hash-ordered token creation): `rules_snapshot_id` is now `...-xpat-6f8a902b...`.
+  - Open: 17 of 1,011 identity-hash replays differed, caused by an AI scoring class that mints ids on first load. The warm-up fix is committed and being verified on HaleysPC.
+  - Label: "fairness: validator only".
+  - Jack's PC is off-limits to us from 14:00 for the research lead's timing and screen training (6 to 11 hours).
 - 2026-10-01 10:15: A1 build-out.
   - Changes 1 to 7 built and mostly run: continuation passes on real positions; all clock checks pass; register and pool audit clean (394 cards); the A3 cantrip pair is identical for all three entries; E7 matches upstream 61/61. Five bugs found and fixed.
   - Decision (coordinator, standing authorization): the pre-registered 50% truncation threshold fired for `kit-mcts` at rollout cap 300 (97 to 100% truncated), so the entry is re-frozen at cap 1000 (0% truncated measured). A4 measures the cost before any rating.
