@@ -1,6 +1,6 @@
 # XMage engine for Spellbench (sub-project X)
 
-Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton), X3 (observation builder) and X4 stage 1 (decision mapping: whole games play through P's host with its live validator). Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
+Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton), X3 (observation builder), X4 (decision mapping: whole games play through P's host with its live validator) and X5 in progress (both benchmark pools in the catalog, paired-world leak tests, the 10,000-game live-validated run; `tests/x5/`). **Fairness: validator only** (spec 13 residual 2): the engine declares no probe (`hello_ok.fairness.noninterference_probe` false), every decision is checked by P's live validator, and the paired-world leak tests of `tests/x5/` stand in for an audit until X5b's probe. Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
 
 ## Pins
 
@@ -142,6 +142,10 @@ Evidence: `tests/x3/README.md` (360 games, 539,524 observations, zero failures).
 - **Overlay rules code.** `decide.Duel` (CABT's `CabtLiveDuel`), `decide.LondonAfterKeep` (the bottom step after the keep) and `decide.AutoPayPlayer` (XMage's payment planner with deterministic producer order) change behaviour in the overlay only, so the identity strings are those of X1.
 
 Evidence and the full mapping table: `tests/x4/README.md`.
+
+## X5 conformance (in progress)
+
+`tests/x5/README.md`: the catalog now holds both pools (16 Standard 2022-25 decks from MageZero's pool, 16 FDN decks from 17lands via DraftZero), with multi-face cards under their full Oracle names. X5 found and fixed one more history dependence of game digests (XMage's parsed mana-cost cache, `ManaCostCache`) and the two halt causes its first 2,216 games met (Run Away Together's dependent targets, any-combination mana). `GameRandom` has a paired-world test hook, `-Dspellbench.test.worldSalt=SEAT:SALT`, a no-op unless set.
 
 ## Byte budget and prune record
 

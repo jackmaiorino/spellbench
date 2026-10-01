@@ -2070,7 +2070,7 @@ final class SeatPlayer extends AutoPayPlayer {
             }
             CallSite site = CallSite.here();
             if (site.find("CombatGroup") == null) {
-                throw ex().halt("unsupported:multi_amount");
+                return amountGroup(messages, totalMin, totalMax);
             }
             List<UUID> recipients = combatRecipients(game, messages);
             if (recipients == null) {
@@ -2186,6 +2186,73 @@ final class SeatPlayer extends AutoPayPlayer {
             out.add(count[i]);
         }
         return out;
+    }
+
+    /**
+     * Any other multi-amount question outside combat (Glissa Sunslayer's "remove up to three counters", one line per
+     * counter kind on the target): one group of {@code choose_number} decisions with purpose {@code amount}, one per
+     * line, in code point order of the lines (XMage lists counter kinds in hash order), each bounded so the rest of
+     * the group can still meet the totals (Section 7.1). v2.0 has no label for which line a number answers; the
+     * order is the documented rule (a question for P).
+     */
+    private List<Integer> amountGroup(List<MultiAmountMessage> messages, int totalMin, int totalMax) {
+        int n = messages.size();
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            order.add(i);
+        }
+        order.sort((a, b) -> {
+            String x = messages.get(a).message == null ? "" : messages.get(a).message;
+            String y = messages.get(b).message == null ? "" : messages.get(b).message;
+            int c = HiddenOrder.codePoints(x, y);
+            return c != 0 ? c : Integer.compare(a, b);
+        });
+        ex().stats.add("multi_amount_numbers");
+        Integer[] amounts = new Integer[n];
+        int assigned = 0;
+        for (int k = 0; k < n; k++) {
+            int i = order.get(k);
+            int lowerRest = 0;
+            int upperRest = 0;
+            for (int j = k + 1; j < n; j++) {
+                lowerRest += messages.get(order.get(j)).min;
+                upperRest += messages.get(order.get(j)).max;
+            }
+            int lo = Integer.MAX_VALUE;
+            int hi = Integer.MIN_VALUE;
+            for (int a = messages.get(i).min; a <= messages.get(i).max; a++) {
+                if (assigned + a + lowerRest <= totalMax && assigned + a + upperRest >= totalMin) {
+                    lo = Math.min(lo, a);
+                    hi = Math.max(hi, a);
+                }
+            }
+            if (lo > hi) {
+                throw ex().halt("dead_end:choose_number");
+            }
+            if ((long) hi - lo + 1 > 4096) {
+                throw ex().halt("candidate_limit");
+            }
+            Pose pose = new Pose(seat(), false, "choose_number:amount");
+            pose.sort = false;
+            long min = lo;
+            long max = hi;
+            for (int v = lo; v <= hi; v++) {
+                long value = v;
+                pose.add(o -> {
+                    Map<String, Object> s = sem("choose_number");
+                    s.put("source", null);
+                    s.put("purpose", "amount");
+                    s.put("value", value);
+                    s.put("minimum", min);
+                    s.put("maximum", max);
+                    return s;
+                });
+            }
+            int a = lo + ask(pose.substep(k, n));
+            amounts[i] = a;
+            assigned += a;
+        }
+        return new ArrayList<>(java.util.Arrays.asList(amounts));
     }
 
     /** Whether, after one more unit of color {@code pick}, {@code rest} units can still meet every bound. */

@@ -1,0 +1,27 @@
+[07:23:12] rung: 1 workers, 48 games
+[07:24:34]   wall 82.4 s, games/min 34.9
+[07:24:34] rung: 12 workers, 48 games
+[07:25:18]   wall 43.7 s, games/min 66.0
+[07:25:18] rung: 24 workers, 48 games
+[07:26:33]   wall 74.6 s, games/min 38.6
+[07:26:33] rung: 1 workers, 48 games
+[07:27:56]   wall 83.7 s, games/min 34.4
+Traceback (most recent call last):
+  File "D:\spellbench-wt\xmage\engines\xmage\tests\x5\x5run.py", line 479, in <module>
+    sys.exit(main(sys.argv[1:]))
+             ~~~~^^^^^^^^^^^^^^
+  File "D:\spellbench-wt\xmage\engines\xmage\tests\x5\x5run.py", line 472, in main
+    return cmd_qualify(args, engine)
+  File "D:\spellbench-wt\xmage\engines\xmage\tests\x5\x5run.py", line 286, in cmd_qualify
+    allocation = plan_allocation(
+        games_total=plan["games_total"], cap=args.cap, per_game_cores=1, play=play, placement=args.placement,
+        sample=list(range(plan["games_total"])), workload=workload, volumes={"run_dir": out, "pin_root": out},
+    )
+  File "D:\e-scratch\xmage-x-spike\x5\p2\python\spellbench\arena\qualification.py", line 438, in plan_allocation
+    identical, outputs_note = _outputs(play, indices, rung_digests)
+                              ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\e-scratch\xmage-x-spike\x5\p2\python\spellbench\arena\qualification.py", line 193, in _outputs
+    raise ThroughputError(
+    ...<2 lines>...
+    )
+spellbench.arena.allocation.ThroughputError: worker counts changed the results of identical games (game 43) that one worker reproduces; refusing to parallelize
