@@ -33,6 +33,10 @@ def main(argv: list[str]) -> int:
             row = x5run.play_global(gid)
             print(json.dumps({"gid": gid, "workload": row["workload"], "game_digest": row["row"]["game_digest"],
                               "steps": row["row"]["step_count"], "reason": row["row"]["reason"]}), flush=True)
+            if row["row"]["classification"] != "natural" and x5run._W.get("engine") is not None:
+                lines = x5run._W["engine"].stderr_text().splitlines()
+                for line in lines[-int(opts.get("--stderr-lines", "60")):]:
+                    print("  stderr: " + line, flush=True)
     finally:
         x5run._close()
     return 0
