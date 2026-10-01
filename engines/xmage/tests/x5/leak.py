@@ -352,7 +352,48 @@ def keep_pair(position: str, pair: dict[str, Any]) -> tuple[bool, str]:
     return True, ""
 
 
+def selftest(path: Path, seat: str) -> dict[str, Any]:
+    """Mutation test of the comparator on a recorded pair: each injected leak must be classified UNEXPLAINED."""
+    pair = json.loads(path.read_text(encoding="utf-8"))
+    base_a, base_b = pair["A"][seat], pair["B"][seat]
+    k = next(i for i, d in enumerate(base_b) if len(d.get("candidates", [])) > 1)
+    other = "p1" if seat == "p0" else "p0"
+
+    def mutate(fn) -> str | None:
+        b = json.loads(json.dumps(base_b))
+        fn(b[k])
+        return compare(base_a, b)["first_divergence"]
+
+    def known(d):
+        d["observation"].setdefault("known", []).append(
+            {"owner_seat": other, "zone": "hand", "card_name": "Counterspell", "object_id": None,
+             "position_from_top": None, "position_from_bottom": None, "how": "revealed"})
+
+    def order(d):
+        d["candidates"] = list(reversed(d["candidates"]))
+
+    def text(d):
+        d["candidates"][-1]["display_text"] = "opponent holds Counterspell"
+
+    def drop(d):
+        d["candidates"] = d["candidates"][:-1]
+
+    def context(d):
+        d.setdefault("context", {})["text"] = "Counterspell"
+
+    results = {name: mutate(fn) for name, fn in
+               (("known_other_hand", known), ("candidate_order", order), ("display_text", text),
+                ("candidate_dropped", drop), ("context_text", context))}
+    results["unmutated"] = compare(base_a, base_b)["first_divergence"]
+    caught = all(v == "UNEXPLAINED" for n, v in results.items() if n != "unmutated")
+    return {"seat": seat, "decision": k, "results": results, "verdict": "PASS" if caught else "FAIL"}
+
+
 def main(argv: list[str]) -> int:
+    if argv and argv[0] == "--selftest":
+        report = selftest(Path(argv[1]), argv[2])
+        print(json.dumps(report, indent=1))
+        return 0 if report["verdict"] == "PASS" else 1
     split = argv.index("--")
     options, engine = argv[:split], argv[split + 1:]
     parser = argparse.ArgumentParser()
@@ -399,6 +440,9 @@ def main(argv: list[str]) -> int:
                 row["p0_scry_decisions"] = [sum(1 for d in pair[w]["streams"]["p0"]
                                                 if (d.get("context") or {}).get("purpose") == "scry")
                                             for w in ("A", "B")]
+            if not kept:  # the first kept pair's streams, for the comparator's mutation test (--selftest)
+                (out / f"{args.position}-first-pair-streams.json").write_text(
+                    json.dumps({w: pair[w]["streams"] for w in ("A", "B")}, sort_keys=True), encoding="utf-8")
             results.write(json.dumps(row, sort_keys=True) + "\n")
             results.flush()
             kept.append(row)
