@@ -92,6 +92,12 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 19:45: D4 sole-copy backup done: 16,165 files (52.1 GB) on E:, two full hash passes clean, registered. Lesson: E: is an SMR drive, and our copy's write stall (18:10 to 18:31) likely contributed to the research lead's training stop; recorded on both sides. On hold until the research lead's training continuation and 5-hour screen evaluation finish on Jack's PC (likely into 2026-10-02), queued in this order:
+  1. the X5 resume;
+  2. the `fdn-mirror-v0` first rated run;
+  3. kit qualification and soak;
+  4. the HaleysPC dedupe (reads only on E:).
+  HaleysPC is below the reserve (57 GB free) because of the Codex FDN build caches.
 - 2026-10-01 18:45: X5 final rerun paused at 3,544 of 10,112 games.
   - So far on the final build (`d74803d5`, HaleysPC, guard chose 6 workers): 0 violations over 2,030,290 decisions, 0 halts.
   - Digests vs the earlier Jack's PC run: all 1,772 FDN games equal; 1,617 of 1,772 Standard games equal, and the 155 that changed are in the decks the two determinism fixes target.
