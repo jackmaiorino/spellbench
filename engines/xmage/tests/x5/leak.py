@@ -17,6 +17,8 @@ At the first index where the observer's two streams differ, the difference is cl
 - ``own_hand``: only the observer's own hand differs (it drew different cards, possible only when the salted seat
   is the observer itself);
 - ``own_look``: only ``known`` entries of the observer's own library differ (a scry or a look it caused);
+- ``own_effect_look``: only ``known`` entries of the other seat's hand differ, revealed or looked at while the
+  observer's own spell or ability resolves (Duress), and the decision's candidates may differ with them;
 - ``UNEXPLAINED``: the public state and the observer's own hand are equal, yet the decision differs (candidates,
   context, group, or ``known`` entries about the other seat): a leak, and the test fails.
 Streams that end at different lengths with an equal prefix are classified ``public`` (the games ended differently).
@@ -176,6 +178,13 @@ def classify(a: dict, b: dict) -> str:
     rest_b = {k: v for k, v in b.items() if k != "observation"}
     if diff and all(k.get("owner_seat") == viewer and k.get("zone") == "library" for k in diff):
         return "own_look"
+    source = (a.get("context") or {}).get("source") or {}
+    other = "p1" if viewer == "p0" else "p0"
+    if (diff and source.get("controller_seat") == viewer and source.get("zone") == "stack"
+            and source == ((b.get("context") or {}).get("source") or {})
+            and all(k.get("owner_seat") == other and k.get("zone") == "hand"
+                    and k.get("how") in ("revealed", "looked_at") for k in diff)):
+        return "own_effect_look"  # the observer's own resolving spell shows it the other hand (Duress)
     if rest_a == rest_b and not diff:
         return "public"  # unreachable: equal canonical bytes
     return "UNEXPLAINED"
@@ -469,6 +478,12 @@ def main(argv: list[str]) -> int:
                 row["p0_scry_decisions"] = [sum(1 for d in pair[w]["streams"]["p0"]
                                                 if (d.get("context") or {}).get("purpose") == "scry")
                                             for w in ("A", "B")]
+            audit = any(c["first_divergence"] in ("UNEXPLAINED", "own_effect_look")
+                        for c in row["observers"].values())
+            if audit and tally["streams_saved"] < 10:  # kept for audit
+                tally["streams_saved"] += 1
+                (out / f"{args.position}-{pair['config']}-{pair['index']}-streams.json").write_text(
+                    json.dumps({w: pair[w]["streams"] for w in ("A", "B")}, sort_keys=True), encoding="utf-8")
             if not kept:  # the first kept pair's streams, for the comparator's mutation test (--selftest)
                 (out / f"{args.position}-first-pair-streams.json").write_text(
                     json.dumps({w: pair[w]["streams"] for w in ("A", "B")}, sort_keys=True), encoding="utf-8")
