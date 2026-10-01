@@ -1,7 +1,9 @@
 package xview_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -180,5 +182,140 @@ func TestGroupsCarryNoNativeIDs(t *testing.T) {
 				t.Errorf("card %d token %q", cv.ID, cv.Token)
 			}
 		}
+	}
+}
+
+// Fix round 1: the payment drop is pinned on poses that DO carry payment
+// data (the review found it asserted only on a payment-free pose).
+
+func TestPaymentActionsAreDroppedFromALivePriorityPose(t *testing.T) {
+	pl, p := payloadAt(t, "Burn", func(d *decision.Decision, e *rules.Engine) bool {
+		return d.Kind == decision.KPriority && len(d.PaymentActions) > 0
+	})
+	if len(p.Native.PaymentActions) == 0 {
+		t.Fatal("the pose carried no payment actions: the test proves nothing")
+	}
+	if len(pl.Decision.PaymentActions) != 0 || pl.Decision.PaymentFallback != nil {
+		t.Fatalf("payment data survived: %d actions, fallback %+v", len(pl.Decision.PaymentActions), pl.Decision.PaymentFallback)
+	}
+}
+
+// constructedEnv is a fresh game plus tracker for hand-built poses.
+func constructedEnv(t *testing.T) *mapping.Env {
+	t.Helper()
+	g := testgame.New(t, testcorpus.Registry(t), "Wildfire", "Wildfire", 1, "none")
+	tr := identity.New(g.E, g.Secret)
+	return &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Slots: map[string]uint32{}}
+}
+
+// The choke point nils the clone's payment fields; the pose keeps its own.
+func TestPaymentFieldsAreDroppedFromConstructedPoses(t *testing.T) {
+	env := constructedEnv(t)
+	pay := []decision.PaymentAction{{ID: "pay:0", Label: "pay"}}
+	native := &decision.Decision{Kind: decision.KPriority, Player: 0, Seq: 9,
+		PaymentActions: pay, PaymentFallback: &decision.PaymentFallback{PlanID: "plan:0", Reason: "fell back"}}
+	follow := &decision.Decision{Kind: decision.KChoose, Player: 0, Seq: 10,
+		Options:        []decision.Option{{Index: 0, Kind: "pay"}, {Index: 1, Kind: "done"}},
+		PaymentActions: pay, PaymentFallback: &decision.PaymentFallback{PlanID: "plan:1", Reason: "fell back"}}
+	p := &mapping.Pose{Seat: 0, Native: native, Followups: map[string]*decision.Decision{"0": follow}}
+	ext, err := xview.New().Extend(env, p, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pl xview.Payload
+	if err := json.Unmarshal(ext["x_gorge_view_v1"], &pl); err != nil {
+		t.Fatal(err)
+	}
+	if len(pl.Decision.PaymentActions) != 0 || pl.Decision.PaymentFallback != nil {
+		t.Fatalf("native payment data survived: %d actions, fallback %+v", len(pl.Decision.PaymentActions), pl.Decision.PaymentFallback)
+	}
+	fu, ok := pl.Followups["0"]
+	if !ok {
+		t.Fatalf("follow-up keys %v", maps.Keys(pl.Followups))
+	}
+	if len(fu.PaymentActions) != 0 || fu.PaymentFallback != nil {
+		t.Fatalf("follow-up payment data survived: %d actions, fallback %+v", len(fu.PaymentActions), fu.PaymentFallback)
+	}
+	if len(native.PaymentActions) == 0 || native.PaymentFallback == nil || len(follow.PaymentActions) == 0 || follow.PaymentFallback == nil {
+		t.Fatal("Extend rewrote the pose's own payment fields")
+	}
+}
+
+// hiddenPair returns two of seat 0's library cards whose name order inverts
+// their library positions, so sortHidden's permutation is not the identity.
+func hiddenPair(t *testing.T, env *mapping.Env, taken map[state.ObjID]bool) (a, b state.ObjID) {
+	t.Helper()
+	lib := env.G.E.G.Zone(state.ZLibrary, 0)
+	for i := 0; i < len(lib); i++ {
+		for j := i + 1; j < len(lib); j++ {
+			if taken[lib[i]] || taken[lib[j]] {
+				continue
+			}
+			if env.G.E.G.Obj(lib[i]).Face().Name > env.G.E.G.Obj(lib[j]).Face().Name {
+				return lib[i], lib[j]
+			}
+		}
+	}
+	t.Fatal("no out-of-order name pair in the library")
+	return 0, 0
+}
+
+// A pose may be posed again (a retransmission, or T28a's audited sessions
+// with Ext wired in): extending it twice must give byte-identical payloads
+// and leave the pose's op slices untouched.
+func TestReextendingAPoseLeavesItUntouched(t *testing.T) {
+	env := constructedEnv(t)
+	env.OpenLook(0)
+	taken := map[state.ObjID]bool{}
+	a, b := hiddenPair(t, env, taken)
+	taken[a], taken[b] = true, true
+	c, d := hiddenPair(t, env, taken)
+	native := &decision.Decision{Kind: decision.KChoose, Player: 0, Seq: 5,
+		Options: []decision.Option{{Index: 0, Kind: "search", Obj: a}, {Index: 1, Kind: "search", Obj: b}}}
+	follow := &decision.Decision{Kind: decision.KChoose, Player: 0, Seq: 6,
+		Options: []decision.Option{{Index: 0, Kind: "search", Obj: c}, {Index: 1, Kind: "search", Obj: d}}}
+	p := &mapping.Pose{Seat: 0, Native: native, Followups: map[string]*decision.Decision{"0": follow},
+		Candidates: []mapping.Cand{
+			{Op: mapping.NativeOp{Op: "choose", Option: 0, Followup: []int{1}}},
+			{Op: mapping.NativeOp{Op: "cast", Option: -1, Covers: []int{0, 1}}},
+		}}
+	before, err := json.Marshal(p.Candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := xview.New()
+	ext1, err := x.Extend(env, p, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ext2, err := x.Extend(env, p, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw1, raw2 := ext1["x_gorge_view_v1"], ext2["x_gorge_view_v1"]; !bytes.Equal(raw1, raw2) {
+		t.Fatalf("second extension differs:\n%s\n%s", raw1, raw2)
+	}
+	after, err := json.Marshal(p.Candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("the pose was rewritten:\nbefore %s\nafter  %s", before, after)
+	}
+	var pl xview.Payload
+	if err := json.Unmarshal(ext1["x_gorge_view_v1"], &pl); err != nil {
+		t.Fatal(err)
+	}
+	// Sanity that translation really happened: the swapped names give perm
+	// [1,0] on both decisions, so the payload keys the follow-up "1" and the
+	// ops carry the renumbered indices.
+	if _, ok := pl.Followups["1"]; !ok || len(pl.Followups) != 1 {
+		t.Fatalf("follow-up keys %v", maps.Keys(pl.Followups))
+	}
+	if pl.Ops[0].Option != 1 || !slices.Equal(pl.Ops[0].Followup, []int{0}) {
+		t.Fatalf("choose op %+v, want option 1 followup [0]", pl.Ops[0])
+	}
+	if pl.Ops[1].Option != -1 || !slices.Equal(pl.Ops[1].Covers, []int{1, 0}) {
+		t.Fatalf("cast op %+v, want option -1 covers [1 0]", pl.Ops[1])
 	}
 }
