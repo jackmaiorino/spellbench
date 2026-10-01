@@ -40,7 +40,6 @@ public final class EngineServer {
 
     private final EngineProfile profile;
     private final CardResolver resolver;
-    private final GameSession.DecisionMapper mapper;
     private final Set<String> usedGameIds = new HashSet<>();
     private GameSession game;
 
@@ -49,10 +48,9 @@ public final class EngineServer {
     private byte[] cachedLine;
     private byte[] cachedResponse;
 
-    EngineServer(EngineProfile profile, CardResolver resolver, GameSession.DecisionMapper mapper) {
+    EngineServer(EngineProfile profile, CardResolver resolver) {
         this.profile = profile;
         this.resolver = resolver;
-        this.mapper = mapper;
     }
 
     public static void main(String[] args) throws Exception {
@@ -62,7 +60,7 @@ public final class EngineServer {
         int[] warmed = Warmup.framework();
         System.err.println("xmage-spellbench: framework classes initialized " + warmed[0] + ", failed " + warmed[1]);
         CardScanner.scan();
-        EngineServer server = new EngineServer(EngineProfile.load(), new CardResolver(), GameSession.PENDING);
+        EngineServer server = new EngineServer(EngineProfile.load(), new CardResolver());
         server.serve(new BufferedInputStream(System.in, 1 << 16), protocolOut);
         System.exit(0); // XMage keeps executor threads alive
     }
@@ -216,7 +214,7 @@ public final class EngineServer {
         }
         usedGameIds.add(r.gameId);
         try {
-            game = GameSession.create(r, entries(rows.get(0)), entries(rows.get(1)), resolver, mapper);
+            game = GameSession.create(r, entries(rows.get(0)), entries(rows.get(1)), resolver);
             game.start();
         } catch (RuntimeException e) {
             // an engine fault never emits a partial decision: the game ends halted (Section 9.5)

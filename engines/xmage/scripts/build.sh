@@ -82,14 +82,15 @@ SETS_TREE=$(git -C "$XMAGE_REPO" rev-parse "$XMAGE_COMMIT:Mage.Sets")
 RULES_ID="xmage-$XMAGE_COMMIT-xpat-$XPAT"
 POOL_ID="xmage-sets-$SETS_TREE-xpat-$SETS_XPAT"
 
-# 5. the Spellbench overlay; the stream router and the v2 server only with the patch series they rely on
+# 5. the Spellbench overlay; the stream router, the v2 server and its decision mapper only with the patch series
+#    they rely on
 MOD="$SRC/Mage.Server.Plugins/Mage.Player.AI"
 OVL="$MOD/src/main/java/mage/player/spellbench"
 RES="$MOD/src/main/resources/mage/player/spellbench"
 mkdir -p "$OVL" "$RES"
 cp -R "$HERE/overlay/src/main/java/mage/player/spellbench/." "$OVL/"
 cp -R "$HERE/overlay/src/main/resources/mage/player/spellbench/." "$RES/"
-[ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server" "$OVL/x3"
+[ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server" "$OVL/decide" "$OVL/x3"
 printf 'rules_snapshot_id=%s\ncard_pool_identity=%s\n' "$RULES_ID" "$POOL_ID" > "$RES/engine-identity.properties"
 
 # 6. compile and package (no install: stock and patched builds never share Maven coordinates)

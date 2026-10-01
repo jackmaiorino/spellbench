@@ -23,14 +23,18 @@ public final class EngineProfile {
 
     static final List<String> FORMATS = Arrays.asList("fdn-limited-bo1", "standard-2022-25-bo1");
 
-    /** Every v2.0 kind except choose_starting_player (starts are host-assigned); the reserved kinds never. */
+    /**
+     * The kinds the decision mapper ({@code decide.SeatPlayer}) can emit (task X4). Not declared: the reserved kinds;
+     * {@code choose_starting_player} (starts are host-assigned); {@code activate_mana_ability} (mana abilities are
+     * the engine's under {@code engine_autopay}, never offered); {@code choose_cost_option} and {@code optional_cast}
+     * (XMage reaches them through yes/no and card choices the mapper poses as other kinds).
+     */
     static final List<String> DECISION_KINDS = Arrays.asList(
-            "pass", "play_land", "cast_spell", "activate_mana_ability", "activate_ability", "special_action",
+            "pass", "play_land", "cast_spell", "activate_ability", "special_action",
             "choose_target", "finish_target_selection", "choose_cost_target", "choose_cast_method",
             "choose_spell_mode", "choose_option", "choose_color", "choose_number", "choose_boolean",
-            "choose_name", "select_object", "finish_selection", "optional_cost", "choose_cost_option",
-            "optional_cast", "mulligan", "order_pick", "arrange_card", "choose_replacement", "declare_attack",
-            "declare_block", "distribute", "choose_pile");
+            "choose_name", "select_object", "finish_selection", "optional_cost", "mulligan", "order_pick",
+            "arrange_card", "choose_replacement", "declare_attack", "declare_block", "distribute", "choose_pile");
 
     public final String rulesSnapshotId;
     public final String cardPoolIdentity;

@@ -1,13 +1,20 @@
 package mage.player.spellbench.server;
 
+import mage.cards.Card;
+import mage.cards.decks.Deck;
 import mage.game.Game;
+import mage.game.GameOptions;
 import mage.player.cabt.CabtDeckFactory;
-import mage.player.cabt.CabtGameSession;
 import mage.player.cabt.CardResolver;
+import mage.player.spellbench.decide.Seats;
+import mage.player.spellbench.decide.Exchange;
 import mage.player.spellbench.rng.GameRandom;
 import mage.players.Player;
 
-import java.util.ArrayList;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,119 +22,59 @@ import java.util.UUID;
 
 /**
  * One v2 game on XMage (design draft Section 3.2): the X1 stream router installed before any object of the
- * game exists, both seats as CABT bridge players parked per prompt, the starting player host-assigned, and the
- * terminal derived from player state, never from XMage's winner string.
+ * game exists, both seats as {@code decide.SeatPlayer}s whose callbacks pose protocol v2 decisions (task X4), the
+ * starting player host-assigned, and the terminal derived from player state, never from XMage's winner string.
  * <p>
- * Decisions come from a {@link DecisionMapper} (tasks X3 and X4). Until one exists, the first prompt ends the
- * game {@code halted} with reason {@code engine_contract_failure:decision_mapping_pending} (Section 9.5): the
- * engine never emits a partial decision.
+ * The game runs on its own thread; {@link Exchange} parks it at each posed decision. The counters ({@code step},
+ * {@code decision_count} with groups and rewinds) are the exchange's.
  */
 final class GameSession {
 
-    /** Builds the seat decision for a CABT prompt, and applies a chosen candidate (tasks X3, X4). */
-    interface DecisionMapper {
-        /** The decision to pose, or an engine answer ({@link Posed#engineAnswer}) for an engine-default prompt. */
-        Posed pose(CabtGameSession.Event event, Game game, String seat) throws Unrepresentable;
-
-        /** The CABT option indices that realize a candidate of the posed decision. */
-        List<Integer> realize(Posed posed, int candidateId) throws Unrepresentable;
-    }
-
-    /** A state the mapper cannot represent: the game ends halted (Section 9.5). */
-    static final class Unrepresentable extends Exception {
-        private static final long serialVersionUID = 1L;
-        final String cause;
-
-        Unrepresentable(String cause) {
-            super(cause);
-            this.cause = cause;
-        }
-    }
-
-    /**
-     * A decision as posed: its seat_decision and each candidate's canonical semantic, for the echo check; or,
-     * for a prompt the engine answers itself under a declared default (a keep under {@code mulligan: none}),
-     * the CABT option indices it answers with.
-     */
-    static final class Posed {
-        final Map<String, Object> seatDecision;
-        final List<String> semantics;
-        final List<Integer> engineAnswer;
-
-        Posed(Map<String, Object> seatDecision, List<String> semantics) {
-            this.seatDecision = seatDecision;
-            this.semantics = semantics;
-            this.engineAnswer = null;
-        }
-
-        private Posed(List<Integer> engineAnswer) {
-            this.seatDecision = null;
-            this.semantics = null;
-            this.engineAnswer = engineAnswer;
-        }
-
-        static Posed engineAnswer(List<Integer> options) {
-            return new Posed(options);
-        }
-    }
-
-    /** The mapper used until X3 and X4 land. */
-    static final DecisionMapper PENDING = new DecisionMapper() {
-        @Override
-        public Posed pose(CabtGameSession.Event event, Game game, String seat) throws Unrepresentable {
-            throw new Unrepresentable("decision_mapping_pending");
-        }
-
-        @Override
-        public List<Integer> realize(Posed posed, int candidateId) throws Unrepresentable {
-            throw new Unrepresentable("decision_mapping_pending");
-        }
-    };
-
     final String gameId;
-    private final DecisionMapper mapper;
-    private final CabtGameSession session;
-    private final List<UUID> seats = new ArrayList<>();
-    private final long maxSteps;
-    private final long maxDecisions;
+    private final Seats seats;
     long step;           // the pending decision's binding step = the answered decisions so far
-    long decisionCount;  // completed groups (X4 counts groups; until then one decision is one group)
-    Posed pending;
+    long decisionCount;  // completed groups that count (Section 8)
+    Exchange.Outcome pending;
     Map<String, Object> terminal; // outcome, classification, winner, reason; null while the game runs
 
-    private GameSession(String gameId, DecisionMapper mapper, CabtGameSession session, long maxSteps,
-                        long maxDecisions) {
+    private GameSession(String gameId, Seats seats) {
         this.gameId = gameId;
-        this.mapper = mapper;
-        this.session = session;
-        this.maxSteps = maxSteps;
-        this.maxDecisions = maxDecisions;
+        this.seats = seats;
     }
 
     /**
      * Builds the game. Card classes of both decks are initialized under the boot router first, so class
-     * initializers never draw from this game's streams (X1); then the game router is installed.
+     * initializers never draw from this game's streams (X1); then the game router is installed and every object of
+     * the game is created under it, in a fixed order.
      */
     static GameSession create(Requests.Reset reset, List<CabtDeckFactory.Entry> deck0,
-                              List<CabtDeckFactory.Entry> deck1, CardResolver resolver, DecisionMapper mapper) {
+                              List<CabtDeckFactory.Entry> deck1, CardResolver resolver) {
         GameRandom.installBoot();
         resolver.buildDeck(UUID.nameUUIDFromBytes(new byte[]{0}), deck0);
         resolver.buildDeck(UUID.nameUUIDFromBytes(new byte[]{1}), deck1);
         GameRandom router = GameRandom.install(reset.gameSecret);
-        CabtGameSession.Config config = new CabtGameSession.Config()
-                .playerNames("p0", "p1").decisionTimeoutSeconds(600);
-        CabtGameSession session = new CabtGameSession(deck0, deck1, config, resolver);
-        GameSession g = new GameSession(reset.gameId, mapper, session, reset.maxSteps, reset.maxDecisions);
-        g.seats.addAll(session.game().getPlayers().keySet());
-        router.assignSeat(g.seats.get(0), "p0");
-        router.assignSeat(g.seats.get(1), "p1");
-        session.game().setStartingPlayerId(g.seats.get(Requests.SEATS.indexOf(reset.rules.startingSeat)));
-        return g;
+        Seats seats = Seats.create();
+        addPlayer(seats.game, seats.player(0), resolver.buildDeck(seats.player(0).getId(), deck0));
+        addPlayer(seats.game, seats.player(1), resolver.buildDeck(seats.player(1).getId(), deck1));
+        seats.game.setGameOptions(new GameOptions());
+        router.assignSeat(seats.player(0).getId(), "p0");
+        router.assignSeat(seats.player(1).getId(), "p1");
+        seats.game.setStartingPlayerId(seats.player(Requests.SEATS.indexOf(reset.rules.startingSeat)).getId());
+        seats.connect(reset.gameSecret, EngineProfile.observationFlags(), reset.maxSteps, reset.maxDecisions,
+                reset.rules.cardNameDomain, "none".equals(reset.rules.mulligan));
+        return new GameSession(reset.gameId, seats);
+    }
+
+    private static void addPlayer(Game game, Player player, List<Card> cards) {
+        Deck deck = new Deck();
+        deck.getCards().addAll(cards);
+        game.loadCards(deck.getCards(), player.getId());
+        game.addPlayer(player, deck);
     }
 
     /** A game that failed while being built: already over, halted with {@code cause}. */
     static GameSession halted(String gameId, String cause) {
-        GameSession g = new GameSession(gameId, PENDING, null, 0, 0);
+        GameSession g = new GameSession(gameId, null);
         g.terminal = terminal("halted", "halted", null, "engine_contract_failure:" + cause);
         GameRandom.installBoot();
         return g;
@@ -135,87 +82,64 @@ final class GameSession {
 
     /** Runs the game to its first decision or its end. */
     void start() {
-        try {
-            advance(session.start());
-        } catch (RuntimeException e) {
-            e.printStackTrace(System.err);
-            halt("engine_error");
-        }
+        Game game = seats.game;
+        UUID first = seats.player(0).getId();
+        handle(seats.exchange.start(() -> game.start(first)));
     }
 
     /** Applies a validated candidate of the pending decision and runs to the next decision or the end. */
     void answer(int candidateId) {
-        Posed posed = pending;
         pending = null;
-        step++;
-        decisionCount++;
-        List<Integer> options;
-        try {
-            options = mapper.realize(posed, candidateId);
-        } catch (Unrepresentable e) {
-            halt(e.cause);
+        handle(seats.exchange.answer(candidateId));
+    }
+
+    private void handle(Exchange.Outcome outcome) {
+        step = seats.exchange.step();
+        decisionCount = seats.exchange.decisionCount();
+        if (outcome.seatDecision != null) {
+            pending = outcome;
             return;
         }
-        try {
-            advance(session.select(options));
-        } catch (RuntimeException e) {
-            e.printStackTrace(System.err);
-            halt("engine_error");
-        }
-    }
-
-    private void advance(CabtGameSession.Event event) {
-        while (true) {
-            switch (event.kind()) {
-                case GAME_OVER:
-                    end(naturalTerminal());
-                    return;
-                case GAME_ERROR:
-                    halt("engine_error");
-                    return;
-                default:
-                    break;
-            }
-            if (step >= maxSteps || decisionCount >= maxDecisions) {
-                end(terminal("truncated", "truncated", null, step >= maxSteps ? "max_steps" : "max_decisions"));
-                return;
-            }
-            String seat = event.playerName();
-            Posed posed;
-            try {
-                posed = mapper.pose(event, session.game(), seat);
-            } catch (Unrepresentable e) {
-                halt(e.cause);
-                return;
-            }
-            if (posed.engineAnswer == null) {
-                pending = posed;
-                return;
-            }
-            event = session.select(posed.engineAnswer);
-        }
-    }
-
-    private void halt(String cause) {
-        end(terminal("halted", "halted", null, "engine_contract_failure:" + cause));
-    }
-
-    private void end(Map<String, Object> t) {
-        terminal = t;
         pending = null;
-        if (session != null) {
-            session.finish();
-        }
+        terminal = outcome.gameOver ? naturalTerminal() : outcome.terminal;
+        seats.exchange.close();
         GameRandom.installBoot();
+        report();
+    }
+
+    /** Per-game mapping counters for the X4 evidence: stderr, and a file named by SPELLBENCH_XMAGE_STATS. */
+    private void report() {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("game_id", gameId);
+        line.put("reason", terminal.get("reason"));
+        line.put("outcome", terminal.get("outcome"));
+        line.put("step_count", step);
+        line.put("decision_count", decisionCount);
+        Map<String, Object> counts = new LinkedHashMap<>();
+        for (Map.Entry<String, Long> e : seats.exchange.stats().snapshot().entrySet()) {
+            counts.put(e.getKey(), e.getValue());
+        }
+        line.put("stats", counts);
+        byte[] bytes = StrictJson.canonical(line);
+        System.err.println("x4-stats " + new String(bytes, StandardCharsets.UTF_8));
+        String path = System.getenv("SPELLBENCH_XMAGE_STATS");
+        if (path != null && !path.isEmpty()) {
+            try (OutputStream out = new FileOutputStream(path, true)) {
+                out.write(bytes);
+                out.write('\n');
+            } catch (IOException e) {
+                System.err.println("xmage-spellbench: cannot append stats: " + e);
+            }
+        }
     }
 
     /** Outcome and reason from player state (life, poison, library), never XMage's winner string. */
     private Map<String, Object> naturalTerminal() {
-        Game game = session.game();
+        Game game = seats.game;
         boolean[] lost = new boolean[2];
         String reason = null;
         for (int k = 0; k < 2; k++) {
-            Player p = game.getPlayer(seats.get(k));
+            Player p = game.getPlayer(seats.player(k).getId());
             String seat = Requests.SEATS.get(k);
             if (p != null && p.hasLost()) {
                 lost[k] = true;
