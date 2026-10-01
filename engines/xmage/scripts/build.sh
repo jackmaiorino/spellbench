@@ -59,7 +59,8 @@ cp -R "$HERE/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/." "$SRC/Mage.Server
 "$PYTHON" "$HERE/vendor/cabt/services/engine/prepare_reference.py" "$(native "$SRC")"
 
 # 3. build-only patches (both builds), then the X patch series (skipped for the stock negative control)
-for p in $(ls "$HERE"/patches/build/*.patch | LC_ALL=C sort); do
+ls "$HERE"/patches/build-only/*.patch >/dev/null || { echo "missing patches/build-only" >&2; exit 1; }
+for p in $(ls "$HERE"/patches/build-only/*.patch | LC_ALL=C sort); do
   (cd "$SRC" && GIT_CEILING_DIRECTORIES="$OUT" git apply --whitespace=nowarn "$p")
 done
 PATCHES=$(ls "$HERE"/patches/xmage/*.patch | LC_ALL=C sort)

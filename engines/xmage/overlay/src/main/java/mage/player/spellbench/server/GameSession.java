@@ -222,7 +222,7 @@ final class GameSession {
                 if (reason == null) {
                     if (p.getLife() <= 0) {
                         reason = seat + "_life_zero";
-                    } else if (p.getCounters().getCount(mage.counters.CounterType.POISON) >= 10) {
+                    } else if (p.getCountersCount(mage.counters.CounterType.POISON) >= 10) {
                         reason = seat + "_poison";
                     } else if (p.getLibrary().size() == 0) {
                         reason = seat + "_library_empty";

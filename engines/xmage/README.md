@@ -20,13 +20,13 @@ Status: spike through tasks X0 (pin and build) and X1 (determinism and secrets).
 | `rules_snapshot_id` | `xmage-<XMage commit>-xpat-<sha256 of patches/xmage/*.patch concatenated in name order>` | `xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-8c2578bef233c7d26ca090613cad5b11e198d21a49b0f67edb964bd782aeec6b` |
 | `card_pool_identity` | `xmage-sets-<git tree id of Mage.Sets at the pin>-xpat-<sha256 of the patch sections under Mage.Sets/>` | `xmage-sets-3c333c4538a45690b640b4520b6572c40da80cb9-xpat-94cbe27a7907a9c2ac6a4bc22e3b152270493eb3da92e8449331ea0ccef6997c` |
 
-The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit 23 card classes. A tree id is used instead of "the last commit touching Mage.Sets", which a shallow clone cannot compute. `scripts/build.sh` computes both strings and writes them to `BUILD-MANIFEST.json`. The build-only patch in `patches/build/` does not change rules and is not hashed.
+The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit 23 card classes. A tree id is used instead of "the last commit touching Mage.Sets", which a shallow clone cannot compute. `scripts/build.sh` computes both strings and writes them to `BUILD-MANIFEST.json`. The build-only patch in `patches/build-only/` does not change rules and is not hashed.
 
 ## Layout
 
 - `vendor/cabt/`: CABT's `Mage.Player.AI` overlay, its `LICENSE`, and `services/engine/prepare_reference.py`.
 - `patches/xmage/`: the core patch series, applied in name order (below).
-- `patches/build/`: build-only patches, applied to every build. Today this is one patch, which pins the jar manifest's `Build-Time`.
+- `patches/build-only/`: build-only patches, applied to every build. Today this is one patch, which pins the jar manifest's `Build-Time`.
 - `overlay/`: the `mage.player.spellbench` package. It holds the Section 11.6 and 5.3 derivations (`Secrets`, `ids.ObjectIds`), the stream router (`rng`, patched builds only), and the X1 harness (`x1`).
 - `scripts/build.sh`: one build for Windows (Git Bash) and Linux; `--stock` builds the negative control.
 - `scripts/x1-determinism.sh`: the X1 evidence run.
