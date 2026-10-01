@@ -14,22 +14,52 @@ zero forfeits and zero halts. Two items are partial (marked): continuation beyon
 and the executed payload of non-stack actions. One pre-registered threshold fired (E4 clause 1) and its outcome is
 implemented.
 
-## Build-out after the A1 result review (Sol, PROCEED WITH CHANGES; in progress)
+## Build-out after the A1 result review (Sol, PROCEED WITH CHANGES): changes 1 to 7 run
 
-Review: `E:/spellbench-archive/program-research/reviews/a1-sol-opinion.md`. Code for changes 1 to 7 is on branch
-`xmage-agent-kit`; its checks need HaleysPC (builds, Java and games are on hold for the X5 benchmark), so every
-row below is **pending a run** unless it says otherwise. Change 8 (qualification, soak) waits for a coordinator go.
+Review: `E:/spellbench-archive/program-research/reviews/a1-sol-opinion.md`. Run 2026-10-01 on HaleysPC at below-normal
+priority, after merging `origin/xmage-x0-x1` (X-P4 core patch; engine rebuilt: `rules_snapshot_id`
+`xmage-fd40ad5c...-xpat-6f8a902b...`, `lib_digest` `c81b025a...`). Records in `buildout/`: `finalA.jsonl` (71/71
+PASS: S1 to S9, SENTINEL, E2, E7MCTS, E7MAD, S2P, S3P, S4P, S10P, REG, POOLAUDIT), `finalB.jsonl` (8/8 PASS: A3,
+MCTSPOWER), `core-*.jsonl` (SliceCore 12/12, TerminationCheck PASS, FrontCheck 11/11), `unmapped/`, `games/`.
+Change 8 (qualification, soak) waits for a coordinator go.
 
-| Change | Code | Verification (pending unless noted) |
+| Change | Code | Result |
 |---|---|---|
-| 1 production continuation | `Front`: the continuation's picks are the plan of the logical dialog (no second request at substep 0); later substeps, forced single-candidate steps and the finish come from that plan; anchors are saved at every priority decision with the object on top (inputs only); the resolution's earlier dialogs (this seat's own answers after the anchor) go to the runner. `Continuation`: replays them (selections, yes/no, numbers, modes; arrangements are planned but not replayed), counts repeated XMage calls on one target as one dialog, plans arrangements in the front's format, declines a flagged source | `FrontCheck` (fake runner): picks preserved across substeps, forced step advances the plan, finish at the plan's end, earlier dialog sent for the later one. `Slice` S2P, S3P, S4P, S10P (Cultivate: second dialog after replay) through a real front and runner |
-| 2 one clock per `choose` | `Front.Clock`, `RunnerLink.call(request, waitUntil, answerBy, grace)`: restart waiting, the runner's deadline, continuation, the current dialog after it, diagnostics and the kill share one answer time; a booting replacement is never killed (`Busy`); an unconfirmed exit is confirmed by a reaper before the next start | `FrontCheck`: `max_decision_ms` binds, `remaining_ms` binds, a decision during a 6 s reboot answered in time without a kill, slow continuation then dialog, slow diagnostics |
-| 3 register | `register/scan.py` + `register.json` (394 cards: 316 supported, 72 approximate, 6 unsupported; **27 of 32 pool decks admitted**, excluded: Standard-MonoR, Standard-MonoW, Standard16-5C, Standard16-BW, Standard16-RG, all for restricted-mana lands or Gwenna); `WorldBuilder`: trigger event data, captured activation values, optional-cost state and incomplete stack targets take the horizon; dropped pending triggers stop priority searches; emblems rebuilt; unsupported states not searched (`Runner.skipReason`) | `Slice` REG (four state conditions and the emblem rebuild), POOLAUDIT (every token class resolves by name, every emblem instantiates). The static scan ran locally (Python only) |
-| 4 non-stack payload | declared unsupported: an executed action that leaves no stack object and asked a dialog is reported (`non_stack_dialogs`) and the front answers the next ranked candidate (wrapper); the register lists such cards (`non_stack_choices`) | `Slice` REG (Thriving Bluff's color choice detected) |
-| 5 mapping recoveries | runner reports the chosen ability (class, type, source, zone, rule, index) and the failure reason; `kitlog.py` reports failures per searched decision and per mechanic. Restated: the nine are **9 of 310 searched priority decisions (2.9%)**, not 9 of 2,460 answers; two named a Kaito activation the engine did not offer, seven had no semantic at all | `scripts/diagnose-unmapped.sh`: replays the two games on the slice commit with dumps that carry the decision's own history, then `Slice` UNMAPPED on the nine |
-| 6 entry identities | `Entries`: kit-mad-1, kit-mad-k (K = 4), kit-mcts (K = 1, 30 iterations, rollout cap 1000, truncation scoring; see the cap decision below); identity = name + config digest; H3 restored to upstream dispatch (MCTS at every priority decision with more than one candidate, MCTS combat with a budget boundary in combat expansion) | `Slice` A3 runs all three entries; game set after the go |
-| 7 E4 accounting, A3 | MAD root alternatives carry `horizon_hits`; the front logs evaluated and affected alternatives; MCTS counts truncated expansions and expanded children; `e4.py` reports the affected share (never above 1), encounters, declines, truncated rollouts and expansions separately. The slice's E4 "shares" of 2.0 were encounters over root stats and are withdrawn | E4 re-measured with `--search-flagged 1` on the E4 game schedule; `Slice` A3 (identical permitted inputs across the counterspell and cantrip pairs, same answer, for kit-mad-1, kit-mad-k, kit-mcts) and MCTSPOWER (400 iterations: every root child at least 40 visits, kit vs oracle) |
-| 8 qualification and soak | not started (after a coordinator go) | |
+| 1 production continuation | the continuation's picks are the plan of the whole logical dialog; later substeps, forced steps and the finish from that plan; anchors at every priority decision with the object on top (inputs only); earlier dialogs of the resolution replayed from this seat's own answers; arrangement plans from all looked-at cards | PASS. FrontCheck: picks preserved (one runner request for a three-substep group), forced substep advances the plan, finish at the plan's end, earlier dialog sent for the later one. Through a real front and runner: S2P (Hart search answered by one continuation, two lands), S3P (planned card discarded after the draw), S4P (mode by the current dialog, scry group by continuation, library top and bottom as planned), S10P (Cultivate: the second dialog continued after replaying the first) |
+| 2 one clock per `choose` | `Front.Clock`, `RunnerLink.call(request, waitUntil, answerBy, grace)`, `Busy`, reaper | PASS (FrontCheck): `max_decision_ms` 4000 answered in 3417 ms (runner killed, exit confirmed); `remaining_ms` 4000 in 3405 ms; a decision during a 6 s reboot answered in 1200 ms (`runner_restarting`, no second kill), the replacement served the next one; slow continuation then dialog 2509 ms of 4000; slow diagnostics 3413 ms of 4000 |
+| 3 register | `register/scan.py`, `register.json` (394 cards: 316 supported, 72 approximate, 6 unsupported; 27 of 32 pool decks admitted; excluded Standard-MonoR, Standard-MonoW, Standard16-5C, Standard16-BW, Standard16-RG), `WorldBuilder` enforcement, emblem rebuild | PASS. REG: trigger event data (Youthful Valkyrie), optional-cost state (Burst Lightning, kicker), a target that left (Shock after Stab) all flag the horizon and skip the priority search; Kaito's emblem rebuilt and projected as the engine shows it. POOLAUDIT: 394 cards create, 58 token classes resolve by name, 1 emblem class instantiates, 0 problems |
+| 4 non-stack payload | declared unsupported: next ranked candidate, wrapper | PASS (REG): Thriving Bluff's color choice detected as a non-stack dialog. Games: 0 such choices |
+| 5 mapping recoveries | chosen ability and failure reason in the runner's reply; `kitlog.py` per searched decision and mechanic | **Root cause found and fixed.** Replayed on the slice commit with dumps (`scripts/diagnose-unmapped.sh`; the heuristic game reproduced its two Kaito decisions; the uniform game diverged after step 315 under the new engine and gave five of its seven plus two new ones at 494 and 504). Every one was MAD searching **the active opponent's options**: the world set the player list's current player to the active seat, and MAD's root takes its player from there, so on the other seat's turn it chose the opponent's Kaito +1, the opponent's sampled Darkslick Shores, the opponent's sampled Cut Down. Fix: the current player is the priority holder. After it, all nine map to offered candidates (`unmapped/unmapped-fixed`). Games after the fix: 0 unmapped in 222 searched priority decisions |
+| 6 entry identities | `Entries`: kit-mad-1, kit-mad-k (K = 4), kit-mcts (K = 1, 30 iterations, rollout cap 1000); identity = name + config digest; H3 on upstream dispatch (MCTS at every priority decision and for combat) | kit-mad-1 `0.2.0+71444ecbf4b3`, kit-mad-k `0.2.0+b0baca643a2a`, kit-mcts `0.2.0+b1166f62616a`. Smoke games below |
+| 7 E4 accounting, A3 | `horizon_hits` per MAD root alternative; truncated expansions and expanded children for MCTS; `e4.py` share never above 1 | E4 re-measured (H1, 8 games, measurement mode, same schedule as the slice): 5 flagged anchors searched, 13 of 13 evaluated root alternatives met the horizon (share 1.0 each; 17 encounters, reported separately), so clause 1 still fires and the decline stands. A3 (final code): counterspell pair equal modulo ids (the hidden cards shift the engine's ids), cantrip pair identical; the same answer in each pair for kit-mad-1, kit-mad-k and kit-mcts. MCTSPOWER at cap 1000: 0 of 400 rollouts truncated in all eight runs |
+
+Games after the fix, frozen identities, P's host and live validator, HaleysPC:
+
+| Set | Games | Endings | Violations, forfeits, halts | Decisions checked | Kit wins | Searched priority decisions, unmapped | Wall s |
+|---|---:|---|---|---:|---:|---|---:|
+| E4 measurement, kit-mad-1 (search-flagged, custom identity), Standard16-RG and -UB | 8 | 8 natural | 0, 0, 0 | 2826 | 5 | 143, 0 | 278.6 |
+| smoke kit-mad-1, Standard16-UB and -GB | 2 | 2 natural | 0, 0, 0 | 940 | 2 | 44, 0 | 120.5 |
+| smoke kit-mad-k, Standard16-UB and -GB | 2 | 2 natural | 0, 0, 0 | 959 | 0 | 35, 0 | 202.3 |
+| smoke kit-mcts (`0.2.0+b1166f62616a`, cap 1000), Standard16-UB | 1 | 1 natural | 0, 0, 0 | 542 | 1 | 43, 0 | 1014.7 |
+
+kit-mcts in game: 43 MCTS priority decisions (median 17.9 s, p90 38.3 s, max 51.5 s), 8 MCTS combat decisions, 1290
+completed iterations, 0 truncated rollouts and 0 truncated expansions at cap 1000 (E4 clause 2 not crossed). The
+slice's deviations 1 (continuation first dialog only), 4 (non-stack payload), 5 and 6 (triggers, pending triggers,
+command zone), 10 (H3 dispatch) and 13 (E4 outcome) are superseded by this section.
+
+Continuation in games: 4 decisions answered on the continuation path; 16 continuation attempts fell back to the
+current dialog on a projection mismatch
+(approximate worlds; the fallback answers in the same clock).
+
+E7 note: the E7 upstream reference had its wall-clock limit (skill x 3 s = 18 s) and, on the loaded machine,
+differed from the kit at one position; given wall time to finish by its node budget (`xmage/e7/E7Probe.java`), all 61
+compared positions are equal (17 skipped: cap or horizon active).
+
+MCTS pilot at cap 1000 (`finalB.jsonl`): upstream UCT (integer exploitation term) spreads the 400 iterations exactly
+evenly over the root children (100 or 80 visits each); kit mode is identical across both pairs (Serra Angel; pass);
+oracle mode picks Helpful Hunter in both cantrip worlds, so the hidden top card changes no decision. The C-MCTS
+expectation for A3: no decision sensitivity at this budget; wins differ by world (cantrip 4 to 17 per child).
+Cost: 0.23 to 0.48 s per iteration (95 to 190 s per 400-iteration world, machine shared).
 
 **kit-mcts rollout cap: 300 rejected by the pre-registered threshold.** E4 clause 2 (`E4-threshold.md`, written
 before measuring) is 50% truncated rollouts. In the powered pilot (MCTSPOWER, 400 iterations per world, cap 300,
@@ -37,7 +67,7 @@ first build-out run, `buildout/slice-a3-slice.jsonl`) the truncated share was 97
 (388, 392, 388 and 393 of 400 rollouts) and 100% in the cantrip pair (400 of 400 in all four runs); the slice's
 H3COST measured 0% at caps 1000 and 5000 and 100% at 200 on the cantrip position. Coordinator decision
 (2026-10-01): kit-mcts is re-frozen at rollout cap 1000 (new configuration digest); cap 300 is not kept under any
-label. A4 measures the extra cost per decision before any rating. The pilot is rerun at cap 1000 in the final run.
+label. A4 measures the extra cost per decision before any rating. Rerun at cap 1000 in the final run: 0 of 400 rollouts truncated in all eight runs.
 
 ## Cases (Section 9.1)
 
