@@ -32,6 +32,14 @@ public final class KitContext {
 
     // ------------------------------------------------------------------ horizon (Section 5.6)
 
+    /**
+     * The root filter: true for a root action whose v2 semantic is among the decision's offered candidates. The
+     * engine offers only actions its autopay can pay (a land's own tap cost cannot also pay for it, for example),
+     * while XMage's playable list on the world can include more; the kit never selects an action the decision does not
+     * offer. Null outside a decision (E7 compares the search itself).
+     */
+    public static java.util.function.BiPredicate<mage.abilities.Ability, mage.game.Game> rootFilter;
+
     /** UUIDs of stack objects the rebuild flagged approximate: no simulated game may resolve them. */
     public static final Set<UUID> horizon = new HashSet<>();
 
@@ -53,6 +61,7 @@ public final class KitContext {
     }
 
     public static synchronized void reset() {
+        rootFilter = null;
         horizon.clear();
         counters.clear();
         ops = 0;

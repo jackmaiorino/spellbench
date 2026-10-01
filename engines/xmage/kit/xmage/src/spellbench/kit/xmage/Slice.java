@@ -126,6 +126,8 @@ public final class Slice {
                     case "POOLAUDIT": SliceProd.poolAudit(); break;
                     case "UNMAPPED": SliceProd.unmapped(); break;
                     case "OPPTURN": SliceProd.oppTurn(); break;
+                    case "PLAYABLE": SliceProd.playable(); break;
+                    case "OFFERED": SliceProd.offered(); break;
                     default: note("unknown_case", c);
                 }
             } catch (Throwable t) {

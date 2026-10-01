@@ -327,6 +327,9 @@ public final class Runner {
             res.put("counters", KitContext.counters());
             return res;
         }
+        if ("priority".equals(path) && !forcing) {
+            KitContext.rootFilter = offeredFilter(w, decision, index);
+        }
         if (useMcts) {
             // H3: the branch-local knowledge starts from the world's pins (design 5.3 item 1)
             KnowledgeWatcher kw = KnowledgeWatcher.install(game, w.player(w.viewer));
@@ -423,6 +426,19 @@ public final class Runner {
         res.put("search_ms", (System.nanoTime() - built) / 1_000_000);
         res.put("counters", KitContext.counters());
         return res;
+    }
+
+    /** The root filter of a decision: an action is a root alternative only when its v2 semantic is offered. */
+    static java.util.function.BiPredicate<mage.abilities.Ability, Game> offeredFilter(World w, Map<String, Object> decision,
+                                                                                 ObsIndex index) {
+        final java.util.Set<String> offered = new java.util.HashSet<>();
+        for (Object c : Json.arr(decision, "candidates")) {
+            offered.add(Json.canonical(Json.obj(Json.obj(c), "semantic")));
+        }
+        return (a, g) -> {
+            Map<String, Object> sem = Mapping.prioritySemantic(w, g, a, index);
+            return sem != null && offered.contains(Json.canonical(sem));
+        };
     }
 
     static List<Object> combatPairs(World w, Game game, boolean attack) {

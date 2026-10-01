@@ -560,6 +560,17 @@ public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic produc
         // KIT: root statistics before any alternative is discarded (design 5.5.1)
         boolean atRoot = node == root && depth == maxDepth;
         RootStat bestStat = null;
+        List<Ability> notOffered = new ArrayList<>(); // KIT: root actions the decision does not offer
+        if (atRoot && KitContext.rootFilter != null) {
+            final Game rootGame = game;
+            for (Ability a : new ArrayList<>(allActions)) {
+                if (!(a instanceof PassAbility) && !KitContext.rootFilter.test(a, rootGame)) {
+                    allActions.remove(a);
+                    notOffered.add(a);
+                }
+            }
+            KitContext.count("root:not_offered", notOffered.size());
+        }
         if (atRoot) {
             rootStats.clear();
             for (int i = 0; i < allActions.size(); i++) {
@@ -568,6 +579,11 @@ public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic produc
             for (Ability capped : currentPlayer.cappedOptions()) {
                 RootStat rs = new RootStat(rootStats.size(), capped);
                 rs.reason = "options_capped";
+                rootStats.add(rs);
+            }
+            for (Ability a : notOffered) { // KIT
+                RootStat rs = new RootStat(rootStats.size(), a);
+                rs.reason = "not_offered";
                 rootStats.add(rs);
             }
         }

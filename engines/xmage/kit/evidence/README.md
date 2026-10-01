@@ -51,9 +51,12 @@ Continuation in games: 4 decisions answered on the continuation path; 16 continu
 current dialog on a projection mismatch
 (approximate worlds; the fallback answers in the same clock).
 
-E7 note: the E7 upstream reference had its wall-clock limit (skill x 3 s = 18 s) and, on the loaded machine,
-differed from the kit at one position; given wall time to finish by its node budget (`xmage/e7/E7Probe.java`), all 61
-compared positions are equal (17 skipped: cap or horizon active).
+E7 is **algorithm preservation with the wall timeout inactive**, on worlds from the corrected builder: the reference is
+upstream `ComputerPlayer7` from the pristine sources with its wall-clock limit (skill x 3 s = 18 s) raised to 3,600 s
+(`xmage/e7/E7Probe.java`), so both sides search to the node budget; it is not stock MAD at its default timeout. With
+the limit active the loaded machine changed the reference's answer at one position. All 61 compared positions are
+equal (17 skipped: cap or horizon active). The slice's E7 (72/72) used worlds from the builder with the player-cursor
+fault, which both contestants shared, so it does not validate the reconstruction's current player.
 
 MCTS pilot at cap 1000 (`finalB.jsonl`): upstream UCT (integer exploitation term) spreads the 400 iterations exactly
 evenly over the root children (100 or 80 visits each); kit mode is identical across both pairs (Serra Angel; pass);

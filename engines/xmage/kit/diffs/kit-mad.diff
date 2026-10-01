@@ -104,13 +104,24 @@
          try {
              int maxSeconds = maxThinkTimeSecs;
              if (COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS) {
-@@ -533,18 +556,64 @@
+@@ -533,18 +556,80 @@
          }
          int actionNumber = 0;
          int bestValSubNodes = Integer.MIN_VALUE;
 +        // KIT: root statistics before any alternative is discarded (design 5.5.1)
 +        boolean atRoot = node == root && depth == maxDepth;
 +        RootStat bestStat = null;
++        List<Ability> notOffered = new ArrayList<>(); // KIT: root actions the decision does not offer
++        if (atRoot && KitContext.rootFilter != null) {
++            final Game rootGame = game;
++            for (Ability a : new ArrayList<>(allActions)) {
++                if (!(a instanceof PassAbility) && !KitContext.rootFilter.test(a, rootGame)) {
++                    allActions.remove(a);
++                    notOffered.add(a);
++                }
++            }
++            KitContext.count("root:not_offered", notOffered.size());
++        }
 +        if (atRoot) {
 +            rootStats.clear();
 +            for (int i = 0; i < allActions.size(); i++) {
@@ -119,6 +130,11 @@
 +            for (Ability capped : currentPlayer.cappedOptions()) {
 +                RootStat rs = new RootStat(rootStats.size(), capped);
 +                rs.reason = "options_capped";
++                rootStats.add(rs);
++            }
++            for (Ability a : notOffered) { // KIT
++                RootStat rs = new RootStat(rootStats.size(), a);
++                rs.reason = "not_offered";
 +                rootStats.add(rs);
 +            }
 +        }
@@ -171,7 +187,7 @@
                      continue;
                  }
                  if (!sim.checkIfGameIsOver()
-@@ -556,9 +625,8 @@
+@@ -556,9 +641,8 @@
                          nextPlayerId = sim.getPlayerList().getNext();
                      } while (!Objects.equals(nextPlayerId, this.getId()));
                  }
@@ -182,7 +198,7 @@
                  if (action instanceof PassAbility && sim.getStack().isEmpty()) {
                      // no more next actions, it's a final score
                      finalScore = GameStateEvaluator2.evaluate(this.getId(), sim).getTotalScore();
-@@ -566,6 +634,12 @@
+@@ -566,6 +650,12 @@
                      // resolve current action and calc all next actions to find best score (return max possible score)
                      finalScore = addActions(newNode, depth - 1, alpha, beta);
                  }
@@ -195,7 +211,7 @@
                  logger.debug("Sim Prio " + BLANKS.substring(0, 2 + (maxDepth - depth) * 3) + '[' + depth + "]#" + actionNumber + " <" + finalScore + "> - (" + action + ") ");
  
                  // Hints on data:
-@@ -665,6 +739,9 @@
+@@ -665,6 +755,9 @@
                  }
  
                  if (currentPlayer.getId().equals(playerId)) {
@@ -205,7 +221,7 @@
                      if (finalScore > bestValSubNodes) {
                          bestValSubNodes = finalScore;
                      }
-@@ -672,11 +749,19 @@
+@@ -672,11 +765,19 @@
                              && action instanceof PassAbility) {
                          finalScore = finalScore - PASSIVITY_PENALTY; // passivity penalty
                      }
@@ -225,7 +241,7 @@
                          bestNode = newNode;
                          bestNode.setScore(finalScore);
                          if (!newNode.getChildren().isEmpty()) {
-@@ -696,6 +781,7 @@
+@@ -696,6 +797,7 @@
                      // no need to check other actions
                      if (finalScore == GameStateEvaluator2.WIN_GAME_SCORE) {
                          logger.debug("Sim Prio -- win - break");
@@ -233,7 +249,7 @@
                          break;
                      }
                  } else {
-@@ -711,21 +797,40 @@
+@@ -711,21 +813,40 @@
                      // no need to check other actions
                      if (finalScore == GameStateEvaluator2.LOSE_GAME_SCORE) {
                          logger.debug("Sim Prio -- lose - break");

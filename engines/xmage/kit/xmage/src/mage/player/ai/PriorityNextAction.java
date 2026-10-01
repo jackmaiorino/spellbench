@@ -19,6 +19,13 @@ public class PriorityNextAction implements MCTSNodeNextAction{
         else
             abilities = MCTSNode.getPlayables(player, fullStateValue, game);
         for (Ability ability: abilities) {
+            // KIT: at the root, only actions the decision offers (KitContext.rootFilter)
+            if (node.kitIsRoot() && spellbench.kit.xmage.KitContext.rootFilter != null
+                    && !(ability instanceof mage.abilities.common.PassAbility)
+                    && !spellbench.kit.xmage.KitContext.rootFilter.test(ability, game)) {
+                spellbench.kit.xmage.KitContext.count("root:not_offered");
+                continue;
+            }
             Game sim = game.createSimulationForAI();
             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
             int before = sim.getStack().size();

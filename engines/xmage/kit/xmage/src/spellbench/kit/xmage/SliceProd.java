@@ -467,6 +467,28 @@ final class SliceProd {
         }
     }
 
+    /** Like {@code EnginePos.advance}, answering pass (or a finish, or no attack and no block) where offered. */
+    static boolean advancePassing(EnginePos e, java.util.function.Predicate<Map<String, Object>> stop, int max) {
+        for (int i = 0; i < max && !e.over(); i++) {
+            if (stop.test(e.decision())) {
+                return true;
+            }
+            List<Object> cands = Json.arr(e.decision(), "candidates");
+            int pick = 0;
+            for (int c = 0; c < cands.size(); c++) {
+                Map<String, Object> sem = Json.obj(Json.obj(cands.get(c)), "semantic");
+                String k = Json.str(sem, "kind");
+                if ("pass".equals(k) || k.startsWith("finish_") || ("declare_attack".equals(k) && sem.get("defender") == null)
+                        || ("declare_block".equals(k) && sem.get("attacker") == null)) {
+                    pick = c;
+                    break;
+                }
+            }
+            e.answer(pick);
+        }
+        return !e.over() && stop.test(e.decision());
+    }
+
     // =============================================================================================
     // OPPTURN (second review): on the other seat's turn the kit searches its own options and responds, seats swapped
 
@@ -482,11 +504,13 @@ final class SliceProd {
             SeatSetup s0 = "p0".equals(viewer) ? kit : opp;
             SeatSetup s1 = "p0".equals(viewer) ? opp : kit;
             EnginePos e = EnginePos.start("OPPTURN-" + viewer, s0, s1);
-            boolean ok = e.advance(d -> priorityOf(d, other, "precombat_main"), 80)
+            boolean ok = advancePassing(e, d -> priorityOf(d, other, "precombat_main")
+                    && other.equals(Json.str(obsOf(d), "active_seat")), 120)
                     && answerWhere(e, sm -> "cast_spell".equals(sm.get("kind")) && "Serra Angel".equals(Json.str(Json.obj(sm, "source"), "card_name")));
-            ok = ok && e.advance(d -> priorityOf(d, viewer, null) && !Json.arr(obsOf(d), "stack").isEmpty(), 30);
+            ok = ok && advancePassing(e, d -> priorityOf(d, viewer, null) && !Json.arr(obsOf(d), "stack").isEmpty(), 30);
             if (!ok) {
-                check("OPPTURN." + viewer + ".reach_position", false, e.trail);
+                check("OPPTURN." + viewer + ".reach_position", false, Json.map("over", e.over(), "trail", e.trail,
+                        "pending", e.over() ? null : Slice.Front_firstKind(e.decision())));
                 continue;
             }
             Map<String, Object> d = e.decision();
@@ -963,6 +987,133 @@ final class SliceProd {
         note("POOLAUDIT.findings", Json.map("cards", cardsChecked, "token_classes", tokensChecked, "emblem_classes", emblemsChecked,
                 "problems", bad));
         check("POOLAUDIT.completed", cardsChecked > 0, Json.map("cards", cardsChecked, "cards_with_problems", (long) bad.size()));
+    }
+
+    // =============================================================================================
+    // PLAYABLE: the world's playable actions against the engine's candidates, per dumped decision (diagnostics)
+
+    static void playable() throws Exception {
+        String dir = System.getProperty("kit.unmapped.dir");
+        File[] files = dir == null ? null : new File(dir).listFiles((dd, n) -> n.startsWith("decision-") && n.endsWith(".json"));
+        if (files == null || files.length == 0) {
+            check("PLAYABLE.positions_available", false, dir);
+            return;
+        }
+        Arrays.sort(files);
+        List<Object> rows = new ArrayList<>();
+        for (File f : files) {
+            Map<String, Object> rec = Json.parseObject(new String(Files.readAllBytes(f.toPath()), "UTF-8"));
+            Map<String, Object> gs = Json.obj(rec, "game_start");
+            Map<String, Object> d = Json.obj(rec, "decision");
+            byte[] gameKey = Seeds.gameKey(Json.num(gs, "agent_seed", 0));
+            ObsIndex idx = new ObsIndex(obsOf(d));
+            KitContext.reset();
+            KitRandom random = KitRandom.install(Seeds.worldSeed(gameKey, Json.num(d, "seat_step", 0), 0), Seeds.hmac(gameKey, "ids"));
+            WorldBuilder.Spec spec = new WorldBuilder.Spec();
+            spec.gameStart = gs;
+            spec.observation = obsOf(d);
+            spec.sample = Sampler.sample(gs, obsOf(d), random.stream("sampler"));
+            spec.random = random;
+            spec.mode = WorldBuilder.Mode.PRIORITY;
+            spec.history = Json.obj(d, "x_history");
+            final KitMad[] kit = new KitMad[1];
+            spec.viewerFactory = seat -> {
+                kit[0] = new KitMad(seat, 6);
+                return kit[0];
+            };
+            spec.otherFactory = Puppet::new;
+            World w = WorldBuilder.build(spec);
+            kit[0].attach(w);
+            List<String> cands = new ArrayList<>();
+            for (Object c : Json.arr(d, "candidates")) {
+                cands.add(Json.canonical(Json.obj(Json.obj(c), "semantic")));
+            }
+            List<Object> worldOnly = new ArrayList<>();
+            for (mage.abilities.ActivatedAbility a : w.viewerPlayer().getPlayable(w.game, true)) {
+                if (a.getAbilityType() == mage.constants.AbilityType.ACTIVATED_MANA) {
+                    continue;
+                }
+                Map<String, Object> sem = Mapping.prioritySemantic(w, w.game, a, idx);
+                if (sem == null || !cands.contains(Json.canonical(sem))) {
+                    worldOnly.add(Json.map("semantic", sem, "chosen", Mapping.describe(w, w.game, a)));
+                }
+            }
+            if (!worldOnly.isEmpty()) {
+                rows.add(Json.map("file", f.getName(), "world_playable_not_offered", worldOnly, "flags", w.flags,
+                        "candidates", cands));
+            }
+        }
+        note("PLAYABLE.differences", rows);
+        check("PLAYABLE.completed", true, Json.map("positions", (long) files.length, "with_differences", (long) rows.size()));
+    }
+
+    // =============================================================================================
+    // OFFERED: positions where the world's playable list exceeds the engine's offer; both bots choose offered actions
+
+    static void offered() throws Exception {
+        String dir = System.getProperty("kit.offered.dir");
+        File[] files = dir == null ? null : new File(dir).listFiles((dd, n) -> n.startsWith("decision-") && n.endsWith(".json"));
+        if (files == null || files.length == 0) {
+            check("OFFERED.positions_available", false, dir);
+            return;
+        }
+        Arrays.sort(files);
+        List<Object> rows = new ArrayList<>();
+        boolean all = true;
+        for (File f : files) {
+            Map<String, Object> rec = Json.parseObject(new String(Files.readAllBytes(f.toPath()), "UTF-8"));
+            Map<String, Object> gs = Json.obj(rec, "game_start");
+            Map<String, Object> d = Json.obj(rec, "decision");
+            List<String> cands = new ArrayList<>();
+            for (Object c : Json.arr(d, "candidates")) {
+                cands.add(Json.canonical(Json.obj(Json.obj(c), "semantic")));
+            }
+            Map<String, Object> row = Json.map("file", f.getName());
+            for (String bot : new String[]{"mad", "mcts"}) {
+                byte[] gameKey = Seeds.gameKey(Json.num(gs, "agent_seed", 0));
+                ObsIndex idx = new ObsIndex(obsOf(d));
+                KitContext.reset();
+                KitContext.mctsIterations = 30;
+                KitContext.rolloutCap = 1000;
+                KitRandom random = KitRandom.install(Seeds.worldSeed(gameKey, Json.num(d, "seat_step", 0), 0), Seeds.hmac(gameKey, "ids"));
+                WorldBuilder.Spec spec = new WorldBuilder.Spec();
+                spec.gameStart = gs;
+                spec.observation = obsOf(d);
+                spec.sample = Sampler.sample(gs, obsOf(d), random.stream("sampler"));
+                spec.random = random;
+                spec.mode = WorldBuilder.Mode.PRIORITY;
+                spec.history = Json.obj(d, "x_history");
+                final KitMad[] kit = new KitMad[1];
+                final KitMcts[] m = new KitMcts[1];
+                spec.viewerFactory = seat -> {
+                    if ("mcts".equals(bot)) {
+                        m[0] = new KitMcts(seat, 6);
+                        return m[0];
+                    }
+                    kit[0] = new KitMad(seat, 6);
+                    return kit[0];
+                };
+                spec.otherFactory = Puppet::new;
+                World w = WorldBuilder.build(spec);
+                KitContext.rootFilter = Runner.offeredFilter(w, d, idx);
+                Map<String, Object> sem;
+                if ("mcts".equals(bot)) {
+                    KnowledgeWatcher.install(w.game, w.player(w.viewer));
+                    sem = Json.obj(m[0].decidePriority(w, idx), "semantic");
+                } else {
+                    kit[0].attach(w);
+                    KitMad.PriorityOutcome po = kit[0].decidePriority(w, idx, false);
+                    sem = po.pass ? Json.map("kind", "pass") : po.semantic; // CP7 passes outside its thinking steps
+                }
+                boolean ok = sem != null && cands.contains(Json.canonical(sem));
+                all &= ok;
+                row.put(bot, Json.map("semantic", sem, "offered", ok, "filtered", KitContext.counter("root:not_offered")));
+            }
+            rows.add(row);
+        }
+        KitContext.mctsIterations = 300;
+        KitContext.rolloutCap = 2000;
+        check("OFFERED.both_bots_choose_offered_actions", all, rows);
     }
 
     // =============================================================================================

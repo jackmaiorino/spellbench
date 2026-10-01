@@ -210,7 +210,6 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
         return super.chooseTarget(outcome, cards, target, source, game);
     }
 
-    @Override
     // KIT: every dialog is counted, so an action that leaves no stack object and asked one is detected at the root
     @Override
     public boolean chooseUse(mage.constants.Outcome outcome, String message, String secondMessage, String trueText,

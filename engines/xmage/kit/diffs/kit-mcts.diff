@@ -267,7 +267,7 @@
              if (options.isEmpty()) {
                  if (!ability.getManaCosts().getVariableCosts().isEmpty()) {
                      simulateVariableCosts(ability, all, game);
-@@ -179,6 +188,68 @@
+@@ -179,6 +188,67 @@
          return false;
      }
  
@@ -292,7 +292,6 @@
 +        return super.chooseTarget(outcome, cards, target, source, game);
 +    }
 +
-+    @Override
 +    // KIT: every dialog is counted, so an action that leaves no stack object and asked one is detected at the root
 +    @Override
 +    public boolean chooseUse(mage.constants.Outcome outcome, String message, String secondMessage, String trueText,
@@ -338,8 +337,17 @@
          game.pause();
 --- upstream/Mage.Player.AIMCTS/src/mage/player/ai/PriorityNextAction.java
 +++ kit/xmage/src/mage/player/ai/PriorityNextAction.java
-@@ -20,9 +20,49 @@
+@@ -18,11 +18,58 @@
+         else
+             abilities = MCTSNode.getPlayables(player, fullStateValue, game);
          for (Ability ability: abilities) {
++            // KIT: at the root, only actions the decision offers (KitContext.rootFilter)
++            if (node.kitIsRoot() && spellbench.kit.xmage.KitContext.rootFilter != null
++                    && !(ability instanceof mage.abilities.common.PassAbility)
++                    && !spellbench.kit.xmage.KitContext.rootFilter.test(ability, game)) {
++                spellbench.kit.xmage.KitContext.count("root:not_offered");
++                continue;
++            }
              Game sim = game.createSimulationForAI();
              MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
 -            simPlayer.activateAbility((ActivatedAbility)ability, sim);
