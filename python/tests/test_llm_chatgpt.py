@@ -10,6 +10,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
+pytest.importorskip("truststore")
+
 from spellbench.llm.chatgpt import ChatGptConfig, ChatGptProvider, read_completion, request_body
 from spellbench.llm.prompt import render_prompt
 from spellbench.llm.provider import ProviderError

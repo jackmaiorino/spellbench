@@ -17,6 +17,7 @@ import urllib.request
 import pytest
 
 jwt = pytest.importorskip("jwt")
+pytest.importorskip("truststore")
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from spellbench.llm import login

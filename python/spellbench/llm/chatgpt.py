@@ -12,7 +12,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .prompt import Prompt, canonical_json
-from .provider import Completion, ProviderError, _bounded, _NoRedirect
+from .provider import Completion, ProviderError, _bounded
+from .tls import native_opener
 
 BASE_URL = "https://api.openai.com/v1"
 MAX_RESPONSE_BYTES = 1_048_576
@@ -38,7 +39,7 @@ class ChatGptConfig:
     def public_settings(self) -> dict[str, Any]:
         return {"transport": "chatgpt-plan", "model": self.model, "base_url": BASE_URL,
                 "reasoning_effort": self.reasoning_effort, "response_format": "json_schema",
-                "output_token_limit": "checked_after_response", "retries": 0}
+                "output_token_limit": "checked_after_response", "retries": 0, "certificate_validation": "system-truststore"}
 
 
 def request_body(config: ChatGptConfig, prompt: Prompt) -> dict[str, Any]:
@@ -122,7 +123,7 @@ class ChatGptProvider:
     def __init__(self, config: ChatGptConfig) -> None:
         self.config = config
         self._endpoint = BASE_URL + "/responses"
-        self._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+        self._opener = native_opener()
         self._failed = False
 
     def complete(self, prompt: Prompt, *, timeout_s: float) -> Completion:

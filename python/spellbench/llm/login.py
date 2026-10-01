@@ -28,7 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from .chatgpt import BASE_URL, _unique
-from .provider import ProviderError, _NoRedirect
+from .provider import ProviderError
+from .tls import native_opener
 
 ISSUER = "https://auth.openai.com"
 AUTHORIZE_URL = ISSUER + "/api/accounts/authorize"
@@ -171,7 +172,7 @@ class Attempt:
 def _json_request(url: str, form: dict[str, str] | None = None) -> dict[str, Any]:
     request = urllib.request.Request(url, None if form is None else urllib.parse.urlencode(form).encode(),
                                      {} if form is None else {"Content-Type": "application/x-www-form-urlencoded"})
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+    opener = native_opener()
     try:
         with opener.open(request, timeout=15) as stream:
             raw = stream.read(MAX_CREDENTIAL_BYTES + 1)
@@ -236,6 +237,7 @@ def sign_in(path: Path, *, port: int = 0, timeout_s: float = 300) -> None:
         import jwt  # noqa: F401; fail before opening consent if the extra is missing
     except ImportError:
         raise ValueError("install the chatgpt optional dependency") from None
+    native_opener()  # Validate the optional TLS dependency before browser consent.
     # One profile belongs to one verified identity/client. Selecting a different
     # account requires a different path, rather than replacing its registration.
     previous = load_credentials(path, require_fresh=False) if path.exists() else None
