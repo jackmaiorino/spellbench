@@ -1,5 +1,25 @@
 # X5 status (for the coordinator)
 
+## 18:40 EDT: HaleysPC run stopped at the reserve (3,544 of 10,112 games)
+
+- **Stopped by me at 18:20** when C: free fell to 60.5 GiB, so the volume stays above the 60 GiB reserve. My run's
+  own footprint never grew (1.55 GB of engine scratch, 8 MB of rows). C: kept falling after the stop with nothing of
+  mine running: 62.06 GiB right after freeing my scratch, 61.05 at 18:24, 60.46 at 18:35. Something else on
+  HaleysPC writes about 1 GiB per 10 minutes (I could not identify it; Windows Search and system writes lead the
+  write counters). Resuming needs about 1.6 GB of engine scratch, which would cross the reserve, so I have not
+  resumed.
+- **Recorded so far (build `d74803d5`, all fixes, P's guard: 6 workers; `evidence/allocation-haleyspc.json`):**
+  3,544 games (1,772 per pool), 66 games/min, all natural, **0 validator violations** over 2,030,290 decisions,
+  0 halts, 0 truncations (`evidence/haleyspc-partial-summary.json`). Rows stay on HaleysPC in
+  `~/x-spike/x5/final/run/`; `x5run.py run` resumes and skips them.
+- Against Jack's PC's run (build `c81b025a`, before the warm-up and ability-order fixes): all 1,772 FDN games have
+  identical digests on both machines and builds; 1,617 of 1,772 Standard games do. The 155 that changed are in
+  decks with granted abilities or the AI-class path (UW 70, UG 38, RB 13, MonoB 9, BW 9, MonoW 8, RW 5, RG 3), as
+  the two fixes intend.
+- **Needed to finish:** about 2 GiB of headroom on HaleysPC's C: above the reserve (or the external writer stopped),
+  or Jack's PC (about 35 min for the remaining 6,568 games at 200/min, plus the 1,011-game hash recheck). The hash
+  recheck has not run.
+
 ## 18:20 EDT: disk note
 
 - 3,025 of 10,112 games at 66 games/min, 0 violations, 0 halts; ETA for the run about 20:00 EDT.

@@ -1,0 +1,194 @@
+{
+ "kind": "substantial",
+ "label": "substantial run, measured",
+ "workers": 6,
+ "host": "local",
+ "cpu_count": 16,
+ "per_game_cores": 1,
+ "games_total": 10112,
+ "rules": {
+  "substantial_run_seconds": 600,
+  "budget_percent": 12,
+  "games_per_worker": 2,
+  "probe_games": 2,
+  "ladder_divisors": [
+   2,
+   1
+  ],
+  "spot_check_divisor": 2
+ },
+ "probe": {
+  "workers": 1,
+  "games": 24,
+  "indices": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23
+  ],
+  "seconds_milli": 92297,
+  "busy_milli": 80265,
+  "row_bytes": 34245,
+  "outputs_digest": "sha256:45e9d283bc7390f3464b224a0635c416f1c7db348c7bf330efcf1258034ccb02"
+ },
+ "trials": [
+  {
+   "workers": 1,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 92297,
+   "busy_milli": 80265,
+   "row_bytes": 34245,
+   "outputs_digest": "sha256:45e9d283bc7390f3464b224a0635c416f1c7db348c7bf330efcf1258034ccb02"
+  },
+  {
+   "workers": 6,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 58032,
+   "busy_milli": 176219,
+   "row_bytes": 34245,
+   "outputs_digest": "sha256:45e9d283bc7390f3464b224a0635c416f1c7db348c7bf330efcf1258034ccb02"
+  },
+  {
+   "workers": 12,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 84796,
+   "busy_milli": 369362,
+   "row_bytes": 34245,
+   "outputs_digest": "sha256:45e9d283bc7390f3464b224a0635c416f1c7db348c7bf330efcf1258034ccb02"
+  }
+ ],
+ "projected_serial_seconds": 38888,
+ "placement": {
+  "main-pc": {
+   "disposition": "unavailable",
+   "reason": "reserved for the research lead's screen training and an evaluation tonight (coordinator)"
+  },
+  "haleyspc": {
+   "disposition": "used",
+   "reason": "16 hardware threads and 32 GB, given to this run alone by the coordinator, 69.5 GiB free on C: (above the 60 GiB reserve), and the fastest rung of P's scaling comparison plays the whole schedule"
+  },
+  "runpod": {
+   "disposition": "slower",
+   "reason": "a CPU pod needs a JDK, a 2.5 to 11 min engine build and a 259 MB card database before its first game, and no spending authority covers it"
+  }
+ },
+ "outputs_identical": true,
+ "outputs_note": null,
+ "spot_check": null,
+ "qualification_seconds_milli": 235125,
+ "workload": "sha256:be67ebd7cab6d652c404412b8c8df64b83400b9a14c4c13e230656d71b95c99a",
+ "reused": false,
+ "machine": {
+  "memory_bytes": 34282180608,
+  "gpus": [
+   "NVIDIA GeForce RTX 4060"
+  ],
+  "free_bytes": {
+   "pin_root": 73797926912,
+   "run_dir": 73797926912
+  }
+ },
+ "budget": {
+  "projected_bytes": 14428560,
+  "pinned_bytes": 0,
+  "cap_bytes": 28857120
+ }
+}
