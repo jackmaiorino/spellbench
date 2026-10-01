@@ -1,0 +1,6 @@
+{"check":"E3.normal_reply","detail":{"ok":true,"op":"ping","seq":2},"pass":true}
+{"check":"E3.late_result_discarded","detail":{"late_discarded":1,"reply":{"ok":true,"op":"stale","seq":3}},"pass":true}
+{"check":"E3.hung_request_answered_in_time","detail":{"answered_ms":3015,"deadline_ms":2000,"grace_ms":1000,"kill_to_exit_ms":[1]},"pass":true}
+{"check":"E3.runner_exit_confirmed","detail":{"alive":false,"exit_confirmed":true},"pass":true}
+{"check":"E3.fresh_runner_serves_next","detail":{"restart_and_reply_ms":242,"restarts":1},"pass":true}
+{"verdict":"PASS"}

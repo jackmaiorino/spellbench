@@ -146,7 +146,8 @@ public final class Sampler {
         }
         List<Map<String, Object>> visible = new ArrayList<>();
         for (Map<String, Object> pm : players.values()) {
-            for (String zone : new String[]{"hand", "battlefield", "graveyard", "exile", "command"}) {
+            // command-zone objects (emblems, dungeons) are not cards of a list: never counted as public cards
+            for (String zone : new String[]{"hand", "battlefield", "graveyard", "exile"}) {
                 for (Object o : Json.arr(pm, zone)) {
                     visible.add(Json.obj(o));
                 }

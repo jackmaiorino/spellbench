@@ -100,6 +100,8 @@ public final class WorldBuilder {
         public int index;
         /** "first" or "regular" for a combat_damage observation; null: decide from the board */
         public String combatDamageStep;
+        /** The front's own history ({@code x_history}): confirmed own loyalty activations this turn. */
+        public Map<String, Object> history;
     }
 
     static final List<String> SEATS = Arrays.asList("p0", "p1");
@@ -207,6 +209,7 @@ public final class WorldBuilder {
         for (String seat : SEATS) {
             attach(seat);
         }
+        ownHistory();
 
         // ---- 3. players' public state and the turn position
         String active = Json.str(obs, "active_seat");
@@ -688,6 +691,28 @@ public final class WorldBuilder {
             }
             if (!ok) {
                 flag("approximate:attachment_refused");
+            }
+        }
+    }
+
+    /**
+     * Activation usage (Section 3.3): the viewer's loyalty activations this turn are own-history (selected by the kit
+     * and confirmed by the loyalty change); another seat's planeswalkers are approximate.
+     */
+    private void ownHistory() {
+        if (spec.history != null) {
+            for (Object o : Json.arr(spec.history, "loyalty_used")) {
+                UUID u = world.idToUuid.get((String) o);
+                Permanent p = u == null ? null : game.getPermanent(u);
+                if (p != null) {
+                    p.addLoyaltyUsed();
+                    flag("own_history:loyalty_used");
+                }
+            }
+        }
+        for (Permanent p : game.getBattlefield().getAllPermanents()) {
+            if (p.isPlaneswalker(game) && !p.getControllerId().equals(world.player(world.viewer))) {
+                flag("approximate:activation_usage_other_seat");
             }
         }
     }

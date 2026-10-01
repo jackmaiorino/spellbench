@@ -1,0 +1,413 @@
+--- upstream/Mage.Player.AI.MAD/src/mage/player/ai/ComputerPlayer6.java
++++ kit/xmage/src/mage/player/ai/ComputerPlayer6.java
+@@ -35,6 +35,8 @@
+ import mage.util.ThreadUtils;
+ import mage.util.XmageThreadFactory;
+ import org.apache.log4j.Logger;
++import spellbench.kit.xmage.KitContext; // KIT
++import spellbench.kit.xmage.RootStat; // KIT
+ 
+ import java.util.*;
+ import java.util.concurrent.*;
+@@ -45,7 +47,7 @@
+  *
+  * @author nantuko, JayDi85
+  */
+-public class ComputerPlayer6 extends ComputerPlayer {
++public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic producer order (X-P4 candidate, bot path)
+ 
+     private static final Logger logger = Logger.getLogger(ComputerPlayer6.class);
+ 
+@@ -54,19 +56,11 @@
+     private static final int MAX_SIMULATED_NODES_PER_CALC = 5000;
+     private static final int MAX_SIMULATED_NODES_PER_ERROR = 5100; // TODO: debug only, set low value to find big calculations
+ 
+-    // same params as Executors.newFixedThreadPool
+-    // no needs errors check in afterExecute here cause that pool used for FutureTask with result check already
+-    private static final ExecutorService threadPoolSimulations = new ThreadPoolExecutor(
+-            COMPUTER_MAX_THREADS_FOR_SIMULATIONS,
+-            COMPUTER_MAX_THREADS_FOR_SIMULATIONS,
+-            0L,
+-            TimeUnit.MILLISECONDS,
+-            new LinkedBlockingQueue<>(),
+-            new XmageThreadFactory(ThreadUtils.THREAD_PREFIX_AI_SIMULATION_MAD)
+-    );
++    // KIT: no simulation thread pool; the search runs synchronously on the world thread (design 5.4 item 1)
+     protected int maxDepth;
+     protected int maxNodes;
+     protected int maxThinkTimeSecs;
++    protected List<RootStat> rootStats = new ArrayList<>(); // KIT: root statistics (design 5.5.1)
+     protected LinkedList<Ability> actions = new LinkedList<>();
+     protected Combat combat;
+     protected int currentScore;
+@@ -214,7 +208,7 @@
+             return GameStateEvaluator2.evaluate(playerId, game).getTotalScore();
+         }
+         // Condition to stop deeper simulation
+-        if (SimulationNode2.nodeCount > MAX_SIMULATED_NODES_PER_ERROR) {
++        if (SimulationNode2.nodeCount > maxNodes + (MAX_SIMULATED_NODES_PER_ERROR - MAX_SIMULATED_NODES_PER_CALC)) { // KIT: budget-derived
+             // how-to fix: make sure you are disabled debug mode by COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS = false
+             throw new IllegalStateException("AI ERROR: too much nodes (possible actions)");
+         }
+@@ -248,6 +242,14 @@
+             logger.trace("Add Action -- alpha: " + alpha + " beta: " + beta + " depth:" + depth + " step:" + game.getTurnStepType() + " for player:" + game.getPlayer(game.getActivePlayerId()).getName());
+             if (allPassed(game)) {
+                 if (!game.getStack().isEmpty()) {
++                    // KIT: search horizon (design 5.6): a flagged stack object is never resolved; the node is a leaf
++                    StackObject top = game.getStack().getFirstOrNull();
++                    if (top != null && KitContext.horizon.contains(top.getId())) {
++                        KitContext.count("horizon:mad");
++                        val = GameStateEvaluator2.evaluate(playerId, game).getTotalScore();
++                        node.setScore(val);
++                        return val;
++                    }
+                     resolve(node, depth, game);
+                 } else {
+                     stepFinished = true;
+@@ -337,7 +339,7 @@
+             if (alpha >= beta) {
+                 break;
+             }
+-            if (SimulationNode2.nodeCount > MAX_SIMULATED_NODES_PER_ERROR) {
++            if (SimulationNode2.nodeCount > maxNodes + (MAX_SIMULATED_NODES_PER_ERROR - MAX_SIMULATED_NODES_PER_CALC)) { // KIT: budget-derived
+                 throw new IllegalStateException("AI ERROR: too much nodes (possible actions)");
+             }
+             if (SimulationNode2.nodeCount > maxNodes) {
+@@ -439,8 +441,21 @@
+         // TODO: all actions added and calculated one by one,
+         //  multithreading do not supported here
+         // run new game simulation in parallel thread
++        // KIT: synchronous on the world thread (design 5.4 item 1); the watchdog interrupts it at the safety deadline
++        if (KitContext.hangHook) {
++            KitContext.hangHook = false;
++            while (true) { // E3 test hook: a search that ignores interruption
++                try {
++                    Thread.sleep(1000);
++                } catch (InterruptedException ignored) {
++                    // ignored on purpose
++                }
++            }
++        }
++        if (true) {
++            return addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE);
++        }
+         FutureTask<Integer> task = new FutureTask<>(() -> addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE));
+-        threadPoolSimulations.execute(task);
+         try {
+             int maxSeconds = maxThinkTimeSecs;
+             if (COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS) {
+@@ -533,18 +548,55 @@
+         }
+         int actionNumber = 0;
+         int bestValSubNodes = Integer.MIN_VALUE;
++        // KIT: root statistics before any alternative is discarded (design 5.5.1)
++        boolean atRoot = node == root && depth == maxDepth;
++        RootStat bestStat = null;
++        if (atRoot) {
++            rootStats.clear();
++            for (int i = 0; i < allActions.size(); i++) {
++                rootStats.add(new RootStat(i, allActions.get(i)));
++            }
++            for (Ability capped : currentPlayer.cappedOptions()) {
++                RootStat rs = new RootStat(rootStats.size(), capped);
++                rs.reason = "options_capped";
++                rootStats.add(rs);
++            }
++        }
++        String cutReason = null;
+         for (Ability action : allActions) {
+             actionNumber++;
++            RootStat rs = atRoot ? rootStats.get(actionNumber - 1) : null; // KIT
+             if (!COMPUTER_DISABLE_TIMEOUT_IN_GAME_SIMULATIONS && Thread.currentThread().isInterrupted()) {
+                 logger.info("Sim Prio [" + depth + "] -- interrupted");
++                cutReason = "cut_interrupt"; // KIT
+                 break;
+             }
++            if (atRoot) {
++                KitContext.beginSimulation(); // KIT: the operation cap counts per root alternative
++            }
+             Game sim = game.createSimulationForAI();
+-            if (!(action instanceof StaticAbility) //for MorphAbility, etc
+-                    && sim.getPlayer(currentPlayer.getId()).activateAbility((ActivatedAbility) action.copy(), sim)) {
++            boolean activated;
++            try { // KIT: budget boundary
++                activated = !(action instanceof StaticAbility) //for MorphAbility, etc
++                        && sim.getPlayer(currentPlayer.getId()).activateAbility((ActivatedAbility) action.copy(), sim);
++            } catch (KitContext.BudgetExceeded e) {
++                KitContext.caught("mad_activation");
++                activated = false;
++            }
++            if (!activated && rs != null) {
++                rs.reason = action instanceof StaticAbility ? "static"
++                        : (KitContext.isExceeded() ? "budget_stop" : "activation_failed"); // KIT
++            }
++            if (activated) {
++                int finalScore;
++                SimulationNode2 newNode;
++                try { // KIT: budget boundary (design 5.4 item 2c): a stopped simulation is scored as a leaf
+                 sim.applyEffects();
+                 if (checkForRepeatedAction(sim, node, action, currentPlayer.getId())) {
+                     logger.debug("Sim Prio [" + depth + "] -- repeated action: " + action);
++                    if (rs != null) {
++                        rs.reason = "repeated"; // KIT
++                    }
+                     continue;
+                 }
+                 if (!sim.checkIfGameIsOver()
+@@ -556,9 +608,8 @@
+                         nextPlayerId = sim.getPlayerList().getNext();
+                     } while (!Objects.equals(nextPlayerId, this.getId()));
+                 }
+-                SimulationNode2 newNode = new SimulationNode2(node, sim, action, depth, currentPlayer.getId());
++                newNode = new SimulationNode2(node, sim, action, depth, currentPlayer.getId());
+                 sim.checkStateAndTriggered();
+-                int finalScore;
+                 if (action instanceof PassAbility && sim.getStack().isEmpty()) {
+                     // no more next actions, it's a final score
+                     finalScore = GameStateEvaluator2.evaluate(this.getId(), sim).getTotalScore();
+@@ -566,6 +617,12 @@
+                     // resolve current action and calc all next actions to find best score (return max possible score)
+                     finalScore = addActions(newNode, depth - 1, alpha, beta);
+                 }
++                } catch (KitContext.BudgetExceeded e) {
++                    KitContext.caught("mad_simulation");
++                    newNode = new SimulationNode2(node, sim, action, depth, currentPlayer.getId());
++                    finalScore = GameStateEvaluator2.evaluate(this.getId(), sim).getTotalScore();
++                }
++                int alphaBefore = alpha; // KIT
+                 logger.debug("Sim Prio " + BLANKS.substring(0, 2 + (maxDepth - depth) * 3) + '[' + depth + "]#" + actionNumber + " <" + finalScore + "> - (" + action + ") ");
+ 
+                 // Hints on data:
+@@ -665,6 +722,9 @@
+                 }
+ 
+                 if (currentPlayer.getId().equals(playerId)) {
++                    if (rs != null) {
++                        rs.raw = finalScore; // KIT
++                    }
+                     if (finalScore > bestValSubNodes) {
+                         bestValSubNodes = finalScore;
+                     }
+@@ -672,11 +732,19 @@
+                             && action instanceof PassAbility) {
+                         finalScore = finalScore - PASSIVITY_PENALTY; // passivity penalty
+                     }
++                    if (rs != null) { // KIT
++                        rs.adjusted = finalScore;
++                        rs.alphaBefore = alphaBefore;
++                        rs.beta = beta;
++                        rs.bound = finalScore > alphaBefore ? "exact" : "at_most";
++                        rs.tie = finalScore == alphaBefore;
++                    }
+                     if (finalScore > alpha
+                             || (depth == maxDepth
+                             && finalScore == alpha
+                             && RandomUtil.nextBoolean())) { // Adding random for equal value to get change sometimes
+                         alpha = finalScore;
++                        bestStat = rs; // KIT
+                         bestNode = newNode;
+                         bestNode.setScore(finalScore);
+                         if (!newNode.getChildren().isEmpty()) {
+@@ -696,6 +764,7 @@
+                     // no need to check other actions
+                     if (finalScore == GameStateEvaluator2.WIN_GAME_SCORE) {
+                         logger.debug("Sim Prio -- win - break");
++                        cutReason = "cut_win"; // KIT
+                         break;
+                     }
+                 } else {
+@@ -711,21 +780,37 @@
+                     // no need to check other actions
+                     if (finalScore == GameStateEvaluator2.LOSE_GAME_SCORE) {
+                         logger.debug("Sim Prio -- lose - break");
++                        cutReason = "cut_lose"; // KIT
+                         break;
+                     }
+                 }
+                 if (alpha >= beta) {
++                    cutReason = "cut_alpha_beta"; // KIT
+                     break;
+                 }
+-                if (SimulationNode2.nodeCount > MAX_SIMULATED_NODES_PER_ERROR) {
++                if (SimulationNode2.nodeCount > maxNodes + (MAX_SIMULATED_NODES_PER_ERROR - MAX_SIMULATED_NODES_PER_CALC)) { // KIT: budget-derived
+                     throw new IllegalStateException("AI ERROR: too many nodes (possible actions)");
+                 }
+                 if (SimulationNode2.nodeCount > maxNodes) {
+                     logger.debug("Sim Prio -- reached end-state");
++                    cutReason = "cut_nodes"; // KIT
+                     break;
+                 }
+             }
+         } // end of for (allActions)
++        if (atRoot) { // KIT: options never evaluated, and the per-world best
++            if (cutReason != null) {
++                for (int i = actionNumber; i < allActions.size(); i++) {
++                    rootStats.get(i).reason = cutReason;
++                }
++                if (cutReason.equals("cut_interrupt") && actionNumber > 0 && rootStats.get(actionNumber - 1).raw == null) {
++                    rootStats.get(actionNumber - 1).reason = cutReason;
++                }
++            }
++            if (bestStat != null) {
++                bestStat.best = true;
++            }
++        }
+ 
+         if (depth == maxDepth) {
+             // TODO: buggy? Why it ended with depth limit 6 on one Pass action?!
+--- upstream/Mage.Player.AI.MAD/src/mage/player/ai/SimulatedPlayer2.java
++++ kit/xmage/src/mage/player/ai/SimulatedPlayer2.java
+@@ -19,6 +19,14 @@
+ import mage.players.net.UserData;
+ import mage.target.Target;
+ import org.apache.log4j.Logger;
++import mage.abilities.Mode; // KIT
++import mage.abilities.costs.mana.ManaCost; // KIT
++import mage.cards.Cards; // KIT
++import mage.choices.Choice; // KIT
++import mage.constants.Outcome; // KIT
++import mage.target.TargetAmount; // KIT
++import mage.target.TargetCard; // KIT
++import spellbench.kit.xmage.KitContext; // KIT
+ 
+ import java.util.*;
+ import java.util.concurrent.ConcurrentLinkedQueue;
+@@ -28,7 +36,7 @@
+  *
+  * @author BetaSteward_at_googlemail.com
+  */
+-public final class SimulatedPlayer2 extends ComputerPlayer {
++public final class SimulatedPlayer2 extends KitPayPlayer { // KIT: deterministic producer order
+ 
+     private static final Logger logger = Logger.getLogger(SimulatedPlayer2.class);
+ 
+@@ -38,6 +46,7 @@
+     private final boolean isSimulatedPlayer;
+     private transient ConcurrentLinkedQueue<Ability> allActions; // all possible abilities to play (copies with already selected targets)
+     private final Player originalPlayer; // copy of the original player, source of choices/results in tests
++    private transient List<Ability> capped = new ArrayList<>(); // KIT: playables skipped by the option budget
+ 
+     public SimulatedPlayer2(Player originalPlayer, boolean isSimulatedPlayer) {
+         super(originalPlayer.getId());
+@@ -105,13 +114,30 @@
+         return list;
+     }
+ 
++    /** KIT: the playables the option budget skipped in the last {@link #simulatePriority} (design 5.4 item 2b). */
++    public List<Ability> cappedOptions() {
++        return capped == null ? new ArrayList<>() : new ArrayList<>(capped);
++    }
++
+     private void simulateOptions(Game game) {
++        capped = new ArrayList<>(); // KIT
+         List<ActivatedAbility> playables = game.getPlayer(playerId).getPlayable(game, isSimulatedPlayer);
+         for (ActivatedAbility ability : playables) {
+             if (ability.isManaAbility()) {
+                 continue;
+             }
++            // KIT: option-generation budget (modes, targets, cost targets, X): an ability whose option count would
++            // exceed it is skipped before enumeration, and an enumeration that still exceeds it is truncated
++            if (KitBudgets.estimateOptions(ability, playerId, game) > KitContext.optionBudget) {
++                capped.add(ability);
++                KitContext.count("cap:options_skipped");
++                continue;
++            }
+             List<Ability> options = game.getPlayer(playerId).getPlayableOptions(ability, game);
++            if (options.size() > KitContext.optionBudget) {
++                options = new ArrayList<>(options.subList(0, KitContext.optionBudget));
++                KitContext.count("cap:options_truncated");
++            }
+             options = optimizeOptions(game, options, ability);
+             if (options.isEmpty()) {
+                 allActions.add(ability);
+@@ -315,6 +341,7 @@
+ 
+     @Override
+     public boolean triggerAbility(TriggeredAbility source, Game game) {
++        KitContext.op("triggerAbility"); // KIT
+         Ability ability = source.copy();
+         List<Ability> options = getPlayableOptions(ability, game);
+         if (options.isEmpty()) {
+@@ -359,8 +386,82 @@
+         parent.children.add(newNode);
+     }
+ 
++    // KIT: every callback of a simulated player counts against the per-simulation operation cap (design 5.4 item 2c)
++    @Override
++    public boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
++        KitContext.op("chooseTarget");
++        return super.chooseTarget(outcome, target, source, game);
++    }
++
++    @Override
++    public boolean choose(Outcome outcome, Target target, Ability source, Game game, java.util.Map<String, java.io.Serializable> options) {
++        KitContext.op("choose");
++        return super.choose(outcome, target, source, game, options);
++    }
++
++    @Override
++    public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
++        KitContext.op("chooseTargetCards");
++        return super.chooseTarget(outcome, cards, target, source, game);
++    }
++
++    @Override
++    public boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
++        KitContext.op("chooseCards");
++        return super.choose(outcome, cards, target, source, game);
++    }
++
++    @Override
++    public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {
++        KitContext.op("chooseTargetAmount");
++        return super.chooseTargetAmount(outcome, target, source, game);
++    }
++
++    @Override
++    public boolean chooseUse(Outcome outcome, String message, String secondMessage, String trueText, String falseText, Ability source, Game game) {
++        KitContext.op("chooseUse");
++        return super.chooseUse(outcome, message, secondMessage, trueText, falseText, source, game);
++    }
++
++    @Override
++    public boolean choose(Outcome outcome, Choice choice, Game game) {
++        KitContext.op("chooseChoice");
++        return super.choose(outcome, choice, game);
++    }
++
++    @Override
++    public Mode chooseMode(mage.abilities.Modes modes, Ability source, Game game) {
++        KitContext.op("chooseMode");
++        return super.chooseMode(modes, source, game);
++    }
++
++    @Override
++    public int announceX(int min, int max, String message, Game game, Ability source, boolean isManaPay) {
++        KitContext.op("announceX");
++        return super.announceX(min, max, message, game, source, isManaPay);
++    }
++
++    @Override
++    public int getAmount(int min, int max, String message, Ability source, Game game) {
++        KitContext.op("getAmount");
++        return super.getAmount(min, max, message, source, game);
++    }
++
++    @Override
++    public boolean playMana(Ability ability, ManaCost unpaid, String promptText, Game game) {
++        KitContext.op("playMana");
++        return super.playMana(ability, unpaid, promptText, game);
++    }
++
++    @Override
++    public TriggeredAbility chooseTriggeredAbility(List<TriggeredAbility> abilities, Game game) {
++        KitContext.op("chooseTriggeredAbility");
++        return super.chooseTriggeredAbility(abilities, game);
++    }
++
+     @Override
+     public boolean priority(Game game) {
++        KitContext.op("priority"); // KIT
+         // simulated player do nothing - it must pass until stack resolve to see final game score after action apply
+ 
+         // it's a workaround for Karn Liberated restart ability (see CommandersGameRestartTest)

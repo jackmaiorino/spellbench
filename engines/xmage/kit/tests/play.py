@@ -156,6 +156,8 @@ def main() -> int:
     parser.add_argument("--kit-cmd", required=True, help="JSON list: the agent command")
     parser.add_argument("--opponent", default="heuristic")
     parser.add_argument("--index", type=int, action="append", default=None, help="play only these schedule indexes")
+    parser.add_argument("--max-decision-ms", type=int, default=None)
+    parser.add_argument("--bank-ms", type=int, default=None)
     parser.add_argument("engine", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     engine_argv = args.engine[1:] if args.engine and args.engine[0] == "--" else args.engine
@@ -173,8 +175,13 @@ def main() -> int:
     shards = max(1, min(args.shards, len(indexes)))
     chunks = [indexes[i::shards] for i in range(shards)]
     start = time.monotonic()
+    tc = dict(KIT_TIME_CONTROL)
+    if args.max_decision_ms:
+        tc["max_decision_ms"] = args.max_decision_ms
+    if args.bank_ms:
+        tc["bank_ms"] = args.bank_ms
     jobs = [(engine_argv, args.format, decks, args.games, secret_hex, chunk, args.kit_name, args.kit_version, kit_cmd,
-             args.opponent, KIT_TIME_CONTROL) for chunk in chunks]
+             args.opponent, tc) for chunk in chunks]
     if shards == 1:
         results = [_worker(jobs[0])]
     else:

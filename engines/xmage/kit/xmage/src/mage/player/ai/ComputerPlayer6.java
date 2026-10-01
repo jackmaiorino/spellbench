@@ -454,7 +454,15 @@ public class ComputerPlayer6 extends KitPayPlayer { // KIT: deterministic produc
             }
         }
         if (true) {
-            return addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            try {
+                return addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            } catch (RuntimeException e) {
+                // as upstream's ExecutionException branch below: a game error inside the search ends it with what it
+                // found so far (the root keeps the best child chosen before the error)
+                KitContext.count("search_error:" + e.getClass().getSimpleName());
+                logger.error("AI simulation catch game error: " + e, e);
+                return 0;
+            }
         }
         FutureTask<Integer> task = new FutureTask<>(() -> addActions(root, maxDepth, Integer.MIN_VALUE, Integer.MAX_VALUE));
         try {

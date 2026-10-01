@@ -113,6 +113,9 @@ public final class Slice {
                     case "SENTINEL": sentinel(); break;
                     case "E2": e2(); break;
                     case "E7MCTS": e7mcts(); break;
+                    case "E7MAD": e7mad(); break;
+                    case "DZ": dzPositions(); break;
+                    case "H3COST": h3cost(); break;
                     default: note("unknown_case", c);
                 }
             } catch (Throwable t) {
@@ -1401,8 +1404,16 @@ public final class Slice {
             for (RootStat rs : o.stats) {
                 reasons.add(rs.reason);
             }
-            check("E2.cap_" + cfg[0], fired && ms < 60_000, Json.map("ms", ms, "counters", cc, "nodes", (long) mage.player.ai.KitNodes.count(),
-                    "decision", o.semantic, "root_reasons", reasons));
+            long thrown = cc.getOrDefault("budget_thrown", 0L);
+            long caught = 0;
+            for (Map.Entry<String, Long> en : cc.entrySet()) {
+                if (en.getKey().startsWith("budget_caught:")) {
+                    caught += en.getValue();
+                }
+            }
+            check("E2.cap_" + cfg[0], fired && ms < 60_000 && thrown == caught, Json.map("ms", ms, "counters", cc,
+                    "nodes", (long) mage.player.ai.KitNodes.count(), "decision", o.semantic, "root_reasons", reasons,
+                    "budget_thrown", thrown, "budget_caught_at_boundary", caught));
         }
         KitContext.optionBudget = 2000;
         KitContext.opCap = 20000;
@@ -1476,6 +1487,228 @@ public final class Slice {
         check("E7.mcts_redeal_semantics_without_pins", ok && everyNameReaches,
                 Json.map("decider_hand_untouched_and_sizes_and_multisets", ok, "names_reaching_opponent_hand",
                         new ArrayList<Object>(reachedHand), "opponent_names", new ArrayList<Object>(oppAll.keySet())));
+    }
+
+    // =============================================================================================
+    // E4 and the C-MAD / C-MCTS pilots on DraftZero's two positions (doc 009 Section 3.4), rebuilt with FDN cards:
+    // the counterspell pair (world R: Refute in hand, world N: Island) and the cantrip pair (world E: Llanowar Elves
+    // on top, world L: Plains on top). Horizon and truncation counts for E4; kit-sample versus oracle decisions for
+    // the sensitivity controls.
+
+    static void dzPositions() {
+        for (String world : new String[]{"R", "N"}) {
+            SeatSetup a = new SeatSetup().lib("Plains", 8);
+            a.hand.addAll(Arrays.asList("Serra Angel"));
+            a.battlefield.addAll(Arrays.asList("Plains", "Plains", "Plains", "Forest", "Forest", "Forest"));
+            SeatSetup b = new SeatSetup();
+            b.library.addAll(Arrays.asList("Island", "Mountain", "Island", "Refute", "Island", "Mountain", "Island", "Island"));
+            b.hand.addAll("R".equals(world) ? Arrays.asList("Refute", "Island") : Arrays.asList("Island", "Island"));
+            b.battlefield.addAll(Arrays.asList("Island", "Island", "Island", "Mountain", "Mountain"));
+            dzRun("counterspell_" + world, a, b);
+        }
+        for (String world : new String[]{"E", "L"}) {
+            SeatSetup a = new SeatSetup();
+            a.library.addAll(Arrays.asList("E".equals(world) ? "Llanowar Elves" : "Plains", "Plains", "Forest", "Plains", "Forest",
+                    "Llanowar Elves", "Plains", "Forest"));
+            a.hand.addAll(Arrays.asList("Helpful Hunter", "Cathar Commando"));
+            a.battlefield.addAll(Arrays.asList("Plains", "Forest", "Forest"));
+            SeatSetup b = new SeatSetup().lib("Island", 8);
+            b.hand.addAll(Arrays.asList("Island", "Island"));
+            b.battlefield.addAll(Arrays.asList("Island", "Island"));
+            dzRun("cantrip_" + world, a, b);
+        }
+    }
+
+    static void dzRun(String label, SeatSetup a, SeatSetup b) {
+        EnginePos e = EnginePos.start("DZ" + label, a, b);
+        if (!e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50)) {
+            check("DZ." + label + ".reach_position", false, e.trail);
+            return;
+        }
+        Map<String, Object> d0 = e.decision();
+        Map<String, Object> gs = gameStart("p0", a, b);
+        Map<String, Object> rows = new LinkedHashMap<>();
+        for (String mode : new String[]{"kit", "oracle"}) {
+            KitMad[] dec = new KitMad[1];
+            World w = world(gs, d0, "oracle".equals(mode) ? oracle(e, obsOf(d0)) : null, WorldBuilder.Mode.PRIORITY, 0, dec, null);
+            KitMad.PriorityOutcome o = dec[0].decidePriority(w, new ObsIndex(obsOf(d0)), false);
+            rows.put("mad_" + mode, Json.map("decision", o.semantic == null || o.semantic.get("source") == null
+                            ? (o.semantic == null ? null : o.semantic.get("kind")) : Json.str(Json.obj(o.semantic, "source"), "card_name"),
+                    "counters", KitContext.counters(), "nodes", (long) mage.player.ai.KitNodes.count()));
+            KitContext.reset();
+            KitContext.mctsIterations = 30;
+            KitContext.rolloutCap = 2000;
+            KitMcts[] m = new KitMcts[1];
+            KitRandom random = KitRandom.install(Seeds.worldSeed(GAME_KEY, Json.num(d0, "seat_step", 0), 5), ID_SEED);
+            WorldBuilder.Spec spec = new WorldBuilder.Spec();
+            spec.gameStart = gs;
+            spec.observation = obsOf(d0);
+            spec.sample = "oracle".equals(mode) ? oracle(e, obsOf(d0)) : Sampler.sample(gs, obsOf(d0), random.stream("sampler"));
+            spec.random = random;
+            spec.viewerFactory = seat -> {
+                m[0] = new KitMcts(seat, 6);
+                return m[0];
+            };
+            spec.otherFactory = Puppet::new;
+            World mw = WorldBuilder.build(spec);
+            KnowledgeWatcher.install(mw.game, mw.player("p0"));
+            long t0 = System.nanoTime();
+            Map<String, Object> res = m[0].decidePriority(mw, new ObsIndex(obsOf(d0)));
+            Map<String, Object> sem = Json.obj(res, "semantic");
+            rows.put("mcts_" + mode, Json.map("decision", sem == null || sem.get("source") == null ? (sem == null ? null : sem.get("kind"))
+                            : Json.str(Json.obj(sem, "source"), "card_name"), "ms", (System.nanoTime() - t0) / 1_000_000,
+                    "counters", KitContext.counters(), "root_stats", res.get("root_stats")));
+            KitContext.mctsIterations = 300;
+        }
+        note("DZ." + label, rows);
+    }
+
+    /** H3's cost per completed iteration at several rollout caps, on the cantrip position (E2, E4, E8). */
+    static void h3cost() {
+        SeatSetup a = new SeatSetup();
+        a.library.addAll(Arrays.asList("Llanowar Elves", "Plains", "Forest", "Plains", "Forest", "Llanowar Elves", "Plains", "Forest"));
+        a.hand.addAll(Arrays.asList("Helpful Hunter", "Cathar Commando"));
+        a.battlefield.addAll(Arrays.asList("Plains", "Forest", "Forest"));
+        SeatSetup b = new SeatSetup().lib("Island", 8);
+        b.hand.addAll(Arrays.asList("Island", "Island"));
+        b.battlefield.addAll(Arrays.asList("Island", "Island"));
+        EnginePos e = EnginePos.start("H3COST", a, b);
+        e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50);
+        Map<String, Object> d0 = e.decision();
+        Map<String, Object> gs = gameStart("p0", a, b);
+        List<Object> rows = new ArrayList<>();
+        for (int cap : new int[]{200, 1000, 5000}) {
+            KitContext.reset();
+            KitContext.mctsIterations = 30;
+            KitContext.rolloutCap = cap;
+            KitMcts[] m = new KitMcts[1];
+            KitRandom random = KitRandom.install(Seeds.worldSeed(GAME_KEY, 7, cap), ID_SEED);
+            WorldBuilder.Spec spec = new WorldBuilder.Spec();
+            spec.gameStart = gs;
+            spec.observation = obsOf(d0);
+            spec.sample = Sampler.sample(gs, obsOf(d0), random.stream("sampler"));
+            spec.random = random;
+            spec.viewerFactory = seat -> {
+                m[0] = new KitMcts(seat, 6);
+                return m[0];
+            };
+            spec.otherFactory = Puppet::new;
+            World mw = WorldBuilder.build(spec);
+            KnowledgeWatcher.install(mw.game, mw.player("p0"));
+            long t0 = System.nanoTime();
+            m[0].decidePriority(mw, new ObsIndex(obsOf(d0)));
+            long ms = (System.nanoTime() - t0) / 1_000_000;
+            Map<String, Long> cc = KitContext.counters();
+            long it = cc.getOrDefault("mcts:iterations", 0L);
+            rows.add(Json.map("rollout_cap", (long) cap, "iterations", it, "ms", ms, "ms_per_iteration", it == 0 ? null : ms / it,
+                    "truncated_rollouts", cc.getOrDefault("mcts:truncated_rollouts", 0L), "simulations", cc.getOrDefault("simulate", 0L)));
+        }
+        KitContext.mctsIterations = 300;
+        KitContext.rolloutCap = 2000;
+        note("H3COST.cantrip", rows);
+    }
+
+    // =============================================================================================
+    // E7 (MAD part): on identical worlds and seeds, with no cap firing and no horizon, KitMad chooses what upstream
+    // ComputerPlayer7 (pristine sources, the same X-P4 build, kit-upstream.jar) chooses
+
+    static void e7mad() throws Exception {
+        String dir = System.getProperty("kit.e7.dir");
+        java.io.File[] files = dir == null ? null : new java.io.File(dir).listFiles((d, n) -> n.startsWith("decision-") && n.endsWith(".json"));
+        Class<?> probeClass;
+        try {
+            probeClass = Class.forName("mage.player.ai.upstream.E7Probe");
+        } catch (ClassNotFoundException e) {
+            check("E7.mad_reference_available", false, "kit-upstream.jar not on the classpath");
+            return;
+        }
+        if (files == null || files.length == 0) {
+            check("E7.mad_positions_available", false, dir);
+            return;
+        }
+        java.util.Arrays.sort(files);
+        int compared = 0;
+        int equal = 0;
+        int skippedCaps = 0;
+        List<Object> differ = new ArrayList<>();
+        final java.lang.reflect.Method decide = probeClass.getMethod("decide", Game.class);
+        final java.lang.reflect.Constructor<?> ctor = probeClass.getConstructor(String.class, int.class);
+        int errors = 0;
+        for (java.io.File f : files) {
+          try {
+            Map<String, Object> rec = Json.parseObject(new String(java.nio.file.Files.readAllBytes(f.toPath()), "UTF-8"));
+            Map<String, Object> gs = Json.obj(rec, "game_start");
+            Map<String, Object> d = Json.obj(rec, "decision");
+            byte[] gameKey = Seeds.gameKey(Json.num(gs, "agent_seed", 0));
+            byte[] idSeed = Seeds.hmac(gameKey, "ids");
+            byte[] seed = Seeds.worldSeed(gameKey, Json.num(d, "seat_step", 0), 0);
+            ObsIndex idx = new ObsIndex(obsOf(d));
+            // the kit's decision
+            KitContext.reset();
+            KitRandom random = KitRandom.install(seed, idSeed);
+            WorldBuilder.Spec spec = new WorldBuilder.Spec();
+            spec.gameStart = gs;
+            spec.observation = obsOf(d);
+            spec.sample = Sampler.sample(gs, obsOf(d), random.stream("sampler"));
+            spec.random = random;
+            spec.mode = WorldBuilder.Mode.PRIORITY;
+            final KitMad[] kit = new KitMad[1];
+            spec.viewerFactory = seat -> {
+                kit[0] = new KitMad(seat, 6);
+                return kit[0];
+            };
+            spec.otherFactory = Puppet::new;
+            World wk = WorldBuilder.build(spec);
+            kit[0].attach(wk);
+            KitMad.PriorityOutcome ok = kit[0].decidePriority(wk, idx, false);
+            Map<String, Long> cc = KitContext.counters();
+            boolean capsOrHorizon = !KitContext.horizon.isEmpty() || cc.containsKey("cap:options_skipped")
+                    || cc.containsKey("cap:options_truncated") || cc.containsKey("cap:operations")
+                    || cc.containsKey("horizon:mad");
+            for (RootStat rs : ok.stats) {
+                capsOrHorizon |= "cut_nodes".equals(rs.reason) || "cut_interrupt".equals(rs.reason);
+            }
+            if (capsOrHorizon) {
+                skippedCaps++;
+                continue;
+            }
+            // upstream's decision on the same world and seeds
+            KitContext.reset();
+            KitRandom random2 = KitRandom.install(seed, idSeed);
+            WorldBuilder.Spec spec2 = new WorldBuilder.Spec();
+            spec2.gameStart = gs;
+            spec2.observation = obsOf(d);
+            spec2.sample = Sampler.sample(gs, obsOf(d), random2.stream("sampler"));
+            spec2.random = random2;
+            spec2.mode = WorldBuilder.Mode.PRIORITY;
+            final Player[] up = new Player[1];
+            spec2.viewerFactory = seat -> {
+                try {
+                    up[0] = (Player) ctor.newInstance(seat, 6);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(e);
+                }
+                return up[0];
+            };
+            spec2.otherFactory = Puppet::new;
+            World wu = WorldBuilder.build(spec2);
+            Ability ua = (Ability) decide.invoke(up[0], wu.game);
+            Map<String, Object> us = ua == null ? Json.map("kind", "pass") : Mapping.prioritySemantic(wu, wu.game, ua, idx);
+            Map<String, Object> ks = ok.semantic == null ? Json.map("kind", "pass") : ok.semantic;
+            compared++;
+            if (Json.canonical(us).equals(Json.canonical(ks))) {
+                equal++;
+            } else {
+                differ.add(Json.map("file", f.getName(), "kit", ks, "upstream", us));
+            }
+          } catch (RuntimeException ex) {
+            errors++;
+            differ.add(Json.map("file", f.getName(), "error", ex.toString()));
+          }
+        }
+        check("E7.mad_same_choice_caps_and_horizon_inactive", compared > 0 && equal == compared,
+                Json.map("positions", (long) files.length, "compared", (long) compared, "equal", (long) equal,
+                        "skipped_cap_or_horizon", (long) skippedCaps, "errors", (long) errors, "differ", differ));
     }
 
     static List<String> handNames(Game g, UUID p) {

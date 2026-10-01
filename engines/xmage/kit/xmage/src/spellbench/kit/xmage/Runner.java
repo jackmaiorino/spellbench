@@ -258,6 +258,7 @@ public final class Runner {
         spec.random = random;
         spec.index = k;
         spec.combatDamageStep = Json.str(req, "combat_damage_step");
+        spec.history = Json.obj(decision, "x_history");
         Map<String, Object> bot = Json.obj(req, "bot");
         int skill = bot == null ? 6 : (int) Json.num(bot, "skill", 6);
         final KitMad[] decider = new KitMad[1];

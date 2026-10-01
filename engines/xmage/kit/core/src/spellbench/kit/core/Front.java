@@ -43,6 +43,9 @@ public final class Front {
     final Map<String, Object> budgets = new LinkedHashMap<>();
     final long hangAt;
     final boolean roundtrip;
+    boolean hangUsed;
+    /** Evidence option: priority-anchor decisions and game_start are written here (E7 positions). */
+    final String dumpDir;
     final RunnerLink runner;
     final PrintStream log;
 
@@ -62,6 +65,11 @@ public final class Front {
     long lastCombatDamageTurn = -1;
     int combatDamageSeen;
     final Map<String, Long> stats = new LinkedHashMap<>();
+    /**
+     * Own history (Section 3.3): this seat's loyalty activations, each confirmed once a later observation shows the
+     * loyalty cost paid. Sent to the runner as {@code x_history.loyalty_used} for the current turn.
+     */
+    final List<Map<String, Object>> ownActivations = new ArrayList<>();
 
     public Front(Map<String, String> opts, List<String> runnerCmd) throws IOException {
         entry = opts.getOrDefault("entry", "h1");
@@ -73,6 +81,7 @@ public final class Front {
         overheadMs = Long.parseLong(opts.getOrDefault("overhead-ms", "1500"));
         hangAt = Long.parseLong(opts.getOrDefault("hang-at", "-1"));
         roundtrip = "1".equals(opts.get("roundtrip"));
+        dumpDir = opts.get("dump");
         for (String b : new String[]{"nodes", "options", "operations", "iterations", "rollout"}) {
             if (opts.containsKey(b)) {
                 budgets.put(b, Long.parseLong(opts.get(b)));
@@ -109,6 +118,13 @@ public final class Front {
             Map<String, Object> resp = f.handle(line);
             protocol.println(Json.canonical(resp));
             protocol.flush();
+            if (f.gameId != null && !f.runner.alive() && f.runner.kills > 0 && !f.runner.restarting()) {
+                // a killed runner is replaced in the background right after the answer: decisions that need no
+                // world are served meanwhile, and one that does waits for it within its own budget
+                f.runner.startAsync();
+                f.logLine(Json.map("event", "runner_restart_started", "stale_locks_removed", f.runner.staleLocksRemoved,
+                        "kill_to_exit_ms", f.runner.killToExitMs));
+            }
         }
         f.runner.close();
     }
@@ -287,7 +303,59 @@ public final class Front {
         return k;
     }
 
+    /** Loyalty counter of a viewer permanent in this observation, or -1. */
+    static long loyalty(Map<String, Object> obs, String objectId) {
+        String viewer = Json.str(obs, "viewer");
+        for (Object p : Json.arr(obs, "players")) {
+            Map<String, Object> pm = Json.obj(p);
+            if (!viewer.equals(Json.str(pm, "seat"))) {
+                continue;
+            }
+            for (Object o : Json.arr(pm, "battlefield")) {
+                Map<String, Object> r = Json.obj(o);
+                if (objectId.equals(r.get("object_id"))) {
+                    Map<String, Object> c = Json.obj(Json.obj(r, "permanent"), "counters");
+                    return c == null ? -1 : Json.num(c, "loyalty", -1);
+                }
+            }
+        }
+        return -1;
+    }
+
+    private void confirmActivations(Map<String, Object> obs) {
+        long turn = Json.num(obs, "turn", -1);
+        for (Map<String, Object> m : ownActivations) {
+            if (!Json.bool(m, "confirmed") && Json.num(m, "turn", -2) == turn) {
+                long now = loyalty(obs, Json.str(m, "object_id"));
+                if (now >= 0 && now != Json.num(m, "loyalty_before", -1)) {
+                    m.put("confirmed", true);
+                }
+            }
+        }
+    }
+
+    /** The confirmed own loyalty activations of the current turn (x_history for the runner). */
+    List<Object> loyaltyUsed(Map<String, Object> obs) {
+        List<Object> out = new ArrayList<>();
+        long turn = Json.num(obs, "turn", -1);
+        for (Map<String, Object> m : ownActivations) {
+            if (Json.bool(m, "confirmed") && Json.num(m, "turn", -2) == turn) {
+                out.add(m.get("object_id"));
+            }
+        }
+        return out;
+    }
+
     private void recordAnswer(Map<String, Object> d, Answer a) {
+        Map<String, Object> picked = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
+        if ("activate_ability".equals(Json.str(picked, "kind"))) {
+            String oid = Json.str(Json.obj(picked, "source"), "object_id");
+            long before = loyalty(Json.obj(d, "observation"), oid);
+            if (before >= 0) {
+                ownActivations.add(Json.map("seat_step", d.get("seat_step"), "turn", Json.obj(d, "observation").get("turn"),
+                        "object_id", oid, "loyalty_before", before, "confirmed", false));
+            }
+        }
         Map<String, Object> o = Json.obj(d, "observation");
         Map<String, Object> chosen = Json.obj(Json.obj(Json.arr(d, "candidates").get(a.candidate)), "semantic");
         lastWasEmptyPassAtCombatDamage = "combat_damage".equals(Json.str(o, "phase_step"))
@@ -314,6 +382,7 @@ public final class Front {
         long seatStep = Json.num(d, "seat_step", 0);
         dropStaleAnchors(obs);
         trackCombatDamage(obs, priority);
+        confirmActivations(obs);
 
         // rewind (Section 5.1 and 8): roll back every provisional record of the abandoned action
         if (priority && Json.bool(ctx, "rewind")) {
@@ -334,6 +403,7 @@ public final class Front {
                 answersDropped += before - l.size();
             }
             groupPlan = null;
+            ownActivations.removeIf(m -> Json.num(m, "seat_step", 0) >= since);
             count("rewinds");
             logLine(Json.map("event", "rewind", "seat_step", seatStep, "abandoned_action", abandoned,
                     "anchors_dropped", (long) dropped, "answers_dropped", (long) answersDropped));
@@ -418,6 +488,7 @@ public final class Front {
     private Map<String, Object> request(String path, Map<String, Object> d, int k, long budget) {
         long seatStep = Json.num(d, "seat_step", 0);
         Map<String, Object> decision = new LinkedHashMap<>(d);
+        decision.put("x_history", Json.map("loyalty_used", loyaltyUsed(Json.obj(d, "observation"))));
         Map<String, Object> profile = Json.obj(gameStart, "engine_profile");
         if (profile != null && profile.get("observation") != null) {
             decision.put("x_observation_flags", profile.get("observation"));
@@ -426,8 +497,10 @@ public final class Front {
                 "world_seeds", worldSeeds(seatStep, k), "budgets", budgets,
                 "bot", Json.map("kind", entry.equals("h3") ? "mcts" : "mad", "skill", (long) skill),
                 "deadline_ms", runnerDeadline(budget), "combat_damage_step", combatDamageStep(d));
-        if (seatStep == hangAt) {
-            r.put("hang", true);
+        if (hangAt >= 0 && !hangUsed && seatStep >= hangAt && "priority".equals(path)) {
+            r.put("hang", true); // E3 test hook: this request's search never returns
+            hangUsed = true;
+            logLine(Json.map("event", "hang_hook", "seat_step", seatStep, "path", path));
         }
         return r;
     }
@@ -468,6 +541,14 @@ public final class Front {
             return a;
         }
         Map<String, Object> req = request("priority", d, worlds, budget);
+        if (dumpDir != null) {
+            try (java.io.Writer wr = new java.io.OutputStreamWriter(new FileOutputStream(new File(dumpDir,
+                    "decision-" + gameId + "-" + Json.num(d, "seat_step", 0) + ".json")), StandardCharsets.UTF_8)) {
+                wr.write(Json.canonical(Json.map("game_start", stripEnvelope(gameStart), "decision", d)));
+            } catch (IOException e) {
+                System.err.println("kit-front: dump failed: " + e);
+            }
+        }
         Map<String, Object> r = call(req, budget, detail);
         if (r == null) {
             Answer a = fallback(d, null, detail.containsKey("cap") ? "cap" : "wrapper", "priority_failed");
@@ -479,11 +560,13 @@ public final class Front {
         List<Aggregate.WorldVote> votes = new ArrayList<>();
         List<Object> flags = new ArrayList<>();
         long nodes = 0;
+        long rootAlternatives = 0;
         for (Object o : results) {
             Map<String, Object> w = Json.obj(o);
             votes.add(Aggregate.fromRunner(w));
             flags.addAll(Json.arr(w, "flags"));
             nodes += Json.num(w, "nodes", 0);
+            rootAlternatives += Json.arr(w, "root_stats").size();
             mergeCounters(detail, Json.obj(w, "counters"));
         }
         Aggregate.Result agg;
@@ -500,6 +583,7 @@ public final class Front {
         detail.put("world_flags", dedupe(flags));
         detail.put("runner_ms", r.get("ms"));
         detail.put("nodes", nodes);
+        detail.put("root_alternatives", rootAlternatives);
         if (!results.isEmpty()) {
             Map<String, Object> w0 = Json.obj(results.get(0));
             detail.put("build_ms", w0.get("build_ms"));

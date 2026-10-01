@@ -52,6 +52,7 @@ public final class RunnerLink {
     public long lastBootMs;
     public long lastRestartMs;
     public long lateDiscarded;
+    public long staleLocksRemoved;
     public final List<Long> killToExitMs = new ArrayList<>();
 
     public RunnerLink(List<String> command, File workDir, File stderrLog) {
@@ -101,11 +102,30 @@ public final class RunnerLink {
 
     /** Sends one request and waits for its reply until {@code deadlineMs} + {@code graceMs}. */
     public Map<String, Object> call(Map<String, Object> request, long deadlineMs, long graceMs) throws IOException, Timeout {
-        if (!alive()) {
-            if (process != null) {
-                restarts++;
+        long t0 = System.nanoTime();
+        Thread booting = starting;
+        if (booting != null && booting != Thread.currentThread()) {
+            // a replacement runner is booting (started right after a kill): wait for it within this request's budget
+            try {
+                booting.join(Math.max(1, deadlineMs));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-            start();
+            if (booting.isAlive()) {
+                throw new Timeout((System.nanoTime() - t0) / 1_000_000, true);
+            }
+            starting = null;
+        }
+        ensureStarted();
+        // a restart inside this request's window spends its budget: the runner gets what is left
+        long spent = (System.nanoTime() - t0) / 1_000_000;
+        if (spent > 0 && request.get("deadline_ms") instanceof Number) {
+            long left = deadlineMs - spent;
+            if (left < 200) {
+                throw new Timeout(spent, true);
+            }
+            deadlineMs = left;
+            request.put("deadline_ms", left);
         }
         long mySeq = ++seq;
         request.put("seq", mySeq);
@@ -140,6 +160,40 @@ public final class RunnerLink {
         }
     }
 
+    private volatile Thread starting;
+
+    /** Starts a replacement runner in the background (after a kill); requests wait for it within their budgets. */
+    public synchronized void startAsync() {
+        if (alive() || starting != null) {
+            return;
+        }
+        Thread t = new Thread(() -> {
+            try {
+                ensureStarted();
+            } catch (IOException | Timeout e) {
+                System.err.println("kit-front: runner restart failed: " + e);
+            }
+        }, "kit-runner-restart");
+        t.setDaemon(true);
+        starting = t;
+        t.start();
+    }
+
+    public boolean restarting() {
+        Thread t = starting;
+        return t != null && t.isAlive();
+    }
+
+    /** Starts a runner if none is alive (after a kill the front calls this once its answer is out). */
+    public synchronized void ensureStarted() throws IOException, Timeout {
+        if (!alive()) {
+            if (process != null) {
+                restarts++;
+            }
+            start();
+        }
+    }
+
     /** Destroys the runner and confirms its exit; true when the process is gone. */
     public boolean kill() {
         if (process == null) {
@@ -157,6 +211,18 @@ public final class RunnerLink {
         }
         killToExitMs.add((System.nanoTime() - t0) / 1_000_000);
         replies = new ArrayBlockingQueue<>(64); // nothing the dead runner wrote can answer a later request
+        if (exited) {
+            // the runner's card database copy is private to this agent and its owner is confirmed gone: a lock file
+            // a killed H2 process leaves behind would make the next runner wait for it (addendum change 3)
+            File[] locks = new File(workDir, "db").listFiles((dir, name) -> name.endsWith(".lock.db"));
+            if (locks != null) {
+                for (File f : locks) {
+                    if (f.delete()) {
+                        staleLocksRemoved++;
+                    }
+                }
+            }
+        }
         return exited;
     }
 

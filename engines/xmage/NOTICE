@@ -17,4 +17,18 @@ This directory carries third-party code and data under their own MIT licenses:
   same license; X3 uses them for their face-down cards (disguise, face-down exile).
   tests/x3/decks/X3-FaceDown-UG.dck is Spellbench's own test list (foretell, disguise, manifest dread, cloak).
 
+- kit/xmage/src/mage/player/ai/ (the XMage agent kit) vendors XMage's MAD plugin
+  (Mage.Server.Plugins/Mage.Player.AI.MAD: ComputerPlayer6, ComputerPlayer7, SimulatedPlayer2, SimulationNode2,
+  SimulatedAction2, SimulationWorker2, Attackers2, mad/optimizers/, util/) and MCTS plugin
+  (Mage.Server.Plugins/Mage.Player.AIMCTS, all 10 files) at the XMage pin, MIT License, Copyright (c) 2010
+  betasteward@gmail.com. Each vendored file starts with an attribution line; the kit's changes are marked KIT and
+  published as kit/diffs/kit-mad.diff and kit/diffs/kit-mcts.diff (kit/scripts/upstream.sh regenerates them).
+  kit/xmage/src/mage/player/ai/KitPayPlayer.java copies XMage ComputerPlayer's payment planner, as the engine's
+  overlay/.../decide/AutoPayPlayer.java does, under the same license.
+
+- The kit's world builder (kit/xmage/src/spellbench/kit/xmage/WorldBuilder.java) ports techniques of DraftZero's
+  mzbridge StateInjector (https://github.com/danieljbrooks/draft-zero, java/mzbridge/, MIT License, Copyright (c)
+  2026 Daniel Brooks): event-free injection, the turn position set by reflection, and trigger and event hygiene.
+  Short recipes it ports are noted in the source.
+
 Card names and rules text are the property of Wizards of the Coast.

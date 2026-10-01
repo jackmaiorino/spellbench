@@ -1,0 +1,348 @@
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/ComputerPlayerMCTS.java
++++ kit/xmage/src/mage/player/ai/ComputerPlayerMCTS.java
+@@ -15,6 +15,8 @@
+ import mage.util.ThreadUtils;
+ import mage.util.XmageThreadFactory;
+ import org.apache.log4j.Logger;
++import spellbench.kit.xmage.KitContext; // KIT
++import spellbench.kit.xmage.KitRedeal; // KIT
+ 
+ import java.util.ArrayList;
+ import java.util.List;
+@@ -24,12 +26,12 @@
+ /**
+  * @author BetaSteward_at_googlemail.com
+  */
+-public class ComputerPlayerMCTS extends ComputerPlayer {
++public class ComputerPlayerMCTS extends KitPayPlayer { // KIT: deterministic producer order
+ 
+     private static final int THINK_MIN_RATIO = 40;
+     private static final int THINK_MAX_RATIO = 100;
+     private static final double THINK_TIME_MULTIPLIER = 2.0;
+-    private static final boolean USE_MULTIPLE_THREADS = true;
++    private static final boolean USE_MULTIPLE_THREADS = false; // KIT: single-threaded, bounded by completed iterations
+ 
+     protected transient MCTSNode root;
+     protected int maxThinkTime;
+@@ -88,6 +90,7 @@
+     }
+ 
+     protected void calculateActions(Game game, NextAction action) {
++        root = null; // KIT: no tree reuse (design 5.3 "Root statistics")
+         if (root == null) {
+             Game sim = createMCTSGame(game);
+             MCTSPlayer player = (MCTSPlayer) sim.getPlayer(playerId);
+@@ -95,6 +98,7 @@
+             root = new MCTSNode(playerId, sim);
+         }
+         applyMCTS(game, action);
++        kitRootStats(root); // KIT: root statistics before root = root.bestChild()
+         if (root != null && root.bestChild() != null) {
+             root = root.bestChild();
+             root.emancipate();
+@@ -161,6 +165,7 @@
+     protected void applyMCTS(final Game game, final NextAction action) {
+ 
+         int thinkTime = calculateThinkTime(game, action);
++        thinkTime = 1; // KIT: the budget is KitContext.mctsIterations completed iterations, never wall time
+ 
+         if (thinkTime > 0) {
+             if (USE_MULTIPLE_THREADS) {
+@@ -214,14 +219,15 @@
+                 logger.info("Total: Simulated " + totalSimulations + " games in " + totalThinkTime + " seconds - Average: " + totalSimulations / totalThinkTime);
+                 MCTSNode.logHitMiss();
+             } else {
+-                long startTime = System.nanoTime();
+-                long endTime = startTime + (thinkTime * 1000000000l);
+                 MCTSNode current;
+                 int simCount = 0;
+-                while (true) {
+-                    long currentTime = System.nanoTime();
+-                    if (currentTime > endTime)
++                int iterations = 0; // KIT: completed iterations, terminal ones and single-child expansions included
++                while (iterations < KitContext.mctsIterations) {
++                    if (Thread.currentThread().isInterrupted()) { // KIT: the watchdog's safety deadline
++                        KitContext.count("cap:deadline");
+                         break;
++                    }
++                    KitContext.beginSimulation(); // KIT
+                     current = root;
+ 
+                     // Selection
+@@ -233,17 +239,25 @@
+                     if (!current.isTerminal()) {
+                         // Expansion
+                         current.expand();
++                        if (current.isLeaf()) { // KIT: every child dropped by a cap: nothing to simulate
++                            iterations++;
++                            KitContext.count("mcts:empty_expansion");
++                            continue;
++                        }
+ 
+                         // Simulation
+                         current = current.select(this.playerId);
+-                        result = current.simulate(this.playerId);
++                        result = current.isTerminal() ? current.kitTerminalResult(this.playerId) : current.simulate(this.playerId); // KIT
+                         simCount++;
+                     } else {
+-                        result = current.isWinner(this.playerId) ? 1 : -1;
++                        result = current.kitTerminalResult(this.playerId); // KIT: truncated nodes take the truncation result
+                     }
+                     // Backpropagation
+                     current.backpropagate(result);
++                    iterations++;
+                 }
++                KitContext.count("mcts:iterations", iterations);
++                KitContext.count("mcts:simulations", simCount);
+                 logger.info("Simulated " + simCount + " games - nodes in tree: " + root.size());
+             }
+ //            displayMemory();
+@@ -303,25 +317,19 @@
+             MCTSPlayer newPlayer = new MCTSPlayer(copyPlayer.getId());
+             newPlayer.restore(origPlayer);
+             newPlayer.setMatchPlayer(origPlayer.getMatchPlayer());
+-            if (!newPlayer.getId().equals(playerId)) {
+-                int handSize = newPlayer.getHand().size();
+-                newPlayer.getLibrary().addAll(newPlayer.getHand().getCards(mcts), mcts);
+-                newPlayer.getHand().clear();
+-                newPlayer.getLibrary().shuffle();
+-                for (int i = 0; i < handSize; i++) {
+-                    Card card = newPlayer.getLibrary().drawFromTop(mcts);
+-                    card.setZone(Zone.HAND, mcts);
+-                    newPlayer.getHand().add(card);
+-                }
+-            } else {
+-                newPlayer.getLibrary().shuffle();
+-            }
+             mcts.getState().getPlayers().put(copyPlayer.getId(), newPlayer);
+         }
++        // KIT: the re-deal hook replaces the upstream re-deal (design 5.3 item 3): only cards the branch's knowledge
++        // marks unknown are permuted, within their own slots
++        KitRedeal.redeal(mcts, playerId, mage.util.RandomUtil.shared("kit:redeal"));
+         mcts.resume();
+         return mcts;
+     }
+ 
++    /** KIT: hook for the root statistics (design 5.5.4); the kit's decider overrides it. */
++    protected void kitRootStats(MCTSNode root) {
++    }
++
+     protected void displayMemory() {
+         long heapSize = Runtime.getRuntime().totalMemory();
+         long heapMaxSize = Runtime.getRuntime().maxMemory();
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/MCTSNode.java
++++ kit/xmage/src/mage/player/ai/MCTSNode.java
+@@ -20,6 +20,8 @@
+ import mage.players.Player;
+ import mage.util.RandomUtil;
+ import org.apache.log4j.Logger;
++import spellbench.kit.xmage.KitContext; // KIT
++import spellbench.kit.xmage.KitRedeal; // KIT
+ 
+ /**
+  *
+@@ -44,6 +46,11 @@
+     private UUID playerId;
+     private boolean terminal = false;
+     private UUID targetPlayer;
++    // KIT: a child whose expansion stopped at the search horizon or a cap is terminal with the truncation result
++    private boolean kitTruncated;
++    private int kitResult;
++    // KIT: the executed payload of this child's action (payload witness, design 5.3 N1)
++    private java.util.Map<String, Object> kitPayload;
+ 
+     private static int nodeCount;
+ 
+@@ -133,7 +140,18 @@
+     public int simulate(UUID playerId) {
+ //        long startTime = System.nanoTime();
+         Game sim = createSimulation(game, playerId);
+-        sim.resume();
++        KitContext.count("simulate"); // KIT: the hook counter (every simulated game came from the re-deal hook)
++        KitContext.beginRollout();
++        try { // KIT: rollout cap and operation cap
++            sim.resume();
++        } catch (KitContext.BudgetExceeded e) {
++            KitContext.caught("mcts_rollout");
++            KitContext.rolloutTruncated = true;
++        }
++        if (KitContext.rolloutTruncated) { // KIT: truncation result (design 5.6)
++            KitContext.count("mcts:truncated_rollouts");
++            return KitContext.truncationResult(sim, playerId);
++        }
+ //        long duration = System.nanoTime() - startTime;
+         int retVal = -1;  //anything other than a win is a loss
+         for (Player simPlayer: sim.getPlayers().values()) {
+@@ -252,7 +270,7 @@
+             newPlayer.restore(origPlayer);
+             sim.getState().getPlayers().put(oldPlayer.getId(), newPlayer);
+         }
+-        randomizePlayers(sim, playerId);
++        KitRedeal.redeal(sim, playerId, mage.util.RandomUtil.shared("kit:redeal")); // KIT: replaces randomizePlayers
+         return sim;
+     }
+ 
+@@ -281,7 +299,45 @@
+     }
+ 
+     public boolean isTerminal() {
+-        return terminal;
++        return terminal || kitTruncated; // KIT
++    }
++
++    // KIT: accessors for the root statistics, the payload witness and horizon truncation
++    public void kitTruncate(int result) {
++        this.kitTruncated = true;
++        this.kitResult = result;
++    }
++
++    public boolean kitIsTruncated() {
++        return kitTruncated;
++    }
++
++    public int kitTerminalResult(UUID playerId) {
++        return kitTruncated ? kitResult : (isWinner(playerId) ? 1 : -1);
++    }
++
++    public void kitSetPayload(java.util.Map<String, Object> payload) {
++        this.kitPayload = payload;
++    }
++
++    public java.util.Map<String, Object> kitPayload() {
++        return kitPayload;
++    }
++
++    public List<MCTSNode> kitChildren() {
++        return new ArrayList<>(children);
++    }
++
++    public UUID kitTargetPlayer() {
++        return targetPlayer;
++    }
++
++    public int kitWins() {
++        return wins;
++    }
++
++    public Game kitGame() {
++        return game;
+     }
+ 
+     public boolean isWinner(UUID playerId) {
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/MCTSPlayer.java
++++ kit/xmage/src/mage/player/ai/MCTSPlayer.java
+@@ -21,7 +21,7 @@
+  *
+  * @author BetaSteward_at_googlemail.com
+  */
+-public class MCTSPlayer extends ComputerPlayer {
++public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer order
+ 
+     private static final Logger logger = Logger.getLogger(MCTSPlayer.class);
+ 
+@@ -55,7 +55,16 @@
+         List<Ability> all = new ArrayList<>();
+         List<ActivatedAbility> playables = getPlayableAbilities(game);
+         for (ActivatedAbility ability : playables) {
++            // KIT: option-generation budget in expansion (addendum change 2)
++            if (KitBudgets.estimateOptions(ability, playerId, game) > spellbench.kit.xmage.KitContext.optionBudget) {
++                spellbench.kit.xmage.KitContext.count("cap:options_skipped");
++                continue;
++            }
+             List<Ability> options = game.getPlayer(playerId).getPlayableOptions(ability, game);
++            if (options.size() > spellbench.kit.xmage.KitContext.optionBudget) {
++                options = new ArrayList<>(options.subList(0, spellbench.kit.xmage.KitContext.optionBudget));
++                spellbench.kit.xmage.KitContext.count("cap:options_truncated");
++            }
+             if (options.isEmpty()) {
+                 if (!ability.getManaCosts().getVariableCosts().isEmpty()) {
+                     simulateVariableCosts(ability, all, game);
+@@ -179,6 +188,26 @@
+         return false;
+     }
+ 
++    // KIT: looks and reveals fire no event; the branch's knowledge is notified (addendum change 1)
++    @Override
++    public void revealCards(Ability source, String titleSuffix, mage.cards.Cards cards, Game game, boolean postToLog) {
++        super.revealCards(source, titleSuffix, cards, game, postToLog);
++        spellbench.kit.xmage.KnowledgeWatcher.looked(game, playerId, cards, true);
++    }
++
++    @Override
++    public void lookAtCards(Ability source, String titleSuffix, mage.cards.Cards cards, Game game) {
++        super.lookAtCards(source, titleSuffix, cards, game);
++        spellbench.kit.xmage.KnowledgeWatcher.looked(game, playerId, cards, false);
++    }
++
++    @Override
++    public boolean chooseTarget(mage.constants.Outcome outcome, mage.cards.Cards cards, mage.target.TargetCard target, Ability source, Game game) {
++        // a choice among library cards shows them to the chooser (scry, surveil, look at the top)
++        spellbench.kit.xmage.KnowledgeWatcher.looked(game, playerId, cards, false);
++        return super.chooseTarget(outcome, cards, target, source, game);
++    }
++
+     @Override
+     public void selectAttackers(Game game, UUID attackingPlayerId) {
+         game.pause();
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/PriorityNextAction.java
++++ kit/xmage/src/mage/player/ai/PriorityNextAction.java
+@@ -20,9 +20,38 @@
+         for (Ability ability: abilities) {
+             Game sim = game.createSimulationForAI();
+             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
+-            simPlayer.activateAbility((ActivatedAbility)ability, sim);
+-            sim.resume();
+-            children.add(new MCTSNode(node, sim, ability));
++            int before = sim.getStack().size();
++            try { // KIT: option-generation and operation budgets in expansion (addendum change 2)
++                simPlayer.activateAbility((ActivatedAbility)ability, sim);
++            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
++                spellbench.kit.xmage.KitContext.caught("mcts_expansion_activation");
++                spellbench.kit.xmage.KitContext.count("mcts:options_capped");
++                continue; // the child is dropped
++            }
++            // KIT: payload witness (design 5.3 N1): read from the executed object before the game resumes
++            java.util.Map<String, Object> payload = spellbench.kit.xmage.KitContext.witness(sim, before);
++            // KIT: horizon in expansion (addendum change 4): a pass that would let a flagged object resolve
++            if (spellbench.kit.xmage.KitContext.passWouldResolveFlagged(sim, player.getId(), ability)) {
++                MCTSNode child = new MCTSNode(node, sim, ability);
++                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
++                child.kitSetPayload(payload);
++                spellbench.kit.xmage.KitContext.count("horizon:mcts_expansion");
++                children.add(child);
++                continue;
++            }
++            try {
++                sim.resume();
++            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
++                spellbench.kit.xmage.KitContext.caught("mcts_expansion_resume");
++                MCTSNode child = new MCTSNode(node, sim, ability);
++                child.kitTruncate(spellbench.kit.xmage.KitContext.truncationResult(sim, node.kitTargetPlayer()));
++                child.kitSetPayload(payload);
++                children.add(child);
++                continue;
++            }
++            MCTSNode child = new MCTSNode(node, sim, ability);
++            child.kitSetPayload(payload);
++            children.add(child);
+         }
+ 
+         return children;
+--- upstream/Mage.Player.AIMCTS/src/mage/player/ai/SimulatedPlayerMCTS.java
++++ kit/xmage/src/mage/player/ai/SimulatedPlayerMCTS.java
+@@ -64,6 +64,15 @@
+ 
+     @Override
+     public boolean priority(Game game) {
++        spellbench.kit.xmage.KitContext.op("mcts_priority"); // KIT: operation cap
++        spellbench.kit.xmage.KitContext.rolloutStep(); // KIT: rollout cap
++        // KIT: search horizon in rollouts (design 5.6): never pass a flagged object into resolution
++        if (spellbench.kit.xmage.KitContext.passWouldResolveFlagged(game, playerId, null)) {
++            spellbench.kit.xmage.KitContext.count("horizon:mcts_rollout");
++            spellbench.kit.xmage.KitContext.rolloutTruncated = true;
++            game.pause();
++            return false;
++        }
+ //        logger.info("priority");
+         boolean didSomething = false;
+         Ability ability = getAction(game);
