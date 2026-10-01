@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Task X4 stage 1 evidence: P's conformance runner, the first-vs-uniform soak through P's host with the live
 # validator, a rerun of the same schedule for cross-process determinism, a single-game replay (same process and a
-# second process), the caps check, and coverage soaks (uniform against itself, heuristic against uniform, the X3
-# face-down decks).
+# second process), the caps check, coverage soaks (uniform against itself, heuristic against uniform, the X3
+# face-down decks), and a rerun of the uniform schedule.
 #
 #   tests/x4/run-evidence.sh --build DIR --db DIR --p2 DIR --work DIR [--games N] [--shards K]
 #
@@ -49,6 +49,17 @@ stats() { mkdir -p "$OUT/stats-$1"; export SPELLBENCH_XMAGE_STATS="$(native "$OU
 AGG="$(native "$HERE/tests/x4/agg.py")"
 counters() { "$PYTHON" "$AGG" "$(native "$OUT/stats-$1")" --json "$(native "$OUT/counters-$1.json")" > /dev/null; }
 
+# compare A B: the game digests of two runs of one schedule, game by game (spec 11.8)
+compare() {
+  "$PYTHON" - "$(native "$1")" "$(native "$2")" <<'EOF'
+import json, sys
+a = {json.loads(l)["game_index"]: json.loads(l)["game_digest"] for l in open(sys.argv[1])}
+b = {json.loads(l)["game_index"]: json.loads(l)["game_digest"] for l in open(sys.argv[2])}
+differ = sorted(i for i in a if a[i] != b.get(i))
+print(json.dumps({"games": len(a), "equal_digests": len(a) - len(differ), "differ": differ}, indent=1))
+EOF
+}
+
 echo "== conformance (20 checks plus 20 games)"
 ( cd "$P2" && time "$PYTHON" -c "import sys; from spellbench.arena.cli import main; sys.exit(main(sys.argv[1:]))" \
     conformance engine --format standard-2022-25-bo1 --deck Standard16-RG --deck Standard16-UB --games 20 \
@@ -67,13 +78,7 @@ echo "== rerun of the same schedule in fresh processes, another shard split"
 stats rerun
 "$PYTHON" "$SOAK" --games "$GAMES" --shards $((SHARDS - 4)) --run-secret "$SECRET" --out "$(native "$OUT/rerun.jsonl")" \
     -- "${ENGINE[@]}" > "$OUT/rerun-summary.json" 2> "$OUT/rerun.log"
-"$PYTHON" - "$OUT/soak.jsonl" "$OUT/rerun.jsonl" > "$OUT/determinism.json" <<'EOF'
-import json, sys
-a = {json.loads(l)["game_index"]: json.loads(l)["game_digest"] for l in open(sys.argv[1])}
-b = {json.loads(l)["game_index"]: json.loads(l)["game_digest"] for l in open(sys.argv[2])}
-differ = sorted(i for i in a if a[i] != b.get(i))
-print(json.dumps({"games": len(a), "equal_digests": len(a) - len(differ), "differ": differ}, indent=1))
-EOF
+compare "$OUT/soak.jsonl" "$OUT/rerun.jsonl" > "$OUT/determinism.json"
 cat "$OUT/determinism.json"
 counters rerun
 
@@ -100,4 +105,13 @@ D="$HERE/tests/x3/decks"
     --decklist "$(native "$D/Standard-MonoG.dck")" --decklist "$(native "$D/X3-FaceDown-UG.dck")" \
     --out "$(native "$OUT/facedown.jsonl")" -- "${ENGINE[@]}" > "$OUT/facedown-summary.json" 2> "$OUT/facedown.log" || true
 for s in uniform heuristic facedown; do echo "-- $s"; counters "$s"; cat "$OUT/$s-summary.json"; done
+
+echo "== rerun of the uniform schedule in fresh processes, another shard split"
+USECRET=$("$PYTHON" -c "import json, sys; print(json.load(open(sys.argv[1]))['run_secret'])" \
+    "$(native "$OUT/uniform-summary.json")")
+"$PYTHON" "$SOAK" --games 100 --shards $((SHARDS - 4)) --bots uniform --run-secret "$USECRET" \
+    --out "$(native "$OUT/uniform-rerun.jsonl")" -- "${ENGINE[@]}" > "$OUT/uniform-rerun-summary.json" \
+    2> "$OUT/uniform-rerun.log" || true
+compare "$OUT/uniform.jsonl" "$OUT/uniform-rerun.jsonl" > "$OUT/uniform-determinism.json"
+cat "$OUT/uniform-determinism.json"
 echo "== done: $OUT"

@@ -1,6 +1,6 @@
 # XMage engine for Spellbench (sub-project X)
 
-Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton) and X3 (observation builder). Decisions are not mapped yet (X4), so the server halts every game at its first prompt. Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
+Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton), X3 (observation builder) and X4 stage 1 (decision mapping: whole games play through P's host with its live validator). Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
 
 ## Pins
 
@@ -27,11 +27,12 @@ The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit
 - `vendor/cabt/`: CABT's `Mage.Player.AI` overlay, its `LICENSE`, and `services/engine/prepare_reference.py`.
 - `patches/xmage/`: the core patch series, applied in name order (below).
 - `patches/build-only/`: build-only patches, applied to every build. Today this is one patch, which pins the jar manifest's `Build-Time`.
-- `overlay/`: the `mage.player.spellbench` package. It holds the Section 11.6 and 5.3 derivations (`Secrets`, `ids.ObjectIds`), the stream router (`rng`, patched builds only), the v2 server (`server`), the observation builder (`observe`), and the X1 and X3 harnesses (`x1`, `x3`).
+- `overlay/`: the `mage.player.spellbench` package. It holds the Section 11.6 and 5.3 derivations (`Secrets`, `ids.ObjectIds`), the stream router (`rng`, patched builds only), the v2 server (`server`), the observation builder (`observe`), the decision mapper (`decide`, patched builds only), and the X1 and X3 harnesses (`x1`, `x3`).
 - `scripts/build.sh`: one build for Windows (Git Bash) and Linux; `--stock` builds the negative control.
 - `scripts/x1-determinism.sh`, `scripts/x3-observe.sh`: the X1 and X3 evidence runs.
 - `tests/x1/decks/`: two MIT decks from MageZero's pool (see `NOTICE`).
 - `tests/x3/`: the X3 checker, its mutation test, face-down test decks and evidence.
+- `tests/x4/`: the X4 evidence runner, the soak, caps and transcript tools, and evidence.
 
 ## Patch series
 
@@ -131,6 +132,17 @@ Interpretations:
 
 Evidence: `tests/x3/README.md` (360 games, 539,524 observations, zero failures).
 
+## X4 decision mapping (stage 1)
+
+`decide.SeatPlayer` is the XMage player of both seats. It replaces CABT's `CabtBridgePlayer` (final, and shaped around multi-select prompts) and keeps its discipline: no callback falls back to `ComputerPlayer`, except mana payment under the declared `engine_autopay`. Each callback builds a `Pose` (candidates whose semantics are built from the acting seat's observation) and hands it to `decide.Exchange`, which builds the observation, assigns `seat_step` and `group_id`, publishes the `seat_decision` to the protocol thread and parks the game thread until the answer. The exchange keeps the live validator's own counters (groups, rewinds, completed groups), so `decision_count` matches the host's.
+
+- **Groups (Section 8).** Fixed-count targets and selections, "choose N" modes, attack and block declarations, trigger orders, library orders, the London bottom, arrangements (2n - 1) and distributions are posed as whole groups inside one callback; XMage's follow-up prompts of the same loop are answered from the picks.
+- **Rewind.** XMage rolls back a failed activation and asks for priority again; that decision is posed with `context.rewind: true` and without the failed action.
+- **Ending a game.** A mapper failure, an `ObservationException` or an XMage internal error (a table `ERROR` event) ends the game `halted` with `engine_contract_failure:<cause>`; the game thread unwinds with an `Error` that XMage's priority loop does not catch, so XMage never rolls back and continues silently.
+- **Overlay rules code.** `decide.Duel` (CABT's `CabtLiveDuel`), `decide.LondonAfterKeep` (the bottom step after the keep) and `decide.AutoPayPlayer` (XMage's payment planner with deterministic producer order) change behaviour in the overlay only, so the identity strings are those of X1.
+
+Evidence and the full mapping table: `tests/x4/README.md`.
+
 ## Byte budget and prune record
 
 Scratch root `D:/e-scratch/xmage-x-spike/` is registered in `collab/ARTIFACTS/catalog.jsonl`, with a projected 3 GiB and a cap of 6 GiB. Linux builds live in WSL `~/x-spike/`.
@@ -151,3 +163,5 @@ Kept:
 - in WSL: `build-l1`, `build-l2`, `build-lstock` and `x1-linux` (not pruned: WSL stayed off at the request of another lane's timing run).
 
 X3 (2026-10-01, HaleysPC `~/x-spike/x3/`): the 360 per-game observation files (449 MB gzipped) and every per-process database copy were pruned after the check, leaving 301 KB of logs and summaries; `scripts/x3-observe.sh` regenerates them. The evidence is in `tests/x3/evidence/`.
+
+X4 (2026-10-01, HaleysPC `~/x-spike/x4/`, 802 MB at the end: per-game logs, counters, debugging transcripts and id traces, development class files): pruned after the evidence was copied into `tests/x4/evidence/` (about 360 KB); `tests/x4/run-evidence.sh` regenerates it. Every engine process copied and then removed its own card database.
