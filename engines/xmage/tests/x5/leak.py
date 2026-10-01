@@ -341,6 +341,15 @@ def _hand_names(stream: list[dict]) -> list[str] | None:
     return sorted(card.get("card_name") for card in hands[0])
 
 
+def _spell_into_open_mana(obs: dict) -> bool:
+    stack = obs.get("stack", [])
+    mine = any(e.get("controller_seat") == "p0" and e.get("stack_kind") == "spell" for e in stack)
+    p1 = next((p for p in obs.get("players", []) if p.get("seat") == "p1"), {})
+    untapped = sum(1 for o in p1.get("battlefield", []) if o.get("card_name") == "Island"
+                   and not (o.get("permanent") or {}).get("tapped"))
+    return mine and untapped >= 2
+
+
 def keep_pair(position: str, pair: dict[str, Any]) -> tuple[bool, str]:
     if position == "counterspell":
         a, b = _hand_names(pair["A"]["streams"]["p1"]), _hand_names(pair["B"]["streams"]["p1"])
@@ -450,6 +459,11 @@ def main(argv: list[str]) -> int:
             for seat in observers:
                 row["observers"][seat] = compare(pair["A"]["streams"][seat], pair["B"]["streams"][seat])
                 tally[f"{seat}:{row['observers'][seat]['first_divergence']}"] += 1
+            if args.position == "counterspell":
+                # how often the position was live: p0 decisions in world A with its own spell on the stack while p1
+                # holds Counterspell and has two untapped Islands
+                row["p0_decisions_facing_open_counterspell"] = sum(
+                    1 for d in pair["A"]["streams"]["p0"] if _spell_into_open_mana(d.get("observation", {})))
             if args.position == "cantrip":
                 # the looks inside p1's window: p0's scry decisions whose looked-at cards differ between worlds
                 row["p0_scry_decisions"] = [sum(1 for d in pair[w]["streams"]["p0"]

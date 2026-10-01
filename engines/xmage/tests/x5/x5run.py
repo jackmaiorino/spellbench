@@ -411,9 +411,19 @@ def cmd_summarize(args: argparse.Namespace) -> int:
             for k, v in s.items():
                 counters[k] += v
                 games_with[k] += 1
+        attribution: Counter[str] = Counter()
+        for r in items:
+            row = r["row"]
+            if row["classification"] in ("halted", "truncated"):
+                last = row.get("last_selection")
+                name = None
+                if last:
+                    name = next((s["name"] for s in row["seats"] if s["seat"] == last["seat"]), None)
+                attribution[f"{row['reason']} after {name}:{last['seat'] if last else None}"] += 1
         return {
             "games": games,
             "classification": dict(cls),
+            "halt_truncation_attribution": dict(sorted(attribution.items())),
             "rates": {k: round(v / games, 5) for k, v in cls.items()} if games else {},
             "reasons": dict(sorted(reasons.items())),
             "winners": dict(sorted(winners.items())),
