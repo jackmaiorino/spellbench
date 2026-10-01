@@ -1,25 +1,25 @@
 # X5 status (for the coordinator)
 
-## 08:35 EDT
+## 10:10 EDT
 
-- **Stopped on Jack's PC (your 08:2x message):** the 10,112-game run (`x5run.py run`, machine main-pc, 12 workers,
-  started 08:15 after P's guard chose 12 workers). Your kill took it and its engines; I then confirmed no java,
-  javac, maven or engine process is left on Jack's PC (python processes left there are mtg-kernel's and VS Code's,
-  not mine), no WSL distro is running, and I removed the engine work directories. 2,216 games had finished and are
-  recorded with their ledger rows and digests (0 validator violations, 62 halted, 2,154 natural).
-- **HaleysPC cannot host the run under P's guard:** `plan_allocation` refuses it before the first game because its
-  only volume (C:) has 54.6 GiB free, below the 60 GiB reserve (ARTIFACT-LAW.md clause 1). My own files there are
-  under 1.2 GiB, so I cannot clear that legitimately, and I will not bypass the guard. Options: (a) the remaining
-  7,896 games wait for "Jack's PC go"; (b) Jack or Haley frees about 6 GiB on HaleysPC's C:; (c) you or Jack
-  grant an explicit exception to the reserve for this run (its own footprint there is about 3 GiB of transient
-  engine scratch and 15 MB of rows). Until one of these, I do only small correctness work on HaleysPC.
-- **Meanwhile on HaleysPC (small, below-normal priority):** paired-world leak tests (counterspell position: 50
-  pairs done, p0's stream identical over the whole game in every pair) and two engine fixes for the only halt
-  causes seen so far (all 62 halts come from two decks):
-  - FDN_top_21511_WUR, Run Away Together ("two target creatures controlled by different players"): the mapper
-    offered a first target with no legal second one, `dead_end:choose_target` (Section 7.1 no dead ends; the
-    engine declares rewind, so it must rewind, not halt);
-  - Standard16-RB, Chandra, Hope's Beacon +2 ("two mana in any combination of colors"): XMage asks a multi-amount
-    question outside combat, `unsupported:multi_amount`.
-- Projection once Jack's PC is back: qualification about 5 min plus the full 10,112 games at about 210 games per
-  minute, about 50 min (I would rerun all of them on the fixed build, so the evidence is one build).
+- "Jack's PC go" received 10:06. Running `tests/x5/run-final.sh` on Jack's PC at below-normal priority, no WSL:
+  build, validate_deck, P's guard (`plan_allocation`, ladder 1, 12, 24 workers), the full 10,112 games on the
+  final build, then every tenth game again under another identity-hash mode, then the summary. Then the leak
+  suite again on the final build (about 15 min). Estimate: about 65 min for the run, about 80 min with the leak
+  suite, so the whole lot slightly exceeds 75 min; the 10,112-game run itself stays under it.
+- HaleysPC: idle on my side since 10:05 as asked (no process of mine there).
+- New since 08:35:
+  - **X-P4 (core patch).** Games with Reckoner Bankbuster were not reproducible run to run: its Treasure and
+    Pilot tokens entered in identity-hash order (`CreateTokenEvent` keeps tokens in a `HashMap` keyed by token
+    objects). X-P4 makes that map and `TokenImpl`'s created-token set insertion-ordered. The game that showed it
+    gave 4 different digests in 6 runs before and 1 digest in 6 runs after. `rules_snapshot_id` changes to
+    `...-xpat-6f8a902b...`; `card_pool_identity` is unchanged.
+  - **Halt fixes** (overlay): Run Away Together (dependent targets) now rewinds instead of halting; any-combination
+    mana is a `choose_color` group; other multi-amount questions outside combat (Glissa Sunslayer removing
+    counters) are a `choose_number` group. All 62 games that halted in run 1 end naturally on the fixed build.
+  - **Leak tests (HaleysPC, previous build):** counterspell 50 pairs PASS (whole game identical every time; p0
+    made 1,001 decisions with its spell on the stack while p1 held Counterspell over two open Islands); cantrip
+    50 pairs PASS; randomized 200 pairs flagged 2 divergences, both at a choice decision on turn 1 or 3 of a
+    Standard16-RB or Standard16-GB game. Both decks play Duress, which shows the observer the other hand on its
+    own spell: a legitimate look the classifier did not know yet. The classifier now accepts exactly that case,
+    the rerun on the final build saves the streams of any such pair, and I check them by hand.
