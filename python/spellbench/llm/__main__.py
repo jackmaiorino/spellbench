@@ -10,6 +10,7 @@ from pathlib import Path
 
 from ..bot import serve
 from .agent import AgentConfig, LlmAgent
+from .broker import StdioProvider
 from .prompt import CardCatalog
 from .provider import ChatCompletionsProvider, ProviderConfig
 
@@ -20,6 +21,7 @@ def main() -> int:
     parser.add_argument("--base-url", default="https://api.openai.com/v1")
     parser.add_argument("--api-key-env", default="OPENAI_API_KEY", help="environment variable name, never the key itself")
     parser.add_argument("--allow-no-api-key", action="store_true", help="for local inference servers")
+    parser.add_argument("--broker-stdio", action="store_true", help="ask a host broker over the existing stdio pipes")
     parser.add_argument("--max-completion-tokens", type=int, default=1024)
     parser.add_argument("--temperature", type=float)
     parser.add_argument("--reasoning-effort", choices=("minimal", "low", "medium", "high"))
@@ -34,8 +36,8 @@ def main() -> int:
     parser.add_argument("--record-prompts", action="store_true")
     args = parser.parse_args()
     try:
-        api_key = os.environ.get(args.api_key_env)
-        if not api_key and not args.allow_no_api_key:
+        api_key = None if args.broker_stdio else os.environ.get(args.api_key_env)
+        if not args.broker_stdio and not api_key and not args.allow_no_api_key:
             parser.error(f"set the {args.api_key_env} environment variable or use --allow-no-api-key for local inference")
         provider_config = ProviderConfig(model=args.model, base_url=args.base_url, api_key=api_key,
                                          max_completion_tokens=args.max_completion_tokens, temperature=args.temperature,
@@ -44,10 +46,14 @@ def main() -> int:
                              max_prompt_bytes=args.max_prompt_bytes, history_decisions=args.history_decisions,
                              timeout_ms=args.timeout_ms, record_prompts=args.record_prompts)
         catalog = None if args.card_catalog is None else CardCatalog.load(args.card_catalog)
+        provider = StdioProvider() if args.broker_stdio else ChatCompletionsProvider(provider_config)
+        settings = ({"transport": "broker-stdio", "model": args.model,
+                     "max_completion_tokens": args.max_completion_tokens}
+                    if args.broker_stdio else provider_config.public_settings())
         args.log_dir.mkdir(parents=True, exist_ok=True)
         log_path = args.log_dir / f"llm-{os.getpid()}-{uuid.uuid4().hex}.jsonl"
         with log_path.open("x", encoding="utf-8", newline="\n") as log:
-            agent = LlmAgent(ChatCompletionsProvider(provider_config), settings=provider_config.public_settings(),
+            agent = LlmAgent(provider, settings=settings,
                              max_completion_tokens=provider_config.max_completion_tokens, config=config, catalog=catalog, log=log)
             return serve(agent, name="llm-" + args.model, version="0.1.0")
     except (ValueError, OSError):
