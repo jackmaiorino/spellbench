@@ -455,29 +455,12 @@ final class SeatPlayer extends AutoPayPlayer {
 
     /**
      * Section 7.2 {@code ability_index}: the ability's 0-based position among its object's activated abilities of
-     * the same class (mana or non-mana), in XMage's ability order: printed abilities in Oracle order, then granted
-     * ones as their effects added them. -1 when the object does not list it.
+     * the same class (mana or non-mana), in {@link #orderedAbilities} order. -1 when the object does not list it.
      */
     static long abilityIndex(Game game, Ability a) {
-        MageObject object = game.getPermanent(a.getSourceId());
-        Iterable<Ability> abilities;
-        if (object != null) {
-            abilities = ((Permanent) object).getAbilities(game);
-        } else {
-            Card card = game.getCard(a.getSourceId());
-            if (card != null) {
-                abilities = card.getAbilities(game);
-            } else {
-                object = game.getObject(a.getSourceId());
-                if (object == null) {
-                    return -1;
-                }
-                abilities = object.getAbilities();
-            }
-        }
         boolean mana = a.getAbilityType() == AbilityType.ACTIVATED_MANA;
         long index = 0;
-        for (Ability ab : abilities) {
+        for (Ability ab : orderedAbilities(game, a.getSourceId())) {
             AbilityType t = ab.getAbilityType();
             if (t != AbilityType.ACTIVATED_NONMANA && t != AbilityType.ACTIVATED_MANA) {
                 continue;
@@ -491,6 +474,80 @@ final class SeatPlayer extends AutoPayPlayer {
             index++;
         }
         return -1;
+    }
+
+    /**
+     * An object's abilities in the order every {@code ability_index} counts them (Sections 7.2, 7.3): the abilities
+     * it has of its own (its card's or token's, or, for a copy, those of the object it copies) in XMage's order,
+     * which is Oracle order, then every ability other effects grant it, ordered by public keys: rule text in code
+     * point order, then the original ability's id. The id only orders abilities whose text is identical, so it
+     * tells the seat nothing. XMage itself lists granted abilities in the order its effects added them, and
+     * several effects iterate a hash set of abilities (Agatha's Soul Cauldron, Hazel's Brewmaster, Necrotic Ooze,
+     * Mirran Safehouse, ...), so that order followed identity hash codes and changed from run to run (X5). XMage
+     * does not record which effect granted an ability, so the granting card's name cannot be a key.
+     */
+    static List<Ability> orderedAbilities(Game game, UUID sourceId) {
+        MageObject object = game.getPermanent(sourceId);
+        Iterable<Ability> abilities;
+        Iterable<Ability> own;
+        if (object != null) {
+            Permanent perm = (Permanent) object;
+            abilities = perm.getAbilities(game);
+            if (perm.isCopy() && perm.getCopyFrom() != null) {
+                own = perm.getCopyFrom().getAbilities();
+            } else if (perm instanceof mage.game.permanent.PermanentCard) {
+                // both faces: a transformed permanent has its back face's abilities of its own
+                Card card = ((mage.game.permanent.PermanentCard) perm).getCard();
+                List<Ability> faces = new ArrayList<>(card.getAbilities());
+                Card back = card.getSecondCardFace();
+                if (back != null) {
+                    faces.addAll(back.getAbilities());
+                }
+                own = faces;
+            } else if (perm instanceof mage.game.permanent.PermanentToken) {
+                own = ((mage.game.permanent.PermanentToken) perm).getToken().getAbilities();
+            } else {
+                own = abilities;
+            }
+        } else {
+            Card card = game.getCard(sourceId);
+            if (card != null) {
+                abilities = card.getAbilities(game);
+                List<Ability> faces = new ArrayList<>(card.getAbilities());
+                Card back = card.getSecondCardFace();
+                if (back != null) {
+                    faces.addAll(back.getAbilities());
+                }
+                own = faces;
+            } else {
+                object = game.getObject(sourceId);
+                if (object == null) {
+                    return Collections.emptyList();
+                }
+                abilities = object.getAbilities();
+                own = abilities;
+            }
+        }
+        Set<UUID> ownIds = new java.util.HashSet<>();
+        for (Ability ab : own) {
+            ownIds.add(ab.getOriginalId());
+        }
+        List<Ability> out = new ArrayList<>();
+        List<Ability> granted = new ArrayList<>();
+        for (Ability ab : abilities) {
+            (ownIds.contains(ab.getOriginalId()) ? out : granted).add(ab);
+        }
+        granted.sort((x, y) -> {
+            int c = HiddenOrder.codePoints(rule(x), rule(y));
+            return c != 0 ? c : x.getOriginalId().toString().compareTo(y.getOriginalId().toString());
+        });
+        out.addAll(granted);
+        return out;
+    }
+
+    private static String rule(Ability a) {
+        String r = a.getRule();
+        return r == null ? "" : r;
     }
 
     @Override
@@ -2626,14 +2683,11 @@ final class SeatPlayer extends AutoPayPlayer {
 
     /** A trigger's index among its source's triggered abilities (Section 7.3 order_pick), or -1. */
     private static long triggerIndex(Game game, TriggeredAbility t) {
-        MageObject object = game.getObject(t.getSourceId());
-        if (object == null) {
+        if (game.getObject(t.getSourceId()) == null) {
             return -1;
         }
-        Iterable<Ability> abilities = object instanceof Card ? ((Card) object).getAbilities(game)
-                : object.getAbilities();
         long index = 0;
-        for (Ability ab : abilities) {
+        for (Ability ab : orderedAbilities(game, t.getSourceId())) {
             if (!(ab instanceof TriggeredAbility)) {
                 continue;
             }
