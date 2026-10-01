@@ -1,0 +1,21 @@
+# LLM agents
+
+Jack authorized this lane on 2026-09-30. Owner: Codex. Tracking: [#6](https://github.com/jackmaiorino/spellbench/issues/6).
+Branch: `codex/llm-agent`, isolated worktree, base `protocol-v2` at `4b588a1`.
+Existing protocol and engine lanes retain ownership. This is engineering; no training or rated measurement starts here.
+
+Goal: a text model plays Magic through the v2 neutral observation and authoritative legal candidates. First provider is a configurable Chat Completions endpoint with an explicit model. No model is selected using benchmark outcomes.
+
+| Task | Acceptance | Dependencies |
+|---|---|---|
+| [#7 Prompts and card text](https://github.com/jackmaiorino/spellbench/issues/7) | Stable player-visible prompt, complete candidates, optional hashed local card text, bounded own-decision history | v2 board view |
+| [#8 API transport](https://github.com/jackmaiorino/spellbench/issues/8) | Deadline, action validation, call/token budgets, no implicit retries or fallback, local HTTP failure checks | #7 |
+| [#9 Agent and logs](https://github.com/jackmaiorino/spellbench/issues/9) | Stdio hello/start/choose/over, forced-choice bypass, settings/usage/error logs, subprocess smoke and guide | #7, #8 |
+| [#10 Sandbox access](https://github.com/jackmaiorino/spellbench/issues/10) | Maintainer-owned inference transport; no provider credentials or broad network access for submissions | #9, isolation lane |
+| [#11 Live pilot and rated entry](https://github.com/jackmaiorino/spellbench/issues/11) | Frozen model/prompt/settings, explicit API spend cap, qualified completed-game throughput, validated published results | #9, v2 engine, credentials; #10 for submitted bots |
+
+Initial estimate: 1-2 engineering days for a prototype, 4-7 for a usable entry, excluding v2 completion and tournament runtime. First slice implements #7-#9 and verifies them entirely offline. Hosted-provider compatibility, playing strength, and dollar cost remain unmeasured. Card text is a public reference snapshot; effective characteristics and legality come from the engine.
+
+First slice: #7-#9 are implemented and awaiting PR review. The 41 new checks pass, including a complete four-decision fixture game through the v2 host, agent subprocess and loopback mock API; replaying the same setup gives the same game digest. This is an integration check, not evidence about live-model determinism or playing strength. #10 and #11 remain open; no external inference was called.
+
+Before #11, read COMPUTE-POLICY.md and qualify the supported launcher on the authorized allocations. Review only at a formal design/result gate when applicable; routine engineering uses tests. Keep CP7 outcomes out of model and experiment selection. A request that times out can still be billed; local token reservations are not a provider-enforced dollar cap.
