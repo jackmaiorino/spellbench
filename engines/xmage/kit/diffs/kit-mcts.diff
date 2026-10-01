@@ -40,6 +40,15 @@
          if (root != null && root.bestChild() != null) {
              root = root.bestChild();
              root.emancipate();
+@@ -137,7 +141,7 @@
+         Combat simulatedCombat = root.getCombat();
+         List<CombatGroup> currentGroups = game.getCombat().getGroups();
+         for (int i = 0; i < currentGroups.size(); i++) {
+-            if (i < simulatedCombat.getGroups().size()) {
++            if (i < simulatedCombat.getGroups().size() && !currentGroups.get(i).getAttackers().isEmpty()) { // KIT: no attacker left in the group
+                 CombatGroup currentGroup = currentGroups.get(i);
+                 CombatGroup simulatedGroup = simulatedCombat.getGroups().get(i);
+                 sb.append(game.getPermanent(currentGroup.getAttackers().get(0)).getName()).append(" with: ");
 @@ -161,6 +165,7 @@
      protected void applyMCTS(final Game game, final NextAction action) {
  
@@ -423,7 +432,14 @@
          return children;
 --- upstream/Mage.Player.AIMCTS/src/mage/player/ai/SelectBlockersNextAction.java
 +++ kit/xmage/src/mage/player/ai/SelectBlockersNextAction.java
-@@ -29,8 +29,18 @@
+@@ -23,14 +23,24 @@
+             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
+             List<CombatGroup> groups = sim.getCombat().getGroups();
+             for (int i = 0; i < groups.size(); i++) {
+-                if (i < block.size()) {
++                if (i < block.size() && !groups.get(i).getAttackers().isEmpty()) { // KIT: a group whose attacker left combat has no attacker to block
+                     for (UUID blockerId : block.get(i)) {
+                         simPlayer.declareBlocker(simPlayer.getId(), blockerId, groups.get(i).getAttackers().get(0), sim);
                      }
                  }
              }

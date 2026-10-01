@@ -2,22 +2,22 @@
  "classification": {
   "natural": 2
  },
- "decisions_checked": 854,
+ "decisions_checked": 768,
  "forfeits": [],
  "games": 2,
  "host_halts": 0,
  "kit_wins": 1,
  "outcome_reasons": {
-  "p1_life_zero": 2
+  "p0_life_zero": 2
  },
- "run_secret": "76d4144cb9dc2eef2071ea06349cdbe307c1af2f0677d481e8bf5b458b0a2929",
+ "run_secret": "6c913d63dd9f46a768e737b7adce5ecad475027c39706c0b0772173cf1eaaf27",
  "steps_per_game": {
-  "mean": 427
+  "mean": 384
  },
- "total_wall_s": 384.4,
+ "total_wall_s": 145.7,
  "violations": [],
  "wall_s_per_game": {
-  "max": 334.625,
-  "mean": 237.67
+  "max": 94.265,
+  "mean": 59.85
  }
 }

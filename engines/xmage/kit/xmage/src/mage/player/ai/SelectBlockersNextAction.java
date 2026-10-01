@@ -24,7 +24,7 @@ public class SelectBlockersNextAction implements MCTSNodeNextAction{
             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
             List<CombatGroup> groups = sim.getCombat().getGroups();
             for (int i = 0; i < groups.size(); i++) {
-                if (i < block.size()) {
+                if (i < block.size() && !groups.get(i).getAttackers().isEmpty()) { // KIT: a group whose attacker left combat has no attacker to block
                     for (UUID blockerId : block.get(i)) {
                         simPlayer.declareBlocker(simPlayer.getId(), blockerId, groups.get(i).getAttackers().get(0), sim);
                     }

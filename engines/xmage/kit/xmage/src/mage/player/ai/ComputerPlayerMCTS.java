@@ -142,7 +142,7 @@ public class ComputerPlayerMCTS extends KitPayPlayer { // KIT: deterministic pro
         Combat simulatedCombat = root.getCombat();
         List<CombatGroup> currentGroups = game.getCombat().getGroups();
         for (int i = 0; i < currentGroups.size(); i++) {
-            if (i < simulatedCombat.getGroups().size()) {
+            if (i < simulatedCombat.getGroups().size() && !currentGroups.get(i).getAttackers().isEmpty()) { // KIT: no attacker left in the group
                 CombatGroup currentGroup = currentGroups.get(i);
                 CombatGroup simulatedGroup = simulatedCombat.getGroups().get(i);
                 sb.append(game.getPermanent(currentGroup.getAttackers().get(0)).getName()).append(" with: ");
