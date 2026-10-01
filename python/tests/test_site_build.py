@@ -386,6 +386,19 @@ def test_withheld_run_remains_visible_after_a_newer_board_run(copy_tree, tmp_pat
     assert "Withheld runs: 2026-09-25 (withheld)" in page and "no games can be verified" in page
 
 
+def test_first_pending_commitment_is_visible_without_a_rating(copy_tree, tmp_path):
+    bench, secret = copy_tree / "gamma", RunSecret(bytes(range(32)))
+    _write_definition(bench, _definition("gamma"))
+    folder = bench / "runs/2026-10-01"
+    folder.mkdir(parents=True)
+    store.write_json_atomic(folder / "COMMITMENT.json",
+                            commitment_record(run_secret=secret, benchmark_id="gamma", run_label="2026-10-01"))
+    build_site(copy_tree, tmp_path / "site")
+    home = (tmp_path / "site/index.html").read_text(encoding="utf-8")
+    assert "Other runs: 2026-10-01 (pending)" in home and "No published run yet" in home
+    assert not (tmp_path / "site/b/gamma").exists()
+
+
 def test_a_changed_definition_still_renders_the_run_and_warns(copy_tree: Path, tmp_path: Path) -> None:
     changed = _definition("alpha")
     changed["bots"] = changed["bots"][:2]  # "first" removed after the run

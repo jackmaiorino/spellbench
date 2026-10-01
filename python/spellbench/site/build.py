@@ -169,11 +169,11 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             + "\n".join(f"  {failure}" for failure in failures)
         )
     newer = {bench_id: _other_runs(listing) for bench_id, listing in listings.items()}
+    withheld = {bench_id: tuple(_newer_run(path) for path in listing.unpublished
+                if (path / _REVEAL_NAME).is_file() and _newer_run(path)["status"] == "withheld")
+                for bench_id, listing in listings.items()}
     runs = {
-        bench_id: replace(_read_run(listing.board, newer[bench_id]), withheld_runs=tuple(
-            _newer_run(path) for path in listing.unpublished
-            if (path / _REVEAL_NAME).is_file() and _newer_run(path)["status"] == "withheld"
-        ))
+        bench_id: replace(_read_run(listing.board, newer[bench_id]), withheld_runs=withheld[bench_id])
         for bench_id, listing in listings.items()
         if listing.board is not None
     }
@@ -192,7 +192,8 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     info = {"site": _SITE}
     files = {
         SITE_MARKER: _MARKER_TEXT.encode("utf-8"),  # first: a partial write can still be replaced
-        "index.html": render.render_home(_home_view(benchmarks, runs, stale, table, proposed)).encode("utf-8"),
+        "index.html": render.render_home(_home_view(benchmarks, runs, stale, table, proposed,
+            publications={name: newer[name] + withheld[name] for name in listings})).encode("utf-8"),
         "models.html": render.render_models(_models_view(benchmarks, runs, stale)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
@@ -470,6 +471,7 @@ def _home_view(
     stale: Mapping[str, frozenset[str]],
     table: hero.HeroTable,
     proposed: Sequence[definition.ProposedBenchmark],
+    *, publications: Mapping[str, Sequence[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """The view of ``index.html``: the Hero chart, a card per benchmark, the proposed cards."""
     return {
@@ -479,7 +481,8 @@ def _home_view(
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
         },
-        "benchmarks": [_card(benchmark, runs.get(benchmark.id)) for benchmark in benchmarks],
+        "benchmarks": [{**_card(benchmark, runs.get(benchmark.id)),
+                        "other_runs": list((publications or {}).get(benchmark.id, ()))} for benchmark in benchmarks],
         "proposed": [{"title": item.title, "summary": item.summary, "needs": item.needs} for item in proposed],
     }
 

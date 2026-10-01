@@ -877,6 +877,9 @@ def _benchmark_card(card: Mapping[str, Any]) -> str:
         status = f'<p class="status live">Latest run {_e(card["run_name"])}</p>'
     else:
         status = '<p class="status">No published run yet</p>'
+    if card.get("other_runs"):
+        listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in card["other_runs"])
+        status += f'<p class="note">Other runs: {listed}</p>'
     return "\n".join(
         [
             f'<article class="{"card linked" if linked else "card"}">',
