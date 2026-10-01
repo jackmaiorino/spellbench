@@ -1,7 +1,7 @@
 """Explicit, app-owned Sign in with ChatGPT for the local Spellbench host.
 
-Credentials are separate from Codex. There is no automatic refresh or inference
-here: an expired credential requires another browser sign-in between runs.
+Credentials are separate from Codex. Sign-in and explicit token renewal happen
+between runs and never make inference requests.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ import urllib.error
 import urllib.request
 import uuid
 import webbrowser
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -190,7 +191,7 @@ def _json_request(url: str, form: dict[str, str] | None = None) -> dict[str, Any
         raise ProviderError("authorization_service_failed") from None
 
 
-def verify_identity(token: str, client_id: str, nonce: str, jwks: dict[str, Any]) -> dict[str, Any]:
+def verify_identity(token: str, client_id: str, nonce: str | None, jwks: dict[str, Any]) -> dict[str, Any]:
     try:
         import jwt
     except ImportError:
@@ -203,9 +204,11 @@ def verify_identity(token: str, client_id: str, nonce: str, jwks: dict[str, Any]
         if len(keys) != 1 or keys[0].get("kty") != "RSA":
             raise ValueError
         key = jwt.PyJWK.from_dict(keys[0], algorithm="RS256")
+        required = ["iss", "aud", "sub", "exp", "iat"] + ([] if nonce is None else ["nonce"])
         claims = jwt.decode(token, key.key, algorithms=["RS256"], audience=client_id, issuer=ISSUER,
-                            options={"require": ["iss", "aud", "sub", "exp", "iat", "nonce"]}, leeway=5)
-        if not isinstance(claims["sub"], str) or not claims["sub"] or not hmac.compare_digest(claims["nonce"], nonce):
+                            options={"require": required}, leeway=5)
+        if (not isinstance(claims["sub"], str) or not claims["sub"]
+                or (nonce is not None and not hmac.compare_digest(claims["nonce"], nonce))):
             raise ValueError
         return claims
     except (jwt.PyJWTError, ValueError, KeyError, TypeError, AttributeError):
@@ -232,7 +235,97 @@ def exchange(attempt: Attempt, code: str, client_id: str, previous: dict[str, An
         raise ProviderError("invalid_token_response") from None
 
 
+@contextmanager
+def credential_lock(path: Path):
+    """Serialize rotating-token use across host processes; never wait or retry."""
+    path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    lock_path = path.with_name(path.name + ".lock")
+    if lock_path.is_symlink():
+        raise ValueError("invalid credential lock")
+    descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
+    locked = False
+    try:
+        if os.name == "nt":
+            import msvcrt
+            if os.fstat(descriptor).st_size == 0:
+                os.write(descriptor, b"0")
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        locked = True
+    except OSError:
+        os.close(descriptor)
+        raise ProviderError("credential_session_busy") from None
+    try:
+        yield
+    finally:
+        if locked:
+            if os.name == "nt":
+                import msvcrt
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+def refresh_credentials(path: Path, *, minimum_valid_seconds: int = 120) -> dict[str, Any]:
+    """Renew the selected app-owned grant once, before a run, with no inference."""
+    with credential_lock(path):
+        previous = load_credentials(path, require_fresh=False)
+        if previous["expires_at"] > time.time() + minimum_valid_seconds:
+            return previous
+        refresh_token = previous.get("refresh_token")
+        if not isinstance(refresh_token, str) or not refresh_token:
+            raise ProviderError("browser_sign_in_required")
+        value = _json_request(TOKEN_URL, {"grant_type": "refresh_token", "client_id": previous["client_id"],
+                                        "refresh_token": refresh_token, "resource": BASE_URL})
+        try:
+            if value.get("client_id", previous["client_id"]) != previous["client_id"]:
+                raise ProviderError("account_mismatch")
+            scopes = value["scope"].split() if "scope" in value else previous["scopes"]
+            if "chatgpt.tokens.use.direct" not in scopes:
+                raise ProviderError("plan_usage_not_granted")
+            if (not isinstance(value["access_token"], str) or not value["access_token"]
+                    or value["token_type"].lower() != "bearer"
+                    or type(value["expires_in"]) is not int or value["expires_in"] <= 60):
+                raise ValueError
+            replacement_refresh = value.get("refresh_token", refresh_token)
+            if not isinstance(replacement_refresh, str) or not replacement_refresh:
+                raise ValueError
+            replacement_id = value.get("id_token", previous.get("id_token"))
+            if "id_token" in value:
+                claims = verify_identity(replacement_id, previous["client_id"], None, _json_request(JWKS_URL))
+                if claims["sub"] != previous["subject"]:
+                    raise ProviderError("account_mismatch")
+                if "nonce" in claims:
+                    import jwt
+                    # This retained token was validated at consent and lives in
+                    # the protected profile. Refresh may omit nonce; if present
+                    # it must remain the original nonce, not a new authorization.
+                    try:
+                        original = jwt.decode(previous["id_token"], options={"verify_signature": False})
+                    except jwt.PyJWTError:
+                        raise ProviderError("invalid_identity_token") from None
+                    if not isinstance(claims["nonce"], str) or claims["nonce"] != original.get("nonce"):
+                        raise ProviderError("invalid_identity_token")
+            record = {**previous, "access_token": value["access_token"], "refresh_token": replacement_refresh,
+                      "id_token": replacement_id, "scopes": scopes, "expires_at": time.time() + value["expires_in"]}
+        except (KeyError, ValueError, TypeError, AttributeError):
+            raise ProviderError("invalid_token_response") from None
+        save_credentials(path, record)
+        return record
+
+
 def sign_in(path: Path, *, port: int = 0, timeout_s: float = 300) -> None:
+    with credential_lock(path):
+        _sign_in(path, port=port, timeout_s=timeout_s)
+
+
+def _sign_in(path: Path, *, port: int, timeout_s: float) -> None:
     try:
         import jwt  # noqa: F401; fail before opening consent if the extra is missing
     except ImportError:
@@ -291,10 +384,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Sign in with ChatGPT for Spellbench; does not run inference")
     parser.add_argument("--credentials", type=Path)
     parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--refresh", action="store_true", help="renew the saved grant once, without browser or inference")
     args = parser.parse_args()
     try:
-        sign_in(args.credentials or default_credentials_path(), port=args.port)
-        print("Spellbench sign-in complete. Credentials saved outside game logs; no model requests were made.")
+        path = args.credentials or default_credentials_path()
+        if args.refresh:
+            refresh_credentials(path)
+            print("Spellbench credentials are fresh. No browser or model requests were made.")
+        else:
+            sign_in(path, port=args.port)
+            print("Spellbench sign-in complete. Credentials saved outside game logs; no model requests were made.")
         return 0
     except (OSError, ValueError, ProviderError) as exc:
         code = exc.code if isinstance(exc, ProviderError) else "local_configuration_failed"
