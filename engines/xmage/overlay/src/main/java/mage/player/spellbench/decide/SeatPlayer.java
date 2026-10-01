@@ -835,8 +835,16 @@ final class SeatPlayer extends AutoPayPlayer {
         if (fixed) {
             int n = cap - sel;
             for (int i = 0; i < n; i++) {
-                Set<UUID> now = possible(target, controller, source, game, cards);
+                Set<UUID> now = completable(possible(target, controller, source, game, cards), target, controller,
+                        source, game, cards, n - i - 1, family);
                 if (now.isEmpty()) {
+                    if (i == 0 && "choose_target".equals(family)) {
+                        // no complete set of targets exists (Run Away Together with every creature on one side):
+                        // the choice fails before any decision, XMage rolls the cast back, and the seat's priority
+                        // decision is re-posed with rewind (Section 8), as for any failed activation
+                        ex().stats.add("targets_incompletable");
+                        return false;
+                    }
                     throw ex().halt("dead_end:" + family);
                 }
                 Pose pose = selectPose(family, purpose, costKind, source, stack, slot, now,
@@ -858,6 +866,9 @@ final class SeatPlayer extends AutoPayPlayer {
         while (true) {
             sel = target.getTargets().size();
             Set<UUID> now = possible(target, controller, source, game, cards);
+            if (sel < effMin) {
+                now = completable(now, target, controller, source, game, cards, effMin - sel - 1, family);
+            }
             if (sel >= cap || now.isEmpty()) {
                 if (sel < effMin) {
                     ex().stats.add("selection_short:" + family);
@@ -886,6 +897,56 @@ final class SeatPlayer extends AutoPayPlayer {
                 return true;
             }
         }
+    }
+
+    /** Complete selections tried per question before {@link #completable} gives up and keeps every candidate. */
+    private static final int COMPLETION_BUDGET = 3000;
+
+    /**
+     * The candidates of {@code now} after which {@code need} more objects can still be chosen (Section 7.1: no dead
+     * ends). Targets whose legality depends on the others already chosen (Run Away Together's "controlled by
+     * different players") otherwise offer a first pick with no legal second one. Each pick is tried on a copy of the
+     * target with {@code Target.add}, which fires no event; past the budget every remaining candidate is kept.
+     */
+    private Set<UUID> completable(Set<UUID> now, Target target, UUID controller, Ability source, Game game,
+                                  Cards cards, int need, String family) {
+        if (need <= 0 || now.isEmpty()) {
+            return now;
+        }
+        int[] budget = {COMPLETION_BUDGET};
+        Set<UUID> out = new LinkedHashSet<>();
+        for (UUID id : now) {
+            Target copy = target.copy();
+            copy.add(id, game);
+            if (budget[0] <= 0 || fillable(copy, controller, source, game, cards, need, budget)) {
+                out.add(id);
+            }
+        }
+        if (budget[0] <= 0) {
+            ex().stats.add("completion_budget:" + family);
+        }
+        if (out.size() < now.size()) {
+            ex().stats.add("incompletable_removed:" + family);
+        }
+        return out;
+    }
+
+    private boolean fillable(Target target, UUID controller, Ability source, Game game, Cards cards, int need,
+                             int[] budget) {
+        if (need <= 0) {
+            return true;
+        }
+        for (UUID id : possible(target, controller, source, game, cards)) {
+            if (--budget[0] < 0) {
+                return true;
+            }
+            Target copy = target.copy();
+            copy.add(id, game);
+            if (fillable(copy, controller, source, game, cards, need - 1, budget)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2004,6 +2065,9 @@ final class SeatPlayer extends AutoPayPlayer {
             if (messages == null || messages.isEmpty()) {
                 return new ArrayList<>();
             }
+            if (type == MultiAmountType.MANA) {
+                return manaCombination(messages, totalMin, totalMax);
+            }
             CallSite site = CallSite.here();
             if (site.find("CombatGroup") == null) {
                 throw ex().halt("unsupported:multi_amount");
@@ -2056,6 +2120,91 @@ final class SeatPlayer extends AutoPayPlayer {
         } catch (RuntimeException e) {
             throw fail(e);
         }
+    }
+
+    /**
+     * "Add N mana in any combination of colors" (Chandra, Hope's Beacon's +2; XMage asks one amount per color): one
+     * group of N {@code choose_color} decisions with purpose {@code mana}, one per unit of mana. Colors are offered
+     * in WUBRG order and never below the previous pick, so each combination has one spelling; a color is offered
+     * only while its own bounds and the rest of the group can still be met (Section 7.1).
+     */
+    private List<Integer> manaCombination(List<MultiAmountMessage> messages, int totalMin, int totalMax) {
+        int n = messages.size();
+        long[] rank = new long[n];
+        String[] color = new String[n];
+        for (int i = 0; i < n; i++) {
+            String symbol = messages.get(i).message == null ? "" : messages.get(i).message.replace("{", "")
+                    .replace("}", "").trim();
+            int k = "WUBRG".indexOf(symbol);
+            if (symbol.length() != 1 || k < 0) {
+                throw ex().halt("unsupported:multi_amount_mana:" + symbol);
+            }
+            color[i] = java.util.Arrays.asList("white", "blue", "black", "red", "green").get(k);
+            rank[i] = k;
+        }
+        if (totalMin != totalMax) {
+            throw ex().halt("unsupported:multi_amount_mana_range");
+        }
+        int total = totalMax;
+        int[] count = new int[n];
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            order.add(i);
+        }
+        order.sort((a, b) -> Long.compare(rank[a], rank[b]));
+        long last = -1;
+        for (int step = 0; step < total; step++) {
+            Pose pose = new Pose(seat(), false, "choose_color:mana");
+            pose.sort = false;
+            List<Integer> offered = new ArrayList<>();
+            for (int i : order) {
+                if (rank[i] < last || count[i] >= messages.get(i).max) {
+                    continue;
+                }
+                if (!manaRestFits(messages, count, rank, i, total - step - 1)) {
+                    continue;
+                }
+                String c = color[i];
+                pose.add(o -> {
+                    Map<String, Object> m = sem("choose_color");
+                    m.put("source", null);
+                    m.put("purpose", "mana");
+                    m.put("color", c);
+                    return m;
+                });
+                offered.add(i);
+            }
+            if (offered.isEmpty()) {
+                throw ex().halt("dead_end:choose_color");
+            }
+            int i = offered.get(ask(pose.substep(step, total)));
+            count[i]++;
+            last = rank[i];
+        }
+        List<Integer> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            out.add(count[i]);
+        }
+        return out;
+    }
+
+    /** Whether, after one more unit of color {@code pick}, {@code rest} units can still meet every bound. */
+    private static boolean manaRestFits(List<MultiAmountMessage> messages, int[] count, long[] rank, int pick,
+                                        int rest) {
+        int capacity = 0;
+        int needed = 0;
+        for (int j = 0; j < messages.size(); j++) {
+            int have = count[j] + (j == pick ? 1 : 0);
+            if (rank[j] < rank[pick]) {
+                if (have < messages.get(j).min) {
+                    return false; // colors before the pick get no more units
+                }
+                continue;
+            }
+            capacity += Math.max(0, messages.get(j).max - have);
+            needed += Math.max(0, messages.get(j).min - have);
+        }
+        return needed <= rest && rest <= capacity;
     }
 
     private Pose distributePose(UUID recipient, List<Long> amounts, long remaining) {
