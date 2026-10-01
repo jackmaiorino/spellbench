@@ -214,8 +214,8 @@ GOLDENS: dict[str, Golden] = {
     # Ponder: the top three cards back in any order (library_top, the inverted top loop), no shuffle, then a draw
     "xmage_library_top": Golden((("Island", 4), ("Ponder", 3)) + FILLERS, "none", Script(), "library_top", "top"),
     # Impulse: one of four into the hand, the other three on the bottom in any order (library_bottom)
-    "xmage_library_bottom": Golden((("Island", 6), ("Impulse", 3)) + FILLERS, "none", Script(), "library_bottom",
-                                   "bottom"),
+    "xmage_library_bottom": Golden((("Island", 4), ("Impulse", 2), ("Craw Wurm", 1), ("Hill Giant", 1)) + FILLERS,
+                                   "none", Script(), "library_bottom", "bottom"),
     # London mulligan: two mulligans, then the two bottom cards placed last candidate first (mulligan_bottom)
     "xmage_london_bottom": Golden((("Island", 4), ("Craw Wurm", 1), ("Hill Giant", 1)) + FILLERS, "london",
                                   Script(mulligans=2), "mulligan_bottom", "bottom"),
