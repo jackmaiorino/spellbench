@@ -29,3 +29,23 @@ uv run --no-sync python python/tools/llm_plan_fixture_smoke.py --model gpt-6-lun
 Use a new output directory to preserve previous attempts. The command makes at most two inference requests, records seeds/input hashes/log hash and respects the host clock. Its 1,024-output-token setting is checked after usage; the plan preview has no hard server-side output cap. Tokens must remain valid for the decision deadline. There are no retries, repair calls or model fallback.
 
 Remaining for #11: a real v2 Magic engine run, aggregate usage authorization and qualified throughput before substantial measurement. #10 retains actual isolation-wrapper binding, blocked-egress and teardown checks. The 246 focused local checks pass; full Linux/Windows CI passed at `65d0357`, with final parser changes requiring refreshed CI.
+
+The adapter also replayed 584 recorded choices from five complete XMage goldens at engine-lane commit `13a61af8`. All passed the actual prompt builder, history handling, legal-ID validation and forced-choice bypass. No model, engine process or network request was launched in this preflight. Each input and the chain of rendered prompts have SHA-256 receipts in `out/luna-subscription-pilot/xmage-preflight-2/manifest.json`.
+
+| Recorded Magic path | Decisions, both seats | Requests p0 / p1 |
+|---|---:|---:|
+| Scry | 83 | 12 / 9 |
+| Surveil | 86 | 8 / 5 |
+| Library top | 83 | 11 / 10 |
+| Library bottom | 138 | 9 / 8 |
+| London bottom | 194 | 9 / 9 |
+
+The remaining 494 choices were forced and needed no inference. The largest prompt was 11,471 UTF-8 bytes, within the 64,000-byte cap with one previous own decision in history. These are tiny scripted decks that end by an empty library. Their 5-12 requests per seat do not estimate full benchmark games, Luna's paths, token use or allowance cost.
+
+To check any complete v2 transcript without credentials:
+
+```text
+uv run --no-sync python python/tools/llm_transcript_preflight.py --transcript PATH --out out/llm-transcript-NEW
+```
+
+Repeat `--transcript` for several files. The tool requires recorded host/agent exchanges and a natural engine terminal. It follows the recorded choices and verifies that the adapter reproduces them; it does not claim to rerun the engine.

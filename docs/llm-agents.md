@@ -1,6 +1,6 @@
 # Run an LLM bot
 
-This adapter requires the **v2 reference stack and a v2 engine observation**. It is not compatible with the published v1 board. Chat Completions and optional ChatGPT-plan Responses transports are tested against local fixtures. Live provider compatibility and rated measurement remain tracked in [#6](https://github.com/jackmaiorino/spellbench/issues/6). The [stdio broker](llm-broker.md) supplies inference to an isolation wrapper; actual container admission remains unverified.
+This adapter requires the **v2 reference stack and a v2 engine observation**. It is not compatible with the published v1 board. Chat Completions and optional ChatGPT-plan Responses transports have local fixture coverage. GPT-6 Luna has also completed a live subscription integration fixture, and the adapter accepts recorded choices from complete XMage games; see the [integration report](llm-subscription-pilot.md). A live Magic game and rated measurement remain tracked in [#6](https://github.com/jackmaiorino/spellbench/issues/6). The [stdio broker](llm-broker.md) supplies inference to an isolation wrapper; actual container admission remains unverified.
 
 Run from an installed Spellbench v2 checkout:
 
