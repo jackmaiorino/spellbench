@@ -92,6 +92,11 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 17:30: HaleysPC C: raised from 35.3 GB to 69.51 GiB free, above the 60 GiB reserve.
+  - The build.rs session deleted its 23 GB build cache.
+  - Jack's April XMage RL snapshots and logs (93 files, 12.14 GiB) moved to `E:/haleyspc-archive/mage-airl-profiles-202604/` with a hash-verified manifest (`MOVED.md`, registered in the catalog).
+  - The research lead will check `C:\mtg-node` (210 GB of unregistered Codex outputs) against E: tonight and report to Jack.
+  - Run order on HaleysPC: X5 final rerun, then the `fdn-mirror-v0` first rated run, then kit qualification and soak.
 - 2026-10-01 16:00: kit second review round. Sol first returned NOT READY (5 items); after the fixes it returned READY FOR QUALIFICATION at `xmage-agent-kit` 4580f8f.
   - Three more bugs fixed: unoffered actions chosen from XMage's playable list; an upstream MCTS crash on an empty combat group; MCTS running out of memory during blocking, now capped at 128 engagements (new `kit-mcts` identity, labelled).
   - Plan: H1 and H2 go into the first qualification and soak on `fdn-mirror-v0` (1,000 games each against P's builtins); H3 gets its own qualification at 120 s per decision.
