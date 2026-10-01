@@ -15494,4 +15494,5 @@ Pre-execution review G1 (Tasks 1 to 12) and G2 (Tasks 13 to 30), applied with th
 - G2-30: T27 arrangement and order groups of three or more (the order block outside an arrangement), digests checked on replay, goldens without the extension.
 - G2-31: T29 CI command with `-timeout`, `json` tags on the benchmark test, OS-neutral expected text; T23 smoke without `.exe`.
 - G2-32: T19 split into T19a and T19b, T28 into T28a and T28b, T25 re-estimated at 0.75.
+- T19b fix round 1: a lone dig remainder's ordering pick carries the presentational dest op ({Op: "dest", Option: -1, List: "bottom"}), never a followup:dig_bottom op — gorge moves a lone remainder without asking.
 - Controller: T8 runs after T7 in wave 2 (wave table). `DeckID` and `DomainID` refuse repeated names: T3 Step 6 (applied in the wire follow-up), with T7, T23 and T25 taking the error.

@@ -35,6 +35,8 @@ func init() {
 //   - an ordering candidate is "list": List names the native answer list
 //     ("choices", "rest" or "followup:<key>"), Option is the card's option
 //     index in that decision, Position its place within the destination.
+//     A lone dig remainder is the exception: gorge moves it without asking
+//     dig_bottom, so its ordering pick carries a presentational "dest" op.
 type arrangeTx struct {
 	env      *Env
 	d        *decision.Decision
@@ -49,7 +51,8 @@ type arrangeTx struct {
 	restOnly map[string]bool                  // destinations whose native order is fixed by the engine
 	destOp   func(i int, dst string) NativeOp // optional override of the partition op
 	listFor  func(i int, dst string) (list string, option int)
-	prepare  func() error // optional, runs once before the first ordering pick
+	orderOp  func(i int, dst string) (NativeOp, bool) // optional override of the ordering op
+	prepare  func() error                             // optional, runs once before the first ordering pick
 	prepared bool
 	follow   map[string]*decision.Decision
 	chosen   []string
@@ -159,10 +162,16 @@ func (t *arrangeTx) Pose() (*Pose, error) {
 		pos := len(t.orderedFor(dst))
 		for _, i := range unplaced {
 			list, idx := t.listFor(i, dst)
+			op := NativeOp{Op: "list", Option: idx, List: list, Position: pos}
+			if t.orderOp != nil {
+				if o, ok := t.orderOp(i, dst); ok {
+					op = o
+				}
+			}
 			// The items are library cards: Finalize orders them by (card_name, object_id).
 			p.Candidates = append(p.Candidates, Cand{
 				Sem:    protocol.OrderPick(t.src, "arrangement", protocol.ObjectItem(t.refs[i]), uint32(len(t.placed)), uint32(t.n())),
-				Op:     NativeOp{Op: "list", Option: idx, List: list, Position: pos},
+				Op:     op,
 				Hidden: true, SortName: cardName(t.refs[i]), SortID: t.refs[i].ObjectID})
 		}
 		p.Followups = t.follow
@@ -370,6 +379,14 @@ func newDig(env *Env, d *decision.Decision) (Transaction, error) {
 			return "choices", t.native[i]
 		}
 		return "followup:dig_bottom", followIdx[t.cards[i]]
+	}
+	t.orderOp = func(_ int, dst string) (NativeOp, bool) {
+		if dst == "bottom" && len(sentTo("bottom")) == 1 {
+			// gorge moves a lone remainder without asking dig_bottom: the
+			// ordering pick carries the presentational dest op instead.
+			return NativeOp{Op: "dest", Option: -1, List: "bottom"}, true
+		}
+		return NativeOp{}, false
 	}
 	t.commit = func() ([]decision.Intent, error) {
 		dig := Intent(d, t.nativeOf(t.orderedFor("hand"))...)
