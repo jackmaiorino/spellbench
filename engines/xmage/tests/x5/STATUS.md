@@ -1,5 +1,14 @@
 # X5 status (for the coordinator)
 
+## 10:40 EDT
+
+- Final run on Jack's PC: P's guard chose 12 workers again (busy-time rates 37.8, 116.3, 106.5 games per minute at
+  1, 12, 24 workers; outputs identical). 4,800 of 10,112 games played at 205 per minute, 0 validator violations,
+  0 halts. Run ends about 11:06, the hash-perturbation check about 11:12.
+- **Estimate past 75 minutes:** after the run I rerun the leak suite on the final build (about 15 min) and
+  regenerate the X4b goldens (the catalog and X-P4 change `hello_ok`, which they embed; about 3 min), so Jack's
+  PC is clear about 11:30, 84 min after "go". Tell me to skip either and I will run it on HaleysPC later instead.
+
 ## 10:10 EDT
 
 - "Jack's PC go" received 10:06. Running `tests/x5/run-final.sh` on Jack's PC at below-normal priority, no WSL:
