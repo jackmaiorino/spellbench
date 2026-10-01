@@ -1,0 +1,4 @@
+{"detail":{"warmup_failed":0,"warmup_ok":4482},"note":"boot"}
+{"check":"E7.mad_same_choice_caps_and_horizon_inactive","detail":{"compared":61,"differ":[],"equal":61,"errors":0,"positions":78,"skipped_cap_or_horizon":17},"pass":true}
+{"detail":527011,"note":"E7MAD.integration_ms"}
+{"checks":1,"failed":[],"verdict":"PASS"}
