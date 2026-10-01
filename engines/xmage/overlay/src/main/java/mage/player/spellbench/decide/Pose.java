@@ -52,6 +52,8 @@ final class Pose {
     /** False keeps the candidates in insertion order (already a deterministic, visible order). */
     boolean sort = true;
     final List<Look> looks = new ArrayList<>();
+    /** Cards the effect shows the seat beyond the candidates (all the looked-at cards of a card choice). */
+    final List<UUID> shown = new ArrayList<>();
     final List<Cand> cands = new ArrayList<>();
 
     Pose(String seat, boolean priority, String tag) {

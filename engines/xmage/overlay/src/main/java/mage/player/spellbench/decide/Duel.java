@@ -7,22 +7,21 @@ import mage.constants.PhaseStep;
 import mage.constants.RangeOfInfluence;
 import mage.game.GameImpl;
 import mage.game.match.MatchType;
-import mage.game.mulligan.MulliganType;
 import mage.game.turn.TurnMod;
 import mage.players.Player;
 
 import java.util.UUID;
 
 /**
- * A two-player duel: London mulligan, 20 life, 7 cards, the starting player skips the first draw, and each
- * library starts in decklist order before the opening shuffle. Copied from CABT's package-private
- * {@code CabtLiveDuel} (MIT, see NOTICE), which this package cannot reach.
+ * A two-player duel: London mulligan with the bottom step after the keep ({@link LondonAfterKeep}), 20 life,
+ * 7 cards, the starting player skips the first draw, and each library starts in decklist order before the opening
+ * shuffle. Copied from CABT's package-private {@code CabtLiveDuel} (MIT, see NOTICE), which this package cannot
+ * reach.
  */
 final class Duel extends GameImpl {
 
     Duel() {
-        super(MultiplayerAttackOption.LEFT, RangeOfInfluence.ALL,
-                MulliganType.GAME_DEFAULT.getMulligan(0), 0, 20, 7);
+        super(MultiplayerAttackOption.LEFT, RangeOfInfluence.ALL, new LondonAfterKeep(), 0, 20, 7);
     }
 
     private Duel(final Duel game) {

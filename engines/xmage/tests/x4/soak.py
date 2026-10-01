@@ -38,7 +38,22 @@ from spellbench.host.game import play_game
 from spellbench.run_secret import RunSecret
 
 
-def make_config(argv: list[str], fmt: str, decks: list[str], games: int,
+def read_dck(path: str) -> dict[str, Any]:
+    """An XMage .dck main deck ("N [SET:NUM] Name" or "N Name"; SB lines skipped) as an inline deck (spec 12.1)."""
+    counts: dict[str, int] = {}
+    for line in open(path, encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("SB") or line.startswith("NAME") or line.startswith("LAYOUT"):
+            continue
+        count, rest = line.split(" ", 1)
+        if rest.startswith("["):
+            rest = rest.split("]", 1)[1].strip()
+        counts[rest] = counts.get(rest, 0) + int(count)
+    name = path.replace("\\", "/").rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    return {"name": name, "decklist": [{"name": n, "count": c} for n, c in sorted(counts.items())]}
+
+
+def make_config(argv: list[str], fmt: str, decks: list, games: int,
                 bots: tuple[str, ...] = ("first", "uniform")) -> TournamentConfig:
     pairs = math.ceil(math.ceil(games / 2) / len(decks)) * len(decks)
     bound_ms = 300_000
@@ -46,7 +61,7 @@ def make_config(argv: list[str], fmt: str, decks: list[str], games: int,
         "schema": CONFIG_SCHEMA,
         "tournament_dir": "x4-soak",
         "format": fmt,
-        "deck_pool": [{"catalog_id": deck} for deck in decks],
+        "deck_pool": [deck if isinstance(deck, dict) else {"catalog_id": deck} for deck in decks],
         "engine": {"command": list(argv)},
         "bots": [{"name": name, "version": BUILTIN_VERSIONS[name], "type": "builtin"} for name in bots],
         "pairs_per_matchup": pairs,
@@ -69,8 +84,8 @@ def _row(context, result, wall_s: float) -> dict[str, Any]:
     (_, first), (_, second) = context.seat_specs
     return {
         "game_index": context.game_index,
-        "deck_p0": context.decks[0].catalog_id,
-        "deck_p1": context.decks[1].catalog_id,
+        "deck_p0": context.decks[0].catalog_id or context.decks[0].name,
+        "deck_p1": context.decks[1].catalog_id or context.decks[1].name,
         "bot_p0": first.name,
         "bot_p1": second.name,
         "outcome": result.outcome,
@@ -185,6 +200,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--format", default="standard-2022-25-bo1")
     parser.add_argument("--deck", action="append", default=None)
+    parser.add_argument("--decklist", action="append", default=None, help="an XMage .dck file, sent as a decklist")
     parser.add_argument("--games", type=int, default=200)
     parser.add_argument("--shards", type=int, default=8)
     parser.add_argument("--run-secret", default=None)
@@ -194,7 +210,9 @@ def main() -> int:
     parser.add_argument("engine", nargs=argparse.REMAINDER)
     args = parser.parse_args()
     argv = args.engine[1:] if args.engine and args.engine[0] == "--" else args.engine
-    decks = args.deck or ["Standard16-RG", "Standard16-UB"]
+    decks = list(args.deck or [])
+    decks += [read_dck(path) for path in args.decklist or []]
+    decks = decks or ["Standard16-RG", "Standard16-UB"]
     secret_hex = args.run_secret or RunSecret.generate().hex()
     bots = tuple(args.bots.split(","))
     start = time.monotonic()

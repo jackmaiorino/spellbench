@@ -85,6 +85,10 @@ public final class Exchange {
     private volatile boolean closed;
     private Thread gameThread;
 
+    /** The last combat declaration as posed (attacker -> defender, or blocker -> attacker), until checked. */
+    Map<UUID, UUID> declaredAttack;
+    Set<String> declaredBlock;
+
     // Section 8 counters, as the live validator keeps them (host.tracking.GroupTracker)
     private long step;
     private final long[] seatStep = new long[2];
@@ -505,8 +509,13 @@ public final class Exchange {
             out.put(l.cardId, l);
         }
         UUID viewerId = playerId(pose.seat);
+        List<List<UUID>> named = new ArrayList<>();
         for (Pose.Cand c : pose.cands) {
-            for (UUID id : c.refs) {
+            named.add(c.refs);
+        }
+        named.add(pose.shown);
+        for (List<UUID> ids : named) {
+            for (UUID id : ids) {
                 if (id == null || out.containsKey(id)) {
                     continue;
                 }

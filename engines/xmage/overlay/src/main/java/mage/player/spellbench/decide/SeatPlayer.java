@@ -183,6 +183,7 @@ final class SeatPlayer extends AutoPayPlayer {
         live(game, "priority");
         try {
             passed = false;
+            checkCombatAsDeclared(game);
             List<ActivatedAbility> playables = getPlayable(game, true, Zone.ALL, false);
             Pose pose = new Pose(seat(), true, "priority");
             if (st.rewindNext) {
@@ -302,6 +303,40 @@ final class SeatPlayer extends AutoPayPlayer {
             return true;
         } catch (RuntimeException e) {
             return true; // a check XMage cannot answer here leaves the action to the rewind path
+        }
+    }
+
+    /**
+     * Counts declarations XMage changed after they were posed: for a computer player, its combat checks remove
+     * attackers and blockers that break a restriction and add required blocks instead of asking again (the
+     * completability oracle of stage 2 makes every candidate legal up front).
+     */
+    private void checkCombatAsDeclared(Game game) {
+        if (ex().declaredAttack != null) {
+            Map<UUID, UUID> now = new LinkedHashMap<>();
+            for (CombatGroup group : game.getCombat().getGroups()) {
+                for (UUID attacker : group.getAttackers()) {
+                    now.put(attacker, group.getDefenderId());
+                }
+            }
+            if (!now.equals(ex().declaredAttack)) {
+                ex().stats.add("attack_altered_by_engine");
+            }
+            ex().declaredAttack = null;
+        }
+        if (ex().declaredBlock != null) {
+            Set<String> now = new LinkedHashSet<>();
+            for (CombatGroup group : game.getCombat().getGroups()) {
+                for (UUID blocker : group.getBlockers()) {
+                    for (UUID attacker : group.getAttackers()) {
+                        now.add(blocker + ">" + attacker);
+                    }
+                }
+            }
+            if (!now.equals(ex().declaredBlock)) {
+                ex().stats.add("block_altered_by_engine");
+            }
+            ex().declaredBlock = null;
         }
     }
 
@@ -559,11 +594,82 @@ final class SeatPlayer extends AutoPayPlayer {
         return selectGuarded(false, outcome, target, source, game, cards);
     }
 
+    /**
+     * Divided damage and distributed counters (CR 601.2d; Annex C {@code chooseTargetAmount}, fail-closed in CABT):
+     * the targets one per decision, each its own group with a finish once the minimum is met, at most one target
+     * per point to divide; then a {@code distribute} group with one decision per target in the order chosen, every
+     * target getting at least 1 (Section 7.5 Distribution).
+     */
     @Override
     public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {
+        if (isInPayManaMode()) {
+            return super.chooseTargetAmount(outcome, target, source, game);
+        }
         live(game, "chooseTargetAmount");
-        // stage 1: divided amounts among targets are not surfaced (Annex C); the game ends halted, counted
-        throw ex().halt("unsupported:choose_target_amount");
+        try {
+            target.prepareAmount(source, game);
+            if (source == null || target.getAmountRemaining() <= 0
+                    || (target.getMaxNumberOfTargets() == 0 && target.getMinNumberOfTargets() == 0)) {
+                return false;
+            }
+            int total = target.getAmountTotal(game, source);
+            if (total <= 0) {
+                return false;
+            }
+            UUID controller = target.getAffectedAbilityControllerId(getId());
+            UUID stack = stackId(source, game);
+            String family = stack != null ? "choose_target" : "select_object";
+            long slot = stack != null ? slot(source, target) : 0;
+            int min = target.getMinNumberOfTargets();
+            int max = target.getMaxNumberOfTargets() <= 0 ? Integer.MAX_VALUE : target.getMaxNumberOfTargets();
+            while (true) {
+                int sel = target.getTargets().size();
+                Set<UUID> now = possible(target, controller, source, game, null);
+                int cap = (int) Math.min(Math.min((long) max, total), (long) sel + now.size());
+                if (sel >= cap || now.isEmpty()) {
+                    break;
+                }
+                Pose pose = selectPose(family, "other", null, source, stack, slot, now, sel, Math.min(min, cap), cap,
+                        sel >= min);
+                UUID chosen = pick(pose, now);
+                if (chosen == null) {
+                    break;
+                }
+                target.addTarget(chosen, source, game);
+                if (!target.getTargets().contains(chosen)) {
+                    throw ex().halt("target_not_added");
+                }
+            }
+            List<UUID> targets = new ArrayList<>(target.getTargets());
+            if (targets.isEmpty()) {
+                return false;
+            }
+            String purpose = source.getRule() != null && source.getRule().contains("damage") ? "damage"
+                    : source.getRule() != null && source.getRule().contains("counter") ? "counters" : "other";
+            int n = targets.size();
+            int assigned = 0;
+            for (int i = 0; i < n; i++) {
+                long remaining = total - assigned;
+                long most = remaining - (n - 1 - i);
+                long least = i == n - 1 ? remaining : 1;
+                List<Long> legal = new ArrayList<>();
+                for (long a = least; a <= most; a++) {
+                    legal.add(a);
+                }
+                if (legal.isEmpty()) {
+                    throw ex().halt("dead_end:distribute");
+                }
+                Pose pose = distributePose(targets.get(i), legal, remaining, purpose, stack, source).substep(i, n);
+                int a = (int) (long) legal.get(ask(pose));
+                target.setTargetAmount(targets.get(i), a, source, game);
+                assigned += a;
+            }
+            return true;
+        } catch (Exchange.Closed e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw fail(e);
+        }
     }
 
     private boolean selectGuarded(boolean targeted, Outcome outcome, Target target, Ability source, Game game,
@@ -648,6 +754,7 @@ final class SeatPlayer extends AutoPayPlayer {
                 }
                 Pose pose = selectPose(family, purpose, costKind, source, stack, slot, now,
                         target.getTargets().size(), Math.min(effMin, cap), cap, false).substep(i, n);
+                showCards(pose, cards);
                 UUID chosen = pick(pose, now);
                 if (targeted) {
                     target.addTarget(chosen, source, game);
@@ -673,6 +780,7 @@ final class SeatPlayer extends AutoPayPlayer {
             boolean finish = sel >= effMin;
             Pose pose = selectPose(family, purpose, costKind, source, stack, slot, now, sel,
                     Math.min(effMin, cap), cap, finish);
+            showCards(pose, cards);
             UUID chosen = pick(pose, now);
             if (chosen == null) {
                 st.finishedTarget = target;
@@ -690,6 +798,16 @@ final class SeatPlayer extends AutoPayPlayer {
             if (target.isChoiceCompleted(controller, source, game, cards)) {
                 return true;
             }
+        }
+    }
+
+    /**
+     * A card choice shows the seat every card the effect looks at, also those it may not choose (the other seat's
+     * lands, say): each one in a hidden zone becomes a {@code known} entry (Section 6.7).
+     */
+    private static void showCards(Pose pose, Cards cards) {
+        if (cards != null) {
+            pose.shown.addAll(cards);
         }
     }
 
@@ -1301,7 +1419,10 @@ final class SeatPlayer extends AutoPayPlayer {
             }
             Pose pose;
             List<Integer> index = new ArrayList<>();
-            if (choice instanceof ChoiceColor) {
+            Pose castMethod = castMethodChoice(choice, values, game, index);
+            if (castMethod != null) {
+                pose = castMethod;
+            } else if (choice instanceof ChoiceColor) {
                 pose = new Pose(seat(), false, "choose_color");
                 for (int i = 0; i < keys.size(); i++) {
                     String color = values.get(i).toLowerCase(Locale.ROOT);
@@ -1372,6 +1493,53 @@ final class SeatPlayer extends AutoPayPlayer {
         } catch (RuntimeException e) {
             throw fail(e);
         }
+    }
+
+    /**
+     * XMage's alternative-cost menu while casting ({@code AbilityImpl}: "Choose an alternative cost") is the cast
+     * method (Section 7.3 {@code choose_cast_method}), sourced by the spell being cast, on top of the stack. Null
+     * when the menu is something else or two of its entries map to the same method.
+     */
+    private Pose castMethodChoice(Choice choice, List<String> labels, Game game, List<Integer> index) {
+        String message = choice.getMessage();
+        if (message == null || !message.toLowerCase(Locale.ROOT).contains("alternative cost") || game.getStack().isEmpty()) {
+            return null;
+        }
+        UUID spell = game.getStack().getFirst().getId();
+        Pose pose = new Pose(seat(), false, "choose_cast_method");
+        pose.sort = false;
+        Set<String> methods = new LinkedHashSet<>();
+        List<Integer> local = new ArrayList<>();
+        for (int i = 0; i < labels.size(); i++) {
+            String method = methodOfLabel(labels.get(i));
+            if (!methods.add(method)) {
+                return null;
+            }
+            pose.add(o -> {
+                Map<String, Object> s = sem("choose_cast_method");
+                s.put("source", ref(o, spell));
+                s.put("method", method);
+                return s;
+            });
+            local.add(i);
+        }
+        index.addAll(local);
+        return pose;
+    }
+
+    private static String methodOfLabel(String label) {
+        String l = label.toLowerCase(Locale.ROOT);
+        if (l.contains("no alternative cost")) {
+            return "normal";
+        }
+        String[] methods = {"disguise", "morph", "evoke", "foretell", "plot", "madness", "miracle", "flashback",
+                "escape", "overload", "prototype", "suspend", "disturb"};
+        for (String m : methods) {
+            if (l.contains(m)) {
+                return m;
+            }
+        }
+        return "alternative";
     }
 
     private static long colorRank(String color) {
@@ -1724,13 +1892,18 @@ final class SeatPlayer extends AutoPayPlayer {
     }
 
     private Pose distributePose(UUID recipient, List<Long> amounts, long remaining) {
-        Pose pose = new Pose(seat(), false, "distribute:combat_damage");
+        return distributePose(recipient, amounts, remaining, "combat_damage", null, null);
+    }
+
+    private Pose distributePose(UUID recipient, List<Long> amounts, long remaining, String purpose, UUID stack,
+                                Ability source) {
+        Pose pose = new Pose(seat(), false, "distribute:" + purpose);
         pose.sort = false;
         for (Long amount : amounts) {
             pose.add(o -> {
                 Map<String, Object> s = sem("distribute");
-                s.put("source", null);
-                s.put("purpose", "combat_damage");
+                s.put("source", source == null ? null : looseSource(o, source, stack));
+                s.put("purpose", purpose);
                 s.put("recipient", target(o, recipient));
                 s.put("amount", amount);
                 s.put("remaining", remaining);
@@ -1740,25 +1913,48 @@ final class SeatPlayer extends AutoPayPlayer {
         return pose;
     }
 
-    /** The permanents XMage's damage dialog lists, matched by its message text ("<log name>, P/T: p/t"). */
+    /**
+     * The permanents XMage's damage dialog lists, in its order: a combat group's blockers (an attacker assigning
+     * among them) or attackers (a blocker assigning among them) whose dialog lines ("<log name>, P/T: p/t") equal
+     * the messages; else each message's first unused match on the battlefield.
+     */
     private static List<UUID> combatRecipients(Game game, List<MultiAmountMessage> messages) {
+        for (CombatGroup group : game.getCombat().getGroups()) {
+            for (List<UUID> ids : java.util.Arrays.asList(group.getBlockers(), group.getAttackers())) {
+                if (ids.size() == messages.size() && dialogLines(game, ids, messages)) {
+                    return new ArrayList<>(ids);
+                }
+            }
+        }
         List<UUID> out = new ArrayList<>();
         for (MultiAmountMessage m : messages) {
             UUID found = null;
             for (Permanent p : game.getBattlefield().getAllActivePermanents()) {
-                String text = String.format("%s, P/T: %d/%d", p.getLogName(), p.getPower().getValue(),
-                        p.getToughness().getValue());
-                if (text.equals(m.message)) {
+                if (!out.contains(p.getId()) && dialogLine(p).equals(m.message)) {
                     found = p.getId();
                     break;
                 }
             }
-            if (found == null || out.contains(found)) {
+            if (found == null) {
                 return null;
             }
             out.add(found);
         }
         return out;
+    }
+
+    private static boolean dialogLines(Game game, List<UUID> ids, List<MultiAmountMessage> messages) {
+        for (int i = 0; i < ids.size(); i++) {
+            Permanent p = game.getPermanent(ids.get(i));
+            if (p == null || !dialogLine(p).equals(messages.get(i).message)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String dialogLine(Permanent p) {
+        return String.format("%s, P/T: %d/%d", p.getLogName(), p.getPower().getValue(), p.getToughness().getValue());
     }
 
     /** The player or permanent a trampling attacker blocked by these creatures attacks. */
@@ -1784,7 +1980,7 @@ final class SeatPlayer extends AutoPayPlayer {
                 for (UUID id : new ArrayList<>(game.getCombat().getAttackers())) {
                     game.getCombat().removeAttacker(id, game);
                 }
-                if (++st.attackAttempts > 3) {
+                if (++st.attackAttempts > 20) {
                     throw ex().halt("dead_end:declare_attack");
                 }
             } else {
@@ -1818,6 +2014,12 @@ final class SeatPlayer extends AutoPayPlayer {
                     }
                 }
                 boolean mustAttack = forced.containsKey(aid) && !legal.isEmpty();
+                if (st.attackAttempts >= 3 && !mustAttack) {
+                    // XMage rejected this seat's declarations three times (a restriction the per-creature
+                    // decisions cannot see; stage 2 adds the completability oracle): the creatures that need not
+                    // attack stay home
+                    legal.clear();
+                }
                 Pose pose = new Pose(seat(), false, "declare_attack").substep(i, n);
                 List<UUID> options = new ArrayList<>();
                 if (!mustAttack) {
@@ -1846,9 +2048,12 @@ final class SeatPlayer extends AutoPayPlayer {
                     declared.add(new UUID[]{aid, d});
                 }
             }
+            Map<UUID, UUID> record = new LinkedHashMap<>();
             for (UUID[] a : declared) {
                 declareAttacker(a[0], a[1], game, false);
+                record.put(a[0], a[1]);
             }
+            ex().declaredAttack = record;
         } catch (Exchange.Closed e) {
             throw e;
         } catch (RuntimeException e) {
@@ -1865,7 +2070,7 @@ final class SeatPlayer extends AutoPayPlayer {
                 for (UUID id : new ArrayList<>(game.getCombat().getBlockers())) {
                     game.getCombat().removeBlocker(id, game);
                 }
-                if (++st.blockAttempts > 3) {
+                if (++st.blockAttempts > 20) {
                     throw ex().halt("dead_end:declare_block");
                 }
             } else {
@@ -1902,8 +2107,8 @@ final class SeatPlayer extends AutoPayPlayer {
                     return s;
                 }, bid).order(0, null, 0);
                 for (UUID a : attackers) {
-                    if (!blocker.canBlock(a, game)) {
-                        continue;
+                    if (!blocker.canBlock(a, game) || st.blockAttempts >= 3) {
+                        continue; // after three rejected declarations, no blocks (see selectAttackers)
                     }
                     options.add(a);
                     pose.add(o -> {
@@ -1918,9 +2123,12 @@ final class SeatPlayer extends AutoPayPlayer {
                     declared.add(new UUID[]{bid, a});
                 }
             }
+            Set<String> record = new LinkedHashSet<>();
             for (UUID[] b : declared) {
                 declareBlocker(defendingPlayerId, b[0], b[1], game);
+                record.add(b[0] + ">" + b[1]);
             }
+            ex().declaredBlock = record;
         } catch (Exchange.Closed e) {
             throw e;
         } catch (RuntimeException e) {
