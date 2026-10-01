@@ -49,7 +49,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
 | A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | done (2026-10-01): revision 3 approved with changes by Sol (round 3); eight changes bound to the A1 slice | | 2 | design doc reviewed, dispositions recorded |
-| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed (2026-10-01, branch `xmage-agent-kit` b9bd4f5); result review by Sol, then build-out | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
+| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed; Sol result review PROCEED WITH CHANGES (8 changes); build-out next | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
 | A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
 | A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
 | A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
@@ -58,9 +58,9 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
-| H1 (#32) | `xmage-rule`: XMage's rule-based `ComputerPlayer` through the kit (one world per decision; it is fair on a sampled world) | blocked: A2 | A2 | 1 | entry runs a full benchmark game set without violations |
-| H2 (#33) | `xmage-mad`: the MAD minimax AI on K sampled worlds (fixes its own-draw leak by construction) | blocked: A2 | A2 | 1.5 | as H1, plus a K setting fixed per entry |
-| H3 (#34) | `xmage-mcts`: XMage's MCTS on sampled worlds | blocked: A2 | A2 | 1.5 | as H1 |
+| H1 (#32) | `kit-mad-1`: XMage's MAD minimax AI (ComputerPlayer7) on one sampled world through the kit | blocked: A2 | A2 | 1 | entry runs a full benchmark game set without violations |
+| H2 (#33) | `kit-mad-k`: MAD on K sampled worlds, voting (K fixed per entry) | blocked: A2 | A2 | 1.5 | as H1, plus a K setting fixed per entry |
+| H3 (#34) | `kit-mcts`: XMage's MCTS with knowledge-consistent rollouts, truncated and labelled (a hybrid with MAD for passes and combat unless MCTS dispatch is restored) | blocked: A2 | A2 | 1.5 | as H1 |
 | H4 (#35) | Rated runs of H1 to H3 on `fdn-mirror-v0`, later on M3's benchmarks | blocked: X5m, H1 | X5m, H1 to H3 | 1 | ratings on the site |
 
 ## RL bot track (R)
