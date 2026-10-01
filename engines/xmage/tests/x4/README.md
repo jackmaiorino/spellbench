@@ -181,3 +181,4 @@ Spec points this build interprets or does not yet meet:
 - **Not seen** in any run's counters: scry, library orders, card naming (`card_name_domain`), colors, numbers,
   piles, non-combat multi-amount prompts and `chooseAbilityForCast`. They are mapped (or halt, as above), but no
   game here checked them. Special actions are offered at priority and not counted separately.
+- Stage 2 (combat oracle, callback audit, goldens, hash order): see `tests/x4s2/README.md`.
