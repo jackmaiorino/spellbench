@@ -15,7 +15,7 @@ import pytest
 
 from spellbench import wire
 from spellbench.llm.agent import AgentConfig
-from spellbench.llm.broker import BrokerLimits, BrokerSession, RPC, StdioProvider, serve_broker
+from spellbench.llm.broker import BrokerLimits, BrokerPeer, BrokerSession, RPC, StdioProvider, serve_broker
 from spellbench.llm.prompt import render_prompt
 from spellbench.llm.provider import ChatCompletionsProvider, Completion, ProviderConfig, ProviderError
 
@@ -85,6 +85,29 @@ def test_broker_forwards_one_inference_and_retains_host_owned_settings():
     assert peer.sent[-1]["completion"]["model"] == "snapshot-model"
     assert events(log)[0]["provider"] == {"model": "fixed-host-model"}
     assert events(log)[-1]["tokens"] == 60
+
+
+def test_inprocess_host_binding_preserves_the_stricter_host_deadline():
+    broker, peer, provider, _ = session()
+    peer.responses = [rpc(), choice()]
+    binding = BrokerPeer(broker)
+    binding.set_timeout(0.5)
+    binding.write_line(wire.canonical_json_dumps(choose_request()))
+    assert wire.strict_json_loads(binding.read_line()) == choice()
+    assert 0 < provider.calls[0][1] <= 0.4
+    binding.close()
+    assert peer.closed
+
+
+def test_expired_host_deadline_reaches_neither_child_nor_provider():
+    broker, peer, provider, _ = session()
+    sent = len(peer.sent)
+    binding = BrokerPeer(broker)
+    binding.set_timeout(0.05)  # below the existing 100 ms deadline margin
+    binding.write_line(wire.canonical_json_dumps(choose_request()))
+    assert wire.strict_json_loads(binding.read_line())["response_type"] == "error"
+    assert len(peer.sent) == sent
+    assert not provider.calls
 
 
 @pytest.mark.parametrize("extra", [{"base_url": "http://attacker"}, {"model": "other"}, {"api_key": "x"},

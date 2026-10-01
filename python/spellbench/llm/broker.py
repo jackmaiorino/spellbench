@@ -173,7 +173,7 @@ class BrokerSession:
             fields.update(calls=self._calls, tokens=self._tokens, elapsed_ms=max(0, round((self.now() - started) * 1000)))
             self._log("inference", **fields)
 
-    def exchange(self, request: dict[str, Any]) -> dict[str, Any]:
+    def exchange(self, request: dict[str, Any], *, timeout_s: float | None = None) -> dict[str, Any]:
         request_id = request.get("request_id", "")
         try:
             if self._failed:
@@ -193,6 +193,8 @@ class BrokerSession:
                 budget_ms = min(self.config.timeout_ms, clock["remaining_ms"], clock["max_decision_ms"])
             elif kind not in {"hello", "game_start", "game_over"}:
                 raise ProviderError("invalid_host_request")
+            if timeout_s is not None:
+                budget_ms = min(budget_ms, max(0, timeout_s * 1000))
             deadline = self.now() + max(0, budget_ms - self.config.deadline_margin_ms) / 1000
             self._budget(deadline)
             self.peer.write_line(wire.canonical_json_dumps(request))
@@ -221,6 +223,41 @@ class BrokerSession:
             self._log("error", request_id=request_id, error=code, calls=self._calls, tokens=self._tokens)
             return {"response_type": "error", "protocol": "spellbench/v2", "request_id": request_id,
                     "error": {"code": "internal_error", "message": "inference broker failed: " + code}}
+
+
+class BrokerPeer:
+    """Use the broker with the reference AgentProcess and seat driver.
+
+    The caller's deadline bounds the complete exchange, including inference.
+    The confined child and provider are supplied by the maintainer.
+    """
+
+    def __init__(self, session: BrokerSession) -> None:
+        self.session = session
+        self._timeout: float | None = None
+        self._response: bytes | None = None
+
+    def set_timeout(self, timeout_s: float | None) -> None:
+        self._timeout = timeout_s
+
+    def write_line(self, payload: bytes) -> None:
+        if self._response is not None:
+            raise TransportError("an unread broker response is outstanding")
+        response = self.session.exchange(wire.strict_json_loads(payload), timeout_s=self._timeout)
+        self._response = wire.canonical_json_line(response)
+
+    def read_line(self) -> bytes:
+        if self._response is None:
+            raise TransportError("no broker exchange is outstanding")
+        response, self._response = self._response, None
+        return response
+
+    def stderr_text(self) -> str:
+        reader = getattr(self.session.peer, "stderr_text", None)
+        return reader() if reader is not None else ""
+
+    def close(self) -> None:
+        self.session.peer.close()
 
 
 def serve_broker(session: BrokerSession, *, stdin: Any = None, stdout: Any = None) -> int:
