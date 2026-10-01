@@ -3,10 +3,12 @@ name: LLM container isolation
 on:
   pull_request:
     paths:
-      - 'python/spellbench/llm/**'
+      - 'python/spellbench/**'
       - 'python/tests/test_llm*'
       - 'python/tools/llm_container_image.py'
       - 'integrations/llm-sandbox/**'
+      - 'pyproject.toml'
+      - 'uv.lock'
       - '.github/workflows/llm-container.yml'
 
 permissions:
