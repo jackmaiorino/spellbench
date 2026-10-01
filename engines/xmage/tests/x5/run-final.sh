@@ -38,6 +38,7 @@ echo "[$(stamp)] build"
 bash "$HERE/scripts/build.sh" --out "$SCRATCH/build" --xmage-repo "$XMAGE_REPO" --m2 "$M2" > "$SCRATCH/build.log" 2>&1
 DIGEST=$(grep -o '"lib_digest": "[0-9a-f]*"' "$SCRATCH/build/BUILD-MANIFEST.json" | cut -d'"' -f4)
 echo "[$(stamp)] lib_digest $DIGEST"
+rm -rf "$SCRATCH/build/src"  # build intermediates (regenerable); keeps the run volume above the reserve
 if [ ! -d "$SCRATCH/db" ]; then
   mkdir -p "$SCRATCH/dbscan"
   (cd "$SCRATCH/dbscan" && java -Xmx2g -cp "$(native "$SCRATCH/build/lib")/*" \
