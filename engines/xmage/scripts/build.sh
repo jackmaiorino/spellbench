@@ -69,13 +69,29 @@ if [ "$STOCK" = 0 ]; then
   done
 fi
 
-# 4. the Spellbench overlay (the stream router only with the patch series it implements)
-OVL="$SRC/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/spellbench"
-mkdir -p "$OVL"
-cp -R "$HERE/overlay/src/main/java/mage/player/spellbench/." "$OVL/"
-[ "$STOCK" = 0 ] || rm -rf "$OVL/rng"
+# 4. identity strings (Section 9.1; README "Engine identity strings")
+if [ "$STOCK" = 0 ]; then
+  XPAT=$(cat $PATCHES | sha256)
+  SETS_XPAT=$(cat $PATCHES | awk '/^diff --git /{keep = ($3 ~ /^a\/Mage\.Sets\//)} keep' | sha256)
+else
+  XPAT=none
+  SETS_XPAT=none
+fi
+SETS_TREE=$(git -C "$XMAGE_REPO" rev-parse "$XMAGE_COMMIT:Mage.Sets")
+RULES_ID="xmage-$XMAGE_COMMIT-xpat-$XPAT"
+POOL_ID="xmage-sets-$SETS_TREE-xpat-$SETS_XPAT"
 
-# 5. compile and package (no install: stock and patched builds never share Maven coordinates)
+# 5. the Spellbench overlay; the stream router and the v2 server only with the patch series they rely on
+MOD="$SRC/Mage.Server.Plugins/Mage.Player.AI"
+OVL="$MOD/src/main/java/mage/player/spellbench"
+RES="$MOD/src/main/resources/mage/player/spellbench"
+mkdir -p "$OVL" "$RES"
+cp -R "$HERE/overlay/src/main/java/mage/player/spellbench/." "$OVL/"
+cp -R "$HERE/overlay/src/main/resources/mage/player/spellbench/." "$RES/"
+[ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server"
+printf 'rules_snapshot_id=%s\ncard_pool_identity=%s\n' "$RULES_ID" "$POOL_ID" > "$RES/engine-identity.properties"
+
+# 6. compile and package (no install: stock and patched builds never share Maven coordinates)
 : "${MAVEN_OPTS:=-Xmx6g}"
 export MAVEN_OPTS
 mvn -B -q -f "$(native "$SRC/pom.xml")" -pl Mage.Server.Plugins/Mage.Player.AI -am \
@@ -83,7 +99,7 @@ mvn -B -q -f "$(native "$SRC/pom.xml")" -pl Mage.Server.Plugins/Mage.Player.AI -
   -Dproject.build.outputTimestamp="$OUTPUT_TIMESTAMP" \
   package dependency:build-classpath -Dmdep.outputFile=target/classpath.txt -Dmdep.pathSeparator='|' -Dmdep.includeScope=runtime
 
-# 6. lib/: the four module jars plus their dependencies, and a lib-relative classpath
+# 7. lib/: the four module jars plus their dependencies, and a lib-relative classpath
 CP_FILE="$SRC/Mage.Server.Plugins/Mage.Player.AI/target/classpath.txt"
 : > "$OUT/lib/classpath.txt"
 for f in "$SRC"/Mage.Server.Plugins/Mage.Player.AI/target/mage-player-ai-*.jar $(tr '|' '\n' < "$CP_FILE"); do
@@ -95,19 +111,9 @@ for f in "$SRC"/Mage.Server.Plugins/Mage.Player.AI/target/mage-player-ai-*.jar $
   echo "$b" >> "$OUT/lib/classpath.txt"
 done
 
-# 7. identity strings and the build manifest
-if [ "$STOCK" = 0 ]; then
-  XPAT=$(cat $PATCHES | sha256)
-  SETS_XPAT=$(cat $PATCHES | awk '/^diff --git /{keep = ($3 ~ /^a\/Mage\.Sets\//)} keep' | sha256)
-else
-  XPAT=none
-  SETS_XPAT=none
-fi
-SETS_TREE=$(git -C "$XMAGE_REPO" rev-parse "$XMAGE_COMMIT:Mage.Sets")
-RULES_ID="xmage-$XMAGE_COMMIT-xpat-$XPAT"
-POOL_ID="xmage-sets-$SETS_TREE-xpat-$SETS_XPAT"
+# 8. the build manifest
 JAVA_V=$(java -version 2>&1 | head -1)
-MVN_V=$(mvn -B -v 2>/dev/null | head -1 | tr -d '\r')
+MVN_V=$(mvn -B -v 2>/dev/null | head -1 | tr -d '\r' | sed 's/\x1b\[[0-9;]*m//g')
 {
   echo "{"
   echo "  \"xmage_commit\": \"$XMAGE_COMMIT\","

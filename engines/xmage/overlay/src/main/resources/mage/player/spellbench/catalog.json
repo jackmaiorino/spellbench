@@ -1,0 +1,196 @@
+[
+ {
+  "catalog_id": "Standard16-RG",
+  "name": "Standard16-RG",
+  "formats": [
+   "standard-2022-25-bo1"
+  ],
+  "decklist": [
+   {
+    "name": "Burst Lightning",
+    "count": 4
+   },
+   {
+    "name": "Copperline Gorge",
+    "count": 4
+   },
+   {
+    "name": "Cori-Steel Cutter",
+    "count": 2
+   },
+   {
+    "name": "Emberheart Challenger",
+    "count": 4
+   },
+   {
+    "name": "Forest",
+    "count": 1
+   },
+   {
+    "name": "Heartfire Hero",
+    "count": 4
+   },
+   {
+    "name": "Innkeeper's Talent",
+    "count": 2
+   },
+   {
+    "name": "Karplusan Forest",
+    "count": 4
+   },
+   {
+    "name": "Lightning Strike",
+    "count": 2
+   },
+   {
+    "name": "Manifold Mouse",
+    "count": 3
+   },
+   {
+    "name": "Monastery Swiftspear",
+    "count": 3
+   },
+   {
+    "name": "Monstrous Rage",
+    "count": 4
+   },
+   {
+    "name": "Mountain",
+    "count": 6
+   },
+   {
+    "name": "Pawpatch Recruit",
+    "count": 1
+   },
+   {
+    "name": "Questing Druid",
+    "count": 2
+   },
+   {
+    "name": "Restless Ridgeline",
+    "count": 1
+   },
+   {
+    "name": "Rockface Village",
+    "count": 2
+   },
+   {
+    "name": "Snakeskin Veil",
+    "count": 1
+   },
+   {
+    "name": "Soulstone Sanctuary",
+    "count": 1
+   },
+   {
+    "name": "Surrak, Elusive Hunter",
+    "count": 2
+   },
+   {
+    "name": "Tersa Lightshatter",
+    "count": 2
+   },
+   {
+    "name": "Thornspire Verge",
+    "count": 4
+   },
+   {
+    "name": "Witchstalker Frenzy",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "catalog_id": "Standard16-UB",
+  "name": "Standard16-UB",
+  "formats": [
+   "standard-2022-25-bo1"
+  ],
+  "decklist": [
+   {
+    "name": "Anoint with Affliction",
+    "count": 1
+   },
+   {
+    "name": "Cut Down",
+    "count": 4
+   },
+   {
+    "name": "Darkslick Shores",
+    "count": 4
+   },
+   {
+    "name": "Deep-Cavern Bat",
+    "count": 4
+   },
+   {
+    "name": "Enduring Curiosity",
+    "count": 4
+   },
+   {
+    "name": "Faerie Dreamthief",
+    "count": 2
+   },
+   {
+    "name": "Floodpits Drowner",
+    "count": 4
+   },
+   {
+    "name": "Fountainport",
+    "count": 1
+   },
+   {
+    "name": "Gix's Command",
+    "count": 1
+   },
+   {
+    "name": "Gloomlake Verge",
+    "count": 4
+   },
+   {
+    "name": "Go for the Throat",
+    "count": 3
+   },
+   {
+    "name": "Island",
+    "count": 4
+   },
+   {
+    "name": "Kaito, Bane of Nightmares",
+    "count": 3
+   },
+   {
+    "name": "Phantom Interference",
+    "count": 2
+   },
+   {
+    "name": "Preacher of the Schism",
+    "count": 2
+   },
+   {
+    "name": "Restless Reef",
+    "count": 2
+   },
+   {
+    "name": "Soulstone Sanctuary",
+    "count": 2
+   },
+   {
+    "name": "Spyglass Siren",
+    "count": 4
+   },
+   {
+    "name": "Swamp",
+    "count": 4
+   },
+   {
+    "name": "Tishana's Tidebinder",
+    "count": 1
+   },
+   {
+    "name": "Underground River",
+    "count": 4
+   }
+  ]
+ }
+]

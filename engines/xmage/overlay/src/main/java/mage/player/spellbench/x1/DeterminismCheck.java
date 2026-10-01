@@ -4,7 +4,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import mage.abilities.MageSingleton;
 import mage.cards.repository.CardScanner;
 import mage.game.Game;
 import mage.player.cabt.CabtDeckFactory;
@@ -16,10 +15,8 @@ import mage.player.spellbench.ids.ObjectIds;
 import mage.players.Player;
 
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,13 +24,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -109,7 +103,7 @@ public final class DeterminismCheck {
         boolean patched = RouterBridge.available();
         if (patched) {
             RouterBridge.installBoot();
-            int[] n = warmFramework();
+            int[] n = mage.player.spellbench.Warmup.framework();
             System.err.println("x1: boot router installed; framework classes initialized " + n[0] + ", failed " + n[1]);
         }
         long t0 = System.nanoTime();
@@ -359,53 +353,6 @@ public final class DeterminismCheck {
             sb.append('\n');
         }
         Files.write(path, sb.toString().getBytes(StandardCharsets.US_ASCII));
-    }
-
-    /**
-     * Initializes every class of the XMage framework jar, in name order, under the boot router. Static
-     * initializers that mint ids (MageSingleton abilities, StackAbility's empty costs, ...) then draw from the
-     * fixed boot stream once per process, never from a game's stream: otherwise the first game in a JVM would
-     * draw ids that a rerun does not, and every later id would shift.
-     */
-    private static int[] warmFramework() throws IOException {
-        URL location = MageSingleton.class.getProtectionDomain().getCodeSource().getLocation();
-        File file;
-        try {
-            file = new File(location.toURI());
-        } catch (java.net.URISyntaxException e) {
-            throw new IOException(e);
-        }
-        List<String> names = new ArrayList<>();
-        if (file.isDirectory()) {
-            Path root = file.toPath();
-            try (java.util.stream.Stream<Path> walk = Files.walk(root)) {
-                walk.filter(p -> p.toString().endsWith(".class"))
-                        .forEach(p -> names.add(root.relativize(p).toString().replace(File.separatorChar, '/')));
-            }
-        } else {
-            try (JarFile jar = new JarFile(file)) {
-                for (Enumeration<JarEntry> e = jar.entries(); e.hasMoreElements(); ) {
-                    String name = e.nextElement().getName();
-                    if (name.endsWith(".class")) {
-                        names.add(name);
-                    }
-                }
-            }
-        }
-        Collections.sort(names);
-        ClassLoader loader = DeterminismCheck.class.getClassLoader();
-        int ok = 0;
-        int failed = 0;
-        for (String name : names) {
-            String cls = name.substring(0, name.length() - 6).replace('/', '.');
-            try {
-                Class.forName(cls, true, loader);
-                ok++;
-            } catch (Throwable t) {
-                failed++; // a class whose initializer needs a running game; reported, not fatal
-            }
-        }
-        return new int[]{ok, failed};
     }
 
     static String hex(byte[] b) {
