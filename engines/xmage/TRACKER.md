@@ -49,9 +49,9 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
 | A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | done (2026-10-01): revision 3 approved with changes by Sol (round 3); eight changes bound to the A1 slice | | 2 | design doc reviewed, dispositions recorded |
-| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed; Sol result review PROCEED WITH CHANGES (8 changes); build-out next | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
-| A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
-| A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
+| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | done (2026-10-01): build-out changes 1 to 7 pass (71/71 slice, 8/8 A3 and pilot); Sol check before qualification | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
+| A2 (#29) | Action to candidate mapping across group substeps | done (2026-10-01): action-to-candidate mapping; 0 unmapped in 222 searched decisions after the current-player fix | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
+| A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | done (2026-10-01): paired-world tests for all three entries; same answer within each pair | A2 | 1.5 | identical answers across hidden worlds where they must be |
 | A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
 
 ## Heuristic bot track (H)
@@ -92,6 +92,13 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 13:30: kit build-out done (branch `xmage-agent-kit` f14bb44).
+  - Frozen entries: `kit-mad-1` 0.2.0+71444ecbf4b3, `kit-mad-k` 0.2.0+b0baca643a2a, `kit-mcts` 0.2.0+b1166f62616a (rollout cap 1000).
+  - Real bug found and fixed: the rebuilt world made the active player XMage's current player, so MAD searched the opponent's options on the opponent's turn.
+  - 13 games through P's host, 0 violations.
+  - `kit-mcts` costs 17.9 s median per MCTS decision (max 51 s).
+  - Change 8 (guarded qualification, then a soak) waits for a Sol check and a machine. Jack's PC is held for the research lead until tonight. HaleysPC is refused by the disk reserve (37 GB free of 60).
+- 2026-10-01 12:30: X5 determinism. The warm-up fix verified on 169 games. A second cause in Standard16-UG (abilities granted by Agatha's Soul Cauldron listed in identity-hash order) is getting an overlay fix: granted abilities ordered by public keys, so `card_pool_identity` stays unchanged.
 - 2026-10-01 11:50: X5.
   - Final run on Jack's PC through P's `plan_allocation` guard (12 workers chosen; 1, 12 and 24 measured): 10,112 games on both pools (32 decks, all accepted), 0 validator violations over 5,982,064 decisions, 0 halts, 0 truncations, 200.6 games per minute.
   - Paired-world leak tests pass: counterspell 50 pairs, cantrip 50, randomized 200, and a 5/5 injected-leak self-test.
