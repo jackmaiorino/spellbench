@@ -227,7 +227,7 @@ public final class Exchange {
         }
         int s = SEATS.indexOf(pose.seat);
         boolean groupStart = pose.substepIndex == 0;
-        if (step >= maxSteps || (groupStart && !pose.rewind && decisionCount() >= maxDecisions)) {
+        if (step >= maxSteps || (groupStart && decisionCount() >= maxDecisions)) {
             closed = true;
             stats.add("truncated");
             publish(terminal("truncated", "truncated", null, step >= maxSteps ? "max_steps" : "max_decisions"));
@@ -254,15 +254,15 @@ public final class Exchange {
             throw halt("candidate_limit");
         }
 
-        // Section 8 group bookkeeping (validator V3)
-        if (pose.rewind) {
-            abandon(s);
-        }
+        // Section 8 group bookkeeping (validator V3): a rewind starts the group after a partial one, then abandons
         long groupId;
         if (groupStart) {
             groupId = partial[s] != null ? partial[s][0] + 1 : nextGroup[s];
             if (partial[s] != null && !pose.rewind) {
                 throw halt("group_interrupted");
+            }
+            if (pose.rewind) {
+                abandon(s);
             }
         } else {
             if (partial[s] == null || partial[s][1] + 1 != pose.substepIndex || partial[s][2] != pose.substepCount) {

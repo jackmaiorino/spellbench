@@ -203,6 +203,10 @@ final class SeatPlayer extends AutoPayPlayer {
                 if (st.excluded.contains(key)) {
                     continue; // Section 8: re-posed without the failing candidate
                 }
+                if (!completable(a, game)) {
+                    ex().stats.add("action_not_offered:incompletable");
+                    continue; // Section 7.1 no dead ends, where XMage's playable list is optimistic
+                }
                 Pose.Cand c = priorityCandidate(pose, a, game);
                 if (c == null) {
                     continue;
@@ -217,9 +221,14 @@ final class SeatPlayer extends AutoPayPlayer {
                 return false;
             }
             ActivatedAbility chosen = offered.get(k);
+            st.autopayFailed = false;
             boolean done = activateAbility(chosen, game);
             if (!done) {
-                ex().stats.add("action_rejected");
+                ex().stats.add("action_rejected:" + chosen.getAbilityType()
+                        + (st.autopayFailed ? ":autopay" : ":other"));
+                MageObject src = game.getObject(chosen.getSourceId());
+                ex().stats.add("action_rejected_card:" + (src == null ? "?" : src.getName())
+                        + (st.autopayFailed ? ":autopay" : ":other"));
                 st.excluded.add(keys.get(k));
                 st.rewindNext = true;
             } else {
@@ -230,6 +239,69 @@ final class SeatPlayer extends AutoPayPlayer {
             throw e;
         } catch (RuntimeException e) {
             throw fail(e);
+        }
+    }
+
+    /**
+     * Cheap completability checks XMage's playable list skips: the non-mana costs (a sacrifice with nothing to
+     * sacrifice), and for a spell whose modes carry their own mana cost (spree), at least one mode the seat's mana
+     * covers. What remains incompletable is rewound (Section 8).
+     */
+    private boolean completable(ActivatedAbility a, Game game) {
+        AbilityType type = a.getAbilityType();
+        if (type != AbilityType.SPELL && type != AbilityType.ACTIVATED_NONMANA) {
+            return true;
+        }
+        try {
+            if (!a.getCosts().canPay(a, a, getId(), game)) {
+                return false;
+            }
+            if (a.getModes().size() <= 1 && !a.getTargets().isEmpty() && !a.getTargets().canChoose(getId(), a, game)) {
+                return false;
+            }
+            if (type == AbilityType.SPELL && a.getModes().size() > 1) {
+                boolean costed = false;
+                mage.abilities.mana.ManaOptions mana = null;
+                for (Mode m : a.getModes().values()) {
+                    if (!(m.getCost() instanceof ManaCost)) {
+                        continue;
+                    }
+                    costed = true;
+                    if (!m.getTargets().canChoose(getId(), a, game)) {
+                        continue;
+                    }
+                    if (mana == null) {
+                        mana = getManaAvailable(game);
+                    }
+                    mage.Mana needed = a.getManaCostsToPay().getMana().copy();
+                    needed.add(((ManaCost) m.getCost()).getMana());
+                    if (mana.enough(needed)) {
+                        return true;
+                    }
+                }
+                return !costed;
+            }
+            if (type == AbilityType.ACTIVATED_NONMANA && !a.getManaCostsToPay().isEmpty()) {
+                // a source that taps as part of the cost cannot also make mana for it (XMage counts it)
+                boolean tapsSource = false;
+                for (mage.abilities.costs.Cost c : a.getCosts()) {
+                    if (c instanceof mage.abilities.costs.common.TapSourceCost) {
+                        tapsSource = true;
+                    }
+                }
+                Permanent source = game.getPermanent(a.getSourceId());
+                if (tapsSource && source != null) {
+                    Game sim = game.createSimulationForPlayableCalc();
+                    Permanent simSource = sim.getPermanent(a.getSourceId());
+                    if (simSource != null) {
+                        simSource.setTapped(true);
+                        return getManaAvailable(sim).enough(a.getManaCostsToPay().getMana());
+                    }
+                }
+            }
+            return true;
+        } catch (RuntimeException e) {
+            return true; // a check XMage cannot answer here leaves the action to the rewind path
         }
     }
 
@@ -621,6 +693,12 @@ final class SeatPlayer extends AutoPayPlayer {
         }
     }
 
+    /** Players have no observation position: they sort p0 then p1 (a visible key, never a UUID). */
+    private long seatMinor(UUID id) {
+        String seat = ex().seatOf(id);
+        return seat == null ? 0 : Exchange.SEATS.indexOf(seat);
+    }
+
     /** Asks a selection pose; the chosen id, or null for the finish candidate (always added last). */
     private UUID pick(Pose pose, Set<UUID> ids) {
         List<UUID> order = new ArrayList<>(ids);
@@ -658,7 +736,7 @@ final class SeatPlayer extends AutoPayPlayer {
                 s.put("minimum", min);
                 s.put("maximum", max);
                 return s;
-            }, id).order(0, id, 0);
+            }, id).order(0, id, seatMinor(id));
         }
         if (finish) {
             pose.add(o -> {
@@ -1070,7 +1148,12 @@ final class SeatPlayer extends AutoPayPlayer {
             Pose pose;
             if (cost != null && stack != null) {
                 pose = new Pose(seat(), false, "optional_cost:" + cost);
-                for (boolean pay : new boolean[]{false, true}) {
+                // no dead ends (Section 7.1): pay is offered only when the seat's mana can cover it
+                boolean payable = optionalCostPayable(game, cost, message, source);
+                if (!payable) {
+                    ex().stats.add("optional_cost_unpayable:" + cost);
+                }
+                for (boolean pay : payable ? new boolean[]{false, true} : new boolean[]{false}) {
                     pose.add(o -> {
                         Map<String, Object> s = sem("optional_cost");
                         s.put("source", ref(o, stack));
@@ -1113,6 +1196,43 @@ final class SeatPlayer extends AutoPayPlayer {
             throw e;
         } catch (RuntimeException e) {
             throw fail(e);
+        }
+    }
+
+    /**
+     * Whether the seat's available mana covers an optional cost XMage asks about: the mana symbols in its prompt,
+     * plus, for a cost paid while casting, the spell's own mana cost. A cost without mana symbols is not gated.
+     */
+    private boolean optionalCostPayable(Game game, String cost, String message, Ability source) {
+        mage.Mana extra = manaIn(message);
+        if (extra == null) {
+            return true;
+        }
+        mage.Mana needed = extra.copy();
+        if (!"unless_payment".equals(cost) && !"other".equals(cost) && source != null
+                && source.getAbilityType() == AbilityType.SPELL) {
+            needed.add(source.getManaCostsToPay().getMana());
+        }
+        return getManaAvailable(game).enough(needed);
+    }
+
+    private static final java.util.regex.Pattern MANA_RUN = java.util.regex.Pattern.compile("(\\{[^}]+\\})+");
+
+    /** The mana of the first run of mana symbols in an XMage prompt text, or null when it has none. */
+    static mage.Mana manaIn(String text) {
+        if (text == null) {
+            return null;
+        }
+        java.util.regex.Matcher m = MANA_RUN.matcher(text);
+        if (!m.find()) {
+            return null;
+        }
+        try {
+            mage.abilities.costs.mana.ManaCosts<ManaCost> costs =
+                    new mage.abilities.costs.mana.ManaCostsImpl<>(m.group());
+            return costs.isEmpty() ? null : costs.getMana();
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
@@ -1392,10 +1512,32 @@ final class SeatPlayer extends AutoPayPlayer {
         }
     }
 
-    private static List<Mode> modeOptions(Modes modes, Ability source, Game game, List<Mode> all,
-                                          List<UUID> picked, boolean repeat) {
+    private List<Mode> modeOptions(Modes modes, Ability source, Game game, List<Mode> all,
+                                   List<UUID> picked, boolean repeat) {
         List<Mode> out = new ArrayList<>();
         List<Mode> available = modes.getAvailableModes(source, game);
+        // modes with their own mana cost (spree): only those the seat's mana still covers (Section 7.1)
+        mage.Mana committed = null;
+        mage.abilities.mana.ManaOptions mana = null;
+        for (Mode m : all) {
+            if (m.getCost() instanceof ManaCost) {
+                committed = source.getManaCostsToPay().getMana().copy();
+                for (UUID id : modes.getSelectedModes()) {
+                    Mode chosen = modes.get(id);
+                    if (chosen != null && chosen.getCost() instanceof ManaCost) {
+                        committed.add(((ManaCost) chosen.getCost()).getMana());
+                    }
+                }
+                for (UUID id : picked) {
+                    Mode chosen = modes.get(id);
+                    if (chosen != null && chosen.getCost() instanceof ManaCost) {
+                        committed.add(((ManaCost) chosen.getCost()).getMana());
+                    }
+                }
+                mana = getManaAvailable(game);
+                break;
+            }
+        }
         for (Mode m : all) {
             if (!available.contains(m)) {
                 continue;
@@ -1405,6 +1547,14 @@ final class SeatPlayer extends AutoPayPlayer {
             }
             if (!m.getTargets().canChoose(source.getControllerId(), source, game)) {
                 continue;
+            }
+            if (mana != null && m.getCost() instanceof ManaCost) {
+                mage.Mana needed = committed.copy();
+                needed.add(((ManaCost) m.getCost()).getMana());
+                if (!mana.enough(needed)) {
+                    ex().stats.add("mode_unpayable");
+                    continue;
+                }
             }
             out.add(m);
         }
@@ -1686,7 +1836,7 @@ final class SeatPlayer extends AutoPayPlayer {
                         s.put("attacker", ref(o, aid));
                         s.put("defender", target(o, d));
                         return s;
-                    }, aid).order(1, d, 0);
+                    }, aid).order(1, d, seatMinor(d));
                 }
                 if (options.isEmpty()) {
                     throw ex().halt("dead_end:declare_attack");
@@ -1977,6 +2127,7 @@ final class SeatPlayer extends AutoPayPlayer {
         boolean paid = super.playMana(ability, unpaid, promptText, game);
         if (!paid) {
             ex().stats.add("autopay_failed");
+            st.autopayFailed = true;
         }
         return paid;
     }

@@ -155,9 +155,9 @@ def summarize(rows: list[dict[str, Any]], wall_s: float, shards: int) -> dict[st
         "games": games,
         "classification": dict(Counter(r["classification"] for r in rows)),
         "outcome": dict(Counter(r["outcome"] for r in rows)),
-        "outcome_by_bot": dict(Counter(
-            ("first" if (r["outcome"] == "p0_win") == (r["bot_p0"] == "first") else "uniform")
-            if r["outcome"] in ("p0_win", "p1_win") else r["outcome"] for r in rows)),
+        "winner_bot": dict(Counter(
+            (r["bot_p0"] if r["outcome"] == "p0_win" else r["bot_p1"]) if r["outcome"] in ("p0_win", "p1_win")
+            else r["outcome"] for r in rows)),
         "natural_reasons": dict(Counter(r["reason"] for r in rows if r["classification"] == "natural")),
         "halted_by_reason": dict(halted),
         "halted_rate": round(sum(halted.values()) / games, 4) if games else 0,

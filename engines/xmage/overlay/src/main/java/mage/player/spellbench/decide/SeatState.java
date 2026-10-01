@@ -32,6 +32,9 @@ final class SeatState {
     Object finishedTarget;
     int finishedSize;
 
+    /** Set when autopay could not pay during the current priority action (for the X4 evidence counters). */
+    boolean autopayFailed;
+
     int attackAttempts;
     int blockAttempts;
 
