@@ -1,9 +1,11 @@
 """Benchmark definitions: ``benchmarks/<id>/benchmark.json`` and its runs.
 
 A benchmark is a folder. Its ``benchmark.json`` (schema
-``spellbench-benchmark/v1``) names the engine, the deck pool that every
+``spellbench-benchmark/v2``) names the engine, the deck pool that every
 matchup rotates through, and the bot roster with how the site shows each
-bot. Each run is a published tournament directory
+bot. Benchmarks fix their information rules (opponent decklist visible,
+mulligan auto, host-assigned starting player with seat p0), so a
+definition never states them. Each run is a published tournament directory
 ``runs/<YYYY-MM-DD>[-N]/``: the first run of a day has no suffix, later
 ones ``-2``, ``-3``, and so on. The site shows the latest published run.
 
@@ -26,11 +28,24 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping
 
-from ..arena import runner, store
-from ..errors import MalformedJsonError
+from .._schema import EXTENSION_KEY_RE
+from ..arena import store
+from ..arena.config import (
+    DEFAULT_BOOTSTRAP_REPLICATES,
+    DEFAULT_LIMITS,
+    DEFAULT_RESOURCES,
+    DEFAULT_TIME_CONTROL,
+    DEFAULT_WORKERS,
+    DeckSpec,
+    RulesSpec,
+    TournamentError,
+)
+from ..errors import MalformedJsonError, ValidationError
+from ..messages import Limits, Resources, TimeControl
 from ..wire import MAX_JSON_INT, strict_json_loads
 
-BENCHMARK_SCHEMA = "spellbench-benchmark/v1"
+BENCHMARK_SCHEMA = "spellbench-benchmark/v2"
+BENCHMARK_SCHEMA_V1 = "spellbench-benchmark/v1"
 PROPOSED_SCHEMA = "spellbench-proposed-benchmarks/v1"
 ANCHOR_BOT = "uniform"
 BENCHMARK_FILE = "benchmark.json"
@@ -52,15 +67,24 @@ _REQUIRED_FIELDS = (
     "engine",
     "deck_pool",
     "pairs_per_deck",
-    "base_seed",
+    "stats_seed",
     "bots",
 )
-# The optional integer fields and their defaults (the runner's).
-_OPTIONAL_DEFAULTS = {
-    "choose_timeout_ms": runner.DEFAULT_CHOOSE_TIMEOUT_MS,
-    "startup_timeout_ms": runner.DEFAULT_STARTUP_TIMEOUT_MS,
-    "bootstrap_replicates": runner.DEFAULT_BOOTSTRAP_REPLICATES,
-    "workers": runner.DEFAULT_WORKERS,
+_OPTIONAL_FIELDS = (
+    "pairing",
+    "extensions",
+    "native_id_audits",
+    "time_control",
+    "limits",
+    "resources",
+    "bootstrap_replicates",
+    "workers",
+)
+# v1 definition fields and the v2 field that replaces each.
+_V1_FIELDS = {
+    "base_seed": "stats_seed",
+    "choose_timeout_ms": "time_control.max_decision_ms",
+    "startup_timeout_ms": "time_control.startup_ms",
 }
 
 
@@ -91,14 +115,16 @@ class Benchmark:
     format: str
     engine_name: str
     engine_command: tuple[str, ...]
-    engine_timeout_ms: int
-    deck_pool: tuple[str, ...]
+    deck_pool: tuple[DeckSpec, ...]
     pairs_per_deck: int
-    base_seed: int
-    choose_timeout_ms: int
-    startup_timeout_ms: int
+    stats_seed: int
+    extensions: tuple[str, ...]
+    native_id_audits: dict[str, str]
+    time_control: TimeControl
+    limits: Limits
+    resources: Resources
     bootstrap_replicates: int
-    workers: int
+    workers: int  # the most workers the throughput guard may choose
     bots: tuple[BenchmarkBot, ...]
 
     def bot(self, name: str) -> BenchmarkBot | None:
@@ -109,18 +135,23 @@ class Benchmark:
         return None
 
     def tournament_config(self, tournament_dir: str) -> dict[str, Any]:
-        """A fresh arena config for one run: every matchup rotates the pool, no self-play."""
+        """A fresh v2 arena config for one run: every matchup rotates the pool, no self-play."""
         return {
             "schema": store.CONFIG_SCHEMA,
             "tournament_dir": tournament_dir,
             "format": self.format,
-            "deck_pool": [{"catalog_id": deck} for deck in self.deck_pool],
-            "engine": {"command": list(self.engine_command), "timeout_ms": self.engine_timeout_ms},
+            "deck_pool": [deck.to_json() for deck in self.deck_pool],
+            "engine": {"command": list(self.engine_command)},
             "bots": [copy.deepcopy(bot.entry) for bot in self.bots],
             "pairs_per_matchup": self.pairs_per_deck * len(self.deck_pool),
-            "base_seed": self.base_seed,
-            "choose_timeout_ms": self.choose_timeout_ms,
-            "startup_timeout_ms": self.startup_timeout_ms,
+            "stats_seed": self.stats_seed,
+            # Benchmarks fix their information rules (spec 12.2, Decision 8).
+            "rules": RulesSpec().to_json(),
+            "extensions": list(self.extensions),
+            "native_id_audits": dict(self.native_id_audits),
+            "time_control": self.time_control.to_json(),
+            "limits": self.limits.to_json(),
+            "resources": self.resources.to_json(),
             "bootstrap_replicates": self.bootstrap_replicates,
             "workers": self.workers,
             "rating_anchor": ANCHOR_BOT,
@@ -255,11 +286,72 @@ def _parse_bots(value: Any, context: str) -> tuple[BenchmarkBot, ...]:
     return bots
 
 
+def _deck_spec(value: Any, context: str) -> DeckSpec:
+    if type(value) is str:
+        return DeckSpec(catalog_id=_string(value, context))
+    if isinstance(value, dict):
+        try:
+            return DeckSpec.from_json(value, context)
+        except TournamentError as exc:
+            raise BenchmarkError(f"{context}: {exc}") from exc
+    raise BenchmarkError(f"{context}: a pool deck is a catalog-id string or a {{name, decklist}} object")
+
+
+def _deck_pool(value: Any, context: str) -> tuple[DeckSpec, ...]:
+    if not isinstance(value, list) or not value:
+        raise BenchmarkError(f"{context}: must be a nonempty list of decks")
+    pool = tuple(_deck_spec(item, f"{context}[{index}]") for index, item in enumerate(value))
+    if len(set(pool)) != len(pool):
+        raise BenchmarkError(f"{context}: decks must be distinct")
+    return pool
+
+
+def _extensions(value: Any, context: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or any(type(item) is not str or not EXTENSION_KEY_RE.fullmatch(item) for item in value):
+        raise BenchmarkError(f"{context}: must be a list of extension names (x_[a-z0-9_]+)")
+    extensions = tuple(value)
+    if len(set(extensions)) != len(extensions):
+        raise BenchmarkError(f"{context}: duplicate names")
+    return extensions
+
+
+def _native_id_audits(value: Any, extensions: tuple[str, ...], context: str) -> dict[str, str]:
+    if not isinstance(value, dict):
+        raise BenchmarkError(f"{context}: must be an object of extension: audit reference")
+    audits: dict[str, str] = {}
+    for extension, reference in value.items():
+        if extension not in extensions:
+            raise BenchmarkError(f"{context}: {extension!r} is not one of the benchmark's extensions")
+        audits[extension] = _string(reference, f"{context}[{extension!r}]")
+    return audits
+
+
+def _spec_block(block_type: Any, value: Any, context: str) -> Any:
+    """A complete ``time_control``/``limits``/``resources`` block from ``messages``."""
+    try:
+        return block_type.from_json(value, context)
+    except ValidationError as exc:
+        raise BenchmarkError(f"{context}: {exc}") from exc
+
+
 def parse_benchmark(value: Any) -> Benchmark:
     """Validate one parsed ``benchmark.json`` document."""
     context = "benchmark"
     document = _object(value, context)
-    _check_fields(document, context, _REQUIRED_FIELDS, _OPTIONAL_DEFAULTS)
+    # Fixed-deck benchmarks (spec 15's shape) are reserved in protocol v2.0; they are
+    # checked before any other schema check so such a definition gets this message
+    # rather than a missing deck_pool (R3-19).
+    if document.get("pairing") == "fixed_deck" or "entries" in document:
+        raise BenchmarkError(f"{context}: fixed-deck benchmarks are reserved in protocol v2.0 (spec 15)")
+    for field in sorted(_V1_FIELDS):
+        if field in document:
+            raise BenchmarkError(f"{context}.{field}: v1 field; the v2 replacement is {_V1_FIELDS[field]}")
+    _check_fields(document, context, _REQUIRED_FIELDS, _OPTIONAL_FIELDS)
+    if document["schema"] == BENCHMARK_SCHEMA_V1:
+        raise BenchmarkError(
+            f'{context}.schema: "{BENCHMARK_SCHEMA_V1}" is the v1 schema; the v2 replacement is '
+            f'"{BENCHMARK_SCHEMA}" (base_seed is now stats_seed, the timeouts are now time_control)'
+        )
     if document["schema"] != BENCHMARK_SCHEMA:
         raise BenchmarkError(f'{context}.schema: must be "{BENCHMARK_SCHEMA}"')
     bench_id = document["id"]
@@ -267,15 +359,14 @@ def parse_benchmark(value: Any) -> Benchmark:
         raise BenchmarkError(
             f"{context}.id: must be 1 to 64 characters from a-z, 0-9 and '-', not starting with '-'; got {bench_id!r}"
         )
+    pairing = document.get("pairing", "rotating_pool")
+    if pairing != "rotating_pool":
+        raise BenchmarkError(f'{context}.pairing: must be "rotating_pool", got {pairing!r}')
     engine = _object(document["engine"], f"{context}.engine")
-    _check_fields(engine, f"{context}.engine", ("name", "command"), ("timeout_ms",))
-    deck_pool = _strings(document["deck_pool"], f"{context}.deck_pool")
-    if len(set(deck_pool)) != len(deck_pool):
-        raise BenchmarkError(f"{context}.deck_pool: catalog ids must be distinct, got {list(deck_pool)}")
-    optional = {
-        field: _integer(document.get(field, default), f"{context}.{field}", minimum=1)
-        for field, default in _OPTIONAL_DEFAULTS.items()
-    }
+    if "timeout_ms" in engine:
+        raise BenchmarkError(f"{context}.engine.timeout_ms: v1 field; the v2 replacement is time_control.engine_step_ms")
+    _check_fields(engine, f"{context}.engine", ("name", "command"))
+    extensions = _extensions(document.get("extensions", []), f"{context}.extensions")
     benchmark = Benchmark(
         id=bench_id,
         title=_string(document["title"], f"{context}.title"),
@@ -283,14 +374,25 @@ def parse_benchmark(value: Any) -> Benchmark:
         format=_string(document["format"], f"{context}.format"),
         engine_name=_string(engine["name"], f"{context}.engine.name"),
         engine_command=_strings(engine["command"], f"{context}.engine.command"),
-        engine_timeout_ms=_integer(
-            engine.get("timeout_ms", runner.DEFAULT_ENGINE_TIMEOUT_MS), f"{context}.engine.timeout_ms", minimum=1
-        ),
-        deck_pool=deck_pool,
+        deck_pool=_deck_pool(document["deck_pool"], f"{context}.deck_pool"),
         pairs_per_deck=_integer(document["pairs_per_deck"], f"{context}.pairs_per_deck", minimum=1),
-        base_seed=_integer(document["base_seed"], f"{context}.base_seed", minimum=0),
+        stats_seed=_integer(document["stats_seed"], f"{context}.stats_seed", minimum=0),
+        extensions=extensions,
+        native_id_audits=_native_id_audits(document.get("native_id_audits", {}), extensions, f"{context}.native_id_audits"),
+        time_control=_spec_block(TimeControl, document["time_control"], f"{context}.time_control")
+        if "time_control" in document
+        else DEFAULT_TIME_CONTROL,
+        limits=_spec_block(Limits, document["limits"], f"{context}.limits") if "limits" in document else DEFAULT_LIMITS,
+        resources=_spec_block(Resources, document["resources"], f"{context}.resources")
+        if "resources" in document
+        else DEFAULT_RESOURCES,
+        bootstrap_replicates=_integer(
+            document.get("bootstrap_replicates", DEFAULT_BOOTSTRAP_REPLICATES),
+            f"{context}.bootstrap_replicates",
+            minimum=1,
+        ),
+        workers=_integer(document.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1),
         bots=_parse_bots(document["bots"], f"{context}.bots"),
-        **optional,
     )
     for field, text in _placeholder_fields(benchmark):
         if "${" in PLACEHOLDER_PATTERN.sub("", text):

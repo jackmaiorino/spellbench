@@ -2,36 +2,51 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 37", allow_module_level=True)
-
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from spellbench.arena import runner
+from spellbench.arena.config import (
+    DEFAULT_BOOTSTRAP_REPLICATES,
+    DEFAULT_LIMITS,
+    DEFAULT_RESOURCES,
+    DEFAULT_TIME_CONTROL,
+    DEFAULT_WORKERS,
+    DeckSpec,
+    TournamentConfig,
+)
 from spellbench.bench import definition
 from spellbench.bench.definition import BenchmarkError
+from spellbench.messages import TimeControl
+
+REPO = Path(__file__).resolve().parents[2]
 
 
 def _value(**changes: Any) -> dict[str, Any]:
     value: dict[str, Any] = {
-        "schema": "spellbench-benchmark/v1",
+        "schema": "spellbench-benchmark/v2",
         "id": "pauper-kernel",
         "title": "Pauper on mtg-kernel",
         "summary": "Eight Pauper decks.",
         "format": "pauper-bo1",
-        "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}"], "timeout_ms": 120000},
+        "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}"]},
         "deck_pool": ["Burn", "Elves"],
         "pairs_per_deck": 2,
-        "base_seed": 7,
+        "stats_seed": 7,
+        "time_control": {
+            "startup_ms": 120000,
+            "game_start_ms": 60000,
+            "bank_ms": 600000,
+            "increment_ms": 2000,
+            "max_decision_ms": 30000,
+            "engine_step_ms": 120000,
+        },
         "bots": [
             {
                 "name": "uniform",
-                "version": "1.0.0",
+                "version": "2.0.0",
                 "type": "builtin",
                 "seed": 11,
                 "display": {"label": "random", "author": "Spellbench", "description": "Uniform.", "url": None},
@@ -61,20 +76,35 @@ def _write(directory: Path, value: dict[str, Any]) -> Path:
     return directory
 
 
-def test_a_valid_definition_parses_with_runner_defaults() -> None:
-    benchmark = definition.parse_benchmark(_value())
+def test_a_valid_definition_parses_with_the_arena_defaults() -> None:
+    value = _value()
+    for field in ("time_control", "limits", "resources", "bootstrap_replicates", "workers"):
+        value.pop(field, None)
+    benchmark = definition.parse_benchmark(value)
     assert benchmark.id == "pauper-kernel"
     assert benchmark.engine_name == "mtg-kernel"
     assert benchmark.engine_command == ("${MTG_KERNEL_BRIDGE}",)
-    assert benchmark.deck_pool == ("Burn", "Elves")
-    assert benchmark.choose_timeout_ms == runner.DEFAULT_CHOOSE_TIMEOUT_MS
-    assert benchmark.startup_timeout_ms == runner.DEFAULT_STARTUP_TIMEOUT_MS
-    assert benchmark.bootstrap_replicates == runner.DEFAULT_BOOTSTRAP_REPLICATES
-    assert benchmark.workers == runner.DEFAULT_WORKERS
+    assert benchmark.deck_pool == (DeckSpec(catalog_id="Burn"), DeckSpec(catalog_id="Elves"))
+    assert benchmark.stats_seed == 7
+    assert benchmark.time_control == DEFAULT_TIME_CONTROL
+    assert benchmark.limits == DEFAULT_LIMITS
+    assert benchmark.resources == DEFAULT_RESOURCES
+    assert benchmark.bootstrap_replicates == DEFAULT_BOOTSTRAP_REPLICATES
+    assert benchmark.workers == DEFAULT_WORKERS
+    assert benchmark.extensions == ()
+    assert benchmark.native_id_audits == {}
     assert [bot.name for bot in benchmark.bots] == ["uniform", "mybot"]
     assert benchmark.bot("mybot").display.url == "https://example.com/bot"
     assert "display" not in benchmark.bot("mybot").entry
     assert benchmark.bot("nobody") is None
+
+
+def test_the_written_time_control_is_parsed() -> None:
+    benchmark = definition.parse_benchmark(_value())
+    assert benchmark.time_control == TimeControl(
+        startup_ms=120000, game_start_ms=60000, bank_ms=600000, increment_ms=2000,
+        max_decision_ms=30000, engine_step_ms=120000,
+    )
 
 
 def test_unknown_top_level_fields_are_errors() -> None:
@@ -123,12 +153,12 @@ def test_display_text_rejects_control_and_format_characters(field: str, char: st
 def test_display_text_may_hold_any_visible_characters() -> None:
     value = _value()
     label = "Überbot · 改 (MCTS) \U0001f916"
-    value["bots"][1]["display"].update(label=label, author="José", description="Fast. Then slow.")
+    value["bots"][1]["display"].update(label=label, author="José", description="Fast. Then slow.")
     assert definition.parse_benchmark(value).bot("mybot").display.label == label
 
 
 # Each reads as "random" on a page: the same text, another case, extra spacing, fullwidth letters.
-@pytest.mark.parametrize("label", ["random", "Random", " random  ", "random ", "ｒａｎｄｏｍ"])
+@pytest.mark.parametrize("label", ["random", "Random", " random  ", "random ", "ｒａｎｄｏｍ"])
 def test_labels_are_unique_within_a_benchmark(label: str) -> None:
     value = _value()
     value["bots"][1]["display"]["label"] = label
@@ -150,13 +180,28 @@ def test_ids_are_url_safe(bench_id: str) -> None:
         definition.parse_benchmark(_value(id=bench_id))
 
 
-@pytest.mark.parametrize("pool", [[], ["Burn", "Burn"], [""], "Burn", [1]])
-def test_the_deck_pool_is_a_list_of_distinct_catalog_ids(pool: Any) -> None:
+@pytest.mark.parametrize(
+    "pool",
+    [
+        [],
+        ["Burn", "Burn"],
+        [""],
+        "Burn",
+        [1],
+        [{"catalog_id": "Burn", "extra": 1}],
+        [{"name": "Burn", "decklist": [{"name": "Mountain", "count": 0}]}],
+        [
+            {"name": "Burn", "decklist": [{"name": "Mountain", "count": 20}]},
+            {"name": "Burn", "decklist": [{"name": "Mountain", "count": 20}]},
+        ],
+    ],
+)
+def test_the_deck_pool_is_a_nonempty_list_of_distinct_decks(pool: Any) -> None:
     with pytest.raises(BenchmarkError, match="deck_pool"):
         definition.parse_benchmark(_value(deck_pool=pool))
 
 
-@pytest.mark.parametrize("field,bad", [("pairs_per_deck", True), ("pairs_per_deck", 0), ("base_seed", -1), ("workers", "8")])
+@pytest.mark.parametrize("field,bad", [("pairs_per_deck", True), ("pairs_per_deck", 0), ("stats_seed", -1), ("workers", "8")])
 def test_integers_are_checked(field: str, bad: Any) -> None:
     with pytest.raises(BenchmarkError, match=field):
         definition.parse_benchmark(_value(**{field: bad}))
@@ -164,16 +209,19 @@ def test_integers_are_checked(field: str, bad: Any) -> None:
 
 def test_the_tournament_config_rotates_the_pool_without_self_play() -> None:
     config = definition.parse_benchmark(_value()).tournament_config("runs/2026-09-26")
-    assert config["schema"] == "spellbench-tournament-config/v1"
+    assert config["schema"] == "spellbench-tournament-config/v2"
     assert config["tournament_dir"] == "runs/2026-09-26"
     assert config["deck_pool"] == [{"catalog_id": "Burn"}, {"catalog_id": "Elves"}]
     assert "decks" not in config
     assert config["pairs_per_matchup"] == 4
+    assert config["stats_seed"] == 7
     assert config["rating_anchor"] == "uniform"
     assert config["include_self_play"] is False
-    assert config["engine"] == {"command": ["${MTG_KERNEL_BRIDGE}"], "timeout_ms": 120000}
+    assert config["engine"] == {"command": ["${MTG_KERNEL_BRIDGE}"]}
+    assert config["time_control"] == _value()["time_control"]
     assert config["bots"][1]["command"] == ["${PYTHON}", "--model=${CKPT_DIR}/model.bin"]
     assert all("display" not in bot for bot in config["bots"])
+    TournamentConfig.from_json(config)
 
 
 def test_the_tournament_config_is_a_fresh_copy() -> None:
@@ -181,6 +229,42 @@ def test_the_tournament_config_is_a_fresh_copy() -> None:
     config = benchmark.tournament_config("runs/x")
     config["bots"][1]["command"].append("--oops")
     assert benchmark.tournament_config("runs/x")["bots"][1]["command"] == ["${PYTHON}", "--model=${CKPT_DIR}/model.bin"]
+
+
+def test_fixed_deck_benchmarks_are_reserved(tmp_path: Path) -> None:
+    with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
+        definition.parse_benchmark(_value(pairing="fixed_deck"))
+
+
+def test_a_spec_15_shaped_definition_gets_the_reserved_message() -> None:
+    value = {key: item for key, item in _value().items() if key != "deck_pool"}
+    value.update(pairing="fixed_deck", entries=[{"entry": "burn-random", "bot": "uniform",
+                                                 "deck": {"name": "Burn", "catalog_id": "Burn"}, "display": {"label": "random"}}])
+    with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
+        definition.parse_benchmark(value)                                   # not "missing deck_pool" (R3-19)
+    del value["pairing"]
+    with pytest.raises(BenchmarkError, match="reserved in protocol v2.0"):
+        definition.parse_benchmark(value)                                   # entries alone are the fixed-deck shape
+
+
+@pytest.mark.parametrize(("field", "hint"), [("base_seed", "stats_seed"), ("choose_timeout_ms", "time_control")])
+def test_v1_fields_name_their_replacement(field: str, hint: str) -> None:
+    with pytest.raises(BenchmarkError, match=hint):
+        definition.parse_benchmark(_value(**{field: 1}))
+
+
+def test_the_pool_may_hold_decklists_and_the_rules_are_fixed() -> None:
+    value = _value(deck_pool=["Burn", {"name": "Mono Red", "decklist": [{"name": "Mountain", "count": 20}]}])
+    config = definition.parse_benchmark(value).tournament_config("runs/x")
+    assert config["deck_pool"][1] == {"name": "Mono Red", "decklist": [{"name": "Mountain", "count": 20}]}
+    assert config["rules"] == {"opponent_decklist": "visible", "mulligan": "auto", "starting_player": "host_assigned", "starting_seat": "p0"}
+    TournamentConfig.from_json(config)
+
+
+def test_the_committed_pauper_kernel_definition_is_v2() -> None:
+    benchmark = definition.load_benchmark(REPO / "benchmarks" / "pauper-kernel")
+    assert benchmark.stats_seed == 20260926 and {bot.entry["version"] for bot in benchmark.bots if bot.entry["type"] == "builtin"} == {"2.0.0"}
+    TournamentConfig.from_json(benchmark.tournament_config("runs/check"))
 
 
 def test_load_benchmark_requires_the_folder_name_to_match_the_id(tmp_path: Path) -> None:
@@ -201,7 +285,7 @@ def test_an_integer_literal_past_the_interpreter_digit_limit_is_not_strict_json(
     # int() raises a bare ValueError past 4300 digits; the reader must still name the file.
     directory = tmp_path / "pauper-kernel"
     directory.mkdir()
-    (directory / "benchmark.json").write_text('{"base_seed": ' + "7" * 5000 + "}", encoding="utf-8")
+    (directory / "benchmark.json").write_text('{"stats_seed": ' + "7" * 5000 + "}", encoding="utf-8")
     with pytest.raises(BenchmarkError, match=r"benchmark\.json is not strict JSON"):
         definition.load_benchmark(directory)
 

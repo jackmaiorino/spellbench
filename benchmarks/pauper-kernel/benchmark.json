@@ -1,30 +1,30 @@
 {
-  "schema": "spellbench-benchmark/v1",
+  "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel",
   "title": "Pauper · mtg-kernel",
   "summary": "Eight Pauper decks on the mtg-kernel rules engine; every matchup plays each deck in both seats.",
   "format": "pauper-bo1",
-  "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}"], "timeout_ms": 120000},
+  "engine": {"name": "mtg-kernel", "command": ["${MTG_KERNEL_BRIDGE}"]},
   "deck_pool": ["Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"],
   "pairs_per_deck": 4,
-  "base_seed": 20260926,
-  "choose_timeout_ms": 30000,
-  "startup_timeout_ms": 120000,
+  "stats_seed": 20260926,
+  "time_control": {"startup_ms": 120000, "game_start_ms": 60000, "bank_ms": 600000, "increment_ms": 2000,
+                   "max_decision_ms": 30000, "engine_step_ms": 120000},
   "bootstrap_replicates": 2000,
   "workers": 8,
   "bots": [
     {
-      "name": "uniform", "version": "1.0.0", "type": "builtin", "seed": 11, "owner": "spellbench",
+      "name": "uniform", "version": "2.0.0", "type": "builtin", "seed": 11, "owner": "spellbench",
       "training_style_tags": ["baseline"],
       "display": {"label": "random", "author": "Spellbench", "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.", "url": null}
     },
     {
-      "name": "heuristic", "version": "1.0.0", "type": "builtin", "owner": "spellbench",
+      "name": "heuristic", "version": "2.0.0", "type": "builtin", "owner": "spellbench",
       "training_style_tags": ["heuristic"],
       "display": {"label": "heuristic", "author": "Spellbench", "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and never blocks.", "url": null}
     },
     {
-      "name": "first", "version": "1.0.0", "type": "builtin", "owner": "spellbench",
+      "name": "first", "version": "2.0.0", "type": "builtin", "owner": "spellbench",
       "training_style_tags": ["baseline"],
       "display": {"label": "first", "author": "Spellbench", "description": "Always takes the first offered action.", "url": null}
     }
