@@ -1,6 +1,6 @@
 # XMage engine for Spellbench (sub-project X)
 
-Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton), X3 (observation builder) and X4 stage 1 (decision mapping: whole games play through P's host with its live validator). Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
+Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server skeleton), X3 (observation builder), X4 (decision mapping: whole games play through P's host with its live validator) and X5 in progress (both benchmark pools in the catalog, paired-world leak tests, the 10,000-game live-validated run; `tests/x5/`). **Fairness: validator only** (spec 13 residual 2): the engine declares no probe (`hello_ok.fairness.noninterference_probe` false), every decision is checked by P's live validator, and the paired-world leak tests of `tests/x5/` stand in for an audit until X5b's probe. Design: `E:/spellbench-archive/program-research/x-design-draft.md` (with the 2026-09-30 gate addendum); research: `x-xmage-brief.md` beside it.
 
 ## Pins
 
@@ -17,10 +17,10 @@ Status: tasks X0 (pin and build), X1 (determinism and secrets), X2 (v2 server sk
 
 | Field | Scheme | Value at these pins |
 |---|---|---|
-| `rules_snapshot_id` | `xmage-<XMage commit>-xpat-<sha256 of patches/xmage/*.patch concatenated in name order>` | `xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-8c2578bef233c7d26ca090613cad5b11e198d21a49b0f67edb964bd782aeec6b` |
+| `rules_snapshot_id` | `xmage-<XMage commit>-xpat-<sha256 of patches/xmage/*.patch concatenated in name order>` | `xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-6f8a902bb6681c2fe4ec79823cf05d5cc46042b2298a33f5ea73e0bbc61a2822` (with X-P4; X1 to X4 ran at `...-xpat-8c2578be...`, X-P1 to X-P3) |
 | `card_pool_identity` | `xmage-sets-<git tree id of Mage.Sets at the pin>-xpat-<sha256 of the patch sections under Mage.Sets/>` | `xmage-sets-3c333c4538a45690b640b4520b6572c40da80cb9-xpat-94cbe27a7907a9c2ac6a4bc22e3b152270493eb3da92e8449331ea0ccef6997c` |
 
-The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit 23 card classes. A tree id is used instead of "the last commit touching Mage.Sets", which a shallow clone cannot compute. `scripts/build.sh` computes both strings and writes them to `BUILD-MANIFEST.json`. The build-only patch in `patches/build-only/` does not change rules and is not hashed.
+The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit 23 card classes (X-P4 edits none, so it left the pool identity unchanged). A tree id is used instead of "the last commit touching Mage.Sets", which a shallow clone cannot compute. `scripts/build.sh` computes both strings and writes them to `BUILD-MANIFEST.json`. The build-only patch in `patches/build-only/` does not change rules and is not hashed.
 
 ## Layout
 
@@ -41,6 +41,7 @@ The pool identity hashes the Mage.Sets patch sections because X-P2 and X-P3 edit
 | X-P1 `0001-rng-router` | `RandomUtil` delegates to a pluggable `Source` (untagged, per-player and shared generators). With no source installed, XMage behaves as before. |
 | X-P2 `0002-rng-call-sites` | Purpose-tagged draws: library shuffle and both random-order library placements per owner; random cards per owner (`seekCard`, `CardsImpl.getRandom`, random mill); coin flips, die rolls and the starting-player toss shared. The five card classes that called an unseeded `Collections.shuffle` become seeded. |
 | X-P3 `0003-deterministic-ids` | Every `UUID.randomUUID()` in Mage, Mage.Common and Mage.Sets (66 sites) becomes `RandomUtil.newId()`. The two static random ids become name-based constants. `randomFromCollection` orders hash-ordered collections by id before drawing. |
+| X-P4 `0004-hash-order` | Tokens created by one event enter in the order the effect lists them: `CreateTokenEvent` keeps its tokens in a `LinkedHashMap` and `TokenImpl` collects created tokens in a `LinkedHashSet`, instead of identity-hash order (found by X5: Reckoner Bankbuster's Treasure and Pilot tokens). |
 
 The router (`overlay/.../rng/GameRandom`) implements Section 11.6:
 
@@ -142,6 +143,10 @@ Evidence: `tests/x3/README.md` (360 games, 539,524 observations, zero failures).
 - **Overlay rules code.** `decide.Duel` (CABT's `CabtLiveDuel`), `decide.LondonAfterKeep` (the bottom step after the keep) and `decide.AutoPayPlayer` (XMage's payment planner with deterministic producer order) change behaviour in the overlay only, so the identity strings are those of X1.
 
 Evidence and the full mapping table: `tests/x4/README.md`.
+
+## X5 conformance (in progress)
+
+`tests/x5/README.md`: the catalog now holds both pools (16 Standard 2022-25 decks from MageZero's pool, 16 FDN decks from 17lands via DraftZero), with multi-face cards under their full Oracle names. X5 found and fixed one more history dependence of game digests (XMage's parsed mana-cost cache, `ManaCostCache`) and the two halt causes its first 2,216 games met (Run Away Together's dependent targets, any-combination mana). `GameRandom` has a paired-world test hook, `-Dspellbench.test.worldSalt=SEAT:SALT`, a no-op unless set.
 
 ## Byte budget and prune record
 

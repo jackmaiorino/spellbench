@@ -34,13 +34,13 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | X2 (#15) | v2 server skeleton: strict I-JSON reader, envelope, retransmission cache, `hello`/`reset`/`step`/`terminal`/`error`, caps, `validate_deck`, stdout isolation, terminal reasons from player state; `reset` drives the X1 router and per-viewer ids | done (2026-10-01): wire contract only | X1 | 2 | P's conformance runner passes 11 of 20 checks; the 9 that need a posed decision move to X3/X4 (`tests/x2/`) |
 | X3 (#16) | Observation (Section 6) on `CardView` visibility, normalization tables (Section 6.10), conservative flags (`known_cards` false), per-viewer ids with look counters | done (2026-10-01): 360 games, 539,524 observations, 0 failures (`tests/x3/`) | X2 | 4 to 5 | P's host validator accepts observations over random games; paired-world check on hand and library |
 | X4a (#17) | Decision mapping, base: priority kinds, targets, choices, modes, numbers, booleans, mulligan, triggers, replacements, piles | done (2026-10-01, stage 1) | X3 | 3 | every kind the engine emits round-trips through P's validator |
-| X4b (#18) | Arrangement overrides: scry, surveil, library order (top inverted), London bottom as `2n - 1` and `order_pick` | partial: scry, surveil, library order mapped in stage 1 but unexercised; goldens pending | X4a | 1.5 | goldens for each arrangement |
-| X4c (#19) | Silent and fail-closed paths: `chooseAbilityForCast` to `choose_cast_method`/`optional_cast`, `chooseTargetAmount` to targets then `distribute`, combat damage per recipient | partial: divided amounts, combat damage, alternative costs mapped in stage 1; audit pending | X4a | 1.5 | Chandra, Flameshaper and Quirion Beastcaller playable; no `ComputerPlayer` fallback reached (audit) |
-| X4d (#20) | Combat as per-creature groups with a completability oracle on a callback-free copy | partial: per-creature groups in stage 1; completability oracle pending | X4a | 2 | no dead end over 10,000 random games |
+| X4b (#18) | Arrangement overrides: scry, surveil, library order (top inverted), London bottom as `2n - 1` and `order_pick` | done (2026-10-01): five goldens replay 5/5 | X4a | 1.5 | goldens for each arrangement |
+| X4c (#19) | Silent and fail-closed paths: `chooseAbilityForCast` to `choose_cast_method`/`optional_cast`, `chooseTargetAmount` to targets then `distribute`, combat damage per recipient | done (2026-10-01): 322 callbacks audited, 0 silent AI fallbacks | X4a | 1.5 | Chandra, Flameshaper and Quirion Beastcaller playable; no `ComputerPlayer` fallback reached (audit) |
+| X4d (#20) | Combat as per-creature groups with a completability oracle on a callback-free copy | done (2026-10-01): oracle, 2,000 games, 0 rejected declarations | X4a | 2 | no dead end over 10,000 random games |
 | X4e (#21) | Rewind on rejected activations; `engine_autopay` | done (2026-10-01, stage 1): overlay autopay planner with insertion-ordered ties; rewinds 1.2 per game | X4a | 1 | rewind golden; no payment loop in the soak |
-| X4h (#22) | Hash-order audit of candidate paths (no `HashSet` or UUID order reaches candidate order) | blocked: X4a | X4a | 0.5 | audit note plus a test that shuffles hash seeds |
-| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | ready: stage 1 already passes P's conformance runner 20/20 | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
-| X5m (#24) | `fdn-mirror-v0` benchmark (v2.0 as written: frozen pool of 16 FDN decks from DraftZero's eval split as mirrors, visible lists, CC BY 4.0 attribution) and a first rated run with `uniform`, `first`, `heuristic` | blocked: X5 | X5, compute policy | 1 | ledger published; halt and truncation rates shown |
+| X4h (#22) | Hash-order audit of candidate paths (no `HashSet` or UUID order reaches candidate order) | done (2026-10-01): digests equal under three identity-hash modes | X4a | 0.5 | audit note plus a test that shuffles hash seeds |
+| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | in progress: pools integrated, 2,216 of 10,112 games done with 0 violations before an interruption; halt causes fixed; full rerun waits for Jack's PC | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
+| X5m (#24) | `fdn-mirror-v0` benchmark (v2.0 as written: frozen pool of 16 FDN decks from DraftZero's eval split as mirrors, visible lists, CC BY 4.0 attribution) and a first rated run with `uniform`, `first`, `heuristic` | staged (2026-10-01): 16 FDN eval-split sample decks and a draft benchmark.json in `E:/spellbench-archive/program-research/x5m/`; integrates after X4 stage 2 | X5, compute policy | 1 | ledger published; halt and truncation rates shown |
 | X5b (#25) | Optional `probe_resample` | later | X5, P enabling the probe | 2 to 3 | "validator and probe" label |
 | X6 (#26) | Manifests `fdn-limited-v1` (rotating pairs, hidden lists) and `standard-2022-25` (fixed-deck, 16 house decks, legality list) | blocked: P-v2.1 | X5, P-v2.1 | 1 to 2 | both validate against P's v2.1 schema |
 
@@ -49,7 +49,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
 | A0 (#27) | Design the kit: v2 observation to XMage position (reuse DraftZero's MIT StateSpec rebuilder and mzbridge), determinization sampler consistent with `known` entries and the decklist rule in force, whole-action planning at a group's first substep, candidate mapping. Independent design review (fresh Sol session) before A1 | done (2026-10-01): revision 3 approved with changes by Sol (round 3); eight changes bound to the A1 slice | | 2 | design doc reviewed, dispositions recorded |
-| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | blocked: A0, X3 | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
+| A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | slice passed; Sol result review PROCEED WITH CHANGES (8 changes); build-out next | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
 | A2 (#29) | Action to candidate mapping across group substeps | blocked: A1, X4 | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
 | A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | blocked: A2 | A2 | 1.5 | identical answers across hidden worlds where they must be |
 | A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
@@ -58,9 +58,9 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
-| H1 (#32) | `xmage-rule`: XMage's rule-based `ComputerPlayer` through the kit (one world per decision; it is fair on a sampled world) | blocked: A2 | A2 | 1 | entry runs a full benchmark game set without violations |
-| H2 (#33) | `xmage-mad`: the MAD minimax AI on K sampled worlds (fixes its own-draw leak by construction) | blocked: A2 | A2 | 1.5 | as H1, plus a K setting fixed per entry |
-| H3 (#34) | `xmage-mcts`: XMage's MCTS on sampled worlds | blocked: A2 | A2 | 1.5 | as H1 |
+| H1 (#32) | `kit-mad-1`: XMage's MAD minimax AI (ComputerPlayer7) on one sampled world through the kit | blocked: A2 | A2 | 1 | entry runs a full benchmark game set without violations |
+| H2 (#33) | `kit-mad-k`: MAD on K sampled worlds, voting (K fixed per entry) | blocked: A2 | A2 | 1.5 | as H1, plus a K setting fixed per entry |
+| H3 (#34) | `kit-mcts`: XMage's MCTS with knowledge-consistent rollouts, truncated and labelled (a hybrid with MAD for passes and combat unless MCTS dispatch is restored) | blocked: A2 | A2 | 1.5 | as H1 |
 | H4 (#35) | Rated runs of H1 to H3 on `fdn-mirror-v0`, later on M3's benchmarks | blocked: X5m, H1 | X5m, H1 to H3 | 1 | ratings on the site |
 
 ## RL bot track (R)
@@ -92,6 +92,25 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 10:15: A1 build-out.
+  - Changes 1 to 7 built and mostly run: continuation passes on real positions; all clock checks pass; register and pool audit clean (394 cards); the A3 cantrip pair is identical for all three entries; E7 matches upstream 61/61. Five bugs found and fixed.
+  - Decision (coordinator, standing authorization): the pre-registered 50% truncation threshold fired for `kit-mcts` at rollout cap 300 (97 to 100% truncated), so the entry is re-frozen at cap 1000 (0% truncated measured). A4 measures the cost before any rating.
+  - The final consolidated run waits for HaleysPC, which is held for another session's timing pass.
+  - HaleysPC C: is down to 35 GB free (mostly not ours).
+- 2026-10-01 09:00: X5 status.
+  - The 10,112-game run started on Jack's PC at 08:15. It was stopped at 08:2x so the research lead's calibration could have the PC (until about 11:30 EDT). 2,216 games had finished, with 0 violations and 62 halts from two decks; both causes are fixed (`dead_end:choose_target` for "two targets with different controllers", `unsupported:multi_amount` for "mana in any combination").
+  - Leak test: 50 counterspell-position pairs give identical acting-seat streams.
+  - P's guarded launcher refuses HaleysPC, which has only 54.6 GiB free on C: (below the 60 GiB reserve), so the full run waits for Jack's PC on the fixed build (about 50 minutes).
+  - A1 build-out: changes 1 to 7 coded, running on HaleysPC. The register scan admits 27 of the 32 pool decks; the 5 excluded carry restricted-mana lands or Gwenna.
+- 2026-10-01: A1 vertical slice passed (S1 to S9, E1 to E8 and the eight review changes, two partial items). H1 played 12 games and H2/H3 3 more through P's host with 0 violations. Costs: world build 5 to 9 ms, MAD about 0.1 s median per decision, 76 to 81% of decisions need no world, slice 3.5 agent-hours. Coordinator decisions under Jack's standing authorization:
+  1. H3 uses truncated rollouts, labelled on the board;
+  2. watcher reset is an approximate-world baseline flag, with watcher history for pool cards as build-out;
+  3. E4's pre-registered decline on ambiguous stack triggers stands, with exact multi-trigger identity as build-out.
+  Open: 9 of 2,460 H1 answers were MAD choices the engine did not offer.
+- 2026-10-01: X5 started (pools, leak tests, then the 10,000-game run on Jack's PC and HaleysPC, until about 11:00 EDT).
+- 2026-10-01: X4 stage 2 done: goldens (X4b), fallback audit (X4c), combat oracle (X4d), hash-order audit (X4h); `rules_snapshot_id` unchanged; conformance 20/20 and 200-game soak still clean. Gap: attacks or blocks with a cost are never offered. Evidence `tests/x4s2/`.
+- 2026-10-01: X5 plan: after X4 stage 2 and once Jack's PC is free (about 07:00 EDT), run the compute-policy scaling comparison through P's run machinery (Jack's PC 24 threads, HaleysPC 16 cores shared, RunPod costed), then the 10,000-game live-validated run on the chosen allocation, then `fdn-mirror-v0`.
+- 2026-10-01: started X4 stage 2 (X4b goldens, X4c audit, X4d oracle, X4h audit) on `xmage-x0-x1` and the A1 vertical slice on `xmage-agent-kit` (worktree `D:/spellbench-wt/xmage-kit`), both building on HaleysPC at below-normal priority (shared with an mtg-kernel session; Jack's PC held for the research lead's calibration until about 07:00 EDT).
 - 2026-10-01: X4 stage 1 done (Opus agent, HaleysPC): whole games play through P's host with the live validator. Conformance runner 20/20 (`--games 20`); 200-game soak 0 violations, 0 halts, 95,130 decisions; game digests equal across process counts and reruns; 40 games/min in 12 processes. Fixed: process-wide cache of parsed mana costs made ids depend on game history (mapper parses mana itself; `-Dspellbench.trace.ids` diagnostic). Evidence: `tests/x4/`.
 - 2026-10-01: X3 done (Opus agent, built on HaleysPC): P's validator V1, V2, V4 to V9 plus six invariants over 360 random games, zero failures; mutation test catches 8 of 8 injected faults. Six spec questions for P recorded in `tests/x3/README.md`.
 - 2026-10-01: engine finding from the A0 work: `ComputerPlayer.playMana` orders mana producers with identity-hash ties (`MageObjectImpl`, `CardImpl`, `PermanentImpl` have no `hashCode`), and `engine_autopay` runs it, so X4e must rerun the X1 digest checks under autopay; a fix would be patch X-P4 (owned by X4h). X1's games used CABT's step-wise mana prompts and never exercised this path.

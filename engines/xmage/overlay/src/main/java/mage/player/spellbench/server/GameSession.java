@@ -49,6 +49,7 @@ final class GameSession {
      */
     static GameSession create(Requests.Reset reset, List<CabtDeckFactory.Entry> deck0,
                               List<CabtDeckFactory.Entry> deck1, CardResolver resolver) {
+        mage.player.spellbench.ManaCostCache.restore(); // the parsed-cost cache of a fresh process (X5)
         GameRandom.installBoot();
         resolver.buildDeck(UUID.nameUUIDFromBytes(new byte[]{0}), deck0);
         resolver.buildDeck(UUID.nameUUIDFromBytes(new byte[]{1}), deck1);

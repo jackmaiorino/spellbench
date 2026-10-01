@@ -1,0 +1,55 @@
+{
+ "schema": "spellbench-x5-plan/v1",
+ "master_secret": "5f684ea840da640a5e2111e347f6c523795d150d0357611177e1fc9bec8516e5",
+ "workloads": [
+  {
+   "label": "standard-uu",
+   "pool": "standard",
+   "matchup": "uu",
+   "pairs": 1216,
+   "games": 2432,
+   "run_secret": "314d71875de24f2780a83c207f986d1b0fc00d20f0551b776dea43a2bdb817e5"
+  },
+  {
+   "label": "standard-hu",
+   "pool": "standard",
+   "matchup": "hu",
+   "pairs": 1120,
+   "games": 2240,
+   "run_secret": "1150f750a3fb30fab27dc3afb3a693cf321592a084f03988cf1c6fd979233ae8"
+  },
+  {
+   "label": "standard-fu",
+   "pool": "standard",
+   "matchup": "fu",
+   "pairs": 192,
+   "games": 384,
+   "run_secret": "5524a954729300ef05b9321334ea8a2690c077dee51eb0c5054b506c3f729f99"
+  },
+  {
+   "label": "fdn-uu",
+   "pool": "fdn",
+   "matchup": "uu",
+   "pairs": 1216,
+   "games": 2432,
+   "run_secret": "2f05b3e5db5d15ee5c63a3027d9607e51f0e11253dff59c7b8c99fbc31358dd9"
+  },
+  {
+   "label": "fdn-hu",
+   "pool": "fdn",
+   "matchup": "hu",
+   "pairs": 1120,
+   "games": 2240,
+   "run_secret": "cae16ffaa1a2dd5fa5832ad373c65469fb36812d9de3dac993ab2857089e081a"
+  },
+  {
+   "label": "fdn-fu",
+   "pool": "fdn",
+   "matchup": "fu",
+   "pairs": 192,
+   "games": 384,
+   "run_secret": "f4d9f8fb2fa48ab575f2d33a976d266dacf5774b11d0eb7dfad7f84791c71658"
+  }
+ ],
+ "games_total": 10112
+}

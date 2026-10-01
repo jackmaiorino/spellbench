@@ -319,21 +319,36 @@ public final class ObservationBuilder {
 
         /**
          * A seat's exiled cards, oldest first. XMage's exile zones are a hash map, so arrival is the order in which
-         * this viewer's observations first showed each card (XMage's order among cards first shown together).
+         * this viewer's observations first showed each card; cards first shown together arrive in (card name, a
+         * per-viewer keyed hash of the card) order, never in XMage's hash map order (X4h).
          */
         List<Card> exiled(UUID ownerId) {
             Map<String, Long> arrival = ObservationBuilder.this.arrival.get(viewer);
             List<Card> cards = new ArrayList<>();
+            List<Object[]> fresh = new ArrayList<>(); // {key, name, tie}
             for (ExileZone zone : game.getExile().getExileZones()) {
                 for (Card c : zone.getCards(game)) {
                     String key = key(c.getId(), c.getZoneChangeCounter(game));
                     if (!arrival.containsKey(key)) {
-                        arrival.put(key, (long) arrival.size());
+                        String name = c.getName() == null ? "" : c.getName();
+                        fresh.add(new Object[]{key, name, ids.tieKey(key)});
+                        arrival.put(key, -1L);
                     }
                     if (ownerId.equals(c.getOwnerId())) {
                         cards.add(c);
                     }
                 }
+            }
+            fresh.sort((a, b) -> {
+                int k = Vocabulary.CODE_POINT.compare((String) a[1], (String) b[1]);
+                return k != 0 ? k : ((String) a[2]).compareTo((String) b[2]);
+            });
+            long next = 0;
+            for (Long v : arrival.values()) {
+                next = Math.max(next, v + 1);
+            }
+            for (Object[] f : fresh) {
+                arrival.put((String) f[0], next++);
             }
             cards.sort(Comparator.comparingLong(c -> arrival.get(key(c.getId(), c.getZoneChangeCounter(game)))));
             return cards;

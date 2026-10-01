@@ -1,0 +1,237 @@
+{
+ "counters": {
+  "attack_predeclared_by_engine": {
+   "games": 586,
+   "total": 2295
+  },
+  "autopay": {
+   "games": 1000,
+   "total": 61281
+  },
+  "block_predeclared_by_engine": {
+   "games": 276,
+   "total": 1560
+  },
+  "blockers_called:1:0": {
+   "games": 536,
+   "total": 938
+  },
+  "blockers_called:1:1": {
+   "games": 685,
+   "total": 1968
+  },
+  "blockers_called:1:10": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:2": {
+   "games": 581,
+   "total": 1585
+  },
+  "blockers_called:1:3": {
+   "games": 425,
+   "total": 737
+  },
+  "blockers_called:1:4": {
+   "games": 201,
+   "total": 230
+  },
+  "blockers_called:1:5": {
+   "games": 59,
+   "total": 62
+  },
+  "blockers_called:1:6": {
+   "games": 14,
+   "total": 16
+  },
+  "blockers_called:1:7": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:8": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:2:0": {
+   "games": 404,
+   "total": 556
+  },
+  "blockers_called:2:1": {
+   "games": 718,
+   "total": 1405
+  },
+  "blockers_called:2:2": {
+   "games": 618,
+   "total": 1351
+  },
+  "blockers_called:2:3": {
+   "games": 401,
+   "total": 652
+  },
+  "blockers_called:2:4": {
+   "games": 200,
+   "total": 254
+  },
+  "blockers_called:2:5": {
+   "games": 57,
+   "total": 63
+  },
+  "blockers_called:2:6": {
+   "games": 16,
+   "total": 16
+  },
+  "blockers_called:2:7": {
+   "games": 1,
+   "total": 2
+  },
+  "blockers_called:3:0": {
+   "games": 158,
+   "total": 183
+  },
+  "blockers_called:3:1": {
+   "games": 382,
+   "total": 482
+  },
+  "blockers_called:3:2": {
+   "games": 372,
+   "total": 487
+  },
+  "blockers_called:3:3": {
+   "games": 160,
+   "total": 189
+  },
+  "blockers_called:3:4": {
+   "games": 58,
+   "total": 61
+  },
+  "blockers_called:3:5": {
+   "games": 13,
+   "total": 14
+  },
+  "blockers_called:3:6": {
+   "games": 4,
+   "total": 5
+  },
+  "blockers_called:4:0": {
+   "games": 59,
+   "total": 61
+  },
+  "blockers_called:4:1": {
+   "games": 144,
+   "total": 156
+  },
+  "blockers_called:4:2": {
+   "games": 124,
+   "total": 139
+  },
+  "blockers_called:4:3": {
+   "games": 54,
+   "total": 54
+  },
+  "blockers_called:4:4": {
+   "games": 12,
+   "total": 12
+  },
+  "blockers_called:4:5": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:5:0": {
+   "games": 12,
+   "total": 12
+  },
+  "blockers_called:5:1": {
+   "games": 29,
+   "total": 30
+  },
+  "blockers_called:5:2": {
+   "games": 27,
+   "total": 27
+  },
+  "blockers_called:5:3": {
+   "games": 10,
+   "total": 10
+  },
+  "blockers_called:5:4": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:6:0": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:6:1": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:6:2": {
+   "games": 7,
+   "total": 7
+  },
+  "blockers_called:6:3": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:6:4": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:7:1": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:7:2": {
+   "games": 1,
+   "total": 1
+  },
+  "combat_candidate_not_completable:declare_attack": {
+   "games": 659,
+   "total": 5609
+  },
+  "combat_candidate_not_completable:declare_block": {
+   "games": 941,
+   "total": 9747
+  },
+  "combat_oracle_leaf": {
+   "games": 1000,
+   "total": 152579
+  },
+  "posed:declare_attack": {
+   "games": 999,
+   "total": 38587
+  },
+  "posed:declare_block": {
+   "games": 945,
+   "total": 20754
+  },
+  "posed:distribute:combat_damage": {
+   "games": 825,
+   "total": 8452
+  },
+  "posed:mulligan": {
+   "games": 1000,
+   "total": 3921
+  },
+  "posed:order_pick:mulligan_bottom": {
+   "games": 733,
+   "total": 1930
+  },
+  "posed:order_pick:triggers": {
+   "games": 15,
+   "total": 15
+  },
+  "posed:priority": {
+   "games": 1000,
+   "total": 544667
+  },
+  "posed:select_object:discard": {
+   "games": 375,
+   "total": 842
+  },
+  "single_candidate": {
+   "games": 1000,
+   "total": 509281
+  }
+ },
+ "games": 1000
+}

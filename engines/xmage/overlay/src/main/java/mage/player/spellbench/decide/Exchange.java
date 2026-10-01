@@ -107,6 +107,22 @@ public final class Exchange {
         this.mulliganNone = mulliganNone;
     }
 
+    /**
+     * Test hook for the X4h hash-order audit ({@code -Dspellbench.hashWarmup=N}): draws N identity hash codes on the
+     * calling thread, which shifts every identity hash the thread assigns afterwards (HotSpot's default generator is
+     * per thread). Game results must not change. A no-op unless the property is set.
+     */
+    public static void hashWarmup() {
+        int n = Integer.getInteger("spellbench.hashWarmup", 0);
+        int sink = 0;
+        for (int i = 0; i < n; i++) {
+            sink ^= System.identityHashCode(new Object());
+        }
+        if (n > 0 && sink == 42) {
+            System.err.println("xmage-spellbench: hash warm-up " + n);
+        }
+    }
+
     // ---------------------------------------------------------------------------------------------
     // protocol thread
 
@@ -114,6 +130,7 @@ public final class Exchange {
     public Outcome start(Runnable body) {
         gameThread = new Thread(() -> {
             try {
+                hashWarmup();
                 body.run();
                 publish(new Outcome(null, null, null, true));
             } catch (Closed e) {
@@ -413,7 +430,8 @@ public final class Exchange {
                         return c;
                     }
                 }
-                return 0;
+                // equal keys: the canonical semantic, so XMage's collection order never decides (X4h)
+                return ((String) a[1]).compareTo((String) b[1]);
             });
         }
         // Section 7.1: candidates referencing hidden-zone cards, among themselves, in (card_name, object_id) order
