@@ -1,0 +1,38 @@
+X-P4 hash-order against XMage fd40ad5c29a92cef824cf12ba6d0e4daa25db975 (after X-P1 to X-P3).
+Tokens created by one event enter in the order the effect lists them, not in identity-hash order: CreateTokenEvent keeps its tokens in a LinkedHashMap and TokenImpl collects the created tokens in a LinkedHashSet. Found by X5: Reckoner Bankbuster's Treasure and Pilot tokens entered in a different order from run to run.
+Apply in order with: git apply <patch> (from the XMage source root).
+
+diff --git a/Mage/src/main/java/mage/game/events/CreateTokenEvent.java b/Mage/src/main/java/mage/game/events/CreateTokenEvent.java
+index 6daac50..43e35f0 100644
+--- a/Mage/src/main/java/mage/game/events/CreateTokenEvent.java
++++ b/Mage/src/main/java/mage/game/events/CreateTokenEvent.java
+@@ -3,14 +3,14 @@ package mage.game.events;
+ import mage.abilities.Ability;
+ import mage.game.permanent.token.Token;
+ 
+-import java.util.HashMap;
++import java.util.LinkedHashMap;
+ import java.util.List;
+ import java.util.Map;
+ import java.util.UUID;
+ 
+ public class CreateTokenEvent extends GameEvent {
+ 
+-    private final Map<Token, Integer> tokens = new HashMap<>();
++    private final Map<Token, Integer> tokens = new LinkedHashMap<>(); // insertion order, never identity-hash order (Spellbench X-P4)
+ 
+     /**
+      * Multiple tokens per event (Double Season and other effects can change amount and tokens list with it)
+diff --git a/Mage/src/main/java/mage/game/permanent/token/TokenImpl.java b/Mage/src/main/java/mage/game/permanent/token/TokenImpl.java
+index 593d821..e1cef91 100644
+--- a/Mage/src/main/java/mage/game/permanent/token/TokenImpl.java
++++ b/Mage/src/main/java/mage/game/permanent/token/TokenImpl.java
+@@ -277,7 +277,7 @@ public abstract class TokenImpl extends MageObjectImpl implements Token {
+             return;
+         }
+ 
+-        Set<PermanentToken> allAddedTokens = new HashSet<>();
++        Set<PermanentToken> allAddedTokens = new LinkedHashSet<>(); // creation order (Spellbench X-P4)
+         for (Map.Entry<Token, Integer> entry : event.getTokens().entrySet()) {
+             Token token = entry.getKey();
+             int amount = entry.getValue();
