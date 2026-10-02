@@ -181,21 +181,23 @@ class RunBudget:
     @staticmethod
     def continue_failed_run(parent: Path, path: Path, *, model: str, parent_sha256: str,
                             expected_limits: dict, failure_receipt: Path, failure_receipt_sha256: str,
-                            allow_timeout_forfeits: bool = False) -> None:
+                            allow_timeout_forfeits: bool = False, no_cutoff: bool = False) -> None:
         """Explicit operator recovery, retaining a published abort and cumulative limits.
 
         This never resumes the aborted commitment or retries a request. A retained
         receipt binds the abort's manifest, parent bytes and effective cutoff.
         Any deadline overlay is retained and copied with a new path binding.
+        An explicitly authorized no_cutoff removes only the successor's overall
+        deadline; per-request timeouts and all cumulative limits stay intact.
         """
         recovery = {"receipt": str(Path(failure_receipt).resolve(strict=True)),
                     "receipt_sha256": failure_receipt_sha256}
         RunBudget._continue_failure(parent, path, model=model, parent_sha256=parent_sha256,
                                     expected_limits=expected_limits, allow_timeout_forfeits=allow_timeout_forfeits,
-                                    recovery=recovery)
+                                    recovery=recovery, no_cutoff=no_cutoff)
 
     @staticmethod
-    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float) -> None:
+    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None) -> None:
         receipt = Path(recovery["receipt"]).resolve(strict=True)
         if _digest(receipt) != recovery["receipt_sha256"]:
             raise ProviderError("run_budget_recovery_changed")
@@ -216,9 +218,12 @@ class RunBudget:
     @staticmethod
     def _continue_failure(parent: Path, path: Path, *, model: str, parent_sha256: str,
                           expected_limits: dict, allow_timeout_forfeits: bool = False,
-                          extended_wall_seconds: int | None = None, recovery: dict | None = None) -> None:
+                          extended_wall_seconds: int | None = None, recovery: dict | None = None,
+                          no_cutoff: bool = False) -> None:
         if type(allow_timeout_forfeits) is not bool:
             raise ValueError("allow_timeout_forfeits must be boolean")
+        if type(no_cutoff) is not bool or (no_cutoff and recovery is None):
+            raise ValueError("no_cutoff requires explicit failed-run recovery")
         if extended_wall_seconds is not None and (type(extended_wall_seconds) is not int or extended_wall_seconds < 1):
             raise ValueError("extended_wall_seconds must be a positive integer")
         if (set(expected_limits) != set(LIMIT_NAMES)
@@ -265,7 +270,8 @@ class RunBudget:
                     raise ValueError("wall extension deadline must be finite") from None
                 if not math.isfinite(deadline) or deadline <= policy["deadline"]:
                     raise ValueError("a wall extension must increase the parent's deadline")
-            if (effective_deadline if recovery is not None else deadline) <= time.time():
+            admission_deadline = effective_deadline if recovery is not None else deadline
+            if not no_cutoff and admission_deadline is not None and admission_deadline <= time.time():
                 raise ProviderError("run_budget_deadline_exhausted")
             inherited = _totals(policy, rows)
             if inherited["requests"] >= policy["max_requests"]:
@@ -284,6 +290,8 @@ class RunBudget:
                 successor["continuation"].update(kind="failed-run-recovery", recovery=recovery,
                     parent_overlay_sha256=(_digest(_deadline_extension(parent))
                                            if _deadline_extension(parent).exists() else None))
+                if no_cutoff or effective_deadline is None:
+                    successor["continuation"]["no_cutoff"] = True
             if extended_wall_seconds is not None:
                 successor.update(max_wall_seconds=extended_wall_seconds, deadline=deadline)
                 successor["continuation"]["wall_extension"] = {
@@ -293,7 +301,7 @@ class RunBudget:
                 }
             path.parent.mkdir(parents=True, exist_ok=True)
             RunBudget._initialize(path, successor)
-            if recovery is not None and effective_deadline != deadline:
+            if recovery is not None and not no_cutoff and effective_deadline is not None and effective_deadline != deadline:
                 marker = {"schema": DEADLINE_EXTENSION_SCHEMA, "budget": str(path),
                           "policy_sha256": _static_policy_digest(successor),
                           "original_deadline": deadline, "effective_deadline": effective_deadline}
@@ -342,6 +350,9 @@ class RunBudget:
             continuation = child["continuation"]
             if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery"}:
                 raise ValueError("invalid continuation kind")
+            no_cutoff = continuation.get("no_cutoff", False)
+            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] != "failed-run-recovery"):
+                raise ProviderError("run_budget_continuation_changed")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
                 raise ProviderError("run_budget_continuation_changed")
@@ -384,7 +395,8 @@ class RunBudget:
                     if continuation["parent_overlay_sha256"] != (_digest(overlay) if overlay.exists() else None):
                         raise ProviderError("run_budget_recovery_changed")
                     parent_deadline = self._effective_deadline_for(parent, prior)
-                    if self._effective_deadline_for(current, child) != parent_deadline:
+                    child_deadline = self._effective_deadline_for(current, child)
+                    if child_deadline != (None if no_cutoff else parent_deadline):
                         raise ProviderError("run_budget_recovery_changed")
                     self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline)
                 # Validate each ancestor against this boundary's retained wall
@@ -418,14 +430,15 @@ class RunBudget:
         self._effective_deadline(value)
         return value
 
-    def _effective_deadline(self, policy: dict) -> float:
+    def _effective_deadline(self, policy: dict) -> float | None:
         """Validate the host-owned overlay without changing measured policy bytes."""
         return self._effective_deadline_for(self.path.resolve(), policy)
 
     def qualification_origin(self) -> Path:
         """The sealed budget path for the same qualified request configuration.
 
-        Only failed-run recovery preserves every policy setting and cutoff.
+        Only failed-run recovery preserves the qualified request settings.
+        Explicit removal of an overall cutoff does not change those settings.
         Precommit continuations can change policy, so traversal stops there.
         The active successor remains the only budget used for admission.
         """
@@ -439,8 +452,16 @@ class RunBudget:
             return path
 
     @staticmethod
-    def _effective_deadline_for(path: Path, policy: dict) -> float:
+    def _effective_deadline_for(path: Path, policy: dict) -> float | None:
         marker = _deadline_extension(path)
+        continuation = policy.get("continuation", {})
+        no_cutoff = continuation.get("no_cutoff", False)
+        if type(no_cutoff) is not bool:
+            raise ProviderError("run_budget_continuation_changed")
+        if no_cutoff:
+            if continuation.get("kind") != "failed-run-recovery" or marker.exists():
+                raise ProviderError("run_budget_deadline_extension_conflict")
+            return None
         if not marker.exists():
             return policy["deadline"]
         value = json.loads(marker.read_bytes())
@@ -467,6 +488,8 @@ class RunBudget:
             raise ValueError("an explicit finite absolute deadline is required")
         with self._transaction() as database:
             policy = self._policy(database)
+            if self._effective_deadline(policy) is None:
+                raise ProviderError("run_budget_deadline_extension_conflict")
             if deadline <= policy["deadline"] or deadline <= time.time():
                 raise ProviderError("run_budget_deadline_exhausted")
             rows = database.execute("SELECT * FROM requests").fetchall()
@@ -540,6 +563,8 @@ class RunBudget:
     def reserve(self, prompt: Prompt, *, output_tokens: int, timeout_s: float = 20) -> tuple[int, float]:
         if type(output_tokens) is not int or output_tokens < 1:
             raise ValueError("output_tokens must be positive")
+        if type(timeout_s) not in (float, int) or not math.isfinite(timeout_s) or timeout_s <= 0:
+            raise ProviderError("timeout")
         with self._transaction() as database:
             policy = self._policy(database)
             rows = database.execute("SELECT * FROM requests").fetchall()
@@ -550,7 +575,8 @@ class RunBudget:
             # killed in inference leaves uncertain usage, never a free retry.
             if any(time.time() > row["lease_deadline"] for row in pending):
                 raise ProviderError("run_budget_unresolved_request")
-            remaining = self._effective_deadline(policy) - time.time()
+            cutoff = self._effective_deadline(policy)
+            remaining = math.inf if cutoff is None else cutoff - time.time()
             if remaining <= 0:
                 raise ProviderError("run_budget_deadline_exhausted")
             totals = _totals(policy, rows)
@@ -584,7 +610,8 @@ class RunBudget:
                 used = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
                 if used + sum(counts) > policy["max_reported_tokens"]:
                     error = "run_budget_tokens_exceeded"
-                if time.time() >= self._effective_deadline(policy):
+                cutoff = self._effective_deadline(policy)
+                if cutoff is not None and time.time() >= cutoff:
                     error = "run_budget_deadline_exhausted"
             database.execute(
                 "UPDATE requests SET status=?,input_tokens=?,output_tokens=?,response_id=?,"
@@ -621,7 +648,7 @@ class RunBudget:
             raise ProviderError("run_budget_already_failed")
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
-        if summary["effective_deadline"] <= time.time():
+        if summary["effective_deadline"] is not None and summary["effective_deadline"] <= time.time():
             raise ProviderError("run_budget_deadline_exhausted")
         if summary["requests"] >= summary["policy"]["max_requests"]:
             raise ProviderError("run_budget_requests_exhausted")
