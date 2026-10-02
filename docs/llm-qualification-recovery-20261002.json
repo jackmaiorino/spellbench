@@ -133,5 +133,34 @@
       "tampered_non_timeout_broker_event": "refused without proof receipt or model/engine call",
       "cross_platform_pr_checks": "pending"
     }
+  },
+  "approved_wall_extension": {
+    "approved_by": "Jack in the current Spellbench task on 2026-10-02",
+    "approval_text": "Approved. Get Luna on the benchmark.",
+    "approval_context": "Extend only the original time limit from10:22EDT to12:22EDT, preserving cumulative4096 requests and10-million-token limits",
+    "original_created_at": 1790943743.4969766,
+    "original_max_wall_seconds": 7200,
+    "extended_max_wall_seconds": 14400,
+    "extended_deadline_unix": 1790958143.4969766,
+    "parent_budget_sha256": "f58fb14c83f46eb2cbafc70fd681c2161b7b531e60c7093fcd1f9e085ed6f535",
+    "usage_to_inherit": {
+      "requests": 91,
+      "completed": 89,
+      "failed": 2,
+      "unknown_usage": 2,
+      "reported_tokens": 315090,
+      "uncertain_reserved_tokens": 28681
+    },
+    "activation": "A distinct hash-bound continuation, after source review and tests; no parent ledger edits or independent new budget",
+    "schedule": "Same fixed48 games,32 Luna; declared timeout-forfeit policy from mergedPR52; no request retries or fallback",
+    "timeout_policy_merge": "5532baeb3c817528c07d63f1a258fa6dfc36d21e",
+    "validation": {
+      "root_review": "Accepted wall-extension code and tests: each ancestor binds its retained wall boundary, original creation time stays fixed, request/token/inflight limits and inherited accounting match parent exactly",
+      "focused_tests": "126 passed in9.49s, budget/hosted/renewal/qualification/timeout-replay",
+      "goldens": "passed",
+      "run_history": "passed",
+      "site_validation": "passed, no games played",
+      "ci": "Pending PR checks, not claimed passed"
+    }
   }
 }

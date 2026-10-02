@@ -143,20 +143,27 @@ class RunBudget:
 
     @staticmethod
     def continue_qualification(parent: Path, path: Path, *, model: str, parent_sha256: str,
-                               expected_limits: dict, allow_timeout_forfeits: bool = False) -> None:
+                               expected_limits: dict, allow_timeout_forfeits: bool = False,
+                               extended_wall_seconds: int | None = None) -> None:
         """Explicitly continue repaired pre-commit qualification under the original budget.
 
         The parent's bytes and failed rows stay unchanged. Its exclusive sidecar
         retires that attempt and selects one successor, including concurrent creators.
         An interrupted creation retains its partial evidence; it never resets a budget.
+        An explicitly authorized wall extension uses the original creation time;
+        expected_limits still declares the parent's current limits.
         """
         if type(allow_timeout_forfeits) is not bool:
             raise ValueError("allow_timeout_forfeits must be boolean")
+        if extended_wall_seconds is not None and (type(extended_wall_seconds) is not int or extended_wall_seconds < 1):
+            raise ValueError("extended_wall_seconds must be a positive integer")
         if (set(expected_limits) != set(LIMIT_NAMES)
                 or any(type(value) is not int or value < 1 for value in expected_limits.values())
                 or not isinstance(parent_sha256, str) or len(parent_sha256) != 64
                 or any(char not in "0123456789abcdef" for char in parent_sha256)):
             raise ValueError("original policy and parent SHA-256 are required")
+        if extended_wall_seconds is not None and extended_wall_seconds <= expected_limits["max_wall_seconds"]:
+            raise ValueError("a wall extension must increase the parent's limit")
         parent, path = Path(parent).resolve(strict=True), Path(path).resolve()
         if parent == path:
             raise ValueError("continuation needs a distinct ledger")
@@ -175,7 +182,17 @@ class RunBudget:
                 raise ProviderError("run_budget_limits_mismatch")
             if not (policy.get("terminal_error") or any(_terminal_request(policy, row) for row in rows)):
                 raise ProviderError("run_budget_parent_not_failed")
-            if policy["deadline"] <= time.time():
+            deadline = policy["deadline"]
+            if extended_wall_seconds is not None:
+                if extended_wall_seconds <= policy["max_wall_seconds"]:
+                    raise ValueError("a wall extension must increase the parent's limit")
+                try:
+                    deadline = policy["created_at"] + extended_wall_seconds
+                except OverflowError:
+                    raise ValueError("wall extension deadline must be finite") from None
+                if not math.isfinite(deadline) or deadline <= policy["deadline"]:
+                    raise ValueError("a wall extension must increase the parent's deadline")
+            if deadline <= time.time():
                 raise ProviderError("run_budget_deadline_exhausted")
             inherited = _totals(policy, rows)
             if inherited["requests"] >= policy["max_requests"]:
@@ -190,6 +207,13 @@ class RunBudget:
                                           "allow_timeout_forfeits": allow_timeout_forfeits}}
             if allow_timeout_forfeits:
                 successor["allow_timeout_forfeits"] = True
+            if extended_wall_seconds is not None:
+                successor.update(max_wall_seconds=extended_wall_seconds, deadline=deadline)
+                successor["continuation"]["wall_extension"] = {
+                    "parent_max_wall_seconds": policy["max_wall_seconds"],
+                    "parent_deadline": policy["deadline"],
+                    "extended_wall_seconds": extended_wall_seconds,
+                }
             path.parent.mkdir(parents=True, exist_ok=True)
             RunBudget._initialize(path, successor)
             if _digest(parent) != parent_sha256:
@@ -238,6 +262,15 @@ class RunBudget:
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
                 raise ProviderError("run_budget_continuation_changed")
+            extension = continuation.get("wall_extension")
+            if "wall_extension" in continuation:
+                if (not isinstance(extension, dict) or set(extension) != {
+                        "parent_max_wall_seconds", "parent_deadline", "extended_wall_seconds"}
+                        or any(type(extension[name]) is not int or extension[name] < 1
+                               for name in ("parent_max_wall_seconds", "extended_wall_seconds"))
+                        or type(extension["parent_deadline"]) not in (int, float)
+                        or not math.isfinite(extension["parent_deadline"])):
+                    raise ValueError("invalid wall extension")
             parent = Path(continuation["parent"]).resolve(strict=True)
             _retained_file(parent)
             if parent in seen or _digest(parent) != continuation["parent_sha256"]:
@@ -254,16 +287,29 @@ class RunBudget:
                 if retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                     raise ProviderError("run_budget_parent_unsealed")
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
-                # A prospective opt-in changes only the child. Ancestors retain
-                # their original failure policy, while numeric caps remain bound.
-                self._validate_policy(prior, self.model, {
-                    name: limit for name, limit in self.expected_limits.items() if name != "allow_timeout_forfeits"})
+                # Validate each ancestor against this boundary's retained wall
+                # limit, rather than the leaf's prospectively extended limit.
+                ancestor_limits = {name: limit for name, limit in self.expected_limits.items()
+                                   if name not in {"allow_timeout_forfeits", "max_wall_seconds"}}
+                ancestor_limits["max_wall_seconds"] = (child["max_wall_seconds"] if extension is None
+                                                       else extension["parent_max_wall_seconds"])
+                self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
                 if any(row["status"] == "pending" for row in rows):
                     raise ProviderError("run_budget_unresolved_request")
                 if (prior.get("allow_timeout_forfeits", False) and not child.get("allow_timeout_forfeits", False)):
                     raise ProviderError("run_budget_continuation_changed")
-                if (any(child[name] != prior[name] for name in (*LIMIT_NAMES, "created_at", "deadline", "provider_output_cap"))
+                if extension is None:
+                    wall_matches = child["deadline"] == prior["deadline"]
+                else:
+                    wall_matches = (extension["parent_deadline"] == prior["deadline"]
+                                    and extension["extended_wall_seconds"] == child["max_wall_seconds"]
+                                    and child["max_wall_seconds"] > prior["max_wall_seconds"]
+                                    and child["deadline"] == prior["created_at"] + child["max_wall_seconds"]
+                                    and child["deadline"] > prior["deadline"])
+                if (not wall_matches
+                        or any(child[name] != prior[name] for name in (*LIMIT_NAMES, "created_at", "provider_output_cap")
+                               if name != "max_wall_seconds")
                         or continuation["inherited"] != _totals(prior, rows)):
                     raise ProviderError("run_budget_continuation_changed")
             finally:
@@ -517,6 +563,8 @@ def main() -> int:
     continuation.add_argument("--max-wall-seconds", type=int, required=True)
     continuation.add_argument("--max-inflight", type=int, required=True)
     continuation.add_argument("--allow-timeout-forfeits", action="store_true")
+    continuation.add_argument("--extended-wall-seconds", type=int,
+                              help="explicit authorized extension from the original creation time; other caps remain unchanged")
     args = parser.parse_args()
     if args.command == "create":
         RunBudget.create(args.path, model=args.model, requests=args.max_requests, tokens=args.max_tokens,
@@ -525,6 +573,7 @@ def main() -> int:
     elif args.command == "continue-qualification":
         RunBudget.continue_qualification(args.parent, args.path, model=args.model, parent_sha256=args.parent_sha256,
                                          allow_timeout_forfeits=args.allow_timeout_forfeits,
+                                         extended_wall_seconds=args.extended_wall_seconds,
                                          expected_limits={"max_requests": args.max_requests, "max_reported_tokens": args.max_tokens,
                                                           "max_wall_seconds": args.max_wall_seconds, "max_inflight": args.max_inflight})
     else:
