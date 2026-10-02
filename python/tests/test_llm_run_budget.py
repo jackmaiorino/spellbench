@@ -705,3 +705,219 @@ def test_extension_cli_keeps_parent_expected_wall_and_binds_combined_timeout_opt
     state = RunBudget(target, model="luna", expected_limits={"max_wall_seconds": 14400, "allow_timeout_forfeits": True})
     assert state.summary()["policy"]["deadline"] == created + 14400
     assert state.summary()["policy"]["continuation"]["wall_extension"]["parent_max_wall_seconds"] == 7200
+
+
+def deadline_marker(path):
+    return path.with_name(path.name + ".deadline-extension.json")
+
+
+def test_same_path_deadline_overlay_keeps_database_and_measured_policy_byte_identical(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    parent = failed_budget(tmp_path, wall_seconds=7200)
+    target = tmp_path / "active.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent),
+                                     allow_timeout_forfeits=True, extended_wall_seconds=14400)
+    state = RunBudget(target, model="luna", expected_limits={"max_wall_seconds": 14400})
+    before = state.summary()
+    original_bytes, parent_bytes = target.read_bytes(), parent.path.read_bytes()
+    extended = before["policy"]["deadline"] + 3600
+    # Between phases an expired baseline can be extended, with settled usage.
+    monkeypatch.setattr(module.time, "time", lambda: before["policy"]["deadline"] + 1)
+    state.extend_deadline(extended)
+    state.check()
+    after = state.summary()
+    assert target.read_bytes() == original_bytes and parent.path.read_bytes() == parent_bytes
+    assert after["policy"] == before["policy"]
+    assert after["original_deadline"] == before["policy"]["deadline"] and after["effective_deadline"] == extended
+    for name in ("requests", "completed", "failed", "unknown_usage", "accounted_tokens", "uncertain_reserved_tokens"):
+        assert after[name] == before[name]
+    marker = deadline_marker(target).read_bytes()
+    state.extend_deadline(extended)
+    assert deadline_marker(target).read_bytes() == marker and target.read_bytes() == original_bytes
+    with pytest.raises(ProviderError, match="run_budget_deadline_extension_conflict"):
+        state.extend_deadline(extended + 60)
+    # Existing hosted commands retain the measured 14400-second baseline.
+    bot = BotSpec("luna", "0.1", "subprocess", command=("python", "llm_hosted_bot.py", "--model", "luna",
+                  "--run-budget=" + str(target), "--max-run-requests", "8", "--max-run-tokens", "8000",
+                  "--max-run-wall-seconds", "14400", "--allow-timeout-forfeits"))
+    check_hosted_budgets(SimpleNamespace(bots=(bot,)))
+
+
+def test_reserve_provider_timeout_finish_and_check_use_effective_deadline(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    state = budget(tmp_path)
+    baseline = state.summary()["policy"]["deadline"]
+    state.extend_deadline(baseline + 40)
+    monkeypatch.setattr(module.time, "time", lambda: baseline + 10)
+    state.check()
+    calls = []
+    class TimedProvider:
+        def complete(self, prompt, *, timeout_s):
+            calls.append(timeout_s)
+            return Completion("{}", "luna", 10, 1)
+    BudgetedProvider(TimedProvider(), state, output_tokens=100).complete(PROMPT, timeout_s=60)
+    assert len(calls) == 1 and calls[0] == 30
+    assert state.summary()["completed"] == 1
+    request, remaining = state.reserve(PROMPT, output_tokens=100)
+    assert remaining == 30
+    monkeypatch.setattr(module.time, "time", lambda: baseline + 40)
+    assert state.finish(request, result=Completion("{}", "luna", 10, 1), elapsed_ms=1) == "run_budget_deadline_exhausted"
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check()
+
+
+def test_overlay_expiry_stops_admission_before_provider_call(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    state = budget(tmp_path)
+    deadline = state.summary()["policy"]["deadline"] + 30
+    state.extend_deadline(deadline)
+    monkeypatch.setattr(module.time, "time", lambda: deadline)
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        state.check()
+    provider = Provider(Completion("{}", "luna", 1, 1))
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+    assert provider.calls == state.summary()["requests"] == 0
+
+
+@pytest.mark.parametrize("problem,code", [("pending", "unresolved_request"), ("failure", "already_failed"),
+                                        ("host", "already_failed"), ("requests", "requests_exhausted"),
+                                        ("tokens", "tokens_exhausted"), ("deadline", "deadline_exhausted")])
+def test_deadline_overlay_refuses_active_failures_unresolved_or_exhausted_budget(tmp_path, problem, code):
+    settings = {"requests": 1} if problem == "requests" else ({"tokens": 11} if problem == "tokens" else {})
+    state = budget(tmp_path, **settings)
+    if problem == "pending":
+        state.reserve(PROMPT, output_tokens=100)
+    elif problem == "failure":
+        with pytest.raises(ProviderError, match="timeout"):
+            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+    elif problem == "host":
+        state.fail("profile_renewal_failed")
+    elif problem in {"requests", "tokens"}:
+        BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=1).complete(PROMPT, timeout_s=2)
+    baseline = state.summary()["policy"]["deadline"]
+    original = state.path.read_bytes()
+    with pytest.raises(ProviderError, match=code):
+        state.extend_deadline(baseline if problem == "deadline" else baseline + 60)
+    assert state.path.read_bytes() == original and not deadline_marker(state.path).exists()
+
+
+@pytest.mark.parametrize("value", [True, None, "future", float("nan"), float("inf"), -float("inf"), 10**400])
+def test_deadline_overlay_requires_an_explicit_finite_timestamp(tmp_path, value):
+    state = budget(tmp_path)
+    with pytest.raises(ValueError):
+        state.extend_deadline(value)
+    assert not deadline_marker(state.path).exists()
+
+
+@pytest.mark.parametrize("mutation", ["deadline", "schema", "path", "seal", "settings", "extra", "truncated"])
+def test_every_operation_refuses_deadline_overlay_tampering(tmp_path, mutation):
+    state = budget(tmp_path)
+    state.extend_deadline(state.summary()["policy"]["deadline"] + 60)
+    marker = deadline_marker(state.path)
+    value = json.loads(marker.read_bytes())
+    if mutation == "settings":
+        with sqlite3.connect(state.path) as database:
+            policy = json.loads(sqlite_policy(state.path))
+            policy["max_inflight"] += 1
+            database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
+    elif mutation == "truncated":
+        marker.write_text('{"schema":')
+    else:
+        if mutation == "deadline":
+            value["effective_deadline"] += 60
+        elif mutation == "schema":
+            value["schema"] = "unsupported"
+        elif mutation == "path":
+            value["budget"] = str(tmp_path / "other.sqlite3")
+        elif mutation == "seal":
+            value["sha256"] = "0" * 64
+        else:
+            value["allow_timeout_forfeits"] = True
+        marker.write_text(json.dumps(value))
+    for operation in [state.summary, state.check, lambda: state.reserve(PROMPT, output_tokens=100),
+                      lambda: RunBudget(state.path, model="luna")]:
+        with pytest.raises(ProviderError):
+            operation()
+
+
+def test_deadline_overlay_transplant_refuses_even_with_identical_sqlite_bytes(tmp_path):
+    state = budget(tmp_path)
+    state.extend_deadline(state.summary()["policy"]["deadline"] + 60)
+    copied = tmp_path / "copied.sqlite3"
+    copied.write_bytes(state.path.read_bytes())
+    deadline_marker(copied).write_bytes(deadline_marker(state.path).read_bytes())
+    with pytest.raises(ProviderError, match="run_budget_deadline_extension_changed"):
+        RunBudget(copied, model="luna")
+
+
+def test_terminal_host_failure_remains_terminal_with_original_overlay_seal(tmp_path):
+    state = budget(tmp_path)
+    state.extend_deadline(state.summary()["policy"]["deadline"] + 60)
+    marker = deadline_marker(state.path).read_bytes()
+    state.fail("profile_renewal_failed")
+    assert state.summary()["policy"]["terminal_error"] == "profile_renewal_failed"
+    assert deadline_marker(state.path).read_bytes() == marker
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check()
+
+
+@pytest.mark.parametrize("same_value", [True, False])
+def test_concurrent_deadline_operators_select_one_exclusive_value(tmp_path, same_value):
+    state = budget(tmp_path)
+    baseline = state.summary()["policy"]["deadline"]
+    original = state.path.read_bytes()
+    def extend(index):
+        deadline = baseline + 60 + (0 if same_value else index)
+        try:
+            RunBudget(state.path, model="luna").extend_deadline(deadline)
+            return deadline
+        except ProviderError as exc:
+            assert exc.code == "run_budget_deadline_extension_conflict"
+            return None
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(extend, range(8)))
+    winners = [value for value in results if value is not None]
+    assert len(winners) == (8 if same_value else 1)
+    assert state.summary()["effective_deadline"] == winners[0]
+    assert state.path.read_bytes() == original
+
+
+def test_continuation_cannot_drop_or_copy_an_existing_deadline_overlay(tmp_path):
+    state = budget(tmp_path)
+    state.extend_deadline(state.summary()["policy"]["deadline"] + 60)
+    state.fail("profile_renewal_failed")
+    target = tmp_path / "continued.sqlite3"
+    with pytest.raises(ProviderError, match="run_budget_deadline_extension_present"):
+        RunBudget.continue_qualification(state.path, target, **continuation_arguments(state))
+    assert not target.exists()
+
+
+def test_explicit_deadline_cli_keeps_baseline_cap_and_sqlite_bytes(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    state = budget(tmp_path, wall_seconds=14400)
+    original = state.path.read_bytes()
+    baseline = state.summary()["policy"]["deadline"]
+    deadline = baseline + 60
+    monkeypatch.setattr(sys, "argv", ["run_budget", "extend-deadline", str(state.path), "--model", "luna",
+                                    "--deadline", str(deadline), "--max-requests", "8", "--max-tokens", "8000",
+                                    "--max-wall-seconds", "14400", "--max-inflight", "4"])
+    assert module.main() == 0
+    assert state.path.read_bytes() == original and state.summary()["policy"]["max_wall_seconds"] == 14400
+    assert state.summary()["effective_deadline"] == deadline
+
+
+def test_deadline_overlay_preserves_opted_in_timeout_reservations_at_admission_and_finish(tmp_path):
+    state = failed_budget(tmp_path, tokens=1300, allow_timeout_forfeits=True)
+    before = state.summary()
+    original = state.path.read_bytes()
+    state.extend_deadline(before["policy"]["deadline"] + 60)
+    assert state.path.read_bytes() == original
+    assert state.summary()["accounted_tokens"] == 1154 and state.summary()["unknown_usage"] == 1
+    with pytest.raises(ProviderError, match="run_budget_tokens_exhausted"):
+        state.reserve(PROMPT, output_tokens=1000)
+    request, _ = state.reserve(PROMPT, output_tokens=100)
+    assert state.finish(request, result=Completion("{}", "luna", 200, 0), elapsed_ms=1) == "run_budget_tokens_exceeded"
+    assert state.summary()["accounted_tokens"] == 1354
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check()

@@ -25,6 +25,7 @@ from .provider import Completion, ProviderError
 SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
 TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
+DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -41,6 +42,26 @@ def _successor_claim(path: Path) -> Path:
 
 def _origin(path: Path) -> Path:
     return path.with_name(path.name + ".continuation-origin.json")
+
+
+def _deadline_extension(path: Path) -> Path:
+    return path.with_name(path.name + ".deadline-extension.json")
+
+
+def _json_digest(value: dict) -> str:
+    raw = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _static_policy_digest(policy: dict) -> str:
+    return _json_digest({key: value for key, value in policy.items() if key != "terminal_error"})
+
+
+def _finite_timestamp(value) -> bool:
+    try:
+        return type(value) in (float, int) and math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _retained_file(path: Path) -> None:
@@ -168,6 +189,8 @@ class RunBudget:
         if parent == path:
             raise ValueError("continuation needs a distinct ledger")
         _retained_file(parent)
+        if _deadline_extension(parent).exists():
+            raise ProviderError("run_budget_deadline_extension_present")
         previous = RunBudget(parent, model=model, expected_limits=expected_limits)
         with previous._transaction() as database:
             policy = previous._policy(database)
@@ -273,6 +296,8 @@ class RunBudget:
                     raise ValueError("invalid wall extension")
             parent = Path(continuation["parent"]).resolve(strict=True)
             _retained_file(parent)
+            if _deadline_extension(parent).exists():
+                raise ProviderError("run_budget_deadline_extension_present")
             if parent in seen or _digest(parent) != continuation["parent_sha256"]:
                 raise ProviderError("run_budget_parent_changed")
             seen.add(parent)
@@ -315,7 +340,61 @@ class RunBudget:
             finally:
                 retained.close()
             current, child = parent, prior
+        self._effective_deadline(value)
         return value
+
+    def _effective_deadline(self, policy: dict) -> float:
+        """Validate the host-owned overlay without changing measured policy bytes."""
+        marker = _deadline_extension(self.path.resolve())
+        if not marker.exists():
+            return policy["deadline"]
+        value = json.loads(marker.read_bytes())
+        if (not isinstance(value, dict) or set(value) != {
+                "schema", "budget", "policy_sha256", "original_deadline", "effective_deadline", "sha256"}
+                or value["schema"] != DEADLINE_EXTENSION_SCHEMA
+                or value["budget"] != str(self.path.resolve())
+                or value["policy_sha256"] != _static_policy_digest(policy)
+                or value["original_deadline"] != policy["deadline"]
+                or not _finite_timestamp(value["effective_deadline"])
+                or value["effective_deadline"] <= policy["deadline"]
+                or value["sha256"] != _json_digest({key: item for key, item in value.items() if key != "sha256"})):
+            raise ProviderError("run_budget_deadline_extension_changed")
+        return value["effective_deadline"]
+
+    def extend_deadline(self, deadline: float) -> None:
+        """Explicitly apply an authorized absolute cutoff between idle phases.
+
+        The single exclusive sidecar changes only the effective deadline. SQLite,
+        its static settings and all cumulative accounting remain byte-identical.
+        Repeating the same deadline is idempotent; a different overlay refuses.
+        """
+        if not _finite_timestamp(deadline):
+            raise ValueError("an explicit finite absolute deadline is required")
+        with self._transaction() as database:
+            policy = self._policy(database)
+            if deadline <= policy["deadline"] or deadline <= time.time():
+                raise ProviderError("run_budget_deadline_exhausted")
+            rows = database.execute("SELECT * FROM requests").fetchall()
+            if any(row["status"] == "pending" for row in rows):
+                raise ProviderError("run_budget_unresolved_request")
+            if policy.get("terminal_error") or any(_terminal_request(policy, row) for row in rows):
+                raise ProviderError("run_budget_already_failed")
+            totals = _totals(policy, rows)
+            if totals["requests"] >= policy["max_requests"]:
+                raise ProviderError("run_budget_requests_exhausted")
+            if (totals["reported_input_tokens"] + totals["reported_output_tokens"]
+                    + totals["uncertain_reserved_tokens"] >= policy["max_reported_tokens"]):
+                raise ProviderError("run_budget_tokens_exhausted")
+            marker = _deadline_extension(self.path.resolve())
+            if marker.exists():
+                if self._effective_deadline(policy) != deadline:
+                    raise ProviderError("run_budget_deadline_extension_conflict")
+                return
+            value = {"schema": DEADLINE_EXTENSION_SCHEMA, "budget": str(self.path.resolve()),
+                     "policy_sha256": _static_policy_digest(policy), "original_deadline": policy["deadline"],
+                     "effective_deadline": deadline}
+            value["sha256"] = _json_digest(value)
+            _write_marker(marker, value)
 
     @staticmethod
     def _validate_policy(value, model, expected_limits):
@@ -376,7 +455,7 @@ class RunBudget:
             # killed in inference leaves uncertain usage, never a free retry.
             if any(time.time() > row["lease_deadline"] for row in pending):
                 raise ProviderError("run_budget_unresolved_request")
-            remaining = policy["deadline"] - time.time()
+            remaining = self._effective_deadline(policy) - time.time()
             if remaining <= 0:
                 raise ProviderError("run_budget_deadline_exhausted")
             totals = _totals(policy, rows)
@@ -410,7 +489,7 @@ class RunBudget:
                 used = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
                 if used + sum(counts) > policy["max_reported_tokens"]:
                     error = "run_budget_tokens_exceeded"
-                if time.time() >= policy["deadline"]:
+                if time.time() >= self._effective_deadline(policy):
                     error = "run_budget_deadline_exhausted"
             database.execute(
                 "UPDATE requests SET status=?,input_tokens=?,output_tokens=?,response_id=?,"
@@ -427,6 +506,7 @@ class RunBudget:
             rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
             totals = _totals(policy, rows)
             return {"policy": policy, **totals,
+                    "original_deadline": policy["deadline"], "effective_deadline": self._effective_deadline(policy),
                     "active_failed": sum(row["status"] == "failed" for row in rows),
                     "active_terminal_failures": sum(_terminal_request(policy, row) for row in rows),
                     "active_timeout_forfeits": sum(_timeout_forfeit(policy, row) for row in rows),
@@ -446,7 +526,7 @@ class RunBudget:
             raise ProviderError("run_budget_already_failed")
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
-        if summary["policy"]["deadline"] <= time.time():
+        if summary["effective_deadline"] <= time.time():
             raise ProviderError("run_budget_deadline_exhausted")
         if summary["requests"] >= summary["policy"]["max_requests"]:
             raise ProviderError("run_budget_requests_exhausted")
@@ -565,6 +645,14 @@ def main() -> int:
     continuation.add_argument("--allow-timeout-forfeits", action="store_true")
     continuation.add_argument("--extended-wall-seconds", type=int,
                               help="explicit authorized extension from the original creation time; other caps remain unchanged")
+    extension = commands.add_parser("extend-deadline", help="explicit authorized absolute cutoff between idle phases")
+    extension.add_argument("path", type=Path)
+    extension.add_argument("--model", required=True)
+    extension.add_argument("--deadline", type=float, required=True, help="absolute Unix timestamp; baseline settings stay unchanged")
+    extension.add_argument("--max-requests", type=int, required=True)
+    extension.add_argument("--max-tokens", type=int, required=True)
+    extension.add_argument("--max-wall-seconds", type=int, required=True)
+    extension.add_argument("--max-inflight", type=int, required=True)
     args = parser.parse_args()
     if args.command == "create":
         RunBudget.create(args.path, model=args.model, requests=args.max_requests, tokens=args.max_tokens,
@@ -576,6 +664,11 @@ def main() -> int:
                                          extended_wall_seconds=args.extended_wall_seconds,
                                          expected_limits={"max_requests": args.max_requests, "max_reported_tokens": args.max_tokens,
                                                           "max_wall_seconds": args.max_wall_seconds, "max_inflight": args.max_inflight})
+    elif args.command == "extend-deadline":
+        state = RunBudget(args.path, model=args.model, expected_limits={
+            "max_requests": args.max_requests, "max_reported_tokens": args.max_tokens,
+            "max_wall_seconds": args.max_wall_seconds, "max_inflight": args.max_inflight})
+        state.extend_deadline(args.deadline)
     else:
         print(json.dumps(RunBudget(args.path, model=args.model).summary(), indent=2))
     return 0
