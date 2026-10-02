@@ -1,5 +1,14 @@
 # X5 status (for the coordinator)
 
+## 2026-10-02: work moves to main (branch `xmage-m1`)
+
+- Main's reviewed build of `004913a` (lib `094733a7`) is the engine; its X5 (10,112 games, 0 violations, 1,011/1,011
+  replays) is in `docs/llm-engine-verification-20261002.json`. The `d74803d5` run below is superseded history
+  (`evidence/superseded-d74803d5/`).
+- #23 checks ran on `004913a` (2026-10-02 08:33 to 09:15, Jack's PC): leak tests PASS, goldens 5/5, conformance
+  21/21 on both pools (README, `evidence/004913a-checks/`). `../x5m/run_rated.sh` is ready, not run.
+  Everything below this section is history from branch `xmage-x0-x1`.
+
 ## 18:50 EDT: standing by
 
 - The writer on HaleysPC was a Codex cloud task building mtg-kernel FDN fixture tests into
