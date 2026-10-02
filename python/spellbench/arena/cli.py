@@ -1,7 +1,8 @@
 """The ``spellbench`` command line: run / validate / leaderboard / bench / site / bot / conformance.
 
-- ``spellbench run CONFIG.json``: run a tournament and publish artifacts
-  into the config's ``tournament_dir``.
+- ``spellbench run CONFIG.json [--placement TEXT]``: run a tournament and
+  publish artifacts into the config's ``tournament_dir``; the throughput
+  guard plans the launch (a substantial run needs the placement).
 - ``spellbench validate TOURNAMENT_DIR``: verify every manifest digest and
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
@@ -38,12 +39,12 @@ from ..errors import ValidationError
 from ..run_secret import RunSecret
 from ..wire import strict_json_loads
 from . import runner, store
-from .throughput import Allocation
+from .throughput import ThroughputError
 from .validate import validate_tournament_dir
 
 _USAGE = (
     "usage:\n"
-    "  spellbench run CONFIG.json\n"
+    "  spellbench run CONFIG.json [--placement TEXT]\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
@@ -93,18 +94,45 @@ def _print_games(summary: runner.TournamentSummary) -> None:
     print(f"leaderboard status: {summary.leaderboard_status}")
 
 
+def _print_allocation(summary: runner.TournamentSummary) -> None:
+    """The allocation line of ``run`` and ``bench run``: the guard's kind and the workers it chose."""
+    allocation = summary.manifest["allocation"]
+    print(f"allocation: {allocation['kind']} ({allocation['workers']} workers)")
+
+
 def _cmd_run(argv: Sequence[str]) -> int:
-    if len(argv) != 1:
-        print("usage: spellbench run CONFIG.json", file=sys.stderr)
+    # The launch guard lives in the bench layer: imported here so `spellbench bot`, spawned once
+    # per seat per game, starts without the benchmark modules.
+    from ..bench.pinning import engine_files
+    from ..bench.run import EVIDENCE_NAME, plan_for, run_files
+
+    parsed = _bench_options(list(argv), ("placement",), ())
+    if parsed is None:
+        print("usage: spellbench run CONFIG.json [--placement TEXT]", file=sys.stderr)
         return 2
-    config = _load_config(Path(argv[0]))
-    # The launch guard of Task 43 is not wired yet: the CLI runs unmeasured, hence unrated.
+    positionals, options, _ = parsed
+    if len(positionals) != 1:
+        print("usage: spellbench run CONFIG.json [--placement TEXT]", file=sys.stderr)
+        return 2
+    config = _load_config(Path(positionals[0]))
+    run_dir = Path(config.tournament_dir)
+    allocation = plan_for(
+        config,
+        placement=options.get("placement"),
+        evidence=run_dir.parent / EVIDENCE_NAME,
+        volumes={"run_dir": run_dir, "pin_root": run_dir},  # a plain run pins nothing
+        files=run_files(config),
+    )
     summary = runner.run_tournament(
-        config, run_secret=RunSecret.generate(), allocation=Allocation.unmeasured(config.workers)
+        config,
+        run_secret=RunSecret.generate(),
+        allocation=allocation,
+        engine_files=engine_files(config.engine_command),
     )
     print(f"tournament published: {summary.tournament_dir}")
     _print_games(summary)
     print(f"status: {summary.status} ({'rated' if summary.rated else 'unrated'})")
+    _print_allocation(summary)
     return 0
 
 
@@ -210,6 +238,7 @@ def _cmd_bench_run(rest: list[str]) -> int:
     )
     print(f"benchmark run published: {result.run_dir}")
     _print_games(result.summary)
+    _print_allocation(result.summary)
     if result.failures:
         for failure in result.failures:
             print(f"FAIL {failure}", file=sys.stderr)
@@ -389,6 +418,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(_USAGE, file=sys.stderr)
         return 2
     command, rest = args[0], args[1:]
+    # The launch guards' errors (neither is a ValueError) are reported like the other input errors (R3-29).
+    errors: tuple[type[Exception], ...] = (
+        runner.TournamentError,
+        store.StoreError,
+        ValidationError,
+        ValueError,
+        ThroughputError,
+    )
+    if command in ("run", "bench"):
+        # Imported on the launch paths only, so `spellbench bot` starts without the benchmark modules.
+        from ..bench.pinning import PinningError
+
+        errors = (*errors, PinningError)
     try:
         if command == "run":
             return _cmd_run(rest)
@@ -404,7 +446,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_bot(rest)
         if command == "conformance":
             return _cmd_conformance(rest)
-    except (runner.TournamentError, store.StoreError, ValidationError, ValueError) as exc:
+    except errors as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     print(_USAGE, file=sys.stderr)

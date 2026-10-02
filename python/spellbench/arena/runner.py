@@ -34,6 +34,14 @@ the manifest is written (R3-31). ``bench/definition.py`` reads v1 names this
 module no longer holds at import, so it fails with an ``AttributeError``
 until Task 37 ports it; every test importing ``spellbench.bench`` is skipped
 at module level meanwhile (R3-25).
+
+With more than one worker, an :class:`~spellbench.arena.throughput.IdleMonitor`
+watches the run as it plays (a substantial allocation's qualified rate, the
+machine's CPU); each warning is appended to the run's unhashed
+``throughput.jsonl`` and echoed to stderr as it happens, never into the
+manifest's files (R3-6). After a complete run, a small allocation's
+spot-check game is replayed serially and its digest compared with the
+ledger's, so only a reproduced game makes the run ratable (Decision 3).
 """
 
 from __future__ import annotations
@@ -42,6 +50,7 @@ import contextlib
 import functools
 import os
 import signal
+import sys
 import threading
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -69,7 +78,7 @@ from .manifest import (
     run_status,
 )
 from .schedule import EnginePin, GameContext, RunSetup, game_setup, preflight, schedule
-from .throughput import Allocation, IdleMonitor, resource_bound
+from .throughput import Allocation, CpuSampler, IdleMonitor, resource_bound, warning_sink
 
 __all__ = [
     "BotSpec",
@@ -83,6 +92,9 @@ __all__ = [
     "registry_entries",
     "run_tournament",
 ]
+
+# The idle monitor's warning log: local, unhashed and git-ignored, never in the manifest's files (R3-6).
+THROUGHPUT_LOG_NAME = "throughput.jsonl"
 
 
 @dataclass(frozen=True)
@@ -359,6 +371,7 @@ def play_games(
     stop_on_violation: bool = True,
     on_outcome: Callable[[GameOutcome], None] | None = None,
     monitor: IdleMonitor | None = None,
+    on_warning: Callable[[str], None] | None = None,
 ) -> ExecutionResult:
     """Play every context through :func:`play_one` (see ``arena.executor`` for the prefix rules)."""
     play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries)
@@ -369,6 +382,7 @@ def play_games(
         stop_on_violation=stop_on_violation,
         on_outcome=on_outcome,
         monitor=monitor,
+        on_warning=on_warning,
     )
 
 
@@ -465,12 +479,47 @@ def run_tournament(
     # Games run in parallel only while their declared cores are free, whatever
     # allocation a library caller passes (spec 11.4); that number is published (R3-24).
     workers = min(allocation.workers, resource_bound(os.cpu_count() or 1, config.per_game_cores()))
+    monitor: IdleMonitor | None = None
+    on_warning: Callable[[str], None] | None = None
+    if workers > 1:
+        # The idle monitor watches the run as it plays; each warning lands in the run's
+        # unhashed throughput log at once, and on stderr, never in the manifest's files (R3-6).
+        monitor = IdleMonitor(workers, qualified_rate=allocation.qualified_rate, cpu=CpuSampler().sample)
+        on_warning = warning_sink(directory / THROUGHPUT_LOG_NAME, stream=sys.stderr)
     allocation = replace(allocation, workers=workers)
     result = play_games(
-        executed, setup, contexts, run_secret=run_secret, entries=entries, workers=workers, on_outcome=record
+        executed,
+        setup,
+        contexts,
+        run_secret=run_secret,
+        entries=entries,
+        workers=workers,
+        on_outcome=record,
+        monitor=monitor,
+        on_warning=on_warning,
     )
 
     status = run_status(scheduled=len(contexts), rows=len(rows), violations=len(violations))
+    if (
+        allocation.kind == "small"
+        and allocation.spot_check is None
+        and allocation.games_total == len(contexts)
+        and status == "complete"
+    ):
+        # A small run replays the game its rules name, serially, after the run; only a
+        # passed spot check makes the allocation measured, hence ratable (Decision 3).
+        assert allocation.rules is not None
+        game = allocation.rules.spot_check_game(len(contexts))
+        replay = play_games(
+            executed, setup, [contexts[game]], run_secret=run_secret, entries=entries, workers=1,
+            stop_on_violation=False,
+        )
+        if replay.stopped == "aborted":
+            assert replay.error is not None
+            raise replay.error
+        allocation = allocation.with_spot_check(
+            game, recorded_digest=rows[game].game_digest, replayed_digest=replay.outcomes[0].row.game_digest
+        )
     document, markdown = leaderboard.build_leaderboard(
         rows,
         entries_list,
