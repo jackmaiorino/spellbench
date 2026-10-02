@@ -193,7 +193,9 @@ func Serve(r io.Reader, w io.Writer, s *Server) error {
 		case errors.Is(err, io.EOF):
 			return nil
 		case errors.Is(err, wire.ErrLineTooLong):
-			w.Write(append(errResp("", protocol.Errf(protocol.CodeMalformedJSON, "line exceeds 8 MiB")), '\n'))
+			if _, err := w.Write(append(errResp("", protocol.Errf(protocol.CodeMalformedJSON, "line exceeds 8 MiB")), '\n')); err != nil {
+				return err
+			}
 			continue
 		case err != nil:
 			return err

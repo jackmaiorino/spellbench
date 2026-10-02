@@ -3,6 +3,7 @@ package server_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -202,6 +203,36 @@ func TestServeFraming(t *testing.T) {
 	}
 	if resp(t, []byte(lines[2]))["response_type"] != "hello_ok" {
 		t.Fatalf("resync: %s", lines[2])
+	}
+}
+
+// failAfter fails every Write after the first n.
+type failAfter struct {
+	n, calls int
+	err      error
+	buf      bytes.Buffer
+}
+
+func (f *failAfter) Write(p []byte) (int, error) {
+	f.calls++
+	if f.calls > f.n {
+		return 0, f.err
+	}
+	return f.buf.Write(p)
+}
+
+func TestServeSurfacesTheLongLineWriteError(t *testing.T) {
+	hello := `{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1","protocol_minor":0}`
+	long := `{"p":"` + strings.Repeat("x", wire.MaxLineBytes) + `"}`
+	boom := errors.New("sink closed")
+	// The hello_ok write succeeds; the over-long line's malformed_json frame fails.
+	w := &failAfter{n: 1, err: boom}
+	err := server.Serve(strings.NewReader(hello+"\n"+long+"\n"+hello+"\n"), w, server.New(testcorpus.Registry(t), nil))
+	if !errors.Is(err, boom) {
+		t.Fatalf("Serve returned %v, want the writer's error", err)
+	}
+	if w.calls != 2 {
+		t.Fatalf("the error surfaced after %d writes, want 2", w.calls)
 	}
 }
 
