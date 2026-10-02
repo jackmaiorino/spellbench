@@ -31,6 +31,8 @@ fi
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 export PYTHONPATH="$(native "$P2/python")"
+export SPELLBENCH_HOST_ALIAS="$MACHINE"
+P2_COMMIT=$(git -C "$P2" rev-parse HEAD)
 mkdir -p "$SCRATCH/work"
 stamp() { date '+%Y-%m-%d %H:%M:%S %Z'; }
 
@@ -38,6 +40,7 @@ echo "[$(stamp)] build"
 bash "$HERE/scripts/build.sh" --out "$SCRATCH/build" --xmage-repo "$XMAGE_REPO" --m2 "$M2" > "$SCRATCH/build.log" 2>&1
 DIGEST=$(grep -o '"lib_digest": "[0-9a-f]*"' "$SCRATCH/build/BUILD-MANIFEST.json" | cut -d'"' -f4)
 echo "[$(stamp)] lib_digest $DIGEST"
+rm -rf "$SCRATCH/build/src"  # build intermediates (regenerable); keeps the run volume above the reserve
 if [ ! -d "$SCRATCH/db" ]; then
   mkdir -p "$SCRATCH/dbscan"
   (cd "$SCRATCH/dbscan" && java -Xmx2g -cp "$(native "$SCRATCH/build/lib")/*" \
@@ -52,23 +55,38 @@ python "$HERE/tests/x5/validate_decks.py" --expect-catalog -- "${ENGINE[@]}" > "
 
 echo "[$(stamp)] qualification (P's plan_allocation)"
 python "$HERE/tests/x5/x5run.py" qualify --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE" --cap "$CAP" \
-  --placement "$PLACEMENT" --build-digest "sha256:$DIGEST" --p2-commit 4b588a1 --out "$(native "$SCRATCH/qualify")" \
+  --placement "$PLACEMENT" --build-digest "sha256:$DIGEST" --p2-commit "$P2_COMMIT" \
+  --build "$(native "$SCRATCH/build")" --out "$(native "$SCRATCH/qualify")" \
   -- "${ENGINE[@]}"
 WORKERS=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['workers'])" "$SCRATCH/qualify/allocation.json")
 
 echo "[$(stamp)] run: $WORKERS workers"
 python "$HERE/tests/x5/x5run.py" run --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE" --workers "$WORKERS" \
+  --build "$(native "$SCRATCH/build")" --allocation "$(native "$SCRATCH/qualify/allocation.json")" \
   --fraction 1.0 --part A --out "$(native "$SCRATCH/run")" -- "${ENGINE[@]}"
 
 echo "[$(stamp)] determinism: every tenth game again under another identity-hash mode (X4h's perturbation)"
-JAVA_TOOL_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919" \
+HASH_OPTIONS="-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919"
+JAVA_TOOL_OPTIONS="$HASH_OPTIONS" \
+  python "$HERE/tests/x5/x5run.py" qualify --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE-hash" \
+  --cap "$CAP" --placement "$PLACEMENT" --build-digest "sha256:$DIGEST" --p2-commit "$P2_COMMIT" \
+  --build "$(native "$SCRATCH/build")" --fraction 0.1 --part A --out "$(native "$SCRATCH/qualify-hash")" \
+  -- "${ENGINE[@]}"
+HASH_WORKERS=$(python -c "import json,sys; print(json.load(open(sys.argv[1]))['workers'])" "$SCRATCH/qualify-hash/allocation.json")
+JAVA_TOOL_OPTIONS="$HASH_OPTIONS" \
   python "$HERE/tests/x5/x5run.py" run --plan "$HERE/tests/x5/plan.json" --machine "$MACHINE-hash" \
-  --workers "$WORKERS" --fraction 0.1 --part A --out "$(native "$SCRATCH/run")" -- "${ENGINE[@]}"
+  --workers "$HASH_WORKERS" --build "$(native "$SCRATCH/build")" \
+  --allocation "$(native "$SCRATCH/qualify-hash/allocation.json")" \
+  --fraction 0.1 --part A --out "$(native "$SCRATCH/run")" -- "${ENGINE[@]}"
+REPLAY_STATUS=0
 python "$HERE/tests/x5/x5run.py" compare "$SCRATCH/run/rows-$MACHINE.jsonl" "$SCRATCH/run/rows-$MACHINE-hash.jsonl" \
-  --out "$SCRATCH/run/hash-determinism.json" || true
+  --plan "$HERE/tests/x5/plan.json" --out "$SCRATCH/run/hash-determinism.json" || REPLAY_STATUS=$?
 
 echo "[$(stamp)] summary"
 python "$HERE/tests/x5/x5run.py" summarize --plan "$HERE/tests/x5/plan.json" "$SCRATCH/run/rows-$MACHINE.jsonl" \
   --stats "$SCRATCH/run/stats-$MACHINE" --out "$SCRATCH/run/summary.json"
-rm -rf "$SCRATCH/work"/xmage-engine-*
+if [ "$REPLAY_STATUS" -ne 0 ]; then
+  echo "[$(stamp)] replay failed; records retained" >&2
+  exit "$REPLAY_STATUS"
+fi
 echo "[$(stamp)] done"

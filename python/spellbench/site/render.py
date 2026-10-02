@@ -7,14 +7,25 @@ shapes and the markup hooks the build relies on (``data-bot``,
 ``id="hero"``, ``id="benchmarks"``) are the Task 6 and Task 8 contract in
 ``docs/design/2026-09-26-benchmark-site-plan.md``, extended since: leaderboard
 rows carry ``bound`` and ``version``, Hero rows and their chips ``bound``,
-deck tables ``fit_error``, and grid cells ``complete_pairs``.
+deck tables ``fit_error``, and grid cells ``complete_pairs``. The protocol v2
+contract adds the benchmark page's run facts (``protocol``, ``legacy``,
+``fairness``, ``setup_rules``, ``attribution``, ``newer_runs`` and the run's
+``status``, ``rated``, ``commitment`` and ``run_secret``) and a ``legacy``
+flag on each Hero chip and Models rating row. A benchmark view must carry
+every one of the page's protocol keys, a protocol v1 run's too, and they must
+agree (``_protocol_gate``); a chip or rating row must carry its ``legacy``
+flag. A missing key raises KeyError, so a half-built view fails loudly.
 
 - Every data string goes through ``html.escape(value, quote=True)``,
   attribute values included. A bot ``url`` becomes a link only when it
-  starts with ``http://`` or ``https://``; otherwise the label is plain text.
+  starts with ``http://`` or ``https://``; otherwise the text is plain text.
 - Links are relative and explicit, never a bare directory. Benchmark pages
   sit two directories down (``b/<id>/index.html``), so their cross-page
   links start with ``../../``.
+- Every bot name links to its section of the models page
+  (``models.html#model-<name>``): the Hero rows, the leaderboard labels, the
+  matchup grid headers and the attribution table. The link's ``title`` is
+  the bot's description, so hovering names what the bot is.
 - Pages load nothing external: one inline stylesheet with light and dark
   color tokens, inline SVG charts, and on benchmark pages a few lines of tab
   script. Without script every tab panel shows under its own heading.
@@ -42,11 +53,24 @@ _TINT_MAX = 55  # percent of the accent (or warning) color in a 100% (or 0%) gri
 _BOUND_SIGNS = {"lower": "\N{GREATER-THAN OR EQUAL TO}", "upper": "\N{LESS-THAN OR EQUAL TO}"}
 _BOUND_RECORDS = {"lower": "unbeaten", "upper": "winless"}
 
+# The benchmark page's protocol keys, every one required (_protocol_gate), and the protocol name of a
+# legacy run. A v1 run's margins carry _LEGACY_LABEL in the Hero and on the Models page.
+_V1_PROTOCOL = "spellbench/v1"
+_V2_VIEW_KEYS = ("protocol", "legacy", "fairness", "setup_rules", "attribution", "newer_runs")
+_V2_RUN_KEYS = ("status", "rated", "commitment", "run_secret")
+_LEGACY_LABEL = f"(protocol{_NBSP}v1)"
+
 _NAV = (
     ("Leaderboard", "index.html#hero"),
+    ("Models", "models.html"),
     ("Benchmarks", "index.html#benchmarks"),
     ("Join", "join.html"),
     ("Method", "method.html"),
+)
+
+_MODELS_SUBTITLE = (
+    "What each bot on the benchmarks is, and its Elo above the random bot on each benchmark it entered. "
+    "Bot names everywhere on the site link here."
 )
 
 _HERO_SUBTITLE = (
@@ -64,9 +88,21 @@ _JOIN_INTRO = (
 _METHOD_SECTIONS = (
     (
         "Games",
-        "Each benchmark is a round robin. Every matchup is played as pairs of games that share one random "
-        "seed with the seats swapped, so both bots face the same shuffles. Each pair uses the next deck of "
-        "the benchmark's pool in both seats, and a bot never plays itself.",
+        "Each benchmark is a round robin. Every matchup is played as pairs of games with the seats swapped, "
+        "each pair using the next deck of the benchmark's pool in both seats; a bot never plays itself. "
+        "Every game has its own secret, so the two games of a pair shuffle independently, and ratings still "
+        "count them as a pair. The run publishes a commitment to its secret before the first game and "
+        "reveals the secret afterwards, so anyone can recompute every game's randomness.",
+    ),
+    (
+        "Fairness",
+        "Engines must never show a bot the other player's hand or either library, beyond what the rules let "
+        "it know. The host checks what it can see in every decision before forwarding it, and publishes the "
+        "verdict with the run; it cannot see hidden state. What the protocol does not close (spec 13): "
+        "timing, since a bot can measure how long its opponent takes; adapter faithfulness, since a leak "
+        "through an engine's text or extensions goes unnoticed until an audit; rules errors in an engine; "
+        "trust in the operator, who holds the run secret during the run; and self-reported runs, whose bots "
+        "ran without a verified sandbox.",
     ),
     (
         "What counts",
@@ -260,6 +296,13 @@ svg.bar .arrow { color: var(--text); }
 .run { margin-top: 24px; padding: 14px 18px; border-radius: 12px; background: var(--surface); }
 .files { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 14px; }
 .validated { color: var(--good-ink); font-weight: 600; }
+.fairness { margin-top: 16px; padding: 14px 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.legacy { margin-top: 16px; padding: 14px 18px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); }
+.newer-runs { margin-top: 16px; }
+.attribution-section { margin-top: 56px; }
+table.attribution { width: auto; }
+table.attribution caption { padding-bottom: 8px; color: var(--muted); font-size: 14px; text-align: left; }
+table.attribution tbody tr { border-bottom: 1px solid var(--border); }
 .leaderboards { margin-top: 40px; }
 .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 .tabs button { padding: 6px 12px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; }
@@ -298,7 +341,9 @@ table.grid td.none { background: var(--surface); }
   table { font-size: 14px; }
 }
 .details { display: grid; gap: 32px 40px; margin-top: 56px; }
-.details dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 20px; margin: 14px 0 0; font-size: 15px; }
+/* the term column fits its terms up to 40% of the list; a longer term wraps (or breaks, as body lets it)
+   instead of squeezing the values or widening the page */
+.details dl { display: grid; grid-template-columns: fit-content(40%) minmax(0, 1fr); gap: 8px 20px; margin: 14px 0 0; font-size: 15px; }
 .details dt { color: var(--muted); }
 .details dd { margin: 0; }
 .recheck { padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
@@ -308,6 +353,12 @@ table.grid td.none { background: var(--surface); }
 @media (min-width: 760px) {
   .details { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 }
+.models { margin-top: 32px; }
+.models section + section { margin-top: 40px; }
+.models h2 .ident { color: var(--muted); font-size: 15px; font-weight: 400; }
+.models p { margin-top: 6px; }
+.ratings { margin: 8px 0 0; padding-left: 1.4em; }
+.ratings li + li { margin-top: 2px; }
 .prose { max-width: 44rem; }
 .prose h2 { margin-top: 32px; font-size: 19px; }
 .prose p, .prose ol { margin-top: 10px; }
@@ -368,13 +419,19 @@ def render_home(view: Mapping[str, Any]) -> str:
 
 
 def render_benchmark(view: Mapping[str, Any]) -> str:
-    """``b/<id>/index.html``: one benchmark's latest run, its leaderboards, and its matchups."""
+    """``b/<id>/index.html``: one benchmark's board run, its leaderboards, and its matchups.
+
+    Raises KeyError for a view without every protocol key, and ValueError
+    for one whose legacy flag, protocol and fairness disagree.
+    """
+    view = _protocol_gate(view)
     site, engine = view["site"], view["engine"]
     meta = _SEP.join(
         [
             f"engine {_e(engine['name'])} {_e(engine['version'])}",
             _count(len(view["decks"]), "deck"),
             "same deck in both seats",
+            _protocol_label(view["protocol"]),
         ]
     )
     main = [
@@ -382,10 +439,18 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         f'<p class="lead">{_e(view["summary"])}</p>',
         f'<p class="meta">{meta}</p>',
         _run_box(view["run"]),
-        _leaderboards(view),
-        _grid(view["grid"]),
-        _details(view),
+        _fairness_block(view),
     ]
+    if view["newer_runs"]:
+        main.append(_newer_runs_note(view["newer_runs"]))
+    if view.get("withheld_runs"):
+        listed = ", ".join(_e(run["name"]) + " (withheld)" for run in view["withheld_runs"])
+        main.append(f'<p class="note withheld-runs">Withheld runs: {listed}. Their secrets were lost; '
+                    'no games can be verified.</p>')
+    main += [_leaderboards(view), _grid(view["grid"])]
+    if view["attribution"]:
+        main.append(_attribution(view["attribution"], view["overall"]))
+    main.append(_details(view))
     return _page(
         site,
         title=f"{view['title']}{_SEP}{site['title']}",
@@ -400,8 +465,9 @@ def render_join(view: Mapping[str, Any]) -> str:
     """``join.html``: how to put a bot on the benchmark (a placeholder until the join kit)."""
     site = view["site"]
     repo = site["repo_url"]
-    spec = _link(repo + "/blob/main/spec/SPELLBENCH_PROTOCOL_V1.md", "protocol spec")
+    spec = _link(repo + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md", "protocol spec")
     readme = _link(repo + "#write-a-bot", '"Write a bot" section')
+    minimal = _link(repo + "/blob/main/examples/minimal_bot.py", "examples/minimal_bot.py")
     issues = _link(repo + "/issues", "open an issue on the repository")
     main = [
         '<div class="prose">',
@@ -411,6 +477,7 @@ def render_join(view: Mapping[str, Any]) -> str:
         "<ol>",
         f"<li>Read the {spec}.</li>",
         f"<li>Start from the README's {readme}.</li>",
+        f"<li>The smallest bot is about 15 lines: {minimal}.</li>",
         "<li>Play your bot against the builtin bots with <code>spellbench run</code>.</li>",
         "</ol>",
         f"<p>A submission guide and form are on the way. Until then, {issues}.</p>",
@@ -444,6 +511,89 @@ def render_method(view: Mapping[str, Any]) -> str:
         main="\n".join(main),
         current="Method",
     )
+
+
+def render_models(view: Mapping[str, Any]) -> str:
+    """``models.html``: one section per bot, linked from every bot name on the site."""
+    site = view["site"]
+    sections = [_model_section(model) for model in view["models"]]
+    if not sections:
+        sections = ['<p class="empty">No bots yet.</p>']
+    main = [
+        "<h1>Models</h1>",
+        f'<p class="lead">{_MODELS_SUBTITLE}</p>',
+        '<div class="models">',
+        *sections,
+        "</div>",
+    ]
+    return _page(
+        site,
+        title=f"Models{_SEP}{site['title']}",
+        description="The bots on the Spellbench benchmarks: what each one is, and its rating on each benchmark it entered.",
+        main="\n".join(main),
+        current="Models",
+    )
+
+
+# ---------------- models page ----------------
+
+
+def _model_section(model: Mapping[str, Any]) -> str:
+    """One bot: its display text, a facts line, and its rating on each benchmark it entered."""
+    heading = _e(model["label"])
+    if model["name"] != model["label"]:
+        heading += f' <span class="ident">({_e(model["name"])})</span>'
+    facts = [_e(model["kind"])]
+    if model["engine"]:
+        facts.append(f"engine {_e(model['engine'])}")
+    facts.extend(_e(tag) for tag in model["tags"])
+    facts.append(f"version {_e(model['version'])}")
+    lines = [
+        f'<section id="model-{_e(model["name"])}">',
+        f"<h2>{heading}</h2>",
+        f'<p class="by">{_e(model["author"])}</p>',
+    ]
+    if model["description"]:
+        lines.append(f"<p>{_e(model['description'])}</p>")
+    lines.append(f'<p class="meta">{_SEP.join(facts)}</p>')
+    if model["url"] is not None:
+        lines.append(f"<p>{_link(model['url'], model['url'])}</p>")
+    if model["benchmarks"]:
+        lines.append('<ul class="ratings">')
+        lines.extend(_model_rating(row) for row in model["benchmarks"])
+        lines.append("</ul>")
+    else:
+        lines.append('<p class="empty">No rated benchmark yet.</p>')
+    lines.append("</section>")
+    return "\n".join(lines)
+
+
+def _model_rating(row: Mapping[str, Any]) -> str:
+    """One benchmark line of a models section: the bot's rating there, linked to the benchmark's page.
+
+    The margin and interval use the benchmark pages' conventions: a bound's
+    sign before the number (no interval), and a zero-width interval that is
+    not a bound reads "interval not estimable". A rating from a protocol v1
+    run says so after the benchmark's name, as its Hero chip does (Decision 1).
+    """
+    link = f'<a href="{_e(row["href"])}">{_e(row["id"])}</a>'
+    if _legacy(row):
+        link += f" {_LEGACY_LABEL}"
+    if row["reference"]:
+        return f"<li>{link}: reference</li>"
+    if row["margin"] is None:
+        return f'<li>{link}: <span class="muted">unrated</span></li>'
+    rating = _bounded(format_margin(row["margin"]), row["bound"])
+    if row["bound"] is not None:
+        return f"<li>{link}: {rating}</li>"
+    lower, upper = row["lower"], row["upper"]
+    if lower is None or upper is None:
+        detail = "no interval"
+    elif lower == upper:
+        detail = "interval not estimable"
+    else:
+        detail = f"95% interval {format_margin(lower)} to {format_margin(upper)}"
+    return f"<li>{link}: {rating} ({detail})</li>"
 
 
 # ---------------- page shell and small helpers ----------------
@@ -517,6 +667,17 @@ def _link(url: str | None, text: str) -> str:
     if url is not None and url.startswith(("http://", "https://")):
         return f'<a href="{_e(url)}">{_e(text)}</a>'
     return _e(text)
+
+
+def _model_link(root: str, name: str, label: str, description: str) -> str:
+    """A bot's label linked to its models page section, with its description on hover."""
+    hint = f' title="{_e(description)}"' if description else ""
+    return f'<a href="{root}models.html#model-{_e(name)}"{hint}>{_e(label)}</a>'
+
+
+def _legacy(item: Mapping[str, Any]) -> bool:
+    """Whether a Hero chip or a Models rating row shows a protocol v1 run; KeyError without the flag."""
+    return item["legacy"]
 
 
 def _count(number: int, noun: str) -> str:
@@ -638,13 +799,15 @@ def _versus_random(value: float, bound: str | None) -> str:
 
 def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     bound = _hero_bound(row)
-    who = f'<span class="name">{_e(row["label"])}</span>'
+    who = f'<span class="name">{_model_link("", row["name"], row["label"], row["description"])}</span>'
     if row["reference"]:
         who += ' <span class="chip quiet">reference</span>'
     if row["author"]:
         who += f'<span class="by">{_e(row["author"])}</span>'
+    # a chip from a protocol v1 run says so (Decision 1, R3-20); the no-break space keeps the label whole
     chips = " ".join(
-        f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}</span>'
+        f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
+        f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}</span>'
         for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""
@@ -714,6 +877,9 @@ def _benchmark_card(card: Mapping[str, Any]) -> str:
         status = f'<p class="status live">Latest run {_e(card["run_name"])}</p>'
     else:
         status = '<p class="status">No published run yet</p>'
+    if card.get("other_runs"):
+        listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in card["other_runs"])
+        status += f'<p class="note">Other runs: {listed}</p>'
     return "\n".join(
         [
             f'<article class="{"card linked" if linked else "card"}">',
@@ -742,7 +908,12 @@ def _proposed_card(card: Mapping[str, Any]) -> str:
 
 
 def _run_box(run: Mapping[str, Any]) -> str:
-    """The run's name and game counts, its files for download, and the validation mark."""
+    """The run's name and game counts, its files for download, and the validation mark.
+
+    The run's ``status`` and ``rated`` flag are not shown: the page's run is
+    the latest rated v2 run or the latest v1 run (Decision 3), so they would
+    say nothing.
+    """
     games = run["games"]
     rated = f"{games['rated']} rated"
     if games["forfeit"]:
@@ -762,6 +933,113 @@ def _run_box(run: Mapping[str, Any]) -> str:
             f'<li class="validated">validated {_CHECK}</li>',
             "</ul>",
             "</div>",
+        ]
+    )
+
+
+def _protocol_gate(view: Mapping[str, Any]) -> Mapping[str, Any]:
+    """``view``, once every protocol key of the benchmark page is checked.
+
+    The site builder sets every key for a protocol v1 run too (protocol v1,
+    no fairness box, setup rules or attribution, and a complete run without a
+    commitment or secret). A view lacking any key raises KeyError naming them
+    all, and one whose legacy flag, protocol name and fairness box disagree
+    raises ValueError; so a half-built view fails instead of rendering a page
+    that is part v1 and part v2.
+    """
+    run = view["run"]
+    missing = [key for key in _V2_VIEW_KEYS if key not in view]
+    missing += [f"run.{key}" for key in _V2_RUN_KEYS if key not in run]
+    if missing:
+        raise KeyError(f"benchmark view {view['id']!r} lacks protocol v2 keys: {', '.join(missing)}")
+    legacy, name, fairness = view["legacy"], view["protocol"]["name"], view["fairness"]
+    if not legacy == (name == _V1_PROTOCOL) == (fairness is None):
+        raise ValueError(
+            f"benchmark view {view['id']!r}: legacy {legacy!r}, protocol {name!r} and fairness "
+            f"{'None' if fairness is None else 'set'} disagree: a {_V1_PROTOCOL} run is legacy with fairness None, "
+            "any other run neither"
+        )
+    return view
+
+
+def _protocol_label(protocol: Mapping[str, Any]) -> str:
+    """The meta line's protocol ("protocol v2"): the version suffix of its name."""
+    return f"protocol {_e(protocol['name'].rsplit('/', 1)[-1])}"
+
+
+def _protocol_id(protocol: Mapping[str, Any]) -> str:
+    """The Setup list's protocol, its name and minor version ("spellbench/v2.0"); a v1 run has no minor."""
+    if protocol["minor"] is None:
+        return _e(protocol["name"])
+    return f"{_e(protocol['name'])}.{_e(protocol['minor'])}"
+
+
+def _fairness_block(view: Mapping[str, Any]) -> str:
+    """The run's fairness verdict under the run box; a legacy run gets a note instead (spec 13, R3-9).
+
+    The label comes from the manifest (spec 16: "validator only" for every v2.0
+    engine) and links to the fairness contract. A self-reported run's bots ran
+    without a verified sandbox (spec 11.7), which the box says next to the label.
+    """
+    if view["legacy"]:
+        return (
+            '<p class="legacy">Protocol v1: this run predates the fairness contract, and the two games of '
+            "each pair shared one seed. It stays on the board until the benchmark reruns on protocol v2.</p>"
+        )
+    fairness = view["fairness"]
+    label = _link(
+        view["site"]["repo_url"] + "/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract",
+        fairness["label"],
+    )
+    if fairness["self_reported"]:
+        label += ' <span class="chip quiet">self-reported</span>'
+    text = (
+        f"Fairness: {label}. The host checked every decision before a bot saw it "
+        f"({fairness['decisions_checked']} decisions, verdict {_e(fairness['verdict'])}). "
+        "It cannot see hidden state, so an engine adapter that leaked through its text or extensions "
+        "would go unnoticed."
+    )
+    if fairness["self_reported"]:
+        text += " Its bots ran without a verified sandbox (spec 11.7), so the run cannot claim isolation."
+    return f'<section class="fairness">\n<p>{text}</p>\n</section>'
+
+
+def _newer_runs_note(newer_runs: Sequence[Mapping[str, Any]]) -> str:
+    """Runs published after the one the page shows, named with their status."""
+    listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in newer_runs)
+    return f'<p class="note newer-runs">Newer runs not shown: {listed}</p>'
+
+
+def _attribution(rows: Sequence[Mapping[str, Any]], overall: Sequence[Mapping[str, Any]]) -> str:
+    """Halts and truncations attributed to the bot whose move preceded them, one row per bot.
+
+    Each label links to the bot's models section like the leaderboard's, with
+    the description of the overall row of the same name on hover (none when
+    no overall row has that name).
+    """
+    descriptions = {row["name"]: row["description"] for row in overall}
+    body = []
+    for row in rows:
+        link = _model_link("../../", row["name"], row["label"], descriptions.get(row["name"], ""))
+        body.append(
+            f'<tr data-bot="{_e(row["name"])}"><td><span class="label">{link}</span></td>'
+            f'<td class="num">{row["games"]}</td><td class="num">{row["halts"]}</td>'
+            f'<td class="num">{row["truncations"]}</td></tr>'
+        )
+    return "\n".join(
+        [
+            '<section class="attribution-section">',
+            '<div class="table-wrap">',
+            '<table class="attribution">',
+            "<caption>Halts and truncations after each bot's move</caption>",
+            '<thead><tr><th scope="col">Bot</th><th scope="col" class="num">Games</th>'
+            '<th scope="col" class="num">Halts</th><th scope="col" class="num">Truncations</th></tr></thead>',
+            "<tbody>",
+            *body,
+            "</tbody>",
+            "</table>",
+            "</div>",
+            "</section>",
         ]
     )
 
@@ -871,8 +1149,7 @@ def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float])
 def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     bound = _row_bound(row)
     rank = "-" if row["rank"] is None else str(row["rank"])
-    hint = f' title="{_e(row["description"])}"' if row["description"] else ""
-    bot = f'<span class="label"{hint}>{_link(row["url"], row["label"])}</span>'
+    bot = f'<span class="label">{_model_link("../../", row["name"], row["label"], row["description"])}</span>'
     marks = ['<span class="chip quiet">anchor</span>'] if row["anchor"] else []
     marks += [f'<span class="chip">{_e(tag)}</span>' for tag in row["tags"]]
     if marks:
@@ -948,12 +1225,15 @@ def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str
 
 def _grid(grid: Mapping[str, Any]) -> str:
     """The matchup grid: each row bot's share of the points against each column bot."""
-    names, labels = grid["names"], grid["labels"]
-    head = "".join(f'<th scope="col">{_e(label)}</th>' for label in labels)
+    names, labels, descriptions = grid["names"], grid["labels"], grid["descriptions"]
+    head = "".join(
+        f'<th scope="col">{_model_link("../../", name, label, description)}</th>'
+        for name, label, description in zip(names, labels, descriptions, strict=True)
+    )
     body = []
-    for name, label, cells in zip(names, labels, grid["cells"], strict=True):
+    for name, label, description, cells in zip(names, labels, descriptions, grid["cells"], strict=True):
         tds = "".join(_grid_cell(name, other, cell) for other, cell in zip(names, cells, strict=True))
-        body.append(f'<tr><th scope="row">{_e(label)}</th>{tds}</tr>')
+        body.append(f'<tr><th scope="row">{_model_link("../../", name, label, description)}</th>{tds}</tr>')
     return "\n".join(
         [
             '<section class="matchups">',
@@ -996,17 +1276,37 @@ def _details(view: Mapping[str, Any]) -> str:
     """The run's setup with the engine identity, and how to re-check the run."""
     engine, run = view["engine"], view["run"]
     revision = engine["source_revision"]
-    facts = (
+    facts = [
+        ("Protocol", _protocol_id(view["protocol"])),
         ("Format", _e(view["format"])),
         ("Decks", ", ".join(_e(deck) for deck in view["decks"])),
         ("Schedule", f"{_count(view['pairs_per_deck'], 'seat-swapped pair')} per deck in each matchup"),
+        *[(_e(rule["term"]), _e(rule["value"])) for rule in view["setup_rules"]],
         ("Engine", _e(engine["name"])),
         ("Engine version", _e(engine["version"])),
         ("Source revision", f"<code>{_e(revision)}</code>" if revision else '<span class="muted">not recorded</span>'),
         ("Rules snapshot", f"<code>{_e(engine['rules_snapshot_id'])}</code>"),
         ("Card pool", f"<code>{_e(engine['card_pool_identity'])}</code>"),
-    )
+    ]
     clone = _link(view["site"]["repo_url"], "Clone the repository")
+    recheck = [
+        '<section class="recheck">',
+        "<h2>Re-check this run</h2>",
+        f"<p>{clone}, then run:</p>",
+        f"<pre><code>{_e(run['validate_command'])}</code></pre>",
+        _note("It checks every file's hash and recomputes every rating from the ledger."),
+        _note("Manifest sha256"),
+        f'<p><code class="hash">{_e(run["manifest_sha256"])}</code></p>',
+    ]
+    commitment, run_secret = run["commitment"], run["run_secret"]
+    if commitment is not None:
+        recheck += [_note("Commitment"), f'<p><code class="hash">{_e(commitment)}</code></p>']
+    if run_secret is not None:
+        recheck += [
+            _note("Run secret (revealed after the run)"),
+            f'<p><code class="hash">{_e(run_secret)}</code></p>',
+        ]
+    recheck.append("</section>")
     return "\n".join(
         [
             '<div class="details">',
@@ -1016,14 +1316,7 @@ def _details(view: Mapping[str, Any]) -> str:
             *(f"<dt>{term}</dt><dd>{value}</dd>" for term, value in facts),
             "</dl>",
             "</section>",
-            '<section class="recheck">',
-            "<h2>Re-check this run</h2>",
-            f"<p>{clone}, then run:</p>",
-            f"<pre><code>{_e(run['validate_command'])}</code></pre>",
-            _note("It checks every file's hash and recomputes every rating from the ledger."),
-            _note("Manifest sha256"),
-            f'<p><code class="hash">{_e(run["manifest_sha256"])}</code></p>',
-            "</section>",
+            *recheck,
             "</div>",
         ]
     )

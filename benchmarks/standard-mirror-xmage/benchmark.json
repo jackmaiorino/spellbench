@@ -1,0 +1,44 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "standard-mirror-xmage",
+  "title": "Two-deck Standard mirror · XMage",
+  "summary": "Two fixed 60-card catalogue decks (Standard16-RG and Standard16-UB) on the XMage v2 bridge, played as seat-swapped mirrors. A small initial benchmark against random and the reference heuristic; it does not represent the full Standard card pool or competitive metagame. Hosted model outputs may vary on replay. The trusted host broker is labelled self-reported by the arena; the child agent is confined separately.",
+  "format": "standard-2022-25-bo1",
+  "engine": {"name": "xmage", "command": ["${PYTHON}", "${XMAGE_VERIFIED_ENTRY}",
+              "--java", "${JAVA}", "--build", "${XMAGE_BUILD}", "--db", "${XMAGE_DB}",
+              "--work", "${XMAGE_ENGINE_WORK}", "--manifest", "${XMAGE_BUILD_MANIFEST}",
+              "--manifest-sha256", "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93"]},
+  "deck_pool": ["Standard16-RG", "Standard16-UB"],
+  "pairs_per_deck": 4,
+  "stats_seed": 20261001,
+  "workers": 4,
+  "qualification_budget_percent": 30,
+  "qualification_worker_selection": "wall",
+  "bootstrap_replicates": 2000,
+  "time_control": {"startup_ms": 120000, "game_start_ms": 60000, "bank_ms": 600000,
+                   "increment_ms": 2000, "max_decision_ms": 30000, "engine_step_ms": 120000},
+  "bots": [
+    {
+      "name": "uniform", "version": "2.0.0", "type": "builtin", "seed": 11,
+      "owner": "spellbench", "training_style_tags": ["baseline"],
+      "display": {"label": "random", "author": "Spellbench", "description": "Picks uniformly at random among the offered actions. The rating anchor.", "url": null}
+    },
+    {
+      "name": "heuristic", "version": "2.0.0", "type": "builtin", "owner": "spellbench",
+      "training_style_tags": ["heuristic"],
+      "display": {"label": "heuristic", "author": "Spellbench", "description": "The reference fixed-priority bot; attacks with everything and never blocks.", "url": null}
+    },
+    {
+      "name": "llm-gpt-6-luna", "version": "0.1.0", "type": "subprocess",
+      "owner": "jackmaiorino", "engine": "any", "training_style_tags": ["hosted-llm"],
+      "command": ["${PYTHON}", "${SPELLBENCH_LLM_HOSTED}", "--model", "gpt-6-luna",
+                  "--image", "sha256:3d3be1ba7fdbc2a7d791749fb6fd8050e6cc849148762e3210a6c6291ac75eaa", "--run-budget=${SPELLBENCH_LLM_RUN_BUDGET}",
+                  "--log-dir", "${SPELLBENCH_LLM_LOG_DIR}", "--renew-profile-before-game", "--reasoning-effort", "low",
+                  "--max-completion-tokens", "1024", "--max-calls-per-game", "256",
+                  "--max-tokens-per-game", "750000", "--history-decisions", "1", "--timeout-ms", "20000",
+                  "--max-run-requests", "4096", "--max-run-tokens", "10000000",
+                  "--max-run-wall-seconds", "7200", "--max-inflight", "4"],
+      "display": {"label": "GPT-6 Luna", "author": "OpenAI / mipo", "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; no request retries or fallback.", "url": "https://github.com/jackmaiorino/spellbench/issues/11"}
+    }
+  ]
+}

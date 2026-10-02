@@ -14,6 +14,7 @@ set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")/.." && pwd)
 . "$HERE/pins.env"
+SPELLBENCH_COMMIT=$(git -C "$HERE" rev-parse HEAD)
 OUT=""
 XMAGE_REPO=""
 M2="${HOME}/.m2/repository"
@@ -52,7 +53,7 @@ mkdir -p "$OUT/src" "$OUT/lib"
 SRC="$OUT/src"
 PATHS=$(git -C "$XMAGE_REPO" ls-tree -r --name-only "$XMAGE_COMMIT" | grep 'pom\.xml$' | grep -v '^Mage\.Sets/\|^Mage/\|^Mage\.Common/' || true)
 git -C "$XMAGE_REPO" -c core.autocrlf=false archive --format=tar "$XMAGE_COMMIT" -- \
-  $PATHS Mage Mage.Common Mage.Sets Mage.Server.Plugins/Mage.Player.AI | tar -x -C "$SRC"
+  $PATHS Mage Mage.Common Mage.Sets Mage.Server.Plugins/Mage.Player.AI repository | tar -x -C "$SRC"
 
 # 2. CABT, vendored at CABT_COMMIT, overlaid as its own build does
 cp -R "$HERE/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/." "$SRC/Mage.Server.Plugins/Mage.Player.AI/"
@@ -91,7 +92,8 @@ mkdir -p "$OVL" "$RES"
 cp -R "$HERE/overlay/src/main/java/mage/player/spellbench/." "$OVL/"
 cp -R "$HERE/overlay/src/main/resources/mage/player/spellbench/." "$RES/"
 [ "$STOCK" = 0 ] || rm -rf "$OVL/rng" "$OVL/server" "$OVL/decide" "$OVL/x3"
-printf 'rules_snapshot_id=%s\ncard_pool_identity=%s\n' "$RULES_ID" "$POOL_ID" > "$RES/engine-identity.properties"
+printf 'rules_snapshot_id=%s\ncard_pool_identity=%s\nsource_revision=%s\n' \
+  "$RULES_ID" "$POOL_ID" "$SPELLBENCH_COMMIT" > "$RES/engine-identity.properties"
 
 # 6. compile and package (no install: stock and patched builds never share Maven coordinates)
 : "${MAVEN_OPTS:=-Xmx6g}"
@@ -120,6 +122,7 @@ MVN_V=$(mvn -B -v 2>/dev/null | head -1 | tr -d '\r' | sed 's/\x1b\[[0-9;]*m//g'
   echo "{"
   echo "  \"xmage_commit\": \"$XMAGE_COMMIT\","
   echo "  \"cabt_commit\": \"$CABT_COMMIT\","
+  echo "  \"spellbench_source_revision\": \"$SPELLBENCH_COMMIT\","
   echo "  \"patch_series\": \"$( [ "$STOCK" = 0 ] && echo applied || echo none )\","
   echo "  \"rules_snapshot_id\": \"$RULES_ID\","
   echo "  \"card_pool_identity\": \"$POOL_ID\","

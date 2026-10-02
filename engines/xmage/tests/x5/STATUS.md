@@ -1,5 +1,51 @@
 # X5 status (for the coordinator)
 
+## 18:50 EDT: standing by
+
+- The writer on HaleysPC was a Codex cloud task building mtg-kernel FDN fixture tests into
+  `C:/Users/haley/mtg-kernel-fdn-batch-b-target` and `mtg-kernel-fdn-target` (coordinator); not ours, untouched.
+- Waiting for "X5 resume" naming the machine. On resume, `x5run.py run` with the same machine label skips the 3,544
+  recorded games and plays the other 6,568, then the 1,011-game hash recheck and the summary. On Jack's PC, the
+  rows from HaleysPC are copied over first so the plan's game split is unchanged, and the guard re-qualifies there.
+
+## 18:40 EDT: HaleysPC run stopped at the reserve (3,544 of 10,112 games)
+
+- **Stopped by me at 18:20** when C: free fell to 60.5 GiB, so the volume stays above the 60 GiB reserve. My run's
+  own footprint never grew (1.55 GB of engine scratch, 8 MB of rows). C: kept falling after the stop with nothing of
+  mine running: 62.06 GiB right after freeing my scratch, 61.05 at 18:24, 60.46 at 18:35. Something else on
+  HaleysPC writes about 1 GiB per 10 minutes (I could not identify it; Windows Search and system writes lead the
+  write counters). Resuming needs about 1.6 GB of engine scratch, which would cross the reserve, so I have not
+  resumed.
+- **Recorded so far (build `d74803d5`, all fixes, P's guard: 6 workers; `evidence/allocation-haleyspc.json`):**
+  3,544 games (1,772 per pool), 66 games/min, all natural, **0 validator violations** over 2,030,290 decisions,
+  0 halts, 0 truncations (`evidence/haleyspc-partial-summary.json`). Rows stay on HaleysPC in
+  `~/x-spike/x5/final/run/`; `x5run.py run` resumes and skips them.
+- Against Jack's PC's run (build `c81b025a`, before the warm-up and ability-order fixes): all 1,772 FDN games have
+  identical digests on both machines and builds; 1,617 of 1,772 Standard games do. The 155 that changed are in
+  decks with granted abilities or the AI-class path (UW 70, UG 38, RB 13, MonoB 9, BW 9, MonoW 8, RW 5, RG 3), as
+  the two fixes intend.
+- **Needed to finish:** about 2 GiB of headroom on HaleysPC's C: above the reserve (or the external writer stopped),
+  or Jack's PC (about 35 min for the remaining 6,568 games at 200/min, plus the 1,011-game hash recheck). The hash
+  recheck has not run.
+
+## 18:20 EDT: disk note
+
+- 3,025 of 10,112 games at 66 games/min, 0 violations, 0 halts; ETA for the run about 20:00 EDT.
+- HaleysPC C: free fell from 69.5 GiB at launch to 62.9 GiB. My run's footprint is constant: 1.55 GB of engine
+  scratch (6 card-database copies) and 8 MB of rows. Something else on the machine is writing; I could not pin it
+  down quickly (no growth in `~/x-spike/x5`, Temp or the dated `C:\mtg-*` folders). A monitor stops my waiting at
+  61 GiB; if C: nears 60 GiB I will stop the run (resumable: finished rows are kept) and report.
+
+## 17:35 EDT: final run on HaleysPC in progress
+
+- Reserve re-checked before start: C: 69.5 GiB free (guard's facts: 73.8 GB at qualification, 71.5 GB during the
+  run with 6 engine copies). Build `d74803d5` (commit `71e32fc`), byte-identical to the verified ability-order
+  build. All 32 decks `deck_ok`.
+- P's guard on HaleysPC (ladder 1, 6, 12; 24 games per rung): busy-time rates 17.9, 49.0 and 46.8 games/min,
+  outputs identical; verdict `substantial`, 6 workers. Running at 63 games/min, CPU 61 to 67 percent (16 logical
+  on 8 cores), 0 violations and 0 halts in the first 350 games. ETA for the 10,112 games about 20:05 EDT, then the
+  1,011-game hash recheck (about 16 min), so about 20:25.
+
 ## 13:00 EDT: ability-order fix verified on HaleysPC
 
 - Implemented as decided (overlay, commit `4125a61`). A single ordering, `SeatPlayer.orderedAbilities`, now feeds

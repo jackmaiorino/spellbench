@@ -39,7 +39,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | X4d (#20) | Combat as per-creature groups with a completability oracle on a callback-free copy | done (2026-10-01): oracle, 2,000 games, 0 rejected declarations | X4a | 2 | no dead end over 10,000 random games |
 | X4e (#21) | Rewind on rejected activations; `engine_autopay` | done (2026-10-01, stage 1): overlay autopay planner with insertion-ordered ties; rewinds 1.2 per game | X4a | 1 | rewind golden; no payment loop in the soak |
 | X4h (#22) | Hash-order audit of candidate paths (no `HashSet` or UUID order reaches candidate order) | done (2026-10-01): digests equal under three identity-hash modes | X4a | 0.5 | audit note plus a test that shuffles hash seeds |
-| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | nearly done (2026-10-01): 10,112 games, 0 violations, 0 halts; leak tests pass; warm-up fix for 17/1,011 hash-replay divergences in verification | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
+| X5 (#23) | Conformance on P's host: envelope goldens, XMage goldens with digests, live validator over at least 10,000 random games on both pools, paired-world leak tests | in progress (2026-10-02): reviewed004913a panel/replay pass, 10,112 natural games, 0 violations/halts, 1,011/1,011 replays equal; current-build golden/paired-world evidence remains pending ([report](../../docs/llm-engine-verification-20261002.json)) | X4, P host (exists) | 3 to 4 | zero violations; label "fairness: validator only" |
 | X5m (#24) | `fdn-mirror-v0` benchmark (v2.0 as written: frozen pool of 16 FDN decks from DraftZero's eval split as mirrors, visible lists, CC BY 4.0 attribution) and a first rated run with `uniform`, `first`, `heuristic` | staged (2026-10-01): 16 FDN eval-split sample decks and a draft benchmark.json in `E:/spellbench-archive/program-research/x5m/`; integrates after X4 stage 2 | X5, compute policy | 1 | ledger published; halt and truncation rates shown |
 | X5b (#25) | Optional `probe_resample` | later | X5, P enabling the probe | 2 to 3 | "validator and probe" label |
 | X6 (#26) | Manifests `fdn-limited-v1` (rotating pairs, hidden lists) and `standard-2022-25` (fixed-deck, 16 house decks, legality list) | blocked: P-v2.1 | X5, P-v2.1 | 1 to 2 | both validate against P's v2.1 schema |
@@ -92,6 +92,28 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 - 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
+- 2026-10-01 19:45: D4 sole-copy backup done: 16,165 files (52.1 GB) on E:, two full hash passes clean, registered. Lesson: E: is an SMR drive, and our copy's write stall (18:10 to 18:31) likely contributed to the research lead's training stop; recorded on both sides. On hold until the research lead's training continuation and 5-hour screen evaluation finish on Jack's PC (likely into 2026-10-02), queued in this order:
+  1. the X5 resume;
+  2. the `fdn-mirror-v0` first rated run;
+  3. kit qualification and soak;
+  4. the HaleysPC dedupe (reads only on E:).
+  HaleysPC is below the reserve (57 GB free) because of the Codex FDN build caches.
+- 2026-10-01 18:45: X5 final rerun paused at 3,544 of 10,112 games.
+  - So far on the final build (`d74803d5`, HaleysPC, guard chose 6 workers): 0 violations over 2,030,290 decisions, 0 halts.
+  - Digests vs the earlier Jack's PC run: all 1,772 FDN games equal; 1,617 of 1,772 Standard games equal, and the 155 that changed are in the decks the two determinism fixes target.
+  - Paused because HaleysPC C: fell back to the reserve: a Codex cloud task's cargo builds into `C:/Users/haley/mtg-kernel-fdn-*-target` (about 21 GB, growing). Resumes on Jack's PC after tonight's evaluation, or on HaleysPC with 2 GiB or more of headroom.
+- 2026-10-01 18:00: Jack delegated the `C:/mtg-node` decisions.
+  - The sole-copy D4 production worker outputs (52 GB) are being copied to E: with full hash verification.
+  - Deduping the seven E:-covered trees (about 117 GB) is scheduled after tonight's evaluation, with full-file hash checks first.
+- 2026-10-01 17:30: HaleysPC C: raised from 35.3 GB to 69.51 GiB free, above the 60 GiB reserve.
+  - The build.rs session deleted its 23 GB build cache.
+  - Jack's April XMage RL snapshots and logs (93 files, 12.14 GiB) moved to `E:/haleyspc-archive/mage-airl-profiles-202604/` with a hash-verified manifest (`MOVED.md`, registered in the catalog).
+  - The research lead will check `C:\mtg-node` (210 GB of unregistered Codex outputs) against E: tonight and report to Jack.
+  - Run order on HaleysPC: X5 final rerun, then the `fdn-mirror-v0` first rated run, then kit qualification and soak.
+- 2026-10-01 16:00: kit second review round. Sol first returned NOT READY (5 items); after the fixes it returned READY FOR QUALIFICATION at `xmage-agent-kit` 4580f8f.
+  - Three more bugs fixed: unoffered actions chosen from XMage's playable list; an upstream MCTS crash on an empty combat group; MCTS running out of memory during blocking, now capped at 128 engagements (new `kit-mcts` identity, labelled).
+  - Plan: H1 and H2 go into the first qualification and soak on `fdn-mirror-v0` (1,000 games each against P's builtins); H3 gets its own qualification at 120 s per decision.
+  - Waiting for a guarded machine: Jack's PC is held for the research lead's screen training, and HaleysPC is under the disk reserve.
 - 2026-10-01 14:30: X5 determinism fixed and verified on HaleysPC.
   - All `ability_index` values now come from one ordering: own abilities in XMage's order, then granted abilities by rule text. This covers Agatha's Soul Cauldron and six more cards that grant abilities from a hash set.
   - 98/98 games are digest-identical under both identity-hash modes, including all 47 Standard16-UG games.

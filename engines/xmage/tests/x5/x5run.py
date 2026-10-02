@@ -26,7 +26,9 @@ PYTHONPATH must hold P's ``python`` directory (protocol-v2 at the pinned commit)
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import hashlib
+import importlib.util
 import json
 import math
 import multiprocessing
@@ -34,6 +36,7 @@ import multiprocessing.util
 import os
 import secrets
 import statistics
+import subprocess
 import sys
 import threading
 import time
@@ -41,16 +44,20 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-from spellbench.arena import runner
-from spellbench.arena.allocation import PlayedGame
+from spellbench.arena import runner, store
+from spellbench.arena.allocation import Allocation, PlayedGame, ThroughputError
 from spellbench.arena.config import CONFIG_SCHEMA, DEFAULT_TIME_CONTROL, TournamentConfig
 from spellbench.arena.drivers import make_driver
-from spellbench.arena.qualification import plan_allocation, sample_order, workload_id
+from spellbench.arena.ledger import LedgerRow
+from spellbench.arena.machine import check_reserve, host_name, machine_facts, usable_cpus
+from spellbench.arena.qualification import current_rules, plan_allocation, sample_order, workload_id
 from spellbench.arena.schedule import EnginePin, game_setup, preflight, schedule
 from spellbench.builtins import BUILTIN_VERSIONS
 from spellbench.host.engine_process import EngineProcess
 from spellbench.host.game import play_game
 from spellbench.run_secret import RunSecret
+from spellbench.bench.pinning import engine_files, resolve_command
+from spellbench.file_pins import verify_files
 from spellbench.wire import canonical_json_dumps
 
 HERE = Path(__file__).resolve().parent
@@ -178,11 +185,11 @@ def _setups(sched: Schedule) -> dict[str, Any]:
 
 
 def _init(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], stats_dir: str | None,
-          prewarm: bool = False) -> None:
+          prewarm: bool = False, launch_files=()) -> None:
     if stats_dir:
         os.environ["SPELLBENCH_XMAGE_STATS"] = stats_dir
     sched = Schedule(plan, engine)
-    _W.update(sched=sched, setups=setups, engine=None, pin=EnginePin(), argv=engine)
+    _W.update(sched=sched, setups=setups, engine=None, pin=EnginePin(), argv=engine, launch_files=launch_files)
     # close this worker's engine when the pool lets the worker exit (pool.close then join, never terminate)
     multiprocessing.util.Finalize(None, _close, exitpriority=10)
     for item in sched.workloads:
@@ -196,6 +203,7 @@ def _init(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], stats
 
 def _engine() -> EngineProcess:
     if _W["engine"] is None:
+        verify_files(_W["launch_files"])
         config = _W["sched"].workloads[0]["config"]
         engine = EngineProcess(list(config.engine_command), timeout_s=BOUND_MS / 1000)
         hello = engine.hello()
@@ -248,12 +256,13 @@ def _close() -> None:
 
 
 def run_games(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], gids: list[int], workers: int,
-              stats_dir: str | None, on_row=None, prewarm: bool = False) -> tuple[float, list[dict[str, Any]]]:
+              stats_dir: str | None, on_row=None, prewarm: bool = False, launch_files=()) -> tuple[float, list[dict[str, Any]]]:
     """Play ``gids`` with ``workers`` worker processes (fresh ones); rows in the order given."""
     ctx = multiprocessing.get_context("spawn")
     start = time.monotonic()
     rows: dict[int, dict[str, Any]] = {}
-    pool = ctx.Pool(workers, initializer=_init, initargs=(plan, engine, setups, stats_dir, prewarm))
+    verify_files(launch_files)
+    pool = ctx.Pool(workers, initializer=_init, initargs=(plan, engine, setups, stats_dir, prewarm, launch_files))
     try:
         for row in pool.imap_unordered(play_global, gids, chunksize=1):
             rows[row["gid"]] = row
@@ -261,6 +270,7 @@ def run_games(plan: dict[str, Any], engine: list[str], setups: dict[str, Any], g
                 on_row(row)
         pool.close()  # workers exit normally, and each closes its engine (_init's finalizer)
         pool.join()
+        verify_files(launch_files)
     except BaseException:
         pool.terminate()
         raise
@@ -277,34 +287,172 @@ def _engine_argv(argv: list[str]) -> tuple[list[str], list[str]]:
     return argv[:split], argv[split + 1:]
 
 
+def _selected(sched: Schedule, args) -> list[int]:
+    if not math.isfinite(args.fraction) or not 0 < args.fraction <= 1:
+        raise ThroughputError("fraction must be in (0, 1]")
+    if args.limit < 0:
+        raise ThroughputError("limit must be nonnegative")
+    gids = sched.share(args.fraction, args.part)
+    if args.gids_file:
+        gids = [int(x) for x in Path(args.gids_file).read_text(encoding="utf-8").split()]
+    if args.limit:
+        gids = gids[:args.limit]
+    if not gids or len(set(gids)) != len(gids) or any(g not in range(len(sched.games)) for g in gids):
+        raise ThroughputError("selection must contain unique scheduled game ids")
+    return gids
+
+
+def _sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _launch_binding(args, engine: list[str], selected: list[int]):
+    if os.environ.get("X5_SETUP_CACHE"):
+        raise ThroughputError("diagnostic setup caches are not supported by qualified launches")
+    build = Path(args.build).resolve(strict=True)
+    manifest_path = build / "BUILD-MANIFEST.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    source = manifest["spellbench_source_revision"]
+    if len(source) != 40 or any(c not in "0123456789abcdef" for c in source):
+        raise ThroughputError("build must record its Spellbench source commit")
+    spec = importlib.util.spec_from_file_location("xmage_inputs", HERE.parents[3] / "python/tools/xmage_verified_entry.py")
+    verifier = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(verifier)
+    jars = verifier.verify_build(build, manifest_path, _sha(manifest_path))
+    digest = hashlib.sha256("".join(f"{manifest['jars'][p.name]}  {p.name}\n" for p in jars).encode()).hexdigest()
+    if digest != manifest["lib_digest"]:
+        raise ThroughputError("build lib digest does not match its verified jars")
+
+    def option(name):
+        values = [engine[i + 1] for i, item in enumerate(engine[:-1]) if item == name]
+        if len(values) != 1:
+            raise ThroughputError(f"engine command needs one {name}")
+        return Path(values[0]).resolve()
+
+    if option("--build") != build:
+        raise ThroughputError("engine command uses another build")
+    host_root = Path(runner.__file__).resolve().parents[3]
+    host_source = subprocess.run(["git", "-C", str(host_root), "rev-parse", "HEAD"],
+                                 capture_output=True, text=True, check=True).stdout.strip()
+    files = engine_files(engine, extra=[resolve_command(["java"])[0], sys.executable, manifest_path,
+                                       Path(__file__), CATALOG, Path(runner.__file__), *jars])
+    binding = {"schema": "spellbench-x5-launch/v1", "plan_sha256": _sha(Path(args.plan)),
+               "selected_gids": selected, "engine_lib_digest": digest, "engine_source_revision": source,
+               "host_source_revision": host_source, "harness_sha256": _sha(Path(__file__)),
+               "catalog_sha256": _sha(CATALOG), "engine_command": list(engine),
+               "engine_environment": {name: os.environ.get(name) for name in
+                                      ("JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS")},
+               "launch_files": [file.to_json() for file in files]}
+    volumes = {"run_dir": Path(args.out), "pin_root": build, "engine_work": option("--work"),
+               "engine_db": option("--db")}
+    return binding, files, volumes
+
+
+def _resume_rows(path: Path, binding: dict, sched: Schedule, selected: list[int]) -> set[int]:
+    manifest = path.with_suffix(".manifest.json")
+    if manifest.exists():
+        if json.loads(manifest.read_text(encoding="utf-8")) != binding:
+            raise ThroughputError("resume store belongs to another plan, build or host source")
+    elif path.exists() and path.stat().st_size:
+        raise ThroughputError("existing rows have no build/plan binding; preserve them in their original store")
+    else:
+        store.write_json_atomic(manifest, binding)
+    done = set()
+    raw = path.read_bytes() if path.exists() else b""
+    fragment = b""
+    complete = raw
+    if raw and not raw.endswith(b"\n"):
+        prefix, separator, fragment = raw.rpartition(b"\n")
+        complete = prefix + separator
+    if path.exists():
+        for line in complete.decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            saved = json.loads(line)
+            gid = saved["gid"]
+            if type(gid) is not int or gid not in selected or gid in done:
+                raise ThroughputError("resume contains duplicate or unscheduled game id")
+            w, index = sched.games[gid]
+            item = sched.workloads[w]
+            context = item["contexts"][index]
+            row = LedgerRow.from_json(saved["row"])
+            if (saved["row_digest"] != "sha256:" + hashlib.sha256(canonical_json_dumps(saved["row"])).hexdigest()
+                    or saved["workload"] != item["label"] or row.game_index != index
+                    or row.game_id != context.game_id or row.format != item["config"].format
+                    or row.matchup_index != context.matchup_index
+                    or row.pair_index != context.pair_index or row.pair_slot != context.pair_slot
+                    or [d.catalog_id for d in row.decks] != [d.catalog_id for d in context.decks]
+                    or [(s.seat, s.name, s.version) for s in row.seats]
+                    != [(s, bot.name, bot.version) for s, bot in context.seat_specs]):
+                raise ThroughputError("resume row digest or scheduled game does not match")
+            done.add(gid)
+    if fragment:
+        digest = hashlib.sha256(fragment).hexdigest()
+        quarantine = path.with_name(path.name + ".partial-" + digest)
+        if quarantine.exists() and quarantine.read_bytes() != fragment:
+            raise ThroughputError("partial-row quarantine changed")
+        store.write_bytes_atomic(quarantine, fragment)
+        store.write_bytes_atomic(path, complete)
+        with path.with_suffix(".recovery.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps({"event": "incomplete_final_append", "fragment_sha256": digest,
+                                  "retained_rows": len(done), "time": time.time()}) + "\n")
+            log.flush()
+            os.fsync(log.fileno())
+    return done
+
+
 def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
+    engine = list(resolve_command(engine))
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     sched = Schedule(plan, engine)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    selected = _selected(sched, args)
+    binding, files, volumes = _launch_binding(args, engine, selected)
+    if args.build_digest != "sha256:" + binding["engine_lib_digest"] or not binding["host_source_revision"].startswith(args.p2_commit):
+        raise ThroughputError("declared build or host source differs from actual inputs")
+    check_reserve(machine_facts(volumes), 6 * 2**30)
+    verify_files(files)
     setups = _setups(sched)
     stats_dir = str(out / "stats-qualify")
     os.makedirs(stats_dir, exist_ok=True)
     trials_log = (out / "qualify-games.jsonl").open("a", encoding="utf-8")
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, list[PlayedGame]]:
-        gids = [sched.order[p] for p in positions]
+        gids = [selected[p] for p in positions]
         print(f"[{time.strftime('%H:%M:%S')}] rung: {workers} workers, {len(gids)} games", flush=True)
-        wall, rows = run_games(plan, engine, setups, gids, workers, stats_dir, prewarm=True)
-        for p, row in zip(positions, rows):
-            trials_log.write(json.dumps({"workers": workers, "position": p, **row}, sort_keys=True) + "\n")
-        trials_log.flush()
+        by_gid = dict(zip(gids, positions))
+        writes = {}
+
+        def record(row):
+            started = time.monotonic()
+            trials_log.write(json.dumps({"workers": workers, "position": by_gid[row["gid"]], **row}, sort_keys=True) + "\n")
+            trials_log.flush()
+            os.fsync(trials_log.fileno())
+            writes[row["gid"]] = time.monotonic() - started
+
+        wall, rows = run_games(plan, engine, setups, gids, workers, stats_dir, prewarm=True,
+                               launch_files=files, on_row=record)
         print(f"[{time.strftime('%H:%M:%S')}]   wall {wall:.1f} s, games/min {len(gids) / wall * 60:.1f}", flush=True)
-        return wall, [PlayedGame(index=p, seconds=row["seconds"], digest=row["row_digest"], row_bytes=row["row_bytes"])
+        return wall, [PlayedGame(index=p, seconds=row["seconds"] + writes[row["gid"]],
+                                digest=row["row_digest"], row_bytes=row["row_bytes"])
                       for p, row in zip(positions, rows)]
 
-    workload = workload_id({"x5_plan": hashlib.sha256(Path(args.plan).read_bytes()).hexdigest(),
-                            "engine": args.build_digest, "p2": args.p2_commit})
-    allocation = plan_allocation(
-        games_total=plan["games_total"], cap=args.cap, per_game_cores=1, play=play, placement=args.placement,
-        sample=list(range(plan["games_total"])), workload=workload, volumes={"run_dir": out, "pin_root": out},
-    )
-    (out / "allocation.json").write_text(json.dumps(allocation.to_json(), indent=1) + "\n", encoding="utf-8")
+    workload = workload_id(binding)
+    try:
+        allocation = plan_allocation(
+            games_total=len(selected), cap=args.cap, per_game_cores=1, play=play, placement=args.placement,
+            sample=list(range(len(selected))), workload=workload, volumes=volumes,
+            rules=replace(current_rules(), worker_selection="wall"),
+        )
+    finally:
+        trials_log.close()
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+        raise ThroughputError("X5 deterministic qualification outputs differ; formal run refused")
+    verify_files(files)
+    check_reserve(machine_facts(volumes), allocation.budget.projected_bytes + 6 * 2**30)
+    store.write_json_atomic(out / "allocation.json", allocation.to_json())
+    store.write_json_atomic(out / "launch-binding.json", binding)
     print(json.dumps({"kind": allocation.kind, "workers": allocation.workers,
                       "trials": [t.to_json() for t in allocation.trials] if allocation.trials else None,
                       "outputs_identical": allocation.outputs_identical}, indent=1))
@@ -312,22 +460,31 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
 
 
 def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
+    engine = list(resolve_command(engine))
     plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     sched = Schedule(plan, engine)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    selected = _selected(sched, args)
+    binding, files, volumes = _launch_binding(args, engine, selected)
+    allocation_path = Path(args.allocation)
+    allocation = Allocation.from_json(json.loads(allocation_path.read_text(encoding="utf-8")))
+    qualified = json.loads((allocation_path.parent / "launch-binding.json").read_text(encoding="utf-8"))
+    facts = machine_facts(volumes)
+    if (qualified != binding or allocation.workload != workload_id(binding)
+            or allocation.games_total != len(selected) or allocation.workers != args.workers
+            or allocation.host != host_name() or allocation.cpu_count != usable_cpus()
+            or allocation.machine is None or allocation.machine.memory_bytes != facts.memory_bytes
+            or allocation.machine.gpus != facts.gpus or allocation.budget is None
+            or allocation.kind == "unmeasured"):
+        raise ThroughputError("missing or incompatible qualified allocation for this launch")
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+        raise ThroughputError("X5 deterministic qualification outputs differ; formal run refused")
+    check_reserve(facts, allocation.budget.projected_bytes + 6 * 2**30)
+    verify_files(files)
     rows_path = out / f"rows-{args.machine}.jsonl"
-    done = set()
-    if rows_path.exists():
-        for line in rows_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                done.add(json.loads(line)["gid"])
-    gids = [g for g in sched.share(args.fraction, args.part) if g not in done]
-    if args.gids_file:  # a chosen subset (verification checks), in the file's order
-        wanted = [int(x) for x in Path(args.gids_file).read_text(encoding="utf-8").split()]
-        gids = [g for g in wanted if g not in done]
-    if args.limit:
-        gids = gids[: args.limit]
+    done = _resume_rows(rows_path, binding, sched, selected)
+    gids = [g for g in selected if g not in done]
     print(f"[{time.strftime('%H:%M:%S')}] {args.machine}: {len(gids)} games to play ({len(done)} already), "
           f"{args.workers} workers", flush=True)
     setups = _setups(sched)
@@ -339,6 +496,7 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
         def on_row(row: dict[str, Any]) -> None:
             sink.write(json.dumps({"machine": args.machine, **row}, sort_keys=True) + "\n")
             sink.flush()
+            os.fsync(sink.fileno())
             progress["n"] += 1
             progress["violations"] += row["violation"] is not None
             progress["halts"] += row["row"]["classification"] == "halted"
@@ -350,7 +508,7 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
                     "games_per_minute": round(rate, 1), "violations": progress["violations"],
                     "halted": progress["halts"],
                     "eta_minutes": round((len(gids) - progress["n"]) / rate, 1) if rate else None}) + "\n")
-        wall, _ = run_games(plan, engine, setups, gids, args.workers, stats_dir, on_row=on_row)
+        wall, _ = run_games(plan, engine, setups, gids, args.workers, stats_dir, on_row=on_row, launch_files=files)
     print(f"[{time.strftime('%H:%M:%S')}] done: {len(gids)} games in {wall:.0f} s "
           f"({len(gids) / wall * 60 if wall else 0:.1f} games/min), violations {progress['violations']}", flush=True)
     return 0
@@ -459,31 +617,46 @@ def cmd_summarize(args: argparse.Namespace) -> int:
                                                                               "non_natural")}
                       for w, items in sorted(by_workload.items())},
     }
-    Path(args.out).write_text(json.dumps(summary, indent=1, sort_keys=False) + "\n", encoding="utf-8")
     print(json.dumps({k: summary[k] for k in ("games_recorded", "machines", "violations_total",
                                                "duplicate_rows_with_different_digest")}))
     for pool, b in summary["pools"].items():
         print(pool, b["games"], b["classification"], "violations", len(b["violations"]))
-    return 0
+    passed = (set(rows) == set(range(plan["games_total"])) and not mismatched
+              and not summary["violations_total"]
+              and all(r["row"]["classification"] == "natural" for r in rows.values()))
+    summary["verdict"] = "PASS" if passed else "FAIL"
+    # This diagnostic report includes measured means, medians and rates. Protocol and
+    # tournament artifacts remain integer-only; publish this report as ordinary JSON.
+    store.write_bytes_atomic(Path(args.out), (json.dumps(summary, indent=1, allow_nan=False) + "\n").encode("utf-8"))
+    return 0 if passed else 1
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
-    """Game digests of the games two row files share: equal for every game, or the run is not deterministic."""
+    """Require every scheduled replay id exactly once, with matching recorded digests."""
     def load(path: str) -> dict[int, dict[str, Any]]:
         out = {}
         for line in Path(path).read_text(encoding="utf-8").splitlines():
             if line.strip():
                 r = json.loads(line)
+                if r["gid"] in out:
+                    raise ThroughputError("duplicate game id in replay comparison")
+                if r["row_digest"] != "sha256:" + hashlib.sha256(canonical_json_dumps(r["row"])).hexdigest():
+                    raise ThroughputError("replay row digest changed")
                 out[r["gid"]] = r
         return out
 
     a, b = load(args.a), load(args.b)
+    plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+    sched = Schedule(plan, ["comparison-only"])
+    expected = set(_selected(sched, args))
     shared = sorted(set(a) & set(b))
     differ = [g for g in shared if a[g]["row"]["game_digest"] != b[g]["row"]["game_digest"]]
     report = {"a": args.a, "b": args.b, "shared": len(shared), "equal": len(shared) - len(differ),
+              "expected": len(expected), "missing_in_a": sorted(expected - set(a)),
+              "missing_in_b": sorted(expected - set(b)), "unexpected_in_b": sorted(set(b) - expected),
               "differ": [{"gid": g, "workload": a[g]["workload"], "a": a[g]["row"]["reason"],
                           "b": b[g]["row"]["reason"]} for g in differ[:50]],
-              "verdict": "PASS" if shared and not differ else "FAIL"}
+              "verdict": "PASS" if expected <= set(a) and set(b) == expected and not differ else "FAIL"}
     Path(args.out).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps({k: report[k] for k in ("shared", "equal", "verdict")}))
     return 0 if report["verdict"] == "PASS" else 1
@@ -503,6 +676,7 @@ def main(argv: list[str]) -> int:
     q.add_argument("--build-digest", required=True)
     q.add_argument("--p2-commit", required=True)
     q.add_argument("--out", required=True)
+    q.add_argument("--build", required=True)
     r = sub.add_parser("run")
     r.add_argument("--plan", required=True)
     r.add_argument("--machine", required=True)
@@ -512,6 +686,8 @@ def main(argv: list[str]) -> int:
     r.add_argument("--limit", type=int, default=0)
     r.add_argument("--gids-file", default=None, help="play only these global ids (whitespace separated)")
     r.add_argument("--out", required=True)
+    r.add_argument("--build", required=True)
+    r.add_argument("--allocation", required=True)
     s = sub.add_parser("summarize")
     s.add_argument("--plan", required=True)
     s.add_argument("rows", nargs="+")
@@ -521,6 +697,12 @@ def main(argv: list[str]) -> int:
     c.add_argument("a")
     c.add_argument("b")
     c.add_argument("--out", required=True)
+    c.add_argument("--plan", required=True)
+    for command in (q, c):
+        command.add_argument("--fraction", type=float, default=0.1 if command is c else 1.0)
+        command.add_argument("--part", choices=("A", "B"), default="A")
+        command.add_argument("--limit", type=int, default=0)
+        command.add_argument("--gids-file", default=None)
     args = parser.parse_args(rest)
     if args.command == "plan":
         make_plan(Path(args.out))

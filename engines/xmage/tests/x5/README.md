@@ -1,10 +1,14 @@
 # X5 evidence: conformance on P's host
 
+Current readiness: the reviewed build from `004913a` completed the unchanged 10,112-game panel on October 2: all natural, zero validator violations and host halts. All 1,011 selected identity-hash-mode replays matched. The original diagnostic summary writer failed on floating-point metrics; repaired analysis passed on the same retained rows and stats, with no measurement rerun. The original failure and a failed analysis-helper attempt are preserved. The [verification report](../../../../docs/llm-engine-verification-20261002.json) records the exact build, plan, stores and recoverable archive hashes. The cloud pods are stopped; local recovery waits for Main PC release.
+
+The following summary and paired-world/golden evidence are historical and predate this build. Current panel/replay verification does not close the broader issue #23 or establish a Luna rating. Fairness remains validator only.
+
 Task X5 (issue #23): both benchmark pools in the engine catalog, at least 10,000 live-validated games through P's
-host, paired-world leak tests, and the fairness label. P's stack is protocol-v2 `4b588a1` throughout. Progress
+host, paired-world leak tests, and the fairness label. The historical run below used protocol-v2 `4b588a1`. Progress
 notes for the coordinator are in `STATUS.md`.
 
-## Summary
+## Historical summary
 
 | Check | Result |
 |---|---|
