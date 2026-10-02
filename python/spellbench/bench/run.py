@@ -249,7 +249,8 @@ def plan_for(
         matchups.setdefault(contexts[index].matchup_index, []).append(position)
     environ = os.environ if environ is None else environ
     host = environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS
-    shape = {key: value for key, value in config.to_json().items() if key != "tournament_dir"}
+    from ..llm.run_budget import qualification_config
+    shape = {key: value for key, value in qualification_config(config).items() if key != "tournament_dir"}
     workload = workload_id({"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
                             "games": None if games is None else positions})
     _hosted_budget_guard(config)

@@ -422,6 +422,22 @@ class RunBudget:
         """Validate the host-owned overlay without changing measured policy bytes."""
         return self._effective_deadline_for(self.path.resolve(), policy)
 
+    def qualification_origin(self) -> Path:
+        """The sealed budget path for the same qualified request configuration.
+
+        Only failed-run recovery preserves every policy setting and cutoff.
+        Precommit continuations can change policy, so traversal stops there.
+        The active successor remains the only budget used for admission.
+        """
+        with self._transaction() as database:
+            policy = self._policy(database)  # verifies all ancestor/receipt/overlay bindings
+            path = self.path.resolve()
+            while policy.get("continuation", {}).get("kind") == "failed-run-recovery":
+                path = Path(policy["continuation"]["parent"]).resolve(strict=True)
+                with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as retained:
+                    policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+            return path
+
     @staticmethod
     def _effective_deadline_for(path: Path, policy: dict) -> float:
         marker = _deadline_extension(path)
@@ -663,14 +679,8 @@ class BudgetedProvider:
         return result
 
 
-def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
-    """The launcher's phase/row check for the maintainer-owned hosted entry.
-
-    A depleted or failed shared run budget aborts the evaluation; it must not
-    turn every remaining Luna game into an immediate budget-related forfeit.
-    During parallel play other workers can legitimately have pending requests.
-    """
-    for bot in config.bots:
+def _hosted_budgets(config):
+    for index, bot in enumerate(config.bots):
         command = bot.command
         if not (any(Path(part).name == "llm_hosted_bot.py" for part in command)
                 or "spellbench.llm.hosted" in command):
@@ -695,7 +705,35 @@ def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
             "max_inflight": int(option("--max-inflight", 4)),
             "allow_timeout_forfeits": bool(timeout_flags),
         })
+        yield index, budget
+
+
+def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
+    """Stop the entire evaluation for a failed/depleted hosted budget."""
+    for _, budget in _hosted_budgets(config):
         budget.check(allow_pending=allow_pending)
+
+
+def qualification_config(config) -> dict:
+    """Workload identity with only sealed failed-run budget path aliases.
+
+    A recovery ledger preserves the measured request policy. Its pathname
+    is bookkeeping, so use the qualification's ancestor path for hashing.
+    Every other config value stays hashed, and executed commands stay intact.
+    """
+    shape = config.to_json()
+    for index, budget in _hosted_budgets(config):
+        budget.check()
+        origin = budget.qualification_origin()
+        if origin == budget.path.resolve():
+            continue
+        command = shape["bots"][index]["command"]
+        for position, part in enumerate(command):
+            if part.startswith("--run-budget="):
+                command[position] = "--run-budget=" + str(origin)
+            elif part == "--run-budget":
+                command[position + 1] = str(origin)
+    return shape
 
 
 def main() -> int:

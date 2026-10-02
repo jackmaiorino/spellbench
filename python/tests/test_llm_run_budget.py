@@ -149,6 +149,85 @@ def test_rebound_successor_overlay_cannot_increase_inherited_cutoff(tmp_path):
         child.reserve(PROMPT, output_tokens=1024)
 
 
+def hosted_config(state, *, inline=True, extra=()):
+    policy = state.summary()["policy"]
+    path = ("--run-budget=" + str(state.path),) if inline else ("--run-budget", str(state.path))
+    command = (sys.executable, "llm_hosted_bot.py", *path, "--model", state.model,
+               "--max-run-requests", str(policy["max_requests"]),
+               "--max-run-tokens", str(policy["max_reported_tokens"]),
+               "--max-run-wall-seconds", str(policy["max_wall_seconds"]),
+               "--max-inflight", str(policy["max_inflight"]),
+               *(("--allow-timeout-forfeits",) if policy.get("allow_timeout_forfeits", False) else ()), *extra)
+    bot = BotSpec("llm", "1", "subprocess", command=command)
+    return SimpleNamespace(bots=(bot,), to_json=lambda: {"bots": [bot.to_json()], "workers": 4})
+
+
+@pytest.mark.parametrize("inline", [False, True])
+def test_recovery_qualification_hash_matches_origin_without_changing_execution(tmp_path, inline):
+    from spellbench.llm.run_budget import qualification_config
+    from spellbench.arena.qualification import workload_id
+    parent = budget(tmp_path)
+    original = qualification_config(hosted_config(parent, inline=inline))
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    config = hosted_config(child, inline=inline)
+    executed = config.to_json()
+    aliased = qualification_config(config)
+    assert child.qualification_origin() == parent.path.resolve()
+    assert workload_id(aliased) == workload_id(original)
+    assert workload_id(executed) != workload_id(original)
+    assert config.to_json() == executed
+    assert child.summary()["requests"] == 0
+
+
+def test_qualification_origin_stops_at_a_policy_changing_precommit_boundary(tmp_path):
+    first = budget(tmp_path)
+    first.fail("hosted_broker_failed")
+    middle_path = tmp_path / "qualification.sqlite3"
+    RunBudget.continue_qualification(first.path, middle_path, **continuation_arguments(first),
+                                    allow_timeout_forfeits=True)
+    middle = RunBudget(middle_path, model=first.model)
+    middle.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(middle, tmp_path / "successor.sqlite3", tmp_path)
+    assert child.qualification_origin() == middle_path.resolve()
+    assert child.qualification_origin() != first.path.resolve()
+
+
+@pytest.mark.parametrize("extra", [("--timeout-ms", "500"), ("--reasoning-effort", "high"),
+                                  ("--history-decisions", "2")])
+def test_qualification_path_alias_does_not_hide_request_setting_changes(tmp_path, extra):
+    from spellbench.llm.run_budget import qualification_config
+    from spellbench.arena.qualification import workload_id
+    parent = budget(tmp_path)
+    original = qualification_config(hosted_config(parent))
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    assert workload_id(qualification_config(hosted_config(child, extra=extra))) != workload_id(original)
+
+
+def test_qualification_alias_refuses_failed_active_successor(tmp_path):
+    from spellbench.llm.run_budget import qualification_config
+    parent = budget(tmp_path)
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    config = hosted_config(child)
+    child.fail("profile_renewal_failed")
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        qualification_config(config)
+
+
+def test_non_recovery_budget_command_spelling_stays_unchanged(tmp_path):
+    from spellbench.llm.run_budget import qualification_config
+    state = budget(tmp_path)
+    config = hosted_config(state)
+    bot = config.bots[0]
+    command = tuple(part.replace("\\", "/") if part.startswith("--run-budget=") else part
+                    for part in bot.command)
+    rewritten = BotSpec("llm", "1", "subprocess", command=command)
+    raw = SimpleNamespace(bots=(rewritten,), to_json=lambda: {"bots": [rewritten.to_json()]})
+    assert qualification_config(raw) == raw.to_json()
+
+
 def budget(tmp_path, **changes):
     path = tmp_path / "run.sqlite3"
     settings = {"model": "luna", "requests": 8, "tokens": 8000, "wall_seconds": 60, **changes}

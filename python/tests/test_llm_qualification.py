@@ -15,7 +15,58 @@ from spellbench.llm.run_budget import BudgetedProvider, RunBudget, check_hosted_
 from spellbench.llm.provider import Completion, ProviderError
 
 from test_throughput import _player, MACHINE, PLACEMENT
-from test_llm_run_budget import PROMPT, Provider
+from test_llm_run_budget import PROMPT, Provider, budget, failed_run_recovery, hosted_config
+
+
+def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_path, monkeypatch):
+    from spellbench.bench import run
+    from spellbench.arena import qualification
+    from spellbench.arena.throughput import ThroughputError
+    from copy import deepcopy
+    import sys
+
+    parent = budget(tmp_path)
+    bench = load_benchmark(Path(__file__).parents[2] / "benchmarks/standard-mirror-xmage")
+    doc = bench.tournament_config("out/test")
+    doc["engine"]["command"] = [sys.executable]
+    index = next(i for i, bot in enumerate(doc["bots"]) if bot["name"] == "llm-gpt-6-luna")
+    doc["bots"][index]["command"] = list(hosted_config(parent).bots[0].command)
+    doc["bots"][index]["owner"] = "spellbench"
+    monkeypatch.setattr(run, "_machine_facts", lambda volumes: MACHINE)
+    monkeypatch.setattr(run, "_free_space", lambda volumes: MACHINE)
+    monkeypatch.setattr(qualification, "usable_cpus", lambda count=None: 24)
+    play, calls = _player(120, {1: 1, 2: 2, 4: 3})
+    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: play)
+    evidence = tmp_path / "evidence.jsonl"
+    options = dict(placement=PLACEMENT, evidence=evidence,
+                   volumes={"run_dir": tmp_path, "pin_root": tmp_path}, rules=bench.qualification_rules())
+    measured = run.plan_for(TournamentConfig.from_json(doc), **options)
+    assert measured.workers == 4 and len(calls) == 3
+    retained_evidence = evidence.read_bytes()
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    recovered = deepcopy(doc)
+    recovered["bots"][index]["command"] = list(hosted_config(child).bots[0].command)
+    executed = TournamentConfig.from_json(recovered)
+    attempts = []
+
+    def refuse(*args, **kwargs):
+        def play(*args, **kwargs):
+            attempts.append(True)
+            raise ThroughputError("fresh qualification refused")
+        return play
+
+    monkeypatch.setattr(run, "qualification_play", refuse)
+    reused = run.plan_for(executed, **options)
+    assert reused.reused and reused.workload == measured.workload and reused.workers == 4
+    assert executed.to_json()["bots"][index]["command"] == recovered["bots"][index]["command"]
+    assert evidence.read_bytes() == retained_evidence and attempts == []
+    assert child.summary()["requests"] == 0
+    recovered["bots"][index]["command"] += ["--reasoning-effort", "high"]
+    with pytest.raises(ThroughputError, match="fresh qualification refused"):
+        run.plan_for(TournamentConfig.from_json(recovered), **options)
+    assert attempts == [True] and evidence.read_bytes() == retained_evidence
+    assert child.summary()["requests"] == 0
 
 
 def test_luna_schedule_compares_identical_input_indices_at_one_two_four_workers():
