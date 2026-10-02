@@ -89,8 +89,9 @@ def test_reported_usage_replaces_reservation_and_is_not_double_counted(tmp_path)
     assert summary["unknown_usage"] == summary["pending"] == summary["failed"] == 0
 
 
-def test_host_failure_preserves_inflight_usage_and_cannot_be_cleared_by_another_worker(tmp_path):
-    state = budget(tmp_path)
+@pytest.mark.parametrize("allow_timeout_forfeits", [False, True])
+def test_host_failure_preserves_inflight_usage_and_cannot_be_cleared_by_another_worker(tmp_path, allow_timeout_forfeits):
+    state = budget(tmp_path, allow_timeout_forfeits=allow_timeout_forfeits)
     request, _ = state.reserve(PROMPT, output_tokens=1024)
     other = RunBudget(state.path, model="luna")
     other.fail("profile_renewal_failed")
@@ -113,8 +114,9 @@ def test_host_failure_preserves_inflight_usage_and_cannot_be_cleared_by_another_
     (Completion("{}", "luna", 100, 2048), "output_token_limit_exceeded", 0),
     (Completion("{}", "luna", 3000, 1), "run_budget_tokens_exceeded", 0),
 ])
-def test_failed_request_stops_every_worker_and_preserves_usage(tmp_path, result, code, unknown):
-    state = budget(tmp_path, tokens=2500)
+@pytest.mark.parametrize("allow_timeout_forfeits", [False, True])
+def test_failed_request_stops_every_worker_and_preserves_usage(tmp_path, result, code, unknown, allow_timeout_forfeits):
+    state = budget(tmp_path, tokens=2500, allow_timeout_forfeits=allow_timeout_forfeits)
     provider = Provider(result)
     with pytest.raises(ProviderError, match=code):
         BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
@@ -124,8 +126,9 @@ def test_failed_request_stops_every_worker_and_preserves_usage(tmp_path, result,
     assert state.summary()["failed"] == provider.calls == 1
 
 
-def test_a_killed_workers_unresolved_request_stops_admission(tmp_path):
-    state = budget(tmp_path)
+@pytest.mark.parametrize("allow_timeout_forfeits", [False, True])
+def test_a_killed_workers_unresolved_request_stops_admission(tmp_path, allow_timeout_forfeits):
+    state = budget(tmp_path, allow_timeout_forfeits=allow_timeout_forfeits)
     request, _ = state.reserve(PROMPT, output_tokens=1024)
     with sqlite3.connect(state.path) as database:
         database.execute("UPDATE requests SET lease_deadline=0 WHERE id=?", (request,))
@@ -357,3 +360,181 @@ def test_explicit_qualification_continuation_cli_keeps_original_deadline(tmp_pat
                                     "--max-wall-seconds", "60", "--max-inflight", "4"])
     assert module.main() == 0
     assert RunBudget(target, model="luna").summary()["policy"]["deadline"] == deadline
+
+
+def test_timeout_opt_in_allows_a_fresh_provider_but_never_reuses_the_failed_instance(tmp_path):
+    state = budget(tmp_path, allow_timeout_forfeits=True)
+    provider = Provider(ProviderError("timeout"))
+    wrapped = BudgetedProvider(provider, state)
+    with pytest.raises(ProviderError, match="timeout"):
+        wrapped.complete(PROMPT, timeout_s=2)
+    with pytest.raises(ProviderError, match="provider_already_failed"):
+        wrapped.complete(PROMPT, timeout_s=2)
+    state.check()
+    assert provider.calls == 1
+    other = Provider(Completion("{}", "luna", 100, 20))
+    BudgetedProvider(other, RunBudget(state.path, model="luna")).complete(PROMPT, timeout_s=2)
+    summary = state.summary()
+    assert summary["requests"] == 2 and summary["completed"] == summary["failed"] == summary["unknown_usage"] == 1
+    assert summary["active_timeout_forfeits"] == 1 and summary["active_terminal_failures"] == 0
+    assert summary["uncertain_reserved_tokens"] == 1034 and summary["accounted_tokens"] == 1154
+    assert other.calls == 1
+    with sqlite3.connect(state.path.as_uri() + "?mode=ro", uri=True) as database:
+        assert database.execute("SELECT status,error,input_tokens,output_tokens FROM requests ORDER BY id").fetchall() == [
+            ("failed", "timeout", None, None), ("completed", None, 100, 20)]
+
+
+def test_opted_in_timeouts_keep_unknown_reservations_until_original_token_cap(tmp_path):
+    state = budget(tmp_path, tokens=2500, allow_timeout_forfeits=True)
+    for _ in range(2):
+        with pytest.raises(ProviderError, match="timeout"):
+            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+    summary = state.summary()
+    assert summary["failed"] == summary["unknown_usage"] == summary["active_timeout_forfeits"] == 2
+    assert summary["accounted_tokens"] == summary["uncertain_reserved_tokens"] == 2068
+    provider = Provider(Completion("{}", "luna", 1, 1))
+    with pytest.raises(ProviderError, match="run_budget_tokens_exhausted"):
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+    assert provider.calls == 0 and state.summary()["requests"] == 2
+
+
+@pytest.mark.parametrize("limit", ["requests", "deadline"])
+def test_timeout_forfeit_does_not_relax_original_request_or_time_limits(tmp_path, monkeypatch, limit):
+    state = budget(tmp_path, requests=1, allow_timeout_forfeits=True)
+    with pytest.raises(ProviderError, match="timeout"):
+        BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+    if limit == "deadline":
+        import spellbench.llm.run_budget as module
+        state_deadline = state.summary()["policy"]["deadline"]
+        monkeypatch.setattr(module.time, "time", lambda: state_deadline)
+    else:
+        with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
+            state.check()
+        return
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        state.check()
+
+
+@pytest.mark.parametrize("code", ["http_401", "inference_failed", "incomplete_response", "abandoned", "transport_error"])
+def test_only_exact_settled_timeout_errors_are_tolerated(tmp_path, code):
+    state = budget(tmp_path, allow_timeout_forfeits=True)
+    with pytest.raises(ProviderError, match=code):
+        BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=2)
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check(allow_pending=True)
+    assert state.summary()["active_timeout_forfeits"] == 0
+
+
+def test_timeout_with_known_zero_usage_still_consumes_request_without_unknown_charge(tmp_path):
+    state = budget(tmp_path, allow_timeout_forfeits=True)
+    request, _ = state.reserve(PROMPT, output_tokens=1024)
+    assert state.finish(request, result=Completion("", "luna", 0, 0), elapsed_ms=0, error="timeout") == "timeout"
+    state.check()
+    summary = state.summary()
+    assert summary["requests"] == summary["failed"] == summary["active_timeout_forfeits"] == 1
+    assert summary["unknown_usage"] == summary["accounted_tokens"] == 0
+
+
+def test_timeout_label_does_not_make_an_abandoned_row_safe(tmp_path):
+    state = budget(tmp_path, allow_timeout_forfeits=True)
+    request, _ = state.reserve(PROMPT, output_tokens=1024)
+    with sqlite3.connect(state.path) as database:
+        database.execute("UPDATE requests SET status='abandoned',error='timeout',input_tokens=0,output_tokens=0 WHERE id=?", (request,))
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check(allow_pending=True)
+    assert state.summary()["active_timeout_forfeits"] == 0
+
+
+@pytest.mark.parametrize("allowed,expected", [(False, True), (True, False)])
+def test_timeout_policy_must_match_explicit_hosted_expectation(tmp_path, allowed, expected):
+    state = budget(tmp_path, allow_timeout_forfeits=allowed)
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        RunBudget(state.path, model="luna", expected_limits={"allow_timeout_forfeits": expected})
+    RunBudget(state.path, model="luna", expected_limits={"allow_timeout_forfeits": allowed}).check()
+
+
+def test_existing_ledger_cannot_acquire_opt_in_by_adding_a_flag_to_legacy_schema(tmp_path):
+    state = failed_budget(tmp_path)
+    with sqlite3.connect(state.path) as database:
+        policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+        policy["allow_timeout_forfeits"] = True
+        database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
+    with pytest.raises(ProviderError, match="run_budget_unavailable"):
+        RunBudget(state.path, model="luna", expected_limits={"allow_timeout_forfeits": True})
+
+
+def test_explicit_timeout_continuation_keeps_both_legacy_ancestors_and_all_usage(tmp_path):
+    parent = failed_budget(tmp_path)
+    parent_bytes = parent.path.read_bytes()
+    child = continue_budget(parent, tmp_path / "child.sqlite3")
+    with pytest.raises(ProviderError, match="timeout"):
+        BudgetedProvider(Provider(ProviderError("timeout")), child).complete(PROMPT, timeout_s=2)
+    child_bytes = child.path.read_bytes()
+    arguments = continuation_arguments(child)
+    target = tmp_path / "allowed.sqlite3"
+    RunBudget.continue_qualification(child.path, target, **arguments, allow_timeout_forfeits=True)
+    successor = RunBudget(target, model="luna", expected_limits={**arguments["expected_limits"], "allow_timeout_forfeits": True})
+    successor.check()
+    assert parent.path.read_bytes() == parent_bytes and child.path.read_bytes() == child_bytes
+    with pytest.raises(ProviderError, match="timeout"):
+        BudgetedProvider(Provider(ProviderError("timeout")), successor).complete(PROMPT, timeout_s=2)
+    successor.check()
+    summary = successor.summary()
+    assert summary["requests"] == 4 and summary["failed"] == summary["unknown_usage"] == 3
+    assert summary["inherited"]["failed"] == 2 and summary["active_timeout_forfeits"] == 1
+    assert summary["accounted_tokens"] == 3222 and summary["uncertain_reserved_tokens"] == 3102
+    for name in (*LIMIT_NAMES, "created_at", "deadline"):
+        assert summary["policy"][name] == json.loads(sqlite_policy(parent.path))[name]
+    assert summary["policy"]["continuation"]["allow_timeout_forfeits"] is True
+
+
+def sqlite_policy(path):
+    with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as database:
+        return database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0]
+
+
+@pytest.mark.parametrize("mutation", ["flag", "continuation_flag", "schema"])
+def test_timeout_continuation_rejects_silent_policy_changes(tmp_path, mutation):
+    parent = failed_budget(tmp_path)
+    target = tmp_path / "allowed.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent), allow_timeout_forfeits=True)
+    with sqlite3.connect(target) as database:
+        policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+        if mutation == "flag":
+            policy["allow_timeout_forfeits"] = False
+        elif mutation == "continuation_flag":
+            policy["continuation"]["allow_timeout_forfeits"] = False
+        else:
+            policy["schema"] = "spellbench-llm-run-budget/v2"
+        database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
+    with pytest.raises(ProviderError):
+        RunBudget(target, model="luna").check()
+
+
+def test_opted_in_healthy_timeout_history_cannot_create_another_successor(tmp_path):
+    state = failed_budget(tmp_path, allow_timeout_forfeits=True)
+    with pytest.raises(ProviderError, match="run_budget_parent_not_failed"):
+        RunBudget.continue_qualification(state.path, tmp_path / "refused.sqlite3",
+                                         **continuation_arguments(state), allow_timeout_forfeits=True)
+    state.fail("profile_renewal_failed")
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        RunBudget.continue_qualification(state.path, tmp_path / "downgrade.sqlite3", **continuation_arguments(state))
+    target = tmp_path / "repaired.sqlite3"
+    RunBudget.continue_qualification(state.path, target, **continuation_arguments(state), allow_timeout_forfeits=True)
+    successor = RunBudget(target, model="luna", expected_limits={"allow_timeout_forfeits": True})
+    successor.check()
+    assert successor.summary()["host_failures"] == 1 and successor.summary()["uncertain_reserved_tokens"] == 1034
+
+
+def test_explicit_timeout_opt_in_cli_is_bound_in_successor(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    parent = failed_budget(tmp_path)
+    arguments = continuation_arguments(parent)
+    target = tmp_path / "cli.sqlite3"
+    monkeypatch.setattr(sys, "argv", ["run_budget", "continue-qualification", str(parent.path), str(target),
+                                    "--model", "luna", "--parent-sha256", arguments["parent_sha256"],
+                                    "--max-requests", "8", "--max-tokens", "8000",
+                                    "--max-wall-seconds", "60", "--max-inflight", "4", "--allow-timeout-forfeits"])
+    assert module.main() == 0
+    successor = RunBudget(target, model="luna", expected_limits={"allow_timeout_forfeits": True})
+    assert successor.summary()["policy"]["schema"] == "spellbench-llm-run-budget/v3"

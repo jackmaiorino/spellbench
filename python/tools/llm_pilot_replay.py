@@ -1,4 +1,4 @@
-"""Replay one completed pilot game through its engine, without model requests."""
+"""Replay a recorded game or verified timeout-forfeit prefix, without model calls."""
 
 from __future__ import annotations
 
@@ -23,6 +23,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine-command", type=Path, required=True, help="the preserved JSON argv")
     parser.add_argument("--transcript", type=Path, required=True)
+    parser.add_argument("--timeout-host-receipt", type=Path,
+                        help="explicit verified host receipt for a request-timeout forfeit prefix")
     parser.add_argument("--out", type=Path, required=True, help="new SSD output directory")
     args = parser.parse_args()
     command = json.loads(args.engine_command.read_bytes())
@@ -32,9 +34,23 @@ def main() -> int:
         parser.error("the one-game replay accepts at most a 128 MiB transcript")
     exchanges = _engine_exchanges(args.transcript)
     if (sum(isinstance(row[1], dict) and row[1].get("request_type") == "reset" for row in exchanges) != 1
-            or not exchanges or not isinstance(exchanges[-1][3], dict)
-            or exchanges[-1][3].get("response_type") != "terminal"):
-        parser.error("one completed engine game is required")
+            or not exchanges or not isinstance(exchanges[-1][3], dict)):
+        parser.error("one recorded engine game is required")
+    terminal_observed = exchanges[-1][3].get("response_type") == "terminal"
+    if not terminal_observed:
+        if args.timeout_host_receipt is None:
+            parser.error("a decision prefix requires its explicit verified timeout host receipt")
+        host = json.loads(args.timeout_host_receipt.read_bytes())
+        binding = host.get("timeout_binding") or {}
+        if (host.get("passed") is not True or host.get("model_requests") != 0
+                or host.get("classification") != "forfeit" or binding.get("error") != "timeout"
+                or binding.get("unknown_usage") is not True
+                or host.get("transcript_sha256") != digest(args.transcript)
+                or host.get("exchanges") != len(exchanges)
+                or exchanges[-1][3].get("response_type") != "decision"):
+            parser.error("timeout receipt does not bind this exact recorded engine prefix")
+    elif args.timeout_host_receipt is not None:
+        parser.error("a completed engine game does not use a timeout receipt")
     output = args.out.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     if shutil.disk_usage(output.parent).free < 60 * 2**30:
@@ -44,7 +60,9 @@ def main() -> int:
     with expected_path.open("xb") as stream:
         for row in exchanges:
             stream.write(wire.canonical_json_line(row[3]))
-    receipt = {"kind": "one-game-engine-regeneration", "status": "running", "model_requests": 0,
+    receipt = {"kind": "one-game-engine-regeneration" if terminal_observed else "timeout-forfeit-engine-prefix-regeneration",
+               "status": "running", "model_requests": 0, "engine_terminal_observed": terminal_observed,
+               "host_receipt_sha256": digest(args.timeout_host_receipt) if args.timeout_host_receipt else None,
                "transcript_sha256": digest(args.transcript), "engine_command_sha256": digest(args.engine_command),
                "git_commit": subprocess.check_output(["git", "rev-parse", "HEAD"],
                                   cwd=Path(__file__).resolve().parents[2], text=True).strip(),
