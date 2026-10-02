@@ -18,7 +18,7 @@
   "qualification_worker_selection": "wall",
   "bootstrap_replicates": 2000,
   "time_control": {"startup_ms": 120000, "game_start_ms": 60000, "bank_ms": 600000,
-                   "increment_ms": 2000, "max_decision_ms": 30000, "engine_step_ms": 120000},
+                   "increment_ms": 2000, "max_decision_ms": 90000, "engine_step_ms": 120000},
   "bots": [
     {
       "name": "uniform", "version": "2.0.0", "type": "builtin", "seed": 11,
@@ -37,7 +37,7 @@
                   "--image", "sha256:3d3be1ba7fdbc2a7d791749fb6fd8050e6cc849148762e3210a6c6291ac75eaa", "--run-budget=${SPELLBENCH_LLM_RUN_BUDGET}",
                   "--log-dir", "${SPELLBENCH_LLM_LOG_DIR}", "--renew-profile-before-game", "--reasoning-effort", "low",
                   "--max-completion-tokens", "1024", "--max-calls-per-game", "256",
-                  "--max-tokens-per-game", "750000", "--history-decisions", "1", "--timeout-ms", "20000",
+                  "--max-tokens-per-game", "750000", "--history-decisions", "1", "--timeout-ms", "60000",
                   "--max-run-requests", "4096", "--max-run-tokens", "10000000",
                   "--max-run-wall-seconds", "7200", "--max-inflight", "4"],
       "display": {"label": "GPT-6 Luna", "author": "OpenAI / mipo", "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; no request retries or fallback.", "url": "https://github.com/jackmaiorino/spellbench/issues/11"}

@@ -1,0 +1,66 @@
+{
+  "kind": "spellbench-precommit-qualification-timeout-recovery",
+  "observed": "2026-10-02 about08:33 EDT",
+  "source_before_repair": "3cc915783308a7d3e2303bfe3c1855e303e85fd2",
+  "phase": "qualification before public commitment; no formal game or rating",
+  "retained_parent": {
+    "path": "D:\\e-scratch\\spellbench-luna-rated-20261002\\run-budget.sqlite3",
+    "sha256": "fb437b6d88dea1b468510f7053b49c69540e81e17451e8fcaa1bb959b7f7999e",
+    "requests": 76,
+    "completed": 75,
+    "failed": 1,
+    "pending": 0,
+    "reported_input_tokens": 275157,
+    "reported_output_tokens": 1969,
+    "unknown_usage": 1,
+    "uncertain_admission_reservation": 14157,
+    "deadline_unix": 1790950943.4969769,
+    "created_at_unix": 1790943743.4969766
+  },
+  "failed_request": {
+    "id": 76,
+    "reserved_tokens": 14157,
+    "elapsed_ms": 19896,
+    "error": "timeout"
+  },
+  "retained_games": {
+    "natural": 4,
+    "forfeit": 1,
+    "records": "benchmarks/standard-mirror-xmage/.qualification-records/qualification-5josgz2d/trial-1-workers-1.jsonl"
+  },
+  "first_natural_luna_proof": {
+    "game_id": "g-19d40362535fc0cf",
+    "host_checks": 334,
+    "engine_exchanges": 336,
+    "engine_matched": 336,
+    "host_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-003\\host-proof.json",
+    "engine_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-003\\first-luna-engine-replay\\receipt.json",
+    "transcript_sha256": "f7e2890aedf7de2d5d2147f9731c1335799e460728fbfc7be691fe51352830e4",
+    "expected_sha256": "346e293231175b95ca1ccf5dcb203d50c3fea9e9c4120605239329abcc0d4427",
+    "model_requests": 0
+  },
+  "prospective_repair": {
+    "inference_timeout_ms": 60000,
+    "max_decision_ms": 90000,
+    "bank_ms": 600000,
+    "unchanged": [
+      "engine004913a",
+      "modelgpt-6-luna",
+      "low reasoning",
+      "promptv1",
+      "history1",
+      "deck pool",
+      "48-game schedule",
+      "cumulative limits",
+      "original absolute deadline"
+    ],
+    "accounting": "Distinct hash-bound qualification attempt inherits all requests, reported usage, unknown count and permanent uncertain reservation; only one successor; any new failure stops admission",
+    "review": "luna_qualification_review reviewed source and read-only metadata; no extra user decision required within original scope"
+  },
+  "non_claims": [
+    "Timeout margin is not a proven completion bound",
+    "Unknown reservation is not confirmed usage or a provider hard cap",
+    "Recorded-choice replay does not qualify an allocation",
+    "No formal game, public commitment or Luna leaderboard row"
+  ]
+}
