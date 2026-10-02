@@ -1,0 +1,70 @@
+{
+  "kind": "luna-engine-verification-report",
+  "source_revision": "004913a4fd8e2455f8dfcbcd73a15c568a56bcc2",
+  "plan_sha256": "07491c2ff545a5bca14375bb36610710accf39a35e6287fe8ba419152cb1a31d",
+  "build_manifest_sha256": "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93",
+  "lib_digest": "094733a77d5e5b9a6a881c104e7c70ea289f64e98a327c7a4b1937796025a0a8",
+  "toolchain": "Temurin23.0.1+11, Maven3.9.8 CI build, execution Python3.12.3; no execution-host linker",
+  "gpu_ordinal": null,
+  "formal": {
+    "games": 10112,
+    "natural": 10112,
+    "violations": 0,
+    "host_halts": 0,
+    "decisions_checked": 5976799,
+    "rows_sha256": "f495fef5bfe1a4ad2841a4446b71c0ead502eabcbb856f9b4fd3b7e7c04d5a01",
+    "seconds": 3696,
+    "workers": 8
+  },
+  "replay": {
+    "games": 1011,
+    "equal_game_digests": 1011,
+    "missing": 0,
+    "unexpected": 0,
+    "differ": 0,
+    "rows_sha256": "852839dbb16141e33d87c889ef3133b4698d837b3a6ac13d29f9b95ee51b1bee",
+    "report_sha256": "fbe58577681843fbf30d708776f9228aa86c0509bfc6a118c36503ec724480f5",
+    "java_options": "-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919",
+    "seconds_milli": 476600,
+    "workers": 8
+  },
+  "qualification": {
+    "games_per_trial": 32,
+    "formal_trials_worker_milliseconds": [[1, 68911], [8, 35206], [16, 50947]],
+    "replay_trials_worker_milliseconds": [[1, 63158], [8, 34740], [16, 46326]],
+    "both_trial_output_sets_identical": true,
+    "launch_path": "x5run.py qualify then run --allocation; separate identity-hash qualification before replay",
+    "live_luna_allocation_reusable": false
+  },
+  "analysis": {
+    "verdict": "PASS",
+    "repair_commit": "d98e18f348c5324b8a62a8ac1e111042012b4306",
+    "repair_source_sha256": "696d7bb7b7225662cfbf47f9811ed1d0193854bfb0a73365009569c245871f4b",
+    "helper_sha256": "bf1049b4f2c75c201037e0bd5fc3784396f3f25e173dd57e2077d13cdd8eea5d",
+    "summary_sha256": "9e03e2891b35660a0578476334c3b228c99e3dc45a50f40334c39f6317fdcf7d",
+    "verification_manifest_sha256": "9383d48e02aba4af18576bf6445b93aba217fee1c419d3548fb0ddb53fb3b087",
+    "verification_completion_sha256": "f583f958d5ae3c30a5159a78b903f9ea78e747e4d164e065af491c0d38a4b534",
+    "original_failed_completion_sha256": "ff854300504e860c21cee38aa084f507404ee2a11b0868d1d17c32400b848773",
+    "preservation": "Original summary, completion, manifest, logs, rows and stats unchanged. First analysis-helper failure retained under verification-attempts/001; corrected jar-set check accepts SHA-pinned CI classpath.txt metadata.",
+    "engine_calls": 0,
+    "model_requests": 0,
+    "measurement_reruns": 0
+  },
+  "recovery": {
+    "source": "runpod:volume/hzaciff5xy/spellbench-luna-x5-20261001",
+    "archive": "cloud-recovery.tar.gz",
+    "archive_bytes": 481358726,
+    "archive_sha256": "bf2a6b2df277d60db2767ef1159e8b4098b21f4ea89a5e8d58ea363e44ed64ba",
+    "manifest_sha256": "84a98f932f9b1d07bfd6931660ff187ceb763a91a4254e9fe69681143025328e",
+    "files": 164,
+    "charged_job_bytes": 1757030400,
+    "pods": "j7nhcnc5x3a9l3 and1qeikbu63ugou0 confirmed EXITED",
+    "local_recovery": "pending explicit release of Main PC CLAIM809; volume retained"
+  },
+  "non_claims": [
+    "no live Luna qualification, rated games or leaderboard row",
+    "no new golden or paired-world test claim on this build; broader issue23 stays open",
+    "validator-only fairness label",
+    "no whole-store byte-identical timing claim or model determinism claim"
+  ]
+}
