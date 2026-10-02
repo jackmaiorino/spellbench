@@ -19,7 +19,7 @@ from spellbench.llm.run_budget import BudgetedProvider, RunBudget, LIMIT_NAMES, 
 PROMPT = Prompt(({"role": "user", "content": "choose"},), "a" * 64, 10)
 
 
-def failed_run_recovery(parent, path, tmp_path, *, timeout_policy=None):
+def failed_run_recovery(parent, path, tmp_path, *, timeout_policy=None, no_cutoff=False):
     manifest = tmp_path / "abort-manifest.json"
     if not manifest.exists():
         manifest.write_text(json.dumps({"schema": "spellbench-tournament/v2",
@@ -38,8 +38,59 @@ def failed_run_recovery(parent, path, tmp_path, *, timeout_policy=None):
         expected_limits={name: summary["policy"][name] for name in LIMIT_NAMES},
         failure_receipt=receipt, failure_receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
         allow_timeout_forfeits=(summary["policy"].get("allow_timeout_forfeits", False)
-                               if timeout_policy is None else timeout_policy))
+                               if timeout_policy is None else timeout_policy), no_cutoff=no_cutoff)
     return RunBudget(path, model=parent.model), receipt, manifest
+
+
+def test_authorized_recovery_removes_expired_cutoff_without_resetting_limits(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    parent = budget(tmp_path, requests=2)
+    parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
+    with pytest.raises(ProviderError):
+        BudgetedProvider(Provider(ProviderError("subscription_sharing_usage_limit_exceeded")), parent).complete(PROMPT, timeout_s=2)
+    before = parent.summary()
+    database_bytes = parent.path.read_bytes()
+    overlay = parent.path.with_name(parent.path.name + ".deadline-extension.json")
+    overlay_bytes = overlay.read_bytes()
+    monkeypatch.setattr(module.time, "time", lambda: before["effective_deadline"] + 1000)
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
+    child.check()
+    after = child.summary()
+    assert after["effective_deadline"] is None
+    for name in ("requests", "accounted_tokens", "unknown_usage", "pending"):
+        assert after[name] == before[name]
+    for name in (*LIMIT_NAMES, "created_at", "deadline"):
+        assert after["policy"][name] == before["policy"][name]
+    assert parent.path.read_bytes() == database_bytes and overlay.read_bytes() == overlay_bytes
+    provider = Provider(Completion("{}", parent.model, 11, 3, "recovered"))
+    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
+    assert 0 < provider.timeout_s <= 2
+    assert child.summary()["requests"] == 2 and child.summary()["accounted_tokens"] == before["accounted_tokens"] + 14
+    with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
+        child.reserve(PROMPT, output_tokens=1024)
+
+
+@pytest.mark.parametrize("limit", ["tokens", "inflight"])
+def test_no_cutoff_recovery_keeps_token_and_concurrency_admission(tmp_path, limit):
+    parent = budget(tmp_path, **({"tokens": 1050} if limit == "tokens" else {"max_inflight": 1}))
+    with pytest.raises(ProviderError):
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
+    if limit == "inflight":
+        child.reserve(PROMPT, output_tokens=1024)
+    expected = "run_budget_tokens_exhausted" if limit == "tokens" else "run_budget_concurrency_exhausted"
+    with pytest.raises(ProviderError, match=expected):
+        child.reserve(PROMPT, output_tokens=1024)
+
+
+@pytest.mark.parametrize("timeout_s", [float("inf"), float("nan"), 0, -1, True])
+def test_no_cutoff_recovery_refuses_invalid_timeout_without_admitting_a_request(tmp_path, timeout_s):
+    parent = budget(tmp_path)
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
+    with pytest.raises(ProviderError, match="timeout"):
+        child.reserve(PROMPT, output_tokens=1024, timeout_s=timeout_s)
+    assert child.summary()["requests"] == 0 and child.summary()["pending"] == 0
 
 
 def test_failed_run_recovery_preserves_overlay_caps_abort_and_unknown_debit(tmp_path):
@@ -163,13 +214,14 @@ def hosted_config(state, *, inline=True, extra=()):
 
 
 @pytest.mark.parametrize("inline", [False, True])
-def test_recovery_qualification_hash_matches_origin_without_changing_execution(tmp_path, inline):
+@pytest.mark.parametrize("no_cutoff", [False, True])
+def test_recovery_qualification_hash_matches_origin_without_changing_execution(tmp_path, inline, no_cutoff):
     from spellbench.llm.run_budget import qualification_config
     from spellbench.arena.qualification import workload_id
     parent = budget(tmp_path)
     original = qualification_config(hosted_config(parent, inline=inline))
     parent.fail("hosted_broker_failed")
-    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=no_cutoff)
     config = hosted_config(child, inline=inline)
     executed = config.to_json()
     aliased = qualification_config(config)
@@ -241,6 +293,7 @@ class Provider:
 
     def complete(self, prompt, *, timeout_s):
         self.calls += 1
+        self.timeout_s = timeout_s
         if isinstance(self.result, Exception):
             raise self.result
         return self.result

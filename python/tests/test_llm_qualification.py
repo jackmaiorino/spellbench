@@ -18,7 +18,8 @@ from test_throughput import _player, MACHINE, PLACEMENT
 from test_llm_run_budget import PROMPT, Provider, budget, failed_run_recovery, hosted_config
 
 
-def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_path, monkeypatch):
+@pytest.mark.parametrize("no_cutoff", [False, True])
+def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_path, monkeypatch, no_cutoff):
     from spellbench.bench import run
     from spellbench.arena import qualification
     from spellbench.arena.throughput import ThroughputError
@@ -44,7 +45,7 @@ def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_
     assert measured.workers == 4 and len(calls) == 3
     retained_evidence = evidence.read_bytes()
     parent.fail("hosted_broker_failed")
-    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=no_cutoff)
     recovered = deepcopy(doc)
     recovered["bots"][index]["command"] = list(hosted_config(child).bots[0].command)
     executed = TournamentConfig.from_json(recovered)
