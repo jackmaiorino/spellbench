@@ -7,7 +7,7 @@
   "engine": {"name": "xmage", "command": ["${PYTHON}", "${XMAGE_VERIFIED_ENTRY}",
               "--java", "${JAVA}", "--build", "${XMAGE_BUILD}", "--db", "${XMAGE_DB}",
               "--work", "${XMAGE_ENGINE_WORK}", "--manifest", "${XMAGE_BUILD_MANIFEST}",
-              "--manifest-sha256", "7f06bfd1780fb9c482e619092acf10875d76c27ebcc8986cf1d612e871e40c4b"]},
+              "--manifest-sha256", "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93"]},
   "deck_pool": ["Standard16-RG", "Standard16-UB"],
   "pairs_per_deck": 4,
   "stats_seed": 20261001,
