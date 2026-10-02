@@ -2,36 +2,40 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 40", allow_module_level=True)
-
 import dataclasses
 import hashlib
+from typing import Any
 
-from spellbench import models
 from spellbench.arena import leaderboard, registry, store
+from spellbench.arena.ledger import parse_ledger
 
-PROVENANCE = models.Provenance("fake", "0", "rules", "pool")
+from arena_helpers import TEST_RUN_SECRET
+
+ENGINE = {"engine_name": "fake", "engine_version": "1", "rules_snapshot_id": "r", "card_pool_identity": "p"}
 ALPHA, BETA, GAMMA = (
-    registry.build_entry(name=name, version="1.0.0", descriptor=registry.builtin_descriptor(name, "1.0.0"))
+    registry.build_entry(name=name, version="2.0.0", descriptor=registry.builtin_descriptor(name, "2.0.0"))
     for name in ("alpha", "beta", "gamma")
 )
 ENTRIES = [ALPHA, BETA, GAMMA]
 BASE_SEED = 7
 
 
-def _row(matchup: int, pair: int, game: int, a, b, decks: tuple[str, str], result: str) -> store.LedgerRow:
-    """Game ``game`` of pair ``pair`` of matchup (a, b).
+def _catalog_deck(name: str) -> dict[str, Any]:
+    return {"deck_id": "sha256:" + hashlib.sha256(name.encode()).hexdigest(), "name": name, "catalog_id": name}
 
-    Game 0 seats a at p0, game 1 seats b at p0. ``result`` is "a" or "b"
+
+def _row(matchup: int, pair: int, game: int, a, b, decks: tuple[dict, dict], result: str) -> dict[str, Any]:
+    """Game ``game`` of pair ``pair`` of matchup (a, b), as a ledger-v2 JSON row.
+
+    Slot 0 seats a at p0, slot 1 seats b at p0. ``result`` is "a" or "b"
     (that bot wins), "draw", or "halted".
     """
+    game_index = pair * 2 + game
     p0, p1 = (a, b) if game == 0 else (b, a)
-    seats = tuple(
-        store.LedgerSeat(seat=seat, bot_id=entry.bot_id, name=entry.name, version=entry.version)
+    seats = [
+        {"seat": seat, "bot_id": entry.bot_id, "name": entry.name, "version": entry.version}
         for seat, entry in (("p0", p0), ("p1", p1))
-    )
+    ]
     if result == "halted":
         outcome, classification, winner = "halted", "halted", None
     elif result == "draw":
@@ -40,33 +44,38 @@ def _row(matchup: int, pair: int, game: int, a, b, decks: tuple[str, str], resul
         winner_entry = a if result == "a" else b
         winner = "p0" if winner_entry is p0 else "p1"
         outcome, classification = f"{winner}_win", "natural"
-    return store.LedgerRow(
-        game_id=f"m{matchup:04d}p{pair:04d}g{game}",
-        matchup_index=matchup,
-        pair_index=pair,
-        game_index=game,
-        format="pauper-bo1",
-        game_seed=1,
-        seats=seats,
-        decks=({"catalog_id": decks[0]}, {"catalog_id": decks[1]}),
-        outcome=outcome,
-        classification=classification,
-        winner=winner,
-        winner_bot_id=None if winner is None else (p0 if winner == "p0" else p1).bot_id,
-        reason="test",
-        adjudication=None,
-        step_count=1,
-        decision_count=1,
-        engine=PROVENANCE,
-    )
+    return {
+        "schema": "spellbench-match-ledger/v2",
+        "game_index": game_index,
+        "game_id": TEST_RUN_SECRET.game_id(game_index),
+        "matchup_index": matchup,
+        "pair_index": pair,
+        "pair_slot": game,
+        "format": "pauper-bo1",
+        "seats": seats,
+        "decks": list(decks),
+        "outcome": outcome,
+        "classification": classification,
+        "winner": winner,
+        "winner_bot_id": None if winner is None else (p0 if winner == "p0" else p1).bot_id,
+        "reason": "test",
+        "adjudication": None,
+        "step_count": 1,
+        "decision_count": 1,
+        "decisions_checked": 1,
+        "last_selection": None,
+        "game_digest": "sha256:" + "1" * 64,
+        "engine": ENGINE,
+    }
 
 
-def _pairs(matchup: int, a, b, schedule: list[tuple[str, str, str]]) -> list[store.LedgerRow]:
+def _pairs(matchup: int, a, b, schedule: list[tuple[str, str, str]]) -> list[dict[str, Any]]:
     """One matchup; ``schedule[p]`` is (deck, game 0 result, game 1 result) of pair p."""
     rows = []
     for pair, (deck, first, second) in enumerate(schedule):
-        rows.append(_row(matchup, pair, 0, a, b, (deck, deck), first))
-        rows.append(_row(matchup, pair, 1, a, b, (deck, deck), second))
+        decks = (_catalog_deck(deck), _catalog_deck(deck))
+        rows.append(_row(matchup, pair, 0, a, b, decks, first))
+        rows.append(_row(matchup, pair, 1, a, b, decks, second))
     return rows
 
 
@@ -78,10 +87,10 @@ ROWS = (
 )
 
 
-def _build(rows, base_seed: int = BASE_SEED):
+def _build(rows, base_seed: int = BASE_SEED, entries=ENTRIES):
     return leaderboard.build_leaderboard(
-        rows, ENTRIES, anchor_bot_id=ALPHA.bot_id, base_seed=base_seed, bootstrap_replicates=1000,
-        format="pauper-bo1", schema=leaderboard.LEADERBOARD_SCHEMA_V1,
+        parse_ledger(rows), entries, anchor_bot_id=ALPHA.bot_id, base_seed=base_seed, bootstrap_replicates=1000,
+        format="pauper-bo1", schema=leaderboard.LEADERBOARD_SCHEMA_V2,
     )
 
 
@@ -89,14 +98,14 @@ def test_one_slice_per_deck_in_sorted_order() -> None:
     document, _ = _build(ROWS)
     slices = document["slices"]["deck"]
     assert [deck_slice["label"] for deck_slice in slices] == ["Burn", "Elves"]
-    assert slices[0]["decks"] == [{"catalog_id": "Burn"}, {"catalog_id": "Burn"}]
+    assert slices[0]["decks"] == [_catalog_deck("Burn"), _catalog_deck("Burn")]
 
 
 def test_a_slice_equals_a_recomputation_from_that_decks_rows() -> None:
     document, _ = _build(ROWS)
     for ordinal, deck_slice in enumerate(document["slices"]["deck"]):
         deck = deck_slice["decks"][0]["catalog_id"]
-        deck_rows = [row for row in ROWS if row.decks[0]["catalog_id"] == deck]
+        deck_rows = [row for row in ROWS if row["decks"][0]["catalog_id"] == deck]
         direct, _ = _build(deck_rows, base_seed=leaderboard.deck_slice_seed(BASE_SEED, ordinal))
         assert deck_slice["status"] == direct["status"] == "ok"
         assert deck_slice["fit_error"] is None
@@ -128,7 +137,7 @@ def test_decks_split_the_ratings() -> None:
 
 
 def test_a_single_pairing_ledger_has_no_slices() -> None:
-    burn_only = [row for row in ROWS if row.decks[0]["catalog_id"] == "Burn"]
+    burn_only = [row for row in ROWS if row["decks"][0]["catalog_id"] == "Burn"]
     document, markdown = _build(burn_only)
     assert document["slices"] == {"deck": []}
     assert "## By deck" not in markdown
@@ -150,30 +159,31 @@ def test_a_slice_without_a_rated_anchor_is_reported_not_raised() -> None:
 
 
 def test_mixed_seat_decks_get_a_versus_label() -> None:
+    faeries, affinity = _catalog_deck("Faeries"), _catalog_deck("Affinity")
+    burn = _catalog_deck("Burn")
     rows = [
-        _row(0, 0, 0, ALPHA, BETA, ("Faeries", "Affinity"), "a"),
-        _row(0, 0, 1, ALPHA, BETA, ("Faeries", "Affinity"), "b"),
-        _row(0, 1, 0, ALPHA, BETA, ("Burn", "Burn"), "a"),
-        _row(0, 1, 1, ALPHA, BETA, ("Burn", "Burn"), "a"),
+        _row(0, 0, 0, ALPHA, BETA, (faeries, affinity), "a"),
+        _row(0, 0, 1, ALPHA, BETA, (faeries, affinity), "b"),
+        _row(0, 1, 0, ALPHA, BETA, (burn, burn), "a"),
+        _row(0, 1, 1, ALPHA, BETA, (burn, burn), "a"),
     ]
     document, _ = _build(rows)
     assert [s["label"] for s in document["slices"]["deck"]] == ["Burn", "Faeries vs Affinity"]
 
 
-def test_a_decklist_deck_is_labeled_by_its_digest() -> None:
-    decklist = {"decklist": [{"name": "Mountain", "count": 20}, {"name": "Lightning Bolt", "count": 4}]}
-    canonical = b'{"decklist":[{"count":20,"name":"Mountain"},{"count":4,"name":"Lightning Bolt"}]}'
+def test_a_decklist_deck_is_labeled_by_its_name() -> None:
+    # A v2 ledger deck carries the deck's name, and the slice label uses it (Task 20).
+    brew = {"deck_id": "sha256:" + hashlib.sha256(b"My Brew").hexdigest(), "name": "My Brew", "catalog_id": None}
+    burn = _catalog_deck("Burn")
     rows = [
-        _row(0, 0, 0, ALPHA, BETA, ("Burn", "Burn"), "a"),
-        _row(0, 0, 1, ALPHA, BETA, ("Burn", "Burn"), "b"),
-        *(
-            dataclasses.replace(_row(0, 1, game, ALPHA, BETA, ("Burn", "Burn"), "a"), decks=(decklist, decklist))
-            for game in (0, 1)
-        ),
+        _row(0, 0, 0, ALPHA, BETA, (burn, burn), "a"),
+        _row(0, 0, 1, ALPHA, BETA, (burn, burn), "b"),
+        _row(0, 1, 0, ALPHA, BETA, (brew, brew), "a"),
+        _row(0, 1, 1, ALPHA, BETA, (brew, brew), "a"),
     ]
     document, _ = _build(rows)
     labels = [s["label"] for s in document["slices"]["deck"]]
-    assert labels == ["Burn", "decklist " + hashlib.sha256(canonical).hexdigest()[:12]]
+    assert labels == ["Burn", "My Brew"]
 
 
 def test_the_markdown_lists_each_deck() -> None:
@@ -187,10 +197,7 @@ def test_the_by_deck_heading_follows_exactly_one_blank_line() -> None:
     # (rendered when any bot has a tag) ends with one.
     tagged = [dataclasses.replace(entry, training_style_tags=("rl",)) for entry in ENTRIES]
     for entries in (ENTRIES, tagged):
-        _, markdown = leaderboard.build_leaderboard(
-            ROWS, entries, anchor_bot_id=ALPHA.bot_id, base_seed=BASE_SEED, bootstrap_replicates=1000,
-            format="pauper-bo1", schema=leaderboard.LEADERBOARD_SCHEMA_V1,
-        )
+        _, markdown = _build(ROWS, entries=entries)
         assert "\n\n## By deck\n" in markdown and "\n\n\n" not in markdown
 
 

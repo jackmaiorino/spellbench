@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 40", allow_module_level=True)
-
 import json
 from collections import Counter
 from pathlib import Path
