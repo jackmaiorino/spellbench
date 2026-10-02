@@ -1,0 +1,100 @@
+"""X5 retained rows and exact replay coverage, using a real small v2 host ledger."""
+
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from spellbench.arena.config import TournamentConfig
+from spellbench.arena.schedule import schedule
+from spellbench.arena.allocation import ThroughputError
+from spellbench.wire import canonical_json_dumps
+
+from arena_helpers import TEST_RUN_SECRET, builtin, make_config, run
+
+ROOT = Path(__file__).parents[2]
+spec = importlib.util.spec_from_file_location("x5_guards", ROOT / "engines/xmage/tests/x5/x5run.py")
+x5 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(x5)
+
+
+@pytest.fixture
+def ledger(tmp_path):
+    directory = tmp_path / "host"
+    config = make_config(directory, [builtin("uniform"), builtin("first")], pairs=1)
+    run(config)
+    parsed = TournamentConfig.from_json(config)
+    contexts = schedule(parsed, TEST_RUN_SECRET)
+    sched = SimpleNamespace(games=[(0, i) for i in range(len(contexts))],
+                            workloads=[{"label": "test", "config": parsed, "contexts": contexts}])
+    rows = [{"gid": row["game_index"], "workload": "test", "row": row,
+             "row_digest": "sha256:" + hashlib.sha256(canonical_json_dumps(row)).hexdigest()}
+            for row in map(json.loads, (directory / "matches.jsonl").read_text().splitlines())]
+    return sched, rows
+
+
+def write_rows(path, rows):
+    path.write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+
+def test_retained_store_requires_same_build_and_plan_and_valid_rows(tmp_path, ledger):
+    sched, rows = ledger
+    path = tmp_path / "rows.jsonl"
+    binding = {"plan_sha256": "plan", "engine_lib_digest": "build"}
+    assert x5._resume_rows(path, binding, sched, [0, 1]) == set()
+    write_rows(path, rows)
+    assert x5._resume_rows(path, binding, sched, [0, 1]) == {0, 1}
+    with pytest.raises(ThroughputError, match="another plan"):
+        x5._resume_rows(path, {**binding, "engine_lib_digest": "old-build"}, sched, [0, 1])
+    rows[0]["row_digest"] = "sha256:" + "0" * 64
+    write_rows(path, rows)
+    with pytest.raises(ThroughputError, match="digest"):
+        x5._resume_rows(path, binding, sched, [0, 1])
+
+
+def test_unbound_or_duplicate_legacy_rows_cannot_be_silently_skipped(tmp_path, ledger):
+    sched, rows = ledger
+    path = tmp_path / "rows.jsonl"
+    write_rows(path, rows)
+    with pytest.raises(ThroughputError, match="no build/plan binding"):
+        x5._resume_rows(path, {}, sched, [0, 1])
+    path.with_suffix(".manifest.json").write_text("{}")
+    write_rows(path, [rows[0], rows[0]])
+    with pytest.raises(ThroughputError, match="duplicate"):
+        x5._resume_rows(path, {}, sched, [0, 1])
+
+
+def test_nonempty_matching_replay_subset_fails_missing_coverage(tmp_path, ledger):
+    _, rows = ledger
+    a, b = tmp_path / "a.jsonl", tmp_path / "b.jsonl"
+    write_rows(a, rows)
+    write_rows(b, rows[:1])
+    # An explicit engineering subset still requires every chosen id.
+    gids = tmp_path / "gids.txt"
+    gids.write_text("0 1")
+    args = SimpleNamespace(a=str(a), b=str(b), out=str(tmp_path / "comparison.json"),
+                           plan=str(ROOT / "engines/xmage/tests/x5/plan.json"),
+                           fraction=0.1, part="A", limit=0, gids_file=str(gids))
+    assert x5.cmd_compare(args) == 1
+    report = json.loads(Path(args.out).read_text())
+    assert report["expected"] == 2 and report["shared"] == 1 and report["missing_in_b"] == [1]
+    write_rows(b, rows)
+    assert x5.cmd_compare(args) == 0
+
+
+def test_frozen_replay_selection_requires_all_1011_games():
+    plan = json.loads((ROOT / "engines/xmage/tests/x5/plan.json").read_text())
+    selected = x5._selected(x5.Schedule(plan, ["selection-only"]),
+                            SimpleNamespace(fraction=0.1, part="A", limit=0, gids_file=None))
+    assert len(selected) == len(set(selected)) == 1011
+
+
+def test_direct_run_requires_allocation_argument_before_any_spawn(monkeypatch):
+    monkeypatch.setattr(x5, "run_games", lambda *args, **kwargs: pytest.fail("unguarded worker spawn"))
+    with pytest.raises(SystemExit) as exc:
+        x5.main(["run", "--plan", "plan", "--machine", "test", "--workers", "4", "--fraction", "1",
+                 "--part", "A", "--build", "build", "--out", "out", "--", "unused-engine"])
+    assert exc.value.code == 2

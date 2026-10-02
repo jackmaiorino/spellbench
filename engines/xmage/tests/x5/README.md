@@ -1,5 +1,7 @@
 # X5 evidence: conformance on P's host
 
+Current readiness: the historical full run and replay below predate the October 1 corrected build. The corrected build has 3,544 games and a separate 98-game check, not a completed X5/replay. The subsequent [review repair](review-20261001.md) changes the build and requires its own complete verification. The frozen schedule and old evidence remain preserved.
+
 Task X5 (issue #23): both benchmark pools in the engine catalog, at least 10,000 live-validated games through P's
 host, paired-world leak tests, and the fairness label. P's stack is protocol-v2 `4b588a1` throughout. Progress
 notes for the coordinator are in `STATUS.md`.

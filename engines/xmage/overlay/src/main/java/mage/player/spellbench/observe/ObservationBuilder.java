@@ -319,7 +319,7 @@ public final class ObservationBuilder {
 
         /**
          * A seat's exiled cards, oldest first. XMage's exile zones are a hash map, so arrival is the order in which
-         * this viewer's observations first showed each card; cards first shown together arrive in (card name, a
+         * this viewer's observations first showed each card; cards first shown together arrive in (visible name, a
          * per-viewer keyed hash of the card) order, never in XMage's hash map order (X4h).
          */
         List<Card> exiled(UUID ownerId) {
@@ -330,8 +330,8 @@ public final class ObservationBuilder {
                 for (Card c : zone.getCards(game)) {
                     String key = key(c.getId(), c.getZoneChangeCounter(game));
                     if (!arrival.containsKey(key)) {
-                        String name = c.getName() == null ? "" : c.getName();
-                        fresh.add(new Object[]{key, name, ids.tieKey(key)});
+                        String name = visibleCardName(c, "exile");
+                        fresh.add(new Object[]{key, name == null ? "" : name, ids.tieKey(key)});
                         arrival.put(key, -1L);
                     }
                     if (ownerId.equals(c.getOwnerId())) {
@@ -357,11 +357,17 @@ public final class ObservationBuilder {
         // ---------------------------------------------------------------------------------------------
         // object records (Section 6.4)
 
+        String visibleCardName(Card c, String zone) {
+            boolean faceDown = zone.equals("exile") && c.isFaceDown(game);
+            return !faceDown || CardUtil.canShowAsControlled(c, viewerId)
+                    ? nfc(faceDown ? frontName(c.getMainCard()) : c.getName()) : null;
+        }
+
         Map<String, Object> cardRecord(Card c, String zone, String ownerSeat) throws ObservationException {
             boolean faceDown = zone.equals("exile") && c.isFaceDown(game);
             boolean named = !faceDown || CardUtil.canShowAsControlled(c, viewerId); // D4: its owner, in exile
             String key = key(c.getId(), c.getZoneChangeCounter(game));
-            String name = named ? nfc(faceDown ? frontName(c.getMainCard()) : c.getName()) : null;
+            String name = visibleCardName(c, zone);
             Map<String, Object> r = reference(key, zone, name, ownerSeat, ownerSeat, c.getId());
             for (UUID part : partIds(c)) {
                 held.put(part, held.get(c.getId())); // XMage names a face or half by its own id (adventure spells)

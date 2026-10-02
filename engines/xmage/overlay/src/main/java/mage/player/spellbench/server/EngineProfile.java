@@ -38,6 +38,7 @@ public final class EngineProfile {
 
     public final String rulesSnapshotId;
     public final String cardPoolIdentity;
+    public final String sourceRevision;
     public final List<CatalogDeck> catalog;
 
     /** A catalog deck, its rows in file order, and the formats it is offered for. */
@@ -55,9 +56,11 @@ public final class EngineProfile {
         }
     }
 
-    private EngineProfile(String rulesSnapshotId, String cardPoolIdentity, List<CatalogDeck> catalog) {
+    private EngineProfile(String rulesSnapshotId, String cardPoolIdentity, String sourceRevision,
+                          List<CatalogDeck> catalog) {
         this.rulesSnapshotId = rulesSnapshotId;
         this.cardPoolIdentity = cardPoolIdentity;
+        this.sourceRevision = sourceRevision;
         this.catalog = catalog;
     }
 
@@ -87,7 +90,7 @@ public final class EngineProfile {
             throw new IOException("catalog.json: " + e.getMessage(), e);
         }
         return new EngineProfile(identity.getProperty("rules_snapshot_id"),
-                identity.getProperty("card_pool_identity"), catalog);
+                identity.getProperty("card_pool_identity"), identity.getProperty("source_revision"), catalog);
     }
 
     public CatalogDeck deck(String catalogId) {
@@ -118,7 +121,7 @@ public final class EngineProfile {
         Map<String, Object> engine = new LinkedHashMap<>();
         engine.put("name", NAME);
         engine.put("version", VERSION);
-        engine.put("source_revision", null);
+        engine.put("source_revision", sourceRevision);
         engine.put("rules_snapshot_id", rulesSnapshotId);
         engine.put("card_pool_identity", cardPoolIdentity);
         m.put("engine", engine);
