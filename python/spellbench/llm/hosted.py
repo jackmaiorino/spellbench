@@ -12,6 +12,7 @@ import sys
 import uuid
 from pathlib import Path
 
+from ..errors import SpellbenchError
 from .agent import AgentConfig
 from .broker import BrokerLimits, BrokerSession, serve_broker
 from .chatgpt import ChatGptConfig, ChatGptProvider
@@ -43,8 +44,11 @@ class PlanProvider:
         self.model, self.credentials, self.effort = model, credentials, effort
         self.budget = budget
         self.provider = None
+        self._failed = False
 
     def renew_before_game(self):
+        if self._failed:
+            raise ProviderError("provider_already_failed")
         try:
             renew_profile(self.credentials, self.budget)
             profile = load_credentials(self.credentials)
@@ -52,17 +56,24 @@ class PlanProvider:
                 self.model, profile["access_token"], self.effort, profile["expires_at"],
             ))
         except Exception as exc:
+            self._failed = True
             if not isinstance(exc, ProviderError) or exc.code != "profile_renewal_failed":
                 self.budget.fail("profile_renewal_failed")
             raise ProviderError("profile_renewal_failed") from None
 
     def complete(self, prompt, *, timeout_s):
-        if self.provider is None:
-            profile = load_credentials(self.credentials)
-            self.provider = ChatGptProvider(ChatGptConfig(
-                self.model, profile["access_token"], self.effort, profile["expires_at"],
-            ))
-        return self.provider.complete(prompt, timeout_s=timeout_s)
+        if self._failed:
+            raise ProviderError("provider_already_failed")
+        try:
+            if self.provider is None:
+                profile = load_credentials(self.credentials)
+                self.provider = ChatGptProvider(ChatGptConfig(
+                    self.model, profile["access_token"], self.effort, profile["expires_at"],
+                ))
+            return self.provider.complete(prompt, timeout_s=timeout_s)
+        except Exception:
+            self._failed = True
+            raise
 
 
 def child_command(model: str, config: AgentConfig, output_tokens: int) -> list[str]:
@@ -93,8 +104,11 @@ def main() -> int:
     parser.add_argument("--max-run-tokens", type=int, default=10_000_000)
     parser.add_argument("--max-run-wall-seconds", type=int, default=7200)
     parser.add_argument("--max-inflight", type=int, default=4)
+    parser.add_argument("--allow-timeout-forfeits", action="store_true",
+                        help="require the matching budget policy; settled timeouts forfeit only their game")
     args = parser.parse_args()
     child = None
+    budget = None
     try:
         config = AgentConfig(max_calls_per_game=args.max_calls_per_game,
                              max_tokens_per_game=args.max_tokens_per_game,
@@ -105,7 +119,8 @@ def main() -> int:
                            expected_limits={"max_requests": args.max_run_requests,
                                             "max_reported_tokens": args.max_run_tokens,
                                             "max_wall_seconds": args.max_run_wall_seconds,
-                                            "max_inflight": args.max_inflight})
+                                            "max_inflight": args.max_inflight,
+                                            "allow_timeout_forfeits": args.allow_timeout_forfeits})
         plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort,
                             budget=budget)
         provider = BudgetedProvider(plan, budget,
@@ -118,18 +133,34 @@ def main() -> int:
                                               "reasoning_effort": args.reasoning_effort,
                                               "image_id": args.image, "container_name": child.name,
                                               "renew_before_game": args.renew_profile_before_game,
+                                              "allow_timeout_forfeits": args.allow_timeout_forfeits,
                                               "aggregate_budget": True, "provider_output_cap": False},
                                     max_completion_tokens=args.max_completion_tokens, log=BoundedLog(stream),
                                     config=config, limits=BrokerLimits(max_calls_total=config.max_calls_per_game,
                                                                       max_tokens_total=config.max_tokens_per_game))
-            return serve_broker(session, before_game_start=plan.renew_before_game
-                                if args.renew_profile_before_game else None)
-    except (ValueError, OSError, ProviderError):
+            status = serve_broker(session, before_game_start=plan.renew_before_game
+                                  if args.renew_profile_before_game else None)
+            if status != 0 and not (args.allow_timeout_forfeits and session._failed
+                                    and provider.settled_error == "timeout"):
+                # Choice validation and child transport happen after provider
+                # accounting. Their failure cannot masquerade as a completed call.
+                budget.fail("hosted_broker_failed")
+            return status
+    except (ValueError, OSError, ProviderError, SpellbenchError):
+        if budget is not None:
+            # An exception in logging, transport or renewal also stops admission,
+            # even if a previous request in this broker happened to time out.
+            budget.fail("hosted_broker_failed")
         print("hosted LLM broker failed; check its protected profile, run budget, image and logs", file=sys.stderr)
         return 2
     finally:
         if child is not None:
-            child.close()
+            try:
+                child.close()
+            except Exception:
+                if budget is not None:
+                    budget.fail("hosted_broker_failed")
+                raise
 
 
 if __name__ == "__main__":

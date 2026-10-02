@@ -35,12 +35,12 @@
       "owner": "jackmaiorino", "engine": "any", "training_style_tags": ["hosted-llm"],
       "command": ["${PYTHON}", "${SPELLBENCH_LLM_HOSTED}", "--model", "gpt-6-luna",
                   "--image", "sha256:3d3be1ba7fdbc2a7d791749fb6fd8050e6cc849148762e3210a6c6291ac75eaa", "--run-budget=${SPELLBENCH_LLM_RUN_BUDGET}",
-                  "--log-dir", "${SPELLBENCH_LLM_LOG_DIR}", "--renew-profile-before-game", "--reasoning-effort", "low",
+                  "--log-dir", "${SPELLBENCH_LLM_LOG_DIR}", "--renew-profile-before-game", "--allow-timeout-forfeits", "--reasoning-effort", "low",
                   "--max-completion-tokens", "1024", "--max-calls-per-game", "256",
                   "--max-tokens-per-game", "750000", "--history-decisions", "1", "--timeout-ms", "60000",
                   "--max-run-requests", "4096", "--max-run-tokens", "10000000",
                   "--max-run-wall-seconds", "7200", "--max-inflight", "4"],
-      "display": {"label": "GPT-6 Luna", "author": "OpenAI / mipo", "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; no request retries or fallback.", "url": "https://github.com/jackmaiorino/spellbench/issues/11"}
+      "display": {"label": "GPT-6 Luna", "author": "OpenAI / mipo", "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.", "url": "https://github.com/jackmaiorino/spellbench/issues/11"}
     }
   ]
 }

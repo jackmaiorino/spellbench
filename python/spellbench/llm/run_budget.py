@@ -2,7 +2,8 @@
 
 SQLite transactions reserve requests before sending them. Usage limits include
 in-flight reservations; they are local admission limits, not a provider output
-cap. A failed or uncertain request stops further admission across all workers.
+cap. Failures stop admission unless a bound policy allows settled timeout
+forfeits. Unknown timeout usage keeps its full reservation permanently charged.
 The database contains public settings and usage, never account credentials.
 """
 
@@ -23,6 +24,7 @@ from .provider import Completion, ProviderError
 
 SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
+TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -74,6 +76,18 @@ def _totals(policy, rows) -> dict:
     return result
 
 
+def _timeout_forfeit(policy, row) -> bool:
+    return (policy.get("allow_timeout_forfeits", False) is True
+            and row["status"] == "failed" and row["error"] == "timeout")
+
+
+def _terminal_request(policy, row) -> bool:
+    if _timeout_forfeit(policy, row):
+        return False
+    return (row["status"] not in {"pending", "completed"} or (row["status"] != "pending"
+            and (row["input_tokens"] is None or row["output_tokens"] is None)))
+
+
 class RunBudget:
     def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None):
         self.path, self.model = Path(path), model
@@ -85,13 +99,15 @@ class RunBudget:
 
     @staticmethod
     def create(path: Path, *, model: str, requests: int, tokens: int,
-               wall_seconds: int, max_inflight: int = 4) -> None:
+               wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False) -> None:
         if not isinstance(model, str) or not model.strip():
             raise ValueError("an explicit model is required")
         for name, value in (("requests", requests), ("tokens", tokens),
                             ("wall_seconds", wall_seconds), ("max_inflight", max_inflight)):
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
+        if type(allow_timeout_forfeits) is not bool:
+            raise ValueError("allow_timeout_forfeits must be boolean")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = time.time()
@@ -100,6 +116,8 @@ class RunBudget:
                   "created_at": created, "max_wall_seconds": wall_seconds,
                   "max_inflight": max_inflight, "provider_output_cap": False,
                   "terminal_error": None}
+        if allow_timeout_forfeits:
+            policy.update(schema=TIMEOUT_FORFEIT_SCHEMA, allow_timeout_forfeits=True)
         RunBudget._initialize(path, policy)
 
     @staticmethod
@@ -125,13 +143,15 @@ class RunBudget:
 
     @staticmethod
     def continue_qualification(parent: Path, path: Path, *, model: str, parent_sha256: str,
-                               expected_limits: dict) -> None:
+                               expected_limits: dict, allow_timeout_forfeits: bool = False) -> None:
         """Explicitly continue repaired pre-commit qualification under the original budget.
 
         The parent's bytes and failed rows stay unchanged. Its exclusive sidecar
         retires that attempt and selects one successor, including concurrent creators.
         An interrupted creation retains its partial evidence; it never resets a budget.
         """
+        if type(allow_timeout_forfeits) is not bool:
+            raise ValueError("allow_timeout_forfeits must be boolean")
         if (set(expected_limits) != set(LIMIT_NAMES)
                 or any(type(value) is not int or value < 1 for value in expected_limits.values())
                 or not isinstance(parent_sha256, str) or len(parent_sha256) != 64
@@ -151,9 +171,9 @@ class RunBudget:
             rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
             if any(row["status"] == "pending" for row in rows):
                 raise ProviderError("run_budget_unresolved_request")
-            if not (policy.get("terminal_error") or any(
-                    row["status"] == "failed" or row["input_tokens"] is None or row["output_tokens"] is None
-                    for row in rows)):
+            if policy.get("allow_timeout_forfeits", False) and not allow_timeout_forfeits:
+                raise ProviderError("run_budget_limits_mismatch")
+            if not (policy.get("terminal_error") or any(_terminal_request(policy, row) for row in rows)):
                 raise ProviderError("run_budget_parent_not_failed")
             if policy["deadline"] <= time.time():
                 raise ProviderError("run_budget_deadline_exhausted")
@@ -163,9 +183,13 @@ class RunBudget:
             if (inherited["reported_input_tokens"] + inherited["reported_output_tokens"]
                     + inherited["uncertain_reserved_tokens"] >= policy["max_reported_tokens"]):
                 raise ProviderError("run_budget_tokens_exhausted")
-            successor = {**policy, "schema": CONTINUATION_SCHEMA, "terminal_error": None,
+            successor = {**policy, "schema": TIMEOUT_FORFEIT_SCHEMA if allow_timeout_forfeits else CONTINUATION_SCHEMA,
+                         "terminal_error": None,
                          "continuation": {"kind": "precommit-qualification", "parent": str(parent),
-                                          "parent_sha256": parent_sha256, "inherited": inherited}}
+                                          "parent_sha256": parent_sha256, "inherited": inherited,
+                                          "allow_timeout_forfeits": allow_timeout_forfeits}}
+            if allow_timeout_forfeits:
+                successor["allow_timeout_forfeits"] = True
             path.parent.mkdir(parents=True, exist_ok=True)
             RunBudget._initialize(path, successor)
             if _digest(parent) != parent_sha256:
@@ -200,7 +224,7 @@ class RunBudget:
         self._validate_policy(value, self.model, self.expected_limits)
         current = self.path.resolve()
         origin = _origin(current)
-        if origin.exists() or value["schema"] == CONTINUATION_SCHEMA:
+        if origin.exists() or "continuation" in value:
             recorded = json.loads(origin.read_bytes())
             if (recorded["successor"] != str(current)
                     or recorded["policy"] != {key: item for key, item in value.items() if key != "terminal_error"}):
@@ -211,6 +235,9 @@ class RunBudget:
             continuation = child["continuation"]
             if continuation["kind"] != "precommit-qualification":
                 raise ValueError("invalid continuation kind")
+            if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
+                    or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
+                raise ProviderError("run_budget_continuation_changed")
             parent = Path(continuation["parent"]).resolve(strict=True)
             _retained_file(parent)
             if parent in seen or _digest(parent) != continuation["parent_sha256"]:
@@ -227,10 +254,15 @@ class RunBudget:
                 if retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                     raise ProviderError("run_budget_parent_unsealed")
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
-                self._validate_policy(prior, self.model, self.expected_limits)
+                # A prospective opt-in changes only the child. Ancestors retain
+                # their original failure policy, while numeric caps remain bound.
+                self._validate_policy(prior, self.model, {
+                    name: limit for name, limit in self.expected_limits.items() if name != "allow_timeout_forfeits"})
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
                 if any(row["status"] == "pending" for row in rows):
                     raise ProviderError("run_budget_unresolved_request")
+                if (prior.get("allow_timeout_forfeits", False) and not child.get("allow_timeout_forfeits", False)):
+                    raise ProviderError("run_budget_continuation_changed")
                 if (any(child[name] != prior[name] for name in (*LIMIT_NAMES, "created_at", "deadline", "provider_output_cap"))
                         or continuation["inherited"] != _totals(prior, rows)):
                     raise ProviderError("run_budget_continuation_changed")
@@ -241,16 +273,21 @@ class RunBudget:
 
     @staticmethod
     def _validate_policy(value, model, expected_limits):
-        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA)
-                or (value["schema"] == CONTINUATION_SCHEMA) != ("continuation" in value)
-                or (value["schema"] == CONTINUATION_SCHEMA and not isinstance(value["continuation"], dict))):
+        allow_timeouts = value.get("allow_timeout_forfeits", False)
+        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA, TIMEOUT_FORFEIT_SCHEMA)
+                or type(allow_timeouts) is not bool
+                or (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts
+                or (value["schema"] == SCHEMA and "continuation" in value)
+                or (value["schema"] == CONTINUATION_SCHEMA and "continuation" not in value)
+                or ("continuation" in value and not isinstance(value["continuation"], dict))):
             raise ValueError("unknown budget schema")
         if value["model"] != model:
             raise ProviderError("run_budget_model_mismatch")
         for name in LIMIT_NAMES:
             if type(value[name]) is not int or value[name] < 1:
                 raise ValueError("invalid budget limits")
-        if any(value.get(name) != limit for name, limit in expected_limits.items()):
+        if any(value.get(name, False if name == "allow_timeout_forfeits" else None) != limit
+               for name, limit in expected_limits.items()):
             raise ProviderError("run_budget_limits_mismatch")
         if (any(type(value[name]) not in (float, int) or not math.isfinite(value[name])
                 for name in ("created_at", "deadline"))
@@ -286,9 +323,7 @@ class RunBudget:
         with self._transaction() as database:
             policy = self._policy(database)
             rows = database.execute("SELECT * FROM requests").fetchall()
-            if policy.get("terminal_error") or any(row["status"] == "failed" or (
-                    row["status"] != "pending" and (row["input_tokens"] is None or row["output_tokens"] is None))
-                    for row in rows):
+            if policy.get("terminal_error") or any(_terminal_request(policy, row) for row in rows):
                 raise ProviderError("run_budget_already_failed")
             pending = [row for row in rows if row["status"] == "pending"]
             # Allow cleanup time after the request's own timeout. A worker
@@ -347,6 +382,8 @@ class RunBudget:
             totals = _totals(policy, rows)
             return {"policy": policy, **totals,
                     "active_failed": sum(row["status"] == "failed" for row in rows),
+                    "active_terminal_failures": sum(_terminal_request(policy, row) for row in rows),
+                    "active_timeout_forfeits": sum(_timeout_forfeit(policy, row) for row in rows),
                     "active_unknown_usage": sum(row["input_tokens"] is None or row["output_tokens"] is None for row in rows),
                     "inherited": policy.get("continuation", {}).get("inherited", dict.fromkeys(INHERITED_NAMES, 0)),
                     "pending": sum(row["status"] == "pending" for row in rows),
@@ -359,8 +396,7 @@ class RunBudget:
     def check(self, *, allow_pending: bool = False) -> None:
         """Refuse a failed, depleted or unresolved phase without reserving inference."""
         summary = self.summary()
-        if (summary["policy"].get("terminal_error") or summary["active_failed"]
-                or (summary["active_unknown_usage"] > summary["pending"])):
+        if summary["policy"].get("terminal_error") or summary["active_terminal_failures"]:
             raise ProviderError("run_budget_already_failed")
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
@@ -375,8 +411,17 @@ class RunBudget:
 class BudgetedProvider:
     def __init__(self, provider, budget: RunBudget, *, output_tokens: int = 1024):
         self.provider, self.budget, self.output_tokens = provider, budget, output_tokens
+        self._failed = False
+        self._settled_error = None
+
+    @property
+    def settled_error(self) -> str | None:
+        """This instance's failure code, only after its request row was committed."""
+        return self._settled_error
 
     def complete(self, prompt: Prompt, *, timeout_s: float) -> Completion:
+        if self._failed:
+            raise ProviderError("provider_already_failed")
         if type(timeout_s) not in (float, int) or not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ProviderError("timeout")
         deadline = time.monotonic() + timeout_s
@@ -400,9 +445,15 @@ class BudgetedProvider:
                 error = "output_token_limit_exceeded"
         except Exception as exc:
             error = exc.code if isinstance(exc, ProviderError) else "provider_internal_error"
-        error = self.budget.finish(request, result=result,
-                                   elapsed_ms=max(0, round((time.monotonic() - started) * 1000)), error=error)
+        try:
+            error = self.budget.finish(request, result=result,
+                                       elapsed_ms=max(0, round((time.monotonic() - started) * 1000)), error=error)
+        except Exception:
+            self._failed = True
+            raise
+        self._settled_error = error
         if error is not None:
+            self._failed = True
             raise ProviderError(error)
         return result
 
@@ -427,11 +478,17 @@ def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
                 raise ProviderError("run_budget_ambiguous_command")
             return found[0] if found else default
 
+        timeout_flags = [part for part in command if part == "--allow-timeout-forfeits"
+                         or part.startswith("--allow-timeout-forfeits=")]
+        if len(timeout_flags) > 1 or any(part != "--allow-timeout-forfeits" for part in timeout_flags):
+            raise ProviderError("run_budget_ambiguous_command")
+
         budget = RunBudget(Path(option("--run-budget")), model=option("--model"), expected_limits={
             "max_requests": int(option("--max-run-requests", 4096)),
             "max_reported_tokens": int(option("--max-run-tokens", 10_000_000)),
             "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
             "max_inflight": int(option("--max-inflight", 4)),
+            "allow_timeout_forfeits": bool(timeout_flags),
         })
         budget.check(allow_pending=allow_pending)
 
@@ -446,6 +503,7 @@ def main() -> int:
     create.add_argument("--max-tokens", type=int, required=True)
     create.add_argument("--max-wall-seconds", type=int, required=True)
     create.add_argument("--max-inflight", type=int, default=4)
+    create.add_argument("--allow-timeout-forfeits", action="store_true")
     summary = commands.add_parser("summary")
     summary.add_argument("path", type=Path)
     summary.add_argument("--model", required=True)
@@ -458,12 +516,15 @@ def main() -> int:
     continuation.add_argument("--max-tokens", type=int, required=True)
     continuation.add_argument("--max-wall-seconds", type=int, required=True)
     continuation.add_argument("--max-inflight", type=int, required=True)
+    continuation.add_argument("--allow-timeout-forfeits", action="store_true")
     args = parser.parse_args()
     if args.command == "create":
         RunBudget.create(args.path, model=args.model, requests=args.max_requests, tokens=args.max_tokens,
-                         wall_seconds=args.max_wall_seconds, max_inflight=args.max_inflight)
+                         wall_seconds=args.max_wall_seconds, max_inflight=args.max_inflight,
+                         allow_timeout_forfeits=args.allow_timeout_forfeits)
     elif args.command == "continue-qualification":
         RunBudget.continue_qualification(args.parent, args.path, model=args.model, parent_sha256=args.parent_sha256,
+                                         allow_timeout_forfeits=args.allow_timeout_forfeits,
                                          expected_limits={"max_requests": args.max_requests, "max_reported_tokens": args.max_tokens,
                                                           "max_wall_seconds": args.max_wall_seconds, "max_inflight": args.max_inflight})
     else:
