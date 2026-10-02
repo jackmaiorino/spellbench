@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 40", allow_module_level=True)
-
 from pathlib import Path
 
 import pytest
@@ -38,8 +34,8 @@ def test_a_parallel_deck_pool_run_validates_and_matches_a_serial_one(tmp_path: P
 
 
 def test_workers_run_engines_concurrently(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    # Each engine blocks at reset until a second engine has also reached
-    # reset; a serial runner leaves the first engine waiting until it dies.
+    # Each engine blocks at the first step until a second engine has also
+    # reached it; a serial runner leaves the first engine waiting until it dies.
     rendezvous = tmp_path / "rendezvous"
     rendezvous.mkdir()
     monkeypatch.setenv("SPELLBENCH_RENDEZVOUS_DIR", str(rendezvous))
@@ -71,13 +67,14 @@ def test_errors_survive_the_trip_between_processes() -> None:
     # exception that cannot unpickle turns into a broken pool.
     import pickle
 
-    from spellbench.errors import AgentError, EngineError, RemoteError
+    from spellbench.errors import AgentError, EngineError, PeerTimeoutError, RemoteError, TransportError
 
     for error in (
         AgentError("internal_error", "boom"),
         EngineError("unsupported_deck", "no such deck"),
         RemoteError("malformed_request", "bad"),
-        runner.ForfeitError("timeout", "the agent did not answer choose in time"),
+        PeerTimeoutError("the engine did not answer step in time"),
+        TransportError("the engine process exited"),
         runner.TournamentError("engine hello failed"),
     ):
         restored = pickle.loads(pickle.dumps(error))
