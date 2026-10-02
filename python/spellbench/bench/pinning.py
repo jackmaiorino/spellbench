@@ -19,7 +19,6 @@ before pinning: it keeps the 60 GiB reserve on the pin root.
 from __future__ import annotations
 
 import contextlib
-import hashlib
 import json
 import os
 import re
@@ -31,8 +30,8 @@ from pathlib import Path
 from typing import Any, Iterator, Sequence
 
 from ..arena.manifest import EngineFile
+from ..file_pins import CHUNK_BYTES, PinningError, sha256_file as _sha256_file, verify_files
 
-CHUNK_BYTES = 1 << 20
 REGISTER_TIMEOUT_S = 60.0
 CITED_BY = "cited by: "
 # The artifact catalog's statuses (collab tools/artifact_register.py); a closed run's pins are frozen.
@@ -41,23 +40,6 @@ CLOSURE_STATUS = "frozen"
 # A pin row lock older than this was left by a crashed launch.
 LOCK_STALE_S = 600.0
 _PLACEHOLDER = re.compile(r"\$\{[A-Za-z_][A-Za-z0-9_]*\}")
-
-
-class PinningError(Exception):
-    """An engine or bot file could not be resolved, hashed, pinned, verified or registered."""
-
-
-def _sha256_file(path: Path) -> tuple[str, int]:
-    digest = hashlib.sha256()
-    size = 0
-    try:
-        with open(path, "rb") as handle:
-            while chunk := handle.read(CHUNK_BYTES):
-                digest.update(chunk)
-                size += len(chunk)
-    except OSError as exc:
-        raise PinningError(f"cannot read {path}: {exc}") from exc
-    return digest.hexdigest(), size
 
 
 def resolve_command(command: Sequence[str]) -> tuple[str, ...]:
@@ -171,13 +153,6 @@ def pinned_command(command: Sequence[str], files: Sequence[EngineFile], pin_root
         if file.index < len(parts):
             parts[file.index] = str(Path(pin_root) / file.sha256 / file.file_name)
     return tuple(parts)
-
-
-def verify_files(files: Sequence[EngineFile]) -> None:
-    """Re-hash each file where it was hashed; refuse when any differs. Call before each launch and after the last game."""
-    for file in files:
-        if not file.path.is_file() or _sha256_file(file.path)[0] != file.sha256:
-            raise PinningError(f"{file.path} changed since it was hashed (sha256 {file.sha256}); refusing to launch it")
 
 
 def verify_pins(files: Sequence[EngineFile], pin_root: Path) -> None:

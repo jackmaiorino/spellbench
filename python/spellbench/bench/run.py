@@ -94,7 +94,7 @@ Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
 
 
 def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None,
-                       storage_dir: Path | None = None) -> Play:
+                       storage_dir: Path | None = None, files: Sequence[EngineFile] | None = None) -> Play:
     """The ``play`` a qualification calls (``throughput.plan_allocation``).
 
     ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
@@ -106,6 +106,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     (:func:`plan_for`, R3-6). ``config`` is the executed config.
     """
     secret = RunSecret.generate()
+    files = run_files(config) if files is None else tuple(files)
     contexts = schedule(config, secret)
     chosen = contexts if games is None else [contexts[index] for index in games]
     entries = {entry.name: entry for entry in runner.registry_entries(config, config)}
@@ -116,6 +117,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
         nonlocal trial_number
         _hosted_budget_guard(config)
+        pinning.verify_files(files)
         if not setups:
             setups.append(preflight(config, secret))
         if not stored:
@@ -136,7 +138,8 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         started = time.perf_counter()
         result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
                                    run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
-                                   timed=True, on_outcome=record)
+                                   timed=True, on_outcome=record, launch_files=files)
+        pinning.verify_files(files)
         wall = time.perf_counter() - started
         if result.error is not None:
             raise result.error
@@ -252,7 +255,8 @@ def plan_for(
     _hosted_budget_guard(config)
     allocation = plan_allocation(
         games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
-        play=qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"]),
+        play=qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
+                                files=files),
         placement=placement, host=host, sample=sample_order(list(matchups.values())), workload=workload,
         evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
         rules=rules,
@@ -411,6 +415,7 @@ def _unrated_run(
     summary = runner.run_tournament(
         config, run_secret=RunSecret.generate(), allocation=allocation, run_label=name, benchmark_id=benchmark.id,
         engine_files=engine, resolve=resolve, output_dir=run_dir,
+        launch_files=files,
         on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
     )
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
@@ -469,6 +474,7 @@ def _committed_run(
             allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                                   volumes={"run_dir": benchmark_dir, "pin_root": catalog.pin_root}, files=files,
                                   environ=environ, rules=checked.qualification_rules())
+            pinning.verify_files(files)
             identity = _engine_identity(executed)
             cited_by = f"{checked.id} run {name}"
             regen = f"build {identity.name} {identity.version} at {identity.source_revision or 'unknown'}"
@@ -481,6 +487,7 @@ def _committed_run(
                     config, run_secret=secret, allocation=allocation,
                     commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
                     benchmark_id=checked.id, engine_files=engine, resolve=resolve, output_dir=run_dir,
+                    launch_files=files,
                     on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
                 )
             except BaseException:
@@ -629,16 +636,19 @@ def rerun_games(
         raise BenchmarkError("each game is rerun once")
     if not chosen:
         return []
+    files = run_files(executed)
     allocation = plan_for(
         executed, placement=_recorded_placement(run_dir, manifest, environ) if placement is None else placement,
-        evidence=run_dir.parent.parent / EVIDENCE_NAME, volumes={"run_dir": run_dir}, files=run_files(executed),
+        evidence=run_dir.parent.parent / EVIDENCE_NAME, volumes={"run_dir": run_dir}, files=files,
         games=chosen, environ=environ,
     )
+    pinning.verify_files(files)
     setup = preflight(executed, secret)
     entries = {entry.name: entry for entry in runner.registry_entries(config, executed)}
     workers = min(allocation.workers, resource_bound(usable_cpus(), config.per_game_cores()))
     result = runner.play_games(executed, setup, [contexts[index] for index in chosen], run_secret=secret,
-                               entries=entries, workers=workers, stop_on_violation=False)
+                               entries=entries, workers=workers, stop_on_violation=False, launch_files=files)
+    pinning.verify_files(files)
     if result.error is not None:
         raise result.error
     mismatches = []

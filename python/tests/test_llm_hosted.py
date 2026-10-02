@@ -82,7 +82,11 @@ def test_log_cap_is_checked_before_writing():
 
 def test_explicit_profile_renewal_is_before_game_start_and_makes_no_inference(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setattr(hosted, "refresh_credentials", lambda path: calls.append("refresh") or
+    def renew(path, budget):
+        calls.append("refresh")
+
+    monkeypatch.setattr(hosted, "renew_profile", renew)
+    monkeypatch.setattr(hosted, "load_credentials", lambda path:
                         {"access_token": "host-only-token", "expires_at": 9999999999})
     monkeypatch.setattr(hosted, "ChatGptProvider", lambda config: calls.append("configure") or object())
     path = tmp_path / "budget.sqlite3"
@@ -110,12 +114,12 @@ def test_hosted_renewal_failure_stops_all_workers_and_the_next_phase(tmp_path, m
         children.append(result)
         return result
 
-    def renew(path):
+    def renew(path, budget):
         assert children[0].raw is None
         raise failure
 
     monkeypatch.setattr(hosted, "DockerPeer", child)
-    monkeypatch.setattr(hosted, "refresh_credentials", renew)
+    monkeypatch.setattr(hosted, "renew_profile", renew)
     monkeypatch.setattr(hosted, "ChatGptProvider", lambda *args: pytest.fail("renewal failure sent inference"))
     monkeypatch.setattr(sys, "stdin", type("Input", (), {"buffer": source})())
     monkeypatch.setattr(sys, "stdout", type("Output", (), {"buffer": io.BytesIO()})())

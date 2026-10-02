@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import errno
 import hashlib
 import hmac
 import json
@@ -26,7 +27,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .chatgpt import BASE_URL, _unique
 from .provider import ProviderError
@@ -236,8 +237,10 @@ def exchange(attempt: Attempt, code: str, client_id: str, previous: dict[str, An
 
 
 @contextmanager
-def credential_lock(path: Path):
-    """Serialize rotating-token use across host processes; never wait or retry."""
+def credential_lock(path: Path, *, timeout_s: float = 0):
+    """Serialize rotating-token use; hosted workers may wait for a bounded time."""
+    if not isinstance(timeout_s, (int, float)) or not math.isfinite(timeout_s) or timeout_s < 0:
+        raise ValueError("invalid credential lock timeout")
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     lock_path = path.with_name(path.name + ".lock")
     if lock_path.is_symlink():
@@ -245,19 +248,31 @@ def credential_lock(path: Path):
     descriptor = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)
     locked = False
     try:
-        if os.name == "nt":
-            import msvcrt
-            if os.fstat(descriptor).st_size == 0:
-                os.write(descriptor, b"0")
-            os.lseek(descriptor, 0, os.SEEK_SET)
-            msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        locked = True
+        deadline = time.monotonic() + timeout_s
+        while True:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    if os.fstat(descriptor).st_size == 0:
+                        os.write(descriptor, b"0")
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                    msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                locked = True
+                break
+            except OSError as exc:
+                remaining = deadline - time.monotonic()
+                if exc.errno not in (errno.EACCES, errno.EAGAIN) or remaining <= 0:
+                    raise
+                time.sleep(min(0.05, remaining))
     except OSError:
         os.close(descriptor)
         raise ProviderError("credential_session_busy") from None
+    except BaseException:
+        os.close(descriptor)
+        raise
     try:
         yield
     finally:
@@ -272,52 +287,71 @@ def credential_lock(path: Path):
         os.close(descriptor)
 
 
-def refresh_credentials(path: Path, *, minimum_valid_seconds: int = 120) -> dict[str, Any]:
+def refresh_credentials(path: Path, *, minimum_valid_seconds: int = 120,
+                        lock_timeout_s: float = 0, before_refresh: Callable[[], None] | None = None,
+                        on_failure: Callable[[], None] | None = None) -> dict[str, Any]:
     """Renew the selected app-owned grant once, before a run, with no inference."""
-    with credential_lock(path):
-        previous = load_credentials(path, require_fresh=False)
-        if previous["expires_at"] > time.time() + minimum_valid_seconds:
-            return previous
-        refresh_token = previous.get("refresh_token")
-        if not isinstance(refresh_token, str) or not refresh_token:
-            raise ProviderError("browser_sign_in_required")
-        value = _json_request(TOKEN_URL, {"grant_type": "refresh_token", "client_id": previous["client_id"],
-                                        "refresh_token": refresh_token, "resource": BASE_URL})
+    if type(minimum_valid_seconds) is not int or minimum_valid_seconds < 1:
+        raise ValueError("invalid credential freshness horizon")
+    with credential_lock(path, timeout_s=lock_timeout_s):
         try:
-            if value.get("client_id", previous["client_id"]) != previous["client_id"]:
+            if before_refresh is not None:
+                before_refresh()
+            return _refresh_credentials(path, minimum_valid_seconds=minimum_valid_seconds)
+        except Exception:
+            if on_failure is not None:
+                on_failure()
+            raise
+
+
+def _refresh_credentials(path: Path, *, minimum_valid_seconds: int) -> dict[str, Any]:
+    # The caller holds the profile lock through persistence and failure recording.
+    previous = load_credentials(path, require_fresh=False)
+    if previous["expires_at"] > time.time() + minimum_valid_seconds:
+        return previous
+    refresh_token = previous.get("refresh_token")
+    if not isinstance(refresh_token, str) or not refresh_token:
+        raise ProviderError("browser_sign_in_required")
+    value = _json_request(TOKEN_URL, {"grant_type": "refresh_token", "client_id": previous["client_id"],
+                                    "refresh_token": refresh_token, "resource": BASE_URL})
+    try:
+        if value.get("client_id", previous["client_id"]) != previous["client_id"]:
+            raise ProviderError("account_mismatch")
+        scopes = value["scope"].split() if "scope" in value else previous["scopes"]
+        if "chatgpt.tokens.use.direct" not in scopes:
+            raise ProviderError("plan_usage_not_granted")
+        if (not isinstance(value["access_token"], str) or not value["access_token"]
+                or value["token_type"].lower() != "bearer"
+                or type(value["expires_in"]) is not int or value["expires_in"] <= 60):
+            raise ValueError
+        replacement_refresh = value.get("refresh_token", refresh_token)
+        if not isinstance(replacement_refresh, str) or not replacement_refresh:
+            raise ValueError
+        replacement_id = value.get("id_token", previous.get("id_token"))
+        if "id_token" in value:
+            claims = verify_identity(replacement_id, previous["client_id"], None, _json_request(JWKS_URL))
+            if claims["sub"] != previous["subject"]:
                 raise ProviderError("account_mismatch")
-            scopes = value["scope"].split() if "scope" in value else previous["scopes"]
-            if "chatgpt.tokens.use.direct" not in scopes:
-                raise ProviderError("plan_usage_not_granted")
-            if (not isinstance(value["access_token"], str) or not value["access_token"]
-                    or value["token_type"].lower() != "bearer"
-                    or type(value["expires_in"]) is not int or value["expires_in"] <= 60):
-                raise ValueError
-            replacement_refresh = value.get("refresh_token", refresh_token)
-            if not isinstance(replacement_refresh, str) or not replacement_refresh:
-                raise ValueError
-            replacement_id = value.get("id_token", previous.get("id_token"))
-            if "id_token" in value:
-                claims = verify_identity(replacement_id, previous["client_id"], None, _json_request(JWKS_URL))
-                if claims["sub"] != previous["subject"]:
-                    raise ProviderError("account_mismatch")
-                if "nonce" in claims:
-                    import jwt
-                    # This retained token was validated at consent and lives in
-                    # the protected profile. Refresh may omit nonce; if present
-                    # it must remain the original nonce, not a new authorization.
-                    try:
-                        original = jwt.decode(previous["id_token"], options={"verify_signature": False})
-                    except jwt.PyJWTError:
-                        raise ProviderError("invalid_identity_token") from None
-                    if not isinstance(claims["nonce"], str) or claims["nonce"] != original.get("nonce"):
-                        raise ProviderError("invalid_identity_token")
-            record = {**previous, "access_token": value["access_token"], "refresh_token": replacement_refresh,
-                      "id_token": replacement_id, "scopes": scopes, "expires_at": time.time() + value["expires_in"]}
-        except (KeyError, ValueError, TypeError, AttributeError):
-            raise ProviderError("invalid_token_response") from None
-        save_credentials(path, record)
-        return record
+            if "nonce" in claims:
+                import jwt
+                # This retained token was validated at consent and lives in
+                # the protected profile. Refresh may omit nonce; if present
+                # it must remain the original nonce, not a new authorization.
+                try:
+                    original = jwt.decode(previous["id_token"], options={"verify_signature": False})
+                except jwt.PyJWTError:
+                    raise ProviderError("invalid_identity_token") from None
+                if not isinstance(claims["nonce"], str) or claims["nonce"] != original.get("nonce"):
+                    raise ProviderError("invalid_identity_token")
+        record = {**previous, "access_token": value["access_token"], "refresh_token": replacement_refresh,
+                  "id_token": replacement_id, "scopes": scopes, "expires_at": time.time() + value["expires_in"]}
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise ProviderError("invalid_token_response") from None
+    save_credentials(path, record)
+    # Retain a rotated refresh token even if this grant cannot cover play.
+    if record["expires_at"] <= time.time() + minimum_valid_seconds:
+        raise ProviderError("credential_validity_too_short")
+    return record
 
 
 def sign_in(path: Path, *, port: int = 0, timeout_s: float = 300) -> None:

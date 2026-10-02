@@ -16,7 +16,8 @@ from .agent import AgentConfig
 from .broker import BrokerLimits, BrokerSession, serve_broker
 from .chatgpt import ChatGptConfig, ChatGptProvider
 from .docker_peer import DockerPeer
-from .login import default_credentials_path, load_credentials, refresh_credentials
+from .login import default_credentials_path, load_credentials
+from .renewal import renew_profile
 from .provider import ProviderError
 from .run_budget import BudgetedProvider, RunBudget
 
@@ -45,7 +46,8 @@ class PlanProvider:
 
     def renew_before_game(self):
         try:
-            profile = refresh_credentials(self.credentials)
+            renew_profile(self.credentials, self.budget)
+            profile = load_credentials(self.credentials)
             self.provider = ChatGptProvider(ChatGptConfig(
                 self.model, profile["access_token"], self.effort, profile["expires_at"],
             ))

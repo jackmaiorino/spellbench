@@ -29,7 +29,7 @@ def test_all_declared_jars_match_the_fixed_manifest(tmp_path):
     assert entry.verify_build(build, manifest, digest) == [jar]
 
 
-@pytest.mark.parametrize("mutation", ["jar", "manifest", "extra", "missing"])
+@pytest.mark.parametrize("mutation", ["jar", "manifest", "extra", "uppercase", "missing"])
 def test_changed_or_undeclared_inputs_are_refused(tmp_path, mutation):
     build, jar, manifest, digest = inputs(tmp_path)
     if mutation == "jar":
@@ -38,6 +38,8 @@ def test_changed_or_undeclared_inputs_are_refused(tmp_path, mutation):
         manifest.write_text("{}")
     elif mutation == "extra":
         (build / "lib" / "extra.jar").write_bytes(b"extra")
+    elif mutation == "uppercase":
+        (build / "lib" / "extra.JAR").write_bytes(b"extra")
     else:
         jar.unlink()
     with pytest.raises((ValueError, OSError)):

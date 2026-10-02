@@ -190,6 +190,21 @@ class RunBudget:
                     "reported_input_tokens": sum(row["input_tokens"] or 0 for row in rows),
                     "reported_output_tokens": sum(row["output_tokens"] or 0 for row in rows)}
 
+    def check(self, *, allow_pending: bool = False) -> None:
+        """Refuse a failed, depleted or unresolved phase without reserving inference."""
+        summary = self.summary()
+        if (summary["policy"].get("terminal_error") or summary["failed"]
+                or (summary["unknown_usage"] > summary["pending"])):
+            raise ProviderError("run_budget_already_failed")
+        if summary["expired_pending"] or (summary["pending"] and not allow_pending):
+            raise ProviderError("run_budget_unresolved_request")
+        if summary["policy"]["deadline"] <= time.time():
+            raise ProviderError("run_budget_deadline_exhausted")
+        if summary["requests"] >= summary["policy"]["max_requests"]:
+            raise ProviderError("run_budget_requests_exhausted")
+        if summary["reported_input_tokens"] + summary["reported_output_tokens"] >= summary["policy"]["max_reported_tokens"]:
+            raise ProviderError("run_budget_tokens_exhausted")
+
 
 class BudgetedProvider:
     def __init__(self, provider, budget: RunBudget, *, output_tokens: int = 1024):
@@ -252,18 +267,7 @@ def check_hosted_budgets(config, *, allow_pending: bool = False) -> None:
             "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
             "max_inflight": int(option("--max-inflight", 4)),
         })
-        summary = budget.summary()
-        if (summary["policy"].get("terminal_error") or summary["failed"]
-                or (summary["unknown_usage"] > summary["pending"])):
-            raise ProviderError("run_budget_already_failed")
-        if summary["expired_pending"] or (summary["pending"] and not allow_pending):
-            raise ProviderError("run_budget_unresolved_request")
-        if summary["policy"]["deadline"] <= time.time():
-            raise ProviderError("run_budget_deadline_exhausted")
-        if summary["requests"] >= summary["policy"]["max_requests"]:
-            raise ProviderError("run_budget_requests_exhausted")
-        if summary["reported_input_tokens"] + summary["reported_output_tokens"] >= summary["policy"]["max_reported_tokens"]:
-            raise ProviderError("run_budget_tokens_exhausted")
+        budget.check(allow_pending=allow_pending)
 
 
 def main() -> int:

@@ -19,6 +19,8 @@ from spellbench.arena.schedule import schedule
 from spellbench.bench.commit import check_definition, commit_run
 from spellbench.bench.definition import BenchmarkError
 from spellbench.bench.run import EVIDENCE_NAME, rerun_games, run_benchmark, run_files
+from spellbench.bench import run as bench_run
+from spellbench.bench.pinning import PinningError
 from spellbench.run_secret import RunSecret
 
 from arena_helpers import (
@@ -28,6 +30,33 @@ from test_bench_commit import PLACEMENT, env, git, git_guard, repo  # noqa: F401
 from test_bench_run import ENVIRON, _write_benchmark
 
 PROOF = "https://example.org/i/1"
+
+
+def test_qualification_cannot_redefine_changed_inputs_before_formal_play(repo, tmp_path, monkeypatch):
+    name = _committed(repo, env(tmp_path))
+    real_plan = bench_run.plan_for
+
+    # Mutate a launch file supplied by _launch_files, rather than changing the
+    # frozen benchmark definition or any shared interpreter/test source.
+    extra = tmp_path / "declared.bin"
+    extra.write_bytes(b"original")
+    from spellbench.bench.pinning import engine_files
+    declared = engine_files([sys.executable], extra=[extra])[1:]
+    real_files = bench_run._launch_files
+    monkeypatch.setattr(bench_run, "_launch_files", lambda config:
+                        (lambda pair: (pair[0], pair[1] + declared))(real_files(config)))
+
+    def plan(config, **kwargs):
+        allocation = real_plan(config, **kwargs)
+        extra.write_bytes(b"changed")
+        return allocation
+
+    monkeypatch.setattr(bench_run, "plan_for", plan)
+    with pytest.raises(PinningError, match="changed"):
+        run_benchmark(repo / "benchmarks/fake-pool", run=name, proof=PROOF, environ=env(tmp_path))
+    run_dir = repo / "benchmarks/fake-pool/runs" / name
+    assert json.loads((run_dir / "REVEAL.json").read_text())["reason"] == "guard"
+    assert not (run_dir / "matches.jsonl").exists()
 
 
 @pytest.fixture(autouse=True)

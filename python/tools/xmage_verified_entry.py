@@ -38,7 +38,7 @@ def verify_build(build: Path, manifest: Path, expected_sha256: str) -> list[Path
         if digest.hexdigest() != expected:
             raise ValueError("XMage jar changed")
         files.append(path)
-    if {path.name for path in (build / "lib").glob("*.jar")} != set(jars):
+    if {path.name for path in (build / "lib").iterdir() if path.suffix in (".jar", ".JAR")} != set(jars):
         raise ValueError("XMage classpath has undeclared jars")
     return files
 

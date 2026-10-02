@@ -133,3 +133,101 @@ except ProviderError as error:
         assert result.returncode == 0 and result.stdout.strip() == "credential_session_busy"
     result = subprocess.run([sys.executable, "-c", code, str(path)], capture_output=True, text=True, timeout=5)
     assert result.returncode == 0 and result.stdout.strip() == "acquired"
+
+
+def test_four_waiting_workers_reload_the_winners_profile_without_auth(tmp_path, signing):
+    path = tmp_path / "profile.credentials"
+    expired(path, signing)
+    code = '''
+import sys
+from pathlib import Path
+from spellbench.llm import login
+def unexpected_request(*args, **kwargs):
+    raise AssertionError('waiter sent authorization')
+login._json_request = unexpected_request
+print('ready', flush=True)
+profile = login.refresh_credentials(Path(sys.argv[1]), lock_timeout_s=10, minimum_valid_seconds=1800)
+print(profile['access_token'], flush=True)
+'''
+    children = []
+    try:
+        with login.credential_lock(path):
+            for _ in range(4):
+                children.append(subprocess.Popen([sys.executable, "-u", "-c", code, str(path)],
+                                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            for child in children:
+                assert child.stdout.readline().strip() == "ready"
+            # Simulate the winner's atomic persistence while all peers wait.
+            login.save_credentials(path, record(id_token=token(signing), access_token="winner-access"))
+        for child in children:
+            stdout, stderr = child.communicate(timeout=15)
+            assert child.returncode == 0, stderr
+            assert stdout.strip() == "winner-access"
+    finally:
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=5)
+
+
+def test_wait_timeout_does_not_request_auth_or_change_profile(tmp_path, signing):
+    path = tmp_path / "profile.credentials"
+    expired(path, signing)
+    before = path.read_bytes()
+    code = '''
+import sys, time
+from pathlib import Path
+from spellbench.llm.login import refresh_credentials
+from spellbench.llm.provider import ProviderError
+start = time.monotonic()
+try:
+    refresh_credentials(Path(sys.argv[1]), lock_timeout_s=0.1)
+except ProviderError as error:
+    print(error.code)
+    assert time.monotonic() - start < 2
+'''
+    with login.credential_lock(path):
+        result = subprocess.run([sys.executable, "-c", code, str(path)], capture_output=True, text=True, timeout=5)
+    assert result.returncode == 0 and result.stdout.strip() == "credential_session_busy"
+    assert path.read_bytes() == before
+
+
+def test_game_horizon_renews_a_profile_with_three_minutes_left(tmp_path, signing, monkeypatch):
+    path = tmp_path / "profile.credentials"
+    login.save_credentials(path, record(id_token=token(signing), expires_at=time.time() + 180))
+    calls = endpoint(monkeypatch, signing, response(signing))
+    assert login.refresh_credentials(path, minimum_valid_seconds=1800)["access_token"] == "replacement-access"
+    assert len(calls) == 2
+
+
+def test_short_grant_preserves_rotated_token_but_refuses_play(tmp_path, signing, monkeypatch):
+    path = tmp_path / "profile.credentials"
+    expired(path, signing)
+    endpoint(monkeypatch, signing, response(signing, expires_in=900))
+    with pytest.raises(ProviderError, match="credential_validity_too_short"):
+        login.refresh_credentials(path, minimum_valid_seconds=1800)
+    assert login.load_credentials(path)["refresh_token"] == "replacement-refresh"
+
+
+def test_failure_is_recorded_while_holding_lock_and_waiters_refuse_auth(tmp_path, signing, monkeypatch):
+    path = tmp_path / "profile.credentials"
+    expired(path, signing)
+    calls = endpoint(monkeypatch, signing, ProviderError("authorization_service_failed"))
+    failed = []
+
+    def mark_failed():
+        with pytest.raises(ProviderError, match="credential_session_busy"):
+            with login.credential_lock(path):
+                pytest.fail("failure released lock too early")
+        failed.append(True)
+
+    with pytest.raises(ProviderError, match="authorization_service_failed"):
+        login.refresh_credentials(path, on_failure=mark_failed)
+
+    def guard():
+        assert failed
+        raise ProviderError("run_budget_already_failed")
+
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        login.refresh_credentials(path, before_refresh=guard)
+    assert len(calls) == 1

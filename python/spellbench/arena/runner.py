@@ -90,6 +90,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 
 from ..digests import GameDigest
+from ..file_pins import PinningError, verify_files
 from ..errors import PeerTimeoutError, ProtocolError, RemoteError, TransportError, ValidationError
 from ..host.engine_process import EngineProcess
 from ..host.game import GameResult, play_game
@@ -276,6 +277,7 @@ def play_one(
     context: GameContext,
     run_secret_hex: str,
     entries: dict[str, RegistryEntry],
+    launch_files: Sequence[EngineFile] = (),
 ) -> GameOutcome:
     """Play one scheduled game in its own engine process and seat drivers; returns its ledger row.
 
@@ -286,6 +288,7 @@ def play_one(
     (spec 11.5, R3-23). A host fault from ``play_game`` propagates, and every
     process is closed whatever happens.
     """
+    verify_files(launch_files)
     game = game_setup(config, setup, context, RunSecret.from_hex(run_secret_hex))
     with contextlib.ExitStack() as stack:
         try:
@@ -299,10 +302,12 @@ def play_one(
             return _unstarted(config, setup, context, entries, game, exc)
         seats = {}
         for seat, spec in context.seat_specs:
+            verify_files(launch_files)
             driver = make_driver(spec, config.time_control)
             stack.callback(driver.close)
             seats[seat] = driver
         result = play_game(game, engine=engine, seats=seats)
+    verify_files(launch_files)
     return _outcome(config, setup, context, entries, result, hello.engine)
 
 
@@ -426,12 +431,14 @@ def play_games(
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
     timed: bool = False,
+    launch_files: Sequence[EngineFile] = (),
 ) -> ExecutionResult:
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
     workers through ``executor.execute``: outcomes in the order given, the rest stopped at a violation when
     ``stop_on_violation`` (Decision 6), and any exception reported in the result's ``error`` (spec 11.3). With
     ``timed``, each outcome is a :class:`TimedOutcome`."""
-    play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries)
+    play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries,
+                             launch_files=launch_files)
     if timed:
         play = functools.partial(_timed, play)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
@@ -521,12 +528,13 @@ def _spot_checked(
     row: LedgerRow,
     run_secret: RunSecret,
     entries: dict[str, RegistryEntry],
+    launch_files: Sequence[EngineFile] = (),
 ) -> tuple[Allocation, BaseException | None]:
     """Replay scheduled game ``index`` serially and record whether its ledger row matches the recorded one
     (``Allocation.with_spot_check``). A replay that raises leaves the allocation unchecked, so the run publishes
     as unrated; the exception is returned for the caller to note, or to raise after the manifest."""
     result = play_games(config, setup, [context], run_secret=run_secret, entries=entries, workers=1,
-                        stop_on_violation=False)
+                        stop_on_violation=False, launch_files=launch_files)
     if result.error is not None or len(result.outcomes) != 1:
         return allocation, result.error
     replayed = result.outcomes[0].row
@@ -545,6 +553,7 @@ def run_tournament(
     resolve: Callable[[str], str] | None = None,
     output_dir: str | Path | None = None,
     on_game: Callable[[LedgerRow], None] | None = None,
+    launch_files: Sequence[EngineFile] = (),
 ) -> TournamentSummary:
     """Run the full schedule and publish the tournament (the module docstring gives the order).
 
@@ -562,6 +571,7 @@ def run_tournament(
     entries = {entry.name: entry for entry in entries_list}
     allocation = _run_allocation(allocation, config)
     pin = EnginePin()
+    verify_files(launch_files)
     setup = preflight(executed, run_secret, pin=pin)
     contexts = schedule(executed, run_secret)
     directory = Path(config.tournament_dir if output_dir is None else output_dir)
@@ -617,7 +627,7 @@ def run_tournament(
                 with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
                     result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
                                         workers=allocation.workers, on_outcome=record, monitor=monitor,
-                                        on_warning=on_warning)
+                                        on_warning=on_warning, launch_files=launch_files)
                 error = result.error
                 game = None if error is not None else _spot_check_game(
                     allocation, scheduled=len(contexts), recorded=len(rows), violations=len(violations),
@@ -628,6 +638,7 @@ def run_tournament(
                         allocation, failure = _spot_checked(
                             allocation, game, config=executed, setup=setup, context=contexts[game], row=rows[game],
                             run_secret=run_secret, entries=entries,
+                            launch_files=launch_files,
                         )
                     if isinstance(failure, Exception):  # noted, never fatal: the run publishes as not spot-checked
                         with interrupts.holding():
@@ -635,12 +646,14 @@ def run_tournament(
                                                      (f"spot check replay: {type(failure).__name__}: {failure}",))
                     elif failure is not None:
                         error = failure  # a Ctrl+C: raised again after the manifest
+                verify_files(launch_files)
             except BaseException as exc:  # noqa: BLE001 - published as aborted below, then raised again
                 error = exc
             summary = _publish(
                 directory, config=config, entries=entries_list, setup=setup, rows=rows, violations=violations,
                 scheduled=len(contexts), run_secret=run_secret, commitment_proof=commitment_proof,
-                allocation=allocation, engine_files=engine_files, benchmark_id=benchmark_id, run_label=run_label,
+                allocation=allocation, engine_files=() if isinstance(error, PinningError) else engine_files,
+                benchmark_id=benchmark_id, run_label=run_label,
             )
     finally:
         if error is not None:
