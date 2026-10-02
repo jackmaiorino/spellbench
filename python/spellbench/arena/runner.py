@@ -302,8 +302,7 @@ def play_one(
             return _unstarted(config, setup, context, entries, game, exc)
         seats = {}
         for seat, spec in context.seat_specs:
-            verify_files(launch_files)
-            driver = make_driver(spec, config.time_control)
+            driver = make_driver(spec, config.time_control, launch_files=launch_files)
             stack.callback(driver.close)
             seats[seat] = driver
         result = play_game(game, engine=engine, seats=seats)

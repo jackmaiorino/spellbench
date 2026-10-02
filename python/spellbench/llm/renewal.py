@@ -13,7 +13,7 @@ from .run_budget import RunBudget
 
 GAME_PROFILE_HORIZON_S = 1800
 PROFILE_LOCK_TIMEOUT_S = 35
-RENEWAL_TIMEOUT_S = 50
+RENEWAL_TIMEOUT_S = 40
 
 
 def renew_profile(path: Path, budget: RunBudget) -> None:

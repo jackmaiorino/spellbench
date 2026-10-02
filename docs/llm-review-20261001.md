@@ -8,7 +8,7 @@ LLM findings and disposition:
 
 | Finding | Disposition |
 | --- | --- |
-| Ordinary parallel profile-lock contention terminates the run | Accepted. Hosted renewal waits and reloads under the lock; sign-in remains immediate. A host authorization child bounds the entire exchange, including slow reads, at 50 seconds. Failure is recorded before unlocking, and waiters check shared failure. |
+| Ordinary parallel profile-lock contention terminates the run | Accepted. Hosted renewal waits and reloads under the lock; sign-in remains immediate. A host authorization child bounds the entire exchange, including slow reads, at 40 seconds. Failure is recorded before unlocking, and waiters check shared failure. |
 | Recorded pins were not checked by the process launcher | Accepted. Qualification and workers receive the same hashes; originals are checked before launches, after games and before publication. An input change cannot publish a rating, including after the final row. |
 | 120-second freshness can expire during ordinary play | Accepted. Require 1,800 seconds. The observed grant lasts 3,600 seconds. This practical margin does not guarantee unusually long games; expiry remains terminal. No mid-game renewal or inference retry. |
 | Java expands undeclared uppercase `.JAR` files | Accepted. Reject those archives without changing the frozen wildcard ordering. |

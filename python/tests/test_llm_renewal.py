@@ -20,7 +20,7 @@ def test_slow_authorization_is_stopped_after_shared_failure(tmp_path, monkeypatc
 
         def wait(self, timeout):
             if not self.killed:
-                assert timeout == 50
+                assert timeout == 40
                 raise subprocess.TimeoutExpired("authorization", timeout)
             return -9
 
