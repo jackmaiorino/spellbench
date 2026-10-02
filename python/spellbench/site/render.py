@@ -938,11 +938,18 @@ def _run_box(run: Mapping[str, Any]) -> str:
     if games["forfeit"]:
         rated += f" ({_count(games['forfeit'], 'forfeit')})"
     counts = ", ".join([rated] + [f"{games[key]} {key}" for key in ("truncated", "halted") if games[key]])
-    files = [
-        f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
-        f'<span class="muted">{_file_size(item["bytes"])}</span></li>'
-        for item in run["files"]
-    ]
+    files = []
+    sources: dict[str, list[str]] = {}
+    for item in run["files"]:
+        link = (f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
+                f'<span class="muted">{_file_size(item["bytes"])}</span></li>')
+        if item["name"].startswith("sources/"):
+            sources.setdefault(item["name"].split("/", 2)[1], []).append(link)
+        else:
+            files.append(link)
+    for source, links in sources.items():
+        files.append(f'<li><details><summary>Source run {_e(source)} ({len(links)} files)</summary>'
+                     '<ul class="files">' + "\n".join(links) + '</ul></details></li>')
     return "\n".join(
         [
             '<div class="run">',

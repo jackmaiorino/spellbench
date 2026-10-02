@@ -195,6 +195,8 @@ def test_site_labels_indirect_ratings_and_exports_validated_sources(completed, t
     page = (site / "b" / directory.name / "index.html").read_text(encoding="utf-8")
     assert "reference-panel" in page and "Unplayed head-to-head" in page
     assert "snapshots/2026-10-02" in page
+    assert "<summary>Source run 2026-10-01" in page
+    assert 'href="run/sources/2026-10-01/manifest.json"' in page
     assert "reference panel" in (site / "index.html").read_text(encoding="utf-8")
     assert "reference panel" in (site / "models.html").read_text(encoding="utf-8")
     assert validate_tournament_dir(site / "b" / directory.name / "run") == []
