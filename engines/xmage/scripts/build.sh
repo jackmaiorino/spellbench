@@ -53,7 +53,7 @@ mkdir -p "$OUT/src" "$OUT/lib"
 SRC="$OUT/src"
 PATHS=$(git -C "$XMAGE_REPO" ls-tree -r --name-only "$XMAGE_COMMIT" | grep 'pom\.xml$' | grep -v '^Mage\.Sets/\|^Mage/\|^Mage\.Common/' || true)
 git -C "$XMAGE_REPO" -c core.autocrlf=false archive --format=tar "$XMAGE_COMMIT" -- \
-  $PATHS Mage Mage.Common Mage.Sets Mage.Server.Plugins/Mage.Player.AI | tar -x -C "$SRC"
+  $PATHS Mage Mage.Common Mage.Sets Mage.Server.Plugins/Mage.Player.AI repository | tar -x -C "$SRC"
 
 # 2. CABT, vendored at CABT_COMMIT, overlaid as its own build does
 cp -R "$HERE/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/." "$SRC/Mage.Server.Plugins/Mage.Player.AI/"
