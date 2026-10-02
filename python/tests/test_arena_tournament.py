@@ -469,8 +469,8 @@ def test_every_engine_and_seat_driver_is_closed_however_the_game_ends(
     closed: list[object] = []
     make_driver = runner.make_driver
 
-    def tracked_driver(spec, time_control):
-        driver = make_driver(spec, time_control)
+    def tracked_driver(spec, time_control, **kwargs):
+        driver = make_driver(spec, time_control, **kwargs)
         close = driver.close
 
         def tracked_close() -> None:
