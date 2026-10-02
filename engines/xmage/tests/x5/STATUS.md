@@ -1,5 +1,19 @@
 # X5 status (for the coordinator)
 
+## 21:25 EDT: stopped on Jack's PC ("STOP: Jack's PC")
+
+- Stopped at once: the resume job, its 12 engines and Python workers, and my two wait loops are killed. No java,
+  engine or Python process of mine is left on Jack's PC, engine scratch is removed, and WSL is not running. Two
+  bash wait loops under the same Claude app remain that I did not start (one waits until 21:31, one waits on task
+  `b1nq2raho`); I left them alone.
+- Guard on Jack's PC: same build as HaleysPC (`lib_digest d74803d5`, byte-identical across both machines), rates
+  1, 12, 24 workers gave 32.7, 60.9, 38.4 games/min wall, verdict 12 workers; ran at about 155 games/min.
+- **Recorded: 6,299 of 10,112 games** (3,544 HaleysPC + 2,755 Jack's PC), all natural, **0 validator
+  violations**, 0 halts, every row complete. Rows and counters: `D:/e-scratch/xmage-x-spike/x5/final2/run/`
+  (`rows-haleyspc.jsonl`, `rows-main-pc.jsonl`, `stats-*`). **Remaining: 3,813 games**, then the 1,011-game hash
+  recheck and the summary. Rerunning `resume.sh` continues from there (build, validation and guard are skipped
+  or quick; the run skips both rows files).
+
 ## Resumed on Jack's PC
 
 - "X5 resume on Jack's PC" received. The 3,544 HaleysPC rows and their engine counters are copied to
