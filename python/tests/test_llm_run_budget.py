@@ -7,12 +7,14 @@ import hashlib
 import json
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from types import SimpleNamespace
 
 import pytest
 
 from spellbench.llm.prompt import Prompt
 from spellbench.llm.provider import Completion, ProviderError
-from spellbench.llm.run_budget import BudgetedProvider, RunBudget, LIMIT_NAMES
+from spellbench.arena.config import BotSpec
+from spellbench.llm.run_budget import BudgetedProvider, RunBudget, LIMIT_NAMES, check_hosted_budgets
 
 PROMPT = Prompt(({"role": "user", "content": "choose"},), "a" * 64, 10)
 
@@ -257,7 +259,8 @@ def test_every_transaction_rejects_continuation_and_retained_parent_tampering(tm
         child.reserve(PROMPT, output_tokens=1024)
 
 
-def test_concurrent_creators_select_exactly_one_successor_without_changing_parent(tmp_path):
+@pytest.mark.parametrize("extended_wall_seconds", [None, 120])
+def test_concurrent_creators_select_exactly_one_successor_without_changing_parent(tmp_path, extended_wall_seconds):
     parent = failed_budget(tmp_path)
     original = parent.path.read_bytes()
     arguments = continuation_arguments(parent)
@@ -265,7 +268,7 @@ def test_concurrent_creators_select_exactly_one_successor_without_changing_paren
     def create(index):
         target = tmp_path / f"child-{index}.sqlite3"
         try:
-            RunBudget.continue_qualification(parent.path, target, **arguments)
+            RunBudget.continue_qualification(parent.path, target, **arguments, extended_wall_seconds=extended_wall_seconds)
             return target
         except ProviderError as exc:
             assert exc.code == "run_budget_attempt_continued"
@@ -538,3 +541,167 @@ def test_explicit_timeout_opt_in_cli_is_bound_in_successor(tmp_path, monkeypatch
     assert module.main() == 0
     successor = RunBudget(target, model="luna", expected_limits={"allow_timeout_forfeits": True})
     assert successor.summary()["policy"]["schema"] == "spellbench-llm-run-budget/v3"
+
+
+def test_wall_extension_retains_both_legacy_ancestors_and_matches_hosted_child_limits(tmp_path):
+    original = failed_budget(tmp_path, wall_seconds=7200)
+    original_bytes = original.path.read_bytes()
+    parent = continue_budget(original, tmp_path / "repair.sqlite3")
+    with pytest.raises(ProviderError, match="timeout"):
+        BudgetedProvider(Provider(ProviderError("timeout")), parent).complete(PROMPT, timeout_s=2)
+    parent_bytes = parent.path.read_bytes()
+    parent_policy = parent.summary()["policy"]
+    arguments = continuation_arguments(parent)
+    target = tmp_path / "extended.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **arguments,
+                                     allow_timeout_forfeits=True, extended_wall_seconds=14400)
+    state = RunBudget(target, model="luna", expected_limits={**arguments["expected_limits"],
+                                                            "max_wall_seconds": 14400, "allow_timeout_forfeits": True})
+    state.check()
+    summary = state.summary()
+    policy = summary["policy"]
+    assert original.path.read_bytes() == original_bytes and parent.path.read_bytes() == parent_bytes
+    assert policy["created_at"] == parent_policy["created_at"]
+    assert policy["deadline"] == parent_policy["created_at"] + 14400 and policy["max_wall_seconds"] == 14400
+    for name in ("max_requests", "max_reported_tokens", "max_inflight"):
+        assert policy[name] == parent_policy[name]
+    assert policy["continuation"]["wall_extension"] == {
+        "parent_max_wall_seconds": 7200, "parent_deadline": parent_policy["deadline"], "extended_wall_seconds": 14400}
+    assert summary["requests"] == 3 and summary["failed"] == summary["unknown_usage"] == 2
+    assert summary["reported_input_tokens"] == 100 and summary["reported_output_tokens"] == 20
+    assert summary["accounted_tokens"] == 2188 and summary["uncertain_reserved_tokens"] == 2068
+    bot = BotSpec("luna", "0.1", "subprocess", command=("python", "llm_hosted_bot.py", "--model", "luna",
+                  "--run-budget=" + str(target), "--max-run-requests", "8", "--max-run-tokens", "8000",
+                  "--max-run-wall-seconds", "14400", "--allow-timeout-forfeits"))
+    check_hosted_budgets(SimpleNamespace(bots=(bot,)))
+    BudgetedProvider(Provider(Completion("{}", "luna", 50, 10)), state).complete(PROMPT, timeout_s=2)
+    assert state.summary()["requests"] == 4 and state.summary()["accounted_tokens"] == 2248
+    with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+        parent.check()
+
+
+@pytest.mark.parametrize("next_extension", [None, 18000])
+def test_later_continuation_validates_each_wall_boundary_and_original_creation_time(tmp_path, next_extension):
+    parent = failed_budget(tmp_path, wall_seconds=7200)
+    target = tmp_path / "first.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent),
+                                     allow_timeout_forfeits=True, extended_wall_seconds=14400)
+    first = RunBudget(target, model="luna")
+    first.fail("profile_renewal_failed")
+    original_policy = first.summary()["policy"]
+    original_bytes = first.path.read_bytes()
+    last = tmp_path / "last.sqlite3"
+    RunBudget.continue_qualification(first.path, last, **continuation_arguments(first),
+                                     allow_timeout_forfeits=True, extended_wall_seconds=next_extension)
+    expected_wall = 14400 if next_extension is None else next_extension
+    state = RunBudget(last, model="luna", expected_limits={"max_wall_seconds": expected_wall, "allow_timeout_forfeits": True})
+    state.check()
+    summary = state.summary()
+    assert first.path.read_bytes() == original_bytes
+    assert summary["policy"]["created_at"] == original_policy["created_at"]
+    assert summary["policy"]["deadline"] == original_policy["created_at"] + expected_wall
+    assert summary["requests"] == 2 and summary["failed"] == summary["unknown_usage"] == 1
+    assert summary["host_failures"] == 1 and summary["accounted_tokens"] == 1154
+    assert ("wall_extension" in summary["policy"]["continuation"]) == (next_extension is not None)
+
+
+def test_explicit_extension_can_recover_expired_failed_parent_without_renewing_start(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    parent = failed_budget(tmp_path)
+    arguments = continuation_arguments(parent)
+    original = parent.path.read_bytes()
+    created = parent.summary()["policy"]["created_at"]
+    monkeypatch.setattr(module.time, "time", lambda: created + 61)
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        RunBudget.continue_qualification(parent.path, tmp_path / "implicit.sqlite3", **arguments)
+    target = tmp_path / "explicit.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **arguments, extended_wall_seconds=120)
+    state = RunBudget(target, model="luna", expected_limits={"max_wall_seconds": 120})
+    state.check()
+    assert state.summary()["policy"]["deadline"] == created + 120
+    assert state.summary()["accounted_tokens"] == 1154 and parent.path.read_bytes() == original
+    BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=100).complete(PROMPT, timeout_s=2)
+    monkeypatch.setattr(module.time, "time", lambda: created + 120)
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        state.check()
+    with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
+        state.reserve(PROMPT, output_tokens=100)
+
+
+@pytest.mark.parametrize("problem,code", [("healthy", "parent_not_failed"), ("pending", "unresolved_request"),
+                                        ("requests", "requests_exhausted"), ("tokens", "tokens_exhausted"),
+                                        ("extension_expired", "deadline_exhausted")])
+def test_extension_cannot_bypass_parent_health_pending_requests_or_exhausted_caps(tmp_path, monkeypatch, problem, code):
+    import spellbench.llm.run_budget as module
+    if problem in {"healthy", "pending"}:
+        parent = budget(tmp_path)
+        if problem == "pending":
+            parent.reserve(PROMPT, output_tokens=100)
+            parent.fail("profile_renewal_failed")
+    else:
+        settings = {"requests": 2} if problem == "requests" else ({"tokens": 1154} if problem == "tokens" else {})
+        parent = failed_budget(tmp_path, **settings)
+    arguments = continuation_arguments(parent)
+    original = parent.path.read_bytes()
+    created = parent.summary()["policy"]["created_at"]
+    # Even an expired healthy parent cannot be continued.
+    monkeypatch.setattr(module.time, "time", lambda: created + (121 if problem == "extension_expired" else 61))
+    target = tmp_path / "refused.sqlite3"
+    with pytest.raises(ProviderError, match=code):
+        RunBudget.continue_qualification(parent.path, target, **arguments, extended_wall_seconds=120)
+    assert not target.exists() and parent.path.read_bytes() == original
+
+
+@pytest.mark.parametrize("value", [True, False, 0, -1, 60, 59, 120.0, float("inf")])
+def test_extension_requires_an_explicit_integer_larger_than_parent_limit(tmp_path, value):
+    parent = failed_budget(tmp_path)
+    target = tmp_path / "refused.sqlite3"
+    with pytest.raises(ValueError):
+        RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent), extended_wall_seconds=value)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("mutation", ["parent_wall", "parent_deadline", "child_wall", "deadline", "created_at", "requests", "implicit"])
+def test_wall_boundary_rejects_invalid_semantics_even_when_markers_match_child(tmp_path, mutation):
+    parent = failed_budget(tmp_path)
+    target = tmp_path / "extended.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent), extended_wall_seconds=120)
+    policy = json.loads(sqlite_policy(target))
+    extension = policy["continuation"]["wall_extension"]
+    if mutation == "parent_wall":
+        extension["parent_max_wall_seconds"] += 1
+    elif mutation == "parent_deadline":
+        extension["parent_deadline"] += 1
+    elif mutation == "child_wall":
+        extension["extended_wall_seconds"] += 1
+    elif mutation in {"deadline", "created_at"}:
+        policy[mutation] += 0.25
+    elif mutation == "requests":
+        policy["max_requests"] += 1
+    else:
+        del policy["continuation"]["wall_extension"]
+    with sqlite3.connect(target) as database:
+        database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
+    for marker in [target.with_name(target.name + ".continuation-origin.json"),
+                   parent.path.with_name(parent.path.name + ".continuation.json")]:
+        data = json.loads(marker.read_bytes())
+        data["policy"] = {key: value for key, value in policy.items() if key != "terminal_error"}
+        marker.write_text(json.dumps(data))
+    with pytest.raises(ProviderError):
+        RunBudget(target, model="luna").check()
+
+
+def test_extension_cli_keeps_parent_expected_wall_and_binds_combined_timeout_opt_in(tmp_path, monkeypatch):
+    import spellbench.llm.run_budget as module
+    parent = failed_budget(tmp_path, wall_seconds=7200)
+    arguments = continuation_arguments(parent)
+    created = parent.summary()["policy"]["created_at"]
+    target = tmp_path / "cli.sqlite3"
+    monkeypatch.setattr(sys, "argv", ["run_budget", "continue-qualification", str(parent.path), str(target),
+                                    "--model", "luna", "--parent-sha256", arguments["parent_sha256"],
+                                    "--max-requests", "8", "--max-tokens", "8000", "--max-wall-seconds", "7200",
+                                    "--max-inflight", "4", "--allow-timeout-forfeits", "--extended-wall-seconds", "14400"])
+    assert module.main() == 0
+    state = RunBudget(target, model="luna", expected_limits={"max_wall_seconds": 14400, "allow_timeout_forfeits": True})
+    assert state.summary()["policy"]["deadline"] == created + 14400
+    assert state.summary()["policy"]["continuation"]["wall_extension"]["parent_max_wall_seconds"] == 7200
