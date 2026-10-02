@@ -1,5 +1,13 @@
 # X5 status (for the coordinator)
 
+## Resumed on Jack's PC
+
+- "X5 resume on Jack's PC" received. The 3,544 HaleysPC rows and their engine counters are copied to
+  `D:/e-scratch/xmage-x-spike/x5/final2/run/` (scratch on D: only, nothing on E:, no WSL). One background job,
+  `resume.sh` at below-normal priority: build, `validate_deck`, P's guard, the 6,568 remaining games
+  (`x5run.py run --skip-rows rows-haleyspc.jsonl`), the 1,011-game hash recheck, the summary. Rows are flushed per
+  game, so a stop loses at most the games in flight. Expected about 50 minutes.
+
 ## 18:50 EDT: standing by
 
 - The writer on HaleysPC was a Codex cloud task building mtg-kernel FDN fixture tests into
