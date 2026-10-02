@@ -175,13 +175,24 @@ def _distinct(files: Sequence[EngineFile]) -> tuple[EngineFile, ...]:
 def _launch_files(config: TournamentConfig) -> tuple[tuple[EngineFile, ...], tuple[EngineFile, ...]]:
     """The engine command's files (a manifest's ``engine_files``) and :func:`run_files`, each file hashed once, so
     the manifest records the very bytes that were pinned."""
-    engine = pinning.engine_files(config.engine_command)
+    engine = pinning.engine_files(config.engine_command, extra=config.evaluation_engine_inputs)
+    from ..arena.snapshot import files_identity
+    if config.evaluation_engine_identity is not None and files_identity(engine) != config.evaluation_engine_identity:
+        raise GuardError("engine inputs changed after bench prepare; prepare and commit a new evaluation")
     commands: list[EngineFile] = []
     checkpoints: list[EngineFile] = []
     for spec in config.bots:
         if spec.type != "subprocess":
+            if spec.evaluation_identity is not None:
+                from .panel import bot_files
+                files = bot_files(spec)
+                if files_identity(files) != spec.evaluation_identity:
+                    raise GuardError(f"bot {spec.name!r} inputs changed after bench prepare; prepare a new evaluation")
+                commands += list(files)
             continue
-        files = pinning.engine_files(spec.command, extra=() if spec.checkpoint is None else (spec.checkpoint,))
+        files = pinning.engine_files(spec.command, extra=(() if spec.checkpoint is None else (spec.checkpoint,)) + spec.evaluation_inputs)
+        if spec.evaluation_identity is not None and files_identity(files) != spec.evaluation_identity:
+            raise GuardError(f"bot {spec.name!r} inputs changed after bench prepare; prepare and commit a new evaluation")
         commands += [file for file in files if file.index < len(spec.command)]
         checkpoints += [file for file in files if file.index >= len(spec.command)]
     return engine, _distinct((*engine, *commands, *checkpoints))
@@ -372,6 +383,12 @@ def run_benchmark(
     # Absolute, so "." has a folder name and the parent holds local.json.
     benchmark_dir = Path(benchmark_dir).resolve()
     benchmark = definition.load_benchmark(benchmark_dir)
+    if benchmark.opponent_panel:
+        from ..arena.snapshot import contract
+        config = _config(benchmark, "check")
+        contract(config)
+        if not config.matchups:
+            raise BenchmarkError("no missing panel evaluations; use spellbench bench compose instead")
     values = definition.placeholder_values(
         definition.placeholder_names(benchmark), definition.load_local_values(benchmark_dir.parent), environ
     )
@@ -533,9 +550,10 @@ def _reveal_reason(exc: BaseException, run_dir: Path) -> str:
 
 def _placeholders(config: TournamentConfig) -> list[str]:
     """The ``${NAME}`` placeholders of a recorded config's engine and bot commands and checkpoints."""
-    texts = [*config.engine_command]
+    texts = [*config.engine_command, *config.evaluation_engine_inputs]
     for spec in config.bots:
         texts += [*spec.command, *([spec.checkpoint] if spec.checkpoint is not None else [])]
+        texts += list(spec.evaluation_inputs)
     return sorted({name for text in texts for name in definition.PLACEHOLDER_PATTERN.findall(text)})
 
 

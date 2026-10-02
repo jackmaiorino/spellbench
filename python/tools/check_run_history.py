@@ -5,7 +5,8 @@ Every committed run is published (spec 11.6; Decision 9, R3-8): with a manifest,
 after an abort, or withheld when its secret was lost). This check reads the work tree and the history of the
 repository holding the current directory, from its top (``git rev-parse --show-toplevel``), and reports:
 
-1. A deleted run: every path under ``benchmarks/*/runs/`` deleted between ``--base`` and ``HEAD``
+1. A deleted publication: every path under ``benchmarks/*/runs/`` or ``benchmarks/*/snapshots/`` deleted
+   between ``--base`` and ``HEAD``
    (``git diff --no-renames --name-only --diff-filter=D BASE...HEAD -- benchmarks``). ``--no-renames``, so a run
    directory that was moved or renamed is reported under its old path, where git's rename detection would hide
    the move. A base of zeros (GitHub's ``before`` for a new branch), an empty base, or one git cannot resolve
@@ -17,6 +18,8 @@ repository holding the current directory, from its top (``git rev-parse --show-t
    not null played under a pushed commitment, which fixed the benchmark's definition (the Task 41 rulings). Its
    ``config.json`` must be, byte for byte, the config that ``benchmark.json`` at the commitment commit gives the
    run, built as ``bench run`` builds it (``bench/run.py``'s ``_config``) and written as the arena writes it.
+4. An edited snapshot: an existing file under ``benchmarks/*/snapshots/`` modified between ``--base`` and
+   ``HEAD``. A refit publishes a new dated snapshot; it cannot rewrite an earlier publication.
 
 Prints one line per problem, naming the path, and exits 1; prints ``OK`` and exits 0 otherwise. Parts 1 and 2 use
 the standard library and ``git`` alone; part 3 imports ``spellbench``, and only when some run carries a proof.
@@ -107,9 +110,22 @@ def deleted_runs(root: Path, base: str) -> tuple[list[str], list[str]]:
 
 
 def _is_run_path(path: str) -> bool:
-    """Whether a repository-relative path lies under ``benchmarks/<id>/runs/``."""
+    """Whether a repository-relative path lies under a benchmark's runs or snapshots."""
     parts = PurePosixPath(path).parts
-    return len(parts) > 3 and parts[0] == BENCHMARKS_DIR and parts[2] == RUNS_DIR
+    return len(parts) > 3 and parts[0] == BENCHMARKS_DIR and parts[2] in (RUNS_DIR, "snapshots")
+
+
+def modified_snapshots(root: Path, base: str) -> list[str]:
+    """An existing snapshot stays immutable; refitting publishes a new dated snapshot."""
+    if not base.strip("0") or _git(root, "rev-parse", "-q", "--verify", f"{base}^{{commit}}").returncode != 0:
+        return []
+    result = _git(root, "diff", "-z", "--no-renames", "--name-only", "--diff-filter=M", f"{base}...HEAD", "--",
+                  BENCHMARKS_DIR)
+    if result.returncode != 0:
+        return [f"snapshot history: cannot list modified publications: {_said(result)}"]
+    paths = [path.decode("utf-8", "surrogateescape") for path in result.stdout.split(b"\0") if path]
+    return [f"modified: {path}: a published snapshot is immutable; compose a new dated snapshot"
+            for path in sorted(paths) if _is_run_path(path) and PurePosixPath(path).parts[2] == "snapshots"]
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +242,7 @@ def check(root: Path, *, base: str, max_age_days: int, now: float) -> tuple[list
     problems, notes = deleted_runs(root, base)
     problems += stale_commitments(root, max_age_days=max_age_days, now=now)
     problems += committed_configs(root)
+    problems += modified_snapshots(root, base)
     return problems, notes
 
 

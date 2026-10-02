@@ -79,6 +79,8 @@ _USAGE = (
 )
 _BENCH_USAGE = (
     "usage:\n"
+    "  spellbench bench prepare BENCHMARK_DIR [--unrated]\n"
+    "  spellbench bench compose BENCHMARK_DIR [--unrated] [--date YYYY-MM-DD]\n"
     "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
     "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD]"
     " [--placement TEXT])\n"
@@ -241,6 +243,12 @@ def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
     _print_games(result.summary)
     code = _report_failures(result.failures)
     _print_allocation(result.summary)
+    if code == 0 and result.summary.status == "complete":
+        from ..bench import definition, panel
+        if definition.load_benchmark(directory).opponent_panel:
+            path = panel.compose_benchmark(directory, unrated=not result.summary.rated)
+            print(f"reference-panel snapshot published: {path}")
+            code = _report_failures(validate_tournament_dir(path))
     return code
 
 
@@ -296,10 +304,35 @@ def _bench_rerun(directory: Path, args: Sequence[str]) -> int | None:
     return 0
 
 
+def _bench_prepare(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench.panel import prepare_benchmark
+    options = _bench_options(args, flags=("--unrated",))
+    if options is None:
+        return None
+    targets = prepare_benchmark(directory, unrated="--unrated" in options)
+    print(f"evaluation targets: {', '.join(targets) if targets else 'none; no games needed'}")
+    print("review and commit benchmark.json before bench commit" if targets else
+          "next: spellbench bench compose to refit the saved results")
+    return 0
+
+
+def _bench_compose(directory: Path, args: Sequence[str]) -> int | None:
+    from ..bench.panel import compose_benchmark
+    options = _bench_options(args, values=("--date",), flags=("--unrated",))
+    if options is None:
+        return None
+    path = compose_benchmark(directory, unrated="--unrated" in options, date=options.get("--date"))
+    print(f"reference-panel snapshot published: {path}; no games played")
+    if "--unrated" in options:
+        print("unrated preview; excluded from the public leaderboard")
+    return _report_failures(validate_tournament_dir(path))
+
+
 def _cmd_bench(argv: Sequence[str]) -> int:
     # Imported inside each command so `spellbench bot`, spawned once per seat per game, starts without the
     # benchmark modules (and arena modules never import bench at module level, R3-4).
-    commands = {"commit": _bench_commit, "run": _bench_run, "reveal": _bench_reveal, "rerun": _bench_rerun}
+    commands = {"commit": _bench_commit, "run": _bench_run, "reveal": _bench_reveal, "rerun": _bench_rerun,
+                "prepare": _bench_prepare, "compose": _bench_compose}
     if len(argv) < 2 or argv[0] not in commands or argv[1].startswith("--"):
         print(_BENCH_USAGE, file=sys.stderr)
         return 2
