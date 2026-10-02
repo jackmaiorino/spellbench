@@ -13,7 +13,10 @@ import pytest
 from spellbench.site import render
 
 SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": "https://github.com/jackmaiorino/spellbench"}
+REPO = SITE["repo_url"]
 GE, LE, NBSP = "≥", "≤", " "  # a bound's sign, then a no-break space before its number
+SEP = " \u00b7 "
+V1 = f"(protocol{NBSP}v1)"  # a v1 run's label in the Hero and on the Models page, kept on one line
 
 
 def _leader(name: str, label: str, rank: int | None, elo: int | None, ci: list[int] | None, **extra: Any) -> dict[str, Any]:
@@ -38,13 +41,13 @@ HOME: dict[str, Any] = {
         "rows": [
             {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "description": "heuristic bot",
              "score": 101.4, "lower": 52.0, "upper": 150.5, "approximate": False, "reference": False, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": False}]},
             {"name": "uniform", "label": "random", "author": "Spellbench", "description": "random bot",
              "score": 0.0, "lower": 0.0, "upper": 0.0, "approximate": False, "reference": True, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": 0.0, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": 0.0, "bound": None, "legacy": False}]},
             {"name": "first", "label": "first", "author": "Spellbench", "description": "first bot",
              "score": -15.2, "lower": -50.0, "upper": 20.0, "approximate": False, "reference": False, "bound": None,
-             "chips": [{"benchmark_id": "pauper-kernel", "margin": -15.2, "bound": None}]},
+             "chips": [{"benchmark_id": "pauper-kernel", "margin": -15.2, "bound": None, "legacy": False}]},
         ],
         "benchmark_count": 1,
         "approximate": False,
@@ -58,6 +61,19 @@ HOME: dict[str, Any] = {
     "proposed": [{"title": "FDN Limited", "summary": "Foundations limited games.", "needs": "an engine"}],
 }
 
+# The benchmark page's protocol v2 keys, as Task 42's builder fills them for a v2 run; BENCH carries them.
+V2_EXTRA: dict[str, Any] = {
+    "protocol": {"name": "spellbench/v2", "minor": 0}, "legacy": False,
+    "fairness": {"label": "validator only", "verdict": "pass", "decisions_checked": 18123, "violations": 0, "self_reported": False},
+    "setup_rules": [{"term": "Opponent decklist", "value": "visible"}, {"term": "Mulligan", "value": "none (the engine offers no mulligans)"}],
+    "attribution": [
+        {"name": "heuristic", "label": "heuristic", "games": 64, "halts": 1, "truncations": 0},
+        {"name": "uniform", "label": "random", "games": 64, "halts": 0, "truncations": 2},  # label differs from name
+    ],
+    "newer_runs": [{"name": "2026-10-02", "status": "invalid", "rated": False}],
+}
+V2_RUN_KEYS = ("status", "rated", "commitment", "run_secret")
+
 BENCH: dict[str, Any] = {
     "site": SITE,
     "id": "pauper-kernel",
@@ -67,6 +83,7 @@ BENCH: dict[str, Any] = {
     "engine": {"name": "mtg-kernel", "version": "0.4.0", "source_revision": "abc123", "rules_snapshot_id": "rules-1", "card_pool_identity": "pool-1"},
     "decks": ["Burn", "Elves"],
     "pairs_per_deck": 4,
+    **copy.deepcopy(V2_EXTRA),
     "run": {
         "name": "2026-09-26",
         "games": {"total": 192, "rated": 190, "forfeit": 1, "truncated": 1, "halted": 1},
@@ -74,6 +91,7 @@ BENCH: dict[str, Any] = {
         "files": [{"name": "matches.jsonl", "href": "run/matches.jsonl", "bytes": 12345},
                   {"name": "manifest.json", "href": "run/manifest.json", "bytes": 999}],
         "validate_command": "uv run spellbench validate benchmarks/pauper-kernel/runs/2026-09-26",
+        "status": "complete", "rated": True, "commitment": "ab" * 32, "run_secret": "cd" * 32,
     },
     "overall": OVERALL,
     "deck_tables": [
@@ -103,15 +121,15 @@ MODELS: dict[str, Any] = {
          "url": "https://example.com/g115", "kind": "submitted model", "engine": "mtg-kernel",
          "tags": ["reinforcement-learning"], "version": "1.0.0",
          "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": False,
-                         "margin": 388.0, "lower": 322.0, "upper": 464.0, "bound": None}]},
+                         "margin": 388.0, "lower": 322.0, "upper": 464.0, "bound": None, "legacy": False}]},
         {"name": "heuristic", "label": "heuristic", "author": "Spellbench", "description": "Fixed priorities.",
          "url": None, "kind": "builtin reference bot", "engine": None, "tags": ["heuristic"], "version": "1.0.0",
          "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": False,
-                         "margin": 101.0, "lower": 46.0, "upper": 156.0, "bound": None}]},
+                         "margin": 101.0, "lower": 46.0, "upper": 156.0, "bound": None, "legacy": False}]},
         {"name": "uniform", "label": "random", "author": "Spellbench", "description": "Picks uniformly at random.",
          "url": None, "kind": "builtin reference bot", "engine": None, "tags": ["baseline"], "version": "1.0.0",
          "benchmarks": [{"id": "pauper-kernel", "href": "b/pauper-kernel/index.html", "reference": True,
-                         "margin": 0.0, "lower": 0.0, "upper": 0.0, "bound": None}]},
+                         "margin": 0.0, "lower": 0.0, "upper": 0.0, "bound": None, "legacy": False}]},
     ],
 }
 
@@ -143,6 +161,267 @@ def _aria(fragment: str) -> str:
     match = re.search(r'aria-label="([^"]*)"', fragment)
     assert match, "no aria-label"
     return html.unescape(match.group(1))
+
+
+def _v2_page(**changes: Any) -> str:
+    """The page of BENCH, a protocol v2 run, with ``changes`` to its top-level keys."""
+    view = copy.deepcopy(BENCH)
+    view.update(copy.deepcopy(changes))
+    return render.render_benchmark(view)
+
+
+def _legacy_view(**changes: Any) -> dict[str, Any]:
+    """BENCH as a protocol v1 run, with every v2 key set as Task 42's builder sets it for one."""
+    view = copy.deepcopy(BENCH)
+    view.update(
+        protocol={"name": "spellbench/v1", "minor": None}, legacy=True, fairness=None, setup_rules=[], attribution=[],
+        newer_runs=[],
+    )
+    view["run"].update(status="complete", rated=True, commitment=None, run_secret=None)
+    view.update(copy.deepcopy(changes))
+    return view
+
+
+def _pre_v2_view() -> dict[str, Any]:
+    """BENCH without any protocol key, as the site builder made it before protocol v2."""
+    view = copy.deepcopy(BENCH)
+    for key in V2_EXTRA:
+        del view[key]
+    for key in V2_RUN_KEYS:
+        del view["run"][key]
+    return view
+
+
+def _without(view: dict[str, Any], key: str) -> dict[str, Any]:
+    """A copy of ``view`` without one protocol v2 key: a top-level key, or ``run.<key>``."""
+    view = copy.deepcopy(view)
+    holder, name = (view["run"], key.removeprefix("run.")) if key.startswith("run.") else (view, key)
+    del holder[name]
+    return view
+
+
+def _after_run_box(page: str) -> str:
+    """The page from the end of the run box on."""
+    box = re.search(r'<div class="run">\n.*?\n</div>\n', page, re.S)
+    assert box, "no run box"
+    return page[box.end():]
+
+
+def _style(page: str) -> str:
+    return page[page.index("<style>"):page.index("</style>")]
+
+
+FAIRNESS_LINK = f'<a href="{REPO}/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract">validator only</a>'
+HIDDEN_STATE = "It cannot see hidden state, so an engine adapter that leaked through its text or extensions would go unnoticed."
+LEGACY_NOTE = (
+    '<p class="legacy">Protocol v1: this run predates the fairness contract, and the two games of each pair shared one '
+    "seed. It stays on the board until the benchmark reruns on protocol v2.</p>"
+)
+
+
+def test_a_v2_page_shows_protocol_fairness_rules_and_attribution() -> None:
+    page = _v2_page()
+    assert "protocol v2" in page and 'class="fairness"' in page and "18123 decisions" in page
+    assert "SPELLBENCH_PROTOCOL_V2.md#13-fairness-contract" in page
+    assert "Mulligan" in page and 'class="attribution"' in page and "Newer runs not shown: 2026-10-02 (invalid)" in page
+    assert "ab" * 32 in page and "cd" * 32 in page
+
+
+def test_the_fairness_section_reads_as_the_contract_right_after_the_run_box() -> None:
+    assert _after_run_box(_v2_page()).startswith(
+        f'<section class="fairness">\n<p>Fairness: {FAIRNESS_LINK}. The host checked every decision before a bot saw '
+        f"it (18123 decisions, verdict pass). {HIDDEN_STATE}</p>\n</section>\n"
+    )
+
+
+def test_a_self_reported_run_says_so_next_to_the_fairness_label() -> None:
+    fairness = {**V2_EXTRA["fairness"], "self_reported": True, "decisions_checked": 7, "verdict": "fail"}
+    assert _html(_v2_page(fairness=fairness), "section", "class", "fairness") == (                         # R3-9
+        f'\n<p>Fairness: {FAIRNESS_LINK} <span class="chip quiet">self-reported</span>. The host checked every '
+        f"decision before a bot saw it (7 decisions, verdict fail). {HIDDEN_STATE} Its bots ran without a verified "
+        "sandbox (spec 11.7), so the run cannot claim isolation.</p>\n"
+    )
+    assert "self-reported" not in _html(_v2_page(), "section", "class", "fairness")
+
+
+def test_a_legacy_page_says_so_and_shows_no_fairness_box() -> None:
+    page = render.render_benchmark(_legacy_view())
+    assert _after_run_box(page).startswith(LEGACY_NOTE + "\n")
+    assert 'class="fairness"' not in page and 'class="attribution' not in page
+    assert f'<p class="meta">engine mtg-kernel 0.4.0{SEP}2 decks{SEP}same deck in both seats{SEP}protocol v1</p>' in page
+    assert "<dl>\n<dt>Protocol</dt><dd>spellbench/v1</dd>\n<dt>Format</dt>" in page
+    assert "Commitment" not in page and "Run secret" not in page
+
+
+def test_the_meta_line_and_the_setup_list_name_the_protocol_and_its_rules() -> None:
+    page = _v2_page()
+    assert f'<p class="meta">engine mtg-kernel 0.4.0{SEP}2 decks{SEP}same deck in both seats{SEP}protocol v2</p>' in page
+    assert "<dl>\n<dt>Protocol</dt><dd>spellbench/v2.0</dd>\n<dt>Format</dt>" in page  # its name and minor version
+    assert (
+        "<dt>Schedule</dt><dd>4 seat-swapped pairs per deck in each matchup</dd>\n"
+        "<dt>Opponent decklist</dt><dd>visible</dd>\n"
+        "<dt>Mulligan</dt><dd>none (the engine offers no mulligans)</dd>\n"
+        "<dt>Engine</dt>"
+    ) in page
+
+
+def test_setup_rule_values_are_escaped() -> None:
+    page = _v2_page(setup_rules=[{"term": "<b>x</b>", "value": "<script>"}])
+    assert "<dt>&lt;b&gt;x&lt;/b&gt;</dt><dd>&lt;script&gt;</dd>" in page
+
+
+def test_every_newer_run_is_listed_with_its_status_under_the_fairness_box() -> None:
+    newer = [{"name": "2026-10-02", "status": "invalid", "rated": False}, {"name": "2026-10-03", "status": "complete", "rated": False}]
+    note = '<p class="note newer-runs">Newer runs not shown: 2026-10-02 (invalid), 2026-10-03 (complete)</p>\n'
+    fairness_box = r'<section class="fairness">\n<p>[^\n]*</p>\n</section>\n'
+    assert re.match(fairness_box + re.escape(note), _after_run_box(_v2_page(newer_runs=newer)))
+    assert _after_run_box(render.render_benchmark(_legacy_view(newer_runs=newer))).startswith(f"{LEGACY_NOTE}\n{note}")
+    assert "Newer runs" not in _v2_page(newer_runs=[])
+    # a gap above the note, so that it does not read as the caption of the box over it
+    assert re.search(r"(?m)^\.newer-runs\s*\{[^}]*\bmargin-top:\s*16px", _style(_v2_page()))
+
+
+def test_the_attribution_table_has_the_contract_caption_and_a_row_per_bot() -> None:
+    assert _html(_v2_page(), "section", "class", "attribution-section") == "\n".join(
+        [
+            "",
+            '<div class="table-wrap">',
+            '<table class="attribution">',
+            "<caption>Halts and truncations after each bot's move</caption>",
+            '<thead><tr><th scope="col">Bot</th><th scope="col" class="num">Games</th>'
+            '<th scope="col" class="num">Halts</th><th scope="col" class="num">Truncations</th></tr></thead>',
+            "<tbody>",
+            '<tr data-bot="heuristic"><td><span class="label"><a href="../../models.html#model-heuristic" '
+            'title="heuristic bot">heuristic</a></span></td><td class="num">64</td><td class="num">1</td>'
+            '<td class="num">0</td></tr>',
+            '<tr data-bot="uniform"><td><span class="label"><a href="../../models.html#model-uniform" '
+            'title="random bot">random</a></span></td><td class="num">64</td><td class="num">0</td>'
+            '<td class="num">2</td></tr>',
+            "</tbody>",
+            "</table>",
+            "</div>",
+            "",
+        ]
+    )
+    assert 'class="attribution' not in _v2_page(attribution=[])
+
+
+def test_the_recheck_box_shows_the_commitment_and_the_revealed_secret_when_present() -> None:
+    manifest = f'<p class="note">Manifest sha256</p>\n<p><code class="hash">{"f" * 64}</code></p>\n'
+    commitment = f'<p class="note">Commitment</p>\n<p><code class="hash">{"ab" * 32}</code></p>\n'
+    secret = f'<p class="note">Run secret (revealed after the run)</p>\n<p><code class="hash">{"cd" * 32}</code></p>\n'
+    cases = {("ab" * 32, "cd" * 32): commitment + secret, ("ab" * 32, None): commitment, (None, "cd" * 32): secret, (None, None): ""}
+    for (commitment_hex, secret_hex), shown in cases.items():
+        view = copy.deepcopy(BENCH)
+        view["run"].update(commitment=commitment_hex, run_secret=secret_hex)
+        assert _html(render.render_benchmark(view), "section", "class", "recheck").endswith(manifest + shown)
+
+
+def test_the_run_box_shows_no_status_or_rated_chip() -> None:
+    # the page's run is the latest rated v2 run or the latest v1 run (Decision 3), so a chip would say nothing
+    view = copy.deepcopy(BENCH)
+    view["run"].update(status="aborted", rated=False)
+    for page in (render.render_benchmark(view), render.render_benchmark(_legacy_view())):
+        box = _html(page, "div", "class", "run")
+        assert box.startswith(
+            '\n<p><strong>Run 2026-09-26</strong> <span class="muted">192 games: 190 rated (1 forfeit), 1 truncated, '
+            "1 halted</span></p>\n"
+        )
+        assert "chip" not in box and "aborted" not in box and "unrated" not in box
+
+
+@pytest.mark.parametrize("base", ["v2", "legacy"])
+@pytest.mark.parametrize("key", [*V2_EXTRA, *(f"run.{key}" for key in V2_RUN_KEYS)])
+def test_a_view_with_only_some_protocol_v2_keys_is_refused(base: str, key: str) -> None:
+    # all or nothing: a half-built view must not render a page that is part protocol v1 and part v2
+    view = copy.deepcopy(BENCH) if base == "v2" else _legacy_view()
+    with pytest.raises(KeyError, match=rf"keys: {re.escape(key)}\W*$"):
+        render.render_benchmark(_without(view, key))
+
+
+def test_a_view_without_any_protocol_key_is_refused() -> None:
+    # the builder sets every key, a v1 run's too: no view renders as protocol v1 by default any more
+    keys = ", ".join([*V2_EXTRA, *(f"run.{key}" for key in V2_RUN_KEYS)])
+    with pytest.raises(KeyError, match=rf"keys: {re.escape(keys)}\W*$"):
+        render.render_benchmark(_pre_v2_view())
+
+
+@pytest.mark.parametrize(
+    ("base", "changes"),
+    [
+        ("v2", {"legacy": True}),
+        ("v2", {"fairness": None}),
+        ("v2", {"protocol": {"name": "spellbench/v1", "minor": None}}),
+        ("legacy", {"legacy": False}),
+        ("legacy", {"fairness": V2_EXTRA["fairness"]}),
+        ("legacy", {"protocol": {"name": "spellbench/v2", "minor": 0}}),
+    ],
+    ids=["v2-flagged-legacy", "v2-without-fairness", "v2-named-v1", "v1-flagged-v2", "v1-with-fairness", "v1-named-v2"],
+)
+def test_a_view_whose_legacy_flag_protocol_and_fairness_disagree_is_refused(base: str, changes: dict[str, Any]) -> None:
+    view = copy.deepcopy(BENCH) if base == "v2" else _legacy_view()
+    view.update(copy.deepcopy(changes))
+    with pytest.raises(ValueError, match="disagree"):
+        render.render_benchmark(view)
+
+
+def test_method_and_join_describe_v2() -> None:
+    method = render.render_method(INFO)
+    assert (
+        "<section>\n<h2>Games</h2>\n<p>Each benchmark is a round robin. Every matchup is played as pairs of games with "
+        "the seats swapped, each pair using the next deck of the benchmark's pool in both seats; a bot never plays "
+        "itself. Every game has its own secret, so the two games of a pair shuffle independently, and ratings still "
+        "count them as a pair. The run publishes a commitment to its secret before the first game and reveals the "
+        "secret afterwards, so anyone can recompute every game's randomness.</p>\n</section>"
+    ) in method
+    assert (                                                                                                 # R3-21
+        "<section>\n<h2>Fairness</h2>\n<p>Engines must never show a bot the other player's hand or either library, "
+        "beyond what the rules let it know. The host checks what it can see in every decision before forwarding it, "
+        "and publishes the verdict with the run; it cannot see hidden state. What the protocol does not close "
+        "(spec 13): timing, since a bot can measure how long its opponent takes; adapter faithfulness, since a leak "
+        "through an engine's text or extensions goes unnoticed until an audit; rules errors in an engine; trust in "
+        "the operator, who holds the run secret during the run; and self-reported runs, whose bots ran without a "
+        "verified sandbox.</p>\n</section>"
+    ) in method
+    join = render.render_join(INFO)
+    assert f'<li>Read the <a href="{REPO}/blob/main/spec/SPELLBENCH_PROTOCOL_V2.md">protocol spec</a>.</li>' in join
+    assert (
+        f'<li>The smallest bot is about 15 lines: <a href="{REPO}/blob/main/examples/minimal_bot.py">'
+        "examples/minimal_bot.py</a>.</li>"
+    ) in join
+
+
+def test_a_legacy_hero_chip_is_labelled() -> None:
+    home = copy.deepcopy(HOME)
+    home["hero"]["rows"][0]["chips"] = [{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": None, "legacy": True}]
+    row = _html(render.render_home(home), "li", "data-bot", "heuristic")
+    assert f'<span class="chip">pauper-kernel +101 {V1}</span>' in row                                    # R3-20
+    assert "(protocol" not in render.render_home(HOME)
+
+
+def test_a_models_rating_from_a_v1_run_says_so_after_the_benchmark() -> None:
+    models = copy.deepcopy(MODELS)
+    for model in models["models"]:
+        model["benchmarks"][0]["legacy"] = True
+    models["models"][1]["benchmarks"][0].update(margin=864.0, lower=817.0, upper=920.0, bound="lower")
+    page = render.render_models(models)
+    link = f'<a href="b/pauper-kernel/index.html">pauper-kernel</a> {V1}'
+    assert f"<li>{link}: +388 (95% interval +322 to +464)</li>" in _html(page, "section", "id", "model-g115")
+    assert f"<li>{link}: {GE}{NBSP}+864</li>" in _html(page, "section", "id", "model-heuristic")
+    assert f"<li>{link}: reference</li>" in _html(page, "section", "id", "model-uniform")
+    assert "(protocol" not in render.render_models(MODELS)
+
+
+def test_a_chip_or_rating_without_a_legacy_flag_is_refused() -> None:
+    # the builder flags every chip and rating row: a missing flag no longer reads as protocol v1
+    home = copy.deepcopy(HOME)
+    del home["hero"]["rows"][2]["chips"][0]["legacy"]
+    with pytest.raises(KeyError, match="legacy"):
+        render.render_home(home)
+    models = copy.deepcopy(MODELS)
+    del models["models"][2]["benchmarks"][0]["legacy"]
+    with pytest.raises(KeyError, match="legacy"):
+        render.render_models(models)
 
 
 def test_format_helpers() -> None:
@@ -269,6 +548,13 @@ def test_every_bot_name_links_to_its_models_section_with_the_description_on_hove
     grid = page[page.index('<table class="grid">'):]
     assert '<th scope="col"><a href="../../models.html#model-first" title="first bot">first</a></th>' in grid
     assert '<th scope="row"><a href="../../models.html#model-first" title="first bot">first</a></th>' in grid
+    # the attribution table, the description taken from the overall row of the same name
+    attribution = _html(page, "section", "class", "attribution-section")
+    assert '<td><span class="label"><a href="../../models.html#model-uniform" title="random bot">random</a></span></td>' in attribution
+    # a bot without an overall row still links, without a description
+    ghost = [{"name": "ghost", "label": "ghost bot", "games": 2, "halts": 1, "truncations": 0}]
+    attribution = _html(_v2_page(attribution=ghost), "section", "class", "attribution-section")
+    assert '<td><span class="label"><a href="../../models.html#model-ghost">ghost bot</a></span></td>' in attribution
 
 
 def test_render_models_shows_each_bots_identity_rating_and_anchor() -> None:
@@ -405,6 +691,19 @@ def test_long_unbroken_text_breaks_instead_of_widening_the_page() -> None:
         assert re.search(r"\.table-wrap\s*\{[^}]*\bposition:\s*relative\b", style)
 
 
+def test_the_setup_list_caps_its_term_column_so_a_long_term_wraps() -> None:
+    # Setup terms come from data (setup_rules). A max-content term column let one long term squeeze every value
+    # to a sliver on a phone, or widen the page when unbroken; fit-content(40%) caps it, and terms and values
+    # break like other free text (body's overflow-wrap: anywhere).
+    token = "W" * 200
+    page = _v2_page(setup_rules=[{"term": token, "value": token}])
+    assert f"<dt>{token}</dt><dd>{token}</dd>" in page
+    style = _style(page)
+    assert re.search(r"(?m)^\.details dl\s*\{[^}]*\bgrid-template-columns:\s*fit-content\(40%\) minmax\(0, 1fr\);", style)
+    assert re.search(r"(?m)^body\s*\{[^}]*\boverflow-wrap:\s*anywhere\b", style)
+    assert not re.search(r"\.details (dl|dt|dd)\b[^{]*\{[^}]*(white-space:\s*nowrap|overflow-wrap:\s*normal)", style)
+
+
 def test_a_bounded_leaderboard_row_reads_as_a_bound_with_an_arrow() -> None:
     # A bot that won every game (+864 [+817, +920] in the reviewer's simulation) and one that lost every game.
     bench = copy.deepcopy(BENCH)
@@ -441,7 +740,7 @@ def test_a_bounded_hero_row_reads_as_a_bound_with_an_arrow() -> None:
     home = copy.deepcopy(HOME)
     home["hero"]["rows"][0].update(
         score=864.0, lower=817.0, upper=920.0, bound="lower",
-        chips=[{"benchmark_id": "pauper-kernel", "margin": 864.0, "bound": "lower"}],
+        chips=[{"benchmark_id": "pauper-kernel", "margin": 864.0, "bound": "lower", "legacy": False}],
     )
     page = render.render_home(home)
     row = _html(page, "li", "data-bot", "heuristic")
@@ -480,7 +779,7 @@ def test_the_hero_states_each_margin_in_words(score: float, bound: str | None, p
     home = copy.deepcopy(HOME)
     home["hero"]["rows"][2].update(
         score=score, lower=score - 30, upper=score + 30, bound=bound,
-        chips=[{"benchmark_id": "pauper-kernel", "margin": score, "bound": bound}],
+        chips=[{"benchmark_id": "pauper-kernel", "margin": score, "bound": bound, "legacy": False}],
     )
     label = _aria(_html(render.render_home(home), "li", "data-bot", "first"))
     assert label.startswith(phrase + ",")
@@ -541,18 +840,18 @@ def _inject(value: Any, payload: str, keep: frozenset[str] = frozenset()) -> Any
 def _fuzz_views() -> list[tuple[str, Callable[[Any], str], dict[str, Any]]]:
     """Each page's renderer with a view that takes every branch that shows data."""
     home = copy.deepcopy(HOME)
-    home["hero"]["rows"][0].update(bound="lower", chips=[{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": "lower"}])
+    home["hero"]["rows"][0].update(bound="lower", chips=[{"benchmark_id": "pauper-kernel", "margin": 101.4, "bound": "lower", "legacy": True}])
     home["hero"]["rows"][2]["approximate"] = home["hero"]["approximate"] = True
     bench = copy.deepcopy(BENCH)
     bench["overall"][0].update(bound="lower", wins=16, draws=0, losses=0)
     bench["overall"][2].update(url="https://example.com/first", ci_elo_milli=[985_000, 985_000])  # not estimable
     bench["overall"].append(_leader("ghost", "ghost", None, None, None, wins=0, draws=0, losses=0, games=0))
     models = copy.deepcopy(MODELS)
-    models["models"][0]["benchmarks"][0].update(margin=864.0, lower=817.0, upper=920.0, bound="lower")
+    models["models"][0]["benchmarks"][0].update(margin=864.0, lower=817.0, upper=920.0, bound="lower", legacy=True)
     models["models"][1]["benchmarks"][0].update(margin=102.0, lower=102.0, upper=102.0)  # interval not estimable
     models["models"][1]["benchmarks"].append(
         {"id": "new-one", "href": "b/new-one/index.html", "reference": False,
-         "margin": None, "lower": None, "upper": None, "bound": None}  # entered but unrated
+         "margin": None, "lower": None, "upper": None, "bound": None, "legacy": True}  # entered but unrated
     )
     models["models"].append(
         {"name": "ghost", "label": "ghost", "author": "Tests", "description": "", "url": None,

@@ -1,0 +1,2 @@
+{"dir":"host_to_agent","message":{"protocol":"spellbench/v1","protocol_minor":0,"request_id":"r-0","request_type":"hello"}}
+{"dir":"agent_to_host","message":{"error":{"code":"protocol_mismatch","message":"protocol must be \"spellbench/v2\""},"protocol":"spellbench/v2","request_id":"r-0","response_type":"error"}}
