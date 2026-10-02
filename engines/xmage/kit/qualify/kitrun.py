@@ -489,9 +489,16 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
         for line in rows_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 done.add(json.loads(line)["gid"])
-    gids = [g for g in sched.share(args.fraction, args.part) if g not in done]
+    elsewhere = set()  # games another machine recorded (a rebalanced tail): never played twice
+    for path in args.skip_rows:
+        for line in Path(path).read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                elsewhere.add(json.loads(line)["gid"])
+    gids = [g for g in sched.share(args.fraction, args.part) if g not in done and g not in elsewhere]
     if args.limit:
         gids = gids[: args.limit]
+    if args.tail:
+        gids = gids[-args.tail:]
     print(f"[{time.strftime('%H:%M:%S')}] {args.machine}: {len(gids)} games ({len(done)} already), {workers} qualified "
           f"workers ({q['kind']})", flush=True)
     setup = preflight_once(plan, engine, ctx)
@@ -513,7 +520,11 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
                     "eta_hours": round((len(gids) - progress["n"]) / rate, 2) if rate else None}) + "\n")
         wall, _ = run_games(plan, engine, ctx, gids, workers, setup, on_row=on_row)
     left = leftover_agent_dirs(ctx)
-    (out / f"ISOLATION-{args.machine}.json").write_text(json.dumps({"agent_dirs_left": left}) + "\n", encoding="utf-8")
+    isolation = out / f"ISOLATION-{args.machine}.json"  # merged over a machine's batches (a resume, a tail)
+    prior = json.loads(isolation.read_text(encoding="utf-8")) if isolation.exists() else {"agent_dirs_left": []}
+    isolation.write_text(json.dumps({"agent_dirs_left": prior["agent_dirs_left"] + left,
+                                     "batches": prior.get("batches", 1) + 1 if isolation.exists() else 1}) + "\n",
+                         encoding="utf-8")
     for name in left:  # recorded above; removed so a surviving card database copy cannot fill the disk
         shutil.rmtree(Path(ctx["agents"]) / name, ignore_errors=True)
     print(f"[{time.strftime('%H:%M:%S')}] done: {len(gids)} games in {wall:.0f} s, violations {progress['violations']}",
@@ -626,7 +637,9 @@ def main(argv: list[str]) -> int:
         if name == "run":
             q.add_argument("--fraction", type=float, default=1.0)
             q.add_argument("--part", choices=("A", "B"), default="A")
-            q.add_argument("--limit", type=int, default=0)
+            q.add_argument("--limit", type=int, default=0, help="the first N of this part's remaining games")
+            q.add_argument("--tail", type=int, default=0, help="the last N of this part's remaining games")
+            q.add_argument("--skip-rows", action="append", default=[], help="another machine's rows: games it played")
         if name == "replay":
             q.add_argument("--rows", action="append", required=True)
     s = sub.add_parser("summarize")

@@ -13,6 +13,7 @@
 #   MACHINE  main-pc | haleyspc | runpod           PLAN    the shared plan.json
 #   CAP      qualify: the top rung's workers       PLACEMENT  qualify: 'main-pc=...: why; haleyspc=...: why; runpod=...: why'
 #   FRACTION, PART  run: this machine's share of the order (one machine: 1.0, A)
+#   LIMIT, TAIL, SKIP_ROWS  run, optional: the first or last N remaining games of the part; other machines' rows
 #   ENTRIES  plan: entries, default "h1 h2" (kit-mcts waits for its own qualification)
 #   CLOCK    plan: kit (default; the profile fdn-mirror-v0 freezes for every entry and builtin)
 #   ROWS     replay and summarize: row files (space separated); KITLOGS, ISOLATION likewise for summarize
@@ -45,8 +46,10 @@ case "$STEP" in
   qualify)
     python "$HERE/kitrun.py" qualify "${COMMON[@]}" --cap "${CAP:?}" --placement "${PLACEMENT:?}" -- "${ENGINE_ARGV[@]}" ;;
   run)
+    skip=(); for r in ${SKIP_ROWS:-}; do skip+=(--skip-rows "$(native "$r")"); done
     python "$HERE/kitrun.py" run "${COMMON[@]}" --qualification "$(native "$OUT/QUALIFICATION.json")" \
-      --fraction "${FRACTION:-1.0}" --part "${PART:-A}" -- "${ENGINE_ARGV[@]}" ;;
+      --fraction "${FRACTION:-1.0}" --part "${PART:-A}" --limit "${LIMIT:-0}" --tail "${TAIL:-0}" \
+      "${skip[@]}" -- "${ENGINE_ARGV[@]}" ;;
   replay)
     rows=(); for r in ${ROWS:?}; do rows+=(--rows "$(native "$r")"); done
     python "$HERE/kitrun.py" replay "${COMMON[@]}" --qualification "$(native "$OUT/QUALIFICATION.json")" \
