@@ -24,7 +24,7 @@ spec.loader.exec_module(x5)
 @pytest.fixture
 def ledger(tmp_path):
     directory = tmp_path / "host"
-    config = make_config(directory, [builtin("uniform"), builtin("first")], pairs=1)
+    config = make_config(directory, [builtin("uniform"), builtin("first")], pairs=1, include_self_play=False)
     run(config)
     parsed = TournamentConfig.from_json(config)
     contexts = schedule(parsed, TEST_RUN_SECRET)
@@ -65,6 +65,60 @@ def test_unbound_or_duplicate_legacy_rows_cannot_be_silently_skipped(tmp_path, l
     write_rows(path, [rows[0], rows[0]])
     with pytest.raises(ThroughputError, match="duplicate"):
         x5._resume_rows(path, {}, sched, [0, 1])
+
+
+def test_only_unterminated_tail_is_quarantined_after_validating_prefix(tmp_path, ledger):
+    sched, rows = ledger
+    path = tmp_path / "rows.jsonl"
+    x5._resume_rows(path, {}, sched, [0, 1])
+    write_rows(path, rows[:1])
+    prefix = path.read_bytes()
+    fragment = b'{"gid": 1,'
+    path.write_bytes(prefix + fragment)
+    assert x5._resume_rows(path, {}, sched, [0, 1]) == {0}
+    assert path.read_bytes() == prefix
+    assert [p.read_bytes() for p in tmp_path.glob("rows.jsonl.partial-*")] == [fragment]
+    assert json.loads(path.with_suffix(".recovery.jsonl").read_text())["retained_rows"] == 1
+    path.write_bytes(prefix + b"malformed complete row\n")
+    before = path.read_bytes()
+    with pytest.raises(json.JSONDecodeError):
+        x5._resume_rows(path, {}, sched, [0, 1])
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("outputs_identical", [False, None])
+def test_nondeterministic_qualification_cannot_publish_or_launch(tmp_path, ledger, monkeypatch, outputs_identical):
+    sched, _ = ledger
+    binding = {"workload": "test"}
+    facts = SimpleNamespace(memory_bytes=2**35, gpus=())
+    allocation = SimpleNamespace(kind="substantial", outputs_identical=outputs_identical,
+                                 workload=x5.workload_id(binding), games_total=2, workers=2,
+                                 host=x5.host_name(), cpu_count=x5.usable_cpus(), machine=facts,
+                                 budget=SimpleNamespace(projected_bytes=1))
+    plan = tmp_path / "plan.json"
+    plan.write_text("{}")
+    allocation_path = tmp_path / "allocation.json"
+    allocation_path.write_text("{}")
+    (tmp_path / "launch-binding.json").write_text(json.dumps(binding))
+    monkeypatch.setattr(x5, "Schedule", lambda *a: sched)
+    monkeypatch.setattr(x5, "_selected", lambda *a: [0, 1])
+    monkeypatch.setattr(x5, "resolve_command", lambda a: tuple(a))
+    monkeypatch.setattr(x5, "_launch_binding", lambda *a: (binding, (), {}))
+    monkeypatch.setattr(x5, "machine_facts", lambda *a: facts)
+    monkeypatch.setattr(x5, "check_reserve", lambda *a: None)
+    monkeypatch.setattr(x5, "_setups", lambda *a: None)
+    monkeypatch.setattr(x5, "plan_allocation", lambda **kw: allocation)
+    monkeypatch.setattr(x5.Allocation, "from_json", lambda *a: allocation)
+    monkeypatch.setattr(x5, "run_games", lambda *a, **kw: pytest.fail("unguarded worker spawn"))
+    args = SimpleNamespace(plan=str(plan), out=str(tmp_path / "run"), allocation=str(allocation_path),
+                           fraction=1, part="A", limit=0, gids_file=None, workers=2, machine="test",
+                           build_digest="sha256:build", p2_commit="commit", cap=2, placement=None)
+    with pytest.raises(ThroughputError, match="outputs differ"):
+        x5.cmd_run(args, ["unused-engine"])
+    binding.update(engine_lib_digest="build", host_source_revision="commit")
+    with pytest.raises(ThroughputError, match="outputs differ"):
+        x5.cmd_qualify(args, ["unused-engine"])
+    assert not (Path(args.out) / "allocation.json").exists()
 
 
 def test_nonempty_matching_replay_subset_fails_missing_coverage(tmp_path, ledger):

@@ -1,0 +1,56 @@
+name: XMage reviewed build
+
+on:
+  pull_request:
+    paths:
+      - 'engines/xmage/**'
+      - 'python/tools/xmage_verified_entry.py'
+      - 'python/tests/test_xmage_x5_guards.py'
+      - '.github/workflows/xmage-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+        with:
+          distribution: temurin
+          java-version: '23.0.1'
+      - name: Install Maven 3.9.8 with its published checksum
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          base=https://archive.apache.org/dist/maven/maven-3/3.9.8/binaries
+          archive=apache-maven-3.9.8-bin.tar.gz
+          curl --fail --location --retry 2 "$base/$archive" -o "$archive"
+          curl --fail --location --retry 2 "$base/$archive.sha512" -o "$archive.sha512"
+          printf '%s  %s\n' "$(cat "$archive.sha512")" "$archive" | sha512sum --check
+          tar -xzf "$archive"
+          echo "$RUNNER_TEMP/apache-maven-3.9.8/bin" >> "$GITHUB_PATH"
+      - name: Build the pinned engine and record its source and jar hashes
+        shell: bash
+        run: |
+          bash engines/xmage/scripts/build.sh --out "$RUNNER_TEMP/xmage-build" \
+            --xmage-repo "$RUNNER_TEMP/xmage-src" --m2 "$HOME/.m2/repository"
+      - name: Check RNG vectors and observation normalization
+        shell: bash
+        run: |
+          java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
+          java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/xmage-build/BUILD-MANIFEST.json
+            ${{ runner.temp }}/xmage-build/lib/
+          retention-days: 30
+          if-no-files-found: error

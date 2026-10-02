@@ -358,8 +358,14 @@ def _resume_rows(path: Path, binding: dict, sched: Schedule, selected: list[int]
     else:
         store.write_json_atomic(manifest, binding)
     done = set()
+    raw = path.read_bytes() if path.exists() else b""
+    fragment = b""
+    complete = raw
+    if raw and not raw.endswith(b"\n"):
+        prefix, separator, fragment = raw.rpartition(b"\n")
+        complete = prefix + separator
     if path.exists():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in complete.decode("utf-8").splitlines():
             if not line.strip():
                 continue
             saved = json.loads(line)
@@ -380,6 +386,18 @@ def _resume_rows(path: Path, binding: dict, sched: Schedule, selected: list[int]
                     != [(s, bot.name, bot.version) for s, bot in context.seat_specs]):
                 raise ThroughputError("resume row digest or scheduled game does not match")
             done.add(gid)
+    if fragment:
+        digest = hashlib.sha256(fragment).hexdigest()
+        quarantine = path.with_name(path.name + ".partial-" + digest)
+        if quarantine.exists() and quarantine.read_bytes() != fragment:
+            raise ThroughputError("partial-row quarantine changed")
+        store.write_bytes_atomic(quarantine, fragment)
+        store.write_bytes_atomic(path, complete)
+        with path.with_suffix(".recovery.jsonl").open("a", encoding="utf-8") as log:
+            log.write(json.dumps({"event": "incomplete_final_append", "fragment_sha256": digest,
+                                  "retained_rows": len(done), "time": time.time()}) + "\n")
+            log.flush()
+            os.fsync(log.fileno())
     return done
 
 
@@ -421,16 +439,20 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
                       for p, row in zip(positions, rows)]
 
     workload = workload_id(binding)
-    allocation = plan_allocation(
-        games_total=len(selected), cap=args.cap, per_game_cores=1, play=play, placement=args.placement,
-        sample=list(range(len(selected))), workload=workload, volumes=volumes,
-        rules=replace(current_rules(), worker_selection="wall"),
-    )
+    try:
+        allocation = plan_allocation(
+            games_total=len(selected), cap=args.cap, per_game_cores=1, play=play, placement=args.placement,
+            sample=list(range(len(selected))), workload=workload, volumes=volumes,
+            rules=replace(current_rules(), worker_selection="wall"),
+        )
+    finally:
+        trials_log.close()
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+        raise ThroughputError("X5 deterministic qualification outputs differ; formal run refused")
     verify_files(files)
     check_reserve(machine_facts(volumes), allocation.budget.projected_bytes + 6 * 2**30)
     store.write_json_atomic(out / "allocation.json", allocation.to_json())
     store.write_json_atomic(out / "launch-binding.json", binding)
-    trials_log.close()
     print(json.dumps({"kind": allocation.kind, "workers": allocation.workers,
                       "trials": [t.to_json() for t in allocation.trials] if allocation.trials else None,
                       "outputs_identical": allocation.outputs_identical}, indent=1))
@@ -456,6 +478,8 @@ def cmd_run(args: argparse.Namespace, engine: list[str]) -> int:
             or allocation.machine.gpus != facts.gpus or allocation.budget is None
             or allocation.kind == "unmeasured"):
         raise ThroughputError("missing or incompatible qualified allocation for this launch")
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+        raise ThroughputError("X5 deterministic qualification outputs differ; formal run refused")
     check_reserve(facts, allocation.budget.projected_bytes + 6 * 2**30)
     verify_files(files)
     rows_path = out / f"rows-{args.machine}.jsonl"
