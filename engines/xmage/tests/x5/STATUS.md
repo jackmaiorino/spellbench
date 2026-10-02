@@ -1,5 +1,16 @@
 # X5 status (for the coordinator)
 
+## 02:13 EDT 10-02: run complete; hash recheck stopped at 713 of 1,011 ("STOP: Jack's PC")
+
+- **All 10,112 games recorded on the final build** (`d74803d5`): 3,544 HaleysPC + 6,568 Jack's PC, all natural,
+  **0 validator violations over 5,976,799 decisions**, 0 halts, 0 truncations (`evidence/final2-summary.json`).
+- Hash recheck: 713 of 1,011 played before the stop, **713 equal**; 298 remain (rerun `resume.sh`: it skips
+  everything recorded, about 3 minutes of games plus the build check).
+- Stopped at 02:11: resume job, engines, Python workers and my wait loops killed; no java or Python of mine on
+  Jack's PC; nothing written to E:; WSL not running.
+- Scratch pruned: `D:/e-scratch/xmage-x-spike` is 0.7 GiB (the final rows, the final build's jars and one card
+  database kept for the recheck; older runs' rows are in the repository's evidence).
+
 ## 21:25 EDT: stopped on Jack's PC ("STOP: Jack's PC")
 
 - Stopped at once: the resume job, its 12 engines and Python workers, and my two wait loops are killed. No java,

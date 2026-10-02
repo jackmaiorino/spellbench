@@ -9,9 +9,9 @@ notes for the coordinator are in `STATUS.md`.
 | Check | Result |
 |---|---|
 | Catalog | 32 decks (16 Standard 2022-25, 16 FDN), all `deck_ok` in `validate_deck`, none left out |
-| Live-validated games, final build | 10,112 games, 0 validator violations (`evidence/final-summary.json`) |
+| Live-validated games, final build | 10,112 games, 0 validator violations over 5,976,799 decisions (`evidence/final2-summary.json`) |
 | Halts and truncations, final build | 0 halted, 0 truncated, 0 forfeits: all 10,112 natural (run 1 on the earlier build: 62 halts from two causes, fixed) |
-| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes, both fixed and verified on HaleysPC: process history (boot warm-up) and the identity-hash order of abilities granted by Agatha's Soul Cauldron (ability ordering in the mapper) |
+| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes, both fixed and verified on HaleysPC: process history (boot warm-up) and the identity-hash order of abilities granted by Agatha's Soul Cauldron (ability ordering in the mapper). On the final build: 713 of 713 rechecked games equal (recheck stopped by the machine window; 298 remain) |
 | Paired-world leak tests, final build (`evidence/leak/`) | counterspell 50 pairs, cantrip 50 pairs and 200 randomized pairs PASS, 0 unexplained divergences; comparator self-tests PASS |
 | Fairness label | "fairness: validator only" (`hello_ok.fairness.noninterference_probe` false; README) |
 
@@ -134,7 +134,33 @@ Halt causes (spec 11.5 attribution: `last_selection` names the entry whose selec
 
 All 62 end naturally on the fixed builds (`evidence/fixcheck.jsonl` and the Glissa replay).
 
-## Final run: 10,112 games
+## Final run on the final build (`d74803d5`): 10,112 games
+
+Build `lib_digest d74803d5` (commit `71e32fc`; every fix above: catalog names, `ManaCostCache`, X-P4, mapper
+halt fixes, AI-package warm-up, granted-ability order), byte-identical on HaleysPC and Jack's PC. Played in three
+stretches through P's guard: HaleysPC (guard: 6 workers; 3,544 games, stopped at the disk reserve while another
+task's builds grew on C:), then Jack's PC twice (guard: 12 workers; 2,755 games until a stop for another lane, then
+the last 3,813 at 184 games/min). `x5run.py run --skip-rows` resumes without replaying recorded games; the guard
+records are `evidence/allocation-haleyspc.json` and `evidence/allocation-final2-main-pc.json`. Summary
+`evidence/final2-summary.json`, every game in `evidence/final2-games.tsv.gz`.
+
+| Pool | Games | Natural | Halted | Truncated | Violations | Decisions checked | Steps per game (mean, median, max) |
+|---|---:|---:|---:|---:|---:|---:|---|
+| FDN | 5,056 | 5,056 | 0 | 0 | 0 | 2,994,033 | 592, 541, 1,907 |
+| Standard | 5,056 | 5,056 | 0 | 0 | 0 | 2,982,766 | 590, 501, 5,496 |
+
+**0 validator violations over 5,976,799 decisions; halt and truncation rates 0 for every pool, matchup and entry.**
+Endings: FDN 4,877 by life, 178 by an empty library, 1 draw; Standard 4,925 by life, 116 by an empty library, 15
+by poison. `heuristic` beat `uniform` in 75.7% (FDN) and 67.8% (Standard) of their games; `first` won 6 (FDN) and
+29 (Standard) of 384.
+
+Determinism: the hash recheck (every tenth game, 1,011, under `-XX:hashCode=3` with a hash warm-up, fresh
+processes) was stopped by the window at **713 games: 713 equal** to the run's digests
+(`evidence/final2-hash-determinism-partial.json`, `final2-hash-games.tsv.gz`); 298 remain. The FDN digests equal
+those of the earlier Jack's PC run on build `c81b025a` (all 1,772 compared on HaleysPC); Standard games that reach
+the fixed paths changed, as intended. This run supersedes the `c81b025a` run below for X5's evidence.
+
+## Earlier full run on build `c81b025a` (before the last two fixes)
 
 Build `c81b025a` (commit `a4a9eda`: catalog with full names, `ManaCostCache`, X-P4, the three mapper fixes), Jack's
 PC, 12 workers chosen by P's guard, 10:14 to 11:07 EDT: 10,112 games in 3,024 s, **200.6 games per minute**. Every
