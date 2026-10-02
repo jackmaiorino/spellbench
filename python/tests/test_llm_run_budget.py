@@ -251,7 +251,8 @@ def test_failed_request_stops_every_worker_and_preserves_usage(tmp_path, result,
     state = budget(tmp_path, tokens=2500, allow_timeout_forfeits=allow_timeout_forfeits)
     provider = Provider(result)
     with pytest.raises(ProviderError, match=code):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        # This tests settled accounting, not scheduling latency on a CI runner.
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         RunBudget(state.path, model="luna").reserve(PROMPT, output_tokens=1024)
     assert state.summary()["unknown_usage"] == unknown
