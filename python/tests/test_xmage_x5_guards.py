@@ -152,3 +152,24 @@ def test_direct_run_requires_allocation_argument_before_any_spawn(monkeypatch):
         x5.main(["run", "--plan", "plan", "--machine", "test", "--workers", "4", "--fraction", "1",
                  "--part", "A", "--build", "build", "--out", "out", "--", "unused-engine"])
     assert exc.value.code == 2
+
+
+@pytest.mark.parametrize("missing_game", [False, True])
+def test_summary_publishes_float_diagnostics_with_complete_verdict(tmp_path, ledger, missing_game):
+    _, rows = ledger
+    rows = [{**row, "machine": "test", "seconds": 1.25 + row["gid"],
+             "violation": None, "host_halt": False, "diagnostics": []} for row in rows]
+    plan = tmp_path / "plan.json"
+    plan.write_text(json.dumps({"games_total": len(rows)}), encoding="utf-8")
+    ledger_path = tmp_path / "rows.jsonl"
+    write_rows(ledger_path, rows[:1] if missing_game else rows)
+    output = tmp_path / "summary.json"
+    args = SimpleNamespace(plan=str(plan), rows=[str(ledger_path)], stats=[], out=str(output))
+    expected = 1 if missing_game else 0
+    assert x5.cmd_summarize(args) == expected
+    report = json.loads(output.read_bytes())
+    assert report["verdict"] == ("FAIL" if missing_game else "PASS")
+    assert report["games_recorded"] == (1 if missing_game else 2)
+    assert report["pools"]["test"]["rates"]["natural"] == 1.0
+    assert report["pools"]["test"]["seconds_per_game"]["median"] == (1.25 if missing_game else 1.75)
+    assert not output.with_name(output.name + ".tmp").exists()
