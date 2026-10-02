@@ -1,0 +1,22 @@
+[2026-10-02 08:33:17 EDT] engine: "spellbench_source_revision":"004913a4fd8e2455f8dfcbcd73a15c568a56bcc2","lib_digest":"094733a77d5e5b9a6a881c104e7c70ea289f64e98a327c7a4b1937796025a0a8"
+[2026-10-02 08:33:17 EDT] leak: counterspell, 50 pairs, 8 workers
+ "verdict": "PASS"
+[2026-10-02 08:36:31 EDT] leak: cantrip, 50 pairs, 8 workers
+ "verdict": "PASS"
+[2026-10-02 08:42:07 EDT] leak: random, 200 pairs, 8 workers
+ "verdict": "PASS"
+[2026-10-02 08:54:59 EDT] self-tests: "verdict":"PASS""verdict":"PASS"
+[2026-10-02 08:54:59 EDT] goldens: generate (the five X4b arrangement goldens on this build)
+xmage_scry game 0 sha256:e2f9cb5c98245bb40fa1518802723feb120a8faf7ba9c967225d7367a6585683 {"purpose": "scry", "ok": true, "seat": "p0", "substep_count": 3, "shape_ok": true, "destinations": ["top", "top"], "placed": ["Shivan Dragon", "Air Elemental"], "draws_after": ["Shivan Dragon", "Air Elemental", "Preordain", "Island"]}
+xmage_surveil game 0 sha256:92cc32cd4072d37cc9391c02065962d12d2678c4681daaa000e0f30750bc5aca {"purpose": "surveil", "ok": true, "seat": "p0", "substep_count": 3, "shape_ok": true, "destinations": ["graveyard", "top"], "placed": ["Curate"], "draws_after": ["Curate", "Island"]}
+xmage_library_top game 0 sha256:2af4b8a81788fc6ab3d4445462093f9fc9ff3d47288ccee5b1d6d5c055d65133 {"purpose": "library_top", "ok": true, "seat": "p0", "substep_count": 2, "shape_ok": true, "placed": ["Shivan Dragon", "Island", "Air Elemental"], "draws_after": ["Shivan Dragon", "Island", "Ponder", "Air Elemental"]}
+xmage_library_bottom game 3 sha256:e2a083b648a18f1e45ecb20772ab3ec13dc593d9f4e726d057f9b775089a3f9f {"purpose": "library_bottom", "ok": true, "seat": "p0", "substep_count": 2, "shape_ok": true, "placed": ["Island", "Impulse", "Hill Giant"], "draws_after": ["Island", "Impulse", "Hill Giant"]}
+xmage_london_bottom game 0 sha256:fefd5b2338a216e63fd220b480a203b8ead14e77c7c198a547dca4ff4c029af1 {"purpose": "mulligan_bottom", "ok": true, "seat": "p0", "substep_count": 2, "shape_ok": true, "placed": ["Hill Giant", "Air Elemental"], "draws_after": ["Serra Angel", "Island", "Island", "Hill Giant", "Air Elemental"]}
+[2026-10-02 08:56:16 EDT] goldens: replay (P's engine-transcript replay and a whole-game host replay, fresh processes)
+{"golden": "xmage_library_bottom.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:e2a083b648a18f1e45ecb20772ab3ec13dc593d9f4e726d057f9b775089a3f9f", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_library_top.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:2af4b8a81788fc6ab3d4445462093f9fc9ff3d47288ccee5b1d6d5c055d65133", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_london_bottom.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:fefd5b2338a216e63fd220b480a203b8ead14e77c7c198a547dca4ff4c029af1", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_scry.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:e2f9cb5c98245bb40fa1518802723feb120a8faf7ba9c967225d7367a6585683", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_surveil.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:92cc32cd4072d37cc9391c02065962d12d2678c4681daaa000e0f30750bc5aca", "digest_equal": true, "verdict": "PASS"}
+goldens check verdict: PASS
+[2026-10-02 08:57:46 EDT] done, failures: 0

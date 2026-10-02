@@ -2,33 +2,29 @@
 
 Current readiness: the reviewed build from `004913a` completed the unchanged 10,112-game panel on October 2: all natural, zero validator violations and host halts. All 1,011 selected identity-hash-mode replays matched. The original diagnostic summary writer failed on floating-point metrics; repaired analysis passed on the same retained rows and stats, with no measurement rerun. The original failure and a failed analysis-helper attempt are preserved. The [verification report](../../../../docs/llm-engine-verification-20261002.json) records the exact build, plan, stores and recoverable archive hashes. The cloud pods are stopped; local recovery waits for Main PC release.
 
-The following summary and paired-world/golden evidence are historical and predate this build. Current panel/replay verification does not close the broader issue #23 or establish a Luna rating. Fairness remains validator only.
+The following summary and evidence are historical and predate this build, except the section on the #23 checks, which ran on it. Current panel/replay verification does not close the broader issue #23 or establish a Luna rating. Fairness remains validator only.
 
 Task X5 (issue #23): both benchmark pools in the engine catalog, at least 10,000 live-validated games through P's
 host, paired-world leak tests, and the fairness label. The historical run below used protocol-v2 `4b588a1`. Progress
 notes for the coordinator are in `STATUS.md`.
 
-## Open #23 checks on the `004913a` build (prepared, not run)
+## #23 checks on the `004913a` build (2026-10-02, Jack's PC)
 
-`run-23-checks.sh --repo <main work tree> --build <004913a build> --db <card database> --scratch <SSD dir>
-[--workers 8] [--section leak|goldens|all]`. It refuses any build whose `BUILD-MANIFEST.json` does not hash to
-`3b54f3f6...`, starts every engine through main's `python/tools/xmage_verified_entry.py`, and runs at below-normal
-priority:
+Run with `run-23-checks.sh` on the reviewed CI build (manifest `3b54f3f6...`, 41 jars verified, lib `094733a7`,
+`hello.source_revision` `004913a`), engines started through `python/tools/xmage_verified_entry.py`, below-normal
+priority, 08:33 to 08:58 EDT, plus P's conformance runner. Evidence: `evidence/004913a-checks/`.
 
-- paired-world leak tests (`leak.py`): counterspell 50 pairs, cantrip 50 pairs, randomized 200 pairs, and the
-  comparator self-tests on a counterspell pair (seat p0) and a randomized pair (its observer);
-- the five X4b arrangement goldens (`../x4s2/goldens.py`): regenerated on this build (they embed `hello_ok`, whose
-  `source_revision` and catalog changed), then replayed both ways (P's engine-transcript replay and a whole-game
-  host replay in fresh processes).
-
-Outputs land under the scratch directory; copying the summaries and goldens into the repository is a separate,
-reviewed step. Leak and golden code is unchanged since the `d74803d5` pass (counterspell 50/50 whole-game identical,
-cantrip and randomized PASS, self-tests PASS, goldens 5/5).
-
-| Placement | Estimate |
+| Check | Result |
 |---|---|
-| Jack's PC (after the evaluation, about 08:30) | about 30 min: leak suite about 25 min at 8 workers, goldens about 3 min, a database scan; plus about 3 min to build `004913a` if CI's artifact is not used |
-| RunPod, existing pattern (`cpu5g`, 16 vCPU, 64 GB, $0.736/hour; network volume `hzaciff5xy` already holds the `004913a` engine; shared $5 ceiling, 4-hour deadline, scheduler-owned financial guard) | about 1 hour with setup, about $0.75; not faster than Jack's PC once released. Proposed only if the release slips past about 09:30; needs approval before any spend |
+| Counterspell position, 50 pairs (179 played) | PASS: p0's stream identical for the whole game in all 50 (11,178 decisions), 1,001 of them with p0's spell on the stack while p1 held Counterspell over two untapped Islands |
+| Cantrip position, 50 pairs (248 played) | PASS: p1 identical until a public divergence in all 50; p0's first divergence `own_look` 40, `own_hand` 10 |
+| Randomized, 200 pairs over all 32 catalog decks | PASS: 198 `public`, 2 `own_effect_look` (Duress), 0 unexplained |
+| Comparator self-tests (counterspell p0, randomized observer) | PASS: all five injected leaks caught in both |
+| X4b goldens, regenerated and replayed | PASS 5/5 (P's engine-transcript replay and whole-game host replay). Game digests equal the previous goldens; the transcripts differ only in `hello_ok.engine.source_revision` (now `004913a`), so the committed goldens are replaced |
+| P's conformance runner (`spellbench conformance engine`, 20 games each) | Standard16-RG/UB: 21/21 PASS; FDN_top_02581_UR/13950_BR: 21/21 PASS |
+
+The leak results equal the `d74803d5` pass field for field (same pairs kept, same counts), as expected: the
+paired-world worlds and bots do not reach the repaired code paths in a way that changes these streams.
 
 ## Historical summary
 

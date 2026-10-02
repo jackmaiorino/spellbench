@@ -1,0 +1,14 @@
+{
+ "position": "counterspell",
+ "pairs_kept": 50,
+ "tally": {
+  "played": 179,
+  "not_kept": 129,
+  "p0:None": 50
+ },
+ "decisions_compared_identical": 11178,
+ "whole_game_identical": 50,
+ "unexplained": 0,
+ "violations": 0,
+ "verdict": "PASS"
+}

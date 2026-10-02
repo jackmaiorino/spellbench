@@ -1,0 +1,13 @@
+{
+ "seat": "p0",
+ "decision": 0,
+ "results": {
+  "known_other_hand": "UNEXPLAINED",
+  "candidate_order": "UNEXPLAINED",
+  "display_text": "UNEXPLAINED",
+  "candidate_dropped": "UNEXPLAINED",
+  "context_text": "UNEXPLAINED",
+  "unmutated": null
+ },
+ "verdict": "PASS"
+}
