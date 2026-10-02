@@ -1,0 +1,98 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "fdn-mirror-v0",
+  "title": "FDN mirrors · XMage",
+  "summary": "Sixteen Foundations draft decks from 17lands' public Premier Draft data (CC BY 4.0), as sampled by DraftZero, on the XMage engine; both seats play the same list, and every matchup plays each deck in both seats. Fairness: validator only (P's live validator checks every decision; no probe). Halted and truncated games are unrated and shown with their rates.",
+  "format": "fdn-limited-bo1",
+  "engine": {
+    "name": "xmage-spellbench",
+    "command": [
+      "${XMAGE_BASH}",
+      "${XMAGE_ENGINE_SH}",
+      "--build",
+      "${XMAGE_BUILD}",
+      "--db",
+      "${XMAGE_DB}",
+      "--work",
+      "${XMAGE_WORK}"
+    ]
+  },
+  "deck_pool": [
+    "FDN_top_02581_UR",
+    "FDN_top_02810_UR",
+    "FDN_top_04752_WG",
+    "FDN_top_05840_UGpR",
+    "FDN_top_13096_WU",
+    "FDN_top_13950_BR",
+    "FDN_top_15834_WBpU",
+    "FDN_top_16798_UB",
+    "FDN_top_17463_BG",
+    "FDN_top_20196_GpUR",
+    "FDN_top_20626_WG",
+    "FDN_top_21511_WUR",
+    "FDN_top_23736_U",
+    "FDN_top_24789_BGpW",
+    "FDN_top_26941_WB",
+    "FDN_top_28740_RG"
+  ],
+  "pairs_per_deck": 4,
+  "stats_seed": 20261001,
+  "time_control": {
+    "startup_ms": 300000,
+    "game_start_ms": 300000,
+    "bank_ms": 3600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 120000,
+    "engine_step_ms": 120000
+  },
+  "bootstrap_replicates": 2000,
+  "workers": 12,
+  "bots": [
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "seed": 11,
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "heuristic",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "heuristic",
+        "author": "Spellbench",
+        "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and never blocks.",
+        "url": null
+      }
+    },
+    {
+      "name": "first",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "first",
+        "author": "Spellbench",
+        "description": "Always takes the first offered action.",
+        "url": null
+      }
+    }
+  ]
+}
