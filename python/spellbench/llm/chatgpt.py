@@ -17,6 +17,23 @@ from .tls import native_opener
 
 BASE_URL = "https://api.openai.com/v1"
 MAX_RESPONSE_BYTES = 1_048_576
+PLAN_ERROR_CODES = frozenset({
+    "subscription_sharing_user_not_eligible", "subscription_sharing_usage_limit_exceeded",
+    "subscription_sharing_usage_unavailable", "subscription_sharing_unsupported_capability",
+    "subscription_sharing_route_not_supported", "subscription_sharing_invalid_user",
+    "subscription_sharing_user_unavailable", "chatpass_v2_scope_not_authorized",
+    "chatpass_v2_invalid_authorization_context",
+})
+
+
+def _plan_error(value: Any, fallback: str) -> str:
+    """Expose only documented fixed codes, never provider messages or bodies."""
+    if isinstance(value, dict):
+        error = value.get("error", value)
+        if (isinstance(error, dict) and isinstance(error.get("code"), str)
+                and error["code"] in PLAN_ERROR_CODES):
+            return error["code"]
+    return fallback
 
 
 @dataclass(frozen=True)
@@ -142,7 +159,9 @@ def read_completion(stream: Any) -> Completion:
                             raise ProviderError("finalized_item_mismatch")
                     return _completion(response)
                 if kind in {"response.failed", "response.incomplete", "error"}:
-                    raise ProviderError("inference_failed" if kind != "response.incomplete" else "incomplete_response")
+                    fallback = "incomplete_response" if kind == "response.incomplete" else "inference_failed"
+                    value = event.get("response") if kind == "response.failed" else event
+                    raise ProviderError(_plan_error(value, fallback))
             except (KeyError, ValueError, TypeError, AttributeError):
                 raise ProviderError("invalid_stream_event") from None
 
@@ -179,6 +198,8 @@ class ChatGptProvider:
                 return read_completion(response)
         except urllib.error.HTTPError as exc:
             status = exc.code
+            # Return an established denial immediately. Reading an optional
+            # body could time out and disguise an auth/quota failure as timeout.
             exc.close()
             raise ProviderError(f"http_{status}") from None
         except (TimeoutError, socket.timeout):

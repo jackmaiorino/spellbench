@@ -19,6 +19,7 @@ from spellbench.llm.provider import ProviderError
 from test_llm_agent import Provider, agent, decision, events
 from test_llm_broker import session, choose_request, rpc, events as broker_events
 from spellbench.llm.provider import Completion
+from spellbench.llm.chatgpt import PLAN_ERROR_CODES
 
 
 def completed(**changes):
@@ -103,6 +104,30 @@ def test_bad_or_incomplete_stream_never_returns_partial_choice(stream, code):
     assert "secret" not in str(failure.value)
 
 
+@pytest.mark.parametrize("code", sorted(PLAN_ERROR_CODES))
+@pytest.mark.parametrize("kind", ["response.failed", "error"])
+def test_documented_plan_errors_survive_stream_without_provider_text(code, kind):
+    error = {"error": {"code": code, "message": "secret", "param": "secret"}}
+    event = {"type": kind, **({"response": error} if kind == "response.failed" else error)}
+    with pytest.raises(ProviderError) as failure:
+        read_completion(io.BytesIO(sse(event)))
+    assert str(failure.value) == code
+
+
+@pytest.mark.parametrize("code", ["secret", ["secret"], None])
+def test_unrecognized_provider_code_is_not_exposed(code):
+    event = {"type": "response.failed", "response": {"error": {"code": code, "message": "secret"}}}
+    with pytest.raises(ProviderError, match="inference_failed"):
+        read_completion(io.BytesIO(sse(event)))
+
+
+def test_top_level_stream_error_code_is_preserved_without_its_message():
+    event = {"type": "error", "code": "subscription_sharing_usage_limit_exceeded", "message": "secret"}
+    with pytest.raises(ProviderError) as failure:
+        read_completion(io.BytesIO(sse(event)))
+    assert str(failure.value) == event["code"]
+
+
 @pytest.fixture
 def endpoint():
     class Handler(BaseHTTPRequestHandler):
@@ -115,6 +140,7 @@ def endpoint():
                 self.send_header("Location", self.server.url + "/redirect-target")
             self.send_header("Content-Type", self.server.content_type)
             self.end_headers()
+            time.sleep(self.server.body_delay)
             try:
                 self.wfile.write(self.server.body)
             except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
@@ -126,6 +152,7 @@ def endpoint():
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     server.received, server.status, server.delay, server.content_type = [], 200, 0, "text/event-stream"
     server.body = sse({"type": "response.completed", "response": completed()})
+    server.body_delay = 0
     server.url = f"http://127.0.0.1:{server.server_port}"
     thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
     thread.start()
@@ -160,6 +187,29 @@ def test_transport_fault_is_one_attempt_and_poison_survives_later_calls(endpoint
         client.complete(render_prompt(decision()), timeout_s=2)
     with pytest.raises(ProviderError, match="provider_already_failed"):
         client.complete(render_prompt(decision()), timeout_s=2)
+    assert len(endpoint.received) == 1
+
+
+def test_http_plan_error_preserves_known_status_and_stops_after_one_request(endpoint):
+    endpoint.status = 429
+    endpoint.body = json.dumps({"error": {"code": "subscription_sharing_usage_limit_exceeded",
+                                         "message": "secret"}}).encode()
+    client = provider(endpoint)
+    with pytest.raises(ProviderError) as failure:
+        client.complete(render_prompt(decision()), timeout_s=2)
+    assert str(failure.value) == "http_429"
+    with pytest.raises(ProviderError, match="provider_already_failed"):
+        client.complete(render_prompt(decision()), timeout_s=2)
+    assert len(endpoint.received) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403, 429])
+def test_delayed_http_denial_body_cannot_become_a_tolerated_timeout(endpoint, status):
+    endpoint.status, endpoint.body_delay = status, 0.3
+    client = provider(endpoint)
+    with pytest.raises(ProviderError) as failure:
+        client.complete(render_prompt(decision()), timeout_s=0.1)
+    assert str(failure.value) == f"http_{status}"
     assert len(endpoint.received) == 1
 
 
