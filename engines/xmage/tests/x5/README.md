@@ -8,6 +8,28 @@ Task X5 (issue #23): both benchmark pools in the engine catalog, at least 10,000
 host, paired-world leak tests, and the fairness label. The historical run below used protocol-v2 `4b588a1`. Progress
 notes for the coordinator are in `STATUS.md`.
 
+## Open #23 checks on the `004913a` build (prepared, not run)
+
+`run-23-checks.sh --repo <main work tree> --build <004913a build> --db <card database> --scratch <SSD dir>
+[--workers 8] [--section leak|goldens|all]`. It refuses any build whose `BUILD-MANIFEST.json` does not hash to
+`3b54f3f6...`, starts every engine through main's `python/tools/xmage_verified_entry.py`, and runs at below-normal
+priority:
+
+- paired-world leak tests (`leak.py`): counterspell 50 pairs, cantrip 50 pairs, randomized 200 pairs, and the
+  comparator self-tests on a counterspell pair (seat p0) and a randomized pair (its observer);
+- the five X4b arrangement goldens (`../x4s2/goldens.py`): regenerated on this build (they embed `hello_ok`, whose
+  `source_revision` and catalog changed), then replayed both ways (P's engine-transcript replay and a whole-game
+  host replay in fresh processes).
+
+Outputs land under the scratch directory; copying the summaries and goldens into the repository is a separate,
+reviewed step. Leak and golden code is unchanged since the `d74803d5` pass (counterspell 50/50 whole-game identical,
+cantrip and randomized PASS, self-tests PASS, goldens 5/5).
+
+| Placement | Estimate |
+|---|---|
+| Jack's PC (after the evaluation, about 08:30) | about 30 min: leak suite about 25 min at 8 workers, goldens about 3 min, a database scan; plus about 3 min to build `004913a` if CI's artifact is not used |
+| RunPod, existing pattern (`cpu5g`, 16 vCPU, 64 GB, $0.736/hour; network volume `hzaciff5xy` already holds the `004913a` engine; shared $5 ceiling, 4-hour deadline, scheduler-owned financial guard) | about 1 hour with setup, about $0.75; not faster than Jack's PC once released. Proposed only if the release slips past about 09:30; needs approval before any spend |
+
 ## Historical summary
 
 | Check | Result |
