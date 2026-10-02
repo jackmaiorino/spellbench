@@ -39,8 +39,8 @@ func TestGoldensReplayByteExact(t *testing.T) {
 		}
 	}
 	files, _ := filepath.Glob(filepath.Join(dir, "*.transcript.jsonl"))
-	if len(files) < 27 {
-		t.Fatalf("%d golden files, want at least 27", len(files))
+	if len(files) != 27 {
+		t.Fatalf("%d golden files, want exactly 27", len(files))
 	}
 	var digests map[string]string
 	if b, err := os.ReadFile(filepath.Join(dir, "digests.json")); err != nil || json.Unmarshal(b, &digests) != nil || len(digests) != 5 {
@@ -171,7 +171,14 @@ func writeGoldens(t *testing.T, dir string) error {
 	// Goldens are generated without x_gorge_view_v1: its payload carries gorge
 	// cost strings compiled from Forge scripts, which this module never ships.
 	noExt := `"extensions":["x_gorge_view_v1"]=>"extensions":[]`
+	noExtReset := func(deck, mutate string) []byte {
+		return []byte(strings.Replace(string(reset("r-1", "g-1", deck, mutate)), `"extensions":["x_gorge_view_v1"]`, `"extensions":[]`, 1))
+	}
 	burn := reset("r-1", "g-1", "Burn", noExt)
+	burnDeck, _ := catalog.ByID("Burn")
+	// deck_id_mismatch: the wrong id must keep Section 4.3's form, since the
+	// decoder refuses a malformed deck_id before the server runs.
+	zeroID := "sha256:" + strings.Repeat("0", 64)
 	pass := `{"kind":"pass"}`
 	scenarios := []struct {
 		name  string
@@ -188,12 +195,12 @@ func writeGoldens(t *testing.T, dir string) error {
 		{"expected_step_mismatch", [][]byte{burn, step("g-1", 5, 0, pass)}},
 		{"candidate_id_out_of_range", [][]byte{burn, step("g-1", 0, 4095, pass)}},
 		{"semantic_echo_mismatch", [][]byte{burn, step("g-1", 0, 0, `{"kind":"nonsense"}`)}},
-		{"unsupported_format", [][]byte{reset("r-1", "g-1", "Burn", `"format":"pauper-bo1"=>"format":"modern-bo1"`)}},
-		{"unsupported_deck", [][]byte{reset("r-1", "g-1", "Burn", `"catalog_id":"Burn"}}]=>"catalog_id":"Terror"}}]`)}},
-		{"deck_id_mismatch", [][]byte{reset("r-1", "g-1", "Burn", `"deck_id":"sha256:=>"deck_id":"sha256:0`)}},
-		{"unsupported_rule", [][]byte{reset("r-1", "g-1", "Burn", `"probe":false=>"probe":true`)}},
+		{"unsupported_format", [][]byte{noExtReset("Burn", `"format":"pauper-bo1"=>"format":"modern-bo1"`)}},
+		{"unsupported_deck", [][]byte{noExtReset("Burn", `"catalog_id":"Burn"}}]=>"catalog_id":"Terror"}}]`)}},
+		{"deck_id_mismatch", [][]byte{noExtReset("Burn", `"deck_id":"`+burnDeck.DeckID()+`"=>"deck_id":"`+zeroID+`"`)}},
+		{"unsupported_rule", [][]byte{noExtReset("Burn", `"probe":false=>"probe":true`)}},
 		{"unsupported_request", [][]byte{[]byte(`{"request_type":"probe_resample","protocol":"spellbench/v2","request_id":"p-1","game_id":"g-1","samples":4}`)}},
-		{"game_already_terminal", [][]byte{reset("r-1", "g-1", "Burn", `"max_steps":100000=>"max_steps":0`), step("g-1", 0, 0, pass)}},
+		{"game_already_terminal", [][]byte{noExtReset("Burn", `"max_steps":100000=>"max_steps":0`), step("g-1", 0, 0, pass)}},
 	}
 	for _, d := range catalog.Decks() {
 		scenarios = append(scenarios, struct {
@@ -211,13 +218,18 @@ func writeGoldens(t *testing.T, dir string) error {
 			}
 			recs = append(recs, in, record{Dir: "engine_to_host", Message: s.Handle(l)})
 		}
+		// Each error scenario's last engine line must carry its own code, so a
+		// mutation regressing to another code (say malformed_request) fails here.
+		if last := recs[len(recs)-1].Message; sc.name != "hello" && !strings.HasPrefix(sc.name, "reset_first_decision_") &&
+			!bytes.Contains(last, []byte(`"code":"`+sc.name+`"`)) {
+			return fmt.Errorf("%s: last engine line does not record its error code: %s", sc.name, last)
+		}
 		if err := writeTranscript(filepath.Join(dir, sc.name+".transcript.jsonl"), recs); err != nil {
 			return err
 		}
 	}
 	// Game scenarios: whole host, engine and agent exchanges of seeded Uniform games.
 	digests := map[string]string{}
-	burnDeck, _ := catalog.ByID("Burn")
 	recs, res, err := playRecorded(reg, 0, burnDeck, 300)
 	if err != nil {
 		return err
