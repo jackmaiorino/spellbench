@@ -12,9 +12,9 @@ source scripts/env.sh && sh scripts/setup-dev.sh && go build -o bin/ ./cmd/...
 
 ## CI
 
-The module's `go.sum` holds only the `golang.org/x/text` hashes; the pinned gorge module resolves through the git-ignored `go.work` replace, builds use no network, and `scripts/env.sh` holds this machine's D: paths (G1-6, G2-31). A CI job:
+The module's `go.sum` holds only the `golang.org/x/text` hashes; the pinned gorge module resolves through the git-ignored `go.work` replace, builds use no network, and `scripts/env.sh` holds this machine's D: paths (G1-6, G2-31). The CI job (`.github/workflows/gorge.yml`, on changes under `engines/gorge/`):
 
-1. clones gorge at the pin and exports `GORGE_SRC`;
+1. clones gorge at the pin with `core.autocrlf=true` and exports `GORGE_SRC` (gorge's `CompilerFingerprint` hashes the source bytes, and the pinned value comes from the qualified Windows checkout; an LF checkout reports `59486de15e72099cf8b90914881a89c0` and is refused);
 2. runs `forgec fetch -ref 95f04e8a04c8925fa97cb226fc3341cabcc90a53` into `GORGE_CARDS` and exports it;
 3. runs `sh scripts/setup-dev.sh`;
 4. runs the one test command `go test -timeout 60m ./...` (the mini-host, agent and qualification packages run past `go test`'s 10-minute default).
