@@ -139,7 +139,7 @@ run: it waits for a guarded machine and the coordinator's go. Prepared since: pe
 checked in one FDN game on HaleysPC, not a qualification), `kitrun.py` (plan, P's `plan_allocation` qualification,
 guarded run, R-1 replay, summary with the pass criteria), `launch.sh`.
 
-## Change 8 plan (not started; waits for a coordinator go)
+## Change 8 plan (ran 2026-10-02; results in the next section)
 
 Entries: kit-mad-1 and kit-mad-k enter the first soak; kit-mcts waits for its own qualification with the provisional
 profile 120 s per decision, a 3,600 s bank, 2 s increments and 300 s startup and game start (cap 1000 and 30
@@ -160,6 +160,37 @@ iterations kept; cap 300 stays rejected). Pass criteria, from the review's last 
 5. Rated admission: engine, entry configuration, clock profile and admitted pool equal to the qualification's;
    per-game isolation verified (no writable state survives into another game). The pool audit shows availability,
    not exact reconstruction.
+
+## Change 8 results (2026-10-02): soak complete, verdict FAIL on two findings
+
+Reviewed engine `004913a` (manifest `3b54f3f6...`, lib `094733a7...`) through P's verified entry, kit build
+`kit-build-004913a` (the same jars copied to HaleysPC), plan `plan.json` (2,176 games, clock `kit`), P at
+`fb80e58`, below-normal priority, no E: writes, no WSL. Records: `soak/`.
+
+Qualification (both substantial, `outputs_identical: true`, guard accepted both):
+
+| Machine | Rungs (games, wall s) | Chosen | Soak share | Soak rate |
+|---|---|---|---|---|
+| Jack's PC (24 threads, 128 GB) | 24 games: 1w 897, 6w 399, 12w 448 | 12 workers | 1,000 (part A) + 218 tail | 427 games/h |
+| HaleysPC (16 cores, 32 GB) | 8 games: 1w 210, 2w 144, 4w 114 | 4 workers (memory) | 958 (part B) | 320 to 342 games/h |
+
+RunPod not costed or used: the two PCs finished in 2 h 58 min. The first qualification failed the outputs check
+because the bot command carried per-batch paths (bot id in every row); fixed in `db4da41` and requalified. When
+Jack's PC finished part A, HaleysPC was stopped and the remaining 384 part-B games split by measured rate
+(`--limit 166` on HaleysPC, `--tail 218 --skip-rows` on Jack's PC; record `STOP-haleyspc-124246.json`); no game
+played twice (no duplicate row in the summary).
+
+| Criterion | Result |
+|---|---|
+| Schedule complete, both seats, whole pool | PASS: 2,176 of 2,176, each workload as planned; every entry seat 36 times per deck and seat, builtins 32 |
+| No `invalid_selection`, `malformed_response`, violation, halt | PASS: all 2,176 natural (2,151 life, 25 library); 0 violations, 0 host halts, 0 runner restarts or kills |
+| R-1 replay (20 games, one worker) | PASS 20/20 equal digests |
+| Unmapped candidates, combat option cap, E4 MAD | 0 unmapped of 50,928 searched priority decisions; cap never fired; E4 flags 0 |
+| Per-game isolation | FAIL as coded: one agent work directory left on Jack's PC at 12 workers (the host kills the agent tree when it has not exited 2 s after stdin closes, so the agent's cleanup trap never runs); never reused by another game |
+| Usable clocks, preserved outputs | FINDING: 64 kit-mad-k decisions hit the deadline interrupt (63 on Jack's PC at 12 workers), in 33 games; 2 of 6 such games replayed serially give another digest. Max decision 113.3 s of 120 s; bank use max 938 s of 3,600 |
+| Wrapper rate by kind and mechanic | FINDING: 3.3 to 3.5 percent; 6,275 of them are failed searches with one cause: Witness Protection renames the enchanted creature "Legitimate Businessperson", which the world builder cannot create, so every priority and combat search of that seat fails for the rest of the game (129 of 2,304 kit seat-games, all on deck `FDN_top_05840_UGpR`). The register rates the card supported |
+
+Details: `soak/findings.json`, `soak/SOAK-SUMMARY.json`, `soak/R1.json`, `soak/REPLAY-SELECTED.json`.
 
 ## Cases (Section 9.1)
 

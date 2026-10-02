@@ -546,15 +546,19 @@ def cmd_replay(args: argparse.Namespace, engine: list[str]) -> int:
     gids = sorted(original)
     count = int(plan.get("r1_replay_games", 20))
     pick = [gids[int(i * len(gids) / count)] for i in range(min(count, len(gids)))]
+    if args.game_id:  # a chosen set (e.g. games with a deadline-interrupted decision) instead of the spread
+        chosen = set(args.game_id)
+        pick = [g for g in gids if original[g]["row"]["game_id"] in chosen]
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    ctx = _ctx(args, out, "replay")
+    label = "replay-selected" if args.game_id else "replay"
+    ctx = _ctx(args, out, label)
     _, rows = run_games(plan, engine, ctx, pick, 1, preflight_once(plan, engine, ctx))
     differ = [r["gid"] for r in rows if r["row"]["game_digest"] != original[r["gid"]]["row"]["game_digest"]]
     report = {"games": len(pick), "equal": len(pick) - len(differ), "differ": differ,
               "agent_dirs_left": leftover_agent_dirs(ctx),
               "verdict": "PASS" if pick and not differ else "FAIL"}
-    (out / "R1.json").write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    (out / ("REPLAY-SELECTED.json" if args.game_id else "R1.json")).write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
     print(json.dumps(report))
     return 0 if report["verdict"] == "PASS" else 1
 
@@ -642,6 +646,7 @@ def main(argv: list[str]) -> int:
             q.add_argument("--skip-rows", action="append", default=[], help="another machine's rows: games it played")
         if name == "replay":
             q.add_argument("--rows", action="append", required=True)
+            q.add_argument("--game-id", action="append", default=[], help="replay these games instead of the spread")
     s = sub.add_parser("summarize")
     s.add_argument("--plan", required=True)
     s.add_argument("--rows", action="append", required=True)

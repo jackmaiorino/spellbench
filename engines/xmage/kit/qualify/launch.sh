@@ -16,6 +16,7 @@
 #   LIMIT, TAIL, SKIP_ROWS  run, optional: the first or last N remaining games of the part; other machines' rows
 #   ENTRIES  plan: entries, default "h1 h2" (kit-mcts waits for its own qualification)
 #   CLOCK    plan: kit (default; the profile fdn-mirror-v0 freezes for every entry and builtin)
+#   GAME_IDS replay, optional: replay these game ids instead of the R-1 spread (REPLAY-SELECTED.json)
 #   ROWS     replay and summarize: row files (space separated); KITLOGS, ISOLATION likewise for summarize
 set -euo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -52,6 +53,7 @@ case "$STEP" in
       "${skip[@]}" -- "${ENGINE_ARGV[@]}" ;;
   replay)
     rows=(); for r in ${ROWS:?}; do rows+=(--rows "$(native "$r")"); done
+    for g in ${GAME_IDS:-}; do rows+=(--game-id "$g"); done
     python "$HERE/kitrun.py" replay "${COMMON[@]}" --qualification "$(native "$OUT/QUALIFICATION.json")" \
       "${rows[@]}" -- "${ENGINE_ARGV[@]}" ;;
   summarize)
