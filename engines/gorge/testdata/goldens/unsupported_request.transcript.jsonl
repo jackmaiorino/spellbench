@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"request_type":"probe_resample","protocol":"spellbench/v2","request_id":"p-1","game_id":"g-1","samples":4}}
+{"dir":"engine_to_host","message":{"error":{"code":"unsupported_request","message":"probe_resample is not implemented"},"protocol":"spellbench/v2","request_id":"p-1","response_type":"error"}}
