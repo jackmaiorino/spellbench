@@ -166,10 +166,14 @@ func (s *Server) decide(v view.View, d decision.Decision) (in decision.Intent) {
 
 func (s *Server) choose(q request) uint32 {
 	cands := q.Decision.Candidates
-	raw, ok := q.Decision.Extensions["x_gorge_view_v1"]
-	if !ok || len(cands) == 0 {
+	if len(cands) == 0 {
 		s.fallbacks++
-		return 0
+		return 0 // no candidate exists to name: the selection is unusable either way
+	}
+	raw, ok := q.Decision.Extensions["x_gorge_view_v1"]
+	if !ok {
+		s.fallbacks++
+		return cands[0].CandidateID
 	}
 	var p xview.Payload
 	if err := json.Unmarshal(raw, &p); err != nil || len(p.Ops) != len(cands) {
