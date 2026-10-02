@@ -45,6 +45,7 @@ import math
 import multiprocessing
 import multiprocessing.util
 import os
+import platform
 import secrets
 import shutil
 import statistics
@@ -424,12 +425,13 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
 
     allocation = plan_allocation(
         games_total=plan["games_total"], cap=args.cap, per_game_cores=PER_GAME_CORES, play=play,
-        placement=args.placement, sample=list(range(plan["games_total"])), workload=workload_id(ident),
+        placement=args.placement, sample=list(range(plan["games_total"])), workload=workload_id(ident), host=args.machine,
         volumes={"run_dir": out, "pin_root": out}, evidence=out / "throughput-evidence.jsonl",
     )
     (out / "allocation.json").write_text(json.dumps(allocation.to_json(), indent=1) + "\n", encoding="utf-8")
     qualification = {"schema": "spellbench-kit-qualification/v1", "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-                     "host": allocation.host, "workload": workload_id(ident), "workload_parts": ident,
+                     "host": allocation.host, "node": platform.node(), "workload": workload_id(ident),
+                     "workload_parts": ident,
                      "clock_profile": plan["clock_profile"], "time_control": plan["time_control"],
                      "entries": plan["entries"], "allocation": allocation.to_json(), "kind": allocation.kind,
                      "workers": allocation.workers, "outputs_identical": allocation.outputs_identical,
@@ -441,7 +443,6 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
 
 def guard(args: argparse.Namespace, plan_path: Path) -> dict[str, Any]:
     """The launch guard: refuses a run without matching qualification evidence (COMPUTE-POLICY.md item 5)."""
-    from spellbench.arena.machine import host_name
     from spellbench.arena.qualification import workload_id
     q_path = Path(args.qualification)
     if not q_path.exists():
@@ -454,8 +455,8 @@ def guard(args: argparse.Namespace, plan_path: Path) -> dict[str, Any]:
         problems.append("not a kit qualification record")
     if q.get("workload") != expected:
         problems.append("its workload (plan, engine build, kit jars, entries, clock, P commit) differs from this run's")
-    if q.get("host") != host_name(None):
-        problems.append(f"it was measured on {q.get('host')}, not on {host_name(None)}")
+    if q.get("host") != args.machine or q.get("node") != platform.node():
+        problems.append(f"it was measured on {q.get('host')} ({q.get('node')}), not on {args.machine} ({platform.node()})")
     if q.get("kind") == "substantial" and q.get("outputs_identical") is not True:
         problems.append("its rungs did not give identical outputs across worker counts")
     if q.get("kind") not in ("small", "substantial"):
@@ -614,13 +615,13 @@ def main(argv: list[str]) -> int:
         q.add_argument("--db", required=True)
         q.add_argument("--p2-commit", required=True)
         q.add_argument("--out", required=True)
+        q.add_argument("--machine", required=True)
         if name == "qualify":
             q.add_argument("--cap", type=int, required=True)
             q.add_argument("--placement", required=True)
         else:
             q.add_argument("--qualification", required=True)
         if name == "run":
-            q.add_argument("--machine", required=True)
             q.add_argument("--fraction", type=float, default=1.0)
             q.add_argument("--part", choices=("A", "B"), default="A")
             q.add_argument("--limit", type=int, default=0)
