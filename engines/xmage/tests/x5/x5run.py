@@ -617,7 +617,6 @@ def cmd_summarize(args: argparse.Namespace) -> int:
                                                                               "non_natural")}
                       for w, items in sorted(by_workload.items())},
     }
-    Path(args.out).write_text(json.dumps(summary, indent=1, sort_keys=False) + "\n", encoding="utf-8")
     print(json.dumps({k: summary[k] for k in ("games_recorded", "machines", "violations_total",
                                                "duplicate_rows_with_different_digest")}))
     for pool, b in summary["pools"].items():
@@ -626,7 +625,9 @@ def cmd_summarize(args: argparse.Namespace) -> int:
               and not summary["violations_total"]
               and all(r["row"]["classification"] == "natural" for r in rows.values()))
     summary["verdict"] = "PASS" if passed else "FAIL"
-    store.write_json_atomic(Path(args.out), summary)
+    # This diagnostic report includes measured means, medians and rates. Protocol and
+    # tournament artifacts remain integer-only; publish this report as ordinary JSON.
+    store.write_bytes_atomic(Path(args.out), (json.dumps(summary, indent=1, allow_nan=False) + "\n").encode("utf-8"))
     return 0 if passed else 1
 
 
