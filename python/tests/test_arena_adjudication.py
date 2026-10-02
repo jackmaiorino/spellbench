@@ -1,17 +1,7 @@
-"""Host adjudication: forfeits, engine failures, and truncation.
-
-The schedule over two bots is m0 = (A, A), m1 = (A, B), m2 = (B, B), one
-seat-swapped pair each: m1 g0 seats A at p0, m1 g1 seats B at p0. In
-fake_arena_engine p0 acts at even steps and p1 at odd steps.
-"""
+"""Host adjudication in tournaments: forfeits, halts, truncation, stalling, attribution (spec 11.4, 11.5)."""
 
 from __future__ import annotations
 
-import pytest
-
-pytest.skip("protocol v1 test, migrated in Task 39", allow_module_level=True)
-
-import math
 import os
 import sys
 import threading
@@ -20,207 +10,110 @@ from pathlib import Path
 import pytest
 
 from spellbench.arena import runner
-from spellbench.arena.cli import validate_tournament_dir
+from spellbench.arena.validate import validate_tournament_dir
 
-from arena_helpers import (
-    BOT_HANG,
-    BOT_INVALID_CHOICE,
-    builtin,
-    cli_bot,
-    hostile_bot,
-    ledger_rows,
-    leaderboard,
-    make_config,
-    row_by_name,
-    run,
-    subprocess_bot,
-)
+from arena_helpers import BOT_HOSTILE, builtin, hostile_bot, ledger_rows, leaderboard, make_config, row_by_name, run, subprocess_bot
+
+FAST = {"startup_ms": 30000, "game_start_ms": 30000, "bank_ms": 600000, "increment_ms": 0, "max_decision_ms": 500, "engine_step_ms": 30000}
+TIGHT = {"max_decisions": 10000, "max_steps": 100000, "max_seat_decisions_per_turn": 20,
+         "max_seat_decisions_per_game": 4999, "max_seat_steps_per_game": 49999}
 
 
-def _forfeits(directory: Path) -> list[tuple[str, str, str, str, int]]:
-    return [
-        (
-            row["game_id"],
-            row["outcome"],
-            row["adjudication"]["cause"],
-            row["adjudication"]["loser_seat"],
-            row["step_count"],
-        )
-        for row in ledger_rows(directory)
-        if row["classification"] == "forfeit"
-    ]
-
-
-def test_invalid_selection_is_a_forfeit_loss_for_the_acting_bot(tmp_path: Path) -> None:
-    directory = tmp_path / "t"
-    bad = subprocess_bot("bad-invalid", [sys.executable, str(BOT_INVALID_CHOICE)])
-    summary = run(make_config(directory, [builtin("heuristic"), bad], pairs=1))
-    # A forfeit is a rated loss: otherwise a losing bot could erase its
-    # losses by hanging or answering garbage.
-    assert (summary.games_total, summary.games_rated, summary.games_forfeit) == (6, 6, 4)
-    assert _forfeits(directory) == [
-        ("m0001p0000g0", "p0_win", "invalid_selection", "p1", 1),
-        ("m0001p0000g1", "p1_win", "invalid_selection", "p0", 0),
-        ("m0002p0000g0", "p1_win", "invalid_selection", "p0", 0),
-        ("m0002p0000g1", "p1_win", "invalid_selection", "p0", 0),
-    ]
-    document = leaderboard(directory)
-    offender = row_by_name(document, "bad-invalid")
-    # 2 cross games lost, plus 2 mirror games (each a win and a loss for the
-    # bot holding both seats).
-    assert offender["forfeit_losses"] == 4
-    assert (offender["games"], offender["wins"], offender["draws"], offender["losses"]) == (6, 2, 0, 4)
-    assert row_by_name(document, "heuristic")["forfeit_losses"] == 0
-    assert document["games"]["forfeit"] == 4
-    # heuristic 2-0 plus one virtual draw: 2.5 to 0.5, ln(5) apart.
-    assert offender["rating_log_units_e6"] == round(-math.log(5) * 1_000_000)
-
-
-def test_choose_timeout_is_a_forfeit_loss(tmp_path: Path) -> None:
-    directory = tmp_path / "t"
-    hang = subprocess_bot("bad-hang", [sys.executable, str(BOT_HANG)])
-    run(make_config(directory, [builtin("heuristic"), hang], pairs=1, choose_timeout_ms=300))
-    assert [(game_id, cause, loser) for game_id, _, cause, loser, _ in _forfeits(directory)] == [
-        ("m0001p0000g0", "timeout", "p1"),
-        ("m0001p0000g1", "timeout", "p0"),
-        ("m0002p0000g0", "timeout", "p0"),
-        ("m0002p0000g1", "timeout", "p0"),
-    ]
-
-
-@pytest.mark.parametrize(
-    ("bot", "reason"),
-    [
-        # Answers hello as "first", but the config registered it as "impostor".
-        (subprocess_bot("impostor", cli_bot("first")), "answered hello as 'first'"),
-        # Its hello carries a lone surrogate, so it cannot be recorded.
-        (hostile_bot("badname"), "failed its hello"),
-    ],
-)
-def test_a_bot_that_cannot_introduce_itself_stops_the_tournament_up_front(
-    tmp_path: Path, bot: dict, reason: str
-) -> None:
-    # A bot that fails hello is a config problem: the preflight refuses the
-    # tournament before its directory exists, instead of forfeiting every game.
-    directory = tmp_path / "t"
-    with pytest.raises(runner.TournamentError, match=reason):
-        run(make_config(directory, [builtin("heuristic"), bot], pairs=1))
-    assert not directory.exists()
-
-
-def test_engine_crash_mid_game_is_halted_and_unrated(tmp_path: Path) -> None:
-    directory = tmp_path / "t"
-    summary = run(
-        make_config(directory, [builtin("heuristic"), builtin("first")], decks=("Crash", "Burn"), pairs=1)
-    )
-    assert (summary.games_total, summary.games_halted, summary.games_rated) == (6, 6, 0)
-    for row in ledger_rows(directory):
-        assert (row["outcome"], row["winner"], row["reason"]) == ("halted", None, "engine error mid-game")
-        assert row["adjudication"]["kind"] == "engine_halt"
-    assert leaderboard(directory)["status"] == "no_rated_games"
-
-
-def test_engine_reported_halt_is_recorded_without_adjudication(tmp_path: Path) -> None:
-    directory = tmp_path / "t"
-    run(make_config(directory, [builtin("heuristic"), builtin("first")], decks=("Halt", "Burn"), pairs=1))
-    rows = ledger_rows(directory)
-    assert {(row["classification"], row["reason"]) for row in rows} == {("halted", "engine_contract_failure")}
-    assert all(row["adjudication"] is None for row in rows)
-
-
-def test_truncated_games_are_recorded_and_unrated(tmp_path: Path) -> None:
-    directory = tmp_path / "t"
-    summary = run(make_config(directory, [builtin("heuristic"), builtin("first")], pairs=1, max_steps=2))
-    assert (summary.games_total, summary.games_truncated, summary.games_rated) == (6, 6, 0)
-    assert {(row["outcome"], row["step_count"]) for row in ledger_rows(directory)} == {("truncated", 2)}
-    assert leaderboard(directory)["status"] == "no_rated_games"
+def _duel(directory: Path, second: dict, **extra) -> runner.TournamentSummary:
+    return run(make_config(directory, [builtin("heuristic"), second], pairs=1, include_self_play=False, **extra))
 
 
 @pytest.mark.parametrize(
     ("mode", "cause"),
-    [
-        ("nested", "malformed_response"),
-        ("surrogate", "malformed_response"),
-        ("garbage", "malformed_response"),
-        ("crash", "transport_error"),
-        ("flood", "malformed_response"),
-        ("bigint", "malformed_response"),
-        ("deepsurrogate", "malformed_response"),
-        ("unhashable", "malformed_response"),
-    ],
+    [("out-of-range", "invalid_selection"), ("wrong-echo-semantic", "invalid_selection"), ("hang", "timeout"),
+     ("garbage", "malformed_response"), ("nested", "malformed_response"), ("flood", "malformed_response"),
+     ("bigint", "malformed_response"), ("surrogate-error", "malformed_response"), ("error-response", "agent_error"),
+     ("crash", "transport_error")],
 )
-def test_a_hostile_bot_forfeits_and_the_tournament_still_publishes(
-    tmp_path: Path, mode: str, cause: str
-) -> None:
+def test_a_bad_bot_forfeits_rated_losses_and_the_run_still_publishes(tmp_path: Path, mode: str, cause: str) -> None:
     directory = tmp_path / "t"
-    summary = run(make_config(directory, [builtin("heuristic"), hostile_bot(mode)], pairs=1))
-    assert summary.games_forfeit == 4
-    # The hostile bot is p1 in m1 g0, p0 in m1 g1, and both seats in m2 (where
-    # p0 acts first), so every loser seat below is the hostile bot.
-    assert [(game_id, row_cause, loser) for game_id, _, row_cause, loser, _ in _forfeits(directory)] == [
-        ("m0001p0000g0", cause, "p1"),
-        ("m0001p0000g1", cause, "p0"),
-        ("m0002p0000g0", cause, "p0"),
-        ("m0002p0000g1", cause, "p0"),
-    ]
+    summary = _duel(directory, hostile_bot(mode), time_control=FAST)
+    assert (summary.status, summary.games_total, summary.games_forfeit, summary.games_rated) == ("complete", 2, 2, 2)
+    assert {row["reason"] for row in ledger_rows(directory)} == {f"forfeit:{cause}"}
+    offender = row_by_name(leaderboard(directory), "hostile")
+    assert offender["forfeit_losses"] == 2 and offender["forfeits_by_cause"] == {cause: 2}
     assert validate_tournament_dir(directory) == []
 
 
-def test_adjudicated_rows_are_byte_identical_across_reruns(tmp_path: Path) -> None:
-    # The crashing bot prints its PID to stderr: nothing peer-controlled may
-    # reach the ledger, or identical configs stop reproducing.
-    first, second = tmp_path / "a", tmp_path / "b"
-    for directory in (first, second):
-        run(make_config(directory, [builtin("heuristic"), hostile_bot("crash")], pairs=1))
-    assert (first / "matches.jsonl").read_bytes() == (second / "matches.jsonl").read_bytes()
-
-
-def test_a_truncated_game_may_name_a_winner_and_stays_unrated(tmp_path: Path) -> None:
+@pytest.mark.parametrize(("mode", "reason"), [("stdout-noise", "hostile"), ("wrong-name", "hostile"), ("badname", "hello"),
+                                              ("slow-hello", "hostile"), ("requires-poison", "poison")])
+def test_a_bot_that_cannot_introduce_itself_stops_the_tournament_up_front(tmp_path: Path, mode: str, reason: str) -> None:
     directory = tmp_path / "t"
-    summary = run(
-        make_config(
-            directory,
-            [builtin("heuristic"), builtin("first")],
-            decks=("CapWinner", "Burn"),
-            pairs=1,
-            max_steps=2,
-        )
-    )
-    assert (summary.games_truncated, summary.games_rated) == (6, 0)
-    assert {(row["outcome"], row["winner"]) for row in ledger_rows(directory)} == {("truncated", "p0")}
+    with pytest.raises(runner.TournamentError, match=reason) as caught:
+        _duel(directory, hostile_bot(mode), time_control={**FAST, "startup_ms": 2000})
+    assert "Loading" not in str(caught.value)            # nothing the bot printed is quoted
+    assert not directory.exists()
+
+
+@pytest.mark.parametrize(
+    ("deck", "classification", "reason", "counter"),
+    [("Crash", "halted", "host_engine_fault:transport", "halts_attributed"),
+     ("Halt", "halted", "engine_contract_failure:test_hook", "halts_attributed")],
+)
+def test_engine_endings_are_unrated_and_attributed(tmp_path: Path, deck, classification, reason, counter) -> None:
+    directory = tmp_path / "t"
+    summary = run(make_config(directory, [builtin("heuristic"), builtin("first")], decks=(deck, deck), pairs=1, include_self_play=False))
+    rows = ledger_rows(directory)
+    assert {(row["classification"], row["reason"]) for row in rows} == {(classification, reason)}
+    assert all(row["last_selection"]["seat"] == "p0" for row in rows) and summary.games_rated == 0
+    assert sum(entry[counter] for entry in leaderboard(directory)["rows"]) == 2
+
+
+def test_an_engine_truncation_below_the_caps_is_a_violation_that_stops_the_run(tmp_path: Path) -> None:
+    # Spec 9.2 as hardened: the validator accepts a truncated terminal only at a reached cap, and the
+    # per-seat caps (each below half the game cap, spec 11.1) always rule first, so the Truncate hook's
+    # first-step truncation halts as host_validator:V3 and the run stops on the violation (R3-13).
+    directory = tmp_path / "t"
+    summary = run(make_config(directory, [builtin("heuristic"), builtin("first")], decks=("Truncate", "Truncate"),
+                              pairs=1, include_self_play=False))
+    (row,) = ledger_rows(directory)
+    assert (row["classification"], row["reason"], row["last_selection"]["seat"]) == ("halted", "host_validator:V3", "p0")
+    assert (summary.status, summary.games_total, summary.games_rated) == ("invalid", 1, 0)
+    assert sum(entry["halts_attributed"] for entry in leaderboard(directory)["rows"]) == 1
+
+
+def test_stalling_and_mandatory_loops_are_adjudicated_at_the_caps(tmp_path: Path) -> None:
+    loop = tmp_path / "loop"
+    run(make_config(loop, [builtin("first"), builtin("heuristic")], decks=("Loop", "Loop"), pairs=1, include_self_play=False, limits=TIGHT))
+    assert {row["reason"] for row in ledger_rows(loop)} == {"mandatory_loop"}
+    stall = tmp_path / "stall"
+    run(make_config(stall, [builtin("first"), builtin("heuristic")], decks=("Stall", "Stall"), pairs=1, include_self_play=False, limits=TIGHT))
+    assert sorted(row["reason"] for row in ledger_rows(stall)) == ["forfeit:stalling", "stall_ended"]
+    assert row_by_name(leaderboard(stall), "heuristic")["forfeits_by_cause"] == {"stalling": 1}
+
+
+def test_adjudicated_rows_are_byte_identical_across_reruns(tmp_path: Path) -> None:
+    for name in ("a", "b"):
+        _duel(tmp_path / name, hostile_bot("crash"))     # the crashing bot prints its PID to stderr; none of it reaches the ledger
+    assert (tmp_path / "a" / "matches.jsonl").read_bytes() == (tmp_path / "b" / "matches.jsonl").read_bytes()
 
 
 def test_a_hung_bot_behind_a_wrapper_process_is_killed(tmp_path: Path) -> None:
-    # A wrapper (a .bat, sh without exec, conda run) keeps the real bot as a
-    # grandchild that holds the pipes; closing must kill the whole tree
-    # instead of waiting on a pipe that never closes.
     if os.name == "nt":
         wrapper = tmp_path / "wrap.bat"
-        wrapper.write_text(f'@"{sys.executable}" "{BOT_HANG}" 60\n', encoding="ascii")
+        wrapper.write_text(f'@"{sys.executable}" "{BOT_HOSTILE}" hang\n', encoding="ascii")
         command = ["cmd", "/c", str(wrapper)]
     else:
         wrapper = tmp_path / "wrap.sh"
-        wrapper.write_text(f'"{sys.executable}" "{BOT_HANG}" 60\n', encoding="ascii")
+        wrapper.write_text(f'"{sys.executable}" "{BOT_HOSTILE}" hang\n', encoding="ascii")
         command = ["sh", str(wrapper)]
     directory = tmp_path / "t"
-    config = make_config(
-        directory,
-        [builtin("heuristic"), subprocess_bot("bad-hang", command)],
-        pairs=1,
-        choose_timeout_ms=300,
-    )
     outcome: list[BaseException | None] = []
 
     def play() -> None:
         try:
-            run(config)
+            _duel(directory, subprocess_bot("hostile", command), time_control=FAST)
             outcome.append(None)
         except BaseException as exc:
             outcome.append(exc)
 
     worker = threading.Thread(target=play, daemon=True)
     worker.start()
-    worker.join(timeout=45)
-    assert outcome, "the host is still blocked on the hung bot's pipes"
-    assert outcome[0] is None
-    assert {row[2] for row in _forfeits(directory)} == {"timeout"}
+    worker.join(timeout=60)
+    assert outcome == [None], "the host is still blocked on the hung bot's pipes"
+    assert {row["reason"] for row in ledger_rows(directory)} == {"forfeit:timeout"}
