@@ -6,6 +6,8 @@ import sys
 import pytest
 
 from spellbench.arena import runner
+from spellbench.arena.config import BotSpec
+from spellbench.arena.drivers import SubprocessDriver
 from spellbench.bench.pinning import PinningError, engine_files
 
 from arena_helpers import builtin, make_config, run
@@ -19,6 +21,18 @@ def test_changed_declared_input_stops_before_engine_creation(tmp_path, monkeypat
     monkeypatch.setattr(runner, "EngineProcess", lambda *args, **kwargs: pytest.fail("changed input launched"))
     with pytest.raises(PinningError, match="changed"):
         runner.play_one(None, None, None, "", {}, launch_files=files)
+
+
+def test_input_changed_after_driver_construction_stops_actual_agent_spawn(tmp_path):
+    checkpoint = tmp_path / "checkpoint.bin"
+    checkpoint.write_bytes(b"original")
+    files = engine_files([sys.executable], extra=[checkpoint])
+    spec = BotSpec("luna", "0.1", "subprocess", command=(sys.executable,))
+    driver = SubprocessDriver(spec, startup_ms=1000, launch_files=files,
+                              agent_factory=lambda: pytest.fail("changed input spawned an agent"))
+    checkpoint.write_bytes(b"changed")
+    with pytest.raises(PinningError, match="changed"):
+        driver.start({}, timeout_s=1)
 
 
 @pytest.mark.parametrize("change_after", [0, 1])

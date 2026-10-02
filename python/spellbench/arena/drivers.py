@@ -43,17 +43,19 @@ import json
 import os
 import queue
 import threading
-from typing import Any, Callable, Mapping, TypeVar
+from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 from .. import wire
 from ..agent_messages import Choice, request
 from ..bot import Decision, GameOver, GameStart
 from ..builtins import create_builtin_bot
 from ..errors import TransportError
+from ..file_pins import verify_files
 from ..host.agent_process import AgentProcess
 from ..host.seat import SeatDriver, SeatFailure
 from ..messages import TimeControl
 from .config import BotSpec
+from .manifest import EngineFile
 
 _T = TypeVar("_T")
 
@@ -162,10 +164,12 @@ class SubprocessDriver:
         *,
         startup_ms: int,
         agent_factory: Callable[[], AgentProcess] | None = None,
+        launch_files: Sequence[EngineFile] = (),
     ) -> None:
         self._spec = spec
         self._startup_ms = startup_ms
         self._agent_factory = agent_factory
+        self._launch_files = tuple(launch_files)
         self._agent: AgentProcess | None = None
 
     def start(self, game_start: Mapping[str, Any], *, timeout_s: float) -> None:
@@ -175,6 +179,7 @@ class SubprocessDriver:
         failure is already a ``SeatFailure`` from ``AgentProcess`` and propagates unchanged.
         """
         self.close()
+        verify_files(self._launch_files)
         try:
             agent = (
                 self._agent_factory()
@@ -210,10 +215,10 @@ class SubprocessDriver:
             self._agent = None
 
 
-def make_driver(spec: BotSpec, time_control: TimeControl) -> SeatDriver:
+def make_driver(spec: BotSpec, time_control: TimeControl, *, launch_files: Sequence[EngineFile] = ()) -> SeatDriver:
     """The seat driver ``spec`` needs: an in-process bot, or a subprocess started within ``time_control``."""
     if spec.type == "builtin":
         return BuiltinDriver(spec)
     if spec.type == "subprocess":
-        return SubprocessDriver(spec, startup_ms=time_control.startup_ms)
+        return SubprocessDriver(spec, startup_ms=time_control.startup_ms, launch_files=launch_files)
     raise ValueError(f"unknown bot type: {spec.type!r}")

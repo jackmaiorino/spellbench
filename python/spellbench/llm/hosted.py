@@ -51,8 +51,9 @@ class PlanProvider:
             self.provider = ChatGptProvider(ChatGptConfig(
                 self.model, profile["access_token"], self.effort, profile["expires_at"],
             ))
-        except Exception:
-            self.budget.fail("profile_renewal_failed")
+        except Exception as exc:
+            if not isinstance(exc, ProviderError) or exc.code != "profile_renewal_failed":
+                self.budget.fail("profile_renewal_failed")
             raise ProviderError("profile_renewal_failed") from None
 
     def complete(self, prompt, *, timeout_s):
