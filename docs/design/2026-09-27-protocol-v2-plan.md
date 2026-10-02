@@ -8786,3 +8786,17 @@ The pre-execution review (R1: Tasks 1 to 13, R2: Tasks 14 to 28, R3: Tasks 29 to
   - The history check also compares each committed run's `config.json` with the definition at its commitment commit.
   - A withheld run counts as published, and the site lists it prominently as withheld, beside revealed and pending runs.
 - Task 43: the placement note is parsed with `Placement.parse` (the plan's `parse_placement` does not exist), and a guard failure of a committed run is revealed through Task 41's failure path with reason `guard`.
+
+## Completion (2026-10-02)
+
+Sub-project P is complete on `main`. Tasks 43 and 44 were interrupted by a container restart and committed as unverified WIP (`8497c9c`, `c8105cf` on `main`; `faad9fe`, `708b82b` on their task branches). They reached `main` through the Codex branches merged in pull requests #44 and #45, whose later commits finished them (`5afcee9` routes runs through the guarded launcher, `2c2abc3` finishes the v2 publication). The draft pull request #4 was marked merged when `protocol-v2`'s head became part of `main`.
+
+Task 44's final checks, rerun on `main` at `38e0ccb`:
+
+- `uv run pytest python/tests integrations -q`: 2570 passed, 14 skipped. Every skip is environmental (Docker, an engine binary, the optional `jwt` and `truststore` modules) apart from the one module-level skip left, sub-project C's kernel bot, waiting for K2.
+- `generate_goldens_v2.py --check`: every golden `OK`.
+- `spellbench validate benchmarks/pauper-kernel/runs/2026-09-26`: `OK`.
+- `spellbench site benchmarks <scratch>`: site built.
+- CI on Linux and Windows: green.
+
+Next: K2 ports the mtg-kernel bot to `spellbench.bot` and makes the first rated v2 `pauper-kernel` run through the guarded `bench run`.
