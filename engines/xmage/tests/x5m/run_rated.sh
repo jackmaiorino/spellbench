@@ -12,6 +12,7 @@
 #                  benchmarks/fdn-mirror-v0 (bench commit refuses anything else)
 #   SB_SCRATCH     card database and engine work directories (an SSD; never E: for scratch)
 #   XMAGE_BUILD    the pinned engine build (CI artifact of 004913a); if absent, built here from that exact commit
+#   XMAGE_DB_SOURCE  a directory holding the reviewed card database (copied to SB_SCRATCH/db, checked by hash)
 #                  (XMAGE_REPO: an XMage clone holding the pinned commit; M2: a Maven repository)
 #   SPELLBENCH_PIN_ROOT, SPELLBENCH_ARTIFACT_REGISTER, SPELLBENCH_SECRETS_DIR   P's rated-run values (bench commit
 #                  checks them before publishing anything); the secrets directory must lie outside every git tree
@@ -53,13 +54,21 @@ export XMAGE_VERIFIED_ENTRY="$(native "$SB_REPO/python/tools/xmage_verified_entr
 export XMAGE_BUILD="${XMAGE_BUILD:-$(native "$SB_SCRATCH/build")}"
 export XMAGE_BUILD_MANIFEST="$(native "$XMAGE_BUILD/BUILD-MANIFEST.json")"
 export XMAGE_DB="$(native "$SB_SCRATCH/db")" XMAGE_ENGINE_WORK="$(native "$SB_SCRATCH/work")"
+# the reviewed card database (the same files and hashes as standard-mirror-xmage); a fresh scan differs byte-wise
+DB_MV_SHA256=fcdba7e7e5a0875d70380d8d99a5e776fe1eead630ef2a4d6c3340f9378919e3
+DB_TRACE_SHA256=ba9c75cd574d96b18e2689ede6d4d90fff7b2a15fcefa0d23d5b4fc4b835f458
 ENGINE=("$PYTHON" "$XMAGE_VERIFIED_ENTRY" --java "$JAVA" --build "$XMAGE_BUILD" --db "$XMAGE_DB"
+        --db-file "$XMAGE_DB/cards.h2.mv.db" "$DB_MV_SHA256" --db-file "$XMAGE_DB/cards.h2.trace.db" "$DB_TRACE_SHA256"
         --work "$XMAGE_ENGINE_WORK" --manifest "$XMAGE_BUILD_MANIFEST" --manifest-sha256 "$MANIFEST_SHA256")
 
 check_manifest() {
   local got
   got=$(sha256sum "$XMAGE_BUILD/BUILD-MANIFEST.json" | cut -c1-64)
   [ "$got" = "$MANIFEST_SHA256" ] || { log "build manifest $got is not the pinned $MANIFEST_SHA256"; exit 1; }
+}
+
+check_db() {
+  [ "$(sha256sum "$XMAGE_DB/cards.h2.mv.db" | cut -c1-64)" = "$DB_MV_SHA256" ]     && [ "$(sha256sum "$XMAGE_DB/cards.h2.trace.db" | cut -c1-64)" = "$DB_TRACE_SHA256" ]     || { log "the card database in $XMAGE_DB is not the pinned one"; exit 1; }
 }
 
 clean_default_tip() {
@@ -99,11 +108,10 @@ print('definition ok:', b.id, len(schedule(c, RunSecret.generate())), 'games')" 
   log "$(grep -E '"(rules_snapshot_id|card_pool_identity|lib_digest|spellbench_source_revision)"' \
     "$XMAGE_BUILD/BUILD-MANIFEST.json" | tr -d ' \n')"
   if [ ! -d "$SB_SCRATCH/db" ]; then
-    mkdir -p "$SB_SCRATCH/dbscan"
-    (cd "$SB_SCRATCH/dbscan" && "$JAVA" -Xmx2g -cp "$XMAGE_BUILD/lib/*" \
-      mage.player.spellbench.x1.DeterminismCheck --scan-only > scan.log 2>&1)
-    mv "$SB_SCRATCH/dbscan/db" "$SB_SCRATCH/db"
+    : "${XMAGE_DB_SOURCE:?a directory holding the reviewed card database (cards.h2.mv.db, cards.h2.trace.db)}"
+    mkdir -p "$SB_SCRATCH/db" && cp "$XMAGE_DB_SOURCE/cards.h2.mv.db" "$XMAGE_DB_SOURCE/cards.h2.trace.db" "$SB_SCRATCH/db/"
   fi
+  check_db
   python "$SB_REPO/engines/xmage/tests/x5/validate_decks.py" --expect-catalog -- "${ENGINE[@]}" \
     > "$SB_SCRATCH/validate-decks.json" && log "validate_deck: all catalog decks deck_ok, no probe declared"
   if [ "$REHEARSE" = 1 ]; then
@@ -132,6 +140,7 @@ commit)
 play)
   [ -n "$RUN" ] && [ -n "$PROOF" ] || { echo "play needs --run NAME --proof URL" >&2; exit 2; }
   check_manifest
+  check_db
   log "play (results stay local until publish): run $RUN, proof $PROOF"
   "${SPELLBENCH[@]}" bench run "$(native "$BENCH")" --run "$RUN" --proof "$PROOF" | tee -a "$LOG"
   rm -rf "$SB_SCRATCH/work"/*

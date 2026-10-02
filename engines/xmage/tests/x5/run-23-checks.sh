@@ -42,8 +42,11 @@ X="$REPO/engines/xmage"
 SEP=";"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ;; *) SEP=":" ;; esac
 export PYTHONPATH="$(native "$REPO/python")$SEP$(native "$X/tests/x4")$SEP$(native "$X/tests/x4s2")"
 PY=$(native "$(command -v python)")
+# main's entry pins the database files too; these checks take the hashes of the database given
+DBF=()
+for f in cards.h2.mv.db cards.h2.trace.db; do DBF+=(--db-file "$(native "$DB/$f")" "$(sha256sum "$DB/$f" | cut -c1-64)"); done
 ENGINE=("$PY" "$(native "$REPO/python/tools/xmage_verified_entry.py")" --java "$(native "$(command -v java)")"
-        --build "$(native "$BUILD")" --db "$(native "$DB")" --work "$(native "$SCRATCH/work")"
+        --build "$(native "$BUILD")" --db "$(native "$DB")" "${DBF[@]}" --work "$(native "$SCRATCH/work")"
         --manifest "$(native "$BUILD/BUILD-MANIFEST.json")" --manifest-sha256 "$MANIFEST_SHA256")
 log "engine: $(grep -E '"(spellbench_source_revision|lib_digest)"' "$BUILD/BUILD-MANIFEST.json" | tr -d ' \n')"
 FAIL=0

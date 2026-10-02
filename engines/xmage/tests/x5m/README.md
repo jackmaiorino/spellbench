@@ -21,7 +21,7 @@ summary wording is new.
 
 **Engine pin.** P's launcher pins the files the engine command names (`bench/pinning.engine_files`). The verified
 entry names the Python launcher, Java and the build manifest, and checks every jar against that manifest's hash
-(given in the command) before Java starts, so the rated manifest covers the engine's bytes. The build must be the
+(given in the command) before Java starts, so the rated manifest covers the engine's bytes. The command also pins the two card-database files (`--db-file`, the reviewed files `fcdba7e7...` and `ba9c75cd...` that `standard-mirror-xmage` uses; a fresh scan differs byte-wise), which the entry verifies in each private copy; `run_rated.sh` copies them from `XMAGE_DB_SOURCE` and checks the hashes. The build must be the
 exact one of `004913a` (its source revision is in the manifest and in `hello.source_revision`): CI's artifact
 (build 36951158155, kept 30 days) or `scripts/build.sh` run in a checkout of that commit; `run_rated.sh` refuses any
 other manifest.
