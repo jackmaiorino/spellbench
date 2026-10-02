@@ -1,0 +1,44 @@
+== self-test (Section 16 vectors)
+PASS commitment = 630dcd2966c4336691125448bbb25b4ff412a49c732db2c8abc1b8581bd710dd
+PASS game_secret(0) = 7648831b4ae4148770e13149d5ebbe1c4991168413d4b38e49292cfc5538980e
+PASS game_secret(1) = 952ea875cce08bf7706f87a89ae6a4e318a1bc4b46d6b506f8bb8505c518238e
+PASS id_key(0) = 842e5229d41477f389ae25e2b8196afb5bfa8c6bd9b95d7bd3703031c88e22e6
+PASS object id p0:card-17:z2 = o-0a3647243d16bf78
+PASS object id p1:card-17:z2 = o-e5e4b7ed2a0730e4
+PASS object id p0:card-17:z2:look:0 = o-794a5cb152c9620f
+PASS object id p0:card-17:z2:look:1 = o-e18a35822cc60e1c
+PASS stream seed p1:library_shuffle:0 = 8a28fd4db75719b1
+selftest: all Section 16 vectors match
+== card database templates
+== patched: record S, then reruns (one JVM: S, S2, S; two fresh processes: S)
+== patched soak: four more games recorded in one JVM, replayed in reverse order in another
+== stock (negative control): record S with CABT's seeding, then the same reruns
+run             game mode   secret     dec terminal           digest         content       
+patched-record     0 record 7648831b   787 game_over          054bcc3329f1   ddd8c17c03b8  
+patched-fresh2     0 replay 7648831b   787 game_over          054bcc3329f1   ddd8c17c03b8  
+patched-fresh1     0 replay 7648831b   787 game_over          054bcc3329f1   ddd8c17c03b8  
+patched-jvm        0 replay 7648831b   787 game_over          054bcc3329f1   ddd8c17c03b8  
+patched-jvm        1 record 952ea875   561 game_over          b088955bae10   57f67252ec3e  
+patched-jvm        2 replay 7648831b   787 game_over          054bcc3329f1   ddd8c17c03b8  
+soak-record        0 record 61d80bc8   773 game_over          c26fe37e032b   d41c020016d7  
+soak-record        1 record c887c549   677 game_over          1e0b0a63064c   3577b5a3bd6e  
+soak-record        2 record cca9db8b   764 game_over          b32b6794d9f7   5373445262e6  
+soak-record        3 record 17d93aca   927 game_over          f2c9d194ad8c   7c3d25f7b2a5  
+soak-replay        0 replay 17d93aca   927 game_over          f2c9d194ad8c   7c3d25f7b2a5  
+soak-replay        1 replay cca9db8b   764 game_over          b32b6794d9f7   5373445262e6  
+soak-replay        2 replay c887c549   677 game_over          1e0b0a63064c   3577b5a3bd6e  
+soak-replay        3 replay 61d80bc8   773 game_over          c26fe37e032b   d41c020016d7  
+stock-record       0 record 7648831b   637 game_over          2d6fde1f6d54   2d0b5f54142b  
+stock-fresh1       0 replay 7648831b    44 replay_divergence  e4113a17bb59   159f71b7f61e  
+stock-fresh2       0 replay 7648831b    99 replay_divergence  48375fefb515   cd15abf70ede  
+stock-jvm          0 replay 7648831b   146 replay_divergence  a516a80d09fb   7ec5dad3d8d5  
+stock-jvm          1 record 952ea875   711 game_over          b234eb22bcde   74d427cec382  
+stock-jvm          2 replay 7648831b    64 replay_divergence  be212ab41186   99ba0a892c8b  
+patched: 5 runs of S; digests IDENTICAL; content digests IDENTICAL
+stock: 5 runs of S; digests DIFFER; content digests DIFFER
+soak 17d93aca: IDENTICAL
+soak 61d80bc8: IDENTICAL
+soak c887c549: IDENTICAL
+soak cca9db8b: IDENTICAL
+X1 verdict: PASS
+exit=0

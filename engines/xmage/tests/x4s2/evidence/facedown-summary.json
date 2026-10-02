@@ -1,0 +1,46 @@
+{
+ "bots": [
+  "uniform"
+ ],
+ "classification": {
+  "natural": 600
+ },
+ "decisions_checked": 428792,
+ "games": 600,
+ "games_per_minute": 32.6,
+ "groups_per_game": {
+  "mean": 665.6,
+  "median": 638.0
+ },
+ "halted_by_reason": {},
+ "halted_rate": 0.0,
+ "host_halts": 0,
+ "natural_reasons": {
+  "p0_library_empty": 26,
+  "p0_life_zero": 266,
+  "p1_library_empty": 33,
+  "p1_life_zero": 275
+ },
+ "outcome": {
+  "p0_win": 308,
+  "p1_win": 292
+ },
+ "run_secret": "6278b28dc052f3cb3b1637952753c5edaeb6188da7fc7363f79318df06c135af",
+ "shards": 12,
+ "steps_per_game": {
+  "max": 1634,
+  "mean": 714.7,
+  "median": 678.0,
+  "min": 210
+ },
+ "total_wall_s": 1105.0,
+ "violations": [],
+ "wall_s_per_game": {
+  "max": 56.047,
+  "mean": 14.1,
+  "median": 11.8125
+ },
+ "winner_bot": {
+  "uniform": 600
+ }
+}

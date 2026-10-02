@@ -1,0 +1,8 @@
+opponent hand shown: caught ['fail_V5']
+id shared across viewers: caught ['fail_I1', 'fail_refs']
+hidden name leaked: caught ['fail_I5']
+face-down named to non-controller: caught ['fail_I6', 'fail_V6']
+look id reused after a gap: caught ['fail_V7']
+record in library zone: caught ['fail_V5']
+optional flag broken: caught ['fail_V8']
+id kept across a zone change: caught ['fail_V7']

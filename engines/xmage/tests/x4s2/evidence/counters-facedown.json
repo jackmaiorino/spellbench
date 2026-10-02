@@ -1,0 +1,829 @@
+{
+ "counters": {
+  "action_not_offered:incompletable": {
+   "games": 29,
+   "total": 440
+  },
+  "action_rejected:Activated:autopay": {
+   "games": 80,
+   "total": 140
+  },
+  "action_rejected:Activated:other": {
+   "games": 20,
+   "total": 211
+  },
+  "action_rejected:Spell:autopay": {
+   "games": 173,
+   "total": 1526
+  },
+  "action_rejected:Spell:other": {
+   "games": 99,
+   "total": 397
+  },
+  "action_rejected_card:Callous Sell-Sword:autopay": {
+   "games": 33,
+   "total": 64
+  },
+  "action_rejected_card:Callous Sell-Sword:other": {
+   "games": 10,
+   "total": 19
+  },
+  "action_rejected_card:Coati Scavenger:autopay": {
+   "games": 48,
+   "total": 96
+  },
+  "action_rejected_card:Coati Scavenger:other": {
+   "games": 11,
+   "total": 13
+  },
+  "action_rejected_card:Deep-Cavern Bat:autopay": {
+   "games": 95,
+   "total": 249
+  },
+  "action_rejected_card:Deep-Cavern Bat:other": {
+   "games": 40,
+   "total": 89
+  },
+  "action_rejected_card:Hoarding Broodlord:autopay": {
+   "games": 54,
+   "total": 114
+  },
+  "action_rejected_card:Hoarding Broodlord:other": {
+   "games": 2,
+   "total": 2
+  },
+  "action_rejected_card:Insidious Roots:autopay": {
+   "games": 14,
+   "total": 19
+  },
+  "action_rejected_card:Llanowar Elves:autopay": {
+   "games": 45,
+   "total": 79
+  },
+  "action_rejected_card:Llanowar Elves:other": {
+   "games": 25,
+   "total": 46
+  },
+  "action_rejected_card:Molt Tender:autopay": {
+   "games": 66,
+   "total": 128
+  },
+  "action_rejected_card:Molt Tender:other": {
+   "games": 27,
+   "total": 45
+  },
+  "action_rejected_card:Mudflat Village:other": {
+   "games": 20,
+   "total": 211
+  },
+  "action_rejected_card:Osteomancer Adept:autopay": {
+   "games": 52,
+   "total": 120
+  },
+  "action_rejected_card:Osteomancer Adept:other": {
+   "games": 16,
+   "total": 22
+  },
+  "action_rejected_card:Overlord of the Balemurk:autopay": {
+   "games": 115,
+   "total": 252
+  },
+  "action_rejected_card:Overlord of the Balemurk:other": {
+   "games": 7,
+   "total": 8
+  },
+  "action_rejected_card:Polukranos Reborn:autopay": {
+   "games": 20,
+   "total": 26
+  },
+  "action_rejected_card:Rubblebelt Maverick:autopay": {
+   "games": 69,
+   "total": 243
+  },
+  "action_rejected_card:Rubblebelt Maverick:other": {
+   "games": 34,
+   "total": 51
+  },
+  "action_rejected_card:Skyfisher Spider:autopay": {
+   "games": 34,
+   "total": 74
+  },
+  "action_rejected_card:Skyfisher Spider:other": {
+   "games": 7,
+   "total": 14
+  },
+  "action_rejected_card:Snarling Gorehound:autopay": {
+   "games": 85,
+   "total": 193
+  },
+  "action_rejected_card:Snarling Gorehound:other": {
+   "games": 38,
+   "total": 88
+  },
+  "action_rejected_card:Tyvar, Jubilant Brawler:autopay": {
+   "games": 9,
+   "total": 9
+  },
+  "autopay": {
+   "games": 600,
+   "total": 46199
+  },
+  "autopay_choice": {
+   "games": 172,
+   "total": 1818
+  },
+  "autopay_default:choose": {
+   "games": 66,
+   "total": 99
+  },
+  "autopay_default:chooseTarget": {
+   "games": 100,
+   "total": 525
+  },
+  "autopay_failed": {
+   "games": 193,
+   "total": 1692
+  },
+  "blockers_called:10:0": {
+   "games": 5,
+   "total": 5
+  },
+  "blockers_called:10:11": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:10:2": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:10:4": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:10:7": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:11:1": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:11:6": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:12:0": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:12:2": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:12:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:0": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:1": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:10": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:2": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:26": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:13:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:14:1": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:14:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:14:4": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:15:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:17:0": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:0": {
+   "games": 461,
+   "total": 973
+  },
+  "blockers_called:1:1": {
+   "games": 450,
+   "total": 950
+  },
+  "blockers_called:1:10": {
+   "games": 7,
+   "total": 7
+  },
+  "blockers_called:1:11": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:1:12": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:1:13": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:14": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:1:15": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:1:16": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:17": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:1:2": {
+   "games": 353,
+   "total": 633
+  },
+  "blockers_called:1:21": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:22": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:1:24": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:1:3": {
+   "games": 246,
+   "total": 361
+  },
+  "blockers_called:1:4": {
+   "games": 129,
+   "total": 148
+  },
+  "blockers_called:1:5": {
+   "games": 62,
+   "total": 69
+  },
+  "blockers_called:1:6": {
+   "games": 22,
+   "total": 22
+  },
+  "blockers_called:1:7": {
+   "games": 15,
+   "total": 15
+  },
+  "blockers_called:1:8": {
+   "games": 8,
+   "total": 8
+  },
+  "blockers_called:1:9": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:27:8": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:0": {
+   "games": 260,
+   "total": 357
+  },
+  "blockers_called:2:1": {
+   "games": 309,
+   "total": 442
+  },
+  "blockers_called:2:10": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:2:11": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:2:12": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:13": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:14": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:2:17": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:19": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:2": {
+   "games": 233,
+   "total": 327
+  },
+  "blockers_called:2:21": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:22": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:23": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:28": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:2:3": {
+   "games": 138,
+   "total": 162
+  },
+  "blockers_called:2:4": {
+   "games": 77,
+   "total": 87
+  },
+  "blockers_called:2:5": {
+   "games": 27,
+   "total": 29
+  },
+  "blockers_called:2:6": {
+   "games": 15,
+   "total": 16
+  },
+  "blockers_called:2:7": {
+   "games": 11,
+   "total": 11
+  },
+  "blockers_called:2:8": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:2:9": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:3:0": {
+   "games": 111,
+   "total": 131
+  },
+  "blockers_called:3:1": {
+   "games": 173,
+   "total": 208
+  },
+  "blockers_called:3:10": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:3:11": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:3:13": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:3:15": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:3:2": {
+   "games": 148,
+   "total": 172
+  },
+  "blockers_called:3:3": {
+   "games": 61,
+   "total": 69
+  },
+  "blockers_called:3:4": {
+   "games": 36,
+   "total": 40
+  },
+  "blockers_called:3:5": {
+   "games": 10,
+   "total": 14
+  },
+  "blockers_called:3:6": {
+   "games": 7,
+   "total": 7
+  },
+  "blockers_called:3:7": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:3:8": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:3:9": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:4:0": {
+   "games": 59,
+   "total": 62
+  },
+  "blockers_called:4:1": {
+   "games": 55,
+   "total": 59
+  },
+  "blockers_called:4:10": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:4:2": {
+   "games": 30,
+   "total": 33
+  },
+  "blockers_called:4:3": {
+   "games": 25,
+   "total": 25
+  },
+  "blockers_called:4:4": {
+   "games": 16,
+   "total": 16
+  },
+  "blockers_called:4:5": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:4:6": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:4:7": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:4:8": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:4:9": {
+   "games": 5,
+   "total": 6
+  },
+  "blockers_called:5:0": {
+   "games": 20,
+   "total": 22
+  },
+  "blockers_called:5:1": {
+   "games": 18,
+   "total": 18
+  },
+  "blockers_called:5:12": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:5:13": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:5:19": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:5:2": {
+   "games": 11,
+   "total": 11
+  },
+  "blockers_called:5:3": {
+   "games": 8,
+   "total": 8
+  },
+  "blockers_called:5:4": {
+   "games": 10,
+   "total": 10
+  },
+  "blockers_called:5:5": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:5:8": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:6:0": {
+   "games": 15,
+   "total": 16
+  },
+  "blockers_called:6:1": {
+   "games": 10,
+   "total": 10
+  },
+  "blockers_called:6:2": {
+   "games": 10,
+   "total": 10
+  },
+  "blockers_called:6:3": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:6:4": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:6:5": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:6:6": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:6:7": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:7:0": {
+   "games": 8,
+   "total": 8
+  },
+  "blockers_called:7:1": {
+   "games": 10,
+   "total": 10
+  },
+  "blockers_called:7:14": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:7:17": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:7:2": {
+   "games": 6,
+   "total": 6
+  },
+  "blockers_called:7:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:7:5": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:7:8": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:8:0": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:8:1": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:8:10": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:8:2": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:8:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:8:8": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:8:9": {
+   "games": 4,
+   "total": 4
+  },
+  "blockers_called:9:0": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:9:1": {
+   "games": 5,
+   "total": 5
+  },
+  "blockers_called:9:2": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:9:3": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:9:4": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:9:5": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:9:6": {
+   "games": 1,
+   "total": 1
+  },
+  "choice_hash_order_sorted": {
+   "games": 135,
+   "total": 1335
+  },
+  "choose_option_site:PlayerImpl": {
+   "games": 135,
+   "total": 1335
+  },
+  "choose_use_site:may_ability:AbilityImpl": {
+   "games": 36,
+   "total": 57
+  },
+  "choose_use_site:may_ability:ExploreSourceEffect": {
+   "games": 126,
+   "total": 327
+  },
+  "choose_use_site:may_ability:HauntwoodsShriekerEffect": {
+   "games": 64,
+   "total": 103
+  },
+  "choose_use_site:optional_trigger:DoWhenCostPaid": {
+   "games": 109,
+   "total": 133
+  },
+  "choose_use_site:optional_trigger:ExploreSourceEffect": {
+   "games": 144,
+   "total": 257
+  },
+  "choose_use_site:optional_trigger:TriggeredAbilityImpl": {
+   "games": 36,
+   "total": 38
+  },
+  "combat_candidate_not_completable:declare_block": {
+   "games": 161,
+   "total": 546
+  },
+  "combat_oracle_leaf": {
+   "games": 600,
+   "total": 55819
+  },
+  "duplicate_candidate:priority": {
+   "games": 74,
+   "total": 234
+  },
+  "optional_cost_unpayable:unless_payment": {
+   "games": 119,
+   "total": 346
+  },
+  "posed:arrange_card:surveil": {
+   "games": 200,
+   "total": 6232
+  },
+  "posed:choose_boolean:may_ability": {
+   "games": 200,
+   "total": 487
+  },
+  "posed:choose_boolean:optional_trigger": {
+   "games": 253,
+   "total": 428
+  },
+  "posed:choose_cast_method": {
+   "games": 184,
+   "total": 563
+  },
+  "posed:choose_cost_target:exile": {
+   "games": 185,
+   "total": 4443
+  },
+  "posed:choose_cost_target:sacrifice": {
+   "games": 61,
+   "total": 67
+  },
+  "posed:choose_option": {
+   "games": 135,
+   "total": 1335
+  },
+  "posed:choose_replacement": {
+   "games": 119,
+   "total": 166
+  },
+  "posed:choose_target:destroy": {
+   "games": 61,
+   "total": 67
+  },
+  "posed:choose_target:exile": {
+   "games": 196,
+   "total": 778
+  },
+  "posed:choose_target:other": {
+   "games": 582,
+   "total": 7103
+  },
+  "posed:choose_target:return_to_hand": {
+   "games": 317,
+   "total": 995
+  },
+  "posed:choose_target:untap": {
+   "games": 163,
+   "total": 493
+  },
+  "posed:declare_attack": {
+   "games": 600,
+   "total": 20245
+  },
+  "posed:declare_block": {
+   "games": 571,
+   "total": 9531
+  },
+  "posed:distribute:combat_damage": {
+   "games": 447,
+   "total": 3172
+  },
+  "posed:distribute:counters": {
+   "games": 41,
+   "total": 61
+  },
+  "posed:mulligan": {
+   "games": 600,
+   "total": 2361
+  },
+  "posed:optional_cost:unless_payment": {
+   "games": 160,
+   "total": 561
+  },
+  "posed:order_pick:arrangement": {
+   "games": 192,
+   "total": 613
+  },
+  "posed:order_pick:mulligan_bottom": {
+   "games": 441,
+   "total": 1167
+  },
+  "posed:order_pick:triggers": {
+   "games": 422,
+   "total": 4496
+  },
+  "posed:priority": {
+   "games": 600,
+   "total": 359662
+  },
+  "posed:select_object:discard": {
+   "games": 192,
+   "total": 833
+  },
+  "posed:select_object:exile": {
+   "games": 203,
+   "total": 650
+  },
+  "posed:select_object:other": {
+   "games": 209,
+   "total": 1317
+  },
+  "posed:select_object:search": {
+   "games": 281,
+   "total": 966
+  },
+  "rewind": {
+   "games": 203,
+   "total": 2274
+  },
+  "single_candidate": {
+   "games": 600,
+   "total": 308449
+  }
+ },
+ "games": 600
+}

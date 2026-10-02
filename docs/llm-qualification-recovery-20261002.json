@@ -1,0 +1,166 @@
+{
+  "kind": "spellbench-precommit-qualification-timeout-recovery",
+  "observed": "2026-10-02 about08:33 EDT",
+  "source_before_repair": "3cc915783308a7d3e2303bfe3c1855e303e85fd2",
+  "phase": "qualification before public commitment; no formal game or rating",
+  "retained_parent": {
+    "path": "D:\\e-scratch\\spellbench-luna-rated-20261002\\run-budget.sqlite3",
+    "sha256": "fb437b6d88dea1b468510f7053b49c69540e81e17451e8fcaa1bb959b7f7999e",
+    "requests": 76,
+    "completed": 75,
+    "failed": 1,
+    "pending": 0,
+    "reported_input_tokens": 275157,
+    "reported_output_tokens": 1969,
+    "unknown_usage": 1,
+    "uncertain_admission_reservation": 14157,
+    "deadline_unix": 1790950943.4969769,
+    "created_at_unix": 1790943743.4969766
+  },
+  "failed_request": {
+    "id": 76,
+    "reserved_tokens": 14157,
+    "elapsed_ms": 19896,
+    "error": "timeout"
+  },
+  "retained_games": {
+    "natural": 4,
+    "forfeit": 1,
+    "records": "benchmarks/standard-mirror-xmage/.qualification-records/qualification-5josgz2d/trial-1-workers-1.jsonl"
+  },
+  "first_natural_luna_proof": {
+    "game_id": "g-19d40362535fc0cf",
+    "host_checks": 334,
+    "engine_exchanges": 336,
+    "engine_matched": 336,
+    "host_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-003\\host-proof.json",
+    "engine_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-003\\first-luna-engine-replay\\receipt.json",
+    "transcript_sha256": "f7e2890aedf7de2d5d2147f9731c1335799e460728fbfc7be691fe51352830e4",
+    "expected_sha256": "346e293231175b95ca1ccf5dcb203d50c3fea9e9c4120605239329abcc0d4427",
+    "model_requests": 0
+  },
+  "prospective_repair": {
+    "inference_timeout_ms": 60000,
+    "max_decision_ms": 90000,
+    "bank_ms": 600000,
+    "unchanged": [
+      "engine004913a",
+      "modelgpt-6-luna",
+      "low reasoning",
+      "promptv1",
+      "history1",
+      "deck pool",
+      "48-game schedule",
+      "cumulative limits",
+      "original absolute deadline"
+    ],
+    "accounting": "Distinct hash-bound qualification attempt inherits all requests, reported usage, unknown count and permanent uncertain reservation; only one successor; any new failure stops admission",
+    "review": "luna_qualification_review reviewed source and read-only metadata; no extra user decision required within original scope"
+  },
+  "non_claims": [
+    "Timeout margin is not a proven completion bound",
+    "Unknown reservation is not confirmed usage or a provider hard cap",
+    "Recorded-choice replay does not qualify an allocation",
+    "No formal game, public commitment or Luna leaderboard row"
+  ],
+  "second_attempt": {
+    "kind": "spellbench-repaired-qualification-failure",
+    "observed": "2026-10-02 09:31 EDT",
+    "phase": "precommit qualification",
+    "source_revision": "d4968bc1e5600a1f16941578ef47d9f288b6f02a",
+    "budget": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-repair-001.sqlite3",
+    "budget_sha256": "f58fb14c83f46eb2cbafc70fd681c2161b7b531e60c7093fcd1f9e085ed6f535",
+    "failed_request": {
+      "id": 15,
+      "status": "failed",
+      "reserved_tokens": 14524,
+      "elapsed_ms": 59895,
+      "error": "timeout"
+    },
+    "cumulative_usage": {
+      "requests": 91,
+      "completed": 89,
+      "failed": 2,
+      "unknown_usage": 2,
+      "reported_tokens": 315090,
+      "uncertain_reserved_tokens": 28681,
+      "pending": 0,
+      "deadline_unix": 1790950943.4969769
+    },
+    "records": "benchmarks/standard-mirror-xmage/.qualification-records/qualification-ofivi54g/trial-1-workers-1.jsonl",
+    "qualification_root": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-004",
+    "inference_timeout_ms": 60000,
+    "games": {
+      "natural": 1,
+      "forfeit": 1
+    },
+    "rated_games": 0,
+    "retention": "Every failed attempt, parent/child budget and sidecar retained; no model request retried",
+    "recorded_forfeit_validation": {
+      "host_checks": 186,
+      "engine_exchanges": 187,
+      "engine_matched": 187,
+      "bit_identical": true,
+      "expected_sha256": "52f5a32c31c4801ec6deacb60a1937b2be69ae6f6d14aa0b46ddd307ddfc09e4",
+      "engine_terminal_observed": false,
+      "model_requests": 0,
+      "host_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-004\\host-proof.json",
+      "engine_receipt": "D:\\e-scratch\\spellbench-luna-rated-20261002\\qualification-004\\timeout-prefix-engine-replay\\receipt.json",
+      "claim": "The entire recorded engine prefix and host timeout adjudication reproduce; this game did not reach an engine terminal."
+    }
+  },
+  "prospective_availability_policy": {
+    "scope": "Before public commitment only; no old game or timed-out request retried",
+    "timeout_result": "That scheduled game forfeits through the existing arena treatment; a fresh broker may begin the next scheduled game",
+    "budget": "Explicit bound opt-in; same cumulative caps/original absolute deadline, all failed rows and unknown reservations retained",
+    "terminal_failures": [
+      "expired or abandoned pending request",
+      "budget/deadline exhaustion",
+      "authentication/renewal",
+      "model/usage/output/protocol integrity",
+      "unclassified transport/internal failure"
+    ],
+    "model_prompt_engine_decks_schedule": "unchanged",
+    "review": "Root and user-authorized luna_qualification_review source review; no demonstrated stream-parser defect",
+    "review_disposition": "Accepted focused subagent recommendation to rate declared availability forfeits. Accepted follow-up integrity finding: malformed/unoffered choices, broker transport/log/cleanup and renewal failures record shared hosted_broker_failed even after known provider usage. Root separately reviewed source and the final100 focused checks.",
+    "validation": {
+      "focused_tests_passed": 100,
+      "goldens": "passed",
+      "run_history": "passed",
+      "site": "passed with no published Luna run",
+      "live_parent_hashes": "unchanged",
+      "request_timeout_forfeit_proof": "186 host checks and187 exact engine-prefix responses, zero model calls",
+      "tampered_non_timeout_broker_event": "refused without proof receipt or model/engine call",
+      "cross_platform_pr_checks": "pending"
+    }
+  },
+  "approved_wall_extension": {
+    "approved_by": "Jack in the current Spellbench task on 2026-10-02",
+    "approval_text": "Approved. Get Luna on the benchmark.",
+    "approval_context": "Extend only the original time limit from10:22EDT to12:22EDT, preserving cumulative4096 requests and10-million-token limits",
+    "original_created_at": 1790943743.4969766,
+    "original_max_wall_seconds": 7200,
+    "extended_max_wall_seconds": 14400,
+    "extended_deadline_unix": 1790958143.4969766,
+    "parent_budget_sha256": "f58fb14c83f46eb2cbafc70fd681c2161b7b531e60c7093fcd1f9e085ed6f535",
+    "usage_to_inherit": {
+      "requests": 91,
+      "completed": 89,
+      "failed": 2,
+      "unknown_usage": 2,
+      "reported_tokens": 315090,
+      "uncertain_reserved_tokens": 28681
+    },
+    "activation": "A distinct hash-bound continuation, after source review and tests; no parent ledger edits or independent new budget",
+    "schedule": "Same fixed48 games,32 Luna; declared timeout-forfeit policy from mergedPR52; no request retries or fallback",
+    "timeout_policy_merge": "5532baeb3c817528c07d63f1a258fa6dfc36d21e",
+    "validation": {
+      "root_review": "Accepted wall-extension code and tests: each ancestor binds its retained wall boundary, original creation time stays fixed, request/token/inflight limits and inherited accounting match parent exactly",
+      "focused_tests": "126 passed in9.49s, budget/hosted/renewal/qualification/timeout-replay",
+      "goldens": "passed",
+      "run_history": "passed",
+      "site_validation": "passed, no games played",
+      "ci": "Pending PR checks, not claimed passed"
+    }
+  }
+}

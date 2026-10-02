@@ -1,0 +1,49 @@
+{
+ "counters": {
+  "autopay": {
+   "games": 2,
+   "total": 106
+  },
+  "choose_use_site:optional_trigger:CardUtil": {
+   "games": 1,
+   "total": 8
+  },
+  "combat_oracle_leaf": {
+   "games": 2,
+   "total": 329
+  },
+  "posed:choose_boolean:optional_trigger": {
+   "games": 1,
+   "total": 8
+  },
+  "posed:choose_cast_method": {
+   "games": 1,
+   "total": 8
+  },
+  "posed:choose_target:other": {
+   "games": 2,
+   "total": 27
+  },
+  "posed:declare_attack": {
+   "games": 2,
+   "total": 270
+  },
+  "posed:distribute:damage": {
+   "games": 1,
+   "total": 19
+  },
+  "posed:priority": {
+   "games": 2,
+   "total": 1154
+  },
+  "posed:select_object:other": {
+   "games": 1,
+   "total": 3
+  },
+  "single_candidate": {
+   "games": 2,
+   "total": 1061
+  }
+ },
+ "games": 2
+}

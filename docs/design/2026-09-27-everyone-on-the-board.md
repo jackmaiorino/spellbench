@@ -33,14 +33,18 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    map), a stdlib Python bot around the existing scorer (v4 mode, seeded
    sampling), halts for missing inputs. Then A48 and c12 by config. Re-run the
    launch benchmark on the new engine identity.
-2. **P: Protocol v2.** A neutral, hidden-information-safe board view for the
+2. **P: Protocol v2.** (Plan: `docs/design/2026-09-27-protocol-v2-plan.md` on
+   branch `protocol-v2`, 44 tasks, 24.5 agent-days, about 6.5 days elapsed
+   with parallel agents.) A neutral, hidden-information-safe board view for the
    acting seat; the missing decision kinds (mulligan, library arrangement for
    scry and surveil, naming, replacement and trigger order, starting player);
    the acting seat's own decklist at `game_start`; a declared fairness
    contract; and a fixed-deck ("bring your own deck") benchmark type. Clean
    break from v1 while no outside bot depends on it. Reference stack, arena,
    builtins, conformance tests, then the mtg-kernel bridge (after C's port).
-3. **G: gorge as the second engine.** Go environment adapter, gorge bots as
+3. **G: gorge as the second engine.** (Plan: `docs/design/2026-09-27-gorge-adapter-plan.md`
+   on branch `gorge-adapter`, 30 tasks, 17.25 agent-days, runs beside P; only
+   its last task, the rated run, waits for P.) Go environment adapter, gorge bots as
    agents, a gorge benchmark (the 8 Pauper lists if gorge covers them, for a
    cross-engine comparison), gorge's bots rated. Offer gorge's author the
    adapter as a pull request, or let them own it.
@@ -58,6 +62,7 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    fixed-deck benchmarks, rotating pairs with hidden lists, legality lists,
    per-benchmark time controls. FDN mirror matches work on v2.0. Research
    notes: `E:/spellbench-archive/program-research/x-xmage-brief.md`.
+   X also hosts CP7 (see Status).
 6. **Later:** Phase and Argentum adapters, Forge, Manafold after its M4.
 
 ## Decisions (standing authorization)
@@ -70,7 +75,10 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 - Community bots never run on this PC outside a Docker container with no
   network, and pickled checkpoints load only inside that container. Engine
   sources needed for adapters (gorge now, XMage and CABT later) are built and
-  run on the host.
+  run on the host, and so are bots the maintainer builds from the same
+  pinned, reviewed source (gorge's own bots). Submitted binaries, checkpoints
+  and pickles always need the sandbox; the host enforces this with an
+  allowlist (P, Decision on isolation).
 - Codex-owned kernel code and checkpoints are used read-only; nothing of
   Codex's is pushed; Spellbench results are measurement only.
 - Outreach (Discord posts, GitHub issues on members' repositories) is drafted
@@ -82,3 +90,22 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
    and gorge's source first, later XMage and CABT.
 2. Telling Codex about the bridge port (posted to the collab mailbox).
 3. Outreach drafts, which Jack sends.
+
+## Status (2026-09-27)
+
+- Public: the repository is public and the site deploys from `main` to
+  https://jackmaiorino.github.io/spellbench/ (Jack, 2026-09-27: "make the repo
+  public and push it").
+- C is done: g115, A48 and c12 are rated on `pauper-kernel`.
+- Jack, 2026-09-27: "We will do a best effort to integrate gorge and DraftZero
+  and MageZero and Manafold." Order: G (gorge), then X (XMage for DraftZero and
+  MageZero, with D's network-less sandbox for their checkpoints), with
+  Manafold's protocol co-review now and its adapter after its M4.
+- Jack, 2026-09-27, on CP7 (XMage's strongest built-in AI, ComputerPlayer7
+  at skill 7): "I want that on the leaderboard", folded into X. CP7 plays
+  as a labelled reference AI hosted inside the XMage adapter: its search reads
+  the whole game, so it can never be a fair entry. CP7's Spellbench results
+  are measurement only and never feed back into choosing mtg-kernel models
+  or experiments. A standalone plan (a v1 Rally-mirror engine, about 14
+  agent-days) is kept as input to X's plan:
+  `E:/spellbench-archive/program-research/cp7-plan.md`.

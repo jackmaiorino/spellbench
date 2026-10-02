@@ -1,0 +1,115 @@
+X-P1 rng-router against XMage fd40ad5c29a92cef824cf12ba6d0e4daa25db975.
+RandomUtil delegates to a pluggable Source (untagged, per-player and shared generators); with none installed it is unchanged.
+Apply in order with: git apply <patch> (from the XMage source root).
+
+diff --git a/Mage/src/main/java/mage/util/RandomUtil.java b/Mage/src/main/java/mage/util/RandomUtil.java
+index b042486..6404d1c 100644
+--- a/Mage/src/main/java/mage/util/RandomUtil.java
++++ b/Mage/src/main/java/mage/util/RandomUtil.java
+@@ -1,3 +1,4 @@
++
+ package mage.util;
+ 
+ import java.awt.*;
+@@ -13,27 +14,80 @@ public final class RandomUtil {
+ 
+     private static final Random random = new Random(); // thread safe with seed support
+ 
++    /**
++     * Pluggable randomness for reproducible games. An embedding (for example an arena that runs one game per
++     * process) installs a source that derives every stream from a per-game secret; with no source installed,
++     * every method below behaves exactly as before.
++     */
++    public interface Source {
++
++        /**
++         * Generator for a draw that names no owner and no purpose.
++         */
++        Random untagged();
++
++        /**
++         * Generator for draws over one player's objects, for example that player's library shuffle.
++         */
++        Random forPlayer(UUID playerId, String purpose);
++
++        /**
++         * Generator for draws that belong to no player, for example coin flips.
++         */
++        Random shared(String purpose);
++    }
++
++    private static volatile Source source;
++
+     private RandomUtil() {
+     }
+ 
++    /**
++     * Installs a source for every following draw, or restores the JVM-global generator with null.
++     */
++    public static void setSource(Source newSource) {
++        source = newSource;
++    }
++
++    public static Source getSource() {
++        return source;
++    }
++
+     public static Random getRandom() {
+-        return random;
++        Source s = source;
++        return s == null ? random : s.untagged();
++    }
++
++    /**
++     * Generator for draws over one player's objects (library order, random cards from a zone of theirs).
++     */
++    public static Random forPlayer(UUID playerId, String purpose) {
++        Source s = source;
++        return s == null ? random : s.forPlayer(playerId, purpose);
++    }
++
++    /**
++     * Generator for public draws that belong to no player (coin flips, die rolls, the starting player).
++     */
++    public static Random shared(String purpose) {
++        Source s = source;
++        return s == null ? random : s.shared(purpose);
+     }
+ 
+     public static int nextInt() {
+-        return random.nextInt();
++        return getRandom().nextInt();
+     }
+ 
+     public static int nextInt(int max) {
+-        return random.nextInt(max);
++        return getRandom().nextInt(max);
+     }
+ 
+     public static boolean nextBoolean() {
+-        return random.nextBoolean();
++        return getRandom().nextBoolean();
+     }
+ 
+     public static double nextDouble() {
+-        return random.nextDouble();
++        return getRandom().nextDouble();
+     }
+ 
+     public static Color nextColor() {
+@@ -45,10 +99,14 @@ public final class RandomUtil {
+     }
+ 
+     public static <T> T randomFromCollection(Collection<T> collection) {
++        return randomFromCollection(collection, getRandom());
++    }
++
++    public static <T> T randomFromCollection(Collection<T> collection, Random generator) {
+         if (collection.size() < 2) {
+             return collection.stream().findFirst().orElse(null);
+         }
+-        int rand = nextInt(collection.size());
++        int rand = generator.nextInt(collection.size());
+         int count = 0;
+         for (T current : collection) {
+             if (count == rand) {

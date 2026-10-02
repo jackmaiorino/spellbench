@@ -1,0 +1,17 @@
+{
+ "run_secret": "7fd350168ea37b19a0786c36948912faa415364e7eaef1ebcbe4037d6f925bf7",
+ "game_index": 0,
+ "digests": [
+  "sha256:cb37f97364fb5f9cfc95af988c278ef937f0397a46c7b7c3050552b9497c613b",
+  "sha256:cb37f97364fb5f9cfc95af988c278ef937f0397a46c7b7c3050552b9497c613b",
+  "sha256:cb37f97364fb5f9cfc95af988c278ef937f0397a46c7b7c3050552b9497c613b",
+  "sha256:cb37f97364fb5f9cfc95af988c278ef937f0397a46c7b7c3050552b9497c613b"
+ ],
+ "identical": true,
+ "step_counts": [
+  329,
+  329,
+  329,
+  329
+ ]
+}
