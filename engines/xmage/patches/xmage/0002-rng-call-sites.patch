@@ -1,0 +1,177 @@
+X-P2 rng-call-sites against XMage fd40ad5c29a92cef824cf12ba6d0e4daa25db975.
+Purpose-tagged draws: library shuffle and random-order placement per owner, random cards per owner, coin/die/toss shared; the five unseeded Collections.shuffle card classes become seeded.
+Apply in order with: git apply <patch> (from the XMage source root).
+
+diff --git a/Mage.Sets/src/mage/cards/e/ExposeTheCulprit.java b/Mage.Sets/src/mage/cards/e/ExposeTheCulprit.java
+index db51939..499e581 100644
+--- a/Mage.Sets/src/mage/cards/e/ExposeTheCulprit.java
++++ b/Mage.Sets/src/mage/cards/e/ExposeTheCulprit.java
+@@ -103,7 +103,7 @@ class ExposeTheCulpritEffect extends OneShotEffect {
+                     }
+             ).filter(Objects::nonNull).collect(Collectors.toList());
+             if (controller.moveCards(new HashSet<>(cardsToCloak), Zone.EXILED, source, game)) {
+-                Collections.shuffle(cardsToCloak);
++                Collections.shuffle(cardsToCloak, mage.util.RandomUtil.forPlayer(source.getControllerId(), "face_down_order"));
+                 game.informPlayers(controller.getLogName() + " shuffles the face-down pile");
+                 game.processAction();
+                 ManifestEffect.doManifestCards(game, source, controller, new LinkedHashSet<>(cardsToCloak), true);
+diff --git a/Mage.Sets/src/mage/cards/g/GhastlyConscription.java b/Mage.Sets/src/mage/cards/g/GhastlyConscription.java
+index beb8e2e..4c58daf 100644
+--- a/Mage.Sets/src/mage/cards/g/GhastlyConscription.java
++++ b/Mage.Sets/src/mage/cards/g/GhastlyConscription.java
+@@ -75,7 +75,7 @@ class GhastlyConscriptionEffect extends OneShotEffect {
+         if (cardsToManifest.isEmpty()) {
+             return true;
+         }
+-        Collections.shuffle(cardsToManifest);
++        Collections.shuffle(cardsToManifest, mage.util.RandomUtil.forPlayer(source.getControllerId(), "face_down_order"));
+         game.informPlayers(controller.getLogName() + " shuffles the face-down pile");
+         game.processAction();
+         ManifestEffect.doManifestCards(game, source, controller, new LinkedHashSet<>(cardsToManifest));
+diff --git a/Mage.Sets/src/mage/cards/j/JalumGrifter.java b/Mage.Sets/src/mage/cards/j/JalumGrifter.java
+index a8d4010..258b361 100644
+--- a/Mage.Sets/src/mage/cards/j/JalumGrifter.java
++++ b/Mage.Sets/src/mage/cards/j/JalumGrifter.java
+@@ -108,7 +108,7 @@ class JalumGrifterEffect extends OneShotEffect {
+             if (shellGamePile.isEmpty()) {
+                 return true;
+             }
+-            Collections.shuffle(shellGamePile);
++            Collections.shuffle(shellGamePile, mage.util.RandomUtil.forPlayer(source.getControllerId(), "face_down_order"));
+             game.informPlayers(controller.getLogName() + " shuffles the face-down pile");
+             TargetCard targetCard = new TargetCard(Zone.HAND, new FilterCard());
+             CardsImpl cards = new CardsImpl();
+diff --git a/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java b/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
+index 5fac4f4..ae57185 100644
+--- a/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
++++ b/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
+@@ -91,7 +91,7 @@ class JeskaiInfiltratorEffect extends OneShotEffect {
+         for (Card card : cardsToManifest) {
+             card.setFaceDown(true, game);
+         }
+-        Collections.shuffle(cardsToManifest);
++        Collections.shuffle(cardsToManifest, mage.util.RandomUtil.forPlayer(source.getControllerId(), "face_down_order"));
+         game.informPlayers(controller.getLogName() + " shuffles the face-down pile");
+         game.processAction();
+         ManifestEffect.doManifestCards(game, source, controller, new LinkedHashSet<>(cardsToManifest));
+diff --git a/Mage.Sets/src/mage/cards/v/VialSmasherTheFierce.java b/Mage.Sets/src/mage/cards/v/VialSmasherTheFierce.java
+index 23f65ad..009972a 100644
+--- a/Mage.Sets/src/mage/cards/v/VialSmasherTheFierce.java
++++ b/Mage.Sets/src/mage/cards/v/VialSmasherTheFierce.java
+@@ -130,7 +130,7 @@ class VialSmasherTheFierceEffect extends OneShotEffect {
+                 if(opponents.isEmpty()){
+                     return false;
+                 }
+-                Collections.shuffle(opponents);
++                Collections.shuffle(opponents, mage.util.RandomUtil.shared("random_opponent"));
+                 Player opponent = opponents.get(0);
+                 game.informPlayers(opponent.getLogName() + " was chosen at random.");
+                 if (!game.getBattlefield().getAllActivePermanents(new FilterPlaneswalkerPermanent(), opponent.getId(), game).isEmpty()) {
+diff --git a/Mage/src/main/java/mage/abilities/effects/common/PutRandomCardFromLibraryIntoGraveyardEffect.java b/Mage/src/main/java/mage/abilities/effects/common/PutRandomCardFromLibraryIntoGraveyardEffect.java
+index 6458740..e683acf 100644
+--- a/Mage/src/main/java/mage/abilities/effects/common/PutRandomCardFromLibraryIntoGraveyardEffect.java
++++ b/Mage/src/main/java/mage/abilities/effects/common/PutRandomCardFromLibraryIntoGraveyardEffect.java
+@@ -51,7 +51,7 @@ public class PutRandomCardFromLibraryIntoGraveyardEffect extends OneShotEffect {
+                 .filter(card -> filter.match(card, getId(), source, game))
+                 .collect(Collectors.toSet());
+ 
+-        Card card = RandomUtil.randomFromCollection(cards);
++        Card card = RandomUtil.randomFromCollection(cards, RandomUtil.forPlayer(controller.getId(), "random_card"));
+         if (card == null) {
+             return false;
+         }
+diff --git a/Mage/src/main/java/mage/cards/CardsImpl.java b/Mage/src/main/java/mage/cards/CardsImpl.java
+index c0e8b27..99f299f 100644
+--- a/Mage/src/main/java/mage/cards/CardsImpl.java
++++ b/Mage/src/main/java/mage/cards/CardsImpl.java
+@@ -89,7 +89,12 @@ public class CardsImpl extends LinkedHashSet<UUID> implements Cards, Serializabl
+                 .filter(Card.class::isInstance)
+                 .collect(Collectors.toSet());
+ 
+-        return (Card) RandomUtil.randomFromCollection(cardsForRandomPick);
++        // draws over one owner's cards come from that owner's stream, mixed owners from a shared one
++        Set<UUID> owners = cardsForRandomPick.stream().map(o -> ((Card) o).getOwnerId()).collect(Collectors.toSet());
++        java.util.Random generator = owners.size() == 1
++                ? RandomUtil.forPlayer(owners.iterator().next(), "random_card")
++                : RandomUtil.shared("random_card");
++        return (Card) RandomUtil.randomFromCollection(cardsForRandomPick, generator);
+     }
+ 
+     @Override
+diff --git a/Mage/src/main/java/mage/game/GameImpl.java b/Mage/src/main/java/mage/game/GameImpl.java
+index a405b1e..192d821 100644
+--- a/Mage/src/main/java/mage/game/GameImpl.java
++++ b/Mage/src/main/java/mage/game/GameImpl.java
+@@ -1562,7 +1562,7 @@ public abstract class GameImpl implements Game {
+         UUID[] players = getPlayers().keySet().toArray(new UUID[0]);
+         UUID playerId;
+         while (!hasEnded()) {
+-            playerId = players[RandomUtil.nextInt(players.length)]; // test game
++            playerId = players[RandomUtil.shared("starting_player").nextInt(players.length)]; // test game
+             Player player = getPlayer(playerId);
+             if (player != null && player.canRespond()) {
+                 informPlayers(state.getPlayer(playerId).getLogName() + " won the toss");
+diff --git a/Mage/src/main/java/mage/players/Library.java b/Mage/src/main/java/mage/players/Library.java
+index c4fa441..b0d38cc 100644
+--- a/Mage/src/main/java/mage/players/Library.java
++++ b/Mage/src/main/java/mage/players/Library.java
+@@ -36,8 +36,9 @@ public class Library implements Serializable {
+      */
+     public void shuffle() {
+         UUID[] shuffled = library.toArray(new UUID[0]);
++        java.util.Random generator = RandomUtil.forPlayer(playerId, "library_shuffle");
+         for (int n = shuffled.length - 1; n > 0; n--) {
+-            int r = RandomUtil.nextInt(n + 1);
++            int r = generator.nextInt(n + 1);
+             UUID temp = shuffled[n];
+             shuffled[n] = shuffled[r];
+             shuffled[r] = temp;
+diff --git a/Mage/src/main/java/mage/players/PlayerImpl.java b/Mage/src/main/java/mage/players/PlayerImpl.java
+index 9649b37..d7f7275 100644
+--- a/Mage/src/main/java/mage/players/PlayerImpl.java
++++ b/Mage/src/main/java/mage/players/PlayerImpl.java
+@@ -1059,7 +1059,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+             if (!anyOrder) {
+                 // random order
+                 List<UUID> ids = new ArrayList<>(cards);
+-                Collections.shuffle(ids);
++                Collections.shuffle(ids, RandomUtil.forPlayer(getId(), "library_order"));
+                 for (UUID id : ids) {
+                     moveObjectToLibrary(id, source, game, false);
+                 }
+@@ -1202,7 +1202,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+             if (!anyOrder) {
+                 // random order
+                 List<UUID> ids = new ArrayList<>(cards);
+-                Collections.shuffle(ids);
++                Collections.shuffle(ids, RandomUtil.forPlayer(getId(), "library_order"));
+                 for (UUID id : ids) {
+                     moveObjectToLibrary(id, source, game, true);
+                 }
+@@ -3064,7 +3064,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+                 .stream()
+                 .filter(card -> filter.match(card, getId(), source, game))
+                 .collect(Collectors.toSet());
+-        Card card = RandomUtil.randomFromCollection(cards);
++        Card card = RandomUtil.randomFromCollection(cards, RandomUtil.forPlayer(getId(), "random_card"));
+         if (card == null) {
+             return false;
+         }
+@@ -3212,7 +3212,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+      */
+     @Override
+     public boolean flipCoinResult(Game game) {
+-        return RandomUtil.nextBoolean();
++        return RandomUtil.shared("coin_flip").nextBoolean();
+     }
+ 
+     private static final class RollDieResult {
+@@ -3243,7 +3243,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+ 
+     @Override
+     public int rollDieResult(int sides, Game game) {
+-        return RandomUtil.nextInt(sides) + 1;
++        return RandomUtil.shared("die_roll").nextInt(sides) + 1;
+     }
+ 
+     /**

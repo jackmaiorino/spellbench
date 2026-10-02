@@ -1,0 +1,4 @@
+{"fixture": "chandra", "game": 0, "ending": ["p1_win", "natural", "p0_library_empty"], "violation": null, "steps": 538, "posed": {"choose_target": 19, "declare_attack": 39, "distribute:damage": 19, "pass": 458, "select_object:other": 3}}
+{"fixture": "chandra", "reached_in_game": 0, "verdict": "PASS"}
+{"fixture": "cascade", "game": 0, "ending": ["p0_win", "natural", "p1_library_empty"], "violation": null, "steps": 951, "posed": {"choose_boolean:optional_trigger": 8, "choose_cast_method": 8, "choose_target": 8, "declare_attack": 231, "pass": 696}}
+{"fixture": "cascade", "reached_in_game": 0, "verdict": "PASS"}

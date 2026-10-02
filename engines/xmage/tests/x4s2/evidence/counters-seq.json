@@ -1,0 +1,329 @@
+{
+ "counters": {
+  "action_not_offered:incompletable": {
+   "games": 20,
+   "total": 794
+  },
+  "action_rejected:Activated:autopay": {
+   "games": 2,
+   "total": 3
+  },
+  "action_rejected:Activated:other": {
+   "games": 11,
+   "total": 46
+  },
+  "action_rejected:Spell:autopay": {
+   "games": 3,
+   "total": 20
+  },
+  "action_rejected_card:Burst Lightning:autopay": {
+   "games": 1,
+   "total": 11
+  },
+  "action_rejected_card:Cori-Steel Cutter:autopay": {
+   "games": 1,
+   "total": 3
+  },
+  "action_rejected_card:Fountainport:other": {
+   "games": 8,
+   "total": 41
+  },
+  "action_rejected_card:Lightning Strike:autopay": {
+   "games": 2,
+   "total": 6
+  },
+  "action_rejected_card:Monstrous Rage:autopay": {
+   "games": 1,
+   "total": 1
+  },
+  "action_rejected_card:Rockface Village:autopay": {
+   "games": 1,
+   "total": 2
+  },
+  "action_rejected_card:Rockface Village:other": {
+   "games": 3,
+   "total": 5
+  },
+  "attack_predeclared_by_engine": {
+   "games": 36,
+   "total": 134
+  },
+  "autopay": {
+   "games": 100,
+   "total": 7342
+  },
+  "autopay_choice": {
+   "games": 8,
+   "total": 18
+  },
+  "autopay_failed": {
+   "games": 3,
+   "total": 23
+  },
+  "block_predeclared_by_engine": {
+   "games": 17,
+   "total": 94
+  },
+  "blockers_called:1:0": {
+   "games": 70,
+   "total": 179
+  },
+  "blockers_called:1:1": {
+   "games": 76,
+   "total": 210
+  },
+  "blockers_called:1:2": {
+   "games": 59,
+   "total": 133
+  },
+  "blockers_called:1:3": {
+   "games": 49,
+   "total": 75
+  },
+  "blockers_called:1:4": {
+   "games": 13,
+   "total": 14
+  },
+  "blockers_called:1:5": {
+   "games": 5,
+   "total": 6
+  },
+  "blockers_called:1:6": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:2:0": {
+   "games": 51,
+   "total": 73
+  },
+  "blockers_called:2:1": {
+   "games": 65,
+   "total": 121
+  },
+  "blockers_called:2:2": {
+   "games": 54,
+   "total": 102
+  },
+  "blockers_called:2:3": {
+   "games": 26,
+   "total": 41
+  },
+  "blockers_called:2:4": {
+   "games": 18,
+   "total": 22
+  },
+  "blockers_called:2:5": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:2:6": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:3:0": {
+   "games": 13,
+   "total": 14
+  },
+  "blockers_called:3:1": {
+   "games": 34,
+   "total": 43
+  },
+  "blockers_called:3:2": {
+   "games": 17,
+   "total": 23
+  },
+  "blockers_called:3:3": {
+   "games": 15,
+   "total": 18
+  },
+  "blockers_called:3:4": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:4:0": {
+   "games": 8,
+   "total": 8
+  },
+  "blockers_called:4:1": {
+   "games": 12,
+   "total": 12
+  },
+  "blockers_called:4:2": {
+   "games": 9,
+   "total": 9
+  },
+  "blockers_called:4:3": {
+   "games": 3,
+   "total": 3
+  },
+  "blockers_called:5:2": {
+   "games": 1,
+   "total": 1
+  },
+  "blockers_called:5:3": {
+   "games": 2,
+   "total": 2
+  },
+  "choice_hash_order_sorted": {
+   "games": 17,
+   "total": 79
+  },
+  "choose_option_site:GainsChoiceOfAbilitiesEffect": {
+   "games": 17,
+   "total": 79
+  },
+  "choose_use_site:may_ability:ExploreSourceEffect": {
+   "games": 16,
+   "total": 27
+  },
+  "choose_use_site:optional_trigger:CreateTokenAttachSourceEffect": {
+   "games": 9,
+   "total": 14
+  },
+  "combat_candidate_not_completable:declare_attack": {
+   "games": 39,
+   "total": 307
+  },
+  "combat_candidate_not_completable:declare_block": {
+   "games": 59,
+   "total": 630
+  },
+  "combat_oracle_leaf": {
+   "games": 100,
+   "total": 10635
+  },
+  "mode_unpayable": {
+   "games": 8,
+   "total": 22
+  },
+  "optional_cost_unpayable:kicker": {
+   "games": 19,
+   "total": 51
+  },
+  "optional_cost_unpayable:offspring": {
+   "games": 16,
+   "total": 30
+  },
+  "optional_cost_unpayable:unless_payment": {
+   "games": 8,
+   "total": 11
+  },
+  "posed:arrange_card:surveil": {
+   "games": 16,
+   "total": 77
+  },
+  "posed:choose_boolean:may_ability": {
+   "games": 16,
+   "total": 27
+  },
+  "posed:choose_boolean:optional_trigger": {
+   "games": 9,
+   "total": 14
+  },
+  "posed:choose_cost_target:sacrifice": {
+   "games": 8,
+   "total": 16
+  },
+  "posed:choose_option": {
+   "games": 17,
+   "total": 79
+  },
+  "posed:choose_spell_mode": {
+   "games": 16,
+   "total": 43
+  },
+  "posed:choose_target:destroy": {
+   "games": 20,
+   "total": 117
+  },
+  "posed:choose_target:discard": {
+   "games": 10,
+   "total": 15
+  },
+  "posed:choose_target:exile": {
+   "games": 19,
+   "total": 49
+  },
+  "posed:choose_target:other": {
+   "games": 40,
+   "total": 422
+  },
+  "posed:choose_target:tap": {
+   "games": 18,
+   "total": 58
+  },
+  "posed:declare_attack": {
+   "games": 100,
+   "total": 3472
+  },
+  "posed:declare_block": {
+   "games": 97,
+   "total": 1621
+  },
+  "posed:distribute:combat_damage": {
+   "games": 79,
+   "total": 614
+  },
+  "posed:mulligan": {
+   "games": 100,
+   "total": 417
+  },
+  "posed:optional_cost:kicker": {
+   "games": 19,
+   "total": 52
+  },
+  "posed:optional_cost:offspring": {
+   "games": 17,
+   "total": 38
+  },
+  "posed:optional_cost:unless_payment": {
+   "games": 10,
+   "total": 13
+  },
+  "posed:order_pick:arrangement": {
+   "games": 12,
+   "total": 28
+  },
+  "posed:order_pick:mulligan_bottom": {
+   "games": 76,
+   "total": 221
+  },
+  "posed:order_pick:triggers": {
+   "games": 30,
+   "total": 115
+  },
+  "posed:priority": {
+   "games": 100,
+   "total": 57131
+  },
+  "posed:select_object:discard": {
+   "games": 33,
+   "total": 81
+  },
+  "posed:select_object:exile": {
+   "games": 19,
+   "total": 43
+  },
+  "posed:select_object:other": {
+   "games": 8,
+   "total": 10
+  },
+  "posed:select_object:return_to_hand": {
+   "games": 11,
+   "total": 15
+  },
+  "posed:select_object:sacrifice": {
+   "games": 3,
+   "total": 3
+  },
+  "rewind": {
+   "games": 12,
+   "total": 69
+  },
+  "single_candidate": {
+   "games": 100,
+   "total": 51970
+  }
+ },
+ "games": 100
+}

@@ -1,0 +1,39 @@
+{
+ "decks": {
+  "BGRoots:Standard-MonoG": 30,
+  "BGRoots:X3-FaceDown-UG": 30,
+  "Standard-MonoG:BGRoots": 30,
+  "Standard16-RG:Standard16-UB": 120,
+  "Standard16-UB:Standard16-RG": 120,
+  "X3-FaceDown-UG:BGRoots": 30
+ },
+ "face_down": {
+  "battlefield_named": 16730,
+  "battlefield_nameless": 16730,
+  "exile_named": 179411,
+  "exile_nameless": 179411,
+  "stack_named": 291,
+  "stack_nameless": 291
+ },
+ "failed": 0,
+ "failures": [],
+ "files": 360,
+ "stats": {
+  "games": 360,
+  "ids_p0": 42998,
+  "ids_p1": 42401,
+  "known_entries": 1653,
+  "leak_names_checked": 13003341,
+  "looks_fresh": 1485,
+  "observations": 539524,
+  "option_refs_resolved": 452988,
+  "prompts": 269762,
+  "stack_entries": 76368,
+  "terminal_game_error": 2,
+  "terminal_game_over": 358,
+  "zone_changes_seen": 19561
+ },
+ "unresolved_option_ids": {
+  "graveyard": 174
+ }
+}

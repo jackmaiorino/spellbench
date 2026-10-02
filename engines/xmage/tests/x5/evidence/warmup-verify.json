@@ -1,0 +1,56 @@
+{
+ "build": "lib_digest e8e5a42b9ecc8d473eaae57a1f3e9dd50325df743d1342810e16a37edf0e785b (commit b5ce052, HaleysPC, JDK 23.0.2)",
+ "modes": {
+  "default": "HotSpot default identity hash",
+  "hash": "-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919"
+ },
+ "divergent17": {
+  "layout": "1 process each",
+  "violations": 0,
+  "non_natural": 0,
+  "cells": {
+   "standard-hu:Standard-MonoW": {
+    "games": 4,
+    "equal_across_modes": 4,
+    "equal_to_main_run": 4
+   },
+   "standard-hu:Standard16-RW": {
+    "games": 6,
+    "equal_across_modes": 6,
+    "equal_to_main_run": 6
+   },
+   "standard-hu:Standard16-UG": {
+    "games": 7,
+    "equal_across_modes": 2,
+    "equal_to_main_run": 2
+   }
+  }
+ },
+ "check217": {
+  "layout": "3 workers default, 2 workers hash",
+  "violations": 0,
+  "non_natural": 0,
+  "cells": {
+   "standard-hu:Standard16-RW": {
+    "games": 46,
+    "equal_across_modes": 46,
+    "equal_to_main_run": 46
+   },
+   "standard-hu:Standard-MonoW": {
+    "games": 44,
+    "equal_across_modes": 44,
+    "equal_to_main_run": 43
+   },
+   "standard-hu:Standard16-UG": {
+    "games": 47,
+    "equal_across_modes": 31,
+    "equal_to_main_run": 31
+   },
+   "other": {
+    "games": 80,
+    "equal_across_modes": 80,
+    "equal_to_main_run": 80
+   }
+  }
+ }
+}

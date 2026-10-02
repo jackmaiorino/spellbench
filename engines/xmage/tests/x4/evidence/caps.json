@@ -1,0 +1,66 @@
+[
+ {
+  "max_decisions": 60,
+  "max_steps": 5000,
+  "classification": "truncated",
+  "reason": "max_decisions",
+  "step_count": 60,
+  "decision_count": 60,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 250,
+  "max_steps": 5000,
+  "classification": "truncated",
+  "reason": "max_decisions",
+  "step_count": 251,
+  "decision_count": 250,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 5000,
+  "max_steps": 61,
+  "classification": "truncated",
+  "reason": "max_steps",
+  "step_count": 61,
+  "decision_count": 61,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 5000,
+  "max_steps": 333,
+  "classification": "truncated",
+  "reason": "max_steps",
+  "step_count": 333,
+  "decision_count": 326,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 5000,
+  "max_steps": 207,
+  "classification": "truncated",
+  "reason": "max_steps",
+  "step_count": 207,
+  "decision_count": 205,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 5000,
+  "max_steps": 150,
+  "classification": "truncated",
+  "reason": "max_steps",
+  "step_count": 150,
+  "decision_count": 145,
+  "counts_match": true
+ },
+ {
+  "max_decisions": 90,
+  "max_steps": 5000,
+  "classification": "truncated",
+  "reason": "max_decisions",
+  "step_count": 91,
+  "decision_count": 90,
+  "counts_match": true
+ }
+]
+caps verdict: PASS

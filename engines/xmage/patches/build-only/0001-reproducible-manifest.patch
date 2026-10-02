@@ -1,0 +1,16 @@
+Build-only patch (not part of the rules patch series): the jar manifest Build-Time entry takes the pinned
+project.build.outputTimestamp instead of the wall clock, so two builds produce byte-identical jars.
+
+diff --git a/pom.xml b/pom.xml
+index 510aa40..dc9ed3d 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -71,7 +71,7 @@
+                     <archive>
+                         <manifestEntries>
+                             <Built-By>MageTeam</Built-By>
+-                            <Build-Time>${maven.build.timestamp}</Build-Time>
++                            <Build-Time>${project.build.outputTimestamp}</Build-Time>
+                         </manifestEntries>
+                     </archive>
+                 </configuration>

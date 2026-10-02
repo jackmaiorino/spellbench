@@ -1,0 +1,4 @@
+*.patch -text
+*.sh text eol=lf
+*.env text eol=lf
+*.dck -text

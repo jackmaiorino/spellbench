@@ -1,0 +1,29 @@
+Spellbench XMage engine (engines/xmage), part of Spellbench (MIT, see ../../LICENSE.txt).
+
+This directory carries third-party code and data under their own MIT licenses:
+
+- XMage (https://github.com/magefree/mage), MIT License, Copyright (c) 2010 betasteward@gmail.com.
+  Not vendored: scripts/build.sh fetches the pinned commit (pins.env). patches/xmage/ and patches/build/ are
+  diffs against that commit and are offered upstream under the same license.
+
+- CABT (https://github.com/NMaass/mtg-rl-tools), MIT License, Copyright (c) 2026 Nick Maassen.
+  Vendored unchanged under vendor/cabt/ at commit bc1cf38c75ee3b3922b174bf20bc6e180e1f7a26; its LICENSE is at
+  vendor/cabt/LICENSE.
+
+- tests/x1/decks/Standard16-RG.dck and Standard16-UB.dck come from MageZero's XMage fork
+  (https://github.com/WillWroble/mage, commit cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f, Mage.Tests/decks/),
+  MIT License (XMage's LICENSE.txt in that fork; MageZero itself is MIT, Copyright (c) 2025 Will Wroble).
+  tests/x3/decks/BGRoots.dck and Standard-MonoG.dck come from the same fork, commit and directory, under the
+  same license; X3 uses them for their face-down cards (disguise, face-down exile).
+  tests/x3/decks/X3-FaceDown-UG.dck is Spellbench's own test list (foretell, disguise, manifest dread, cloak).
+  The 16 standard-2022-25-bo1 decks of overlay/src/main/resources/mage/player/spellbench/catalog.json
+  (Standard-Mono{B,G,R,U,W} and Standard16-{RG,UB,GB,RB,BW,UG,GW,UR,RW,UW,5C}) are the main decks of that fork's
+  Mage.Tests/decks/ files at the same commit, under the same license.
+
+- The 16 fdn-limited-bo1 decks of catalog.json (catalog ids FDN_top_*) are decks from 17lands' public FDN Premier
+  Draft data (https://www.17lands.com/public_datasets), licensed CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/), as sampled by DraftZero (https://github.com/danieljbrooks/draft-zero,
+  MIT License, Copyright (c) 2026 Daniel Brooks; commit bf5750cf, assets/sample/eval.txt). Spellbench drew 16 of its
+  40 eval-split sample decks; only the main decks are used. Credit: 17lands and DraftZero.
+
+Card names and rules text are the property of Wizards of the Coast.

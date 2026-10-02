@@ -1,0 +1,2073 @@
+{
+ "plan_games_total": 10112,
+ "games_recorded": 2216,
+ "duplicate_rows": 0,
+ "duplicate_rows_with_different_digest": 0,
+ "machines": {
+  "main-pc": 2216
+ },
+ "violations_total": 0,
+ "pools": {
+  "fdn": {
+   "games": 1109,
+   "classification": {
+    "natural": 1069,
+    "halted": 40
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:dead_end:choose_target after heuristic:p0": 2,
+    "engine_contract_failure:dead_end:choose_target after heuristic:p1": 3,
+    "engine_contract_failure:dead_end:choose_target after uniform:p0": 17,
+    "engine_contract_failure:dead_end:choose_target after uniform:p1": 18
+   },
+   "rates": {
+    "natural": 0.96393,
+    "halted": 0.03607
+   },
+   "reasons": {
+    "halted:engine_contract_failure:dead_end:choose_target": 40,
+    "natural:p0_library_empty": 14,
+    "natural:p0_life_zero": 542,
+    "natural:p1_library_empty": 10,
+    "natural:p1_life_zero": 503
+   },
+   "winners": {
+    "first:p0": 1,
+    "first:p1": 3,
+    "halted": 40,
+    "heuristic:p0": 134,
+    "heuristic:p1": 150,
+    "uniform:p0": 378,
+    "uniform:p1": 403
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 597012,
+   "steps_per_game": {
+    "mean": 538.3,
+    "median": 491,
+    "min": 99,
+    "max": 1441
+   },
+   "groups_per_game": {
+    "mean": 519.3,
+    "median": 475,
+    "min": 98,
+    "max": 1395
+   },
+   "seconds_per_game": {
+    "mean": 3.0,
+    "median": 2.41,
+    "min": 0.38,
+    "max": 29.11
+   },
+   "engine_counters_games": 1109,
+   "posed_kinds": {
+    "posed:arrange_card:surveil": {
+     "total": 850,
+     "games": 365
+    },
+    "posed:choose_boolean:may_ability": {
+     "total": 785,
+     "games": 355
+    },
+    "posed:choose_boolean:optional_trigger": {
+     "total": 325,
+     "games": 196
+    },
+    "posed:choose_boolean:other": {
+     "total": 20,
+     "games": 19
+    },
+    "posed:choose_cost_target:discard": {
+     "total": 154,
+     "games": 64
+    },
+    "posed:choose_cost_target:sacrifice": {
+     "total": 635,
+     "games": 163
+    },
+    "posed:choose_number:amount": {
+     "total": 2,
+     "games": 1
+    },
+    "posed:choose_number:x_value": {
+     "total": 75,
+     "games": 36
+    },
+    "posed:choose_spell_mode": {
+     "total": 824,
+     "games": 443
+    },
+    "posed:choose_target:destroy": {
+     "total": 1604,
+     "games": 430
+    },
+    "posed:choose_target:discard": {
+     "total": 355,
+     "games": 192
+    },
+    "posed:choose_target:exile": {
+     "total": 383,
+     "games": 181
+    },
+    "posed:choose_target:other": {
+     "total": 6678,
+     "games": 988
+    },
+    "posed:choose_target:put_onto_battlefield": {
+     "total": 81,
+     "games": 41
+    },
+    "posed:choose_target:return_to_hand": {
+     "total": 986,
+     "games": 480
+    },
+    "posed:choose_target:tap": {
+     "total": 149,
+     "games": 66
+    },
+    "posed:declare_attack": {
+     "total": 25446,
+     "games": 1099
+    },
+    "posed:declare_block": {
+     "total": 7261,
+     "games": 684
+    },
+    "posed:distribute:combat_damage": {
+     "total": 1685,
+     "games": 384
+    },
+    "posed:mulligan": {
+     "total": 3718,
+     "games": 1109
+    },
+    "posed:optional_cost:kicker": {
+     "total": 785,
+     "games": 422
+    },
+    "posed:optional_cost:other": {
+     "total": 167,
+     "games": 72
+    },
+    "posed:optional_cost:unless_payment": {
+     "total": 98,
+     "games": 69
+    },
+    "posed:order_pick:arrangement": {
+     "total": 119,
+     "games": 72
+    },
+    "posed:order_pick:mulligan_bottom": {
+     "total": 1516,
+     "games": 655
+    },
+    "posed:order_pick:triggers": {
+     "total": 719,
+     "games": 308
+    },
+    "posed:priority": {
+     "total": 535352,
+     "games": 1109
+    },
+    "posed:select_object:discard": {
+     "total": 5276,
+     "games": 724
+    },
+    "posed:select_object:other": {
+     "total": 405,
+     "games": 197
+    },
+    "posed:select_object:return_to_hand": {
+     "total": 39,
+     "games": 27
+    },
+    "posed:select_object:search": {
+     "total": 520,
+     "games": 329
+    }
+   },
+   "other_counters": {
+    "action_rejected:Spell:autopay": {
+     "total": 1076,
+     "games": 194
+    },
+    "action_rejected:Spell:other": {
+     "total": 240,
+     "games": 17
+    },
+    "action_rejected_card:Eaten Alive:autopay": {
+     "total": 186,
+     "games": 69
+    },
+    "action_rejected_card:Luminous Rebuke:autopay": {
+     "total": 864,
+     "games": 109
+    },
+    "action_rejected_card:Quilled Greatwurm:other": {
+     "total": 2,
+     "games": 1
+    },
+    "action_rejected_card:Thrill of Possibility:other": {
+     "total": 238,
+     "games": 16
+    },
+    "action_rejected_card:Wildwood Scourge:autopay": {
+     "total": 26,
+     "games": 16
+    },
+    "autopay": {
+     "total": 61890,
+     "games": 1109
+    },
+    "autopay_choice": {
+     "total": 146,
+     "games": 78
+    },
+    "autopay_failed": {
+     "total": 1076,
+     "games": 194
+    },
+    "blockers_called:10:4": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:1:0": {
+     "total": 2822,
+     "games": 994
+    },
+    "blockers_called:1:1": {
+     "total": 1375,
+     "games": 559
+    },
+    "blockers_called:1:2": {
+     "total": 663,
+     "games": 362
+    },
+    "blockers_called:1:3": {
+     "total": 250,
+     "games": 188
+    },
+    "blockers_called:1:4": {
+     "total": 81,
+     "games": 72
+    },
+    "blockers_called:1:5": {
+     "total": 29,
+     "games": 28
+    },
+    "blockers_called:1:6": {
+     "total": 12,
+     "games": 11
+    },
+    "blockers_called:1:7": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:2:0": {
+     "total": 1079,
+     "games": 683
+    },
+    "blockers_called:2:1": {
+     "total": 623,
+     "games": 408
+    },
+    "blockers_called:2:2": {
+     "total": 346,
+     "games": 235
+    },
+    "blockers_called:2:3": {
+     "total": 125,
+     "games": 106
+    },
+    "blockers_called:2:4": {
+     "total": 48,
+     "games": 43
+    },
+    "blockers_called:2:5": {
+     "total": 18,
+     "games": 18
+    },
+    "blockers_called:2:6": {
+     "total": 3,
+     "games": 3
+    },
+    "blockers_called:3:0": {
+     "total": 460,
+     "games": 363
+    },
+    "blockers_called:3:1": {
+     "total": 262,
+     "games": 218
+    },
+    "blockers_called:3:2": {
+     "total": 134,
+     "games": 120
+    },
+    "blockers_called:3:3": {
+     "total": 56,
+     "games": 50
+    },
+    "blockers_called:3:4": {
+     "total": 17,
+     "games": 16
+    },
+    "blockers_called:3:5": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:3:6": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:4:0": {
+     "total": 169,
+     "games": 156
+    },
+    "blockers_called:4:1": {
+     "total": 90,
+     "games": 89
+    },
+    "blockers_called:4:2": {
+     "total": 50,
+     "games": 49
+    },
+    "blockers_called:4:3": {
+     "total": 24,
+     "games": 24
+    },
+    "blockers_called:4:4": {
+     "total": 9,
+     "games": 9
+    },
+    "blockers_called:4:5": {
+     "total": 6,
+     "games": 6
+    },
+    "blockers_called:4:6": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:4:7": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:5:0": {
+     "total": 50,
+     "games": 48
+    },
+    "blockers_called:5:1": {
+     "total": 32,
+     "games": 31
+    },
+    "blockers_called:5:2": {
+     "total": 11,
+     "games": 11
+    },
+    "blockers_called:5:3": {
+     "total": 5,
+     "games": 5
+    },
+    "blockers_called:5:4": {
+     "total": 3,
+     "games": 3
+    },
+    "blockers_called:5:5": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:6:0": {
+     "total": 16,
+     "games": 16
+    },
+    "blockers_called:6:1": {
+     "total": 9,
+     "games": 9
+    },
+    "blockers_called:6:2": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:6:3": {
+     "total": 4,
+     "games": 4
+    },
+    "blockers_called:6:4": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:6:5": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:7:0": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:7:1": {
+     "total": 6,
+     "games": 6
+    },
+    "blockers_called:7:2": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:7:4": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:8:0": {
+     "total": 4,
+     "games": 4
+    },
+    "choose_use_site:may_ability:LookLibraryAndPickControllerEffect": {
+     "total": 107,
+     "games": 44
+    },
+    "choose_use_site:may_ability:OrCost": {
+     "total": 263,
+     "games": 116
+    },
+    "choose_use_site:may_ability:PutOnTopOrBottomLibraryTargetEffect": {
+     "total": 394,
+     "games": 230
+    },
+    "choose_use_site:may_ability:StackObjectImpl": {
+     "total": 21,
+     "games": 9
+    },
+    "choose_use_site:optional_trigger:CuratorOfDestiniesEffect": {
+     "total": 64,
+     "games": 52
+    },
+    "choose_use_site:optional_trigger:TriggeredAbilityImpl": {
+     "total": 261,
+     "games": 151
+    },
+    "choose_use_site:other:LeylineAbility": {
+     "total": 20,
+     "games": 19
+    },
+    "combat_candidate_not_completable:declare_block": {
+     "total": 55,
+     "games": 35
+    },
+    "combat_oracle_leaf": {
+     "total": 53284,
+     "games": 1099
+    },
+    "halt:dead_end:choose_target": {
+     "total": 40,
+     "games": 40
+    },
+    "optional_cost_unpayable:kicker": {
+     "total": 551,
+     "games": 355
+    },
+    "optional_cost_unpayable:unless_payment": {
+     "total": 40,
+     "games": 29
+    },
+    "rewind": {
+     "total": 1316,
+     "games": 211
+    },
+    "single_candidate": {
+     "total": 474184,
+     "games": 1109
+    }
+   },
+   "non_natural": [
+    {
+     "gid": 5078,
+     "workload": "fdn-uu",
+     "game_index": 22,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9750,
+     "workload": "fdn-fu",
+     "game_index": 22,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9751,
+     "workload": "fdn-fu",
+     "game_index": 23,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5111,
+     "workload": "fdn-uu",
+     "game_index": 55,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9782,
+     "workload": "fdn-fu",
+     "game_index": 54,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7543,
+     "workload": "fdn-hu",
+     "game_index": 55,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9783,
+     "workload": "fdn-fu",
+     "game_index": 55,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9814,
+     "workload": "fdn-fu",
+     "game_index": 86,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7575,
+     "workload": "fdn-hu",
+     "game_index": 87,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9815,
+     "workload": "fdn-fu",
+     "game_index": 87,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5174,
+     "workload": "fdn-uu",
+     "game_index": 118,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9847,
+     "workload": "fdn-fu",
+     "game_index": 119,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7607,
+     "workload": "fdn-hu",
+     "game_index": 119,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9846,
+     "workload": "fdn-fu",
+     "game_index": 118,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7638,
+     "workload": "fdn-hu",
+     "game_index": 150,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9878,
+     "workload": "fdn-fu",
+     "game_index": 150,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5207,
+     "workload": "fdn-uu",
+     "game_index": 151,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7639,
+     "workload": "fdn-hu",
+     "game_index": 151,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7670,
+     "workload": "fdn-hu",
+     "game_index": 182,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9910,
+     "workload": "fdn-fu",
+     "game_index": 182,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9911,
+     "workload": "fdn-fu",
+     "game_index": 183,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5239,
+     "workload": "fdn-uu",
+     "game_index": 183,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9942,
+     "workload": "fdn-fu",
+     "game_index": 214,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9943,
+     "workload": "fdn-fu",
+     "game_index": 215,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7703,
+     "workload": "fdn-hu",
+     "game_index": 215,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7734,
+     "workload": "fdn-hu",
+     "game_index": 246,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 9974,
+     "workload": "fdn-fu",
+     "game_index": 246,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5303,
+     "workload": "fdn-uu",
+     "game_index": 247,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7767,
+     "workload": "fdn-hu",
+     "game_index": 279,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5335,
+     "workload": "fdn-uu",
+     "game_index": 279,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5367,
+     "workload": "fdn-uu",
+     "game_index": 311,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 10038,
+     "workload": "fdn-fu",
+     "game_index": 310,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7799,
+     "workload": "fdn-hu",
+     "game_index": 311,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 10039,
+     "workload": "fdn-fu",
+     "game_index": 311,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5366,
+     "workload": "fdn-uu",
+     "game_index": 310,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7830,
+     "workload": "fdn-hu",
+     "game_index": 342,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 10070,
+     "workload": "fdn-fu",
+     "game_index": 342,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5399,
+     "workload": "fdn-uu",
+     "game_index": 343,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 7831,
+     "workload": "fdn-hu",
+     "game_index": 343,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 10071,
+     "workload": "fdn-fu",
+     "game_index": 343,
+     "reason": "engine_contract_failure:dead_end:choose_target",
+     "adjudication": null,
+     "diagnostics": []
+    }
+   ]
+  },
+  "standard": {
+   "games": 1107,
+   "classification": {
+    "natural": 1085,
+    "halted": 22
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:unsupported:multi_amount after first:p0": 3,
+    "engine_contract_failure:unsupported:multi_amount after first:p1": 2,
+    "engine_contract_failure:unsupported:multi_amount after heuristic:p1": 1,
+    "engine_contract_failure:unsupported:multi_amount after uniform:p0": 9,
+    "engine_contract_failure:unsupported:multi_amount after uniform:p1": 7
+   },
+   "rates": {
+    "natural": 0.98013,
+    "halted": 0.01987
+   },
+   "reasons": {
+    "halted:engine_contract_failure:unsupported:multi_amount": 22,
+    "natural:p0_library_empty": 11,
+    "natural:p0_life_zero": 533,
+    "natural:p1_library_empty": 14,
+    "natural:p1_life_zero": 527
+   },
+   "winners": {
+    "first:p0": 17,
+    "first:p1": 14,
+    "halted": 22,
+    "heuristic:p0": 117,
+    "heuristic:p1": 127,
+    "uniform:p0": 407,
+    "uniform:p1": 403
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 623503,
+   "steps_per_game": {
+    "mean": 563.2,
+    "median": 482,
+    "min": 164,
+    "max": 4314
+   },
+   "groups_per_game": {
+    "mean": 533.7,
+    "median": 462,
+    "min": 161,
+    "max": 3922
+   },
+   "seconds_per_game": {
+    "mean": 4.0,
+    "median": 2.85,
+    "min": 0.75,
+    "max": 92.73
+   },
+   "engine_counters_games": 1107,
+   "posed_kinds": {
+    "posed:arrange_card:scry": {
+     "total": 1742,
+     "games": 272
+    },
+    "posed:arrange_card:surveil": {
+     "total": 500,
+     "games": 227
+    },
+    "posed:choose_boolean:may_ability": {
+     "total": 975,
+     "games": 367
+    },
+    "posed:choose_boolean:optional_trigger": {
+     "total": 557,
+     "games": 238
+    },
+    "posed:choose_cast_method": {
+     "total": 47,
+     "games": 31
+    },
+    "posed:choose_color": {
+     "total": 213,
+     "games": 40
+    },
+    "posed:choose_cost_target:discard": {
+     "total": 711,
+     "games": 179
+    },
+    "posed:choose_cost_target:other": {
+     "total": 25,
+     "games": 6
+    },
+    "posed:choose_cost_target:sacrifice": {
+     "total": 299,
+     "games": 123
+    },
+    "posed:choose_cost_target:tap": {
+     "total": 5591,
+     "games": 126
+    },
+    "posed:choose_name:creature_type": {
+     "total": 120,
+     "games": 58
+    },
+    "posed:choose_number:amount": {
+     "total": 19,
+     "games": 6
+    },
+    "posed:choose_number:x_value": {
+     "total": 596,
+     "games": 147
+    },
+    "posed:choose_option": {
+     "total": 173,
+     "games": 54
+    },
+    "posed:choose_pile": {
+     "total": 2,
+     "games": 2
+    },
+    "posed:choose_replacement": {
+     "total": 8,
+     "games": 3
+    },
+    "posed:choose_spell_mode": {
+     "total": 687,
+     "games": 216
+    },
+    "posed:choose_target:destroy": {
+     "total": 1632,
+     "games": 459
+    },
+    "posed:choose_target:discard": {
+     "total": 342,
+     "games": 124
+    },
+    "posed:choose_target:exile": {
+     "total": 449,
+     "games": 228
+    },
+    "posed:choose_target:other": {
+     "total": 8818,
+     "games": 1010
+    },
+    "posed:choose_target:put_onto_battlefield": {
+     "total": 247,
+     "games": 122
+    },
+    "posed:choose_target:return_to_hand": {
+     "total": 328,
+     "games": 93
+    },
+    "posed:choose_target:sacrifice": {
+     "total": 111,
+     "games": 69
+    },
+    "posed:choose_target:tap": {
+     "total": 493,
+     "games": 110
+    },
+    "posed:declare_attack": {
+     "total": 18699,
+     "games": 1100
+    },
+    "posed:declare_block": {
+     "total": 4060,
+     "games": 643
+    },
+    "posed:distribute:combat_damage": {
+     "total": 909,
+     "games": 262
+    },
+    "posed:distribute:counters": {
+     "total": 12,
+     "games": 7
+    },
+    "posed:mulligan": {
+     "total": 3676,
+     "games": 1107
+    },
+    "posed:optional_cost:casualty": {
+     "total": 41,
+     "games": 27
+    },
+    "posed:optional_cost:kicker": {
+     "total": 1002,
+     "games": 257
+    },
+    "posed:optional_cost:offspring": {
+     "total": 347,
+     "games": 205
+    },
+    "posed:optional_cost:other": {
+     "total": 141,
+     "games": 86
+    },
+    "posed:optional_cost:unless_payment": {
+     "total": 291,
+     "games": 171
+    },
+    "posed:order_pick:arrangement": {
+     "total": 465,
+     "games": 91
+    },
+    "posed:order_pick:library_bottom": {
+     "total": 210,
+     "games": 73
+    },
+    "posed:order_pick:mulligan_bottom": {
+     "total": 1473,
+     "games": 641
+    },
+    "posed:order_pick:triggers": {
+     "total": 2805,
+     "games": 567
+    },
+    "posed:priority": {
+     "total": 548902,
+     "games": 1107
+    },
+    "posed:select_object:discard": {
+     "total": 5457,
+     "games": 636
+    },
+    "posed:select_object:exile": {
+     "total": 599,
+     "games": 211
+    },
+    "posed:select_object:other": {
+     "total": 819,
+     "games": 311
+    },
+    "posed:select_object:put_onto_battlefield": {
+     "total": 40,
+     "games": 17
+    },
+    "posed:select_object:return_to_hand": {
+     "total": 40,
+     "games": 28
+    },
+    "posed:select_object:sacrifice": {
+     "total": 89,
+     "games": 53
+    },
+    "posed:select_object:search": {
+     "total": 591,
+     "games": 173
+    },
+    "posed:select_object:tap": {
+     "total": 8150,
+     "games": 124
+    }
+   },
+   "other_counters": {
+    "action_not_offered:incompletable": {
+     "total": 6498,
+     "games": 358
+    },
+    "action_rejected:Activated:autopay": {
+     "total": 134,
+     "games": 33
+    },
+    "action_rejected:Activated:other": {
+     "total": 7606,
+     "games": 295
+    },
+    "action_rejected:Spell:autopay": {
+     "total": 2229,
+     "games": 236
+    },
+    "action_rejected:Spell:other": {
+     "total": 595,
+     "games": 89
+    },
+    "action_rejected_card:Adeline, Resplendent Cathar:autopay": {
+     "total": 16,
+     "games": 12
+    },
+    "action_rejected_card:Anoint with Affliction:autopay": {
+     "total": 112,
+     "games": 5
+    },
+    "action_rejected_card:Big Score:other": {
+     "total": 35,
+     "games": 6
+    },
+    "action_rejected_card:Bladewheel Chariot:other": {
+     "total": 2062,
+     "games": 40
+    },
+    "action_rejected_card:Blue Sun's Twilight:autopay": {
+     "total": 50,
+     "games": 27
+    },
+    "action_rejected_card:Blue Sun's Twilight:other": {
+     "total": 324,
+     "games": 56
+    },
+    "action_rejected_card:Brutal Cathar:autopay": {
+     "total": 1,
+     "games": 1
+    },
+    "action_rejected_card:Burst Lightning:autopay": {
+     "total": 312,
+     "games": 13
+    },
+    "action_rejected_card:Case of the Uneaten Feast:autopay": {
+     "total": 8,
+     "games": 4
+    },
+    "action_rejected_card:Coppercoat Vanguard:autopay": {
+     "total": 25,
+     "games": 13
+    },
+    "action_rejected_card:Cori-Steel Cutter:autopay": {
+     "total": 8,
+     "games": 6
+    },
+    "action_rejected_card:Cut Down:autopay": {
+     "total": 43,
+     "games": 5
+    },
+    "action_rejected_card:Djeru and Hazoret:autopay": {
+     "total": 16,
+     "games": 10
+    },
+    "action_rejected_card:Ertai Resurrected:autopay": {
+     "total": 252,
+     "games": 21
+    },
+    "action_rejected_card:Etali, Primal Conqueror:autopay": {
+     "total": 4,
+     "games": 3
+    },
+    "action_rejected_card:Fomori Vault:other": {
+     "total": 462,
+     "games": 42
+    },
+    "action_rejected_card:Fountainport:other": {
+     "total": 138,
+     "games": 38
+    },
+    "action_rejected_card:Full Bore:autopay": {
+     "total": 184,
+     "games": 17
+    },
+    "action_rejected_card:Get Lost:autopay": {
+     "total": 3,
+     "games": 1
+    },
+    "action_rejected_card:Go for the Throat:autopay": {
+     "total": 97,
+     "games": 7
+    },
+    "action_rejected_card:Gwenna, Eyes of Gaea:autopay": {
+     "total": 2,
+     "games": 1
+    },
+    "action_rejected_card:Hajar, Loyal Bodyguard:autopay": {
+     "total": 37,
+     "games": 13
+    },
+    "action_rejected_card:Halana and Alena, Partners:autopay": {
+     "total": 45,
+     "games": 17
+    },
+    "action_rejected_card:Hired Claw:autopay": {
+     "total": 3,
+     "games": 1
+    },
+    "action_rejected_card:Hopeful Initiate:autopay": {
+     "total": 83,
+     "games": 23
+    },
+    "action_rejected_card:Hopeful Initiate:other": {
+     "total": 147,
+     "games": 26
+    },
+    "action_rejected_card:Jodah, the Unifier:autopay": {
+     "total": 76,
+     "games": 27
+    },
+    "action_rejected_card:Katilda, Dawnhart Prime:autopay": {
+     "total": 10,
+     "games": 4
+    },
+    "action_rejected_card:Katilda, Dawnhart Prime:other": {
+     "total": 159,
+     "games": 33
+    },
+    "action_rejected_card:Kayla's Reconstruction:autopay": {
+     "total": 45,
+     "games": 28
+    },
+    "action_rejected_card:Knight-Errant of Eos:autopay": {
+     "total": 32,
+     "games": 18
+    },
+    "action_rejected_card:Lagrella, the Magpie:autopay": {
+     "total": 7,
+     "games": 4
+    },
+    "action_rejected_card:Lightning Strike:autopay": {
+     "total": 45,
+     "games": 4
+    },
+    "action_rejected_card:Lunar Convocation:autopay": {
+     "total": 97,
+     "games": 12
+    },
+    "action_rejected_card:Lunar Convocation:other": {
+     "total": 4,
+     "games": 2
+    },
+    "action_rejected_card:Lupinflower Village:other": {
+     "total": 67,
+     "games": 16
+    },
+    "action_rejected_card:Melira, the Living Cure:autopay": {
+     "total": 23,
+     "games": 4
+    },
+    "action_rejected_card:Mirrex:other": {
+     "total": 503,
+     "games": 54
+    },
+    "action_rejected_card:Monstrous Rage:autopay": {
+     "total": 227,
+     "games": 10
+    },
+    "action_rejected_card:Mudflat Village:other": {
+     "total": 15,
+     "games": 6
+    },
+    "action_rejected_card:Novice Inspector:autopay": {
+     "total": 140,
+     "games": 30
+    },
+    "action_rejected_card:Overlord of the Mistmoors:autopay": {
+     "total": 19,
+     "games": 15
+    },
+    "action_rejected_card:Plaza of Heroes:autopay": {
+     "total": 9,
+     "games": 4
+    },
+    "action_rejected_card:Plaza of Heroes:other": {
+     "total": 36,
+     "games": 12
+    },
+    "action_rejected_card:Polukranos Reborn:autopay": {
+     "total": 2,
+     "games": 2
+    },
+    "action_rejected_card:Reckoner Bankbuster:other": {
+     "total": 954,
+     "games": 41
+    },
+    "action_rejected_card:Recruitment Officer:autopay": {
+     "total": 83,
+     "games": 26
+    },
+    "action_rejected_card:Restless Fortress:autopay": {
+     "total": 18,
+     "games": 3
+    },
+    "action_rejected_card:Rockface Village:autopay": {
+     "total": 3,
+     "games": 3
+    },
+    "action_rejected_card:Rockface Village:other": {
+     "total": 14,
+     "games": 9
+    },
+    "action_rejected_card:Seek the Beast:autopay": {
+     "total": 32,
+     "games": 2
+    },
+    "action_rejected_card:Shanna, Purifying Blade:autopay": {
+     "total": 3,
+     "games": 2
+    },
+    "action_rejected_card:Shock:autopay": {
+     "total": 64,
+     "games": 6
+    },
+    "action_rejected_card:Skrelv, Defector Mite:autopay": {
+     "total": 3,
+     "games": 1
+    },
+    "action_rejected_card:Subterranean Schooner:other": {
+     "total": 3045,
+     "games": 43
+    },
+    "action_rejected_card:Tear Asunder:other": {
+     "total": 236,
+     "games": 27
+    },
+    "action_rejected_card:Thalia, Guardian of Thraben:autopay": {
+     "total": 30,
+     "games": 13
+    },
+    "action_rejected_card:Warden of the Inner Sky:autopay": {
+     "total": 94,
+     "games": 24
+    },
+    "autopay": {
+     "total": 75127,
+     "games": 1107
+    },
+    "autopay_choice": {
+     "total": 1748,
+     "games": 290
+    },
+    "autopay_default:chooseTarget": {
+     "total": 479,
+     "games": 86
+    },
+    "autopay_default:getMultiAmount": {
+     "total": 617,
+     "games": 51
+    },
+    "autopay_failed": {
+     "total": 2448,
+     "games": 289
+    },
+    "blockers_called:10:0": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:1:0": {
+     "total": 2574,
+     "games": 953
+    },
+    "blockers_called:1:1": {
+     "total": 960,
+     "games": 487
+    },
+    "blockers_called:1:10": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:1:2": {
+     "total": 388,
+     "games": 262
+    },
+    "blockers_called:1:3": {
+     "total": 124,
+     "games": 99
+    },
+    "blockers_called:1:4": {
+     "total": 42,
+     "games": 38
+    },
+    "blockers_called:1:5": {
+     "total": 11,
+     "games": 10
+    },
+    "blockers_called:1:6": {
+     "total": 4,
+     "games": 4
+    },
+    "blockers_called:1:7": {
+     "total": 5,
+     "games": 5
+    },
+    "blockers_called:2:0": {
+     "total": 934,
+     "games": 588
+    },
+    "blockers_called:2:1": {
+     "total": 411,
+     "games": 294
+    },
+    "blockers_called:2:2": {
+     "total": 176,
+     "games": 135
+    },
+    "blockers_called:2:3": {
+     "total": 55,
+     "games": 49
+    },
+    "blockers_called:2:4": {
+     "total": 10,
+     "games": 10
+    },
+    "blockers_called:2:5": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:3:0": {
+     "total": 353,
+     "games": 272
+    },
+    "blockers_called:3:1": {
+     "total": 187,
+     "games": 158
+    },
+    "blockers_called:3:2": {
+     "total": 70,
+     "games": 66
+    },
+    "blockers_called:3:3": {
+     "total": 31,
+     "games": 26
+    },
+    "blockers_called:3:4": {
+     "total": 10,
+     "games": 10
+    },
+    "blockers_called:3:5": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:4:0": {
+     "total": 131,
+     "games": 124
+    },
+    "blockers_called:4:1": {
+     "total": 50,
+     "games": 47
+    },
+    "blockers_called:4:2": {
+     "total": 22,
+     "games": 19
+    },
+    "blockers_called:4:3": {
+     "total": 9,
+     "games": 9
+    },
+    "blockers_called:4:4": {
+     "total": 3,
+     "games": 3
+    },
+    "blockers_called:4:5": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:5:0": {
+     "total": 52,
+     "games": 48
+    },
+    "blockers_called:5:1": {
+     "total": 26,
+     "games": 25
+    },
+    "blockers_called:5:2": {
+     "total": 6,
+     "games": 6
+    },
+    "blockers_called:5:3": {
+     "total": 4,
+     "games": 4
+    },
+    "blockers_called:5:4": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:6:0": {
+     "total": 16,
+     "games": 16
+    },
+    "blockers_called:6:1": {
+     "total": 4,
+     "games": 4
+    },
+    "blockers_called:6:2": {
+     "total": 5,
+     "games": 5
+    },
+    "blockers_called:7:0": {
+     "total": 8,
+     "games": 8
+    },
+    "blockers_called:7:1": {
+     "total": 2,
+     "games": 2
+    },
+    "blockers_called:8:0": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:8:1": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:8:3": {
+     "total": 1,
+     "games": 1
+    },
+    "blockers_called:9:1": {
+     "total": 1,
+     "games": 1
+    },
+    "choice_hash_order_sorted": {
+     "total": 173,
+     "games": 54
+    },
+    "choose_option_site:GainsChoiceOfAbilitiesEffect": {
+     "total": 153,
+     "games": 37
+    },
+    "choose_option_site:PlayerImpl": {
+     "total": 20,
+     "games": 17
+    },
+    "choose_use_site:may_ability:AbilityImpl": {
+     "total": 223,
+     "games": 49
+    },
+    "choose_use_site:may_ability:ExploreSourceEffect": {
+     "total": 433,
+     "games": 238
+    },
+    "choose_use_site:may_ability:LookLibraryAndPickControllerEffect": {
+     "total": 284,
+     "games": 118
+    },
+    "choose_use_site:may_ability:SearchLibraryPutInPlayTargetControllerEffect": {
+     "total": 13,
+     "games": 13
+    },
+    "choose_use_site:may_ability:StackObjectImpl": {
+     "total": 22,
+     "games": 18
+    },
+    "choose_use_site:optional_trigger:CardUtil": {
+     "total": 57,
+     "games": 32
+    },
+    "choose_use_site:optional_trigger:CreateTokenAttachSourceEffect": {
+     "total": 153,
+     "games": 64
+    },
+    "choose_use_site:optional_trigger:DoWhenCostPaid": {
+     "total": 120,
+     "games": 41
+    },
+    "choose_use_site:optional_trigger:ExploreSourceEffect": {
+     "total": 185,
+     "games": 80
+    },
+    "choose_use_site:optional_trigger:TriggeredAbilityImpl": {
+     "total": 42,
+     "games": 30
+    },
+    "combat_candidate_not_completable:declare_block": {
+     "total": 41,
+     "games": 22
+    },
+    "combat_oracle_leaf": {
+     "total": 37265,
+     "games": 1100
+    },
+    "halt:unsupported:multi_amount": {
+     "total": 22,
+     "games": 22
+    },
+    "mode_unpayable": {
+     "total": 33,
+     "games": 18
+    },
+    "optional_cost_unpayable:kicker": {
+     "total": 882,
+     "games": 236
+    },
+    "optional_cost_unpayable:offspring": {
+     "total": 252,
+     "games": 167
+    },
+    "optional_cost_unpayable:other": {
+     "total": 10,
+     "games": 6
+    },
+    "optional_cost_unpayable:unless_payment": {
+     "total": 198,
+     "games": 130
+    },
+    "rewind": {
+     "total": 10564,
+     "games": 511
+    },
+    "single_candidate": {
+     "total": 463857,
+     "games": 1107
+    }
+   },
+   "non_natural": [
+    {
+     "gid": 4695,
+     "workload": "standard-fu",
+     "game_index": 23,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 4726,
+     "workload": "standard-fu",
+     "game_index": 54,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 4727,
+     "workload": "standard-fu",
+     "game_index": 55,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2518,
+     "workload": "standard-hu",
+     "game_index": 86,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 118,
+     "workload": "standard-uu",
+     "game_index": 118,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 119,
+     "workload": "standard-uu",
+     "game_index": 119,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 151,
+     "workload": "standard-uu",
+     "game_index": 151,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 182,
+     "workload": "standard-uu",
+     "game_index": 182,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2646,
+     "workload": "standard-hu",
+     "game_index": 214,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 214,
+     "workload": "standard-uu",
+     "game_index": 214,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2647,
+     "workload": "standard-hu",
+     "game_index": 215,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 246,
+     "workload": "standard-uu",
+     "game_index": 246,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2679,
+     "workload": "standard-hu",
+     "game_index": 247,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 279,
+     "workload": "standard-uu",
+     "game_index": 279,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2711,
+     "workload": "standard-hu",
+     "game_index": 279,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2742,
+     "workload": "standard-hu",
+     "game_index": 310,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 310,
+     "workload": "standard-uu",
+     "game_index": 310,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5014,
+     "workload": "standard-fu",
+     "game_index": 342,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 342,
+     "workload": "standard-uu",
+     "game_index": 342,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2775,
+     "workload": "standard-hu",
+     "game_index": 343,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 2774,
+     "workload": "standard-hu",
+     "game_index": 342,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    },
+    {
+     "gid": 5042,
+     "workload": "standard-fu",
+     "game_index": 370,
+     "reason": "engine_contract_failure:unsupported:multi_amount",
+     "adjudication": null,
+     "diagnostics": []
+    }
+   ]
+  }
+ },
+ "workloads": {
+  "fdn-fu": {
+   "games": 369,
+   "classification": {
+    "natural": 351,
+    "halted": 18
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:dead_end:choose_target after uniform:p0": 8,
+    "engine_contract_failure:dead_end:choose_target after uniform:p1": 10
+   },
+   "rates": {
+    "natural": 0.95122,
+    "halted": 0.04878
+   },
+   "reasons": {
+    "halted:engine_contract_failure:dead_end:choose_target": 18,
+    "natural:p0_library_empty": 3,
+    "natural:p0_life_zero": 174,
+    "natural:p1_library_empty": 1,
+    "natural:p1_life_zero": 173
+   },
+   "winners": {
+    "first:p0": 1,
+    "first:p1": 3,
+    "halted": 18,
+    "uniform:p0": 173,
+    "uniform:p1": 174
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 170136,
+   "steps_per_game": {
+    "mean": 461.1,
+    "median": 435,
+    "min": 144,
+    "max": 1070
+   },
+   "groups_per_game": {
+    "mean": 448.2,
+    "median": 423,
+    "min": 143,
+    "max": 1048
+   },
+   "seconds_per_game": {
+    "mean": 2.3,
+    "median": 2.01,
+    "min": 0.57,
+    "max": 27.53
+   },
+   "engine_counters_games": 369
+  },
+  "fdn-hu": {
+   "games": 370,
+   "classification": {
+    "natural": 358,
+    "halted": 12
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:dead_end:choose_target after heuristic:p0": 2,
+    "engine_contract_failure:dead_end:choose_target after heuristic:p1": 3,
+    "engine_contract_failure:dead_end:choose_target after uniform:p0": 5,
+    "engine_contract_failure:dead_end:choose_target after uniform:p1": 2
+   },
+   "rates": {
+    "natural": 0.96757,
+    "halted": 0.03243
+   },
+   "reasons": {
+    "halted:engine_contract_failure:dead_end:choose_target": 12,
+    "natural:p0_library_empty": 1,
+    "natural:p0_life_zero": 196,
+    "natural:p1_life_zero": 161
+   },
+   "winners": {
+    "halted": 12,
+    "heuristic:p0": 134,
+    "heuristic:p1": 150,
+    "uniform:p0": 27,
+    "uniform:p1": 47
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 171648,
+   "steps_per_game": {
+    "mean": 463.9,
+    "median": 444.5,
+    "min": 99,
+    "max": 1117
+   },
+   "groups_per_game": {
+    "mean": 448.5,
+    "median": 425.5,
+    "min": 98,
+    "max": 1064
+   },
+   "seconds_per_game": {
+    "mean": 2.5,
+    "median": 2.17,
+    "min": 0.38,
+    "max": 27.46
+   },
+   "engine_counters_games": 370
+  },
+  "fdn-uu": {
+   "games": 370,
+   "classification": {
+    "natural": 360,
+    "halted": 10
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:dead_end:choose_target after uniform:p0": 4,
+    "engine_contract_failure:dead_end:choose_target after uniform:p1": 6
+   },
+   "rates": {
+    "natural": 0.97297,
+    "halted": 0.02703
+   },
+   "reasons": {
+    "halted:engine_contract_failure:dead_end:choose_target": 10,
+    "natural:p0_library_empty": 10,
+    "natural:p0_life_zero": 172,
+    "natural:p1_library_empty": 9,
+    "natural:p1_life_zero": 169
+   },
+   "winners": {
+    "halted": 10,
+    "uniform:p0": 178,
+    "uniform:p1": 182
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 255228,
+   "steps_per_game": {
+    "mean": 689.8,
+    "median": 671.0,
+    "min": 126,
+    "max": 1441
+   },
+   "groups_per_game": {
+    "mean": 660.9,
+    "median": 640.0,
+    "min": 122,
+    "max": 1395
+   },
+   "seconds_per_game": {
+    "mean": 4.0,
+    "median": 3.56,
+    "min": 0.63,
+    "max": 29.11
+   },
+   "engine_counters_games": 370
+  },
+  "standard-fu": {
+   "games": 370,
+   "classification": {
+    "natural": 365,
+    "halted": 5
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:unsupported:multi_amount after first:p0": 3,
+    "engine_contract_failure:unsupported:multi_amount after first:p1": 2
+   },
+   "rates": {
+    "natural": 0.98649,
+    "halted": 0.01351
+   },
+   "reasons": {
+    "halted:engine_contract_failure:unsupported:multi_amount": 5,
+    "natural:p0_library_empty": 6,
+    "natural:p0_life_zero": 174,
+    "natural:p1_library_empty": 7,
+    "natural:p1_life_zero": 178
+   },
+   "winners": {
+    "first:p0": 17,
+    "first:p1": 14,
+    "halted": 5,
+    "uniform:p0": 168,
+    "uniform:p1": 166
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 203697,
+   "steps_per_game": {
+    "mean": 550.5,
+    "median": 454.0,
+    "min": 202,
+    "max": 4314
+   },
+   "groups_per_game": {
+    "mean": 526.7,
+    "median": 438.5,
+    "min": 192,
+    "max": 3922
+   },
+   "seconds_per_game": {
+    "mean": 3.8,
+    "median": 2.57,
+    "min": 1.01,
+    "max": 92.73
+   },
+   "engine_counters_games": 370
+  },
+  "standard-hu": {
+   "games": 369,
+   "classification": {
+    "natural": 361,
+    "halted": 8
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:unsupported:multi_amount after heuristic:p1": 1,
+    "engine_contract_failure:unsupported:multi_amount after uniform:p0": 3,
+    "engine_contract_failure:unsupported:multi_amount after uniform:p1": 4
+   },
+   "rates": {
+    "natural": 0.97832,
+    "halted": 0.02168
+   },
+   "reasons": {
+    "halted:engine_contract_failure:unsupported:multi_amount": 8,
+    "natural:p0_library_empty": 1,
+    "natural:p0_life_zero": 190,
+    "natural:p1_library_empty": 4,
+    "natural:p1_life_zero": 166
+   },
+   "winners": {
+    "halted": 8,
+    "heuristic:p0": 117,
+    "heuristic:p1": 127,
+    "uniform:p0": 53,
+    "uniform:p1": 64
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 184981,
+   "steps_per_game": {
+    "mean": 501.3,
+    "median": 419,
+    "min": 164,
+    "max": 2934
+   },
+   "groups_per_game": {
+    "mean": 472.3,
+    "median": 403,
+    "min": 161,
+    "max": 2569
+   },
+   "seconds_per_game": {
+    "mean": 3.5,
+    "median": 2.52,
+    "min": 0.75,
+    "max": 35.46
+   },
+   "engine_counters_games": 369
+  },
+  "standard-uu": {
+   "games": 368,
+   "classification": {
+    "natural": 359,
+    "halted": 9
+   },
+   "halt_truncation_attribution": {
+    "engine_contract_failure:unsupported:multi_amount after uniform:p0": 6,
+    "engine_contract_failure:unsupported:multi_amount after uniform:p1": 3
+   },
+   "rates": {
+    "natural": 0.97554,
+    "halted": 0.02446
+   },
+   "reasons": {
+    "halted:engine_contract_failure:unsupported:multi_amount": 9,
+    "natural:p0_library_empty": 4,
+    "natural:p0_life_zero": 169,
+    "natural:p1_library_empty": 3,
+    "natural:p1_life_zero": 183
+   },
+   "winners": {
+    "halted": 9,
+    "uniform:p0": 186,
+    "uniform:p1": 173
+   },
+   "violations": [],
+   "host_halts": 0,
+   "decisions_checked": 234825,
+   "steps_per_game": {
+    "mean": 638.1,
+    "median": 563.5,
+    "min": 200,
+    "max": 3950
+   },
+   "groups_per_game": {
+    "mean": 602.4,
+    "median": 534.0,
+    "min": 189,
+    "max": 3547
+   },
+   "seconds_per_game": {
+    "mean": 4.6,
+    "median": 3.44,
+    "min": 0.9,
+    "max": 51.92
+   },
+   "engine_counters_games": 368
+  }
+ }
+}

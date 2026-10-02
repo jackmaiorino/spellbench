@@ -1,0 +1,241 @@
+{
+ "counters": {
+  "action_not_offered:incompletable": {
+   "games": 93,
+   "total": 3027
+  },
+  "action_rejected:Activated:autopay": {
+   "games": 5,
+   "total": 11
+  },
+  "action_rejected:Activated:other": {
+   "games": 26,
+   "total": 108
+  },
+  "action_rejected:Spell:autopay": {
+   "games": 16,
+   "total": 145
+  },
+  "action_rejected_card:Burst Lightning:autopay": {
+   "games": 8,
+   "total": 87
+  },
+  "action_rejected_card:Cori-Steel Cutter:autopay": {
+   "games": 2,
+   "total": 3
+  },
+  "action_rejected_card:Fountainport:other": {
+   "games": 19,
+   "total": 96
+  },
+  "action_rejected_card:Lightning Strike:autopay": {
+   "games": 3,
+   "total": 12
+  },
+  "action_rejected_card:Monstrous Rage:autopay": {
+   "games": 5,
+   "total": 33
+  },
+  "action_rejected_card:Restless Ridgeline:autopay": {
+   "games": 1,
+   "total": 3
+  },
+  "action_rejected_card:Rockface Village:autopay": {
+   "games": 3,
+   "total": 7
+  },
+  "action_rejected_card:Rockface Village:other": {
+   "games": 7,
+   "total": 12
+  },
+  "action_rejected_card:Seek the Beast:autopay": {
+   "games": 1,
+   "total": 7
+  },
+  "action_rejected_card:Witchstalker Frenzy:autopay": {
+   "games": 2,
+   "total": 4
+  },
+  "autopay": {
+   "games": 200,
+   "total": 7482
+  },
+  "autopay_choice": {
+   "games": 21,
+   "total": 44
+  },
+  "autopay_failed": {
+   "games": 19,
+   "total": 156
+  },
+  "blockers_called:1:0": {
+   "games": 193,
+   "total": 559
+  },
+  "blockers_called:2:0": {
+   "games": 161,
+   "total": 305
+  },
+  "blockers_called:3:0": {
+   "games": 113,
+   "total": 151
+  },
+  "blockers_called:4:0": {
+   "games": 46,
+   "total": 48
+  },
+  "blockers_called:5:0": {
+   "games": 8,
+   "total": 8
+  },
+  "blockers_called:6:0": {
+   "games": 2,
+   "total": 2
+  },
+  "blockers_called:7:0": {
+   "games": 2,
+   "total": 2
+  },
+  "choice_hash_order_sorted": {
+   "games": 54,
+   "total": 256
+  },
+  "choose_option_site:GainsChoiceOfAbilitiesEffect": {
+   "games": 54,
+   "total": 256
+  },
+  "choose_use_site:may_ability:ExploreSourceEffect": {
+   "games": 49,
+   "total": 60
+  },
+  "choose_use_site:optional_trigger:CreateTokenAttachSourceEffect": {
+   "games": 20,
+   "total": 26
+  },
+  "combat_oracle_leaf": {
+   "games": 200,
+   "total": 5252
+  },
+  "mode_unpayable": {
+   "games": 14,
+   "total": 27
+  },
+  "optional_cost_unpayable:kicker": {
+   "games": 69,
+   "total": 178
+  },
+  "optional_cost_unpayable:offspring": {
+   "games": 50,
+   "total": 66
+  },
+  "optional_cost_unpayable:unless_payment": {
+   "games": 13,
+   "total": 13
+  },
+  "posed:arrange_card:surveil": {
+   "games": 74,
+   "total": 193
+  },
+  "posed:choose_boolean:may_ability": {
+   "games": 49,
+   "total": 60
+  },
+  "posed:choose_boolean:optional_trigger": {
+   "games": 20,
+   "total": 26
+  },
+  "posed:choose_cost_target:sacrifice": {
+   "games": 26,
+   "total": 47
+  },
+  "posed:choose_option": {
+   "games": 54,
+   "total": 256
+  },
+  "posed:choose_spell_mode": {
+   "games": 64,
+   "total": 85
+  },
+  "posed:choose_target:destroy": {
+   "games": 93,
+   "total": 246
+  },
+  "posed:choose_target:discard": {
+   "games": 17,
+   "total": 23
+  },
+  "posed:choose_target:exile": {
+   "games": 83,
+   "total": 138
+  },
+  "posed:choose_target:other": {
+   "games": 191,
+   "total": 1137
+  },
+  "posed:choose_target:tap": {
+   "games": 27,
+   "total": 44
+  },
+  "posed:declare_attack": {
+   "games": 200,
+   "total": 3811
+  },
+  "posed:mulligan": {
+   "games": 200,
+   "total": 609
+  },
+  "posed:optional_cost:kicker": {
+   "games": 73,
+   "total": 186
+  },
+  "posed:optional_cost:offspring": {
+   "games": 65,
+   "total": 88
+  },
+  "posed:optional_cost:unless_payment": {
+   "games": 14,
+   "total": 14
+  },
+  "posed:order_pick:arrangement": {
+   "games": 34,
+   "total": 59
+  },
+  "posed:order_pick:mulligan_bottom": {
+   "games": 94,
+   "total": 212
+  },
+  "posed:order_pick:triggers": {
+   "games": 135,
+   "total": 501
+  },
+  "posed:priority": {
+   "games": 200,
+   "total": 85386
+  },
+  "posed:select_object:discard": {
+   "games": 200,
+   "total": 2056
+  },
+  "posed:select_object:exile": {
+   "games": 83,
+   "total": 137
+  },
+  "posed:select_object:other": {
+   "games": 12,
+   "total": 12
+  },
+  "posed:select_object:return_to_hand": {
+   "games": 33,
+   "total": 40
+  },
+  "rewind": {
+   "games": 41,
+   "total": 264
+  },
+  "single_candidate": {
+   "games": 200,
+   "total": 74882
+  }
+ },
+ "games": 200
+}

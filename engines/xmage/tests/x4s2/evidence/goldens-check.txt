@@ -1,0 +1,6 @@
+{"golden": "xmage_library_bottom.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:e2a083b648a18f1e45ecb20772ab3ec13dc593d9f4e726d057f9b775089a3f9f", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_library_top.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:2af4b8a81788fc6ab3d4445462093f9fc9ff3d47288ccee5b1d6d5c055d65133", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_london_bottom.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:fefd5b2338a216e63fd220b480a203b8ead14e77c7c198a547dca4ff4c029af1", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_scry.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:e2f9cb5c98245bb40fa1518802723feb120a8faf7ba9c967225d7367a6585683", "digest_equal": true, "verdict": "PASS"}
+{"golden": "xmage_surveil.transcript.jsonl", "engine_replay_differences": [], "host_replay_rows_equal": true, "digest": "sha256:92cc32cd4072d37cc9391c02065962d12d2678c4681daaa000e0f30750bc5aca", "digest_equal": true, "verdict": "PASS"}
+goldens check verdict: PASS

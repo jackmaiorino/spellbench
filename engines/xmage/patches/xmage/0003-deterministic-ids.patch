@@ -1,0 +1,894 @@
+X-P3 deterministic-ids against XMage fd40ad5c29a92cef824cf12ba6d0e4daa25db975.
+Every UUID.randomUUID() in Mage, Mage.Common and Mage.Sets becomes RandomUtil.newId(); the two static random ids become name-based constants; random picks from hash-ordered collections are ordered by id first.
+Apply in order with: git apply <patch> (from the XMage source root).
+
+diff --git a/Mage.Common/src/main/java/mage/view/CardView.java b/Mage.Common/src/main/java/mage/view/CardView.java
+index fad78b3..7931790 100644
+--- a/Mage.Common/src/main/java/mage/view/CardView.java
++++ b/Mage.Common/src/main/java/mage/view/CardView.java
+@@ -185,7 +185,7 @@ public class CardView extends SimpleCardView {
+         super(cardView);
+ 
+         // generetate new ID (TODO: why new ID?)
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.parentId = cardView.parentId;
+ 
+         this.name = cardView.name;
+diff --git a/Mage.Sets/src/mage/cards/a/AstralDrift.java b/Mage.Sets/src/mage/cards/a/AstralDrift.java
+index 72c5956..26690e0 100644
+--- a/Mage.Sets/src/mage/cards/a/AstralDrift.java
++++ b/Mage.Sets/src/mage/cards/a/AstralDrift.java
+@@ -116,7 +116,7 @@ class AstralDriftEffect extends OneShotEffect {
+         if (permanent == null) {
+             return true;
+         }
+-        UUID exileId = UUID.randomUUID();
++        UUID exileId = mage.util.RandomUtil.newId();
+         if (!controller.moveCardsToExile(permanent, source, game, true, exileId, sourceObject.getIdName())) {
+             return true;
+         }
+diff --git a/Mage.Sets/src/mage/cards/a/AstralSlide.java b/Mage.Sets/src/mage/cards/a/AstralSlide.java
+index c39c982..44a6b04 100644
+--- a/Mage.Sets/src/mage/cards/a/AstralSlide.java
++++ b/Mage.Sets/src/mage/cards/a/AstralSlide.java
+@@ -61,7 +61,7 @@ class AstralSlideEffect extends OneShotEffect {
+         if (controller != null && sourceObject != null) {
+             Permanent permanent = game.getPermanent(getTargetPointer().getFirst(game, source));
+             if (permanent != null) {
+-                UUID exileId = UUID.randomUUID();
++                UUID exileId = mage.util.RandomUtil.newId();
+                 if (controller.moveCardsToExile(permanent, source, game, true, exileId, sourceObject.getIdName())) {
+                     //create delayed triggered ability
+                     Effect effect = new ReturnToBattlefieldUnderOwnerControlTargetEffect(false, false);
+diff --git a/Mage.Sets/src/mage/cards/b/Backslide.java b/Mage.Sets/src/mage/cards/b/Backslide.java
+index ad4b9c5..0279d7e 100644
+--- a/Mage.Sets/src/mage/cards/b/Backslide.java
++++ b/Mage.Sets/src/mage/cards/b/Backslide.java
+@@ -74,7 +74,7 @@ class BackslideEffect extends OneShotEffect {
+ 
+     @Override
+     public boolean apply(Game game, Ability source) {
+-        Predicate pred = new PermanentIdPredicate(UUID.randomUUID());
++        Predicate pred = new PermanentIdPredicate(mage.util.RandomUtil.newId());
+         for (Target target : source.getTargets()) {
+             for (UUID targetId : target.getTargets()) {
+                 pred = Predicates.or(pred, new PermanentIdPredicate(targetId));
+diff --git a/Mage.Sets/src/mage/cards/b/BalduvianWarlord.java b/Mage.Sets/src/mage/cards/b/BalduvianWarlord.java
+index 40e0af1..6bd0645 100644
+--- a/Mage.Sets/src/mage/cards/b/BalduvianWarlord.java
++++ b/Mage.Sets/src/mage/cards/b/BalduvianWarlord.java
+@@ -141,7 +141,7 @@ class BalduvianWarlordUnblockEffect extends OneShotEffect {
+                                         game.fireEvent(GameEvent.getEvent(GameEvent.EventType.CREATURE_BLOCKED, bandedId, source, null));
+                                     }
+                                 }
+-                                String key = UUID.randomUUID().toString();
++                                String key = mage.util.RandomUtil.newId().toString();
+                                 game.getState().setValue("becameBlocked_" + key, morSet);
+                                 game.fireEvent(GameEvent.getEvent(
+                                         GameEvent.EventType.BATCH_BLOCK_NONCOMBAT,
+diff --git a/Mage.Sets/src/mage/cards/e/EzurisPredation.java b/Mage.Sets/src/mage/cards/e/EzurisPredation.java
+index a478c3c..6e3055c 100644
+--- a/Mage.Sets/src/mage/cards/e/EzurisPredation.java
++++ b/Mage.Sets/src/mage/cards/e/EzurisPredation.java
+@@ -98,7 +98,7 @@ class EzurisPredationEffect extends OneShotEffect {
+                         game.informPlayers(token.getLogName() + " fights " + opponentCreature.getLogName());
+                     }
+                 }
+-                String data = UUID.randomUUID().toString();
++                String data = mage.util.RandomUtil.newId().toString();
+                 game.getState().setValue("batchFight_" + data, morSet);
+                 game.fireEvent(GameEvent.getEvent(GameEvent.EventType.BATCH_FIGHT, getId(), source, source.getControllerId(), data, 0));
+             }
+diff --git a/Mage.Sets/src/mage/cards/f/FalseOrders.java b/Mage.Sets/src/mage/cards/f/FalseOrders.java
+index 4842979..55d46c0 100644
+--- a/Mage.Sets/src/mage/cards/f/FalseOrders.java
++++ b/Mage.Sets/src/mage/cards/f/FalseOrders.java
+@@ -158,7 +158,7 @@ class FalseOrdersUnblockEffect extends OneShotEffect {
+                         game.fireEvent(GameEvent.getEvent(GameEvent.EventType.CREATURE_BLOCKED, bandedId, source, null));
+                     }
+                 }
+-                String key = UUID.randomUUID().toString();
++                String key = mage.util.RandomUtil.newId().toString();
+                 game.getState().setValue("becameBlocked_" + key, morSet);
+                 game.fireEvent(GameEvent.getEvent(
+                         GameEvent.EventType.BATCH_BLOCK_NONCOMBAT,
+diff --git a/Mage.Sets/src/mage/cards/f/FireLordOzai.java b/Mage.Sets/src/mage/cards/f/FireLordOzai.java
+index d161173..92fa7ac 100644
+--- a/Mage.Sets/src/mage/cards/f/FireLordOzai.java
++++ b/Mage.Sets/src/mage/cards/f/FireLordOzai.java
+@@ -185,7 +185,7 @@ class FireLordOzaiWatcher extends Watcher {
+ 
+     static void storeCardInfo(Cards cards, Game game, Ability source) {
+         FireLordOzaiWatcher watcher = game.getState().getWatcher(FireLordOzaiWatcher.class);
+-        UUID token = UUID.randomUUID();
++        UUID token = mage.util.RandomUtil.newId();
+         watcher.tokenMap.computeIfAbsent(source.getControllerId(), x -> new HashMap<>());
+         for (UUID cardId : cards) {
+             watcher.tokenMap.get(source.getControllerId()).put(cardId, token);
+diff --git a/Mage.Sets/src/mage/cards/f/Flickerform.java b/Mage.Sets/src/mage/cards/f/Flickerform.java
+index 235671b..8a2d17f 100644
+--- a/Mage.Sets/src/mage/cards/f/Flickerform.java
++++ b/Mage.Sets/src/mage/cards/f/Flickerform.java
+@@ -94,7 +94,7 @@ class FlickerformEffect extends OneShotEffect {
+         if (enchantment != null && enchantment.getAttachedTo() != null) {
+             Permanent enchantedCreature = game.getPermanent(enchantment.getAttachedTo());
+             if (enchantedCreature != null) {
+-                UUID exileZoneId = UUID.randomUUID();
++                UUID exileZoneId = mage.util.RandomUtil.newId();
+                 enchantedCreature.moveToExile(exileZoneId, enchantment.getName(), source, game);
+                 for (UUID attachementId : enchantedCreature.getAttachments()) {
+                     Permanent attachment = game.getPermanent(attachementId);
+diff --git a/Mage.Sets/src/mage/cards/i/IllithidHarvester.java b/Mage.Sets/src/mage/cards/i/IllithidHarvester.java
+index 06027da..33ea30b 100644
+--- a/Mage.Sets/src/mage/cards/i/IllithidHarvester.java
++++ b/Mage.Sets/src/mage/cards/i/IllithidHarvester.java
+@@ -94,7 +94,7 @@ class IllithidHarvesterEffect extends OneShotEffect {
+ 
+     @Override
+     public boolean apply(Game game, Ability source) {
+-        Predicate<Permanent> pred = new PermanentIdPredicate(UUID.randomUUID());
++        Predicate<Permanent> pred = new PermanentIdPredicate(mage.util.RandomUtil.newId());
+         for (Target target : source.getTargets()) {
+             for (UUID targetId : target.getTargets()) {
+                 if (!game.getPermanent(targetId).isTransformable()) {
+diff --git a/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java b/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
+index ae57185..5e1b1fd 100644
+--- a/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
++++ b/Mage.Sets/src/mage/cards/j/JeskaiInfiltrator.java
+@@ -74,7 +74,7 @@ class JeskaiInfiltratorEffect extends OneShotEffect {
+         if (controller == null) {
+             return false;
+         }
+-        UUID exileId = UUID.randomUUID();
++        UUID exileId = mage.util.RandomUtil.newId();
+         Permanent sourcePermanent = source.getSourcePermanentIfItStillExists(game);
+         if (sourcePermanent != null) {
+             controller.moveCardsToExile(sourcePermanent, source, game, false, exileId, "");
+diff --git a/Mage.Sets/src/mage/cards/l/LockeTreasureHunter.java b/Mage.Sets/src/mage/cards/l/LockeTreasureHunter.java
+index 3ba3647..aaf12a9 100644
+--- a/Mage.Sets/src/mage/cards/l/LockeTreasureHunter.java
++++ b/Mage.Sets/src/mage/cards/l/LockeTreasureHunter.java
+@@ -186,7 +186,7 @@ class LockeTreasureHunterWatcher extends Watcher {
+     }
+ 
+     private void handleSaveCards(Cards cards, Game game, Ability source) {
+-        UUID permissionId = UUID.randomUUID();
++        UUID permissionId = mage.util.RandomUtil.newId();
+         playerPermissionMap.put(permissionId, source.getControllerId());
+         Condition condition = new LockeTreasureHunterCondition(permissionId);
+         for (Card card : cards.getCards(game)) {
+diff --git a/Mage.Sets/src/mage/cards/m/MasterOfTheVeil.java b/Mage.Sets/src/mage/cards/m/MasterOfTheVeil.java
+index cee6f88..5166f91 100644
+--- a/Mage.Sets/src/mage/cards/m/MasterOfTheVeil.java
++++ b/Mage.Sets/src/mage/cards/m/MasterOfTheVeil.java
+@@ -80,7 +80,7 @@ class MasterOfTheVeilEffect extends OneShotEffect {
+ 
+     @Override
+     public boolean apply(Game game, Ability source) {
+-        Predicate pred = new PermanentIdPredicate(UUID.randomUUID());
++        Predicate pred = new PermanentIdPredicate(mage.util.RandomUtil.newId());
+         for (Target target : source.getTargets()) {
+             for (UUID targetId : target.getTargets()) {
+                 pred = Predicates.or(pred, new PermanentIdPredicate(targetId));
+diff --git a/Mage.Sets/src/mage/cards/p/PheliaExuberantShepherd.java b/Mage.Sets/src/mage/cards/p/PheliaExuberantShepherd.java
+index 851b8af..dd4eb1b 100644
+--- a/Mage.Sets/src/mage/cards/p/PheliaExuberantShepherd.java
++++ b/Mage.Sets/src/mage/cards/p/PheliaExuberantShepherd.java
+@@ -87,7 +87,7 @@ class PheliaExuberantShepherdExileEffect extends ExileTargetEffect {
+     @Override
+     public boolean apply(Game game, Ability source) {
+         MageObject sourceObject = source.getSourceObject(game);
+-        this.exileId = UUID.randomUUID();
++        this.exileId = mage.util.RandomUtil.newId();
+         this.exileZone = sourceObject == null ? null : sourceObject.getIdName();
+         // attempting to exile to the fresh exileId
+         boolean didSomething = super.apply(game, source);
+diff --git a/Mage.Sets/src/mage/cards/p/PyxisOfPandemonium.java b/Mage.Sets/src/mage/cards/p/PyxisOfPandemonium.java
+index f6f86ab..d1cd49d 100644
+--- a/Mage.Sets/src/mage/cards/p/PyxisOfPandemonium.java
++++ b/Mage.Sets/src/mage/cards/p/PyxisOfPandemonium.java
+@@ -93,7 +93,7 @@ class PyxisOfPandemoniumExileEffect extends OneShotEffect {
+                                 + CardUtil.getExileZoneId(game,
+                                         source.getSourceId(),
+                                         pyxis.getZoneChangeCounter(game));
+-                        UUID exileId = exileIds.computeIfAbsent(exileKey, k -> UUID.randomUUID());
++                        UUID exileId = exileIds.computeIfAbsent(exileKey, k -> mage.util.RandomUtil.newId());
+                         player.moveCardsToExile(card, source, game, false,
+                                 exileId, pyxis.getIdName() + " (" + player.getName() + ')');
+                         card.setFaceDown(true, game);
+diff --git a/Mage.Sets/src/mage/cards/s/SalvationSwan.java b/Mage.Sets/src/mage/cards/s/SalvationSwan.java
+index ca974d0..b349d90 100644
+--- a/Mage.Sets/src/mage/cards/s/SalvationSwan.java
++++ b/Mage.Sets/src/mage/cards/s/SalvationSwan.java
+@@ -108,7 +108,7 @@ class SalvationSwanTargetEffect extends OneShotEffect {
+ 
+         // exile card
+         // use workaround with temp zone to get all moved objects like melded parts
+-        ExileZone tempExileZone = game.getExile().createZone(UUID.randomUUID(), "temp");
++        ExileZone tempExileZone = game.getExile().createZone(mage.util.RandomUtil.newId(), "temp");
+         permanent.moveToExile(tempExileZone.getId(), tempExileZone.getName(), source, game);
+         // TODO: delete temp zone somehow?
+ 
+diff --git a/Mage.Sets/src/mage/cards/s/SorrowsPath.java b/Mage.Sets/src/mage/cards/s/SorrowsPath.java
+index 6bdf665..096c816 100644
+--- a/Mage.Sets/src/mage/cards/s/SorrowsPath.java
++++ b/Mage.Sets/src/mage/cards/s/SorrowsPath.java
+@@ -130,7 +130,7 @@ class SorrowsPathSwitchBlockersEffect extends OneShotEffect {
+                         .stream()
+                         .map(permanent -> new MageObjectReference(permanent, game))
+                         .forEach(morSet::add);
+-                String key = UUID.randomUUID().toString();
++                String key = mage.util.RandomUtil.newId().toString();
+                 game.getState().setValue("becameBlocked_" + key, morSet);
+                 game.fireEvent(GameEvent.getEvent(
+                         GameEvent.EventType.BATCH_BLOCK_NONCOMBAT,
+diff --git a/Mage.Sets/src/mage/cards/s/StruggleForSanity.java b/Mage.Sets/src/mage/cards/s/StruggleForSanity.java
+index ba2fc32..afee3f5 100644
+--- a/Mage.Sets/src/mage/cards/s/StruggleForSanity.java
++++ b/Mage.Sets/src/mage/cards/s/StruggleForSanity.java
+@@ -71,9 +71,9 @@ class StruggleForSanityEffect extends OneShotEffect {
+ 
+         Cards cardsLeft = new CardsImpl(targetPlayer.getHand());
+         Cards exiledByController = new CardsImpl();
+-        UUID exileZoneController = UUID.randomUUID();
++        UUID exileZoneController = mage.util.RandomUtil.newId();
+         Cards exiledByOpponent = new CardsImpl();
+-        UUID exileZoneOpponent = UUID.randomUUID();
++        UUID exileZoneOpponent = mage.util.RandomUtil.newId();
+         boolean opponentsChoice = true;
+         TargetCard target = new TargetCard(Zone.HAND, new FilterCard("a card to exile"));
+         while (!cardsLeft.isEmpty()) {
+diff --git a/Mage.Sets/src/mage/cards/t/TheEternalWanderer.java b/Mage.Sets/src/mage/cards/t/TheEternalWanderer.java
+index 3b48821..3096b37 100644
+--- a/Mage.Sets/src/mage/cards/t/TheEternalWanderer.java
++++ b/Mage.Sets/src/mage/cards/t/TheEternalWanderer.java
+@@ -100,7 +100,7 @@ class TheEternalWandererExileEffect extends OneShotEffect {
+         if (controller != null && sourceObject != null) {
+             Permanent permanent = game.getPermanent(getTargetPointer().getFirst(game, source));
+             if (permanent != null) {
+-                UUID exileId = UUID.randomUUID();
++                UUID exileId = mage.util.RandomUtil.newId();
+                 if (controller.moveCardsToExile(permanent, source, game, true, exileId, sourceObject.getIdName())) {
+                     //create delayed triggered ability
+                     Effect effect = new ReturnToBattlefieldUnderOwnerControlTargetEffect(false, false);
+diff --git a/Mage.Sets/src/mage/cards/w/WeaverOfLies.java b/Mage.Sets/src/mage/cards/w/WeaverOfLies.java
+index 23d2e47..2ffb07c 100644
+--- a/Mage.Sets/src/mage/cards/w/WeaverOfLies.java
++++ b/Mage.Sets/src/mage/cards/w/WeaverOfLies.java
+@@ -80,7 +80,7 @@ class WeaverOfLiesEffect extends OneShotEffect {
+ 
+     @Override
+     public boolean apply(Game game, Ability source) {
+-        Predicate pred = new PermanentIdPredicate(UUID.randomUUID());
++        Predicate pred = new PermanentIdPredicate(mage.util.RandomUtil.newId());
+         for (Target target : source.getTargets()) {
+             for (UUID targetId : target.getTargets()) {
+                 pred = Predicates.or(pred, new PermanentIdPredicate(targetId));
+diff --git a/Mage/src/main/java/mage/MageObjectImpl.java b/Mage/src/main/java/mage/MageObjectImpl.java
+index 51a2dd4..2751b8f 100644
+--- a/Mage/src/main/java/mage/MageObjectImpl.java
++++ b/Mage/src/main/java/mage/MageObjectImpl.java
+@@ -55,7 +55,7 @@ public abstract class MageObjectImpl implements MageObject {
+     protected MageObject copyFrom; // copied card INFO (used to call original adjusters)
+ 
+     public MageObjectImpl() {
+-        this(UUID.randomUUID());
++        this(mage.util.RandomUtil.newId());
+     }
+ 
+     public MageObjectImpl(UUID id) {
+diff --git a/Mage/src/main/java/mage/abilities/AbilityImpl.java b/Mage/src/main/java/mage/abilities/AbilityImpl.java
+index b4bda22..f176b81 100644
+--- a/Mage/src/main/java/mage/abilities/AbilityImpl.java
++++ b/Mage/src/main/java/mage/abilities/AbilityImpl.java
+@@ -99,7 +99,7 @@ public abstract class AbilityImpl implements Ability {
+     private Map<String, Object> costsTagMap = null;
+ 
+     protected AbilityImpl(AbilityType abilityType, Zone zone) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.originalId = id;
+         this.abilityType = abilityType;
+         this.zone = zone;
+@@ -155,7 +155,7 @@ public abstract class AbilityImpl implements Ability {
+     @Override
+     public void newId() {
+         if (!(this instanceof MageSingleton)) {
+-            this.id = UUID.randomUUID();
++            this.id = mage.util.RandomUtil.newId();
+         }
+         getEffects().newId();
+ 
+@@ -166,7 +166,7 @@ public abstract class AbilityImpl implements Ability {
+ 
+     @Override
+     public void newOriginalId() {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.originalId = id;
+         getEffects().newId();
+     }
+diff --git a/Mage/src/main/java/mage/abilities/Mode.java b/Mage/src/main/java/mage/abilities/Mode.java
+index 20b9bb1..98b7bce 100644
+--- a/Mage/src/main/java/mage/abilities/Mode.java
++++ b/Mage/src/main/java/mage/abilities/Mode.java
+@@ -28,7 +28,7 @@ public class Mode implements Serializable {
+     protected String modeTag;
+ 
+     public Mode(Effect effect) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.targets = new Targets();
+         this.effects = new Effects();
+         if (effect != null) {
+@@ -47,7 +47,7 @@ public class Mode implements Serializable {
+     }
+ 
+     public UUID setRandomId() {
+-        return this.id = UUID.randomUUID();
++        return this.id = mage.util.RandomUtil.newId();
+     }
+ 
+     public Mode copy() {
+diff --git a/Mage/src/main/java/mage/abilities/common/LicidAbility.java b/Mage/src/main/java/mage/abilities/common/LicidAbility.java
+index 2c84fe0..b435542 100644
+--- a/Mage/src/main/java/mage/abilities/common/LicidAbility.java
++++ b/Mage/src/main/java/mage/abilities/common/LicidAbility.java
+@@ -68,7 +68,7 @@ class LicidEffect extends OneShotEffect {
+     public boolean apply(Game game, Ability source) {
+         Permanent licid = source.getSourcePermanentIfItStillExists(game);
+         if (licid != null) {
+-            UUID messageId = UUID.randomUUID();
++            UUID messageId = mage.util.RandomUtil.newId();
+             LicidContinuousEffect effect = new LicidContinuousEffect(messageId);
+             effect.setTargetPointer(new FixedTarget(licid, game));
+             game.addEffect(effect, source);
+diff --git a/Mage/src/main/java/mage/abilities/common/LinkedEffectIdStaticAbility.java b/Mage/src/main/java/mage/abilities/common/LinkedEffectIdStaticAbility.java
+index 81faea7..1df85ce 100644
+--- a/Mage/src/main/java/mage/abilities/common/LinkedEffectIdStaticAbility.java
++++ b/Mage/src/main/java/mage/abilities/common/LinkedEffectIdStaticAbility.java
+@@ -41,14 +41,14 @@ public class LinkedEffectIdStaticAbility extends SimpleStaticAbility {
+ 
+     public LinkedEffectIdStaticAbility(Zone zone, ChildEffect effect) {
+         super(Zone.BATTLEFIELD, effect);
+-        this.linkedHandshake = UUID.randomUUID();
++        this.linkedHandshake = mage.util.RandomUtil.newId();
+         initHandshake();
+         setEffectIdManually();
+     }
+ 
+     private LinkedEffectIdStaticAbility(final LinkedEffectIdStaticAbility effect) {
+         super(effect);
+-        this.linkedHandshake = UUID.randomUUID();
++        this.linkedHandshake = mage.util.RandomUtil.newId();
+         initHandshake();
+     }
+ 
+@@ -58,7 +58,7 @@ public class LinkedEffectIdStaticAbility extends SimpleStaticAbility {
+     }
+ 
+     private void initHandshake() {
+-        this.linkedHandshake = UUID.randomUUID();
++        this.linkedHandshake = mage.util.RandomUtil.newId();
+         CardUtil.castStream(this.getEffects().stream(), ChildEffect.class)
+                 .filter(Objects::nonNull)
+                 .forEach(e -> e.setParentLinkHandshake(linkedHandshake));
+diff --git a/Mage/src/main/java/mage/abilities/condition/common/OathbreakerOnBattlefieldCondition.java b/Mage/src/main/java/mage/abilities/condition/common/OathbreakerOnBattlefieldCondition.java
+index 760a11d..43bedc7 100644
+--- a/Mage/src/main/java/mage/abilities/condition/common/OathbreakerOnBattlefieldCondition.java
++++ b/Mage/src/main/java/mage/abilities/condition/common/OathbreakerOnBattlefieldCondition.java
+@@ -49,7 +49,7 @@ public class OathbreakerOnBattlefieldCondition implements Condition {
+ 
+         if (compatibleList.isEmpty()) {
+             // random id to disable condition
+-            this.filter.add(new PermanentIdPredicate(UUID.randomUUID()));
++            this.filter.add(new PermanentIdPredicate(mage.util.RandomUtil.newId()));
+         } else {
+             // oathbreaker on battlefield
+             this.filter.add(Predicates.or(compatibleList));
+diff --git a/Mage/src/main/java/mage/abilities/costs/CostImpl.java b/Mage/src/main/java/mage/abilities/costs/CostImpl.java
+index 45fdd1a..83401c7 100644
+--- a/Mage/src/main/java/mage/abilities/costs/CostImpl.java
++++ b/Mage/src/main/java/mage/abilities/costs/CostImpl.java
+@@ -15,7 +15,7 @@ public abstract class CostImpl implements Cost {
+     private Targets targets;
+ 
+     public CostImpl() {
+-        id = UUID.randomUUID();
++        id = mage.util.RandomUtil.newId();
+         paid = false;
+         targets = null; // rare usage, must be null by default for performance optimization
+     }
+diff --git a/Mage/src/main/java/mage/abilities/costs/VariableCostImpl.java b/Mage/src/main/java/mage/abilities/costs/VariableCostImpl.java
+index d08ff68..49dcffd 100644
+--- a/Mage/src/main/java/mage/abilities/costs/VariableCostImpl.java
++++ b/Mage/src/main/java/mage/abilities/costs/VariableCostImpl.java
+@@ -34,7 +34,7 @@ public abstract class VariableCostImpl implements Cost, VariableCost {
+      *                   from your graveyard")
+      */
+     public VariableCostImpl(VariableCostType costType, String xText, String actionText) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.costType = costType;
+         this.paid = false;
+         this.targets = null; // rare usage, must be null by default for performance optimization
+diff --git a/Mage/src/main/java/mage/abilities/costs/mana/ManaCostsImpl.java b/Mage/src/main/java/mage/abilities/costs/mana/ManaCostsImpl.java
+index 27fade9..6240e64 100644
+--- a/Mage/src/main/java/mage/abilities/costs/mana/ManaCostsImpl.java
++++ b/Mage/src/main/java/mage/abilities/costs/mana/ManaCostsImpl.java
+@@ -41,11 +41,11 @@ public class ManaCostsImpl<T extends ManaCost> extends ArrayList<T> implements M
+     private static final Map<String, ManaCosts> costsCache = new ConcurrentHashMap<>(); // must be thread safe, can't use nulls
+ 
+     public ManaCostsImpl() {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+     }
+ 
+     public ManaCostsImpl(String mana) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         load(mana);
+     }
+ 
+diff --git a/Mage/src/main/java/mage/abilities/effects/EffectImpl.java b/Mage/src/main/java/mage/abilities/effects/EffectImpl.java
+index cfe0170..2b67777 100644
+--- a/Mage/src/main/java/mage/abilities/effects/EffectImpl.java
++++ b/Mage/src/main/java/mage/abilities/effects/EffectImpl.java
+@@ -29,7 +29,7 @@ public abstract class EffectImpl implements Effect {
+     protected String concatPrefix = ""; // combines multiple effects in text rule
+ 
+     public EffectImpl(Outcome outcome) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.outcome = outcome;
+ 
+         initNewTargetPointer();
+@@ -113,7 +113,7 @@ public abstract class EffectImpl implements Effect {
+     @Override
+     public void newId() {
+         if (!(this instanceof MageSingleton)) {
+-            this.id = UUID.randomUUID();
++            this.id = mage.util.RandomUtil.newId();
+         }
+     }
+ 
+diff --git a/Mage/src/main/java/mage/abilities/effects/common/BecomeBlockedTargetEffect.java b/Mage/src/main/java/mage/abilities/effects/common/BecomeBlockedTargetEffect.java
+index 2da1039..004cc8e 100644
+--- a/Mage/src/main/java/mage/abilities/effects/common/BecomeBlockedTargetEffect.java
++++ b/Mage/src/main/java/mage/abilities/effects/common/BecomeBlockedTargetEffect.java
+@@ -52,7 +52,7 @@ public class BecomeBlockedTargetEffect extends OneShotEffect {
+             game.fireEvent(GameEvent.getEvent(GameEvent.EventType.CREATURE_BLOCKED, permanent.getId(), source, null));
+             morSet.add(new MageObjectReference(permanent, game));
+         }
+-        String key = UUID.randomUUID().toString();
++        String key = mage.util.RandomUtil.newId().toString();
+         game.getState().setValue("becameBlocked_" + key, morSet);
+         game.fireEvent(GameEvent.getEvent(
+                 GameEvent.EventType.BATCH_BLOCK_NONCOMBAT,
+diff --git a/Mage/src/main/java/mage/abilities/effects/common/PreventAllDamageToAllEffect.java b/Mage/src/main/java/mage/abilities/effects/common/PreventAllDamageToAllEffect.java
+index c9973af..7c65236 100644
+--- a/Mage/src/main/java/mage/abilities/effects/common/PreventAllDamageToAllEffect.java
++++ b/Mage/src/main/java/mage/abilities/effects/common/PreventAllDamageToAllEffect.java
+@@ -62,12 +62,12 @@ public class PreventAllDamageToAllEffect extends PreventionEffectImpl {
+         FilterPermanent filter1 = filterPermanent;
+         if (filter1 == null) {
+             filter1 = new FilterPermanent();
+-            filter1.add(new PermanentIdPredicate(UUID.randomUUID())); // disable filter
++            filter1.add(new PermanentIdPredicate(mage.util.RandomUtil.newId())); // disable filter
+         }
+         FilterPlayer filter2 = filterPlayer;
+         if (filter2 == null) {
+             filter2 = new FilterPlayer();
+-            filter2.add(new PlayerIdPredicate(UUID.randomUUID())); // disable filter
++            filter2.add(new PlayerIdPredicate(mage.util.RandomUtil.newId())); // disable filter
+         }
+ 
+         return new FilterPermanentOrPlayer(message, filter1, filter2);
+diff --git a/Mage/src/main/java/mage/abilities/keyword/ConspireAbility.java b/Mage/src/main/java/mage/abilities/keyword/ConspireAbility.java
+index 6349655..259583a 100644
+--- a/Mage/src/main/java/mage/abilities/keyword/ConspireAbility.java
++++ b/Mage/src/main/java/mage/abilities/keyword/ConspireAbility.java
+@@ -79,7 +79,7 @@ public class ConspireAbility extends StaticAbility implements OptionalAdditional
+      */
+     public ConspireAbility(ConspireTargets conspireTargets) {
+         super(Zone.STACK, null);
+-        this.conspireId = UUID.randomUUID();
++        this.conspireId = mage.util.RandomUtil.newId();
+         reminderText = conspireTargets.getReminder();
+         this.conspireCost = new OptionalAdditionalCostImpl(
+                 keywordText, " ", reminderText,
+diff --git a/Mage/src/main/java/mage/abilities/keyword/OfferingAbility.java b/Mage/src/main/java/mage/abilities/keyword/OfferingAbility.java
+index a4e5a79..75534c3 100644
+--- a/Mage/src/main/java/mage/abilities/keyword/OfferingAbility.java
++++ b/Mage/src/main/java/mage/abilities/keyword/OfferingAbility.java
+@@ -183,7 +183,7 @@ class OfferingAsThoughEffect extends AsThoughEffectImpl {
+                     game.getState().setValue("offering_" + card.getId(), true);
+                     Permanent offer = game.getPermanent(target.getFirstTarget());
+                     if (offer != null) {
+-                        UUID activationId = UUID.randomUUID();
++                        UUID activationId = mage.util.RandomUtil.newId();
+                         OfferingCostReductionEffect effect = new OfferingCostReductionEffect(activationId);
+                         effect.setTargetPointer(new FixedTarget(offer, game));
+                         game.addEffect(effect, source);
+diff --git a/Mage/src/main/java/mage/abilities/keyword/PlotAbility.java b/Mage/src/main/java/mage/abilities/keyword/PlotAbility.java
+index 93375e7..707d9ee 100644
+--- a/Mage/src/main/java/mage/abilities/keyword/PlotAbility.java
++++ b/Mage/src/main/java/mage/abilities/keyword/PlotAbility.java
+@@ -90,7 +90,7 @@ public class PlotAbility extends SpecialAction {
+     static UUID getPlotExileId(UUID playerId, Game game) {
+         UUID exileId = (UUID) game.getState().getValue("PlotExileId" + playerId.toString());
+         if (exileId == null) {
+-            exileId = UUID.randomUUID();
++            exileId = mage.util.RandomUtil.newId();
+             game.getState().setValue("PlotExileId" + playerId, exileId);
+         }
+         return exileId;
+diff --git a/Mage/src/main/java/mage/abilities/keyword/ProtectionAbility.java b/Mage/src/main/java/mage/abilities/keyword/ProtectionAbility.java
+index b7a18d1..fd8a3e5 100644
+--- a/Mage/src/main/java/mage/abilities/keyword/ProtectionAbility.java
++++ b/Mage/src/main/java/mage/abilities/keyword/ProtectionAbility.java
+@@ -110,7 +110,7 @@ public class ProtectionAbility extends StaticAbility {
+                 // make fake permanent cause it checked before real permanent create
+                 // warning, Token don't have controllerId info, so it can be a problem here
+                 // TODO: wtf, possible bugged for filters that checking controller/player (if so then use with controllerId param)
+-                PermanentToken fakePermanent = new PermanentToken((Token) source, UUID.randomUUID(), game);
++                PermanentToken fakePermanent = new PermanentToken((Token) source, mage.util.RandomUtil.newId(), game);
+                 return !((FilterCard) filter).match(fakePermanent, game);
+             }
+             return true;
+diff --git a/Mage/src/main/java/mage/abilities/keyword/SuspendAbility.java b/Mage/src/main/java/mage/abilities/keyword/SuspendAbility.java
+index 47408ef..2f8a5df 100644
+--- a/Mage/src/main/java/mage/abilities/keyword/SuspendAbility.java
++++ b/Mage/src/main/java/mage/abilities/keyword/SuspendAbility.java
+@@ -201,7 +201,7 @@ public class SuspendAbility extends SpecialAction {
+     public static UUID getSuspendExileId(UUID controllerId, Game game) {
+         UUID exileId = (UUID) game.getState().getValue("SuspendExileId" + controllerId.toString());
+         if (exileId == null) {
+-            exileId = UUID.randomUUID();
++            exileId = mage.util.RandomUtil.newId();
+             game.getState().setValue("SuspendExileId" + controllerId, exileId);
+         }
+         return exileId;
+diff --git a/Mage/src/main/java/mage/cards/CardImpl.java b/Mage/src/main/java/mage/cards/CardImpl.java
+index ab184eb..f47d0ae 100644
+--- a/Mage/src/main/java/mage/cards/CardImpl.java
++++ b/Mage/src/main/java/mage/cards/CardImpl.java
+@@ -145,7 +145,7 @@ public abstract class CardImpl extends MageObjectImpl implements Card {
+ 
+     @Override
+     public void assignNewId() {
+-        this.objectId = UUID.randomUUID();
++        this.objectId = mage.util.RandomUtil.newId();
+         this.abilities.newOriginalId();
+         this.abilities.setSourceId(objectId);
+         if (this.spellAbility != null) {
+diff --git a/Mage/src/main/java/mage/collectors/services/SaveGameHistoryDataCollector.java b/Mage/src/main/java/mage/collectors/services/SaveGameHistoryDataCollector.java
+index b1387ff..12fa3d4 100644
+--- a/Mage/src/main/java/mage/collectors/services/SaveGameHistoryDataCollector.java
++++ b/Mage/src/main/java/mage/collectors/services/SaveGameHistoryDataCollector.java
+@@ -82,7 +82,7 @@ public class SaveGameHistoryDataCollector extends EmptyDataCollector {
+     private static final String GAME_CHAT_FILE_NAME = "game_chat.txt";
+     private static final String GAME_RESOLVE_LOGS_FILE_NAME = "game_resolve_logs.jsonl";
+ 
+-    private static final UUID NO_TABLE_ID = UUID.randomUUID();
++    private static final UUID NO_TABLE_ID = UUID.nameUUIDFromBytes("mage.collectors.services.SaveGameHistoryDataCollector.NO_TABLE_ID".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+     private static final String NO_TABLE_NAME = "SINGLE"; // need for unit tests
+ 
+     // global switch
+diff --git a/Mage/src/main/java/mage/designations/Designation.java b/Mage/src/main/java/mage/designations/Designation.java
+index cb76e27..e42966a 100644
+--- a/Mage/src/main/java/mage/designations/Designation.java
++++ b/Mage/src/main/java/mage/designations/Designation.java
+@@ -38,7 +38,7 @@ public abstract class Designation extends MageObjectImpl {
+     }
+ 
+     public Designation(DesignationType designationType, boolean unique) {
+-        super(UUID.randomUUID());
++        super(mage.util.RandomUtil.newId());
+         this.designationType = designationType;
+         this.unique = unique;
+         this.name = designationType.toString();
+diff --git a/Mage/src/main/java/mage/game/Exile.java b/Mage/src/main/java/mage/game/Exile.java
+index 4342443..6e60aaf 100644
+--- a/Mage/src/main/java/mage/game/Exile.java
++++ b/Mage/src/main/java/mage/game/Exile.java
+@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
+  */
+ public class Exile implements Serializable, Copyable<Exile> {
+ 
+-    private static final UUID PERMANENT = UUID.randomUUID();
++    private static final UUID PERMANENT = UUID.nameUUIDFromBytes("mage.game.Exile.PERMANENT".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+ 
+     private final Map<UUID, ExileZone> exileZones = new HashMap<>();
+ 
+diff --git a/Mage/src/main/java/mage/game/GameImpl.java b/Mage/src/main/java/mage/game/GameImpl.java
+index 192d821..d24c39b 100644
+--- a/Mage/src/main/java/mage/game/GameImpl.java
++++ b/Mage/src/main/java/mage/game/GameImpl.java
+@@ -173,7 +173,7 @@ public abstract class GameImpl implements Game {
+     private final LinkedList<UUID> concedingPlayers = new LinkedList<>();
+ 
+     public GameImpl(MultiplayerAttackOption attackOption, RangeOfInfluence range, Mulligan mulligan, int minimumDeckSize, int startingLife, int startingHandSize) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.gameIndex = GLOBAL_INDEX.incrementAndGet();
+         this.range = range;
+         this.mulligan = mulligan;
+diff --git a/Mage/src/main/java/mage/game/Table.java b/Mage/src/main/java/mage/game/Table.java
+index 1126d19..80556a2 100644
+--- a/Mage/src/main/java/mage/game/Table.java
++++ b/Mage/src/main/java/mage/game/Table.java
+@@ -75,7 +75,7 @@ public class Table implements Serializable {
+     }
+ 
+     protected Table(UUID roomId, String gameType, String name, String controllerName, DeckValidator validator, List<PlayerType> playerTypes, TableRecorder recorder, Set<String> bannedUsernames, boolean isPlaneChase) {
+-        this.tableId = UUID.randomUUID();
++        this.tableId = mage.util.RandomUtil.newId();
+         this.tableIndex = GLOBAL_INDEX.incrementAndGet();
+         this.roomId = roomId;
+         this.numSeats = playerTypes.size();
+diff --git a/Mage/src/main/java/mage/game/Team.java b/Mage/src/main/java/mage/game/Team.java
+index 6129d73..5dbdf4e 100644
+--- a/Mage/src/main/java/mage/game/Team.java
++++ b/Mage/src/main/java/mage/game/Team.java
+@@ -18,7 +18,7 @@ public class Team implements MageItem {
+     private Players players = new Players();
+ 
+     public Team (String name) {
+-        teamId = UUID.randomUUID();
++        teamId = mage.util.RandomUtil.newId();
+         this.name = name;
+     }
+ 
+diff --git a/Mage/src/main/java/mage/game/command/CommandObjectImpl.java b/Mage/src/main/java/mage/game/command/CommandObjectImpl.java
+index a06b6f4..68b395e 100644
+--- a/Mage/src/main/java/mage/game/command/CommandObjectImpl.java
++++ b/Mage/src/main/java/mage/game/command/CommandObjectImpl.java
+@@ -20,7 +20,7 @@ public abstract class CommandObjectImpl implements CommandObject {
+     private int imageNumber;
+ 
+     public CommandObjectImpl(String name) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.name = name;
+     }
+ 
+@@ -91,7 +91,7 @@ public abstract class CommandObjectImpl implements CommandObject {
+ 
+     @Override
+     public void assignNewId() {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+     }
+ 
+     @Override
+diff --git a/Mage/src/main/java/mage/game/command/DungeonRoom.java b/Mage/src/main/java/mage/game/command/DungeonRoom.java
+index 121264c..c382808 100644
+--- a/Mage/src/main/java/mage/game/command/DungeonRoom.java
++++ b/Mage/src/main/java/mage/game/command/DungeonRoom.java
+@@ -28,7 +28,7 @@ public class DungeonRoom {
+     private final RoomTriggeredAbility roomTriggeredAbility;
+ 
+     public DungeonRoom(String name, Effect... effects) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.name = name;
+         roomTriggeredAbility = new RoomTriggeredAbility(this, effects);
+     }
+diff --git a/Mage/src/main/java/mage/game/draft/DraftImpl.java b/Mage/src/main/java/mage/game/draft/DraftImpl.java
+index c0475e0..f10e125 100644
+--- a/Mage/src/main/java/mage/game/draft/DraftImpl.java
++++ b/Mage/src/main/java/mage/game/draft/DraftImpl.java
+@@ -48,7 +48,7 @@ public abstract class DraftImpl implements Draft {
+     protected ScheduledExecutorService boosterSendingExecutor = null;
+ 
+     public DraftImpl(DraftOptions options, List<ExpansionSet> sets) {
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.setCodes = options.getSetCodes();
+         this.draftCube = options.getDraftCube();
+         this.timing = options.getTiming();
+diff --git a/Mage/src/main/java/mage/game/draft/DraftPlayer.java b/Mage/src/main/java/mage/game/draft/DraftPlayer.java
+index 5f02a96..64b7ebf 100644
+--- a/Mage/src/main/java/mage/game/draft/DraftPlayer.java
++++ b/Mage/src/main/java/mage/game/draft/DraftPlayer.java
+@@ -26,7 +26,7 @@ public class DraftPlayer {
+     protected Set<UUID> hiddenCards;
+ 
+     public DraftPlayer(Player player) {
+-        id = UUID.randomUUID();
++        id = mage.util.RandomUtil.newId();
+         this.player = player;
+         this.deck = new Deck();
+         hiddenCards = new HashSet<>();
+diff --git a/Mage/src/main/java/mage/game/events/GameEvent.java b/Mage/src/main/java/mage/game/events/GameEvent.java
+index 4f021a1..37389ed 100644
+--- a/Mage/src/main/java/mage/game/events/GameEvent.java
++++ b/Mage/src/main/java/mage/game/events/GameEvent.java
+@@ -809,7 +809,7 @@ public class GameEvent implements Serializable {
+         this.playerId = playerId;
+         this.flag = flag;
+         this.approvingObject = approvingObject;
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+     }
+ 
+     public EventType getType() {
+diff --git a/Mage/src/main/java/mage/game/match/MatchImpl.java b/Mage/src/main/java/mage/game/match/MatchImpl.java
+index 0e0e2b1..b59aa2b 100644
+--- a/Mage/src/main/java/mage/game/match/MatchImpl.java
++++ b/Mage/src/main/java/mage/game/match/MatchImpl.java
+@@ -26,7 +26,7 @@ public abstract class MatchImpl implements Match {
+ 
+     private static final Logger logger = Logger.getLogger(MatchImpl.class);
+ 
+-    protected UUID id = UUID.randomUUID();
++    protected UUID id = mage.util.RandomUtil.newId();
+     protected List<MatchPlayer> players = new ArrayList<>();
+     protected List<Game> games = new ArrayList<>();
+     protected List<GameInfo> gamesInfo = new ArrayList<>();
+diff --git a/Mage/src/main/java/mage/game/permanent/PermanentImpl.java b/Mage/src/main/java/mage/game/permanent/PermanentImpl.java
+index 93b1c13..f9ecad2 100644
+--- a/Mage/src/main/java/mage/game/permanent/PermanentImpl.java
++++ b/Mage/src/main/java/mage/game/permanent/PermanentImpl.java
+@@ -2295,7 +2295,7 @@ public abstract class PermanentImpl extends CardImpl implements Permanent {
+             Set<MageObjectReference> morSet = new HashSet<>();
+             morSet.add(new MageObjectReference(this, game));
+             morSet.add(new MageObjectReference(fightTarget, game));
+-            String data = UUID.randomUUID().toString();
++            String data = mage.util.RandomUtil.newId().toString();
+             game.getState().setValue("batchFight_" + data, morSet);
+             game.fireEvent(GameEvent.getEvent(GameEvent.EventType.BATCH_FIGHT, getId(), source, source.getControllerId(), data, 0));
+         }
+diff --git a/Mage/src/main/java/mage/game/tournament/TournamentImpl.java b/Mage/src/main/java/mage/game/tournament/TournamentImpl.java
+index 1af54ac..b28f385 100644
+--- a/Mage/src/main/java/mage/game/tournament/TournamentImpl.java
++++ b/Mage/src/main/java/mage/game/tournament/TournamentImpl.java
+@@ -27,7 +27,7 @@ public abstract class TournamentImpl implements Tournament {
+ 
+     private static final Logger logger = Logger.getLogger(TournamentImpl.class);
+ 
+-    protected UUID id = UUID.randomUUID();
++    protected UUID id = mage.util.RandomUtil.newId();
+     protected UUID tableId = null; // assign on table create
+     protected List<Round> rounds = new CopyOnWriteArrayList<>();
+     protected Map<UUID, TournamentPlayer> players = new HashMap<>();
+diff --git a/Mage/src/main/java/mage/game/tournament/TournamentPairing.java b/Mage/src/main/java/mage/game/tournament/TournamentPairing.java
+index 986887c..67ebeac 100644
+--- a/Mage/src/main/java/mage/game/tournament/TournamentPairing.java
++++ b/Mage/src/main/java/mage/game/tournament/TournamentPairing.java
+@@ -13,7 +13,7 @@ import mage.game.match.MatchPlayer;
+  */
+ public class TournamentPairing {
+ 
+-    private final UUID id = UUID.randomUUID();
++    private final UUID id = mage.util.RandomUtil.newId();
+     private UUID tableId;
+     private Match match;
+     private final TournamentPlayer player1;
+diff --git a/Mage/src/main/java/mage/game/turn/TurnMod.java b/Mage/src/main/java/mage/game/turn/TurnMod.java
+index bd123c4..cb97331 100644
+--- a/Mage/src/main/java/mage/game/turn/TurnMod.java
++++ b/Mage/src/main/java/mage/game/turn/TurnMod.java
+@@ -83,7 +83,7 @@ public class TurnMod implements Serializable, Copyable<TurnMod> {
+ 
+     public TurnMod(UUID playerId) {
+         // TODO: delete
+-        this.id = UUID.randomUUID();
++        this.id = mage.util.RandomUtil.newId();
+         this.playerId = playerId;
+     }
+ 
+diff --git a/Mage/src/main/java/mage/players/PlayerImpl.java b/Mage/src/main/java/mage/players/PlayerImpl.java
+index d7f7275..3ebb8c0 100644
+--- a/Mage/src/main/java/mage/players/PlayerImpl.java
++++ b/Mage/src/main/java/mage/players/PlayerImpl.java
+@@ -203,7 +203,7 @@ public abstract class PlayerImpl implements Player, Serializable {
+     protected final List<List<Mana>> availableTriggeredManaList = new ArrayList<>();
+ 
+     protected PlayerImpl(String name, RangeOfInfluence range) {
+-        this(UUID.randomUUID());
++        this(mage.util.RandomUtil.newId());
+         this.name = name;
+         this.range = range;
+         hand = new CardsImpl();
+diff --git a/Mage/src/main/java/mage/util/CardUtil.java b/Mage/src/main/java/mage/util/CardUtil.java
+index bb1239a..1be630b 100644
+--- a/Mage/src/main/java/mage/util/CardUtil.java
++++ b/Mage/src/main/java/mage/util/CardUtil.java
+@@ -632,7 +632,7 @@ public final class CardUtil {
+     public static UUID getExileZoneId(String key, Game game) {
+         UUID exileId = (UUID) game.getState().getValue(key);
+         if (exileId == null) {
+-            exileId = UUID.randomUUID();
++            exileId = mage.util.RandomUtil.newId();
+             game.getState().setValue(key, exileId);
+         }
+         return exileId;
+diff --git a/Mage/src/main/java/mage/util/RandomUtil.java b/Mage/src/main/java/mage/util/RandomUtil.java
+index 6404d1c..256ecb4 100644
+--- a/Mage/src/main/java/mage/util/RandomUtil.java
++++ b/Mage/src/main/java/mage/util/RandomUtil.java
+@@ -1,10 +1,17 @@
+ 
+ package mage.util;
+ 
++import mage.MageItem;
++
+ import java.awt.*;
++import java.util.ArrayList;
+ import java.util.Collection;
++import java.util.Comparator;
++import java.util.LinkedHashSet;
++import java.util.List;
+ import java.util.Random;
+ import java.util.Set;
++import java.util.SortedSet;
+ import java.util.UUID;
+ 
+ /**
+@@ -35,6 +42,11 @@ public final class RandomUtil {
+          * Generator for draws that belong to no player, for example coin flips.
+          */
+         Random shared(String purpose);
++
++        /**
++         * Next object id; replaces UUID.randomUUID() so that a rerun reproduces every id.
++         */
++        UUID newId();
+     }
+ 
+     private static volatile Source source;
+@@ -74,6 +86,14 @@ public final class RandomUtil {
+         return s == null ? random : s.shared(purpose);
+     }
+ 
++    /**
++     * New id for a game object, ability, effect or event: from the installed source, else random.
++     */
++    public static UUID newId() {
++        Source s = source;
++        return s == null ? UUID.randomUUID() : s.newId();
++    }
++
+     public static int nextInt() {
+         return getRandom().nextInt();
+     }
+@@ -106,14 +126,29 @@ public final class RandomUtil {
+         if (collection.size() < 2) {
+             return collection.stream().findFirst().orElse(null);
+         }
+-        int rand = generator.nextInt(collection.size());
+-        int count = 0;
+-        for (T current : collection) {
+-            if (count == rand) {
+-                return current;
++        List<T> ordered = stableOrder(collection);
++        return ordered.get(generator.nextInt(ordered.size()));
++    }
++
++    /**
++     * A hash-ordered collection of game objects iterates in identity-hash order, which differs between runs, so
++     * the same draw would pick a different object. Such collections are ordered by id (or natural order) first;
++     * lists and insertion-ordered sets keep their order.
++     */
++    private static <T> List<T> stableOrder(Collection<T> collection) {
++        List<T> list = new ArrayList<>(collection);
++        if (collection instanceof List || collection instanceof LinkedHashSet || collection instanceof SortedSet) {
++            return list;
++        }
++        if (list.stream().allMatch(MageItem.class::isInstance)) {
++            list.sort(Comparator.comparing(item -> ((MageItem) item).getId()));
++        } else if (list.stream().allMatch(Comparable.class::isInstance)) {
++            try {
++                list.sort(null);
++            } catch (ClassCastException e) {
++                // mixed element types: keep iteration order
+             }
+-            count++;
+         }
+-        return null;
++        return list;
+     }
+ }
