@@ -6,9 +6,16 @@
   re-derive the leaderboard (every rating) from the match ledger, comparing
   bytes.
 - ``spellbench leaderboard TOURNAMENT_DIR``: print the leaderboard table.
-- ``spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]``: run a
-  benchmark into ``BENCHMARK_DIR/runs/<date>[-N]/`` (the date defaults to
-  today), then validate the run.
+- ``spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]``:
+  commit and push a run's commitment, keeping the secret outside the
+  repository.
+- ``spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated
+  [--date YYYY-MM-DD] [--placement TEXT])``: play a committed run with its
+  proof, or a fresh unrated run, then validate it.
+- ``spellbench bench reveal BENCHMARK_DIR --run NAME``: publish a committed
+  run that died before its manifest as REVEAL.json with its secret.
+- ``spellbench bench rerun RUN_DIR [--game N]...``: replay games from the
+  revealed secret and report differences from the ledger.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot as an agent-role
@@ -39,12 +46,28 @@ _USAGE = (
     "  spellbench run CONFIG.json\n"
     "  spellbench validate TOURNAMENT_DIR\n"
     "  spellbench leaderboard TOURNAMENT_DIR\n"
-    "  spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]\n"
+    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
+    "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD] [--placement TEXT])\n"
+    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    "  spellbench bench rerun RUN_DIR [--game N]...\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
     "  spellbench bot NAME [--seed N]\n"
     "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV..."
 )
-_BENCH_USAGE = "usage: spellbench bench run BENCHMARK_DIR [--date YYYY-MM-DD]"
+_BENCH_USAGE = (
+    "usage:\n"
+    "  spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]\n"
+    "  spellbench bench run BENCHMARK_DIR (--run NAME --proof REF | --unrated [--date YYYY-MM-DD] [--placement TEXT])\n"
+    "  spellbench bench reveal BENCHMARK_DIR --run NAME\n"
+    "  spellbench bench rerun RUN_DIR [--game N]..."
+)
+_BENCH_COMMIT_USAGE = "usage: spellbench bench commit BENCHMARK_DIR --placement TEXT [--date YYYY-MM-DD]"
+_BENCH_RUN_USAGE = (
+    "usage: spellbench bench run BENCHMARK_DIR "
+    "(--run NAME --proof REF | --unrated [--date YYYY-MM-DD] [--placement TEXT])"
+)
+_BENCH_REVEAL_USAGE = "usage: spellbench bench reveal BENCHMARK_DIR --run NAME"
+_BENCH_RERUN_USAGE = "usage: spellbench bench rerun RUN_DIR [--game N]..."
 _CONFORMANCE_USAGE = "usage: spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...] [--games N] -- ARGV..."
 
 
@@ -110,21 +133,81 @@ def _cmd_leaderboard(argv: Sequence[str]) -> int:
     return 0
 
 
-def _cmd_bench(argv: Sequence[str]) -> int:
+def _bench_options(
+    rest: list[str], valued: tuple[str, ...], flags: tuple[str, ...]
+) -> tuple[list[str], dict[str, str], list[str]] | None:
+    """Split positionals, ``--name value`` options and ``--flag`` switches; None on malformed input."""
+    positionals: list[str] = []
+    options: dict[str, str] = {}
+    switches: list[str] = []
+    while rest:
+        item = rest.pop(0)
+        if not item.startswith("--"):
+            positionals.append(item)
+            continue
+        name = item[2:]
+        if name in flags:
+            if name in switches:
+                return None
+            switches.append(name)
+        elif name in valued:
+            if name in options or not rest:
+                return None
+            options[name] = rest.pop(0)
+        else:
+            return None
+    return positionals, options, switches
+
+
+def _cmd_bench_commit(rest: list[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
+    from ..bench.commit import commit_run
+
+    parsed = _bench_options(rest, ("placement", "date"), ())
+    if parsed is None:
+        print(_BENCH_COMMIT_USAGE, file=sys.stderr)
+        return 2
+    positionals, options, _ = parsed
+    if len(positionals) != 1 or "placement" not in options:
+        print(_BENCH_COMMIT_USAGE, file=sys.stderr)
+        return 2
+    committed = commit_run(Path(positionals[0]), placement=options["placement"], date=options.get("date"))
+    print(f"commitment pushed: {committed.commit} ({committed.run_dir})")
+    print(
+        "record a third-party timestamp for the commit (an issue comment, a signed release, or an "
+        "OpenTimestamps proof) and pass it as --proof to bench run"
+    )
+    return 0
+
+
+def _cmd_bench_run(rest: list[str]) -> int:
     # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
     from ..bench.run import run_benchmark
 
-    if len(argv) < 2 or argv[0] != "run":
-        print(_BENCH_USAGE, file=sys.stderr)
+    parsed = _bench_options(rest, ("run", "proof", "date", "placement"), ("unrated",))
+    if parsed is None:
+        print(_BENCH_RUN_USAGE, file=sys.stderr)
         return 2
-    date = None
-    rest = list(argv[2:])
-    if rest:
-        if len(rest) != 2 or rest[0] != "--date":
-            print(_BENCH_USAGE, file=sys.stderr)
-            return 2
-        date = rest[1]
-    result = run_benchmark(Path(argv[1]), date=date)
+    positionals, options, switches = parsed
+    unrated = "unrated" in switches
+    run = options.get("run")
+    if len(positionals) != 1 or (run is None) == (not unrated):
+        print(_BENCH_RUN_USAGE, file=sys.stderr)
+        return 2
+    if run is not None and ("proof" not in options or "date" in options or "placement" in options):
+        print(_BENCH_RUN_USAGE, file=sys.stderr)
+        return 2
+    if unrated and "proof" in options:
+        print(_BENCH_RUN_USAGE, file=sys.stderr)
+        return 2
+    result = run_benchmark(
+        Path(positionals[0]),
+        run=run,
+        proof=options.get("proof"),
+        unrated=unrated,
+        date=options.get("date"),
+        placement=options.get("placement"),
+    )
     print(f"benchmark run published: {result.run_dir}")
     _print_games(result.summary)
     if result.failures:
@@ -133,6 +216,83 @@ def _cmd_bench(argv: Sequence[str]) -> int:
         return 1
     print("validate: OK")
     return 0
+
+
+def _cmd_bench_reveal(rest: list[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
+    from ..bench import definition
+    from ..bench.commit import reveal_run
+
+    parsed = _bench_options(rest, ("run",), ())
+    if parsed is None:
+        print(_BENCH_REVEAL_USAGE, file=sys.stderr)
+        return 2
+    positionals, options, _ = parsed
+    if len(positionals) != 1 or "run" not in options:
+        print(_BENCH_REVEAL_USAGE, file=sys.stderr)
+        return 2
+    benchmark_dir = Path(positionals[0]).resolve()
+    benchmark = definition.load_benchmark(benchmark_dir)
+    run_dir = benchmark_dir / definition.RUNS_DIR / options["run"]
+    # A manual reveal publishes a run that died outside a lock-holding invocation: the category is "error".
+    path = reveal_run(run_dir, benchmark_id=benchmark.id, reason="error")
+    print(f"run revealed: {path}")
+    return 0
+
+
+def _cmd_bench_rerun(rest: list[str]) -> int:
+    # Imported here so `spellbench bot`, spawned once per seat per game, starts without the benchmark modules.
+    from ..bench.run import rerun_games
+
+    games: list[int] = []
+    positionals: list[str] = []
+    while rest:
+        item = rest.pop(0)
+        if item == "--game":
+            if not rest:
+                print(_BENCH_RERUN_USAGE, file=sys.stderr)
+                return 2
+            try:
+                game = int(rest.pop(0))
+            except ValueError:
+                print("--game must be an integer", file=sys.stderr)
+                return 2
+            if game < 0:
+                print("--game must be nonnegative", file=sys.stderr)
+                return 2
+            games.append(game)
+        elif item.startswith("--"):
+            print(_BENCH_RERUN_USAGE, file=sys.stderr)
+            return 2
+        else:
+            positionals.append(item)
+    if len(positionals) != 1:
+        print(_BENCH_RERUN_USAGE, file=sys.stderr)
+        return 2
+    mismatches = rerun_games(Path(positionals[0]), games=games or None)
+    if mismatches:
+        for mismatch in mismatches:
+            print(f"FAIL {mismatch}", file=sys.stderr)
+        return 1
+    print(f"rerun OK: {positionals[0]}")
+    return 0
+
+
+def _cmd_bench(argv: Sequence[str]) -> int:
+    if not argv:
+        print(_BENCH_USAGE, file=sys.stderr)
+        return 2
+    command, rest = argv[0], list(argv[1:])
+    if command == "commit":
+        return _cmd_bench_commit(rest)
+    if command == "run":
+        return _cmd_bench_run(rest)
+    if command == "reveal":
+        return _cmd_bench_reveal(rest)
+    if command == "rerun":
+        return _cmd_bench_rerun(rest)
+    print(_BENCH_USAGE, file=sys.stderr)
+    return 2
 
 
 def _cmd_site(argv: Sequence[str]) -> int:

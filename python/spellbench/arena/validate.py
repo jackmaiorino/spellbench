@@ -1,7 +1,11 @@
 """Re-verify a published tournament directory from its files alone.
 
 Dispatch is on the manifest's schema: ``spellbench-tournament/v2`` runs go to
-:func:`validate_v2_run`, anything else to the frozen legacy verifier.
+:func:`validate_v2_run`, anything else to the frozen legacy verifier. A
+directory holding ``REVEAL.json`` and no manifest is a committed run that died
+before its manifest and revealed its secret instead (spec 11.6); it goes to
+:func:`check_reveal`. The reveal constants live here, not in ``bench``, so
+arena code never imports the benchmark layer (R3-4).
 """
 
 from __future__ import annotations
@@ -32,12 +36,20 @@ from .manifest import (
 from .schedule import GameContext, schedule
 from .throughput import Allocation
 
+REVEAL_NAME = "REVEAL.json"
+REVEAL_SCHEMA = "spellbench-run-reveal/v1"
+# The reason a committed run died before its manifest: a fixed category, never
+# exception text, which could carry local paths (R3-28).
+REVEAL_REASONS = ("preflight", "guard", "interrupted", "error")
+REVEAL_KEYS = ("schema", "benchmark_id", "run_label", "commitment", "run_secret", "status", "reason")
+
 
 def validate_tournament_dir(directory: Path) -> list[str]:
     """Re-verify a published tournament; returns the failures (empty means OK).
 
     A v2 manifest (schema ``spellbench-tournament/v2``) goes to the v2
-    verifier; anything else goes to the frozen legacy verifier.
+    verifier; a directory holding ``REVEAL.json`` and no manifest goes to
+    :func:`check_reveal`; anything else goes to the frozen legacy verifier.
     """
     try:
         schema = store.read_json(directory / store.MANIFEST_NAME).get("schema")
@@ -45,7 +57,47 @@ def validate_tournament_dir(directory: Path) -> list[str]:
         schema = None  # no readable manifest: either verifier reports that itself
     if schema == TOURNAMENT_SCHEMA_V2:
         return validate_v2_run(directory)
+    if schema is None and not (directory / store.MANIFEST_NAME).is_file() and (directory / REVEAL_NAME).is_file():
+        return check_reveal(directory)
     return legacy_v1.validate_v1_run(directory)
+
+
+def check_reveal(directory: Path) -> list[str]:
+    """Re-verify a revealed aborted run (spec 11.6): ``REVEAL.json`` against ``COMMITMENT.json``.
+
+    Every committed run is published; one that died before its manifest holds
+    a reveal record instead. The revealed secret must hash to the commitment,
+    the record's ``benchmark_id`` and ``run_label`` must match
+    ``COMMITMENT.json``, and the reason must be a category of
+    ``REVEAL_REASONS``.
+    """
+    failures: list[str] = []
+    try:
+        record = store.read_json(directory / REVEAL_NAME, schema=REVEAL_SCHEMA)
+        store.require_keys(record, REVEAL_KEYS, REVEAL_NAME)
+    except (store.StoreError, ValidationError) as exc:
+        return [f"{REVEAL_NAME}: {exc}"]
+    for key in ("benchmark_id", "run_label"):
+        if type(record[key]) is not str or not record[key]:
+            failures.append(f"{REVEAL_NAME}: {key} must be a nonempty string")
+    if record["status"] != "aborted":
+        failures.append(f'{REVEAL_NAME}: status must be "aborted", got {record["status"]!r}')
+    if record["reason"] not in REVEAL_REASONS:
+        failures.append(f"{REVEAL_NAME}: reason must be one of {REVEAL_REASONS}, got {record['reason']!r}")
+    try:
+        secret = RunSecret.from_hex(record["run_secret"])
+    except (TypeError, ValueError) as exc:
+        return [*failures, f"{REVEAL_NAME}: run_secret: {exc}"]
+    if secret.commitment() != record["commitment"]:
+        failures.append(f"{REVEAL_NAME}: run_secret does not hash to the recorded commitment")
+    try:
+        commitment = store.read_json(directory / store.COMMITMENT_NAME)
+    except store.StoreError as exc:
+        return [*failures, f"{store.COMMITMENT_NAME}: {exc}"]
+    expected = commitment_record(run_secret=secret, benchmark_id=record["benchmark_id"], run_label=record["run_label"])
+    if commitment != expected:
+        failures.append(f"{store.COMMITMENT_NAME} does not hold the reveal's commitment, benchmark_id and run_label")
+    return failures
 
 
 def _arena_version() -> str:
