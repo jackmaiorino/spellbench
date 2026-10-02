@@ -30,6 +30,7 @@ type Config struct {
 	Reg        *cards.Registry
 	Provenance protocol.Provenance
 	Ext        Extender
+	Audit      bool // qualification only: leak scan and realized intents
 }
 
 type Game struct {
@@ -46,6 +47,9 @@ type Game struct {
 	seatStep, groupID      [2]uint64
 	nativeCount            [2]uint64
 	maxSteps, maxDecisions uint64
+	leaks, inconsistent    int
+	realized               []Realized
+	fresh                  bool // the pending pose is its transaction's first
 }
 
 func Start(cfg Config, gameID string, req *protocol.ResetReq, sec *secrets.Game, decks [2][]*cards.Card) (*Game, error) {
@@ -122,6 +126,7 @@ func (s *Game) advance() {
 			}
 			s.tx, s.native = tx, d
 			s.nativeCount[d.Player]++
+			s.fresh = true
 		}
 		p, err := s.tx.Pose()
 		if err != nil {
@@ -169,6 +174,13 @@ func (s *Game) present(p *mapping.Pose) error {
 			return err
 		}
 		sd.Extensions = ext
+	}
+	if s.cfg.Audit {
+		b, err := json.Marshal(sd)
+		if err != nil {
+			return err
+		}
+		s.leaks += LeakHits(b, s.hiddenNames(p.Seat, obs))
 	}
 	s.pose = p
 	s.resp = &protocol.DecisionResponse{ResponseType: "decision", Protocol: protocol.Name, GameID: s.ID, Step: s.step,
@@ -220,6 +232,10 @@ func (s *Game) answer(i int) {
 	p := s.pose
 	seat := p.Seat
 	op := p.Candidates[i].Op
+	s.fresh = false
+	if s.cfg.Audit {
+		s.checkConsistent(p, p.Candidates[i])
+	}
 	if p.Context.Kind == "priority" {
 		if obj := s.actionObject(op); obj != 0 {
 			s.env.Action = &mapping.ActionContext{Seat: seat, Obj: obj, Since: s.g.E.G.NextID}
@@ -248,6 +264,9 @@ func (s *Game) answer(i int) {
 		}
 	}
 	if done {
+		if s.cfg.Audit && len(commit) > 0 {
+			s.realize(seat, p, op, commit) // commit[0] always answers the transaction's own native decision
+		}
 		s.tx = nil
 		s.env.CloseLooks()
 	}

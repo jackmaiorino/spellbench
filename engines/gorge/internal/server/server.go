@@ -33,6 +33,7 @@ type Server struct {
 	// its bytes, a changed payload is request_id_reuse_mismatch. Clearing it
 	// at each accepted reset bounds it by one game's traffic.
 	cache map[string]cached
+	audit bool
 }
 
 func New(reg *cards.Registry, sourceRevision *string) *Server {
@@ -149,7 +150,7 @@ func (s *Server) reset(req protocol.Request) []byte {
 	if err != nil {
 		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, err.Error()))
 	}
-	cfg := session.Config{Reg: s.reg, Provenance: provenance(s.engine)}
+	cfg := session.Config{Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}
 	if slices.Contains(r.Rules.Extensions, "x_gorge_view_v1") {
 		cfg.Ext = xview.New()
 	}
