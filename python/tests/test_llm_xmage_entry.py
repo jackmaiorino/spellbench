@@ -77,10 +77,10 @@ def test_database_is_verified_before_java_opens_its_private_copy(tmp_path, monke
     launched = []
 
     def launch(args, *, cwd, check):
+        launched.append(args)
         private = cwd / "db"
         assert private != source
         entry.verify_database(private, dict((Path(path).name, sha) for path, sha in declared))
-        launched.append(args)
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(entry.subprocess, "run", launch)
