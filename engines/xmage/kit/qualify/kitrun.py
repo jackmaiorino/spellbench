@@ -167,7 +167,7 @@ def make_plan(args: argparse.Namespace) -> None:
 
 def agent_command(entry: str, ctx: dict[str, str]) -> list[str]:
     return [BASH_EXE, native(KIT_DIR / "scripts" / "agent.sh"), "--kit", ctx["kit"], "--engine-build", ctx["engine_build"],
-            "--db", ctx["db"], "--work", ctx["agents"], "--entry", entry, "--log-dir", ctx["kitlogs"]]
+            "--db", ctx["db"], "--work", ctx["agents"], "--entry", entry]
 
 
 def config_json(plan: dict[str, Any], item: dict[str, Any], engine: list[str], ctx: dict[str, str]) -> dict[str, Any]:
@@ -239,6 +239,8 @@ def _init(plan: dict[str, Any], engine: list[str], ctx: dict[str, str], setup: A
     from spellbench.arena.schedule import EnginePin
     sched = Schedule(plan, engine, ctx)
     _W.update(sched=sched, engine=None, pin=EnginePin(), setup=setup, ctx=ctx)
+    # each batch logs to its own directory; the bot command (so the bot id, part of every ledger row) never changes
+    os.environ["KIT_LOG_DIR"] = ctx["kitlogs"]
     multiprocessing.util.Finalize(None, _close, exitpriority=10)
     for item in sched.workloads:
         executed = runner.executed_config(item["config"], lambda text: text)
@@ -382,7 +384,7 @@ def kit_measurements(log_dirs: list[Path]) -> dict[str, Any]:
 
 
 def _ctx(args: argparse.Namespace, out: Path, label: str) -> dict[str, str]:
-    agents = out / f"agents-{label}"
+    agents = out / "agents"  # one directory for every batch: the bot command must not change between them
     kitlogs = out / f"kitlogs-{label}"
     agents.mkdir(parents=True, exist_ok=True)
     kitlogs.mkdir(parents=True, exist_ok=True)

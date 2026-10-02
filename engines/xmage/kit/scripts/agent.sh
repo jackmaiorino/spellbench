@@ -27,6 +27,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$KIT" ] && [ -n "$ENGINE" ] && [ -n "$DB" ] || { echo "need --kit, --engine-build and --db" >&2; exit 2; }
+# the per-game log directory may come from the environment, so a launcher's bot command (and so its bot id) stays the
+# same while each batch logs to its own directory
+if [ -n "${KIT_LOG_DIR:-}" ]; then FRONT+=(--log-dir "$KIT_LOG_DIR"); fi
 native() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 SEP=":"; command -v cygpath >/dev/null 2>&1 && SEP=";"
 
