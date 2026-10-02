@@ -174,6 +174,49 @@ class RunBudget:
         An explicitly authorized wall extension uses the original creation time;
         expected_limits still declares the parent's current limits.
         """
+        RunBudget._continue_failure(parent, path, model=model, parent_sha256=parent_sha256,
+                                    expected_limits=expected_limits, allow_timeout_forfeits=allow_timeout_forfeits,
+                                    extended_wall_seconds=extended_wall_seconds)
+
+    @staticmethod
+    def continue_failed_run(parent: Path, path: Path, *, model: str, parent_sha256: str,
+                            expected_limits: dict, failure_receipt: Path, failure_receipt_sha256: str,
+                            allow_timeout_forfeits: bool = False) -> None:
+        """Explicit operator recovery, retaining a published abort and cumulative limits.
+
+        This never resumes the aborted commitment or retries a request. A retained
+        receipt binds the abort's manifest, parent bytes and effective cutoff.
+        Any deadline overlay is retained and copied with a new path binding.
+        """
+        recovery = {"receipt": str(Path(failure_receipt).resolve(strict=True)),
+                    "receipt_sha256": failure_receipt_sha256}
+        RunBudget._continue_failure(parent, path, model=model, parent_sha256=parent_sha256,
+                                    expected_limits=expected_limits, allow_timeout_forfeits=allow_timeout_forfeits,
+                                    recovery=recovery)
+
+    @staticmethod
+    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float) -> None:
+        receipt = Path(recovery["receipt"]).resolve(strict=True)
+        if _digest(receipt) != recovery["receipt_sha256"]:
+            raise ProviderError("run_budget_recovery_changed")
+        value = json.loads(receipt.read_bytes())
+        manifest = Path(value["retained_run_manifest"]).resolve(strict=True)
+        publication = json.loads(manifest.read_bytes())
+        if (value["schema"] != "spellbench-llm-failed-run-recovery/v1"
+                or value["parent"] != str(parent) or value["parent_sha256"] != parent_sha256
+                or value["effective_deadline"] != deadline
+                or value["purpose"] not in {"provider-diagnostics", "fixed-panel-rerun"}
+                or _digest(manifest) != value["retained_run_sha256"]
+                or publication.get("schema") != "spellbench-tournament/v2"
+                or publication.get("protocol", {}).get("name") != "spellbench/v2"
+                or publication.get("run", {}).get("status") != "aborted"
+                or publication.get("run", {}).get("rated") is not False):
+            raise ProviderError("run_budget_recovery_changed")
+
+    @staticmethod
+    def _continue_failure(parent: Path, path: Path, *, model: str, parent_sha256: str,
+                          expected_limits: dict, allow_timeout_forfeits: bool = False,
+                          extended_wall_seconds: int | None = None, recovery: dict | None = None) -> None:
         if type(allow_timeout_forfeits) is not bool:
             raise ValueError("allow_timeout_forfeits must be boolean")
         if extended_wall_seconds is not None and (type(extended_wall_seconds) is not int or extended_wall_seconds < 1):
@@ -189,11 +232,18 @@ class RunBudget:
         if parent == path:
             raise ValueError("continuation needs a distinct ledger")
         _retained_file(parent)
-        if _deadline_extension(parent).exists():
+        if _deadline_extension(parent).exists() and recovery is None:
             raise ProviderError("run_budget_deadline_extension_present")
         previous = RunBudget(parent, model=model, expected_limits=expected_limits)
         with previous._transaction() as database:
             policy = previous._policy(database)
+            effective_deadline = previous._effective_deadline(policy)
+            if recovery is not None:
+                if extended_wall_seconds is not None:
+                    raise ValueError("failed-run recovery cannot extend a deadline")
+                if policy.get("allow_timeout_forfeits", False) != allow_timeout_forfeits:
+                    raise ProviderError("run_budget_limits_mismatch")
+                RunBudget._recovery_receipt(recovery, parent, parent_sha256, effective_deadline)
             if database.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                 raise ProviderError("run_budget_parent_unsealed")
             if _digest(parent) != parent_sha256:
@@ -215,7 +265,7 @@ class RunBudget:
                     raise ValueError("wall extension deadline must be finite") from None
                 if not math.isfinite(deadline) or deadline <= policy["deadline"]:
                     raise ValueError("a wall extension must increase the parent's deadline")
-            if deadline <= time.time():
+            if (effective_deadline if recovery is not None else deadline) <= time.time():
                 raise ProviderError("run_budget_deadline_exhausted")
             inherited = _totals(policy, rows)
             if inherited["requests"] >= policy["max_requests"]:
@@ -230,6 +280,10 @@ class RunBudget:
                                           "allow_timeout_forfeits": allow_timeout_forfeits}}
             if allow_timeout_forfeits:
                 successor["allow_timeout_forfeits"] = True
+            if recovery is not None:
+                successor["continuation"].update(kind="failed-run-recovery", recovery=recovery,
+                    parent_overlay_sha256=(_digest(_deadline_extension(parent))
+                                           if _deadline_extension(parent).exists() else None))
             if extended_wall_seconds is not None:
                 successor.update(max_wall_seconds=extended_wall_seconds, deadline=deadline)
                 successor["continuation"]["wall_extension"] = {
@@ -239,6 +293,12 @@ class RunBudget:
                 }
             path.parent.mkdir(parents=True, exist_ok=True)
             RunBudget._initialize(path, successor)
+            if recovery is not None and effective_deadline != deadline:
+                marker = {"schema": DEADLINE_EXTENSION_SCHEMA, "budget": str(path),
+                          "policy_sha256": _static_policy_digest(successor),
+                          "original_deadline": deadline, "effective_deadline": effective_deadline}
+                marker["sha256"] = _json_digest(marker)
+                _write_marker(_deadline_extension(path), marker)
             if _digest(parent) != parent_sha256:
                 raise ProviderError("run_budget_parent_changed")
             claim = {"successor": str(path), "parent_sha256": parent_sha256,
@@ -280,7 +340,7 @@ class RunBudget:
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
-            if continuation["kind"] != "precommit-qualification":
+            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery"}:
                 raise ValueError("invalid continuation kind")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
@@ -296,7 +356,10 @@ class RunBudget:
                     raise ValueError("invalid wall extension")
             parent = Path(continuation["parent"]).resolve(strict=True)
             _retained_file(parent)
-            if _deadline_extension(parent).exists():
+            recovery = continuation.get("recovery") if continuation["kind"] == "failed-run-recovery" else None
+            if continuation["kind"] == "failed-run-recovery" and not isinstance(recovery, dict):
+                raise ProviderError("run_budget_recovery_changed")
+            if _deadline_extension(parent).exists() and recovery is None:
                 raise ProviderError("run_budget_deadline_extension_present")
             if parent in seen or _digest(parent) != continuation["parent_sha256"]:
                 raise ProviderError("run_budget_parent_changed")
@@ -312,6 +375,18 @@ class RunBudget:
                 if retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                     raise ProviderError("run_budget_parent_unsealed")
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+                if recovery is not None:
+                    if prior.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False):
+                        raise ProviderError("run_budget_recovery_changed")
+                    if extension is not None:
+                        raise ProviderError("run_budget_recovery_changed")
+                    overlay = _deadline_extension(parent)
+                    if continuation["parent_overlay_sha256"] != (_digest(overlay) if overlay.exists() else None):
+                        raise ProviderError("run_budget_recovery_changed")
+                    parent_deadline = self._effective_deadline_for(parent, prior)
+                    if self._effective_deadline_for(current, child) != parent_deadline:
+                        raise ProviderError("run_budget_recovery_changed")
+                    self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline)
                 # Validate each ancestor against this boundary's retained wall
                 # limit, rather than the leaf's prospectively extended limit.
                 ancestor_limits = {name: limit for name, limit in self.expected_limits.items()
@@ -345,14 +420,18 @@ class RunBudget:
 
     def _effective_deadline(self, policy: dict) -> float:
         """Validate the host-owned overlay without changing measured policy bytes."""
-        marker = _deadline_extension(self.path.resolve())
+        return self._effective_deadline_for(self.path.resolve(), policy)
+
+    @staticmethod
+    def _effective_deadline_for(path: Path, policy: dict) -> float:
+        marker = _deadline_extension(path)
         if not marker.exists():
             return policy["deadline"]
         value = json.loads(marker.read_bytes())
         if (not isinstance(value, dict) or set(value) != {
                 "schema", "budget", "policy_sha256", "original_deadline", "effective_deadline", "sha256"}
                 or value["schema"] != DEADLINE_EXTENSION_SCHEMA
-                or value["budget"] != str(self.path.resolve())
+                or value["budget"] != str(path)
                 or value["policy_sha256"] != _static_policy_digest(policy)
                 or value["original_deadline"] != policy["deadline"]
                 or not _finite_timestamp(value["effective_deadline"])

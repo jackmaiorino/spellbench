@@ -19,6 +19,136 @@ from spellbench.llm.run_budget import BudgetedProvider, RunBudget, LIMIT_NAMES, 
 PROMPT = Prompt(({"role": "user", "content": "choose"},), "a" * 64, 10)
 
 
+def failed_run_recovery(parent, path, tmp_path, *, timeout_policy=None):
+    manifest = tmp_path / "abort-manifest.json"
+    if not manifest.exists():
+        manifest.write_text(json.dumps({"schema": "spellbench-tournament/v2",
+            "protocol": {"name": "spellbench/v2"}, "run": {"status": "aborted", "rated": False}}), encoding="utf-8")
+    receipt = path.with_suffix(".failure-receipt.json")
+    summary = parent.summary()
+    receipt.write_text(json.dumps({
+        "schema": "spellbench-llm-failed-run-recovery/v1", "parent": str(parent.path.resolve()),
+        "parent_sha256": hashlib.sha256(parent.path.read_bytes()).hexdigest(),
+        "effective_deadline": summary["effective_deadline"], "purpose": "provider-diagnostics",
+        "retained_run_manifest": str(manifest.resolve()),
+        "retained_run_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+    }), encoding="utf-8")
+    RunBudget.continue_failed_run(parent.path, path, model=parent.model,
+        parent_sha256=hashlib.sha256(parent.path.read_bytes()).hexdigest(),
+        expected_limits={name: summary["policy"][name] for name in LIMIT_NAMES},
+        failure_receipt=receipt, failure_receipt_sha256=hashlib.sha256(receipt.read_bytes()).hexdigest(),
+        allow_timeout_forfeits=(summary["policy"].get("allow_timeout_forfeits", False)
+                               if timeout_policy is None else timeout_policy))
+    return RunBudget(path, model=parent.model), receipt, manifest
+
+
+def test_failed_run_recovery_preserves_overlay_caps_abort_and_unknown_debit(tmp_path):
+    parent = budget(tmp_path, allow_timeout_forfeits=True)
+    parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
+    wrapped = BudgetedProvider(Provider(ProviderError("inference_failed")), parent)
+    with pytest.raises(ProviderError):
+        wrapped.complete(PROMPT, timeout_s=2)
+    parent.fail("hosted_broker_failed")
+    before = parent.summary()
+    database_bytes = parent.path.read_bytes()
+    overlay = parent.path.with_name(parent.path.name + ".deadline-extension.json")
+    overlay_bytes = overlay.read_bytes()
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    after = child.summary()
+    for name in ("requests", "failed", "unknown_usage", "uncertain_reserved_tokens", "accounted_tokens",
+                 "reported_input_tokens", "reported_output_tokens", "effective_deadline"):
+        assert after[name] == before[name]
+    for name in (*LIMIT_NAMES, "created_at", "deadline", "allow_timeout_forfeits"):
+        assert after["policy"][name] == before["policy"][name]
+    assert after["policy"]["continuation"]["kind"] == "failed-run-recovery"
+    assert parent.path.read_bytes() == database_bytes and overlay.read_bytes() == overlay_bytes
+    with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+        parent.check()
+    provider = Provider(Completion("{}", parent.model, 11, 3, "diagnostic"))
+    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
+    assert child.summary()["requests"] == before["requests"] + 1
+    assert child.summary()["accounted_tokens"] == before["accounted_tokens"] + 14
+
+
+@pytest.mark.parametrize("target", ["receipt", "manifest", "overlay", "parent"])
+def test_failed_run_recovery_refuses_changed_retained_evidence(tmp_path, target):
+    parent = budget(tmp_path)
+    parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
+    parent.fail("hosted_broker_failed")
+    child, receipt, manifest = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    changed = {"receipt": receipt, "manifest": manifest, "parent": parent.path,
+               "overlay": parent.path.with_name(parent.path.name + ".deadline-extension.json")}[target]
+    with changed.open("ab") as stream:
+        stream.write(b" ")
+    with pytest.raises(ProviderError):
+        child.reserve(PROMPT, output_tokens=1024)
+
+
+def test_failed_run_recovery_does_not_retry_or_clear_a_new_failure(tmp_path):
+    parent = budget(tmp_path)
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    provider = Provider(ProviderError("subscription_sharing_usage_limit_exceeded"))
+    wrapped = BudgetedProvider(provider, child)
+    with pytest.raises(ProviderError):
+        wrapped.complete(PROMPT, timeout_s=2)
+    with pytest.raises(ProviderError, match="provider_already_failed"):
+        wrapped.complete(PROMPT, timeout_s=2)
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
+    assert provider.calls == 1 and child.summary()["unknown_usage"] == 1
+
+
+@pytest.mark.parametrize("failure", ["healthy", "pending", "expired"])
+def test_failed_run_recovery_refuses_unready_parent(tmp_path, failure, monkeypatch):
+    parent = budget(tmp_path)
+    if failure == "pending":
+        parent.reserve(PROMPT, output_tokens=1024)
+    if failure != "healthy":
+        parent.fail("hosted_broker_failed")
+    if failure == "expired":
+        import spellbench.llm.run_budget as module
+        expired = parent.summary()["effective_deadline"] + 1
+        monkeypatch.setattr(module.time, "time", lambda: expired)
+    codes = {"healthy": "run_budget_parent_not_failed", "pending": "run_budget_unresolved_request",
+             "expired": "run_budget_deadline_exhausted"}
+    with pytest.raises(ProviderError, match=codes[failure]):
+        failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+
+
+@pytest.mark.parametrize("status", ["complete", "invalid"])
+def test_failed_run_recovery_requires_an_aborted_manifest(tmp_path, status):
+    parent = budget(tmp_path)
+    parent.fail("hosted_broker_failed")
+    (tmp_path / "abort-manifest.json").write_text(json.dumps({"schema": "spellbench-tournament/v2",
+        "protocol": {"name": "spellbench/v2"}, "run": {"status": status, "rated": False}}), encoding="utf-8")
+    with pytest.raises(ProviderError, match="run_budget_recovery_changed"):
+        failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+
+
+@pytest.mark.parametrize("old_policy", [False, True])
+def test_failed_run_recovery_cannot_change_timeout_policy(tmp_path, old_policy):
+    parent = budget(tmp_path, allow_timeout_forfeits=old_policy)
+    parent.fail("hosted_broker_failed")
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, timeout_policy=not old_policy)
+
+
+def test_rebound_successor_overlay_cannot_increase_inherited_cutoff(tmp_path):
+    import spellbench.llm.run_budget as module
+    parent = budget(tmp_path)
+    parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
+    parent.fail("hosted_broker_failed")
+    child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
+    path = child.path.with_name(child.path.name + ".deadline-extension.json")
+    value = json.loads(path.read_bytes())
+    value["effective_deadline"] += 1
+    value["sha256"] = module._json_digest({key: item for key, item in value.items() if key != "sha256"})
+    path.write_text(json.dumps(value), encoding="utf-8")
+    with pytest.raises(ProviderError, match="run_budget_recovery_changed"):
+        child.reserve(PROMPT, output_tokens=1024)
+
+
 def budget(tmp_path, **changes):
     path = tmp_path / "run.sqlite3"
     settings = {"model": "luna", "requests": 8, "tokens": 8000, "wall_seconds": 60, **changes}
