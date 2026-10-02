@@ -1,4 +1,8 @@
-"""Error types and the closed protocol error-code sets (spec sections 7.6, 10.5)."""
+"""Error types of the reference stack.
+
+The closed error-code tables live with each role's messages: ``messages.ENGINE_ERROR_CODES`` (spec 9.8)
+and ``agent_messages.AGENT_ERROR_CODES`` (spec 10.5).
+"""
 
 from __future__ import annotations
 
@@ -50,36 +54,3 @@ class EngineError(RemoteError):
 
 class AgentError(RemoteError):
     """An ``error`` response from an agent-role peer."""
-
-
-ENGINE_ERROR_CODES = frozenset(
-    {
-        "malformed_json",
-        "malformed_request",
-        "protocol_mismatch",
-        "request_id_reuse_mismatch",
-        "step_before_reset",
-        "game_already_active",
-        "game_id_mismatch",
-        "expected_step_mismatch",
-        "candidate_id_out_of_range",
-        "semantic_echo_mismatch",
-        "unsupported_format",
-        "unsupported_deck",
-        "game_already_terminal",
-    }
-)
-
-AGENT_ERROR_CODES = frozenset(
-    {
-        "malformed_json",
-        "malformed_request",
-        "protocol_mismatch",
-        "request_id_reuse_mismatch",
-        "unknown_game",
-        "no_pending_decision",
-        "decision_pending",
-        "game_already_active",
-        "internal_error",
-    }
-)

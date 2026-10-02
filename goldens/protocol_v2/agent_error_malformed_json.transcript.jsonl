@@ -1,0 +1,4 @@
+{"dir":"host_to_agent","message":{"protocol":"spellbench/v2","protocol_minor":0,"request_id":"r-0","request_type":"hello"}}
+{"dir":"agent_to_host","message":{"bot":{"name":"golden-first","version":"1.0.0"},"extensions_accepted":[],"protocol":"spellbench/v2","request_id":"r-0","requires":{"extensions":[],"observation":[]},"response_type":"hello_ok"}}
+{"dir":"host_to_agent","message":"{not json"}
+{"dir":"agent_to_host","message":{"error":{"code":"malformed_json","message":"line is not strict JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)"},"protocol":"spellbench/v2","request_id":"","response_type":"error"}}

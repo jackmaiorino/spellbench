@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spellbench"
-version = "0.2.0"
+version = "0.3.0"
 description = "Cross-engine Magic: The Gathering agent protocol and tournament arena"
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
 test = ["pytest>=8,<9"]
+chatgpt = ["PyJWT[crypto]>=2.15.1,<3", "truststore>=0.10.4,<0.11"]
 
 [project.scripts]
 spellbench = "spellbench.arena.cli:main"
