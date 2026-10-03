@@ -130,6 +130,32 @@ def test_live_requests_share_the_clock_and_confirm_owned_container_cleanup(tmp_p
     assert peer.closed and removed == [session.container] and session.cleanup["confirmed_absent"]
 
 
+@pytest.mark.parametrize("record_fails", [False, True])
+def test_container_ownership_is_recorded_before_launch_including_failed_startup(tmp_path, monkeypatch, record_fails):
+    manifest = inputs(tmp_path)
+    peer = Peer([readiness(manifest)])
+    events = []
+    monkeypatch.setattr(adapter, "cleanup_container", lambda name: events.append(("cleanup", name))
+                        or {"confirmed_absent": True})
+    def owned(name):
+        events.append(("owned", name))
+        if record_fails:
+            raise OSError("ownership destination unavailable")
+    def start(*args, **kwargs):
+        assert events[0][0] == "owned"
+        events.append(("launch", args[0]))
+        return peer
+    if record_fails:
+        with pytest.raises(RuntimeError, match="ownership destination"):
+            adapter.InferenceSession(manifest, tmp_path, "policy", IMAGE, peer_factory=start, on_owned=owned)
+        assert [kind for kind, _ in events] == ["owned", "cleanup"]
+    else:
+        session = adapter.InferenceSession(manifest, tmp_path, "policy", IMAGE, peer_factory=start, on_owned=owned)
+        assert events[0] == ("owned", session.container)
+        session.close()
+        assert [kind for kind, _ in events] == ["owned", "launch", "cleanup"]
+
+
 @pytest.mark.parametrize("reply", [{"id": "old", **scores()}, EOFError("model exited")])
 def test_failed_or_stale_inference_poison_the_session_and_close_it(tmp_path, monkeypatch, reply):
     manifest = inputs(tmp_path)
