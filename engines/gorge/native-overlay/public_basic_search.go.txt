@@ -1,6 +1,7 @@
 package searchprobe
 
 import (
+	"encoding/json"
 	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -11,9 +12,10 @@ import (
 )
 
 type spellbenchBasicSearch struct {
-	through int
-	names   []string
-	basics  map[string]bool
+	through   int
+	names     []string
+	basics    map[string]bool
+	deadlines []deadlineConstraint
 }
 
 // A named, full-library basic-land search exposes membership and the relative
@@ -92,7 +94,144 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 			windows[key] = spellbenchBasicSearch{through: cursor.draws, names: names, basics: basics}
 		}
 	}
+	if len(windows) == 0 {
+		return windows
+	}
+	deadlines := spellbenchRemovalDeadlines(setup, h)
+	for key, window := range windows {
+		window.deadlines = deadlines[key]
+		windows[key] = window
+	}
 	return windows
+}
+
+// With only draws and removals since the initial shuffle, every drawn card
+// came from its first (draws + removals) positions. Subtract all named direct
+// library exits from the currently public multiset so a searched card cannot
+// become an inferred draw. Unknown removals subtract from every name and add
+// to every possible owner's bound. Additions, reorders and copied/ambiguous
+// token cards end this guidance; no absolute hidden position is inferred.
+func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]deadlineConstraint {
+	type cursor struct {
+		ordinal, draws, removals, unknown int
+		active                            bool
+		exits                             map[string]int
+	}
+	identities := map[uint32]Identity{}
+	cursors := map[state.PlayerID]cursor{}
+	result := map[epochKey][]deadlineConstraint{}
+	deckNames := map[string]bool{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			deckNames[card.Faces[0].Name] = true
+		}
+	}
+	disable := func() {
+		for player, current := range cursors {
+			current.active = false
+			cursors[player] = current
+		}
+	}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			current := cursors[ev.Player]
+			switch ev.Kind {
+			case events.Shuffle:
+				current.ordinal++
+				current.draws, current.removals, current.unknown = 0, 0, 0
+				current.active = current.ordinal == 1
+				current.exits = map[string]int{}
+				cursors[ev.Player] = current
+			case events.Draw:
+				current.draws++
+				cursors[ev.Player] = current
+			case events.LibraryOrder:
+				current.active = false
+				cursors[ev.Player] = current
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+				disable()
+			case events.TokenCreate:
+				token := setup.Tokens[ev.Text]
+				if token == nil || len(token.Faces) == 0 || deckNames[token.Faces[0].Name] {
+					disable()
+				}
+			case events.MoveZone:
+				if ev.To == state.ZLibrary {
+					disable()
+					continue
+				}
+				if ev.From != state.ZLibrary {
+					continue
+				}
+				identity, known := identities[ev.Obj]
+				for player, affected := range cursors {
+					if known && player != identity.Owner {
+						continue
+					}
+					affected.removals++
+					if known && identity.Name != "" {
+						affected.exits[identity.Name]++
+					} else {
+						affected.unknown++
+					}
+					cursors[player] = affected
+				}
+			}
+		}
+		var board knownBoard
+		if json.Unmarshal(frame.Board, &board) != nil {
+			continue
+		}
+		counts := map[state.PlayerID]map[string]int{}
+		seen := map[uint32]bool{}
+		for _, player := range board.Players {
+			for _, zone := range [][]knownCardID{player.Battlefield, player.Graveyard, player.Exile, player.Command} {
+				for _, card := range zone {
+					identity, known := identities[card.ID]
+					if !known || seen[card.ID] || !deckNames[identity.Name] {
+						continue
+					}
+					seen[card.ID] = true
+					if counts[identity.Owner] == nil {
+						counts[identity.Owner] = map[string]int{}
+					}
+					counts[identity.Owner][identity.Name]++
+				}
+			}
+		}
+		for player, current := range cursors {
+			if player == h.Actor || !current.active || current.removals == 0 {
+				continue
+			}
+			var names []string
+			for name := range counts[player] {
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			key := epochKey{Player: player}
+			for _, name := range names {
+				count := counts[player][name] - current.exits[name] - current.unknown
+				if count > 0 {
+					deadline := deadlineConstraint{Through: current.draws + current.removals, Name: name, Count: count}
+					found := false
+					for i, previous := range result[key] {
+						if previous.Through == deadline.Through && previous.Name == name {
+							result[key][i].Count = max(previous.Count, count)
+							found = true
+							break
+						}
+					}
+					if !found {
+						result[key] = append(result[key], deadline)
+					}
+				}
+			}
+		}
+	}
+	return result
 }
 
 // The allowlist excludes filters, restricted search windows, blind options,
@@ -161,6 +300,10 @@ func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbe
 		guidedProposal.exclusions.merge(p.exclusions)
 		epoch := guidedProposal.epochs[key]
 		epoch.Deadlines = append([]deadlineConstraint(nil), epoch.Deadlines...)
+		for _, deadline := range window.deadlines {
+			deadline.Through = min(deadline.Through, len(ctx.Library))
+			epoch.Deadlines = append(epoch.Deadlines, deadline)
+		}
 		var basicNames []string
 		for name := range counts {
 			basicNames = append(basicNames, name)
@@ -202,6 +345,18 @@ func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbe
 			}
 			order[positions[i]] = queues[name][0]
 			queues[name] = queues[name][1:]
+		}
+		// The filtered-order fold must also retain every later weak deadline.
+		for _, deadline := range window.deadlines {
+			count := 0
+			for i := 0; i < min(deadline.Through, len(order)); i++ {
+				if byID[order[i]] == deadline.Name {
+					count++
+				}
+			}
+			if count < deadline.Count {
+				return p.incompatible()
+			}
 		}
 		return order, nil
 	}

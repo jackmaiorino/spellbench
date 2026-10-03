@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"reflect"
+	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // SpellbenchReconstruction records work beyond the unchanged native sampler.
@@ -129,6 +132,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			}
 			seed := taggedSeed(opts.Seed, digest, attempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
 			preferred := botpolicy.Decide(opponentBoard(e, d.Player, newOpponentBoards(len(setup.Names))), d, rand.New(rand.NewPCG(seed[0], seed[1])))
+			preferred = spellbenchObservedPreferred(e, c, d, preferred, want.Events[len(burst):], want.Identities)
 			var root *RedealBase
 			var branchError error
 			spellbenchEachIntent(d, preferred, budget, func(in decision.Intent) bool {
@@ -166,6 +170,80 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		return nil, work, fmt.Errorf("public reconstruction submit budget exhausted")
 	}
 	return nil, work, fmt.Errorf("no public replay completion in %d proposals", work.Attempts)
+}
+
+// Prioritize a legal hypothetical answer suggested by the next public action.
+// This orders witness search only. It neither submits an extra intent nor
+// removes any alternative from the existing exhaustive, shared-budget walk.
+func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Decision, fallback decision.Intent, remaining []ObservedEvent, introduced []Identity) decision.Intent {
+	match := func(id state.ObjID, ref uint32) bool {
+		if id == 0 || ref == 0 {
+			return false
+		}
+		if known := c.object(ref); known != 0 {
+			return known == id
+		}
+		object := e.G.Obj(id)
+		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 {
+			return false
+		}
+		for _, identity := range introduced {
+			if identity.ID == ref {
+				return object.Owner == identity.Owner && object.Card.Faces[0].Name == identity.Name
+			}
+		}
+		return false
+	}
+	for _, ev := range remaining {
+		kind := ""
+		switch {
+		case d.Kind == decision.KPriority && ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZBattlefield:
+			kind = "play_land"
+		case d.Kind == decision.KPriority && ev.Kind == events.PutOnStack && ev.From == state.ZHand:
+			kind = "cast"
+		case d.Kind == decision.KPriority && ev.Kind == events.Tap:
+			kind = "activate"
+		case d.Kind == decision.KChoose && ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZGraveyard:
+			kind = "discard"
+		case d.Kind == decision.KChoose && ev.Kind == events.ManaAdd && ev.Player == d.Player:
+			color := strings.TrimPrefix(ev.Counter, "Artifact")
+			for i, option := range d.Options {
+				if option.Kind == "mana" && option.ManaSymbol == color {
+					in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+					if d.Validate(in) == nil {
+						return in
+					}
+				}
+			}
+			return fallback
+		}
+		if kind == "" {
+			continue
+		}
+		for i, option := range d.Options {
+			if option.Kind == kind && match(option.Obj, ev.Obj) {
+				in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+				if d.Validate(in) == nil {
+					return in
+				}
+			}
+		}
+		if kind == "cast" {
+			for _, action := range d.PaymentActions {
+				if !match(action.Cast.Object, ev.Obj) {
+					continue
+				}
+				for _, plan := range action.Plans {
+					in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: decision.ClonePaymentPlan(plan)}}
+					if d.Validate(in) == nil {
+						return in
+					}
+				}
+			}
+		}
+		return fallback
+	}
+	return fallback
 }
 
 func spellbenchIdentityPrefix(got, want []Identity) bool {

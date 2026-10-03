@@ -99,6 +99,20 @@ clock and reported separately, including exhaustion and redeal refusals.
 Hypothetical branches clone their own observer and rebind their shuffle planner;
 rollout clones continue to use the upstream clone and fresh-chance behavior.
 
+A named full-library basic-land search can guide the replay witness using its
+observed membership and relative order. After a library removal, public draw
+and removal counts give a weaker prefix bound: a card that was drawn came from
+the first draws-plus-removals positions of the original library. The bound
+subtracts named library exits and all unknown removals from public name counts.
+Library additions, reorders, later shuffles and copied or ambiguous token cards
+end this additional guidance. No absolute position of an unseen card is assumed.
+The replay also tries legal intents suggested by the next public action before
+its other alternatives. Both changes affect witness construction only; native
+world sampling, weights, scoring and the shared reconstruction budgets remain
+unchanged. Natural corpus fixtures reconstruct the 52-option search in 45
+submits and a declined-shuffle search followed by a later land play in 303
+submits. These fixtures do not establish complete search qualification.
+
 The new constructed fixture deliberately makes an opponent pass with land in
 hand. All 64 native-policy proposals fail; public reconstruction succeeds in
 one proposal and 124 submits. Eight native redealt worlds then yield the same

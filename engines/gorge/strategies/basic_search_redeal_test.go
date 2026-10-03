@@ -22,6 +22,15 @@ import (
 // ordered window. Reconstruction must use the observed membership/order
 // while preserving hidden hand sizes and all earlier public decisions.
 func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) {
+	checkNaturallyPlayedOpponentBasicSearch(t, false)
+}
+
+func TestPublicReconstructionAfterNaturallyPlayedBasicSearchRemoval(t *testing.T) {
+	checkNaturallyPlayedOpponentBasicSearch(t, true)
+}
+
+func checkNaturallyPlayedOpponentBasicSearch(t *testing.T, afterRemoval bool) {
+	t.Helper()
 	dir := os.Getenv("GORGE_CARDS")
 	if dir == "" {
 		t.Fatal("GORGE_CARDS must name the pinned corpus")
@@ -45,8 +54,23 @@ func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) 
 	for i := range setup.Decks[1] {
 		setup.Decks[1][i] = lookup([]string{"Forest", "Swamp", "Mountain"}[i%3])
 	}
+	if afterRemoval {
+		for i := range setup.Decks[1] {
+			setup.Decks[1][i] = lookup("Rugged Highlands")
+		}
+		for i, name := range map[int]string{6: "Swamp", 8: "Mountain", 9: "Forest", 10: "Mountain", 11: "Forest", 12: "Swamp", 13: "Swamp"} {
+			setup.Decks[1][i] = lookup(name)
+		}
+	}
 	e, err := rules.NewHypotheticalPlanned(rules.Config{Seed: 17, Names: setup.Names, Decks: setup.Decks, StartingLife: 20},
 		[]rules.ChanceDraw{{Bound: 2, Value: 0}}, func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
+			if afterRemoval && ctx.Player == 1 && ctx.Ordinal == 0 {
+				var order []state.ObjID
+				for _, card := range ctx.Library {
+					order = append(order, card.ID)
+				}
+				return order, nil
+			}
 			if ctx.Player != 0 || ctx.Ordinal != 0 {
 				return nil, nil
 			}
@@ -72,10 +96,21 @@ func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) 
 	}
 	driver := NewDriver()
 	bots := [2]*seat.Bot{seat.NewBot(3), seat.NewBot(7)}
+	searched, basicsOffered := false, 0
 	for n := 0; n < 300 && !e.G.Over; n++ {
 		d := e.Pending()
 		driver.Observe(e)
-		if d.Player == 0 && d.Kind == decision.KChoose && d.ResumeKind == "search" && len(d.Options) > 40 {
+		atSearch := d.Player == 0 && d.Kind == decision.KChoose && d.ResumeKind == "search"
+		if atSearch {
+			searched, basicsOffered = true, len(d.Options)
+		}
+		ready := atSearch && !afterRemoval
+		if afterRemoval && searched && d.Player == 0 {
+			for _, id := range e.G.Zone(state.ZBattlefield, 1) {
+				ready = ready || e.G.Obj(id).Card.Faces[0].Name == "Mountain"
+			}
+		}
+		if ready {
 			h := canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
 			opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, MaxSubmits: 5000, ComparePotentialActions: true}
 			root, work, err := searchprobe.SpellbenchReconstructRedeal(setup, h, opts)
@@ -95,7 +130,7 @@ func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) 
 				!reflect.DeepEqual(gotBoard, wantBoard) || !reflect.DeepEqual(got.Decision, last.Decision) {
 				t.Fatal("reconstructed root changed the public board or ordered search options")
 			}
-			t.Logf("named_basics=%d frames=%d reconstruction=%+v", len(d.Options), len(h.Frames), work)
+			t.Logf("after_removal=%v named_basics=%d frames=%d reconstruction=%+v", afterRemoval, basicsOffered, len(h.Frames), work)
 			return
 		}
 		in, err := bots[d.Player].Decide(context.Background(), view.Project(e.G, e, d.Player, d), *d)
@@ -110,6 +145,38 @@ func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) 
 				}
 			}
 		}
+		if afterRemoval && atSearch {
+			for i, option := range d.Options {
+				if e.G.Obj(option.Obj).Card.Faces[0].Name == "Forest" {
+					in.Choices = []int{i}
+					break
+				}
+			}
+		}
+		if afterRemoval && d.Kind == decision.KChoose && d.ResumeKind == "search_mayshuffle" {
+			for i, option := range d.Options {
+				if option.Kind == "no" {
+					in.Choices = []int{i}
+					break
+				}
+			}
+		}
+		if afterRemoval && searched && d.Player == 0 && d.Kind == decision.KPriority {
+			for i, option := range d.Options {
+				if option.Kind == "pass" {
+					in.Choices = []int{i}
+					break
+				}
+			}
+		}
+		if afterRemoval && d.Player == 1 && d.Kind == decision.KPriority {
+			for i, option := range d.Options {
+				if option.Kind == "play_land" && e.G.Obj(option.Obj).Card.Faces[0].Name == "Mountain" {
+					in.Choices = []int{i}
+					break
+				}
+			}
+		}
 		if err := driver.RecordAnswer(d, in); err != nil {
 			t.Fatal(err)
 		}
@@ -117,5 +184,5 @@ func TestPublicReconstructionAtNaturallyPlayedOpponentBasicSearch(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
-	t.Fatal("fixture did not reach a natural opponent basic-land search")
+	t.Fatalf("fixture did not reach its public boundary: searched=%v named_basics=%d turn=%d", searched, basicsOffered, e.G.Turn)
 }
