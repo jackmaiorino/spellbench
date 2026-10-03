@@ -218,3 +218,14 @@ both manual and cast-witness modes; native atomic-cast commitment and pool-only
 effect equivalence also pass. The failed allocation probe used an unsaved
 throwaway secret, so its exact third game is not claimed as replayed. A fresh
 pinned runtime and guarded comparison remain required.
+
+Runtime `b6c8282` now preserves fresh Windows/Linux binaries for the corrected
+declaration at `E:/spellbench-gorge-runtime-20261003-004`, with verified D
+recovery. All twelve modes passed restricted startup and the engine build
+reproduced its hash. A new public Wildfire fixture, uniform against
+lethal-pressure, reached interactive mana at step 265 and ended naturally after
+560 validated steps. Its replay produced the identical canonical digest and all
+three child processes closed. This is a new fixture, not a replay of failed
+attempt002. See [payment evidence](gorge-reference-payment-check-20261003.json)
+and [runtime pins](gorge-runtime-preparation-20261003-004.json). No mode is yet
+qualified, rated or published.

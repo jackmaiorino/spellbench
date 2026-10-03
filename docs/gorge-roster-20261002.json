@@ -263,7 +263,7 @@
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261003.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-004.json",
   "engine_configuration": {
     "rated_registry_input": "explicit registry file and expected SHA-256; frozen runtime prepared and startup checked, qualification and rated launch are pending",
     "auto_pay": true,
