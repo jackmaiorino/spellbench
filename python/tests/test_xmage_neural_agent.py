@@ -152,6 +152,75 @@ def test_casting_callback_keeps_own_action_and_forced_prefix_then_priority_repla
     assert len(session.requests) == 3
 
 
+def cleanup_decisions():
+    anchor = decision({"kind": "pass"}, phase="end_step")
+    anchor["observation"].update(active_seat="p0", priority_seat="p0")
+    callback = decision(*[
+        {"kind": "select_object", "purpose": "discard", "minimum": 1, "maximum": 1,
+         "selected_count": 0, "source": None,
+         "choice": {"object": {"object_id": f"card-{i}", "card_name": "Swamp",
+                                "zone": "hand", "owner_seat": "p0", "controller_seat": "p0"}}}
+        for i in range(2)], step=1, phase="cleanup")
+    callback["context"].update(purpose="discard", source=None)
+    callback["observation"].update(active_seat="p0", priority_seat=None, passed_seats=["p0", "p1"])
+    return anchor, callback
+
+
+def test_cleanup_discard_replays_recorded_end_step_and_keeps_earlier_discard_choices():
+    bot, session = ready(Session([0, 1]))
+    anchor, callback = cleanup_decisions()
+    assert bot.choose(view(anchor)) == 10
+    assert bot.choose(view(callback)) == 10
+    later = copy.deepcopy(callback)
+    later["seat_step"] = 2
+    assert bot.choose(view(later)) == 11
+    first, second = [request[0] for request in session.requests]
+    assert first["anchor"]["decision"]["observation"]["phase_step"] == "end_step"
+    assert first["replay"] == {"priority_passes": ["p1"], "earlier": []}
+    assert second["replay"]["priority_passes"] == ["p1"]
+    assert len(second["replay"]["earlier"]) == 1
+    assert second["replay"]["earlier"][0]["selection"]["semantic_echo"] == callback["candidates"][0]["semantic"]
+
+
+@pytest.mark.parametrize("fault", ["new-turn", "wrong-phase", "other-active", "pending-priority",
+                                  "missing-pass", "duplicate-pass", "stack-response", "other-hand",
+                                  "other-controller", "wrong-zone", "source", "purpose", "multi-select"])
+def test_cleanup_transition_refuses_unrecorded_responses_or_unbound_discards_before_search(fault):
+    bot, session = ready(Session([0]))
+    anchor, callback = cleanup_decisions()
+    observation, semantic = callback["observation"], callback["candidates"][0]["semantic"]
+    if fault == "new-turn":
+        observation["turn"] = 2
+    elif fault == "wrong-phase":
+        anchor["observation"]["phase_step"] = "postcombat_main"
+    elif fault == "other-active":
+        observation["active_seat"] = "p1"
+    elif fault == "pending-priority":
+        observation["priority_seat"] = "p1"
+    elif fault == "missing-pass":
+        observation["passed_seats"] = ["p0"]
+    elif fault == "duplicate-pass":
+        observation["passed_seats"] = ["p0", "p0"]
+    elif fault == "stack-response":
+        observation["stack"] = [{"object_id": "response", "stack_kind": "spell"}]
+    elif fault == "other-hand":
+        semantic["choice"]["object"]["owner_seat"] = "p1"
+    elif fault == "other-controller":
+        semantic["choice"]["object"]["controller_seat"] = "p1"
+    elif fault == "wrong-zone":
+        semantic["choice"]["object"]["zone"] = "battlefield"
+    elif fault == "source":
+        callback["context"]["source"] = {"object_id": "ability"}
+    elif fault == "purpose":
+        callback["context"]["purpose"] = "sacrifice"
+    elif fault == "multi-select":
+        semantic["maximum"] = 2
+    bot.choose(view(anchor))
+    with pytest.raises(ValueError):
+        bot.choose(view(callback))
+    assert bot.failed and session.closed and session.requests == []
+
+
 def test_entire_combat_group_reuses_one_original_neural_plan():
     bot, session = ready()
     record, _ = combat_fixture()
