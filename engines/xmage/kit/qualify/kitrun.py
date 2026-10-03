@@ -410,8 +410,11 @@ def _ctx(args: argparse.Namespace, out: Path, label: str) -> dict[str, str]:
 
 
 def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
-    from spellbench.arena.allocation import PlayedGame
+    from spellbench.arena.allocation import Placement, PlayedGame
     from spellbench.arena.qualification import plan_allocation, workload_id
+    # Reject malformed machine notes before starting any engine preflight.
+    if args.placement.strip():
+        Placement.parse(args.placement)
     plan_path = Path(args.plan)
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     out = Path(args.out)
