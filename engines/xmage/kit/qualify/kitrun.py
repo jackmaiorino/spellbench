@@ -422,13 +422,21 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
     sched = Schedule(plan, engine, ctx)
     setup = preflight_once(plan, engine, ctx)
     log = (out / "qualify-games.jsonl").open("a", encoding="utf-8")
+    progress = (out / "completed-games.jsonl").open("a", encoding="utf-8")
     rungs: list[dict[str, Any]] = []
 
     def play(workers: int, positions: tuple[int, ...]):
         gids = [sched.order[p] for p in positions]
         rung_ctx = _ctx(args, out, f"rung-{len(rungs)}-w{workers}")
         print(f"[{time.strftime('%H:%M:%S')}] rung: {workers} workers, {len(gids)} games", flush=True)
-        wall, rows = run_games(plan, engine, rung_ctx, gids, workers, setup)
+        positions_by_gid = dict(zip(gids, positions))
+        def completed(row):
+            # Keep each completed result if a later game interrupts the rung.
+            # Primary qualification rows below still use deterministic order.
+            progress.write(json.dumps({"rung": len(rungs), "workers": workers,
+                                       "position": positions_by_gid[row["gid"]], **row}, sort_keys=True) + "\n")
+            progress.flush()
+        wall, rows = run_games(plan, engine, rung_ctx, gids, workers, setup, on_row=completed)
         left = leftover_agent_dirs(rung_ctx)
         for p, row in zip(positions, rows):
             log.write(json.dumps({"workers": workers, "position": p, **row}, sort_keys=True) + "\n")
@@ -446,6 +454,7 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
         games_total=plan["games_total"], cap=args.cap, per_game_cores=PER_GAME_CORES, play=play,
         placement=args.placement, sample=list(range(plan["games_total"])), workload=workload_id(ident), host=args.machine,
         volumes={"run_dir": out, "pin_root": out}, evidence=out / "throughput-evidence.jsonl",
+        cap_bytes=args.storage_cap_bytes,
     )
     (out / "allocation.json").write_text(json.dumps(allocation.to_json(), indent=1) + "\n", encoding="utf-8")
     qualification = {"schema": "spellbench-kit-qualification/v1", "created": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -653,6 +662,7 @@ def main(argv: list[str]) -> int:
         if name == "qualify":
             q.add_argument("--cap", type=int, required=True)
             q.add_argument("--placement", required=True)
+            q.add_argument("--storage-cap-bytes", type=int, help="declared output cap for this job; recorded by allocation guard")
         else:
             q.add_argument("--qualification", required=True)
         if name == "run":

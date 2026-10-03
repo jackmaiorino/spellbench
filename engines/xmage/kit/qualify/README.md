@@ -3,6 +3,12 @@
 `kitrun.py` plays the kit entries through P's host on `fdn-mirror-v0`'s pool (the sixteen FDN decks, mirrors,
 seat-swapped pairs) and enforces the third review's change 8 criteria; `launch.sh` holds the per-machine commands.
 
+Qualification accepts `--storage-cap-bytes` to record a declared output cap in
+the allocation guard. `completed-games.jsonl` flushes each finished game's row,
+digest and elapsed time while a rung is running. `qualify-games.jsonl` retains
+the deterministic order used for the completed serial/parallel comparison.
+An interrupted rung is unfinished; its completed-game log is retained.
+
 | Step | What it does | Guard |
 |---|---|---|
 | `plan` | one shared plan: each admitted entry against `heuristic` and `uniform` (256 pairs each, 1,024 games per entry), the declared cross-entry games (kit-mad-1 against kit-mad-k, 64 pairs), the clock profile, entry identities and public descriptions, a master secret | refuses decks the register does not admit, custom identities, and kit-mcts without `--allow-mcts` |
