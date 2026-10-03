@@ -1,0 +1,2464 @@
+{
+  "schema": "spellbench-gorge-cloud-final-status/v1",
+  "at_utc": "2026-10-03T15:39:21.834694+00:00",
+  "release": {
+    "schema": "spellbench-gorge-cloud-release/v1",
+    "at_utc": "2026-10-03T15:37:28.418036+00:00",
+    "pod_id": "avmelw7vb6ee7m",
+    "volume_id": "edl6fbf5j0",
+    "pod_http_status": 404,
+    "volume_http_status": 404,
+    "pod_absent": true,
+    "volume_absent": true,
+    "verified_recovery_sha256": "ff29456dba1a7a6cb0d2ab7b5b2c5449eede1bd15ecf94adebb3505ec9ab27fe",
+    "stop_confirmed_utc": "2026-10-03T15:24:14.7693206+00:00",
+    "volume_delete_requested_utc": "2026-10-03T15:24:16.5549976+00:00",
+    "billing_start_utc": "2026-10-03T12:57:28.31+00:00",
+    "estimated_compute_usd": 1.810216638,
+    "conservative_estimated_total_usd": 1.860267470158333,
+    "spend_cap_usd": 10,
+    "billing_note": "Conservative time-times-rate estimate; provider invoice not yet reconciled"
+  },
+  "matrix": {
+    "schema": "spellbench-gorge-reference-host-matrix/v1",
+    "at_utc": "2026-10-03T15:07:56.027227+00:00",
+    "passed": false,
+    "failures": [
+      "gorge-search/Wildfire: no eligible and covered native search",
+      "gorge-search/Spy: no eligible and covered native search",
+      "gorge-search/CawGates: no eligible and covered native search",
+      "gorge-search-mana/Wildfire: no eligible and covered native search",
+      "gorge-search-mana/Spy: no eligible and covered native search",
+      "gorge-search-mana/Burn: no eligible and covered native search",
+      "gorge-search-mana/CawGates: no eligible and covered native search",
+      "gorge-search-redeal/Wildfire: no eligible and covered native search",
+      "gorge-search-redeal/Wildfire: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Rally: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Spy: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Burn: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/CawGates: no eligible and covered native search",
+      "gorge-search-redeal/CawGates: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Wildfire: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Rally: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Spy: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Burn: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/CawGates: redeal reconstruction refused or exhausted",
+      "non-natural matrix games: [408]"
+    ],
+    "completed_games": 120,
+    "cells": {
+      "gorge-search/Wildfire": {
+        "policy": "search",
+        "games": 2,
+        "native_decisions": 966,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 966,
+          "Eligible": 53,
+          "Attempted": 30,
+          "Covered": 0,
+          "Attempts": 1920,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 23,
+            "insufficient worlds/ESS": 30
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search/Rally": {
+        "policy": "search",
+        "games": 2,
+        "native_decisions": 351,
+        "bad_native_decisions": 1,
+        "search": {
+          "Natives": 351,
+          "Eligible": 31,
+          "Attempted": 23,
+          "Covered": 4,
+          "Attempts": 1472,
+          "Accepted": 120,
+          "Worlds": 32,
+          "Rollouts": 144,
+          "Submits": 61123,
+          "Terminal": 144,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 8,
+            "insufficient worlds/ESS": 19
+          },
+          "Kinds": {
+            "attackers": 1,
+            "cast": 3
+          }
+        }
+      },
+      "gorge-search/Spy": {
+        "policy": "search",
+        "games": 2,
+        "native_decisions": 979,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 979,
+          "Eligible": 33,
+          "Attempted": 27,
+          "Covered": 0,
+          "Attempts": 1728,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 6,
+            "insufficient worlds/ESS": 27
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search/Burn": {
+        "policy": "search",
+        "games": 2,
+        "native_decisions": 537,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 537,
+          "Eligible": 30,
+          "Attempted": 23,
+          "Covered": 1,
+          "Attempts": 1472,
+          "Accepted": 44,
+          "Worlds": 8,
+          "Rollouts": 24,
+          "Submits": 13813,
+          "Terminal": 24,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 7,
+            "insufficient worlds/ESS": 22
+          },
+          "Kinds": {
+            "cast": 1
+          }
+        }
+      },
+      "gorge-search/CawGates": {
+        "policy": "search",
+        "games": 2,
+        "native_decisions": 694,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 694,
+          "Eligible": 39,
+          "Attempted": 25,
+          "Covered": 0,
+          "Attempts": 1600,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 14,
+            "insufficient worlds/ESS": 25
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-mana/Wildfire": {
+        "policy": "search-mana",
+        "games": 2,
+        "native_decisions": 1622,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 1622,
+          "Eligible": 728,
+          "Attempted": 221,
+          "Covered": 0,
+          "Attempts": 14144,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 507,
+            "insufficient worlds/ESS": 221
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-mana/Rally": {
+        "policy": "search-mana",
+        "games": 2,
+        "native_decisions": 329,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 329,
+          "Eligible": 113,
+          "Attempted": 32,
+          "Covered": 1,
+          "Attempts": 2048,
+          "Accepted": 47,
+          "Worlds": 8,
+          "Rollouts": 32,
+          "Submits": 13224,
+          "Terminal": 32,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 81,
+            "insufficient worlds/ESS": 31
+          },
+          "Kinds": {
+            "cast": 1
+          }
+        }
+      },
+      "gorge-search-mana/Spy": {
+        "policy": "search-mana",
+        "games": 2,
+        "native_decisions": 753,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 753,
+          "Eligible": 94,
+          "Attempted": 55,
+          "Covered": 0,
+          "Attempts": 3520,
+          "Accepted": 1,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 39,
+            "insufficient worlds/ESS": 55
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-mana/Burn": {
+        "policy": "search-mana",
+        "games": 2,
+        "native_decisions": 300,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 300,
+          "Eligible": 47,
+          "Attempted": 22,
+          "Covered": 0,
+          "Attempts": 1408,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 25,
+            "insufficient worlds/ESS": 22
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-mana/CawGates": {
+        "policy": "search-mana",
+        "games": 2,
+        "native_decisions": 331,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 331,
+          "Eligible": 80,
+          "Attempted": 42,
+          "Covered": 0,
+          "Attempts": 2688,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 38,
+            "insufficient worlds/ESS": 42
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-redeal/Wildfire": {
+        "policy": "search-redeal",
+        "games": 2,
+        "native_decisions": 956,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 956,
+          "Eligible": 55,
+          "Attempted": 38,
+          "Covered": 0,
+          "Attempts": 2432,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 592,
+          "ReconstructionSubmits": 190000,
+          "ReconstructionNodes": 192819,
+          "ReconstructionBudgetExhausted": 38,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 38
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 17,
+            "insufficient worlds/ESS": 38
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-redeal/Rally": {
+        "policy": "search-redeal",
+        "games": 2,
+        "native_decisions": 289,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 289,
+          "Eligible": 31,
+          "Attempted": 22,
+          "Covered": 5,
+          "Attempts": 1408,
+          "Accepted": 15,
+          "Worlds": 40,
+          "Rollouts": 160,
+          "Submits": 72435,
+          "Terminal": 160,
+          "Capped": 0,
+          "Redealt": 32,
+          "ReconstructionAttempts": 776,
+          "ReconstructionSubmits": 86625,
+          "ReconstructionNodes": 83935,
+          "ReconstructionBudgetExhausted": 17,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 17
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 9,
+            "insufficient worlds/ESS": 17
+          },
+          "Kinds": {
+            "attackers": 1,
+            "cast": 4
+          }
+        }
+      },
+      "gorge-search-redeal/Spy": {
+        "policy": "search-redeal",
+        "games": 2,
+        "native_decisions": 415,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 415,
+          "Eligible": 28,
+          "Attempted": 24,
+          "Covered": 1,
+          "Attempts": 1536,
+          "Accepted": 0,
+          "Worlds": 8,
+          "Rollouts": 24,
+          "Submits": 13374,
+          "Terminal": 24,
+          "Capped": 0,
+          "Redealt": 8,
+          "ReconstructionAttempts": 897,
+          "ReconstructionSubmits": 79492,
+          "ReconstructionNodes": 72348,
+          "ReconstructionBudgetExhausted": 14,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 14,
+            "no public replay completion in 64 proposals": 9
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 4,
+            "insufficient worlds/ESS": 23
+          },
+          "Kinds": {
+            "cast": 1
+          }
+        }
+      },
+      "gorge-search-redeal/Burn": {
+        "policy": "search-redeal",
+        "games": 2,
+        "native_decisions": 447,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 447,
+          "Eligible": 25,
+          "Attempted": 18,
+          "Covered": 5,
+          "Attempts": 1152,
+          "Accepted": 5,
+          "Worlds": 40,
+          "Rollouts": 160,
+          "Submits": 71317,
+          "Terminal": 160,
+          "Capped": 0,
+          "Redealt": 40,
+          "ReconstructionAttempts": 63,
+          "ReconstructionSubmits": 70276,
+          "ReconstructionNodes": 69079,
+          "ReconstructionBudgetExhausted": 13,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 13
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 7,
+            "insufficient worlds/ESS": 13
+          },
+          "Kinds": {
+            "cast": 3,
+            "attackers": 2
+          }
+        }
+      },
+      "gorge-search-redeal/CawGates": {
+        "policy": "search-redeal",
+        "games": 2,
+        "native_decisions": 808,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 808,
+          "Eligible": 37,
+          "Attempted": 28,
+          "Covered": 0,
+          "Attempts": 1792,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 1288,
+          "ReconstructionSubmits": 101389,
+          "ReconstructionNodes": 99790,
+          "ReconstructionBudgetExhausted": 8,
+          "RedealRefusals": {
+            "no public replay completion in 64 proposals": 20,
+            "public reconstruction submit budget exhausted": 8
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 9,
+            "insufficient worlds/ESS": 28
+          },
+          "Kinds": {}
+        }
+      },
+      "gorge-search-mana-redeal/Wildfire": {
+        "policy": "search-mana-redeal",
+        "games": 2,
+        "native_decisions": 1709,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 1709,
+          "Eligible": 786,
+          "Attempted": 278,
+          "Covered": 18,
+          "Attempts": 17792,
+          "Accepted": 0,
+          "Worlds": 144,
+          "Rollouts": 456,
+          "Submits": 591081,
+          "Terminal": 456,
+          "Capped": 0,
+          "Redealt": 144,
+          "ReconstructionAttempts": 2789,
+          "ReconstructionSubmits": 1332377,
+          "ReconstructionNodes": 1299674,
+          "ReconstructionBudgetExhausted": 260,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 260
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 508,
+            "insufficient worlds/ESS": 260
+          },
+          "Kinds": {
+            "cast": 10,
+            "mana": 8
+          }
+        }
+      },
+      "gorge-search-mana-redeal/Rally": {
+        "policy": "search-mana-redeal",
+        "games": 2,
+        "native_decisions": 328,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 328,
+          "Eligible": 65,
+          "Attempted": 37,
+          "Covered": 9,
+          "Attempts": 2368,
+          "Accepted": 48,
+          "Worlds": 72,
+          "Rollouts": 336,
+          "Submits": 140076,
+          "Terminal": 336,
+          "Capped": 0,
+          "Redealt": 64,
+          "ReconstructionAttempts": 588,
+          "ReconstructionSubmits": 152043,
+          "ReconstructionNodes": 148482,
+          "ReconstructionBudgetExhausted": 28,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 28
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 28,
+            "insufficient worlds/ESS": 28
+          },
+          "Kinds": {
+            "cast": 7,
+            "attackers": 2
+          }
+        }
+      },
+      "gorge-search-mana-redeal/Spy": {
+        "policy": "search-mana-redeal",
+        "games": 2,
+        "native_decisions": 622,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 622,
+          "Eligible": 188,
+          "Attempted": 74,
+          "Covered": 4,
+          "Attempts": 4736,
+          "Accepted": 0,
+          "Worlds": 32,
+          "Rollouts": 120,
+          "Submits": 49798,
+          "Terminal": 120,
+          "Capped": 0,
+          "Redealt": 32,
+          "ReconstructionAttempts": 2074,
+          "ReconstructionSubmits": 278199,
+          "ReconstructionNodes": 261975,
+          "ReconstructionBudgetExhausted": 43,
+          "RedealRefusals": {
+            "no public replay completion in 64 proposals": 27,
+            "public reconstruction submit budget exhausted": 43
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 114,
+            "insufficient worlds/ESS": 70
+          },
+          "Kinds": {
+            "cast": 2,
+            "mana": 2
+          }
+        }
+      },
+      "gorge-search-mana-redeal/Burn": {
+        "policy": "search-mana-redeal",
+        "games": 2,
+        "native_decisions": 379,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 379,
+          "Eligible": 46,
+          "Attempted": 27,
+          "Covered": 1,
+          "Attempts": 1728,
+          "Accepted": 5,
+          "Worlds": 8,
+          "Rollouts": 24,
+          "Submits": 14690,
+          "Terminal": 24,
+          "Capped": 0,
+          "Redealt": 8,
+          "ReconstructionAttempts": 44,
+          "ReconstructionSubmits": 130015,
+          "ReconstructionNodes": 128629,
+          "ReconstructionBudgetExhausted": 26,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 26
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 19,
+            "insufficient worlds/ESS": 26
+          },
+          "Kinds": {
+            "cast": 1
+          }
+        }
+      },
+      "gorge-search-mana-redeal/CawGates": {
+        "policy": "search-mana-redeal",
+        "games": 2,
+        "native_decisions": 500,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 500,
+          "Eligible": 139,
+          "Attempted": 59,
+          "Covered": 3,
+          "Attempts": 3776,
+          "Accepted": 0,
+          "Worlds": 24,
+          "Rollouts": 72,
+          "Submits": 75344,
+          "Terminal": 72,
+          "Capped": 0,
+          "Redealt": 24,
+          "ReconstructionAttempts": 878,
+          "ReconstructionSubmits": 282550,
+          "ReconstructionNodes": 281216,
+          "ReconstructionBudgetExhausted": 56,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 56
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 80,
+            "insufficient worlds/ESS": 56
+          },
+          "Kinds": {
+            "cast": 1,
+            "mana": 2
+          }
+        }
+      },
+      "gorge-bot/Wildfire": {
+        "policy": "bot",
+        "games": 2,
+        "native_decisions": 1195,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot/Rally": {
+        "policy": "bot",
+        "games": 2,
+        "native_decisions": 330,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot/Spy": {
+        "policy": "bot",
+        "games": 2,
+        "native_decisions": 1056,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot/Burn": {
+        "policy": "bot",
+        "games": 2,
+        "native_decisions": 411,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot/CawGates": {
+        "policy": "bot",
+        "games": 2,
+        "native_decisions": 531,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure/Wildfire": {
+        "policy": "lethal-pressure",
+        "games": 2,
+        "native_decisions": 1001,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure/Rally": {
+        "policy": "lethal-pressure",
+        "games": 2,
+        "native_decisions": 431,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure/Spy": {
+        "policy": "lethal-pressure",
+        "games": 2,
+        "native_decisions": 699,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure/Burn": {
+        "policy": "lethal-pressure",
+        "games": 2,
+        "native_decisions": 415,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure/CawGates": {
+        "policy": "lethal-pressure",
+        "games": 2,
+        "native_decisions": 421,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-ar8/Wildfire": {
+        "policy": "ar8",
+        "games": 2,
+        "native_decisions": 1317,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-ar8/Rally": {
+        "policy": "ar8",
+        "games": 2,
+        "native_decisions": 247,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-ar8/Spy": {
+        "policy": "ar8",
+        "games": 2,
+        "native_decisions": 778,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-ar8/Burn": {
+        "policy": "ar8",
+        "games": 2,
+        "native_decisions": 406,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-ar8/CawGates": {
+        "policy": "ar8",
+        "games": 2,
+        "native_decisions": 638,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-blocks/Wildfire": {
+        "policy": "blocks",
+        "games": 2,
+        "native_decisions": 1320,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-blocks/Rally": {
+        "policy": "blocks",
+        "games": 2,
+        "native_decisions": 348,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-blocks/Spy": {
+        "policy": "blocks",
+        "games": 2,
+        "native_decisions": 760,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-blocks/Burn": {
+        "policy": "blocks",
+        "games": 2,
+        "native_decisions": 277,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-blocks/CawGates": {
+        "policy": "blocks",
+        "games": 2,
+        "native_decisions": 746,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-explore/Wildfire": {
+        "policy": "explore",
+        "games": 2,
+        "native_decisions": 1031,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-explore/Rally": {
+        "policy": "explore",
+        "games": 2,
+        "native_decisions": 650,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-explore/Spy": {
+        "policy": "explore",
+        "games": 2,
+        "native_decisions": 744,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-explore/Burn": {
+        "policy": "explore",
+        "games": 2,
+        "native_decisions": 431,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-explore/CawGates": {
+        "policy": "explore",
+        "games": 2,
+        "native_decisions": 497,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-legacy/Wildfire": {
+        "policy": "legacy",
+        "games": 2,
+        "native_decisions": 1597,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-legacy/Rally": {
+        "policy": "legacy",
+        "games": 2,
+        "native_decisions": 244,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-legacy/Spy": {
+        "policy": "legacy",
+        "games": 2,
+        "native_decisions": 916,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-legacy/Burn": {
+        "policy": "legacy",
+        "games": 2,
+        "native_decisions": 330,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-legacy/CawGates": {
+        "policy": "legacy",
+        "games": 2,
+        "native_decisions": 459,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot-auto-pay/Wildfire": {
+        "policy": "bot-auto-pay",
+        "games": 2,
+        "native_decisions": 1277,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot-auto-pay/Rally": {
+        "policy": "bot-auto-pay",
+        "games": 2,
+        "native_decisions": 331,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot-auto-pay/Spy": {
+        "policy": "bot-auto-pay",
+        "games": 2,
+        "native_decisions": 889,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot-auto-pay/Burn": {
+        "policy": "bot-auto-pay",
+        "games": 2,
+        "native_decisions": 478,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-bot-auto-pay/CawGates": {
+        "policy": "bot-auto-pay",
+        "games": 2,
+        "native_decisions": 668,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure-auto-pay/Wildfire": {
+        "policy": "lethal-pressure-auto-pay",
+        "games": 2,
+        "native_decisions": 1497,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure-auto-pay/Rally": {
+        "policy": "lethal-pressure-auto-pay",
+        "games": 2,
+        "native_decisions": 278,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure-auto-pay/Spy": {
+        "policy": "lethal-pressure-auto-pay",
+        "games": 2,
+        "native_decisions": 641,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure-auto-pay/Burn": {
+        "policy": "lethal-pressure-auto-pay",
+        "games": 2,
+        "native_decisions": 339,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      },
+      "gorge-lethal-pressure-auto-pay/CawGates": {
+        "policy": "lethal-pressure-auto-pay",
+        "games": 2,
+        "native_decisions": 616,
+        "bad_native_decisions": 0,
+        "search": {
+          "Natives": 0,
+          "Eligible": 0,
+          "Attempted": 0,
+          "Covered": 0,
+          "Attempts": 0,
+          "Accepted": 0,
+          "Worlds": 0,
+          "Rollouts": 0,
+          "Submits": 0,
+          "Terminal": 0,
+          "Capped": 0,
+          "Redealt": 0,
+          "ReconstructionAttempts": 0,
+          "ReconstructionSubmits": 0,
+          "ReconstructionNodes": 0,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {},
+          "Kinds": {}
+        }
+      }
+    },
+    "allocation": {
+      "kind": "substantial",
+      "label": "substantial run, measured",
+      "workers": 4,
+      "host": "runpod-gorge-20261003-001",
+      "cpu_count": 14,
+      "per_game_cores": 3,
+      "games_total": 120,
+      "rules": {
+        "substantial_run_seconds": 600,
+        "budget_percent": 12,
+        "games_per_worker": 2,
+        "probe_games": 2,
+        "ladder_divisors": [
+          2,
+          1
+        ],
+        "spot_check_divisor": 2
+      },
+      "probe": {
+        "workers": 1,
+        "games": 8,
+        "indices": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70
+        ],
+        "seconds_milli": 257081,
+        "busy_milli": 257023,
+        "row_bytes": 10773,
+        "outputs_digest": "sha256:7fd04b8199d4e6d8338f7f9bedeb0afd5bd3b034e19e4353fa276713c792ce72"
+      },
+      "trials": [
+        {
+          "workers": 1,
+          "games": 8,
+          "indices": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70
+          ],
+          "seconds_milli": 257081,
+          "busy_milli": 257023,
+          "row_bytes": 10773,
+          "outputs_digest": "sha256:7fd04b8199d4e6d8338f7f9bedeb0afd5bd3b034e19e4353fa276713c792ce72"
+        },
+        {
+          "workers": 2,
+          "games": 8,
+          "indices": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70
+          ],
+          "seconds_milli": 143835,
+          "busy_milli": 262923,
+          "row_bytes": 10773,
+          "outputs_digest": "sha256:7fd04b8199d4e6d8338f7f9bedeb0afd5bd3b034e19e4353fa276713c792ce72"
+        },
+        {
+          "workers": 4,
+          "games": 8,
+          "indices": [
+            0,
+            10,
+            20,
+            30,
+            40,
+            50,
+            60,
+            70
+          ],
+          "seconds_milli": 135904,
+          "busy_milli": 267634,
+          "row_bytes": 10773,
+          "outputs_digest": "sha256:7fd04b8199d4e6d8338f7f9bedeb0afd5bd3b034e19e4353fa276713c792ce72"
+        }
+      ],
+      "projected_serial_seconds": 3857,
+      "placement": {
+        "main-pc": {
+          "disposition": "unavailable",
+          "reason": "peer XMage announced guarded qualification after canonical research release"
+        },
+        "haleyspc": {
+          "disposition": "unavailable",
+          "reason": "queued training-performance window retains priority per CODEX811"
+        },
+        "runpod": {
+          "disposition": "used",
+          "reason": "owned CPU game allocation with13.6-core CFS quota, current four-worker scaling2.7568x and identical outputs, separate gorge USD10 total cap"
+        }
+      },
+      "outputs_identical": true,
+      "outputs_note": null,
+      "spot_check": null,
+      "qualification_seconds_milli": 543684,
+      "workload": "sha256:04276dfeebc974ec1bf97fb3acca08c18fd4cbf781941dc26d3700b45f7c756e",
+      "reused": false,
+      "machine": {
+        "memory_bytes": 60999999488,
+        "gpus": [
+          "NVIDIA GeForce RTX 4090"
+        ],
+        "free_bytes": {
+          "pin_root": 99618817024,
+          "run_dir": 99618817024
+        }
+      },
+      "budget": {
+        "projected_bytes": 161595,
+        "pinned_bytes": 0,
+        "cap_bytes": 323190
+      }
+    },
+    "game_seconds": [
+      {
+        "game_index": 360,
+        "seconds": 19.067440036684275
+      },
+      {
+        "game_index": 361,
+        "seconds": 9.621195685118437
+      },
+      {
+        "game_index": 362,
+        "seconds": 4.998627316206694
+      },
+      {
+        "game_index": 363,
+        "seconds": 17.726537849754095
+      },
+      {
+        "game_index": 364,
+        "seconds": 16.716929767280817
+      },
+      {
+        "game_index": 365,
+        "seconds": 8.501721780747175
+      },
+      {
+        "game_index": 366,
+        "seconds": 5.7125342562794685
+      },
+      {
+        "game_index": 367,
+        "seconds": 9.142997894436121
+      },
+      {
+        "game_index": 368,
+        "seconds": 11.326433390378952
+      },
+      {
+        "game_index": 369,
+        "seconds": 9.196938212960958
+      },
+      {
+        "game_index": 400,
+        "seconds": 150.44431678578258
+      },
+      {
+        "game_index": 401,
+        "seconds": 40.780513282865286
+      },
+      {
+        "game_index": 402,
+        "seconds": 3.992622684687376
+      },
+      {
+        "game_index": 403,
+        "seconds": 10.273082714527845
+      },
+      {
+        "game_index": 404,
+        "seconds": 9.500976599752903
+      },
+      {
+        "game_index": 405,
+        "seconds": 6.7412875927984715
+      },
+      {
+        "game_index": 406,
+        "seconds": 3.423754196614027
+      },
+      {
+        "game_index": 407,
+        "seconds": 4.683868780732155
+      },
+      {
+        "game_index": 408,
+        "seconds": 3.4970142915844917
+      },
+      {
+        "game_index": 409,
+        "seconds": 10.37031801044941
+      },
+      {
+        "game_index": 440,
+        "seconds": 33.06411940604448
+      },
+      {
+        "game_index": 441,
+        "seconds": 43.568809144198895
+      },
+      {
+        "game_index": 442,
+        "seconds": 22.78713521361351
+      },
+      {
+        "game_index": 443,
+        "seconds": 19.354600924998522
+      },
+      {
+        "game_index": 444,
+        "seconds": 21.692348886281252
+      },
+      {
+        "game_index": 445,
+        "seconds": 8.1488745957613
+      },
+      {
+        "game_index": 446,
+        "seconds": 18.65137257426977
+      },
+      {
+        "game_index": 447,
+        "seconds": 17.304926879704
+      },
+      {
+        "game_index": 448,
+        "seconds": 32.139465156942606
+      },
+      {
+        "game_index": 449,
+        "seconds": 14.552526719868183
+      },
+      {
+        "game_index": 480,
+        "seconds": 233.90621637552977
+      },
+      {
+        "game_index": 481,
+        "seconds": 425.16794561222196
+      },
+      {
+        "game_index": 482,
+        "seconds": 32.44348692148924
+      },
+      {
+        "game_index": 483,
+        "seconds": 40.70524901151657
+      },
+      {
+        "game_index": 484,
+        "seconds": 24.541357439011335
+      },
+      {
+        "game_index": 485,
+        "seconds": 97.05632220208645
+      },
+      {
+        "game_index": 486,
+        "seconds": 15.723936777561903
+      },
+      {
+        "game_index": 487,
+        "seconds": 25.165840353816748
+      },
+      {
+        "game_index": 488,
+        "seconds": 46.53715580701828
+      },
+      {
+        "game_index": 489,
+        "seconds": 82.53512838482857
+      },
+      {
+        "game_index": 40,
+        "seconds": 17.938952136784792
+      },
+      {
+        "game_index": 41,
+        "seconds": 10.305085256695747
+      },
+      {
+        "game_index": 42,
+        "seconds": 1.8874565213918686
+      },
+      {
+        "game_index": 43,
+        "seconds": 3.8027220256626606
+      },
+      {
+        "game_index": 44,
+        "seconds": 7.451663497835398
+      },
+      {
+        "game_index": 45,
+        "seconds": 15.107523959130049
+      },
+      {
+        "game_index": 46,
+        "seconds": 3.5871518962085247
+      },
+      {
+        "game_index": 47,
+        "seconds": 2.9379386715590954
+      },
+      {
+        "game_index": 48,
+        "seconds": 4.603442125022411
+      },
+      {
+        "game_index": 49,
+        "seconds": 4.705632027238607
+      },
+      {
+        "game_index": 80,
+        "seconds": 12.100088939070702
+      },
+      {
+        "game_index": 81,
+        "seconds": 9.757318682968616
+      },
+      {
+        "game_index": 82,
+        "seconds": 2.475345589220524
+      },
+      {
+        "game_index": 83,
+        "seconds": 6.160023663192987
+      },
+      {
+        "game_index": 84,
+        "seconds": 5.7951218001544476
+      },
+      {
+        "game_index": 85,
+        "seconds": 5.364743787795305
+      },
+      {
+        "game_index": 86,
+        "seconds": 3.1874276474118233
+      },
+      {
+        "game_index": 87,
+        "seconds": 2.7328001745045185
+      },
+      {
+        "game_index": 88,
+        "seconds": 3.8109619058668613
+      },
+      {
+        "game_index": 89,
+        "seconds": 3.053485728800297
+      },
+      {
+        "game_index": 120,
+        "seconds": 12.778782662004232
+      },
+      {
+        "game_index": 121,
+        "seconds": 20.944780223071575
+      },
+      {
+        "game_index": 122,
+        "seconds": 2.121303975582123
+      },
+      {
+        "game_index": 123,
+        "seconds": 2.2058288902044296
+      },
+      {
+        "game_index": 124,
+        "seconds": 5.043548829853535
+      },
+      {
+        "game_index": 125,
+        "seconds": 8.008957095444202
+      },
+      {
+        "game_index": 126,
+        "seconds": 3.043997012078762
+      },
+      {
+        "game_index": 127,
+        "seconds": 3.187497977167368
+      },
+      {
+        "game_index": 128,
+        "seconds": 6.853353057056665
+      },
+      {
+        "game_index": 129,
+        "seconds": 5.624526880681515
+      },
+      {
+        "game_index": 160,
+        "seconds": 24.812378846108913
+      },
+      {
+        "game_index": 161,
+        "seconds": 9.195692207664251
+      },
+      {
+        "game_index": 162,
+        "seconds": 2.183910232037306
+      },
+      {
+        "game_index": 163,
+        "seconds": 3.466260015964508
+      },
+      {
+        "game_index": 164,
+        "seconds": 5.778515286743641
+      },
+      {
+        "game_index": 165,
+        "seconds": 9.954775154590607
+      },
+      {
+        "game_index": 166,
+        "seconds": 2.4847774729132652
+      },
+      {
+        "game_index": 167,
+        "seconds": 1.9004583470523357
+      },
+      {
+        "game_index": 168,
+        "seconds": 6.240681152790785
+      },
+      {
+        "game_index": 169,
+        "seconds": 10.248975686728954
+      },
+      {
+        "game_index": 200,
+        "seconds": 4.712359070777893
+      },
+      {
+        "game_index": 201,
+        "seconds": 16.478035524487495
+      },
+      {
+        "game_index": 202,
+        "seconds": 2.698136944323778
+      },
+      {
+        "game_index": 203,
+        "seconds": 10.93593118339777
+      },
+      {
+        "game_index": 204,
+        "seconds": 7.7153395265340805
+      },
+      {
+        "game_index": 205,
+        "seconds": 5.575697872787714
+      },
+      {
+        "game_index": 206,
+        "seconds": 3.693738888949156
+      },
+      {
+        "game_index": 207,
+        "seconds": 2.330770071595907
+      },
+      {
+        "game_index": 208,
+        "seconds": 4.503127846866846
+      },
+      {
+        "game_index": 209,
+        "seconds": 3.3536930344998837
+      },
+      {
+        "game_index": 240,
+        "seconds": 20.884697403758764
+      },
+      {
+        "game_index": 241,
+        "seconds": 19.68883430585265
+      },
+      {
+        "game_index": 242,
+        "seconds": 2.160077501088381
+      },
+      {
+        "game_index": 243,
+        "seconds": 2.0188906006515026
+      },
+      {
+        "game_index": 244,
+        "seconds": 6.889172796159983
+      },
+      {
+        "game_index": 245,
+        "seconds": 11.043082874268293
+      },
+      {
+        "game_index": 246,
+        "seconds": 2.5648325383663177
+      },
+      {
+        "game_index": 247,
+        "seconds": 2.7019149400293827
+      },
+      {
+        "game_index": 248,
+        "seconds": 3.9683596156537533
+      },
+      {
+        "game_index": 249,
+        "seconds": 3.707679007202387
+      },
+      {
+        "game_index": 280,
+        "seconds": 20.54724106565118
+      },
+      {
+        "game_index": 281,
+        "seconds": 15.498371928930283
+      },
+      {
+        "game_index": 282,
+        "seconds": 4.90263618901372
+      },
+      {
+        "game_index": 283,
+        "seconds": 1.8669752292335033
+      },
+      {
+        "game_index": 284,
+        "seconds": 9.118826232850552
+      },
+      {
+        "game_index": 285,
+        "seconds": 11.316314458847046
+      },
+      {
+        "game_index": 286,
+        "seconds": 4.3503896705806255
+      },
+      {
+        "game_index": 287,
+        "seconds": 3.4160454235970974
+      },
+      {
+        "game_index": 288,
+        "seconds": 4.528978988528252
+      },
+      {
+        "game_index": 289,
+        "seconds": 8.94094692915678
+      },
+      {
+        "game_index": 320,
+        "seconds": 25.918854672461748
+      },
+      {
+        "game_index": 321,
+        "seconds": 17.044257774949074
+      },
+      {
+        "game_index": 322,
+        "seconds": 2.5882615819573402
+      },
+      {
+        "game_index": 323,
+        "seconds": 2.442002519965172
+      },
+      {
+        "game_index": 324,
+        "seconds": 7.885197415947914
+      },
+      {
+        "game_index": 325,
+        "seconds": 3.7480069287121296
+      },
+      {
+        "game_index": 326,
+        "seconds": 2.5206102691590786
+      },
+      {
+        "game_index": 327,
+        "seconds": 2.9961890876293182
+      },
+      {
+        "game_index": 328,
+        "seconds": 3.933655943721533
+      },
+      {
+        "game_index": 329,
+        "seconds": 6.765258766710758
+      }
+    ],
+    "wall_seconds": 1223.3621457368135,
+    "ledger_sha256": "1e1e5a09e032647b9c435107f96840c70128c470c52eeccee8dd1dcaff4a41cb",
+    "replay_identical": true,
+    "replay_game_index": 366,
+    "replay_store_sha256": "cd572f31e516b536ab2ff21ed621c255126b13903e9e724548fd41f0e8003c99",
+    "rated_games": 0,
+    "full_native_audit_passed": false
+  },
+  "matrix_exit_code": 1,
+  "native_audit": "Not dispatched; adapter fixes and per-deck search coverage remain necessary",
+  "correctness_replays": [
+    {
+      "stage": "caw-mapping-correctness-001",
+      "classification": "halted",
+      "reason": "engine_contract_failure:unmapped_decision"
+    },
+    {
+      "stage": "caw-mapping-correctness-002",
+      "classification": "halted",
+      "reason": "engine_contract_failure:unmapped_decision"
+    },
+    {
+      "stage": "caw-mapping-correctness-003",
+      "classification": "halted",
+      "reason": "host_validator:V9"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\matrix-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closed-stage-recovery-002\\matrix-002",
+      "bytes": 602761,
+      "seal_sha256": "3463e580c41ab1742126a2388e06b626c9729f84d85dbac696b54067eca20d2a"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-001",
+      "bytes": 17500704,
+      "seal_sha256": "0f33b6272ed697e9db40ef9189f44a51de08f14c326bd17e17e7d7adf5e5a34a"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-002",
+      "bytes": 17507084,
+      "seal_sha256": "8c344be4f8e44bff30192cd2ca1bdb9101b1271735dc2e93cde5ad0ff63eb71e"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-003",
+      "bytes": 4633,
+      "seal_sha256": "e5d01bf051db20c04e50fdefa903a3f71a294a7396affbe5711ca142bfdcc617"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\native-progress-correctness-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\native-progress-correctness-001",
+      "bytes": 2930,
+      "seal_sha256": "d58f0c226f6d3b50ef1609ade57ce3ff1f20d40dc550d6ce5e5daa1b7c395310"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\closure-metadata-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closure-metadata-001",
+      "bytes": 732489,
+      "seal_sha256": "17fec143b2d3eaf34b928d8e05b9706434b466a2010d0ff9b44ed82660bfa7cb"
+    }
+  ],
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "disposition": "Cloud pilot released under the separate cumulative USD10 cap; failed search coverage and mapping retained for local repairs"
+}

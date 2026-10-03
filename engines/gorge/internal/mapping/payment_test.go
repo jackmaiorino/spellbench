@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/mapping"
 )
 
@@ -55,15 +56,31 @@ func TestSpellbombWindowIsOneManaPaymentDecision(t *testing.T) {
 
 func TestUnlessPayPreservesNativeManaWindowChoices(t *testing.T) {
 	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
-		return d.Kind == decision.KModes && d.ResumeKind == "unless_pay"
+		if d.Kind != decision.KModes || d.ResumeKind != "unless_pay" {
+			return false
+		}
+		for _, option := range d.Options {
+			if option.Mode == decision.ModeUnlessPay {
+				return true
+			}
+		}
+		return false
 	})
-	env := envFor(t, g)
 	d := g.E.Pending()
+	// Put the already-offered native payment's resources on its real lands
+	// instead of in the floating pool, so this fixture exercises the window.
+	g.E.G.Players[d.Player].Pool = state.Mana{}
+	g.E.G.Players[d.Player].Snow = state.Mana{}
+	for _, id := range g.E.G.Zone(state.ZBattlefield, d.Player) {
+		g.E.G.Obj(id).Tapped = false
+	}
+	env := envFor(t, g)
 	tx, _ := mapping.Begin(env, d)
 	p, _ := tx.Pose()
 	if len(p.Candidates) != len(d.Options) {
 		t.Fatalf("native unless choices were omitted: %d offered, %d native", len(p.Candidates), len(d.Options))
 	}
+	windowsChecked := 0
 	for _, c := range p.Candidates {
 		if c.Sem.Kind != "optional_cost" {
 			t.Fatalf("kind %s", c.Sem.Kind)
@@ -75,11 +92,73 @@ func TestUnlessPayPreservesNativeManaWindowChoices(t *testing.T) {
 				t.Fatal(err)
 			}
 			if n := cl.Pending(); n != nil && n.ResumeKind == "unless_mana" && n.Player == d.Player {
+				windowsChecked++
 				if mapping.Route(n) != "choose/mana_window" {
 					t.Fatalf("elected payment cannot enter its native mana window: %+v", n)
 				}
+				g.E = cl
+				seenCompletion := false
+				for step := 0; step < 16; step++ {
+					n = g.E.Pending()
+					if n == nil || mapping.Route(n) != "choose/mana_window" {
+						break
+					}
+					env = envFor(t, g)
+					env.Action = &mapping.ActionContext{Seat: d.Player, Obj: d.Source}
+					window, err := mapping.Begin(env, n)
+					if err != nil {
+						t.Fatal(err)
+					}
+					pose, err := window.Pose()
+					if err != nil {
+						t.Fatal(err)
+					}
+					pick := -1
+					decline := false
+					for i, candidate := range pose.Candidates {
+						if candidate.Sem.Kind == "optional_cost" && candidate.Sem.Fields["pay"] == false {
+							decline = true
+						}
+						if pick < 0 && candidate.Sem.Kind == "activate_mana_ability" {
+							pick = i
+						}
+					}
+					if len(n.Options) == 1 {
+						if len(pose.Candidates) != 1 || pose.Candidates[0].Sem.Kind != "finish_selection" ||
+							pose.Context.Purpose == nil || *pose.Context.Purpose != "other" {
+							t.Fatalf("Done-only window invents an election: %+v", pose)
+						}
+						pick = 0
+						seenCompletion = true
+					} else if !decline {
+						t.Fatal("unfunded window omits its native Done/decline choice")
+					}
+					if pick < 0 {
+						t.Fatal("window exposes neither a source nor completion")
+					}
+					commits, done, err := window.Answer(pick)
+					if err != nil || !done || len(commits) == 0 || commits[0].Choices[0] != pose.Candidates[pick].Op.Option {
+						t.Fatalf("native payment operation changed: %v %v %v", commits, done, err)
+					}
+					cl = g.E.Clone()
+					for _, in := range commits {
+						if in.Seq == 0 {
+							in.Seq, in.Player = cl.Pending().Seq, cl.Pending().Player
+						}
+						if err := cl.SubmitHypothetical(in); err != nil {
+							t.Fatal(err)
+						}
+					}
+					g.E = cl
+				}
+				if !seenCompletion {
+					t.Fatal("funding the native payment never reached its Done-only completion")
+				}
 			}
 		}
+	}
+	if windowsChecked == 0 {
+		t.Fatal("native fixture did not exercise the elected payment window")
 	}
 }
 

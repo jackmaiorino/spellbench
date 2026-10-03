@@ -103,15 +103,19 @@ func newManaWindow(env *Env, d *decision.Decision) (Transaction, error) {
 				Op: NativeOp{Op: "choose", Option: done, Followup: []int{ao.Index}}})
 		}
 	} else {
-		// Cast, activation and elected unless/ward windows settle on Done.
-		// Their next pending decision belongs to the resumed game, so do not
-		// fold it into this payment. The successful probe preserves native
-		// legality, including a payer who has already elected to pay.
+		// These windows settle directly on Done, without a separate payment
+		// election. While mana sources remain, Done leaves the pool short
+		// and declines the charge. A final, Done-only window completes the
+		// preceding selection; it must not invent a second pay/decline ask.
 		if ask == nil && !c.G.Over {
 			return nil, fmt.Errorf("%w:mana_window_no_continuation", ErrUnmapped)
 		}
-		p.Candidates = append(p.Candidates, Cand{Sem: protocol.OptionalCost(src, unlessCost(d), true),
-			Op: NativeOp{Op: "choose", Option: done}})
+		sem := protocol.OptionalCost(src, unlessCost(d), false)
+		if len(d.Options) == 1 {
+			p.Context = choice(&src, "other")
+			sem = protocol.FinishSelection(&src, "other", 0)
+		}
+		p.Candidates = append(p.Candidates, Cand{Sem: sem, Op: NativeOp{Op: "choose", Option: done}})
 	}
 	for _, o := range d.Options {
 		if o.Kind != "activate" {
