@@ -297,5 +297,7 @@
   "published": false,
   "remaining": "Current-runtime qualification, failed per-deck search coverage and reconstruction gates, reviewed benchmark and seed commitment, rated evaluation and publication.",
   "current_runtime": "docs/gorge-runtime-preparation-20261003-013.json",
-  "subsequent_repair": "docs/gorge-mana-history-repair-20261003.json"
+  "subsequent_repair": "docs/gorge-mana-history-repair-20261003.json",
+  "latest_runtime": "E:/spellbench-gorge-runtime-20261003-014",
+  "public_basic_search_follow_up": "docs/gorge-basic-search-repair-20261003.json"
 }
