@@ -1,0 +1,51 @@
+name: gorge adapter
+
+on:
+  pull_request:
+    paths:
+      - 'engines/gorge/**'
+      - 'benchmarks/pauper-gorge/**'
+      - '.github/workflows/gorge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      # The runner's preinstalled Go fetches this toolchain and checks it against the Go checksum database.
+      GOTOOLCHAIN: go1.25.8
+      GORGE_PIN: 26257e0eda1779d739a07e835c6500b9c4dabc62
+      FORGE_REF: 95f04e8a04c8925fa97cb226fc3341cabcc90a53
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # gorge's compiler fingerprint hashes its source bytes, and the pinned value is
+      # from the qualified Windows (CRLF) checkout, so CI checks gorge out the same way.
+      - name: Clone gorge at the pin
+        shell: bash
+        run: |
+          git init -q "$RUNNER_TEMP/gorge"
+          git -C "$RUNNER_TEMP/gorge" config core.autocrlf true
+          git -C "$RUNNER_TEMP/gorge" fetch -q --depth 1 https://github.com/adams-shaun/gorge.git "$GORGE_PIN"
+          git -C "$RUNNER_TEMP/gorge" checkout -q FETCH_HEAD
+          echo "GORGE_SRC=$RUNNER_TEMP/gorge" >> "$GITHUB_ENV"
+      - name: Fetch the Forge card corpus (GPL-3.0 build input, never committed)
+        shell: bash
+        working-directory: ${{ runner.temp }}/gorge
+        run: |
+          go run ./cmd/forgec fetch -dir "$RUNNER_TEMP/cards" -ref "$FORGE_REF"
+          echo "GORGE_CARDS=$RUNNER_TEMP/cards" >> "$GITHUB_ENV"
+      - name: Resolve gorge through go.work
+        working-directory: engines/gorge
+        run: sh scripts/setup-dev.sh
+      - name: Vet
+        working-directory: engines/gorge
+        run: go vet ./...
+      - name: Test
+        working-directory: engines/gorge
+        run: go test -timeout 60m ./...
