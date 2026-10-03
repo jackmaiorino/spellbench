@@ -36,14 +36,17 @@ def root_family(decision: dict) -> str:
     raise ValueError("this original search bridge supports priority, target, binary, numeric, named and mode roots")
 
 
-def validate_result(decision: dict, result: dict, visits: int, calls: int) -> None:
+def validate_result(decision: dict, result: dict, visits: int, calls: int, *,
+                    expected_budget=None, minimum_visits=True, source_label="Exp1") -> None:
     actual = result.get("root_visits")
     budget = result.get("search_budget")
+    expected_budget = expected_budget or {"kind": "minimum_root_visits_until_legal_future", "requested": visits}
     if budget is not None and (not isinstance(budget, dict) or type(budget.get("requested")) is not int
-                              or budget != {"kind": "minimum_root_visits_until_legal_future", "requested": visits}):
+                              or budget != expected_budget):
         raise ValueError("search changed its declared original stopping rule")
     if (result.get("decision_sha256") != decision_hash(decision)
-            or type(actual) is not int or (actual < visits if budget is not None else actual != visits)
+            or type(actual) is not int
+            or (actual < (visits if minimum_visits else 1) if budget is not None else actual != visits)
             or type(result.get("neural_calls")) is not int or result["neural_calls"] != calls):
         raise ValueError("search result is stale or did not complete the requested work")
     candidates = decision["candidates"]
@@ -70,13 +73,13 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int) -> No
         if (type(discarded) is not int or not 0 <= discarded <= actual
                 or (not masked and discarded != 0)
                 or (masked and (pruned or excluded or budget is None
-                     or child.get("mask_reason") != "original Exp1 bestChild resets branches without a legal future"))):
+                     or child.get("mask_reason") != f"original {source_label} bestChild resets branches without a legal future"))):
             raise ValueError("search selection masking lacks original work accounting")
         if excluded and (pruned or decision.get("context", {}).get("purpose") != "search"
                          or child["semantic"].get("kind") != "finish_selection"
                          or child["semantic"].get("purpose") != "search"
                          or "library_fail_to_find_before_minimum" not in result.get("policy_restrictions", [])
-                         or child.get("reason") != "original Exp1 library target expansion requires its minimum before finishing"):
+                         or child.get("reason") != f"original {source_label} library target expansion requires its minimum before finishing"):
             raise ValueError("search excluded an action outside its declared original policy restriction")
         inactive = pruned or excluded or masked
         if (type(child.get("visits")) is not int or not 0 <= child["visits"] <= actual

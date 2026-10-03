@@ -113,6 +113,22 @@ and weights still use `torch.load(weights_only=True)`. The metadata's deck name
 alone does not establish association with an exact deck list. Extra, duplicate,
 linked, encrypted or oversized metadata entries are refused.
 
+`MageZeroSearchMain` and `xmage_magezero_search.SearchSession` connect the
+original 128-slot priority tree to that confined backend. Pass an explicit
+settings object containing every original search parameter and head flag.
+`ORIGINAL_DEFAULT_SETTINGS` records the source's four-second timeout,
+1000-visit budget and four disabled policy priors. The authors' actual play
+configuration is still required with their weights. The deterministic bridge
+requires no noise and zero selection temperature; other configurations are
+refused.
+
+`diagnostic_settings(visits)` explicitly selects a separate all-head,
+minimum-visit profile. Requests and results bind the exact settings, decision,
+architecture and original root visit accounting. The source time-based profile
+may finish below its visit budget; the diagnostic profile must complete its
+minimum visits. This priority component still needs actual pretrained native
+checks, other callbacks, full games and useful-throughput qualification.
+
 Raw `.pt.gz` and `.pt` inputs use `checkpoint_format` values `torch-gzip` and
 `torch`. They require the same exact deck hash and association evidence but no
 `export_metadata`. Public download assets still require an HTTPS source.
