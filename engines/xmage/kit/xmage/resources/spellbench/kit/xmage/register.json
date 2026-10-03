@@ -2784,6 +2784,10 @@
     "triggers read event data or captured values (target pointer from the event)"
    ]
   },
+  "Shifting Sky": {
+   "class": "mage.cards.s.ShiftingSky",
+   "status": "supported"
+  },
   "Shivan Reef": {
    "class": "mage.cards.s.ShivanReef",
    "status": "supported"
@@ -3554,5 +3558,14 @@
   "triggered abilities": "supported: a source with exactly one triggered ability whose resolution reads no event object or captured value (cards[].triggers == event_free); otherwise approximate with the search horizon"
  },
  "schema": "spellbench-kit-register/v1",
- "source": "kit/register/scan.py (static scan of the pinned XMage sources; conservative)"
+ "source": "kit/register/scan.py (static scan of the pinned XMage sources; conservative)",
+ "source_extensions": {
+  "Shifting Sky": {
+   "card_source_sha256": "8236679c4dbb113212020ee82853d04ec01381d795fe53251a2322348f32e94e",
+   "scan_sha256": "39a3ca210f3698adb4aaffc73f83cb49a7d24f520228b3b7ea73529f1174d8ca",
+   "scanner_sha256": "35558ce967c547ed5d66dd0bed376919dfb7221c67bc53a1a42ce1d95f258d00",
+   "scope": "named-callback stack replay; complete-game and remembered-permanent-state qualification pending",
+   "xmage_commit": "fd40ad5c29a92cef824cf12ba6d0e4daa25db975"
+  }
+ }
 }

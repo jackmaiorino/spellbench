@@ -6,7 +6,7 @@ check uses synthetic initialized weights.
 
 | Inputs | Observed result | Remaining association or adapter work |
 |---|---|---|
-| DraftZero Exp1 gen0, gen10, gen33 | All strictly load in isolation; each repeatedly selects an offered target and boolean candidate; gen33 repeats original priority, target, binary and visible-library searches | Full history across transitions, remaining callbacks and complete-game qualification |
+| DraftZero Exp1 gen0, gen10, gen33 | All strictly load in isolation; each repeatedly selects an offered target and boolean candidate; gen33 repeats original priority, target, binary, visible-library and numeric searches | Named replay, full history across transitions, remaining callbacks and complete-game qualification |
 | Jack's five current policy/mulligan pairs | All strictly load and repeat finite inference on five candidate heads, legacy actor and mulligan; Standard preserves its older two-Q rule | Exact decks, feature/cache/source associations and complete fair game adapter |
 | MageZero v0.1 and v0.2 bundles | ZIP directories contain no pretrained weights; raw and original `.mz` export contracts are wired | Author weights, exact deck list and encoder metadata; complete fair adapter |
 
@@ -38,7 +38,7 @@ core/transport audit sources and the hash-pinned Commons Math dependency.
 It ports fork helpers while preserving the search formulas and script replay.
 Every source rewrite is recorded, and generated class hashes enter the build
 manifest. Its fair variant uses sampled permitted worlds, a fresh received-root
-tree, synchronous inference, all four policy heads, fixed visits and no noise.
+tree, synchronous inference, all four policy heads, minimum visits with original legal-future stopping and no noise.
 The fork-specific combat retry shortcut remains an engine difference to qualify.
 
 The final retained build's gen33 priority check completes six visits with seven
@@ -140,5 +140,33 @@ Backup SHA-256 is
 `322cf7b72da846f505607169e9570e9feef2c2594d99d3c4c517405954ba9e55`.
 The owned card lookup cache is pruned with a receipt. The next bridge records
 the original stopping rule and pre-selection cleared work. Its affected
-bridge/backend/input checks pass: 58 tests. Actual revised Java checks remain
-pending; the failed numeric result is not qualification.
+bridge/backend/input checks pass: 58 tests. The failed numeric result is not
+qualification.
+
+The revised build 041 at public source
+`1013f7e1aee05911a1ea01c4ed70c107b67d675d` repeats target, binary, library and
+numeric roots. Numeric search selects X=4 and records 41 actual root visits,
+42 neural evaluations and 33 branch visits cleared by original selection,
+against a requested minimum of six. Named search then refuses a Shifting Sky
+stack anchor absent from the mechanics register. Build manifest SHA-256 is
+`9af7b39ac8b9aabb77aeccc5675ea8908fb4ed1e2cf8d28111ffb189968c6670`.
+JVM and model cleanup are confirmed. All 353 build, source, callback and RPC
+files, including build 040's annotation error, were copied and reread in
+`E:/spellbench-xmage-all-20261002/callback-search-accounting-001/`.
+Closure SHA-256 is
+`302261e5a1ccb00d08fa2d183989bb7ad16bd8a93a0509e69a0a5cbd514b000d`.
+The closed fixture's 311,762,944-byte lookup cache was pruned with a receipt.
+
+The prospective Shifting Sky entry uses 24 source files from reviewed XMage
+revision `fd40ad5c29a92cef824cf12ba6d0e4daa25db975`. The corrected scanner reads
+the constructor's card types and preserves its conservative fallback for
+unrecognized constructors. Four classification checks pass, including land
+constructors and the enchantment's LAND filter. The actual pinned source scan
+repeats identically. Scan SHA-256 is
+`39a3ca210f3698adb4aaffc73f83cb49a7d24f520228b3b7ea73529f1174d8ca`.
+All 29 source, scanner and receipt copies are reread in
+`E:/spellbench-xmage-all-20261002/shifting-sky-source-001/`, with backup SHA-256
+`1f7faa5b7a4e4a3e272b9d81677736bea768526180969d114aab555d51494893`.
+This supports prospective stack replay; named search, complete games and
+remembered permanent-choice state remain unqualified. The new build manifest
+hashes copied resources. Frozen native qualification inputs are unchanged.

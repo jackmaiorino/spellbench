@@ -38,7 +38,7 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary and visible-library search repeat identically with gen33 and a recorded earlier choice; numeric and named roots implemented with real fixtures, pending live search verification; full agent unfinished",
+      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary, visible-library and numeric search repeat identically with gen33; numeric minimum stopping and cleared branch work accounted; named stack replay entry source-qualified, actual named check pending; full agent unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,

@@ -13,7 +13,7 @@ entries. It has no rated run. The historical `fdn-mirror-v0` definition is uncha
 |---|---|---|---|
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 repeats original priority, target, binary and visible-library searches | Full history, remaining dialogs, combat and game qualification unfinished; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 repeats original priority, target, binary, visible-library and numeric searches | Named replay, full history, remaining dialogs, combat and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
@@ -129,7 +129,7 @@ Generation 33 repeats six-visit searches for priority, targets, binary choices
 and a visible library selection with an earlier recorded choice through the
 confined checkpoint. Original Exp1's restriction on finishing a library search
 before the target minimum remains explicit in the result. Its variant uses fresh
-sampled-world trees, synchronous inference, all trained priors, fixed visits
+sampled-world trees, synchronous inference, all trained priors, minimum visits with original legal-future stopping
 and no noise. Full transition history, remaining callbacks and game qualification are open.
 
 Use the FDN and Standard benchmarks with appropriate deck associations and
@@ -141,6 +141,7 @@ compare completed-work serial/parallel throughput, and use the supported arena
 or kit qualification guard. The input fetcher and model probe are preparation
 and small correctness paths; they do not launch evaluated games.
 
-No substantial evaluation, GPU run, new training or paid compute was launched
-by this task. Existing review and publication paths remain
+The frozen native benchmark's guarded serial/parallel qualification is running
+under its own local reservation. No rated XMage games, GPU run, new training
+or paid compute were launched by this task. Existing review and publication paths remain
 part of the outstanding delivery.

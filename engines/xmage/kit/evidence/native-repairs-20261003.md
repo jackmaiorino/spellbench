@@ -101,3 +101,18 @@ substantial-run outputs across worker counts. Cached evidence must retain the
 matching trial rows: their indices and canonical output digests are checked
 against the allocation before reuse can certify native play. A small real
 fake-engine test covers reuse and refuses it after its raw rows are missing.
+
+Attempt 007, generation 113, refuses malformed placement separators before
+starting games. Its 0.561-second failure and confirmed owned cleanup are
+retained on D and reread on E; backup SHA-256 is
+`5fd6d152d4c219626d7e6a0110025fc78d0985eaec0993f022a858464b42d3f5`.
+The actual placement parser accepts the corrected descriptions. Attempt 008,
+generation 114, started the frozen benchmark's serial rung through the same
+supported guard. Manifest SHA-256 is
+`90d96ad91536395b91a99dc6303cf4ad09ad9eb0f7eac930e7ed63c30e4bd6a2`;
+preparation SHA-256 is
+`e03cfb06391c861305c05a0e0c54365d625faf92613cf2f8117c9c787ea2c9a6`.
+Fresh local, Haley and RunPod records are pinned in that preparation. Haley's
+queued training priority and the separate gorge lease remain reserved. The
+qualification has the original 90-minute, 16 GiB and 60 GiB reserve limits.
+It has no allocation verdict or rated run yet.

@@ -83,7 +83,7 @@ with the native bots. The base fork's core helpers are ported separately.
 `xmage_neural_search.SearchSession` supplies real checkpoint heads and value
 through the confined `InferenceSession`. Requests contain only permitted
 records and independently sampled world seeds. Responses bind to the canonical
-decision hash, cover every offered root action, complete the requested visits
+decision hash, cover every offered root action, account for the actual visits
 and choose a supported visit winner. Stale responses, incomplete roots,
 unsupported worlds, inference failures and exhausted clocks close both
 owned processes. The neural float RPC is private; public v2 frames keep their
@@ -100,7 +100,7 @@ ordinary exception. The result records how many earlier choices and passes it
 replayed and confirms an identical received observation.
 
 The declared play variant uses a fresh tree per received root, synchronous
-inference, a fixed visit count, all four trained policy heads, no root noise
+inference, a minimum visit count with original legal-future stopping, all four trained policy heads, no root noise
 and opponent-hand encoding disabled. Prior temperature is 1.5, the exploration
 bonus 0.1, PUCT constant 1 and backpropagation discount 0.99. Reconstruction
 approximations remain in the result. The reviewed engine also lacks the fork's
@@ -151,7 +151,20 @@ until a legal future exists and resets some branch statistics during
 bridge records the original minimum stopping rule, captures cleared branch
 visits before selection and checks that retained plus cleared work equals
 root visits. The capture leaves original expansion, masking and selection
-unchanged. Its real numeric and named checks are pending.
+unchanged. Build 041 repeats the target, binary, library and numeric roots.
+The numeric root records 41 actual visits, 42 neural evaluations and 33 cleared
+branch visits, with X=4 selected. The named root then refuses an unsupported
+Shifting Sky stack anchor. All owned Java and model processes exit. These
+checks and the earlier annotation build failure are retained in the cold
+accounting snapshot.
+
+Shifting Sky's register entry is now generated from 24 pinned upstream source
+files. The scanner reads card types from the constructor, so a LAND predicate
+inside an enchantment's effect does not classify it as a land. Unrecognized
+constructors retain the conservative fallback. Its repeated source scan
+supports stack replay without optional costs; the actual named search remains
+pending. Model build manifests now hash and verify copied resources, including
+this register. Existing frozen native jars and qualification inputs are unchanged.
 
 Jack's private April encoder and callback source are staged by
 `xmage_jack_sources.py`, with both original file hashes required. The base
