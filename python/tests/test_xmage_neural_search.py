@@ -168,7 +168,7 @@ def test_failed_search_or_inference_closes_both_owned_processes(failure):
 
 
 @pytest.mark.parametrize("confirm_replay", [True, False, 1])
-@pytest.mark.parametrize("family", ["binary", "numeric", "named"])
+@pytest.mark.parametrize("family", ["binary", "numeric", "named", "mode"])
 def test_callback_search_requires_a_complete_matching_public_replay(confirm_replay, family):
     record, result = fixture()
     anchor = copy.deepcopy(record["decision"])
@@ -183,6 +183,12 @@ def test_callback_search_requires_a_complete_matching_public_replay(confirm_repl
         decision["context"] = {"kind": "choose_color"}
         for color, candidate in zip(("red", "blue"), decision["candidates"]):
             candidate["semantic"] = {"kind": "choose_color", "color": color}
+    elif family == "mode":
+        decision["context"] = {"kind": "choose_spell_mode"}
+        for index, candidate in enumerate(decision["candidates"]):
+            candidate["semantic"] = {"kind": "choose_spell_mode", "mode_index": index, "mode_count": 2,
+                                     "selected_count": 0, "minimum": 1, "maximum": 1,
+                                     "source": {"object_id": "permitted-spell"}}
     record.update(decision=decision, anchor={"decision": anchor, "selection": result["selection"]},
                   replay={"priority_passes": ["p1", "p0"], "earlier": []})
     result.update(decision_sha256=decision_hash(decision),
