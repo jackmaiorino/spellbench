@@ -33,6 +33,14 @@ public final class ModelSearchMain {
     private static long calls;
     private static Object requestId;
 
+    static void bindPipe(BufferedReader input, PrintStream output) { in = input; out = output; }
+    static long neuralCalls() { return calls; }
+    static Map<String, Object> execute(Map<String, Object> record) {
+        requestId = record.get("id"); calls = 0;
+        if (!(requestId instanceof String)) throw new IllegalArgumentException("search request id must be a string");
+        return search(record);
+    }
+
     private static byte[] seed(String value) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("search seed envelope");
         return Seeds.unhex(value);
@@ -208,10 +216,8 @@ public final class ModelSearchMain {
         while ((line = in.readLine()) != null) {
             Map<String, Object> record = null;
             try {
-                record = Json.parseObject(line); requestId = record.get("id");
-                if (!(requestId instanceof String)) throw new IllegalArgumentException("search request id must be a string");
-                calls = 0;
-                Map<String, Object> result = search(record);
+                record = Json.parseObject(line);
+                Map<String, Object> result = execute(record);
                 out.println(Json.canonical(Json.map("id", requestId, "event", "result", "ok", true, "result", result)));
             } catch (RuntimeException e) {
                 out.println(Json.canonical(Json.map("id", record == null ? null : record.get("id"), "event", "result", "ok", false, "error", e.toString(), "neural_calls", calls)));

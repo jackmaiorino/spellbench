@@ -36,6 +36,14 @@ public final class ModelCombatMain {
     private static Object requestId;
     private static long calls;
 
+    static void bindPipe(BufferedReader input, PrintStream output) { in = input; out = output; }
+    static long neuralCalls() { return calls; }
+    static Map<String, Object> execute(Map<String, Object> record) {
+        requestId = record.get("id"); calls = 0;
+        if (!(requestId instanceof String)) throw new IllegalArgumentException("combat request id must be a string");
+        return plan(record);
+    }
+
     private static byte[] seed(String value) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("combat seed envelope");
         return Seeds.unhex(value);
@@ -217,9 +225,8 @@ public final class ModelCombatMain {
         while ((line = in.readLine()) != null) {
             Map<String, Object> record = null;
             try {
-                record = Json.parseObject(line); requestId = record.get("id"); calls = 0;
-                if (!(requestId instanceof String)) throw new IllegalArgumentException("combat request id must be a string");
-                Map<String, Object> result = plan(record);
+                record = Json.parseObject(line);
+                Map<String, Object> result = execute(record);
                 out.println(Json.canonical(Json.map("id", requestId, "event", "result", "ok", true, "result", result)));
             } catch (RuntimeException e) {
                 e.printStackTrace(System.err);

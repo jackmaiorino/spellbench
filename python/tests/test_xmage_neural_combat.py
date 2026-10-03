@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
 import xmage_neural_combat as combat
+import xmage_neural_rpc as rpc
 from xmage_neural_decisions import decision_hash
 
 
@@ -271,8 +272,13 @@ def test_a_late_valid_result_exhausts_the_same_clock_and_closes_processes(monkey
     record, result = fixture()
     peer, model = Peer(exchange(result)), Model()
     session = combat.CombatSession(peer, model)
-    ticks = iter([0, .1, .2, .3, .4, .5, .6, .7, 3.1])
-    monkeypatch.setattr(combat.time, "monotonic", lambda: next(ticks))
+    clock = [0.0]
+    original = combat.validate_result
+    def validate(*args):
+        original(*args)
+        clock[0] = 3.1
+    monkeypatch.setattr(rpc.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(combat, "validate_result", validate)
     with pytest.raises(TimeoutError, match="validation clock"):
         session.plan(record, visits=2, timeout_s=3)
     assert session.failed and peer.closed and model.closed

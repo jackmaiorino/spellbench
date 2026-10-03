@@ -15,6 +15,23 @@ from xmage_verified_entry import verify_build
 from xmage_release_assets import verify
 
 
+def verify_model_engine(engine: Path, *, compile_only=False, private_inputs=False) -> str:
+    engine_manifest = engine / "BUILD-MANIFEST.json"
+    engine_manifest_sha = hashlib.sha256(engine_manifest.read_bytes()).hexdigest()
+    if compile_only:
+        identity = json.loads(engine_manifest.read_bytes())
+        manifest = Path(__file__).resolve().parents[2] / "engines/xmage/releases.json"
+        releases = json.loads(manifest.read_bytes())
+        if (identity.get("xmage_commit") != releases["sources"]["xmage"]["revision"]
+                or identity.get("cabt_commit") != releases["sources"]["cabt"]["revision"]
+                or identity.get("patch_series") != "applied" or private_inputs):
+            raise ValueError("CI compilation needs pinned public engine sources and no private inputs")
+    elif engine_manifest_sha != "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93":
+        raise ValueError("encoder build needs the reviewed 004913a engine manifest")
+    verify_build(engine, engine_manifest, engine_manifest_sha)
+    return engine_manifest_sha
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
@@ -22,6 +39,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--javac", default="javac")
     parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
+    parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
     parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
     parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
     args = parser.parse_args()
@@ -31,11 +49,8 @@ def main() -> int:
     manifest = repo / "engines/xmage/releases.json"
     engine = args.engine.resolve()
     # Qualification uses the reviewed build, not an arbitrary release bundle.
-    engine_manifest = engine / "BUILD-MANIFEST.json"
-    engine_manifest_sha = hashlib.sha256(engine_manifest.read_bytes()).hexdigest()
-    if engine_manifest_sha != "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93":
-        raise ValueError("encoder build needs the reviewed 004913a engine manifest")
-    verify_build(engine, engine_manifest, engine_manifest_sha)
+    engine_manifest_sha = verify_model_engine(engine, compile_only=args.compile_only,
+                                             private_inputs=bool(args.jack_inputs))
     jdk = subprocess.run([args.javac, "-version"], check=True, capture_output=True, text=True)
     version = (jdk.stdout + jdk.stderr).strip()
     if version != "javac 23.0.1":
@@ -66,7 +81,7 @@ def main() -> int:
     else:
         source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
                                 and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java",
-                                                   "ModelCombatMain.java", "ModelCombatCheck.java")]
+                                                   "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java")]
     if jack:
         source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
     hashes = {}
@@ -97,6 +112,9 @@ def main() -> int:
                                      for d in paths.values() for p in sorted(d.rglob("*.class"))},
               "scope": ("original priority, saved-anchor callbacks and combat plans; no complete agent or rating" if search else
                         "priority, target and binary decision slices; no complete bot, original search or rating")}
+    if args.compile_only:
+        result.update(schema="spellbench-draftzero-model-compile/v1", reviewed_runtime=False,
+                      scope="compilation only; no runtime, checkpoint, game or rating qualification")
     with (args.out / "BUILD.json").open("x", encoding="utf-8") as output:
         json.dump(result, output, indent=2)
         output.write("\n")

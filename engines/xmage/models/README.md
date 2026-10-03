@@ -227,3 +227,30 @@ correctness checks. Full transition history, remaining callbacks, the fork's
 illegal-block retry behavior, complete-game serving and rating qualification
 remain unfinished. Receipts and failed attempts are indexed in
 [the evidence summary](evidence/2026-10-03-neural-inputs.md).
+`ModelBridgeMain` joins the existing search and combat entry points on one
+warm private Java pipe. `xmage_neural_bridge.BridgeSession` owns that pipe and
+one confined checkpoint session. Priority, saved-anchor dialog and combat
+requests share an increasing request sequence, failure state and cleanup.
+Each request retains one clock across Java RPC, neural scoring and validation.
+Results identify their requested operation and cannot replace the pinned
+checkpoint identity. An error terminates the Java loop and closes both owned
+processes on the Python side. The original search algorithms and settings
+remain in their existing entry points.
+
+The reviewed-build CI now also compiles the public model encoder, original
+search, combat and mixed bridge classes with JDK 23.0.1. It fetches only pinned
+Java sources and the pinned Commons Math dependency. Its ephemeral input
+directory has a 32 MiB cap and 1 GiB free-space reserve. `--compile-only`
+requires the pinned upstream engine revisions and hashes the actual jars,
+then records a distinct compilation manifest with `reviewed_runtime: false`.
+The default model build still requires the reviewed 004913a engine manifest;
+local input caps and runtime qualification remain unchanged.
+
+Mixed request, clock and ownership checks pass alongside the existing search
+and combat checks. Build 048 and generation 33 complete eight interleaved
+priority and combat requests through one JVM and checkpoint session, with
+84 real neural evaluations. Repeated results are identical, combat results
+equal their earlier isolated receipts, and all four real wire declarations
+bind identically. Owned cleanup and reservation release are confirmed.
+Pregame decisions, complete transition history, remaining callbacks and
+complete-game qualification remain unfinished.
