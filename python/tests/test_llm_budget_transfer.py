@@ -656,3 +656,44 @@ def test_interrupted_idle_amendment_cannot_activate_two_writers(tmp_path, monkey
             source.check()
     else:
         source.check()
+
+
+@pytest.mark.parametrize("target", ["authority", "retained_snapshot", "retained_parent", "origin"])
+def test_idle_derived_outputs_cannot_overwrite_retained_bytes(tmp_path, target):
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = idle_authority(source)
+    leaf = source.path.parent / "idle.sqlite3"
+    snapshot = leaf.with_name(leaf.name + ".initial.sqlite3")
+    if target == "authority":
+        evidence["authority"].rename(snapshot)
+        evidence["authority"] = snapshot
+    elif target == "origin":
+        snapshot = leaf.with_name(leaf.name + ".continuation-origin.json")
+        snapshot.write_bytes(b"retained evidence")
+    else:
+        shutil.copyfile(source.paths.snapshot if target == "retained_snapshot" else source.path, snapshot)
+    retained, parent = snapshot.read_bytes(), source.path.read_bytes()
+    with pytest.raises(ValueError, match="fresh mapped paths"):
+        idle_amend(source, **evidence)
+    assert snapshot.read_bytes() == retained and source.path.read_bytes() == parent
+    assert not source.path.with_name(source.path.name + ".continuation.json").exists()
+    source.check()
+
+
+def test_idle_snapshot_race_cannot_overwrite_arriving_evidence(tmp_path, monkeypatch):
+    from spellbench.llm import run_budget
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = idle_authority(source)
+    original = run_budget._write_marker
+    snapshot = source.path.parent / "idle.sqlite3.initial.sqlite3"
+    def write(path, value):
+        original(path, value)
+        if path.name == "idle.sqlite3.continuation-origin.json":
+            snapshot.write_bytes(b"arriving retained evidence")
+    monkeypatch.setattr(run_budget, "_write_marker", write)
+    with pytest.raises(ProviderError, match="run_budget_unavailable"):
+        idle_amend(source, **evidence)
+    assert snapshot.read_bytes() == b"arriving retained evidence"
+    assert not (source.path.parent / "idle-map.json").exists()
+    assert not source.path.with_name(source.path.name + ".continuation.json").exists()
+    source.check()

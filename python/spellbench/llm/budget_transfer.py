@@ -316,8 +316,10 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
     root = budget.paths.manifest.parent
     successor, manifest = successor.resolve(), manifest.resolve()
     authority = authority.resolve(strict=True)
-    if (not successor.is_relative_to(root) or not manifest.is_relative_to(root)
-            or successor.exists() or manifest.exists() or successor == manifest
+    snapshot = successor.with_name(successor.name + ".initial.sqlite3")
+    outputs = (successor, manifest, _origin(successor), snapshot)
+    if (len(set(outputs)) != len(outputs)
+            or any(not path.is_relative_to(root) or path.exists() for path in outputs)
             or not authority.is_relative_to(root) or type(no_cutoff) is not bool
             or set(approved_limits) != set(LIMIT_NAMES)
             or any(type(value) is not int or value < 1 for value in approved_limits.values())):
@@ -355,8 +357,12 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
         claim = {"successor": str(successor), "parent_sha256": parent_sha,
                  "policy": {key: item for key, item in child.items() if key != "terminal_error"}}
         _write_marker(_origin(successor), claim)
-        snapshot = successor.with_name(successor.name + ".initial.sqlite3")
-        shutil.copyfile(successor, snapshot)
+        # Exclusive creation also refuses a collision arriving after preflight.
+        with successor.open("rb") as source, snapshot.open("xb") as target:
+            shutil.copyfileobj(source, target)
+            target.flush()
+            import os
+            os.fsync(target.fileno())
         snapshot.chmod(0o600)
         value = dict(budget.paths.value)
         value["files"], value["immutable"] = list(value["files"]), dict(value["immutable"])
