@@ -13,7 +13,7 @@ from .agent import AgentConfig, LlmAgent
 from .broker import StdioProvider
 from .chatgpt import ChatGptConfig, ChatGptProvider
 from .login import default_credentials_path, load_credentials
-from .prompt import CardCatalog
+from .prompt import CardCatalog, PROMPT_FORMATS
 from .provider import ChatCompletionsProvider, ProviderConfig
 
 
@@ -34,6 +34,7 @@ def main() -> int:
     parser.add_argument("--max-calls-per-game", type=int, default=256)
     parser.add_argument("--max-tokens-per-game", type=int, default=250_000)
     parser.add_argument("--max-prompt-bytes", type=int, default=64_000)
+    parser.add_argument("--prompt-format", choices=tuple(PROMPT_FORMATS), default="json-v1")
     parser.add_argument("--history-decisions", type=int, default=8)
     parser.add_argument("--card-catalog", type=Path)
     parser.add_argument("--log-dir", type=Path, default=Path("out/llm"))
@@ -64,7 +65,8 @@ def main() -> int:
                         if args.broker_stdio else provider_config.public_settings())
         config = AgentConfig(max_calls_per_game=args.max_calls_per_game, max_tokens_per_game=args.max_tokens_per_game,
                              max_prompt_bytes=args.max_prompt_bytes, history_decisions=args.history_decisions,
-                             timeout_ms=args.timeout_ms, record_prompts=args.record_prompts)
+                             timeout_ms=args.timeout_ms, record_prompts=args.record_prompts,
+                             prompt_format=args.prompt_format)
         catalog = None if args.card_catalog is None else CardCatalog.load(args.card_catalog)
         args.log_dir.mkdir(parents=True, exist_ok=True)
         log_path = args.log_dir / f"llm-{os.getpid()}-{uuid.uuid4().hex}.jsonl"

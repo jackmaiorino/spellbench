@@ -9,7 +9,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Protocol, TextIO
 
 from ..bot import Decision, GameOver, GameStart
-from .prompt import CardCatalog, PROMPT_VERSION, SYSTEM_PROMPT, Prompt, canonical_json, render_prompt, sha256
+from .prompt import CardCatalog, PROMPT_FORMATS, Prompt, PromptSizeError, canonical_json, render_prompt, sha256, system_prompt
 from .provider import Completion, ProviderError
 
 
@@ -26,8 +26,11 @@ class AgentConfig:
     timeout_ms: int = 20_000
     deadline_margin_ms: int = 100
     record_prompts: bool = False
+    prompt_format: str = "json-v1"
 
     def __post_init__(self) -> None:
+        if self.prompt_format not in PROMPT_FORMATS:
+            raise ValueError("unsupported prompt format")
         for name in ("max_calls_per_game", "max_tokens_per_game", "max_prompt_bytes", "timeout_ms"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"{name} must be a positive integer")
@@ -52,8 +55,8 @@ class LlmAgent:
         self._calls = self._tokens = 0
         self._failed = False
         self._history: deque[dict[str, Any]] = deque(maxlen=config.history_decisions)
-        metadata = {"provider": settings, "agent": asdict(config), "prompt_version": PROMPT_VERSION,
-                    "system_prompt_sha256": sha256(SYSTEM_PROMPT.encode("utf-8")),
+        metadata = {"provider": settings, "agent": asdict(config), "prompt_version": PROMPT_FORMATS[config.prompt_format],
+                    "system_prompt_sha256": sha256(system_prompt(config.prompt_format).encode("utf-8")),
                     "catalog_sha256": None if catalog is None else catalog.sha256}
         self._write("configuration", configuration_sha256=sha256(canonical_json(metadata).encode("utf-8")), **metadata)
 
@@ -89,7 +92,8 @@ class LlmAgent:
                 fields.update(status="forced", candidate_id=candidate_id)
             else:
                 prompt = render_prompt(decision, own_deck=self._game.own_deck, history=self._history,
-                                       catalog=self.catalog, max_bytes=self.config.max_prompt_bytes)
+                                       catalog=self.catalog, max_bytes=self.config.max_prompt_bytes,
+                                       prompt_format=self.config.prompt_format)
                 fields.update(prompt_sha256=prompt.sha256, prompt_bytes=prompt.bytes)
                 if self.config.record_prompts:
                     fields["messages"] = list(prompt.messages)
@@ -132,6 +136,9 @@ class LlmAgent:
             self._failed = True
             fields.update(status="error", error=exc.code if isinstance(exc, ProviderError) else "invalid_observation_or_prompt",
                           unknown_usage=attempted and not known_usage)
+            if isinstance(exc, PromptSizeError):
+                fields.update(error="prompt_byte_cap_exceeded", prompt_bytes=exc.actual_bytes,
+                              max_prompt_bytes=exc.maximum_bytes)
             raise
         finally:
             fields.update(elapsed_ms=max(0, round((self._monotonic() - started) * 1000)),
