@@ -69,6 +69,23 @@ def test_real_work_clock_and_result_bind_to_the_offered_root():
     assert peer.closed and model.closed
 
 
+@pytest.mark.parametrize("mutation", ["valid", "missing-budget", "lost-work", "invented-mask", "float-budget"])
+def test_original_legal_future_stopping_accounts_for_cleared_branch_visits(mutation):
+    record, result = fixture()
+    result.update(root_visits=41, search_budget={"kind": "minimum_root_visits_until_legal_future", "requested": 2})
+    result["children"][0].update(value=None, selection_masked=True, discarded_visits=33,
+                                mask_reason="original Exp1 bestChild resets branches without a legal future")
+    result["children"][1]["visits"] = 8
+    if mutation == "missing-budget": result.pop("search_budget")
+    elif mutation == "lost-work": result["children"][0]["discarded_visits"] = 32
+    elif mutation == "invented-mask": result["children"][0]["mask_reason"] = "ignore another legal action"
+    elif mutation == "float-budget": result["search_budget"]["requested"] = 2.0
+    if mutation == "valid":
+        search.validate_result(record["decision"], result, 2, 1)
+    else:
+        with pytest.raises(ValueError): search.validate_result(record["decision"], result, 2, 1)
+
+
 @pytest.mark.parametrize("invalid_pruned_statistics", [False, True])
 def test_original_pruning_keeps_coverage_and_only_retained_visits_count(invalid_pruned_statistics):
     record, result = fixture()

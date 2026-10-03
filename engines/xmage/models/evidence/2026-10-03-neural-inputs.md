@@ -94,7 +94,8 @@ manifest SHA-256 is
 The four candidate decks and their registry are source-pinned to private Mage
 revision `750b3ff88c98f00a0d3218a54c16198b69b8a24c`. Exact checkpoint associations
 remain unconfirmed. Source staging and cache coverage are preparation only.
-The new public Java bridge and lookup have not compiled or run yet.
+At this initial preparation stage the new public Java bridge and lookup had
+not compiled or run.
 
 The next private stage also extracts the pinned April callback's original
 priority action IDs and 48-value candidate features. Original callback SHA-256
@@ -104,5 +105,40 @@ staged candidate SHA-256 is
 Two actual source stages repeat byte-for-byte. The bridge binds offered
 priority candidates, retains 64-slot padding and refuses more than 64 choices.
 The updated real fixtures include candidate IDs, masks and features in their
-hidden-sample comparison. These Java changes remain uncompiled and unrun;
-source staging alone is not game or checkpoint qualification.
+hidden-sample comparison. Source staging alone is not game or checkpoint
+qualification.
+
+The guarded build 039 and real Jack priority checks completed exit 0 in
+20.547 seconds at public source `9fd90a1b7ae25be774da13a409aaa44905ba2ad8`.
+Both active and nonactive views pass: each varies eight hidden samples without
+changing base or candidate features, detects visible life changes and binds
+the original priority IDs/features to offered legal choices. Own hands and
+ownership are correct, opposing hands are excluded, and candidate padding is
+masked. Build manifest SHA-256 is
+`7aa436edf9a057e4ec585f717be1f9a9c9c36c1da6204e440b15d74f787bd84b`;
+check SHA-256 is
+`055be1ddab22b8e0d602969b14293d719bece97682368c4f65b8f9a1eb3b1036`.
+All 160 source, class and receipt files were copied and reread against their
+hashes in `E:/spellbench-xmage-all-20261002/jack-priority-check-001/`.
+Closure SHA-256 is
+`fc810ed79249def5d882909ea4d8325745d1d845b984458f7f734bc8b8a7926d`.
+The completed fixture's 311,762,944-byte card lookup cache was pruned with a
+receipt; the pinned original and all primary outputs remain retained. The
+canonical generation 109 claim released with no forced or remaining children.
+This is encoder qualification on two fixtures, with no actual checkpoint
+inference on those features, complete policy games or rating claim.
+
+DraftZero build 036's guarded callback check retains the successful repeated
+target, binary and library roots. The numeric request is refused: original
+Exp1 returns 41 root visits for the requested minimum of six, then clears 33
+visits from branches without a legal future during selection. The old bridge
+assumed an exact visit count and conservation among retained branches. Named
+search is not reached. JVM and model-container cleanup are confirmed; all 205
+failed build, fixture and RPC files are copied and reread in
+`E:/spellbench-xmage-all-20261002/callback-search-preparation-004/`.
+Backup SHA-256 is
+`322cf7b72da846f505607169e9570e9feef2c2594d99d3c4c517405954ba9e55`.
+The owned card lookup cache is pruned with a receipt. The next bridge records
+the original stopping rule and pre-selection cleared work. Its affected
+bridge/backend/input checks pass: 58 tests. Actual revised Java checks remain
+pending; the failed numeric result is not qualification.

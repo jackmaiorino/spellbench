@@ -62,7 +62,7 @@
       "family": "jack-xmage-rl",
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
       "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
-      "wiring_status": "all five pairs strictly load and repeat finite isolated inference; legacy Standard Q mulligan preserved; explicit permitted-view base and original priority candidate encoders staged privately; updated Java bridge and fairness fixtures await compilation and live checks",
+      "wiring_status": "all five pairs strictly load and repeat finite isolated inference; legacy Standard Q mulligan preserved; private permitted-view base and original priority candidate encoders compile with JDK23.0.1; real active/nonactive priority fixtures pass candidate binding and hidden-sample invariance; checkpoint inference on these features and full game adapter unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,

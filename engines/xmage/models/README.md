@@ -144,6 +144,15 @@ library searches on build 035, but refuses the unbounded original numeric
 callback before named search. The offered-range adaptation and refreshed
 named replay anchor await their next real check. These families are unqualified.
 
+Build 036 repeats target, binary and library search, then returns 41 numeric
+root visits for a requested minimum of six. Original Exp1 keeps searching
+until a legal future exists and resets some branch statistics during
+`bestChild`; the bridge's exact-count assumption refused the result. The next
+bridge records the original minimum stopping rule, captures cleared branch
+visits before selection and checks that retained plus cleared work equals
+root visits. The capture leaves original expansion, masking and selection
+unchanged. Its real numeric and named checks are pending.
+
 Jack's private April encoder and callback source are staged by
 `xmage_jack_sources.py`, with both original file hashes required. The base
 encoder uses the acting viewer, named permitted entity references and known
@@ -161,6 +170,11 @@ and a seed record or `--request-seeds`. It returns original priority features
 and the corresponding offered candidate IDs. `JackEncoderCheck` prepares two
 real active and nonactive priority views, checks their hand/ownership and
 candidate binding, and compares features across different hidden samples.
-The new Java build and fixtures have not run yet. Paired model inference on
-these actual features, other callbacks, exact checkpoint deck associations,
+Build 039 compiles with JDK 23.0.1. Both real active and nonactive priority
+fixtures pass their hand, ownership, legal candidate binding, original pass
+and padding checks. Eight different hidden samples per fixture leave base
+and candidate features identical, while a visible life change alters them.
+The guarded check completed in 20.5 seconds with all owned children stopped;
+tested classes and receipts are retained. Paired model inference on these
+actual features, other callbacks, exact checkpoint deck associations,
 complete games and rating qualification remain unfinished.

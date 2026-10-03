@@ -104,8 +104,11 @@ and weights stay outside this public repository.
 The April base-state encoder now has a private staged fair port with an explicit
 acting viewer, named permitted entity tokens and public-alias ordering for known
 library cards. It replaces the original active-player perspective and whole-library
-encoding. Its new Java bridge and read-only embedding lookup await compilation
-and live invariance checks; candidate callbacks and full games are unfinished.
+encoding. Build 039 compiles its Java bridge, read-only embedding lookup and
+original priority candidate features. Real active and nonactive priority views
+pass hand/ownership and offered-choice checks; eight different hidden samples
+per view leave state and candidate features identical. Model inference on
+those actual features, other callbacks and full games remain unfinished.
 Preparation hashes four historical 60-card Pauper candidate decks with 15-card
 sideboards. The global embedding cache covers their main decks; the Elves cache
 also covers every sideboard name. The historical `Pauper-Standard` registry

@@ -9,11 +9,15 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.IdentityHashMap;
 import spellbench.models.exp1.MCTSNode;
 
 /** Original Exp1 tree with an explicit deterministic, no-noise play profile. */
 public class SearchPlayer extends ComputerPlayerMCTS2 {
     private List<MCTSNode> initialRootChildren = new ArrayList<>();
+    private Map<MCTSNode, Integer> beforeSelectionVisits = new IdentityHashMap<>();
+    private Set<MCTSNode> selectionMasked = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
     public SearchPlayer(String name) { super(name, RangeOfInfluence.ALL, 6); }
     protected SearchPlayer(SearchPlayer player) { super(player); }
     @Override public SearchPlayer copy() { return new SearchPlayer(this); }
@@ -22,8 +26,8 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         nn = model;
         actionEncoder = new ActionEncoder();
         searchBudget = visits;
-        // The fixed visit count controls normal completion. The caller's clock
-        // aborts the process instead of selecting a partially searched result.
+        // Original normal completion requires this minimum and a legal future.
+        // The caller's clock aborts an unfinished search.
         searchTimeout = 600;
         noNoise = true;
         noPolicyPriority = noPolicyTarget = noPolicyUse = noPolicyOpponent = false;
@@ -64,6 +68,20 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
     }
     public MCTSNode2 tree() { return root; }
     public List<MCTSNode> initialRootChildren() { return new ArrayList<>(initialRootChildren); }
+    public int discardedSelectionVisits(MCTSNode node) {
+        return selectionMasked.contains(node) ? beforeSelectionVisits.get(node) : 0;
+    }
+    public boolean selectionMasked(MCTSNode node) { return selectionMasked.contains(node); }
+    @Override protected void beforeBestChild(MCTSNode2 tree) {
+        beforeSelectionVisits.clear();
+        selectionMasked.clear();
+        // Original bestChild resets these branches without changing root
+        // visits. Capture their spent work before the original reset executes.
+        for (MCTSNode child : tree.getChildren()) {
+            beforeSelectionVisits.put(child, child.getVisits());
+            if (!(child.isLegalState() || child.containsLegalNode())) selectionMasked.add(child);
+        }
+    }
     @Override protected MCTSNode calculateActions(Game game, ActionEncoder.ActionType type) {
         // Preserve original pruning. The bridge still accounts for every
         // initially offered action, including those removed from the tree.

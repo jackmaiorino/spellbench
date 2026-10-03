@@ -133,8 +133,12 @@ public final class ModelSearchMain {
                 throw new IllegalArgumentException("search root has an unmapped or aliased action");
             }
             boolean pruned = !retained.contains(child);
+            boolean masked = !pruned && active.selectionMasked(child);
             children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) child.getVisits(),
-                    "value", pruned ? null : child.getMeanScore(), "pruned", pruned));
+                    "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
+                    "selection_masked", masked,
+                    "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
+                    "mask_reason", masked ? "original Exp1 bestChild resets branches without a legal future" : null));
         }
         Set<String> offeredKeys = new HashSet<>();
         for (Object c : Json.arr(decision, "candidates")) {
@@ -155,10 +159,11 @@ public final class ModelSearchMain {
         return Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
                 "decision_sha256", decisionHash,
                 "children", children, "root_visits", (long) tree.getVisits(), "neural_calls", calls,
+                "search_budget", Json.map("kind", "minimum_root_visits_until_legal_future", "requested", count),
                 "world_flags", world.flags, "replay", replayProof,
                 "policy_restrictions", libraryFailToFindExcluded ? java.util.Collections.singletonList("library_fail_to_find_before_minimum")
                         : java.util.Collections.emptyList(),
-                "variant", "Exp1 original PUCT and dialog scripts; numeric roots use the legal offered range; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; fixed visits; no noise",
+                "variant", "Exp1 original PUCT and dialog scripts; numeric roots use the legal offered range; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; original minimum visits and legal-future stopping; no noise",
                 "scope", "priority and saved-anchor target/binary/numeric/named roots; complete history, other callbacks, full games and ratings unfinished");
     }
     private static Map<String, Object> semantic(Map<String, Object> decision, World world, MCTSNode child,
