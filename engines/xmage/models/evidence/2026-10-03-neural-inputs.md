@@ -100,7 +100,7 @@ The next private stage also extracts the pinned April callback's original
 priority action IDs and 48-value candidate features. Original callback SHA-256
 is `b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6`;
 staged candidate SHA-256 is
-`0ce2971448b120100736835c73932a0c335788a515032d1899d9ef70f613f765`.
+`e4a67b7dc904bae6e969c5315088763644f499c8ea8b4113fed107bf24bee0c8`.
 Two actual source stages repeat byte-for-byte. The bridge binds offered
 priority candidates, retains 64-slot padding and refuses more than 64 choices.
 The updated real fixtures include candidate IDs, masks and features in their
