@@ -1,4 +1,4 @@
-"""Build the reviewed XMage kit and the pinned Exp1 priority encoder slice."""
+"""Build the reviewed XMage kit and the pinned Exp1 decision encoder slice."""
 
 import argparse
 import hashlib
@@ -55,7 +55,7 @@ def main() -> int:
               "engine_manifest_sha256": engine_manifest_sha,
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
               "source_sha256": hashes, "encoder_stage": staged,
-              "scope": "priority slice; no complete bot or rating"}
+              "scope": "priority, target and binary decision slices; no complete bot, original search or rating"}
     with (args.out / "BUILD.json").open("x", encoding="utf-8") as output:
         json.dump(result, output, indent=2)
         output.write("\n")

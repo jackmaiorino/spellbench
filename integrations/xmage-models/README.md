@@ -30,7 +30,9 @@ accepts NDJSON requests with `id`, `features` and `encoding`. Each response
 for MageZero/DraftZero contains four raw policy heads and a scalar value. Features are mapped through
 the checkpoint's saved dense vocabulary with the original deduplication and
 unknown-feature handling. An input with no known features is refused. Legal
-candidate mapping and the original search belong to the game adapter.
+candidate mapping now covers the priority, target and binary heads in
+[the decision adapter](../../engines/xmage/models/README.md). The remaining
+callbacks and original search still need the complete game adapter.
 
 MageZero v0.2 source is wired as a separate architecture. A supplied weight
 needs a pinned manifest entry, a deck ID and deck-association evidence before

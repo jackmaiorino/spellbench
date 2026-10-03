@@ -9,7 +9,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 |---|---|---|---|
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated loading and repeated inference pass; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated inference and legal selection pass on real target and boolean callbacks; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
@@ -95,9 +95,9 @@ and weights stay outside this public repository.
 ## Next delivery steps
 
 Finish the game adapters, native qualification, and learned encoder/action
-qualification. The tested Exp1 priority slice disables opponent-hand encoding,
+qualification. The tested Exp1 decision slices disable opponent-hand encoding,
 reconstructs a world from permitted inputs and uses explicit compatibility
-helpers. Its micro-decision history is empty at this slice; it does not run
+helpers. Their micro-decision history is empty; the direct-policy connector does not run
 DraftZero's original MCTS. Those changes must remain visible in any future
 entry identity and description.
 

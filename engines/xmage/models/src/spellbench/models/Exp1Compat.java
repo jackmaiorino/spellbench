@@ -19,8 +19,8 @@ import java.util.UUID;
 /**
  * Fork-only helpers needed by Exp1's encoder on the reviewed base engine.
  * The sorted-card, entity-name and permanent-value rules follow the public
- * DraftZero fork. This priority slice has empty micro-decision history and
- * no activation in progress. Dialog inference needs separate history wiring.
+ * DraftZero fork. These decision slices have empty micro-decision history and
+ * no activation in progress. Complete dialog equivalence needs history wiring.
  */
 public final class Exp1Compat {
     private Exp1Compat() { }
@@ -39,14 +39,14 @@ public final class Exp1Compat {
         // The original encoder casts a MageObjectReference to Card. Refuse a
         // populated pair rather than silently changing that unqualified case.
         if (permanent.getPairedMOR() != null) {
-            throw new IllegalArgumentException("Exp1 priority encoder does not support soulbond pairs");
+            throw new IllegalArgumentException("Exp1 decision encoder does not support soulbond pairs");
         }
         return null;
     }
 
     public static Player opponent(Game game, UUID viewer) {
         if (game.getOpponents(viewer).size() != 1) {
-            throw new IllegalArgumentException("Exp1 priority encoder requires two players");
+            throw new IllegalArgumentException("Exp1 decision encoder requires two players");
         }
         return game.getPlayer(game.getOpponents(viewer).iterator().next());
     }

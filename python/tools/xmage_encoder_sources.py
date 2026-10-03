@@ -1,7 +1,7 @@
 """Stage the pinned Exp1 encoder with explicit base-engine compatibility edits.
 
 Only source files are read. Checkpoints stay opaque on the host. This stage
-supports the priority slice, with empty micro-decision history and no ongoing
+supports decision slices, with empty micro-decision history and no ongoing
 activation. It is not an assertion of original-player equivalence.
 """
 
@@ -56,7 +56,7 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
             stream.write(data)
         hashes[asset["filename"]] = hashlib.sha256(data).hexdigest()
     result = {"schema": "spellbench-draftzero-encoder-stage/v1", "staged_source_sha256": hashes,
-              "rewrites": REWRITES, "scope": "priority encoder slice; dialog history and original search not implemented"}
+              "rewrites": REWRITES, "scope": "decision encoder slice; full dialog history and original search not implemented"}
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

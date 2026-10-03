@@ -34,12 +34,12 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "tested fair priority encoder slice; full agent unfinished",
+      "wiring_status": "permitted priority, target and binary encoders; all three checkpoints repeatedly select legal real callback candidates; full agent unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["all callback families", "sampled-world search", "full-game qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["full dialog history and remaining callback families", "sampled-world search", "full-game qualification", "guarded evaluation", "review and publication"]
     },
     {
       "family": "magezero-v02",
