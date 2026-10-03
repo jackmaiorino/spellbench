@@ -1,0 +1,141 @@
+{
+  "schema": "spellbench-gorge-public-history-checks/v1",
+  "source": "The implementation and tests in the same commit as this record.",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "runtime": {
+    "go": "1.27.1 windows/amd64",
+    "cgo": false,
+    "gomaxprocs": 1,
+    "go_test_parallel_packages": 1
+  },
+  "rated_games": 0,
+  "scope": "Bounded engineering correctness games and constructed knowledge fixtures. No allocation qualification or rated measurement.",
+  "privacy_regressions": [
+    {
+      "test": "TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst",
+      "before": "Failed: a reveal before a blind shuffle retained its copy link.",
+      "after": "Passed: chronological translation retains the reveal, retires its copy reference at the shuffle and introduces a fresh reference on later reveal."
+    },
+    {
+      "test": "TestPublicKnownLibraryKeepsAnonymousMembershipAfterShuffle",
+      "result": "Passed: a unique known creature remains in the library in 16 actual native fallback worlds, without a restored observer binding; a world moving it to the hidden hand fails the knowledge constraint.",
+      "limitation": "Injected logged moves test native fallback from a supplied hypothetical fixture root, not public reconstruction of a naturally played shuffle."
+    },
+    {
+      "test": "TestPublicKnownLibraryConsumesVisibleDrawAndForgetsUnseenDraw",
+      "result": "Passed for the actor and opponent: library counts are consumed or conservatively forgotten, with no old copy identity reused."
+    },
+    {
+      "test": "TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle",
+      "result": "Passed: changing an unseen opponent draw from Goblin Piker to Mountain changes the source log but leaves all public history bytes and knowledge claims equal."
+    }
+  ],
+  "complete_history_test": "TestCompletePublicSearchHistoriesOnEveryDeck",
+  "complete_history_command": "go test -p 1 ./internal/minihost -run '^TestCompletePublicSearchHistoriesOnEveryDeck$' -count=1 -v -timeout=20m",
+  "complete_history_seconds": 139.762,
+  "games": [
+    {
+      "deck": "Wildfire",
+      "host_steps": 1937,
+      "actor_frames": [
+        946,
+        1008
+      ],
+      "final_known_claims": [
+        6,
+        5
+      ],
+      "digest": "sha256:2228340a70ea3fbd83c48ab6d13c614d925eb6d66e0e9c71b15581f7791bb164",
+      "game_index": 0
+    },
+    {
+      "deck": "Rally",
+      "host_steps": 458,
+      "actor_frames": [
+        216,
+        209
+      ],
+      "final_known_claims": [
+        0,
+        6
+      ],
+      "digest": "sha256:f96b6cfc5cce655451515db001abd1d0ee62017ef8e0e1921a31b77f296c43c0",
+      "game_index": 1
+    },
+    {
+      "deck": "Spy",
+      "host_steps": 422,
+      "actor_frames": [
+        209,
+        192
+      ],
+      "final_known_claims": [
+        0,
+        5
+      ],
+      "digest": "sha256:3e6ee3759d20ce7bcf9095c23fdc2bcc99eaca1f5e66bbc5925900dbd94fd344",
+      "game_index": 2
+    },
+    {
+      "deck": "Burn",
+      "host_steps": 681,
+      "actor_frames": [
+        322,
+        352
+      ],
+      "final_known_claims": [
+        1,
+        1
+      ],
+      "digest": "sha256:622773e1b05713e7e1f17231100fe09a47d9f10a479d8e5a89ba4eb7275b351f",
+      "game_index": 3
+    },
+    {
+      "deck": "CawGates",
+      "host_steps": 809,
+      "actor_frames": [
+        397,
+        453
+      ],
+      "final_known_claims": [
+        6,
+        2
+      ],
+      "digest": "sha256:ae4c2ccc6366671be1f75fc123682a7f07085355f6f93f28690403b36801a670",
+      "game_index": 4
+    }
+  ],
+  "assertions": [
+    "ordinary bot mirror",
+    "natural terminal for each deck",
+    "one replay per game with identical digest",
+    "live sequenced actor-only deltas",
+    "unique observed copy introductions",
+    "current view aliases refer to observed identities",
+    "public known-card projection completes",
+    "zero leak and candidate inconsistency counters"
+  ],
+  "other_checks": [
+    "all nested strategy tests passed in 24.382 seconds",
+    "short public-history transport prefixes and all four bounded search host replay modes passed",
+    "native known-card and redeal position compatibility checks passed",
+    "affected policy, inventory, error and qualification checks passed",
+    "Go vet passed"
+  ],
+  "ci": {
+    "previous_adapter_head": "e4a5b42",
+    "python_linux": "passed",
+    "python_windows": "passed",
+    "gorge": "failed only in stale TestBenchmarkMatchesTheEngineProfile assertion; corrected and focused local test passed; current source needs fresh hosted CI"
+  },
+  "unfinished": [
+    "whole-history noninterference and event-source audit for the full benchmark card pool",
+    "natural public reconstruction after shuffle",
+    "search qualification under reference-host isolation and clocks",
+    "guarded serial and parallel completed-work throughput",
+    "frozen roster and rated evaluation",
+    "review-path merge and live publication"
+  ],
+  "fixture_run_secret": "32 zero bytes, only in the correctness host fixture"
+}

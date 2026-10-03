@@ -60,50 +60,112 @@ func TestPublicSearchHistoryPrefixesOnEveryDeck(t *testing.T) {
 			if res.Terminal.Classification != "truncated" || audit.checks == 0 || s.Leaks() != 0 || s.Inconsistent() != 0 {
 				t.Fatalf("prefix audit failed: %+v checks=%d leaks=%d inconsistent=%d", res.Terminal, audit.checks, s.Leaks(), s.Inconsistent())
 			}
-			for seat, decisions := range res.SeatDecisions {
-				history := strategies.History{Actor: state.PlayerID(seat)}
-				var last uint64
-				for _, raw := range decisions {
-					var sd struct {
-						Extensions map[string]json.RawMessage `json:"extensions"`
-					}
-					if err := json.Unmarshal(raw, &sd); err != nil {
-						t.Fatal(err)
-					}
-					var v struct {
-						NativeIndex uint64 `json:"native_index"`
-					}
-					if err := json.Unmarshal(sd.Extensions["x_gorge_view_v1"], &v); err != nil {
-						t.Fatal(err)
-					}
-					if v.NativeIndex == last {
-						continue
-					}
-					last = v.NativeIndex
-					var d strategies.Delta
-					if err := json.Unmarshal(sd.Extensions[strategies.Extension], &d); err != nil {
-						t.Fatal(err)
-					}
-					if !d.Live {
-						t.Fatalf("collector stopped: %s", d.StopReason)
-					}
-					if err := strategies.AppendDelta(&history, d); err != nil {
-						t.Fatal(err)
-					}
-					for _, f := range d.Frames {
-						for _, ev := range f.Events {
-							if ev.Kind == events.DecisionAsk || ev.Kind == events.DecisionMade {
-								t.Fatal("decision transcript in public history")
-							}
-						}
-					}
-				}
-				if len(history.Frames) == 0 {
-					t.Fatal("actor received no public history")
-				}
-				t.Logf("seat=%d wire_decisions=%d actor_frames=%d", seat, len(decisions), len(history.Frames))
-			}
+			checkPublicHistories(t, res)
 		})
+	}
+}
+
+// A completed correctness game per deck exercises late public events, hidden
+// moves and retirement after the short prefixes. It is not a rated evaluation
+// or evidence that the current-observation probe proves whole-history privacy.
+func TestCompletePublicSearchHistoriesOnEveryDeck(t *testing.T) {
+	for i, deck := range catalog.Decks() {
+		t.Run(deck.CatalogID, func(t *testing.T) {
+			play := func(keep bool) minihost.Result {
+				h := host(t)
+				s := h.Engine.(*minihost.EngineLink).S
+				s.EnableAutoPay()
+				s.EnableSearch()
+				s.SetAudit(true)
+				h.KeepDecisions = keep
+				a, err := agent.New("bot")
+				if err != nil {
+					t.Fatal(err)
+				}
+				b, err := agent.New("bot")
+				if err != nil {
+					t.Fatal(err)
+				}
+				result, err := h.Play(uint64(i), deck, "london", []string{"x_gorge_view_v1", strategies.Extension}, [2]minihost.Link{a, b})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if result.Terminal.Classification != "natural" || s.Leaks() != 0 || s.Inconsistent() != 0 {
+					t.Fatalf("complete history failed: %+v leaks=%d inconsistent=%d", result.Terminal, s.Leaks(), s.Inconsistent())
+				}
+				return result
+			}
+			a := play(true)
+			checkPublicHistories(t, a)
+			b := play(false)
+			if a.Digest != b.Digest {
+				t.Fatalf("complete public-history replay changed: %s != %s", a.Digest, b.Digest)
+			}
+			t.Logf("natural_steps=%d digest=%s", a.Steps, a.Digest)
+		})
+	}
+}
+
+func checkPublicHistories(t *testing.T, result minihost.Result) {
+	t.Helper()
+	for seat, decisions := range result.SeatDecisions {
+		history := strategies.History{Actor: state.PlayerID(seat)}
+		seen := map[uint32]bool{}
+		var last uint64
+		for _, raw := range decisions {
+			var sd struct {
+				Extensions map[string]json.RawMessage `json:"extensions"`
+			}
+			if err := json.Unmarshal(raw, &sd); err != nil {
+				t.Fatal(err)
+			}
+			var v struct {
+				NativeIndex uint64 `json:"native_index"`
+			}
+			if err := json.Unmarshal(sd.Extensions["x_gorge_view_v1"], &v); err != nil {
+				t.Fatal(err)
+			}
+			if v.NativeIndex == last {
+				continue
+			}
+			last = v.NativeIndex
+			var d strategies.Delta
+			if err := json.Unmarshal(sd.Extensions[strategies.Extension], &d); err != nil {
+				t.Fatal(err)
+			}
+			if !d.Live {
+				t.Fatalf("collector stopped: %s", d.StopReason)
+			}
+			if err := strategies.AppendDelta(&history, d); err != nil {
+				t.Fatal(err)
+			}
+			for _, f := range d.Frames {
+				for _, identity := range f.Identities {
+					if identity.ID == 0 || seen[identity.ID] {
+						t.Fatal("copy identity was introduced twice")
+					}
+					seen[identity.ID] = true
+				}
+				for _, ev := range f.Events {
+					if ev.Kind == events.DecisionAsk || ev.Kind == events.DecisionMade {
+						t.Fatal("decision transcript in public history")
+					}
+				}
+			}
+			for _, ref := range d.Aliases {
+				if !seen[ref] {
+					t.Fatal("current view alias has no observed identity")
+				}
+			}
+		}
+		if len(history.Frames) == 0 {
+			t.Fatal("actor received no public history")
+		}
+		known, err := strategies.ProjectKnownCards(history)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("seat=%d wire_decisions=%d actor_frames=%d known_claims=%d", seat, len(decisions), len(history.Frames), known.Count())
 	}
 }
 

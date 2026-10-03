@@ -7,6 +7,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -57,7 +58,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	if !slices.Equal(b.DeckPool, ids) {
 		t.Fatalf("deck_pool %v, catalog %v", b.DeckPool, ids)
 	}
-	if !slices.Equal(b.Extensions, []string{"x_gorge_view_v1"}) {
+	if !slices.Equal(b.Extensions, []string{"x_gorge_view_v1", strategies.Extension}) {
 		t.Fatalf("extensions %v", b.Extensions)
 	}
 	if 2*b.Limits["max_seat_decisions_per_game"] >= b.Limits["max_decisions"] ||
@@ -79,6 +80,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	// (no distribute), and the observation flags of the notes.
 	s := server.New(testcorpus.Registry(t), nil)
 	s.EnableAutoPay()
+	s.EnableSearch()
 	var hello protocol.HelloOK
 	if err := json.Unmarshal(s.Handle([]byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-bench","protocol_minor":0}`)), &hello); err != nil {
 		t.Fatal(err)
@@ -86,6 +88,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	if !slices.Contains(hello.Formats, b.Format) ||
 		!slices.Contains(b.Engine.Command, "-registry") || !slices.Contains(b.Engine.Command, "-registry-sha256") ||
 		slices.Contains(b.Engine.Command, "-corpus") ||
+		!slices.Contains(b.Engine.Command, "-search") ||
 		!slices.Contains(b.Engine.Command, "-auto-pay") || hello.EngineDefaults["mana_payment"] == nil || *hello.EngineDefaults["mana_payment"] != "engine_autopay" ||
 		!slices.Contains(hello.RulesSupported["mulligan"], "london") ||
 		!slices.Equal(hello.RulesSupported["starting_player"], []string{"host_assigned"}) {
@@ -97,7 +100,7 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	}
 	for _, ext := range b.Extensions {
 		native, ok := declared[ext]
-		if !ok || native {
+		if !ok || native != (ext == strategies.Extension) {
 			t.Fatalf("extension %q: declared %v native_ids %v", ext, ok, native)
 		}
 	}

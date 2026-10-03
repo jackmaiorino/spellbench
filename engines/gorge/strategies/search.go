@@ -19,10 +19,15 @@ type PublicGame = searchprobe.PublicGame
 type History = searchprobe.History
 type Frame = searchprobe.Frame
 type Action = searchprobe.Action
+type KnownCards = searchprobe.KnownCards
 type Trace = searchseat.Trace
 
 // PublicHistory removes opponent observation boundaries from a native feed.
 func PublicHistory(h History) History { return searchprobe.SpellbenchPublicHistory(h) }
+
+// ProjectKnownCards exposes the native projection for public-history audits.
+// It reads only the owned history values, without a source engine.
+func ProjectKnownCards(h History) (KnownCards, error) { return searchprobe.ProjectKnownCards(h) }
 
 // Search keeps the original SearchBot's default policy and RNG stream.
 type Search struct {

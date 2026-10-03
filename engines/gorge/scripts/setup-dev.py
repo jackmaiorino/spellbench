@@ -25,6 +25,8 @@ overlay = {
             (root / "native-overlay/public_history.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_redeal.go").as_posix():
             (root / "native-overlay/public_redeal.go.txt").as_posix(),
+        (source / "internal/searchprobe/spellbench_public_known.go").as_posix():
+            (root / "native-overlay/public_known.go.txt").as_posix(),
         (source / "rules/spellbench_public_replay_clone.go").as_posix():
             (root / "native-overlay/public_replay_clone.go.txt").as_posix(),
     }
@@ -73,13 +75,33 @@ overlay["Replace"][(source / "internal/searchprobe/sample.go").as_posix()] = rep
 # The ordinary native collector has no forgotten IDs, so its result is intact.
 observation = (source / "internal/searchprobe/observation.go").read_text(encoding="utf-8")
 observer_patches = [
-    ("type Collector struct {\n", "type Collector struct {\n\tspellbenchZones map[state.ObjID]state.Zone\n"),
-    ("\tout := NewCollector(c.actor)\n", "\tout := NewCollector(c.actor)\n\tif c.spellbenchZones != nil {\n\t\tout.spellbenchZones = map[state.ObjID]state.Zone{}\n\t\tfor id, zone := range c.spellbenchZones { out.spellbenchZones[id] = zone }\n\t}\n"),
+    ("type Collector struct {\n", "type Collector struct {\n\tspellbenchZones map[state.ObjID]state.Zone\n\tspellbenchChronological bool\n"),
+    ("\tout := NewCollector(c.actor)\n", "\tout := NewCollector(c.actor)\n\tout.spellbenchChronological = c.spellbenchChronological\n\tif c.spellbenchZones != nil {\n\t\tout.spellbenchZones = map[state.ObjID]state.Zone{}\n\t\tfor id, zone := range c.spellbenchZones { out.spellbenchZones[id] = zone }\n\t}\n"),
     ("ref := uint32(len(c.known) + 1)", "ref := uint32(len(c.byRef))"),
 ]
 for before, after in observer_patches:
     if observation.count(before) != 1:
         raise SystemExit("Pinned observer patch context changed; refusing overlay")
+    observation = observation.replace(before, after, 1)
+# Public event identities are allocated and retired in event order, before
+# the final board. Otherwise a reveal before a shuffle in the same burst can
+# acquire a binding after the shuffle's retirement pass and leak that copy.
+intro_start = observation.index("\t// Introduce only cards explicitly displayed")
+intro_end = observation.index("\tredacted := c.redacted[:0]", intro_start)
+introduce_board = observation[intro_start:intro_end]
+observation = observation[:intro_start] + "\tif !c.spellbenchChronological {\n" + introduce_board + "\t}\n" + observation[intro_end:]
+chronological_patches = [
+    ("\tc.introduced = nil\n", "\tc.introduced = nil\n\tvar publicEvents []ObservedEvent\n"),
+    ("\tfor _, raw := range burst {\n", "\tfor _, raw := range burst {\n\t\tif c.spellbenchChronological { c.spellbenchForget(e, []events.Event{raw}) }\n"),
+    ("\t\tredacted = append(redacted, ev)\n", "\t\tif c.spellbenchChronological { publicEvents = append(publicEvents, c.spellbenchObservedEvent(ev)) } else { redacted = append(redacted, ev) }\n"),
+    ("\tframe := Frame{Identities: append([]Identity(nil), c.introduced...)}\n",
+     "\tframe := Frame{Identities: append([]Identity(nil), c.introduced...)}\n"
+     "\tif c.spellbenchChronological {\n" + introduce_board +
+     "\t\tframe.Identities = append([]Identity(nil), c.introduced...)\n\t\tframe.Events = publicEvents\n\t}\n"),
+]
+for before, after in chronological_patches:
+    if observation.count(before) != 1:
+        raise SystemExit("Pinned chronological collector context changed; refusing overlay")
     observation = observation.replace(before, after, 1)
 replacement = generated / "observation.go"
 replacement.write_text(observation, encoding="utf-8")
@@ -91,6 +113,21 @@ overlay["Replace"][(source / "internal/searchprobe/observation.go").as_posix()] 
 for relative, patches in [
     ("internal/searchprobe/redeal.go", [
         ("type RedealBase struct {\n", "type RedealBase struct {\n\tSpellbenchPublic bool\n"),
+        ("\t\tfor _, id := range append(append([]state.ObjID(nil), plan.hand...), lib...) {\n",
+         "\t\textra, reason := known.spellbenchAnonymousPins(e, p, pinLib)\n"
+         "\t\tif reason != \"\" { return nil, reason }\n"
+         "\t\tfor _, id := range extra { pinLib[id] = true; plan.loose = append(plan.loose, id); take(p, e.G.Obj(id).Card.Faces[0].Name) }\n"
+         "\t\tfor _, id := range append(append([]state.ObjID(nil), plan.hand...), lib...) {\n"),
+    ]),
+    ("internal/searchprobe/known.go", [
+        ("type KnownCards struct {\n", 'type KnownCards struct {\n\tSpellbenchAnonymous []SpellbenchLibraryMinimum `json:",omitempty"`\n'),
+        ("type KnownCardTracker struct {\n", "type KnownCardTracker struct {\n\tspellbenchPublic bool\n\tspellbenchMinimum map[state.PlayerID]map[string]int\n"),
+        ("\tt := NewKnownCardTracker(h.Actor)\n", "\tt := NewKnownCardTracker(h.Actor)\n\tt.spellbenchPublic = h.ActorBoundaries\n"),
+        ("func (k KnownCards) Count() int {\n\tn := 0\n", "func (k KnownCards) Count() int {\n\tn := k.spellbenchExtraAnonymousCount()\n"),
+        ("\tfor _, ev := range frame.Events {\n\t\tt.event(ev)\n", "\tfor _, ev := range frame.Events {\n\t\tif t.spellbenchPublic { t.spellbenchKnowledgeEvent(ev) }\n\t\tt.event(ev)\n"),
+        ("func (t *KnownCardTracker) clearZone(z knownLoc) {\n", "func (t *KnownCardTracker) clearZone(z knownLoc) {\n\tif z.zone == state.ZLibrary { delete(t.spellbenchMinimum, z.player) }\n"),
+        ("\tout := KnownCards{Actor: t.actor}\n", "\tout := KnownCards{Actor: t.actor}\n\tif t.spellbenchPublic { out.SpellbenchAnonymous = t.spellbenchMinimumClaims() }\n"),
+        ("func (k KnownCards) holds(e *rules.Engine, c *Collector) error {\n", "func (k KnownCards) holds(e *rules.Engine, c *Collector) error {\n\tif err := k.spellbenchAnonymousHolds(e); err != nil { return err }\n"),
     ]),
     ("internal/searchseat/searchseat.go", [
         ("type Options struct {\n", "type Options struct {\n\tSpellbenchPublicRedeal bool\n"),

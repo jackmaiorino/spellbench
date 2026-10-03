@@ -18,12 +18,22 @@ Collector failures use an opaque public code.
 
 The internal API is accessed by a nested module and Go build overlays generated
 by `engines/gorge/scripts/setup-dev.py`. The pinned source tree remains
-unchanged. The overlays adapt three native behaviors: replay comparison occurs
+unchanged. The overlays adapt the native observation boundary: replay comparison occurs
 at actor boundaries, hypothetical setup honors the declared London mulligan
 rule, and copy identities are retired when hidden movement or a blind shuffle
-loses knowledge. ID allocation remains monotonic across retirement. These
+loses knowledge. Public events allocate and retire identities in chronological
+order before the final board, including reveals and shuffles within one burst.
+ID allocation remains monotonic across retirement. These
 adaptations change the native full-feed sampler's observation digest and
 conditioning. They do not establish identical play to an unadapted native game.
+
+After a shuffle, known library membership retains minimum name counts without
+physical copy references. The public known-card projection checks these counts;
+native redeal reserves enough anonymous copies in the hypothetical library and
+subtracts them from its remaining pool. They receive no observer binding. A
+visible draw consumes the corresponding count; an unseen draw forgets unpositioned
+membership, following the native tracker's conservative policy. Anonymous counts
+overlap subsequently observed copies rather than being added twice.
 
 For these configurations, `Choose` needs only the public turn from its engine
 argument. The agent constructs that value locally. It has no real game engine,
@@ -67,7 +77,8 @@ branches legal opponent intents and immediately rejects mismatching public
 events, identity introductions, boards or actor decisions. It uses the native
 public epoch planner and the actor's recorded answers, then feeds the completed
 root to the unchanged native pool derivation, known-card checks and uniform
-redeal. No accepted native-policy proposal or original engine is required.
+redeal, with the anonymous membership adaptation above. No accepted native-policy
+proposal or original engine is required.
 The extra work has at most 64 proposals, 5,000 total submits across all branches
 and proposals, and 160,000 enumeration nodes. It is charged to the same agent
 clock and reported separately, including exhaustion and redeal refusals.
@@ -82,15 +93,30 @@ rollouts and none capped. Two source games with different hidden card names
 and future seeds, but fixed public discards, produce identical public histories
 and reconstructed worlds. Budget exhaustion refuses the root. Accepted native
 attacker, cast and mana fixtures also retain shipped-budget and parallel parity.
-These tests establish bounded fixture behavior; complete benchmark histories,
-anonymous known-library membership after copy retirement and agent clocks
-still require qualification.
+Additional tests preserve anonymous known-library membership after a shuffle in
+16 native fallback worlds, reject a world without the unique known member,
+retire the old copy reference, and check visible and unseen draws. Two injected
+knowledge histories with different hidden drawn names have identical complete
+history bytes and projections. These are knowledge fixtures, not naturally
+played games or end-to-end public reconstruction after a shuffle.
+
+One complete ordinary-bot mirror game per deck, plus its deterministic replay,
+passed through the public-history host profile. All five ended naturally, with
+live actor-only histories, valid identity introductions and aliases, and zero
+leak or candidate inconsistency counters. Wildfire, Rally, Spy, Burn and CawGates
+respectively used 1,937, 458, 422, 681 and 809 host steps. These correctness games
+do not establish complete search qualification, whole-history noninterference
+for the full card pool, or reference-host clocks and isolation. Commands, hashes
+and bounds are recorded in `docs/gorge-public-history-checks-20261003.json`.
 
 The previous adapter head `2eb26b8` passed the full hosted Go suite in
 [run 37098528350](https://github.com/jackmaiorino/spellbench/actions/runs/37098528350),
 including bounded ordinary qualification. All nested strategy tests and
 affected policy, payment and qualification checks passed locally after the
-redeal addition. A full hosted run for this new change remains pending.
+redeal addition. The full hosted run at `e4a5b42` failed in the benchmark test's
+old one-extension expectation; it is now corrected to verify both extensions,
+the search launch mode and its native-ID flag. The focused check passed. Both
+hosted Python suites at that head passed; current source needs fresh full CI.
 
 The event audit preserves completed scry bottom counts. They are observable
 game results: the [judge communication guidance](https://blogs.magicjudges.org/rulestips/2015/07/scrying-forever-its-now-an-evergreen-keyword-ability/)
@@ -125,7 +151,7 @@ qualification were run with these binaries.
 Those preserved binaries predate the public redeal implementation; rebuild and
 preserve new runtime bytes before qualifying the complete roster.
 
-Remaining work: audit complete histories on all five decks, preserve legal
+Remaining work: finish the event and identity audit across the five-deck card pool, preserve legal
 mapping at shipped budgets under reference-host clocks, qualify the container
 lifecycle and guarded completed-work throughput, and freeze the
 complete roster before evaluation. All twelve playable strategies are

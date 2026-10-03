@@ -328,6 +328,35 @@ func TestPublicCollectorForgetsBlindShuffleCopyIdentity(t *testing.T) {
 	}
 }
 
+func TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst(t *testing.T) {
+	e, _ := fixture(t, 17, false)
+	c := searchprobe.NewCollector(0)
+	if _, err := c.SpellbenchCapture(e, e.L.Events); err != nil {
+		t.Fatal(err)
+	}
+	id := e.G.Zone(state.ZHand, 1)[0]
+	f, err := c.SpellbenchCapture(e, []events.Event{
+		{Kind: events.Note, Player: 1, IDs: []state.ObjID{id}},
+		{Kind: events.Shuffle, Player: 1, IDs: []state.ObjID{id}, Secret: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Events[0].IDs) != 1 || len(f.Identities) != 1 {
+		t.Fatal("public reveal was lost")
+	}
+	old := f.Events[0].IDs[0]
+	if c.SpellbenchAlias(id) != 0 {
+		t.Fatal("a reveal before a blind shuffle retained its copy link")
+	}
+	if _, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.Note, Player: 1, IDs: []state.ObjID{id}}}); err != nil {
+		t.Fatal(err)
+	}
+	if now := c.SpellbenchAlias(id); now == 0 || now == old {
+		t.Fatal("later reveal reused the retired copy identity")
+	}
+}
+
 func TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController(t *testing.T) {
 	e, _ := fixture(t, 17, false)
 	c := searchprobe.NewCollector(0)

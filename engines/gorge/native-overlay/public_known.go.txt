@@ -1,0 +1,171 @@
+package searchprobe
+
+import (
+	"fmt"
+	"sort"
+
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// After a blind shuffle, names and multiplicities can remain known while
+// physical copy references cannot. These are minimum library counts, which
+// can overlap a subsequently observed copy of the same name.
+type SpellbenchLibraryMinimum struct {
+	Player state.PlayerID
+	Name   string
+	Count  int
+}
+
+func (t *KnownCardTracker) spellbenchAnonymizeLibrary(player state.PlayerID) {
+	if !t.validPlayer(player) {
+		return
+	}
+	if t.spellbenchMinimum == nil {
+		t.spellbenchMinimum = map[state.PlayerID]map[string]int{}
+	}
+	if t.spellbenchMinimum[player] == nil {
+		t.spellbenchMinimum[player] = map[string]int{}
+	}
+	counts := map[string]int{}
+	for ref, loc := range t.loc {
+		if loc.zone == state.ZLibrary && loc.player == player {
+			if name := t.ids[ref].Name; name != "" {
+				counts[name]++
+			}
+			delete(t.loc, ref)
+		}
+	}
+	for name, count := range counts {
+		t.spellbenchMinimum[player][name] = max(t.spellbenchMinimum[player][name], count)
+	}
+	t.clearPositionsOf(player)
+}
+
+func (t *KnownCardTracker) spellbenchKnowledgeEvent(ev ObservedEvent) {
+	if ev.Kind == events.Shuffle {
+		t.spellbenchAnonymizeLibrary(ev.Player)
+		return
+	}
+	if ev.Kind != events.Draw && ev.Kind != events.MoveZone && ev.Kind != events.PutOnStack {
+		return
+	}
+	if ev.Obj == 0 && ev.From.Hidden() && ev.To.Hidden() {
+		// The collector retires other players' hidden copy links on a move
+		// whose selected object the actor cannot see. Retain only names.
+		for _, player := range t.players {
+			if player != t.actor {
+				t.spellbenchAnonymizeLibrary(player)
+			}
+		}
+	}
+	if ev.From == state.ZLibrary && ev.To != state.ZLibrary {
+		if identity, ok := t.ids[ev.Obj]; ev.Obj != 0 && ok {
+			minimum := t.spellbenchMinimum[identity.Owner]
+			if minimum != nil {
+				minimum[identity.Name] = max(0, minimum[identity.Name]-1)
+			}
+		} else if ev.Kind == events.Draw && t.validPlayer(ev.Player) {
+			// Match the native tracker's conservative treatment of an
+			// unseen draw from an unpositioned known library membership.
+			delete(t.spellbenchMinimum, ev.Player)
+		} else {
+			// MoveZone.Player can be an effect controller rather than owner.
+			clear(t.spellbenchMinimum)
+		}
+	}
+	if ev.To == state.ZLibrary && ev.From != state.ZLibrary {
+		if identity, ok := t.ids[ev.Obj]; ev.Obj != 0 && ok {
+			minimum := t.spellbenchMinimum[identity.Owner]
+			if minimum[identity.Name] > 0 {
+				minimum[identity.Name]++
+			}
+		}
+	}
+}
+
+func (t *KnownCardTracker) spellbenchMinimumClaims() []SpellbenchLibraryMinimum {
+	var out []SpellbenchLibraryMinimum
+	for _, player := range t.players {
+		var names []string
+		for name, count := range t.spellbenchMinimum[player] {
+			if count > 0 {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			out = append(out, SpellbenchLibraryMinimum{Player: player, Name: name, Count: t.spellbenchMinimum[player][name]})
+		}
+	}
+	return out
+}
+
+func (k KnownCards) spellbenchPhysicalLibraryCounts(player state.PlayerID) map[string]int {
+	out := map[string]int{}
+	for _, library := range k.Libraries {
+		if library.Player == player {
+			for _, card := range library.Members {
+				out[card.Name]++
+			}
+		}
+	}
+	return out
+}
+
+func (k KnownCards) spellbenchExtraAnonymousCount() int {
+	n := 0
+	for _, minimum := range k.SpellbenchAnonymous {
+		n += max(0, minimum.Count-k.spellbenchPhysicalLibraryCounts(minimum.Player)[minimum.Name])
+	}
+	return n
+}
+
+func (k KnownCards) spellbenchAnonymousHolds(e *rules.Engine) error {
+	for _, minimum := range k.SpellbenchAnonymous {
+		count := 0
+		for _, id := range e.G.Zone(state.ZLibrary, minimum.Player) {
+			if o := e.G.Obj(id); o != nil && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].Name == minimum.Name {
+				count++
+			}
+		}
+		if count < minimum.Count {
+			return fmt.Errorf("player %d library holds %d %s, needs at least %d known copies", minimum.Player, count, minimum.Name, minimum.Count)
+		}
+	}
+	return nil
+}
+
+// Pick anonymous copies only within a hypothetical root, in canonical order.
+// They never receive observer bindings and cannot restore a wire copy link.
+func (k KnownCards) spellbenchAnonymousPins(e *rules.Engine, player state.PlayerID, physical map[state.ObjID]bool) ([]state.ObjID, string) {
+	counts := map[string]int{}
+	for id := range physical {
+		if o := e.G.Obj(id); o != nil && o.Card != nil && len(o.Card.Faces) > 0 {
+			counts[o.Card.Faces[0].Name]++
+		}
+	}
+	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, player)...)
+	sortByName(e, lib)
+	used := map[state.ObjID]bool{}
+	var out []state.ObjID
+	for _, minimum := range k.SpellbenchAnonymous {
+		if minimum.Player != player {
+			continue
+		}
+		need := max(0, minimum.Count-counts[minimum.Name])
+		for _, id := range lib {
+			o := e.G.Obj(id)
+			if need > 0 && !physical[id] && !used[id] && o != nil && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].Name == minimum.Name {
+				out = append(out, id)
+				used[id] = true
+				need--
+			}
+		}
+		if need != 0 {
+			return nil, fmt.Sprintf("player %d library cannot satisfy anonymous %s membership", player, minimum.Name)
+		}
+	}
+	return out, ""
+}
