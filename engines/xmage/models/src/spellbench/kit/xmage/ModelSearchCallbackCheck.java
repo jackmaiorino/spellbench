@@ -1,0 +1,108 @@
+package spellbench.kit.xmage;
+
+import mage.player.cabt.CardResolver;
+import mage.player.spellbench.Warmup;
+import spellbench.kit.core.Json;
+import spellbench.kit.core.Seeds;
+
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+
+/** Saves actual callbacks and only the public priority passes used to reach them. */
+public final class ModelSearchCallbackCheck {
+    public static void main(String[] args) throws Exception {
+        if (args.length != 1) throw new IllegalArgumentException("callback fixture output directory required");
+        PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
+        System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
+        new CardResolver().resolve("Plains");
+        save("target", Paths.get(args[0]), out);
+        save("binary", Paths.get(args[0]), out);
+        save("library", Paths.get(args[0]), out);
+        save("numeric", Paths.get(args[0]), out);
+        save("named", Paths.get(args[0]), out);
+    }
+    private static void save(String family, Path output, PrintStream out) throws Exception {
+        boolean binary = "binary".equals(family) || "library".equals(family), library = "library".equals(family);
+        boolean numeric = "numeric".equals(family), named = "named".equals(family);
+        String spell = named ? "Shifting Sky" : numeric ? "Fireball" : binary ? "Campus Guide" : "Stab";
+        String land = named ? "Island" : numeric ? "Mountain" : binary ? "Forest" : "Swamp";
+        Slice.SeatSetup own = new Slice.SeatSetup().lib(land, 8);
+        own.hand.addAll(Arrays.asList(spell, land));
+        own.battlefield.addAll(Arrays.asList(land, land, land, land, land));
+        Slice.SeatSetup opponent = new Slice.SeatSetup().lib("Island", 7);
+        opponent.library.add("Cancel"); opponent.hand.addAll(Arrays.asList("Island", "Essence Scatter"));
+        opponent.battlefield.addAll(Arrays.asList("Island", "Grizzly Bears", "Llanowar Elves"));
+        Slice.EnginePos position = Slice.EnginePos.start("model-search-callback-" + family, own, opponent);
+        try {
+            if (!position.advance(d -> Slice.priorityOf(d, "p0", "precombat_main"), 50)) {
+                throw new IllegalStateException("callback fixture did not reach priority");
+            }
+            Map<String, Object> anchor = Json.obj(Json.copy(position.decision()));
+            int cast = Slice.candidateWhere(anchor, "cast_spell", spell);
+            if (cast < 0) throw new IllegalStateException("callback fixture spell is not offered");
+            Map<String, Object> candidate = Json.obj(Json.arr(anchor, "candidates").get(cast));
+            Map<String, Object> selection = Json.map("candidate_id", candidate.get("candidate_id"),
+                    "semantic_echo", candidate.get("semantic"));
+            position.answer(cast);
+            List<Object> passes = new ArrayList<>();
+            List<Object> earlier = new ArrayList<>();
+            String kind = named ? "choose_color" : numeric ? "choose_number" : library ? "select_object" : binary ? "choose_boolean" : "choose_target";
+            for (int steps = 0; steps < 16 && !position.over(); steps++) {
+                Map<String, Object> decision = position.decision();
+                if ("p0".equals(position.acting()) && kind.equals(Slice.Front_firstKind(decision))) {
+                    byte[] ids = Seeds.hmac("original-search-callback".getBytes(StandardCharsets.UTF_8), family);
+                    Map<String, Object> record = Json.map("game_start", Slice.gameStart("p0", own, opponent),
+                            "decision", decision, "anchor", Json.map("decision", anchor, "selection", selection),
+                            "replay", Json.map("priority_passes", passes, "earlier", earlier),
+                            "world_seed", Seeds.hex(Seeds.hmac(ids, "world")), "id_seed", Seeds.hex(ids));
+                    Files.write(output.resolve(family + "-record.json"), Json.canonical(record).getBytes(StandardCharsets.UTF_8),
+                            StandardOpenOption.CREATE_NEW);
+                    out.println(Json.canonical(Json.map("family", family, "passes", passes,
+                            "candidates", (long) Json.arr(decision, "candidates").size(), "real_callback", kind)));
+                    return;
+                }
+                if (library && "p0".equals(position.acting()) && "choose_boolean".equals(Slice.Front_firstKind(decision))) {
+                    int yes = -1;
+                    for (int i = 0; i < Json.arr(decision, "candidates").size(); i++) {
+                        Map<String, Object> c = Json.obj(Json.arr(decision, "candidates").get(i));
+                        if (Json.bool(Json.obj(c, "semantic"), "value")) yes = i;
+                    }
+                    if (yes < 0) throw new IllegalStateException("fixture search acceptance not offered");
+                    Map<String, Object> c = Json.obj(Json.arr(decision, "candidates").get(yes));
+                    earlier.add(Json.map("decision", Json.copy(decision), "selection",
+                            Json.map("candidate_id", c.get("candidate_id"), "semantic_echo", c.get("semantic"))));
+                    position.answer(yes);
+                    continue;
+                }
+                if (!"priority".equals(Json.str(Json.obj(decision, "context"), "kind"))) {
+                    throw new IllegalStateException("unexpected callback before fixture root: " + Slice.Front_firstKind(decision));
+                }
+                int pass = Slice.candidateOf(decision, Json.map("kind", "pass"));
+                if (pass < 0) throw new IllegalStateException("fixture pass unavailable");
+                if ((binary || named) && "p0".equals(position.acting())) {
+                    // The latest public priority preserves actual mana payment
+                    // and the trigger already on the stack. Earlier mana replay
+                    // can tap different copies of otherwise identical lands.
+                    anchor = Json.obj(Json.copy(decision));
+                    Map<String, Object> offered = Json.obj(Json.arr(anchor, "candidates").get(pass));
+                    selection = Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic"));
+                    passes.clear();
+                } else {
+                    passes.add(position.acting());
+                }
+                position.answer(pass);
+            }
+            throw new IllegalStateException("fixture callback was not reached");
+        } finally { position.seats.exchange.close(); }
+    }
+}

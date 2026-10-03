@@ -1,0 +1,10 @@
+{
+ "games": 6,
+ "equal": 4,
+ "differ": [
+  1218,
+  1481
+ ],
+ "agent_dirs_left": [],
+ "verdict": "FAIL"
+}

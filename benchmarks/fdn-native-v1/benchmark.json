@@ -1,0 +1,371 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "fdn-native-v1",
+  "title": "FDN mirrors \u00b7 native XMage",
+  "summary": "Nine distinct fair variants of XMage MAD and MCTS, plus random and heuristic anchors, on sixteen Foundations draft decks from the public 17lands data used by DraftZero. Full round robin with four seat-swapped pairs per deck and matchup. Sampled hidden worlds, reconstruction, dialog wrappers, fixed search budgets and explicit horizons change the native policies. Every bot uses the same declared clock. The live validator checks every decision; halted and truncated games are unrated and their rates are shown.",
+  "format": "fdn-limited-bo1",
+  "engine": {
+    "name": "xmage",
+    "command": [
+      "${PYTHON}",
+      "${XMAGE_VERIFIED_ENTRY}",
+      "--java",
+      "${JAVA}",
+      "--build",
+      "${XMAGE_BUILD}",
+      "--db",
+      "${XMAGE_DB}",
+      "--db-file",
+      "${XMAGE_DB}/cards.h2.mv.db",
+      "fcdba7e7e5a0875d70380d8d99a5e776fe1eead630ef2a4d6c3340f9378919e3",
+      "--work",
+      "${XMAGE_ENGINE_WORK}",
+      "--manifest",
+      "${XMAGE_BUILD_MANIFEST}",
+      "--manifest-sha256",
+      "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93"
+    ]
+  },
+  "deck_pool": [
+    "FDN_top_02581_UR",
+    "FDN_top_02810_UR",
+    "FDN_top_04752_WG",
+    "FDN_top_05840_UGpR",
+    "FDN_top_13096_WU",
+    "FDN_top_13950_BR",
+    "FDN_top_15834_WBpU",
+    "FDN_top_16798_UB",
+    "FDN_top_17463_BG",
+    "FDN_top_20196_GpUR",
+    "FDN_top_20626_WG",
+    "FDN_top_21511_WUR",
+    "FDN_top_23736_U",
+    "FDN_top_24789_BGpW",
+    "FDN_top_26941_WB",
+    "FDN_top_28740_RG"
+  ],
+  "pairs_per_deck": 4,
+  "stats_seed": 20261003,
+  "time_control": {
+    "startup_ms": 300000,
+    "game_start_ms": 300000,
+    "bank_ms": 3600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 600000,
+    "engine_step_ms": 600000
+  },
+  "bootstrap_replicates": 2000,
+  "workers": 12,
+  "bots": [
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "seed": 11,
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "heuristic",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "heuristic",
+        "author": "Spellbench",
+        "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and never blocks.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s4",
+      "version": "0.3.0+7644dae8b33a",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s4"
+      ],
+      "display": {
+        "label": "MAD skill 4",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 4 (effective depth 4) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s5",
+      "version": "0.3.0+e45b9fbc466f",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s5"
+      ],
+      "display": {
+        "label": "MAD skill 5",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 5 (effective depth 5) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s6",
+      "version": "0.3.0+d38d7ca8392d",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s6"
+      ],
+      "display": {
+        "label": "MAD skill 6",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 6 (effective depth 6) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s7",
+      "version": "0.3.0+e01927928d93",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s7"
+      ],
+      "display": {
+        "label": "MAD skill 7",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 7 (effective depth 7) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s8",
+      "version": "0.3.0+2d20f354e846",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s8"
+      ],
+      "display": {
+        "label": "MAD skill 8",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 8 (effective depth 8) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s9",
+      "version": "0.3.0+4890bb82f351",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s9"
+      ],
+      "display": {
+        "label": "MAD skill 9",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 9 (effective depth 9) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "xmage-mad7-fair-s10",
+      "version": "0.3.0+87828c0bee4c",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "mad7-s10"
+      ],
+      "display": {
+        "label": "MAD skill 10",
+        "author": "XMage / Spellbench",
+        "description": "XMage CP7 at UI skill 10 (effective depth 10) on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. This is a changed fair variant of the native policy.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mad-k",
+      "version": "0.3.0+82de08678143",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h2"
+      ],
+      "display": {
+        "label": "MAD four worlds",
+        "author": "XMage / Spellbench",
+        "description": "As kit-mad-1, voting over four sampled worlds per decision.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mcts",
+      "version": "0.3.0+d72c0cae9bf5",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "xmage",
+      "training_style_tags": [
+        "search",
+        "native-fair-variant"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h3"
+      ],
+      "display": {
+        "label": "MCTS 30 iterations",
+        "author": "XMage / Spellbench",
+        "description": "XMage's MCTS on one sampled world with knowledge-consistent rollouts (30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator); MCTS combat keeps at most 128 engagements per expansion, the first in upstream's enumeration order, so it is biased toward that prefix (with eight available attackers, the no-attack engagement is outside it).",
+        "url": null
+      }
+    }
+  ]
+}

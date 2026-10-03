@@ -2,6 +2,16 @@ Spellbench XMage engine (engines/xmage), part of Spellbench (MIT, see ../../LICE
 
 This directory carries third-party code and data under their own MIT licenses:
 
+- models/ stages encoder and original search source from Daniel Brooks' public XMage fork at
+  5a32441c8ae587982e52cbd4616b5fbc30db7c2e, under XMage's MIT license.
+  The release input manifest also pins MageZero source (MIT, Copyright (c) 2025
+  Will Wroble), DraftZero source (MIT, Copyright (c) 2026 Daniel Brooks), and
+  the public DraftZero checkpoint release (CC BY 4.0, Daniel Brooks).
+  Large checkpoints and generated model builds are not vendored here.
+  Search builds also fetch Apache Commons Math 3.6.1, Apache License 2.0,
+  Copyright The Apache Software Foundation. Its bundled license is retained
+  at models/LICENSE-commons-math3.txt; the dependency itself stays outside Git.
+
 - XMage (https://github.com/magefree/mage), MIT License, Copyright (c) 2010 betasteward@gmail.com.
   Not vendored: scripts/build.sh fetches the pinned commit (pins.env). patches/xmage/ and patches/build/ are
   diffs against that commit and are offered upstream under the same license.
@@ -25,5 +35,19 @@ This directory carries third-party code and data under their own MIT licenses:
   (https://creativecommons.org/licenses/by/4.0/), as sampled by DraftZero (https://github.com/danieljbrooks/draft-zero,
   MIT License, Copyright (c) 2026 Daniel Brooks; commit bf5750cf, assets/sample/eval.txt). Spellbench drew 16 of its
   40 eval-split sample decks; only the main decks are used. Credit: 17lands and DraftZero.
+
+- kit/xmage/src/mage/player/ai/ (the XMage agent kit) vendors XMage's MAD plugin
+  (Mage.Server.Plugins/Mage.Player.AI.MAD: ComputerPlayer6, ComputerPlayer7, SimulatedPlayer2, SimulationNode2,
+  SimulatedAction2, SimulationWorker2, Attackers2, mad/optimizers/, util/) and MCTS plugin
+  (Mage.Server.Plugins/Mage.Player.AIMCTS, all 10 files) at the XMage pin, MIT License, Copyright (c) 2010
+  betasteward@gmail.com. Each vendored file starts with an attribution line; the kit's changes are marked KIT and
+  published as kit/diffs/kit-mad.diff and kit/diffs/kit-mcts.diff (kit/scripts/upstream.sh regenerates them).
+  kit/xmage/src/mage/player/ai/KitPayPlayer.java copies XMage ComputerPlayer's payment planner, as the engine's
+  overlay/.../decide/AutoPayPlayer.java does, under the same license.
+
+- The kit's world builder (kit/xmage/src/spellbench/kit/xmage/WorldBuilder.java) ports techniques of DraftZero's
+  mzbridge StateInjector (https://github.com/danieljbrooks/draft-zero, java/mzbridge/, MIT License, Copyright (c)
+  2026 Daniel Brooks): event-free injection, the turn position set by reflection, and trigger and event hygiene.
+  Short recipes it ports are noted in the source.
 
 Card names and rules text are the property of Wizards of the Coast.

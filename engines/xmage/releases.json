@@ -1,0 +1,456 @@
+{
+  "schema": "spellbench-xmage-release-inputs/v1",
+  "checked_at": "2026-10-03",
+  "storage": {
+    "projected_bytes": 2147483648,
+    "cap_bytes": 6442450944,
+    "reserve_bytes": 64424509440
+  },
+  "sources": {
+    "xmage": {
+      "url": "https://github.com/magefree/mage",
+      "revision": "fd40ad5c29a92cef824cf12ba6d0e4daa25db975"
+    },
+    "cabt": {
+      "url": "https://github.com/NMaass/mtg-rl-tools",
+      "revision": "bc1cf38c75ee3b3922b174bf20bc6e180e1f7a26"
+    },
+    "magezero": {
+      "url": "https://github.com/WillWroble/MageZero",
+      "revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "v0.2.0-alpha": "3688ab983f14cce634b7d261534b8fda6b90056e",
+      "v0.1.0-alpha": "0f5e394c1bdd0bca292ed40129b5d604367a9f77"
+    },
+    "magezero_engine_v02": {
+      "url": "https://github.com/WillWroble/mage",
+      "revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f"
+    },
+    "draftzero": {
+      "url": "https://github.com/danieljbrooks/draft-zero",
+      "revision": "eab4392b6fc2500eec8cc09c6ec958e124e39592",
+      "exp1-fdn-generalist": "dabcca9050f8cda943c8b8b382a0feccb6d2685a"
+    },
+    "draftzero_model_exp1": {
+      "url": "https://github.com/danieljbrooks/MageZero",
+      "revision": "bcc76deb462ffb2949325509fda6305c8c22835b"
+    },
+    "draftzero_engine_exp1": {
+      "url": "https://github.com/danieljbrooks/mage",
+      "revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "branch": "exp1-fdn-generalist"
+    },
+    "draftzero_engine_v02": {
+      "url": "https://github.com/danieljbrooks/mage",
+      "revision": "48e4918413392523a5f9d7915e1f33941ddea21e"
+    },
+    "draftzero_weights": {
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
+      "revision": "c0ac902361c041f986f429ad9d42e7b92494741f"
+    }
+  },
+  "assets": [
+    {
+      "id": "magezero-engine-v02",
+      "filename": "magezero-xmage-v0.2.0-alpha.zip",
+      "url": "https://github.com/WillWroble/MageZero/releases/download/v0.2.0-alpha/magezero-xmage-v0.2.0-alpha.zip",
+      "sha256": "c0242f186c312db81d0240d1e7479ce0f4306523ebec11d92d616a4f289926a3",
+      "bytes": 471231705,
+      "kind": "engine-bundle",
+      "hash_evidence": "GitHub release asset digest"
+    },
+    {
+      "id": "magezero-engine-v01",
+      "filename": "magezero-xmage-v0.1.3-alpha.zip",
+      "url": "https://github.com/WillWroble/MageZero/releases/download/v0.1.0-alpha/magezero-xmage-v0.1.3-alpha.zip",
+      "sha256": "90a30dd64ef4325489b24df08f2a1f97f9f8ccf9d23b0f31476f1097c1a95956",
+      "bytes": 471228445,
+      "kind": "engine-bundle",
+      "hash_evidence": "GitHub release asset digest"
+    },
+    {
+      "id": "draftzero-exp1-gen0",
+      "filename": "draftzero-exp1-gen0.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen0.pt.gz",
+      "sha256": "0e928bc842e7212aba2706083073ba8a258b7740babac15143941ee66c9417dd",
+      "bytes": 121633683,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-gen10",
+      "filename": "draftzero-exp1-gen10.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen10.pt.gz",
+      "sha256": "f399152f5fa47736a9baa8cbbccc089b96528d8db7c9d209a820a621d7c3fa19",
+      "bytes": 202391887,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-gen33",
+      "filename": "draftzero-exp1-gen33.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen33.pt.gz",
+      "sha256": "a534190014428f678b1f662f80c0b7a6f6beee8e3d87773a5f01f9bd4219c47d",
+      "bytes": 223736074,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-model",
+      "filename": "draftzero-exp1-model.py",
+      "url": "https://api.github.com/repos/danieljbrooks/MageZero/git/blobs/d0ca716346e0e30dd6b31dd8b2ecfd1646bed183",
+      "transport": "github-raw-blob",
+      "sha256": "3843c2f8a5c91fe6d322e9f0b847fcb27dc8edfebcb731d0fa1bd314ae503952",
+      "bytes": 15337,
+      "kind": "source-code",
+      "source_revision": "bcc76deb462ffb2949325509fda6305c8c22835b",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-vocab",
+      "filename": "draftzero-exp1-vocab.py",
+      "url": "https://api.github.com/repos/danieljbrooks/MageZero/git/blobs/560bdd9cae8779dda2ab7150a256c6f965e2d357",
+      "transport": "github-raw-blob",
+      "sha256": "f611eec8f5d289ffa506747624ff1dfe0ef70251174f35179ece5ea8e38fff93",
+      "bytes": 11431,
+      "kind": "source-code",
+      "source_revision": "bcc76deb462ffb2949325509fda6305c8c22835b",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-actionencoder",
+      "filename": "ActionEncoder.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/4e70ce9efed9ea555c378c821a39304c164e595f",
+      "transport": "github-raw-blob",
+      "sha256": "9e009de881192f9ecb4f44d52915d717b5d959220c17dfc70bc1caffcf1a1d36",
+      "bytes": 5793,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-featuremap",
+      "filename": "FeatureMap.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/c219342a37a2d456bbb5fcdc0e2b90e85d3c098a",
+      "transport": "github-raw-blob",
+      "sha256": "a5b0b9f3b1ba2161dfcfac98d2035a8e2bdd62404101b50045552d997e1177b2",
+      "bytes": 3044,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-features",
+      "filename": "Features.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/72feaf5cec0a2591f9648d3cc0e1acb67a87b250",
+      "transport": "github-raw-blob",
+      "sha256": "1cc6011cefb29e04c0ea32de845221ca7909f10a830844e9aa87723b9df9c16c",
+      "bytes": 6433,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-labeledstate",
+      "filename": "LabeledState.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/fd7360748b05cb12471fa9d8ee2cd4ddf4f5d371",
+      "transport": "github-raw-blob",
+      "sha256": "94475f022e8ceccad2509b0fedc396aff105468bb7af8ce840580f1bf15d4ed0",
+      "bytes": 3527,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-stateencoder",
+      "filename": "StateEncoder.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/7241ae9726f1f323d9443035743ef518de260237",
+      "transport": "github-raw-blob",
+      "sha256": "42a2ede57d39b2d4421baaf236a30ceaaf92ef35886824b7b1eb7eb5fca20aa2",
+      "bytes": 30264,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-actions",
+      "filename": "FDN_SPG.tsv",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/ea12b42c93fa7cb854dc786334505cdc613bfd69",
+      "transport": "github-raw-blob",
+      "sha256": "16faa169baa03eafd3e36490b40c3cbabf1a902e7c227eff69646be1c09afee9",
+      "bytes": 36777,
+      "kind": "action-vocabulary",
+      "source_revision": "dabcca9050f8cda943c8b8b382a0feccb6d2685a",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "magezero-v02-model",
+      "filename": "magezero-v02-model.py",
+      "url": "https://api.github.com/repos/WillWroble/MageZero/git/blobs/a3b379d0c80e1e04cb0a981b433b81badd6a99f3",
+      "transport": "github-raw-blob",
+      "sha256": "9c0da72884f0708d4c119ed9bcb1d7d42133fee5b89f77276217a834c1a3f8cd",
+      "bytes": 5737,
+      "kind": "source-code",
+      "source_revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "hash_evidence": "pinned public Git blob; verified against clean upstream source with checkout CRLF normalization"
+    },
+    {
+      "id": "magezero-v02-vocab",
+      "filename": "magezero-v02-vocab.py",
+      "url": "https://api.github.com/repos/WillWroble/MageZero/git/blobs/560bdd9cae8779dda2ab7150a256c6f965e2d357",
+      "transport": "github-raw-blob",
+      "sha256": "f611eec8f5d289ffa506747624ff1dfe0ef70251174f35179ece5ea8e38fff93",
+      "bytes": 11431,
+      "kind": "source-code",
+      "source_revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "hash_evidence": "pinned public Git blob; verified against clean upstream source with checkout CRLF normalization"
+    },
+    {
+      "id": "draftzero-exp1-search-computerplayer",
+      "filename": "Exp1-ComputerPlayer.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/625c56ae24f1fa43f606ff231853ed0efa951cdf",
+      "transport": "github-raw-blob",
+      "sha256": "34a6bc86329d562f629aa9a8e626ceb652c29c71cd5fc8261da2d599729482d4",
+      "bytes": 79839,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-computerplayermcts",
+      "filename": "Exp1-ComputerPlayerMCTS.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/8e49ed29cf66d10c98d3c63d98011e8e9ed1265d",
+      "transport": "github-raw-blob",
+      "sha256": "9e8ac5947f4a5cfeb6bb53343036459e2a01fdeccf1c4483e4c2cca2777d652d",
+      "bytes": 18879,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-computerplayermcts2",
+      "filename": "Exp1-ComputerPlayerMCTS2.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/86cf7cdb1bed09e4f065dac25314a0bbf41224a4",
+      "transport": "github-raw-blob",
+      "sha256": "a9935c7d7997a749d980248e7c7cb87501142504b7b46863cbd0ea5c5a7b3d79",
+      "bytes": 14299,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-mctsplayer",
+      "filename": "Exp1-MCTSPlayer.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/b7a90230faacd38241a79b76b673605310a3e357",
+      "transport": "github-raw-blob",
+      "sha256": "0e039d1689431b90d75a2032c952ae6fd1f63f7347553456dfa02fcbc97d1c8d",
+      "bytes": 13354,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-mctsnode",
+      "filename": "Exp1-MCTSNode.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/d7c234c1d19895909f09c1957caec4eaae6c313b",
+      "transport": "github-raw-blob",
+      "sha256": "c1f75ed9ffc9bc03dff6b3e8ed2a196262e0ecd498cc629a1c76e22e4a950fcd",
+      "bytes": 30550,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-mctsnode2",
+      "filename": "Exp1-MCTSNode2.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/95cc6b158a48cb6bf62a1774c6629c550687b1a9",
+      "transport": "github-raw-blob",
+      "sha256": "0dbd67b352553d246b71f1fb80eb06853eb6be6d2dfd0e036be8ddfecc83c295",
+      "bytes": 4550,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-playerscript",
+      "filename": "Exp1-PlayerScript.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/298c854a781e1495e299044f98ce31b813e1f706",
+      "transport": "github-raw-blob",
+      "sha256": "cef9db2bb1e491864eaf49111aef368d9c76d0fdc53b21750cfb68a1102f6011",
+      "bytes": 5682,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-mctsdefaults",
+      "filename": "Exp1-MCTSDefaults.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/1cc13d615a1470117a1d1916e37a540b131c0df8",
+      "transport": "github-raw-blob",
+      "sha256": "722d7bf7735f7975aa5154f4b42939a438bc64c67a9de5642a3a30599ce8b60a",
+      "bytes": 1163,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-gamestateevaluator2",
+      "filename": "Exp1-GameStateEvaluator2.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/5c3f74fb64812236ba9779bd9a0c0d239c29fb99",
+      "transport": "github-raw-blob",
+      "sha256": "462efce2c1c1417de2494b834df13f8a19cc5e1f1f6afc8e4a1497a843b439ac",
+      "bytes": 12081,
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; Git blob derived from verified bytes"
+    },
+    {
+      "id": "draftzero-exp1-search-possibletargetsselector",
+      "filename": "Exp1-PossibleTargetsSelector.java",
+      "bytes": 6095,
+      "sha256": "d50b426cc9fba71c7c6c1a2c6fd392d89cb96d209b5bb41e38d74d2343b13f70",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/cd3184b2c554694a0938b3cf9b9dbfdae39a3fab",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-possibletargetscomparator",
+      "filename": "Exp1-PossibleTargetsComparator.java",
+      "bytes": 5574,
+      "sha256": "cf32e14a3e4ef75307d877b578c9bca816ecca0f4f88895f4234e9464694e05c",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/7f4f199b5ab236fc10b21c44af008e97ce4adadb",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-choosecreaturetoblockability",
+      "filename": "Exp1-ChooseCreatureToBlockAbility.java",
+      "bytes": 1192,
+      "sha256": "18db46b87c53f10921e182a6c9304ef79a9f1b92203ee199ac04736d34b46e15",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/b1a9b8b7d7c62432bcc5240aad5b0334ddf00fe6",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-artificialscoringsystem",
+      "filename": "Exp1-ArtificialScoringSystem.java",
+      "bytes": 6846,
+      "sha256": "e49bea00de0df3fe7cfa93ce61563938dda971ed70383ec364c8838d6d9fcef1",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/fae68667136978254b9ef9d1529470e14250af5b",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-playerimpl",
+      "filename": "Exp1-PlayerImpl.java",
+      "bytes": 249087,
+      "sha256": "c6df96a6e69807453a8b28da21bc33988162375bb0b01ec90a4d35c79803ad82",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/6c2b84c7148e65a27b31d159bf53b5e06277c8ed",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-commonsmath3",
+      "filename": "commons-math3-3.6.1.jar",
+      "bytes": 2213560,
+      "sha256": "1e56d7b058d28b65abd256b8458e3885b674c1d588fa43cd7d1cbb9c7ef2b308",
+      "url": "https://repo1.maven.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar",
+      "published_sha1": "e4ba98f1d4b3c80ec46392f25e094a6a2e58fcbf",
+      "kind": "build-dependency",
+      "hash_evidence": "Maven Central published SHA-1 verified; local SHA-256 pin"
+    },
+    {
+      "id": "draftzero-exp1-search-magicability",
+      "filename": "Exp1-MagicAbility.java",
+      "bytes": 2261,
+      "sha256": "9d1eebb0ccd233f24b0fd12b9903942be6537b19203bf99d5716aa3b04c0e6c5",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/63346dc3ed01073db2f503318c240d298e363fb1",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit"
+    },
+    {
+      "id": "draftzero-exp1-search-gameimpl",
+      "filename": "Exp1-GameImpl.java",
+      "bytes": 182447,
+      "sha256": "0d30a81a60b4d9dc000a17ee015b2b1e02aecaf95b5c5bb4b491e07ca151b9ac",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/2826c6b1ce5451b664a0f491e191700473f96c5e",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; core helper or original transport audit"
+    },
+    {
+      "id": "draftzero-exp1-search-remotemodelevaluator",
+      "filename": "Exp1-RemoteModelEvaluator.java",
+      "bytes": 11433,
+      "sha256": "e98032916fcf00f88b4295cf2fcac30a3c30167c654db90528d81c1eba801ada",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/f9591bff49aac130577bc538cb825fdf2e3336a2",
+      "transport": "github-raw-blob",
+      "kind": "source-code",
+      "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; core helper or original transport audit"
+    }
+  ],
+  "inference_backends": {
+    "draftzero-exp1": {
+      "model": "draftzero-exp1-model",
+      "feature_vocab_code": "draftzero-exp1-vocab",
+      "action_vocab": "draftzero-exp1-actions",
+      "feature_hash_bins": 2000000,
+      "policy_width": 1024,
+      "checkpoints": [
+        "draftzero-exp1-gen0",
+        "draftzero-exp1-gen10",
+        "draftzero-exp1-gen33"
+      ]
+    },
+    "magezero-v02": {
+      "model": "magezero-v02-model",
+      "feature_vocab_code": "magezero-v02-vocab",
+      "feature_hash_bins": 2147483647,
+      "policy_width": 128,
+      "checkpoints": [],
+      "status": "source wiring prepared; no public pretrained checkpoint found; unqualified"
+    }
+  },
+  "search_adapters": {
+    "draftzero-exp1": {
+      "source_commit": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "source_assets": [
+        "draftzero-exp1-search-computerplayer",
+        "draftzero-exp1-search-computerplayermcts",
+        "draftzero-exp1-search-computerplayermcts2",
+        "draftzero-exp1-search-mctsplayer",
+        "draftzero-exp1-search-mctsnode",
+        "draftzero-exp1-search-mctsnode2",
+        "draftzero-exp1-search-playerscript",
+        "draftzero-exp1-search-mctsdefaults",
+        "draftzero-exp1-search-gamestateevaluator2",
+        "draftzero-exp1-search-possibletargetsselector",
+        "draftzero-exp1-search-possibletargetscomparator",
+        "draftzero-exp1-search-choosecreaturetoblockability",
+        "draftzero-exp1-search-artificialscoringsystem",
+        "draftzero-exp1-search-playerimpl",
+        "draftzero-exp1-search-magicability",
+        "draftzero-exp1-search-gameimpl",
+        "draftzero-exp1-search-remotemodelevaluator"
+      ],
+      "status": "original priority, target, binary and visible-library search bridge; generation33 repeat-identical six-visit fixtures with earlier-choice replay; full history, remaining callbacks, full games and ratings unfinished",
+      "dependencies": [
+        "draftzero-exp1-search-commonsmath3"
+      ],
+      "variant": {
+        "reviewed_base_engine": true,
+        "hidden_world": "permitted sampled world only",
+        "root_reuse": "fresh tree per received root",
+        "callback_history": "saved permitted priority anchor, bound earlier own choices and public pass seats; identical received observation required",
+        "root_accounting": "initial offered branches retained after pruning; original library fail-to-find-before-minimum exclusion explicitly labelled",
+        "inference": "synchronous private NDJSON to pinned confined checkpoint",
+        "visits": "caller supplied 2..1000; correctness fixture6; no rating profile frozen",
+        "policy_heads": "own priority, opponent priority, target and binary enabled",
+        "prior_temperature": 1.5,
+        "prior_bonus": 0.1,
+        "backprop_discount": 0.99,
+        "puct_constant": 1,
+        "root_noise": false,
+        "selection_temperature": 0,
+        "opponent_hand_encoding": false,
+        "engine_difference": "fork-specific combat retry shortcut not present; full combat qualification pending"
+      }
+    }
+  }
+}
