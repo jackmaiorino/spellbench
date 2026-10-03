@@ -34,15 +34,17 @@ The successful native build uses JDK 23.0.1 and the reviewed engine jar digest
 The build now takes `jar` from the running pinned JDK; an initial attempt found
 the older JDK 8 archiver on Windows PATH and failed before producing jars.
 
-Evidence currently belongs to the owned job
-`D:/e-scratch/spellbench-xmage-all-20261002`: `core-checks-002/`,
+The source of record is the SHA-256-verified cold snapshot
+`E:/spellbench-xmage-all-20261002/native-repairs-001/SEALED.json`
+(SHA-256 `115e42417b72661fce0ed0787df99d1ed94d4d2a18bd987a27a64777e7ed3247`).
+The owned hot job is its recovery copy. The snapshot retains `core-checks-002/`,
 `recovery-check-001.jsonl`, `encoder-check-001/rename-check-004.jsonl` (passing
 priority and combat), earlier failed check receipts, `agent-exit-check-002.json`
 (passing), `agent-exit-check-001.json` (failed Windows file release),
 `cleanup-link-check-001/REPORT.json`, and `native-kit-005/KIT-MANIFEST.json`.
 Combat decisions and cached combat substeps now retain their world's approximation flags.
-The immutable cold snapshot records their
-hashes after this slice is committed.
+The snapshot records the input source commit, every copied file hash and the
+final jars pinned in `E:/pinned-binaries/`. Tested class bytes match those jars.
 
 The historical clock profiles and measurements are unchanged. A prospective
 `kit-20261003` profile gives each decision 600 seconds, with the existing bank
