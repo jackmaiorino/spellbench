@@ -1,4 +1,4 @@
-"""Spellbench agent for mtg-kernel Phase 1 policies (g115, A48, c12).
+"""Spellbench v2 agent for mtg-kernel Phase 1 policies (g115, A48, c12).
 
 The mtg-kernel bridge run with --x-kernel-flat-v4 attaches the acting seat's
 model input to every decision as x_kernel_flat_v4: the actor-visible V4
@@ -23,9 +23,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "python"))
 
-from spellbench.agent_server import serve  # noqa: E402
-from spellbench.arena.bots.uniform import SplitMix64  # noqa: E402
-from spellbench.models import Decision, GameOverRequest, GameStartRequest  # noqa: E402
+from spellbench.bot import Decision, GameOver, GameStart, serve  # noqa: E402
+from spellbench.builtins.uniform import SplitMix64  # noqa: E402
 
 EXTENSION = "x_kernel_flat_v4"
 EXTENSION_SCHEMA = "mtg-kernel-spellbench-flat-v4/v1"
@@ -135,10 +134,12 @@ class KernelFlatBot:
         self._rng: SplitMix64 | None = None
         self._log = None
 
-    def on_game_start(self, request: GameStartRequest) -> None:
+    def on_game_start(self, request: GameStart) -> None:
         engine = request.engine
-        if engine.name != "mtg-kernel" or not engine.card_pool_identity.endswith(f"carddb-{self._card_db}"):
-            raise self._fail(f"engine {engine.name} {engine.card_pool_identity} lacks card registry {self._card_db}")
+        if engine.get("name") != "mtg-kernel" or not str(engine.get("card_pool_identity", "")).endswith(f"carddb-{self._card_db}"):
+            raise self._fail("engine identity lacks the required card registry")
+        if request.seat not in ("p0", "p1"):
+            raise self._fail("game_start has no valid seat")
         self._seat = request.seat
         stream_seed = seat_stream_seed(self._seed, request.game_id, request.seat)
         self._rng = SplitMix64(stream_seed)
@@ -161,8 +162,8 @@ class KernelFlatBot:
         assert self._rng is not None
         sample_seed = self._rng.next() if self._selection == SAMPLED else None
         request = {
-            "schema": REQUEST_SCHEMA, "request_id": f"{decision.game_id}:{decision.step}",
-            "game_id": decision.game_id, "seat": decision.acting_seat, "step": decision.step,
+            "schema": REQUEST_SCHEMA, "request_id": f"{decision.game_id}:{decision.seat_step}",
+            "game_id": decision.game_id, "seat": decision.acting_seat, "step": decision.seat_step,
             "feature_contract_digest": FEATURE_CONTRACT_DIGEST, "feature_encoding_digest": FEATURE_ENCODING_DIGEST,
             "row_candidate_ids": rows, "sample_seed": sample_seed, "tensor": extension["tensor"],
         }
@@ -175,13 +176,13 @@ class KernelFlatBot:
         if type(row) is not int or not 0 <= row < len(rows) or choice.get("selected_candidate_id") != rows[row]:
             raise self._fail("scorer choice does not match the row map")
         self._write_log({
-            "kind": "decision", "step": decision.step, "candidate_id": rows[row], "selected_row": row,
+            "kind": "decision", "step": decision.seat_step, "candidate_id": rows[row], "selected_row": row,
             "sample_seed": sample_seed, "logits_bits": choice["logits_bits"], "value_bits": choice["value_bits"],
             "request_sha256": choice["request_sha256"], "elapsed_us": (time.perf_counter_ns() - started) // 1000,
         })
         return rows[row]
 
-    def on_game_over(self, request: GameOverRequest) -> None:
+    def on_game_over(self, request: GameOver) -> None:
         self._close_log()
 
     def close(self) -> None:
@@ -203,7 +204,7 @@ class KernelFlatBot:
             raise self._fail("x_kernel_flat_v4 identity does not match the model")
         if extension.get("acting_seat") != decision.acting_seat or decision.acting_seat != self._seat:
             raise self._fail("x_kernel_flat_v4 is not for this seat")
-        if extension.get("step") != decision.step:
+        if type(decision.seat_step) is not int or decision.seat_step < 0 or extension.get("step") != decision.seat_step:
             raise self._fail("x_kernel_flat_v4 is not for this step")
         rows = extension.get("row_candidate_ids")
         if (
@@ -253,7 +254,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"kernel_flat_bot: {exc}", file=sys.stderr)
         return 1
     try:
-        return serve(bot, bot_name=args.name, bot_version=args.version, extensions_accepted=(EXTENSION,))
+        return serve(bot, name=args.name, version=args.version,
+                     requires_extensions=(EXTENSION,), extensions_accepted=(EXTENSION,))
     finally:
         bot.close()
 
