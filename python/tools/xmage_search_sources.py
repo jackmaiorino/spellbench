@@ -112,9 +112,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
             changes.append({"operation": "remove unused deprecated random-playout methods", "start": before})
             text = text[:before] + "}\n"
         if name == "ComputerPlayerMCTS2":
-            replace("    protected MCTSNode calculateActions(Game game, ActionEncoder.ActionType action) {",
+            replace("    @Override\n    protected MCTSNode calculateActions(Game game, ActionEncoder.ActionType action) {",
                     "    protected void beforeBestChild(MCTSNode2 tree) {}\n"
-                    "    protected MCTSNode calculateActions(Game game, ActionEncoder.ActionType action) {")
+                    "    @Override\n    protected MCTSNode calculateActions(Game game, ActionEncoder.ActionType action) {")
             replace("        MCTSNode best = root.bestChild(game);",
                     "        beforeBestChild(root);\n        MCTSNode best = root.bestChild(game);")
             # WorldBuilder's deterministic, per-world random stream owns the seed.
