@@ -6,7 +6,7 @@ check uses synthetic initialized weights.
 
 | Inputs | Observed result | Remaining association or adapter work |
 |---|---|---|
-| DraftZero Exp1 gen0, gen10, gen33 | All strictly load in isolation; each repeatedly selects an offered target and boolean candidate on real engine dialogs; gen33 also repeats original priority search | Full root history, remaining callbacks and complete-game qualification |
+| DraftZero Exp1 gen0, gen10, gen33 | All strictly load in isolation; each repeatedly selects an offered target and boolean candidate; gen33 repeats original priority, target, binary and visible-library searches | Full history across transitions, remaining callbacks and complete-game qualification |
 | Jack's five current policy/mulligan pairs | All strictly load and repeat finite inference on five candidate heads, legacy actor and mulligan; Standard preserves its older two-Q rule | Exact decks, feature/cache/source associations and complete fair game adapter |
 | MageZero v0.1 and v0.2 bundles | ZIP directories contain no pretrained weights; raw and original `.mz` export contracts are wired | Author weights, exact deck list and encoder metadata; complete fair adapter |
 
@@ -37,7 +37,7 @@ The separate original-search bridge stages 14 original Exp1 classes, three
 core/transport audit sources and the hash-pinned Commons Math dependency.
 It ports fork helpers while preserving the search formulas and script replay.
 Every source rewrite is recorded, and generated class hashes enter the build
-manifest. Its fair variant uses sampled permitted worlds, a fresh priority
+manifest. Its fair variant uses sampled permitted worlds, a fresh received-root
 tree, synchronous inference, all four policy heads, fixed visits and no noise.
 The fork-specific combat retry shortcut remains an engine difference to qualify.
 
@@ -47,7 +47,20 @@ and values exactly. Pass/Stab/land have 1/2/3 visits. Root features match the
 independent priority encoding, which retains its original output hash. Result
 binding, complete root coverage, visit consistency, unsupported-world refusal,
 shared clocks and failed-process cleanup pass the affected Python checks.
-The other root callbacks, full games and ratings are still unfinished.
+Saved-anchor replay now reaches the real target and binary callbacks and a
+library selection after an earlier recorded yes. Generation 33 repeats each
+six-visit search exactly with seven neural evaluations. Received observations
+and the original micro-decision features match. The library root represents
+eight search branches and one explicitly excluded fail-to-find candidate:
+original Exp1 requires the target minimum before finishing. Pruned original
+branches remain accounted for with zero visits and null value. Changed visible
+life is refused and both owned process exits are confirmed.
+
+The affected Python checks pass: 86 tests and one Windows symlink-creation skip.
+Replay retains failed checks that exposed mana-tapping reconstruction and
+root-coverage errors, and the subsequent corrections. Full history across
+draws and other transitions, remaining callbacks, full games and ratings are
+still unfinished.
 
 Receipts retain the correctly refused optional-kicker and unregistered-trigger
 worlds, Standard's initial mismatched mulligan source, and the corrected

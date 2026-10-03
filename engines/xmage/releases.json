@@ -429,14 +429,16 @@
         "draftzero-exp1-search-gameimpl",
         "draftzero-exp1-search-remotemodelevaluator"
       ],
-      "status": "compiled original priority search bridge; generation33 repeat-identical six-visit real fixture; remaining root callbacks, full games and ratings unfinished",
+      "status": "original priority, target, binary and visible-library search bridge; generation33 repeat-identical six-visit fixtures with earlier-choice replay; full history, remaining callbacks, full games and ratings unfinished",
       "dependencies": [
         "draftzero-exp1-search-commonsmath3"
       ],
       "variant": {
         "reviewed_base_engine": true,
         "hidden_world": "permitted sampled world only",
-        "root_reuse": "fresh tree per received priority",
+        "root_reuse": "fresh tree per received root",
+        "callback_history": "saved permitted priority anchor, bound earlier own choices and public pass seats; identical received observation required",
+        "root_accounting": "initial offered branches retained after pruning; original library fail-to-find-before-minimum exclusion explicitly labelled",
         "inference": "synchronous private NDJSON to pinned confined checkpoint",
         "visits": "caller supplied 2..1000; correctness fixture6; no rating profile frozen",
         "policy_heads": "own priority, opponent priority, target and binary enabled",

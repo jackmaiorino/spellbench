@@ -9,7 +9,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 |---|---|---|---|
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 also repeats original priority search | Full root dialogs, combat and game qualification unfinished; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 repeats original priority, target, binary and visible-library searches | Full history, remaining dialogs, combat and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
@@ -101,11 +101,13 @@ helpers. Their micro-decision history is empty; the direct-policy connector does
 DraftZero's original MCTS. Those changes must remain visible in any future
 entry identity and description.
 
-The separate priority-search bridge now ports Exp1's original PUCT and dialog
-scripts. Generation33 completes repeat-identical six-visit real priority
-searches through the confined checkpoint. Its declared variant uses fresh
+The separate search bridge ports Exp1's original PUCT and dialog scripts.
+Generation 33 repeats six-visit searches for priority, targets, binary choices
+and a visible library selection with an earlier recorded choice through the
+confined checkpoint. Original Exp1's restriction on finishing a library search
+before the target minimum remains explicit in the result. Its variant uses fresh
 sampled-world trees, synchronous inference, all trained priors, fixed visits
-and no noise. Remaining root callbacks and full-game qualification are open.
+and no noise. Full transition history, remaining callbacks and game qualification are open.
 
 Use the FDN and Standard benchmarks with appropriate deck associations and
 baseline anchors; add suitable Pauper support for Jack's deck-local entries.

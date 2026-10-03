@@ -70,7 +70,8 @@ Direct inference takes the largest offered raw logit and resolves ties by the
 lowest candidate ID. That choice rule and the encoder approximations must
 remain part of any future entry identity.
 
-The original Exp1 search now has a separate priority bridge. Build it with
+The original Exp1 search has a separate bridge for priority, target and binary
+roots, including a visible library search after an earlier recorded choice. Build it with
 `--search-inputs` pointing to the verified search sources and dependency from
 the release manifest. `xmage_search_sources.py` relocates the pinned classes
 and records every compatibility edit and source hash in `STAGE.json`.
@@ -88,7 +89,17 @@ unsupported worlds, inference failures and exhausted clocks close both
 owned processes. The neural float RPC is private; public v2 frames keep their
 integer-only contract. There is no heuristic or random replacement on failure.
 
-The declared play variant uses a fresh tree per received priority, synchronous
+For a callback root, the request includes `anchor` with the latest relevant
+offered priority `decision` and bound `selection`, and `replay` with public
+`priority_passes` and earlier own `decision`/`selection` pairs. Replay validates
+each received observation and selection before reaching the requested callback.
+Only visible own-library facts condition the sampled world. The original
+micro-decision history and activation flag reach the encoder through the real
+callback. Unrecorded callbacks terminate replay even when XMage would catch an
+ordinary exception. The result records how many earlier choices and passes it
+replayed and confirms an identical received observation.
+
+The declared play variant uses a fresh tree per received root, synchronous
 inference, a fixed visit count, all four trained policy heads, no root noise
 and opponent-hand encoding disabled. Prior temperature is 1.5, the exploration
 bonus 0.1, PUCT constant 1 and backpropagation discount 0.99. Reconstruction
@@ -102,7 +113,16 @@ offered land selected. The root feature set equals the independently encoded
 priority features. The original priority output hash is unchanged and both
 process exits are confirmed. This is a small correctness check.
 
-Full root dialog history, the remaining decision families, complete-game tests
+Generation 33 also repeats six-visit searches on Stab's targets, Campus Guide's
+optional trigger and its library selection after a recorded yes. Each performs
+seven neural evaluations. The library root represents nine offered candidates:
+eight search branches and an explicitly excluded fail-to-find choice. Original
+Exp1 requires the target minimum before finishing; the bridge preserves and
+labels that restriction. Initial branches pruned by the original search remain
+in the result with zero visits and null value. Altered visible life is refused,
+and owned process exits are confirmed.
+
+Full history across draws and other transitions, the remaining decision families, complete-game tests
 and rating qualification remain to be implemented. No playing-strength claim
 follows from these checks. Evidence is
 indexed in [the input and adapter receipt summary](evidence/2026-10-03-neural-inputs.md).

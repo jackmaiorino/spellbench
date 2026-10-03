@@ -57,7 +57,8 @@ def main() -> int:
     if search:
         source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
     else:
-        source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts and p.name != "ModelSearchMain.java"]
+        source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
+                                and p.name not in ("ModelSearchMain.java", "ModelReplay.java")]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
@@ -74,7 +75,7 @@ def main() -> int:
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
               "class_files_sha256": {str(p.relative_to(args.out)): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for d in paths.values() for p in sorted(d.rglob("*.class"))},
-              "scope": ("original priority search and decision encoders; no complete agent or rating" if search else
+              "scope": ("original priority and saved-anchor target/binary search; no complete agent or rating" if search else
                         "priority, target and binary decision slices; no complete bot, original search or rating")}
     with (args.out / "BUILD.json").open("x", encoding="utf-8") as output:
         json.dump(result, output, indent=2)

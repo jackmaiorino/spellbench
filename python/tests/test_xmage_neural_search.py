@@ -69,6 +69,48 @@ def test_real_work_clock_and_result_bind_to_the_offered_root():
     assert peer.closed and model.closed
 
 
+@pytest.mark.parametrize("invalid_pruned_statistics", [False, True])
+def test_original_pruning_keeps_coverage_and_only_retained_visits_count(invalid_pruned_statistics):
+    record, result = fixture()
+    result["children"][0].update(pruned=True, visits=1 if invalid_pruned_statistics else 0, value=None)
+    peer = Peer([{"id": "1", "event": "infer", "call": 1, "features": [4]},
+                 {"id": "1", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.SearchSession(peer, model)
+    if invalid_pruned_statistics:
+        with pytest.raises(ValueError, match="root statistics"):
+            session.choose(record, visits=2, timeout_s=3)
+        assert session.failed
+    else:
+        chosen = session.choose(record, visits=2, timeout_s=3)
+        assert len(chosen["children"]) == len(record["decision"]["candidates"])
+        assert chosen["children"][0]["pruned"] is True
+        session.close()
+    assert peer.closed and model.closed
+
+
+@pytest.mark.parametrize("valid_restriction", [True, False])
+def test_fail_to_find_restriction_is_explicit_and_cannot_hide_another_action(valid_restriction):
+    record, result = fixture()
+    decision = {"context": {"kind": "choice", "purpose": "search"}, "candidates": [
+        {"candidate_id": 11, "semantic": {"kind": "finish_selection", "purpose": "search"}},
+        {"candidate_id": 3, "semantic": {"kind": "select_object", "purpose": "search",
+                                        "choice": {"object": {"object_id": "visible-library-card"}}}}]}
+    result.update(decision_sha256=decision_hash(decision),
+                  selection={"candidate_id": 3, "semantic_echo": decision["candidates"][1]["semantic"]},
+                  policy_restrictions=["library_fail_to_find_before_minimum"],
+                  children=[{"semantic": c["semantic"], "visits": 2 if c["candidate_id"] == 3 else 0,
+                             "value": 0.2 if c["candidate_id"] == 3 else None,
+                             "excluded": c["candidate_id"] == 11} for c in decision["candidates"]])
+    result["children"][0]["reason"] = ("original Exp1 library target expansion requires its minimum before finishing"
+                                        if valid_restriction else "arbitrary unsupported option")
+    if valid_restriction:
+        search.validate_result(decision, result, 2, 1)
+    else:
+        with pytest.raises(ValueError, match="original policy restriction"):
+            search.validate_result(decision, result, 2, 1)
+
+
 @pytest.mark.parametrize("mutation", ["stale", "partial", "missing-action", "aliased-action", "unoffered",
                                      "wrong-selection", "invalid-statistics", "horizon", "wrong-visit-winner"])
 def test_invalid_search_results_are_refused_without_a_policy_fallback(mutation):
@@ -106,3 +148,34 @@ def test_failed_search_or_inference_closes_both_owned_processes(failure):
     session = search.SearchSession(peer, model)
     with pytest.raises((ValueError, EOFError, TimeoutError)): session.choose(record, visits=2, timeout_s=3)
     assert session.failed and peer.closed and model.closed
+
+
+@pytest.mark.parametrize("confirm_replay", [True, False, 1])
+def test_callback_search_requires_a_complete_matching_public_replay(confirm_replay):
+    record, result = fixture()
+    anchor = copy.deepcopy(record["decision"])
+    decision = {"context": {"kind": "choose_boolean"}, "candidates": [
+        {"candidate_id": 11, "semantic": {"kind": "choose_boolean", "value": False}},
+        {"candidate_id": 3, "semantic": {"kind": "choose_boolean", "value": True}}]}
+    record.update(decision=decision, anchor={"decision": anchor, "selection": result["selection"]},
+                  replay={"priority_passes": ["p1", "p0"], "earlier": []})
+    result.update(decision_sha256=decision_hash(decision),
+                  selection={"candidate_id": 3, "semantic_echo": decision["candidates"][1]["semantic"]},
+                  children=[{"semantic": c["semantic"], "visits": 2 if c["candidate_id"] == 3 else 0,
+                             "value": 0.2} for c in decision["candidates"]],
+                  replay={"earlier": 0, "priority_passes": 2, "observation_identical": confirm_replay})
+    peer = Peer([{"id": "1", "event": "infer", "call": 1, "features": [4, 800]},
+                 {"id": "1", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.SearchSession(peer, model)
+    if confirm_replay is True:
+        chosen = session.choose(record, visits=2, timeout_s=3)
+        assert chosen["selection"]["semantic_echo"]["value"] is True
+        assert peer.writes[0]["anchor"] == record["anchor"]
+        assert peer.writes[0]["replay"] == record["replay"]
+        session.close()
+    else:
+        with pytest.raises(ValueError, match="complete public replay"):
+            session.choose(record, visits=2, timeout_s=3)
+        assert session.failed
+    assert peer.closed and model.closed

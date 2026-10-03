@@ -32,8 +32,9 @@ the checkpoint's saved dense vocabulary with the original deduplication and
 unknown-feature handling. An input with no known features is refused. Legal
 candidate mapping now covers the priority, target and binary heads in
 [the neural adapters](../../engines/xmage/models/README.md). The separate
-original priority-search bridge also consumes all four heads and value through
-this confined process. Remaining root callbacks and full games still need the
+original-search bridge consumes all four heads and value through this confined
+process for priority, saved-anchor targets, binary dialogs and a visible library
+search after a recorded earlier choice. Remaining history, callbacks and full games still need the
 complete game adapter.
 
 MageZero v0.2 source is wired as a separate architecture. A supplied weight

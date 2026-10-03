@@ -34,12 +34,12 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority search bridge repeats identically with gen33; full agent unfinished",
+      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary and visible-library search repeat identically with gen33 and a recorded earlier choice; full agent unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["full root dialog history and remaining callback families", "combat and complete-game search integration", "full-game qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["full history across draws and other transitions; remaining callback families", "combat and complete-game search integration", "full-game qualification", "guarded evaluation", "review and publication"]
     },
     {
       "family": "magezero-v02",

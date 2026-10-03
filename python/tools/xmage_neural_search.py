@@ -2,7 +2,7 @@
 
 The caller starts the reviewed Java build in its own working directory and
 supplies an InferenceSession with a pinned checkpoint and confined container.
-This bridge currently supports priority roots. It is not a rated agent.
+This bridge supports priority and saved-anchor target/binary roots. It is not a rated agent.
 """
 from __future__ import annotations
 
@@ -13,7 +13,19 @@ import time
 from spellbench import wire
 from xmage_neural_decisions import decision_hash, load_response
 
-READY = {"ready": True, "search": "draftzero-exp1-original-priority"}
+READY = {"ready": True, "search": "draftzero-exp1-original-search"}
+
+
+def root_family(decision: dict) -> str:
+    if decision.get("context", {}).get("kind") == "priority":
+        return "priority"
+    kinds = {c.get("semantic", {}).get("kind") for c in decision.get("candidates", [])}
+    if kinds and kinds <= {"choose_target", "choose_cost_target", "select_object",
+                           "finish_target_selection", "finish_selection"}:
+        return "target"
+    if kinds and kinds <= {"choose_boolean", "optional_cost", "optional_cast"}:
+        return "binary"
+    raise ValueError("this original search bridge supports priority, target and binary roots")
 
 
 def validate_result(decision: dict, result: dict, visits: int, calls: int) -> None:
@@ -35,8 +47,20 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int) -> No
     if len(set(keys)) != len(keys) or set(keys) != expected:
         raise ValueError("search root has a missing, aliased or unoffered action")
     for child in children:
+        if type(child.get("pruned", False)) is not bool or type(child.get("excluded", False)) is not bool:
+            raise ValueError("search root pruning status is invalid")
+        pruned = child.get("pruned", False)
+        excluded = child.get("excluded", False)
+        if excluded and (pruned or decision.get("context", {}).get("purpose") != "search"
+                         or child["semantic"].get("kind") != "finish_selection"
+                         or child["semantic"].get("purpose") != "search"
+                         or "library_fail_to_find_before_minimum" not in result.get("policy_restrictions", [])
+                         or child.get("reason") != "original Exp1 library target expansion requires its minimum before finishing"):
+            raise ValueError("search excluded an action outside its declared original policy restriction")
+        inactive = pruned or excluded
         if (type(child.get("visits")) is not int or not 0 <= child["visits"] <= visits
-                or type(child.get("value")) not in (int, float) or not math.isfinite(child["value"])):
+                or (inactive and (child["visits"] != 0 or child.get("value") is not None))
+                or (not inactive and (type(child.get("value")) not in (int, float) or not math.isfinite(child["value"])))):
             raise ValueError("search root statistics are invalid")
     selected_branch = next(c for c in children if c["semantic"] == offered["semantic"])
     if (sum(c["visits"] for c in children) != visits or selected_branch["visits"] <= 0
@@ -69,8 +93,7 @@ class SearchSession:
         if type(timeout_s) not in (int, float) or not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("original search needs a positive finite remaining clock")
         decision = record.get("decision", {})
-        if decision.get("context", {}).get("kind") != "priority":
-            raise ValueError("this original search bridge supports priority roots only")
+        family = root_family(decision)
         candidates = decision.get("candidates")
         if not isinstance(candidates, list) or not candidates:
             raise ValueError("search root needs offered candidates")
@@ -85,6 +108,10 @@ class SearchSession:
         deadline = time.monotonic() + timeout_s
         # Do not allow an input record to override the session id or work budget.
         request = {k: record[k] for k in ("game_start", "decision", "world_seed", "id_seed")}
+        if family != "priority":
+            if not isinstance(record.get("anchor"), dict) or not isinstance(record.get("replay"), dict):
+                raise ValueError("callback search needs a saved priority anchor and explicit replay history")
+            request.update(anchor=record["anchor"], replay=record["replay"])
         request.update(id=rid, visits=visits)
         calls = 0
         try:
@@ -102,6 +129,16 @@ class SearchSession:
                     if message.get("ok") is not True or not isinstance(message.get("result"), dict):
                         raise ValueError("original search refused: " + str(message.get("error")))
                     validate_result(decision, message["result"], visits, calls)
+                    if family != "priority":
+                        expected = {"earlier": len(record["replay"]["earlier"]),
+                                    "priority_passes": len(record["replay"]["priority_passes"]),
+                                    "observation_identical": True}
+                        proof = message["result"].get("replay")
+                        if (not isinstance(proof, dict) or proof != expected
+                                or type(proof.get("earlier")) is not int
+                                or type(proof.get("priority_passes")) is not int
+                                or proof.get("observation_identical") is not True):
+                            raise ValueError("callback result does not confirm its complete public replay")
                     if time.monotonic() > deadline:
                         raise TimeoutError("search exhausted its result-validation clock")
                     return {"checkpoint": self.model.checkpoint, **message["result"]}
