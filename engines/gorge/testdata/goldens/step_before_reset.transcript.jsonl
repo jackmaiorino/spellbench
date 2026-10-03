@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"request_type":"step","protocol":"spellbench/v2","request_id":"s-1","game_id":"g-1","expected_step":0,"selection":{"candidate_id":0,"semantic_echo":{"kind":"pass"}}}}
+{"dir":"engine_to_host","message":{"error":{"code":"step_before_reset","message":"no game"},"protocol":"spellbench/v2","request_id":"s-1","response_type":"error"}}

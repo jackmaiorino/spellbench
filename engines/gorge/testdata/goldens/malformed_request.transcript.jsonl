@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-1"}}
+{"dir":"engine_to_host","message":{"error":{"code":"malformed_request","message":"want fields [request_type protocol request_id protocol_minor]"},"protocol":"spellbench/v2","request_id":"h-1","response_type":"error"}}
