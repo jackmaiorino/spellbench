@@ -8,6 +8,10 @@ the allocation guard. `completed-games.jsonl` flushes each finished game's row,
 digest and elapsed time while a rung is running. `qualify-games.jsonl` retains
 the deterministic order used for the completed serial/parallel comparison.
 An interrupted rung is unfinished; its completed-game log is retained.
+`completed-rungs.jsonl` saves the measured wall time and ordered game digests
+before report generation. Placement parsing and report-module imports run
+before the engine preflight. Frozen runtime bundles need both `qualify/` and
+the `tests/e4.py` and `tests/kitlog.py` analysis modules.
 
 `python/tools/xmage_native_qualified_job.py` wraps the supported qualifier in a
 hash-pinned Windows host-reservation helper. Its job manifest binds a frozen

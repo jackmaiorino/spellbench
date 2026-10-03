@@ -415,6 +415,8 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
     # Reject malformed machine notes before starting any engine preflight.
     if args.placement.strip():
         Placement.parse(args.placement)
+    # Check report dependencies before investing in completed games.
+    kit_measurements([])
     plan_path = Path(args.plan)
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     out = Path(args.out)
@@ -426,6 +428,7 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
     setup = preflight_once(plan, engine, ctx)
     log = (out / "qualify-games.jsonl").open("a", encoding="utf-8")
     progress = (out / "completed-games.jsonl").open("a", encoding="utf-8")
+    rung_log = (out / "completed-rungs.jsonl").open("a", encoding="utf-8")
     rungs: list[dict[str, Any]] = []
 
     def play(workers: int, positions: tuple[int, ...]):
@@ -440,6 +443,11 @@ def cmd_qualify(args: argparse.Namespace, engine: list[str]) -> int:
                                        "position": positions_by_gid[row["gid"]], **row}, sort_keys=True) + "\n")
             progress.flush()
         wall, rows = run_games(plan, engine, rung_ctx, gids, workers, setup, on_row=completed)
+        rung_log.write(json.dumps({"workload": workload_id(ident), "rung": len(rungs), "workers": workers,
+                                   "positions": list(positions), "wall_s": wall,
+                                   "rows": [{"gid": r["gid"], "row_digest": r["row_digest"]} for r in rows]},
+                                  sort_keys=True) + "\n")
+        rung_log.flush()
         left = leftover_agent_dirs(rung_ctx)
         for p, row in zip(positions, rows):
             log.write(json.dumps({"workers": workers, "position": p, **row}, sort_keys=True) + "\n")
