@@ -51,6 +51,13 @@ def cgroup_cpus(text: str | None) -> int | None:
     return max(1, math.ceil(int(parts[0]) / int(parts[1])))
 
 
+def _cgroup_text(path: str) -> str | None:
+    try:
+        return Path(path).read_text(encoding="ascii").strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 def usable_cpus(cpu_count: int | None = None) -> int:
     """``cpu_count``, or the CPUs this process may use, bounded by a Linux container's quota (RunPod)."""
     if cpu_count is not None:
@@ -58,16 +65,20 @@ def usable_cpus(cpu_count: int | None = None) -> int:
     count = (getattr(os, "process_cpu_count", None) or os.cpu_count)() or 1
     if sys.platform.startswith("linux"):
         try:
-            quota = cgroup_cpus(Path("/sys/fs/cgroup/cpu.max").read_text(encoding="ascii"))
-        except (OSError, UnicodeDecodeError):
-            quota = None
-        if quota is not None:
-            count = min(count, quota)
+            count = min(count, len(os.sched_getaffinity(0)) or count)
+        except (AttributeError, OSError):
+            pass
+        quotas = [cgroup_cpus(_cgroup_text("/sys/fs/cgroup/cpu.max"))]
+        for directory in ("cpu", "cpu,cpuacct"):
+            quota = _cgroup_text(f"/sys/fs/cgroup/{directory}/cpu.cfs_quota_us")
+            period = _cgroup_text(f"/sys/fs/cgroup/{directory}/cpu.cfs_period_us")
+            quotas.append(cgroup_cpus(f"{quota} {period}"))
+        count = min((count, *(quota for quota in quotas if quota is not None)))
     return count
 
 
 def total_memory() -> int | None:
-    """Total physical memory in bytes, or None when the platform does not say."""
+    """Physical memory bounded by Linux cgroup v1/v2 limits, or None when unknown."""
     try:
         if os.name == "nt":
             import ctypes
@@ -85,6 +96,11 @@ def total_memory() -> int | None:
             total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
     except (AttributeError, OSError, ValueError):
         return None
+    if sys.platform.startswith("linux"):
+        for path in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+            text = _cgroup_text(path)
+            if text and text.isdigit() and 0 < int(text) <= _MAX_INT:
+                total = min(total, int(text))
     return total if 0 < total <= _MAX_INT else None
 
 
