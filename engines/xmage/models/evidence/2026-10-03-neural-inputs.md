@@ -258,11 +258,37 @@ leaderboard entry.
 The mixed bridge joins those decision entry points on one private Java pipe
 and one confined checkpoint session. Its request sequence, checkpoint identity,
 clock and cleanup are shared across search and combat. The affected local
-checks pass: 130 tests, with one Windows symlink-creation skip. Existing real
-component receipts remain evidence for those components; the mixed-process
-backend replay is pending the canonical host's release from the gorge audit.
-There are no new games, neural evaluations or strength measurements from the
-Python transport checks.
+checks pass: 130 tests, with one Windows symlink-creation skip. The guarded
+mixed-process replay subsequently passes on source
+`4fb9ecfa8380e6c708bc03af7aa8f2d22feae53d`. Generation 130 completes in
+77.519 seconds, with one Java pipe and one confined generation-33 checkpoint.
+
+| Path | Requests | Roots per request | Visits per root | Neural calls per request | Repeated result |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Priority | 4 | 1 | 6 | 7 | Identical |
+| Attacks | 2 | 2 | 6 | 14 | Identical |
+| Blocks | 2 | 2 | 6 | 14 | Identical |
+
+All eight requests complete 84 real neural evaluations. The original priority
+encoding is unchanged. Attack and block results equal their earlier isolated
+receipts, including scores and choices. All two attacker and two blocker
+substeps bind identically through the reviewed engine. The owned Java process
+exits, the checkpoint container is confirmed absent, and the reservation token
+is released. There are zero new complete games or rated games.
+
+Build 048 manifest SHA-256 is
+`c1334b36636586b6fab98ac0c3e9acc0d627c7b91dba890b67e9f12772fb7c7d`;
+check SHA-256 is
+`2ff9608e44af18f916a336b4c66c9c1d142ef0b2738dcfc258ff9a77c53ca16b`.
+The small run manifest has SHA-256
+`6b1df5f8fd1f91ce82152ec0d786c4934db5ae9fd5ac54efdf2ad8ce12cd1c8e`.
+All 335 source, class, fixture, RPC and terminal copies were reread in
+`E:/spellbench-xmage-all-20261002/original-mixed-001/`.
+Closure SHA-256 is
+`5e71525bb8085bd0fc850abc30088d4e8cb9e5f421c7a786a44e5670b429facc`.
+The closed derived lookup cache was pruned with a receipt. Pregame, transition
+history, remaining callbacks, fork illegal-block retry parity and full-game
+qualification remain open.
 
 CI now compiles all public model classes as well as the reviewed engine.
 The explicit compilation mode preserves upstream source and JDK pins, verifies

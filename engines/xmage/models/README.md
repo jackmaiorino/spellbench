@@ -247,6 +247,10 @@ The default model build still requires the reviewed 004913a engine manifest;
 local input caps and runtime qualification remain unchanged.
 
 Mixed request, clock and ownership checks pass alongside the existing search
-and combat checks. A real mixed-process replay still needs the guarded host.
+and combat checks. Build 048 and generation 33 complete eight interleaved
+priority and combat requests through one JVM and checkpoint session, with
+84 real neural evaluations. Repeated results are identical, combat results
+equal their earlier isolated receipts, and all four real wire declarations
+bind identically. Owned cleanup and reservation release are confirmed.
 Pregame decisions, complete transition history, remaining callbacks and
 complete-game qualification remain unfinished.
