@@ -33,7 +33,13 @@
     "status": "completed",
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37143704451"
   },
-  "full_ci_after_mana_fix": "pending",
+  "full_ci_after_mana_fix": {
+    "conclusion": "success",
+    "headSha": "3894ff5c976121c8c3c536810404e344e06876b9",
+    "status": "completed",
+    "updatedAt": "2026-10-03T19:07:23Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37145943299"
+  },
   "real_seed_check": {
     "game": 50,
     "deck": "Wildfire",
@@ -109,5 +115,6 @@
   "new_cloud_spend_usd": 0,
   "qualified": false,
   "rated_games": 0,
-  "published": false
+  "published": false,
+  "follow_up_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json"
 }

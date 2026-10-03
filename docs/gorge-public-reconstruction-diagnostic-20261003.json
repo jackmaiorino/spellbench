@@ -1,0 +1,128 @@
+{
+  "schema": "spellbench-gorge-public-reconstruction-diagnostic/v1",
+  "at_utc": "2026-10-03T19:41:05.381460+00:00",
+  "source_commit": "3894ff5c976121c8c3c536810404e344e06876b9",
+  "runtime": "E:/spellbench-gorge-runtime-20261003-013",
+  "native_seed": 50,
+  "deck": "Wildfire",
+  "mode": "search-redeal",
+  "scope": "Logging-only first-root diagnostic; intentionally stops before game completion",
+  "public_history_frames": 73,
+  "furthest_actor_frame_before_mana_fix": 20,
+  "furthest_actor_frame_after_mana_fix": 58,
+  "work": {
+    "Attempts": 30,
+    "Submits": 5000,
+    "Nodes": 4642,
+    "BudgetExhausted": 1
+  },
+  "rejected": {
+    "1": {
+      "event_prefix": 29
+    },
+    "11": {
+      "event_prefix": 29,
+      "identity_prefix": 66
+    },
+    "31": {
+      "event_prefix": 33
+    },
+    "32": {
+      "event_prefix": 33
+    },
+    "33": {
+      "event_prefix": 172,
+      "identity_prefix": 188
+    },
+    "34": {
+      "event_prefix": 37
+    },
+    "50": {
+      "identity_prefix": 36
+    },
+    "51": {
+      "event_prefix": 1
+    },
+    "56": {
+      "event_prefix": 3
+    },
+    "57": {
+      "event_prefix": 8
+    },
+    "58": {
+      "event_prefix": 1,
+      "identity_prefix": 2
+    }
+  },
+  "public_search_window": {
+    "frame": 50,
+    "owner": 1,
+    "identities": [
+      {
+        "ID": 14,
+        "Name": "Mountain",
+        "Owner": 1
+      },
+      {
+        "ID": 15,
+        "Name": "Forest",
+        "Owner": 1
+      },
+      {
+        "ID": 16,
+        "Name": "Mountain",
+        "Owner": 1
+      },
+      {
+        "ID": 17,
+        "Name": "Forest",
+        "Owner": 1
+      },
+      {
+        "ID": 18,
+        "Name": "Swamp",
+        "Owner": 1
+      },
+      {
+        "ID": 19,
+        "Name": "Swamp",
+        "Owner": 1
+      }
+    ],
+    "choice": [
+      {
+        "Decision": "choose",
+        "Source": 13,
+        "Kind": "search",
+        "Obj": 17,
+        "Attacker": 0,
+        "Player": 1,
+        "Ability": 0,
+        "AltCostIndex": 0,
+        "Amount": 0,
+        "Mode": "",
+        "SVar": "",
+        "Value": ""
+      }
+    ],
+    "finding": "Observed ordered basic-land choices are rejected by several hypothetical proposals. Native epoch compilation does not guide filtered search offers.",
+    "limitation": "This identifies a next failure location. It does not prove that search-window guidance alone will restore coverage."
+  },
+  "wall_seconds": 6.336953999998514,
+  "ci_after_mana_fix": {
+    "conclusion": "success",
+    "headSha": "3894ff5c976121c8c3c536810404e344e06876b9",
+    "status": "completed",
+    "updatedAt": "2026-10-03T19:07:23Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37145943299"
+  },
+  "natural_games": 0,
+  "rated_games": 0,
+  "qualified": false,
+  "published": false,
+  "new_cloud_spend_usd": 0,
+  "source_of_record": "E:/spellbench-gorge-reconstruction-diagnostic-20261003-002",
+  "recovery_root": "D:/e-scratch/spellbench-gorge-reconstruction-diagnostic-20261003-002",
+  "seal_sha256": "f2966377faea2d45ab5ac0fbfbd1876024da5fb92ca09196c9494de55b25888f",
+  "bytes": 19372550
+}

@@ -258,10 +258,11 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full hosted Go CI passed at 64ed1acecf4c1399ada0b3b85ebe0442a166a401 in run 37143704451, including the source-resolution fix. All search bridge tests and vet passed after the subsequent structured mana-history fix at 0ae11b7cadcb36cdec4c66e49fb2f7c0f5c75b0a; full CI after that fix remains pending.",
+      "full_adapter_suite": "Full hosted Go CI passed at 3894ff5c976121c8c3c536810404e344e06876b9 in run37145943299, including source-resolution and structured mana-history repairs.",
       "five_deck_search_qualification": "Attempted in the 120-game cloud matrix and 280-block native audit. Per-deck search coverage and public reconstruction gates failed; evidence: docs/gorge-native-audit-20261003.json.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
-      "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json"
+      "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
+      "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json"
     }
   ],
   "publication": null,
