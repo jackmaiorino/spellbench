@@ -179,6 +179,18 @@ termination, complete reference-host games, clocks and allocation remain pending
 Those binaries precede the private-reorder and stack-source fixes above and
 must be rebuilt before qualification.
 
+Preparation `042c191` now preserves another six Windows/Linux binaries with
+those fixes, using the same exact registry. The engine and all twelve modes
+again passed restricted hello with identical Windows profiles and normal-exit
+cleanup; a repeated engine build reproduced its retained hash. New artifacts
+are at `E:/spellbench-gorge-runtime-20261003-003`, with verified D recovery and
+the earlier sealed versions retained. Commands and hashes are in
+`docs/gorge-runtime-preparation-20261003-003.json`. No substantial evaluation
+or allocation qualification was launched. The fresh availability check found
+Jack's canonical reservation free and the previously observed formal PID
+absent, without inferring a research result. Haley's queued training window
+keeps priority; RunPod's read-only inventory still returned HTTP 403.
+
 Remaining work: finish the event and identity audit across the five-deck card pool, preserve legal
 mapping at shipped budgets under reference-host clocks, verify timeout cleanup
 under the current host isolation policy and guarded completed-work throughput, and freeze the
