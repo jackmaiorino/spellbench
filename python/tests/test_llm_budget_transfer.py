@@ -7,9 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from spellbench.llm.budget_transfer import continue_host_preflight, digest, export_budget, increase_failed_run_limits
+from spellbench.llm.budget_transfer import amend_idle_budget, continue_host_preflight, digest, export_budget, increase_failed_run_limits
 from spellbench.llm.provider import Completion, ProviderError
-from spellbench.llm.run_budget import BudgetedProvider, RunBudget, check_hosted_budgets, LIMIT_NAMES, LIMIT_INCREASE_SCHEMA
+from spellbench.llm.run_budget import BudgetedProvider, RunBudget, check_hosted_budgets, LIMIT_NAMES, LIMIT_INCREASE_SCHEMA, INHERITED_NAMES
 from test_llm_run_budget import PROMPT, Provider, budget, failed_run_recovery, hosted_config
 
 
@@ -507,3 +507,152 @@ def test_rebound_increase_cannot_remove_a_finite_parent_cutoff(tmp_path, monkeyp
     manifest.write_text(json.dumps(value))
     with pytest.raises(ProviderError, match="run_budget_limit_increase_changed"):
         RunBudget(leaf, model=source.model, path_map=manifest, path_map_sha256=digest(manifest))
+
+
+def idle_authority(source, *, suffix="idle", change=None, no_cutoff=True):
+    from spellbench.llm.run_budget import IDLE_AMENDMENT_SCHEMA
+    old = {name: source.summary()["policy"][name] for name in LIMIT_NAMES}
+    limits = {**old, "max_requests": old["max_requests"] * 2,
+              "max_reported_tokens": old["max_reported_tokens"] * 2}
+    authority = source.path.parent / (suffix + "-authority.json")
+    value = {"schema": IDLE_AMENDMENT_SCHEMA, "model": source.model,
+             "parent": source.paths.key(source.path), "parent_sha256": digest(source.path),
+             "parent_limits": old, "approved_limits": limits, "no_cutoff": no_cutoff,
+             "purpose": "precommit-evaluation", "user_authority": "Explicit approved prospective caps and cutoff"}
+    if change:
+        change(value)
+    authority.write_text(json.dumps(value))
+    return dict(approved_limits=value["approved_limits"], authority=authority,
+                authority_sha256=digest(authority), no_cutoff=no_cutoff)
+
+
+def idle_amend(source, *, suffix="idle", **evidence):
+    leaf, manifest = source.path.parent / (suffix + ".sqlite3"), source.path.parent / (suffix + "-map.json")
+    amend_idle_budget(source, leaf, manifest, **evidence)
+    return RunBudget(leaf, model=source.model, path_map=manifest, path_map_sha256=digest(manifest),
+                     expected_limits=evidence["approved_limits"])
+
+
+@pytest.mark.parametrize("no_cutoff", [False, True])
+def test_idle_amendment_keeps_all_charges_and_original_bytes(tmp_path, no_cutoff):
+    source = transfer(tmp_path, budget(tmp_path))
+    request, _ = source.reserve(PROMPT, output_tokens=20)
+    source.finish(request, result=Completion("{}", source.model, 10, 2), elapsed_ms=1)
+    before, original = source.summary(), source.path.read_bytes()
+    child = idle_amend(source, **idle_authority(source, no_cutoff=no_cutoff))
+    assert source.path.read_bytes() == original
+    after = child.summary()
+    for name in INHERITED_NAMES:
+        assert after[name] == before[name]
+    assert after["accounted_tokens"] == 12
+    assert after["effective_deadline"] == (None if no_cutoff else before["effective_deadline"])
+    assert child.qualification_origin() == child.path.resolve()  # Changed limits need qualified inputs.
+    with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+        source.reserve(PROMPT, output_tokens=20)
+    request, _ = child.reserve(PROMPT, output_tokens=20)
+    child.finish(request, result=Completion("{}", source.model, 10, 2), elapsed_ms=1)
+    assert child.summary()["requests"] == before["requests"] + 1
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda r: r.update(parent_sha256="0" * 64),
+    lambda r: r.update(user_authority=""),
+    lambda r: r.update(no_cutoff=False),
+    lambda r: r["approved_limits"].update(max_inflight=8),
+    lambda r: r["approved_limits"].update(max_wall_seconds=9999),
+    lambda r: r["approved_limits"].update(max_requests=1),
+    lambda r: r["parent_limits"].update(max_reported_tokens=1),
+])
+def test_idle_amendment_requires_exact_unchanged_settings_and_authority(tmp_path, mutation):
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = idle_authority(source, change=mutation)
+    with pytest.raises(ProviderError, match="run_budget_idle_amendment_changed"):
+        idle_amend(source, **evidence)
+    assert not source.path.with_name(source.path.name + ".continuation.json").exists()
+    source.check()
+
+
+@pytest.mark.parametrize("state", ["pending", "failed", "host_failed"])
+def test_idle_amendment_refuses_active_or_failed_parent(tmp_path, state):
+    source = transfer(tmp_path, budget(tmp_path))
+    if state == "host_failed":
+        source.fail("hosted_broker_failed")
+    else:
+        request, _ = source.reserve(PROMPT, output_tokens=20)
+        if state == "failed":
+            source.finish(request, result=None, elapsed_ms=1, error="invalid_provider_usage")
+    evidence = idle_authority(source)
+    with pytest.raises(ProviderError, match="run_budget_unresolved_request" if state == "pending" else "run_budget_already_failed"):
+        idle_amend(source, **evidence)
+
+
+@pytest.mark.parametrize("target", ["authority", "parent", "initial", "claim"])
+def test_idle_admission_revalidates_every_amendment_binding(tmp_path, target):
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = idle_authority(source)
+    child = idle_amend(source, **evidence)
+    path = {"authority": evidence["authority"], "parent": source.path,
+            "initial": child.paths.snapshot,
+            "claim": source.path.with_name(source.path.name + ".continuation.json")}[target]
+    with path.open("ab") as stream:
+        stream.write(b"changed")
+    with pytest.raises(ProviderError, match="run_budget_transfer_changed"):
+        child.reserve(PROMPT, output_tokens=20)
+
+
+def test_concurrent_idle_amendments_select_one_successor(tmp_path):
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = [idle_authority(source, suffix=f"idle-{i}") for i in range(2)]
+    def attempt(i):
+        try:
+            idle_amend(source, suffix=f"idle-{i}", **evidence[i])
+            return "selected"
+        except ProviderError:
+            return "refused"
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        assert sorted(workers.map(attempt, (0, 1))) == ["refused", "selected"]
+
+
+def test_idle_amendment_retains_inherited_failures_without_inventing_new_failure(tmp_path):
+    source = recover_host(host_failure(tmp_path))
+    before = source.summary()
+    child = idle_amend(source, **idle_authority(source))
+    after = child.summary()
+    for name in INHERITED_NAMES:
+        assert after[name] == before[name]
+    assert after["host_failures"] > 0
+    assert after["policy"]["terminal_error"] is None
+    child.check()
+
+
+def test_idle_no_cutoff_still_enforces_cumulative_request_cap(tmp_path):
+    source = transfer(tmp_path, budget(tmp_path))
+    child = idle_amend(source, **idle_authority(source))
+    for _ in range(child.summary()["policy"]["max_requests"]):
+        request, _ = child.reserve(PROMPT, output_tokens=20)
+        child.finish(request, result=Completion("{}", source.model, 10, 2), elapsed_ms=1)
+    with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
+        child.reserve(PROMPT, output_tokens=20)
+
+
+@pytest.mark.parametrize("after_write", [False, True])
+def test_interrupted_idle_amendment_cannot_activate_two_writers(tmp_path, monkeypatch, after_write):
+    from spellbench.llm import run_budget
+    source = transfer(tmp_path, budget(tmp_path))
+    evidence = idle_authority(source)
+    original = run_budget._write_marker
+    def write(path, value):
+        if path == source.path.with_name(source.path.name + ".continuation.json"):
+            if after_write:
+                original(path, value)
+            raise OSError("interrupted retirement")
+        original(path, value)
+    monkeypatch.setattr(run_budget, "_write_marker", write)
+    with pytest.raises(ProviderError, match="run_budget_unavailable"):
+        idle_amend(source, **evidence)
+    assert not (source.path.parent / "idle-map.json").exists()
+    if after_write:
+        with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+            source.check()
+    else:
+        source.check()

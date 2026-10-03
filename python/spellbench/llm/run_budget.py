@@ -28,6 +28,7 @@ CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
 TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
 DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
 LIMIT_INCREASE_SCHEMA = "spellbench-llm-budget-increase/v1"
+IDLE_AMENDMENT_SCHEMA = "spellbench-llm-idle-budget-amendment/v1"
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -263,6 +264,42 @@ class RunBudget:
             raise ProviderError("run_budget_limit_increase_changed") from None
 
     @staticmethod
+    def _idle_amendment(continuation: dict, parent: Path, prior: dict, child: dict,
+                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict:
+        """Bind prospective caps to explicit authority and the unchanged idle parent."""
+        try:
+            increase = continuation["limit_increase"]
+            if set(increase) != {"authority", "authority_sha256"}:
+                raise ValueError("invalid amendment boundary")
+            authority = paths.resolve(increase["authority"]) if paths else Path(increase["authority"]).resolve(strict=True)
+            if _digest(authority) != increase["authority_sha256"]:
+                raise ValueError("authority changed")
+            record = json.loads(authority.read_bytes())
+            old = {name: prior[name] for name in LIMIT_NAMES}
+            new = {name: child[name] for name in LIMIT_NAMES}
+            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                               "approved_limits", "no_cutoff", "purpose", "user_authority"}
+                    or record["schema"] != IDLE_AMENDMENT_SCHEMA or record["model"] != child["model"]
+                    or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or record["parent_limits"] != old or record["approved_limits"] != new
+                    or type(record["no_cutoff"]) is not bool
+                    or record["no_cutoff"] != continuation.get("no_cutoff", False)
+                    or record["purpose"] != "precommit-evaluation"
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()
+                    or prior.get("terminal_error")
+                    or any(type(value) is not int or value < 1
+                           for limits in (record["parent_limits"], record["approved_limits"])
+                           for value in limits.values())
+                    or any(new[name] != old[name] for name in ("max_inflight", "max_wall_seconds"))
+                    or any(new[name] < old[name] for name in ("max_requests", "max_reported_tokens"))
+                    or (new == old and not record["no_cutoff"])):
+                raise ValueError("unauthorized amendment")
+            return record
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_idle_amendment_changed") from None
+
+    @staticmethod
     def _continue_failure(parent: Path, path: Path, *, model: str, parent_sha256: str,
                           expected_limits: dict, allow_timeout_forfeits: bool = False,
                           extended_wall_seconds: int | None = None, recovery: dict | None = None,
@@ -399,10 +436,10 @@ class RunBudget:
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
-            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery"}:
+            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"}:
                 raise ValueError("invalid continuation kind")
             no_cutoff = continuation.get("no_cutoff", False)
-            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery"}):
+            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"}):
                 raise ProviderError("run_budget_continuation_changed")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
@@ -452,8 +489,10 @@ class RunBudget:
                     if child_deadline != (None if no_cutoff else parent_deadline):
                         raise ProviderError("run_budget_recovery_changed")
                     self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline, self.paths)
-                increase = self._limit_increase(continuation, parent, prior, child, self.paths)
-                if increase is not None and (parent_deadline is not None or child_deadline is not None):
+                idle_amendment = continuation["kind"] == "healthy-idle-amendment"
+                increase = (self._idle_amendment(continuation, parent, prior, child, self.paths) if idle_amendment
+                            else self._limit_increase(continuation, parent, prior, child, self.paths))
+                if increase is not None and not idle_amendment and (parent_deadline is not None or child_deadline is not None):
                     raise ProviderError("run_budget_limit_increase_changed")
                 # Validate each ancestor against this boundary's retained wall
                 # limit, rather than the leaf's prospectively extended limit.
@@ -464,6 +503,13 @@ class RunBudget:
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
+                if idle_amendment:
+                    if (extension is not None or recovery is not None
+                            or any(_terminal_request(prior, row) for row in rows)
+                            or child.get("allow_timeout_forfeits", False) != prior.get("allow_timeout_forfeits", False)
+                            or self._effective_deadline_for(current, child, logical=self.paths.key(current))
+                            != (None if no_cutoff else self._effective_deadline_for(parent, prior, logical=self.paths.key(parent)))):
+                        raise ProviderError("run_budget_idle_amendment_changed")
                 if continuation["kind"] == "host-preflight-recovery":
                     if (rows or prior.get("terminal_error") != "profile_renewal_failed" or extension is not None
                             or child.get("allow_timeout_forfeits", False) != prior.get("allow_timeout_forfeits", False)
@@ -526,7 +572,7 @@ class RunBudget:
         if type(no_cutoff) is not bool:
             raise ProviderError("run_budget_continuation_changed")
         if no_cutoff:
-            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery"} or marker.exists():
+            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"} or marker.exists():
                 raise ProviderError("run_budget_deadline_extension_conflict")
             return None
         if not marker.exists():
