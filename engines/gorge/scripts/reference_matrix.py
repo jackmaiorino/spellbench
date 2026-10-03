@@ -75,7 +75,9 @@ def main():
     cfg = config.TournamentConfig.from_json(benchmark.tournament_config(str(STAGE/'diagnostics')))
     cfg = runner.executed_config(cfg, lambda text: definition.substitute(text, values))
     files = bench_run.run_files(cfg)
-    secret = RunSecret.generate()
+    prior_secret = os.environ.get('GORGE_MATRIX_SECRET_FILE')
+    secret = (RunSecret.from_hex(json.loads(Path(prior_secret).read_bytes())['secret_hex'])
+              if prior_secret else RunSecret.generate())
     private_secret(STAGE/'PRIVATE-MATRIX-SECRET.json', secret)
     contexts = schedule(cfg, secret)
     chosen = [c for c in contexts if c.pair_index < 5
@@ -93,6 +95,7 @@ def main():
     manifest.update(started_at_utc=stamp(), executed_config=cfg.to_json(),
                     launch_files=[f.to_json() for f in files], python=sys.version,
                     secret_commitment=secret.commitment(), selected_indices=[c.game_index for c in chosen],
+                    prior_qualification_secret=prior_secret,
                     expected_cells=[list(cell) for cell in sorted(expected)],
                     scope='reference-host clocks, lifecycle, native mapping and search coverage; not native leak/parity qualification or ratings')
     write(STAGE/'MANIFEST.json', manifest)
