@@ -346,6 +346,8 @@ class RunBudget:
         self._validate_policy(value, self.model, self.expected_limits)
         self.paths.validate_prefix(database, value)
         current = self.path.resolve()
+        if self.paths.manifest is not None and current == self.paths.required_ancestor:
+            self.paths.validate_transfer_anchor(database, value)
         origin = _origin(current)
         if origin.exists() or "continuation" in value:
             recorded = json.loads(origin.read_bytes())
@@ -356,10 +358,10 @@ class RunBudget:
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
-            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery"}:
+            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery"}:
                 raise ValueError("invalid continuation kind")
             no_cutoff = continuation.get("no_cutoff", False)
-            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] != "failed-run-recovery"):
+            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery"}):
                 raise ProviderError("run_budget_continuation_changed")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
@@ -394,6 +396,8 @@ class RunBudget:
                 if retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                     raise ProviderError("run_budget_parent_unsealed")
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+                if self.paths.manifest is not None and parent == self.paths.required_ancestor:
+                    self.paths.validate_transfer_anchor(retained, prior)
                 if recovery is not None:
                     if prior.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False):
                         raise ProviderError("run_budget_recovery_changed")
@@ -415,6 +419,12 @@ class RunBudget:
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
+                if continuation["kind"] == "host-preflight-recovery":
+                    if (rows or prior.get("terminal_error") != "profile_renewal_failed" or extension is not None
+                            or child.get("allow_timeout_forfeits", False) != prior.get("allow_timeout_forfeits", False)
+                            or self._effective_deadline_for(parent, prior, logical=self.paths.key(parent))
+                            != self._effective_deadline_for(current, child, logical=self.paths.key(current))):
+                        raise ProviderError("run_budget_continuation_changed")
                 if any(row["status"] == "pending" for row in rows):
                     raise ProviderError("run_budget_unresolved_request")
                 if (prior.get("allow_timeout_forfeits", False) and not child.get("allow_timeout_forfeits", False)):
@@ -435,6 +445,8 @@ class RunBudget:
             finally:
                 retained.close()
             current, child = parent, prior
+        if self.paths.manifest is not None and self.paths.required_ancestor not in seen:
+            raise ProviderError("run_budget_transfer_changed")
         self._effective_deadline(value)
         return value
 
@@ -445,7 +457,7 @@ class RunBudget:
     def qualification_origin(self) -> Path:
         """The sealed budget path for the same qualified request configuration.
 
-        Only failed-run recovery preserves the qualified request settings.
+        Failed-run and host-preflight recovery preserve the request settings.
         Explicit removal of an overall cutoff does not change those settings.
         Precommit continuations can change policy, so traversal stops there.
         The active successor remains the only budget used for admission.
@@ -453,7 +465,7 @@ class RunBudget:
         with self._transaction() as database:
             policy = self._policy(database)  # verifies all ancestor/receipt/overlay bindings
             path = self.path.resolve()
-            while policy.get("continuation", {}).get("kind") == "failed-run-recovery":
+            while policy.get("continuation", {}).get("kind") in {"failed-run-recovery", "host-preflight-recovery"}:
                 path = self.paths.resolve(policy["continuation"]["parent"])
                 with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as retained:
                     policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
@@ -467,7 +479,7 @@ class RunBudget:
         if type(no_cutoff) is not bool:
             raise ProviderError("run_budget_continuation_changed")
         if no_cutoff:
-            if continuation.get("kind") != "failed-run-recovery" or marker.exists():
+            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery"} or marker.exists():
                 raise ProviderError("run_budget_deadline_extension_conflict")
             return None
         if not marker.exists():
