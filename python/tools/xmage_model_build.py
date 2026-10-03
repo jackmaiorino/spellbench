@@ -11,6 +11,7 @@ from pathlib import Path
 from xmage_encoder_sources import stage
 from xmage_jack_sources import stage as stage_jack
 from xmage_magezero_sources import stage as stage_magezero
+from xmage_magezero_search_sources import stage as stage_magezero_search
 from xmage_search_sources import stage as stage_search
 from xmage_verified_entry import verify_build
 from xmage_release_assets import verify
@@ -41,12 +42,15 @@ def main() -> int:
     parser.add_argument("--javac", default="javac")
     parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
     parser.add_argument("--magezero-inputs", type=Path, help="verified public MageZero v0.2 encoder input root")
+    parser.add_argument("--magezero-search-inputs", type=Path, help="verified original MageZero v0.2 search source input root")
     parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
     parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
     parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
     args = parser.parse_args()
     if bool(args.jack_inputs) != bool(args.jack_manifest):
         raise ValueError("Jack build needs both its private inputs and manifest")
+    if args.magezero_search_inputs and not args.magezero_inputs:
+        raise ValueError("MageZero search requires its separately pinned original encoder")
     repo = Path(__file__).resolve().parents[2]
     manifest = repo / "engines/xmage/releases.json"
     engine = args.engine.resolve()
@@ -63,13 +67,15 @@ def main() -> int:
     search = stage_search(json.loads(manifest.read_text()), args.search_inputs, args.out / "search-sources") if args.search_inputs else None
     magezero = stage_magezero(json.loads(manifest.read_text()), args.magezero_inputs,
                              args.out / "magezero-sources") if args.magezero_inputs else None
+    magezero_search = stage_magezero_search(json.loads(manifest.read_text()), args.magezero_search_inputs,
+                                           args.out / "magezero-search-sources") if args.magezero_search_inputs else None
     jack = stage_jack(json.loads(args.jack_manifest.read_bytes()), args.jack_inputs,
                       args.out / "jack-sources") if args.jack_inputs else None
     dependencies = []
-    if search:
+    if search or magezero_search:
         search_assets = {a["id"]: a for a in json.loads(manifest.read_text())["assets"]}
         math_asset = search_assets["draftzero-exp1-search-commonsmath3"]
-        dependency = args.search_inputs / math_asset["filename"]
+        dependency = (args.search_inputs or args.magezero_search_inputs) / math_asset["filename"]
         verify(dependency, math_asset)
         dependencies.append(dependency.resolve())
     paths = {k: args.out.resolve() / k for k in ("core", "kit", "model")}
@@ -92,6 +98,10 @@ def main() -> int:
         source_sets["model"] += sorted((args.out / "magezero-sources").rglob("*.java"))
     else:
         source_sets["model"] = [p for p in source_sets["model"] if not p.name.startswith("MageZero")]
+    if magezero_search:
+        source_sets["model"] += sorted((args.out / "magezero-search-sources").rglob("*.java"))
+    else:
+        source_sets["model"] = [p for p in source_sets["model"] if not ("magezero" in p.parts and "search" in p.parts)]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
@@ -114,6 +124,7 @@ def main() -> int:
               "source_sha256": hashes, "resource_files_sha256": resource_hashes, "encoder_stage": staged,
               "search_stage": search,
               "magezero_stage": magezero,
+              "magezero_search_stage": magezero_search,
               "jack_stage": jack,
               "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
