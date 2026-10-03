@@ -383,6 +383,61 @@
       "transport": "github-raw-blob",
       "kind": "source-code",
       "hash_evidence": "observed public source bytes at pinned Exp1 engine commit; core helper or original transport audit"
+    },
+    {
+      "id": "magezero-v02-actionencoder",
+      "filename": "magezero-v02-ActionEncoder.java",
+      "url": "https://api.github.com/repos/WillWroble/mage/git/blobs/a0ffd2398bcb1de9da9c3cde3a1ec7f52939758c",
+      "transport": "github-raw-blob",
+      "sha256": "8d9a79a32c4bb168546a3f1fc33f6bd063ccb915d05ddb3e54e76dfd17cfb467",
+      "bytes": 1826,
+      "kind": "source-code",
+      "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
+      "hash_evidence": "verified pinned Git tree and blob bytes; cold copy reread"
+    },
+    {
+      "id": "magezero-v02-featuremap",
+      "filename": "magezero-v02-FeatureMap.java",
+      "url": "https://api.github.com/repos/WillWroble/mage/git/blobs/c219342a37a2d456bbb5fcdc0e2b90e85d3c098a",
+      "transport": "github-raw-blob",
+      "sha256": "a5b0b9f3b1ba2161dfcfac98d2035a8e2bdd62404101b50045552d997e1177b2",
+      "bytes": 3044,
+      "kind": "source-code",
+      "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
+      "hash_evidence": "verified pinned Git tree and blob bytes; cold copy reread"
+    },
+    {
+      "id": "magezero-v02-features",
+      "filename": "magezero-v02-Features.java",
+      "url": "https://api.github.com/repos/WillWroble/mage/git/blobs/a883a23866c1bf1307c4215aa3e8cafe23e0255e",
+      "transport": "github-raw-blob",
+      "sha256": "34d8781de32633d3464ea24c5d8ad9aa07e09a3615a17762777c725cad9bf3f6",
+      "bytes": 6441,
+      "kind": "source-code",
+      "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
+      "hash_evidence": "verified pinned Git tree and blob bytes; cold copy reread"
+    },
+    {
+      "id": "magezero-v02-labeledstate",
+      "filename": "magezero-v02-LabeledState.java",
+      "url": "https://api.github.com/repos/WillWroble/mage/git/blobs/fd7360748b05cb12471fa9d8ee2cd4ddf4f5d371",
+      "transport": "github-raw-blob",
+      "sha256": "94475f022e8ceccad2509b0fedc396aff105468bb7af8ce840580f1bf15d4ed0",
+      "bytes": 3527,
+      "kind": "source-code",
+      "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
+      "hash_evidence": "verified pinned Git tree and blob bytes; cold copy reread"
+    },
+    {
+      "id": "magezero-v02-stateencoder",
+      "filename": "magezero-v02-StateEncoder.java",
+      "url": "https://api.github.com/repos/WillWroble/mage/git/blobs/5df12e0974189ac8d2e4f4022eb02d209abf28fa",
+      "transport": "github-raw-blob",
+      "sha256": "dd114322b2c861c76f192ee98293545a5e07ca89cbee7d3dcff62090eca4b1a8",
+      "bytes": 30741,
+      "kind": "source-code",
+      "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
+      "hash_evidence": "verified pinned Git tree and blob bytes; cold copy reread"
     }
   ],
   "inference_backends": {
@@ -404,7 +459,14 @@
       "feature_hash_bins": 2147483647,
       "policy_width": 128,
       "checkpoints": [],
-      "status": "source wiring prepared; no public pretrained checkpoint found; unqualified"
+      "status": "source wiring prepared; no public pretrained checkpoint found; unqualified",
+      "encoder_source_assets": [
+        "magezero-v02-actionencoder",
+        "magezero-v02-featuremap",
+        "magezero-v02-features",
+        "magezero-v02-labeledstate",
+        "magezero-v02-stateencoder"
+      ]
     }
   },
   "search_adapters": {

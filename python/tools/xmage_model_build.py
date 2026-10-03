@@ -10,6 +10,7 @@ from pathlib import Path
 
 from xmage_encoder_sources import stage
 from xmage_jack_sources import stage as stage_jack
+from xmage_magezero_sources import stage as stage_magezero
 from xmage_search_sources import stage as stage_search
 from xmage_verified_entry import verify_build
 from xmage_release_assets import verify
@@ -39,6 +40,7 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--javac", default="javac")
     parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
+    parser.add_argument("--magezero-inputs", type=Path, help="verified public MageZero v0.2 encoder input root")
     parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
     parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
     parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
@@ -59,6 +61,8 @@ def main() -> int:
         raise ValueError("model build needs a new job directory")
     staged = stage(json.loads(manifest.read_text()), args.inputs, args.out / "sources")
     search = stage_search(json.loads(manifest.read_text()), args.search_inputs, args.out / "search-sources") if args.search_inputs else None
+    magezero = stage_magezero(json.loads(manifest.read_text()), args.magezero_inputs,
+                             args.out / "magezero-sources") if args.magezero_inputs else None
     jack = stage_jack(json.loads(args.jack_manifest.read_bytes()), args.jack_inputs,
                       args.out / "jack-sources") if args.jack_inputs else None
     dependencies = []
@@ -84,6 +88,10 @@ def main() -> int:
                                                    "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java")]
     if jack:
         source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
+    if magezero:
+        source_sets["model"] += sorted((args.out / "magezero-sources").rglob("*.java"))
+    else:
+        source_sets["model"] = [p for p in source_sets["model"] if not p.name.startswith("MageZero")]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
@@ -105,6 +113,7 @@ def main() -> int:
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
               "source_sha256": hashes, "resource_files_sha256": resource_hashes, "encoder_stage": staged,
               "search_stage": search,
+              "magezero_stage": magezero,
               "jack_stage": jack,
               "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
