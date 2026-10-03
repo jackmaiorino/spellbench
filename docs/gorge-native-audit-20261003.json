@@ -295,5 +295,7 @@
   "qualification_complete": false,
   "rated_games": 0,
   "published": false,
-  "remaining": "Current-runtime qualification, failed per-deck search coverage and reconstruction gates, reviewed benchmark and seed commitment, rated evaluation and publication."
+  "remaining": "Current-runtime qualification, failed per-deck search coverage and reconstruction gates, reviewed benchmark and seed commitment, rated evaluation and publication.",
+  "current_runtime": "docs/gorge-runtime-preparation-20261003-013.json",
+  "subsequent_repair": "docs/gorge-mana-history-repair-20261003.json"
 }
