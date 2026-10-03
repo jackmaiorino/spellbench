@@ -118,6 +118,7 @@ def work(record: dict, prepared: dict, helper) -> int:
     env = dict(os.environ)
     env.update({k: v for k, v in prepared["environment"].items() if k != "PATH_PREFIX"})
     env["PATH"] = prepared["environment"]["PATH_PREFIX"] + os.pathsep + env["PATH"]
+    qualifier_output = Path(prepared["command"][prepared["command"].index("--out") + 1])
     start = time.monotonic()
     terminal = {"schema": "spellbench-native-job-terminal/v1", "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "source_revision": prepared["source_revision"], "manifest_sha256": record["manifest_sha256"],
@@ -133,7 +134,7 @@ def work(record: dict, prepared: dict, helper) -> int:
                 if time.monotonic()-start > record["window_seconds"]:
                     raise RuntimeError("native qualification window expired")
                 used = storage(record)
-                progress = hot/"qualification/completed-games.jsonl"
+                progress = qualifier_output/"completed-games.jsonl"
                 completed = sum(1 for _ in progress.open("rb")) if progress.exists() else 0
                 monitor.write(json.dumps({"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "elapsed_s": round(time.monotonic()-start, 3), "completed_game_rows": completed,
