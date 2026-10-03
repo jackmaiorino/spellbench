@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-public-history-checks/v1",
-  "source": "The implementation and tests in the same commit as this record.",
+  "source": "Current recheck matches the implementation in this commit; prior games below used aa7364e.",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
   "runtime": {
@@ -29,6 +29,37 @@
     {
       "test": "TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle",
       "result": "Passed: changing an unseen opponent draw from Goblin Piker to Mountain changes the source log but leaves all public history bytes and knowledge claims equal."
+    },
+    {
+      "test": "TestPublicCollectorForgetsOpponentPrivateLibraryReorder",
+      "before": "Failed: private library order preserved a copy link.",
+      "after": "Passed: old physical reference retired, anonymous membership retained, later reveal introduces a fresh reference."
+    },
+    {
+      "test": "TestPublicCollectorKeepsActorsAnsweredLibraryArrangement",
+      "result": "Passed: the actor keeps the legitimate copy reference and top-position claim from its own answered arrangement."
+    },
+    {
+      "test": "TestPublicRedealAfterNaturallyPlayedLembasShuffle",
+      "before": "Failed: stack capture reintroduced a shuffled hidden source; native redeal refused an unpinned hidden stack reference.",
+      "after": "Passed: actual pinned Lembas cast, scry and sacrifice via legal intents, with its naturally emitted shuffle. Public reconstruction supplies eight valid worlds after all 64 native proposals fail.",
+      "actor_frames": 57,
+      "native_attempts": 64,
+      "native_accepted": 0,
+      "redealt_worlds": 8,
+      "reconstruction": {
+        "attempts": 1,
+        "submits": 122,
+        "nodes": 16,
+        "budget_exhausted": 0
+      },
+      "limitation": "One bounded legal card fixture, not complete search qualification."
+    },
+    {
+      "test": "TestPublicStackSourceStaysUnlinkedAfterShuffleAndRedraw",
+      "before": "Failed: a later visible draw restored the old ability copy link.",
+      "after": "Passed: the drawn card gets a visible identity while the old stack source remains unlinked.",
+      "limitation": "A logged draw injected into the legal Lembas fixture isolates the identity boundary; the draw sequence is not claimed as naturally played."
     }
   ],
   "complete_history_test": "TestCompletePublicSearchHistoriesOnEveryDeck",
@@ -131,11 +162,101 @@
   },
   "unfinished": [
     "whole-history noninterference and event-source audit for the full benchmark card pool",
-    "natural public reconstruction after shuffle",
     "search qualification under reference-host isolation and clocks",
     "guarded serial and parallel completed-work throughput",
     "frozen roster and rated evaluation",
     "review-path merge and live publication"
   ],
-  "fixture_run_secret": "32 zero bytes, only in the correctness host fixture"
+  "fixture_run_secret": "32 zero bytes, only in the correctness host fixture",
+  "complete_history_source": "aa7364e9a474e22c365b17fed59523a6b6e3e26b",
+  "current_recheck": {
+    "checked_at_utc": "2026-10-03T07:31:30.253672+00:00",
+    "complete_history_seconds": 140.224,
+    "games": [
+      {
+        "deck": "Wildfire",
+        "game_index": 0,
+        "host_steps": 1937,
+        "digest": "sha256:4846e3579ac3fe472b6c979db1590f41dc1f3d037302fcfb213f65fd0570e060",
+        "actor_frames": [
+          946,
+          1008
+        ],
+        "final_known_claims": [
+          6,
+          5
+        ]
+      },
+      {
+        "deck": "Rally",
+        "game_index": 1,
+        "host_steps": 458,
+        "digest": "sha256:f96b6cfc5cce655451515db001abd1d0ee62017ef8e0e1921a31b77f296c43c0",
+        "actor_frames": [
+          216,
+          209
+        ],
+        "final_known_claims": [
+          0,
+          6
+        ]
+      },
+      {
+        "deck": "Spy",
+        "game_index": 2,
+        "host_steps": 422,
+        "digest": "sha256:bd151f9cab4180c1e230bd11a87ca935726a5993b7d8f1b450f957353e186697",
+        "actor_frames": [
+          209,
+          192
+        ],
+        "final_known_claims": [
+          0,
+          5
+        ]
+      },
+      {
+        "deck": "Burn",
+        "game_index": 3,
+        "host_steps": 681,
+        "digest": "sha256:179a25e1be37c39f0dfb6cc2c3894dec7a76ac9ca574ece6a513702bc4fb319d",
+        "actor_frames": [
+          322,
+          352
+        ],
+        "final_known_claims": [
+          1,
+          1
+        ]
+      },
+      {
+        "deck": "CawGates",
+        "game_index": 4,
+        "host_steps": 809,
+        "digest": "sha256:ae4c2ccc6366671be1f75fc123682a7f07085355f6f93f28690403b36801a670",
+        "actor_frames": [
+          397,
+          453
+        ],
+        "final_known_claims": [
+          6,
+          2
+        ]
+      }
+    ],
+    "assertions": [
+      "ordinary bot mirror",
+      "natural terminal for each deck",
+      "one replay per game with identical digest",
+      "live sequenced actor-only deltas",
+      "unique observed copy introductions",
+      "current view aliases refer to observed identities",
+      "public known-card projection completes",
+      "zero leak and candidate inconsistency counters"
+    ],
+    "all_nested_strategy_tests": "passed",
+    "go_vet": "passed for parent and nested modules",
+    "runtime_and_allocation_qualification": "not complete",
+    "rated_games": 0
+  }
 }

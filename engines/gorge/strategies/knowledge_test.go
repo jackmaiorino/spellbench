@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
@@ -185,5 +186,80 @@ func TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle(t *testing.T) {
 	kb, err := searchprobe.ProjectKnownCards(hb)
 	if err != nil || !reflect.DeepEqual(ka, kb) {
 		t.Fatal("knowledge distinguished hidden drawn card names")
+	}
+}
+
+func TestPublicCollectorForgetsOpponentPrivateLibraryReorder(t *testing.T) {
+	e, _, c, h, id, _ := shuffledKnownLibrary(t, 1)
+	f, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.Note, Player: 1, IDs: []state.ObjID{id}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Frames = append(h.Frames, f)
+	old := c.SpellbenchAlias(id)
+	f, err = c.SpellbenchCapture(e, []events.Event{{Kind: events.LibraryOrder, Player: 1, IDs: append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 1)...), Secret: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Frames = append(h.Frames, f)
+	if old == 0 || c.SpellbenchAlias(id) != 0 {
+		t.Fatal("opponent's private library order preserved a copy link")
+	}
+	known, err := searchprobe.ProjectKnownCards(h)
+	if err != nil || len(known.SpellbenchAnonymous) != 1 || known.SpellbenchAnonymous[0].Count != 1 {
+		t.Fatalf("private reorder lost known name multiplicity: %v %+v", err, known)
+	}
+	if err := known.Holds(searchprobe.World{Engine: e, Observer: c}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.Note, Player: 1, IDs: []state.ObjID{id}}}); err != nil {
+		t.Fatal(err)
+	}
+	if now := c.SpellbenchAlias(id); now == 0 || now == old {
+		t.Fatal("a new public library reveal reused the private order's copy link")
+	}
+}
+
+func TestPublicCollectorKeepsActorsAnsweredLibraryArrangement(t *testing.T) {
+	e, _, c, h, id, _ := shuffledKnownLibrary(t, 0)
+	f, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.Note, Player: 0, From: state.ZLibrary, IDs: []state.ObjID{id}, Secret: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := c.SpellbenchAlias(id)
+	action := searchprobe.Action{Decision: decision.KArrange, Kind: "top", Obj: ref}
+	f.Decision = &searchprobe.ObservedDecision{Player: 0, Kind: decision.KArrange, Max: 1,
+		Options: []searchprobe.ObservedOption{{Action: action}}}
+	h.Frames = append(h.Frames, f)
+	h.Answers = map[int][]searchprobe.Action{len(h.Frames) - 1: {action}}
+	order := []state.ObjID{id}
+	for _, other := range e.G.Zone(state.ZLibrary, 0) {
+		if other != id {
+			order = append(order, other)
+		}
+	}
+	pos := len(e.L.Events)
+	events.Emit(e.G, e.L, events.Event{Kind: events.LibraryOrder, Player: 0, IDs: order, Secret: true})
+	f, err = c.SpellbenchCapture(e, e.L.Events[pos:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Frames = append(h.Frames, f)
+	if ref == 0 || c.SpellbenchAlias(id) != ref {
+		t.Fatal("the actor's own answered arrangement retired a known copy")
+	}
+	known, err := searchprobe.ProjectKnownCards(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	positioned := false
+	for _, library := range known.Libraries {
+		positioned = positioned || library.Player == 0 && len(library.Top) == 1 && library.Top[0].ID == ref
+	}
+	if !positioned {
+		t.Fatalf("the actor's answered top position was forgotten: %+v", known)
+	}
+	if err := known.Holds(searchprobe.World{Engine: e, Observer: c}); err != nil {
+		t.Fatal(err)
 	}
 }

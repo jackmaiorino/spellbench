@@ -67,7 +67,11 @@ func (c *Collector) spellbenchForget(e *rules.Engine, burst []events.Event) {
 	}
 	for _, ev := range burst {
 		switch ev.Kind {
-		case events.Shuffle:
+		case events.Shuffle, events.LibraryOrder:
+			if ev.Kind == events.LibraryOrder && ev.Player == c.actor {
+				// The actor's answered arrangement identifies its own copies.
+				continue
+			}
 			// These IDs stay inside the trusted collector. No ID is allocated
 			// or exposed here; introductions happen on later visible facts.
 			for _, id := range ev.IDs {
@@ -122,4 +126,52 @@ func (c *Collector) spellbenchRemember(e *rules.Engine) {
 			c.spellbenchZones[id] = o.Zone
 		}
 	}
+}
+
+// A stack ability keeps its public name after its source leaves. It cannot
+// identify a hidden incarnation of that source, including after a shuffle.
+// Use the same visible-zone boundary as the canonical observation and xview.
+func (c *Collector) spellbenchPublicView(e *rules.Engine, v *view.View) {
+	visible := func(id state.ObjID) bool {
+		o := e.G.Obj(id)
+		if o == nil {
+			return false
+		}
+		switch o.Zone {
+		case state.ZBattlefield, state.ZGraveyard, state.ZExile, state.ZStack, state.ZCommand:
+			return true
+		case state.ZHand:
+			return o.Owner == c.actor
+		}
+		return false
+	}
+	for i := range v.Stack {
+		if !visible(v.Stack[i].Source) {
+			v.Stack[i].Source = 0
+		}
+	}
+	kept := v.Pending[:0]
+	for _, pending := range v.Pending {
+		if visible(pending.Source) {
+			kept = append(kept, pending)
+		}
+	}
+	v.Pending = kept
+}
+
+// A public stack entry may keep the source reference it first observed only
+// while that binding remains live. A subsequent reveal or draw cannot link a
+// new copy identity back to an ability that outlived a blind shuffle.
+func (c *Collector) spellbenchStackSource(e *rules.Engine, s *view.StackView) {
+	if c.spellbenchSources == nil {
+		c.spellbenchSources = map[state.ObjID]uint32{}
+	}
+	if ref, seen := c.spellbenchSources[s.ID]; seen {
+		if ref == 0 || ref != c.ref(s.Source) {
+			s.Source = 0
+		}
+		return
+	}
+	c.introduce(e, s.Source)
+	c.spellbenchSources[s.ID] = c.ref(s.Source)
 }

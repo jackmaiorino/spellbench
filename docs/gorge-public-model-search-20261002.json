@@ -64,5 +64,18 @@
     ],
     "compatibility": "MageZero/XMage checkpoints, incompatible with gorge's .gpol loader. Model card says MageZero v0.2.0 loading is untested and end-to-end use outside its training harness has not been verified.",
     "coordination": "Source and compatibility requirements sent to Jack's XMage task. No checkpoint downloaded or rated here."
+  },
+  "confirmation": {
+    "checked_at_utc": "2026-10-03T07:31:30.253672+00:00",
+    "hugging_face_gorge_models": 66,
+    "hugging_face_adams_shaun_models": 0,
+    "github_gorge_releases": 0,
+    "draftzero_revision": "c0ac902361c041f986f429ad9d42e7b92494741f",
+    "draftzero_checkpoints": [
+      "gen0.pt.gz",
+      "gen10.pt.gz",
+      "gen33.pt.gz"
+    ],
+    "conclusion": "No compatible gorge weights or tuned profile recovered; the moderate public search remains complete. DraftZero is a distinct MageZero/XMage release."
   }
 }

@@ -44,7 +44,7 @@ func (t *KnownCardTracker) spellbenchAnonymizeLibrary(player state.PlayerID) {
 }
 
 func (t *KnownCardTracker) spellbenchKnowledgeEvent(ev ObservedEvent) {
-	if ev.Kind == events.Shuffle {
+	if ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder && ev.Player != t.actor {
 		t.spellbenchAnonymizeLibrary(ev.Player)
 		return
 	}

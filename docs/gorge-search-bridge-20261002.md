@@ -97,8 +97,25 @@ Additional tests preserve anonymous known-library membership after a shuffle in
 16 native fallback worlds, reject a world without the unique known member,
 retire the old copy reference, and check visible and unseen draws. Two injected
 knowledge histories with different hidden drawn names have identical complete
-history bytes and projections. These are knowledge fixtures, not naturally
-played games or end-to-end public reconstruction after a shuffle.
+history bytes and projections. These are injected knowledge fixtures.
+
+A separate fixture casts the pinned corpus's actual Lembas, answers its scry,
+and sacrifices it through legal native intents. Its graveyard trigger returns
+it to the library and shuffles while the food ability remains on the stack.
+An earlier declined land drop makes all 64 native-policy proposals fail.
+Public reconstruction succeeds in one proposal and 122 submits, then produces
+8 redealt worlds satisfying anonymous Lembas membership. The fixture found
+that the collector could reintroduce a shuffled source through a stack entry;
+public capture now removes hidden stack-source references and pending triggers
+from hidden sources, following the canonical observation and view extension.
+Stack entries retain their first observed source binding only while it remains
+live. A separate injected-draw regression failed when a later visible Lembas
+restored the old ability's copy link; it now stays unlinked.
+This is a bounded reconstruction check, not full search qualification.
+
+Opponent private library reorders also retire copy links and retain anonymous
+name counts. A regression failed before the fix and now passes. The actor's
+own answered arrangement retains its legitimate copy and top-position claim.
 
 One complete ordinary-bot mirror game per deck, plus its deterministic replay,
 passed through the public-history host profile. All five ended naturally, with
@@ -159,10 +176,12 @@ hash, and normal exit left no containers for the new image. See
 `docs/gorge-runtime-preparation-20261003-002.json` for hashes, build commands and
 verified D/E copies. These checks cover hello and normal exit only; forced
 termination, complete reference-host games, clocks and allocation remain pending.
+Those binaries precede the private-reorder and stack-source fixes above and
+must be rebuilt before qualification.
 
 Remaining work: finish the event and identity audit across the five-deck card pool, preserve legal
-mapping at shipped budgets under reference-host clocks, qualify the container
-lifecycle and guarded completed-work throughput, and freeze the
+mapping at shipped budgets under reference-host clocks, verify timeout cleanup
+under the current host isolation policy and guarded completed-work throughput, and freeze the
 complete roster before evaluation. All twelve playable strategies are
 implemented; none is qualified, rated or published.
 The draft benchmark now lists all twelve plus uniform and heuristic. Its

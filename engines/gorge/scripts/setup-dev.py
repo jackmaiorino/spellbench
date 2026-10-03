@@ -75,8 +75,8 @@ overlay["Replace"][(source / "internal/searchprobe/sample.go").as_posix()] = rep
 # The ordinary native collector has no forgotten IDs, so its result is intact.
 observation = (source / "internal/searchprobe/observation.go").read_text(encoding="utf-8")
 observer_patches = [
-    ("type Collector struct {\n", "type Collector struct {\n\tspellbenchZones map[state.ObjID]state.Zone\n\tspellbenchChronological bool\n"),
-    ("\tout := NewCollector(c.actor)\n", "\tout := NewCollector(c.actor)\n\tout.spellbenchChronological = c.spellbenchChronological\n\tif c.spellbenchZones != nil {\n\t\tout.spellbenchZones = map[state.ObjID]state.Zone{}\n\t\tfor id, zone := range c.spellbenchZones { out.spellbenchZones[id] = zone }\n\t}\n"),
+    ("type Collector struct {\n", "type Collector struct {\n\tspellbenchZones map[state.ObjID]state.Zone\n\tspellbenchSources map[state.ObjID]uint32\n\tspellbenchChronological bool\n"),
+    ("\tout := NewCollector(c.actor)\n", "\tout := NewCollector(c.actor)\n\tout.spellbenchChronological = c.spellbenchChronological\n\tif c.spellbenchZones != nil {\n\t\tout.spellbenchZones = map[state.ObjID]state.Zone{}\n\t\tfor id, zone := range c.spellbenchZones { out.spellbenchZones[id] = zone }\n\t}\n\tif c.spellbenchSources != nil {\n\t\tout.spellbenchSources = map[state.ObjID]uint32{}\n\t\tfor id, ref := range c.spellbenchSources { out.spellbenchSources[id] = ref }\n\t}\n"),
     ("ref := uint32(len(c.known) + 1)", "ref := uint32(len(c.byRef))"),
 ]
 for before, after in observer_patches:
@@ -89,14 +89,22 @@ for before, after in observer_patches:
 intro_start = observation.index("\t// Introduce only cards explicitly displayed")
 intro_end = observation.index("\tredacted := c.redacted[:0]", intro_start)
 introduce_board = observation[intro_start:intro_end]
+public_introduce_board = introduce_board.replace(
+    "\tfor _, s := range v.Stack {\n\t\tc.introduce(e, s.ID)\n",
+    "\tfor i := range v.Stack {\n\t\ts := &v.Stack[i]\n\t\tc.introduce(e, s.ID)\n\t\tc.spellbenchStackSource(e, s)\n",
+)
+if public_introduce_board == introduce_board:
+    raise SystemExit("Pinned stack-source collector context changed; refusing overlay")
 observation = observation[:intro_start] + "\tif !c.spellbenchChronological {\n" + introduce_board + "\t}\n" + observation[intro_end:]
 chronological_patches = [
+    ("\tv := view.Project(e.G, chars, c.actor, e.Pending())\n",
+     "\tv := view.Project(e.G, chars, c.actor, e.Pending())\n\tif c.spellbenchChronological { c.spellbenchPublicView(e, &v) }\n"),
     ("\tc.introduced = nil\n", "\tc.introduced = nil\n\tvar publicEvents []ObservedEvent\n"),
     ("\tfor _, raw := range burst {\n", "\tfor _, raw := range burst {\n\t\tif c.spellbenchChronological { c.spellbenchForget(e, []events.Event{raw}) }\n"),
     ("\t\tredacted = append(redacted, ev)\n", "\t\tif c.spellbenchChronological { publicEvents = append(publicEvents, c.spellbenchObservedEvent(ev)) } else { redacted = append(redacted, ev) }\n"),
     ("\tframe := Frame{Identities: append([]Identity(nil), c.introduced...)}\n",
      "\tframe := Frame{Identities: append([]Identity(nil), c.introduced...)}\n"
-     "\tif c.spellbenchChronological {\n" + introduce_board +
+     "\tif c.spellbenchChronological {\n" + public_introduce_board +
      "\t\tframe.Identities = append([]Identity(nil), c.introduced...)\n\t\tframe.Events = publicEvents\n\t}\n"),
 ]
 for before, after in chronological_patches:
