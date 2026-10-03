@@ -13,13 +13,14 @@ import sys
 import time
 
 JOB = Path(os.environ.get('GORGE_JOB_ROOT','/workspace/gorge'))
-sys.path.insert(0,str(JOB/'source/python'))
+SOURCE = Path(os.environ.get('GORGE_SOURCE_ROOT',str(JOB/'source')))
+sys.path.insert(0,str(SOURCE/'python'))
 from spellbench.arena import machine, store
 from spellbench.arena.throughput import PlayedGame, plan_allocation, workload_id, check_reserve
 
 STAGE = Path(os.environ['GORGE_CLOUD_STAGE'])
 NATIVE = Path(os.environ['GORGE_NATIVE_QUALIFIER'])
-REGISTRY = JOB/'runtime009/registry.gob.gz'
+REGISTRY = Path(os.environ.get('GORGE_REGISTRY',str(JOB/'runtime009/registry.gob.gz')))
 REGISTRY_SHA = '42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937'
 POLICIES = ['bot','bot-auto-pay','lethal-pressure','lethal-pressure-auto-pay','ar8','blocks',
             'explore','legacy','search','search-mana','search-redeal','search-mana-redeal']
@@ -55,6 +56,9 @@ def valid_completed(report):
             all(row['classification']=='natural' and 'error' not in row for row in report['rows']))
 
 def main():
+    cap = int(os.environ.get('GORGE_NATIVE_WORKER_CAP','12'))
+    if cap < 2:
+        raise RuntimeError('Native audit worker cap must allow measured parallel collection')
     expected_native=os.environ['GORGE_NATIVE_QUALIFIER_SHA256']
     if sha(NATIVE)!=expected_native or sha(REGISTRY)!=REGISTRY_SHA:
         raise RuntimeError('Native audit input differs from its pin')
@@ -116,14 +120,14 @@ def main():
         return wall,tuple(played)
     # Include all four search modes on all five decks in the first24 blocks.
     order=sorted(range(len(GAMES)),key=lambda i:(not GAMES[i][1].startswith('search'),GAMES[i][2],i))
-    placement=('main-pc=unavailable: peer XMage short guarded correctness claims retain their announced priority; '
+    placement=os.environ.get('GORGE_PLACEMENT') or ('main-pc=unavailable: peer XMage short guarded correctness claims retain their announced priority; '
                'haleyspc=unavailable: queued training-performance window retains priority per CODEX811; '
                'runpod=used: owned13.6-core CFS CPU allocation under separate gorge USD10 total cap, native audit worker cap12')
     facts=machine.machine_facts({'run_dir':STAGE,'pin_root':STAGE},memory=machine.total_memory,
         gpus=machine.nvidia_gpus,disk_free=assigned_free)
     workload=workload_id({'kind':'gorge-native-audit/v1','binary':expected_native,'registry':REGISTRY_SHA,
         'policies':POLICIES,'decks':DECKS,'games_per_pairing':4,'resample_every':7,'fixed_seed_indices':list(range(len(GAMES)))})
-    allocation=plan_allocation(games_total=len(GAMES),cap=12,per_game_cores=1,play=play,placement=placement,
+    allocation=plan_allocation(games_total=len(GAMES),cap=cap,per_game_cores=1,play=play,placement=placement,
         host=os.environ['SPELLBENCH_HOST_ALIAS'],sample=order,workload=workload,
         evidence=STAGE/'throughput-evidence.json',machine=facts,cap_bytes=2*2**30)
     write(STAGE/'ALLOCATION.json',allocation.to_json())

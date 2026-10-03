@@ -70,6 +70,17 @@ func TestGoldensReplayByteExact(t *testing.T) {
 				t.Fatalf("%s: engine response differs:\n got %s\nwant %s", filepath.Base(f), last, r.Message)
 			}
 			if (r.Dir == "host_to_engine" || r.Dir == "engine_to_host") && r.Raw == "" {
+				// The mini-host now records its profile handshake before reset.
+				// Section 11.8 starts the game chain at reset, so verify those
+				// hello bytes above without including them in the game digest.
+				if dig == nil {
+					var head struct {
+						RequestType string `json:"request_type"`
+					}
+					if json.Unmarshal(r.Message, &head) != nil || r.Dir != "host_to_engine" || head.RequestType != "reset" {
+						continue
+					}
+				}
 				msg, err := wire.WithoutRequestID(r.Message)
 				switch {
 				case err != nil:
