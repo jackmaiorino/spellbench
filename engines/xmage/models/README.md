@@ -336,6 +336,11 @@ and 1024-slot heads. Missing or mismatched source revisions are refused.
 The transport requires finite 128-slot priority, opponent and target heads,
 the original two binary outputs, and features below 2,147,483,647. An inference
 failure reaches the caller without a heuristic fallback. These staged classes
+require explicit source search settings, including every policy-head flag and
+the original time stopping rule. The pinned default disables all policy priors;
+the learned author configuration is therefore needed with the weights. A
+separate diagnostic method enables all heads and enforces minimum visits.
+These settings remain distinct in any future adapter identity. The classes
 are preparation for the request adapter; native search execution, trained
 weights and full-game serving remain unfinished. Two real source staging
 executions produce identical hashes and preserve `new int[128]` and `%128`.

@@ -15,26 +15,49 @@ import spellbench.models.magezero.v02.search.MCTSNode;
 
 /** Original MageZero v0.2 tree with an explicit deterministic, no-noise play profile. */
 public class SearchPlayer extends ComputerPlayerMCTS2 {
+    private boolean requireVisitBudget;
     private List<MCTSNode> initialRootChildren = new ArrayList<>();
     private Map<MCTSNode, Integer> beforeSelectionVisits = new IdentityHashMap<>();
     private Set<MCTSNode> selectionMasked = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
     public SearchPlayer(String name) { super(name, RangeOfInfluence.ALL, 6); }
     protected SearchPlayer(SearchPlayer player) { super(player); }
     @Override public SearchPlayer copy() { return new SearchPlayer(this); }
-    public void configure(RemoteModelEvaluator model, int visits) {
-        if (visits < 2 || visits > 1000) throw new IllegalArgumentException("search visits must be 2..1000");
+    public void configure(RemoteModelEvaluator model, MCTSDefaults settings) {
+        if (model == null || settings == null || settings.searchBudget < 2 || settings.searchBudget > 1000
+                || !Double.isFinite(settings.searchTimeout) || settings.searchTimeout <= 0 || settings.searchTimeout > 600
+                || !Double.isFinite(settings.priorTemp) || settings.priorTemp < 0
+                || !Double.isFinite(settings.priorBonus) || settings.priorBonus < 0
+                || !Double.isFinite(settings.backpropDiscount) || settings.backpropDiscount < 0 || settings.backpropDiscount > 1
+                || !Double.isFinite(settings.selectionTemperature) || settings.selectionTemperature < 0
+                || !Double.isFinite(settings.dirichletNoiseEps) || settings.dirichletNoiseEps < 0 || settings.dirichletNoiseEps > 1) {
+            throw new IllegalArgumentException("MageZero needs explicit supported source search settings");
+        }
         nn = model;
         actionEncoder = new ActionEncoder();
-        searchBudget = visits;
-        // Original normal completion requires this minimum and a legal future.
-        // The caller's clock aborts an unfinished search.
-        searchTimeout = 600;
-        noNoise = true;
-        noPolicyPriority = noPolicyTarget = noPolicyUse = noPolicyOpponent = false;
-        priorTemp = 1.5; priorBonus = 0.1; backpropDiscount = 0.99;
-        selectionTemperature = 0; dirichletNoiseEps = 0;
+        searchBudget = settings.searchBudget;
+        searchTimeout = settings.searchTimeout;
+        noNoise = settings.noNoise;
+        noPolicyPriority = settings.noPolicyPriority;
+        noPolicyTarget = settings.noPolicyTarget;
+        noPolicyUse = settings.noPolicyUse;
+        noPolicyOpponent = settings.noPolicyOpponent;
+        priorTemp = settings.priorTemp;
+        priorBonus = settings.priorBonus;
+        backpropDiscount = settings.backpropDiscount;
+        selectionTemperature = settings.selectionTemperature;
+        dirichletNoiseEps = settings.dirichletNoiseEps;
+        requireVisitBudget = false;
         offlineMode = false;
         SHOW_THREAD_INFO = false;
+    }
+    public void configureDiagnostic(RemoteModelEvaluator model, int visits) {
+        MCTSDefaults settings = new MCTSDefaults();
+        settings.searchBudget = visits;
+        settings.searchTimeout = 600;
+        settings.noNoise = true;
+        settings.noPolicyPriority = settings.noPolicyTarget = settings.noPolicyUse = settings.noPolicyOpponent = false;
+        configure(model, settings);
+        requireVisitBudget = true;
     }
     public MCTSNode2 searchPriority(Game game) {
         return searchAction(game, ActionEncoder.ActionType.PRIORITY, "priority");
@@ -57,8 +80,8 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         Set<Integer> observedFeatures = new HashSet<>(stateEncoder.processState(game, playerId, type, text));
         resetSearchTree();
         MCTSNode2 best = getNextAction(game, type);
-        if (best == null || root == null || root.getVisits() < searchBudget) {
-            throw new IllegalStateException("original search did not complete its visit budget");
+        if (best == null || root == null || (requireVisitBudget && root.getVisits() < searchBudget)) {
+            throw new IllegalStateException("original search did not complete its declared stopping rule");
         }
         if (!playerId.equals(root.playerId) || root.actionType != type
                 || !observedFeatures.equals(root.stateVector)) {
