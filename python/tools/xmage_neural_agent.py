@@ -30,6 +30,7 @@ PROFILE = {
     "root_noise": False,
     "opponent_hand_encoding": False,
     "mulligan": "original constructor default allowMulligans=false",
+    "modes": "original numeric mode ordinals; offered-choice binding; original unoffered-branch accounting",
     "full_game_qualified": False,
 }
 _START_FIELDS = ("seat", "format", "own_deck", "opponent_deck", "rules", "engine",

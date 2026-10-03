@@ -132,16 +132,33 @@ public final class ModelSearchMain {
         }
         if (offered == null) throw new IllegalArgumentException("search chose an action outside the offered candidates");
         List<Object> children = new ArrayList<>();
+        List<Object> unofferedModes = new ArrayList<>();
         Set<String> branchKeys = new HashSet<>();
         MCTSNode2 tree = active.tree();
         Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
         for (MCTSNode child : active.initialRootChildren()) {
+            boolean pruned = !retained.contains(child);
+            boolean masked = !pruned && active.selectionMasked(child);
+            if (callback != null && callback.modeActions != null
+                    && !callback.modeActions.actions.containsKey(child.getAmountAction())) {
+                if (!pruned && !masked || pruned && child.getVisits() != 0) {
+                    throw new IllegalArgumentException("original search retained an unoffered mode branch with a legal future");
+                }
+                int ordinal = child.getAmountAction();
+                if (ordinal < 0 || ordinal >= callback.modeActions.publicIndices.size()) {
+                    throw new IllegalArgumentException("original mode branch exceeds its callback ordinal range");
+                }
+                unofferedModes.add(Json.map("ordinal", (long) ordinal,
+                        "mode_index", (long) callback.modeActions.publicIndices.get(ordinal),
+                        "visits", 0L, "pruned", pruned, "selection_masked", masked,
+                        "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
+                        "reason", "original mode branch is unoffered and has no legal future"));
+                continue;
+            }
             Map<String, Object> action = semantic(decision, world, child, index, priority, callback);
             if (action == null || !branchKeys.add(Json.canonical(action))) {
                 throw new IllegalArgumentException("search root has an unmapped or aliased action");
             }
-            boolean pruned = !retained.contains(child);
-            boolean masked = !pruned && active.selectionMasked(child);
             children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) child.getVisits(),
                     "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
                     "selection_masked", masked,
@@ -164,7 +181,7 @@ public final class ModelSearchMain {
         String decisionHash;
         try { decisionHash = Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
-        return Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
+        Map<String, Object> result = Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
                 "decision_sha256", decisionHash,
                 "children", children, "root_visits", (long) tree.getVisits(), "neural_calls", calls,
                 "search_budget", Json.map("kind", "minimum_root_visits_until_legal_future", "requested", count),
@@ -173,10 +190,20 @@ public final class ModelSearchMain {
                         : java.util.Collections.emptyList(),
                 "variant", "Exp1 original PUCT and dialog scripts; numeric roots use the legal offered range; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; original minimum visits and legal-future stopping; no noise",
                 "scope", "priority and saved-anchor target/binary/numeric/named roots; complete history, other callbacks, full games and ratings unfinished");
+        if (callback != null && callback.modeActions != null) {
+            result.put("unoffered_mode_branches", unofferedModes);
+            result.put("scope", "original numeric spell-mode callback; complete-game qualification and ratings unfinished");
+        }
+        return result;
     }
     private static Map<String, Object> semantic(Map<String, Object> decision, World world, MCTSNode child,
                                                 ObsIndex index, boolean priority, ModelReplay.Result callback) {
         if (priority) return Mapping.prioritySemantic(world, world.game, child.getPriorityAction(), index);
+        if (callback.modeActions != null) {
+            Map<String, Object> action = callback.modeActions.actions.get(child.getAmountAction());
+            if (action == null) throw new IllegalArgumentException("original search chose an unoffered mode branch");
+            return action;
+        }
         if (callback.namedActions != null) {
             Map<String, Object> action = callback.namedActions.get(child.getChoiceAction());
             if (action == null) throw new IllegalArgumentException("unmapped original named branch");

@@ -37,6 +37,13 @@ process for priority, saved-anchor targets, binary dialogs and a visible library
 search after a recorded earlier choice. Remaining history, callbacks and full games still need the
 complete game adapter.
 
+The public frontend has now completed one gen33 six-visit FDN UR game against
+heuristic and its exact-seed replay, naturally and without validator violations.
+Both primary stores and the decision/choice streams excluding clocks match.
+That single-game diagnostic exercises priority, targets, attacks and blocks;
+other callbacks, decks, generations and original search settings remain
+unqualified. See [the retained evidence](../../engines/xmage/models/evidence/2026-10-03-neural-inputs.md).
+
 MageZero v0.2 source is wired as a separate architecture. A supplied weight
 needs a pinned manifest entry, a deck ID and deck-association evidence before
 it can launch. The loader requires the recorded wide hash range and strict
@@ -52,8 +59,9 @@ remaining callback families are refused. The saved feature result can be
 passed to `xmage_neural_decisions.py --architecture magezero-v02` with the same
 record and an author-supplied pinned checkpoint. That decision path recomputes
 the actual own decklist digest and checks it against the model's association
-before starting confined inference. Runtime encoder checks and actual-weight
-qualification remain pending; these changes do not qualify original search.
+before starting confined inference. Two actual native encoder checks repeat
+identically, preserve hidden-sample invariance and detect visible life changes.
+Actual-weight qualification and original search remain unfinished.
 
 The inspected v0.1 and v0.2 public engine bundles contain no pretrained
 weights. Author delivery needs the trained `.mz` export or raw weights, the

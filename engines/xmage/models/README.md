@@ -308,10 +308,12 @@ and action vocabulary remain in their existing package.
 `MageZeroEncoderMain` accepts a saved permitted priority decision or `--stdio`.
 It reconstructs a sampled world, disables opponent-hand encoding and binds
 every offered candidate to its original MageZero action slot. Other callbacks
-are refused. `MageZeroEncoderCheck` supplies a real priority fixture, varied
-hidden samples and a visible-life control for a later guarded runtime check.
-The fixture has not yet run. CI also compiles this optional public path without
-fetching weights or qualifying play.
+are refused. `MageZeroEncoderCheck` passes two actual native executions with
+468 identical features and three policy slots. Sixteen draws per execution
+include different hidden cards while preserving encoded features; a visible
+own-life change alters the encoding. This checks the original priority encoder
+without pretrained weights or complete games. CI also compiles this optional
+public path.
 
 `xmage_neural_decisions.py --architecture magezero-v02` connects these saved
 features to the existing confined raw/`.mz` backend when actual weights arrive.
@@ -322,3 +324,30 @@ association before launch. Argmax masks unoffered actions and uses a stable
 tie rule. This is an explicitly distinct direct-policy priority slice; original
 MageZero search and complete-game serving are unfinished. No actual pretrained
 MageZero weights have been found or qualified.
+
+Spell-mode callbacks now enter Exp1's original `chooseMode`, which constructs
+a numeric action list with stop at ordinal zero and available modes in source
+order. The replay binds those ordinals to the engine's public mode indices,
+source, selected count and mode bounds. Recorded choices append the original
+numeric history before later callbacks. No separate trained mode head or new
+priority rule is introduced.
+
+The original mode stop can be unoffered when the engine requires a mode.
+Search retains that original branch. It can leave the public candidate list
+only with captured original pruning or selection masking and complete spent
+visit accounting. An unoffered branch with a legal future or an unoffered
+chosen result is refused. The Python result validator checks that accounting
+alongside all offered children. Replaying a forced numeric prefix now also
+preserves the original rule that a one-option amount does not append history.
+`ModelSearchCallbackCheck OUTPUT mode` prepares a real Abrade modal callback
+with both creature and artifact modes available. The guarded gen33 check
+passes three unrelated or absent source refusals before neural inference,
+then repeats the actual six-visit mode search identically with seven neural
+calls each. Its unoffered stop is pruned with complete visit accounting.
+
+`ModelSearchCallbackCheck OUTPUT mode-wire SAVED_MODE_RESULT_JSON` applies
+that real learned mode through XMage, requires the next target callback, and
+retains the original earlier-mode history in the target record. The guarded
+check repeats this subsequent target search identically with seven neural
+calls each and reproduces the current observation exactly. Broader callback
+and full-game qualification remain unfinished.

@@ -67,6 +67,7 @@ final class ModelReplay {
         Integer numericMinimum;
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
+        ModelModes modeActions;
 
         void compare(Game game) {
             compare(game, decision);
@@ -226,18 +227,36 @@ final class ModelReplay {
             if (!getId().equals(replay.world.player(replay.world.viewer))) {
                 throw new IllegalArgumentException("unrecorded opponent numeric callback");
             }
+            if (replay.modeActions != null) {
+                ModelModes bound = replay.modeActions;
+                if (min != 0 || max != bound.options.size() - 1) {
+                    throw new IllegalArgumentException("original mode ordinal range changed");
+                }
+                Map<String, Object> past = replay.earlierPick(game);
+                if (past != null) {
+                    int ordinal = bound.selected(past);
+                    if (min < max) getPlayerHistory().numSequence.add(ordinal);
+                    replay.replayed++;
+                    return ordinal;
+                }
+                replay.compare(game);
+                replay.player = this;
+                configure(replay.evaluator, replay.visits);
+                replay.chosen = searchAmount(game, min, max, source);
+                throw new Stop();
+            }
             Map<String, Object> callbackDecision = replay.callbackDecision();
             List<Object> candidates = Json.arr(callbackDecision, "candidates");
             if (candidates.isEmpty()) throw new IllegalArgumentException("numeric root has no offered range");
             int offeredMax = Math.toIntExact(Json.num(Json.obj(Json.obj(candidates.get(0)), "semantic"), "maximum", Long.MIN_VALUE));
             if (offeredMax > max) throw new IllegalArgumentException("numeric offered range exceeds the actual callback");
             bindNumbers(callbackDecision, min, offeredMax);
-            GameAccess.numberBounds(getId(), source, min, offeredMax, getPlayerHistory().numSequence.size());
+            if (min < offeredMax) GameAccess.numberBounds(getId(), source, min, offeredMax, getPlayerHistory().numSequence.size());
             if (offeredMax != max) replay.world.flags.add("approximate:numeric_root_uses_offered_range");
             Map<String, Object> past = replay.earlierPick(game);
             if (past != null) {
                 int value = Math.toIntExact((Long) past.get("value"));
-                getPlayerHistory().numSequence.add(value - min);
+                if (min < offeredMax) getPlayerHistory().numSequence.add(value - min);
                 replay.replayed++;
                 return value;
             }
@@ -250,8 +269,18 @@ final class ModelReplay {
             throw new Stop();
         }
         @Override public Mode chooseMode(Modes modes, Ability source, Game game) {
-            rejectReplay(game, "mode");
-            return super.chooseMode(modes, source, game);
+            Result replay = context(game);
+            if (replay == null) return super.chooseMode(modes, source, game);
+            try {
+                if (!getId().equals(replay.world.player(replay.world.viewer))) {
+                    throw new IllegalArgumentException("unrecorded opponent mode callback");
+                }
+                replay.compare(game, replay.callbackDecision());
+                replay.modeActions = new ModelModes(replay.world, replay.callbackDecision(), modes, source, game);
+                Mode picked = super.chooseMode(modes, source, game);
+                replay.modeActions = null;
+                return picked;
+            } catch (RuntimeException e) { throw new Failure(e); }
         }
         @Override public void selectAttackers(Game game, UUID player) {
             rejectReplay(game, "attack");
@@ -285,8 +314,8 @@ final class ModelReplay {
         }
     }
     private static void bindNumbers(Map<String, Object> decision, int min, int max) {
-        if (min >= max || (long) max - min > 64) {
-            throw new IllegalArgumentException("numeric callback exceeds the original non-forced search envelope");
+        if (min > max || (long) max - min > 64) {
+            throw new IllegalArgumentException("numeric callback exceeds the original search envelope");
         }
         List<Object> candidates = Json.arr(decision, "candidates");
         if (candidates.size() != (long) max - min + 1) throw new IllegalArgumentException("numeric candidate count differs");

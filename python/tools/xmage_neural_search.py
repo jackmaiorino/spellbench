@@ -2,7 +2,7 @@
 
 The caller starts the reviewed Java build in its own working directory and
 supplies an InferenceSession with a pinned checkpoint and confined container.
-This bridge supports priority and saved-anchor target/binary/numeric/named roots.
+This bridge supports priority and saved-anchor target/binary/numeric/named/mode roots.
 It is not a rated agent.
 """
 from __future__ import annotations
@@ -20,6 +20,10 @@ def root_family(decision: dict) -> str:
     if decision.get("context", {}).get("kind") == "priority":
         return "priority"
     kinds = {c.get("semantic", {}).get("kind") for c in decision.get("candidates", [])}
+    if kinds and kinds <= {"choose_spell_mode", "finish_selection"} and all(
+            c.get("semantic", {}).get("kind") != "finish_selection"
+            or c.get("semantic", {}).get("purpose") == "modes" for c in decision.get("candidates", [])):
+        return "mode"
     if kinds and kinds <= {"choose_target", "choose_cost_target", "select_object",
                            "finish_target_selection", "finish_selection"}:
         return "target"
@@ -29,7 +33,7 @@ def root_family(decision: dict) -> str:
         return "numeric"
     if kinds and kinds <= {"choose_option", "choose_color", "choose_name"}:
         return "named"
-    raise ValueError("this original search bridge supports priority, target, binary, numeric and named roots")
+    raise ValueError("this original search bridge supports priority, target, binary, numeric, named and mode roots")
 
 
 def validate_result(decision: dict, result: dict, visits: int, calls: int) -> None:
@@ -80,12 +84,46 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int) -> No
                 or (not inactive and (type(child.get("value")) not in (int, float) or not math.isfinite(child["value"])))):
             raise ValueError("search root statistics are invalid")
     selected_branch = next(c for c in children if c["semantic"] == offered["semantic"])
-    if (sum(c["visits"] + c.get("discarded_visits", 0) for c in children) != actual or selected_branch["visits"] <= 0
+    unoffered_work = validate_unoffered_modes(decision, result, actual)
+    if (sum(c["visits"] + c.get("discarded_visits", 0) for c in children) + unoffered_work != actual or selected_branch["visits"] <= 0
             or selected_branch["visits"] != max(c["visits"] for c in children)):
         raise ValueError("search visit statistics do not support its chosen action")
     flags = result.get("world_flags")
     if (not isinstance(flags, list) or any(not isinstance(f, str) or f.startswith(("horizon:", "unsupported:")) for f in flags)):
         raise ValueError("search ran outside its supported world envelope")
+
+
+def validate_unoffered_modes(decision: dict, result: dict, actual: int) -> int:
+    branches = result.get("unoffered_mode_branches", [])
+    if not isinstance(branches, list) or (branches and root_family(decision) != "mode"):
+        raise ValueError("unoffered work is only valid for original mode branches")
+    if not branches:
+        return 0
+    modes = [c["semantic"] for c in decision["candidates"] if c["semantic"].get("kind") == "choose_spell_mode"]
+    if not modes or any(type(m.get("mode_count")) is not int or m["mode_count"] < 1 for m in modes):
+        raise ValueError("unoffered mode work needs the actual offered mode count")
+    count = modes[0]["mode_count"]
+    offered = {m.get("mode_index") for m in modes}
+    if any(m["mode_count"] != count or type(m.get("mode_index")) is not int
+           or not 0 <= m["mode_index"] < count for m in modes):
+        raise ValueError("mode indices do not share their actual source range")
+    allows_stop = any(c["semantic"].get("kind") == "finish_selection" for c in decision["candidates"])
+    ordinals, indices, work = set(), set(), 0
+    for branch in branches:
+        ordinal, index = branch.get("ordinal"), branch.get("mode_index")
+        pruned, masked, discarded = branch.get("pruned"), branch.get("selection_masked"), branch.get("discarded_visits")
+        if (type(ordinal) is not int or not 0 <= ordinal <= 64 or ordinal in ordinals
+                or type(index) is not int or not -1 <= index < count or index in indices
+                or index in offered or (index == -1 and (ordinal != 0 or allows_stop))
+                or (index != -1 and ordinal == 0)
+                or type(branch.get("visits")) is not int or branch["visits"] != 0
+                or type(pruned) is not bool or type(masked) is not bool or pruned == masked
+                or type(discarded) is not int or not 0 <= discarded <= actual
+                or (pruned and discarded != 0)
+                or branch.get("reason") != "original mode branch is unoffered and has no legal future"):
+            raise ValueError("unoffered mode branch lacks original pruning and work accounting")
+        ordinals.add(ordinal); indices.add(index); work += discarded
+    return work
 
 
 def search_request(record: dict, visits: int) -> dict:
