@@ -75,11 +75,19 @@ def main() -> int:
         subprocess.run(common + ["-cp", cp, "-d", str(paths[name])] + [str(p) for p in sources], check=True)
         for path in sources:
             hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
-    shutil.copytree(repo / "engines/xmage/kit/xmage/resources", paths["kit"], dirs_exist_ok=True)
+    resources = repo / "engines/xmage/kit/xmage/resources"
+    shutil.copytree(resources, paths["kit"], dirs_exist_ok=True)
+    resource_hashes = {}
+    for source in sorted(p for p in resources.rglob("*") if p.is_file()):
+        relative = source.relative_to(resources)
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        if hashlib.sha256((paths["kit"] / relative).read_bytes()).hexdigest() != digest:
+            raise ValueError("model build resource copy differs")
+        resource_hashes[relative.as_posix()] = digest
     result = {"schema": "spellbench-draftzero-encoder-build/v1", "jdk": version,
               "engine_manifest_sha256": engine_manifest_sha,
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
-              "source_sha256": hashes, "encoder_stage": staged,
+              "source_sha256": hashes, "resource_files_sha256": resource_hashes, "encoder_stage": staged,
               "search_stage": search,
               "jack_stage": jack,
               "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,

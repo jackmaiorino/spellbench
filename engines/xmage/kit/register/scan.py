@@ -75,6 +75,17 @@ def strip_comments(text):
     return re.sub(r"//[^\n]*", "", text)
 
 
+def card_is_land(text):
+    """Read the card constructor's types, retaining the conservative fallback.
+
+    A spell's effects may mention LAND in a filter without making it a land.
+    Unrecognized constructors keep the previous source-wide classification.
+    """
+    constructor = re.search(r"\bsuper\s*\([^,()]*,[^,()]*,\s*new\s+CardType\s*\[\s*\]\s*\{([^}]*)\}", text)
+    types = constructor.group(1) if constructor else text
+    return re.search(r"\bCardType\.LAND\b", types) is not None
+
+
 def referenced(text, lib):
     names = set(NEW_CLASS.findall(text)) | {m[0] for m in STATIC_REF.findall(text)}
     return sorted(n for n in names if n in lib)
@@ -173,7 +184,7 @@ def scan_card(name, cls, sets_root, lib, cache):
         if len(rebuild) != 1 or not rebuild[0]["no_arg"]:
             why_unsupported.append("emblem not rebuildable")
     non_stack = []
-    if re.search(r"CardType\.LAND", text) and re.search(r"AsEntersBattlefieldAbility|EntersBattlefieldEffect\(new\s+Choose", text):
+    if card_is_land(text) and re.search(r"AsEntersBattlefieldAbility|EntersBattlefieldEffect\(new\s+Choose", text):
         non_stack.append("land play asks a choice as it enters")
     if re.search(r"\b(MorphAbility|DisguiseAbility|ManifestDreadEffect|CloakEffect)\b", text):
         non_stack.append("turning face up pays costs with choices")
