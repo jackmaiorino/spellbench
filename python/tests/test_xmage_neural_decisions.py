@@ -164,3 +164,22 @@ def test_cleanup_failure_is_visible_even_after_a_successful_handshake(tmp_path, 
     with pytest.raises(RuntimeError, match="cleanup could not be confirmed"):
         session.close()
     assert peer.closed
+
+
+def test_candidate_selection_uses_the_remaining_inference_clock(tmp_path, monkeypatch):
+    manifest = inputs(tmp_path)
+    peer = Peer([readiness(manifest), {"id": "1", **scores()}])
+    monkeypatch.setattr(adapter, "cleanup_container", lambda name: {"confirmed_absent": True})
+    clock = [0.0]
+    monkeypatch.setattr(adapter.time, "monotonic", lambda: clock[0])
+    original = adapter.select_candidate
+    def delayed_selection(*args):
+        result = original(*args)
+        clock[0] = 2.0
+        return result
+    monkeypatch.setattr(adapter, "select_candidate", delayed_selection)
+    session = adapter.InferenceSession(manifest, tmp_path, "policy", IMAGE, peer_factory=lambda *a, **k: peer)
+    offered, encoded = decision()
+    with pytest.raises(TimeoutError, match="selection-validation clock"):
+        session.choose(offered, encoded, timeout_s=1)
+    assert session.failed and session.closed and peer.closed

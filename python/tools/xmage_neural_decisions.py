@@ -54,8 +54,7 @@ def validate_mapping(decision: dict, encoded: dict) -> tuple[str, list[dict]]:
     return head, slots
 
 
-def select_candidate(decision: dict, encoded: dict, scores: dict) -> dict:
-    head, slots = validate_mapping(decision, encoded)
+def validate_scores(scores: dict) -> None:
     for name, width in (("priority", 1024), ("opponent_priority", 1024), ("target", 1024), ("binary", 2)):
         values = scores.get(name)
         if (not isinstance(values, list) or len(values) != width
@@ -64,6 +63,12 @@ def select_candidate(decision: dict, encoded: dict, scores: dict) -> dict:
     value = scores.get("value")
     if type(value) not in (int, float) or not math.isfinite(value):
         raise ValueError("inference returned an invalid state value")
+
+
+def select_candidate(decision: dict, encoded: dict, scores: dict) -> dict:
+    head, slots = validate_mapping(decision, encoded)
+    validate_scores(scores)
+    value = scores["value"]
     # The original server returns raw logits. Direct-policy inference takes
     # their argmax on offered candidates only. Collisions tie by candidate id.
     chosen = max(slots, key=lambda s: (scores[head][s["policy_slot"]], -s["candidate_id"]))
@@ -130,15 +135,34 @@ class InferenceSession:
             raise failure from exc
 
     def choose(self, decision: dict, encoded: dict, *, timeout_s: float) -> dict:
+        validate_mapping(decision, encoded)
+        if not math.isfinite(timeout_s) or timeout_s <= 0:
+            raise ValueError("neural decision needs a positive finite remaining clock")
+        deadline = time.monotonic() + timeout_s
+        try:
+            scores = self.score(encoded["features"], timeout_s=max(0, deadline-time.monotonic()))
+            result = {"checkpoint": self.checkpoint, **select_candidate(decision, encoded, scores)}
+            if time.monotonic() > deadline:
+                raise TimeoutError("neural decision exhausted its selection-validation clock")
+            return result
+        except BaseException:
+            self.failed = True
+            self.close()
+            raise
+
+    def score(self, features: list[int], *, timeout_s: float) -> dict:
+        """Raw heads and value for the audited, permitted-world search process."""
         if self.closed or self.failed:
             raise ValueError("inference session is closed or has failed")
-        validate_mapping(decision, encoded)
+        if (not isinstance(features, list) or not 1 <= len(features) <= 16384
+                or any(type(f) is not int or not 0 <= f < ENCODING["feature_hash_bins"] for f in features)):
+            raise ValueError("encoded features exceed Exp1's finite integer vocabulary envelope")
         if not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("neural decision needs a positive finite remaining clock")
         deadline = time.monotonic() + timeout_s
         self.sequence += 1
         rid = str(self.sequence)
-        payload = json.dumps({"id": rid, "features": encoded["features"], "encoding": encoded["encoding"]},
+        payload = json.dumps({"id": rid, "features": features, "encoding": ENCODING},
                              separators=(",", ":"), allow_nan=False).encode()
         try:
             self.peer.set_timeout(max(0, deadline - time.monotonic()))
@@ -150,10 +174,10 @@ class InferenceSession:
             scores = load_response(self.peer.read_line())
             if scores.get("id") != rid:
                 raise ValueError("inference returned a stale or mismatched request id")
-            result = {"checkpoint": self.checkpoint, **select_candidate(decision, encoded, scores)}
+            validate_scores(scores)
             if time.monotonic() > deadline:
                 raise TimeoutError("neural decision exhausted its shared inference/validation clock")
-            return result
+            return {k: scores[k] for k in ("priority", "opponent_priority", "target", "binary", "value")}
         except BaseException:
             self.failed = True
             self.close()

@@ -69,6 +69,11 @@ public final class ModelEncoderCheck {
             }
             first.put("checks", Json.map("hidden_sample_varied", powered, "hidden_sample_encoding_identical", true,
                     "visible_life_change_detected", true, "scope", "priority fixture only; no full-game qualification"));
+            if (args.length == 1) {
+                java.nio.file.Files.write(java.nio.file.Paths.get(args[0]), Json.canonical(Json.map("game_start", start,
+                        "decision", decision, "world_seed", Seeds.hex(seed), "id_seed", Seeds.hex(ids)))
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.file.StandardOpenOption.CREATE_NEW);
+            }
             out.println(Json.canonical(first));
         } finally {
             position.seats.exchange.close();

@@ -13,27 +13,45 @@ import mage.players.Player;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 /**
  * Fork-only helpers needed by Exp1's encoder on the reviewed base engine.
  * The sorted-card, entity-name and permanent-value rules follow the public
- * DraftZero fork. These decision slices have empty micro-decision history and
- * no activation in progress. Complete dialog equivalence needs history wiring.
+ * DraftZero fork. The ported search players supply their original script
+ * history and activation flag. Snapshot-only encoder slices use empty history.
  */
 public final class Exp1Compat {
     private Exp1Compat() { }
 
     public static final class History {
-        public final List<UUID> targetSequence = Collections.emptyList();
-        public final List<String> choiceSequence = Collections.emptyList();
-        public final List<Boolean> useSequence = Collections.emptyList();
-        public final List<Integer> numSequence = Collections.emptyList();
+        public final List<UUID> targetSequence;
+        public final List<String> choiceSequence;
+        public final List<Boolean> useSequence;
+        public final List<Integer> numSequence;
+        public History() {
+            this(Collections.emptyList(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+        }
+        public History(Collection<UUID> targets, Collection<String> choices, Collection<Boolean> uses, Collection<Integer> nums) {
+            targetSequence = new ArrayList<>(targets);
+            choiceSequence = new ArrayList<>(choices);
+            useSequence = new ArrayList<>(uses);
+            numSequence = new ArrayList<>(nums);
+        }
     }
 
-    public static History history(Player player) { return new History(); }
-    public static boolean isActivating(Player player) { return false; }
+    public interface HistoryProvider {
+        History encoderHistory();
+        boolean activating();
+    }
+    public static History history(Player player) {
+        return player instanceof HistoryProvider ? ((HistoryProvider) player).encoderHistory() : new History();
+    }
+    public static boolean isActivating(Player player) {
+        return player instanceof HistoryProvider && ((HistoryProvider) player).activating();
+    }
 
     public static Card pairedCard(Permanent permanent, Game game) {
         // The original encoder casts a MageObjectReference to Card. Refuse a

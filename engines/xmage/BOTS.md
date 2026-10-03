@@ -9,7 +9,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 |---|---|---|---|
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated inference and legal selection pass on real target and boolean callbacks; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 also repeats original priority search | Full root dialogs, combat and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
@@ -101,6 +101,12 @@ helpers. Their micro-decision history is empty; the direct-policy connector does
 DraftZero's original MCTS. Those changes must remain visible in any future
 entry identity and description.
 
+The separate priority-search bridge now ports Exp1's original PUCT and dialog
+scripts. Generation33 completes repeat-identical six-visit real priority
+searches through the confined checkpoint. Its declared variant uses fresh
+sampled-world trees, synchronous inference, all trained priors, fixed visits
+and no noise. Remaining root callbacks and full-game qualification are open.
+
 Use the FDN and Standard benchmarks with appropriate deck associations and
 baseline anchors; add suitable Pauper support for Jack's deck-local entries.
 Freeze the rated roster, schedules, seeds and clocks, collect complete
@@ -110,7 +116,6 @@ compare completed-work serial/parallel throughput, and use the supported arena
 or kit qualification guard. The input fetcher and model probe are preparation
 and small correctness paths; they do not launch evaluated games.
 
-Jack and Haley still had healthy reserved cooling evaluation processes in the
-2026-10-03 read-only inventory. No substantial evaluation, GPU run, new training
-or paid compute was launched here. Existing review and publication paths remain
+No substantial evaluation, GPU run, new training or paid compute was launched
+by this task. Existing review and publication paths remain
 part of the outstanding delivery.

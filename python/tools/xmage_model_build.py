@@ -1,4 +1,4 @@
-"""Build the reviewed XMage kit and the pinned Exp1 decision encoder slice."""
+"""Build the reviewed XMage kit, pinned encoder and optional original search."""
 
 import argparse
 import hashlib
@@ -9,7 +9,9 @@ import subprocess
 from pathlib import Path
 
 from xmage_encoder_sources import stage
+from xmage_search_sources import stage as stage_search
 from xmage_verified_entry import verify_build
+from xmage_release_assets import verify
 
 
 def main() -> int:
@@ -18,6 +20,7 @@ def main() -> int:
     parser.add_argument("--engine", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--javac", default="javac")
+    parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     manifest = repo / "engines/xmage/releases.json"
@@ -35,6 +38,14 @@ def main() -> int:
     if args.out.exists():
         raise ValueError("model build needs a new job directory")
     staged = stage(json.loads(manifest.read_text()), args.inputs, args.out / "sources")
+    search = stage_search(json.loads(manifest.read_text()), args.search_inputs, args.out / "search-sources") if args.search_inputs else None
+    dependencies = []
+    if search:
+        search_assets = {a["id"]: a for a in json.loads(manifest.read_text())["assets"]}
+        math_asset = search_assets["draftzero-exp1-search-commonsmath3"]
+        dependency = args.search_inputs / math_asset["filename"]
+        verify(dependency, math_asset)
+        dependencies.append(dependency.resolve())
     paths = {k: args.out.resolve() / k for k in ("core", "kit", "model")}
     for directory in paths.values():
         directory.mkdir()
@@ -43,10 +54,14 @@ def main() -> int:
                    "kit": sorted((repo / "engines/xmage/kit/xmage/src").rglob("*.java")),
                    "model": sorted((repo / "engines/xmage/models/src").rglob("*.java"))
                             + sorted((args.out / "sources").rglob("*.java"))}
+    if search:
+        source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
+    else:
+        source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts and p.name != "ModelSearchMain.java"]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
-                            [paths["core"], paths["kit"]] if name == "model" else []) + [engine / "lib/*"])
+                            [paths["core"], paths["kit"]] if name == "model" else []) + [engine / "lib/*"] + dependencies)
         subprocess.run(common + ["-cp", cp, "-d", str(paths[name])] + [str(p) for p in sources], check=True)
         for path in sources:
             hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -55,7 +70,12 @@ def main() -> int:
               "engine_manifest_sha256": engine_manifest_sha,
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
               "source_sha256": hashes, "encoder_stage": staged,
-              "scope": "priority, target and binary decision slices; no complete bot, original search or rating"}
+              "search_stage": search,
+              "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
+              "class_files_sha256": {str(p.relative_to(args.out)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                     for d in paths.values() for p in sorted(d.rglob("*.class"))},
+              "scope": ("original priority search and decision encoders; no complete agent or rating" if search else
+                        "priority, target and binary decision slices; no complete bot, original search or rating")}
     with (args.out / "BUILD.json").open("x", encoding="utf-8") as output:
         json.dump(result, output, indent=2)
         output.write("\n")

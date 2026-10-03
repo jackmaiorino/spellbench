@@ -1,4 +1,4 @@
-# DraftZero decision adapter slices
+# DraftZero neural adapters
 
 This is the tested connection from permitted XMage observations to Exp1's
 feature hash and legal priority, target and binary policy slots. It is not a
@@ -70,7 +70,39 @@ Direct inference takes the largest offered raw logit and resolves ties by the
 lowest candidate ID. That choice rule and the encoder approximations must
 remain part of any future entry identity.
 
-Full dialog history, the remaining decision families, original search, complete-game
-tests and rating qualification remain to be implemented. No policy-equivalence
-or playing-strength claim follows from these decision checks. Evidence is
+The original Exp1 search now has a separate priority bridge. Build it with
+`--search-inputs` pointing to the verified search sources and dependency from
+the release manifest. `xmage_search_sources.py` relocates the pinned classes
+and records every compatibility edit and source hash in `STAGE.json`.
+It keeps the original PUCT, priors, discounted backpropagation, virtual loss,
+dialog scripts and visit-based final choice. Its source classes share no names
+with the native bots. The base fork's core helpers are ported separately.
+
+`spellbench.kit.xmage.ModelSearchMain` is a warm private NDJSON process.
+`xmage_neural_search.SearchSession` supplies real checkpoint heads and value
+through the confined `InferenceSession`. Requests contain only permitted
+records and independently sampled world seeds. Responses bind to the canonical
+decision hash, cover every offered root action, complete the requested visits
+and choose a supported visit winner. Stale responses, incomplete roots,
+unsupported worlds, inference failures and exhausted clocks close both
+owned processes. The neural float RPC is private; public v2 frames keep their
+integer-only contract. There is no heuristic or random replacement on failure.
+
+The declared play variant uses a fresh tree per received priority, synchronous
+inference, a fixed visit count, all four trained policy heads, no root noise
+and opponent-hand encoding disabled. Prior temperature is 1.5, the exploration
+bonus 0.1, PUCT constant 1 and backpropagation discount 0.99. Reconstruction
+approximations remain in the result. The reviewed engine also lacks the fork's
+combat retry shortcut, which remains part of the unfinished combat qualification.
+These settings identify a fair port rather than exact full-player equivalence.
+
+Generation 33 completed two identical six-visit real priority searches through
+this bridge: root visits 1/2/3 for pass/Stab/land, seven neural calls, and the
+offered land selected. The root feature set equals the independently encoded
+priority features. The original priority output hash is unchanged and both
+process exits are confirmed. This is a small correctness check.
+
+Full root dialog history, the remaining decision families, complete-game tests
+and rating qualification remain to be implemented. No playing-strength claim
+follows from these checks. Evidence is
 indexed in [the input and adapter receipt summary](evidence/2026-10-03-neural-inputs.md).

@@ -31,8 +31,10 @@ for MageZero/DraftZero contains four raw policy heads and a scalar value. Featur
 the checkpoint's saved dense vocabulary with the original deduplication and
 unknown-feature handling. An input with no known features is refused. Legal
 candidate mapping now covers the priority, target and binary heads in
-[the decision adapter](../../engines/xmage/models/README.md). The remaining
-callbacks and original search still need the complete game adapter.
+[the neural adapters](../../engines/xmage/models/README.md). The separate
+original priority-search bridge also consumes all four heads and value through
+this confined process. Remaining root callbacks and full games still need the
+complete game adapter.
 
 MageZero v0.2 source is wired as a separate architecture. A supplied weight
 needs a pinned manifest entry, a deck ID and deck-association evidence before
