@@ -56,14 +56,16 @@ jobs:
         run: |
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
-      - name: Compile the original model search, mixed bridge and MageZero encoder
+      - name: Compile both original model searches, mixed bridge and MageZero encoder
         shell: bash
         run: |
           python python/tools/xmage_model_ci_inputs.py --root "$RUNNER_TEMP/model-inputs"
           python python/tools/xmage_model_build.py --compile-only \
             --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-inputs "$RUNNER_TEMP/model-inputs" \
+            --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \
             --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-build"
+          java -cp "$RUNNER_TEMP/model-build/model" spellbench.models.magezero.v02.search.TransportCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}

@@ -325,6 +325,21 @@ tie rule. This is an explicitly distinct direct-policy priority slice; original
 MageZero search and complete-game serving are unfinished. No actual pretrained
 MageZero weights have been found or qualified.
 
+`--magezero-search-inputs` additionally stages MageZero's actual original
+v0.2 tree from 17 independently pinned public source blobs. It requires the
+separate original MageZero encoder input. The shared audited core compatibility
+recipe reads those MageZero bytes; it preserves the original 128-slot visit
+labels and places the tree and its private transport in
+`spellbench.models.magezero.v02.search`. Exp1 keeps its separate implementation
+and 1024-slot heads. Missing or mismatched source revisions are refused.
+
+The transport requires finite 128-slot priority, opponent and target heads,
+the original two binary outputs, and features below 2,147,483,647. An inference
+failure reaches the caller without a heuristic fallback. These staged classes
+are preparation for the request adapter; native search execution, trained
+weights and full-game serving remain unfinished. Two real source staging
+executions produce identical hashes and preserve `new int[128]` and `%128`.
+
 Spell-mode callbacks now enter Exp1's original `chooseMode`, which constructs
 a numeric action list with stop at ordinal zero and available modes in source
 order. The replay binds those ordinals to the engine's public mode indices,

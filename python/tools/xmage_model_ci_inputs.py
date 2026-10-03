@@ -26,7 +26,7 @@ def main():
     encoder |= {"magezero-v02-" + name for name in
                 ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
     selected = [asset for asset in assets if asset["id"] in encoder
-                or asset["id"].startswith("draftzero-exp1-search-")]
+                or asset["id"].startswith(("draftzero-exp1-search-", "magezero-v02-search-"))]
     if encoder - {asset["id"] for asset in selected} or any(
             asset["kind"] != "source-code"
             and not (asset["id"] == "draftzero-exp1-search-commonsmath3" and asset["kind"] == "build-dependency")
