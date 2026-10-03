@@ -99,6 +99,8 @@ _OPTIONAL_FIELDS = (
     "workers",
     "qualification_budget_percent",
     "qualification_worker_selection",
+    "qualification_sample",
+    "job_storage_budget",
 )
 # Protocol v1 fields and the v2 field that replaces each (spec 11.4: the clocks are time_control).
 _V1_FIELDS = {
@@ -163,6 +165,8 @@ class Benchmark:
     bots: tuple[BenchmarkBot, ...]
     qualification_budget_percent: int | None = None
     qualification_worker_selection: str = "busy"
+    qualification_sample: tuple[int, ...] = ()
+    job_storage_budget: dict[str, int] | None = None
     opponent_panel: tuple[str, ...] = ()
     evaluation_version: str | None = None
     evaluation_targets: tuple[str, ...] | None = None
@@ -508,6 +512,15 @@ def parse_benchmark(value: Any) -> Benchmark:
     overhead = document.get("qualification_budget_percent")
     if "qualification_budget_percent" in document:
         overhead = _integer(overhead, "benchmark.qualification_budget_percent", minimum=1, maximum=100)
+    sample = document.get("qualification_sample", [])
+    if (not isinstance(sample, list) or any(type(index) is not int or index < 0 for index in sample)
+            or len(set(sample)) != len(sample)):
+        raise BenchmarkError("benchmark.qualification_sample: must be distinct nonnegative game indices")
+    from ..arena.job_storage import validate_settings
+    try:
+        storage = validate_settings(document.get("job_storage_budget"))
+    except ValueError as exc:
+        raise BenchmarkError(f"benchmark.{exc}") from exc
     bots = _parse_bots(document["bots"], f"{context}.bots")
     names = {bot.name for bot in bots}
     panel = document.get("opponent_panel", [])
@@ -561,6 +574,8 @@ def parse_benchmark(value: Any) -> Benchmark:
         bots=bots,
         qualification_budget_percent=overhead,
         qualification_worker_selection=selection,
+        qualification_sample=tuple(sample),
+        job_storage_budget=storage,
         opponent_panel=tuple(panel),
         evaluation_version=version,
         evaluation_targets=None if targets is None else tuple(targets),

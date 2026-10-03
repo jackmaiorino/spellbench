@@ -432,6 +432,7 @@ def play_games(
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
     timed: bool = False,
+    guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
 ) -> ExecutionResult:
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
@@ -443,7 +444,7 @@ def play_games(
     if timed:
         play = functools.partial(_timed, play)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
-                   monitor=monitor, on_warning=on_warning)
+                   monitor=monitor, on_warning=on_warning, guard=guard)
 
 
 # ---------------------------------------------------------------------------
@@ -554,6 +555,7 @@ def run_tournament(
     resolve: Callable[[str], str] | None = None,
     output_dir: str | Path | None = None,
     on_game: Callable[[LedgerRow], None] | None = None,
+    guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
 ) -> TournamentSummary:
     """Run the full schedule and publish the tournament (the module docstring gives the order).
@@ -628,7 +630,7 @@ def run_tournament(
                 with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
                     result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
                                         workers=allocation.workers, on_outcome=record, monitor=monitor,
-                                        on_warning=on_warning, launch_files=launch_files)
+                                        on_warning=on_warning, launch_files=launch_files, guard=guard)
                 error = result.error
                 game = None if error is not None else _spot_check_game(
                     allocation, scheduled=len(contexts), recorded=len(rows), violations=len(violations),

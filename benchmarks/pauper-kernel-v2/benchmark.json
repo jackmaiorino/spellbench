@@ -223,5 +223,19 @@
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       }
     }
-  ]
+  ],
+  "qualification_sample": [
+    320,
+    450,
+    520,
+    332,
+    4,
+    198,
+    394,
+    142
+  ],
+  "job_storage_budget": {
+    "projected_bytes": 17179869184,
+    "cap_bytes": 25769803776
+  }
 }

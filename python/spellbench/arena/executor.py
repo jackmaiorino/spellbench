@@ -99,6 +99,7 @@ def execute(
     on_outcome: Callable[[GameOutcome], None] | None = None,
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
+    guard: Callable[[], None] | None = None,
 ) -> ExecutionResult:
     """Play each context through ``play_one``, recording outcomes in schedule order.
 
@@ -119,10 +120,14 @@ def execute(
         outcomes.append(outcome)
         if on_outcome is not None:
             on_outcome(outcome)
+        if guard is not None:
+            guard()
         return stop_on_violation and outcome.violation is not None
 
     def tick() -> None:
         """One monitor observation; a warning goes to ``on_warning`` at once (R3-6)."""
+        if guard is not None:
+            guard()
         if monitor is None:
             return
         remaining = len(contexts) - len(outcomes)
@@ -134,7 +139,7 @@ def execute(
             if on_warning is not None:
                 on_warning(warning)
 
-    if workers == 1:
+    if workers == 1 and guard is None:
         try:
             for context in contexts:
                 if record(play_one(context)):
@@ -146,6 +151,8 @@ def execute(
 
     pool: ProcessPoolExecutor | None = None
     try:
+        if guard is not None:
+            guard()
         pool = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
         futures = [pool.submit(play_one, context) for context in contexts]
         for future in futures:  # schedule order, whatever the completion order
