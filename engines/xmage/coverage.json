@@ -14,6 +14,8 @@
       "qualified": false,
       "rated": false,
       "published": false,
+      "qualification_status": "24 natural serial games with zero validation violations; report dependencies repaired; no parallel comparison or allocation verdict yet",
+      "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
       "remaining": ["deadline replay qualification", "new-entry qualification", "guarded evaluation", "review and publication"]
     },
     {
@@ -25,6 +27,8 @@
       "qualified": false,
       "rated": false,
       "published": false,
+      "qualification_status": "included in the clean 24-game serial prefix; complete-game scaling qualification remains pending",
+      "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
       "remaining": ["separate MCTS qualification", "guarded evaluation", "review and publication"]
     },
     {
@@ -34,7 +38,7 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary and visible-library search repeat identically with gen33 and a recorded earlier choice; full agent unfinished",
+      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary and visible-library search repeat identically with gen33 and a recorded earlier choice; numeric and named roots implemented with real fixtures, pending live search verification; full agent unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,

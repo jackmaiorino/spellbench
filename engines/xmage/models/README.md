@@ -126,3 +126,20 @@ Full history across draws and other transitions, the remaining decision families
 and rating qualification remain to be implemented. No playing-strength claim
 follows from these checks. Evidence is
 indexed in [the input and adapter receipt summary](evidence/2026-10-03-neural-inputs.md).
+
+Numeric and named callbacks are under extension. Their original trees use the
+trained value network with uniform priors; the checkpoint has no numeric or
+named policy head. Numeric branches retain Exp1's 65-option safety limit and
+use the legal range offered by the engine. The replay applies that bound to
+the current source and player in the simulated prefix, and records the change
+as an approximation. Named options bind original keys and labels to offered
+semantics. The original creature-type shortcut and forced choices still need
+their own bridge. Remaining callback families continue to fail closed.
+
+Builds 034 and 035 compile with the pinned JDK. Real Fireball and Shifting Sky
+fixtures save six numeric values and five colors. The first color fixture,
+Thriving Grove, reaches an unsupported replacement-order callback; its failed
+receipt is retained. Generation 33 repeats the existing target, binary and
+library searches on build 035, but refuses the unbounded original numeric
+callback before named search. The offered-range adaptation and refreshed
+named replay anchor await their next real check. These families are unqualified.

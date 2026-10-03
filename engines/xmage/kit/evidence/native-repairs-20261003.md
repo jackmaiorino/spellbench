@@ -52,3 +52,36 @@ and increment. It needs matched serial/parallel qualification and deterministic
 game replay; it is not a passed fix for the old deadline-dependent replays.
 Any rated benchmark using it must declare that clock and rerate its anchors.
 No substantial evaluation was launched and no new rating is claimed.
+
+The new native qualification job is registered at
+`D:/e-scratch/spellbench-xmage-native-20261003-001` and
+`E:/spellbench-xmage-native-20261003-001`, with a separate 16 GiB aggregate cap,
+12 GiB projected peak and 60 GiB volume reserve. The supported qualifier is
+contained by its own canonical Windows reservation and has a 90-minute bound.
+No new paid allocation, GPU run or rated game is included.
+
+| Attempt | Observed result |
+|---|---|
+| 001, generation 102 | Windows venv redirector and supervisor identity differed; qualifier did not start. Owned supervisor stopped and claim release confirmed. |
+| 002, generation 103 | Preflight ran, then malformed placement text was refused; zero games. Owned children exited and claim released. |
+| 003, generation 104 | All 24 serial games ended naturally, with zero validator violations. Report generation lacked `e4.py`; no parallel rung or allocation verdict. Owned children exited and claim released. |
+| 004 | Prepared, unlaunched. Both report modules are present; empty and retained-game report generation pass. Exact completed rung timings are now checkpointed before reporting. |
+
+Attempt 003 uses arena source `0e306267e87919ca71ea7f9ce2800918fa2eeba0`
+and the unchanged native kit 005. Its manifest SHA-256 is
+`404d7cae0965037ad5ccdd2bcf66ea6616ac497ac12b108aab6738930c7d4cdf`.
+`RECOVERED-REPORT-003.json` has SHA-256
+`5ccb0d59cbdd91e16902755dc040b17d29cfefcd130ba287f921a883d0eebabc`.
+The original analysis modules are unchanged. The exact complete rung wall time
+was not retained before reporting failed, so the restored report does not
+claim a completed throughput measurement.
+
+Prepared attempt 004 uses source
+`b97a68fc9b1084e512afb6b1894dae4cf9b17af0`, archive SHA-256
+`27da3dd5fc37d4616349a6b58a41951e7d0c8e68bb413f45b11d0528f5c314df`,
+and manifest SHA-256
+`7a21cd0436b7b4c1d00f5f12337ee7bdee49bc9fa794412e46cb95bf425d0d35`.
+The plan, seeds, native inputs and clock are unchanged. It needs a fresh resource
+check and its own claim before launch. The prospective `fdn-native-v1` rating
+definition has a complete 11-entry round robin; it still needs its own guarded
+qualification, complete paired results, replay and publication.

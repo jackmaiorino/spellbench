@@ -2,6 +2,8 @@ package spellbench.models.exp1;
 
 import mage.constants.RangeOfInfluence;
 import mage.game.Game;
+import mage.abilities.Ability;
+import mage.choices.Choice;
 import mage.player.ai.encoder.ActionEncoder;
 import java.util.HashSet;
 import java.util.Set;
@@ -32,6 +34,19 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
     }
     public MCTSNode2 searchPriority(Game game) {
         return searchAction(game, ActionEncoder.ActionType.PRIORITY, "priority");
+    }
+    public MCTSNode2 searchAmount(Game game, int min, int max, Ability source) {
+        if (min >= max || (long) max - min > 64 || source == null) {
+            throw new IllegalArgumentException("numeric search needs an original 2..65 option callback with a source");
+        }
+        numOptionsSize = max - min + 1;
+        return searchAction(game, ActionEncoder.ActionType.CHOOSE_NUM, "choose num for " + source.toString());
+    }
+    public MCTSNode2 searchChoice(Game game, Choice choice) {
+        choiceOptions = new HashSet<>(choice.getKeyChoices().keySet());
+        if (choiceOptions.isEmpty()) choiceOptions = choice.getChoices();
+        if (choiceOptions.size() < 2) throw new IllegalArgumentException("named search needs a non-forced original choice");
+        return searchAction(game, ActionEncoder.ActionType.MAKE_CHOICE, choice.getMessage());
     }
     public MCTSNode2 searchAction(Game game, ActionEncoder.ActionType type, String text) {
         if (stateEncoder == null) RLInit(game);

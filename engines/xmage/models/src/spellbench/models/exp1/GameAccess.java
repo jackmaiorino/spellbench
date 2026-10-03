@@ -1,6 +1,7 @@
 package spellbench.models.exp1;
 
 import mage.MageObject;
+import mage.abilities.Ability;
 import mage.constants.PhaseStep;
 import mage.game.Game;
 import mage.game.GameImpl;
@@ -11,6 +12,7 @@ import mage.players.Player;
 import spellbench.models.Exp1Compat;
 
 import java.lang.reflect.Field;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -20,8 +22,31 @@ public final class GameAccess {
     private GameAccess() { }
     public static final UUID STOP_CHOOSING = new UUID(0, "stop choosing flag".hashCode());
     private static final Map<Game, Game> anchors = new IdentityHashMap<>();
+    private static final Map<String, Integer> numberMaxima = new HashMap<>();
 
-    public static void reset() { anchors.clear(); }
+    public static void reset() { anchors.clear(); numberMaxima.clear(); }
+    private static String numberKey(UUID player, Ability source, int min, int index) {
+        return player + "/" + source.getSourceId() + "/" + min + "/" + index;
+    }
+    public static void numberBounds(UUID player, Ability source, int min, int max, int index) {
+        if (player == null || source == null || source.getSourceId() == null || index < 0
+                || min >= max || (long) max - min > 64) {
+            throw new IllegalArgumentException("offered numeric root envelope");
+        }
+        String key = numberKey(player, source, min, index);
+        Integer previous = numberMaxima.putIfAbsent(key, max);
+        if (previous != null && previous != max) throw new IllegalArgumentException("conflicting numeric replay bounds");
+    }
+    public static int numberMaximum(UUID player, Ability source, int min, int max, int index) {
+        if (source != null && source.getSourceId() != null) {
+            Integer offered = numberMaxima.get(numberKey(player, source, min, index));
+            if (offered != null) {
+                if (max < offered) throw new IllegalArgumentException("numeric replay no longer supports its offered range");
+                return offered;
+            }
+        }
+        return max;
+    }
     public static Player opponent(Game game, UUID player) { return Exp1Compat.opponent(game, player); }
     public static PlayerScript history(Player player) {
         return player instanceof ComputerPlayer ? ((ComputerPlayer) player).getPlayerHistory() : new PlayerScript();

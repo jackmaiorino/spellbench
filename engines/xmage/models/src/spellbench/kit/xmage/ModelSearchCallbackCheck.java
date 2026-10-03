@@ -28,11 +28,14 @@ public final class ModelSearchCallbackCheck {
         save("target", Paths.get(args[0]), out);
         save("binary", Paths.get(args[0]), out);
         save("library", Paths.get(args[0]), out);
+        save("numeric", Paths.get(args[0]), out);
+        save("named", Paths.get(args[0]), out);
     }
     private static void save(String family, Path output, PrintStream out) throws Exception {
-        boolean binary = !"target".equals(family), library = "library".equals(family);
-        String spell = binary ? "Campus Guide" : "Stab";
-        String land = binary ? "Forest" : "Swamp";
+        boolean binary = "binary".equals(family) || "library".equals(family), library = "library".equals(family);
+        boolean numeric = "numeric".equals(family), named = "named".equals(family);
+        String spell = named ? "Shifting Sky" : numeric ? "Fireball" : binary ? "Campus Guide" : "Stab";
+        String land = named ? "Island" : numeric ? "Mountain" : binary ? "Forest" : "Swamp";
         Slice.SeatSetup own = new Slice.SeatSetup().lib(land, 8);
         own.hand.addAll(Arrays.asList(spell, land));
         own.battlefield.addAll(Arrays.asList(land, land, land, land, land));
@@ -53,7 +56,7 @@ public final class ModelSearchCallbackCheck {
             position.answer(cast);
             List<Object> passes = new ArrayList<>();
             List<Object> earlier = new ArrayList<>();
-            String kind = library ? "select_object" : binary ? "choose_boolean" : "choose_target";
+            String kind = named ? "choose_color" : numeric ? "choose_number" : library ? "select_object" : binary ? "choose_boolean" : "choose_target";
             for (int steps = 0; steps < 16 && !position.over(); steps++) {
                 Map<String, Object> decision = position.decision();
                 if ("p0".equals(position.acting()) && kind.equals(Slice.Front_firstKind(decision))) {
@@ -86,7 +89,7 @@ public final class ModelSearchCallbackCheck {
                 }
                 int pass = Slice.candidateOf(decision, Json.map("kind", "pass"));
                 if (pass < 0) throw new IllegalStateException("fixture pass unavailable");
-                if (binary && "p0".equals(position.acting())) {
+                if ((binary || named) && "p0".equals(position.acting())) {
                     // The latest public priority preserves actual mana payment
                     // and the trigger already on the stack. Earlier mana replay
                     // can tap different copies of otherwise identical lands.

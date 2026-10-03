@@ -81,10 +81,12 @@ public final class ModelSearchMain {
         World world;
         MCTSNode2 chosen;
         Map<String, Object> replayProof = null;
+        ModelReplay.Result callback = null;
         boolean libraryFailToFindExcluded = false;
         Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
         if (!priority) {
             ModelReplay.Result replay = ModelReplay.run(record, evaluator, ((Number) count).intValue());
+            callback = replay;
             world = replay.world; active = replay.player; chosen = replay.chosen;
             libraryFailToFindExcluded = replay.libraryFailToFindExcluded;
             replayProof = Json.map("earlier", (long) replay.replayed, "priority_passes",
@@ -111,7 +113,7 @@ public final class ModelSearchMain {
         active = player[0];
         }
         ObsIndex index = new ObsIndex(obs);
-        Map<String, Object> semantic = semantic(decision, world, chosen, index, priority);
+        Map<String, Object> semantic = semantic(decision, world, chosen, index, priority, callback);
         Map<String, Object> offered = null;
         for (Object c : Json.arr(decision, "candidates")) {
             Map<String, Object> candidate = Json.obj(c);
@@ -126,7 +128,7 @@ public final class ModelSearchMain {
         MCTSNode2 tree = active.tree();
         Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
         for (MCTSNode child : active.initialRootChildren()) {
-            Map<String, Object> action = semantic(decision, world, child, index, priority);
+            Map<String, Object> action = semantic(decision, world, child, index, priority, callback);
             if (action == null || !branchKeys.add(Json.canonical(action))) {
                 throw new IllegalArgumentException("search root has an unmapped or aliased action");
             }
@@ -156,18 +158,26 @@ public final class ModelSearchMain {
                 "world_flags", world.flags, "replay", replayProof,
                 "policy_restrictions", libraryFailToFindExcluded ? java.util.Collections.singletonList("library_fail_to_find_before_minimum")
                         : java.util.Collections.emptyList(),
-                "variant", "Exp1 original PUCT and dialog scripts; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; fixed visits; no noise",
-                "scope", "priority and saved-anchor target/binary roots; complete history, other callbacks, full games and ratings unfinished");
+                "variant", "Exp1 original PUCT and dialog scripts; numeric roots use the legal offered range; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; fixed visits; no noise",
+                "scope", "priority and saved-anchor target/binary/numeric/named roots; complete history, other callbacks, full games and ratings unfinished");
     }
     private static Map<String, Object> semantic(Map<String, Object> decision, World world, MCTSNode child,
-                                                ObsIndex index, boolean priority) {
+                                                ObsIndex index, boolean priority, ModelReplay.Result callback) {
         if (priority) return Mapping.prioritySemantic(world, world.game, child.getPriorityAction(), index);
+        if (callback.namedActions != null) {
+            Map<String, Object> action = callback.namedActions.get(child.getChoiceAction());
+            if (action == null) throw new IllegalArgumentException("unmapped original named branch");
+            return action;
+        }
         Map<String, Object> match = null;
         for (Object item : Json.arr(decision, "candidates")) {
             Map<String, Object> sem = Json.obj(Json.obj(item), "semantic");
             String kind = Json.str(sem, "kind");
             boolean found = false;
-            if (child.getTargetAction() != null) {
+            if (callback.numericMinimum != null) {
+                found = "choose_number".equals(kind)
+                        && Json.num(sem, "value", Long.MIN_VALUE) == (long) child.getAmountAction() + callback.numericMinimum;
+            } else if (child.getTargetAction() != null) {
                 boolean finish = "finish_target_selection".equals(kind) || "finish_selection".equals(kind);
                 found = finish ? GameAccess.STOP_CHOOSING.equals(child.getTargetAction())
                         : child.getTargetAction().equals(Dialogs.uuidOf(world, sem));

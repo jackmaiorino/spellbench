@@ -151,12 +151,21 @@ def test_failed_search_or_inference_closes_both_owned_processes(failure):
 
 
 @pytest.mark.parametrize("confirm_replay", [True, False, 1])
-def test_callback_search_requires_a_complete_matching_public_replay(confirm_replay):
+@pytest.mark.parametrize("family", ["binary", "numeric", "named"])
+def test_callback_search_requires_a_complete_matching_public_replay(confirm_replay, family):
     record, result = fixture()
     anchor = copy.deepcopy(record["decision"])
     decision = {"context": {"kind": "choose_boolean"}, "candidates": [
         {"candidate_id": 11, "semantic": {"kind": "choose_boolean", "value": False}},
         {"candidate_id": 3, "semantic": {"kind": "choose_boolean", "value": True}}]}
+    if family == "numeric":
+        decision["context"] = {"kind": "choose_number:amount"}
+        for value, candidate in enumerate(decision["candidates"], 1):
+            candidate["semantic"] = {"kind": "choose_number", "minimum": 1, "maximum": 2, "value": value}
+    elif family == "named":
+        decision["context"] = {"kind": "choose_color"}
+        for color, candidate in zip(("red", "blue"), decision["candidates"]):
+            candidate["semantic"] = {"kind": "choose_color", "color": color}
     record.update(decision=decision, anchor={"decision": anchor, "selection": result["selection"]},
                   replay={"priority_passes": ["p1", "p0"], "earlier": []})
     result.update(decision_sha256=decision_hash(decision),
@@ -170,7 +179,7 @@ def test_callback_search_requires_a_complete_matching_public_replay(confirm_repl
     session = search.SearchSession(peer, model)
     if confirm_replay is True:
         chosen = session.choose(record, visits=2, timeout_s=3)
-        assert chosen["selection"]["semantic_echo"]["value"] is True
+        assert chosen["selection"]["semantic_echo"] == decision["candidates"][1]["semantic"]
         assert peer.writes[0]["anchor"] == record["anchor"]
         assert peer.writes[0]["replay"] == record["replay"]
         session.close()

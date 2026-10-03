@@ -4,6 +4,10 @@ Snapshot: 2026-10-03 UTC. This is the delivery inventory, not a leaderboard.
 The intended outcome remains reproducible public ratings for every distinct
 playable family. No new bot rating has been produced by this preparation slice.
 The machine-readable status and alias relationships are in [coverage.json](coverage.json).
+The prepared [native benchmark](../../benchmarks/fdn-native-v1/benchmark.json)
+has nine distinct variants and two anchors, with a full round robin across the
+sixteen FDN decks. Its 600-second decision and engine-step clocks apply to all
+entries. It has no rated run. The historical `fdn-mirror-v0` definition is unchanged.
 
 | Family | Available inputs | Wiring | Qualification, rating and publication |
 |---|---|---|---|
@@ -43,6 +47,11 @@ failures, deadline-dependent replays and a temporary-directory leak. Version
 0.3.0 has targeted passing rename and shutdown checks; see
 [the repair evidence](kit/evidence/native-repairs-20261003.md). Deadline replay,
 new-build qualification and rated evaluation are still pending.
+The new runtime completed 24 serial games, all natural and without validator
+violations. A missing report module stopped that attempt before the parallel
+comparison. The rows and restored report are retained, and a repaired runtime
+checks report dependencies before preflight and checkpoints completed rung
+timings. This is functional evidence, not a throughput or rating verdict.
 
 ## Learned inputs and associations
 

@@ -29,9 +29,12 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.text.Normalizer;
 import java.util.UUID;
 
-/** Reaches a target or yes/no callback by replaying a saved permitted priority. */
+/** Reaches original search callbacks by replaying a saved permitted priority. */
 final class ModelReplay {
     private ModelReplay() { }
     // The private pipe handles one request at a time. Game state restoration
@@ -61,6 +64,9 @@ final class ModelReplay {
         int replayed;
         int binaryCallbacks;
         boolean libraryFailToFindExcluded;
+        Integer numericMinimum;
+        boolean numericRangeRestricted;
+        Map<String, Map<String, Object>> namedActions;
 
         void compare(Game game) {
             compare(game, decision);
@@ -93,6 +99,9 @@ final class ModelReplay {
             Map<String, Object> selected = Json.obj(entry, "selection");
             compare(game, past);
             return selectedSemantic(past, selected);
+        }
+        Map<String, Object> callbackDecision() {
+            return replayed < earlier.size() ? Json.obj(Json.obj(earlier.get(replayed)), "decision") : decision;
         }
     }
     static final class ReplayPlayer extends SearchPlayer {
@@ -175,12 +184,70 @@ final class ModelReplay {
             throw new Stop();
         }
         @Override public boolean choose(Outcome outcome, Choice choice, Game game) {
-            rejectReplay(game, "named-choice");
-            return super.choose(outcome, choice, game);
+            try { return replayChoice(outcome, choice, game); }
+            catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
+        }
+        private boolean replayChoice(Outcome outcome, Choice choice, Game game) {
+            Result replay = context(game);
+            if (replay == null) return super.choose(outcome, choice, game);
+            if (!getId().equals(replay.world.player(replay.world.viewer))) {
+                throw new IllegalArgumentException("unrecorded opponent named callback");
+            }
+            if ("Choose creature type".equals(choice.getMessage()) || "Choose a creature type".equals(choice.getMessage())) {
+                throw new IllegalArgumentException("original creature-type heuristic needs a separate forced-choice bridge");
+            }
+            Map<String, Map<String, Object>> actions = bindChoices(choice, replay.callbackDecision());
+            Map<String, Object> past = replay.earlierPick(game);
+            if (past != null) {
+                String key = null;
+                for (Map.Entry<String, Map<String, Object>> entry : actions.entrySet()) {
+                    if (Json.canonical(entry.getValue()).equals(Json.canonical(past))) key = entry.getKey();
+                }
+                if (key == null) throw new IllegalArgumentException("recorded named choice is not legal here");
+                if (!choice.getKeyChoices().isEmpty()) choice.setChoiceByKey(key); else choice.setChoice(key);
+                getPlayerHistory().choiceSequence.add(key);
+                replay.replayed++;
+                return true;
+            }
+            replay.compare(game);
+            replay.player = this;
+            replay.namedActions = actions;
+            configure(replay.evaluator, replay.visits);
+            replay.chosen = searchChoice(game, choice);
+            throw new Stop();
         }
         @Override protected int makeChoiceAmount(int min, int max, Game game, Ability source, boolean mana) {
-            rejectReplay(game, "numeric");
-            return super.makeChoiceAmount(min, max, game, source, mana);
+            try { return replayAmount(min, max, game, source, mana); }
+            catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
+        }
+        private int replayAmount(int min, int max, Game game, Ability source, boolean mana) {
+            Result replay = context(game);
+            if (replay == null) return super.makeChoiceAmount(min, max, game, source, mana);
+            if (!getId().equals(replay.world.player(replay.world.viewer))) {
+                throw new IllegalArgumentException("unrecorded opponent numeric callback");
+            }
+            Map<String, Object> callbackDecision = replay.callbackDecision();
+            List<Object> candidates = Json.arr(callbackDecision, "candidates");
+            if (candidates.isEmpty()) throw new IllegalArgumentException("numeric root has no offered range");
+            int offeredMax = Math.toIntExact(Json.num(Json.obj(Json.obj(candidates.get(0)), "semantic"), "maximum", Long.MIN_VALUE));
+            if (offeredMax > max) throw new IllegalArgumentException("numeric offered range exceeds the actual callback");
+            bindNumbers(callbackDecision, min, offeredMax);
+            GameAccess.numberBounds(getId(), source, min, offeredMax, getPlayerHistory().numSequence.size());
+            if (offeredMax != max) replay.world.flags.add("approximate:numeric_root_uses_offered_range");
+            Map<String, Object> past = replay.earlierPick(game);
+            if (past != null) {
+                int value = Math.toIntExact((Long) past.get("value"));
+                getPlayerHistory().numSequence.add(value - min);
+                replay.replayed++;
+                return value;
+            }
+            replay.compare(game);
+            replay.player = this;
+            replay.numericMinimum = min;
+            replay.numericRangeRestricted = offeredMax != max;
+            configure(replay.evaluator, replay.visits);
+            replay.chosen = searchAmount(game, min, offeredMax, source);
+            throw new Stop();
         }
         @Override public Mode chooseMode(Modes modes, Ability source, Game game) {
             rejectReplay(game, "mode");
@@ -216,6 +283,58 @@ final class ModelReplay {
                 throw new Failure(new IllegalArgumentException("unrecorded " + callback + " callback"));
             }
         }
+    }
+    private static void bindNumbers(Map<String, Object> decision, int min, int max) {
+        if (min >= max || (long) max - min > 64) {
+            throw new IllegalArgumentException("numeric callback exceeds the original non-forced search envelope");
+        }
+        List<Object> candidates = Json.arr(decision, "candidates");
+        if (candidates.size() != (long) max - min + 1) throw new IllegalArgumentException("numeric candidate count differs");
+        java.util.Set<Long> values = new java.util.HashSet<>();
+        for (Object candidate : candidates) {
+            Map<String, Object> semantic = Json.obj(Json.obj(candidate), "semantic");
+            Object value = semantic.get("value");
+            if (!"choose_number".equals(Json.str(semantic, "kind")) || !(value instanceof Long)
+                    || Json.num(semantic, "minimum", Long.MIN_VALUE) != min
+                    || Json.num(semantic, "maximum", Long.MIN_VALUE) != max
+                    || (Long) value < min || (Long) value > max || !values.add((Long) value)) {
+                throw new IllegalArgumentException("numeric candidate is unbound or aliased");
+            }
+        }
+    }
+    private static Map<String, Map<String, Object>> bindChoices(Choice choice, Map<String, Object> decision) {
+        Map<String, String> options = new LinkedHashMap<>(choice.getKeyChoices());
+        if (options.isEmpty()) for (String option : choice.getChoices()) options.put(option, option);
+        List<Object> candidates = Json.arr(decision, "candidates");
+        if (options.size() < 2 || options.size() != candidates.size()) {
+            throw new IllegalArgumentException("named callback options differ from the offered root");
+        }
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        java.util.Set<String> used = new java.util.HashSet<>();
+        for (Map.Entry<String, String> option : options.entrySet()) {
+            Map<String, Object> matched = null;
+            for (Object candidate : candidates) {
+                Map<String, Object> semantic = Json.obj(Json.obj(candidate), "semantic");
+                String kind = Json.str(semantic, "kind"), raw = option.getValue();
+                boolean same = "choose_option".equals(kind) ? raw.equals(Json.str(semantic, "option_label"))
+                        : "choose_color".equals(kind) ? raw.toLowerCase(Locale.ROOT).equals(Json.str(semantic, "color"))
+                        : "choose_name".equals(kind) && nameValue(Json.str(semantic, "purpose"), raw).equals(Json.str(semantic, "value"));
+                if (same) {
+                    if (matched != null) throw new IllegalArgumentException("aliased named callback label");
+                    matched = semantic;
+                }
+            }
+            if (matched == null || !used.add(Json.canonical(matched))) {
+                throw new IllegalArgumentException("named callback option is unbound or aliased");
+            }
+            result.put(option.getKey(), matched);
+        }
+        return result;
+    }
+    private static String nameValue(String purpose, String raw) {
+        if ("card_name".equals(purpose)) return Normalizer.normalize(raw, Normalizer.Form.NFC);
+        return Normalizer.normalize(raw, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT).replace("'", "").replace("\u2019", "").replace(' ', '_').replace('-', '_');
     }
     static Object booleanValue(Map<String, Object> semantic) {
         String kind = Json.str(semantic, "kind");

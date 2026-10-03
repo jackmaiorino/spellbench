@@ -2,7 +2,8 @@
 
 The caller starts the reviewed Java build in its own working directory and
 supplies an InferenceSession with a pinned checkpoint and confined container.
-This bridge supports priority and saved-anchor target/binary roots. It is not a rated agent.
+This bridge supports priority and saved-anchor target/binary/numeric/named roots.
+It is not a rated agent.
 """
 from __future__ import annotations
 
@@ -25,7 +26,11 @@ def root_family(decision: dict) -> str:
         return "target"
     if kinds and kinds <= {"choose_boolean", "optional_cost", "optional_cast"}:
         return "binary"
-    raise ValueError("this original search bridge supports priority, target and binary roots")
+    if kinds == {"choose_number"}:
+        return "numeric"
+    if kinds and kinds <= {"choose_option", "choose_color", "choose_name"}:
+        return "named"
+    raise ValueError("this original search bridge supports priority, target, binary, numeric and named roots")
 
 
 def validate_result(decision: dict, result: dict, visits: int, calls: int) -> None:

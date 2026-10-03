@@ -140,6 +140,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         if name == "MCTSPlayer":
             replace("import mage.util.RateLimitedLogger;", "")
             replace("RateLimitedLogger.warn(", "logger.warn(")
+            replace("        if(min >= max) {//one or fewer choices",
+                    "        max = GameAccess.numberMaximum(playerId, source, min, max, getPlayerHistory().numSequence.size());\n"
+                    "        if(min >= max) {//one or fewer choices")
         data = ("// Pinned Exp1 source, XMage MIT. Explicit edits are in STAGE.json.\n" + text).encode()
         (output / (name + ".java")).write_bytes(data)
         hashes[name + ".java"] = hashlib.sha256(data).hexdigest()
