@@ -32,9 +32,10 @@ import (
 )
 
 type options struct {
-	games, resample, workers int
-	audit                    bool
-	policyKeys               []string // nil: every integrated strategy
+	games, resample, workers  int
+	audit                     bool
+	policyKeys                []string // nil: every integrated strategy
+	registryPath, registrySHA string
 }
 
 type Totals struct {
@@ -275,7 +276,7 @@ type job struct {
 }
 
 func qualify(o options) (Report, error) {
-	reg, err := gorgepin.OpenRegistry(os.Getenv("GORGE_CARDS"))
+	reg, err := gorgepin.OpenInput(os.Getenv("GORGE_CARDS"), o.registryPath, o.registrySHA)
 	if err != nil {
 		return Report{}, err
 	}
@@ -458,6 +459,8 @@ func main() {
 	flag.IntVar(&o.workers, "workers", max(1, runtime.NumCPU()/2), "concurrent games")
 	flag.BoolVar(&o.audit, "audit", true, "leak scan, consistency, parity and resample checks on the first run of each game")
 	policies := flag.String("policies", "all", "all integrated policies, or an explicit comma-separated subset recorded in the report")
+	flag.StringVar(&o.registryPath, "registry", "", "frozen registry file")
+	flag.StringVar(&o.registrySHA, "registry-sha256", "", "expected frozen registry SHA-256")
 	outPath := flag.String("out", "gorgequal-report.json", "report path")
 	flag.Parse()
 	if *policies != "all" {

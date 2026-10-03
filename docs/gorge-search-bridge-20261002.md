@@ -53,9 +53,16 @@ reasons per deck and policy. A selected search policy must have a covered
 decision on every deck to pass. Native search delegation is recorded separately
 from the existing under-1% adapter mapping fallback gate.
 
+The frozen-registry launch path now names actual runtime bytes and a required
+SHA-256. The freeze command verifies card scripts against the source digest,
+records token script bytes and recompiles independently of development caches.
+Fixture tests reject altered registry bytes and forged source lock labels;
+they preserve loaded card and token definitions. No production registry has
+been frozen for a rated run yet.
+
 Remaining work: audit complete histories on all five decks, preserve legal
-mapping at shipped budgets under reference-host clocks, bind the actual corpus
-cache, qualify isolation and guarded completed-work throughput, and freeze the
+mapping at shipped budgets under reference-host clocks, prepare the frozen
+registry, qualify isolation and guarded completed-work throughput, and freeze the
 complete roster before evaluation. `search-redeal` and `search-mana-redeal`
 remain explicitly refused: their native fallback clones a real engine, and an
 equivalent public reconstruction that also handles zero accepted proposals is

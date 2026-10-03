@@ -84,6 +84,8 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !slices.Contains(hello.Formats, b.Format) ||
+		!slices.Contains(b.Engine.Command, "-registry") || !slices.Contains(b.Engine.Command, "-registry-sha256") ||
+		slices.Contains(b.Engine.Command, "-corpus") ||
 		!slices.Contains(b.Engine.Command, "-auto-pay") || hello.EngineDefaults["mana_payment"] == nil || *hello.EngineDefaults["mana_payment"] != "engine_autopay" ||
 		!slices.Contains(hello.RulesSupported["mulligan"], "london") ||
 		!slices.Equal(hello.RulesSupported["starting_player"], []string{"host_assigned"}) {

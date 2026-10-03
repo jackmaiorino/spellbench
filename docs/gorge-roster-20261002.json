@@ -245,7 +245,9 @@
         "bounded search and search-mana host replay with identical digests at deliberate truncation",
         "policy identity, payment mapping and effect equivalence, hidden payment rejection, agent failure handling and search coverage rejection",
         "native sampler full-prefix replay and explicit-history seed tests with overlay installed",
-        "Go vet for both adapter and strategies modules"
+        "Go vet for both adapter and strategies modules",
+        "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
+        "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
       "full_adapter_suite": "pending hosted CI",
       "five_deck_search_qualification": "not run"
@@ -253,6 +255,7 @@
   ],
   "publication": null,
   "engine_configuration": {
+    "rated_registry_input": "explicit registry file and expected SHA-256; production freeze is pending",
     "auto_pay": true,
     "wire_mana_payment": "engine_autopay",
     "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check."

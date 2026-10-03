@@ -14,11 +14,13 @@ import (
 
 func main() {
 	corpus := flag.String("corpus", os.Getenv("GORGE_CARDS"), "compiled Forge corpus directory (never shipped)")
+	registry := flag.String("registry", "", "frozen registry file (required for reproducible rated input binding)")
+	registrySHA := flag.String("registry-sha256", "", "expected SHA-256 of the frozen registry")
 	rev := flag.String("source-revision", "", "adapter source revision reported in hello_ok")
 	autoPay := flag.Bool("auto-pay", false, "offer native payment-plan casts and declare engine_autopay")
 	search := flag.Bool("search", false, "offer actor-redacted native search history (requires a published identity audit)")
 	flag.Parse()
-	reg, err := gorgepin.OpenRegistry(*corpus)
+	reg, err := gorgepin.OpenInput(*corpus, *registry, *registrySHA)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "spellbench-gorge-env:", err)
 		os.Exit(2)

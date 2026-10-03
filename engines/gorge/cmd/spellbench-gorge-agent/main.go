@@ -15,6 +15,8 @@ import (
 func main() {
 	policy := flag.String("policy", "bot", "bot, bot-auto-pay, lethal-pressure, lethal-pressure-auto-pay, ar8, blocks, explore, legacy, search, search-mana, or cast-profile (default-bot alias)")
 	corpus := flag.String("corpus", os.Getenv("GORGE_CARDS"), "pinned corpus directory (required by search)")
+	registry := flag.String("registry", "", "frozen registry file for search")
+	registrySHA := flag.String("registry-sha256", "", "expected SHA-256 of the frozen registry")
 	flag.Parse()
 	s, err := agent.New(*policy)
 	if err != nil {
@@ -22,7 +24,7 @@ func main() {
 		os.Exit(2)
 	}
 	if s.PolicyKey() == "search" || s.PolicyKey() == "search-mana" {
-		reg, err := gorgepin.OpenRegistry(*corpus)
+		reg, err := gorgepin.OpenInput(*corpus, *registry, *registrySHA)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "spellbench-gorge-agent:", err)
 			os.Exit(2)

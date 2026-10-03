@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-gorge",
-  "title": "Pauper \u00c2\u00b7 gorge",
+  "title": "Pauper \u00b7 gorge",
   "summary": "Five Pauper decks on the gorge rules engine; every matchup plays each deck in both seats.",
   "format": "pauper-bo1",
   "pairing": "rotating_pool",
@@ -9,8 +9,10 @@
     "name": "gorge",
     "command": [
       "${GORGE_SPELLBENCH_ENV}",
-      "-corpus",
-      "${GORGE_CARDS}",
+      "-registry",
+      "${GORGE_REGISTRY}",
+      "-registry-sha256",
+      "${GORGE_REGISTRY_SHA256}",
       "-auto-pay"
     ]
   },
