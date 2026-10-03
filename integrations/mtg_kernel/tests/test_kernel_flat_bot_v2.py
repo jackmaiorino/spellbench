@@ -2,15 +2,18 @@
 from __future__ import annotations
 
 import copy
+import base64
 import hashlib
 import json
 import sys
+import zlib
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import kernel_flat_bot as integration
+from kernel_engine_v2 import pack_proposal_tensor, intern_proposal_vectors
 from spellbench.bot import BotSession, Decision, GameStart
 from spellbench.builtins.uniform import SplitMix64
 
@@ -38,6 +41,7 @@ class RecordedScorer:
             "request_sha256": hashlib.sha256(wire).hexdigest(), "selected_row": row,
             "selected_candidate_id": request["row_candidate_ids"][row],
             "logits_bits": [0, 0], "value_bits": 0,
+            **({"mapping": integration.PROPOSAL_MAPPING} if request["schema"] == integration.PROPOSAL_SCHEMA else {}),
         }
 
     def close(self):
@@ -89,6 +93,96 @@ def test_v2_preserves_tensor_row_map_and_legacy_sample_stream():
         assert request["tensor"] == incoming.extensions[integration.EXTENSION]["tensor"]
         assert request["row_candidate_ids"] == [2, 0]
         assert request["step"] == step
+    bot.close()
+
+
+def test_completion_trajectories_use_the_declared_mapping_and_one_sampler_draw():
+    scorer = RecordedScorer()
+    bot = make_bot(scorer)
+    bot.on_game_start(GameStart.from_request(start_payload()))
+    incoming = decision(schema=integration.PROPOSAL_SCHEMA, mapping=integration.PROPOSAL_MAPPING,
+        proposals=[[{"tensor": {key: [] for key in integration.TENSOR_KEYS}, "selected_row": 0}],
+                   [{"tensor": {key: [] for key in integration.TENSOR_KEYS}, "selected_row": 1}]])
+    incoming.extensions[integration.EXTENSION].pop("tensor")
+    rng = SplitMix64(integration.seat_stream_seed(11, "g-test", "p0"))
+    seed = rng.next()
+    assert bot.choose(incoming) == [2, 0][seed % 2]
+    request = scorer.requests[-1]
+    assert request["schema"] == integration.PROPOSAL_SCHEMA
+    assert request["sample_seed"] == seed
+    assert "tensor" not in request
+    assert request["proposals"] == incoming.extensions[integration.EXTENSION]["proposals"]
+    assert bot.choose(decision(1)) == [2, 0][rng.next() % 2]
+    bot.close()
+
+
+def test_completion_transport_compresses_losslessly_and_preserves_encoding_identity():
+    tensor = {key: [0] * 128 + [0x80000000, 0x7FC00001, 0xFFFFFFFF] for key in integration.TENSOR_KEYS}
+    packed = pack_proposal_tensor(tensor)
+    decoded = {key: [word for word, count in value["rle"] for _ in range(count)]
+               if isinstance(value, dict) else value for key, value in packed.items()}
+    assert decoded == tensor
+    assert len(integration._dumps(packed)) < len(integration._dumps(tensor))
+    scorer = RecordedScorer()
+    bot = make_bot(scorer)
+    bot.on_game_start(GameStart.from_request(start_payload()))
+    incoming = decision(schema=integration.PROPOSAL_SCHEMA, mapping=integration.PROPOSAL_MAPPING,
+        tensor_encoding=integration.PROPOSAL_ENCODING,
+        proposals=[[{"tensor": packed, "selected_row": 0}], [{"tensor": packed, "selected_row": 1}]])
+    incoming.extensions[integration.EXTENSION].pop("tensor")
+    assert bot.choose(incoming) in (0, 2)
+    assert scorer.requests[-1]["tensor_encoding"] == integration.PROPOSAL_ENCODING
+    assert scorer.requests[-1]["proposals"] == incoming.extensions[integration.EXTENSION]["proposals"]
+    incoming.extensions[integration.EXTENSION]["tensor_encoding"] = "unknown"
+    with pytest.raises(integration.BotError, match="tensor encoding"):
+        bot.choose(incoming)
+    bot.close()
+
+
+def test_compressed_completion_payload_is_forwarded_and_dual_representation_is_refused():
+    scorer = RecordedScorer()
+    bot = make_bot(scorer)
+    bot.on_game_start(GameStart.from_request(start_payload()))
+    steps = [[{"tensor": {key: [] for key in integration.TENSOR_KEYS}, "selected_row": index}] for index in (0, 1)]
+    encoded = base64.b64encode(zlib.compress(integration._dumps(steps).encode(), level=1)).decode("ascii")
+    incoming = decision(schema=integration.PROPOSAL_SCHEMA, mapping=integration.PROPOSAL_MAPPING,
+        tensor_encoding=integration.PROPOSAL_ENCODING, proposals_zlib=encoded)
+    incoming.extensions[integration.EXTENSION].pop("tensor")
+    assert bot.choose(incoming) in (0, 2)
+    assert scorer.requests[-1]["proposals_zlib"] == encoded
+    assert "proposals" not in scorer.requests[-1]
+    assert json.loads(zlib.decompress(base64.b64decode(encoded))) == steps
+    incoming.extensions[integration.EXTENSION]["proposals"] = []
+    with pytest.raises(integration.BotError, match="compressed completion"):
+        bot.choose(incoming)
+    bot.close()
+
+
+def test_completion_vector_table_roundtrips_repeated_bits_and_signed_metadata():
+    tensor = {key: [0] * 128 + [0x80000000, 0xFFFFFFFF] for key in integration.TENSOR_KEYS}
+    tensor["object_card_ids"] = [-1, -(1 << 53) + 1, 17]
+    packed = pack_proposal_tensor(tensor)
+    proposals = [[{"tensor": packed, "selected_row": row}] for row in (0, 1, 2)]
+    table = intern_proposal_vectors(proposals)
+    restored = [[{"tensor": {key: table["vectors"][ref["vector"]] for key, ref in step["tensor"].items()},
+                  "selected_row": step["selected_row"]} for step in steps] for steps in table["proposals"]]
+    assert restored == proposals
+    assert len(table["vectors"]) == 2
+    assert len(integration._dumps(table)) < len(integration._dumps(proposals))
+    scorer = RecordedScorer()
+    bot = make_bot(scorer)
+    bot.on_game_start(GameStart.from_request(start_payload()))
+    encoded = base64.b64encode(zlib.compress(integration._dumps(table).encode())).decode("ascii")
+    incoming = decision(schema=integration.PROPOSAL_SCHEMA, mapping=integration.PROPOSAL_MAPPING,
+        tensor_encoding=integration.PROPOSAL_TABLE_ENCODING, proposals_zlib=encoded)
+    incoming.extensions[integration.EXTENSION].pop("tensor")
+    bot.choose(incoming)
+    assert scorer.requests[-1]["tensor_encoding"] == integration.PROPOSAL_TABLE_ENCODING
+    assert scorer.requests[-1]["proposals_zlib"] == encoded
+    incoming.extensions[integration.EXTENSION].pop("proposals_zlib")
+    incoming.extensions[integration.EXTENSION]["proposals"] = proposals
+    with pytest.raises(integration.BotError, match="requires a compressed"):
+        bot.choose(incoming)
     bot.close()
 
 

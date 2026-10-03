@@ -28,6 +28,10 @@ from spellbench.builtins.uniform import SplitMix64  # noqa: E402
 
 EXTENSION = "x_kernel_flat_v4"
 EXTENSION_SCHEMA = "mtg-kernel-spellbench-flat-v4/v1"
+PROPOSAL_SCHEMA = "mtg-kernel-spellbench-completion-proposals/v1"
+PROPOSAL_MAPPING = "deterministic-completion-logprob/v1"
+PROPOSAL_ENCODING = "integer-rle/v1"
+PROPOSAL_TABLE_ENCODING = "integer-rle-table/v1"
 REQUEST_SCHEMA = "mtg-kernel-spellbench-scorer-request/v1"
 CHOICE_SCHEMA = "mtg-kernel-spellbench-scorer-choice/v1"
 READY_SCHEMA = "mtg-kernel-spellbench-scorer-ready/v1"
@@ -162,16 +166,28 @@ class KernelFlatBot:
         assert self._rng is not None
         sample_seed = self._rng.next() if self._selection == SAMPLED else None
         request = {
-            "schema": REQUEST_SCHEMA, "request_id": f"{decision.game_id}:{decision.seat_step}",
+            "schema": PROPOSAL_SCHEMA if extension["schema"] == PROPOSAL_SCHEMA else REQUEST_SCHEMA,
+            "request_id": f"{decision.game_id}:{decision.seat_step}",
             "game_id": decision.game_id, "seat": decision.acting_seat, "step": decision.seat_step,
             "feature_contract_digest": FEATURE_CONTRACT_DIGEST, "feature_encoding_digest": FEATURE_ENCODING_DIGEST,
-            "row_candidate_ids": rows, "sample_seed": sample_seed, "tensor": extension["tensor"],
+            "row_candidate_ids": rows, "sample_seed": sample_seed,
         }
+        if extension["schema"] == PROPOSAL_SCHEMA:
+            if "proposals_zlib" in extension:
+                request["proposals_zlib"] = extension["proposals_zlib"]
+            else:
+                request["proposals"] = extension["proposals"]
+            if "tensor_encoding" in extension:
+                request["tensor_encoding"] = extension["tensor_encoding"]
+        else:
+            request["tensor"] = extension["tensor"]
         line, choice = self._scorer.score(request)
         if choice.get("schema") != CHOICE_SCHEMA or choice.get("request_id") != request["request_id"]:
             raise self._fail(f"scorer answered {choice.get('schema')!r} code {choice.get('code')!r}")
         if choice.get("request_sha256") != hashlib.sha256(line).hexdigest():
             raise self._fail("scorer hashed a different request")
+        if request["schema"] == PROPOSAL_SCHEMA and choice.get("mapping") != PROPOSAL_MAPPING:
+            raise self._fail("scorer used another neutral completion mapping")
         row = choice.get("selected_row")
         if type(row) is not int or not 0 <= row < len(rows) or choice.get("selected_candidate_id") != rows[row]:
             raise self._fail("scorer choice does not match the row map")
@@ -196,7 +212,7 @@ class KernelFlatBot:
 
     def _validated_rows(self, decision: Decision, extension: dict[str, Any]) -> list[int]:
         if (
-            extension.get("schema") != EXTENSION_SCHEMA
+            extension.get("schema") not in (EXTENSION_SCHEMA, PROPOSAL_SCHEMA)
             or extension.get("feature_contract_digest") != FEATURE_CONTRACT_DIGEST
             or extension.get("feature_encoding_digest") != FEATURE_ENCODING_DIGEST
             or extension.get("card_db_hash") != self._card_db
@@ -212,8 +228,32 @@ class KernelFlatBot:
             or any(type(r) is not int or not 0 <= r < len(decision.candidates) for r in rows)
         ):
             raise self._fail("row_candidate_ids is not an injective map into the candidates")
-        tensor = extension.get("tensor")
-        if not isinstance(tensor, dict) or set(tensor) != TENSOR_KEYS:
+        if extension["schema"] == PROPOSAL_SCHEMA:
+            if extension.get("mapping") != PROPOSAL_MAPPING:
+                raise self._fail("unknown neutral completion mapping")
+            if extension.get("tensor_encoding") not in (None, PROPOSAL_ENCODING, PROPOSAL_TABLE_ENCODING):
+                raise self._fail("unknown completion tensor encoding")
+            if "proposals_zlib" in extension:
+                if ("proposals" in extension or not isinstance(extension["proposals_zlib"], str)
+                    or not extension["proposals_zlib"]):
+                    raise self._fail("invalid compressed completion proposals")
+                return rows
+            if extension.get("tensor_encoding") == PROPOSAL_TABLE_ENCODING:
+                raise self._fail("vector-table completion requires a compressed payload")
+            proposals = extension.get("proposals")
+            if not isinstance(proposals, list) or len(proposals) != len(rows):
+                raise self._fail("completion proposals differ from the candidate rows")
+            tensors = []
+            for steps in proposals:
+                if not isinstance(steps, list) or not steps or len(steps) > 4096:
+                    raise self._fail("invalid completion trajectory")
+                for step in steps:
+                    if not isinstance(step, dict) or set(step) != {"tensor", "selected_row"} or type(step["selected_row"]) is not int or step["selected_row"] < 0:
+                        raise self._fail("invalid completion row")
+                    tensors.append(step["tensor"])
+        else:
+            tensors = [extension.get("tensor")]
+        if any(not isinstance(tensor, dict) or set(tensor) != TENSOR_KEYS for tensor in tensors):
             raise self._fail("tensor fields differ from the V4 wire")
         return rows
 
