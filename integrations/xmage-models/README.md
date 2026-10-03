@@ -134,6 +134,9 @@ priority decisions or a private NDJSON pipe, and returns base-state features
 bound to the decision hash. It checks the staged method and pinned embedding
 cache before reporting readiness. Candidate features and callbacks remain
 unimplemented. The new Java classes await compilation and a live check.
+The prepared `JackEncoderCheck` uses real active and nonactive priority
+fixtures to check hand perspective, ownership, varied hidden samples and a
+visible life change. It has not run yet.
 
 Embedding lookup uses one explicit hash-pinned cache with 32 finite numbers
 per card. It performs no network lookup or file writes and refuses missing
