@@ -5,6 +5,8 @@ on:
     paths:
       - 'engines/xmage/**'
       - 'python/tools/xmage_verified_entry.py'
+      - 'python/tools/xmage_*sources.py'
+      - 'python/tools/xmage_model_*.py'
       - 'python/tests/test_xmage_x5_guards.py'
       - '.github/workflows/xmage-build.yml'
   workflow_dispatch:
@@ -54,11 +56,20 @@ jobs:
         run: |
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
+      - name: Compile the original model search and mixed bridge
+        shell: bash
+        run: |
+          python python/tools/xmage_model_ci_inputs.py --root "$RUNNER_TEMP/model-inputs"
+          python python/tools/xmage_model_build.py --compile-only \
+            --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
+            --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-build"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/xmage-build/BUILD-MANIFEST.json
             ${{ runner.temp }}/xmage-build/lib/
+            ${{ runner.temp }}/model-inputs/CI-INPUTS.json
+            ${{ runner.temp }}/model-build/BUILD.json
           retention-days: 30
           if-no-files-found: error

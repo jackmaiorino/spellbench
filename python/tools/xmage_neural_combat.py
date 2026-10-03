@@ -1,13 +1,12 @@
 """Bind original Exp1 combat plans and their neural work to permitted decisions."""
 from __future__ import annotations
 
-import json
 import math
-import time
 import copy
 
 from spellbench import wire
-from xmage_neural_decisions import decision_hash, load_response
+from xmage_neural_decisions import decision_hash
+from xmage_neural_rpc import NeuralSession
 
 READY = {"ready": True, "search": "draftzero-exp1-original-combat"}
 
@@ -276,75 +275,31 @@ class CombatPlan:
             raise
 
 
-class CombatSession:
+def combat_request(record: dict, visits: int) -> dict:
+    if type(visits) is not int or not 2 <= visits <= 1000:
+        raise ValueError("combat visits must be 2..1000")
+    decision = record.get("decision", {})
+    combat_kind(decision)
+    ids = [candidate.get("candidate_id") for candidate in decision["candidates"]]
+    if any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids) or len(set(ids)) != len(ids):
+        raise ValueError("combat candidate ids are invalid or aliased")
+    request = {key: record[key] for key in ("game_start", "decision", "world_seed", "id_seed")}
+    return {**request, "visits": visits}
+
+
+def combat_result(record: dict, result: dict, visits: int, calls: int) -> dict:
+    decision = record["decision"]
+    validate_result(decision, result, visits, calls)
+    return {**result, "selection": select_candidate(decision, result)}
+
+
+class CombatSession(NeuralSession):
     def __init__(self, peer, model):
-        self.peer, self.model = peer, model
-        self.sequence = 0
-        self.closed = self.failed = False
-        try:
-            if load_response(peer.read_line()) != READY:
-                raise ValueError("combat readiness differs from the original Exp1 bridge")
-        except BaseException:
-            self.failed = True
-            self.close()
-            raise
+        super().__init__(peer, model, ready=READY)
 
     def plan(self, record: dict, *, visits: int, timeout_s: float) -> dict:
         if self.closed or self.failed:
             raise ValueError("combat session is closed or failed")
-        if type(visits) is not int or not 2 <= visits <= 1000:
-            raise ValueError("combat visits must be 2..1000")
-        if type(timeout_s) not in (int, float) or not math.isfinite(timeout_s) or timeout_s <= 0:
-            raise ValueError("combat needs a positive finite remaining clock")
-        decision = record.get("decision", {})
-        combat_kind(decision)
-        ids = [candidate.get("candidate_id") for candidate in decision["candidates"]]
-        if any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids) or len(set(ids)) != len(ids):
-            raise ValueError("combat candidate ids are invalid or aliased")
-        self.sequence += 1
-        rid = str(self.sequence)
-        deadline = time.monotonic() + timeout_s
-        request = {key: record[key] for key in ("game_start", "decision", "world_seed", "id_seed")}
-        request.update(id=rid, visits=visits)
-        calls = 0
-        try:
-            self.peer.set_timeout(timeout_s)
-            self.peer.write_line(wire.canonical_json_dumps(request))
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError("combat exhausted its shared decision clock")
-                self.peer.set_timeout(remaining)
-                message = load_response(self.peer.read_line())
-                if message.get("id") != rid:
-                    raise ValueError("combat returned a stale request id")
-                if message.get("event") == "result":
-                    if message.get("ok") is not True or not isinstance(message.get("result"), dict):
-                        raise ValueError("original combat refused: " + str(message.get("error")))
-                    result = message["result"]
-                    validate_result(decision, result, visits, calls)
-                    result = {"checkpoint": self.model.checkpoint, **result,
-                              "selection": select_candidate(decision, result)}
-                    if time.monotonic() > deadline:
-                        raise TimeoutError("combat exhausted its validation clock")
-                    return result
-                if message.get("event") != "infer" or type(message.get("call")) is not int or message["call"] != calls + 1:
-                    raise ValueError("combat returned an invalid neural call")
-                calls += 1
-                scores = self.model.score(message.get("features"), timeout_s=max(0, deadline - time.monotonic()))
-                self.peer.set_timeout(max(0, deadline - time.monotonic()))
-                self.peer.write_line(json.dumps({"id": rid, "call": calls, "ok": True, "scores": scores},
-                                                separators=(",", ":"), allow_nan=False).encode())
-        except BaseException:
-            self.failed = True
-            self.close()
-            raise
-
-    def close(self):
-        if self.closed:
-            return
-        self.closed = True
-        try:
-            self.peer.close()
-        finally:
-            self.model.close()
+        request = combat_request(record, visits)
+        return self.exchange(request, timeout_s=timeout_s,
+                             validate=lambda result, calls: combat_result(record, result, visits, calls))

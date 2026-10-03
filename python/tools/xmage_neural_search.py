@@ -8,11 +8,10 @@ It is not a rated agent.
 from __future__ import annotations
 
 import math
-import json
-import time
 
 from spellbench import wire
-from xmage_neural_decisions import decision_hash, load_response
+from xmage_neural_decisions import decision_hash
+from xmage_neural_rpc import NeuralSession
 
 READY = {"ready": True, "search": "draftzero-exp1-original-search"}
 
@@ -89,96 +88,52 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int) -> No
         raise ValueError("search ran outside its supported world envelope")
 
 
-class SearchSession:
+def search_request(record: dict, visits: int) -> dict:
+    if type(visits) is not int or not 2 <= visits <= 1000:
+        raise ValueError("original search visit budget must be 2..1000")
+    decision = record.get("decision", {})
+    family = root_family(decision)
+    candidates = decision.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        raise ValueError("search root needs offered candidates")
+    ids = [c.get("candidate_id") for c in candidates]
+    if any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids) or len(set(ids)) != len(ids):
+        raise ValueError("search candidate ids are invalid or aliased")
+    keys = [wire.canonical_json_dumps(c.get("semantic")) for c in candidates]
+    if any(not isinstance(c.get("semantic"), dict) for c in candidates) or len(set(keys)) != len(keys):
+        raise ValueError("search candidate semantics are invalid or aliased")
+    request = {k: record[k] for k in ("game_start", "decision", "world_seed", "id_seed")}
+    if family != "priority":
+        if not isinstance(record.get("anchor"), dict) or not isinstance(record.get("replay"), dict):
+            raise ValueError("callback search needs a saved priority anchor and explicit replay history")
+        request.update(anchor=record["anchor"], replay=record["replay"])
+    return {**request, "visits": visits}
+
+
+def search_result(record: dict, result: dict, visits: int, calls: int) -> dict:
+    decision = record["decision"]
+    validate_result(decision, result, visits, calls)
+    if root_family(decision) != "priority":
+        expected = {"earlier": len(record["replay"]["earlier"]),
+                    "priority_passes": len(record["replay"]["priority_passes"]),
+                    "observation_identical": True}
+        proof = result.get("replay")
+        if (not isinstance(proof, dict) or proof != expected
+                or type(proof.get("earlier")) is not int
+                or type(proof.get("priority_passes")) is not int
+                or proof.get("observation_identical") is not True):
+            raise ValueError("callback result does not confirm its complete public replay")
+    return result
+
+
+class SearchSession(NeuralSession):
     """One private search pipe and checkpoint process, poisoned on any failure."""
     def __init__(self, peer, model):
-        self.peer, self.model = peer, model
-        self.closed = self.failed = False
-        self.sequence = 0
-        try:
-            if load_response(peer.read_line()) != READY:
-                raise ValueError("search readiness differs from the supported original Exp1 bridge")
-        except BaseException:
-            self.failed = True
-            self.close()
-            raise
+        super().__init__(peer, model, ready=READY)
 
     def choose(self, record: dict, *, visits: int, timeout_s: float) -> dict:
         if self.closed or self.failed:
             raise ValueError("search session is closed or has failed")
-        if type(visits) is not int or not 2 <= visits <= 1000:
-            raise ValueError("original search visit budget must be 2..1000")
-        if type(timeout_s) not in (int, float) or not math.isfinite(timeout_s) or timeout_s <= 0:
-            raise ValueError("original search needs a positive finite remaining clock")
-        decision = record.get("decision", {})
-        family = root_family(decision)
-        candidates = decision.get("candidates")
-        if not isinstance(candidates, list) or not candidates:
-            raise ValueError("search root needs offered candidates")
-        ids = [c.get("candidate_id") for c in candidates]
-        if any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids) or len(set(ids)) != len(ids):
-            raise ValueError("search candidate ids are invalid or aliased")
-        keys = [wire.canonical_json_dumps(c.get("semantic")) for c in candidates]
-        if any(not isinstance(c.get("semantic"), dict) for c in candidates) or len(set(keys)) != len(keys):
-            raise ValueError("search candidate semantics are invalid or aliased")
-        self.sequence += 1
-        rid = str(self.sequence)
-        deadline = time.monotonic() + timeout_s
-        # Do not allow an input record to override the session id or work budget.
-        request = {k: record[k] for k in ("game_start", "decision", "world_seed", "id_seed")}
-        if family != "priority":
-            if not isinstance(record.get("anchor"), dict) or not isinstance(record.get("replay"), dict):
-                raise ValueError("callback search needs a saved priority anchor and explicit replay history")
-            request.update(anchor=record["anchor"], replay=record["replay"])
-        request.update(id=rid, visits=visits)
-        calls = 0
-        try:
-            self.peer.set_timeout(max(0, deadline - time.monotonic()))
-            self.peer.write_line(wire.canonical_json_dumps(request))
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError("search exhausted its shared decision clock")
-                self.peer.set_timeout(remaining)
-                message = load_response(self.peer.read_line())
-                if message.get("id") != rid:
-                    raise ValueError("search returned a stale request id")
-                if message.get("event") == "result":
-                    if message.get("ok") is not True or not isinstance(message.get("result"), dict):
-                        raise ValueError("original search refused: " + str(message.get("error")))
-                    validate_result(decision, message["result"], visits, calls)
-                    if family != "priority":
-                        expected = {"earlier": len(record["replay"]["earlier"]),
-                                    "priority_passes": len(record["replay"]["priority_passes"]),
-                                    "observation_identical": True}
-                        proof = message["result"].get("replay")
-                        if (not isinstance(proof, dict) or proof != expected
-                                or type(proof.get("earlier")) is not int
-                                or type(proof.get("priority_passes")) is not int
-                                or proof.get("observation_identical") is not True):
-                            raise ValueError("callback result does not confirm its complete public replay")
-                    if time.monotonic() > deadline:
-                        raise TimeoutError("search exhausted its result-validation clock")
-                    return {"checkpoint": self.model.checkpoint, **message["result"]}
-                if message.get("event") != "infer" or type(message.get("call")) is not int or message["call"] != calls + 1:
-                    raise ValueError("search returned a stale or invalid neural call")
-                calls += 1
-                scores = self.model.score(message.get("features"), timeout_s=max(0, deadline-time.monotonic()))
-                self.peer.set_timeout(max(0, deadline-time.monotonic()))
-                # This private inference RPC carries floats. Public v2 frames
-                # keep their integer-only canonical JSON contract.
-                self.peer.write_line(json.dumps({"id": rid, "call": calls, "ok": True, "scores": scores},
-                                                separators=(",", ":"), allow_nan=False).encode())
-        except BaseException:
-            self.failed = True
-            self.close()
-            raise
-
-    def close(self):
-        if self.closed:
-            return
-        self.closed = True
-        try:
-            self.peer.close()
-        finally:
-            self.model.close()
+        request = search_request(record, visits)
+        return self.exchange(request, timeout_s=timeout_s,
+                             validate=lambda result, calls: search_result(record, result, visits, calls))

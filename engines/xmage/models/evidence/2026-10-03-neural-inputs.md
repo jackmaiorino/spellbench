@@ -254,3 +254,19 @@ is still unported and labelled `approximate:exp1_combat_simulation_flag_port`.
 Full history, remaining callbacks, complete-game integration and qualification
 remain open. This learned family still has zero rated games and no published
 leaderboard entry.
+
+The mixed bridge joins those decision entry points on one private Java pipe
+and one confined checkpoint session. Its request sequence, checkpoint identity,
+clock and cleanup are shared across search and combat. The affected local
+checks pass: 130 tests, with one Windows symlink-creation skip. Existing real
+component receipts remain evidence for those components; the mixed-process
+backend replay is pending the canonical host's release from the gorge audit.
+There are no new games, neural evaluations or strength measurements from the
+Python transport checks.
+
+CI now compiles all public model classes as well as the reviewed engine.
+The explicit compilation mode preserves upstream source and JDK pins, verifies
+the actual classpath and labels its output `reviewed_runtime: false` under
+`spellbench-draftzero-model-compile/v1`. The default qualification build retains
+the reviewed 004913a manifest pin. Compilation does not qualify complete-game
+play, and all learned-family rating and publication fields remain false.
