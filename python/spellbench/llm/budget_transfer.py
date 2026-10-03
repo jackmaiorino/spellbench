@@ -95,34 +95,51 @@ class BudgetPaths:
                 if physical != self.active and physical.relative_to(root).as_posix() not in self.value["immutable"]:
                     raise ValueError("unbound retained file")
             self.snapshot = root / self.value["snapshot"]
+            self.transfer_snapshot = transferred_snapshot = root / self.value.get("transfer_snapshot", self.value["snapshot"])
             retirement = root / self.value["retirement"]
             if any(path.relative_to(root).as_posix() not in self.value["immutable"]
-                   for path in (self.snapshot, retirement)):
+                   for path in (self.snapshot, transferred_snapshot, retirement)):
                 raise ValueError("unbound transfer")
             proof = json.loads(retirement.read_bytes())
-            if (proof["schema"] != SCHEMA or proof["source_logical"] != self.value["active"]
-                    or proof["source_sha256"] != digest(self.snapshot)
-                    or proof["destination"] != str(self.active)
+            if (proof["schema"] != SCHEMA
+                    or proof["source_sha256"] != digest(transferred_snapshot)
+                    or proof["destination"] != str(self.resolve(proof["source_logical"]))
                     or proof["host_identity"] != self.value["host_identity"]
                     or proof["host_identity_file"] != self.value["host_identity_file"]
                     or Path(proof["host_identity_file"]).read_text(encoding="utf-8").strip() != proof["host_identity"]):
                 raise ValueError("transfer destination changed")
+            from .run_budget import _static_policy_digest
+            with sqlite3.connect(transferred_snapshot.resolve().as_uri() + "?mode=ro", uri=True) as retained:
+                original_policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+            if _static_policy_digest(original_policy) != proof["policy_sha256"]:
+                raise ValueError("transfer policy changed")
+            self.required_ancestor = self.resolve(proof["source_logical"])
+            if self.required_ancestor != self.active and self.value.get("destination") != str(self.active):
+                raise ValueError("successor destination changed")
             self.proof = proof
         except (OSError, ValueError, KeyError, TypeError):
             raise ProviderError("run_budget_transfer_changed") from None
 
     def validate_prefix(self, database, policy: dict) -> None:
+        self._validate_database_prefix(database, policy, self.snapshot if self.manifest is not None else None)
+
+    def validate_transfer_anchor(self, database, policy: dict) -> None:
+        self._validate_database_prefix(database, policy, self.transfer_snapshot,
+                                       expected_digest=self.proof["policy_sha256"])
+
+    def _validate_database_prefix(self, database, policy: dict, snapshot: Path | None,
+                                  *, expected_digest: str | None = None) -> None:
         if self.manifest is None:
             return
         from .run_budget import _retained_file, _static_policy_digest
         try:
-            _retained_file(self.snapshot)
-            with sqlite3.connect(self.snapshot.resolve().as_uri() + "?mode=ro", uri=True) as retained:
+            _retained_file(snapshot)
+            with sqlite3.connect(snapshot.resolve().as_uri() + "?mode=ro", uri=True) as retained:
                 retained.row_factory = sqlite3.Row
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
                 if (retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete"
                         or _static_policy_digest(policy) != _static_policy_digest(prior)
-                        or _static_policy_digest(prior) != self.proof["policy_sha256"]):
+                        or (expected_digest is not None and _static_policy_digest(policy) != expected_digest)):
                     raise ValueError("policy changed")
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
             if any(row["status"] == "pending" for row in rows):
@@ -133,6 +150,71 @@ class BudgetPaths:
                 raise ValueError("retained requests changed")
         except (sqlite3.Error, OSError, ValueError, KeyError, TypeError):
             raise ProviderError("run_budget_transfer_changed") from None
+
+
+def continue_host_preflight(budget, successor: Path, manifest: Path) -> Path:
+    """Repair an authorization prerequisite before any inference on this leaf.
+
+    Only a mapped, settled, zero-request leaf with the fixed renewal failure
+    can continue. The failed parent and original transfer stay retained; the
+    successor inherits all accounting and the effective deadline unchanged.
+    """
+    from .run_budget import (_origin, _successor_claim, _retained_file, _totals,
+                             _write_marker, TIMEOUT_FORFEIT_SCHEMA, CONTINUATION_SCHEMA)
+    if budget.paths.manifest is None:
+        raise ProviderError("run_budget_transfer_required")
+    successor, manifest = successor.resolve(), manifest.resolve()
+    root = budget.paths.manifest.parent
+    if (not successor.is_relative_to(root) or not manifest.is_relative_to(root)
+            or successor.exists() or manifest.exists() or successor == manifest):
+        raise ValueError("fresh successor and map in the existing bundle required")
+    with budget._transaction() as database:
+        policy = budget._policy(database)
+        rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
+        _retained_file(budget.path)
+        if (rows or policy.get("terminal_error") != "profile_renewal_failed"
+                or database.execute("PRAGMA journal_mode").fetchone()[0] != "delete"):
+            raise ProviderError("run_budget_parent_not_host_preflight")
+        inherited = _totals(policy, rows)
+        cutoff = budget._effective_deadline(policy)
+        import time
+        if cutoff is not None and cutoff <= time.time():
+            raise ProviderError("run_budget_deadline_exhausted")
+        if (inherited["requests"] >= policy["max_requests"] or inherited["reported_input_tokens"]
+                + inherited["reported_output_tokens"] + inherited["uncertain_reserved_tokens"] >= policy["max_reported_tokens"]):
+            raise ProviderError("run_budget_exhausted")
+        parent_sha = digest(budget.path)
+        child = {**policy, "terminal_error": None,
+                 "schema": TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA,
+                 "continuation": {"kind": "host-preflight-recovery", "parent": budget.paths.key(budget.path),
+                                  "parent_sha256": parent_sha, "inherited": inherited,
+                                  "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False)}}
+        if cutoff is None:
+            child["continuation"]["no_cutoff"] = True
+        elif cutoff != policy["deadline"]:
+            raise ProviderError("run_budget_deadline_extension_present")
+        from .run_budget import RunBudget
+        RunBudget._initialize(successor, child)
+        claim = {"successor": str(successor), "parent_sha256": parent_sha,
+                 "policy": {key: item for key, item in child.items() if key != "terminal_error"}}
+        _write_marker(_origin(successor), claim)
+        snapshot = successor.with_name(successor.name + ".initial.sqlite3")
+        shutil.copyfile(successor, snapshot)
+        snapshot.chmod(0o600)
+        value = dict(budget.paths.value)
+        value["files"] = [*value["files"], {"logical": str(successor), "file": successor.relative_to(root).as_posix()}]
+        value["immutable"] = dict(value["immutable"])
+        value.update(active=str(successor), destination=str(successor),
+                     transfer_snapshot=value.get("transfer_snapshot", value["snapshot"]),
+                     snapshot=snapshot.relative_to(root).as_posix())
+        for path in (budget.path, _origin(successor), snapshot):
+            value["immutable"][path.resolve().relative_to(root).as_posix()] = digest(path)
+        # The failed parent can never admit calls, and its exclusive claim also
+        # stops any old controller. Publish the new map only after retirement.
+        _write_marker(_successor_claim(budget.path), claim)
+        value["immutable"][_successor_claim(budget.path).resolve().relative_to(root).as_posix()] = digest(_successor_claim(budget.path))
+        _write_marker(manifest, value)
+    return manifest
 
 
 def export_budget(budget, bundle: Path, *, destination: str, host_identity_file: str,
@@ -243,16 +325,23 @@ def main() -> int:
     parser.add_argument("source", type=Path)
     parser.add_argument("bundle", type=Path)
     parser.add_argument("--model", required=True)
-    parser.add_argument("--destination", required=True)
-    parser.add_argument("--host-identity-file", required=True)
-    parser.add_argument("--host-identity", required=True)
+    parser.add_argument("--destination")
+    parser.add_argument("--host-identity-file")
+    parser.add_argument("--host-identity")
+    parser.add_argument("--continue-host-preflight", action="store_true")
+    parser.add_argument("--successor", type=Path)
     parser.add_argument("--source-map", type=Path)
     parser.add_argument("--source-map-sha256")
     args = parser.parse_args()
     budget = RunBudget(args.source, model=args.model, path_map=args.source_map,
                        path_map_sha256=args.source_map_sha256)
-    manifest = export_budget(budget, args.bundle, destination=args.destination,
-                             host_identity_file=args.host_identity_file, host_identity=args.host_identity)
+    if args.continue_host_preflight:
+        if args.successor is None:
+            parser.error("--continue-host-preflight requires --successor")
+        manifest = continue_host_preflight(budget, args.successor, args.bundle)
+    else:
+        manifest = export_budget(budget, args.bundle, destination=args.destination,
+                                 host_identity_file=args.host_identity_file, host_identity=args.host_identity)
     print(json.dumps({"map": str(manifest), "sha256": digest(manifest), "source_retired": True}))
     return 0
 

@@ -20,9 +20,13 @@ def renew_profile(path: Path, budget: RunBudget) -> None:
     # The host child owns no model client. Its output is discarded so account
     # data cannot enter broker logs. A hard process deadline also bounds slow
     # response bodies, which urllib's socket inactivity timeout cannot do.
+    command = [sys.executable, "-m", "spellbench.llm.renewal", "--credentials", str(path),
+               "--run-budget", str(budget.path), "--model", budget.model]
+    if budget.paths.manifest is not None:
+        command += ["--run-budget-map", str(budget.paths.manifest),
+                    "--run-budget-map-sha256", budget.paths.sha256]
     child = subprocess.Popen(
-        [sys.executable, "-m", "spellbench.llm.renewal", "--credentials", str(path),
-         "--run-budget", str(budget.path), "--model", budget.model],
+        command,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
@@ -44,9 +48,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--credentials", type=Path, required=True)
     parser.add_argument("--run-budget", type=Path, required=True)
+    parser.add_argument("--run-budget-map", type=Path)
+    parser.add_argument("--run-budget-map-sha256")
     parser.add_argument("--model", required=True)
     args = parser.parse_args()
-    budget = RunBudget(args.run_budget, model=args.model)
+    budget = RunBudget(args.run_budget, model=args.model, path_map=args.run_budget_map,
+                       path_map_sha256=args.run_budget_map_sha256)
     try:
         refresh_credentials(
             args.credentials, minimum_valid_seconds=GAME_PROFILE_HORIZON_S,

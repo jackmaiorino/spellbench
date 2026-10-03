@@ -55,3 +55,20 @@ def test_failed_budget_is_checked_before_auth_in_the_profile_lock(tmp_path, monk
                                              "--run-budget", str(path), "--model", "luna"])
     assert renewal.main() == 2
     assert budget.summary()["requests"] == 0
+
+
+def test_real_renewal_child_uses_relocated_budget_without_authorization(tmp_path):
+    from spellbench.llm.login import save_credentials
+    from test_llm_login import record
+    from test_llm_budget_transfer import transfer
+    from test_llm_run_budget import budget as make_budget
+    source = make_budget(tmp_path)
+    relocated = transfer(tmp_path, source)
+    profile = tmp_path / "profile.credentials"
+    # A fresh synthetic profile returns before HTTP. This exercises the real
+    # host subprocess and map/hash propagation, with no account or model use.
+    save_credentials(profile, record())
+    before = relocated.summary()
+    renewal.renew_profile(profile, relocated)
+    assert relocated.summary() == before
+    assert relocated.summary()["requests"] == 0
