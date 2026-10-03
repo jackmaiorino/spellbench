@@ -88,11 +88,20 @@ _JOIN_INTRO = (
 _METHOD_SECTIONS = (
     (
         "Games",
-        "Each benchmark is a round robin. Every matchup is played as pairs of games with the seats swapped, "
+        "A benchmark uses a round robin or a fixed panel of local reference opponents. Every scheduled matchup "
+        "is played as pairs of games with the seats swapped, "
         "each pair using the next deck of the benchmark's pool in both seats; a bot never plays itself. "
         "Every game has its own secret, so the two games of a pair shuffle independently, and ratings still "
         "count them as a pair. The run publishes a commitment to its secret before the first game and "
         "reveals the secret afterwards, so anyone can recompute every game's randomness.",
+    ),
+    (
+        "Reference panels and reused results",
+        "A reference-panel benchmark evaluates entrants against the same versioned local opponents and reuses "
+        "compatible earlier evaluations. A published snapshot cites the original validated runs. Entrants need "
+        "not play one another: these ratings compare them through shared opponents, and unplayed head-to-head "
+        "matchups remain unmeasured. Matchup-specific strengths can differ from the ranking. Model measurements "
+        "retain their evaluation dates; Elo and its interval can change on refit without replaying old games.",
     ),
     (
         "Fairness",
@@ -441,6 +450,13 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         _run_box(view["run"]),
         _fairness_block(view),
     ]
+    if view.get("evaluation"):
+        evaluation = view["evaluation"]
+        opponents = ", ".join(_e(name) for name in evaluation["opponents"])
+        sources = ", ".join(_e(name) for name in evaluation["sources"])
+        main.append('<aside class="fairness reference-panel"><span class="chip">reference panel</span>'
+                    f'<p>Local opponents: {opponents}. Evaluation runs: {sources}.</p>'
+                    f'<p>{_e(evaluation["caveat"])}</p></aside>')
     if view["newer_runs"]:
         main.append(_newer_runs_note(view["newer_runs"]))
     if view.get("withheld_runs"):
@@ -579,6 +595,8 @@ def _model_rating(row: Mapping[str, Any]) -> str:
     link = f'<a href="{_e(row["href"])}">{_e(row["id"])}</a>'
     if _legacy(row):
         link += f" {_LEGACY_LABEL}"
+    if row.get("reference_panel"):
+        link += ' <span class="chip quiet">reference panel</span>'
     if row["reference"]:
         return f"<li>{link}: reference</li>"
     if row["margin"] is None:
@@ -807,7 +825,8 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     # a chip from a protocol v1 run says so (Decision 1, R3-20); the no-break space keeps the label whole
     chips = " ".join(
         f'<span class="chip">{_e(chip["benchmark_id"])} {_bounded(format_margin(chip["margin"]), chip["bound"])}'
-        f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}</span>'
+        f'{" " + _LEGACY_LABEL if _legacy(chip) else ""}'
+        f'{" (reference panel)" if chip.get("reference_panel") else ""}</span>'
         for chip in row["chips"]
     )
     kind = ' class="reference"' if row["reference"] else ""
@@ -919,11 +938,18 @@ def _run_box(run: Mapping[str, Any]) -> str:
     if games["forfeit"]:
         rated += f" ({_count(games['forfeit'], 'forfeit')})"
     counts = ", ".join([rated] + [f"{games[key]} {key}" for key in ("truncated", "halted") if games[key]])
-    files = [
-        f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
-        f'<span class="muted">{_file_size(item["bytes"])}</span></li>'
-        for item in run["files"]
-    ]
+    files = []
+    sources: dict[str, list[str]] = {}
+    for item in run["files"]:
+        link = (f'<li><a href="{_e(item["href"])}" download>{_e(item["name"])}</a> '
+                f'<span class="muted">{_file_size(item["bytes"])}</span></li>')
+        if item["name"].startswith("sources/"):
+            sources.setdefault(item["name"].split("/", 2)[1], []).append(link)
+        else:
+            files.append(link)
+    for source, links in sources.items():
+        files.append(f'<li><details><summary>Source run {_e(source)} ({len(links)} files)</summary>'
+                     '<ul class="files">' + "\n".join(links) + '</ul></details></li>')
     return "\n".join(
         [
             '<div class="run">',

@@ -390,6 +390,9 @@ def schedule(config: TournamentConfig, run_secret: RunSecret) -> list[GameContex
     """Every game of the round robin, in schedule (ledger) order."""
     games: list[GameContext] = []
     matchups = matchup_indexes(len(config.bots), include_self_play=config.include_self_play)
+    if config.matchups is not None:
+        by_name = {bot.name: index for index, bot in enumerate(config.bots)}
+        matchups = [(by_name[a], by_name[b]) for a, b in config.matchups]
     for matchup_index, (i, j) in enumerate(matchups):
         for pair_index in range(config.pairs_per_matchup):
             decks = config.decks_for_pair(pair_index)

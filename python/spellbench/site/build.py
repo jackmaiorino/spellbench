@@ -59,10 +59,11 @@ from typing import Any, Mapping, Sequence
 
 from .._schema import OBSERVATION_FLAGS
 from ..arena import legacy_v1, registry, store
+from ..arena import snapshot
 from ..arena.config import TournamentConfig
 from ..arena.ledger import LedgerRow, parse_ledger
 from ..arena.validate import validate_tournament_dir
-from ..bench import definition
+from ..bench import definition, panel
 from ..messages import ENGINE_DEFAULT_KEYS, EngineIdentity
 from . import hero, render
 
@@ -136,6 +137,7 @@ class _Run:
     manifest: dict[str, Any] | None  # the v2 manifest; None for a v1 run
     newer_runs: tuple[dict[str, Any], ...]  # the runs published after this one: name, status, rated
     withheld_runs: tuple[dict[str, Any], ...] = ()
+    snapshot: bool = False
 
 
 def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
@@ -177,6 +179,19 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         for bench_id, listing in listings.items()
         if listing.board is not None
     }
+    # Snapshots are separate publications, each retaining validated source runs. Unrated previews cannot
+    # replace a rated board, even when they were composed more recently.
+    for benchmark in benchmarks:
+        snapshots = panel.published_snapshots(benchmarks_dir / benchmark.id)
+        for directory in snapshots:
+            failures = validate_tournament_dir(directory)
+            if failures:
+                raise SiteError(f"{benchmark.id} snapshots/{directory.name}: " + "; ".join(failures))
+        rated = [directory for directory in snapshots
+                 if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]]
+        if rated:
+            runs[benchmark.id] = replace(_read_snapshot(rated[-1], newer[benchmark.id]),
+                                         withheld_runs=withheld[benchmark.id])
     warnings: list[str] = []
     stale: dict[str, frozenset[str]] = {}  # per benchmark: bots shown by registry identity
     for benchmark in benchmarks:
@@ -220,7 +235,9 @@ def board_run_dir(benchmark_dir: Path) -> Path | None:
     ``build_site`` then validates the board run and every run after it, so a
     manifest claiming what its files do not show refuses the build.
     """
-    return _board_of(definition.published_runs(benchmark_dir))
+    snapshots = [path for path in panel.published_snapshots(benchmark_dir)
+                 if store.read_json(path / store.MANIFEST_NAME).get("run", {}).get("rated") is True]
+    return snapshots[-1] if snapshots else _board_of(definition.published_runs(benchmark_dir))
 
 
 def _board_of(published: Sequence[Path]) -> Path | None:
@@ -269,7 +286,7 @@ def _listing_warnings(
     ``REVEAL.json``, by name alone) or is unfinished; a run published after
     the board run is unrated.
     """
-    showing = "no run" if run is None else f"runs/{run.name}"
+    showing = "no run" if run is None else f"{'snapshots' if run.snapshot else 'runs'}/{run.name}"
     warnings = []
     for run_dir in listing.unpublished:
         if (run_dir / _REVEAL_NAME).is_file():
@@ -367,6 +384,24 @@ def _read_run(run_dir: Path, newer_runs: tuple[dict[str, Any], ...]) -> _Run:
     )
 
 
+def _read_snapshot(directory: Path, newer_runs: tuple[dict[str, Any], ...]) -> _Run:
+    manifest = store.read_json(directory / store.MANIFEST_NAME)
+    config = TournamentConfig.from_json(store.read_json(directory / store.CONFIG_NAME))
+    files = {name: (directory / name).read_bytes() for name in (store.MANIFEST_NAME, *snapshot.FILES)}
+    rows = []
+    for receipt in manifest["sources"]:
+        source = snapshot.source_directory(directory, receipt["run"])
+        for name in RUN_FILES:
+            files[f"sources/{receipt['run']}/{name}"] = (source / name).read_bytes()
+        rows.extend(parse_ledger(store.read_jsonl(source / store.LEDGER_NAME)))
+    return _Run(name=directory.name, legacy=False, files=files, format=config.format,
+        decks=_deck_labels(config, rows), pairs_per_deck=config.pairs_per_matchup // len(config.deck_pool or (1,)),
+        entries={spec.name: _entry(spec) for spec in config.bots}, engine=manifest["engine"],
+        owners={entry.name: entry.owner for entry in registry.read_registry(directory / store.REGISTRY_NAME)},
+        board=store.read_json(directory / store.LEADERBOARD_JSON_NAME), config=config, manifest=manifest,
+        newer_runs=newer_runs, snapshot=True)
+
+
 def _read_legacy_run(run_dir: Path, newer_runs: tuple[dict[str, Any], ...]) -> _Run:
     """A protocol v1 board run, read with the frozen reader (Decision 1)."""
     legacy = legacy_v1.read_v1_run(run_dir)
@@ -423,7 +458,12 @@ def _drift(benchmark: definition.Benchmark, run: _Run) -> tuple[list[str], froze
     """
     assert run.config is not None
     recorded = run.config.to_json()
+    if run.snapshot:
+        benchmark = replace(benchmark, evaluation_targets=None)
     current = TournamentConfig.from_json(benchmark.tournament_config(f"runs/{run.name}")).to_json()
+    if run.snapshot:
+        recorded.pop("tournament_dir")
+        current.pop("tournament_dir")
     if _same(recorded, current):
         return [], frozenset()
     was = {bot["name"]: bot for bot in recorded["bots"]}
@@ -526,6 +566,7 @@ def _hero_row(
                 "margin": chip.margin,
                 "bound": chip.bound,
                 "legacy": runs[chip.benchmark_id].legacy,
+                "reference_panel": bool(runs[chip.benchmark_id].config and runs[chip.benchmark_id].config.opponent_panel),
             }
             for chip in row.chips
         ],
@@ -569,7 +610,9 @@ def _models_view(
             continue
         anchor_id = run.board["anchor"]["bot_id"]
         for row in run.board["rows"]:
-            sections[row["name"]]["benchmarks"].append(_model_rating(benchmark.id, row, anchor_id, run.legacy))
+            rating = _model_rating(benchmark.id, row, anchor_id, run.legacy)
+            rating["reference_panel"] = bool(run.config and run.config.opponent_panel)
+            sections[row["name"]]["benchmarks"].append(rating)
     return {"site": _SITE, "models": sorted(sections.values(), key=_model_order)}
 
 
@@ -686,6 +729,9 @@ def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset
         "engine": run.engine,
         "decks": list(run.decks),
         "pairs_per_deck": run.pairs_per_deck,
+        "evaluation": board.get("evaluation") or (
+            {"opponents": list(run.config.opponent_panel), "caveat": snapshot.CAVEAT, "sources": [run.name]}
+            if run.config and run.config.opponent_panel else None),
         **_protocol_view(run, display),
         "run": {
             "name": run.name,
@@ -693,7 +739,7 @@ def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset
             "manifest_sha256": store.sha256_hex(run.files[store.MANIFEST_NAME]),
             "files": [{"name": name, "href": f"run/{name}", "bytes": len(data)} for name, data in run.files.items()],
             # uv run: a fresh clone has no spellbench on PATH until uv installs the project
-            "validate_command": f"uv run spellbench validate benchmarks/{benchmark.id}/runs/{run.name}",
+            "validate_command": f"uv run spellbench validate benchmarks/{benchmark.id}/{'snapshots' if run.snapshot else 'runs'}/{run.name}",
             **_run_secrets(run),
         },
         "overall": overall,
@@ -754,6 +800,9 @@ def _run_secrets(run: _Run) -> dict[str, Any]:
     """
     if run.legacy:
         return {"status": "complete", "rated": True, "commitment": None, "run_secret": None}
+    if run.snapshot:
+        assert run.manifest is not None
+        return {"status": "complete", "rated": run.manifest["run"]["rated"], "commitment": None, "run_secret": None}
     assert run.manifest is not None
     state, secrets = run.manifest["run"], run.manifest["secrets"]
     return {

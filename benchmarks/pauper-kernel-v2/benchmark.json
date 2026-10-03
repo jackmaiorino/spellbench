@@ -1,0 +1,241 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "pauper-kernel-v2",
+  "title": "Pauper · mtg-kernel v2",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation.",
+  "format": "pauper-bo1",
+  "engine": {
+    "name": "mtg-kernel",
+    "command": [
+      "${PYTHON}",
+      "${MTG_KERNEL_V2_ENGINE}",
+      "--bridge",
+      "${MTG_KERNEL_V2_BRIDGE}",
+      "--catalog",
+      "${MTG_KERNEL_PUBLIC_CATALOG}",
+      "--source-revision",
+      "${MTG_KERNEL_V2_SOURCE}"
+    ]
+  },
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Affinity",
+    "Elves",
+    "Spy",
+    "Burn",
+    "CawGates",
+    "Faeries"
+  ],
+  "pairs_per_deck": 4,
+  "stats_seed": 20261003,
+  "opponent_panel": [
+    "g115",
+    "a48",
+    "c12"
+  ],
+  "evaluation_version": "pauper-neutral-v2.0.0",
+  "extensions": [
+    "x_kernel_flat_v4"
+  ],
+  "native_id_audits": {
+    "x_kernel_flat_v4": "docs/pauper-luna-panel-20261003.md#visibility-and-policy-inputs"
+  },
+  "evaluation_engine_inputs": [
+    "${MTG_KERNEL_V2_OBSERVATION}",
+    "${MTG_KERNEL_V2_SEMANTICS}",
+    "${MTG_KERNEL_V2_COMBAT}",
+    "${MTG_KERNEL_V2_ARRANGEMENT}",
+    "${MTG_KERNEL_V2_SELECTION_ORDER}",
+    "${MTG_KERNEL_V2_ORDER}"
+  ],
+  "workers": 4,
+  "qualification_budget_percent": 30,
+  "qualification_worker_selection": "wall",
+  "bootstrap_replicates": 2000,
+  "time_control": {
+    "startup_ms": 120000,
+    "game_start_ms": 60000,
+    "bank_ms": 600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 90000,
+    "engine_step_ms": 120000
+  },
+  "bots": [
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "seed": 11,
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "g115",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${G115_SCORER_CONFIG}",
+        "--name",
+        "g115",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "8139016ca561961714f25e22a9d6f7fc888548fc332e45b6bce402dfc43159f2"
+      ],
+      "checkpoint": "${G115_CHECKPOINT}",
+      "display": {
+        "label": "g115",
+        "author": "mipo",
+        "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
+        "url": null
+      }
+    },
+    {
+      "name": "a48",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${A48_SCORER_CONFIG}",
+        "--name",
+        "a48",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "774e936da26468358257774fe41ae94578265b331d2edb49d017c0835b08699a"
+      ],
+      "checkpoint": "${A48_CHECKPOINT}",
+      "display": {
+        "label": "a48",
+        "author": "mipo",
+        "description": "mtg-kernel policy network, Phase 1 lineage a block 48 (8,800 updates, independent initialization), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
+        "url": null
+      }
+    },
+    {
+      "name": "c12",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${C12_SCORER_CONFIG}",
+        "--name",
+        "c12",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de"
+      ],
+      "checkpoint": "${C12_CHECKPOINT}",
+      "display": {
+        "label": "c12",
+        "author": "mipo",
+        "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
+        "url": null
+      }
+    },
+    {
+      "name": "llm-gpt-6-luna",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "any",
+      "training_style_tags": [
+        "hosted-llm"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${SPELLBENCH_LLM_HOSTED}",
+        "--model",
+        "gpt-6-luna",
+        "--trusted-agent-process",
+        "--run-budget=${SPELLBENCH_LLM_RUN_BUDGET}",
+        "--run-budget-map",
+        "${SPELLBENCH_LLM_BUDGET_MAP}",
+        "--run-budget-map-sha256",
+        "${SPELLBENCH_LLM_BUDGET_MAP_SHA256}",
+        "--log-dir",
+        "${SPELLBENCH_LLM_LOG_DIR}",
+        "--renew-profile-before-game",
+        "--allow-timeout-forfeits",
+        "--reasoning-effort",
+        "low",
+        "--max-completion-tokens",
+        "1024",
+        "--max-calls-per-game",
+        "256",
+        "--max-tokens-per-game",
+        "750000",
+        "--history-decisions",
+        "1",
+        "--timeout-ms",
+        "60000",
+        "--max-run-requests",
+        "12000",
+        "--max-run-tokens",
+        "50000000",
+        "--max-run-wall-seconds",
+        "${SPELLBENCH_LLM_WALL_SECONDS}",
+        "--max-inflight",
+        "4"
+      ],
+      "display": {
+        "label": "GPT-6 Luna",
+        "author": "OpenAI / mipo",
+        "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.",
+        "url": "https://github.com/jackmaiorino/spellbench/issues/74"
+      }
+    }
+  ],
+  "qualification_sample": [
+    320,
+    450,
+    520,
+    332,
+    4,
+    198,
+    394,
+    142
+  ],
+  "job_storage_budget": {
+    "projected_bytes": 17179869184,
+    "cap_bytes": 25769803776
+  }
+}
