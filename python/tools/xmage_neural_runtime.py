@@ -1,0 +1,219 @@
+"""Verify and launch the public Exp1 frontend with its own JVM and confined model.
+
+Use this command under the arena's guarded job launcher. The caller's storage
+manifest must include both engine and agent working database copies.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import sys
+import tempfile
+from pathlib import Path, PurePosixPath
+
+from spellbench import wire
+from spellbench.bot import serve
+from xmage_checkpoint_backend import cleanup_container
+from xmage_neural_agent import NeuralAgent, PROFILE
+from xmage_neural_bridge import BridgeSession
+from xmage_neural_decisions import InferenceSession
+from xmage_release_assets import is_link, prepare_root, verify
+from xmage_verified_entry import verify_build
+
+REVIEWED_ENGINE = "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93"
+
+
+def sha(path):
+    if is_link(path) or not path.is_file():
+        raise ValueError("runtime input must be a regular file")
+    with path.open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def relative_files(declared):
+    if not isinstance(declared, dict) or not declared:
+        raise ValueError("model build has no pinned runtime files")
+    normalized = {}
+    for name, digest in declared.items():
+        if not isinstance(name, str):
+            raise ValueError("model runtime manifest path must be text")
+        # BUILD.json records Path-relative strings on its build platform.
+        # Accept Windows separators while checking the same relative tree.
+        name = name.replace("\\", "/")
+        relative = PurePosixPath(name)
+        if (":" in name or relative.is_absolute() or name in normalized
+                or ".." in relative.parts or name != relative.as_posix()):
+            raise ValueError("model runtime manifest path escapes its build")
+        normalized[name] = digest
+    return normalized
+
+
+def checked_tree(root, declared, *, suffix=None):
+    declared = relative_files(declared)
+    for name, digest in declared.items():
+        path = root / name
+        if any(is_link(parent) for parent in (path, *path.parents)):
+            raise ValueError("model runtime path traverses a link")
+        if path.resolve().is_relative_to(root.resolve()) is False or sha(path) != digest:
+            raise ValueError("model runtime file differs from its build pin")
+    if suffix is not None:
+        actual = {p.relative_to(root).as_posix() for p in root.rglob("*" + suffix)}
+        if actual != set(declared):
+            raise ValueError("model classpath has missing or undeclared classes")
+
+
+def verify_model_build(build: Path, digest: str, engine: Path, releases: Path):
+    if sha(build / "BUILD.json") != digest:
+        raise ValueError("model build manifest changed")
+    metadata = json.loads((build / "BUILD.json").read_bytes())
+    if (metadata.get("schema") != "spellbench-draftzero-encoder-build/v1"
+            or metadata.get("engine_manifest_sha256") != REVIEWED_ENGINE
+            or metadata.get("inputs_manifest_sha256") != sha(releases)
+            or metadata.get("jdk") != "javac 23.0.1" or not metadata.get("search_stage")):
+        raise ValueError("model runtime needs the reviewed, pinned original search build")
+    verify_build(engine, engine / "BUILD-MANIFEST.json", REVIEWED_ENGINE)
+    classes = relative_files(metadata.get("class_files_sha256"))
+    if (not classes or any(not name.startswith(("core/", "kit/", "model/")) or not name.endswith(".class")
+                          for name in classes)):
+        raise ValueError("model runtime class directories differ")
+    checked_tree(build, classes, suffix=".class")
+    resources = relative_files(metadata.get("resource_files_sha256"))
+    checked_tree(build / "kit", resources)
+    actual = set()
+    for directory in (build / "core", build / "kit", build / "model"):
+        for path in (directory, *directory.rglob("*")):
+            if is_link(path):
+                raise ValueError("model class directory contains a link")
+            if path.is_file():
+                actual.add(path.relative_to(build).as_posix())
+    if actual != set(classes) | {"kit/" + name for name in resources}:
+        raise ValueError("model classpath has undeclared runtime resources")
+    dependencies = metadata.get("dependency_sha256")
+    if not isinstance(dependencies, dict) or len(dependencies) != 1:
+        raise ValueError("original search needs its one pinned Commons Math dependency")
+    for name, digest in dependencies.items():
+        if sha(Path(name)) != digest:
+            raise ValueError("original search dependency changed")
+    return metadata
+
+
+def identity(*, checkpoint, visits, build_sha256, image, manifest):
+    config = manifest["inference_backends"]["draftzero-exp1"]
+    if checkpoint not in config["checkpoints"] or type(visits) is not int or not 2 <= visits <= 1000:
+        raise ValueError("neural identity needs a pinned Exp1 checkpoint and visit count")
+    assets = {a["id"]: a for a in manifest["assets"]}
+    bound = {"profile": PROFILE, "checkpoint": checkpoint, "visits": visits,
+             "checkpoint_sha256": assets[checkpoint]["sha256"], "model_build_sha256": build_sha256,
+             "image": image,
+             "source_sha256": {name: sha(Path(__file__).with_name(name)) for name in
+                               ("xmage_neural_agent.py", "xmage_neural_runtime.py", "xmage_neural_rpc.py",
+                                "xmage_neural_bridge.py", "xmage_neural_search.py", "xmage_neural_combat.py",
+                                "xmage_neural_decisions.py", "xmage_checkpoint_backend.py")}}
+    digest = hashlib.sha256(wire.canonical_json_dumps(bound)).hexdigest()
+    return {"name": checkpoint + "-fair-search", "version": "exp1-visible-v1-" + digest[:24], "identity": bound}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--java", type=Path, required=True)
+    parser.add_argument("--java-sha256", required=True)
+    parser.add_argument("--engine", type=Path, required=True)
+    parser.add_argument("--model-build", type=Path, required=True)
+    parser.add_argument("--model-build-sha256", required=True)
+    parser.add_argument("--manifest", type=Path, default=Path(__file__).resolve().parents[2] / "engines/xmage/releases.json")
+    parser.add_argument("--root", type=Path, required=True)
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--image", required=True)
+    parser.add_argument("--db-file", type=Path, required=True)
+    parser.add_argument("--db-sha256", required=True)
+    parser.add_argument("--work", type=Path, required=True)
+    parser.add_argument("--visits", type=int, default=1000)
+    parser.add_argument("--print-identity", action="store_true")
+    args = parser.parse_args()
+    for key in ("java", "engine", "model_build", "manifest", "root", "db_file", "work"):
+        setattr(args, key, getattr(args, key).absolute())
+    manifest = json.loads(args.manifest.read_bytes())
+    metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest)
+    if sha(args.java) != args.java_sha256 or sha(args.db_file) != args.db_sha256:
+        raise ValueError("model runtime Java or database differs from its pin")
+    descriptor = identity(checkpoint=args.checkpoint, visits=args.visits, build_sha256=args.model_build_sha256,
+                          image=args.image, manifest=manifest)
+    config = manifest["inference_backends"]["draftzero-exp1"]
+    assets = {a["id"]: a for a in manifest["assets"]}
+    vocab = args.root / assets[config["action_vocab"]]["filename"]
+    verify(vocab, assets[config["action_vocab"]])
+    if args.print_identity:
+        print(json.dumps(descriptor, indent=2))
+        return 0
+    work = prepare_root(args.work)
+    directory = Path(tempfile.mkdtemp(prefix="exp1-agent-", dir=work)).resolve()
+    previous = Path.cwd()
+    agent = None
+    owned = []
+    try:
+        (directory / "db").mkdir()
+        database = directory / "db/cards.h2.mv.db"
+        shutil.copyfile(args.db_file, database)
+        if sha(database) != args.db_sha256:
+            raise ValueError("private model database copy differs")
+        os.chdir(directory)
+        cp = os.pathsep.join(str(args.model_build / name) for name in ("model", "core", "kit"))
+        cp += os.pathsep + str(args.engine / "lib/*")
+        cp += os.pathsep + next(iter(metadata["dependency_sha256"]))
+        command = [str(args.java), "-Xmx1g", "-Dmz.actionVocab=" + str(vocab), "-cp", cp,
+                   "spellbench.kit.xmage.ModelBridgeMain"]
+
+        def factory():
+            model = peer = None
+            try:
+                def record_owned(container):
+                    with (work / (container + ".owned.json")).open("x", encoding="utf-8") as record:
+                        json.dump({"schema": "spellbench-owned-model-container/v1", "container": container,
+                                   "creator_pid": os.getpid(), "work_directory": str(directory)}, record)
+                        record.write("\n")
+                        record.flush()
+                        os.fsync(record.fileno())
+                    owned.append(container)
+                model = InferenceSession(manifest, args.root, args.checkpoint, args.image, on_owned=record_owned)
+                peer = wire.SubprocessPeer(command, timeout_s=90)
+                return BridgeSession(peer, model)
+            except BaseException:
+                try:
+                    if peer is not None:
+                        peer.close()
+                finally:
+                    if model is not None:
+                        model.close()
+                raise
+
+        def audit(event):
+            print(json.dumps(event, separators=(",", ":"), allow_nan=False), file=sys.stderr, flush=True)
+
+        agent = NeuralAgent(factory, checkpoint=args.checkpoint, visits=args.visits, audit=audit)
+        return serve(agent, name=descriptor["name"], version=descriptor["version"],
+                     requires_observation=("passed_seats", "keywords"))
+    finally:
+        try:
+            if agent is not None:
+                agent.close()
+        finally:
+            os.chdir(previous)
+        for container in owned:
+            cleanup = cleanup_container(container)
+            with (work / (container + ".cleanup.json")).open("x", encoding="utf-8") as record:
+                json.dump({"container": container, **cleanup}, record)
+                record.write("\n")
+            if cleanup.get("confirmed_absent") is not True:
+                raise RuntimeError("owned model container remains; work directory retained")
+        if directory.parent != work or is_link(directory):
+            raise ValueError("owned model work directory changed; retained for inspection")
+        if any(is_link(p) for p in directory.rglob("*")):
+            raise ValueError("owned model directory contains a link; retained for inspection")
+        shutil.rmtree(directory)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

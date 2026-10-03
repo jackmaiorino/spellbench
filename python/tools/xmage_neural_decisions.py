@@ -99,7 +99,7 @@ def load_response(payload: bytes) -> dict:
 class InferenceSession:
     """One owned confined checkpoint process, with a shared request deadline."""
     def __init__(self, manifest: dict, root: Path, checkpoint: str, image: str, *, startup_s: float = 90,
-                 peer_factory=wire.SubprocessPeer):
+                 peer_factory=wire.SubprocessPeer, on_owned=None):
         config = manifest.get("inference_backends", {}).get("draftzero-exp1", {})
         if checkpoint not in config.get("checkpoints", []):
             raise ValueError("this decision adapter requires a pinned DraftZero Exp1 checkpoint")
@@ -118,6 +118,10 @@ class InferenceSession:
                     "vocab_source_sha256": assets[config["feature_vocab_code"]]["sha256"],
                     "action_vocab_sha256": assets[config["action_vocab"]]["sha256"]}
         try:
+            if on_owned is not None:
+                # The supervising job can recover this owned container after a
+                # process kill, including during a slow startup handshake.
+                on_owned(self.container)
             self.peer = peer_factory(self.argv, timeout_s=startup_s)
             self.ready = load_response(self.peer.read_line())
             if self.ready.get("ready") is not True or any(self.ready.get(k) != v for k, v in expected.items()):

@@ -5,6 +5,47 @@ feature hash and legal priority, target and binary policy slots. It is not a
 complete agent. The neural connector selects directly from these trained
 heads; its declared variant does not run the original MCTS search.
 
+The original-search components also have a public v2 frontend in
+`python/tools/xmage_neural_agent.py` and a verified launcher in
+`python/tools/xmage_neural_runtime.py`. Complete-game qualification remains
+pending. The frontend uses one mixed Java pipe and one confined checkpoint
+per game, retains the original complete combat plan across its declaration
+group, and supplies saved own actions and earlier callbacks to Java replay.
+History contains only previously visible names and confirmed own loyalty
+costs. Seeds follow the kit's HMAC construction, using only `agent_seed` and
+`seat_step`. Opaque request and game IDs do not seed play.
+
+The default minimum visit count is 1000. A six-visit diagnostic is a separate
+identity. The fair port uses the shared host clock with the previously
+declared 600-second search envelope; original Exp1's default is 4 seconds.
+The emitted identity records this change, no root noise, fresh trees,
+disabled opponent-hand encoding, checkpoint hash, model build, immutable
+container image and Python adapter source hashes. The pregame keep choice
+preserves a newly constructed original player's `allowMulligans=false`
+default. Human-player takeover configurations that enable mulligans are
+unfinished. Unsupported callbacks, missing anchors, changed combat groups,
+rewinds and expired clocks close the session without a substitute policy.
+
+The launcher requires SHA-256 pins for Java, the reviewed model build and
+the immutable card database. It verifies every class, classpath resource,
+engine jar, original-search dependency and action vocabulary before serving.
+It accepts the native relative path separators in both Windows and Linux
+build manifests and refuses compile-only builds. `--print-identity` performs
+these read-only checks without starting Java, Docker or a game. Required
+arguments are shown by `python python/tools/xmage_neural_runtime.py --help`.
+The supplied `--work` root keeps an ownership file before each Docker launch,
+so the supervising job can recover its container after a process kill.
+Cleanup reports confirm absence before deleting that process's private DB.
+
+Use `python/tools/xmage_neural_game_check.py` under a supervising guarded job
+for one unrated full game and its identical-seed replay. Its pinned JSON plan
+declares the engine and agent commands, identity, FDN decks, seed and clocks.
+It retains public traffic, diagnostics and primary outcome hashes. A
+non-natural ending is a failed correctness check. This diagnostic cannot
+create a rated tournament or publish a leaderboard. Its storage manifest
+must count both engine and agent working databases. Formal evaluation still
+requires frozen benchmark review and compatible throughput qualification.
+
 The source staging tool verifies the pinned public Java encoder files before
 making explicit compatibility edits for the reviewed base engine. The staged
 source hashes and every rewrite are recorded. Card sorting, entity names and

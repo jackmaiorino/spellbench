@@ -52,6 +52,16 @@ incompatible with v0.1 models. Keep those versions separate. An author export
 can enter the existing hash-pinned isolated loading path as soon as those
 inputs arrive; an exact deck association is still required before serving.
 
+Jack reported no known additional checkpoint locations on October 3. A
+concise author request is:
+
+> Could you share MageZero's publicly distributable pretrained models,
+> preferably the original `.mz` exports, with each model's exact decklist?
+> Please include the compatible engine and encoder revisions, feature and
+> action vocabularies or ignore metadata, and the inference/search settings
+> used to play. We are wiring these into Spellbench and need those details to
+> preserve the actual policy and its deck association.
+
 For an author-supplied `.mz` export, stage the opaque file in an owned input
 root and add its asset to an external copy of `releases.json`, then add that
 asset ID to `inference_backends.magezero-v02.checkpoints`. Record these fields:
