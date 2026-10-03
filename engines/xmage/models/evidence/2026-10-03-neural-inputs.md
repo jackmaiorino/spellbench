@@ -206,3 +206,51 @@ Closure SHA-256 is
 The closed Elves lookup cache was pruned with a receipt; the aggregate model
 job remains within its unchanged 6 GiB cap. Exact decks, other callbacks,
 original game policy integration and full-game qualification remain unfinished.
+
+The original Exp1 combat loops now run through `ModelCombatMain`, with private
+RPC to generation 33 in the same pinned confined CPU image. Build 047 uses
+JDK 23.0.1 and the reviewed engine. Each repeated attack and block plan has
+two roots, six visits per root and 14 actual neural evaluations. Attack
+declines both creatures; block assigns both blockers to the observed Llanowar
+Elves. Those fixture choices carry no playing-strength claim.
+
+The fixture generator then regenerates both initial decisions identically
+and applies every planned declaration through the real reviewed engine.
+`CombatPlan` retains the same assignment across all two substeps of each
+group. Python and engine choices match. The engine holds blockers pending
+until the group completes; the validator accepts that unchanged public
+state, or the exact applied declaration prefix, and refuses other changes.
+Generation 125 exits 0 in 64.068 seconds and releases. Owned Java and model
+cleanup are confirmed. The 85 combat and existing-search unit checks pass.
+
+Build manifest SHA-256 is
+`a1e69aa0cecb7df73ede0208b8f43bd8049203e4da0685c6f03bbe7790559664`;
+check SHA-256 is
+`751f58b17abdd1fff8834bee54e00ecfb340bc527d38395d6d17606ba2965456`.
+The attack and block wire trace hashes are
+`99dc4a5c03b27ff0607432f5d5eeb2efff0571c9cb0c4cb09ec8cd565e03b95a`
+and `fb179ff1343e145625a3689c9a6f667576d8f33454dcf611ea044b05d40a08ab`.
+All 314 source, class, fixture, RPC and driver files were copied and reread in
+`E:/spellbench-xmage-all-20261002/original-combat-wire-001/`.
+Closure SHA-256 is
+`e27956095663991ad377236092d0fb82305b71931c79473a04a15af690d7ceab`.
+The closed lookup cache was pruned with a receipt and its pinned original
+retained. The aggregate model job remains under the unchanged 6 GiB cap.
+
+Earlier attempts retain the package-access build failure and the paused PRE
+anchor that resumed at priority rather than combat. Their 557 copies are
+reread in `E:/spellbench-xmage-all-20261002/original-combat-failures-001/`,
+closure `f024d8acdf84a6ea266386ebe98626b37d249f6560d118a3d99f6eec1684414e`.
+The initial repeated combat search passes separately in `original-combat-001/`,
+closure `c566abc0a940c3f1d2ab437a447d6af1b685af08cd828cbb96026db5349623c0`.
+The failed assumption that the first blocker would already be visible has
+314 retained copies in `original-combat-wire-failure-001/`, closure
+`717d6b817d3d13977dbcce16aa3ca8e029acd906c1251e836f9fcc3ce909b944`.
+Every attempt has confirmed owned cleanup and a cache prune receipt.
+
+The anchor adjustment is labelled `approximate:initial_combat_anchor_resume`.
+The fork's [MCTS illegal-block retry shortcut](https://github.com/danieljbrooks/mage/blob/5a32441c8ae587982e52cbd4616b5fbc30db7c2e/Mage/src/main/java/mage/game/combat/Combat.java#L692)
+is still unported and labelled `approximate:exp1_combat_simulation_flag_port`.
+Full history, remaining callbacks, complete-game integration and qualification
+remain open. This learned family still has zero rated games and no published
+leaderboard entry.

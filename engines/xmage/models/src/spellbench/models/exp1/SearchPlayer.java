@@ -55,7 +55,7 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
     public MCTSNode2 searchAction(Game game, ActionEncoder.ActionType type, String text) {
         if (stateEncoder == null) RLInit(game);
         Set<Integer> observedFeatures = new HashSet<>(stateEncoder.processState(game, playerId, type, text));
-        root = null;
+        resetSearchTree();
         MCTSNode2 best = getNextAction(game, type);
         if (best == null || root == null || root.getVisits() < searchBudget) {
             throw new IllegalStateException("original search did not complete its visit budget");
@@ -67,6 +67,12 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         return best;
     }
     public MCTSNode2 tree() { return root; }
+    protected void resetSearchTree() { root = null; }
+    protected void requireRootType(ActionEncoder.ActionType type) {
+        if (root == null || root.actionType != type || !playerId.equals(root.playerId)) {
+            throw new IllegalStateException("original search resumed a different callback or player");
+        }
+    }
     public List<MCTSNode> initialRootChildren() { return new ArrayList<>(initialRootChildren); }
     public int discardedSelectionVisits(MCTSNode node) {
         return selectionMasked.contains(node) ? beforeSelectionVisits.get(node) : 0;

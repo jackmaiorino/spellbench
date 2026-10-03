@@ -199,6 +199,31 @@ fixtures pass their hand, ownership, legal candidate binding, original pass
 and padding checks. Eight different hidden samples per fixture leave base
 and candidate features identical, while a visible life change alters them.
 The guarded check completed in 20.5 seconds with all owned children stopped;
-tested classes and receipts are retained. Paired model inference on these
-actual features, other callbacks, exact checkpoint deck associations,
+tested classes and receipts are retained. Paired inference on these features
+passes in the later confined checks described above. Other callbacks and
+exact checkpoint deck associations,
 complete games and rating qualification remain unfinished.
+
+`ModelCombatMain` runs Exp1's original per-creature binary attacker choices
+and target blocker choices, with the same trained priors, minimum visit rule
+and recorded selection masking as the other search roots. Its initial
+reconstructed combat anchor resumes before declarations; resuming a paused
+PRE anchor would skip those callbacks. Every root must have the expected
+callback family and player. The anchor adjustment and unported fork
+illegal-block retry shortcut are explicit approximation flags.
+
+`xmage_neural_combat.CombatSession` shares one clock across private Java RPC,
+confined model inference and result validation. `CombatPlan` retains the
+original assignment through the engine's declaration group. It binds each
+choice to an offered candidate, accepts declarations held pending until the
+group completes, and refuses skipped substeps, rewinds, repeated creatures or
+unrelated public changes. Failed sessions close both owned processes.
+
+Build 047 and the actual generation-33 checkpoint repeat both attack and
+block plans. Each plan has two roots, six visits per root and 14 neural calls.
+The reviewed engine accepts all two attacker and two blocker substeps, and
+the retained Python plan selects the same offered choices. These are combat
+correctness checks. Full transition history, remaining callbacks, the fork's
+illegal-block retry behavior, complete-game serving and rating qualification
+remain unfinished. Receipts and failed attempts are indexed in
+[the evidence summary](evidence/2026-10-03-neural-inputs.md).
