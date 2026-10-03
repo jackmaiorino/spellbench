@@ -283,7 +283,7 @@ def test_present_transfer_anchor_cannot_erase_inherited_usage_with_new_hashes(tm
     with sqlite3.connect(source.path) as database:
         prior = json.loads(database.execute("SELECT json FROM policy").fetchone()[0])
         prior.pop("continuation")
-        prior["schema"] = "spellbench-llm-run-budget/v3"
+        prior["schema"] = "spellbench-llm-run-budget/v1"
         database.execute("UPDATE policy SET json=?", (json.dumps(prior),))
     with sqlite3.connect(child.path) as database:
         policy = json.loads(database.execute("SELECT json FROM policy").fetchone()[0])
