@@ -82,13 +82,17 @@ class PlanProvider:
 
 def child_command(model: str, config: AgentConfig, output_tokens: int, *,
                   python: str = "python", log_dir: str = "/tmp/logs") -> list[str]:
-    return [python, "-m", "spellbench.llm", "--model", model, "--broker-stdio",
+    command = [python, "-m", "spellbench.llm", "--model", model, "--broker-stdio",
             "--log-dir", log_dir, "--max-completion-tokens", str(output_tokens),
             "--max-calls-per-game", str(config.max_calls_per_game),
             "--max-tokens-per-game", str(config.max_tokens_per_game),
             "--max-prompt-bytes", str(config.max_prompt_bytes),
-            "--history-decisions", str(config.history_decisions), "--timeout-ms", str(config.timeout_ms),
-            "--prompt-format", config.prompt_format]
+            "--history-decisions", str(config.history_decisions), "--timeout-ms", str(config.timeout_ms)]
+    # Existing immutable child images already implement the default format,
+    # but their CLI predates this opt-in argument.
+    if config.prompt_format != "json-v1":
+        command.extend(("--prompt-format", config.prompt_format))
+    return command
 
 
 def main() -> int:

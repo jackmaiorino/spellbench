@@ -125,6 +125,11 @@ def test_hosted_child_format_and_agent_log_identify_opt_in():
 
 def test_default_format_is_the_existing_prompt_and_unknown_format_refuses():
     assert render_prompt(item()) == render_prompt(item(), prompt_format='json-v1')
+    # The pinned pre-change Docker CLI accepts this exact argument contract.
+    assert child_command('test', AgentConfig(), 32) == [
+        'python', '-m', 'spellbench.llm', '--model', 'test', '--broker-stdio', '--log-dir', '/tmp/logs',
+        '--max-completion-tokens', '32', '--max-calls-per-game', '256', '--max-tokens-per-game', '250000',
+        '--max-prompt-bytes', '64000', '--history-decisions', '8', '--timeout-ms', '20000']
     with pytest.raises(ValueError, match='format'):
         AgentConfig(prompt_format='unknown')
 
