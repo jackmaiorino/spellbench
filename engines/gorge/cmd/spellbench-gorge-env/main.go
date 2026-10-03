@@ -16,6 +16,7 @@ func main() {
 	corpus := flag.String("corpus", os.Getenv("GORGE_CARDS"), "compiled Forge corpus directory (never shipped)")
 	rev := flag.String("source-revision", "", "adapter source revision reported in hello_ok")
 	autoPay := flag.Bool("auto-pay", false, "offer native payment-plan casts and declare engine_autopay")
+	search := flag.Bool("search", false, "offer actor-redacted native search history (requires a published identity audit)")
 	flag.Parse()
 	reg, err := gorgepin.OpenRegistry(*corpus)
 	if err != nil {
@@ -35,6 +36,9 @@ func main() {
 	srv := server.New(reg, sr)
 	if *autoPay {
 		srv.EnableAutoPay()
+	}
+	if *search {
+		srv.EnableSearch()
 	}
 	if err := server.Serve(os.Stdin, w, srv); err != nil {
 		fmt.Fprintln(os.Stderr, "spellbench-gorge-env:", err)

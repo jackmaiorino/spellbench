@@ -9,15 +9,25 @@ import (
 	"os"
 
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/agent"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/gorgepin"
 )
 
 func main() {
-	policy := flag.String("policy", "bot", "bot, bot-auto-pay, lethal-pressure, lethal-pressure-auto-pay, ar8, blocks, explore, legacy, or cast-profile (default-bot alias)")
+	policy := flag.String("policy", "bot", "bot, bot-auto-pay, lethal-pressure, lethal-pressure-auto-pay, ar8, blocks, explore, legacy, search, search-mana, or cast-profile (default-bot alias)")
+	corpus := flag.String("corpus", os.Getenv("GORGE_CARDS"), "pinned corpus directory (required by search)")
 	flag.Parse()
 	s, err := agent.New(*policy)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
+	}
+	if s.PolicyKey() == "search" || s.PolicyKey() == "search-mana" {
+		reg, err := gorgepin.OpenRegistry(*corpus)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "spellbench-gorge-agent:", err)
+			os.Exit(2)
+		}
+		s.SetRegistry(reg)
 	}
 	if err := agent.Serve(os.Stdin, &flushWriter{bufio.NewWriter(os.Stdout)}, s); err != nil {
 		fmt.Fprintln(os.Stderr, "spellbench-gorge-agent:", err)

@@ -34,6 +34,8 @@ func nativePolicy(key string, seed uint64) seat.Seat {
 		return seat.NewBlocksBot(seed)
 	case "explore":
 		return seat.NewExploreBot(seed)
+	case "search", "search-mana":
+		return seat.NewBot(seed) // SearchBot's plain Decide delegates unchanged
 	default:
 		return &nativeLegacy{rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
 	}
@@ -77,7 +79,7 @@ func TestPoliciesPreserveNativeBehaviorAndIdentity(t *testing.T) {
 				t.Fatalf("identity %+v", hello.Bot)
 			}
 			for _, seed := range []uint64{1, 2, 54321} {
-				s.Handle([]byte(`{"request_type":"game_start","engine_profile":{"engine_defaults":{"mana_payment":"engine_autopay"}},"agent_seed":` + fmtSeed(seed) + `}`))
+				s.bot = p.New(seed)
 				oracle := nativePolicy(p.Key, seed)
 				for n := 0; n < 12; n++ {
 					for _, d := range ds {
@@ -106,7 +108,7 @@ func TestDefaultCastProfileIsAnAlias(t *testing.T) {
 	if err != nil || w != botpolicy.DefaultCastWeights {
 		t.Fatalf("pinned cast-profile no longer equals default: %+v %v", w, err)
 	}
-	for _, key := range []string{"search", "policynet", "unknown"} {
+	for _, key := range []string{"search-redeal", "search-mana-redeal", "policynet", "unknown"} {
 		if _, err := New(key); err == nil {
 			t.Fatalf("unfinished policy %s silently substituted a bot", key)
 		}

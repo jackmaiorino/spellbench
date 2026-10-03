@@ -110,6 +110,11 @@ func (s *Game) hiddenNames(seat state.PlayerID, obs protocol.Observation) map[st
 	for _, k := range obs.Known {
 		seen[k.CardName] = true
 	}
+	if s.search != nil {
+		for name := range s.search.PublicNames(seat) {
+			seen[name] = true
+		}
+	}
 	for n := range seen {
 		delete(hidden, n)
 	}

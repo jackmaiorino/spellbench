@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -35,6 +36,7 @@ type Server struct {
 	cache   map[string]cached
 	audit   bool
 	autoPay bool
+	search  bool
 }
 
 func New(reg *cards.Registry, sourceRevision *string) *Server {
@@ -49,6 +51,20 @@ func (s *Server) EnableAutoPay() {
 	}
 	s.autoPay = true
 	s.engine.Version = "gorge-26257e0eda17/adapter-0.2.0/autopay"
+	if s.search {
+		s.engine.Version += "/search"
+	}
+}
+
+// EnableSearch declares the observer-history extension before hello/reset.
+func (s *Server) EnableSearch() {
+	if s.game != nil {
+		panic("cannot enable search history during a game")
+	}
+	if !s.search {
+		s.engine.Version += "/search"
+	}
+	s.search = true
 }
 
 func marshal(v any) []byte {
@@ -86,6 +102,9 @@ func (s *Server) dispatch(req protocol.Request) []byte {
 	switch req.Type {
 	case "hello":
 		h := helloOK(req.ID, s.engine, observe.Flags)
+		if s.search {
+			h.Extensions = append(h.Extensions, protocol.Extension{Name: strategies.Extension, NativeIDs: true})
+		}
 		if s.autoPay {
 			value := "engine_autopay"
 			h.EngineDefaults["mana_payment"] = &value
@@ -158,15 +177,19 @@ func (s *Server) reset(req protocol.Request) []byte {
 		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, "card_name_domain.domain_id does not hash its distinct names"))
 	}
 	for _, x := range r.Rules.Extensions {
-		if x != "x_gorge_view_v1" {
+		if x != "x_gorge_view_v1" && !(s.search && x == strategies.Extension) {
 			return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "extension "+x))
 		}
+	}
+	if slices.Contains(r.Rules.Extensions, strategies.Extension) && !slices.Contains(r.Rules.Extensions, "x_gorge_view_v1") {
+		return errResp(req.ID, protocol.Errf(protocol.CodeUnsupportedRule, "search history requires x_gorge_view_v1"))
 	}
 	sec, err := secrets.ParseGame(r.GameSecret)
 	if err != nil {
 		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, err.Error()))
 	}
 	cfg := session.Config{AutoPay: s.autoPay, Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}
+	cfg.Search = slices.Contains(r.Rules.Extensions, strategies.Extension)
 	if slices.Contains(r.Rules.Extensions, "x_gorge_view_v1") {
 		cfg.Ext = xview.New()
 	}

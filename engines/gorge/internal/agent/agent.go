@@ -1,5 +1,5 @@
 // Package agent serves gorge's bots in the Spellbench v2 agent role, reading
-// only the forwarded seat decision and its x_gorge_view_v1 extension.
+// only the forwarded seat decision, its declared extensions and public decks.
 package agent
 
 import (
@@ -15,6 +15,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
@@ -28,23 +29,28 @@ import (
 // matched: Forced when the decision had a single candidate, Fallbacks
 // otherwise, with the first reason.
 type Record struct {
-	NativeIntent decision.Intent
-	Translation  string
-	Intent       decision.Intent
-	Followups    map[string]decision.Intent
-	Forced       int
-	Fallbacks    int
-	Reason       string
+	NativeIntent   decision.Intent
+	Translation    string
+	Intent         decision.Intent
+	Followups      map[string]decision.Intent
+	Forced         int
+	Fallbacks      int
+	Reason         string
+	Search         *strategies.Trace
+	SearchEligible bool
 }
 
 type Server struct {
-	policy    string
-	identity  Policy
-	bot       seat.Seat
-	plan      *Plan
-	fallbacks int
-	forced    int
-	records   map[uint64]*Record // the current game's native decisions (parity audit)
+	policy        string
+	identity      Policy
+	bot           seat.Seat
+	plan          *Plan
+	fallbacks     int
+	forced        int
+	records       map[uint64]*Record // the current game's native decisions (parity audit)
+	registry      *cards.Registry
+	searchSetup   strategies.PublicGame
+	searchHistory strategies.History
 }
 
 func New(policy string) (*Server, error) {
@@ -75,9 +81,15 @@ type candidate struct {
 }
 
 type request struct {
-	RequestType   string `json:"request_type"`
-	RequestID     string `json:"request_id"`
-	AgentSeed     uint64 `json:"agent_seed"`
+	Rules struct {
+		Mulligan string `json:"mulligan"`
+	} `json:"rules"`
+	RequestType   string      `json:"request_type"`
+	RequestID     string      `json:"request_id"`
+	AgentSeed     uint64      `json:"agent_seed"`
+	Seat          string      `json:"seat"`
+	OwnDeck       *searchDeck `json:"own_deck"`
+	OpponentDeck  *searchDeck `json:"opponent_deck"`
 	EngineProfile struct {
 		EngineDefaults map[string]*string `json:"engine_defaults"`
 	} `json:"engine_profile"`
@@ -116,11 +128,21 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 		base["bot"] = map[string]string{"name": s.identity.Name, "version": Version}
 		base["requires"] = map[string][]string{"observation": {}, "extensions": {"x_gorge_view_v1"}}
 		base["extensions_accepted"] = []string{"x_gorge_view_v1"}
+		if strings.HasPrefix(s.policy, "search") {
+			extensions := []string{"x_gorge_view_v1", strategies.Extension}
+			base["requires"] = map[string][]string{"observation": {}, "extensions": extensions}
+			base["extensions_accepted"] = extensions
+		}
 	case "game_start":
 		if strings.HasSuffix(s.policy, "auto-pay") {
 			mode := q.EngineProfile.EngineDefaults["mana_payment"]
 			if mode == nil || *mode != "engine_autopay" {
 				return errorLine(q.RequestID, "malformed_request", "auto-pay policy requires engine_autopay")
+			}
+		}
+		if strings.HasPrefix(s.policy, "search") {
+			if err := s.startSearch(q); err != nil {
+				return errorLine(q.RequestID, "malformed_request", err.Error())
 			}
 		}
 		s.bot = s.identity.New(q.AgentSeed)
@@ -196,8 +218,17 @@ func (s *Server) choose(q request) uint32 {
 		return s.decide(vv, nd)
 	}
 	if s.plan == nil || s.plan.native != p.NativeIndex {
-		s.plan = NewPlan(p.NativeIndex, ask(d))
-		s.records[p.NativeIndex] = &Record{NativeIntent: s.plan.intent, Intent: s.plan.intent, Followups: s.plan.follow}
+		var trace *strategies.Trace
+		var in decision.Intent
+		var searchEligible bool
+		if bot, ok := s.bot.(*strategies.Search); ok {
+			searchEligible = bot.Eligible(&d)
+			in, trace = s.decideSearch(q, v, d, bot)
+		} else {
+			in = ask(d)
+		}
+		s.plan = NewPlan(p.NativeIndex, in)
+		s.records[p.NativeIndex] = &Record{NativeIntent: s.plan.intent, Intent: s.plan.intent, Followups: s.plan.follow, Search: trace, SearchEligible: searchEligible}
 	}
 	sems := make([]map[string]any, len(cands))
 	for i, c := range cands {

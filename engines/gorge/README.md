@@ -1,6 +1,6 @@
 # gorge adapter
 
-The gorge rules engine as a Spellbench Protocol v2 engine (environment role over stdio), with gorge's default and lethal-pressure bots wrapped as v2 agents. Protocol `spellbench/v2`, `protocol_minor` 0, frozen at spec commit `7e9e73f`. The adapter is a separate Go module pinned to gorge commit `26257e0eda1779d739a07e835c6500b9c4dabc62`, resolved locally; gorge's tree is read-only.
+The gorge rules engine as a Spellbench Protocol v2 engine (environment role over stdio), with eight ordinary policy modes and two public-history search modes wrapped as v2 agents. Protocol `spellbench/v2`, `protocol_minor` 0. The adapter is a separate Go module pinned to gorge commit `26257e0eda1779d739a07e835c6500b9c4dabc62`, resolved locally; gorge's tree is read-only. Complete inventory and validation status are in `docs/gorge-roster-20261002.json`.
 
 ## Build
 
@@ -8,7 +8,7 @@ The gorge rules engine as a Spellbench Protocol v2 engine (environment role over
 source scripts/env.sh && sh scripts/setup-dev.sh && go build -o bin/ ./cmd/...
 ```
 
-`scripts/env.sh` puts the pinned toolchain on PATH (Go 1.27.1, `GOTOOLCHAIN=local`, caches on D:) and sets `GORGE_SRC` and `GORGE_CARDS`. `setup-dev.sh` writes the git-ignored `go.work` that resolves the pinned gorge import to the local clone. The card corpus is fetched with gorge's `forgec fetch` and is never shipped (Forge scripts are GPL-3.0); binaries load it at run time through `-corpus` or `GORGE_CARDS`.
+`scripts/env.sh` selects the local Go 1.27.1 toolchain (`GOTOOLCHAIN=local`, caches on D:), sets `GORGE_SRC` and `GORGE_CARDS`, and enables `GOFLAGS=-overlay=.../go-overlay.json`. CI remains pinned to Go 1.25.8. `setup-dev.sh` invokes Python 3 to verify the source revision and write the git-ignored `go.work`, generated source copies and overlay manifest. The nested `strategies` module accesses gorge's internal search packages; overlays add public collector bindings, actor-only replay boundaries, identity retirement and declared mulligan setup without editing the upstream checkout. The card corpus is fetched with gorge's `forgec fetch` and is never shipped (Forge scripts are GPL-3.0); binaries load it at run time through `-corpus` or `GORGE_CARDS`.
 
 ## CI
 
@@ -16,8 +16,9 @@ The module's `go.sum` holds only the `golang.org/x/text` hashes; the pinned gorg
 
 1. clones gorge at the pin with `core.autocrlf=true` and exports `GORGE_SRC` (gorge's `CompilerFingerprint` hashes the source bytes, and the pinned value comes from the qualified Windows checkout; an LF checkout reports `59486de15e72099cf8b90914881a89c0` and is refused);
 2. runs `forgec fetch -ref 95f04e8a04c8925fa97cb226fc3341cabcc90a53` into `GORGE_CARDS` and exports it;
-3. runs `sh scripts/setup-dev.sh`;
-4. runs the one test command `go test -timeout 60m ./...` (the mini-host, agent and qualification packages run past `go test`'s 10-minute default).
+3. runs `sh scripts/setup-dev.sh` and enables the generated overlay;
+4. runs vet, affected policy/payment checks and the nested public-search tests;
+5. runs `go test -timeout 60m ./...` (the mini-host, agent and ordinary qualification packages run past `go test`'s 10-minute default).
 
 Tests fail, never skip, when `GORGE_CARDS` is unset.
 
@@ -52,6 +53,10 @@ The extension payload carries `version`, `native_index`, `view` (gorge's own sea
 
 The wrapped bots see per-seat ids and name-sorted hidden options, so their games are not byte-identical to native gorge games; that is by design (Decision 6). Parity means the adapter commits exactly the intent, follow-up answers included, the bot chose (Task 28b).
 
+## `x_gorge_search_v1`
+
+The engine's explicit `-search` flag adds actor-only public history and bindings from the current view IDs to observer-local history IDs. Search agents require both extensions and load static card definitions with `-corpus` or `GORGE_CARDS`. `search` and `search-mana` keep shipped search settings; their source adaptations, bounded parity evidence and remaining qualification work are documented in `docs/gorge-search-bridge-20261002.md`. The profile conservatively declares `native_ids:true` for this extension. It must have the required published identity audit before rated use. The two redeal variants remain refused pending a public reconstruction bridge.
+
 ## Benchmark: `pauper-gorge`
 
 `benchmarks/pauper-gorge/benchmark.json` (schema `spellbench-benchmark/v2`, the shape sub-project P's bench loader parses): the five catalog decks as catalog-id deck sources, 4 pairs per deck, the `x_gorge_view_v1` extension, and ten bots: `uniform` (builtin, the rating anchor), `heuristic` (builtin), the six ordinary gorge policies `bot`, `lethal-pressure`, `ar8`, `blocks`, `explore`, and `legacy`, and the two auto-pay modes `bot-auto-pay` and `lethal-pressure-auto-pay` (subprocess, version `gorge-26257e0eda17/adapter-0.2.0`). The engine command enables `-auto-pay`. This is preparation, not a frozen or rated run. The complete pinned inventory, aliases, pending search modes, qualification and publication status are in `docs/gorge-roster-20261002.json`.
@@ -72,4 +77,4 @@ Differences from the plan's draft, all forced by P2's loader (Task 30 reconciles
 ## Qualification and goldens
 
 - Golden transcripts (Task 27): `go test ./internal/server/ -run Golden` replays `testdata/goldens/` byte-exact and recomputes the Section 11.8 digests; `-update` regenerates the files. Scenarios cover `hello`, the five decks' first decisions, a uniform Burn game, every reachable error code, and the arrangement, attack-declaration, order-pick and mana-payment groups. Every scenario resets without `x_gorge_view_v1`, whose payload carries gorge cost strings compiled from Forge scripts, which this module never ships.
-- Qualification (Tasks 28a and 28b): `go run ./cmd/gorgequal -games N -out report.json` (`-resample K`, `-workers W`, `-audit` default true). Every game is played twice from the same run secret, audited and plain, and the digests must match; the report counts validator violations, resample failures, leak-scan hits, inconsistent candidates, parity mismatches including full payment witnesses, and forced or fallback answers (gated per policy and deck under 1%). Halts, truncations and agent errors fail qualification. Throughput counts completed natural games. This adapter check does not replace the supported reference-host throughput guard required before a rated run.
+- Qualification (Tasks 28a and 28b): `gorgequal -games N -out report.json` (`-resample K`, `-workers W`, `-audit` default true, `-policies all` or an explicit recorded subset). Every game is played twice from the same run secret, audited and plain, and the digests must match; the report counts validator violations, resample failures, leak-scan hits, inconsistent candidates, parity mismatches including full payment witnesses, and forced or fallback mapping answers (gated per policy and deck under 1%). Selected search modes must cover a decision on each deck; their sampling and rollout coverage and delegation reasons are recorded separately. Halts, truncations and agent errors fail qualification. Throughput counts completed natural games. Substantial qualification and rated runs require the supported reference-host throughput guard under `COMPUTE-POLICY.md`; this diagnostic executable does not enforce that guard by itself.

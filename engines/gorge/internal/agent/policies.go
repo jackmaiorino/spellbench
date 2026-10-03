@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -33,6 +34,8 @@ var policies = []Policy{
 	{"legacy", "gorge-legacy", func(seed uint64) seat.Seat {
 		return &legacySeat{rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
 	}},
+	{"search", "gorge-search", func(seed uint64) seat.Seat { return strategies.NewSearch(seed, false) }},
+	{"search-mana", "gorge-search-mana", func(seed uint64) seat.Seat { return strategies.NewSearch(seed, true) }},
 }
 
 // Policies returns the distinct policies currently supported by this adapter.

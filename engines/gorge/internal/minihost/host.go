@@ -43,6 +43,9 @@ func (h *Host) id() string { h.n++; return fmt.Sprintf("h-%d", h.n) }
 
 func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []string, agents [2]Link) (Result, error) {
 	var res Result
+	if extensions == nil {
+		extensions = []string{}
+	}
 	gameID := secrets.GameID(h.RunSecret, i)
 	names := catalog.PoolNames()
 	domain := wire.DomainID(names)
@@ -71,10 +74,16 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 	}
 	for s, a := range agents {
 		seat := fmt.Sprintf("p%d", s)
-		// A minimal game_start: only the fields this adapter's agents read.
-		// P's host sends the full message; Task 30 runs the agent under it.
+		// Public decks are needed by native search's sampled-world setup.
+		var rows []map[string]any
+		for _, row := range deck.Rows {
+			rows = append(rows, map[string]any{"name": row.Name, "count": row.Count})
+		}
+		publicDeck := map[string]any{"deck_id": deck.DeckID(), "name": deck.Name, "decklist": rows}
 		start, _ := wire.Canonical(map[string]any{"request_type": "game_start", "protocol": protocol.Name, "request_id": "r-0",
 			"game_id": gameID, "seat": seat, "agent_seed": secrets.AgentSeed(h.RunSecret, i, seat),
+			"own_deck": publicDeck, "opponent_deck": publicDeck,
+			"rules":          map[string]any{"mulligan": mulligan},
 			"engine_profile": map[string]any{"engine_defaults": engineProfile.EngineDefaults}})
 		ack, err := a.Round(start)
 		if err != nil {

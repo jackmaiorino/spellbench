@@ -1,0 +1,99 @@
+package searchprobe
+
+import (
+	"fmt"
+
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// SpellbenchCollector binds public transport IDs to the observer IDs already
+// present in a public History. It has no engine, events, cards or hidden data.
+// The constructor adds bindings without copying a live game's state.
+func SpellbenchCollector(actor state.PlayerID, aliases map[uint32]uint32) (*Collector, error) {
+	c := NewCollector(actor)
+	var max uint32
+	for public, observer := range aliases {
+		if public == 0 || observer == 0 || observer > 100000 {
+			return nil, fmt.Errorf("invalid public observer binding")
+		}
+		if observer > max {
+			max = observer
+		}
+	}
+	c.byRef = make([]state.ObjID, int(max)+1)
+	for public, observer := range aliases {
+		if c.byRef[observer] != 0 && c.byRef[observer] != state.ObjID(public) {
+			return nil, fmt.Errorf("ambiguous public observer binding")
+		}
+		c.known[state.ObjID(public)] = observer
+		c.byRef[observer] = state.ObjID(public)
+	}
+	return c, nil
+}
+
+// SpellbenchAlias is used only by the trusted driver when making the binding.
+// Raw IDs never leave that driver.
+func (c *Collector) SpellbenchAlias(id state.ObjID) uint32 { return c.ref(id) }
+
+// SpellbenchCapture also forgets physical copy identities when knowledge is
+// lost. A blind shuffle cannot link a later draw to an earlier seen copy.
+func (c *Collector) SpellbenchCapture(e *rules.Engine, burst []events.Event) (Frame, error) {
+	c.spellbenchForget(e, burst)
+	f, err := c.Capture(e, burst)
+	c.spellbenchRemember(e)
+	return f, err
+}
+
+func (c *Collector) spellbenchCaptureScratch(e *rules.Engine, burst []events.Event, withPotential bool) (Frame, error) {
+	c.spellbenchForget(e, burst)
+	f, err := c.captureScratch(e, burst, withPotential)
+	c.spellbenchRemember(e)
+	return f, err
+}
+
+func (c *Collector) spellbenchForget(e *rules.Engine, burst []events.Event) {
+	if c.spellbenchZones == nil {
+		c.spellbenchZones = map[state.ObjID]state.Zone{}
+	}
+	forget := func(id state.ObjID) {
+		if ref := c.known[id]; ref != 0 {
+			delete(c.known, id)
+			c.byRef[ref] = 0
+		}
+		delete(c.spellbenchZones, id)
+	}
+	for _, ev := range burst {
+		switch ev.Kind {
+		case events.Shuffle:
+			// These IDs stay inside the trusted collector. No ID is allocated
+			// or exposed here; introductions happen on later visible facts.
+			for _, id := range ev.IDs {
+				forget(id)
+			}
+		case events.Draw, events.MoveZone, events.PutOnStack:
+			if ev.From.Hidden() && ev.To.Hidden() && ev.Player != c.actor {
+				// The observer cannot know which known opponent card moved.
+				// Invalidate all known hidden copies of that owner, using the
+				// same public event rather than its private selected object.
+				for id, zone := range c.spellbenchZones {
+					if o := e.G.Obj(id); zone.Hidden() && o != nil && o.Owner == ev.Player {
+						forget(id)
+					}
+				}
+			}
+			if c.known[ev.Obj] != 0 {
+				c.spellbenchZones[ev.Obj] = ev.To
+			}
+		}
+	}
+}
+
+func (c *Collector) spellbenchRemember(e *rules.Engine) {
+	for id := range c.known {
+		if o := e.G.Obj(id); o != nil {
+			c.spellbenchZones[id] = o.Zone
+		}
+	}
+}

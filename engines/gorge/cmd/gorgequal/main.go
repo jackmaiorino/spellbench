@@ -18,7 +18,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/agent"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/gorgepin"
@@ -32,6 +34,7 @@ import (
 type options struct {
 	games, resample, workers int
 	audit                    bool
+	policyKeys               []string // nil: every integrated strategy
 }
 
 type Totals struct {
@@ -58,14 +61,98 @@ func (g DeckGate) Pass() bool {
 }
 
 type Report struct {
-	Totals      Totals              `json:"totals"`
-	Gates       map[string]DeckGate `json:"gates"`
-	PolicyGates map[string]DeckGate `json:"policy_gates"`
-	Rows        []map[string]any    `json:"rows"`
+	Policies       []string                  `json:"policies"`
+	Totals         Totals                    `json:"totals"`
+	Gates          map[string]DeckGate       `json:"gates"`
+	PolicyGates    map[string]DeckGate       `json:"policy_gates"`
+	SearchCoverage map[string]SearchCoverage `json:"search_coverage"`
+	Rows           []map[string]any          `json:"rows"`
+}
+
+// SearchCoverage distinguishes native search delegation from adapter mapping
+// fallbacks. A clean mapping alone does not prove that search ran.
+type SearchCoverage struct {
+	Natives, Eligible, Attempted, Covered                           int
+	Attempts, Accepted, Worlds, Rollouts, Submits, Terminal, Capped int
+	Reasons                                                         map[string]int
+	Kinds                                                           map[string]int
+}
+
+func (s SearchCoverage) Pass() bool { return s.Eligible > 0 && s.Covered > 0 }
+
+func mergeSearch(dst *SearchCoverage, src SearchCoverage) {
+	dst.Natives += src.Natives
+	dst.Eligible += src.Eligible
+	dst.Attempted += src.Attempted
+	dst.Covered += src.Covered
+	dst.Attempts += src.Attempts
+	dst.Accepted += src.Accepted
+	dst.Worlds += src.Worlds
+	dst.Rollouts += src.Rollouts
+	dst.Submits += src.Submits
+	dst.Terminal += src.Terminal
+	dst.Capped += src.Capped
+	if dst.Reasons == nil {
+		dst.Reasons = map[string]int{}
+	}
+	if dst.Kinds == nil {
+		dst.Kinds = map[string]int{}
+	}
+	for k, n := range src.Reasons {
+		dst.Reasons[k] += n
+	}
+	for k, n := range src.Kinds {
+		dst.Kinds[k] += n
+	}
+}
+
+func searchCoverage(records map[uint64]*agent.Record) SearchCoverage {
+	out := SearchCoverage{Reasons: map[string]int{}, Kinds: map[string]int{}}
+	for _, rec := range records {
+		tr := rec.Search
+		if tr == nil {
+			continue
+		}
+		out.Natives++
+		if rec.SearchEligible {
+			out.Eligible++
+		}
+		if tr.Attempts > 0 {
+			out.Attempted++
+		}
+		if tr.Covered {
+			out.Covered++
+			out.Kinds[tr.Kind]++
+		}
+		out.Attempts += tr.Attempts
+		out.Accepted += tr.Accepted
+		out.Worlds += tr.Worlds
+		out.Rollouts += tr.Rollouts
+		out.Submits += tr.Submits
+		out.Terminal += tr.Terminal
+		out.Capped += tr.Capped
+		if rec.SearchEligible && !tr.Covered {
+			reason := tr.Fallback
+			if reason == "" {
+				reason = "fewer_than_two_candidates"
+			}
+			out.Reasons[reason]++
+		}
+	}
+	return out
 }
 
 func (r Report) Clean() bool {
 	t := r.Totals
+	for _, p := range r.Policies {
+		if strings.HasPrefix(p, "search") {
+			for _, d := range catalog.Decks() {
+				if !r.SearchCoverage[d.CatalogID+"/"+p].Pass() {
+					return false
+				}
+			}
+		}
+	}
 	for _, g := range r.Gates {
 		if !g.Pass() {
 			return false
@@ -73,6 +160,11 @@ func (r Report) Clean() bool {
 	}
 	for _, g := range r.PolicyGates {
 		if !g.Pass() {
+			return false
+		}
+	}
+	for _, s := range r.SearchCoverage {
+		if !s.Pass() {
 			return false
 		}
 	}
@@ -92,12 +184,12 @@ func mergeGate(dst *DeckGate, src DeckGate) {
 	}
 }
 
-var pairings = policyPairings()
-
-func policyPairings() []string {
+func policyPairings(keys []string) []string {
 	out := []string{"uniform/uniform", "bot/lethal-pressure"}
 	for _, p := range agent.Policies() {
-		out = append(out, p.Key+"/uniform")
+		if keys == nil || slices.Contains(keys, p.Key) {
+			out = append(out, p.Key+"/uniform")
+		}
 	}
 	return out
 }
@@ -123,7 +215,7 @@ func (a *auditLink) Round(req []byte) ([]byte, error) {
 	return a.srv.Handle(req), nil
 }
 
-func link(name string) minihost.Link {
+func link(name string, reg *cards.Registry) minihost.Link {
 	if name == "uniform" {
 		return &minihost.Uniform{}
 	}
@@ -131,6 +223,7 @@ func link(name string) minihost.Link {
 	if err != nil {
 		panic(err)
 	}
+	a.SetRegistry(reg)
 	return a
 }
 
@@ -192,7 +285,7 @@ func qualify(o options) (Report, error) {
 	}
 	var jobs []job
 	for _, d := range catalog.Decks() {
-		for _, p := range pairings {
+		for _, p := range policyPairings(o.policyKeys) {
 			for g := 0; g < o.games; g++ {
 				jobs = append(jobs, job{uint64(len(jobs)), d, p})
 			}
@@ -207,14 +300,29 @@ func qualify(o options) (Report, error) {
 			al.every = o.resample
 		}
 		names := strings.Split(j.pairing, "/")
-		seats := [2]minihost.Link{link(names[0]), link(names[1])}
+		exts := []string{"x_gorge_view_v1"}
+		if strings.HasPrefix(names[0], "search") || strings.HasPrefix(names[1], "search") {
+			srv.EnableSearch()
+			exts = append(exts, strategies.Extension)
+		}
+		seats := [2]minihost.Link{link(names[0], reg), link(names[1], reg)}
 		h := &minihost.Host{RunSecret: []byte("gorge-qualification-run-secret!!"), Engine: al,
 			Profile:  validate.Profile{Kinds: kinds, Flags: observe.Flags, Extensions: map[string]bool{}},
 			MaxSteps: 100000, MaxDecisions: 49999}
-		res, err := h.Play(j.i, j.deck, "london", []string{"x_gorge_view_v1"}, seats)
+		res, err := h.Play(j.i, j.deck, "london", exts, seats)
 		return res, al, seats, err
 	}
-	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}}
+	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}, SearchCoverage: map[string]SearchCoverage{}}
+	for _, p := range agent.Policies() {
+		if o.policyKeys == nil || slices.Contains(o.policyKeys, p.Key) {
+			rep.Policies = append(rep.Policies, p.Key)
+		}
+	}
+	for _, key := range o.policyKeys {
+		if !slices.Contains(rep.Policies, key) {
+			return Report{}, fmt.Errorf("unknown qualification policy %q", key)
+		}
+	}
 	var mu sync.Mutex
 	start := time.Now()
 	work := make(chan job)
@@ -229,6 +337,7 @@ func qualify(o options) (Report, error) {
 				fb, forced := 0, 0
 				gate := DeckGate{Reasons: map[string]int{}}
 				policyGates := map[string]DeckGate{}
+				searchGates := map[string]SearchCoverage{}
 				for _, l := range seats {
 					ag, ok := l.(*agent.Server)
 					if !ok {
@@ -254,13 +363,16 @@ func qualify(o options) (Report, error) {
 					old := policyGates[key]
 					mergeGate(&old, pg)
 					policyGates[key] = old
+					if strings.HasPrefix(ag.PolicyKey(), "search") {
+						searchGates[key] = searchCoverage(ag.Records())
+					}
 				}
 				compared, mismatched := parity(al.srv.Realized(), seats)
 				leaks, inconsistent := al.srv.Leaks(), al.srv.Inconsistent()
 				row := map[string]any{"deck": j.deck.CatalogID, "pairing": j.pairing, "game": j.i, "steps": a.Steps,
 					"classification": a.Terminal.Classification, "reason": a.Terminal.Reason,
 					"outcome": a.Terminal.Outcome, "digest": a.Digest, "leaks": leaks, "inconsistent": inconsistent,
-					"parity_mismatch": mismatched, "fallbacks": fb, "forced": forced}
+					"parity_mismatch": mismatched, "fallbacks": fb, "forced": forced, "search_coverage": searchGates}
 				mu.Lock()
 				t := &rep.Totals
 				t.Games++
@@ -307,6 +419,11 @@ func qualify(o options) (Report, error) {
 					mergeGate(&combined, pg)
 					rep.PolicyGates[key] = combined
 				}
+				for key, sg := range searchGates {
+					combined := rep.SearchCoverage[key]
+					mergeSearch(&combined, sg)
+					rep.SearchCoverage[key] = combined
+				}
 				rep.Rows = append(rep.Rows, row)
 				mu.Unlock()
 			}
@@ -317,6 +434,16 @@ func qualify(o options) (Report, error) {
 	}
 	close(work)
 	wg.Wait()
+	slices.SortFunc(rep.Rows, func(a, b map[string]any) int {
+		x, y := a["game"].(uint64), b["game"].(uint64)
+		if x < y {
+			return -1
+		}
+		if x > y {
+			return 1
+		}
+		return 0
+	})
 	rep.Totals.GamesPerSecond = float64(rep.Totals.CompletedGames) / time.Since(start).Seconds()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
@@ -330,8 +457,12 @@ func main() {
 	flag.IntVar(&o.resample, "resample", 7, "run the resample self-check before every K-th step (0: never)")
 	flag.IntVar(&o.workers, "workers", max(1, runtime.NumCPU()/2), "concurrent games")
 	flag.BoolVar(&o.audit, "audit", true, "leak scan, consistency, parity and resample checks on the first run of each game")
+	policies := flag.String("policies", "all", "all integrated policies, or an explicit comma-separated subset recorded in the report")
 	outPath := flag.String("out", "gorgequal-report.json", "report path")
 	flag.Parse()
+	if *policies != "all" {
+		o.policyKeys = strings.Split(*policies, ",")
+	}
 	rep, err := qualify(o)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -349,6 +480,11 @@ func main() {
 	for _, d := range slices.Sorted(maps.Keys(rep.Gates)) {
 		g := rep.Gates[d]
 		fmt.Printf("gate %s: %d agent native decisions, %d forced, %d fallback, pass=%v\n", d, g.AgentNatives, g.ForcedNatives, g.FallbackNatives, g.Pass())
+	}
+	for _, key := range slices.Sorted(maps.Keys(rep.SearchCoverage)) {
+		s := rep.SearchCoverage[key]
+		fmt.Printf("search %s: eligible %d attempted %d covered %d worlds %d rollouts %d pass=%v\n",
+			key, s.Eligible, s.Attempted, s.Covered, s.Worlds, s.Rollouts, s.Pass())
 	}
 	if !rep.Clean() {
 		os.Exit(1)

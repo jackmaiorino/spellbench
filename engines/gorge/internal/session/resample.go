@@ -90,6 +90,9 @@ func (s *Game) ResampleCheck(r *rand.Rand) error {
 	if x, ok := s.cfg.Ext.(*xview.Extender); ok {
 		twin.cfg.Ext = x.Clone()
 	}
+	if s.search != nil {
+		twin.search = s.search.Clone()
+	}
 	twin.cfg.Audit = false
 	d := c.Pending()
 	tx, err := mapping.Begin(env, d)

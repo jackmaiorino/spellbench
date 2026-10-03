@@ -13,6 +13,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/spellbench-strategies"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/gamecfg"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/identity"
@@ -20,6 +21,7 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/observe"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/secrets"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/xview"
 )
 
 type Extender interface {
@@ -28,6 +30,7 @@ type Extender interface {
 
 type Config struct {
 	AutoPay    bool
+	Search     bool
 	Reg        *cards.Registry
 	Provenance protocol.Provenance
 	Ext        Extender
@@ -51,6 +54,7 @@ type Game struct {
 	leaks, inconsistent    int
 	realized               []Realized
 	fresh                  bool // the pending pose is its transaction's first
+	search                 *strategies.Driver
 }
 
 func Start(cfg Config, gameID string, req *protocol.ResetReq, sec *secrets.Game, decks [2][]*cards.Card) (*Game, error) {
@@ -69,6 +73,9 @@ func Start(cfg Config, gameID string, req *protocol.ResetReq, sec *secrets.Game,
 	}
 	s := &Game{ID: gameID, cfg: cfg, g: g, maxSteps: req.MaxSteps, maxDecisions: req.MaxDecisions,
 		env: &mapping.Env{AutoPay: cfg.AutoPay, G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Domain: dom, Slots: map[string]uint32{}}}
+	if cfg.Search {
+		s.search = strategies.NewDriver()
+	}
 	s.advance()
 	return s, nil
 }
@@ -106,6 +113,9 @@ func (s *Game) advance() {
 			if d == nil {
 				s.halt("no_pending_decision")
 				return
+			}
+			if s.search != nil {
+				s.search.Observe(e)
 			}
 			if in, ok, err := mapping.Internal(s.env, d); ok || err != nil {
 				if err == nil {
@@ -175,6 +185,21 @@ func (s *Game) present(p *mapping.Pose) error {
 			return err
 		}
 		sd.Extensions = ext
+	}
+	if s.search != nil {
+		x, ok := s.cfg.Ext.(*xview.Extender)
+		if !ok {
+			return fmt.Errorf("search history requires the gorge view extension")
+		}
+		aliases, err := x.SearchAliases(s.env, p, func(id state.ObjID) uint32 { return s.search.Alias(p.Seat, id) })
+		if err != nil {
+			return err
+		}
+		raw, err := json.Marshal(s.search.Delta(p.Seat, s.nativeCount[p.Seat], aliases))
+		if err != nil {
+			return err
+		}
+		sd.Extensions[strategies.Extension] = raw
 	}
 	if s.cfg.Audit {
 		b, err := json.Marshal(sd)
@@ -327,6 +352,12 @@ func (s *Game) submit(in decision.Intent, want *decision.Decision) error {
 	}
 	if in.Seq != d.Seq || in.Player != d.Player {
 		return errFollowup
+	}
+	if s.search != nil {
+		s.search.Observe(s.g.E) // a folded follow-up has its own native ask
+		if err := s.search.RecordAnswer(d, in); err != nil {
+			return fmt.Errorf("search history answer: %w", err)
+		}
 	}
 	if err := s.g.Submit(in); err != nil {
 		fmt.Fprintf(os.Stderr, "gorge rejected intent %+v: %v\n", in, err)

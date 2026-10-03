@@ -43,7 +43,9 @@ jobs:
           echo "GORGE_CARDS=$RUNNER_TEMP/cards" >> "$GITHUB_ENV"
       - name: Resolve gorge through go.work
         working-directory: engines/gorge
-        run: sh scripts/setup-dev.sh
+        run: |
+          sh scripts/setup-dev.sh
+          echo "GOFLAGS=-overlay=$PWD/go-overlay.json" >> "$GITHUB_ENV"
       - name: Vet
         working-directory: engines/gorge
         run: go vet ./...
@@ -53,6 +55,9 @@ jobs:
       - name: Check payment mapping and agent failure handling
         working-directory: engines/gorge
         run: go test ./internal/xview ./internal/mapping ./internal/minihost ./cmd/gorgequal -run '^Test(Payment|HiddenPayment|AutoPayCast|PoolOnlyPayment|AgentErrors)' -count=1
+      - name: Check native public search bridge
+        working-directory: engines/gorge/strategies
+        run: go test -timeout 5m ./... -count=1
       - name: Test
         working-directory: engines/gorge
         run: go test -timeout 60m ./...
