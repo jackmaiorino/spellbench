@@ -12,7 +12,7 @@ source = Path(os.environ["GORGE_SRC"]).resolve()
 revision = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
 if revision != PIN:
     raise SystemExit(f"gorge at {revision}, pinned {PIN}")
-subprocess.run(["git", "-C", str(source), "diff", "--exit-code", "HEAD", "--", "internal/searchprobe", "internal/searchseat"], check=True, stdout=subprocess.DEVNULL)
+subprocess.run(["git", "-C", str(source), "diff", "--exit-code", "HEAD", "--", "internal/searchprobe", "internal/searchseat", "effects/zone.go"], check=True, stdout=subprocess.DEVNULL)
 root.joinpath("go.work").write_text(
     f'go 1.25.8\n\nuse (\n  .\n  ./strategies\n)\n\nreplace github.com/adams-shaun/gorge => "{source.as_posix()}"\n',
     encoding="utf-8",
@@ -80,6 +80,38 @@ generated.mkdir(exist_ok=True)
 replacement = generated / "sample.go"
 replacement.write_text(sampler, encoding="utf-8")
 overlay["Replace"][(source / "internal/searchprobe/sample.go").as_posix()] = replacement.as_posix()
+
+# Forge's hidden-origin resolution defaults its decider to the searched
+# player. The pinned engine incorrectly defaults library confirmation, look
+# and pick to the source controller, exposing an opponent's private choices.
+# Explicit Chooser selectors still win; object-valued moves keep their existing
+# controller fallback. The original pinned source remains untouched.
+zone = (source / "effects/zone.go").read_text(encoding="utf-8")
+start = zone.index("func effSearchLibrary(")
+end = zone.index("func moveDefinedLibraryObjects(", start)
+library = zone[start:end]
+if library.count("searchChooser(h, c, sa)") != 3:
+    raise SystemExit("Pinned library chooser call sites changed; refusing overlay")
+library = library.replace("searchChooser(h, c, sa)", "searchChooser(h, c, sa, owner)")
+zone = zone[:start] + library + zone[end:]
+before = '''func searchChooser(h Host, c *Ctx, sa *cards.SA) state.PlayerID {
+	if spec := strings.TrimSpace(sa.Params["Chooser"]); spec != "" {
+		if p, ok := chooserPlayer(h, c, spec); ok {
+			return p
+		}
+	}
+	return c.Controller
+}'''
+after = before.replace("sa *cards.SA)", "sa *cards.SA, fallback ...state.PlayerID)").replace(
+    "\treturn c.Controller\n}",
+    "\tif len(fallback) != 0 {\n\t\treturn fallback[0]\n\t}\n\treturn c.Controller\n}",
+)
+if zone.count(before) != 1:
+    raise SystemExit("Pinned library chooser fallback changed; refusing overlay")
+zone = zone.replace(before, after, 1)
+replacement = generated / "zone.go"
+replacement.write_text(zone, encoding="utf-8")
+overlay["Replace"][(source / "effects/zone.go").as_posix()] = replacement.as_posix()
 
 # Planned payment answers are exclusive selectors with no Choices. Preserve
 # them only on the public bridge, using observer IDs and stripped digests;

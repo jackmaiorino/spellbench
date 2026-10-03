@@ -258,7 +258,7 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "All nested strategy tests passed in 43.289 seconds with vet and diff checks passing at source 070428f7122e6e451d0312b7cfbd43693b70f3d1. Prior full hosted CI passed at 7c0428ae2e97919f4a4c11c8ec7b513f4246b183; current source awaits fresh hosted CI.",
+      "full_adapter_suite": "After the ownership correction, the full native effects package, affected rules tests, all nested strategy tests (42.366 seconds), strategies vet and git diff --check passed. Two real-card tests verify private library choice ownership and caster-history noninterference; the legitimate 26-frame caster history reconstructs in 52 submits. Hosted full CI at dba809f298d89939c176de16ea818a42fd4eef17 passed before this correction; a fresh run is required.",
       "five_deck_search_qualification": "Attempted in the 120-game cloud matrix and 280-block native audit. Per-deck search coverage and public reconstruction gates failed; evidence: docs/gorge-native-audit-20261003.json.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
@@ -274,6 +274,12 @@
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
-    "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check."
+    "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check.",
+    "library_search_ownership": {
+      "source_adaptation": "Generated effects/zone.go overlay defaults library confirmation, look and pick to the searched player. Explicit Chooser selectors retain precedence.",
+      "primary_reference": "https://github.com/Card-Forge/forge/blob/95f04e8a04c8925fa97cb226fc3341cabcc90a53/forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java#L840",
+      "bot_policy_changes": false,
+      "qualification": "Fresh corrected-runtime qualification and review required. Earlier runtime records are incompatible fairness evidence."
+    }
   }
 }

@@ -1,9 +1,34 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
-This audit covers `x_gorge_search_v1` under protocol sections 13 and 14. Its
-stable IDs refer to information already observed by the acting seat. They
-do not expose gorge allocation IDs, unseen copy identities, event counters,
-opponent decision counts, hidden-zone order, or hashes of those values.
+Status: incomplete. The earlier inspection verified observer identities and
+private-event filtering, but missed incorrect native choice ownership. Its
+fairness conclusion cannot be reused for qualification or rated play.
+
+The pinned Cleansing Wildfire script assigns its library search to the targeted
+land's controller. The engine instead assigned confirmation and offered library
+cards to the caster. That exposed another player's private library despite the
+collector correctly filtering offers by the engine's reported chooser. Filtering
+by chooser is insufficient when the engine assigns the wrong chooser.
+
+The generated `effects/zone.go` overlay now defaults library confirmation, look
+and pick to the searched player. Explicit `Chooser` selectors retain precedence;
+the separate object-valued move path retains its controller default. This follows
+[Forge's hidden-origin resolution at the pinned source](https://github.com/Card-Forge/forge/blob/95f04e8a04c8925fa97cb226fc3341cabcc90a53/forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java#L840).
+The native bot constructors, policies, weights and search budgets are unchanged.
+This engine correction must be disclosed with the benchmark's source variant.
+
+Two real-card regressions now pass. Only the land's controller receives the 52
+private library offers. Reversing the unseen library tail changes those private
+offers while preserving byte-identical caster history. After the controller
+chooses a Forest and declines the optional shuffle, the caster's legitimate
+26-frame public history reconstructs coherently in 52 submits, without exhausting
+the existing budget. These fixtures play zero complete games.
+
+Earlier Cleansing Wildfire fixtures and saved 97- and 166-frame histories used
+the incorrect chooser. Their sealed records remain mechanical replay evidence
+for those old runtimes; they provide no fairness qualification and cannot be
+replayed as current-engine inputs. A fresh current-runtime qualification and
+review remain required. The field inspection below is retained with that limit.
 
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision

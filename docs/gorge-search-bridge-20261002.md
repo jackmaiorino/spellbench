@@ -5,6 +5,11 @@ that failed per-deck search coverage and reconstruction gates. No mode is fully
 qualified, rated or published. The [current native audit and source repair](gorge-native-audit-20261003.json)
 records 280 blocks, 552 natural games, four duplicated halts, and eight natural
 repair replays. The observations below retain their original source scope.
+The pinned engine also assigned an opponent library search to the wrong player.
+Its ownership is now corrected; earlier runtime evidence cannot establish fair
+information access for the corrected benchmark. The
+[identity audit](gorge-native-identity-audit-20261003.md) records the finding,
+source adaptation and current zero-game checks.
 Source pin: `26257e0eda1779d739a07e835c6500b9c4dabc62`.
 
 `search` and `search-mana` call the native `searchseat.Choose`, candidate builder,
@@ -113,9 +118,10 @@ exits and unknown removals there too.
 The replay also tries legal intents suggested by the next public action before
 its other alternatives. Both changes affect witness construction only; native
 world sampling, weights, scoring and the shared reconstruction budgets remain
-unchanged. Natural corpus fixtures reconstruct the 52-option search in 45
+unchanged. Historical corpus fixtures reconstructed the 52-option search in 45
 submits and a declined-shuffle search followed by a later land play in 303
-submits. These fixtures do not establish complete search qualification.
+submits. Those fixtures used the incorrect native chooser and are retained only
+as mechanical replay evidence. They do not qualify current information access.
 
 The new constructed fixture deliberately makes an opponent pass with land in
 hand. All 64 native-policy proposals fail; public reconstruction succeeds in
@@ -295,12 +301,24 @@ allowlist excludes restricted, blind and ambiguous searches. Every proposed
 root must still replay the complete actor-visible history within the original
 attempt and submit limits before supplying the native redeal.
 
-The naturally played Cleansing Wildfire fixture exposes 52 ordered opponent
-basics. Reconstruction exhausted 5,000 submits before this repair and succeeds
-in 45 after it. The real seed50 first root now reaches all 73 actor frames in
-1,129 submits. This changes the public replay witness planner; the native
-primary sampler, weights, search chooser, scorer and rollout limits retain
-their pinned implementation. Current qualification remains incomplete because
-later reconstruction attempts still exhaust their budget. The fixture checks
-a consistent replay root at the search choice, which is outside the native
-search chooser's eligible decision kinds.
+The historical Cleansing Wildfire fixture exposed 52 ordered opponent basics
+because the pinned engine assigned its library choice to the wrong player.
+Its 45-submit replay and the saved seed50, 97-frame and 166-frame repairs are
+mechanical evidence for that faulty runtime. They do not establish permitted
+information or current-runtime qualification. The original sealed histories,
+failures and results are retained rather than transplanted into the corrected
+engine.
+
+The generated engine overlay now assigns library confirmation, look and pick
+to the searched player unless an explicit `Chooser` selects otherwise. This
+matches the pinned Forge hidden-origin implementation. Only the targeted land's
+controller receives Cleansing Wildfire's private choices. Real-card regression
+tests check that different unseen library order changes the controller's offers
+while leaving byte-identical caster history. The legitimate public outcome
+reconstructs its 26 caster frames in 52 submits. Affected effects, rules and
+all nested strategy tests, vet and the diff check pass. These are zero-game
+correctness checks; full qualification remains unfinished. Native bot policies,
+primary sampling, weights, chooser/scorer, rollout limits and reconstruction
+budgets retain their pinned implementation. The engine rules correction is an
+explicit source adaptation, recorded in the
+[updated identity audit](gorge-native-identity-audit-20261003.md).

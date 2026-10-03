@@ -95,5 +95,11 @@
   "qualified": false,
   "rated_games": 0,
   "published": false,
-  "limitation": "Two saved failures now reconstruct. Full current-runtime qualification, reference-host compatibility and rated publication gates remain unfinished."
+  "limitation": "Two saved failures now reconstruct. Full current-runtime qualification, reference-host compatibility and rated publication gates remain unfinished.",
+  "fairness_compatibility": {
+    "status": "superseded_by_library_ownership_correction",
+    "finding": "The pinned engine assigned Cleansing Wildfire opponent-library confirmation and offers to the caster instead of the targeted land controller.",
+    "evidence_use": "Retain historical mechanical replay and completed-game records. Do not reuse them as fairness or current-runtime qualification evidence, or transplant their histories into the corrected engine.",
+    "current_audit": "docs/gorge-native-identity-audit-20261003.md"
+  }
 }
