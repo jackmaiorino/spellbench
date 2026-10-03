@@ -28,8 +28,11 @@ def tree_bytes(root: Path) -> int:
     Links outside the owned job root are refused rather than silently omitted.
     Internal directory links are skipped; their canonical files are counted.
     """
+    def scan_error(error):
+        raise ThroughputError("cannot enumerate whole-job storage") from error
+
     total = 0
-    for directory, folders, files in os.walk(root, followlinks=False):
+    for directory, folders, files in os.walk(root, followlinks=False, onerror=scan_error):
         for name in list(folders):
             path = Path(directory) / name
             if path.is_symlink() or path.is_junction():

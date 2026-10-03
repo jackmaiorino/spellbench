@@ -77,6 +77,17 @@ def test_whole_job_guard_counts_logs_staging_recovery_and_growth(tmp_path, monke
         guard.reconcile_game(576, qualification_games=32)
 
 
+def test_whole_job_scan_failure_refuses_incomplete_accounting(tmp_path, monkeypatch):
+    failure = PermissionError("cannot scan broker logs")
+    def failing_walk(root, *, followlinks, onerror):
+        yield str(root), [], []
+        onerror(failure)
+    monkeypatch.setattr(job_storage.os, "walk", failing_walk)
+    with pytest.raises(ThroughputError, match="enumerate") as raised:
+        job_storage.tree_bytes(tmp_path)
+    assert raised.value.__cause__ is failure
+
+
 def test_storage_root_must_cover_every_output_path(tmp_path, monkeypatch):
     _roomy_storage(monkeypatch)
     with pytest.raises(ThroughputError, match="inside"):
