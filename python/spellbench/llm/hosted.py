@@ -23,6 +23,7 @@ from .docker_peer import DockerPeer
 from .login import default_credentials_path, load_credentials
 from .renewal import renew_profile
 from .provider import ProviderError
+from .prompt import PROMPT_FORMATS
 from .run_budget import BudgetedProvider, RunBudget
 
 
@@ -86,7 +87,8 @@ def child_command(model: str, config: AgentConfig, output_tokens: int, *,
             "--max-calls-per-game", str(config.max_calls_per_game),
             "--max-tokens-per-game", str(config.max_tokens_per_game),
             "--max-prompt-bytes", str(config.max_prompt_bytes),
-            "--history-decisions", str(config.history_decisions), "--timeout-ms", str(config.timeout_ms)]
+            "--history-decisions", str(config.history_decisions), "--timeout-ms", str(config.timeout_ms),
+            "--prompt-format", config.prompt_format]
 
 
 def main() -> int:
@@ -108,6 +110,7 @@ def main() -> int:
     parser.add_argument("--max-calls-per-game", type=int, default=256)
     parser.add_argument("--max-tokens-per-game", type=int, default=750_000)
     parser.add_argument("--history-decisions", type=int, default=1)
+    parser.add_argument("--prompt-format", choices=tuple(PROMPT_FORMATS), default="json-v1")
     parser.add_argument("--timeout-ms", type=int, default=20_000)
     parser.add_argument("--max-run-requests", type=int, default=4096)
     parser.add_argument("--max-run-tokens", type=int, default=10_000_000)
@@ -121,7 +124,8 @@ def main() -> int:
     try:
         config = AgentConfig(max_calls_per_game=args.max_calls_per_game,
                              max_tokens_per_game=args.max_tokens_per_game,
-                             history_decisions=args.history_decisions, timeout_ms=args.timeout_ms)
+                             history_decisions=args.history_decisions, timeout_ms=args.timeout_ms,
+                             prompt_format=args.prompt_format)
         if args.max_completion_tokens < 1:
             raise ValueError("output limit must be positive")
         budget = RunBudget(args.run_budget, model=args.model,
