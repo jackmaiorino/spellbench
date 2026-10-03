@@ -275,6 +275,7 @@ final class ModelReplay {
                 if (!getId().equals(replay.world.player(replay.world.viewer))) {
                     throw new IllegalArgumentException("unrecorded opponent mode callback");
                 }
+                replay.compare(game, replay.callbackDecision());
                 replay.modeActions = new ModelModes(replay.world, replay.callbackDecision(), modes, source, game);
                 Mode picked = super.chooseMode(modes, source, game);
                 replay.modeActions = null;

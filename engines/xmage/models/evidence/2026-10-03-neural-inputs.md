@@ -366,3 +366,59 @@ skip. These unit and source checks use no actual MageZero weights. Java
 runtime fixtures remain unstarted under claim generation 133, work
 `complete-agent-calibration-formal-001-003`. Full-game adapter, original search,
 checkpoint qualification, ratings and publication remain unfinished.
+
+
+The guarded single-game diagnostic now completes on source
+`f70fa80e04a2a6bc81c667727a3bc91d29007c16` and reviewed build 048. Generation
+136 uses the pinned base Python interpreter; generation 135's virtualenv
+controller startup failure occurred before a game and is retained separately.
+Both gen33 six-visit FDN UR mirror executions end naturally with a heuristic
+win and no protocol violation. They represent one fixed game plus its replay.
+
+| Per execution | Result |
+| --- | --- |
+| Engine steps | 323 |
+| Model decisions | 158 |
+| Decision families | 146 priority, 2 target, 5 attack, 4 block, 1 default mulligan keep |
+| Real neural evaluations | 336 |
+| Primary result store | Identical |
+| Decision/choice stream excluding clocks | Identical |
+| Validator violation | None |
+
+The primary store SHA-256 is
+`e8eefddb8d8de55406e33c9397fdc01296633509c82db1d64e1d9d6912ec1bdb`.
+All 24 driver, plan, outcome, traffic and diagnostic copies are reread in
+`E:/spellbench-xmage-full-agent-20261003-002/`, with hot recovery retained.
+Closure SHA-256 is
+`6f440b95c0e590216d05b0c20ff653c883fce4a463bdad0d14fdbb889bd5b087`.
+Both owned checkpoint containers are absent, working databases are removed
+by the supported lifecycle cleanup, and the canonical reservation is released.
+The closure binds the actual attempt002 paths and records the preserved
+preparation header's obsolete attempt001 cold-location fields.
+
+Model stderr retains watcher reset, unexplained-characteristic and combat-port
+approximation flags. Six visits differ from upstream's original play settings.
+This diagnostic does not qualify other seeds, decks, callback families,
+generations, throughput or playing strength. There are zero rated XMage games
+and no published XMage entry.
+
+The original numeric spell-mode path is implemented with public source,
+ordinal and cardinality binding, plus complete accounting for the original
+unoffered stop branch. All 236 affected checks and its Linux, Windows and Java
+CI pass at source `7280372`. The actual gen33 Abrade callback in generation
+137 then correctly stops on a source-binding error: casting created a stack
+alias absent from the earlier hand snapshot's mapping. Its 330 source, class,
+fixture and failure copies are reread in
+`E:/spellbench-xmage-all-20261002/original-modes-failure-001/`, closure
+`17bb45f6382d659c08c9f4fe8380ae12e21ce697021f78d4ffe8a26c9a7ac200`.
+The failed attempt has confirmed child/container cleanup and reservation
+release; only its closed mutable DB cache is pruned, with the pinned original
+and all diagnostic records retained.
+
+The repair compares the complete current observation before binding the mode
+source. It binds a new public stack reference to the corresponding actual
+replayed stack object in verified bottom-to-top order and retains exact source
+reference and ability identity checks. The real fixture also checks three
+unrelated or absent source mutations before any neural call. This repair's
+compiled fixture and checkpoint replay still need a fresh guarded runtime
+check; a source change and earlier CI do not imply that it passed.

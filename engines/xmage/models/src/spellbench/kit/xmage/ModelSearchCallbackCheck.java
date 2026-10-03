@@ -71,8 +71,11 @@ public final class ModelSearchCallbackCheck {
                             "world_seed", Seeds.hex(Seeds.hmac(ids, "world")), "id_seed", Seeds.hex(ids));
                     Files.write(output.resolve(family + "-record.json"), Json.canonical(record).getBytes(StandardCharsets.UTF_8),
                             StandardOpenOption.CREATE_NEW);
-                    out.println(Json.canonical(Json.map("family", family, "passes", passes,
-                            "candidates", (long) Json.arr(decision, "candidates").size(), "real_callback", kind)));
+                    if (mode) checkModeSourceRefusals(record);
+                    Map<String, Object> status = Json.map("family", family, "passes", passes,
+                            "candidates", (long) Json.arr(decision, "candidates").size(), "real_callback", kind);
+                    if (mode) status.put("mode_source_refusal_checks", 3L);
+                    out.println(Json.canonical(status));
                     return;
                 }
                 if (library && "p0".equals(position.acting()) && "choose_boolean".equals(Slice.Front_firstKind(decision))) {
@@ -108,5 +111,37 @@ public final class ModelSearchCallbackCheck {
             }
             throw new IllegalStateException("fixture callback was not reached");
         } finally { position.seats.exchange.close(); }
+    }
+
+    private static void checkModeSourceRefusals(Map<String, Object> record) {
+        Map<String, Object> decision = Json.obj(record, "decision");
+        Map<String, Object> own = Json.obj(Json.arr(Json.obj(decision, "observation"), "players").get(0));
+        Map<String, Object> land = Json.obj(Json.arr(own, "battlefield").get(0));
+        Map<String, Object> wrong = new spellbench.kit.core.ObsIndex(Json.obj(decision, "observation"))
+                .ref(Json.str(land, "object_id"));
+        refuseModeSource(record, wrong, true);
+        Map<String, Object> absent = Json.obj(Json.copy(Json.obj(Json.obj(decision, "context"), "source")));
+        absent.put("object_id", "absent-mode-source");
+        refuseModeSource(record, absent, true);
+        refuseModeSource(record, wrong, false);
+    }
+
+    private static void refuseModeSource(Map<String, Object> record, Map<String, Object> source, boolean context) {
+        Map<String, Object> bad = Json.obj(Json.copy(record));
+        Map<String, Object> decision = Json.obj(bad, "decision");
+        if (context) Json.obj(decision, "context").put("source", Json.copy(source));
+        Json.obj(Json.obj(Json.arr(decision, "candidates").get(0)), "semantic").put("source", Json.copy(source));
+        if (context) for (Object item : Json.arr(decision, "candidates")) {
+            Json.obj(Json.obj(item), "semantic").put("source", Json.copy(source));
+        }
+        spellbench.models.exp1.RemoteModelEvaluator evaluator = new spellbench.models.exp1.RemoteModelEvaluator(features -> {
+            throw new IllegalStateException("Mode source checks must refuse before neural inference");
+        });
+        try {
+            ModelReplay.run(bad, evaluator, 6);
+            throw new IllegalStateException("Mode callback accepted an unrelated source");
+        } catch (IllegalArgumentException refused) {
+            if (!refused.getMessage().contains("mode") || !refused.getMessage().contains("source")) throw refused;
+        }
     }
 }

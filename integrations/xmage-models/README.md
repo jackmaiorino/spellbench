@@ -37,6 +37,13 @@ process for priority, saved-anchor targets, binary dialogs and a visible library
 search after a recorded earlier choice. Remaining history, callbacks and full games still need the
 complete game adapter.
 
+The public frontend has now completed one gen33 six-visit FDN UR game against
+heuristic and its exact-seed replay, naturally and without validator violations.
+Both primary stores and the decision/choice streams excluding clocks match.
+That single-game diagnostic exercises priority, targets, attacks and blocks;
+other callbacks, decks, generations and original search settings remain
+unqualified. See [the retained evidence](../../engines/xmage/models/evidence/2026-10-03-neural-inputs.md).
+
 MageZero v0.2 source is wired as a separate architecture. A supplied weight
 needs a pinned manifest entry, a deck ID and deck-association evidence before
 it can launch. The loader requires the recorded wide hash range and strict

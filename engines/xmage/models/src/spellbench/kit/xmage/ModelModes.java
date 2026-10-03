@@ -4,12 +4,15 @@ import mage.abilities.Ability;
 import mage.abilities.Mode;
 import mage.abilities.Modes;
 import mage.game.Game;
+import mage.game.stack.StackObject;
 import spellbench.kit.core.Json;
+import spellbench.kit.core.ObsIndex;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -23,6 +26,13 @@ final class ModelModes {
     ModelModes(World world, Map<String, Object> decision, Modes modes, Ability source, Game game) {
         if (source == null || !world.player(world.viewer).equals(source.getControllerId())) {
             throw new IllegalArgumentException("mode callback needs the viewer's actual source ability");
+        }
+        Map<String, Object> reference = Json.obj(Json.obj(decision, "context"), "source");
+        UUID id = visibleSource(world, decision, reference, game);
+        if (id == null || !(id.equals(source.getSourceId())
+                || game.getStack().getStackObject(id) != null
+                && source.getSourceId().equals(game.getStack().getStackObject(id).getSourceId()))) {
+            throw new IllegalArgumentException("mode candidate belongs to a different source");
         }
         List<Mode> all = new ArrayList<>(modes.values());
         // Exactly ComputerPlayerMCTS.chooseMode: null at ordinal zero, then
@@ -45,11 +55,8 @@ final class ModelModes {
         for (Object item : Json.arr(decision, "candidates")) {
             Map<String, Object> action = Json.obj(Json.obj(item), "semantic");
             String kind = Json.str(action, "kind");
-            UUID id = world.idToUuid.get(Json.str(Json.obj(action, "source"), "object_id"));
-            if (id == null || !(id.equals(source.getSourceId())
-                    || game.getStack().getStackObject(id) != null
-                    && source.getSourceId().equals(game.getStack().getStackObject(id).getSourceId()))) {
-                throw new IllegalArgumentException("mode candidate belongs to a different source");
+            if (!Json.canonical(reference).equals(Json.canonical(action.get("source")))) {
+                throw new IllegalArgumentException("mode candidate source differs from the verified callback source");
             }
             int ordinal;
             if ("choose_spell_mode".equals(kind)) {
@@ -80,6 +87,36 @@ final class ModelModes {
             actions.put(ordinal, action);
         }
         if (actions.isEmpty()) throw new IllegalArgumentException("mode root has no offered actions");
+    }
+
+    /** Called only after ModelReplay verifies the entire current observation. */
+    private static UUID visibleSource(World world, Map<String, Object> decision,
+                                      Map<String, Object> reference, Game game) {
+        if (reference == null) throw new IllegalArgumentException("mode source reference is missing");
+        Map<String, Object> observation = Json.obj(decision, "observation");
+        String alias = Json.str(reference, "object_id");
+        Map<String, Object> visible = new ObsIndex(observation).ref(alias);
+        if (visible == null || !Json.canonical(visible).equals(Json.canonical(reference))) {
+            throw new IllegalArgumentException("mode source is absent or differs from its visible reference");
+        }
+        if (!"stack".equals(Json.str(reference, "zone"))) return world.idToUuid.get(alias);
+        // Casting creates a new stack alias after the saved hand snapshot.
+        // Both the engine observation and WorldBuilder use bottom-to-top order;
+        // ArrayDeque's descending iterator gives that order in the replayed game.
+        List<Object> entries = Json.arr(observation, "stack");
+        if (entries.size() != game.getStack().size()) {
+            throw new IllegalArgumentException("mode source stack differs from the verified observation");
+        }
+        Iterator<StackObject> actual = game.getStack().descendingIterator();
+        UUID result = null;
+        for (Object item : entries) {
+            StackObject object = actual.next();
+            if (alias.equals(Json.str(Json.obj(item), "object_id"))) {
+                if (result != null) throw new IllegalArgumentException("aliased visible mode source");
+                result = object.getId();
+            }
+        }
+        return result;
     }
 
     int selected(Map<String, Object> semantic) {
