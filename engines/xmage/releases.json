@@ -1,0 +1,230 @@
+{
+  "schema": "spellbench-xmage-release-inputs/v1",
+  "checked_at": "2026-10-03",
+  "storage": {
+    "projected_bytes": 2147483648,
+    "cap_bytes": 6442450944,
+    "reserve_bytes": 64424509440
+  },
+  "sources": {
+    "xmage": {
+      "url": "https://github.com/magefree/mage",
+      "revision": "fd40ad5c29a92cef824cf12ba6d0e4daa25db975"
+    },
+    "cabt": {
+      "url": "https://github.com/NMaass/mtg-rl-tools",
+      "revision": "bc1cf38c75ee3b3922b174bf20bc6e180e1f7a26"
+    },
+    "magezero": {
+      "url": "https://github.com/WillWroble/MageZero",
+      "revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "v0.2.0-alpha": "3688ab983f14cce634b7d261534b8fda6b90056e",
+      "v0.1.0-alpha": "0f5e394c1bdd0bca292ed40129b5d604367a9f77"
+    },
+    "magezero_engine_v02": {
+      "url": "https://github.com/WillWroble/mage",
+      "revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f"
+    },
+    "draftzero": {
+      "url": "https://github.com/danieljbrooks/draft-zero",
+      "revision": "eab4392b6fc2500eec8cc09c6ec958e124e39592",
+      "exp1-fdn-generalist": "dabcca9050f8cda943c8b8b382a0feccb6d2685a"
+    },
+    "draftzero_model_exp1": {
+      "url": "https://github.com/danieljbrooks/MageZero",
+      "revision": "bcc76deb462ffb2949325509fda6305c8c22835b"
+    },
+    "draftzero_engine_exp1": {
+      "url": "https://github.com/danieljbrooks/mage",
+      "revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "branch": "exp1-fdn-generalist"
+    },
+    "draftzero_engine_v02": {
+      "url": "https://github.com/danieljbrooks/mage",
+      "revision": "48e4918413392523a5f9d7915e1f33941ddea21e"
+    },
+    "draftzero_weights": {
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
+      "revision": "c0ac902361c041f986f429ad9d42e7b92494741f"
+    }
+  },
+  "assets": [
+    {
+      "id": "magezero-engine-v02",
+      "filename": "magezero-xmage-v0.2.0-alpha.zip",
+      "url": "https://github.com/WillWroble/MageZero/releases/download/v0.2.0-alpha/magezero-xmage-v0.2.0-alpha.zip",
+      "sha256": "c0242f186c312db81d0240d1e7479ce0f4306523ebec11d92d616a4f289926a3",
+      "bytes": 471231705,
+      "kind": "engine-bundle",
+      "hash_evidence": "GitHub release asset digest"
+    },
+    {
+      "id": "magezero-engine-v01",
+      "filename": "magezero-xmage-v0.1.3-alpha.zip",
+      "url": "https://github.com/WillWroble/MageZero/releases/download/v0.1.0-alpha/magezero-xmage-v0.1.3-alpha.zip",
+      "sha256": "90a30dd64ef4325489b24df08f2a1f97f9f8ccf9d23b0f31476f1097c1a95956",
+      "bytes": 471228445,
+      "kind": "engine-bundle",
+      "hash_evidence": "GitHub release asset digest"
+    },
+    {
+      "id": "draftzero-exp1-gen0",
+      "filename": "draftzero-exp1-gen0.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen0.pt.gz",
+      "sha256": "0e928bc842e7212aba2706083073ba8a258b7740babac15143941ee66c9417dd",
+      "bytes": 121633683,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-gen10",
+      "filename": "draftzero-exp1-gen10.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen10.pt.gz",
+      "sha256": "f399152f5fa47736a9baa8cbbccc089b96528d8db7c9d209a820a621d7c3fa19",
+      "bytes": 202391887,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-gen33",
+      "filename": "draftzero-exp1-gen33.pt.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/checkpoints/gen33.pt.gz",
+      "sha256": "a534190014428f678b1f662f80c0b7a6f6beee8e3d87773a5f01f9bd4219c47d",
+      "bytes": 223736074,
+      "kind": "checkpoint",
+      "hash_evidence": "Hugging Face LFS digest"
+    },
+    {
+      "id": "draftzero-exp1-model",
+      "filename": "draftzero-exp1-model.py",
+      "url": "https://api.github.com/repos/danieljbrooks/MageZero/git/blobs/d0ca716346e0e30dd6b31dd8b2ecfd1646bed183",
+      "transport": "github-raw-blob",
+      "sha256": "3843c2f8a5c91fe6d322e9f0b847fcb27dc8edfebcb731d0fa1bd314ae503952",
+      "bytes": 15337,
+      "kind": "source-code",
+      "source_revision": "bcc76deb462ffb2949325509fda6305c8c22835b",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-vocab",
+      "filename": "draftzero-exp1-vocab.py",
+      "url": "https://api.github.com/repos/danieljbrooks/MageZero/git/blobs/560bdd9cae8779dda2ab7150a256c6f965e2d357",
+      "transport": "github-raw-blob",
+      "sha256": "f611eec8f5d289ffa506747624ff1dfe0ef70251174f35179ece5ea8e38fff93",
+      "bytes": 11431,
+      "kind": "source-code",
+      "source_revision": "bcc76deb462ffb2949325509fda6305c8c22835b",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-actionencoder",
+      "filename": "ActionEncoder.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/4e70ce9efed9ea555c378c821a39304c164e595f",
+      "transport": "github-raw-blob",
+      "sha256": "9e009de881192f9ecb4f44d52915d717b5d959220c17dfc70bc1caffcf1a1d36",
+      "bytes": 5793,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-featuremap",
+      "filename": "FeatureMap.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/c219342a37a2d456bbb5fcdc0e2b90e85d3c098a",
+      "transport": "github-raw-blob",
+      "sha256": "a5b0b9f3b1ba2161dfcfac98d2035a8e2bdd62404101b50045552d997e1177b2",
+      "bytes": 3044,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-features",
+      "filename": "Features.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/72feaf5cec0a2591f9648d3cc0e1acb67a87b250",
+      "transport": "github-raw-blob",
+      "sha256": "1cc6011cefb29e04c0ea32de845221ca7909f10a830844e9aa87723b9df9c16c",
+      "bytes": 6433,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-labeledstate",
+      "filename": "LabeledState.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/fd7360748b05cb12471fa9d8ee2cd4ddf4f5d371",
+      "transport": "github-raw-blob",
+      "sha256": "94475f022e8ceccad2509b0fedc396aff105468bb7af8ce840580f1bf15d4ed0",
+      "bytes": 3527,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-stateencoder",
+      "filename": "StateEncoder.java",
+      "url": "https://api.github.com/repos/danieljbrooks/mage/git/blobs/7241ae9726f1f323d9443035743ef518de260237",
+      "transport": "github-raw-blob",
+      "sha256": "42a2ede57d39b2d4421baaf236a30ceaaf92ef35886824b7b1eb7eb5fca20aa2",
+      "bytes": 30264,
+      "kind": "source-code",
+      "source_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "draftzero-exp1-actions",
+      "filename": "FDN_SPG.tsv",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/ea12b42c93fa7cb854dc786334505cdc613bfd69",
+      "transport": "github-raw-blob",
+      "sha256": "16faa169baa03eafd3e36490b40c3cbabf1a902e7c227eff69646be1c09afee9",
+      "bytes": 36777,
+      "kind": "action-vocabulary",
+      "source_revision": "dabcca9050f8cda943c8b8b382a0feccb6d2685a",
+      "hash_evidence": "pinned public source Git blob and locally verified SHA-256"
+    },
+    {
+      "id": "magezero-v02-model",
+      "filename": "magezero-v02-model.py",
+      "url": "https://api.github.com/repos/WillWroble/MageZero/git/blobs/a3b379d0c80e1e04cb0a981b433b81badd6a99f3",
+      "transport": "github-raw-blob",
+      "sha256": "9c0da72884f0708d4c119ed9bcb1d7d42133fee5b89f77276217a834c1a3f8cd",
+      "bytes": 5737,
+      "kind": "source-code",
+      "source_revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "hash_evidence": "pinned public Git blob; verified against clean upstream source with checkout CRLF normalization"
+    },
+    {
+      "id": "magezero-v02-vocab",
+      "filename": "magezero-v02-vocab.py",
+      "url": "https://api.github.com/repos/WillWroble/MageZero/git/blobs/560bdd9cae8779dda2ab7150a256c6f965e2d357",
+      "transport": "github-raw-blob",
+      "sha256": "f611eec8f5d289ffa506747624ff1dfe0ef70251174f35179ece5ea8e38fff93",
+      "bytes": 11431,
+      "kind": "source-code",
+      "source_revision": "11a5974668c3f0f3d19559d7dcbf6e323f140808",
+      "hash_evidence": "pinned public Git blob; verified against clean upstream source with checkout CRLF normalization"
+    }
+  ],
+  "inference_backends": {
+    "draftzero-exp1": {
+      "model": "draftzero-exp1-model",
+      "feature_vocab_code": "draftzero-exp1-vocab",
+      "action_vocab": "draftzero-exp1-actions",
+      "feature_hash_bins": 2000000,
+      "policy_width": 1024,
+      "checkpoints": [
+        "draftzero-exp1-gen0",
+        "draftzero-exp1-gen10",
+        "draftzero-exp1-gen33"
+      ]
+    },
+    "magezero-v02": {
+      "model": "magezero-v02-model",
+      "feature_vocab_code": "magezero-v02-vocab",
+      "feature_hash_bins": 2147483647,
+      "policy_width": 128,
+      "checkpoints": [],
+      "status": "source wiring prepared; no public pretrained checkpoint found; unqualified"
+    }
+  }
+}

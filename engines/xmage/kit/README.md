@@ -59,6 +59,14 @@ Evidence options: `--log FILE` (one JSON line per decision with its tag `bot`, `
 them), `--hang-at N` (E3 test hook), `--search-flagged 1` (E4 measurement: flagged worlds are searched up to the
 horizon; a custom identity).
 
+The frozen `mad7-s1` through `mad7-s10` entries expose the ten upstream UI skill settings through this same
+CP7 wrapper, with names `xmage-mad7-fair-s1` through `xmage-mad7-fair-s10`. Each includes the skill, effective
+depth, sampled-world information policy and changed synchronous search settings in its identity. `mad7-s7`
+is the skill-7 fair variant. These entries retain the kit's 5,000-node, 2,000-option and 20,000-operation budgets.
+Skills 1 to 4 share upstream's depth floor of 4; their fair policies need an equivalence check before counting
+them as separate rated policies. The historical H1, H2 and H3 identities remain unchanged. Full qualification
+of the new entries is pending, including the unresolved soak findings recorded in `evidence/soak/findings.json`.
+
 Clock (change 2): each `choose` has one answer time, `min(max_decision_ms, remaining_ms)` minus `--overhead-ms`
 (1500). Waiting for a booting runner, the search (runner deadline = time left minus `--grace-ms`, 5000), a failed
 continuation's current-dialog search, diagnostics and a kill all share it; `--kill-reserve-ms` (300) is kept for

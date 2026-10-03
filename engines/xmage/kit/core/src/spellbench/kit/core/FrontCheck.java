@@ -434,6 +434,38 @@ public final class FrontCheck {
                         && refused,
                 Json.map("frozen", Entries.version(frozen), "grace_override", grace.get("name") + " " + Entries.version(grace),
                         "roundtrip_override", diag.get("name") + " " + Entries.version(diag), "name_override_refused", refused));
+        List<String> skillNames = new ArrayList<>();
+        boolean allDistinct = true;
+        for (int skill = 1; skill <= 10; skill++) {
+            Map<String, Object> c = Entries.configure("mad7-s" + skill, new LinkedHashMap<String, String>());
+            String name = "xmage-mad7-fair-s" + skill;
+            allDistinct &= name.equals(c.get("name")) && Json.num(c, "skill", 0) == skill
+                    && Json.num(c, "effective_depth", 0) == Math.max(4, skill)
+                    && !Entries.digest(frozen).equals(Entries.digest(c));
+            skillNames.add(name + " " + Entries.version(c));
+        }
+        Map<String, String> overrides = new LinkedHashMap<>();
+        overrides.put("nodes", "100");
+        Map<String, Object> changed = Entries.configure("mad7-s7", overrides);
+        Map<String, String> skillOverride = new LinkedHashMap<>();
+        skillOverride.put("skill", "3");
+        Map<String, Object> shallower = Entries.configure("mad7-s7", skillOverride);
+        boolean invalidSkillsRefused = true;
+        for (String entry : Arrays.asList("mad7-s0", "mad7-s11", "mad7-s07")) {
+            try {
+                Entries.frozen(entry);
+                invalidSkillsRefused = false;
+            } catch (IllegalArgumentException expected) {
+                // These are not the shipped skills and must not acquire a frozen identity.
+            }
+        }
+        check("FRONT.identity.shipped_cp7_skills_are_labelled_fair_variants",
+                allDistinct && invalidSkillsRefused && "xmage-mad7-fair-s7-custom".equals(changed.get("name"))
+                        && Json.num(shallower, "effective_depth", 0) == 4
+                        && !Entries.digest(changed).equals(Entries.digest(Entries.frozen("mad7-s7")))
+                        && "0.2.0+da7301f729c0".equals(Entries.version(frozen)),
+                Json.map("entries", skillNames, "invalid_skills_refused", invalidSkillsRefused,
+                        "budget_override", changed.get("name"), "existing_h1", Entries.version(frozen)));
     }
 
     /** Second review, item 2: a combat world skipped as unsupported is a wrapper answer (declining), not a bot plan. */

@@ -43,8 +43,22 @@ public final class Entries {
         return Json.map("nodes", 5000L, "options", 2000L, "operations", 20000L);
     }
 
-    /** The frozen configuration of {@code entry} (h1, h2, h3). */
+    /** The frozen configuration of h1, h2, h3 or a labelled CP7 fair variant at a shipped skill. */
     public static Map<String, Object> frozen(String entry) {
+        if (entry.matches("mad7-s(?:[1-9]|10)")) {
+            long skill = Long.parseLong(entry.substring("mad7-s".length()));
+            // Keep the existing H1 identity byte-for-byte compatible. New skill
+            // entries make their fair wrapper and search settings explicit.
+            Map<String, Object> c = frozen("h1");
+            c.put("name", "xmage-mad7-fair-s" + skill);
+            c.put("skill", skill);
+            c.put("source_revision", "fd40ad5c29a92cef824cf12ba6d0e4daa25db975");
+            c.put("information", "permitted observation and one sampled hidden world; no live engine state");
+            c.put("effective_depth", Math.max(4L, skill));
+            c.put("variant", "CP7 with the kit's synchronous node and operation budgets, reconstruction, "
+                    + "horizon and fallback policies; upstream wall-clock search is changed");
+            return c;
+        }
         Map<String, Object> c;
         switch (entry) {
             case "h1":
@@ -99,6 +113,9 @@ public final class Entries {
         }
         if (opts.containsKey("skill") && Long.parseLong(opts.get("skill")) != Json.num(c, "skill", 6)) {
             c.put("skill", Long.parseLong(opts.get("skill")));
+            if (c.containsKey("effective_depth")) {
+                c.put("effective_depth", Math.max(4L, Json.num(c, "skill", 6)));
+            }
             overridden.add("skill");
         }
         Map<String, Object> b = new LinkedHashMap<>((Map<String, Object>) c.get("budgets"));

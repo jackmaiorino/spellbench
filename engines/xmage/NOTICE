@@ -2,6 +2,13 @@ Spellbench XMage engine (engines/xmage), part of Spellbench (MIT, see ../../LICE
 
 This directory carries third-party code and data under their own MIT licenses:
 
+- models/ stages encoder source from Daniel Brooks' public XMage fork at
+  5a32441c8ae587982e52cbd4616b5fbc30db7c2e, under XMage's MIT license.
+  The release input manifest also pins MageZero source (MIT, Copyright (c) 2025
+  Will Wroble), DraftZero source (MIT, Copyright (c) 2026 Daniel Brooks), and
+  the public DraftZero checkpoint release (CC BY 4.0, Daniel Brooks).
+  Large checkpoints and generated model builds are not vendored here.
+
 - XMage (https://github.com/magefree/mage), MIT License, Copyright (c) 2010 betasteward@gmail.com.
   Not vendored: scripts/build.sh fetches the pinned commit (pins.env). patches/xmage/ and patches/build/ are
   diffs against that commit and are offered upstream under the same license.

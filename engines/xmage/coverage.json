@@ -1,0 +1,75 @@
+{
+  "schema": "spellbench-xmage-coverage/v1",
+  "checked_at": "2026-10-03",
+  "inputs": "releases.json",
+  "entries": [
+    {
+      "family": "xmage-mad7",
+      "source": "xmage",
+      "shipped_skills": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "fair_entries": ["mad7-s1", "mad7-s2", "mad7-s3", "mad7-s4", "mad7-s5", "mad7-s6", "mad7-s7", "mad7-s8", "mad7-s9", "mad7-s10", "h2"],
+      "policy_aliases": [["mad7-s1", "mad7-s2", "mad7-s3", "mad7-s4"], ["h1", "mad7-s6"]],
+      "variant": "sampled worlds; synchronous kit budgets and reconstruction",
+      "integrated": true,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["soak repairs", "new-entry qualification", "guarded evaluation", "review and publication"]
+    },
+    {
+      "family": "xmage-mcts",
+      "source": "xmage",
+      "fair_entries": ["h3"],
+      "variant": "one sampled world; fixed 30 iterations and declared rollout and combat caps",
+      "integrated": true,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["separate MCTS qualification", "guarded evaluation", "review and publication"]
+    },
+    {
+      "family": "draftzero-exp1",
+      "source": "draftzero_engine_exp1",
+      "checkpoints": ["draftzero-exp1-gen0", "draftzero-exp1-gen10", "draftzero-exp1-gen33"],
+      "format": "FDN Limited",
+      "action_vocabulary": "draftzero-exp1-actions",
+      "input_status": "all public checkpoints hash verified and isolated inference tested",
+      "wiring_status": "tested fair priority encoder slice; full agent unfinished",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["all callback families", "sampled-world search", "full-game qualification", "guarded evaluation", "review and publication"]
+    },
+    {
+      "family": "magezero-v02",
+      "source": "magezero_engine_v02",
+      "format": "Standard 2022-25, deck-local",
+      "checkpoints": [],
+      "input_status": "no public weights found in either release bundle",
+      "wiring_status": "separate isolated architecture; synthetic source contract tested",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["author weights with exact deck and encoder association", "mz export import", "full fair adapter", "qualification", "guarded evaluation", "review and publication"]
+    },
+    {
+      "family": "jack-xmage-rl",
+      "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
+      "input_status": "43 archived snapshots located; current policy and mulligan files located on Haley",
+      "wiring_status": "archived Elves tensors and metadata inspected inside the isolated container",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["exact deck, source and encoder associations", "isolated policy and mulligan adapter", "qualification", "appropriate benchmark", "guarded evaluation", "review and publication"]
+    }
+  ],
+  "excluded_helpers": [
+    {"class": "ComputerPlayer", "reason": "shared dialogs and pass-only priority"},
+    {"class": "ComputerPlayer6", "reason": "CP7 search and combat support; pass-only priority inherited"},
+    {"class": "ComputerPlayerControllableProxy", "reason": "automatic play aliases CP7; human control is outside the roster"},
+    {"class": "ComputerDraftPlayer", "reason": "draft selection only; concedes ordinary matches"}
+  ]
+}
