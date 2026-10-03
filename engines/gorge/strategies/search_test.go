@@ -141,11 +141,17 @@ func TestSearchDefaultsPreserveShippedConfiguration(t *testing.T) {
 
 func TestPublicSearchMatchesNativeChooseWithRekeyedObjects(t *testing.T) {
 	for _, kind := range []string{"attackers", "cast", "mana"} {
-		t.Run(kind, func(t *testing.T) { publicSearchMatchesNative(t, kind) })
+		t.Run(kind, func(t *testing.T) { publicSearchMatchesNative(t, kind, false) })
 	}
 }
 
-func publicSearchMatchesNative(t *testing.T, kind string) {
+func TestPublicSearchMatchesNativeChooseAtShippedBudgets(t *testing.T) {
+	for _, kind := range []string{"attackers", "cast", "mana"} {
+		t.Run(kind, func(t *testing.T) { publicSearchMatchesNative(t, kind, true) })
+	}
+}
+
+func publicSearchMatchesNative(t *testing.T, kind string, shipped bool) {
 	e, setup := fixture(t, 17, true)
 	driver := NewDriver()
 	bots := [2]*seat.Bot{seat.NewBot(3), seat.NewBot(7)}
@@ -171,9 +177,10 @@ func publicSearchMatchesNative(t *testing.T, kind string) {
 				len(base.Choices) == 1 && d.Options[base.Choices[0]].Kind == "activate"
 		if eligible {
 			s := NewSearch(19, kind == "mana")
-			// Bounded correctness fixture, identically configured on both sides.
-			// The separate defaults test pins the shipped 8/64/5000 settings.
-			s.opts.Worlds, s.opts.Attempts, s.opts.MaxSubmits, s.opts.HorizonTurns = 1, 16, 120, 1
+			if !shipped {
+				// Bounded settings are identically configured on both sides.
+				s.opts.Worlds, s.opts.Attempts, s.opts.MaxSubmits, s.opts.HorizonTurns = 1, 16, 120, 1
+			}
 			stream := &driver.seats[d.Player]
 			h := PublicHistory(stream.h)
 			want, _, trace := searchseat.Choose(setup, h, stream.c, e, d, base, h.Frames[len(h.Frames)-1], s.opts)
@@ -216,6 +223,11 @@ func publicSearchMatchesNative(t *testing.T, kind string) {
 			if gotTrace.Kind != kind || !gotTrace.Covered || gotTrace.Worlds == 0 || gotTrace.Rollouts == 0 {
 				t.Fatalf("fixture did not exercise search: %+v", gotTrace)
 			}
+			if shipped && (gotTrace.Worlds != 8 || gotTrace.Attempts != 64 || gotTrace.Terminal == 0) {
+				t.Fatalf("shipped settings did not produce complete rollouts: %+v", gotTrace)
+			}
+			t.Logf("%s shipped=%v attempts=%d accepted=%d worlds=%d rollouts=%d terminal=%d capped=%d",
+				kind, shipped, gotTrace.Attempts, gotTrace.Accepted, gotTrace.Worlds, gotTrace.Rollouts, gotTrace.Terminal, gotTrace.Capped)
 			parallel := NewSearch(19, kind == "mana")
 			parallel.opts = s.opts
 			parallel.opts.Parallelism = 2
@@ -302,6 +314,32 @@ func TestPublicCollectorForgetsBlindShuffleCopyIdentity(t *testing.T) {
 	}
 	if now := c.SpellbenchAlias(id); old == 0 || now == 0 || now == old {
 		t.Fatal("a blind shuffle retained the earlier physical copy identity")
+	}
+}
+
+func TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController(t *testing.T) {
+	e, _ := fixture(t, 17, false)
+	c := searchprobe.NewCollector(0)
+	other := e.G.Zone(state.ZHand, 1)
+	if _, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.Note, IDs: []state.ObjID{other[0], other[1]}}}); err != nil {
+		t.Fatal(err)
+	}
+	own := e.G.Zone(state.ZHand, 0)[0]
+	before := c.SpellbenchAlias(own)
+	if c.SpellbenchAlias(other[0]) == 0 || c.SpellbenchAlias(other[1]) == 0 {
+		t.Fatal("reveal did not introduce copies")
+	}
+	// The actor controls a move between the opponent's hidden zones. The
+	// public event identifies no selected card, so all its known copies lose
+	// their link. Player is the controller, not the hidden card's owner.
+	if _, err := c.SpellbenchCapture(e, []events.Event{{Kind: events.MoveZone, Player: 0, Obj: other[0], From: state.ZHand, To: state.ZLibrary}}); err != nil {
+		t.Fatal(err)
+	}
+	if c.SpellbenchAlias(other[0]) != 0 || c.SpellbenchAlias(other[1]) != 0 {
+		t.Fatal("a private selection retained copy identity")
+	}
+	if c.SpellbenchAlias(own) != before {
+		t.Fatal("actor's visible hand lost its identity")
 	}
 }
 

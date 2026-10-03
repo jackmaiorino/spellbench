@@ -1,6 +1,7 @@
 {
   "schema": "spellbench-public-model-search/v1",
   "checked_at_utc": "2026-10-03T01:45:52Z",
+  "rechecked_at_utc": "2026-10-03T04:19:00Z",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "scope": "Moderate public search requested by Jack; no author contact or new training.",
   "conclusion": "No compatible public gorge checkpoint recovered. This does not prove that none exists under an unknown account or unindexed location.",
@@ -14,6 +15,12 @@
     {"source": "https://api.github.com/repos/adams-shaun/gorge/git/trees/main?recursive=1", "result": "Complete recursive tree returned no .gpol, .safetensors, .onnx, .pth, .pt, .pkl or .bin files."},
     {"source": "https://github.com/adams-shaun/gorge/tree/26257e0eda1779d739a07e835c6500b9c4dabc62", "result": "Pinned README, docs and model loader have training reports and local checkpoint references, but no Hugging Face or public checkpoint-download link."}
   ],
+  "recheck": {
+    "queries": ["gorge adams-shaun PolicyNet checkpoint huggingface", "site:huggingface.co gorge magic gathering", "site:huggingface.co danbrooks draftzero"],
+    "hugging_face_api": "Model-name queries for gorge, adams-shaun, PolicyNet and cast-profile recovered no compatible release. DraftZero still has the same public revision and three checkpoint paths below.",
+    "github_api": "The latest complete gorge tree at ed3c5652f3e4eeb22cda0d1d2c9711180eb8a19e has no .gpol, .safetensors, .onnx, .pt, .pth, .pkl or .bin paths; releases remain empty.",
+    "conclusion": "The moderate public search is complete. No compatible gorge weights or tuned profile recovered; the DraftZero release is a separate MageZero/XMage bot."
+  },
   "other_bot_found": {
     "source": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
     "revision": "c0ac902361c041f986f429ad9d42e7b92494741f",

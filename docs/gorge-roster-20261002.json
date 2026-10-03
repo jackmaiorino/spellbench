@@ -242,6 +242,9 @@
       "observed_passes": [
         "all nested strategies tests",
         "attacker, cast and mana native Choose parity with rekeyed objects and serial/parallel sampling and rollouts",
+        "shipped-budget parity: each fixture accepted 64 proposals and 8 worlds; attacker/cast/mana completed 16/40/16 rollouts with none capped",
+        "five 64-decision transport prefixes with live actor-only deltas, zero leak/inconsistency counters and deliberate truncation; cached-history probe is not whole-history noninterference evidence",
+        "hidden copy links retired when the effect controller differs from the hidden card owner",
         "bounded search and search-mana host replay with identical digests at deliberate truncation",
         "policy identity, payment mapping and effect equivalence, hidden payment rejection, agent failure handling and search coverage rejection",
         "native sampler full-prefix replay and explicit-history seed tests with overlay installed",

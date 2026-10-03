@@ -36,16 +36,35 @@ Checks observed on local Go 1.27.1, CGO disabled, one process and `-p 1`:
 
 - Native `Choose` versus the public bridge: attacker, cast and mana fixtures
   used rekeyed objects and required covered decisions, worlds and rollouts.
-  Serial and two-worker sampling and rollout answers matched exactly. These
-  fixtures deliberately use smaller budgets; a separate test pins shipped defaults.
+  Intent and trace matched with serial and two-worker sampling and rollouts.
+  Both reduced and shipped budgets passed. At shipped settings each fixture
+  accepted 64 of 64 proposals and produced 8 worlds. Attacker, cast and mana
+  respectively completed 16, 40 and 16 rollouts, with none capped. These are
+  constructed decision fixtures, not five-deck qualification or clock evidence.
 - Hidden opening deals and future seeds produced identical initial deltas.
   Added opponent private ask frames did not change public history. A blind
-  shuffle retired a previously seen copy. London setup reconstructed a mulligan.
+  shuffle retired a previously seen copy. An unidentified move between an
+  opponent's hidden zones also retired its copy links when `Event.Player` was
+  the effect controller. The actor's visible hand retained its links. London
+  setup reconstructed a mulligan.
+- All five decks passed a 64-decision transport prefix with the public history
+  profile enabled, ordinary bot versus uniform. Both actors consumed live,
+  sequenced deltas with no decision transcript events; leak and inconsistency
+  counters stayed zero. The per-step hidden-state probe rebuilds the current
+  observation but retains cached history. It does not establish whole-history
+  noninterference. Every prefix intentionally truncated; none is a rated game.
 - Both modes replayed through the host with identical game digests at a declared
   small truncation cap. This is transport evidence, not a natural completion.
 - Policy identities, payment mapping and effect equivalence, hidden payment
   rejection, agent errors, qualification coverage rejection and Go vet passed.
   Two native sampler prefix/history tests also passed with the overlay installed.
+
+The event audit preserves completed scry bottom counts. They are observable
+game results: the [judge communication guidance](https://blogs.magicjudges.org/rulestips/2015/07/scrying-forever-its-now-an-evergreen-keyword-ability/)
+permits opponents to know top and bottom counts, while card identities and order
+remain hidden. Native secret `LibraryOrder` events carry only an occurrence;
+their full library payload is removed even for the owner. This inspection does
+not complete the event-emitter audit for the full benchmark card pool.
 
 `gorgequal` reports eligibility, attempts, accepted proposals, worlds, covered
 decisions, covered kinds, rollouts, submit counts, capped rollouts and delegation

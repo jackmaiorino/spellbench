@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // SpellbenchCollector binds public transport IDs to the observer IDs already
@@ -73,12 +74,13 @@ func (c *Collector) spellbenchForget(e *rules.Engine, burst []events.Event) {
 				forget(id)
 			}
 		case events.Draw, events.MoveZone, events.PutOnStack:
-			if ev.From.Hidden() && ev.To.Hidden() && ev.Player != c.actor {
+			if ev.From.Hidden() && ev.To.Hidden() && view.RedactEvent(e.G, ev, c.actor).Obj == 0 {
 				// The observer cannot know which known opponent card moved.
-				// Invalidate all known hidden copies of that owner, using the
-				// same public event rather than its private selected object.
+				// Player can be the effect controller rather than card owner.
+				// Invalidate every other owner's known hidden copies using the
+				// public event shape rather than its private selected object.
 				for id, zone := range c.spellbenchZones {
-					if o := e.G.Obj(id); zone.Hidden() && o != nil && o.Owner == ev.Player {
+					if o := e.G.Obj(id); zone.Hidden() && o != nil && o.Owner != c.actor {
 						forget(id)
 					}
 				}
