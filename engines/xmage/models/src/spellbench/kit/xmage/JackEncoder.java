@@ -1,7 +1,10 @@
 package spellbench.kit.xmage;
 
 import mage.constants.TurnPhase;
+import mage.abilities.Ability;
+import mage.abilities.common.PassAbility;
 import mage.game.Game;
+import mage.players.Player;
 import spellbench.kit.core.Json;
 import spellbench.kit.core.ObsIndex;
 import spellbench.kit.core.Sampler;
@@ -15,8 +18,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
-/** Base-state feature port. Candidate encoding and full play are unfinished. */
+/** Permitted base-state and original priority features. Full play is unfinished. */
 public final class JackEncoder {
     private JackEncoder() { }
     public static final String VARIANT = "acting-player perspective; named permitted entity references only; "
@@ -31,8 +36,21 @@ public final class JackEncoder {
             throw new IllegalArgumentException("Jack base encoder currently requires the acting viewer's priority");
         }
         String source = System.getProperty("spellbench.jack.encoderSourceSha256");
-        if (source == null || !source.matches("[a-f0-9]{64}")) {
-            throw new IllegalArgumentException("Jack encoder needs its staged source identity");
+        String candidatesSource = System.getProperty("spellbench.jack.candidateSourceSha256");
+        if (source == null || !source.matches("[a-f0-9]{64}") || candidatesSource == null
+                || !candidatesSource.matches("[a-f0-9]{64}")) {
+            throw new IllegalArgumentException("Jack encoder needs both staged source identities");
+        }
+        List<Object> offered = Json.arr(decision, "candidates");
+        if (offered == null || offered.isEmpty() || offered.size() > 64) {
+            throw new IllegalArgumentException("Jack priority requires 1 to 64 offered choices; no silent truncation");
+        }
+        Set<Object> offeredIds = new HashSet<>();
+        for (Object value : offered) {
+            Object id = Json.obj(value).get("candidate_id");
+            if (!(id instanceof Long) || (Long) id < 0 || !offeredIds.add(id)) {
+                throw new IllegalArgumentException("offered candidate IDs must be unique nonnegative integers");
+            }
         }
         KitContext.reset();
         KitRandom.installBoot();
@@ -95,13 +113,70 @@ public final class JackEncoder {
             padding.add(masks[i] == 1);
             tokenIds.add((long) ids[i]);
         }
-        return Json.map("schema", "spellbench-jack-base-features/v1", "sequence", sequence,
+        Class<?> codec = Class.forName("spellbench.models.jack.CandidateEncoder");
+        String originalCallback = (String) codec.getField("SOURCE_SHA256").get(null);
+        if (!"b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6".equals(originalCallback)) {
+            throw new IllegalArgumentException("Jack priority codec is not the pinned April source");
+        }
+        Object candidateEncoder = codec.getConstructor(Player.class).newInstance(world.viewerPlayer());
+        List<Object> candidateFeatures = new ArrayList<>(), candidateIds = new ArrayList<>();
+        List<Object> candidateMask = new ArrayList<>(), refs = new ArrayList<>();
+        for (int i = 0; i < 64; i++) {
+            float[] features = new float[48];
+            int actionId = 0;
+            if (i < offered.size()) {
+                Map<String, Object> candidate = Json.obj(offered.get(i));
+                Map<String, Object> semantic = Json.obj(candidate, "semantic");
+                String kind = Json.str(semantic, "kind");
+                Ability ability;
+                if ("pass".equals(kind)) {
+                    ability = new PassAbility();
+                } else if ("play_land".equals(kind) || "cast_spell".equals(kind)
+                        || "activate_ability".equals(kind) || "special_action".equals(kind)) {
+                    ability = Mapping.findPlayable(world, world.viewerPlayer(), semantic, index);
+                    if (ability == null || !permitted.containsKey(ability.getSourceId())) {
+                        throw new IllegalArgumentException("offered Jack priority action lacks a named permitted source");
+                    }
+                } else {
+                    throw new IllegalArgumentException("unsupported Jack priority semantic: " + kind);
+                }
+                try {
+                    actionId = (Integer) codec.getMethod("priorityId", Game.class, Ability.class)
+                            .invoke(candidateEncoder, world.game, ability);
+                    features = (float[]) codec.getMethod("priorityFeatures", Game.class, Ability.class, state.getClass())
+                            .invoke(candidateEncoder, world.game, ability, state);
+                } catch (InvocationTargetException e) {
+                    if (e.getCause() instanceof RuntimeException) throw (RuntimeException) e.getCause();
+                    if (e.getCause() instanceof Error) throw (Error) e.getCause();
+                    throw e;
+                }
+                if (features.length != 48 || actionId <= 0 || actionId >= 65536) {
+                    throw new IllegalArgumentException("Jack priority codec returned an invalid feature shape or ID");
+                }
+                refs.add(Json.map("candidate_id", candidate.get("candidate_id"), "index", (long) i));
+            }
+            List<Object> values = new ArrayList<>();
+            for (float value : features) {
+                if (!Float.isFinite(value) || Math.abs(value) > 1000000) {
+                    throw new IllegalArgumentException("Jack priority codec returned invalid numeric features");
+                }
+                values.add((double) value);
+            }
+            candidateFeatures.add(values);
+            candidateIds.add((long) actionId);
+            candidateMask.add(i < offered.size());
+        }
+        return Json.map("schema", "spellbench-jack-priority-features/v1", "kind", "candidates", "head", "action",
+                "sequence", sequence,
                 "padding", padding, "token_ids", tokenIds,
+                "candidate_features", candidateFeatures, "candidate_ids", candidateIds,
+                "candidate_mask", candidateMask, "candidate_refs", refs,
                 "decision_sha256", Seeds.hex(MessageDigest.getInstance("SHA-256")
                         .digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))),
                 "encoder_source_sha256", source,
+                "candidate_source_sha256", candidatesSource, "original_callback_sha256", originalCallback,
                 "embedding_cache_sha256", System.getProperty("spellbench.jack.embeddingSha256"),
                 "variant", VARIANT, "world_flags", world.flags,
-                "scope", "base-state features only; no trained candidate mapping or game qualification");
+                "scope", "original priority IDs and features, fixed 64-candidate padding; no other callbacks or game qualification");
     }
 }

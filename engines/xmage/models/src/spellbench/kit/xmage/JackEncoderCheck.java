@@ -22,10 +22,11 @@ import java.util.Map;
 public final class JackEncoderCheck {
     private JackEncoderCheck() { }
     public static void main(String[] args) throws Exception {
-        if (args.length != 4) throw new IllegalArgumentException("usage: EMBEDDINGS SHA256 STAGED_ENCODER_SHA256 OUTPUT");
+        if (args.length != 5) throw new IllegalArgumentException("usage: EMBEDDINGS SHA256 STAGED_ENCODER_SHA256 STAGED_CANDIDATE_SHA256 OUTPUT");
         System.setProperty("spellbench.jack.embeddingFile", args[0]);
         System.setProperty("spellbench.jack.embeddingSha256", args[1]);
         System.setProperty("spellbench.jack.encoderSourceSha256", args[2]);
+        System.setProperty("spellbench.jack.candidateSourceSha256", args[3]);
         int cacheEntries = EmbeddingCache.size();
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
         System.setOut(System.err);
@@ -59,12 +60,12 @@ public final class JackEncoderCheck {
                 throw new IllegalStateException("Jack fixture did not reach nonactive priority");
             }
             Map<String, Object> nonactive = check(Slice.gameStart("p1", a, b), position.decision(), "p1", "Lightning Bolt", "Llanowar Elves");
-            Map<String, Object> result = Json.map("schema", "spellbench-jack-base-encoder-check/v1",
+            Map<String, Object> result = Json.map("schema", "spellbench-jack-priority-encoder-check/v1",
                     "active_view", active, "nonactive_view", nonactive, "embedding_count", (long) cacheEntries,
-                    "encoder_source_sha256", args[2], "embedding_cache_sha256", args[1],
-                    "scope", "two real priority fixtures; no policy candidates, full game or rating");
+                    "encoder_source_sha256", args[2], "candidate_source_sha256", args[3], "embedding_cache_sha256", args[1],
+                    "scope", "two real base-state and priority candidate fixtures; no checkpoint inference, full game or rating");
             byte[] raw = Json.canonical(result).getBytes(StandardCharsets.UTF_8);
-            Files.write(Paths.get(args[3]), raw, StandardOpenOption.CREATE_NEW);
+            Files.write(Paths.get(args[4]), raw, StandardOpenOption.CREATE_NEW);
             out.println(new String(raw, StandardCharsets.UTF_8));
         } finally { position.seats.exchange.close(); }
     }
@@ -86,6 +87,35 @@ public final class JackEncoderCheck {
             throw new IllegalStateException("Jack card ownership features use another player's perspective");
         }
         String baseline = features(first);
+        List<Object> refs = Json.arr(first, "candidate_refs"), offered = Json.arr(decision, "candidates");
+        List<Object> actionIds = Json.arr(first, "candidate_ids"), masks = Json.arr(first, "candidate_mask");
+        List<Object> actionFeatures = Json.arr(first, "candidate_features");
+        if (refs.size() != offered.size() || actionIds.size() != 64 || masks.size() != 64 || actionFeatures.size() != 64) {
+            throw new IllegalStateException("Jack candidates are not bound and padded to the original 64 slots");
+        }
+        boolean passChecked = false;
+        for (int i = 0; i < 64; i++) {
+            if (i >= offered.size()) {
+                if (!Boolean.FALSE.equals(masks.get(i)) || ((Number) actionIds.get(i)).longValue() != 0) {
+                    throw new IllegalStateException("Jack padded candidate is legal or has a nonzero ID");
+                }
+                continue;
+            }
+            Map<String, Object> candidate = Json.obj(offered.get(i));
+            if (!candidate.get("candidate_id").equals(Json.obj(refs.get(i)).get("candidate_id"))
+                    || !Boolean.TRUE.equals(masks.get(i))) {
+                throw new IllegalStateException("Jack encoded candidate is not the corresponding offered choice");
+            }
+            if ("pass".equals(Json.str(Json.obj(candidate, "semantic"), "kind"))) {
+                List<Object> vector = Json.arr(actionFeatures.get(i));
+                if (((Number) actionIds.get(i)).longValue() != 1 + Math.floorMod("PASS".hashCode(), 65535)
+                        || ((Number) vector.get(1)).doubleValue() != 1.0) {
+                    throw new IllegalStateException("Jack priority pass lost its original ID or feature");
+                }
+                passChecked = true;
+            }
+        }
+        if (!passChecked) throw new IllegalStateException("Jack fixture did not encode its offered priority pass");
         String sample = Json.canonical(Sampler.sample(start, Json.obj(decision, "observation"),
                 KitRandom.install(seed, ids).stream("sampler")).json());
         int different = 0;
@@ -96,7 +126,7 @@ public final class JackEncoderCheck {
             if (!sample.equals(changedSample)) {
                 different++;
                 if (!baseline.equals(features(JackEncoder.encode(start, decision, next, ids)))) {
-                    throw new IllegalStateException("sampled hidden identities or order changed Jack base features");
+                    throw new IllegalStateException("sampled hidden identities or order changed Jack features");
                 }
             }
         }
@@ -111,11 +141,15 @@ public final class JackEncoderCheck {
         }
         return Json.map("viewer", viewer, "different_hidden_samples", (long) different,
                 "hidden_sample_features_identical", true, "visible_life_change_detected", true,
-                "own_hand_encoded", true, "own_card_ownership_correct", true, "other_hand_excluded", true, "base", first);
+                "own_hand_encoded", true, "own_card_ownership_correct", true, "other_hand_excluded", true,
+                "offered_priority_choices_bound", true, "original_pass_encoded", true,
+                "candidate_padding_masked", true, "encoded", first);
     }
 
     private static String features(Map<String, Object> encoded) {
         return Json.canonical(Json.map("sequence", encoded.get("sequence"),
-                "padding", encoded.get("padding"), "token_ids", encoded.get("token_ids")));
+                "padding", encoded.get("padding"), "token_ids", encoded.get("token_ids"),
+                "candidate_features", encoded.get("candidate_features"), "candidate_ids", encoded.get("candidate_ids"),
+                "candidate_mask", encoded.get("candidate_mask"), "candidate_refs", encoded.get("candidate_refs")));
     }
 }

@@ -95,3 +95,14 @@ The four candidate decks and their registry are source-pinned to private Mage
 revision `750b3ff88c98f00a0d3218a54c16198b69b8a24c`. Exact checkpoint associations
 remain unconfirmed. Source staging and cache coverage are preparation only.
 The new public Java bridge and lookup have not compiled or run yet.
+
+The next private stage also extracts the pinned April callback's original
+priority action IDs and 48-value candidate features. Original callback SHA-256
+is `b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6`;
+staged candidate SHA-256 is
+`0ce2971448b120100736835c73932a0c335788a515032d1899d9ef70f613f765`.
+Two actual source stages repeat byte-for-byte. The bridge binds offered
+priority candidates, retains 64-slot padding and refuses more than 64 choices.
+The updated real fixtures include candidate IDs, masks and features in their
+hidden-sample comparison. These Java changes remain uncompiled and unrun;
+source staging alone is not game or checkpoint qualification.

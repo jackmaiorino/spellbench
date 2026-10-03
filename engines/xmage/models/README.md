@@ -143,3 +143,24 @@ receipt is retained. Generation 33 repeats the existing target, binary and
 library searches on build 035, but refuses the unbounded original numeric
 callback before named search. The offered-range adaptation and refreshed
 named replay anchor await their next real check. These families are unqualified.
+
+Jack's private April encoder and callback source are staged by
+`xmage_jack_sources.py`, with both original file hashes required. The base
+encoder uses the acting viewer, named permitted entity references and known
+library cards in public alias order. Text embeddings come from a pinned
+read-only cache. The candidate extraction preserves the original priority
+action IDs, 48 features and 64-slot padding, using the acting player in the
+reconstructed world. Extraction failures refuse the decision; more than 64
+offered choices are refused without truncation. Other callback paths are not
+exposed by this bridge.
+
+`xmage_model_build.py --jack-inputs PRIVATE_ROOT --jack-manifest INPUTS.json`
+adds these private sources to the reviewed build. `JackEncoderMain` takes a
+record or `--stdio`, the embedding path and hash, both staged source hashes,
+and a seed record or `--request-seeds`. It returns original priority features
+and the corresponding offered candidate IDs. `JackEncoderCheck` prepares two
+real active and nonactive priority views, checks their hand/ownership and
+candidate binding, and compares features across different hidden samples.
+The new Java build and fixtures have not run yet. Paired model inference on
+these actual features, other callbacks, exact checkpoint deck associations,
+complete games and rating qualification remain unfinished.
