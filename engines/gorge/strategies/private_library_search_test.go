@@ -21,7 +21,8 @@ import (
 // The real corpus card assigns the search to the targeted land's controller.
 // Different unseen library order must preserve identical caster observations.
 func TestOpponentLibrarySearchUsesLandControllerAndHidesOffers(t *testing.T) {
-	var histories, offers [][]byte
+	var histories, outcomes, offers [][]byte
+	var selected []state.ObjID
 	for _, reverseTail := range []bool{false, true} {
 		e, _, driver := naturallyPlayedOpponentLibrarySearch(t, reverseTail)
 		d := e.Pending()
@@ -46,24 +47,64 @@ func TestOpponentLibrarySearchUsesLandControllerAndHidesOffers(t *testing.T) {
 			t.Fatal(err)
 		}
 		offers = append(offers, encoded)
+
+		selected = append(selected, finishOpponentLibrarySearch(t, e, driver, reverseTail))
+		h = canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
+		encoded, err = json.Marshal(h)
+		if err != nil {
+			t.Fatal(err)
+		}
+		outcomes = append(outcomes, encoded)
 	}
 	if bytes.Equal(offers[0], offers[1]) || !bytes.Equal(histories[0], histories[1]) {
 		t.Fatal("different private offers did not preserve identical caster history")
+	}
+
+	if selected[0] == selected[1] {
+		t.Fatal("fixture selected the same hidden physical copy in both worlds")
+	}
+	if !bytes.Equal(outcomes[0], outcomes[1]) {
+		t.Fatal("different hidden copies of the same searched basic changed the caster's public outcome")
 	}
 }
 
 func TestPublicReconstructionAfterOpponentLibrarySearch(t *testing.T) {
 	e, setup, driver := naturallyPlayedOpponentLibrarySearch(t, false)
+	finishOpponentLibrarySearch(t, e, driver, false)
+	h := canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
+	root, work, err := searchprobe.SpellbenchReconstructRedeal(setup, h,
+		searchprobe.SampleOptions{Seed: 54321, Attempts: 64, MaxSubmits: 5000, ComparePotentialActions: true})
+	if err != nil || root == nil {
+		t.Fatalf("public outcome did not reconstruct: %v work=%+v", err, work)
+	}
+	got, err := root.Observer.Clone().SpellbenchCapture(root.Engine, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var gotBoard, wantBoard any
+	last := h.Frames[len(h.Frames)-1]
+	if json.Unmarshal(got.Board, &gotBoard) != nil || json.Unmarshal(last.Board, &wantBoard) != nil ||
+		!reflect.DeepEqual(gotBoard, wantBoard) || !reflect.DeepEqual(got.Decision, last.Decision) {
+		t.Fatal("reconstructed root changed the legitimate public outcome")
+	}
+	t.Logf("actor_frames=%d work=%+v", len(h.Frames), work)
+}
+
+func finishOpponentLibrarySearch(t *testing.T, e *rules.Engine, driver *Driver, lastForest bool) state.ObjID {
+	t.Helper()
 	selected := -1
 	for i, option := range e.Pending().Options {
 		if e.G.Obj(option.Obj).Card.Faces[0].Name == "Forest" {
 			selected = i
-			break
+			if !lastForest {
+				break
+			}
 		}
 	}
 	if selected < 0 {
 		t.Fatal("natural search lacks its declared basic")
 	}
+	copy := e.Pending().Options[selected].Obj
 	submit := func(choices []int) {
 		d := e.Pending()
 		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
@@ -89,23 +130,7 @@ func TestPublicReconstructionAfterOpponentLibrarySearch(t *testing.T) {
 	if e.Pending().Player != 0 {
 		t.Fatal("fixture did not return to the caster after the private search")
 	}
-	h := canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
-	root, work, err := searchprobe.SpellbenchReconstructRedeal(setup, h,
-		searchprobe.SampleOptions{Seed: 54321, Attempts: 64, MaxSubmits: 5000, ComparePotentialActions: true})
-	if err != nil || root == nil {
-		t.Fatalf("public outcome did not reconstruct: %v work=%+v", err, work)
-	}
-	got, err := root.Observer.Clone().SpellbenchCapture(root.Engine, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var gotBoard, wantBoard any
-	last := h.Frames[len(h.Frames)-1]
-	if json.Unmarshal(got.Board, &gotBoard) != nil || json.Unmarshal(last.Board, &wantBoard) != nil ||
-		!reflect.DeepEqual(gotBoard, wantBoard) || !reflect.DeepEqual(got.Decision, last.Decision) {
-		t.Fatal("reconstructed root changed the legitimate public outcome")
-	}
-	t.Logf("actor_frames=%d work=%+v", len(h.Frames), work)
+	return copy
 }
 
 func naturallyPlayedOpponentLibrarySearch(t *testing.T, reverseTail bool) (*rules.Engine, PublicGame, *Driver) {
