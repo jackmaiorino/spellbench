@@ -27,6 +27,7 @@ SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
 TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
 DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
+LIMIT_INCREASE_SCHEMA = "spellbench-llm-budget-increase/v1"
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -201,7 +202,7 @@ class RunBudget:
 
     @staticmethod
     def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None,
-                          paths: BudgetPaths | None = None) -> None:
+                          paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> None:
         receipt = paths.resolve(recovery["receipt"]) if paths else Path(recovery["receipt"]).resolve(strict=True)
         if _digest(receipt) != recovery["receipt_sha256"]:
             raise ProviderError("run_budget_recovery_changed")
@@ -210,7 +211,7 @@ class RunBudget:
                     else Path(value["retained_run_manifest"]).resolve(strict=True))
         publication = json.loads(manifest.read_bytes())
         if (value["schema"] != "spellbench-llm-failed-run-recovery/v1"
-                or value["parent"] != (paths.key(parent) if paths else str(parent))
+                or value["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
                 or value["parent_sha256"] != parent_sha256
                 or value["effective_deadline"] != deadline
                 or value["purpose"] not in {"provider-diagnostics", "fixed-panel-rerun"}
@@ -220,6 +221,46 @@ class RunBudget:
                 or publication.get("run", {}).get("status") != "aborted"
                 or publication.get("run", {}).get("rated") is not False):
             raise ProviderError("run_budget_recovery_changed")
+
+    @staticmethod
+    def _limit_increase(continuation: dict, parent: Path, prior: dict, child: dict,
+                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict | None:
+        """Validate explicit operator authority for two cumulative caps only."""
+        increase = continuation.get("limit_increase")
+        if increase is None:
+            return None
+        try:
+            if (continuation["kind"] != "failed-run-recovery"
+                    or set(increase) != {"authority", "authority_sha256"}):
+                raise ValueError("invalid increase boundary")
+            authority = paths.resolve(increase["authority"]) if paths else Path(increase["authority"]).resolve(strict=True)
+            if _digest(authority) != increase["authority_sha256"]:
+                raise ValueError("authority changed")
+            record = json.loads(authority.read_bytes())
+            old = {name: prior[name] for name in LIMIT_NAMES}
+            new = {name: child[name] for name in LIMIT_NAMES}
+            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                               "approved_limits", "failure_receipt_sha256", "purpose", "user_authority"}
+                    or record["schema"] != LIMIT_INCREASE_SCHEMA or record["model"] != child["model"]
+                    or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or record["parent_limits"] != old or record["approved_limits"] != new
+                    or record["failure_receipt_sha256"] != continuation["recovery"]["receipt_sha256"]
+                    or record["purpose"] != "fixed-panel-rerun"
+                    or json.loads((paths.resolve(continuation["recovery"]["receipt"]) if paths
+                                   else Path(continuation["recovery"]["receipt"])).read_bytes())["purpose"] != "fixed-panel-rerun"
+                    or not prior.get("terminal_error")
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()
+                    or any(type(value) is not int or value < 1
+                           for limits in (record["parent_limits"], record["approved_limits"])
+                           for value in limits.values())
+                    or any(new[name] != old[name] for name in ("max_inflight", "max_wall_seconds"))
+                    or any(new[name] < old[name] for name in ("max_requests", "max_reported_tokens"))
+                    or new == old):
+                raise ValueError("unauthorized limit change")
+            return record
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_limit_increase_changed") from None
 
     @staticmethod
     def _continue_failure(parent: Path, path: Path, *, model: str, parent_sha256: str,
@@ -411,10 +452,14 @@ class RunBudget:
                     if child_deadline != (None if no_cutoff else parent_deadline):
                         raise ProviderError("run_budget_recovery_changed")
                     self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline, self.paths)
+                increase = self._limit_increase(continuation, parent, prior, child, self.paths)
+                if increase is not None and (parent_deadline is not None or child_deadline is not None):
+                    raise ProviderError("run_budget_limit_increase_changed")
                 # Validate each ancestor against this boundary's retained wall
                 # limit, rather than the leaf's prospectively extended limit.
-                ancestor_limits = {name: limit for name, limit in self.expected_limits.items()
-                                   if name not in {"allow_timeout_forfeits", "max_wall_seconds"}}
+                ancestor_limits = {name: child[name] for name in LIMIT_NAMES}
+                if increase is not None:
+                    ancestor_limits.update(increase["parent_limits"])
                 ancestor_limits["max_wall_seconds"] = (child["max_wall_seconds"] if extension is None
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
@@ -439,7 +484,8 @@ class RunBudget:
                                     and child["deadline"] > prior["deadline"])
                 if (not wall_matches
                         or any(child[name] != prior[name] for name in (*LIMIT_NAMES, "created_at", "provider_output_cap")
-                               if name != "max_wall_seconds")
+                               if name != "max_wall_seconds" and not (increase is not None
+                                   and name in {"max_requests", "max_reported_tokens"}))
                         or continuation["inherited"] != _totals(prior, rows)):
                     raise ProviderError("run_budget_continuation_changed")
             finally:
@@ -465,7 +511,8 @@ class RunBudget:
         with self._transaction() as database:
             policy = self._policy(database)  # verifies all ancestor/receipt/overlay bindings
             path = self.path.resolve()
-            while policy.get("continuation", {}).get("kind") in {"failed-run-recovery", "host-preflight-recovery"}:
+            while (policy.get("continuation", {}).get("kind") in {"failed-run-recovery", "host-preflight-recovery"}
+                   and "limit_increase" not in policy["continuation"]):
                 path = self.paths.resolve(policy["continuation"]["parent"])
                 with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as retained:
                     policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
