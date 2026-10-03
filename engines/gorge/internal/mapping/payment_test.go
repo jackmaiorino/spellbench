@@ -53,7 +53,7 @@ func TestSpellbombWindowIsOneManaPaymentDecision(t *testing.T) {
 	}
 }
 
-func TestUnlessPayIsOfferedOnlyWhenThePoolCovers(t *testing.T) {
+func TestUnlessPayPreservesNativeManaWindowChoices(t *testing.T) {
 	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
 		return d.Kind == decision.KModes && d.ResumeKind == "unless_pay"
 	})
@@ -61,6 +61,9 @@ func TestUnlessPayIsOfferedOnlyWhenThePoolCovers(t *testing.T) {
 	d := g.E.Pending()
 	tx, _ := mapping.Begin(env, d)
 	p, _ := tx.Pose()
+	if len(p.Candidates) != len(d.Options) {
+		t.Fatalf("native unless choices were omitted: %d offered, %d native", len(p.Candidates), len(d.Options))
+	}
 	for _, c := range p.Candidates {
 		if c.Sem.Kind != "optional_cost" {
 			t.Fatalf("kind %s", c.Sem.Kind)
@@ -72,7 +75,9 @@ func TestUnlessPayIsOfferedOnlyWhenThePoolCovers(t *testing.T) {
 				t.Fatal(err)
 			}
 			if n := cl.Pending(); n != nil && n.ResumeKind == "unless_mana" && n.Player == d.Player {
-				t.Fatal("pay:true offered but paying opens a mana window")
+				if mapping.Route(n) != "choose/mana_window" {
+					t.Fatalf("elected payment cannot enter its native mana window: %+v", n)
+				}
 			}
 		}
 	}

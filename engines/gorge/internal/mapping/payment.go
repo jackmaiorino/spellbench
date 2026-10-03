@@ -36,15 +36,6 @@ func unlessCost(d *decision.Decision) string {
 	return "other"
 }
 
-func opensManaWindow(env *Env, d *decision.Decision, opt int) bool {
-	c, err := env.G.Probe(Intent(d, opt))
-	if err != nil {
-		return true
-	}
-	n := c.Pending()
-	return n != nil && n.Player == d.Player && n.ResumeKind == "unless_mana"
-}
-
 func newUnless(env *Env, d *decision.Decision) (Transaction, error) {
 	src, err := MustSource(env, d)
 	if err != nil {
@@ -53,9 +44,6 @@ func newUnless(env *Env, d *decision.Decision) (Transaction, error) {
 	cost := unlessCost(d)
 	return SingleChoice(env, d, choice(&src, ""), func(o decision.Option) (protocol.Semantic, bool, error) {
 		pay := o.Mode == decision.ModeUnlessPay
-		if pay && opensManaWindow(env, d, o.Index) {
-			return protocol.Semantic{}, false, nil
-		}
 		return protocol.OptionalCost(src, cost, pay), true, nil
 	})
 }
@@ -102,20 +90,28 @@ func newManaWindow(env *Env, d *decision.Decision) (Transaction, error) {
 		return nil, err
 	}
 	ask := c.Pending()
-	if ask == nil || ask.Player != d.Player || Route(ask) != "choose/trigger_cost" {
-		// A cast payment window (a cost that grew after announcement) or an
-		// unless_mana window: not mapped in v2.0, a listed halt cause.
-		return nil, fmt.Errorf("%w:mana_window_not_a_trigger_cost", ErrUnmapped)
-	}
 	purp := "mana_payment"
 	// The done ask is keyed by done's option index, like every folded
 	// follow-up, so the agent finds it from the op alone.
 	p := &Pose{Seat: d.Player, Context: protocol.Context{Kind: "choice", Source: &src, Purpose: &purp},
-		GroupStart: true, SubstepCount: 1, Native: d, Followups: map[string]*decision.Decision{fmt.Sprint(done): ask}}
-	for _, ao := range ask.Options {
-		pay := ao.Kind == "trigger_cost_pay"
-		p.Candidates = append(p.Candidates, Cand{Sem: protocol.OptionalCost(src, "other", pay),
-			Op: NativeOp{Op: "choose", Option: done, Followup: []int{ao.Index}}})
+		GroupStart: true, SubstepCount: 1, Native: d, Followups: map[string]*decision.Decision{}}
+	if ask != nil && ask.Player == d.Player && Route(ask) == "choose/trigger_cost" {
+		p.Followups[fmt.Sprint(done)] = ask
+		for _, ao := range ask.Options {
+			pay := ao.Kind == "trigger_cost_pay"
+			p.Candidates = append(p.Candidates, Cand{Sem: protocol.OptionalCost(src, "other", pay),
+				Op: NativeOp{Op: "choose", Option: done, Followup: []int{ao.Index}}})
+		}
+	} else {
+		// Cast, activation and elected unless/ward windows settle on Done.
+		// Their next pending decision belongs to the resumed game, so do not
+		// fold it into this payment. The successful probe preserves native
+		// legality, including a payer who has already elected to pay.
+		if ask == nil && !c.G.Over {
+			return nil, fmt.Errorf("%w:mana_window_no_continuation", ErrUnmapped)
+		}
+		p.Candidates = append(p.Candidates, Cand{Sem: protocol.OptionalCost(src, unlessCost(d), true),
+			Op: NativeOp{Op: "choose", Option: done}})
 	}
 	for _, o := range d.Options {
 		if o.Kind != "activate" {
