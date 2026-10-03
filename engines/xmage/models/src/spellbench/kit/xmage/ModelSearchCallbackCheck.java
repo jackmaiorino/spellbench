@@ -21,13 +21,19 @@ import java.util.Map;
 /** Saves actual callbacks and only the public priority passes used to reach them. */
 public final class ModelSearchCallbackCheck {
     public static void main(String[] args) throws Exception {
-        if (args.length != 1 && !(args.length == 2 && "mode".equals(args[1]))) {
-            throw new IllegalArgumentException("callback fixture output directory, optionally followed by mode");
+        if (args.length != 1 && !(args.length == 2 && "mode".equals(args[1]))
+                && !(args.length == 3 && "mode-wire".equals(args[1]))) {
+            throw new IllegalArgumentException("callback output directory; mode, or mode-wire with a saved result");
         }
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
         System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
         new CardResolver().resolve("Plains");
         if (args.length == 2) { save("mode", Paths.get(args[0]), out); return; }
+        if (args.length == 3) {
+            Map<String, Object> result = Json.obj(Json.parse(new String(Files.readAllBytes(Paths.get(args[2])), StandardCharsets.UTF_8)));
+            save("mode", Paths.get(args[0]), out, Json.obj(result, "selection"));
+            return;
+        }
         save("target", Paths.get(args[0]), out);
         save("binary", Paths.get(args[0]), out);
         save("library", Paths.get(args[0]), out);
@@ -35,6 +41,10 @@ public final class ModelSearchCallbackCheck {
         save("named", Paths.get(args[0]), out);
     }
     private static void save(String family, Path output, PrintStream out) throws Exception {
+        save(family, output, out, null);
+    }
+    private static void save(String family, Path output, PrintStream out,
+                             Map<String, Object> modeSelection) throws Exception {
         boolean binary = "binary".equals(family) || "library".equals(family), library = "library".equals(family);
         boolean numeric = "numeric".equals(family), named = "named".equals(family), mode = "mode".equals(family);
         String spell = mode ? "Abrade" : named ? "Shifting Sky" : numeric ? "Fireball" : binary ? "Campus Guide" : "Stab";
@@ -71,6 +81,30 @@ public final class ModelSearchCallbackCheck {
                             "world_seed", Seeds.hex(Seeds.hmac(ids, "world")), "id_seed", Seeds.hex(ids));
                     Files.write(output.resolve(family + "-record.json"), Json.canonical(record).getBytes(StandardCharsets.UTF_8),
                             StandardOpenOption.CREATE_NEW);
+                    if (modeSelection != null) {
+                        Map<String, Object> picked = ModelReplay.selectedSemantic(decision, modeSelection);
+                        if (!"choose_spell_mode".equals(Json.str(picked, "kind"))) {
+                            throw new IllegalArgumentException("wire fixture needs an offered spell mode");
+                        }
+                        int selected = Slice.candidateOf(decision, picked);
+                        if (selected < 0) throw new IllegalArgumentException("wire mode was not offered");
+                        position.answer(selected);
+                        Map<String, Object> next = position.decision();
+                        if (!"p0".equals(position.acting()) || !"choose_target".equals(Slice.Front_firstKind(next))) {
+                            throw new IllegalStateException("applied mode did not reach its actual target callback");
+                        }
+                        List<Object> prefix = new ArrayList<>(earlier);
+                        prefix.add(Json.map("decision", Json.copy(decision), "selection", Json.copy(modeSelection)));
+                        Map<String, Object> target = Json.map("game_start", record.get("game_start"), "decision", next,
+                                "anchor", record.get("anchor"), "replay", Json.map("priority_passes", passes, "earlier", prefix),
+                                "world_seed", record.get("world_seed"), "id_seed", record.get("id_seed"));
+                        Files.write(output.resolve("mode-target-record.json"), Json.canonical(target).getBytes(StandardCharsets.UTF_8),
+                                StandardOpenOption.CREATE_NEW);
+                        out.println(Json.canonical(Json.map("family", "mode-wire", "mode_selection_accepted", true,
+                                "selected_mode_index", picked.get("mode_index"), "earlier_callbacks", (long) prefix.size(),
+                                "next_callback", "choose_target", "target_candidates", (long) Json.arr(next, "candidates").size())));
+                        return;
+                    }
                     if (mode) checkModeSourceRefusals(record);
                     Map<String, Object> status = Json.map("family", family, "passes", passes,
                             "candidates", (long) Json.arr(decision, "candidates").size(), "real_callback", kind);
