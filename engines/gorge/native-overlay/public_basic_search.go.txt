@@ -120,6 +120,10 @@ func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]dead
 	identities := map[uint32]Identity{}
 	cursors := map[state.PlayerID]cursor{}
 	result := map[epochKey][]deadlineConstraint{}
+	epochs, err := compileEpochs(h)
+	if err != nil {
+		return result
+	}
 	deckNames := map[string]bool{}
 	for _, deck := range setup.Decks {
 		for _, card := range deck {
@@ -132,6 +136,19 @@ func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]dead
 			cursors[player] = current
 		}
 	}
+	addDeadline := func(player state.PlayerID, through int, name string, count int) {
+		if count <= 0 || !deckNames[name] {
+			return
+		}
+		key := epochKey{Player: player}
+		for i, previous := range result[key] {
+			if previous.Through == through && previous.Name == name {
+				result[key][i].Count = max(previous.Count, count)
+				return
+			}
+		}
+		result[key] = append(result[key], deadlineConstraint{Through: through, Name: name, Count: count})
+	}
 	for _, frame := range h.Frames {
 		for _, identity := range frame.Identities {
 			identities[identity.ID] = identity
@@ -140,6 +157,17 @@ func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]dead
 			current := cursors[ev.Player]
 			switch ev.Kind {
 			case events.Shuffle:
+				if ev.Player != h.Actor && current.ordinal == 1 && current.active && current.removals > 0 {
+					// A native zero-draw deadline after this shuffle must
+					// already be in its pre-shuffle hand. Carry that public
+					// requirement back through the same conservative bound.
+					for _, deadline := range epochs[epochKey{Player: ev.Player, Ordinal: current.ordinal}].Deadlines {
+						if deadline.Through == 0 {
+							addDeadline(ev.Player, current.draws+current.removals, deadline.Name,
+								deadline.Count-current.exits[deadline.Name]-current.unknown)
+						}
+					}
+				}
 				current.ordinal++
 				current.draws, current.removals, current.unknown = 0, 0, 0
 				current.active = current.ordinal == 1
@@ -211,23 +239,9 @@ func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]dead
 				names = append(names, name)
 			}
 			slices.Sort(names)
-			key := epochKey{Player: player}
 			for _, name := range names {
 				count := counts[player][name] - current.exits[name] - current.unknown
-				if count > 0 {
-					deadline := deadlineConstraint{Through: current.draws + current.removals, Name: name, Count: count}
-					found := false
-					for i, previous := range result[key] {
-						if previous.Through == deadline.Through && previous.Name == name {
-							result[key][i].Count = max(previous.Count, count)
-							found = true
-							break
-						}
-					}
-					if !found {
-						result[key] = append(result[key], deadline)
-					}
-				}
+				addDeadline(player, current.draws+current.removals, name, count)
 			}
 		}
 	}

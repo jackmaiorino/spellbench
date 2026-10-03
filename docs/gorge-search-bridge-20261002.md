@@ -106,6 +106,10 @@ the first draws-plus-removals positions of the original library. The bound
 subtracts named library exits and all unknown removals from public name counts.
 Library additions, reorders, later shuffles and copied or ambiguous token cards
 end this additional guidance. No absolute position of an unseen card is assumed.
+A public hand exit before any post-shuffle draw requires that card to be in the
+pre-shuffle hand. The witness carries the native sampler's corresponding
+zero-draw deadline into the earlier weak prefix bound, subtracting library
+exits and unknown removals there too.
 The replay also tries legal intents suggested by the next public action before
 its other alternatives. Both changes affect witness construction only; native
 world sampling, weights, scoring and the shared reconstruction budgets remain
