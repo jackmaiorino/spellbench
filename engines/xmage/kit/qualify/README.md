@@ -9,6 +9,14 @@ digest and elapsed time while a rung is running. `qualify-games.jsonl` retains
 the deterministic order used for the completed serial/parallel comparison.
 An interrupted rung is unfinished; its completed-game log is retained.
 
+`python/tools/xmage_native_qualified_job.py` wraps the supported qualifier in a
+hash-pinned Windows host-reservation helper. Its job manifest binds a frozen
+runtime and input hashes, an aggregate storage cap, reserve and time window.
+It acquires its own canonical claim, performs the busy refusal before dispatch,
+and supervises only its contained children. STOP, timeout or storage failure
+closes those children by PID and creation time. Forced cleanup after a nominal
+successful qualifier is reported as a failure. It creates no cloud allocation.
+
 | Step | What it does | Guard |
 |---|---|---|
 | `plan` | one shared plan: each admitted entry against `heuristic` and `uniform` (256 pairs each, 1,024 games per entry), the declared cross-entry games (kit-mad-1 against kit-mad-k, 64 pairs), the clock profile, entry identities and public descriptions, a master secret | refuses decks the register does not admit, custom identities, and kit-mcts without `--allow-mcts` |

@@ -86,7 +86,9 @@ def load(manifest: Path, digest: str):
 def work(record: dict, prepared: dict, helper) -> int:
     token = os.environ.get(helper.TOKEN_ENV)
     status = helper.status(token)
-    if not token or status.get("token_fate") != "holds":
+    if (not token or status.get("token_fate") != "holds"
+            or status.get("record", {}).get("lane") != "spellbench-xmage-native"
+            or status.get("record", {}).get("work_id") != record["work_id"]):
         raise ValueError("native qualification requires this supervisor's active host claim")
     members = helper.job_members(None)
     if os.getpid() not in members or os.getppid() not in members:
@@ -127,7 +129,14 @@ def work(record: dict, prepared: dict, helper) -> int:
         # The queried job is exactly this reservation's containment. Retain the
         # supervisor and this controller; terminate only their owned children
         # by both PID and creation time on a failure or surviving child.
+        grace = time.monotonic()+2
         owned = [p for p in helper.job_members(None) if p not in (os.getpid(), os.getppid())]
+        while owned and time.monotonic() < grace:
+            time.sleep(0.1)
+            owned = [p for p in helper.job_members(None) if p not in (os.getpid(), os.getppid())]
+        terminal["forced_owned_children"] = owned
+        if owned and terminal["exit_code"] == 0:
+            terminal["exit_code"] = 2
         identities = [(pid, helper.creation_time(pid)) for pid in owned]
         for pid, creation in identities:
             if creation is not None:
