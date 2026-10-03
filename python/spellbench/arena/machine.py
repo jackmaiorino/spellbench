@@ -61,13 +61,23 @@ def usable_cpus(cpu_count: int | None = None) -> int:
             quota = cgroup_cpus(Path("/sys/fs/cgroup/cpu.max").read_text(encoding="ascii"))
         except (OSError, UnicodeDecodeError):
             quota = None
+        if quota is None:
+            try:
+                quota = cgroup_cpus(" ".join(Path("/sys/fs/cgroup/cpu/" + name).read_text(encoding="ascii").strip()
+                                             for name in ("cpu.cfs_quota_us", "cpu.cfs_period_us")))
+            except (OSError, UnicodeDecodeError):
+                quota = None
+        try:
+            count = min(count, len(os.sched_getaffinity(0)))
+        except (AttributeError, OSError):
+            pass
         if quota is not None:
             count = min(count, quota)
     return count
 
 
 def total_memory() -> int | None:
-    """Total physical memory in bytes, or None when the platform does not say."""
+    """Physical memory bounded by the Linux container limit, or None if unknown."""
     try:
         if os.name == "nt":
             import ctypes
@@ -83,6 +93,14 @@ def total_memory() -> int | None:
             total = int(status.total_phys) if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)) else 0
         else:
             total = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+            if sys.platform.startswith("linux"):
+                for filename in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
+                    try:
+                        limit = Path(filename).read_text(encoding="ascii").strip()
+                        if limit.isdigit() and int(limit) > 0:
+                            total = min(total, int(limit))
+                    except (OSError, UnicodeDecodeError):
+                        pass
     except (AttributeError, OSError, ValueError):
         return None
     return total if 0 < total <= _MAX_INT else None
