@@ -1,0 +1,141 @@
+{
+  "schema": "spellbench-gorge-runtime008-delivery-record/v1",
+  "checked_at_utc": "2026-10-03T10:43:13.245989+00:00",
+  "runtime_source_commit": "21f91952b5d479d1745d5da910eceb7eaa49edc2",
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "artifacts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-016",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-audit-check-20261003-016",
+      "seal_sha256": "77edaf3ffbb7dcfbddd99e2f57053f45a0728c2d1f45358057704c60e071f857",
+      "bytes": 14583,
+      "phase": "closed_correctness_fixture"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-017",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-audit-check-20261003-017",
+      "seal_sha256": "2c8931cf1ac87bdf50de0fd74c0152f7d7a15391de4f6c3e7e6c14cf91b8e6fe",
+      "bytes": 21610,
+      "phase": "closed_correctness_fixture"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-018",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-audit-check-20261003-018",
+      "seal_sha256": "65e8e75c13212f071d61273db33ad24b06fb538db4cb6cf0f81579cdce332530",
+      "bytes": 14266,
+      "phase": "closed_correctness_fixture"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-qualification-preparation-20261003-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-qualification-20261003-004",
+      "seal_sha256": "e78761143a36a4af092a9fe9c391e6c13be32c02105c32412e4f30135f83f9ef",
+      "bytes": 71355,
+      "phase": "prepared_unlaunched"
+    }
+  ],
+  "production_prefix": {
+    "source_of_record": "E:/spellbench-gorge-audit-check-20261003-017",
+    "game_digest": "sha256:5b9e41066d329d238046ebca99ea22f38ceba66236efd53820cc2ec64cc9ad5e",
+    "exact_primary_result_repeat": true,
+    "search": {
+      "Natives": 64,
+      "Eligible": 3,
+      "Attempted": 2,
+      "Covered": 2,
+      "Attempts": 128,
+      "Accepted": 0,
+      "Worlds": 16,
+      "Rollouts": 72,
+      "Submits": 33229,
+      "Terminal": 72,
+      "Capped": 0,
+      "Redealt": 16,
+      "ReconstructionAttempts": 3,
+      "ReconstructionSubmits": 522,
+      "ReconstructionNodes": 440,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 1
+      },
+      "Kinds": {
+        "cast": 2
+      }
+    },
+    "all_processes_closed": true,
+    "classification": "forfeit",
+    "actor_decision_cap": 64,
+    "limitation": "Bounded correctness fixture; not a natural completed-game, allocation or rating result"
+  },
+  "transcript_comparison": {
+    "schema": "spellbench-gorge-engine-transcript-comparison/v1",
+    "checked_at_utc": "2026-10-03T10:40:35.505244+00:00",
+    "scope": "Bounded correctness fixtures, no completed-game or rating claim",
+    "current": {
+      "outcome": "p1_win",
+      "classification": "forfeit",
+      "winner": "p1",
+      "reason": "forfeit:stalling",
+      "adjudication": {
+        "kind": "forfeit",
+        "cause": "stalling",
+        "loser_seat": "p0",
+        "detail": "p0 reached max_seat_decisions_per_game (64); real choices in the last 250 decisions: p0 19, p1 8"
+      },
+      "step_count": 119,
+      "decision_count": 118,
+      "decisions_checked": 119,
+      "last_selection_seat": null,
+      "game_digest": "sha256:5b9e41066d329d238046ebca99ea22f38ceba66236efd53820cc2ec64cc9ad5e",
+      "violation": null,
+      "diagnostics": []
+    },
+    "counterfactual": {
+      "outcome": "p1_win",
+      "classification": "forfeit",
+      "winner": "p1",
+      "reason": "forfeit:stalling",
+      "adjudication": {
+        "kind": "forfeit",
+        "cause": "stalling",
+        "loser_seat": "p0",
+        "detail": "p0 reached max_seat_decisions_per_game (64); real choices in the last 250 decisions: p0 19, p1 8"
+      },
+      "step_count": 119,
+      "decision_count": 118,
+      "decisions_checked": 119,
+      "last_selection_seat": null,
+      "game_digest": "sha256:4bbb46f6f6b4bbe4c010112f2259d7d596fefd47f6f37901136091066442d23b",
+      "violation": null,
+      "diagnostics": []
+    },
+    "exchanges": 120,
+    "changed_field_paths": [
+      "response[27].seat_decision.extensions.x_gorge_search_v1.aliases.11",
+      "response[27].seat_decision.extensions.x_gorge_search_v1.aliases.12",
+      "response[27].seat_decision.extensions.x_gorge_search_v1.aliases.13",
+      "response[27].seat_decision.extensions.x_gorge_search_v1.aliases.14",
+      "response[29].seat_decision.extensions.x_gorge_search_v1.aliases.11",
+      "response[29].seat_decision.extensions.x_gorge_search_v1.aliases.12",
+      "response[29].seat_decision.extensions.x_gorge_search_v1.aliases.13",
+      "response[31].seat_decision.extensions.x_gorge_search_v1.aliases.11",
+      "response[31].seat_decision.extensions.x_gorge_search_v1.aliases.12",
+      "response[31].seat_decision.extensions.x_gorge_search_v1.aliases.13",
+      "response[32].seat_decision.extensions.x_gorge_search_v1.answers.16",
+      "response[49].seat_decision.extensions.x_gorge_search_v1.aliases.14",
+      "response[51].seat_decision.extensions.x_gorge_search_v1.aliases.14",
+      "response[53].seat_decision.extensions.x_gorge_search_v1.aliases.4",
+      "response[53].seat_decision.extensions.x_gorge_search_v1.aliases.6",
+      "response[97].seat_decision.extensions.x_gorge_search_v1.aliases.14"
+    ],
+    "private_values_serialized": false,
+    "search_aggregate_identical": true
+  },
+  "resource_constraint": "Jack generation108 research replacement; Haley queued training-performance window retains priority per CODEX811; RunPod REST inventory403 and no assigned paid allocation",
+  "prune": {
+    "removed": [],
+    "retained": "Failed and capped attempts and every cited input in full; D is the independent recovery source"
+  }
+}

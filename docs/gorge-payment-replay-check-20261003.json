@@ -144,8 +144,51 @@
     "reusable_for_changed_runtime_without_compatibility_check": false
   },
   "unfinished": [
-    "Production runtime pin and matching reference-host prefix",
     "Compatible guarded throughput evidence and full mode/deck/clock qualification",
     "Roster freeze, rated evaluation, review-path merge and live publication"
-  ]
+  ],
+  "production_runtime_prefix": {
+    "source_of_record": "E:/spellbench-gorge-audit-check-20261003-017",
+    "game_digest": "sha256:5b9e41066d329d238046ebca99ea22f38ceba66236efd53820cc2ec64cc9ad5e",
+    "exact_primary_result_repeat": true,
+    "search": {
+      "Natives": 64,
+      "Eligible": 3,
+      "Attempted": 2,
+      "Covered": 2,
+      "Attempts": 128,
+      "Accepted": 0,
+      "Worlds": 16,
+      "Rollouts": 72,
+      "Submits": 33229,
+      "Terminal": 72,
+      "Capped": 0,
+      "Redealt": 16,
+      "ReconstructionAttempts": 3,
+      "ReconstructionSubmits": 522,
+      "ReconstructionNodes": 440,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 1
+      },
+      "Kinds": {
+        "cast": 2
+      }
+    },
+    "all_processes_closed": true,
+    "classification": "forfeit",
+    "actor_decision_cap": 64,
+    "limitation": "Bounded correctness fixture; not a natural completed-game, allocation or rating result",
+    "check_sha256": "1736efbb8cd7e82c171cdd56783e5838554651a0647a17165d27ab6eef956900"
+  },
+  "production_transcript_comparison": {
+    "source_of_record": "E:/spellbench-gorge-audit-check-20261003-017/TRANSCRIPT-COMPARISON.json",
+    "sha256": "cb068eb28eff7fabcf3001ea6cb00c420c1cf21e419228f07cf1488b92e01a2e",
+    "exchanges": 120,
+    "changed_fields": 16,
+    "changes_only_public_aliases_and_payment_answer": true,
+    "search_aggregate_identical": true,
+    "failed_stale_digest_attempt_retained": "E:/spellbench-gorge-audit-check-20261003-016"
+  }
 }
