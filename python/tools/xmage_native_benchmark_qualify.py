@@ -10,10 +10,11 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Mapping
 
-from spellbench.arena import runner
+from spellbench.arena import runner, store
 from spellbench.arena.throughput import Placement
 from spellbench.bench import definition
 from spellbench.bench.run import EVIDENCE_NAME, plan_for, run_files
@@ -22,6 +23,39 @@ from spellbench.bench.run import EVIDENCE_NAME, plan_for, run_files
 def sha(path: Path) -> str:
     with path.open("rb") as source:
         return hashlib.file_digest(source, "sha256").hexdigest()
+
+
+def trial_ledgers(records: Path, allocation) -> list[dict]:
+    # Reused generic evidence may contain forfeits or halts. Bind retained rows
+    # to this allocation's exact measured digests before certifying natural play.
+    expected = {(trial.workers, trial.indices, trial.outputs_digest): trial
+                for trial in (allocation.probe, *allocation.trials) if trial is not None}
+    found = {}
+    for ledger in sorted(records.glob("qualification-*/trial-*.jsonl")):
+        match = re.fullmatch(r"trial-\d+-workers-(\d+)\.jsonl", ledger.name)
+        if match is None:
+            continue
+        try:
+            rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
+        except json.JSONDecodeError:
+            continue  # An interrupted trial cannot certify the measured one.
+        by_index = {row["game_index"]: row for row in rows}
+        if len(by_index) != len(rows):
+            continue
+        for key, trial in expected.items():
+            if int(match.group(1)) != trial.workers or set(by_index) != set(trial.indices):
+                continue
+            ordered = [by_index[index] for index in trial.indices]
+            digests = ["sha256:" + hashlib.sha256(store.canonical_bytes(row)).hexdigest() for row in ordered]
+            combined = "sha256:" + hashlib.sha256("".join(digest + "\n" for digest in digests).encode("ascii")).hexdigest()
+            if combined != trial.outputs_digest:
+                continue
+            if any(row["classification"] != "natural" for row in ordered):
+                raise ValueError("native qualification includes a non-natural trial")
+            found[key] = {"path": str(ledger), "sha256": sha(ledger), "natural_games": len(rows)}
+    if set(found) != set(expected) or not found:
+        raise ValueError("native qualification is missing matching retained trial ledgers")
+    return list(found.values())
 
 
 def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
@@ -40,17 +74,10 @@ def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
     files = run_files(executed)
     out.mkdir(parents=True, exist_ok=False)
     records = benchmark_dir / ".qualification-records"
-    before = set(records.glob("qualification-*")) if records.exists() else set()
     allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                           volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
                           rules=benchmark.qualification_rules())
-    trials = []
-    for directory in sorted(set(records.glob("qualification-*")) - before):
-        for ledger in sorted(directory.glob("trial-*.jsonl")):
-            rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()]
-            if not rows or any(row["classification"] != "natural" for row in rows):
-                raise ValueError("native qualification includes an empty or non-natural trial")
-            trials.append({"path": str(ledger), "sha256": sha(ledger), "natural_games": len(rows)})
+    trials = trial_ledgers(records, allocation)
     report = {"schema": "spellbench-native-benchmark-qualification/v1", "benchmark": benchmark.id,
               "benchmark_sha256": benchmark_sha256, "allocation": allocation.to_json(),
               "trial_ledgers": trials, "reused": allocation.reused,

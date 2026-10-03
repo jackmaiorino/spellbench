@@ -32,6 +32,15 @@ def test_native_preparation_evidence_is_reusable_by_the_actual_launch(tmp_path, 
                       volumes={"run_dir": directory}, files=run_files(executed), environ=ENVIRON,
                       rules=benchmark.qualification_rules())
     assert actual.reused and actual.workload == report["allocation"]["workload"]
+    repeated = qualify(directory, benchmark_sha256=sha(directory / "benchmark.json"),
+                       out=tmp_path / "native-qualification-repeat", placement=PLACEMENT, environ=ENVIRON)
+    assert repeated["reused"] and repeated["trial_ledgers"] == report["trial_ledgers"]
+    # Cached throughput alone cannot certify natural native play after its
+    # corresponding raw output rows are missing.
+    Path(report["trial_ledgers"][0]["path"]).unlink()
+    with pytest.raises(ValueError, match="missing matching retained"):
+        qualify(directory, benchmark_sha256=sha(directory / "benchmark.json"),
+                out=tmp_path / "native-qualification-missing", placement=PLACEMENT, environ=ENVIRON)
 
 
 def test_changed_native_definition_is_refused_before_preparation(tmp_path):
