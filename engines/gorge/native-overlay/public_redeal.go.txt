@@ -102,7 +102,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			}
 			if d.Player == h.Actor {
 				got.Identities, got.Events = identities, burst
-				if !reflect.DeepEqual(got, want) {
+				if !spellbenchFrameEqual(got, want) {
 					return nil, nil
 				}
 				if frame+1 == len(compare) {

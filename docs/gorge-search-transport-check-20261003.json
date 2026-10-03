@@ -1,0 +1,22 @@
+{
+  "schema": "spellbench-gorge-search-transport-check/v1",
+  "qualification_complete": false,
+  "rated_games": 0,
+  "diagnostic_source_of_record": "E:/spellbench-gorge-audit-check-20261003-005",
+  "diagnostic_recovery": "D:/e-scratch/spellbench-gorge-audit-check-20261003-005",
+  "observed_failure": "Reference-host Burn public redeal prefix: board bytes differed, decoded board JSON matched, and identities, events and decision matched. All64 proposals were rejected before any reconstruction submit.",
+  "repair": "Compare public actor boards as JSON objects with UseNumber and a required end of input. Retain every field and array position, exact non-board frame equality and existing native byte comparisons for non-actor histories.",
+  "regression_before_repair": {
+    "cast": {"attempts": 16, "accepted": 0, "worlds": 0, "first_rejection": "frame0 board"},
+    "public_redeal": {"attempts": 64, "accepted": 0, "redealt": 0, "reconstruction_submits": 0, "refusal": "no public replay completion in64 proposals"}
+  },
+  "regression_after_repair": {
+    "cast": {"attempts": 16, "accepted": 16, "worlds": 1, "rollouts": 5},
+    "public_redeal": {"accepted": 0, "redealt": 8, "reconstruction_attempts": 1, "reconstruction_submits": 120, "rollouts": 16, "terminal_rollouts": 16},
+    "changed_life_extra_field_player_order_invalid_json": "all rejected",
+    "whole_strategy_suite": {"passed": true, "seconds": 35.258},
+    "vet": "passed",
+    "diff_check": "passed"
+  },
+  "scope": "Native fixture transport regression and source repair. Reference-host positive coverage and all-mode qualification remain outstanding. Shipped search budgets are unchanged."
+}

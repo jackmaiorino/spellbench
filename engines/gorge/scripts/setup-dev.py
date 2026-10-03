@@ -23,6 +23,8 @@ overlay = {
             (root / "native-overlay/public_collector.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_history.go").as_posix():
             (root / "native-overlay/public_history.go.txt").as_posix(),
+        (source / "internal/searchprobe/spellbench_public_compare.go").as_posix():
+            (root / "native-overlay/public_compare.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_redeal.go").as_posix():
             (root / "native-overlay/public_redeal.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_known.go").as_posix():
@@ -60,6 +62,10 @@ patches = [
      "\t\t\t} else {\n"
      "\t\t\t\tgot, err = observer.captureScratch(e, e.L.Events[pos:], opts.ComparePotentialActions)\n"
      "\t\t\t}\n"),
+    ("\t\t\tif !reflect.DeepEqual(got, want) {\n",
+     "\t\t\tequal := reflect.DeepEqual(got, want)\n"
+     "\t\t\tif h.ActorBoundaries { equal = spellbenchFrameEqual(got, want) }\n"
+     "\t\t\tif !equal {\n"),
 ]
 for before, after in patches:
     if sampler.count(before) != 1:
@@ -121,6 +127,10 @@ overlay["Replace"][(source / "internal/searchprobe/observation.go").as_posix()] 
 for relative, patches in [
     ("internal/searchprobe/redeal.go", [
         ("type RedealBase struct {\n", "type RedealBase struct {\n\tSpellbenchPublic bool\n"),
+        ("string(now.Board) != string(last.Board)",
+         "!spellbenchBoardEqual(now.Board, last.Board, h.ActorBoundaries)"),
+        ("string(frame.Board) != string(now.Board)",
+         "!spellbenchBoardEqual(frame.Board, now.Board, h.ActorBoundaries)"),
         ("\t\tfor _, id := range append(append([]state.ObjID(nil), plan.hand...), lib...) {\n",
          "\t\textra, reason := known.spellbenchAnonymousPins(e, p, pinLib)\n"
          "\t\tif reason != \"\" { return nil, reason }\n"

@@ -101,6 +101,7 @@ func redealFixture(t *testing.T, seed uint64) (*rules.Engine, PublicGame, *Drive
 
 func TestPublicRedealReconstructsZeroAcceptedNativeProposals(t *testing.T) {
 	e, setup, driver, h := redealFixture(t, 17)
+	h = canonicalJSONHistory(t, h)
 	opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, Worlds: 8, MaxSubmits: 5000}
 	plain, err := searchprobe.Sample(setup, h, opts)
 	if err != nil || plain.Accepted != 0 || len(plain.Worlds) != 0 {

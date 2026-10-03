@@ -1,6 +1,7 @@
 package strategies
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"reflect"
@@ -192,6 +193,7 @@ func publicSearchMatchesNative(t *testing.T, kind string, shipped bool, redeal .
 			}
 			stream := &driver.seats[d.Player]
 			h := PublicHistory(stream.h)
+			h = canonicalJSONHistory(t, h)
 			nativeOptions := s.opts
 			nativeOptions.SpellbenchPublicRedeal = false
 			want, _, trace := searchseat.Choose(setup, h, stream.c, e, d, base, h.Frames[len(h.Frames)-1], nativeOptions)
@@ -260,6 +262,84 @@ func publicSearchMatchesNative(t *testing.T, kind string, shipped bool, redeal .
 		}
 	}
 	t.Fatalf("fixture never reached a %s search", kind)
+}
+
+// The reference host canonicalizes nested JSON objects, including RawMessage
+// boards. Keep every value and array order while reproducing that transport.
+func canonicalJSONHistory(t *testing.T, h History) History {
+	t.Helper()
+	raw, err := json.Marshal(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out History
+	if err := json.Unmarshal(canonical, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(h.Frames) == 0 || bytes.Equal(h.Frames[0].Board, out.Frames[0].Board) {
+		t.Fatal("fixture did not change board object key order")
+	}
+	return out
+}
+
+func TestCanonicalPublicHistoryStillRejectsChangedBoard(t *testing.T) {
+	e, setup := fixture(t, 17, true)
+	driver := NewDriver()
+	driver.Observe(e)
+	h := canonicalJSONHistory(t, PublicHistory(driver.seats[e.Pending().Player].h))
+	opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 2, Worlds: 1, MaxSubmits: 32}
+	matched, err := searchprobe.Sample(setup, h, opts)
+	if err != nil || matched.Accepted == 0 || len(matched.Worlds) != 1 {
+		t.Fatalf("canonical genesis must match: %v %+v", err, matched)
+	}
+	for _, change := range []string{"life", "extra field", "player order", "invalid JSON"} {
+		t.Run(change, func(t *testing.T) {
+			var board map[string]json.RawMessage
+			if err := json.Unmarshal(h.Frames[0].Board, &board); err != nil {
+				t.Fatal(err)
+			}
+			var players []map[string]json.RawMessage
+			if err := json.Unmarshal(board["players"], &players); err != nil || len(players) != 2 {
+				t.Fatalf("invalid fixture players: %v", err)
+			}
+			switch change {
+			case "life":
+				players[0]["life"] = json.RawMessage(`21`)
+			case "extra field":
+				board["unexpected"] = json.RawMessage(`9007199254740993`)
+			case "player order":
+				players[0], players[1] = players[1], players[0]
+			}
+			board["players"], err = json.Marshal(players)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := json.Marshal(board)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if change == "invalid JSON" {
+				raw = append(raw, []byte(` {}`)...)
+			}
+			changed := h
+			changed.Frames = append([]Frame(nil), h.Frames...)
+			changed.Frames[0].Board = raw
+			result, err := searchprobe.Sample(setup, changed, opts)
+			if result.Accepted != 0 || len(result.Worlds) != 0 {
+				t.Fatalf("changed board accepted: %v %+v", err, result)
+			}
+		})
+	}
 }
 
 func TestSearchDeltaRejectsWrongActorAndMissingFrames(t *testing.T) {
