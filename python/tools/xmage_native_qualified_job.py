@@ -3,7 +3,8 @@
 The job manifest supplies a frozen runtime, individually pinned inputs, storage
 budget and window. The existing trusted host helper is supplied by hash; it is
 not a checkpoint or a downloaded community Python module. No paid compute is
-created. The child command remains kitrun.py qualify, with its scaling guard.
+created. The child uses either kitrun.py qualify or the full benchmark's
+plan_for guard. Their measurements have distinct workload identities.
 """
 from __future__ import annotations
 
@@ -80,8 +81,9 @@ def load(manifest: Path, digest: str):
             raise ValueError("native pinned input differs")
     if sha(Path(prepared["toolchain"]["java"])) != prepared["toolchain"]["java_pin"]["sha256"]:
         raise ValueError("pinned Java executable differs")
-    if sha(Path(prepared["plan"]["path"])) != prepared["plan"]["sha256"]:
-        raise ValueError("frozen native plan differs")
+    schedule_input = prepared["benchmark"] if prepared.get("qualification_kind") == "benchmark" else prepared["plan"]
+    if sha(Path(schedule_input["path"])) != schedule_input["sha256"]:
+        raise ValueError("frozen native schedule differs")
     storage(record)
     return record, prepared, module
 
@@ -135,7 +137,12 @@ def work(record: dict, prepared: dict, helper) -> int:
                     raise RuntimeError("native qualification window expired")
                 used = storage(record)
                 progress = qualifier_output/"completed-games.jsonl"
-                completed = sum(1 for _ in progress.open("rb")) if progress.exists() else 0
+                if prepared.get("qualification_kind") == "benchmark":
+                    ledgers = Path(prepared["benchmark"]["path"]).parent / ".qualification-records"
+                    completed = sum(sum(1 for _ in path.open("rb"))
+                                    for path in ledgers.glob("qualification-*/trial-*.jsonl"))
+                else:
+                    completed = sum(1 for _ in progress.open("rb")) if progress.exists() else 0
                 monitor.write(json.dumps({"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "elapsed_s": round(time.monotonic()-start, 3), "completed_game_rows": completed,
                     "aggregate_bytes": used, "owned_processes": helper.job_members(None)})+"\n")

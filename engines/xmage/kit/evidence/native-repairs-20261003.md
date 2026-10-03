@@ -85,3 +85,13 @@ The plan, seeds, native inputs and clock are unchanged. It needs a fresh resourc
 check and its own claim before launch. The prospective `fdn-native-v1` rating
 definition has a complete 11-entry round robin; it still needs its own guarded
 qualification, complete paired results, replay and publication.
+
+To avoid measuring the soak schedule and then measuring the different rating
+schedule, `python/tools/xmage_native_benchmark_qualify.py` now calls the rating
+benchmark's existing `bench.run.plan_for` guard directly. Its cache is keyed by
+the full config, command file hashes, arena version, hardware and sampling
+rules, exactly as the later benchmark launch. Two small fake-engine checks
+confirm that changed definitions are refused and that a real later launch can
+reuse the prepared evidence without creating a rated run. This is engineering
+validation; the native benchmark remains unqualified. The Windows supervisor
+also monitors the benchmark's actual completed trial ledgers.
