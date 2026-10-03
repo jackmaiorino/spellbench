@@ -85,14 +85,16 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	if err := json.Unmarshal(s.Handle([]byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-bench","protocol_minor":0}`)), &hello); err != nil {
 		t.Fatal(err)
 	}
+	// Atomic cast witnesses do not answer the interactive Spellbomb trigger cost.
+	manaPayment, hasManaPayment := hello.EngineDefaults["mana_payment"]
 	if !slices.Contains(hello.Formats, b.Format) ||
 		!slices.Contains(b.Engine.Command, "-registry") || !slices.Contains(b.Engine.Command, "-registry-sha256") ||
 		slices.Contains(b.Engine.Command, "-corpus") ||
 		!slices.Contains(b.Engine.Command, "-search") ||
-		!slices.Contains(b.Engine.Command, "-auto-pay") || hello.EngineDefaults["mana_payment"] == nil || *hello.EngineDefaults["mana_payment"] != "engine_autopay" ||
+		!slices.Contains(b.Engine.Command, "-auto-pay") || !hasManaPayment || manaPayment != nil ||
 		!slices.Contains(hello.RulesSupported["mulligan"], "london") ||
 		!slices.Equal(hello.RulesSupported["starting_player"], []string{"host_assigned"}) {
-		t.Fatalf("rules_supported %v, formats %v", hello.RulesSupported, hello.Formats)
+		t.Fatalf("rules_supported %v, formats %v, engine_defaults %v", hello.RulesSupported, hello.Formats, hello.EngineDefaults)
 	}
 	declared := map[string]bool{}
 	for _, ext := range hello.Extensions {

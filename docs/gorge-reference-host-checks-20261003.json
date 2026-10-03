@@ -2,7 +2,6 @@
   "schema": "spellbench-gorge-reference-host-diagnostic/v1",
   "source_commit": "042c1912541f4a4251bd9e96a1912b299a4a742b",
   "rated": false,
-  "admission_audit_completed": false,
   "games": [
     {
       "repetition": 0,
@@ -156,7 +155,6 @@
     "hidden_state_fixture_verified": true,
     "seconds": 0.877
   },
-  "census_sha256": "7b478b448e755208ccfb9d0441c39129aa0d34a2368ed980a814e7fd197f05a1",
   "decision_timeout": {
     "schema": "spellbench-gorge-reference-decision-timeout/v1",
     "source_commit": "042c1912541f4a4251bd9e96a1912b299a4a742b",
@@ -232,5 +230,13 @@
       "passed": 201,
       "seconds": 5.29
     }
-  }
+  },
+  "census": {
+    "git_commit": "939d130a0325598ed39ca9176b8101d59183b31f",
+    "path": "docs/gorge-card-pool-census-20261003.json",
+    "sha256": "81cbbc4059570304b9071b789f5b78def5d0e44f0cd2df6e1a145e219e81381c",
+    "bytes": 13698,
+    "encoding": "Exact Git blob bytes (LF)"
+  },
+  "tournament_admission_exercised": false
 }

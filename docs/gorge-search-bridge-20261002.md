@@ -203,3 +203,18 @@ implemented; none is qualified, rated or published.
 The draft benchmark now lists all twelve plus uniform and heuristic. Its
 search profile, artifact versions and roster must pass qualification and be
 frozen before any rated run.
+
+The supported guarded allocation probe reached two natural Wildfire games,
+then the reference host rejected an interactive Nihil Spellbomb mana decision
+under the incorrectly declared `engine_autopay` default (V8, spec 7.6). The
+guard stopped without valid throughput evidence or rated games, and canonical
+host generation 99 released. The full failed records remain at
+`D:/e-scratch/spellbench-gorge-qualification-20261003-002`.
+
+The declaration now leaves `mana_payment` null: upstream atomic cast witnesses
+coexist with interactive triggered-cost payment. Native policy behavior and the
+reference validator are unchanged. The existing Spellbomb fixture passes in
+both manual and cast-witness modes; native atomic-cast commitment and pool-only
+effect equivalence also pass. The failed allocation probe used an unsaved
+throwaway secret, so its exact third game is not claimed as replayed. A fresh
+pinned runtime and guarded comparison remain required.

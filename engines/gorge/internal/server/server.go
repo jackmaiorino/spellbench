@@ -44,7 +44,7 @@ func New(reg *cards.Registry, sourceRevision *string) *Server {
 }
 
 // EnableAutoPay must be called before hello/reset. It adds the upstream
-// planner's casts and declares their engine-paid procedure in the profile.
+// planner's atomic cast witnesses. Trigger-cost mana windows remain interactive.
 func (s *Server) EnableAutoPay() {
 	if s.game != nil {
 		panic("cannot enable auto-pay during a game")
@@ -104,10 +104,6 @@ func (s *Server) dispatch(req protocol.Request) []byte {
 		h := helloOK(req.ID, s.engine, observe.Flags)
 		if s.search {
 			h.Extensions = append(h.Extensions, protocol.Extension{Name: strategies.Extension, NativeIDs: true})
-		}
-		if s.autoPay {
-			value := "engine_autopay"
-			h.EngineDefaults["mana_payment"] = &value
 		}
 		return marshal(h)
 	case "reset":
