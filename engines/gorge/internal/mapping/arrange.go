@@ -149,6 +149,10 @@ func (t *arrangeTx) Pose() (*Pose, error) {
 			p.Candidates = append(p.Candidates, Cand{Sem: protocol.ArrangeCard(t.src, t.purpose, t.refs[i], uint32(i), uint32(t.n()), dst), Op: op})
 		}
 	} else {
+		// Partitioning names the cardflow effect; the ordering candidates
+		// use the protocol's arrangement purpose at this later substep.
+		purpose := "arrangement"
+		p.Context.Purpose = &purpose
 		if t.prepare != nil && !t.prepared {
 			if err := t.prepare(); err != nil {
 				return nil, err

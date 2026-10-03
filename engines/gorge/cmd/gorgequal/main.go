@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,7 @@ type options struct {
 	games, resample, workers  int
 	audit                     bool
 	policyKeys                []string // nil: every integrated strategy
+	gameIndices               []uint64 // nil: every fixed qualification seed
 	registryPath, registrySHA string
 }
 
@@ -62,6 +64,8 @@ func (g DeckGate) Pass() bool {
 }
 
 type Report struct {
+	ScheduledGames int                       `json:"scheduled_games"`
+	SelectedGames  []uint64                  `json:"selected_games,omitempty"`
 	Policies       []string                  `json:"policies"`
 	Totals         Totals                    `json:"totals"`
 	Gates          map[string]DeckGate       `json:"gates"`
@@ -117,6 +121,9 @@ func searchCoverage(records map[uint64]*agent.Record) SearchCoverage {
 
 func (r Report) Clean() bool {
 	t := r.Totals
+	if r.SelectedGames != nil && len(r.SelectedGames) != r.ScheduledGames {
+		return false
+	}
 	for _, p := range r.Policies {
 		if strings.HasPrefix(p, "search") {
 			redealt := 0
@@ -256,6 +263,24 @@ type job struct {
 	pairing string
 }
 
+func selectQualificationJobs(jobs []job, indices []uint64) ([]job, error) {
+	if indices == nil {
+		return jobs, nil
+	}
+	selected := map[uint64]bool{}
+	for _, index := range indices {
+		if index >= uint64(len(jobs)) || selected[index] {
+			return nil, fmt.Errorf("invalid or duplicate qualification game index %d", index)
+		}
+		selected[index] = true
+	}
+	jobs = slices.DeleteFunc(jobs, func(j job) bool { return !selected[j.i] })
+	if len(jobs) == 0 {
+		return nil, fmt.Errorf("qualification selection is empty")
+	}
+	return jobs, nil
+}
+
 func qualify(o options) (Report, error) {
 	reg, err := gorgepin.OpenInput(os.Getenv("GORGE_CARDS"), o.registryPath, o.registrySHA)
 	if err != nil {
@@ -272,6 +297,11 @@ func qualify(o options) (Report, error) {
 				jobs = append(jobs, job{uint64(len(jobs)), d, p})
 			}
 		}
+	}
+	scheduledGames := len(jobs)
+	jobs, err = selectQualificationJobs(jobs, o.gameIndices)
+	if err != nil {
+		return Report{}, err
 	}
 	play := func(j job, audit bool) (minihost.Result, *auditLink, [2]minihost.Link, error) {
 		srv := server.New(reg, nil)
@@ -295,6 +325,12 @@ func qualify(o options) (Report, error) {
 		return res, al, seats, err
 	}
 	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}, SearchCoverage: map[string]SearchCoverage{}}
+	rep.ScheduledGames = scheduledGames
+	if o.gameIndices != nil {
+		for _, j := range jobs {
+			rep.SelectedGames = append(rep.SelectedGames, j.i)
+		}
+	}
 	for _, p := range agent.Policies() {
 		if o.policyKeys == nil || slices.Contains(o.policyKeys, p.Key) {
 			rep.Policies = append(rep.Policies, p.Key)
@@ -440,12 +476,23 @@ func main() {
 	flag.IntVar(&o.workers, "workers", max(1, runtime.NumCPU()/2), "concurrent games")
 	flag.BoolVar(&o.audit, "audit", true, "leak scan, consistency, parity and resample checks on the first run of each game")
 	policies := flag.String("policies", "all", "all integrated policies, or an explicit comma-separated subset recorded in the report")
+	indices := flag.String("game-indices", "", "fixed qualification game indices for a scaling sample; incomplete samples never qualify the full roster")
 	flag.StringVar(&o.registryPath, "registry", "", "frozen registry file")
 	flag.StringVar(&o.registrySHA, "registry-sha256", "", "expected frozen registry SHA-256")
 	outPath := flag.String("out", "gorgequal-report.json", "report path")
 	flag.Parse()
 	if *policies != "all" {
 		o.policyKeys = strings.Split(*policies, ",")
+	}
+	if *indices != "" {
+		for _, text := range strings.Split(*indices, ",") {
+			index, err := strconv.ParseUint(strings.TrimSpace(text), 10, 64)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, "invalid qualification game index")
+				os.Exit(1)
+			}
+			o.gameIndices = append(o.gameIndices, index)
+		}
 	}
 	rep, err := qualify(o)
 	if err != nil {

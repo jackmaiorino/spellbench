@@ -1,11 +1,39 @@
 package main
 
 import (
+	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 )
+
+func TestScalingSampleKeepsItsOriginalSeedAndCannotQualifyTheRoster(t *testing.T) {
+	var jobs []job
+	for _, deck := range catalog.Decks() {
+		for _, pairing := range policyPairings([]string{"bot"}) {
+			jobs = append(jobs, job{uint64(len(jobs)), deck, pairing})
+		}
+	}
+	want := []job{jobs[0], jobs[14]}
+	selected, err := selectQualificationJobs(slices.Clone(jobs), []uint64{14, 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(selected, want) {
+		t.Fatalf("selected seeds/decks/pairings changed: %+v, want %+v", selected, want)
+	}
+	a := Report{ScheduledGames: len(jobs), SelectedGames: []uint64{0, 14}, Totals: Totals{Games: 2}}
+	if a.Clean() {
+		t.Fatal("partial scaling sample qualified the full roster")
+	}
+	for _, indices := range [][]uint64{{0, 0}, {15}, {}} {
+		if _, err := selectQualificationJobs(slices.Clone(jobs), indices); err == nil {
+			t.Fatalf("invalid selection %v was accepted", indices)
+		}
+	}
+}
 
 func TestPaymentParityComparesTheWitness(t *testing.T) {
 	a := decision.Intent{Payment: &decision.PaymentSelection{ActionID: "a", Plan: decision.PaymentPlan{ID: "p"}}}

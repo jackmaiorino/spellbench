@@ -14,6 +14,16 @@ import (
 	"github.com/jackmaiorino/spellbench/engines/gorge/internal/protocol"
 )
 
+func assertArrangementPurpose(t *testing.T, p *mapping.Pose) {
+	t.Helper()
+	for _, candidate := range p.Candidates {
+		purpose, carries := candidate.Sem.Fields["purpose"]
+		if carries && (p.Context.Purpose == nil || *p.Context.Purpose != purpose) {
+			t.Fatalf("context purpose %v differs from %s candidate purpose %v", p.Context.Purpose, candidate.Sem.Kind, purpose)
+		}
+	}
+}
+
 func TestScryIsTwoNMinusOneAndLandsCardsWhereChosen(t *testing.T) {
 	g := untilPending(t, "CawGates", 1, func(d *decision.Decision, e *rules.Engine) bool {
 		return d.Kind == decision.KArrange && d.Restable && len(d.Options) == 2 // Preordain's scry 2
@@ -25,6 +35,7 @@ func TestScryIsTwoNMinusOneAndLandsCardsWhereChosen(t *testing.T) {
 	tx, _ := mapping.Begin(env, d)
 	decisions := 0
 	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		assertArrangementPurpose(t, p)
 		decisions++
 		if p.SubstepCount != 3 {
 			t.Fatalf("group size %d, want 3", p.SubstepCount)
@@ -62,6 +73,7 @@ func TestDigMergesDigAndDigBottomIntoOneArrangement(t *testing.T) {
 	var count uint32
 	followOps := 0
 	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		assertArrangementPurpose(t, p)
 		count = p.SubstepCount
 		for i, c := range p.Candidates {
 			if c.Sem.Kind == "arrange_card" && c.Sem.Fields["destination"] == "bottom" {
@@ -120,6 +132,7 @@ func TestDigLoneRemainderCarriesPresentationalDestOp(t *testing.T) {
 	}
 	loneOps := 0
 	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		assertArrangementPurpose(t, p)
 		if p.Followups["dig_bottom"] != nil {
 			t.Fatalf("a lone remainder asks no dig_bottom: %v", p.Followups)
 		}
@@ -175,6 +188,7 @@ func TestNonRestableArrangeFixesTheRestOrder(t *testing.T) {
 	}
 	orderPicks := 0
 	commit := answerAll(t, tx, func(p *mapping.Pose) int {
+		assertArrangementPurpose(t, p)
 		if p.SubstepCount != 3 {
 			t.Fatalf("group size %d, want 3", p.SubstepCount)
 		}
