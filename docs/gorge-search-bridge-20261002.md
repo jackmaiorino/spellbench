@@ -239,3 +239,12 @@ witnesses without claiming that the engine answers triggered-cost mana. The
 old runtime004 fails both seats for those four modes; its records are retained.
 Affected agent tests and vet pass. Fresh runtime bytes and real game-start
 checks for all twelve modes remain required before the guarded retry.
+
+Runtime `e2dab41` is now preserved at
+`E:/spellbench-gorge-runtime-20261003-005`, with verified D recovery. The actual
+reference-host game-start check passes all twelve modes in both seats, including
+the eight handshakes that failed against runtime004. Every process closed.
+The source and limit statement are in
+[game-start evidence](gorge-game-start-checks-20261003.json). These handshakes do
+not execute search or qualify completed games. XMage holds a separate canonical
+reservation while the gorge retry is prepared.
