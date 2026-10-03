@@ -257,8 +257,9 @@
     }
   ],
   "publication": null,
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261003.json",
   "engine_configuration": {
-    "rated_registry_input": "explicit registry file and expected SHA-256; production freeze is pending",
+    "rated_registry_input": "explicit registry file and expected SHA-256; frozen runtime prepared and startup checked, qualification and rated launch are pending",
     "auto_pay": true,
     "wire_mana_payment": "engine_autopay",
     "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check."

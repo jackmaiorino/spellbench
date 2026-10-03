@@ -76,12 +76,18 @@ The frozen-registry launch path now names actual runtime bytes and a required
 SHA-256. The freeze command verifies card scripts against the source digest,
 records token script bytes and recompiles independently of development caches.
 Fixture tests reject altered registry bytes and forged source lock labels;
-they preserve loaded card and token definitions. No production registry has
-been frozen for a rated run yet.
+they preserve loaded card and token definitions. The pinned runtime registry
+has now been compiled once and preserved with exact hashes, six Windows/Linux
+binaries, their compiler/linker and a container image. The engine and search
+agent passed startup in a network-disabled, read-only container with one CPU
+and 1 GiB memory; Windows and Linux hello profiles matched exactly. See
+`docs/gorge-runtime-preparation-20261003.json` for commands, hashes and verified
+cold/recovery locations. This is preparation; no games or allocation
+qualification were run with these binaries.
 
 Remaining work: audit complete histories on all five decks, preserve legal
-mapping at shipped budgets under reference-host clocks, prepare the frozen
-registry, qualify isolation and guarded completed-work throughput, and freeze the
+mapping at shipped budgets under reference-host clocks, qualify the container
+lifecycle and guarded completed-work throughput, and freeze the
 complete roster before evaluation. `search-redeal` and `search-mana-redeal`
 remain explicitly refused: their native fallback clones a real engine, and an
 equivalent public reconstruction that also handles zero accepted proposals is
