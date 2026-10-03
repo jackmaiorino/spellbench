@@ -1,6 +1,6 @@
 # gorge adapter
 
-The gorge rules engine as a Spellbench Protocol v2 engine (environment role over stdio), with eight ordinary policy modes and two public-history search modes wrapped as v2 agents. Protocol `spellbench/v2`, `protocol_minor` 0. The adapter is a separate Go module pinned to gorge commit `26257e0eda1779d739a07e835c6500b9c4dabc62`, resolved locally; gorge's tree is read-only. Complete inventory and validation status are in `docs/gorge-roster-20261002.json`.
+The gorge rules engine as a Spellbench Protocol v2 engine (environment role over stdio), with eight ordinary policy modes and four public-history search modes wrapped as v2 agents. Protocol `spellbench/v2`, `protocol_minor` 0. The adapter is a separate Go module pinned to gorge commit `26257e0eda1779d739a07e835c6500b9c4dabc62`, resolved locally; gorge's tree is read-only. Complete inventory and validation status are in `docs/gorge-roster-20261002.json`.
 
 ## Build
 
@@ -57,7 +57,7 @@ The wrapped bots see per-seat ids and name-sorted hidden options, so their games
 
 ## `x_gorge_search_v1`
 
-The engine's explicit `-search` flag adds actor-only public history and bindings from the current view IDs to observer-local history IDs. Search agents require both extensions and load static card definitions with `-corpus` or `GORGE_CARDS`. `search` and `search-mana` keep shipped search settings; their source adaptations, bounded parity evidence and remaining qualification work are documented in `docs/gorge-search-bridge-20261002.md`. The profile conservatively declares `native_ids:true` for this extension. It must have the required published identity audit before rated use. The two redeal variants remain refused pending a public reconstruction bridge.
+The engine's explicit `-search` flag adds actor-only public history and bindings from the current view IDs to observer-local history IDs. Search agents require both extensions and load static card definitions with `-corpus` or `GORGE_CARDS`. All four modes keep shipped sampling and rollout settings; the redeal modes reconstruct a fallback root from public observations when native replay starves. Their source adaptations, bounded parity evidence and remaining qualification work are documented in `docs/gorge-search-bridge-20261002.md`. The profile conservatively declares `native_ids:true` for this extension. It must have the required published identity audit before rated use.
 
 ## Benchmark: `pauper-gorge`
 

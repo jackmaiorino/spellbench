@@ -34,7 +34,7 @@ func nativePolicy(key string, seed uint64) seat.Seat {
 		return seat.NewBlocksBot(seed)
 	case "explore":
 		return seat.NewExploreBot(seed)
-	case "search", "search-mana":
+	case "search", "search-mana", "search-redeal", "search-mana-redeal":
 		return seat.NewBot(seed) // SearchBot's plain Decide delegates unchanged
 	default:
 		return &nativeLegacy{rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
@@ -108,7 +108,7 @@ func TestDefaultCastProfileIsAnAlias(t *testing.T) {
 	if err != nil || w != botpolicy.DefaultCastWeights {
 		t.Fatalf("pinned cast-profile no longer equals default: %+v %v", w, err)
 	}
-	for _, key := range []string{"search-redeal", "search-mana-redeal", "policynet", "unknown"} {
+	for _, key := range []string{"policynet", "unknown"} {
 		if _, err := New(key); err == nil {
 			t.Fatalf("unfinished policy %s silently substituted a bot", key)
 		}

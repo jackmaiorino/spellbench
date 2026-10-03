@@ -23,6 +23,10 @@ overlay = {
             (root / "native-overlay/public_collector.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_history.go").as_posix():
             (root / "native-overlay/public_history.go.txt").as_posix(),
+        (source / "internal/searchprobe/spellbench_public_redeal.go").as_posix():
+            (root / "native-overlay/public_redeal.go.txt").as_posix(),
+        (source / "rules/spellbench_public_replay_clone.go").as_posix():
+            (root / "native-overlay/public_replay_clone.go.txt").as_posix(),
     }
 }
 
@@ -32,6 +36,17 @@ sampler = (source / "internal/searchprobe/sample.go").read_text(encoding="utf-8"
 patches = [
     ("type PublicGame struct {\n", "type PublicGame struct {\n\tMulligans int\n"),
     ("type History struct {\n", 'type History struct {\n\tActorBoundaries bool `json:",omitempty"`\n'),
+    ("type SampleResult struct {\n", 'type SampleResult struct {\n\tPublicReconstruction *SpellbenchReconstruction `json:",omitempty"`\n'),
+    ("\t\tworlds, refused := redealWorlds(setup, h, known, opts.Redeal, opts.Worlds, func(i int) [2]uint64 {\n",
+     "\t\tbase := opts.Redeal\n"
+     "\t\tif base.SpellbenchPublic {\n"
+     "\t\t\tvar err error\n"
+     "\t\t\tvar work SpellbenchReconstruction\n"
+     "\t\t\tbase, work, err = SpellbenchReconstructRedeal(setup, h, opts)\n"
+     "\t\t\tresult.PublicReconstruction = &work\n"
+     "\t\t\tif err != nil { result.RedealRefused = err.Error(); return result, nil }\n"
+     "\t\t}\n"
+     "\t\tworlds, refused := redealWorlds(setup, h, known, base, opts.Worlds, func(i int) [2]uint64 {\n"),
     ("cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife}",
      "cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife, Mulligans: setup.Mulligans}"),
     ("\t\t\tgot, err := observer.captureScratch(e, e.L.Events[pos:], opts.ComparePotentialActions)\n",
@@ -69,5 +84,32 @@ for before, after in observer_patches:
 replacement = generated / "observation.go"
 replacement.write_text(observation, encoding="utf-8")
 overlay["Replace"][(source / "internal/searchprobe/observation.go").as_posix()] = replacement.as_posix()
+
+# A public root is constructed lazily only when native rejection sampling
+# starves. The native redeal implementation still derives, pins and deals its
+# pool, and the ordinary search configuration never invokes this seam.
+for relative, patches in [
+    ("internal/searchprobe/redeal.go", [
+        ("type RedealBase struct {\n", "type RedealBase struct {\n\tSpellbenchPublic bool\n"),
+    ]),
+    ("internal/searchseat/searchseat.go", [
+        ("type Options struct {\n", "type Options struct {\n\tSpellbenchPublicRedeal bool\n"),
+        ("type Trace struct {\n", 'type Trace struct {\n\tPublicReconstruction *searchprobe.SpellbenchReconstruction `json:",omitempty"`\n\tRedealt int `json:",omitempty"`\n\tRedealRefused string `json:",omitempty"`\n'),
+        ("\treturn &searchprobe.RedealBase{Engine: e, Observer: collector}\n",
+         "\tif opts.SpellbenchPublicRedeal { return &searchprobe.RedealBase{SpellbenchPublic: true} }\n"
+         "\treturn &searchprobe.RedealBase{Engine: e, Observer: collector}\n"),
+        ("func recordSample(tr *Trace, sr searchprobe.SampleResult) {\n",
+         "func recordSample(tr *Trace, sr searchprobe.SampleResult) {\n"
+         "\ttr.Redealt, tr.RedealRefused, tr.PublicReconstruction = sr.Redealt, sr.RedealRefused, sr.PublicReconstruction\n"),
+    ]),
+]:
+    contents = (source / relative).read_text(encoding="utf-8")
+    for before, after in patches:
+        if contents.count(before) != 1:
+            raise SystemExit(f"Pinned {relative} patch context changed; refusing overlay")
+        contents = contents.replace(before, after, 1)
+    replacement = generated / Path(relative).name
+    replacement.write_text(contents, encoding="utf-8")
+    overlay["Replace"][(source / relative).as_posix()] = replacement.as_posix()
 root.joinpath("go-overlay.json").write_text(json.dumps(overlay, indent=2) + "\n", encoding="utf-8")
 print(f"Pinned gorge {revision}; read-only source {source}; public API overlay configured")

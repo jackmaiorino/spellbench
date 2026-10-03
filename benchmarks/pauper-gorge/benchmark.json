@@ -13,7 +13,8 @@
       "${GORGE_REGISTRY}",
       "-registry-sha256",
       "${GORGE_REGISTRY_SHA256}",
-      "-auto-pay"
+      "-auto-pay",
+      "-search"
     ]
   },
   "deck_pool": [
@@ -26,7 +27,8 @@
   "pairs_per_deck": 4,
   "stats_seed": 20261002,
   "extensions": [
-    "x_gorge_view_v1"
+    "x_gorge_view_v1",
+    "x_gorge_search_v1"
   ],
   "time_control": {
     "startup_ms": 120000,
@@ -245,6 +247,106 @@
         "label": "gorge lethal-pressure auto-pay",
         "author": "gorge",
         "description": "gorge's native lethal-pressure-auto-pay policy using its offered atomic mana-payment plan.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-search",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "search",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "search"
+      ],
+      "display": {
+        "label": "gorge search",
+        "author": "gorge",
+        "description": "Native search over sampled hidden worlds, with attacker and cast arms.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-search-mana",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "search-mana",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "search"
+      ],
+      "display": {
+        "label": "gorge search-mana",
+        "author": "gorge",
+        "description": "Native sampled-world search with the additional mana-source arm.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-search-redeal",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "search-redeal",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "search"
+      ],
+      "display": {
+        "label": "gorge search-redeal",
+        "author": "gorge",
+        "description": "Native search with public reconstruction and uniform redeal when rejection sampling starves.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-search-mana-redeal",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "search-mana-redeal",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "search"
+      ],
+      "display": {
+        "label": "gorge search-mana-redeal",
+        "author": "gorge",
+        "description": "Native search with the mana-source arm and public reconstruction for uniform redeal.",
         "url": "https://github.com/adams-shaun/gorge"
       }
     }

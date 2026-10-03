@@ -73,10 +73,12 @@ type Report struct {
 // SearchCoverage distinguishes native search delegation from adapter mapping
 // fallbacks. A clean mapping alone does not prove that search ran.
 type SearchCoverage struct {
-	Natives, Eligible, Attempted, Covered                           int
-	Attempts, Accepted, Worlds, Rollouts, Submits, Terminal, Capped int
-	Reasons                                                         map[string]int
-	Kinds                                                           map[string]int
+	Natives, Eligible, Attempted, Covered                                                                      int
+	Attempts, Accepted, Worlds, Rollouts, Submits, Terminal, Capped                                            int
+	Redealt, ReconstructionAttempts, ReconstructionSubmits, ReconstructionNodes, ReconstructionBudgetExhausted int
+	RedealRefusals                                                                                             map[string]int
+	Reasons                                                                                                    map[string]int
+	Kinds                                                                                                      map[string]int
 }
 
 func (s SearchCoverage) Pass() bool { return s.Eligible > 0 && s.Covered > 0 }
@@ -93,6 +95,17 @@ func mergeSearch(dst *SearchCoverage, src SearchCoverage) {
 	dst.Submits += src.Submits
 	dst.Terminal += src.Terminal
 	dst.Capped += src.Capped
+	dst.Redealt += src.Redealt
+	dst.ReconstructionAttempts += src.ReconstructionAttempts
+	dst.ReconstructionSubmits += src.ReconstructionSubmits
+	dst.ReconstructionNodes += src.ReconstructionNodes
+	dst.ReconstructionBudgetExhausted += src.ReconstructionBudgetExhausted
+	if dst.RedealRefusals == nil {
+		dst.RedealRefusals = map[string]int{}
+	}
+	for k, n := range src.RedealRefusals {
+		dst.RedealRefusals[k] += n
+	}
 	if dst.Reasons == nil {
 		dst.Reasons = map[string]int{}
 	}
@@ -108,7 +121,7 @@ func mergeSearch(dst *SearchCoverage, src SearchCoverage) {
 }
 
 func searchCoverage(records map[uint64]*agent.Record) SearchCoverage {
-	out := SearchCoverage{Reasons: map[string]int{}, Kinds: map[string]int{}}
+	out := SearchCoverage{Reasons: map[string]int{}, Kinds: map[string]int{}, RedealRefusals: map[string]int{}}
 	for _, rec := range records {
 		tr := rec.Search
 		if tr == nil {
@@ -132,6 +145,16 @@ func searchCoverage(records map[uint64]*agent.Record) SearchCoverage {
 		out.Submits += tr.Submits
 		out.Terminal += tr.Terminal
 		out.Capped += tr.Capped
+		out.Redealt += tr.Redealt
+		if tr.PublicReconstruction != nil {
+			out.ReconstructionAttempts += tr.PublicReconstruction.Attempts
+			out.ReconstructionSubmits += tr.PublicReconstruction.Submits
+			out.ReconstructionNodes += tr.PublicReconstruction.Nodes
+			out.ReconstructionBudgetExhausted += tr.PublicReconstruction.BudgetExhausted
+		}
+		if tr.RedealRefused != "" {
+			out.RedealRefusals[tr.RedealRefused]++
+		}
 		if rec.SearchEligible && !tr.Covered {
 			reason := tr.Fallback
 			if reason == "" {
@@ -147,10 +170,19 @@ func (r Report) Clean() bool {
 	t := r.Totals
 	for _, p := range r.Policies {
 		if strings.HasPrefix(p, "search") {
+			redealt := 0
 			for _, d := range catalog.Decks() {
-				if !r.SearchCoverage[d.CatalogID+"/"+p].Pass() {
+				coverage := r.SearchCoverage[d.CatalogID+"/"+p]
+				if !coverage.Pass() {
 					return false
 				}
+				redealt += coverage.Redealt
+				if strings.HasSuffix(p, "redeal") && (coverage.ReconstructionBudgetExhausted != 0 || len(coverage.RedealRefusals) != 0) {
+					return false
+				}
+			}
+			if strings.HasSuffix(p, "redeal") && redealt == 0 {
+				return false
 			}
 		}
 	}

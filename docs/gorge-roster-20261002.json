@@ -165,8 +165,9 @@
         "base": "search",
         "redeal": true
       },
-      "integration": "pending_public_redeal_root",
-      "reason": "Native redeal clones a real engine. Public-only reconstruction, including zero accepted proposals, is unfinished; the wrapper refuses this mode.",
+      "integration": "implemented_pending_privacy_qualification",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
       "qualified": false,
       "rated": false,
       "published": false
@@ -184,8 +185,9 @@
         ],
         "redeal": true
       },
-      "integration": "pending_public_redeal_root",
-      "reason": "Native redeal clones a real engine. Public-only reconstruction, including zero accepted proposals, is unfinished; the wrapper refuses this mode.",
+      "integration": "implemented_pending_privacy_qualification",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
       "qualified": false,
       "rated": false,
       "published": false
@@ -241,6 +243,10 @@
       "receipt": "docs/gorge-search-bridge-20261002.md",
       "observed_passes": [
         "all nested strategies tests",
+        "public redeal reconstructs a legal nondefault opponent history after all 64 native proposals are rejected; eight redealt worlds match native redeal's intent and values, with 16 terminal rollouts and none capped",
+        "different unobserved opponent card deals and future seeds produce identical complete fixture histories and reconstructed worlds; public discards are held fixed",
+        "public reconstruction shares a 5000-submit budget across branches and proposals and refuses a root on exhaustion",
+        "redeal modes preserve accepted native attacker, cast and mana search at shipped budgets, including serial and parallel parity",
         "attacker, cast and mana native Choose parity with rekeyed objects and serial/parallel sampling and rollouts",
         "shipped-budget parity: each fixture accepted 64 proposals and 8 worlds; attacker/cast/mana completed 16/40/16 rollouts with none capped",
         "five 64-decision transport prefixes with live actor-only deltas, zero leak/inconsistency counters and deliberate truncation; cached-history probe is not whole-history noninterference evidence",
@@ -252,7 +258,7 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "pending hosted CI",
+      "full_adapter_suite": "Passed at 2eb26b80ec78f6a91e195ac51ba5b01a641896e1 in hosted Go CI run 37098528350, including bounded ordinary qualification. The new redeal change awaits a fresh hosted run.",
       "five_deck_search_qualification": "not run"
     }
   ],

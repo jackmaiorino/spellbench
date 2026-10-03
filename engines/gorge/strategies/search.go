@@ -38,17 +38,28 @@ func NewSearch(seed uint64, mana bool) *Search {
 	return &Search{native: searchseat.NewSearchBot(seed, opts), opts: opts}
 }
 
+// NewRedealSearch retains the shipped rejection and rollout budgets. Its
+// fallback root is reconstructed from public input, with a separate bounded
+// replay cost reported in Trace.PublicReconstruction.
+func NewRedealSearch(seed uint64, mana bool) *Search {
+	s := NewSearch(seed, mana)
+	s.opts.Redeal = true
+	s.opts.SpellbenchPublicRedeal = true
+	s.native = searchseat.NewSearchBot(seed, s.opts)
+	return s
+}
+
 func (s *Search) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	return s.native.Decide(ctx, v, d)
 }
 
 func (s *Search) Eligible(d *decision.Decision) bool { return searchseat.Eligible(d, s.opts) }
 
-// DecideObserved calls the upstream Choose unchanged. At these two shipped
-// configurations it reads only G.Turn from its engine argument: candidates
+// DecideObserved calls upstream Choose. These configurations read only G.Turn
+// from its engine argument: candidates
 // use the public decision and collector, and Sample receives public history.
 // A constructed engine containing only that public turn enforces this boundary.
-// Redeal requires a different bridge and is deliberately not accepted here.
+// Redeal constructs its root lazily from public history rather than this stub.
 func (s *Search) DecideObserved(ctx context.Context, v view.View, d decision.Decision, setup PublicGame, h History, delta Delta) (decision.Intent, Trace, error) {
 	bot, err := s.native.DecideBoard(ctx, seat.BoardFromView(v), d)
 	if err != nil {

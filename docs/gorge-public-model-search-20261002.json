@@ -1,31 +1,67 @@
 {
   "schema": "spellbench-public-model-search/v1",
   "checked_at_utc": "2026-10-03T01:45:52Z",
-  "rechecked_at_utc": "2026-10-03T04:19:00Z",
+  "rechecked_at_utc": "2026-10-03T05:42:27Z",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "scope": "Moderate public search requested by Jack; no author contact or new training.",
   "conclusion": "No compatible public gorge checkpoint recovered. This does not prove that none exists under an unknown account or unindexed location.",
   "checks": [
-    {"source": "https://huggingface.co/api/models?search=gorge&limit=1000", "result": "No gorge MTG policy identified. Exact-name udp443/Gorge contains only .gitattributes; ACEGameAI/Gorge-Martinez files are James-Franco-named safetensors, with no gorge provenance or .gpol files."},
-    {"source": "https://huggingface.co/api/datasets?search=gorge&limit=50", "result": "No related result among the first 50."},
-    {"source": "https://huggingface.co/api/spaces?search=gorge&limit=50", "result": "No related result among the first 50."},
-    {"source": "https://huggingface.co/api/models?author=adams-shaun", "result": "Zero models; also zero for shaunpadams, shaun-adams and shaunadams."},
-    {"source": "https://github.com/adams-shaun", "result": "Public repositories and linked Linktree contain no recovered model download."},
-    {"source": "https://github.com/adams-shaun/gorge/releases", "result": "GitHub API returned zero releases."},
-    {"source": "https://api.github.com/repos/adams-shaun/gorge/git/trees/main?recursive=1", "result": "Complete recursive tree returned no .gpol, .safetensors, .onnx, .pth, .pt, .pkl or .bin files."},
-    {"source": "https://github.com/adams-shaun/gorge/tree/26257e0eda1779d739a07e835c6500b9c4dabc62", "result": "Pinned README, docs and model loader have training reports and local checkpoint references, but no Hugging Face or public checkpoint-download link."}
+    {
+      "source": "https://huggingface.co/api/models?search=gorge&limit=1000",
+      "result": "No gorge MTG policy identified. Exact-name udp443/Gorge contains only .gitattributes; ACEGameAI/Gorge-Martinez files are James-Franco-named safetensors, with no gorge provenance or .gpol files."
+    },
+    {
+      "source": "https://huggingface.co/api/datasets?search=gorge&limit=50",
+      "result": "No related result among the first 50."
+    },
+    {
+      "source": "https://huggingface.co/api/spaces?search=gorge&limit=50",
+      "result": "No related result among the first 50."
+    },
+    {
+      "source": "https://huggingface.co/api/models?author=adams-shaun",
+      "result": "Zero models; also zero for shaunpadams, shaun-adams and shaunadams."
+    },
+    {
+      "source": "https://github.com/adams-shaun",
+      "result": "Public repositories and linked Linktree contain no recovered model download."
+    },
+    {
+      "source": "https://github.com/adams-shaun/gorge/releases",
+      "result": "GitHub API returned zero releases."
+    },
+    {
+      "source": "https://api.github.com/repos/adams-shaun/gorge/git/trees/main?recursive=1",
+      "result": "Complete recursive tree returned no .gpol, .safetensors, .onnx, .pth, .pt, .pkl or .bin files."
+    },
+    {
+      "source": "https://github.com/adams-shaun/gorge/tree/26257e0eda1779d739a07e835c6500b9c4dabc62",
+      "result": "Pinned README, docs and model loader have training reports and local checkpoint references, but no Hugging Face or public checkpoint-download link."
+    }
   ],
   "recheck": {
-    "queries": ["gorge adams-shaun PolicyNet checkpoint huggingface", "site:huggingface.co gorge magic gathering", "site:huggingface.co danbrooks draftzero"],
-    "hugging_face_api": "Model-name queries for gorge, adams-shaun, PolicyNet and cast-profile recovered no compatible release. DraftZero still has the same public revision and three checkpoint paths below.",
-    "github_api": "The latest complete gorge tree at ed3c5652f3e4eeb22cda0d1d2c9711180eb8a19e has no .gpol, .safetensors, .onnx, .pt, .pth, .pkl or .bin paths; releases remain empty.",
+    "queries": [
+      "gorge adams-shaun Hugging Face checkpoint",
+      "site:huggingface.co gorge Magic",
+      "site:huggingface.co DraftZero"
+    ],
+    "hugging_face_api": "The gorge query returned 66 models without an identified MTG release; adams-shaun and shaunadams returned zero. PolicyNet returned only the unrelated vkatg/exposureguard-policynet. DraftZero still has the same public revision and three checkpoint paths below.",
+    "github_api": "The complete gorge tree at 37725f926d3c44ddb97af1b855331d65c65814fa has no .gpol, .safetensors, .onnx, .pt, .pth, .pkl or .bin paths; releases remain empty. A subsequent profile-path check at 1a87c35a2ceda9500f37ad90904c74818cfaecf1 found only botpolicy/profiles/default.json as a cast-weight artifact.",
     "conclusion": "The moderate public search is complete. No compatible gorge weights or tuned profile recovered; the DraftZero release is a separate MageZero/XMage bot."
   },
   "other_bot_found": {
     "source": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
     "revision": "c0ac902361c041f986f429ad9d42e7b92494741f",
-    "files": ["checkpoints/gen0.pt.gz", "checkpoints/gen10.pt.gz", "checkpoints/gen33.pt.gz"],
-    "requirements": ["MageZero bcc76de", "draft-zero assets/vocab/FDN_SPG.tsv", "danieljbrooks/mage exp1-fdn-generalist 5a32441c"],
+    "files": [
+      "checkpoints/gen0.pt.gz",
+      "checkpoints/gen10.pt.gz",
+      "checkpoints/gen33.pt.gz"
+    ],
+    "requirements": [
+      "MageZero bcc76de",
+      "draft-zero assets/vocab/FDN_SPG.tsv",
+      "danieljbrooks/mage exp1-fdn-generalist 5a32441c"
+    ],
     "compatibility": "MageZero/XMage checkpoints, incompatible with gorge's .gpol loader. Model card says MageZero v0.2.0 loading is untested and end-to-end use outside its training harness has not been verified.",
     "coordination": "Source and compatibility requirements sent to Jack's XMage task. No checkpoint downloaded or rated here."
   }

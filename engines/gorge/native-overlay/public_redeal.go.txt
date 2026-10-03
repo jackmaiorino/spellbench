@@ -1,0 +1,270 @@
+package searchprobe
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math/rand/v2"
+	"reflect"
+
+	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules"
+)
+
+// SpellbenchReconstruction records work beyond the unchanged native sampler.
+// The submit budget is shared by every branch and proposal of this root.
+type SpellbenchReconstruction struct {
+	Attempts, Submits, Nodes, BudgetExhausted int
+}
+
+// SpellbenchReconstructRedeal replays only declared decks, the actor's answers
+// and public observations. Opponent choices are inferred by branching legal
+// hypothetical intents and rejecting a branch as soon as its public events
+// disagree. It does not need an accepted native-policy replay or a live engine.
+// The returned root remains subject to the native known-card and pool checks.
+func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions) (*RedealBase, SpellbenchReconstruction, error) {
+	var work SpellbenchReconstruction
+	if !h.ActorBoundaries || len(h.Frames) == 0 || len(setup.Names) < 2 || len(setup.Names) != len(setup.Decks) || int(h.Actor) >= len(setup.Names) || opts.Attempts < 1 || opts.MaxSubmits < 1 {
+		return nil, work, fmt.Errorf("invalid public reconstruction inputs")
+	}
+	encoded, err := json.Marshal(h)
+	if err != nil {
+		return nil, work, err
+	}
+	digest := sha256.Sum256(encoded)
+	epochs, err := compileEpochs(h)
+	if err != nil {
+		return nil, work, err
+	}
+	if err := validateGenesis(setup, epochs); err != nil {
+		return nil, work, err
+	}
+	tape, tossWeight, err := publicToss(setup, h)
+	if err != nil {
+		return nil, work, err
+	}
+	compare := make([]Frame, len(h.Frames))
+	for i, f := range h.Frames {
+		if f.Decision == nil || f.Decision.Player != h.Actor {
+			return nil, work, fmt.Errorf("frame %d is not an actor boundary", i)
+		}
+		compare[i] = f
+		if !opts.ComparePotentialActions {
+			compare[i].Board = stripPotentialActions(f.Board)
+		}
+		if i+1 < len(h.Frames) {
+			if _, ok := h.Answers[i]; !ok {
+				return nil, work, fmt.Errorf("missing actor answer at frame %d", i)
+			}
+		}
+	}
+	budget := func() bool {
+		work.Nodes++
+		return work.Submits < opts.MaxSubmits && work.Nodes <= opts.MaxSubmits*32
+	}
+	for attempt := 0; attempt < opts.Attempts && work.Submits < opts.MaxSubmits && work.Nodes <= opts.MaxSubmits*32; attempt++ {
+		work.Attempts++
+		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
+		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife, Mulligans: setup.Mulligans}
+		observer := NewCollector(h.Actor)
+		var diagnostic SampleResult
+		proposal := &proposalState{epochs: epochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
+		e, err := rules.NewHypotheticalPlanned(cfg, tape, proposal.plan)
+		if errors.Is(err, errIncompatibleProposal) {
+			continue
+		}
+		if err != nil {
+			return nil, work, err
+		}
+		if err := e.AdvanceHypothetical(); err != nil {
+			if errors.Is(err, errIncompatibleProposal) {
+				continue
+			}
+			return nil, work, err
+		}
+		var walk func(*rules.Engine, *Collector, *proposalState, int, int, []Identity, []ObservedEvent) (*RedealBase, error)
+		walk = func(e *rules.Engine, c *Collector, p *proposalState, frame, pos int, identities []Identity, burst []ObservedEvent) (*RedealBase, error) {
+			d := e.Pending()
+			if d == nil || e.G.Over {
+				return nil, nil
+			}
+			got, err := c.spellbenchCaptureScratch(e, e.L.Events[pos:], opts.ComparePotentialActions)
+			if err != nil {
+				return nil, err
+			}
+			identities = append(append([]Identity(nil), identities...), got.Identities...)
+			burst = spellbenchEvents(append([]ObservedEvent(nil), burst...), got.Events, h.Actor)
+			want := compare[frame]
+			if !spellbenchIdentityPrefix(identities, want.Identities) || !spellbenchEventPrefix(burst, want.Events) {
+				return nil, nil
+			}
+			if d.Player == h.Actor {
+				got.Identities, got.Events = identities, burst
+				if !reflect.DeepEqual(got, want) {
+					return nil, nil
+				}
+				if frame+1 == len(compare) {
+					e.ClearHypotheticalPlanner()
+					return &RedealBase{Engine: e, Observer: c}, nil
+				}
+				in, err := c.Match(d, h.Answers[frame])
+				if err != nil {
+					return nil, nil
+				}
+				if work.Submits >= opts.MaxSubmits {
+					return nil, nil
+				}
+				work.Submits++
+				pos = len(e.L.Events)
+				if err := e.SubmitHypothetical(in); err != nil {
+					if errors.Is(err, errIncompatibleProposal) {
+						return nil, nil
+					}
+					return nil, err
+				}
+				return walk(e, c, p, frame+1, pos, nil, nil)
+			}
+			seed := taggedSeed(opts.Seed, digest, attempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
+			preferred := botpolicy.Decide(opponentBoard(e, d.Player, newOpponentBoards(len(setup.Names))), d, rand.New(rand.NewPCG(seed[0], seed[1])))
+			var root *RedealBase
+			var branchError error
+			spellbenchEachIntent(d, preferred, budget, func(in decision.Intent) bool {
+				if work.Submits >= opts.MaxSubmits {
+					return false
+				}
+				work.Submits++
+				cc := c.Clone()
+				pp := *p
+				pp.observer = cc
+				branch := e.SpellbenchClonePlannedHypothesis(pp.plan)
+				if branch == nil {
+					branchError = fmt.Errorf("reconstruction lost its hypothetical chance state")
+					return false
+				}
+				if err := branch.SubmitHypothetical(in); err != nil {
+					if errors.Is(err, errIncompatibleProposal) {
+						return true
+					}
+					branchError = err
+					return false
+				}
+				root, branchError = walk(branch, cc, &pp, frame, len(e.L.Events), identities, burst)
+				return root == nil && branchError == nil
+			})
+			return root, branchError
+		}
+		root, err := walk(e, observer, proposal, 0, 0, nil, nil)
+		if err != nil || root != nil {
+			return root, work, err
+		}
+	}
+	if work.Submits >= opts.MaxSubmits || work.Nodes > opts.MaxSubmits*32 {
+		work.BudgetExhausted = 1
+		return nil, work, fmt.Errorf("public reconstruction submit budget exhausted")
+	}
+	return nil, work, fmt.Errorf("no public replay completion in %d proposals", work.Attempts)
+}
+
+func spellbenchIdentityPrefix(got, want []Identity) bool {
+	if len(got) > len(want) {
+		return false
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func spellbenchEventPrefix(got, want []ObservedEvent) bool {
+	if len(got) > len(want) {
+		return false
+	}
+	for i := range got {
+		if !reflect.DeepEqual(got[i], want[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// Visit legal ordered selections lazily, including both arrange piles. The
+// caller stops enumeration as soon as it finds a completion or uses its budget.
+func spellbenchEachIntent(d *decision.Decision, preferred decision.Intent, budget func() bool, visit func(decision.Intent) bool) {
+	if d.Validate(preferred) == nil && !visit(preferred) {
+		return
+	}
+	var choose func([]int, int, int) bool
+	choose = func(picked []int, start, size int) bool {
+		if !budget() {
+			return false
+		}
+		if len(picked) == size {
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: append([]int(nil), picked...)}
+			if d.Validate(in) != nil {
+				return true
+			}
+			if !reflect.DeepEqual(in.Choices, preferred.Choices) || len(preferred.Rest) > 0 {
+				if !visit(in) {
+					return false
+				}
+			}
+			if d.Kind == decision.KArrange && d.Restable {
+				var rest []int
+				for i := range d.Options {
+					found := false
+					for _, p := range picked {
+						found = found || p == i
+					}
+					if !found {
+						rest = append(rest, i)
+					}
+				}
+				var permute func(int) bool
+				permute = func(at int) bool {
+					if !budget() {
+						return false
+					}
+					if at == len(rest) {
+						in.Rest = append([]int(nil), rest...)
+						return d.Validate(in) != nil || reflect.DeepEqual(in, preferred) || visit(in)
+					}
+					for i := at; i < len(rest); i++ {
+						rest[at], rest[i] = rest[i], rest[at]
+						keep := permute(at + 1)
+						rest[at], rest[i] = rest[i], rest[at]
+						if !keep {
+							return false
+						}
+					}
+					return true
+				}
+				return permute(0)
+			}
+			return true
+		}
+		for i := start; i < len(d.Options); i++ {
+			used := false
+			for _, p := range picked {
+				used = used || p == i
+			}
+			if used && !d.Repeatable {
+				continue
+			}
+			// Validate permits ordered selections for every kind. Public
+			// event order can distinguish them even for a set-shaped choice.
+			if !choose(append(picked, i), 0, size) {
+				return false
+			}
+		}
+		return true
+	}
+	for size := d.Min; size <= d.Max; size++ {
+		if !choose(nil, 0, size) {
+			return
+		}
+	}
+}

@@ -136,7 +136,7 @@ func TestSearchHistoryStartsAndReplaysThroughTheHost(t *testing.T) {
 		}
 		return res
 	}
-	for _, policy := range []string{"search", "search-mana"} {
+	for _, policy := range []string{"search", "search-mana", "search-redeal", "search-mana-redeal"} {
 		a, b := play(policy), play(policy)
 		if a.Digest != b.Digest {
 			t.Fatalf("%s replay digest changed", policy)

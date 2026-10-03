@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/adams-shaun/gorge/decision"
 	"testing"
+
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/jackmaiorino/spellbench/engines/gorge/internal/catalog"
 )
 
 func TestPaymentParityComparesTheWitness(t *testing.T) {
@@ -14,6 +16,34 @@ func TestPaymentParityComparesTheWitness(t *testing.T) {
 	b.Payment.Plan.ID = "different"
 	if sameIntent(decision.KPriority, a, b) || sameIntent(decision.KPriority, a, decision.Intent{}) {
 		t.Fatal("empty choices concealed a changed payment")
+	}
+}
+
+func TestCleanRejectsRedealWithoutFallbackWorldsOrWithRefusedRoots(t *testing.T) {
+	r := Report{Policies: []string{"search-redeal"}, Totals: Totals{Games: 1}, SearchCoverage: map[string]SearchCoverage{}}
+	for _, deck := range catalog.Decks() {
+		r.SearchCoverage[deck.CatalogID+"/search-redeal"] = SearchCoverage{Eligible: 1, Covered: 1}
+	}
+	if r.Clean() {
+		t.Fatal("ordinary replay alone qualified the redeal mode")
+	}
+	key := catalog.Decks()[0].CatalogID + "/search-redeal"
+	coverage := r.SearchCoverage[key]
+	coverage.Redealt = 8
+	r.SearchCoverage[key] = coverage
+	if !r.Clean() {
+		t.Fatal("covered redeal with completed fallback worlds failed")
+	}
+	coverage.RedealRefusals = map[string]int{"no public replay completion": 1}
+	r.SearchCoverage[key] = coverage
+	if r.Clean() {
+		t.Fatal("a refused public root qualified")
+	}
+	coverage.RedealRefusals = nil
+	coverage.ReconstructionBudgetExhausted = 1
+	r.SearchCoverage[key] = coverage
+	if r.Clean() {
+		t.Fatal("public reconstruction exhaustion qualified")
 	}
 }
 

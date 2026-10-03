@@ -151,7 +151,13 @@ func TestPublicSearchMatchesNativeChooseAtShippedBudgets(t *testing.T) {
 	}
 }
 
-func publicSearchMatchesNative(t *testing.T, kind string, shipped bool) {
+func TestPublicRedealPreservesAcceptedNativeSearchAtShippedBudgets(t *testing.T) {
+	for _, kind := range []string{"attackers", "cast", "mana"} {
+		t.Run(kind, func(t *testing.T) { publicSearchMatchesNative(t, kind, true, true) })
+	}
+}
+
+func publicSearchMatchesNative(t *testing.T, kind string, shipped bool, redeal ...bool) {
 	e, setup := fixture(t, 17, true)
 	driver := NewDriver()
 	bots := [2]*seat.Bot{seat.NewBot(3), seat.NewBot(7)}
@@ -177,13 +183,18 @@ func publicSearchMatchesNative(t *testing.T, kind string, shipped bool) {
 				len(base.Choices) == 1 && d.Options[base.Choices[0]].Kind == "activate"
 		if eligible {
 			s := NewSearch(19, kind == "mana")
+			if len(redeal) > 0 && redeal[0] {
+				s = NewRedealSearch(19, kind == "mana")
+			}
 			if !shipped {
 				// Bounded settings are identically configured on both sides.
 				s.opts.Worlds, s.opts.Attempts, s.opts.MaxSubmits, s.opts.HorizonTurns = 1, 16, 120, 1
 			}
 			stream := &driver.seats[d.Player]
 			h := PublicHistory(stream.h)
-			want, _, trace := searchseat.Choose(setup, h, stream.c, e, d, base, h.Frames[len(h.Frames)-1], s.opts)
+			nativeOptions := s.opts
+			nativeOptions.SpellbenchPublicRedeal = false
+			want, _, trace := searchseat.Choose(setup, h, stream.c, e, d, base, h.Frames[len(h.Frames)-1], nativeOptions)
 			// Move every transport object into a disjoint public namespace.
 			rekey := func(id state.ObjID) state.ObjID {
 				if id == 0 {

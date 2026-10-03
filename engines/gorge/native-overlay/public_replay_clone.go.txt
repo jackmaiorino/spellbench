@@ -1,0 +1,20 @@
+package rules
+
+import "github.com/adams-shaun/gorge/state"
+
+// SpellbenchClonePlannedHypothesis branches an already hypothetical replay.
+// Clone normally drops its planner because rollout worlds need fresh chance.
+// A reconstruction branch instead binds its own observer and proposal planner
+// and preserves the hypothetical shuffle ordinal. No live engine enters it.
+func (e *Engine) SpellbenchClonePlannedHypothesis(planner ShufflePlanner) *Engine {
+	c := e.Clone()
+	if c.rng == nil || c.rng.chance == nil {
+		return nil
+	}
+	c.rng.chance.planner = planner
+	c.rng.chance.shuffleOrdinals = make(map[state.PlayerID]int)
+	for player, ordinal := range e.rng.chance.shuffleOrdinals {
+		c.rng.chance.shuffleOrdinals[player] = ordinal
+	}
+	return c
+}

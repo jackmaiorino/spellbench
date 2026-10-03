@@ -25,9 +25,11 @@ loses knowledge. ID allocation remains monotonic across retirement. These
 adaptations change the native full-feed sampler's observation digest and
 conditioning. They do not establish identical play to an unadapted native game.
 
-For these two modes, `Choose` needs only the public turn from its engine
+For these configurations, `Choose` needs only the public turn from its engine
 argument. The agent constructs that value locally. It has no real game engine,
 hidden deal, future chance state, engine log or callback into the environment.
+The redeal configurations use a marker to request public reconstruction; the
+placeholder engine is never used as their redeal root.
 The current engine profile declares the search extension with `native_ids:true`
 because it carries IDs across observation boundaries. Rated use still needs the
 published identity audit required by protocol sections 13 and 14.
@@ -59,6 +61,37 @@ Checks observed on local Go 1.27.1, CGO disabled, one process and `-p 1`:
   rejection, agent errors, qualification coverage rejection and Go vet passed.
   Two native sampler prefix/history tests also passed with the overlay installed.
 
+`search-redeal` and `search-mana-redeal` are now implemented. The original
+64-proposal sampler runs first. If it starves, a local hypothetical replay
+branches legal opponent intents and immediately rejects mismatching public
+events, identity introductions, boards or actor decisions. It uses the native
+public epoch planner and the actor's recorded answers, then feeds the completed
+root to the unchanged native pool derivation, known-card checks and uniform
+redeal. No accepted native-policy proposal or original engine is required.
+The extra work has at most 64 proposals, 5,000 total submits across all branches
+and proposals, and 160,000 enumeration nodes. It is charged to the same agent
+clock and reported separately, including exhaustion and redeal refusals.
+Hypothetical branches clone their own observer and rebind their shuffle planner;
+rollout clones continue to use the upstream clone and fresh-chance behavior.
+
+The new constructed fixture deliberately makes an opponent pass with land in
+hand. All 64 native-policy proposals fail; public reconstruction succeeds in
+one proposal and 124 submits. Eight native redealt worlds then yield the same
+intent and values as redeal from the source fixture engine, with 16 terminal
+rollouts and none capped. Two source games with different hidden card names
+and future seeds, but fixed public discards, produce identical public histories
+and reconstructed worlds. Budget exhaustion refuses the root. Accepted native
+attacker, cast and mana fixtures also retain shipped-budget and parallel parity.
+These tests establish bounded fixture behavior; complete benchmark histories,
+anonymous known-library membership after copy retirement and agent clocks
+still require qualification.
+
+The previous adapter head `2eb26b8` passed the full hosted Go suite in
+[run 37098528350](https://github.com/jackmaiorino/spellbench/actions/runs/37098528350),
+including bounded ordinary qualification. All nested strategy tests and
+affected policy, payment and qualification checks passed locally after the
+redeal addition. A full hosted run for this new change remains pending.
+
 The event audit preserves completed scry bottom counts. They are observable
 game results: the [judge communication guidance](https://blogs.magicjudges.org/rulestips/2015/07/scrying-forever-its-now-an-evergreen-keyword-ability/)
 permits opponents to know top and bottom counts, while card identities and order
@@ -68,9 +101,14 @@ not complete the event-emitter audit for the full benchmark card pool.
 
 `gorgequal` reports eligibility, attempts, accepted proposals, worlds, covered
 decisions, covered kinds, rollouts, submit counts, capped rollouts and delegation
-reasons per deck and policy. A selected search policy must have a covered
+reasons per deck and policy, with redealt worlds and public reconstruction
+attempts, submits, enumeration nodes, exhaustion and refusal reasons reported
+separately. A selected search policy must have a covered
 decision on every deck to pass. Native search delegation is recorded separately
 from the existing under-1% adapter mapping fallback gate.
+Each selected redeal mode must also supply fallback worlds somewhere in its
+five-deck qualification, with no reconstruction exhaustion or refused root.
+Ordinary accepted replay alone cannot qualify a redeal implementation.
 
 The frozen-registry launch path now names actual runtime bytes and a required
 SHA-256. The freeze command verifies card scripts against the source digest,
@@ -84,11 +122,14 @@ and 1 GiB memory; Windows and Linux hello profiles matched exactly. See
 `docs/gorge-runtime-preparation-20261003.json` for commands, hashes and verified
 cold/recovery locations. This is preparation; no games or allocation
 qualification were run with these binaries.
+Those preserved binaries predate the public redeal implementation; rebuild and
+preserve new runtime bytes before qualifying the complete roster.
 
 Remaining work: audit complete histories on all five decks, preserve legal
 mapping at shipped budgets under reference-host clocks, qualify the container
 lifecycle and guarded completed-work throughput, and freeze the
-complete roster before evaluation. `search-redeal` and `search-mana-redeal`
-remain explicitly refused: their native fallback clones a real engine, and an
-equivalent public reconstruction that also handles zero accepted proposals is
-not implemented. They remain unfinished inventory entries.
+complete roster before evaluation. All twelve playable strategies are
+implemented; none is qualified, rated or published.
+The draft benchmark now lists all twelve plus uniform and heuristic. Its
+search profile, artifact versions and roster must pass qualification and be
+frozen before any rated run.

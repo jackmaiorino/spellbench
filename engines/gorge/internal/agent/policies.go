@@ -36,6 +36,8 @@ var policies = []Policy{
 	}},
 	{"search", "gorge-search", func(seed uint64) seat.Seat { return strategies.NewSearch(seed, false) }},
 	{"search-mana", "gorge-search-mana", func(seed uint64) seat.Seat { return strategies.NewSearch(seed, true) }},
+	{"search-redeal", "gorge-search-redeal", func(seed uint64) seat.Seat { return strategies.NewRedealSearch(seed, false) }},
+	{"search-mana-redeal", "gorge-search-mana-redeal", func(seed uint64) seat.Seat { return strategies.NewRedealSearch(seed, true) }},
 }
 
 // Policies returns the distinct policies currently supported by this adapter.
