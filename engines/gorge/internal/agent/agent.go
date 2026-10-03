@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -27,11 +28,13 @@ import (
 // matched: Forced when the decision had a single candidate, Fallbacks
 // otherwise, with the first reason.
 type Record struct {
-	Intent    decision.Intent
-	Followups map[string]decision.Intent
-	Forced    int
-	Fallbacks int
-	Reason    string
+	NativeIntent decision.Intent
+	Translation  string
+	Intent       decision.Intent
+	Followups    map[string]decision.Intent
+	Forced       int
+	Fallbacks    int
+	Reason       string
 }
 
 type Server struct {
@@ -62,6 +65,8 @@ func (s *Server) Forced() int { return s.forced }
 // Records exposes the current game's native decisions to Task 28b's audit.
 func (s *Server) Records() map[uint64]*Record { return s.records }
 
+func (s *Server) PolicyKey() string { return s.policy }
+
 func (s *Server) Round(req []byte) ([]byte, error) { return s.Handle(req), nil }
 
 type candidate struct {
@@ -70,10 +75,13 @@ type candidate struct {
 }
 
 type request struct {
-	RequestType string `json:"request_type"`
-	RequestID   string `json:"request_id"`
-	AgentSeed   uint64 `json:"agent_seed"`
-	Decision    struct {
+	RequestType   string `json:"request_type"`
+	RequestID     string `json:"request_id"`
+	AgentSeed     uint64 `json:"agent_seed"`
+	EngineProfile struct {
+		EngineDefaults map[string]*string `json:"engine_defaults"`
+	} `json:"engine_profile"`
+	Decision struct {
 		Candidates []candidate                `json:"candidates"`
 		Extensions map[string]json.RawMessage `json:"extensions"`
 	} `json:"decision"`
@@ -109,6 +117,12 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 		base["requires"] = map[string][]string{"observation": {}, "extensions": {"x_gorge_view_v1"}}
 		base["extensions_accepted"] = []string{"x_gorge_view_v1"}
 	case "game_start":
+		if strings.HasSuffix(s.policy, "auto-pay") {
+			mode := q.EngineProfile.EngineDefaults["mana_payment"]
+			if mode == nil || *mode != "engine_autopay" {
+				return errorLine(q.RequestID, "malformed_request", "auto-pay policy requires engine_autopay")
+			}
+		}
 		s.bot = s.identity.New(q.AgentSeed)
 		s.plan = nil
 		s.records = map[uint64]*Record{}
@@ -183,13 +197,18 @@ func (s *Server) choose(q request) uint32 {
 	}
 	if s.plan == nil || s.plan.native != p.NativeIndex {
 		s.plan = NewPlan(p.NativeIndex, ask(d))
-		s.records[p.NativeIndex] = &Record{Intent: s.plan.intent, Followups: s.plan.follow}
+		s.records[p.NativeIndex] = &Record{NativeIntent: s.plan.intent, Intent: s.plan.intent, Followups: s.plan.follow}
 	}
 	sems := make([]map[string]any, len(cands))
 	for i, c := range cands {
 		sems[i] = c.Semantic
 	}
 	i, miss := Pick(p, sems, s.plan, ask)
+	if miss == "" && s.plan.intent.Payment != nil && p.Ops[i].Op == "choose" && p.Ops[i].Payment != nil {
+		r := s.records[p.NativeIndex]
+		r.Intent = decision.Intent{Choices: []int{p.Ops[i].Option}}
+		r.Translation = "pool-only payment to existing cast"
+	}
 	if miss != "" {
 		r := s.records[p.NativeIndex]
 		if miss == "forced" {

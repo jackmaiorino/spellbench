@@ -32,12 +32,23 @@ type Server struct {
 	// id (Section 4.1): an identical retransmission of any of them returns
 	// its bytes, a changed payload is request_id_reuse_mismatch. Clearing it
 	// at each accepted reset bounds it by one game's traffic.
-	cache map[string]cached
-	audit bool
+	cache   map[string]cached
+	audit   bool
+	autoPay bool
 }
 
 func New(reg *cards.Registry, sourceRevision *string) *Server {
 	return &Server{reg: reg, engine: engineIdentity(sourceRevision), gameIDs: map[string]bool{}, cache: map[string]cached{}}
+}
+
+// EnableAutoPay must be called before hello/reset. It adds the upstream
+// planner's casts and declares their engine-paid procedure in the profile.
+func (s *Server) EnableAutoPay() {
+	if s.game != nil {
+		panic("cannot enable auto-pay during a game")
+	}
+	s.autoPay = true
+	s.engine.Version = "gorge-26257e0eda17/adapter-0.2.0/autopay"
 }
 
 func marshal(v any) []byte {
@@ -74,7 +85,12 @@ func (s *Server) Handle(line []byte) []byte {
 func (s *Server) dispatch(req protocol.Request) []byte {
 	switch req.Type {
 	case "hello":
-		return marshal(helloOK(req.ID, s.engine, observe.Flags))
+		h := helloOK(req.ID, s.engine, observe.Flags)
+		if s.autoPay {
+			value := "engine_autopay"
+			h.EngineDefaults["mana_payment"] = &value
+		}
+		return marshal(h)
 	case "reset":
 		return s.reset(req)
 	case "step":
@@ -150,7 +166,7 @@ func (s *Server) reset(req protocol.Request) []byte {
 	if err != nil {
 		return errResp(req.ID, protocol.Errf(protocol.CodeMalformedRequest, err.Error()))
 	}
-	cfg := session.Config{Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}
+	cfg := session.Config{AutoPay: s.autoPay, Reg: s.reg, Provenance: provenance(s.engine), Audit: s.audit}
 	if slices.Contains(r.Rules.Extensions, "x_gorge_view_v1") {
 		cfg.Ext = xview.New()
 	}

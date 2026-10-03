@@ -61,14 +61,30 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 	if err != nil {
 		return res, err
 	}
+	hello, err := h.Engine.Round([]byte(fmt.Sprintf(`{"request_type":"hello","protocol":"spellbench/v2","request_id":%q,"protocol_minor":0}`, h.id())))
+	if err != nil {
+		return res, err
+	}
+	var engineProfile protocol.HelloOK
+	if err := json.Unmarshal(hello, &engineProfile); err != nil || engineProfile.ResponseType != "hello_ok" {
+		return res, fmt.Errorf("invalid engine hello: %s", hello)
+	}
 	for s, a := range agents {
 		seat := fmt.Sprintf("p%d", s)
 		// A minimal game_start: only the fields this adapter's agents read.
 		// P's host sends the full message; Task 30 runs the agent under it.
 		start, _ := wire.Canonical(map[string]any{"request_type": "game_start", "protocol": protocol.Name, "request_id": "r-0",
-			"game_id": gameID, "seat": seat, "agent_seed": secrets.AgentSeed(h.RunSecret, i, seat)})
-		if _, err := a.Round(start); err != nil {
+			"game_id": gameID, "seat": seat, "agent_seed": secrets.AgentSeed(h.RunSecret, i, seat),
+			"engine_profile": map[string]any{"engine_defaults": engineProfile.EngineDefaults}})
+		ack, err := a.Round(start)
+		if err != nil {
 			return res, err
+		}
+		var response struct {
+			ResponseType string `json:"response_type"`
+		}
+		if err := json.Unmarshal(ack, &response); err != nil || response.ResponseType != "ack" {
+			return res, fmt.Errorf("agent game_start failed: %s", ack)
 		}
 	}
 	// The game's profile enables its extensions before any stream exists;
@@ -139,16 +155,18 @@ func (h *Host) Play(i uint64, deck catalog.Deck, mulligan string, extensions []s
 			return res, err
 		}
 		var choice struct {
-			Selection struct {
-				CandidateID int `json:"candidate_id"`
+			ResponseType string `json:"response_type"`
+			Selection    *struct {
+				CandidateID *uint32 `json:"candidate_id"`
 			} `json:"selection"`
 		}
-		if err := json.Unmarshal(ans, &choice); err != nil || choice.Selection.CandidateID < 0 || choice.Selection.CandidateID >= len(sd.Candidates) {
+		if err := json.Unmarshal(ans, &choice); err != nil || choice.ResponseType != "choice" || choice.Selection == nil || choice.Selection.CandidateID == nil || int(*choice.Selection.CandidateID) >= len(sd.Candidates) {
 			return res, fmt.Errorf("invalid selection %s", ans)
 		}
-		echo, _ := json.Marshal(sd.Candidates[choice.Selection.CandidateID].Semantic)
+		selected := *choice.Selection.CandidateID
+		echo, _ := json.Marshal(sd.Candidates[selected].Semantic)
 		step := []byte(fmt.Sprintf(`{"request_type":"step","protocol":"spellbench/v2","request_id":%q,"game_id":%q,"expected_step":%d,"selection":{"candidate_id":%d,"semantic_echo":%s}}`,
-			h.id(), gameID, head.Step, choice.Selection.CandidateID, echo))
+			h.id(), gameID, head.Step, selected, echo))
 		sc, _ := wire.WithoutRequestID(step)
 		if err := dig.Chain(sc); err != nil {
 			return res, err

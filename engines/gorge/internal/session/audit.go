@@ -135,7 +135,11 @@ func (s *Game) realize(seat state.PlayerID, p *mapping.Pose, op mapping.NativeOp
 			}
 			return out
 		}
-		return decision.Intent{Choices: m(in.Choices), Rest: m(in.Rest)}
+		out := decision.Intent{Choices: m(in.Choices), Rest: m(in.Rest), Payment: decision.ClonePaymentSelection(in.Payment)}
+		if x != nil {
+			out.Payment = x.PublicPayment(seat, in.Payment)
+		}
+		return out
 	}
 	var perm []int
 	if x != nil {
@@ -190,6 +194,22 @@ func (s *Game) checkConsistent(p *mapping.Pose, c mapping.Cand) {
 func (s *Game) consistent(p *mapping.Pose, c mapping.Cand) string {
 	op, d, idx := c.Op, p.Native, c.Op.Option
 	switch op.Op {
+	case "payment":
+		if op.Payment == nil {
+			return "missing payment witness"
+		}
+		for _, a := range d.PaymentActions {
+			if a.ID == op.Payment.ActionID {
+				if c.Sem.Kind != "cast_spell" && c.Sem.Kind != "optional_cost" {
+					return "payment on a non-cast candidate"
+				}
+				var sem map[string]any
+				b, _ := json.Marshal(c.Sem)
+				json.Unmarshal(b, &sem)
+				return s.sameObject(p.Seat, sem["source"], a.Cast.Object, 0, false)
+			}
+		}
+		return "payment action is not offered"
 	case "cast":
 		if len(op.Covers) == 0 {
 			return "a cast op covers no option"

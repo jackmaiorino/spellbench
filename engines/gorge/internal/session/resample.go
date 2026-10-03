@@ -83,7 +83,7 @@ func (s *Game) ResampleCheck(r *rand.Rand) error {
 	}
 	g := &gamecfg.Game{E: c, Secret: s.g.Secret}
 	tr := s.env.IDs.CloneFor(c)
-	env := &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: c, IDs: tr, Mulls: s.env.Obs.Mulls},
+	env := &mapping.Env{AutoPay: s.env.AutoPay, G: g, IDs: tr, Obs: &observe.Projector{E: c, IDs: tr, Mulls: s.env.Obs.Mulls},
 		Action: s.env.Action, Domain: s.env.Domain, Slots: maps.Clone(s.env.Slots), Looking: s.env.Looking}
 	twin := &Game{ID: s.ID, cfg: s.cfg, g: g, env: env, step: s.step, decisions: s.decisions,
 		seatStep: s.seatStep, groupID: s.groupID, nativeCount: s.nativeCount, maxSteps: s.maxSteps, maxDecisions: s.maxDecisions}

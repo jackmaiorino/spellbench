@@ -18,8 +18,16 @@ func nativePolicy(key string, seed uint64) seat.Seat {
 	switch key {
 	case "bot":
 		return seat.NewBot(seed)
+	case "bot-auto-pay":
+		b := seat.NewBot(seed)
+		b.EnableAutoPayMana()
+		return b
 	case "lethal-pressure":
 		return seat.NewLethalPressureBot(seed)
+	case "lethal-pressure-auto-pay":
+		b := seat.NewLethalPressureBot(seed)
+		b.EnableAutoPayMana()
+		return b
 	case "ar8":
 		return seat.NewCombinedLethalBot(seed)
 	case "blocks":
@@ -69,7 +77,7 @@ func TestPoliciesPreserveNativeBehaviorAndIdentity(t *testing.T) {
 				t.Fatalf("identity %+v", hello.Bot)
 			}
 			for _, seed := range []uint64{1, 2, 54321} {
-				s.Handle([]byte(`{"request_type":"game_start","agent_seed":` + fmtSeed(seed) + `}`))
+				s.Handle([]byte(`{"request_type":"game_start","engine_profile":{"engine_defaults":{"mana_payment":"engine_autopay"}},"agent_seed":` + fmtSeed(seed) + `}`))
 				oracle := nativePolicy(p.Key, seed)
 				for n := 0; n < 12; n++ {
 					for _, d := range ds {
@@ -98,10 +106,19 @@ func TestDefaultCastProfileIsAnAlias(t *testing.T) {
 	if err != nil || w != botpolicy.DefaultCastWeights {
 		t.Fatalf("pinned cast-profile no longer equals default: %+v %v", w, err)
 	}
-	for _, key := range []string{"bot-auto-pay", "search", "policynet", "unknown"} {
+	for _, key := range []string{"search", "policynet", "unknown"} {
 		if _, err := New(key); err == nil {
 			t.Fatalf("unfinished policy %s silently substituted a bot", key)
 		}
+	}
+}
+
+func TestAutoPayRequiresTheDeclaredEngineMode(t *testing.T) {
+	s, _ := New("bot-auto-pay")
+	var reply map[string]any
+	json.Unmarshal(s.Handle([]byte(`{"request_type":"game_start","agent_seed":1}`)), &reply)
+	if reply["response_type"] != "error" || s.bot != nil {
+		t.Fatalf("undeclared auto-pay was accepted: %v", reply)
 	}
 }
 

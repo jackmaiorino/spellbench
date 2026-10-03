@@ -1,42 +1,250 @@
 {
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-gorge",
-  "title": "Pauper · gorge",
+  "title": "Pauper \u00c2\u00b7 gorge",
   "summary": "Five Pauper decks on the gorge rules engine; every matchup plays each deck in both seats.",
   "format": "pauper-bo1",
   "pairing": "rotating_pool",
-  "engine": {"name": "gorge", "command": ["${GORGE_SPELLBENCH_ENV}", "-corpus", "${GORGE_CARDS}"]},
-  "deck_pool": ["Wildfire", "Rally", "Spy", "Burn", "CawGates"],
+  "engine": {
+    "name": "gorge",
+    "command": [
+      "${GORGE_SPELLBENCH_ENV}",
+      "-corpus",
+      "${GORGE_CARDS}",
+      "-auto-pay"
+    ]
+  },
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Spy",
+    "Burn",
+    "CawGates"
+  ],
   "pairs_per_deck": 4,
   "stats_seed": 20261002,
-  "extensions": ["x_gorge_view_v1"],
-  "time_control": {"startup_ms": 120000, "game_start_ms": 60000, "bank_ms": 600000, "increment_ms": 2000,
-                   "max_decision_ms": 60000, "engine_step_ms": 120000},
-  "limits": {"max_decisions": 10000, "max_steps": 100000, "max_seat_decisions_per_turn": 500,
-             "max_seat_decisions_per_game": 4999, "max_seat_steps_per_game": 49999},
-  "resources": {"cpus": 1, "memory_mb": 1024, "gpu": false, "engine_cpus": 1},
+  "extensions": [
+    "x_gorge_view_v1"
+  ],
+  "time_control": {
+    "startup_ms": 120000,
+    "game_start_ms": 60000,
+    "bank_ms": 600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 60000,
+    "engine_step_ms": 120000
+  },
+  "limits": {
+    "max_decisions": 10000,
+    "max_steps": 100000,
+    "max_seat_decisions_per_turn": 500,
+    "max_seat_decisions_per_game": 4999,
+    "max_seat_steps_per_game": 49999
+  },
+  "resources": {
+    "cpus": 1,
+    "memory_mb": 1024,
+    "gpu": false,
+    "engine_cpus": 1
+  },
   "bots": [
-    {"name": "uniform", "version": "2.0.0", "type": "builtin", "owner": "spellbench", "training_style_tags": ["baseline"],
-     "display": {"label": "random", "author": "Spellbench", "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.", "url": null}},
-    {"name": "heuristic", "version": "2.0.0", "type": "builtin", "owner": "spellbench", "training_style_tags": ["heuristic"],
-     "display": {"label": "heuristic", "author": "Spellbench", "description": "Fixed priorities over the offered actions.", "url": null}},
-    {"name": "gorge-bot", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "bot"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge bot", "author": "gorge", "description": "gorge's default heuristic bot, reading gorge's own seat view.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-lethal-pressure", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "lethal-pressure"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge lethal-pressure", "author": "gorge", "description": "gorge's lethal-pressure bot variant.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-ar8", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "ar8"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge ar8", "author": "gorge", "description": "gorge's combined lethal attack policy.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-blocks", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "blocks"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge blocks", "author": "gorge", "description": "gorge's blocker policy with its native lethal-pressure attack rule.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-explore", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "explore"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge explore", "author": "gorge", "description": "gorge's seeded exploration policy used for card coverage.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-legacy", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
-     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "legacy"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge legacy", "author": "gorge", "description": "gorge's legacy policy with the native PCG seed derivation.", "url": "https://github.com/adams-shaun/gorge"}}
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "heuristic",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "heuristic",
+        "author": "Spellbench",
+        "description": "Fixed priorities over the offered actions.",
+        "url": null
+      }
+    },
+    {
+      "name": "gorge-bot",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "bot"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge bot",
+        "author": "gorge",
+        "description": "gorge's default heuristic bot, reading gorge's own seat view.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-lethal-pressure",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "lethal-pressure"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge lethal-pressure",
+        "author": "gorge",
+        "description": "gorge's lethal-pressure bot variant.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-ar8",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "ar8"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge ar8",
+        "author": "gorge",
+        "description": "gorge's combined lethal attack policy.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-blocks",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "blocks"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge blocks",
+        "author": "gorge",
+        "description": "gorge's blocker policy with its native lethal-pressure attack rule.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-explore",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "explore"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge explore",
+        "author": "gorge",
+        "description": "gorge's seeded exploration policy used for card coverage.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-legacy",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "legacy"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge legacy",
+        "author": "gorge",
+        "description": "gorge's legacy policy with the native PCG seed derivation.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-bot-auto-pay",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "bot-auto-pay"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge bot auto-pay",
+        "author": "gorge",
+        "description": "gorge's native bot-auto-pay policy using its offered atomic mana-payment plan.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-lethal-pressure-auto-pay",
+      "version": "gorge-26257e0eda17/adapter-0.2.0",
+      "type": "subprocess",
+      "engine": "gorge",
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-policy",
+        "lethal-pressure-auto-pay"
+      ],
+      "owner": "gorge",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "gorge lethal-pressure auto-pay",
+        "author": "gorge",
+        "description": "gorge's native lethal-pressure-auto-pay policy using its offered atomic mana-payment plan.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    }
   ]
 }

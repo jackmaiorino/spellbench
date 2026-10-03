@@ -15,6 +15,7 @@ func (x *Extender) Clone() *Extender {
 		c.tables[s] = &table{ints: maps.Clone(t.ints), next: t.next}
 		c.last[s] = slices.Clone(x.last[s])
 		c.lastFollow[s] = maps.Clone(x.lastFollow[s])
+		c.lastPayments[s] = maps.Clone(x.lastPayments[s])
 	}
 	return c
 }

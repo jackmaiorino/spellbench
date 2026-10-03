@@ -11,6 +11,7 @@ import (
 	"maps"
 	"math/rand/v2"
 	"os"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -34,6 +35,7 @@ type options struct {
 }
 
 type Totals struct {
+	CompletedGames                                           int
 	Games, Halts, Truncations, Violations, DigestMismatch    int
 	ResampleChecks, ResampleFailures, LeakHits, Inconsistent int
 	ParityCompared, ParityMismatch, Fallbacks, Forced        int
@@ -56,9 +58,10 @@ func (g DeckGate) Pass() bool {
 }
 
 type Report struct {
-	Totals Totals              `json:"totals"`
-	Gates  map[string]DeckGate `json:"gates"`
-	Rows   []map[string]any    `json:"rows"`
+	Totals      Totals              `json:"totals"`
+	Gates       map[string]DeckGate `json:"gates"`
+	PolicyGates map[string]DeckGate `json:"policy_gates"`
+	Rows        []map[string]any    `json:"rows"`
 }
 
 func (r Report) Clean() bool {
@@ -68,8 +71,25 @@ func (r Report) Clean() bool {
 			return false
 		}
 	}
+	for _, g := range r.PolicyGates {
+		if !g.Pass() {
+			return false
+		}
+	}
 	return t.Games > 0 && t.Halts == 0 && t.Violations == 0 && t.DigestMismatch == 0 &&
-		t.ResampleFailures == 0 && t.LeakHits == 0 && t.Inconsistent == 0 && t.ParityMismatch == 0
+		t.Truncations == 0 && t.ResampleFailures == 0 && t.LeakHits == 0 && t.Inconsistent == 0 && t.ParityMismatch == 0
+}
+
+func mergeGate(dst *DeckGate, src DeckGate) {
+	if dst.Reasons == nil {
+		dst.Reasons = map[string]int{}
+	}
+	dst.AgentNatives += src.AgentNatives
+	dst.ForcedNatives += src.ForcedNatives
+	dst.FallbackNatives += src.FallbackNatives
+	for k, v := range src.Reasons {
+		dst.Reasons[k] += v
+	}
 }
 
 var pairings = policyPairings()
@@ -120,7 +140,7 @@ func sameIntent(k decision.Kind, got, want decision.Intent) bool {
 		slices.Sort(g)
 		slices.Sort(w)
 	}
-	return slices.Equal(g, w) && (len(want.Rest) == 0 || slices.Equal(got.Rest, want.Rest))
+	return slices.Equal(g, w) && reflect.DeepEqual(got.Payment, want.Payment) && (len(want.Rest) == 0 || slices.Equal(got.Rest, want.Rest))
 }
 
 // parity compares each realized native decision of an agent seat with the
@@ -180,6 +200,7 @@ func qualify(o options) (Report, error) {
 	}
 	play := func(j job, audit bool) (minihost.Result, *auditLink, [2]minihost.Link, error) {
 		srv := server.New(reg, nil)
+		srv.EnableAutoPay()
 		srv.SetAudit(audit)
 		al := &auditLink{srv: srv, r: rand.New(rand.NewPCG(j.i, 7))}
 		if audit {
@@ -193,7 +214,7 @@ func qualify(o options) (Report, error) {
 		res, err := h.Play(j.i, j.deck, "london", []string{"x_gorge_view_v1"}, seats)
 		return res, al, seats, err
 	}
-	rep := Report{Gates: map[string]DeckGate{}}
+	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}}
 	var mu sync.Mutex
 	start := time.Now()
 	work := make(chan job)
@@ -207,6 +228,7 @@ func qualify(o options) (Report, error) {
 				b, _, _, errB := play(j, false)
 				fb, forced := 0, 0
 				gate := DeckGate{Reasons: map[string]int{}}
+				policyGates := map[string]DeckGate{}
 				for _, l := range seats {
 					ag, ok := l.(*agent.Server)
 					if !ok {
@@ -214,27 +236,40 @@ func qualify(o options) (Report, error) {
 					}
 					fb += ag.Fallbacks()
 					forced += ag.Forced()
+					pg := DeckGate{Reasons: map[string]int{}}
 					for _, rec := range ag.Records() {
-						gate.AgentNatives++
+						pg.AgentNatives++
 						switch {
 						case rec.Fallbacks > 0:
-							gate.FallbackNatives++
+							pg.FallbackNatives++
 						case rec.Forced > 0:
-							gate.ForcedNatives++
+							pg.ForcedNatives++
 						}
 						if rec.Reason != "" {
-							gate.Reasons[rec.Reason]++
+							pg.Reasons[rec.Reason]++
 						}
 					}
+					mergeGate(&gate, pg)
+					key := j.deck.CatalogID + "/" + ag.PolicyKey()
+					old := policyGates[key]
+					mergeGate(&old, pg)
+					policyGates[key] = old
 				}
 				compared, mismatched := parity(al.srv.Realized(), seats)
 				leaks, inconsistent := al.srv.Leaks(), al.srv.Inconsistent()
 				row := map[string]any{"deck": j.deck.CatalogID, "pairing": j.pairing, "game": j.i, "steps": a.Steps,
+					"classification": a.Terminal.Classification, "reason": a.Terminal.Reason,
 					"outcome": a.Terminal.Outcome, "digest": a.Digest, "leaks": leaks, "inconsistent": inconsistent,
 					"parity_mismatch": mismatched, "fallbacks": fb, "forced": forced}
 				mu.Lock()
 				t := &rep.Totals
 				t.Games++
+				if errA == nil && a.Terminal.Classification == "natural" {
+					t.CompletedGames++
+				}
+				if errB == nil && b.Terminal.Classification == "natural" {
+					t.CompletedGames++
+				}
 				switch {
 				case errA != nil:
 					t.Violations++
@@ -267,6 +302,11 @@ func qualify(o options) (Report, error) {
 					dg.Reasons[k] += v
 				}
 				rep.Gates[j.deck.CatalogID] = dg
+				for key, pg := range policyGates {
+					combined := rep.PolicyGates[key]
+					mergeGate(&combined, pg)
+					rep.PolicyGates[key] = combined
+				}
 				rep.Rows = append(rep.Rows, row)
 				mu.Unlock()
 			}
@@ -277,7 +317,7 @@ func qualify(o options) (Report, error) {
 	}
 	close(work)
 	wg.Wait()
-	rep.Totals.GamesPerSecond = float64(2*rep.Totals.Games) / time.Since(start).Seconds()
+	rep.Totals.GamesPerSecond = float64(rep.Totals.CompletedGames) / time.Since(start).Seconds()
 	var ms runtime.MemStats
 	runtime.ReadMemStats(&ms)
 	rep.Totals.GoMemoryMB = ms.Sys >> 20

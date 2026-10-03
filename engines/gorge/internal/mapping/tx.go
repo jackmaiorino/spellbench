@@ -33,6 +33,7 @@ type ActionContext struct {
 }
 
 type Env struct {
+	AutoPay bool
 	G       *gamecfg.Game
 	Obs     *observe.Projector
 	IDs     *identity.Tracker
@@ -70,13 +71,14 @@ func (e *Env) CloseLooks() {
 // List: "choices", "rest" or "followup:<key>"), "dest" (an arrangement
 // partition, Task 19b).
 type NativeOp struct {
-	Op       string      `json:"op"`
-	Option   int         `json:"option"`
-	Followup []int       `json:"followup,omitempty"`
-	List     string      `json:"list,omitempty"`
-	Position int         `json:"position,omitempty"`
-	Unit     state.ObjID `json:"unit,omitempty"`
-	Covers   []int       `json:"covers,omitempty"`
+	Payment  *decision.PaymentSelection `json:"payment,omitempty"`
+	Op       string                     `json:"op"`
+	Option   int                        `json:"option"`
+	Followup []int                      `json:"followup,omitempty"`
+	List     string                     `json:"list,omitempty"`
+	Position int                        `json:"position,omitempty"`
+	Unit     state.ObjID                `json:"unit,omitempty"`
+	Covers   []int                      `json:"covers,omitempty"`
 }
 
 type Cand struct {

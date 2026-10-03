@@ -27,6 +27,7 @@ type Extender interface {
 }
 
 type Config struct {
+	AutoPay    bool
 	Reg        *cards.Registry
 	Provenance protocol.Provenance
 	Ext        Extender
@@ -67,7 +68,7 @@ func Start(cfg Config, gameID string, req *protocol.ResetReq, sec *secrets.Game,
 		dom[n] = true
 	}
 	s := &Game{ID: gameID, cfg: cfg, g: g, maxSteps: req.MaxSteps, maxDecisions: req.MaxDecisions,
-		env: &mapping.Env{G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Domain: dom, Slots: map[string]uint32{}}}
+		env: &mapping.Env{AutoPay: cfg.AutoPay, G: g, IDs: tr, Obs: &observe.Projector{E: g.E, IDs: tr}, Domain: dom, Slots: map[string]uint32{}}}
 	s.advance()
 	return s, nil
 }
@@ -217,6 +218,13 @@ func (s *Game) Step(req *protocol.StepReq) *protocol.Error {
 }
 
 func (s *Game) actionObject(op mapping.NativeOp) state.ObjID {
+	if op.Payment != nil {
+		for _, a := range s.native.PaymentActions {
+			if a.ID == op.Payment.ActionID {
+				return a.Cast.Object
+			}
+		}
+	}
 	idx := op.Option
 	if op.Op == "cast" && len(op.Covers) > 0 {
 		idx = op.Covers[0]

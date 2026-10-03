@@ -127,6 +127,7 @@ type castKey struct {
 // castGroup is the native variants behind one cast_spell candidate: a plain
 // cast and at most one optional-cost variant of it.
 type castGroup struct {
+	payment  *decision.PaymentSelection
 	cand     int            // candidate index before Finalize
 	plain    int            // native index of the plain variant, -1 when absent
 	optional map[string]int // optional cost word -> native index of its variant
@@ -274,14 +275,22 @@ func (t *priorityTx) Pose() (*Pose, error) {
 	// A cast group without an optional variant is a plain choice. One with an
 	// optional-cost variant stands for it and its plain cast, and its answer
 	// poses the optional_cost follow-up.
+	if t.env.AutoPay {
+		var err error
+		groups, err = t.addPayments(p, casts, groups)
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, cg := range groups {
 		c := &p.Candidates[cg.cand]
 		switch {
 		case len(cg.optional) == 0:
-			c.Op = NativeOp{Op: "choose", Option: cg.plain}
+			c.Op = cg.plainOp()
 		case len(cg.optional) > 1:
 			return nil, fmt.Errorf("%w:several optional costs on one cast", ErrUnmapped)
 		default:
+			c.Op.Payment = decision.ClonePaymentSelection(cg.payment)
 			c.Op.Covers = []int{cg.optional[cg.cost]}
 			if cg.plain >= 0 {
 				c.Op.Covers = append(c.Op.Covers, cg.plain)
@@ -306,9 +315,15 @@ func (t *priorityTx) Pose() (*Pose, error) {
 func (t *priorityTx) Answer(i int) ([]decision.Intent, bool, error) {
 	if t.followup != nil {
 		op := t.follPose.Candidates[i].Op
+		if op.Op == "payment" {
+			return []decision.Intent{paymentIntent(t.d, op.Payment)}, true, nil
+		}
 		return []decision.Intent{Intent(t.d, op.Option)}, true, nil
 	}
 	c := t.pose.Candidates[i]
+	if c.Op.Op == "payment" {
+		return []decision.Intent{paymentIntent(t.d, c.Op.Payment)}, true, nil
+	}
 	if c.Op.Op == "cast" {
 		cg := t.groups[i]
 		if cg == nil {
@@ -318,8 +333,8 @@ func (t *priorityTx) Answer(i int) ([]decision.Intent, bool, error) {
 		// casting, so no stack entry exists (Section 7.3).
 		f := &Pose{Seat: t.d.Player, Context: protocol.Context{Kind: "choice", Source: &cg.src}, GroupStart: true, SubstepCount: 1, Native: t.d}
 		f.Candidates = append(f.Candidates, Cand{Sem: protocol.OptionalCost(cg.src, cg.cost, true), Op: NativeOp{Op: "choose", Option: cg.optional[cg.cost]}})
-		if cg.plain >= 0 {
-			f.Candidates = append(f.Candidates, Cand{Sem: protocol.OptionalCost(cg.src, cg.cost, false), Op: NativeOp{Op: "choose", Option: cg.plain}})
+		if cg.plain >= 0 || cg.payment != nil {
+			f.Candidates = append(f.Candidates, Cand{Sem: protocol.OptionalCost(cg.src, cg.cost, false), Op: cg.plainOp()})
 		}
 		if err := Finalize(f); err != nil {
 			return nil, false, err

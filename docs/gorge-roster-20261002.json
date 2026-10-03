@@ -3,30 +3,238 @@
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
   "adapter_base_pr": "https://github.com/jackmaiorino/spellbench/pull/54",
-  "deck_pool": ["Wildfire", "Rally", "Spy", "Burn", "CawGates"],
-  "sources": ["cmd/botbench/main.go:134", "host/bot_policy.go:8", "cmd/gorged/main.go:186", "seat/bot.go:67", "internal/searchseat/searchseat.go:174"],
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Spy",
+    "Burn",
+    "CawGates"
+  ],
+  "sources": [
+    "cmd/botbench/main.go:134",
+    "host/bot_policy.go:8",
+    "cmd/gorged/main.go:186",
+    "seat/bot.go:67",
+    "internal/searchseat/searchseat.go:174"
+  ],
   "entries": [
-    {"key": "bot", "upstream_policy": "bot", "name": "gorge-bot", "configuration": {"auto_pay_mana": false}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "lethal-pressure", "upstream_policy": "lethal-pressure", "name": "gorge-lethal-pressure", "configuration": {"auto_pay_mana": false}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "ar8", "upstream_policy": "ar8", "name": "gorge-ar8", "configuration": {"auto_pay_mana": false}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "blocks", "upstream_policy": "blocks", "name": "gorge-blocks", "configuration": {"auto_pay_mana": false}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "explore", "upstream_policy": "explore", "name": "gorge-explore", "configuration": {"auto_pay_mana": false}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "legacy", "upstream_policy": "legacy", "name": "gorge-legacy", "configuration": {}, "integration": "implemented_pending_validation", "qualified": false, "rated": false, "published": false},
-    {"key": "bot-auto-pay", "upstream_policy": "bot-auto-pay", "name": "gorge-bot-auto-pay", "configuration": {"auto_pay_mana": true}, "integration": "pending_payment_mapping", "qualified": false, "rated": false, "published": false},
-    {"key": "lethal-pressure-auto-pay", "upstream_policy": "lethal-pressure", "name": "gorge-lethal-pressure-auto-pay", "configuration": {"auto_pay_mana": true}, "integration": "pending_payment_mapping", "qualified": false, "rated": false, "published": false},
-    {"key": "search", "upstream_policy": "search", "name": "gorge-search", "configuration": {"kinds": ["attackers", "cast"], "worlds": 8, "attempts": 64, "min_ess": 0, "candidates": 6, "margin": 0, "horizon_turns": 0, "max_submits": 5000, "sample_seed": 54321, "parallelism": 1, "redeal": false, "clairvoyant": false}, "integration": "pending_visible_history", "qualified": false, "rated": false, "published": false},
-    {"key": "search-mana", "upstream_policy": "search", "name": "gorge-search-mana", "configuration": {"base": "search", "kinds": ["attackers", "cast", "mana"]}, "integration": "pending_visible_history", "qualified": false, "rated": false, "published": false},
-    {"key": "search-redeal", "upstream_policy": "search", "name": "gorge-search-redeal", "configuration": {"base": "search", "redeal": true}, "integration": "pending_visible_history", "qualified": false, "rated": false, "published": false},
-    {"key": "search-mana-redeal", "upstream_policy": "search", "name": "gorge-search-mana-redeal", "configuration": {"base": "search", "kinds": ["attackers", "cast", "mana"], "redeal": true}, "integration": "pending_visible_history", "qualified": false, "rated": false, "published": false},
-    {"key": "cast-profile", "upstream_policy": "cast-profile", "alias_of": "bot", "configuration": {"profile": "embedded-default", "auto_pay_mana": false}, "reason": "The only shipped profile equals DefaultCastWeights and is intent-identical to bot. With auto-pay it aliases bot-auto-pay. No separately rated duplicate."},
-    {"key": "policynet", "upstream_policy": "policynet", "configuration": {"checkpoint": null, "kinds": ["attackers"], "admission": "auto", "temperature": 0}, "integration": "uninstantiated_model_runner", "public_model_search": "docs/gorge-public-model-search-20261002.json", "reason": "No checkpoint is tracked at this pin or recovered from local artifacts, Hugging Face, the author's public repositories, or GitHub releases in the bounded search. The native CLI refuses policynet without one. Existing trained weights will be integrated if recovered; random test weights are never rated as a shipped bot."}
+    {
+      "key": "bot",
+      "upstream_policy": "bot",
+      "name": "gorge-bot",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "lethal-pressure",
+      "upstream_policy": "lethal-pressure",
+      "name": "gorge-lethal-pressure",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "ar8",
+      "upstream_policy": "ar8",
+      "name": "gorge-ar8",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "blocks",
+      "upstream_policy": "blocks",
+      "name": "gorge-blocks",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "explore",
+      "upstream_policy": "explore",
+      "name": "gorge-explore",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "legacy",
+      "upstream_policy": "legacy",
+      "name": "gorge-legacy",
+      "configuration": {},
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "bot-auto-pay",
+      "upstream_policy": "bot-auto-pay",
+      "name": "gorge-bot-auto-pay",
+      "configuration": {
+        "auto_pay_mana": true
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "lethal-pressure-auto-pay",
+      "upstream_policy": "lethal-pressure",
+      "name": "gorge-lethal-pressure-auto-pay",
+      "configuration": {
+        "auto_pay_mana": true
+      },
+      "integration": "implemented_pending_validation",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "search",
+      "upstream_policy": "search",
+      "name": "gorge-search",
+      "configuration": {
+        "kinds": [
+          "attackers",
+          "cast"
+        ],
+        "worlds": 8,
+        "attempts": 64,
+        "min_ess": 0,
+        "candidates": 6,
+        "margin": 0,
+        "horizon_turns": 0,
+        "max_submits": 5000,
+        "sample_seed": 54321,
+        "parallelism": 1,
+        "redeal": false,
+        "clairvoyant": false
+      },
+      "integration": "pending_visible_history",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "search-mana",
+      "upstream_policy": "search",
+      "name": "gorge-search-mana",
+      "configuration": {
+        "base": "search",
+        "kinds": [
+          "attackers",
+          "cast",
+          "mana"
+        ]
+      },
+      "integration": "pending_visible_history",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "search-redeal",
+      "upstream_policy": "search",
+      "name": "gorge-search-redeal",
+      "configuration": {
+        "base": "search",
+        "redeal": true
+      },
+      "integration": "pending_visible_history",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "search-mana-redeal",
+      "upstream_policy": "search",
+      "name": "gorge-search-mana-redeal",
+      "configuration": {
+        "base": "search",
+        "kinds": [
+          "attackers",
+          "cast",
+          "mana"
+        ],
+        "redeal": true
+      },
+      "integration": "pending_visible_history",
+      "qualified": false,
+      "rated": false,
+      "published": false
+    },
+    {
+      "key": "cast-profile",
+      "upstream_policy": "cast-profile",
+      "alias_of": "bot",
+      "configuration": {
+        "profile": "embedded-default",
+        "auto_pay_mana": false
+      },
+      "reason": "The only shipped profile equals DefaultCastWeights and is intent-identical to bot. With auto-pay it aliases bot-auto-pay. No separately rated duplicate."
+    },
+    {
+      "key": "policynet",
+      "upstream_policy": "policynet",
+      "configuration": {
+        "checkpoint": null,
+        "kinds": [
+          "attackers"
+        ],
+        "admission": "auto",
+        "temperature": 0
+      },
+      "integration": "uninstantiated_model_runner",
+      "public_model_search": "docs/gorge-public-model-search-20261002.json",
+      "reason": "No checkpoint is tracked at this pin or recovered from local artifacts, Hugging Face, the author's public repositories, or GitHub releases in the bounded search. The native CLI refuses policynet without one. Existing trained weights will be integrated if recovered; random test weights are never rated as a shipped bot."
+    }
   ],
   "non_playing_helpers": [
-    {"name": "cast-profile with external weights", "reason": "Configuration interface; no tuned profile ships at this pin."},
-    {"name": "search learned prior or value models", "reason": "Optional external-checkpoint interfaces; no concrete model ships at this pin."},
-    {"name": "clairvoyant, NoLandExclusion, ComparePotentialActions", "reason": "Oracle ceiling and sampler measurement switches, explicitly excluded by upstream from playing-seat defaults."},
-    {"name": "hindsight, searchteacher, policytrain, cardfuzz, replay/test seats", "reason": "Analysis, labels, training, coverage or fixtures. The actual exploration policy used by cardfuzz is included above."}
+    {
+      "name": "cast-profile with external weights",
+      "reason": "Configuration interface; no tuned profile ships at this pin."
+    },
+    {
+      "name": "search learned prior or value models",
+      "reason": "Optional external-checkpoint interfaces; no concrete model ships at this pin."
+    },
+    {
+      "name": "clairvoyant, NoLandExclusion, ComparePotentialActions",
+      "reason": "Oracle ceiling and sampler measurement switches, explicitly excluded by upstream from playing-seat defaults."
+    },
+    {
+      "name": "hindsight, searchteacher, policytrain, cardfuzz, replay/test seats",
+      "reason": "Analysis, labels, training, coverage or fixtures. The actual exploration policy used by cardfuzz is included above."
+    }
   ],
   "validation": [],
-  "publication": null
+  "publication": null,
+  "engine_configuration": {
+    "auto_pay": true,
+    "wire_mana_payment": "engine_autopay",
+    "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check."
+  }
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	policy := flag.String("policy", "bot", "bot, lethal-pressure, ar8, blocks, explore, legacy, or cast-profile (default-bot alias)")
+	policy := flag.String("policy", "bot", "bot, bot-auto-pay, lethal-pressure, lethal-pressure-auto-pay, ar8, blocks, explore, legacy, or cast-profile (default-bot alias)")
 	flag.Parse()
 	s, err := agent.New(*policy)
 	if err != nil {

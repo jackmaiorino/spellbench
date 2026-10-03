@@ -78,11 +78,13 @@ func TestBenchmarkMatchesTheEngineProfile(t *testing.T) {
 	// format and the extension declared, combat damage by engine order
 	// (no distribute), and the observation flags of the notes.
 	s := server.New(testcorpus.Registry(t), nil)
+	s.EnableAutoPay()
 	var hello protocol.HelloOK
 	if err := json.Unmarshal(s.Handle([]byte(`{"request_type":"hello","protocol":"spellbench/v2","request_id":"h-bench","protocol_minor":0}`)), &hello); err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(hello.Formats, b.Format) ||
+		!slices.Contains(b.Engine.Command, "-auto-pay") || hello.EngineDefaults["mana_payment"] == nil || *hello.EngineDefaults["mana_payment"] != "engine_autopay" ||
 		!slices.Contains(hello.RulesSupported["mulligan"], "london") ||
 		!slices.Equal(hello.RulesSupported["starting_player"], []string{"host_assigned"}) {
 		t.Fatalf("rules_supported %v, formats %v", hello.RulesSupported, hello.Formats)

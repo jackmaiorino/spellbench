@@ -2,6 +2,7 @@ package agent
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -60,6 +61,9 @@ func unitChosen(p xview.Payload, in decision.Intent, unit int) bool {
 // match reports whether a candidate's native op agrees with the plan.
 func (pl *Plan) match(p xview.Payload, op mapping.NativeOp, ask func(decision.Decision) decision.Intent) bool {
 	in := pl.intent
+	if in.Payment != nil && op.Payment != nil && reflect.DeepEqual(in.Payment, op.Payment) {
+		return true
+	}
 	switch op.Op {
 	case "choose":
 		var ok bool

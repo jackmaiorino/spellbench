@@ -24,7 +24,9 @@ type Policy struct {
 
 var policies = []Policy{
 	{"bot", "gorge-bot", func(seed uint64) seat.Seat { return seat.NewBot(seed) }},
+	{"bot-auto-pay", "gorge-bot-auto-pay", func(seed uint64) seat.Seat { b := seat.NewBot(seed); b.EnableAutoPayMana(); return b }},
 	{"lethal-pressure", "gorge-lethal-pressure", func(seed uint64) seat.Seat { return seat.NewLethalPressureBot(seed) }},
+	{"lethal-pressure-auto-pay", "gorge-lethal-pressure-auto-pay", func(seed uint64) seat.Seat { b := seat.NewLethalPressureBot(seed); b.EnableAutoPayMana(); return b }},
 	{"ar8", "gorge-ar8", func(seed uint64) seat.Seat { return seat.NewCombinedLethalBot(seed) }},
 	{"blocks", "gorge-blocks", func(seed uint64) seat.Seat { return seat.NewBlocksBot(seed) }},
 	{"explore", "gorge-explore", func(seed uint64) seat.Seat { return seat.NewExploreBot(seed) }},

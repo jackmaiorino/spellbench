@@ -4,6 +4,7 @@ package xview
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 	"sort"
@@ -71,9 +72,10 @@ type Follow struct {
 }
 
 type Extender struct {
-	tables     [2]*table
-	last       [2][]int             // the seat's last native -> payload renumbering (audit only, Task 28a)
-	lastFollow [2]map[string]Follow // the same for its follow-ups, by native key (audit only, Task 28a)
+	lastPayments [2]map[string]decision.PaymentSelection
+	tables       [2]*table
+	last         [2][]int             // the seat's last native -> payload renumbering (audit only, Task 28a)
+	lastFollow   [2]map[string]Follow // the same for its follow-ups, by native key (audit only, Task 28a)
 }
 
 func New() *Extender {
@@ -280,7 +282,16 @@ func (x *Extender) Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64)
 		}
 		pl.Facts.Options = nf
 	}
+	paymentActions := d.PaymentActions
 	r.decision(&d, nativeIndex)
+	if env.AutoPay {
+		d.PaymentActions = paymentActions
+	}
+	payments, err := r.payments(&d, perm)
+	if err != nil {
+		return nil, err
+	}
+	x.lastPayments[seat] = payments
 	relabelGroups(&d)
 	pl.Decision = d
 	// Follow-ups are sorted the same way; their keys and every op that points
@@ -300,6 +311,13 @@ func (x *Extender) Extend(env *mapping.Env, p *mapping.Pose, nativeIndex uint64)
 	x.lastFollow[seat] = follows
 	for _, c := range p.Candidates {
 		op := c.Op
+		if op.Payment != nil {
+			public, ok := payments[paymentKey(op.Payment)]
+			if !ok {
+				return nil, fmt.Errorf("candidate payment is not exposed")
+			}
+			op.Payment = decision.ClonePaymentSelection(&public)
+		}
 		// The pose may be posed again (a retransmission): never rewrite its slices.
 		op.Covers = append([]int(nil), op.Covers...)
 		op.Followup = append([]int(nil), op.Followup...)
