@@ -88,6 +88,12 @@ the anchor at 1000.
 
 ## Benchmarks
 
+For LLM entries, [reference panels](docs/reference-panels.md) support adding
+entrants without replaying compatible earlier evaluations. `bench prepare`
+selects missing targets; normal committed, guarded runs play them; `bench compose`
+refits saved results into a validated snapshot. The leaderboard labels comparisons
+through shared opponents and leaves unplayed head-to-head matchups empty.
+
 A benchmark is a folder under `benchmarks/` with a `benchmark.json`: an
 engine, a deck pool, and a roster anchored on the builtin `uniform` bot
 (Elo 1000, shown as "random"). Every matchup plays each pool deck in both

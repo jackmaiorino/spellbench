@@ -368,7 +368,8 @@ def test_a_view_whose_legacy_flag_protocol_and_fairness_disagree_is_refused(base
 def test_method_and_join_describe_v2() -> None:
     method = render.render_method(INFO)
     assert (
-        "<section>\n<h2>Games</h2>\n<p>Each benchmark is a round robin. Every matchup is played as pairs of games with "
+        "<section>\n<h2>Games</h2>\n<p>A benchmark uses a round robin or a fixed panel of local reference opponents. Every scheduled matchup "
+        "is played as pairs of games with "
         "the seats swapped, each pair using the next deck of the benchmark's pool in both seats; a bot never plays "
         "itself. Every game has its own secret, so the two games of a pair shuffle independently, and ratings still "
         "count them as a pair. The run publishes a commitment to its secret before the first game and reveals the "

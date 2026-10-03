@@ -253,10 +253,12 @@ def executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> 
             spec,
             command=tuple(resolve(part) for part in spec.command),
             checkpoint=None if spec.checkpoint is None else resolve(spec.checkpoint),
+            evaluation_inputs=tuple(resolve(path) for path in spec.evaluation_inputs),
         )
         for spec in config.bots
     )
-    return dataclasses.replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots)
+    return dataclasses.replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots,
+                               evaluation_engine_inputs=tuple(resolve(path) for path in config.evaluation_engine_inputs))
 
 
 def registry_entries(config: TournamentConfig, executed: TournamentConfig) -> list[RegistryEntry]:

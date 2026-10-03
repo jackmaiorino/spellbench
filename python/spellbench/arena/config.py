@@ -66,6 +66,8 @@ class BotSpec:
     owner: str = "unspecified"
     training_style_tags: tuple[str, ...] = ()
     registered_at: int = 0
+    evaluation_identity: str | None = None
+    evaluation_inputs: tuple[str, ...] = ()
 
     def registry_entry(self, *, checkpoint_path: str | None = None) -> registry.RegistryEntry:
         """This bot's registry entry. The descriptor records the command as
@@ -79,6 +81,8 @@ class BotSpec:
             descriptor = registry.subprocess_descriptor(
                 self.name, self.version, self.command, weights_sha256=weights
             )
+        if self.evaluation_identity is not None:
+            descriptor["evaluation_identity"] = self.evaluation_identity
         return registry.build_entry(
             name=self.name,
             version=self.version,
@@ -104,6 +108,10 @@ class BotSpec:
             doc["command"] = list(self.command)
             if self.checkpoint is not None:
                 doc["checkpoint"] = self.checkpoint
+        if self.evaluation_identity is not None:
+            doc["evaluation_identity"] = self.evaluation_identity
+        if self.evaluation_inputs:
+            doc["evaluation_inputs"] = list(self.evaluation_inputs)
         return doc
 
 
@@ -133,6 +141,8 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
         "owner",
         "training_style_tags",
         "registered_at",
+        "evaluation_identity",
+        "evaluation_inputs",
     }
     required = {"name", "version", "type"}
     missing = required - set(value)
@@ -148,6 +158,16 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
     engine = _req_str(value.get("engine", "any"), f"{context}.engine")
     owner = _req_str(value.get("owner", "unspecified"), f"{context}.owner")
     registered_at = _req_uint(value.get("registered_at", 0), f"{context}.registered_at")
+    identity = value.get("evaluation_identity")
+    if "evaluation_identity" in value and (
+        type(identity) is not str or len(identity) != 64 or any(c not in "0123456789abcdef" for c in identity)
+    ):
+        raise TournamentError(f"{context}.evaluation_identity: must be 64 lowercase hex characters")
+    inputs = value.get("evaluation_inputs", [])
+    if not isinstance(inputs, list) or any(type(item) is not str or not item for item in inputs):
+        raise TournamentError(f"{context}.evaluation_inputs: must be a list of nonempty paths")
+    if len(set(inputs)) != len(inputs):
+        raise TournamentError(f"{context}.evaluation_inputs: duplicate paths")
     raw_tags = value.get("training_style_tags", [])
     if not isinstance(raw_tags, list) or any(type(tag) is not str or not tag for tag in raw_tags):
         raise TournamentError(f"{context}.training_style_tags: must be a list of nonempty strings")
@@ -176,6 +196,8 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
             owner=owner,
             training_style_tags=tags,
             registered_at=registered_at,
+            evaluation_identity=identity,
+            evaluation_inputs=tuple(inputs),
         )
     if not isinstance(command, list) or not command or any(type(part) is not str or not part for part in command):
         raise TournamentError(f"{context}.command: subprocess bots require a nonempty command list")
@@ -192,6 +214,8 @@ def _bot_spec_from_json(value: Any, context: str) -> BotSpec:
         owner=owner,
         training_style_tags=tags,
         registered_at=registered_at,
+        evaluation_identity=identity,
+        evaluation_inputs=tuple(inputs),
     )
 
 
@@ -322,6 +346,11 @@ class TournamentConfig:
     rating_anchor: str  # bot name from the bots list
     workers: int
     include_self_play: bool
+    matchups: tuple[tuple[str, str], ...] | None = None
+    opponent_panel: tuple[str, ...] = ()
+    evaluation_version: str | None = None
+    evaluation_engine_identity: str | None = None
+    evaluation_engine_inputs: tuple[str, ...] = ()
 
     def decks_for_pair(self, pair_index: int) -> tuple[DeckSpec, DeckSpec]:
         """The (p0, p1) decks of both games of pair ``pair_index``."""
@@ -376,6 +405,15 @@ class TournamentConfig:
             doc["decks"] = [deck.to_json() for deck in self.decks]
         else:
             doc["deck_pool"] = [deck.to_json() for deck in self.deck_pool]
+        if self.matchups is not None:
+            doc["matchups"] = [list(pair) for pair in self.matchups]
+        if self.opponent_panel:
+            doc["opponent_panel"] = list(self.opponent_panel)
+            doc["evaluation_version"] = self.evaluation_version
+            if self.evaluation_engine_identity is not None:
+                doc["evaluation_engine_identity"] = self.evaluation_engine_identity
+            if self.evaluation_engine_inputs:
+                doc["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
         return doc
 
     @classmethod
@@ -410,6 +448,11 @@ class TournamentConfig:
             "rating_anchor",
             "workers",
             "include_self_play",
+            "matchups",
+            "opponent_panel",
+            "evaluation_version",
+            "evaluation_engine_identity",
+            "evaluation_engine_inputs",
         }
         required = {
             "schema",
@@ -484,6 +527,36 @@ class TournamentConfig:
             raise TournamentError(f"{context}.include_self_play: must be true or false")
         if not include_self_play and len(bots) < 2:
             raise TournamentError(f"{context}.include_self_play: false needs at least two bots")
+        matchups = None
+        if "matchups" in value:
+            raw = value["matchups"]
+            if not isinstance(raw, list):
+                raise TournamentError("config.matchups: must be a list of bot-name pairs")
+            checked = []
+            seen = set()
+            for pair in raw:
+                if not isinstance(pair, list) or len(pair) != 2 or any(type(n) is not str or n not in names for n in pair):
+                    raise TournamentError("config.matchups: every pair must name two configured bots")
+                key = tuple(sorted(pair))
+                if pair[0] == pair[1] or key in seen:
+                    raise TournamentError("config.matchups: self-play and duplicate matchups are not allowed")
+                seen.add(key)
+                checked.append(tuple(pair))
+            matchups = tuple(checked)
+        panel = value.get("opponent_panel", [])
+        if not isinstance(panel, list) or any(type(n) is not str or n not in names for n in panel) or len(set(panel)) != len(panel):
+            raise TournamentError("config.opponent_panel: must name distinct configured bots")
+        evaluation_version = value.get("evaluation_version")
+        if panel:
+            _req_str(evaluation_version, "config.evaluation_version")
+        elif "evaluation_version" in value:
+            raise TournamentError("config.evaluation_version: requires opponent_panel")
+        engine_identity = value.get("evaluation_engine_identity")
+        if "evaluation_engine_identity" in value and (not panel or type(engine_identity) is not str or len(engine_identity) != 64 or any(c not in "0123456789abcdef" for c in engine_identity)):
+            raise TournamentError("config.evaluation_engine_identity: needs a panel and 64 lowercase hex characters")
+        engine_inputs = value.get("evaluation_engine_inputs", [])
+        if not isinstance(engine_inputs, list) or any(type(path) is not str or not path for path in engine_inputs) or len(set(engine_inputs)) != len(engine_inputs) or (engine_inputs and not panel):
+            raise TournamentError("config.evaluation_engine_inputs: must name distinct input files for a panel")
         stats_seed = _req_uint(value["stats_seed"], f"{context}.stats_seed")
         rules = RulesSpec.from_json(value["rules"], f"{context}.rules") if "rules" in value else RulesSpec()
         raw_extensions = value.get("extensions", [])
@@ -526,7 +599,7 @@ class TournamentConfig:
         )
         # The leaderboard's bootstraps refuse oversized inputs; refuse such a
         # config now rather than after every game has been played.
-        rated_pairs = len(bots) * (len(bots) - 1) // 2 * pairs_per_matchup
+        rated_pairs = (len(matchups) if matchups is not None else len(bots) * (len(bots) - 1) // 2) * pairs_per_matchup
         if (
             pairs_per_matchup > ratings.MAX_PAIR_COUNT
             or max(pairs_per_matchup, rated_pairs) * bootstrap_replicates > ratings.MAX_BOOTSTRAP_DRAWS
@@ -555,4 +628,9 @@ class TournamentConfig:
             rating_anchor=rating_anchor,
             workers=workers,
             include_self_play=include_self_play,
+            matchups=matchups,
+            opponent_panel=tuple(panel),
+            evaluation_version=evaluation_version,
+            evaluation_engine_identity=engine_identity,
+            evaluation_engine_inputs=tuple(engine_inputs),
         )
