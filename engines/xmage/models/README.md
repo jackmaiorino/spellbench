@@ -141,8 +141,9 @@ fixtures save six numeric values and five colors. The first color fixture,
 Thriving Grove, reaches an unsupported replacement-order callback; its failed
 receipt is retained. Generation 33 repeats the existing target, binary and
 library searches on build 035, but refuses the unbounded original numeric
-callback before named search. The offered-range adaptation and refreshed
-named replay anchor await their next real check. These families are unqualified.
+callback before named search. Later real checks validate the offered-range
+adaptation and refreshed named replay anchor. Complete-game qualification
+remains unfinished.
 
 Build 036 repeats target, binary and library search, then returns 41 numeric
 root visits for a requested minimum of six. Original Exp1 keeps searching
@@ -162,9 +163,19 @@ Shifting Sky's register entry is now generated from 24 pinned upstream source
 files. The scanner reads card types from the constructor, so a LAND predicate
 inside an enchantment's effect does not classify it as a land. Unrecognized
 constructors retain the conservative fallback. Its repeated source scan
-supports stack replay without optional costs; the actual named search remains
-pending. Model build manifests now hash and verify copied resources, including
+supports stack replay without optional costs. The actual named search now
+repeats Blue across the five-color root with six visits and seven real neural
+evaluations; changed public state is refused and owned process cleanup passes.
+Model build manifests now hash and verify copied resources, including
 this register. Existing frozen native jars and qualification inputs are unchanged.
+
+The confined `jack_feature_probe.py` helper runs all five real checkpoint
+pairs on the Java priority fixtures without enabling unassociated game serving.
+Active and nonactive views repeat with finite normalized scores, legal offered
+IDs and masked padding. Elves uses its own embedding-cache fixture. This is
+diagnostic feature inference; exact decks, the original full policy selection
+and other callbacks remain unfinished. See
+[the retained checks](evidence/2026-10-03-neural-inputs.md).
 
 Jack's private April encoder and callback source are staged by
 `xmage_jack_sources.py`, with both original file hashes required. The base

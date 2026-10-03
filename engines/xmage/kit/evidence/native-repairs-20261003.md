@@ -1,7 +1,8 @@
 # Native kit repairs, 2026-10-03
 
 Version 0.3.0 repairs the renamed-card reconstruction and slow-exit paths found
-in the original soak. It remains unqualified and unrated.
+in the original soak. The frozen native benchmark passes complete-game
+throughput qualification. Rated evaluation and publication remain unfinished.
 
 The front retains only card names previously present in its seat's observations.
 An unknown renamed nontoken can be rebuilt from that same object's earlier
@@ -115,4 +116,35 @@ preparation SHA-256 is
 Fresh local, Haley and RunPod records are pinned in that preparation. Haley's
 queued training priority and the separate gorge lease remain reserved. The
 qualification has the original 90-minute, 16 GiB and 60 GiB reserve limits.
-It has no allocation verdict or rated run yet.
+That attempt completed successfully in 2,599.317 seconds, released generation
+114, and left no forced or remaining owned children. Its 48 measured games
+all ended naturally. Each rung's 16 rows has the same primary store SHA-256,
+`cf499e44ddcb3a6b98e04231fd040357c994258a90eff64a59bde84d71cef487`.
+
+| Workers | Matched batch wall seconds | Completed game busy seconds |
+|---|---:|---:|
+| 1 | 985.455 | 985.205 |
+| 4 | 734.585 | 1,126.712 |
+| 8 | 727.849 | 1,504.446 |
+
+The guard selects eight workers. The observed matched batch speedup over
+serial is 1.354x; one long MCTS game dominates these heterogeneous batches.
+The guard's completed-work projection for all 7,040 games is about 23 hours.
+This projection is planning evidence, not a completed rating run.
+The qualification report binds seven launch files, including the executable,
+entry script, Java, card database, build manifest and agent launcher. Runtime
+preparation additionally pins the engine and kit jars. The workload digest is
+`sha256:82f762812a04deb9bf7d18ac517b5abdcaae9f7af96b6739ef12facdfbf185c6`.
+
+Seventeen report, ledger, manifest and launcher files were copied and reread
+in `E:/spellbench-xmage-native-20261003-001/qualification-001/`.
+`CLOSURE.json` has SHA-256
+`c11e1417c269dd2bc7de6f0361dce66d7bfe54f24801cd4ba9d67cc98c4631bf`;
+the qualification report has SHA-256
+`4656ff57c699c4d8d10f9c4950f7073da1858706ddf3118435e48dfe40dbf964`.
+An additive `EVIDENCE-SUPPLEMENT.json` records the separately reread
+`throughput-evidence.jsonl`, SHA-256
+`0da4034618b6ed9830cdaad68b6f11a2cfa1c506b9015f3a0f683034edd19c0f`.
+The sealed closure is unchanged. The full benchmark definition and public run
+commitment still need the existing review and merge path before rated play;
+the rated ledger, post-run replay and result publication do not yet exist.

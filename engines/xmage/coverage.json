@@ -14,9 +14,10 @@
       "qualified": false,
       "rated": false,
       "published": false,
-      "qualification_status": "24 natural serial games with zero validation violations; report dependencies repaired; no parallel comparison or allocation verdict yet",
+      "throughput_qualified": true,
+      "qualification_status": "48 natural complete-game checks with identical 1/4/8-worker output stores; guarded allocation selects 8 workers; rated ledger and post-run validation pending",
       "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
-      "remaining": ["deadline replay qualification", "new-entry qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
     },
     {
       "family": "xmage-mcts",
@@ -27,9 +28,10 @@
       "qualified": false,
       "rated": false,
       "published": false,
-      "qualification_status": "included in the clean 24-game serial prefix; complete-game scaling qualification remains pending",
+      "throughput_qualified": true,
+      "qualification_status": "included in passing 48-game native benchmark qualification, with identical complete-game output stores at 1/4/8 workers",
       "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
-      "remaining": ["separate MCTS qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
     },
     {
       "family": "draftzero-exp1",
@@ -38,7 +40,7 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary, visible-library and numeric search repeat identically with gen33; numeric minimum stopping and cleared branch work accounted; named stack replay entry source-qualified, actual named check pending; full agent unfinished",
+      "wiring_status": "permitted encoders and real callback selection for all three checkpoints; original priority, target, binary, visible-library, numeric and named search repeat identically with gen33; numeric minimum stopping and cleared branch work accounted; actual Shifting Sky named replay passes; full agent unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,
@@ -62,7 +64,7 @@
       "family": "jack-xmage-rl",
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
       "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
-      "wiring_status": "all five pairs strictly load and repeat finite isolated inference; legacy Standard Q mulligan preserved; private permitted-view base and original priority candidate encoders compile with JDK23.0.1; real active/nonactive priority fixtures pass candidate binding and hidden-sample invariance; checkpoint inference on these features and full game adapter unfinished",
+      "wiring_status": "all five pairs strictly load and repeat finite isolated inference on actual permitted Java priority features; legacy Standard Q mulligan preserved; active/nonactive fixtures pass offered-choice binding, padding and hidden-sample invariance; Elves uses its own embedding cache; original game selection, exact decks and full game adapter unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,

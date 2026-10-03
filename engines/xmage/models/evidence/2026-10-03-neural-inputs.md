@@ -167,6 +167,42 @@ repeats identically. Scan SHA-256 is
 All 29 source, scanner and receipt copies are reread in
 `E:/spellbench-xmage-all-20261002/shifting-sky-source-001/`, with backup SHA-256
 `1f7faa5b7a4e4a3e272b9d81677736bea768526180969d114aab555d51494893`.
-This supports prospective stack replay; named search, complete games and
-remembered permanent-choice state remain unqualified. The new build manifest
-hashes copied resources. Frozen native qualification inputs are unchanged.
+This source check supports stack replay. The new build manifest hashes copied
+resources. Frozen native qualification inputs are unchanged.
+
+Build 042 at source `16320c6bfc5e99e10b17e96973a6264414e93173`
+passes the actual named search, together with repeated target, binary, library
+and numeric roots. Shifting Sky's five-color choice repeats Blue with six root
+visits and seven real neural evaluations. Its branch visits are 1, 2, 1, 1, 1.
+Changed public life is refused and the session closes. Java and container
+cleanup are confirmed; generation 115 exits 0 in 60.567 seconds and releases.
+Build manifest SHA-256 is
+`cfbb31eb6b6aaffdd4759e8e2e040307aa55c9757617a6f036e76547a87d1d26`;
+check SHA-256 is
+`c493f3a031dc92d9a0275a2c60dd23a7863953061771a715bb07accbc2cae903`.
+All 207 source, class, callback and RPC copies were reread in
+`E:/spellbench-xmage-all-20261002/named-search-001/`.
+Closure SHA-256 is
+`0cf6f4c499c255bb6700c589210a151c7f2ae05b74a32f6f13af38742e596ce5`.
+The closed lookup cache was pruned with a receipt. Full transition history,
+remembered permanent choices, remaining callbacks and complete games remain open.
+
+All five current Jack policy/mulligan pairs now also pass isolated inference
+on the actual Java priority fixtures, with active and nonactive views repeated
+identically, normalized finite 64-slot probabilities and zero probability on
+padding. Elves uses a fresh fixture with its own pinned embedding cache; the
+other four profiles reuse the sealed global-cache fixture and compiled Java
+classes. Probe argmax IDs bind to offered choices, but this diagnostic argmax
+does not establish the original full policy selection or a deck association.
+Generation 116 exits 0 in 31.816 seconds and releases; all five containers are
+confirmed absent. Check SHA-256 is
+`4d232981dd44ea1abfcc45a8c8b780cd9e5046f2271c9308c596abb7b01065f6`;
+Elves fixture SHA-256 is
+`779e03a7783b1b1d4811025f57824d1dc2215fc33732204336642066ea85c27a`.
+All 24 fixture, probe, source-archive and driver copies were reread in
+`E:/spellbench-xmage-all-20261002/jack-real-features-001/`.
+Closure SHA-256 is
+`d67a12fe16b440c3d207bb0a4f2e6c7db2cd2d0623b5ec393dd6d387f43fe219`.
+The closed Elves lookup cache was pruned with a receipt; the aggregate model
+job remains within its unchanged 6 GiB cap. Exact decks, other callbacks,
+original game policy integration and full-game qualification remain unfinished.

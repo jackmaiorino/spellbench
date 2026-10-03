@@ -132,11 +132,19 @@ are required; the source must match the recorded April hash. Private generated
 source remains in that owned build root. `JackEncoderMain` accepts recorded
 priority decisions or a private NDJSON pipe, and returns base-state features
 bound to the decision hash. It checks the staged method and pinned embedding
-cache before reporting readiness. Candidate features and callbacks remain
-unimplemented. The new Java classes await compilation and a live check.
-The prepared `JackEncoderCheck` uses real active and nonactive priority
-fixtures to check hand perspective, ownership, varied hidden samples and a
-visible life change. It has not run yet.
+cache before reporting readiness. The original priority candidate features
+are implemented, bound to offered choices and compiled against the reviewed
+engine. `JackEncoderCheck` passes real active and nonactive priority fixtures
+for hand perspective, ownership, hidden-sample invariance, candidate padding
+and a visible life change. Other callback families remain unfinished.
+
+`pinned_jack_feature_probe_command` runs the confined `jack_feature_probe.py`
+helper on a fixed hash-pinned Java fixture. All five real policy/mulligan pairs
+repeat finite normalized priority inference with masked padding; Elves uses
+its own embedding-cache fixture. This diagnostic probe preserves the refusal
+to serve checkpoints without deck associations. It does not qualify original
+full-policy selection or complete games. Source and output hashes are retained
+in [the evidence](../../engines/xmage/models/evidence/2026-10-03-neural-inputs.md).
 
 Embedding lookup uses one explicit hash-pinned cache with 32 finite numbers
 per card. It performs no network lookup or file writes and refuses missing

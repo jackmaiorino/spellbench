@@ -11,11 +11,11 @@ entries. It has no rated run. The historical `fdn-mirror-v0` definition is uncha
 
 | Family | Available inputs | Wiring | Qualification, rating and publication |
 |---|---|---|---|
-| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
-| XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 repeats original priority, target, binary, visible-library and numeric searches | Named replay, full history, remaining dialogs, combat and game qualification unfinished; unrated |
+| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Native benchmark passes 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; rated run pending |
+| XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Included in the same passing native benchmark qualification; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Real target and boolean selection pass for all three; gen33 repeats original priority, target, binary, visible-library, numeric and named searches | Full history, remaining dialogs, combat and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
-| Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
+| Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference on actual permitted Java priority features; Standard retains its legacy Q mulligan rule | Exact deck associations, original game selection and complete fair adapter unfinished; unrated |
 
 ## Native policies and aliases
 
@@ -45,13 +45,18 @@ The inherited kit recorded 2,176 natural-ending soak games with zero validator
 violations. `kit/evidence/soak/findings.json` retains renamed-card reconstruction
 failures, deadline-dependent replays and a temporary-directory leak. Version
 0.3.0 has targeted passing rename and shutdown checks; see
-[the repair evidence](kit/evidence/native-repairs-20261003.md). Deadline replay,
-new-build qualification and rated evaluation are still pending.
+[the repair evidence](kit/evidence/native-repairs-20261003.md). The historical
+deadline-dependent profile is unchanged; the new 600-second profile passes
+the matched complete-game qualification described below. Rated play is pending.
 The new runtime completed 24 serial games, all natural and without validator
 violations. A missing report module stopped that attempt before the parallel
 comparison. The rows and restored report are retained, and a repaired runtime
 checks report dependencies before preflight and checkpoints completed rung
-timings. This is functional evidence, not a throughput or rating verdict.
+timings. Those earlier rows remain functional evidence. A later completed
+48-game 1/4/8-worker comparison passes natural outcome and output-identity
+checks for the actual frozen benchmark. The guard selects eight workers.
+Its matched batch speedup is 1.354x, with a planning projection near 23 hours
+for the full round robin. This is throughput evidence; there is no rated run.
 
 ## Learned inputs and associations
 
@@ -107,8 +112,12 @@ library cards. It replaces the original active-player perspective and whole-libr
 encoding. Build 039 compiles its Java bridge, read-only embedding lookup and
 original priority candidate features. Real active and nonactive priority views
 pass hand/ownership and offered-choice checks; eight different hidden samples
-per view leave state and candidate features identical. Model inference on
-those actual features, other callbacks and full games remain unfinished.
+per view leave state and candidate features identical. All five current
+checkpoint pairs now repeat isolated inference on those real features; Elves
+uses its own cache fixture. Offered choices and masked padding pass. Exact
+deck associations, original game selection, other callbacks and full games
+remain unfinished. The receipts are in
+[the neural evidence](models/evidence/2026-10-03-neural-inputs.md).
 Preparation hashes four historical 60-card Pauper candidate decks with 15-card
 sideboards. The global embedding cache covers their main decks; the Elves cache
 also covers every sideboard name. The historical `Pauper-Standard` registry
@@ -125,8 +134,8 @@ DraftZero's original MCTS. Those changes must remain visible in any future
 entry identity and description.
 
 The separate search bridge ports Exp1's original PUCT and dialog scripts.
-Generation 33 repeats six-visit searches for priority, targets, binary choices
-and a visible library selection with an earlier recorded choice through the
+Generation 33 repeats searches for priority, targets, binary choices,
+numeric amounts, named colors and a visible library selection with an earlier recorded choice through the
 confined checkpoint. Original Exp1's restriction on finishing a library search
 before the target minimum remains explicit in the result. Its variant uses fresh
 sampled-world trees, synchronous inference, all trained priors, minimum visits with original legal-future stopping
@@ -141,7 +150,7 @@ compare completed-work serial/parallel throughput, and use the supported arena
 or kit qualification guard. The input fetcher and model probe are preparation
 and small correctness paths; they do not launch evaluated games.
 
-The frozen native benchmark's guarded serial/parallel qualification is running
-under its own local reservation. No rated XMage games, GPU run, new training
+The frozen native benchmark's guarded serial/parallel qualification passed
+and its local reservation released. No rated XMage games, GPU run, new training
 or paid compute were launched by this task. Existing review and publication paths remain
 part of the outstanding delivery.
