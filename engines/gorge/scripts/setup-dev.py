@@ -82,9 +82,14 @@ overlay["Replace"][(source / "internal/searchprobe/sample.go").as_posix()] = rep
 # Planned payment answers are exclusive selectors with no Choices. Preserve
 # them only on the public bridge, using observer IDs and stripped digests;
 # Match reissues the exact independently offered hypothetical witness.
+# A multi-color mana choice can share source, object and ability. Preserve its
+# structured symbol too, so Match can replay the actor's selected color.
 action = (source / "internal/searchprobe/action.go").read_text(encoding="utf-8")
 for before, after in [
-    ("type Action struct {\n", 'type Action struct {\n\tSpellbenchPayment string `json:",omitempty"`\n'),
+    ("type Action struct {\n", 'type Action struct {\n\tSpellbenchPayment string `json:",omitempty"`\n\tManaSymbol string `json:",omitempty"`\n'),
+    ("\tif d.Source != 0 && a.Source == 0 || o.Obj != 0 && a.Obj == 0 || o.Attacker != 0 && a.Attacker == 0 {\n",
+     "\tif c.spellbenchChronological { a.ManaSymbol = o.ManaSymbol }\n"
+     "\tif d.Source != 0 && a.Source == 0 || o.Obj != 0 && a.Obj == 0 || o.Attacker != 0 && a.Attacker == 0 {\n"),
     ("\tif err := d.Validate(in); err != nil {\n\t\treturn nil, nil, err\n\t}\n",
      "\tif err := d.Validate(in); err != nil {\n\t\treturn nil, nil, err\n\t}\n"
      "\tif c.spellbenchChronological && in.Payment != nil {\n"

@@ -13,6 +13,14 @@ defaults remain 8 worlds, 64 attempts, 6 candidates, zero margin, zero horizon,
 5,000 submits, sample seed 54321 and one worker. The mana variant adds the native
 mana arm. No model, clairvoyance or oracle evaluator is enabled.
 
+Recorded actor answers now retain the native option's structured `ManaSymbol`.
+Multi-color choices can share source, object and ability; dropping the symbol
+made their semantic actions ambiguous and prevented both rejection replay and
+public reconstruction. A real two-color fixture accepted no worlds before the
+repair and supplies eight worlds for either color afterward. Only the public
+collector fills this field. Native options and selected intents are unchanged;
+the corrected history changes sampler conditioning and requires new qualification.
+
 The agent receives public decklists, its seat observations and
 `x_gorge_search_v1` deltas. A delta ends at the actor's own native decision;
 opponent asks, answers, private board snapshots and decision counters are
