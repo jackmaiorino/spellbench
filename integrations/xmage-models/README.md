@@ -44,6 +44,17 @@ it can launch. The loader requires the recorded wide hash range and strict
 weights only. No actual pretrained MageZero checkpoint has been qualified;
 complete game play remains unfinished.
 
+The v0.2 Java encoder is now separately staged with
+`xmage_model_build.py --magezero-inputs INPUT_ROOT`. Its original feature and
+128-slot action hashes are preserved alongside Exp1's separate namespace.
+`spellbench.kit.xmage.MageZeroEncoderMain` encodes permitted priority records;
+remaining callback families are refused. The saved feature result can be
+passed to `xmage_neural_decisions.py --architecture magezero-v02` with the same
+record and an author-supplied pinned checkpoint. That decision path recomputes
+the actual own decklist digest and checks it against the model's association
+before starting confined inference. Runtime encoder checks and actual-weight
+qualification remain pending; these changes do not qualify original search.
+
 The inspected v0.1 and v0.2 public engine bundles contain no pretrained
 weights. Author delivery needs the trained `.mz` export or raw weights, the
 exact associated decklists, the engine and encoder source revision, and the
@@ -76,11 +87,15 @@ asset ID to `inference_backends.magezero-v02.checkpoints`. Record these fields:
   "bytes": 123,
   "sha256": "REPLACE_WITH_ACTUAL_FILE_SHA256",
   "checkpoint_format": "magezero-mz",
-  "deck_id": "sha256:REPLACE_WITH_EXACT_DECK_FILE_SHA256",
+  "deck_id": "sha256:REPLACE_WITH_SPELLBENCH_CANONICAL_DECKLIST_DIGEST",
   "deck_association_evidence": "Author confirmation associating this model with the pinned deck",
   "export_metadata": {"deck": "EXACT_EXPORT_DECK_NAME", "version": 1}
 }
 ```
+
+Compute `deck_id` with `spellbench.digests.deck_id` over the exact associated
+`[{"name": "CARD", "count": N}, ...]` rows. It hashes normalized canonical deck
+rows, so a raw deck file hash is not interchangeable with this identifier.
 
 Replace all placeholders with observed values. Pass the external manifest with
 `--manifest` when probing or serving. The bundle must contain exactly

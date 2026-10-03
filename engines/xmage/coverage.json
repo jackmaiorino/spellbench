@@ -53,7 +53,7 @@
       "format": "Standard 2022-25, deck-local",
       "checkpoints": [],
       "input_status": "no public weights found in either release bundle",
-      "wiring_status": "isolated raw and mz export loading; synthetic architecture and export contracts tested",
+      "wiring_status": "isolated raw and mz export loading; pinned v0.2 Java priority encoder staged in a separate namespace with original wide feature and 128-slot action hashes; direct priority selection checks actual own deck association, checkpoint identity and offered choices; 219 affected checks pass; Java runtime fixtures and actual weights remain unqualified",
       "integrated": false,
       "qualified": false,
       "rated": false,

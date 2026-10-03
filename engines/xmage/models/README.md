@@ -295,3 +295,30 @@ equal their earlier isolated receipts, and all four real wire declarations
 bind identically. Owned cleanup and reservation release are confirmed.
 Pregame decisions, complete transition history, remaining callbacks and
 complete-game qualification remain unfinished.
+
+`--magezero-inputs` adds the five pinned MageZero v0.2 encoder sources to a
+separate `spellbench.models.magezero.v02.encoder` package. They retain their
+original feature hash range of 2,147,483,647 and 128-slot action hash, including
+reserved pass and mana actions. A negative original hash is refused rather
+than repaired. The same declared base-engine compatibility edits provide
+sorted cards and public entity names; priority slices use empty dialog history.
+The staging receipt records every edit and staged source hash. Exp1's encoder
+and action vocabulary remain in their existing package.
+
+`MageZeroEncoderMain` accepts a saved permitted priority decision or `--stdio`.
+It reconstructs a sampled world, disables opponent-hand encoding and binds
+every offered candidate to its original MageZero action slot. Other callbacks
+are refused. `MageZeroEncoderCheck` supplies a real priority fixture, varied
+hidden samples and a visible-life control for a later guarded runtime check.
+The fixture has not yet run. CI also compiles this optional public path without
+fetching weights or qualifying play.
+
+`xmage_neural_decisions.py --architecture magezero-v02` connects these saved
+features to the existing confined raw/`.mz` backend when actual weights arrive.
+It checks the exact encoding, 128-slot heads, checkpoint and source identities,
+decision hash and complete offered-choice mapping. It recomputes the supplied
+own decklist's Spellbench digest and requires the checkpoint's recorded deck
+association before launch. Argmax masks unoffered actions and uses a stable
+tie rule. This is an explicitly distinct direct-policy priority slice; original
+MageZero search and complete-game serving are unfinished. No actual pretrained
+MageZero weights have been found or qualified.

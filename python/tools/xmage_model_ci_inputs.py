@@ -23,6 +23,8 @@ def main():
     assets = json.loads(raw)["assets"]
     encoder = {"draftzero-exp1-" + name for name in
                ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
+    encoder |= {"magezero-v02-" + name for name in
+                ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
     selected = [asset for asset in assets if asset["id"] in encoder
                 or asset["id"].startswith("draftzero-exp1-search-")]
     if encoder - {asset["id"] for asset in selected} or any(

@@ -336,3 +336,33 @@ its own free canonical claim before dispatch. Haley's reserved work and
 frozen measurements are unchanged. Complete-game qualification, remaining
 callbacks, fork combat retry parity and all learned ratings/publication remain
 unfinished. Native ratings still require review of the benchmark definition.
+
+MageZero v0.2's five encoder sources are pinned at
+`cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f`. Their Git blob envelopes,
+SHA-256s and sizes are checked, with five cold source copies reread under
+`E:/spellbench-xmage-all-20261002/magezero-encoder-sources-001/`. Its input
+receipt has SHA-256
+`0abc7b242cb3502f8abfe2a3e536fc850baab9236458c3e29c5d28f7b65326af`.
+The encoder stages in its own Java package, retaining the original wide
+feature hash and 128-slot action hash without an Exp1 vocabulary substitution.
+Compatibility helpers were compared with the pinned v0.2 card sorting,
+entity-name and permanent-value methods. Unsupported pairs remain refused.
+
+Six staged source/receipt copies are reread under
+`E:/spellbench-xmage-all-20261002/magezero-encoder-stage-001/`, with hot
+recovery retained. `PREPARATION.json` has SHA-256
+`06c601b36b4e34a10fa65eca505e45ad4295aad213f4b84b5d46a6d3b575febf`.
+Combined logical input/storage use is 6,069,809,472 bytes, below the unchanged
+6 GiB cap; both 60 GiB volume reserves remain in force.
+
+The new Java priority encoder and private pipe reconstruct only permitted
+inputs, disable opponent-hand encoding and bind all offered candidates to
+their original action hashes. The Python slice checks MageZero's encoding,
+finite 128-slot heads, checkpoint/source readiness and decision binding. It
+requires the actual own decklist digest to equal the checkpoint's recorded
+association before container launch. Missing weights cannot launch a
+substitute. All 219 affected checks pass, with one existing Windows symlink
+skip. These unit and source checks use no actual MageZero weights. Java
+runtime fixtures remain unstarted under claim generation 133, work
+`complete-agent-calibration-formal-001-003`. Full-game adapter, original search,
+checkpoint qualification, ratings and publication remain unfinished.

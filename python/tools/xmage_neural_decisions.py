@@ -1,7 +1,8 @@
-"""Bind real DraftZero policy scores to offered, permitted game decisions.
+"""Bind pinned neural policy scores to offered, permitted game decisions.
 
 This is a decision adapter, not a complete agent or the original MCTS player.
-It accepts only the priority, target and binary heads. Unsupported callbacks
+Exp1 accepts priority, target and binary heads; MageZero v0.2 accepts priority
+only. Unsupported callbacks
 and failed inference are refused without a native or random-policy fallback.
 """
 from __future__ import annotations
@@ -15,25 +16,37 @@ import time
 import uuid
 from pathlib import Path
 
-from spellbench import wire
+from spellbench import digests, wire
 from xmage_checkpoint_backend import cleanup_container, pinned_command
 from xmage_release_assets import prepare_root
 
 ENCODING = {"hash_algorithm": "xmage_feature_hash", "hash_version": 1, "feature_hash_bins": 2000000}
 SCHEMAS = {"spellbench-draftzero-priority-features/v1", "spellbench-draftzero-decision-features/v1"}
+MAGEZERO_ENCODING = {**ENCODING, "feature_hash_bins": 2147483647}
+
+
+def profile(architecture: str) -> tuple[dict, set[str], int, str]:
+    if architecture == "draftzero-exp1":
+        return ENCODING, SCHEMAS, 1024, "Exp1"
+    if architecture == "magezero-v02":
+        return MAGEZERO_ENCODING, {"spellbench-magezero-priority-features/v1"}, 128, "MageZero v0.2"
+    raise ValueError("unsupported neural decision architecture")
 
 
 def decision_hash(decision: dict) -> str:
     return hashlib.sha256(wire.canonical_json_dumps(decision)).hexdigest()
 
 
-def validate_mapping(decision: dict, encoded: dict) -> tuple[str, list[dict]]:
-    if (encoded.get("schema") not in SCHEMAS or encoded.get("encoding") != ENCODING
+def validate_mapping(decision: dict, encoded: dict, architecture="draftzero-exp1") -> tuple[str, list[dict]]:
+    encoding, schemas, policy_width, label = profile(architecture)
+    if (encoded.get("schema") not in schemas or encoded.get("encoding") != encoding
             or encoded.get("decision_sha256") != decision_hash(decision)):
-        raise ValueError("encoded features are not bound to this offered decision and Exp1 encoding")
+        raise ValueError("encoded features are not bound to this offered decision and " + label + " encoding")
     head = encoded.get("head")
     if head not in ("priority", "target", "binary"):
         raise ValueError("this callback has no implemented trained policy head")
+    if architecture == "magezero-v02" and (head != "priority" or decision.get("context", {}).get("kind") != "priority"):
+        raise ValueError("MageZero currently implements the priority encoder slice only")
     candidates = decision.get("candidates")
     slots = encoded.get("policy_slots")
     if (not isinstance(candidates, list) or not candidates or not isinstance(slots, list)
@@ -43,19 +56,20 @@ def validate_mapping(decision: dict, encoded: dict) -> tuple[str, list[dict]]:
     if any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids) or len(set(ids)) != len(ids):
         raise ValueError("offered candidate ids must be unique nonnegative protocol integers")
     mapped = [s.get("candidate_id") for s in slots]
-    width = 2 if head == "binary" else 1024
+    width = 2 if head == "binary" else policy_width
     if (any(type(cid) is not int for cid in mapped) or len(set(mapped)) != len(mapped) or set(mapped) != set(ids)
             or any(type(s.get("policy_slot")) is not int or not 0 <= s["policy_slot"] < width for s in slots)):
         raise ValueError("policy slots contain a missing, aliased or out-of-range candidate")
     features = encoded.get("features")
     if (not isinstance(features, list) or not 1 <= len(features) <= 16384
-            or any(type(f) is not int or not 0 <= f < ENCODING["feature_hash_bins"] for f in features)):
-        raise ValueError("encoded features exceed Exp1's finite integer vocabulary envelope")
+            or any(type(f) is not int or not 0 <= f < encoding["feature_hash_bins"] for f in features)):
+        raise ValueError("encoded features exceed " + label + "'s finite integer vocabulary envelope")
     return head, slots
 
 
-def validate_scores(scores: dict) -> None:
-    for name, width in (("priority", 1024), ("opponent_priority", 1024), ("target", 1024), ("binary", 2)):
+def validate_scores(scores: dict, architecture="draftzero-exp1") -> None:
+    policy_width = profile(architecture)[2]
+    for name, width in (("priority", policy_width), ("opponent_priority", policy_width), ("target", policy_width), ("binary", 2)):
         values = scores.get(name)
         if (not isinstance(values, list) or len(values) != width
                 or any(type(x) not in (int, float) or not math.isfinite(x) for x in values)):
@@ -65,9 +79,9 @@ def validate_scores(scores: dict) -> None:
         raise ValueError("inference returned an invalid state value")
 
 
-def select_candidate(decision: dict, encoded: dict, scores: dict) -> dict:
-    head, slots = validate_mapping(decision, encoded)
-    validate_scores(scores)
+def select_candidate(decision: dict, encoded: dict, scores: dict, architecture="draftzero-exp1") -> dict:
+    head, slots = validate_mapping(decision, encoded, architecture)
+    validate_scores(scores, architecture)
     value = scores["value"]
     # The original server returns raw logits. Direct-policy inference takes
     # their argmax on offered candidates only. Collisions tie by candidate id.
@@ -99,10 +113,19 @@ def load_response(payload: bytes) -> dict:
 class InferenceSession:
     """One owned confined checkpoint process, with a shared request deadline."""
     def __init__(self, manifest: dict, root: Path, checkpoint: str, image: str, *, startup_s: float = 90,
-                 peer_factory=wire.SubprocessPeer, on_owned=None):
-        config = manifest.get("inference_backends", {}).get("draftzero-exp1", {})
+                 peer_factory=wire.SubprocessPeer, on_owned=None, architecture="draftzero-exp1", game_start=None):
+        self.architecture = architecture
+        self.encoding, _, width, label = profile(architecture)
+        config = manifest.get("inference_backends", {}).get(architecture, {})
         if checkpoint not in config.get("checkpoints", []):
-            raise ValueError("this decision adapter requires a pinned DraftZero Exp1 checkpoint")
+            raise ValueError("this decision adapter requires a pinned " + label + " checkpoint")
+        assets = {a["id"]: a for a in manifest["assets"]}
+        if architecture == "magezero-v02":
+            deck = game_start.get("own_deck") if isinstance(game_start, dict) else None
+            if not isinstance(deck, dict) or not isinstance(deck.get("decklist"), list):
+                raise ValueError("MageZero decision needs its actual own decklist")
+            if digests.deck_id(deck["decklist"]) != assets[checkpoint].get("deck_id"):
+                raise ValueError("MageZero checkpoint deck association differs from the actual own decklist")
         self.container = "spellbench-xmage-" + uuid.uuid4().hex
         self.argv = pinned_command(manifest, root, checkpoint, image, "serve", self.container)
         self.checkpoint = checkpoint
@@ -111,12 +134,11 @@ class InferenceSession:
         self.failed = False
         self.cleanup = None
         self.sequence = 0
-        assets = {a["id"]: a for a in manifest["assets"]}
-        expected = {"architecture": "draftzero-exp1", "encoding": ENCODING, "policy_width": 1024,
+        expected = {"architecture": architecture, "encoding": self.encoding, "policy_width": width,
                     "checkpoint_sha256": assets[checkpoint]["sha256"],
                     "model_source_sha256": assets[config["model"]]["sha256"],
                     "vocab_source_sha256": assets[config["feature_vocab_code"]]["sha256"],
-                    "action_vocab_sha256": assets[config["action_vocab"]]["sha256"]}
+                    "action_vocab_sha256": assets[config["action_vocab"]]["sha256"] if architecture == "draftzero-exp1" else None}
         try:
             if on_owned is not None:
                 # The supervising job can recover this owned container after a
@@ -139,13 +161,13 @@ class InferenceSession:
             raise failure from exc
 
     def choose(self, decision: dict, encoded: dict, *, timeout_s: float) -> dict:
-        validate_mapping(decision, encoded)
+        validate_mapping(decision, encoded, self.architecture)
         if not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("neural decision needs a positive finite remaining clock")
         deadline = time.monotonic() + timeout_s
         try:
             scores = self.score(encoded["features"], timeout_s=max(0, deadline-time.monotonic()))
-            result = {"checkpoint": self.checkpoint, **select_candidate(decision, encoded, scores)}
+            result = {"checkpoint": self.checkpoint, **select_candidate(decision, encoded, scores, self.architecture)}
             if time.monotonic() > deadline:
                 raise TimeoutError("neural decision exhausted its selection-validation clock")
             return result
@@ -159,14 +181,14 @@ class InferenceSession:
         if self.closed or self.failed:
             raise ValueError("inference session is closed or has failed")
         if (not isinstance(features, list) or not 1 <= len(features) <= 16384
-                or any(type(f) is not int or not 0 <= f < ENCODING["feature_hash_bins"] for f in features)):
-            raise ValueError("encoded features exceed Exp1's finite integer vocabulary envelope")
+                or any(type(f) is not int or not 0 <= f < self.encoding["feature_hash_bins"] for f in features)):
+            raise ValueError("encoded features exceed the checkpoint's finite integer vocabulary envelope")
         if not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ValueError("neural decision needs a positive finite remaining clock")
         deadline = time.monotonic() + timeout_s
         self.sequence += 1
         rid = str(self.sequence)
-        payload = json.dumps({"id": rid, "features": features, "encoding": ENCODING},
+        payload = json.dumps({"id": rid, "features": features, "encoding": self.encoding},
                              separators=(",", ":"), allow_nan=False).encode()
         try:
             self.peer.set_timeout(max(0, deadline - time.monotonic()))
@@ -178,7 +200,7 @@ class InferenceSession:
             scores = load_response(self.peer.read_line())
             if scores.get("id") != rid:
                 raise ValueError("inference returned a stale or mismatched request id")
-            validate_scores(scores)
+            validate_scores(scores, self.architecture)
             if time.monotonic() > deadline:
                 raise TimeoutError("neural decision exhausted its shared inference/validation clock")
             return {k: scores[k] for k in ("priority", "opponent_priority", "target", "binary", "value")}
@@ -205,6 +227,7 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, default=Path("engines/xmage/releases.json"))
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--architecture", choices=("draftzero-exp1", "magezero-v02"), default="draftzero-exp1")
     parser.add_argument("--image", required=True)
     parser.add_argument("--record", type=Path, required=True)
     parser.add_argument("--encoded", type=Path, required=True)
@@ -215,7 +238,10 @@ def main() -> int:
         session = None
         result = {"schema": "spellbench-draftzero-neural-decision/v1", "exit_code": 2,
                   "checkpoint": args.checkpoint, "container_image": args.image,
+                  "architecture": args.architecture,
                   "scope": "one offered decision; full agent, search and ratings unfinished"}
+        if args.architecture == "magezero-v02":
+            result["schema"] = "spellbench-magezero-neural-decision/v1"
         try:
             raw = args.manifest.read_bytes()
             record_raw, encoded_raw = args.record.read_bytes(), args.encoded.read_bytes()
@@ -223,8 +249,9 @@ def main() -> int:
             result.update(manifest_sha256=hashlib.sha256(raw).hexdigest(),
                           record_sha256=hashlib.sha256(record_raw).hexdigest(),
                           encoded_sha256=hashlib.sha256(encoded_raw).hexdigest())
-            validate_mapping(record["decision"], encoded)
-            session = InferenceSession(json.loads(raw), args.root, args.checkpoint, args.image)
+            validate_mapping(record["decision"], encoded, args.architecture)
+            session = InferenceSession(json.loads(raw), args.root, args.checkpoint, args.image,
+                                       architecture=args.architecture, game_start=record.get("game_start"))
             result["readiness"] = session.ready
             first = session.choose(record["decision"], encoded, timeout_s=30)
             second = session.choose(record["decision"], encoded, timeout_s=30)
