@@ -41,16 +41,18 @@ type Record struct {
 }
 
 type Server struct {
-	policy        string
-	identity      Policy
-	bot           seat.Seat
-	plan          *Plan
-	fallbacks     int
-	forced        int
-	records       map[uint64]*Record // the current game's native decisions (parity audit)
-	registry      *cards.Registry
-	searchSetup   strategies.PublicGame
-	searchHistory strategies.History
+	policy            string
+	identity          Policy
+	bot               seat.Seat
+	plan              *Plan
+	fallbacks         int
+	forced            int
+	records           map[uint64]*Record // the current game's native decisions (parity audit)
+	registry          *cards.Registry
+	searchSetup       strategies.PublicGame
+	searchHistory     strategies.History
+	gameID, auditSeat string
+	gameOverReceived  bool
 }
 
 func New(policy string) (*Server, error) {
@@ -86,6 +88,7 @@ type request struct {
 	} `json:"rules"`
 	RequestType   string      `json:"request_type"`
 	RequestID     string      `json:"request_id"`
+	GameID        string      `json:"game_id"`
 	AgentSeed     uint64      `json:"agent_seed"`
 	Seat          string      `json:"seat"`
 	OwnDeck       *searchDeck `json:"own_deck"`
@@ -142,6 +145,7 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 			}
 		}
 		s.bot = s.identity.New(q.AgentSeed)
+		s.gameID, s.auditSeat, s.gameOverReceived = q.GameID, q.Seat, false
 		s.plan = nil
 		s.records = map[uint64]*Record{}
 		base["response_type"] = "ack"
@@ -151,6 +155,9 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 		}
 		base["response_type"] = "choice"
 		base["selection"] = map[string]uint32{"candidate_id": s.choose(q)}
+	case "game_over":
+		s.gameOverReceived = true
+		base["response_type"] = "ack"
 	default:
 		base["response_type"] = "ack"
 	}

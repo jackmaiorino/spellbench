@@ -65,6 +65,8 @@ The engine's explicit `-search` flag adds actor-only public history and bindings
 
 The adapter uses the upstream constructors and native legacy PCG seed derivation. The embedded default `cast-profile` equals `DefaultCastWeights`, so it uses the `gorge-bot` identity. Unknown or unfinished policies are refused. Native policy errors produce an agent error instead of silently substituting a fallback policy. The bounded public checkpoint search is recorded in `docs/gorge-public-model-search-20261002.json`; no compatible PolicyNet weights were recovered.
 
+`spellbench-gorge-agent -audit-dir PATH` (or `GORGE_AGENT_AUDIT_DIR`) writes one aggregate policy receipt after stdin closes. It records the public game/seat labels, native mapping counts and search coverage, sampled/redealt worlds, rollout work and reconstruction refusals. It contains no observations, intents or sampled game states and adds no game-wire fields. The subprocess and `gorgequal` use the same coverage fold. Qualification joins these receipts to reference-host outcomes before claiming that a search mode ran.
+
 The loader fixes the information rules, so the file states none: opponent decklist visible, mulligan `auto` (london where the engine supports it; gorge declares `london` and `none`, so `pauper-gorge` plays london per spec 12.2 and Decision 4), host-assigned starting player with seat p0, and no probe. Cross-engine note: `pauper-kernel` plays mulligan `none`, so the comparison is not like for like.
 
 Differences from the plan's draft, all forced by P2's loader (Task 30 reconciles any remaining difference):

@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -18,6 +19,7 @@ func main() {
 	corpus := flag.String("corpus", os.Getenv("GORGE_CARDS"), "pinned corpus directory (required by search)")
 	registry := flag.String("registry", "", "frozen registry file for search")
 	registrySHA := flag.String("registry-sha256", "", "expected SHA-256 of the frozen registry")
+	auditDir := flag.String("audit-dir", os.Getenv("GORGE_AGENT_AUDIT_DIR"), "optional directory for aggregate policy coverage after the process closes")
 	flag.Parse()
 	s, err := agent.New(*policy)
 	if err != nil {
@@ -32,10 +34,32 @@ func main() {
 		}
 		s.SetRegistry(reg)
 	}
-	if err := agent.Serve(os.Stdin, &flushWriter{bufio.NewWriter(os.Stdout)}, s); err != nil {
+	err = agent.Serve(os.Stdin, &flushWriter{bufio.NewWriter(os.Stdout)}, s)
+	if *auditDir != "" {
+		if auditErr := writeAudit(*auditDir, s.Audit()); auditErr != nil {
+			fmt.Fprintln(os.Stderr, "spellbench-gorge-agent audit:", auditErr)
+			os.Exit(1)
+		}
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "spellbench-gorge-agent:", err)
 		os.Exit(1)
 	}
+}
+
+func writeAudit(dir string, value agent.PolicyAudit) error {
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, "gorge-agent-*.json")
+	if err != nil {
+		return err
+	}
+	if err := json.NewEncoder(f).Encode(value); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 type flushWriter struct{ w *bufio.Writer }

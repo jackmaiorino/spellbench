@@ -72,16 +72,7 @@ type Report struct {
 
 // SearchCoverage distinguishes native search delegation from adapter mapping
 // fallbacks. A clean mapping alone does not prove that search ran.
-type SearchCoverage struct {
-	Natives, Eligible, Attempted, Covered                                                                      int
-	Attempts, Accepted, Worlds, Rollouts, Submits, Terminal, Capped                                            int
-	Redealt, ReconstructionAttempts, ReconstructionSubmits, ReconstructionNodes, ReconstructionBudgetExhausted int
-	RedealRefusals                                                                                             map[string]int
-	Reasons                                                                                                    map[string]int
-	Kinds                                                                                                      map[string]int
-}
-
-func (s SearchCoverage) Pass() bool { return s.Eligible > 0 && s.Covered > 0 }
+type SearchCoverage = agent.SearchCoverage
 
 func mergeSearch(dst *SearchCoverage, src SearchCoverage) {
 	dst.Natives += src.Natives
@@ -121,49 +112,7 @@ func mergeSearch(dst *SearchCoverage, src SearchCoverage) {
 }
 
 func searchCoverage(records map[uint64]*agent.Record) SearchCoverage {
-	out := SearchCoverage{Reasons: map[string]int{}, Kinds: map[string]int{}, RedealRefusals: map[string]int{}}
-	for _, rec := range records {
-		tr := rec.Search
-		if tr == nil {
-			continue
-		}
-		out.Natives++
-		if rec.SearchEligible {
-			out.Eligible++
-		}
-		if tr.Attempts > 0 {
-			out.Attempted++
-		}
-		if tr.Covered {
-			out.Covered++
-			out.Kinds[tr.Kind]++
-		}
-		out.Attempts += tr.Attempts
-		out.Accepted += tr.Accepted
-		out.Worlds += tr.Worlds
-		out.Rollouts += tr.Rollouts
-		out.Submits += tr.Submits
-		out.Terminal += tr.Terminal
-		out.Capped += tr.Capped
-		out.Redealt += tr.Redealt
-		if tr.PublicReconstruction != nil {
-			out.ReconstructionAttempts += tr.PublicReconstruction.Attempts
-			out.ReconstructionSubmits += tr.PublicReconstruction.Submits
-			out.ReconstructionNodes += tr.PublicReconstruction.Nodes
-			out.ReconstructionBudgetExhausted += tr.PublicReconstruction.BudgetExhausted
-		}
-		if tr.RedealRefused != "" {
-			out.RedealRefusals[tr.RedealRefused]++
-		}
-		if rec.SearchEligible && !tr.Covered {
-			reason := tr.Fallback
-			if reason == "" {
-				reason = "fewer_than_two_candidates"
-			}
-			out.Reasons[reason]++
-		}
-	}
-	return out
+	return agent.SummarizeSearch(records)
 }
 
 func (r Report) Clean() bool {

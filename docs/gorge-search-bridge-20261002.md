@@ -248,3 +248,11 @@ The source and limit statement are in
 [game-start evidence](gorge-game-start-checks-20261003.json). These handshakes do
 not execute search or qualify completed games. XMage holds a separate canonical
 reservation while the gorge retry is prepared.
+
+An optional aggregate policy receipt now exposes real subprocess coverage to
+the operator at process close. It shares the existing qualification fold and
+records native mapping counts, eligible/covered search, worlds, rollouts and
+public-root reconstruction/refusal work. It serializes public session labels
+and counters only. Search options, RNG streams, actor inputs and the game wire
+are unchanged. The supported guarded probe can collect these receipts to verify
+actual search coverage and compare it across worker rungs.
