@@ -30,6 +30,10 @@
     "x_gorge_view_v1",
     "x_gorge_search_v1"
   ],
+  "native_id_audits": {
+    "x_gorge_search_v1": "https://github.com/jackmaiorino/spellbench/blob/939d130a0325598ed39ca9176b8101d59183b31f/docs/gorge-native-identity-audit-20261003.md"
+  },
+  "workers": 8,
   "time_control": {
     "startup_ms": 120000,
     "game_start_ms": 60000,
