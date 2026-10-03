@@ -14,6 +14,7 @@ import (
 // The constructor adds bindings without copying a live game's state.
 func SpellbenchCollector(actor state.PlayerID, aliases map[uint32]uint32) (*Collector, error) {
 	c := NewCollector(actor)
+	c.spellbenchChronological = true
 	var max uint32
 	for public, observer := range aliases {
 		if public == 0 || observer == 0 || observer > 100000 {

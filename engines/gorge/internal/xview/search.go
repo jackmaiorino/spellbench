@@ -23,5 +23,13 @@ func (x *Extender) SearchAliases(env *mapping.Env, p *mapping.Pose, alias func(s
 		add(o.Obj)
 		add(o.Attacker)
 	}
+	for _, action := range p.Native.PaymentActions {
+		add(action.Cast.Object)
+		for _, plan := range action.Plans {
+			for _, activation := range plan.Activations {
+				add(activation.Source)
+			}
+		}
+	}
 	return out, *errp
 }

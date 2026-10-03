@@ -25,6 +25,8 @@ overlay = {
             (root / "native-overlay/public_history.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_compare.go").as_posix():
             (root / "native-overlay/public_compare.go.txt").as_posix(),
+        (source / "internal/searchprobe/spellbench_public_payment.go").as_posix():
+            (root / "native-overlay/public_payment.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_redeal.go").as_posix():
             (root / "native-overlay/public_redeal.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_known.go").as_posix():
@@ -76,6 +78,46 @@ generated.mkdir(exist_ok=True)
 replacement = generated / "sample.go"
 replacement.write_text(sampler, encoding="utf-8")
 overlay["Replace"][(source / "internal/searchprobe/sample.go").as_posix()] = replacement.as_posix()
+
+# Planned payment answers are exclusive selectors with no Choices. Preserve
+# them only on the public bridge, using observer IDs and stripped digests;
+# Match reissues the exact independently offered hypothetical witness.
+action = (source / "internal/searchprobe/action.go").read_text(encoding="utf-8")
+for before, after in [
+    ("type Action struct {\n", 'type Action struct {\n\tSpellbenchPayment string `json:",omitempty"`\n'),
+    ("\tif err := d.Validate(in); err != nil {\n\t\treturn nil, nil, err\n\t}\n",
+     "\tif err := d.Validate(in); err != nil {\n\t\treturn nil, nil, err\n\t}\n"
+     "\tif c.spellbenchChronological && in.Payment != nil {\n"
+     "\t\ta, err := c.spellbenchPaymentAction(d, in.Payment)\n\t\tif err != nil { return nil, nil, err }\n"
+     "\t\treturn []Action{a}, nil, nil\n\t}\n"),
+    ("\tmatch := func(actions []Action) ([]int, error) {\n",
+     "\tif c.spellbenchChronological && len(choices) == 1 && choices[0].SpellbenchPayment != \"\" {\n"
+     "\t\tif len(rest) != 0 { return decision.Intent{}, fmt.Errorf(\"payment answer has an arranged rest\") }\n"
+     "\t\treturn c.spellbenchMatchPayment(d, choices[0])\n\t}\n"
+     "\tmatch := func(actions []Action) ([]int, error) {\n"),
+]:
+    if action.count(before) != 1:
+        raise SystemExit("Pinned payment action context changed; refusing overlay")
+    action = action.replace(before, after, 1)
+replacement = generated / "action.go"
+replacement.write_text(action, encoding="utf-8")
+overlay["Replace"][(source / "internal/searchprobe/action.go").as_posix()] = replacement.as_posix()
+
+# The two pinned London sites move the asking player's own hand. A redacted
+# opponent card does not make the actor's unrelated library order uncertain.
+# Other blind moves retain the native conservative invalidation of all cursors.
+epochs = (source / "internal/searchprobe/epochs.go").read_text(encoding="utf-8")
+before = "\t\t\t\towner, known := owners[ev.Obj]\n"
+after = before + (
+    "\t\t\t\tif h.ActorBoundaries && !known && ev.Obj == 0 && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == \"mulligan\" || ev.Text == \"bottomed\") {\n"
+    "\t\t\t\t\towner, known = ev.Player, true\n\t\t\t\t}\n"
+)
+if epochs.count(before) != 1:
+    raise SystemExit("Pinned London library-owner context changed; refusing overlay")
+epochs = epochs.replace(before, after, 1)
+replacement = generated / "epochs.go"
+replacement.write_text(epochs, encoding="utf-8")
+overlay["Replace"][(source / "internal/searchprobe/epochs.go").as_posix()] = replacement.as_posix()
 
 # Opaque observer IDs never get reused after the bridge forgets knowledge.
 # The ordinary native collector has no forgotten IDs, so its result is intact.

@@ -8,7 +8,8 @@ opponent decision counts, hidden-zone order, or hashes of those values.
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation
-in Spellbench `042c1912541f4a4251bd9e96a1912b299a4a742b`. Runtime registry SHA-256:
+baseline in Spellbench `042c1912541f4a4251bd9e96a1912b299a4a742b`, with the
+payment-history fields and London owner scope reviewed below. Runtime registry SHA-256:
 `42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937`.
 Changes to that implementation, pool, compiler or registry require checking
 this audit's compatibility before reuse.
@@ -66,12 +67,30 @@ ability stays retired after a shuffle even if the same physical card is drawn
 and receives a new visible identity.
 
 The companion `x_gorge_view_v1` uses fresh per-seat incarnation aliases and
-declares `native_ids:false`. `SearchAliases` joins only current source/option
+declares `native_ids:false`. `SearchAliases` joins current source/option and
+offered payment cast/mana-source
 aliases to already observed history references. Its internal HMAC identity keys
 and move counters are absent from both extensions. Native decision sequence,
 group labels and option indices are rewritten. Payment action/plan hashes are
 recomputed from the rewritten actor-local decision and visible cast/mana-source
 aliases; native plan hashes and source zone counters are absent.
+
+An actor's exclusive payment answer is a comparable action with an optional
+`SpellbenchPayment` string containing its complete semantic witness. The cast
+and activation sources use the same observer-local identities. This string
+contains an empty plan ID and zero source zone counters, without the native
+action ID. Matching compares independently offered hypothetical witnesses in
+that representation, then submits the target world's exact offer. The other
+seat's payment answers remain excluded with its other private answers. Normal
+non-payment actions and non-public native history retain their encoding.
+
+The two London move sites in `rules/mulligan.go` emit `mulligan` and `bottomed`
+for their asking player's own hand. The public sampler uses that observed
+ownership to invalidate that player's library cursor. It does not infer a
+hidden card identity, position or name. Other moves with an unknown owner
+still invalidate all potentially affected library cursors. This keeps an
+opponent's London bottoming from discarding constraints on the actor's later
+observed draws.
 
 The agent reconstructs hypothetical worlds from public setup and received
 history. It receives no original engine, live hidden zones, chance prefix,
@@ -80,6 +99,19 @@ search values therefore cannot recover the live game's hidden state through a
 transported digest. Starvation/refusal statistics concern those reconstructions.
 
 ## Observed checks and limits
+
+- A real atomic actor cast formerly failed replay at frame 21 with an empty
+  ordinary choice list. Its repaired, canonically transported history accepts
+  64/64 proposals and supplies eight worlds. A changed mana-residue witness is
+  rejected, and the history test checks digest/counter stripping, observer
+  references and preservation of the original native selection.
+- A real atomic opponent cast rejects all native-policy proposals, then public
+  reconstruction supplies eight redealt worlds in 64 submits without sending
+  the opponent's payment answer to the actor.
+- A legal opponent London mulligan followed by three distinct actor draws
+  formerly exhausted 5,000 reconstruction submits. Restoring the actor's
+  independent constraints accepts 24/64 native proposals and supplies eight
+  worlds. These are correctness fixtures within the shipped budgets.
 
 - `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
   Each variant creates a fresh engine and fresh collector, places the card in
@@ -103,7 +135,7 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   processes. Details: [reference-host evidence](gorge-reference-host-checks-20261003.json).
 
 This is a source and information audit for the stated pool. Full twelve-mode
-qualification, guarded throughput comparison, rated games and public ratings
+qualification, compatible guarded throughput evidence, rated games and public ratings
 remain separate delivery work. Timing, public canonical-envelope limits and
 the other residual channels listed in protocol section 13 remain as declared
 by the protocol. No playing-strength result is claimed by these checks.

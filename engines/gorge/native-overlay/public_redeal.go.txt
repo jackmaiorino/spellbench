@@ -197,6 +197,20 @@ func spellbenchEachIntent(d *decision.Decision, preferred decision.Intent, budge
 	if d.Validate(preferred) == nil && !visit(preferred) {
 		return
 	}
+	// Automatic casts are legal exclusive selectors and may be absent from
+	// Options until mana is floated. Their witnesses belong to this world's
+	// offered decision and spend the same shared reconstruction budget.
+	for _, action := range d.PaymentActions {
+		for _, plan := range action.Plans {
+			if !budget() {
+				return
+			}
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: decision.ClonePaymentPlan(plan)}}
+			if !reflect.DeepEqual(in, preferred) && d.Validate(in) == nil && !visit(in) {
+				return
+			}
+		}
+	}
 	var choose func([]int, int, int) bool
 	choose = func(picked []int, start, size int) bool {
 		if !budget() {
