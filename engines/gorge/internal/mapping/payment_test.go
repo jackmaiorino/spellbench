@@ -104,7 +104,6 @@ func TestUnlessPayPreservesNativeManaWindowChoices(t *testing.T) {
 						break
 					}
 					env = envFor(t, g)
-					env.Action = &mapping.ActionContext{Seat: d.Player, Obj: d.Source}
 					window, err := mapping.Begin(env, n)
 					if err != nil {
 						t.Fatal(err)

@@ -11,6 +11,8 @@ import (
 //     is still announcing its own action from Decision.Source, abilities put
 //     on the stack before that action began are skipped: they are an earlier
 //     activation of the same permanent, not this one;
+//     rules-owned ward/unless mana windows omit Source, but Ask suspends
+//     their resolution on the current top stack entry;
 //  2. the current visible incarnation of Decision.Source;
 //  3. the object of the acting seat's last priority action (gorge chooses an
 //     activated ability's targets and costs before pushing it: sourceprobe);
@@ -31,6 +33,16 @@ func ResolveSource(env *Env, d *decision.Decision) (*protocol.ObjectRef, error) 
 		}
 		if r, err := env.Obs.Ref(d.Player, d.Source); r != nil || err != nil {
 			return r, err
+		}
+	}
+	if d.Source == 0 && d.Kind == decision.KChoose &&
+		(d.ResumeKind == "unless_mana" || d.ResumeKind == "ward_mana") {
+		// rules.askWardMana does not populate Decision.Source. Its Ask call
+		// captures the current top stack object as the suspended resolution.
+		// Refer only to that publicly visible entry, without changing the
+		// native decision or borrowing an unrelated priority action's source.
+		if n := len(g.Stack); n > 0 {
+			return env.Obs.Ref(d.Player, g.Stack[n-1])
 		}
 	}
 	if a := env.Action; a != nil && a.Seat == d.Player {
