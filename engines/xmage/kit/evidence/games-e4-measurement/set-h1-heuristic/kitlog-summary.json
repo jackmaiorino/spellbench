@@ -1,0 +1,174 @@
+{
+ "cap_rate": 0.0,
+ "continuation_mismatch": 0,
+ "decisions": 1428,
+ "games_over": 8,
+ "paths": {
+  "combat_anchor": 94,
+  "cp7_passes_in_step": 80,
+  "dialog": 15,
+  "fallback_lowest": 10,
+  "mulligan_bottom": 2,
+  "plan": 13,
+  "plan_forced": 14,
+  "pregame_anchor": 10,
+  "priority_anchor": 165,
+  "single": 1025
+ },
+ "priority_anchor": {
+  "approximate_world_share": 1.0,
+  "build_ms": {
+   "max": 683,
+   "median": 9,
+   "p90": 21
+  },
+  "count": 165,
+  "decision_ms": {
+   "max": 21278,
+   "median": 103,
+   "p90": 1192
+  },
+  "nodes": {
+   "max": 5001,
+   "median": 14
+  },
+  "search_ms": {
+   "max": 21270,
+   "median": 88,
+   "p90": 1183
+  }
+ },
+ "rewinds": 0,
+ "roundtrip": null,
+ "runner": [
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14946,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 15185,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14214,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14319,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 13526,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14684,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14384,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 13538,
+   "late_discarded": 0,
+   "restarts": 0
+  }
+ ],
+ "search_counters": {
+  "horizon:mad": 15
+ },
+ "tags": {
+  "bot": 1418,
+  "wrapper": 10
+ },
+ "tags_by_kind": {
+  "activate_ability": {
+   "bot": 29
+  },
+  "arrange_card": {
+   "bot": 3
+  },
+  "cast_spell": {
+   "bot": 153
+  },
+  "choose_boolean": {
+   "bot": 1
+  },
+  "choose_option": {
+   "wrapper": 5
+  },
+  "choose_spell_mode": {
+   "bot": 2
+  },
+  "choose_target": {
+   "bot": 32
+  },
+  "declare_attack": {
+   "bot": 67
+  },
+  "declare_block": {
+   "bot": 27
+  },
+  "mulligan": {
+   "bot": 10
+  },
+  "optional_cost": {
+   "bot": 6
+  },
+  "order_pick": {
+   "bot": 2,
+   "wrapper": 5
+  },
+  "pass": {
+   "bot": 1020
+  },
+  "play_land": {
+   "bot": 63
+  },
+  "select_object": {
+   "bot": 3
+  }
+ },
+ "world_flags": {
+  "approximate:activation_usage_other_seat": 37,
+  "approximate:stack_ability_identity": 6,
+  "approximate:stack_placeholder": 1,
+  "approximate:stack_source_ambiguous": 1,
+  "approximate:token_characteristics": 7,
+  "approximate:unexplained_characteristics": 85,
+  "approximate:watchers_reset": 165,
+  "horizon:stack_object": 6,
+  "own_history:loyalty_used": 16,
+  "unsupported:command_zone": 116,
+  "unsupported:token": 7
+ },
+ "wrapper_paths": {
+  "fallback_lowest:no_dialog:choose_option": 5,
+  "fallback_lowest:no_dialog:order_pick": 5
+ },
+ "wrapper_rate": 0.007
+}

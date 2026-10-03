@@ -1,0 +1,281 @@
+{
+ "cap_rate": 0.0,
+ "continuation_mismatch": 1,
+ "decisions": 965,
+ "games_over": 4,
+ "paths": {
+  "combat_anchor": 50,
+  "cp7_passes_in_step": 76,
+  "dialog": 11,
+  "fallback_lowest": 9,
+  "fallback_ranked": 4,
+  "plan": 6,
+  "plan_forced": 9,
+  "pregame_anchor": 4,
+  "priority_anchor": 132,
+  "single": 664
+ },
+ "priority_anchor": {
+  "approximate_world_share": 1.0,
+  "build_ms": {
+   "max": 142,
+   "median": 5.0,
+   "p90": 11
+  },
+  "count": 132,
+  "decision_ms": {
+   "max": 14321,
+   "median": 106.5,
+   "p90": 2446
+  },
+  "nodes": {
+   "max": 5002,
+   "median": 16.0
+  },
+  "search_ms": {
+   "max": 14316,
+   "median": 95.5,
+   "p90": 2440
+  }
+ },
+ "rewinds": 0,
+ "roundtrip": {
+  "by_kind": {
+   "activate_ability": {
+    "checked": 26,
+    "exact": 7
+   },
+   "arrange_card": {
+    "checked": 2,
+    "exact": 2
+   },
+   "cast_spell": {
+    "checked": 142,
+    "exact": 45
+   },
+   "choose_boolean": {
+    "checked": 2,
+    "exact": 0
+   },
+   "choose_cost_target": {
+    "checked": 1,
+    "exact": 0
+   },
+   "choose_spell_mode": {
+    "checked": 2,
+    "exact": 2
+   },
+   "choose_target": {
+    "checked": 5,
+    "exact": 3
+   },
+   "declare_attack": {
+    "checked": 40,
+    "exact": 4
+   },
+   "declare_block": {
+    "checked": 10,
+    "exact": 2
+   },
+   "distribute": {
+    "checked": 3,
+    "exact": 1
+   },
+   "mulligan": {
+    "checked": 4,
+    "exact": 4
+   },
+   "order_pick": {
+    "checked": 6,
+    "exact": 0
+   },
+   "play_land": {
+    "checked": 44,
+    "exact": 21
+   },
+   "select_object": {
+    "checked": 5,
+    "exact": 0
+   }
+  },
+  "by_phase": {
+   "beginning_of_combat": {
+    "checked": 5,
+    "exact": 0
+   },
+   "cleanup": {
+    "checked": 1,
+    "exact": 0
+   },
+   "combat_damage": {
+    "checked": 10,
+    "exact": 1
+   },
+   "declare_attackers": {
+    "checked": 45,
+    "exact": 4
+   },
+   "declare_blockers": {
+    "checked": 12,
+    "exact": 2
+   },
+   "draw": {
+    "checked": 29,
+    "exact": 12
+   },
+   "end_of_combat": {
+    "checked": 5,
+    "exact": 0
+   },
+   "end_step": {
+    "checked": 5,
+    "exact": 0
+   },
+   "postcombat_main": {
+    "checked": 15,
+    "exact": 3
+   },
+   "precombat_main": {
+    "checked": 132,
+    "exact": 54
+   },
+   "pregame": {
+    "checked": 4,
+    "exact": 4
+   },
+   "upkeep": {
+    "checked": 29,
+    "exact": 11
+   }
+  },
+  "checked": 292,
+  "diff_paths": {
+   "/pending_triggers": 6,
+   "/players/battlefield": 10,
+   "/players/battlefield/characteristics/colors": 129,
+   "/players/battlefield/characteristics/keywords": 302,
+   "/players/battlefield/characteristics/power": 236,
+   "/players/battlefield/characteristics/subtypes": 57,
+   "/players/battlefield/characteristics/toughness": 183,
+   "/players/battlefield/characteristics/types": 162,
+   "/players/graveyard/object_id": 36,
+   "/stack/card_name": 3,
+   "/stack/characteristics/colors": 2,
+   "/stack/characteristics/power": 2,
+   "/stack/characteristics/subtypes": 2,
+   "/stack/characteristics/toughness": 2,
+   "/stack/characteristics/types": 2,
+   "/stack/object_id": 4,
+   "/stack/targets": 1
+  },
+  "exact": 91,
+  "exact_rate": 0.3116,
+  "failed_calls": 0
+ },
+ "runner": [
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14480,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14724,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14144,
+   "late_discarded": 0,
+   "restarts": 0
+  },
+  {
+   "kill_to_exit_ms": [],
+   "kills": 0,
+   "last_restart_ms": 14609,
+   "late_discarded": 0,
+   "restarts": 0
+  }
+ ],
+ "search_counters": {
+  "horizon:mad": 23
+ },
+ "tags": {
+  "bot": 952,
+  "wrapper": 13
+ },
+ "tags_by_kind": {
+  "activate_ability": {
+   "bot": 26
+  },
+  "arrange_card": {
+   "bot": 2
+  },
+  "cast_spell": {
+   "bot": 138,
+   "wrapper": 4
+  },
+  "choose_boolean": {
+   "bot": 2
+  },
+  "choose_cost_target": {
+   "bot": 1
+  },
+  "choose_spell_mode": {
+   "bot": 4
+  },
+  "choose_target": {
+   "bot": 14
+  },
+  "declare_attack": {
+   "bot": 40
+  },
+  "declare_block": {
+   "bot": 10
+  },
+  "distribute": {
+   "bot": 3,
+   "wrapper": 3
+  },
+  "mulligan": {
+   "bot": 4
+  },
+  "optional_cost": {
+   "bot": 2
+  },
+  "order_pick": {
+   "wrapper": 6
+  },
+  "pass": {
+   "bot": 657
+  },
+  "play_land": {
+   "bot": 44
+  },
+  "select_object": {
+   "bot": 5
+  }
+ },
+ "world_flags": {
+  "approximate:activation_usage_other_seat": 12,
+  "approximate:stack_ability_identity": 5,
+  "approximate:stack_source_ambiguous": 1,
+  "approximate:token_characteristics": 7,
+  "approximate:unexplained_characteristics": 83,
+  "approximate:watchers_reset": 136,
+  "horizon:stack_object": 6,
+  "lineage:stack_source": 1,
+  "unsupported:token": 3
+ },
+ "wrapper_paths": {
+  "fallback_lowest:no_dialog:distribute": 3,
+  "fallback_lowest:no_dialog:order_pick": 6,
+  "fallback_ranked:priority_unmapped": 4
+ },
+ "wrapper_rate": 0.0135
+}

@@ -1,0 +1,53 @@
+{
+ "failed_searches": [
+  {
+   "path": "fallback_declining:priority_failed",
+   "runner_error": "java.lang.IllegalStateException: cannot create card 'Legitimate Businessperson': mage.player.cabt.CabtDeckFactory$UnknownCardException: UNKNOWN_CARD: no card class found for \"Legitimate Businessperson",
+   "decisions": 4452,
+   "seat_games": 129
+  },
+  {
+   "path": "fallback_declining:combat_failed",
+   "runner_error": "java.lang.IllegalStateException: cannot create card 'Legitimate Businessperson': mage.player.cabt.CabtDeckFactory$UnknownCardException: UNKNOWN_CARD: no card class found for \"Legitimate Businessperson",
+   "decisions": 1823,
+   "seat_games": 105
+  }
+ ],
+ "failed_search_cause": "Witness Protection renames the enchanted creature 'Legitimate Businessperson'; the world builder rebuilds permanents by their observed card_name and has no card class for that name, so every priority and combat search of the seat fails while such a creature is on the battlefield",
+ "deadline_interrupts": {
+  "main-pc:kit-mad-k:\"deadline_interrupt\"": 63,
+  "haleyspc:kit-mad-k:\"deadline_interrupt\"": 1
+ },
+ "games_with_deadline_interrupt": 33,
+ "decisions_over_60s": {
+  "main-pc:kit-mad-k": 127,
+  "main-pc:kit-mad-1": 4,
+  "haleyspc:kit-mad-k": 22
+ },
+ "max_decision_ms": {
+  "main-pc:kit-mad-k": 113324,
+  "main-pc:kit-mad-1": 97917,
+  "haleyspc:kit-mad-1": 35158,
+  "haleyspc:kit-mad-k": 113206
+ },
+ "deadline_replay": {
+  "games": 6,
+  "equal": 4,
+  "differ_game_ids": [
+   "g-93025a47cf7c3a34",
+   "g-cae71ce4a2049f97"
+  ]
+ },
+ "agent_dir_leak": {
+  "main-pc": {
+   "agent_dirs_left": [
+    "kit-agent-cIa6Cf"
+   ],
+   "batches": 2
+  },
+  "haleyspc": {
+   "agent_dirs_left": [],
+   "batches": 1
+  }
+ }
+}

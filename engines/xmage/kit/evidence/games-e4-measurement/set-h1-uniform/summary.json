@@ -1,0 +1,24 @@
+{
+ "classification": {
+  "natural": 4
+ },
+ "decisions_checked": 1904,
+ "forfeits": [],
+ "games": 4,
+ "host_halts": 0,
+ "kit_wins": 3,
+ "outcome_reasons": {
+  "p0_life_zero": 1,
+  "p1_life_zero": 3
+ },
+ "run_secret": "0403caec570a8951a2377689e314d92e475954e86d5662d1b9f0b8826e3a67e7",
+ "steps_per_game": {
+  "mean": 476
+ },
+ "total_wall_s": 222.2,
+ "violations": [],
+ "wall_s_per_game": {
+  "max": 153.531,
+  "mean": 59.78
+ }
+}

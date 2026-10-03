@@ -1,0 +1,122 @@
+{
+ "schema": "spellbench-kit-soak-plan/v1",
+ "format": "fdn-limited-bo1",
+ "decks": [
+  "FDN_top_02581_UR",
+  "FDN_top_02810_UR",
+  "FDN_top_04752_WG",
+  "FDN_top_05840_UGpR",
+  "FDN_top_13096_WU",
+  "FDN_top_13950_BR",
+  "FDN_top_15834_WBpU",
+  "FDN_top_16798_UB",
+  "FDN_top_17463_BG",
+  "FDN_top_20196_GpUR",
+  "FDN_top_20626_WG",
+  "FDN_top_21511_WUR",
+  "FDN_top_23736_U",
+  "FDN_top_24789_BGpW",
+  "FDN_top_26941_WB",
+  "FDN_top_28740_RG"
+ ],
+ "clock_profile": "kit",
+ "time_control": {
+  "startup_ms": 300000,
+  "game_start_ms": 300000,
+  "bank_ms": 3600000,
+  "increment_ms": 2000,
+  "max_decision_ms": 120000,
+  "engine_step_ms": 120000
+ },
+ "entries": [
+  {
+   "entry": "h1",
+   "name": "kit-mad-1",
+   "version": "0.2.0+da7301f729c0"
+  },
+  {
+   "entry": "h2",
+   "name": "kit-mad-k",
+   "version": "0.2.0+6f73bc90a85d"
+  }
+ ],
+ "descriptions": {
+  "kit-mad-1": "XMage's MAD minimax AI (ComputerPlayer7) on one world rebuilt from the seat's permitted inputs and sampled hidden cards, through the Spellbench XMage agent kit (kit-wrapped: rebuilding, synthesized dialogs, fallback, horizons and budgets affect its play).",
+  "kit-mad-k": "As kit-mad-1, voting over four sampled worlds per decision."
+ },
+ "master_secret": "4db5d07b87aaf7e5ab1cb128bc55531facfed3d86524cf0dad50ee22c2f50a73",
+ "workloads": [
+  {
+   "label": "kit-mad-1-vs-heuristic",
+   "bots": [
+    {
+     "kit": "h1"
+    },
+    {
+     "builtin": "heuristic"
+    }
+   ],
+   "pairs": 256,
+   "games": 512,
+   "run_secret": "2e190787c46457aeab16f99b021392f5fdfe6ee8983c3d102c0cba58bfbf3615"
+  },
+  {
+   "label": "kit-mad-1-vs-uniform",
+   "bots": [
+    {
+     "kit": "h1"
+    },
+    {
+     "builtin": "uniform"
+    }
+   ],
+   "pairs": 256,
+   "games": 512,
+   "run_secret": "332a58eb4f873dd75d1a061674f806fc996513c6db29510d5a1569abb7e827d1"
+  },
+  {
+   "label": "kit-mad-k-vs-heuristic",
+   "bots": [
+    {
+     "kit": "h2"
+    },
+    {
+     "builtin": "heuristic"
+    }
+   ],
+   "pairs": 256,
+   "games": 512,
+   "run_secret": "b3661eccae9c4749c92ace16810b90dae2d5263cec21440ec41211dd6d03874c"
+  },
+  {
+   "label": "kit-mad-k-vs-uniform",
+   "bots": [
+    {
+     "kit": "h2"
+    },
+    {
+     "builtin": "uniform"
+    }
+   ],
+   "pairs": 256,
+   "games": 512,
+   "run_secret": "ce41c4f7aab4ef576a91ec2efe102089a6ec335affbd5680950212be169f9410"
+  },
+  {
+   "label": "kit-mad-1-vs-kit-mad-k",
+   "bots": [
+    {
+     "kit": "h1"
+    },
+    {
+     "kit": "h2"
+    }
+   ],
+   "pairs": 64,
+   "games": 128,
+   "run_secret": "7b5ba2fb0f0ce7ae15b905dcc8f6938cac9f8c56af6795bd5c317397e01afc74"
+  }
+ ],
+ "games_total": 2176,
+ "r1_replay_games": 20
+}

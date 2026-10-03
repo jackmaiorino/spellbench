@@ -1,0 +1,114 @@
+{
+ "set-h1-heuristic": {
+  "games": 8,
+  "kit_decisions_per_game": 179.0,
+  "answered_without_a_world": 0.786,
+  "cp7_passing_steps_share_of_multi_candidate": 0.203,
+  "anchors_per_game": 21.2,
+  "build_ms": {
+   "median": 8.0,
+   "p90": 21,
+   "max": 724
+  },
+  "search_ms": {
+   "median": 90.0,
+   "p90": 1096,
+   "max": 19017
+  },
+  "decision_ms_all": {
+   "median": 0.0,
+   "p90": 42,
+   "max": 19024
+  },
+  "kit_ms_per_game": 14.9,
+  "node_cap_fired": 1,
+  "game_wall_s": {
+   "mean": 33.3,
+   "max": 47.875
+  }
+ },
+ "set-h1-uniform": {
+  "games": 4,
+  "kit_decisions_per_game": 257.0,
+  "answered_without_a_world": 0.758,
+  "cp7_passing_steps_share_of_multi_candidate": 0.259,
+  "anchors_per_game": 36.8,
+  "build_ms": {
+   "median": 4,
+   "p90": 11,
+   "max": 156
+  },
+  "search_ms": {
+   "median": 106,
+   "p90": 1837,
+   "max": 12612
+  },
+  "decision_ms_all": {
+   "median": 0.0,
+   "p90": 61,
+   "max": 12618
+  },
+  "kit_ms_per_game": 35.9,
+  "node_cap_fired": 3,
+  "game_wall_s": {
+   "mean": 57.7,
+   "max": 147.531
+  }
+ },
+ "set-h2-heuristic": {
+  "games": 2,
+  "kit_decisions_per_game": 178.0,
+  "answered_without_a_world": 0.758,
+  "cp7_passing_steps_share_of_multi_candidate": 0.031,
+  "anchors_per_game": 14.0,
+  "build_ms": {
+   "median": 6.0,
+   "p90": 46,
+   "max": 145
+  },
+  "search_ms": {
+   "median": 106.5,
+   "p90": 861,
+   "max": 1128
+  },
+  "decision_ms_all": {
+   "median": 0.0,
+   "p90": 30,
+   "max": 4118
+  },
+  "kit_ms_per_game": 12.6,
+  "node_cap_fired": 0,
+  "game_wall_s": {
+   "mean": 32.0,
+   "max": 34.0
+  }
+ },
+ "set-h3-heuristic": {
+  "games": 1,
+  "kit_decisions_per_game": 285.0,
+  "answered_without_a_world": 0.807,
+  "cp7_passing_steps_share_of_multi_candidate": 0.197,
+  "anchors_per_game": 33.0,
+  "build_ms": {
+   "median": 5,
+   "p90": 13,
+   "max": 110
+  },
+  "search_ms": {
+   "median": 8727,
+   "p90": 10585,
+   "max": 10932
+  },
+  "decision_ms_all": {
+   "median": 0,
+   "p90": 3691,
+   "max": 11049
+  },
+  "kit_ms_per_game": 255.1,
+  "node_cap_fired": 0,
+  "game_wall_s": {
+   "mean": 273.5,
+   "max": 273.532
+  }
+ }
+}

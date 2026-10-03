@@ -1,0 +1,142 @@
+{
+ "flagged_anchors": 13,
+ "over_threshold": 13,
+ "anchors": [
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 227,
+   "horizon_stops": 2,
+   "root_alternatives": 3,
+   "share": 0.667,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 65,
+   "horizon_stops": 2,
+   "root_alternatives": 2,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 120,
+   "horizon_stops": 2,
+   "root_alternatives": 1,
+   "share": 2.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 135,
+   "horizon_stops": 3,
+   "root_alternatives": 3,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 154,
+   "horizon_stops": 2,
+   "root_alternatives": 1,
+   "share": 2.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-heuristic",
+   "seat_step": 168,
+   "horizon_stops": 2,
+   "root_alternatives": 2,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 221,
+   "horizon_stops": 2,
+   "root_alternatives": 2,
+   "share": 1.0,
+   "causes": [
+    "stack_source_ambiguous"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 294,
+   "horizon_stops": 5,
+   "root_alternatives": 5,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 321,
+   "horizon_stops": 2,
+   "root_alternatives": 6,
+   "share": 0.333,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 419,
+   "horizon_stops": 6,
+   "root_alternatives": 3,
+   "share": 2.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 420,
+   "horizon_stops": 5,
+   "root_alternatives": 3,
+   "share": 1.667,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h1-uniform",
+   "seat_step": 421,
+   "horizon_stops": 3,
+   "root_alternatives": 3,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  },
+  {
+   "log": "set-h2-heuristic",
+   "seat_step": 114,
+   "horizon_stops": 12,
+   "root_alternatives": 12,
+   "share": 1.0,
+   "causes": [
+    "stack_ability_identity"
+   ]
+  }
+ ],
+ "mcts": {
+  "iterations": 660,
+  "truncated": 215,
+  "horizon": 0,
+  "truncated_share": 0.326
+ }
+}

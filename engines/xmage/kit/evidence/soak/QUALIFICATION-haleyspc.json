@@ -1,0 +1,1318 @@
+{
+ "schema": "spellbench-kit-qualification/v1",
+ "created": "2026-10-02T09:55:13-0400",
+ "host": "haleyspc",
+ "node": "HaleysPC",
+ "workload": "sha256:fbb2731b89744f68d6598160c514dffa6a63ff639cb82136d1a736b860506dc9",
+ "workload_parts": {
+  "plan": "sha256:4d7e2d23bf1810218e80642403b3a7229460b0301a45fa74d2b2dc0ade7052ea",
+  "build": {
+   "engine_lib_digest": "094733a77d5e5b9a6a881c104e7c70ea289f64e98a327c7a4b1937796025a0a8",
+   "rules_snapshot_id": "xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-6f8a902bb6681c2fe4ec79823cf05d5cc46042b2298a33f5ea73e0bbc61a2822",
+   "kit_jars": {
+    "kit-core.jar": "5317269799ff9c68178e3908b4666a5cbb22a29a822ba3cc9a8d5a270cf8af65",
+    "kit-xmage.jar": "a8bb5ed5511aa30faeb1bdebaf266fd0f8e45b6a77d98fa88d357416f73d4920"
+   },
+   "kit_source_digest": "db6dc00766a1dc3127405a677d37541f56be905c444d7568d1e90245bc70ed54",
+   "kit_engine_lib_digest": "094733a77d5e5b9a6a881c104e7c70ea289f64e98a327c7a4b1937796025a0a8"
+  },
+  "p2": "fb80e582ef9efe64b575f2d269eaba1f2e9b3233",
+  "per_game_cores": 2
+ },
+ "clock_profile": "kit",
+ "time_control": {
+  "startup_ms": 300000,
+  "game_start_ms": 300000,
+  "bank_ms": 3600000,
+  "increment_ms": 2000,
+  "max_decision_ms": 120000,
+  "engine_step_ms": 120000
+ },
+ "entries": [
+  {
+   "entry": "h1",
+   "name": "kit-mad-1",
+   "version": "0.2.0+da7301f729c0"
+  },
+  {
+   "entry": "h2",
+   "name": "kit-mad-k",
+   "version": "0.2.0+6f73bc90a85d"
+  }
+ ],
+ "allocation": {
+  "kind": "substantial",
+  "label": "substantial run, measured",
+  "workers": 4,
+  "host": "haleyspc",
+  "cpu_count": 16,
+  "per_game_cores": 2,
+  "games_total": 2176,
+  "rules": {
+   "substantial_run_seconds": 600,
+   "budget_percent": 12,
+   "games_per_worker": 2,
+   "probe_games": 2,
+   "ladder_divisors": [
+    2,
+    1
+   ],
+   "spot_check_divisor": 2
+  },
+  "probe": {
+   "workers": 1,
+   "games": 8,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "seconds_milli": 209891,
+   "busy_milli": 209563,
+   "row_bytes": 11583,
+   "outputs_digest": "sha256:93f441d40cd5727dadbddd9ab8f257ad1a4c9518fdc517f405a692195997662a"
+  },
+  "trials": [
+   {
+    "workers": 1,
+    "games": 8,
+    "indices": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "seconds_milli": 209891,
+    "busy_milli": 209563,
+    "row_bytes": 11583,
+    "outputs_digest": "sha256:93f441d40cd5727dadbddd9ab8f257ad1a4c9518fdc517f405a692195997662a"
+   },
+   {
+    "workers": 2,
+    "games": 8,
+    "indices": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "seconds_milli": 143937,
+    "busy_milli": 274532,
+    "row_bytes": 11583,
+    "outputs_digest": "sha256:93f441d40cd5727dadbddd9ab8f257ad1a4c9518fdc517f405a692195997662a"
+   },
+   {
+    "workers": 4,
+    "games": 8,
+    "indices": [
+     0,
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "seconds_milli": 114094,
+    "busy_milli": 410486,
+    "row_bytes": 11583,
+    "outputs_digest": "sha256:93f441d40cd5727dadbddd9ab8f257ad1a4c9518fdc517f405a692195997662a"
+   }
+  ],
+  "projected_serial_seconds": 57091,
+  "placement": {
+   "main-pc": {
+    "disposition": "used",
+    "reason": "24 hardware threads and 128 GB, released for this run by the coordinator, qualified by P's scaling comparison"
+   },
+   "haleyspc": {
+    "disposition": "used",
+    "reason": "16 cores and 32 GB with 123 GB free on C:, qualified separately (memory caps it at 4 concurrent games) and given a disjoint shard in proportion to its measured throughput"
+   },
+   "runpod": {
+    "disposition": "not_authorized",
+    "reason": "spending needs the coordinator's approval, and a costed projection against the two qualified PCs is made from these measurements first"
+   }
+  },
+  "outputs_identical": true,
+  "outputs_note": null,
+  "spot_check": null,
+  "qualification_seconds_milli": 469047,
+  "workload": "sha256:fbb2731b89744f68d6598160c514dffa6a63ff639cb82136d1a736b860506dc9",
+  "reused": false,
+  "machine": {
+   "memory_bytes": 34282180608,
+   "gpus": [
+    "NVIDIA GeForce RTX 4060"
+   ],
+   "free_bytes": {
+    "pin_root": 130783068160,
+    "run_dir": 130783068160
+   }
+  },
+  "budget": {
+   "projected_bytes": 3150576,
+   "pinned_bytes": 0,
+   "cap_bytes": 6301152
+  }
+ },
+ "kind": "substantial",
+ "workers": 4,
+ "outputs_identical": true,
+ "rungs": [
+  {
+   "workers": 1,
+   "games": 8,
+   "wall_s": 209.9,
+   "games_per_hour": 137.21,
+   "agent_dirs_left": [],
+   "non_natural": 0,
+   "violations": 0,
+   "kit": {
+    "kit-mad-1": {
+     "games": 5,
+     "decisions": 1106,
+     "decision_ms": {
+      "median": 0,
+      "p90": 15,
+      "p99": 249,
+      "max": 1770
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 3453,
+      "max": 5232
+     },
+     "tags": {
+      "bot": 1095,
+      "wrapper": 11
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0099,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:distribute": 7,
+      "fallback_lowest:no_dialog:order_pick": 2,
+      "fallback_declining:approximate_state_without_search": 2
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 5
+      },
+      "pass": {
+       "bot": 786
+      },
+      "play_land": {
+       "bot": 43
+      },
+      "cast_spell": {
+       "bot": 84
+      },
+      "choose_spell_mode": {
+       "bot": 4
+      },
+      "activate_ability": {
+       "bot": 48,
+       "wrapper": 2
+      },
+      "select_object": {
+       "bot": 8
+      },
+      "choose_target": {
+       "bot": 18
+      },
+      "declare_attack": {
+       "bot": 68
+      },
+      "declare_block": {
+       "bot": 26
+      },
+      "distribute": {
+       "wrapper": 7,
+       "bot": 4
+      },
+      "order_pick": {
+       "wrapper": 2
+      },
+      "choose_boolean": {
+       "bot": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 111,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 2
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    },
+    "kit-mad-k": {
+     "games": 4,
+     "decisions": 764,
+     "decision_ms": {
+      "median": 0,
+      "p90": 63,
+      "p99": 1432,
+      "max": 10555
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 8718,
+      "max": 36194
+     },
+     "tags": {
+      "bot": 757,
+      "wrapper": 7
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0092,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:order_pick": 5,
+      "fallback_declining:approximate_state_without_search": 1,
+      "fallback_declining:no_dialog:optional_cost": 1
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 4
+      },
+      "pass": {
+       "bot": 529
+      },
+      "play_land": {
+       "bot": 31
+      },
+      "cast_spell": {
+       "bot": 97
+      },
+      "declare_attack": {
+       "bot": 48
+      },
+      "activate_ability": {
+       "bot": 21,
+       "wrapper": 1
+      },
+      "choose_target": {
+       "bot": 12
+      },
+      "arrange_card": {
+       "bot": 1
+      },
+      "choose_spell_mode": {
+       "bot": 3
+      },
+      "order_pick": {
+       "wrapper": 5
+      },
+      "declare_block": {
+       "bot": 6
+      },
+      "select_object": {
+       "bot": 5
+      },
+      "optional_cost": {
+       "wrapper": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 87,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 1
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "workers": 2,
+   "games": 8,
+   "wall_s": 143.9,
+   "games_per_hour": 200.09,
+   "agent_dirs_left": [],
+   "non_natural": 0,
+   "violations": 0,
+   "kit": {
+    "kit-mad-1": {
+     "games": 5,
+     "decisions": 1106,
+     "decision_ms": {
+      "median": 0,
+      "p90": 18,
+      "p99": 305,
+      "max": 2587
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 4498,
+      "max": 6607
+     },
+     "tags": {
+      "bot": 1095,
+      "wrapper": 11
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0099,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:distribute": 7,
+      "fallback_lowest:no_dialog:order_pick": 2,
+      "fallback_declining:approximate_state_without_search": 2
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 5
+      },
+      "pass": {
+       "bot": 786
+      },
+      "play_land": {
+       "bot": 43
+      },
+      "cast_spell": {
+       "bot": 84
+      },
+      "choose_spell_mode": {
+       "bot": 4
+      },
+      "activate_ability": {
+       "bot": 48,
+       "wrapper": 2
+      },
+      "select_object": {
+       "bot": 8
+      },
+      "choose_target": {
+       "bot": 18
+      },
+      "declare_attack": {
+       "bot": 68
+      },
+      "declare_block": {
+       "bot": 26
+      },
+      "distribute": {
+       "wrapper": 7,
+       "bot": 4
+      },
+      "order_pick": {
+       "wrapper": 2
+      },
+      "choose_boolean": {
+       "bot": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 111,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 2
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    },
+    "kit-mad-k": {
+     "games": 4,
+     "decisions": 764,
+     "decision_ms": {
+      "median": 0,
+      "p90": 66,
+      "p99": 1888,
+      "max": 15365
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 11274,
+      "max": 49444
+     },
+     "tags": {
+      "bot": 757,
+      "wrapper": 7
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0092,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:order_pick": 5,
+      "fallback_declining:approximate_state_without_search": 1,
+      "fallback_declining:no_dialog:optional_cost": 1
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 4
+      },
+      "pass": {
+       "bot": 529
+      },
+      "play_land": {
+       "bot": 31
+      },
+      "cast_spell": {
+       "bot": 97
+      },
+      "declare_attack": {
+       "bot": 48
+      },
+      "activate_ability": {
+       "bot": 21,
+       "wrapper": 1
+      },
+      "choose_target": {
+       "bot": 12
+      },
+      "arrange_card": {
+       "bot": 1
+      },
+      "choose_spell_mode": {
+       "bot": 3
+      },
+      "order_pick": {
+       "wrapper": 5
+      },
+      "declare_block": {
+       "bot": 6
+      },
+      "select_object": {
+       "bot": 5
+      },
+      "optional_cost": {
+       "wrapper": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 87,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 1
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "workers": 4,
+   "games": 8,
+   "wall_s": 114.1,
+   "games_per_hour": 252.42,
+   "agent_dirs_left": [],
+   "non_natural": 0,
+   "violations": 0,
+   "kit": {
+    "kit-mad-1": {
+     "games": 5,
+     "decisions": 1106,
+     "decision_ms": {
+      "median": 0,
+      "p90": 28,
+      "p99": 493,
+      "max": 4870
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 6388,
+      "max": 11252
+     },
+     "tags": {
+      "bot": 1095,
+      "wrapper": 11
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0099,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:distribute": 7,
+      "fallback_lowest:no_dialog:order_pick": 2,
+      "fallback_declining:approximate_state_without_search": 2
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 5
+      },
+      "pass": {
+       "bot": 786
+      },
+      "play_land": {
+       "bot": 43
+      },
+      "cast_spell": {
+       "bot": 84
+      },
+      "choose_spell_mode": {
+       "bot": 4
+      },
+      "activate_ability": {
+       "bot": 48,
+       "wrapper": 2
+      },
+      "select_object": {
+       "bot": 8
+      },
+      "choose_target": {
+       "bot": 18
+      },
+      "declare_attack": {
+       "bot": 68
+      },
+      "declare_block": {
+       "bot": 26
+      },
+      "distribute": {
+       "wrapper": 7,
+       "bot": 4
+      },
+      "order_pick": {
+       "wrapper": 2
+      },
+      "choose_boolean": {
+       "bot": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 111,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 2
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    },
+    "kit-mad-k": {
+     "games": 4,
+     "decisions": 764,
+     "decision_ms": {
+      "median": 0,
+      "p90": 102,
+      "p99": 2800,
+      "max": 22633
+     },
+     "combat_search_ms": {
+      "count": 0,
+      "median": null,
+      "max": null
+     },
+     "bank_used_ms_per_game": {
+      "median": 16959,
+      "max": 69510
+     },
+     "tags": {
+      "bot": 757,
+      "wrapper": 7
+     },
+     "cap_rate": 0.0,
+     "wrapper_rate": 0.0092,
+     "wrapper_paths": {
+      "fallback_lowest:no_dialog:order_pick": 5,
+      "fallback_declining:approximate_state_without_search": 1,
+      "fallback_declining:no_dialog:optional_cost": 1
+     },
+     "tags_by_kind": {
+      "mulligan": {
+       "bot": 4
+      },
+      "pass": {
+       "bot": 529
+      },
+      "play_land": {
+       "bot": 31
+      },
+      "cast_spell": {
+       "bot": 97
+      },
+      "declare_attack": {
+       "bot": 48
+      },
+      "activate_ability": {
+       "bot": 21,
+       "wrapper": 1
+      },
+      "choose_target": {
+       "bot": 12
+      },
+      "arrange_card": {
+       "bot": 1
+      },
+      "choose_spell_mode": {
+       "bot": 3
+      },
+      "order_pick": {
+       "wrapper": 5
+      },
+      "declare_block": {
+       "bot": 6
+      },
+      "select_object": {
+       "bot": 5
+      },
+      "optional_cost": {
+       "wrapper": 1
+      }
+     },
+     "mapping": {
+      "searched_priority_decisions": 87,
+      "unmapped": 0,
+      "unmapped_rate": 0.0,
+      "by_mechanic": {},
+      "by_reason": {},
+      "non_stack_unsupported": 0
+     },
+     "combat_option_cap": {
+      "firings": {
+       "declare_attack": 0,
+       "declare_block": 0
+      },
+      "mcts_searches": {
+       "declare_attack": 0,
+       "declare_block": 0
+      }
+     },
+     "search_caps": {},
+     "runner": {
+      "restarts": 0,
+      "kills": 0,
+      "busy_refusals": 0
+     },
+     "e4": {
+      "mad": {
+       "flagged_searches": 0,
+       "over_threshold": 0,
+       "evaluated_root_alternatives": 0,
+       "affected_root_alternatives": 0,
+       "horizon_encounters": 0,
+       "shares_above_one": 0,
+       "declined_without_search": 1
+      },
+      "mcts": {
+       "priority": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "combat": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       },
+       "total": {
+        "iterations": 0,
+        "actual_rollouts": 0,
+        "truncated_rollouts": 0,
+        "terminal_results": 0,
+        "empty_expansions": 0,
+        "expanded_children": 0,
+        "truncated_expansions": 0,
+        "horizon_rollout_stops": 0,
+        "horizon_expansion_stops": 0,
+        "rollout_cap_stops": 0,
+        "non_stack_excluded": 0,
+        "searches": 0,
+        "clause2_truncated_rollout_share": {
+         "truncated": 0,
+         "actual_rollouts": 0,
+         "share": null,
+         "over_threshold": false
+        },
+        "truncated_expansion_share": {
+         "truncated": 0,
+         "children": 0,
+         "share": null
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,195 @@
+{
+ "kind": "substantial",
+ "label": "substantial run, measured",
+ "workers": 12,
+ "host": "main-pc",
+ "cpu_count": 24,
+ "per_game_cores": 2,
+ "games_total": 2176,
+ "rules": {
+  "substantial_run_seconds": 600,
+  "budget_percent": 12,
+  "games_per_worker": 2,
+  "probe_games": 2,
+  "ladder_divisors": [
+   2,
+   1
+  ],
+  "spot_check_divisor": 2
+ },
+ "probe": {
+  "workers": 1,
+  "games": 24,
+  "indices": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23
+  ],
+  "seconds_milli": 897226,
+  "busy_milli": 896837,
+  "row_bytes": 34766,
+  "outputs_digest": "sha256:86e51814004d69b741eb7fa1ead31921928a076be03fc9a6f52aae64bd7773b1"
+ },
+ "trials": [
+  {
+   "workers": 1,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 897226,
+   "busy_milli": 896837,
+   "row_bytes": 34766,
+   "outputs_digest": "sha256:86e51814004d69b741eb7fa1ead31921928a076be03fc9a6f52aae64bd7773b1"
+  },
+  {
+   "workers": 6,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 399295,
+   "busy_milli": 2036467,
+   "row_bytes": 34766,
+   "outputs_digest": "sha256:86e51814004d69b741eb7fa1ead31921928a076be03fc9a6f52aae64bd7773b1"
+  },
+  {
+   "workers": 12,
+   "games": 24,
+   "indices": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "seconds_milli": 447997,
+   "busy_milli": 4026722,
+   "row_bytes": 34766,
+   "outputs_digest": "sha256:86e51814004d69b741eb7fa1ead31921928a076be03fc9a6f52aae64bd7773b1"
+  }
+ ],
+ "projected_serial_seconds": 81349,
+ "placement": {
+  "main-pc": {
+   "disposition": "used",
+   "reason": "24 hardware threads and 128 GB, released for this run by the coordinator, qualified by P's scaling comparison"
+  },
+  "haleyspc": {
+   "disposition": "used",
+   "reason": "16 cores and 32 GB with 123 GB free on C:, qualified separately (memory caps it at 4 concurrent games) and given a disjoint shard in proportion to its measured throughput"
+  },
+  "runpod": {
+   "disposition": "not_authorized",
+   "reason": "spending needs the coordinator's approval, and a costed projection against the two qualified PCs is made from these measurements first"
+  }
+ },
+ "outputs_identical": true,
+ "outputs_note": null,
+ "spot_check": null,
+ "qualification_seconds_milli": 1746213,
+ "workload": "sha256:fbb2731b89744f68d6598160c514dffa6a63ff639cb82136d1a736b860506dc9",
+ "reused": false,
+ "machine": {
+  "memory_bytes": 137242046464,
+  "gpus": [
+   "NVIDIA GeForce RTX 4070 SUPER",
+   "NVIDIA GeForce RTX 3050"
+  ],
+  "free_bytes": {
+   "pin_root": 394431307776,
+   "run_dir": 394431307776
+  }
+ },
+ "budget": {
+  "projected_bytes": 3152118,
+  "pinned_bytes": 0,
+  "cap_bytes": 6304236
+ }
+}
