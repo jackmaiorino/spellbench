@@ -229,3 +229,13 @@ three child processes closed. This is a new fixture, not a replay of failed
 attempt002. See [payment evidence](gorge-reference-payment-check-20261003.json)
 and [runtime pins](gorge-runtime-preparation-20261003-004.json). No mode is yet
 qualified, rated or published.
+
+The real command's game-start check found a separate integration omission:
+only `search` and `search-mana` loaded the registry, leaving both redeal modes
+unable to start. It also found the auto-pay agents' stale requirement for the
+incorrect global `engine_autopay` declaration. The command now loads the static
+registry for all search modes, and auto-pay policies consume offered cast
+witnesses without claiming that the engine answers triggered-cost mana. The
+old runtime004 fails both seats for those four modes; its records are retained.
+Affected agent tests and vet pass. Fresh runtime bytes and real game-start
+checks for all twelve modes remain required before the guarded retry.

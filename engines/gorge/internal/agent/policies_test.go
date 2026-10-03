@@ -115,12 +115,16 @@ func TestDefaultCastProfileIsAnAlias(t *testing.T) {
 	}
 }
 
-func TestAutoPayRequiresTheDeclaredEngineMode(t *testing.T) {
-	s, _ := New("bot-auto-pay")
-	var reply map[string]any
-	json.Unmarshal(s.Handle([]byte(`{"request_type":"game_start","agent_seed":1}`)), &reply)
-	if reply["response_type"] != "error" || s.bot != nil {
-		t.Fatalf("undeclared auto-pay was accepted: %v", reply)
+func TestAutoPayAcceptsInteractiveTriggerPayment(t *testing.T) {
+	for _, policy := range []string{"bot-auto-pay", "lethal-pressure-auto-pay"} {
+		t.Run(policy, func(t *testing.T) {
+			s, _ := New(policy)
+			var reply map[string]any
+			json.Unmarshal(s.Handle([]byte(`{"request_type":"game_start","agent_seed":1,"engine_profile":{"engine_defaults":{"mana_payment":null}}}`)), &reply)
+			if reply["response_type"] != "ack" || s.bot == nil {
+				t.Fatalf("atomic casts were confused with interactive trigger payment: %v", reply)
+			}
+		})
 	}
 }
 

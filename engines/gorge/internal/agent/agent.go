@@ -134,12 +134,8 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 			base["extensions_accepted"] = extensions
 		}
 	case "game_start":
-		if strings.HasSuffix(s.policy, "auto-pay") {
-			mode := q.EngineProfile.EngineDefaults["mana_payment"]
-			if mode == nil || *mode != "engine_autopay" {
-				return errorLine(q.RequestID, "malformed_request", "auto-pay policy requires engine_autopay")
-			}
-		}
+		// Atomic cast witnesses are offered through x_gorge_view_v1. They do
+		// not imply that the engine answers every trigger-cost mana decision.
 		if strings.HasPrefix(s.policy, "search") {
 			if err := s.startSearch(q); err != nil {
 				return errorLine(q.RequestID, "malformed_request", err.Error())
