@@ -60,6 +60,7 @@ Cold evidence is in these lane-owned snapshots:
 - `E:/spellbench-xmage-all-20261002/native-repairs-001/SEALED.json`: native rename/shutdown checks and pinned tested jars.
 - `E:/spellbench-xmage-all-20261002/model-inputs-001/SEALED.json`: all five private pairs, historical sources/caches, failed probes and restorable image. Seal SHA-256 `8744e1680ee98974b160b04d74b683f7ca7049fb77b8da8b02610955c99278f3`.
 - `E:/spellbench-xmage-all-20261002/decision-adapters-001/SEALED.json`: callback builds, real offered records, all three neural callback receipts and persistent/priority replay checks.
+- `E:/spellbench-xmage-all-20261002/original-search-001/SEALED.json`: pinned original search sources, failed and successful builds, gen33 repeat searches and actual intermediate source bytes. Source revision `c015c93c79bfbaf8e5b3ab5fb05b880663140cb6`; seal SHA-256 `e1da3588b44b6dd6e52b602ab3818f1b1508a269e9b3b0dbe3ee6d10b5731524`. All 152 generated classes match between the replayed build 018 and final build 019. The affected checks pass: 79 tests and one Windows symlink-creation skip.
 
 Recovery remains under `D:/e-scratch/spellbench-xmage-all-20261002`.
 Completed fixtures' disposable card-database copies are pruned with a path,
