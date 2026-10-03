@@ -60,6 +60,9 @@ def load(manifest: Path, digest: str):
         raise ValueError("production qualification cannot use a test reservation root")
     if sha(Path(__file__)) != record["launcher_sha256"]:
         raise ValueError("native launcher source differs")
+    launcher_python = record["launcher_python"]
+    if sha(Path(launcher_python["path"])) != launcher_python["sha256"]:
+        raise ValueError("base Python interpreter differs")
     preparation = Path(record["preparation"])
     if sha(preparation) != record["preparation_sha256"]:
         raise ValueError("frozen runtime preparation differs")
@@ -91,9 +94,27 @@ def work(record: dict, prepared: dict, helper) -> int:
             or status.get("record", {}).get("work_id") != record["work_id"]):
         raise ValueError("native qualification requires this supervisor's active host claim")
     members = helper.job_members(None)
-    if os.getpid() not in members or os.getppid() not in members:
+    supervisors = [event for event in status["events"] if event["kind"] == "adopt"
+                   and event.get("contained") is True and event.get("nested") is False
+                   and event["pid"] in members
+                   and helper.creation_time(event["pid"]) == event["creation_time"]]
+    if len(supervisors) != 1 or os.getpid() not in members:
         raise ValueError("native qualifier is outside its owned supervisor job")
+    supervisor = supervisors[0]["pid"]
+    parents = {pid: parent for pid, parent, _ in helper.process_table()}
+    protected = {supervisor, os.getpid()}
+    ancestor = os.getpid()
+    for _ in range(64):
+        if ancestor == supervisor:
+            break
+        ancestor = parents.get(ancestor)
+        if ancestor not in members:
+            raise ValueError("native controller is not the owned supervisor's descendant")
+        protected.add(ancestor)
+    else:
+        raise ValueError("native controller ancestry is cyclic or too deep")
     hot = Path(record["hot_root"])
+    attempt = Path(record["attempt_root"])
     env = dict(os.environ)
     env.update({k: v for k, v in prepared["environment"].items() if k != "PATH_PREFIX"})
     env["PATH"] = prepared["environment"]["PATH_PREFIX"] + os.pathsep + env["PATH"]
@@ -103,7 +124,7 @@ def work(record: dict, prepared: dict, helper) -> int:
                 "scope": "completed-game throughput qualification; no rated games", "exit_code": 2}
     child = None
     try:
-        with (hot/"QUALIFY.log").open("xb") as log, (hot/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
+        with (attempt/"QUALIFY.log").open("xb") as log, (attempt/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
             child = subprocess.Popen(prepared["command"], cwd=hot, env=env, stdout=log, stderr=subprocess.STDOUT)
             terminal["child_pid"] = child.pid
             while child.poll() is None:
@@ -130,10 +151,10 @@ def work(record: dict, prepared: dict, helper) -> int:
         # supervisor and this controller; terminate only their owned children
         # by both PID and creation time on a failure or surviving child.
         grace = time.monotonic()+2
-        owned = [p for p in helper.job_members(None) if p not in (os.getpid(), os.getppid())]
+        owned = [p for p in helper.job_members(None) if p not in protected]
         while owned and time.monotonic() < grace:
             time.sleep(0.1)
-            owned = [p for p in helper.job_members(None) if p not in (os.getpid(), os.getppid())]
+            owned = [p for p in helper.job_members(None) if p not in protected]
         terminal["forced_owned_children"] = owned
         if owned and terminal["exit_code"] == 0:
             terminal["exit_code"] = 2
@@ -149,7 +170,7 @@ def work(record: dict, prepared: dict, helper) -> int:
                         owned_child_cleanup_confirmed=not remaining)
         if remaining:
             terminal["exit_code"] = 2
-        put(hot/"TERMINAL.json", terminal)
+        put(attempt/"TERMINAL.json", terminal)
     return terminal["exit_code"]
 
 
@@ -162,13 +183,25 @@ def main() -> int:
     record, prepared, helper = load(args.manifest, args.manifest_sha256)
     record["manifest_sha256"] = args.manifest_sha256
     if args.mode == "work":
-        return work(record, prepared, helper)
+        try:
+            return work(record, prepared, helper)
+        except BaseException as exc:
+            put(Path(record["attempt_root"])/"STARTUP-ERROR.json", {"error": f"{type(exc).__name__}: {exc}",
+                "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(), "qualifier_started": False})
+            raise
+    base_python = Path(record["launcher_python"]["path"])
+    # Windows venv redirectors create a parent that waits for the actual
+    # interpreter. It must never be mistaken for the contained supervisor.
+    if Path(sys.executable).resolve() != base_python.resolve():
+        return subprocess.run([str(base_python), str(Path(__file__).resolve()), "--mode", "dispatch",
+            "--manifest", str(args.manifest.resolve()), "--manifest-sha256", args.manifest_sha256], check=False).returncode
     if os.environ.get(helper.TOKEN_ENV):
         raise ValueError("native qualification cannot borrow another task's claim")
     if helper.status()["state"] != "free":
         raise ValueError("canonical host is not free")
     hot = Path(record["hot_root"])
-    if (hot/"DISPATCH.json").exists() or (hot/"QUALIFY.log").exists():
+    attempt = Path(record["attempt_root"])
+    if (attempt/"DISPATCH.json").exists() or (attempt/"QUALIFY.log").exists():
         raise ValueError("this prepared job was already dispatched; inspect its actual status before any recovery")
     command = [sys.executable, str(Path(__file__).resolve()), "--mode", "work", "--manifest", str(args.manifest.resolve()),
                "--manifest-sha256", args.manifest_sha256]
@@ -176,7 +209,7 @@ def main() -> int:
         "supported qualifier exit, declared window/cap/STOP and confirmed owned child cleanup", command, str(hot),
         busy_pattern=r"^(?:java|bo3_.*|native_.*|mtg_kernel.*)\.exe$",
         transport_record={"manifest": str(args.manifest.resolve()), "manifest_sha256": args.manifest_sha256})
-    put(hot/"DISPATCH.json", result)
+    put(attempt/"DISPATCH.json", result)
     print(json.dumps({k: result.get(k) for k in ("state", "generation", "pid", "nested")}))
     return 0 if result["state"] in ("dispatched", "finished-before-handoff") else 2
 
