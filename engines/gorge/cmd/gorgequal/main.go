@@ -35,6 +35,7 @@ import (
 type options struct {
 	games, resample, workers  int
 	audit                     bool
+	progress                  bool
 	policyKeys                []string // nil: every integrated strategy
 	gameIndices               []uint64 // nil: every fixed qualification seed
 	registryPath, registrySHA string
@@ -66,6 +67,7 @@ func (g DeckGate) Pass() bool {
 type Report struct {
 	ScheduledGames int                       `json:"scheduled_games"`
 	SelectedGames  []uint64                  `json:"selected_games,omitempty"`
+	GameSeconds    map[uint64]float64        `json:"game_seconds"`
 	Policies       []string                  `json:"policies"`
 	Totals         Totals                    `json:"totals"`
 	Gates          map[string]DeckGate       `json:"gates"`
@@ -324,7 +326,7 @@ func qualify(o options) (Report, error) {
 		res, err := h.Play(j.i, j.deck, "london", exts, seats)
 		return res, al, seats, err
 	}
-	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}, SearchCoverage: map[string]SearchCoverage{}}
+	rep := Report{Gates: map[string]DeckGate{}, PolicyGates: map[string]DeckGate{}, SearchCoverage: map[string]SearchCoverage{}, GameSeconds: map[uint64]float64{}}
 	rep.ScheduledGames = scheduledGames
 	if o.gameIndices != nil {
 		for _, j := range jobs {
@@ -350,6 +352,7 @@ func qualify(o options) (Report, error) {
 		go func() {
 			defer wg.Done()
 			for j := range work {
+				blockStart := time.Now()
 				a, al, seats, errA := play(j, o.audit)
 				b, _, _, errB := play(j, false)
 				fb, forced := 0, 0
@@ -443,6 +446,11 @@ func qualify(o options) (Report, error) {
 					rep.SearchCoverage[key] = combined
 				}
 				rep.Rows = append(rep.Rows, row)
+				if o.progress {
+					encoded, _ := json.Marshal(map[string]any{"qualification_row": row})
+					fmt.Println(string(encoded))
+				}
+				rep.GameSeconds[j.i] = time.Since(blockStart).Seconds()
 				mu.Unlock()
 			}
 		}()
@@ -475,6 +483,7 @@ func main() {
 	flag.IntVar(&o.resample, "resample", 7, "run the resample self-check before every K-th step (0: never)")
 	flag.IntVar(&o.workers, "workers", max(1, runtime.NumCPU()/2), "concurrent games")
 	flag.BoolVar(&o.audit, "audit", true, "leak scan, consistency, parity and resample checks on the first run of each game")
+	flag.BoolVar(&o.progress, "progress", false, "write each completed fixed-seed audit row to stdout for crash recovery")
 	policies := flag.String("policies", "all", "all integrated policies, or an explicit comma-separated subset recorded in the report")
 	indices := flag.String("game-indices", "", "fixed qualification game indices for a scaling sample; incomplete samples never qualify the full roster")
 	flag.StringVar(&o.registryPath, "registry", "", "frozen registry file")
