@@ -1,4 +1,4 @@
-// Command spellbench-gorge-agent serves gorge's default or lethal-pressure bot
+// Command spellbench-gorge-agent serves gorge's shipped policies
 // in the Spellbench v2 agent role over stdio.
 package main
 
@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	policy := flag.String("policy", "bot", "bot or lethal-pressure")
+	policy := flag.String("policy", "bot", "bot, lethal-pressure, ar8, blocks, explore, legacy, or cast-profile (default-bot alias)")
 	flag.Parse()
 	s, err := agent.New(*policy)
 	if err != nil {

@@ -72,7 +72,15 @@ func (r Report) Clean() bool {
 		t.ResampleFailures == 0 && t.LeakHits == 0 && t.Inconsistent == 0 && t.ParityMismatch == 0
 }
 
-var pairings = []string{"uniform/uniform", "bot/uniform", "bot/lethal-pressure"}
+var pairings = policyPairings()
+
+func policyPairings() []string {
+	out := []string{"uniform/uniform", "bot/lethal-pressure"}
+	for _, p := range agent.Policies() {
+		out = append(out, p.Key+"/uniform")
+	}
+	return out
+}
 
 // auditLink runs a resample check before every k-th step it forwards.
 type auditLink struct {

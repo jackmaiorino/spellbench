@@ -20,11 +20,23 @@
      "display": {"label": "random", "author": "Spellbench", "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.", "url": null}},
     {"name": "heuristic", "version": "2.0.0", "type": "builtin", "owner": "spellbench", "training_style_tags": ["heuristic"],
      "display": {"label": "heuristic", "author": "Spellbench", "description": "Fixed priorities over the offered actions.", "url": null}},
-    {"name": "gorge-bot", "version": "gorge-26257e0eda17/adapter-0.1.0", "type": "subprocess", "engine": "gorge",
+    {"name": "gorge-bot", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
      "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "bot"], "owner": "gorge", "training_style_tags": ["heuristic"],
      "display": {"label": "gorge bot", "author": "gorge", "description": "gorge's default heuristic bot, reading gorge's own seat view.", "url": "https://github.com/adams-shaun/gorge"}},
-    {"name": "gorge-lethal-pressure", "version": "gorge-26257e0eda17/adapter-0.1.0", "type": "subprocess", "engine": "gorge",
+    {"name": "gorge-lethal-pressure", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
      "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "lethal-pressure"], "owner": "gorge", "training_style_tags": ["heuristic"],
-     "display": {"label": "gorge lethal-pressure", "author": "gorge", "description": "gorge's lethal-pressure bot variant.", "url": "https://github.com/adams-shaun/gorge"}}
+     "display": {"label": "gorge lethal-pressure", "author": "gorge", "description": "gorge's lethal-pressure bot variant.", "url": "https://github.com/adams-shaun/gorge"}},
+    {"name": "gorge-ar8", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
+     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "ar8"], "owner": "gorge", "training_style_tags": ["heuristic"],
+     "display": {"label": "gorge ar8", "author": "gorge", "description": "gorge's combined lethal attack policy.", "url": "https://github.com/adams-shaun/gorge"}},
+    {"name": "gorge-blocks", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
+     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "blocks"], "owner": "gorge", "training_style_tags": ["heuristic"],
+     "display": {"label": "gorge blocks", "author": "gorge", "description": "gorge's blocker policy with its native lethal-pressure attack rule.", "url": "https://github.com/adams-shaun/gorge"}},
+    {"name": "gorge-explore", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
+     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "explore"], "owner": "gorge", "training_style_tags": ["heuristic"],
+     "display": {"label": "gorge explore", "author": "gorge", "description": "gorge's seeded exploration policy used for card coverage.", "url": "https://github.com/adams-shaun/gorge"}},
+    {"name": "gorge-legacy", "version": "gorge-26257e0eda17/adapter-0.2.0", "type": "subprocess", "engine": "gorge",
+     "command": ["${GORGE_SPELLBENCH_AGENT}", "-policy", "legacy"], "owner": "gorge", "training_style_tags": ["heuristic"],
+     "display": {"label": "gorge legacy", "author": "gorge", "description": "gorge's legacy policy with the native PCG seed derivation.", "url": "https://github.com/adams-shaun/gorge"}}
   ]
 }

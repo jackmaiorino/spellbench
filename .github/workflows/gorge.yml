@@ -5,6 +5,7 @@ on:
     paths:
       - 'engines/gorge/**'
       - 'benchmarks/pauper-gorge/**'
+      - 'docs/gorge-roster-*.json'
       - '.github/workflows/gorge.yml'
   workflow_dispatch:
 
@@ -46,6 +47,9 @@ jobs:
       - name: Vet
         working-directory: engines/gorge
         run: go vet ./...
+      - name: Check native policy identities and inventory
+        working-directory: engines/gorge
+        run: go test ./internal/agent -run '^Test(Policies|DefaultCastProfile|PolicyFailure|Inventory)' -count=1
       - name: Test
         working-directory: engines/gorge
         run: go test -timeout 60m ./...

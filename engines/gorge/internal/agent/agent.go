@@ -36,6 +36,7 @@ type Record struct {
 
 type Server struct {
 	policy    string
+	identity  Policy
 	bot       seat.Seat
 	plan      *Plan
 	fallbacks int
@@ -44,10 +45,11 @@ type Server struct {
 }
 
 func New(policy string) (*Server, error) {
-	if policy != "bot" && policy != "lethal-pressure" {
-		return nil, fmt.Errorf("unknown policy %q", policy)
+	p, err := lookupPolicy(policy)
+	if err != nil {
+		return nil, err
 	}
-	return &Server{policy: policy, records: map[uint64]*Record{}}, nil
+	return &Server{policy: p.Key, identity: p, records: map[uint64]*Record{}}, nil
 }
 
 // Fallbacks counts substeps answered by the fallback rule; Forced counts
@@ -102,17 +104,12 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 	base := map[string]any{"protocol": protocol.Name, "request_id": q.RequestID}
 	switch q.RequestType {
 	case "hello":
-		name := map[string]string{"bot": "gorge-bot", "lethal-pressure": "gorge-lethal-pressure"}[s.policy]
 		base["response_type"] = "hello_ok"
-		base["bot"] = map[string]string{"name": name, "version": "gorge-26257e0eda17/adapter-0.1.0"}
+		base["bot"] = map[string]string{"name": s.identity.Name, "version": Version}
 		base["requires"] = map[string][]string{"observation": {}, "extensions": {"x_gorge_view_v1"}}
 		base["extensions_accepted"] = []string{"x_gorge_view_v1"}
 	case "game_start":
-		if s.policy == "lethal-pressure" {
-			s.bot = seat.NewLethalPressureBot(q.AgentSeed)
-		} else {
-			s.bot = seat.NewBot(q.AgentSeed)
-		}
+		s.bot = s.identity.New(q.AgentSeed)
 		s.plan = nil
 		s.records = map[uint64]*Record{}
 		base["response_type"] = "ack"
@@ -151,16 +148,13 @@ func Serve(r io.Reader, w io.Writer, s *Server) error {
 	}
 }
 
-// decide asks the bot. A panic answers an empty intent, so no op matches and
-// the substep falls back, counted.
+// A failed native policy becomes an agent error through Handle's recovery.
+// It must never silently play the fallback policy instead.
 func (s *Server) decide(v view.View, d decision.Decision) (in decision.Intent) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Fprintln(os.Stderr, "gorge agent: bot panic:", r)
-			in = decision.Intent{}
-		}
-	}()
-	in, _ = s.bot.Decide(context.Background(), v, d)
+	in, err := s.bot.Decide(context.Background(), v, d)
+	if err != nil {
+		panic(err)
+	}
 	return in
 }
 

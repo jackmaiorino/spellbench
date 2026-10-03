@@ -54,7 +54,9 @@ The wrapped bots see per-seat ids and name-sorted hidden options, so their games
 
 ## Benchmark: `pauper-gorge`
 
-`benchmarks/pauper-gorge/benchmark.json` (schema `spellbench-benchmark/v2`, the shape sub-project P's bench loader parses): the five catalog decks as catalog-id deck sources, 4 pairs per deck, the `x_gorge_view_v1` extension, and four bots: `uniform` (builtin, the rating anchor), `heuristic` (builtin), `gorge-bot` and `gorge-lethal-pressure` (subprocess, version `gorge-26257e0eda17/adapter-0.1.0`, their `hello_ok` identities).
+`benchmarks/pauper-gorge/benchmark.json` (schema `spellbench-benchmark/v2`, the shape sub-project P's bench loader parses): the five catalog decks as catalog-id deck sources, 4 pairs per deck, the `x_gorge_view_v1` extension, and eight bots: `uniform` (builtin, the rating anchor), `heuristic` (builtin), and the six ordinary gorge policies `bot`, `lethal-pressure`, `ar8`, `blocks`, `explore`, and `legacy` (subprocess, version `gorge-26257e0eda17/adapter-0.2.0`). This is preparation, not a frozen or rated run. The complete pinned inventory, aliases, pending payment/search modes, qualification and publication status are in `docs/gorge-roster-20261002.json`.
+
+The adapter uses the upstream constructors and native legacy PCG seed derivation. The embedded default `cast-profile` equals `DefaultCastWeights`, so it uses the `gorge-bot` identity. Unknown or unfinished policies are refused. Native policy errors produce an agent error instead of silently substituting a fallback policy. The bounded public checkpoint search is recorded in `docs/gorge-public-model-search-20261002.json`; no compatible PolicyNet weights were recovered.
 
 The loader fixes the information rules, so the file states none: opponent decklist visible, mulligan `auto` (london where the engine supports it; gorge declares `london` and `none`, so `pauper-gorge` plays london per spec 12.2 and Decision 4), host-assigned starting player with seat p0, and no probe. Cross-engine note: `pauper-kernel` plays mulligan `none`, so the comparison is not like for like.
 

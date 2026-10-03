@@ -1,0 +1,25 @@
+{
+  "schema": "spellbench-public-model-search/v1",
+  "checked_at_utc": "2026-10-03T01:45:52Z",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "scope": "Moderate public search requested by Jack; no author contact or new training.",
+  "conclusion": "No compatible public gorge checkpoint recovered. This does not prove that none exists under an unknown account or unindexed location.",
+  "checks": [
+    {"source": "https://huggingface.co/api/models?search=gorge&limit=1000", "result": "No gorge MTG policy identified. Exact-name udp443/Gorge contains only .gitattributes; ACEGameAI/Gorge-Martinez files are James-Franco-named safetensors, with no gorge provenance or .gpol files."},
+    {"source": "https://huggingface.co/api/datasets?search=gorge&limit=50", "result": "No related result among the first 50."},
+    {"source": "https://huggingface.co/api/spaces?search=gorge&limit=50", "result": "No related result among the first 50."},
+    {"source": "https://huggingface.co/api/models?author=adams-shaun", "result": "Zero models; also zero for shaunpadams, shaun-adams and shaunadams."},
+    {"source": "https://github.com/adams-shaun", "result": "Public repositories and linked Linktree contain no recovered model download."},
+    {"source": "https://github.com/adams-shaun/gorge/releases", "result": "GitHub API returned zero releases."},
+    {"source": "https://api.github.com/repos/adams-shaun/gorge/git/trees/main?recursive=1", "result": "Complete recursive tree returned no .gpol, .safetensors, .onnx, .pth, .pt, .pkl or .bin files."},
+    {"source": "https://github.com/adams-shaun/gorge/tree/26257e0eda1779d739a07e835c6500b9c4dabc62", "result": "Pinned README, docs and model loader have training reports and local checkpoint references, but no Hugging Face or public checkpoint-download link."}
+  ],
+  "other_bot_found": {
+    "source": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
+    "revision": "c0ac902361c041f986f429ad9d42e7b92494741f",
+    "files": ["checkpoints/gen0.pt.gz", "checkpoints/gen10.pt.gz", "checkpoints/gen33.pt.gz"],
+    "requirements": ["MageZero bcc76de", "draft-zero assets/vocab/FDN_SPG.tsv", "danieljbrooks/mage exp1-fdn-generalist 5a32441c"],
+    "compatibility": "MageZero/XMage checkpoints, incompatible with gorge's .gpol loader. Model card says MageZero v0.2.0 loading is untested and end-to-end use outside its training harness has not been verified.",
+    "coordination": "Source and compatibility requirements sent to Jack's XMage task. No checkpoint downloaded or rated here."
+  }
+}
