@@ -296,3 +296,43 @@ the actual classpath and labels its output `reviewed_runtime: false` under
 `spellbench-draftzero-model-compile/v1`. The default qualification build retains
 the reviewed 004913a manifest pin. Compilation does not qualify complete-game
 play, and all learned-family rating and publication fields remain false.
+
+The public Exp1 lifecycle frontend and verified launcher are implemented on
+source `f70fa80e04a2a6bc81c667727a3bc91d29007c16`. All 169 affected Python
+checks pass, with one existing Windows symlink-creation skip. They cover
+public protocol replies, saved own casting and resolving actions, explicit
+passed-seat replay, earlier forced callbacks, complete combat-group reuse,
+visible card origins, confirmed own loyalty costs, deterministic HMAC seeds,
+the host's actual `max_decision_ms` field, one shared clock, failure poisoning,
+checkpoint identity and container ownership recorded before launch.
+
+Read-only launcher verification passes against retained build 048, including
+all classes, resources, dependencies, reviewed engine jars, JDK bytes and
+action vocabulary. A Windows build manifest uses native relative separators;
+the verifier now checks that representation and refuses changed, injected or
+escaping runtime files. No new JVM, checkpoint inference or full game follows
+from these read-only checks. The constructor-default mulligan keep policy is
+explicit. The fair port's 600-second search envelope, shared host clock and
+fresh roots differ from upstream's 4-second default and are identity-bound.
+
+One gen33 six-visit FDN game against the heuristic anchor and its same-seed
+replay are prepared under a new small correctness job. The four preparation
+copies are reread in `E:/spellbench-xmage-full-agent-20261003-001/` with D:
+recovery retained. `PREPARED.json` has SHA-256
+`a697eec9fbf7883767fea54abc414c34534d58331f02223acf7fa4692e7b9d3c`;
+`PLAN.json` has SHA-256
+`350c3afa6e2c1912a40f84972dcd8dfa0a4447c162af49bae255b1fe0ffa2752`.
+The prepared bot version is `exp1-visible-v1-94b0e46bf0a32882a9755544`.
+This job has a 1,200-second window and a 2 GiB combined hot/cold output cap
+that counts both writable card DBs. It references existing model assets
+without copying them, preserves their unchanged 6 GiB aggregate input cap
+and both 60 GiB volume reserves, and authorizes no paid compute.
+
+At 19:19 UTC the guarded dispatch is not started: Jack's canonical claim
+generation 132 belongs to `codex-lead-20261002`, work
+`complete-agent-calibration-formal-001-002`. The retained `NOT-STARTED.json`
+records zero owned processes and no run manifest. The prepared check requires
+its own free canonical claim before dispatch. Haley's reserved work and
+frozen measurements are unchanged. Complete-game qualification, remaining
+callbacks, fork combat retry parity and all learned ratings/publication remain
+unfinished. Native ratings still require review of the benchmark definition.
