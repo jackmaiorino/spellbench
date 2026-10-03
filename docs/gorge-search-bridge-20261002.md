@@ -1,7 +1,11 @@
 # gorge public search bridge
 
-Status: implementation with bounded correctness checks. No full qualification,
-rated games or publication. Source pin: `26257e0eda1779d739a07e835c6500b9c4dabc62`.
+Status: all twelve modes are implemented, with completed qualification attempts
+that failed per-deck search coverage and reconstruction gates. No mode is fully
+qualified, rated or published. The [current native audit and source repair](gorge-native-audit-20261003.json)
+records 280 blocks, 552 natural games, four duplicated halts, and eight natural
+repair replays. The observations below retain their original source scope.
+Source pin: `26257e0eda1779d739a07e835c6500b9c4dabc62`.
 
 `search` and `search-mana` call the native `searchseat.Choose`, candidate builder,
 sampler proposal and weighting code, rollout teacher and default bot. Runtime

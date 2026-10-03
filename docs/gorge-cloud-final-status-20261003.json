@@ -220,7 +220,7 @@
       19.88128999999026
     ],
     "affected_checks": "TestSpellbombWindow, TestUnlessPay, TestHybridPip and mapping vet passed; real fixture exercises interactive and Done-only windows",
-    "limitation": "Small same-seed correctness replay; full native audit and new representative qualification remain pending"
+    "limitation": "Small same-seed correctness replay. Subsequent full native audit and source-resolution repair are recorded in docs/gorge-native-audit-20261003.json; full current-runtime qualification remains incomplete."
   },
   "sampler_diagnostic": {
     "source_of_record": "E:/spellbench-gorge-search-diagnostic-20261003-002/CHECK.json",
@@ -295,7 +295,7 @@
       "seal_sha256": "99bc8e80346b9b1984398f250a72afb823045a9a3bd99d9ccc1df93710c783b2"
     }
   ],
-  "native_audit": "Not dispatched; adapter fixes and per-deck search coverage remain necessary",
+  "native_audit": "Completed on runtime011: 280 blocks, 552 of 560 physical games natural, four duplicated source-resolution halts. All four failed seeds and repeats pass on runtime012. Search coverage and reconstruction gates still fail; docs/gorge-native-audit-20261003.json.",
   "qualification_complete": false,
   "rated_games": 0,
   "published": false,
