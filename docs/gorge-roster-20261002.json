@@ -258,16 +258,17 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "All public search bridge tests passed in48.398 seconds and vet passed after the public basic-search repair at 7eab88c7c722c7c07db0409d59fd2815346d3fb4. Hosted full CI after this repair is pending; prior full CI passed at3894ff5c976121c8c3c536810404e344e06876b9.",
+      "full_adapter_suite": "All nested strategy tests passed in 43.289 seconds with vet and diff checks passing at source 070428f7122e6e451d0312b7cfbd43693b70f3d1. Prior full hosted CI passed at 7c0428ae2e97919f4a4c11c8ec7b513f4246b183; current source awaits fresh hosted CI.",
       "five_deck_search_qualification": "Attempted in the 120-game cloud matrix and 280-block native audit. Per-deck search coverage and public reconstruction gates failed; evidence: docs/gorge-native-audit-20261003.json.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
-      "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json"
+      "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json",
+      "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json"
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-014.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-015.json",
   "engine_configuration": {
     "rated_registry_input": "explicit registry file and expected SHA-256; frozen runtime prepared and startup checked, qualification and rated launch are pending",
     "auto_pay": true,
