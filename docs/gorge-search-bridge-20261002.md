@@ -151,6 +151,15 @@ qualification were run with these binaries.
 Those preserved binaries predate the public redeal implementation; rebuild and
 preserve new runtime bytes before qualifying the complete roster.
 
+The updated preparation at `aa7364e` now preserves fresh Windows/Linux binaries
+for the complete roster and reuses the exact registry above. All twelve modes
+and the engine passed restricted Linux container startup with profiles identical
+to Windows. A repeated Windows engine build produced the same retained binary
+hash, and normal exit left no containers for the new image. See
+`docs/gorge-runtime-preparation-20261003-002.json` for hashes, build commands and
+verified D/E copies. These checks cover hello and normal exit only; forced
+termination, complete reference-host games, clocks and allocation remain pending.
+
 Remaining work: finish the event and identity audit across the five-deck card pool, preserve legal
 mapping at shipped budgets under reference-host clocks, qualify the container
 lifecycle and guarded completed-work throughput, and freeze the
