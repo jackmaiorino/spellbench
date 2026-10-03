@@ -21,6 +21,7 @@ from pathlib import Path
 
 from .prompt import Prompt
 from .provider import Completion, ProviderError
+from .budget_transfer import BudgetPaths
 
 SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
@@ -110,8 +111,10 @@ def _terminal_request(policy, row) -> bool:
 
 
 class RunBudget:
-    def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None):
+    def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None,
+                 path_map: Path | None = None, path_map_sha256: str | None = None):
         self.path, self.model = Path(path), model
+        self.paths = BudgetPaths(self.path, path_map, path_map_sha256)
         self.expected_limits = dict(expected_limits or {})
         with self._transaction() as database:
             policy = self._policy(database)
@@ -197,15 +200,18 @@ class RunBudget:
                                     recovery=recovery, no_cutoff=no_cutoff)
 
     @staticmethod
-    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None) -> None:
-        receipt = Path(recovery["receipt"]).resolve(strict=True)
+    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None,
+                          paths: BudgetPaths | None = None) -> None:
+        receipt = paths.resolve(recovery["receipt"]) if paths else Path(recovery["receipt"]).resolve(strict=True)
         if _digest(receipt) != recovery["receipt_sha256"]:
             raise ProviderError("run_budget_recovery_changed")
         value = json.loads(receipt.read_bytes())
-        manifest = Path(value["retained_run_manifest"]).resolve(strict=True)
+        manifest = (paths.resolve(value["retained_run_manifest"]) if paths
+                    else Path(value["retained_run_manifest"]).resolve(strict=True))
         publication = json.loads(manifest.read_bytes())
         if (value["schema"] != "spellbench-llm-failed-run-recovery/v1"
-                or value["parent"] != str(parent) or value["parent_sha256"] != parent_sha256
+                or value["parent"] != (paths.key(parent) if paths else str(parent))
+                or value["parent_sha256"] != parent_sha256
                 or value["effective_deadline"] != deadline
                 or value["purpose"] not in {"provider-diagnostics", "fixed-panel-rerun"}
                 or _digest(manifest) != value["retained_run_sha256"]
@@ -326,6 +332,7 @@ class RunBudget:
             database.execute("BEGIN IMMEDIATE")
             if _successor_claim(self.path.resolve()).exists():
                 raise ProviderError("run_budget_attempt_continued")
+            self.paths.validate()
             yield database
             database.commit()
         except (sqlite3.Error, OSError, ValueError, KeyError, TypeError):
@@ -337,11 +344,12 @@ class RunBudget:
     def _policy(self, database):
         value = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
         self._validate_policy(value, self.model, self.expected_limits)
+        self.paths.validate_prefix(database, value)
         current = self.path.resolve()
         origin = _origin(current)
         if origin.exists() or "continuation" in value:
             recorded = json.loads(origin.read_bytes())
-            if (recorded["successor"] != str(current)
+            if (recorded["successor"] != self.paths.key(current)
                     or recorded["policy"] != {key: item for key, item in value.items() if key != "terminal_error"}):
                 raise ProviderError("run_budget_continuation_changed")
         seen = {current}
@@ -365,7 +373,7 @@ class RunBudget:
                         or type(extension["parent_deadline"]) not in (int, float)
                         or not math.isfinite(extension["parent_deadline"])):
                     raise ValueError("invalid wall extension")
-            parent = Path(continuation["parent"]).resolve(strict=True)
+            parent = self.paths.resolve(continuation["parent"])
             _retained_file(parent)
             recovery = continuation.get("recovery") if continuation["kind"] == "failed-run-recovery" else None
             if continuation["kind"] == "failed-run-recovery" and not isinstance(recovery, dict):
@@ -376,7 +384,7 @@ class RunBudget:
                 raise ProviderError("run_budget_parent_changed")
             seen.add(parent)
             claim = json.loads(_successor_claim(parent).read_bytes())
-            if (claim["successor"] != str(current) or claim["parent_sha256"] != continuation["parent_sha256"]
+            if (claim["successor"] != self.paths.key(current) or claim["parent_sha256"] != continuation["parent_sha256"]
                     or claim["policy"] != {key: item for key, item in child.items() if key != "terminal_error"}):
                 raise ProviderError("run_budget_continuation_changed")
             retained = sqlite3.connect(parent.as_uri() + "?mode=ro", uri=True, timeout=10)
@@ -394,11 +402,11 @@ class RunBudget:
                     overlay = _deadline_extension(parent)
                     if continuation["parent_overlay_sha256"] != (_digest(overlay) if overlay.exists() else None):
                         raise ProviderError("run_budget_recovery_changed")
-                    parent_deadline = self._effective_deadline_for(parent, prior)
-                    child_deadline = self._effective_deadline_for(current, child)
+                    parent_deadline = self._effective_deadline_for(parent, prior, logical=self.paths.key(parent))
+                    child_deadline = self._effective_deadline_for(current, child, logical=self.paths.key(current))
                     if child_deadline != (None if no_cutoff else parent_deadline):
                         raise ProviderError("run_budget_recovery_changed")
-                    self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline)
+                    self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline, self.paths)
                 # Validate each ancestor against this boundary's retained wall
                 # limit, rather than the leaf's prospectively extended limit.
                 ancestor_limits = {name: limit for name, limit in self.expected_limits.items()
@@ -432,7 +440,7 @@ class RunBudget:
 
     def _effective_deadline(self, policy: dict) -> float | None:
         """Validate the host-owned overlay without changing measured policy bytes."""
-        return self._effective_deadline_for(self.path.resolve(), policy)
+        return self._effective_deadline_for(self.path.resolve(), policy, logical=self.paths.key(self.path))
 
     def qualification_origin(self) -> Path:
         """The sealed budget path for the same qualified request configuration.
@@ -446,13 +454,13 @@ class RunBudget:
             policy = self._policy(database)  # verifies all ancestor/receipt/overlay bindings
             path = self.path.resolve()
             while policy.get("continuation", {}).get("kind") == "failed-run-recovery":
-                path = Path(policy["continuation"]["parent"]).resolve(strict=True)
+                path = self.paths.resolve(policy["continuation"]["parent"])
                 with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as retained:
                     policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
             return path
 
     @staticmethod
-    def _effective_deadline_for(path: Path, policy: dict) -> float | None:
+    def _effective_deadline_for(path: Path, policy: dict, *, logical: str | None = None) -> float | None:
         marker = _deadline_extension(path)
         continuation = policy.get("continuation", {})
         no_cutoff = continuation.get("no_cutoff", False)
@@ -468,7 +476,7 @@ class RunBudget:
         if (not isinstance(value, dict) or set(value) != {
                 "schema", "budget", "policy_sha256", "original_deadline", "effective_deadline", "sha256"}
                 or value["schema"] != DEADLINE_EXTENSION_SCHEMA
-                or value["budget"] != str(path)
+                or value["budget"] != (logical if logical is not None else str(path))
                 or value["policy_sha256"] != _static_policy_digest(policy)
                 or value["original_deadline"] != policy["deadline"]
                 or not _finite_timestamp(value["effective_deadline"])
@@ -486,6 +494,8 @@ class RunBudget:
         """
         if not _finite_timestamp(deadline):
             raise ValueError("an explicit finite absolute deadline is required")
+        if self.paths.manifest is not None:
+            raise ProviderError("run_budget_transfer_overlay_frozen")
         with self._transaction() as database:
             policy = self._policy(database)
             if self._effective_deadline(policy) is None:
@@ -725,7 +735,10 @@ def _hosted_budgets(config):
         if len(timeout_flags) > 1 or any(part != "--allow-timeout-forfeits" for part in timeout_flags):
             raise ProviderError("run_budget_ambiguous_command")
 
-        budget = RunBudget(Path(option("--run-budget")), model=option("--model"), expected_limits={
+        map_option = option("--run-budget-map")
+        budget = RunBudget(Path(option("--run-budget")), model=option("--model"),
+                           path_map=Path(map_option) if map_option else None,
+                           path_map_sha256=option("--run-budget-map-sha256"), expected_limits={
             "max_requests": int(option("--max-run-requests", 4096)),
             "max_reported_tokens": int(option("--max-run-tokens", 10_000_000)),
             "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
@@ -757,9 +770,9 @@ def qualification_config(config) -> dict:
         command = shape["bots"][index]["command"]
         for position, part in enumerate(command):
             if part.startswith("--run-budget="):
-                command[position] = "--run-budget=" + str(origin)
+                command[position] = "--run-budget=" + budget.paths.key(origin)
             elif part == "--run-budget":
-                command[position + 1] = str(origin)
+                command[position + 1] = budget.paths.key(origin)
     return shape
 
 

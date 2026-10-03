@@ -1,17 +1,20 @@
-"""Maintainer-owned stdio entry point for a confined ChatGPT-plan agent.
+"""Maintainer-owned stdio entry point for a ChatGPT-plan agent.
 
-The arena launches this trusted broker; only the child agent runs inside the
-network-less container. Admission and the manifest's isolation labels remain
-the arena's responsibility. No model requests happen during hello preflight.
+The arena launches this trusted broker. By default the child agent runs inside
+a network-less container; explicit trusted process mode provides no sandbox
+guarantees. Admission and isolation labels remain the arena's responsibility.
+No model requests happen during hello preflight.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import uuid
 from pathlib import Path
 
+from .. import wire
 from ..errors import SpellbenchError
 from .agent import AgentConfig
 from .broker import BrokerLimits, BrokerSession, serve_broker
@@ -76,9 +79,10 @@ class PlanProvider:
             raise
 
 
-def child_command(model: str, config: AgentConfig, output_tokens: int) -> list[str]:
-    return ["python", "-m", "spellbench.llm", "--model", model, "--broker-stdio",
-            "--log-dir", "/tmp/logs", "--max-completion-tokens", str(output_tokens),
+def child_command(model: str, config: AgentConfig, output_tokens: int, *,
+                  python: str = "python", log_dir: str = "/tmp/logs") -> list[str]:
+    return [python, "-m", "spellbench.llm", "--model", model, "--broker-stdio",
+            "--log-dir", log_dir, "--max-completion-tokens", str(output_tokens),
             "--max-calls-per-game", str(config.max_calls_per_game),
             "--max-tokens-per-game", str(config.max_tokens_per_game),
             "--max-prompt-bytes", str(config.max_prompt_bytes),
@@ -88,8 +92,13 @@ def child_command(model: str, config: AgentConfig, output_tokens: int) -> list[s
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True)
-    parser.add_argument("--image", required=True)
+    execution = parser.add_mutually_exclusive_group(required=True)
+    execution.add_argument("--image", help="immutable image for the default confined child")
+    execution.add_argument("--trusted-agent-process", action="store_true",
+                           help="run the fixed maintainer adapter as a host process; provides no sandbox guarantees")
     parser.add_argument("--run-budget", type=Path, required=True)
+    parser.add_argument("--run-budget-map", type=Path)
+    parser.add_argument("--run-budget-map-sha256")
     parser.add_argument("--log-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path)
     parser.add_argument("--renew-profile-before-game", action="store_true",
@@ -116,6 +125,7 @@ def main() -> int:
         if args.max_completion_tokens < 1:
             raise ValueError("output limit must be positive")
         budget = RunBudget(args.run_budget, model=args.model,
+                           path_map=args.run_budget_map, path_map_sha256=args.run_budget_map_sha256,
                            expected_limits={"max_requests": args.max_run_requests,
                                             "max_reported_tokens": args.max_run_tokens,
                                             "max_wall_seconds": args.max_run_wall_seconds,
@@ -127,11 +137,26 @@ def main() -> int:
                                     output_tokens=args.max_completion_tokens)
         args.log_dir.mkdir(parents=True, exist_ok=True)
         with (args.log_dir / f"broker-{uuid.uuid4().hex}.jsonl").open("x", encoding="utf-8", newline="\n") as stream:
-            child = DockerPeer(args.image, child_command(args.model, config, args.max_completion_tokens))
+            if args.trusted_agent_process:
+                child_logs = args.log_dir.resolve() / ("trusted-child-" + uuid.uuid4().hex)
+                child_logs.mkdir(mode=0o700)
+                # This prevents accidental credential inheritance. It is not
+                # confinement: trusted code can still access the host.
+                environment = {key: os.environ[key] for key in ("PATH", "SYSTEMROOT", "WINDIR", "LANG", "LC_ALL")
+                               if key in os.environ}
+                environment.update(PYTHONPATH=str(Path(__file__).resolve().parents[2]),
+                                   HOME=str(child_logs), TMPDIR=str(child_logs), TEMP=str(child_logs), TMP=str(child_logs))
+                child = wire.SubprocessPeer(child_command(args.model, config, args.max_completion_tokens,
+                                            python=sys.executable, log_dir=str(child_logs)),
+                                            timeout_s=120, env=environment)
+            else:
+                child = DockerPeer(args.image, child_command(args.model, config, args.max_completion_tokens))
             session = BrokerSession(child, provider,
-                                    settings={"transport": "confined-chatgpt-plan", "model": args.model,
+                                    settings={"transport": ("trusted-chatgpt-plan" if args.trusted_agent_process
+                                                            else "confined-chatgpt-plan"), "model": args.model,
                                               "reasoning_effort": args.reasoning_effort,
-                                              "image_id": args.image, "container_name": child.name,
+                                              "image_id": args.image,
+                                              "container_name": None if args.trusted_agent_process else child.name,
                                               "renew_before_game": args.renew_profile_before_game,
                                               "allow_timeout_forfeits": args.allow_timeout_forfeits,
                                               "aggregate_budget": True, "provider_output_cap": False},
@@ -151,7 +176,7 @@ def main() -> int:
             # An exception in logging, transport or renewal also stops admission,
             # even if a previous request in this broker happened to time out.
             budget.fail("hosted_broker_failed")
-        print("hosted LLM broker failed; check its protected profile, run budget, image and logs", file=sys.stderr)
+        print("hosted LLM broker failed; check its protected profile, run budget, execution mode and logs", file=sys.stderr)
         return 2
     finally:
         if child is not None:

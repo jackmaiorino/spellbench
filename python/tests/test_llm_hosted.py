@@ -24,6 +24,59 @@ from spellbench.errors import TransportError
 from test_llm_agent import decision
 
 
+@pytest.mark.parametrize("result", ["forced", "legal", "illegal", "timeout"])
+def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, monkeypatch, result):
+    path = tmp_path / "budget.sqlite3"
+    RunBudget.create(path, model="luna", requests=8, tokens=80000, wall_seconds=60,
+                     allow_timeout_forfeits=True)
+    provider = Provider(ProviderError("timeout") if result == "timeout" else
+                        Completion('{"candidate_id":' + ("999" if result == "illegal" else "1") + '}',
+                                   "luna", 100, 20))
+    monkeypatch.setattr(hosted, "PlanProvider", lambda *args, **kwargs: provider)
+    monkeypatch.setattr(hosted, "DockerPeer", lambda *args: pytest.fail("trusted mode launched Docker"))
+    monkeypatch.setenv("OPENAI_API_KEY", "must-not-reach-child")
+    monkeypatch.setenv("RUNPOD_API_KEY", "must-not-reach-child")
+    monkeypatch.setenv("SPELLBENCH_PRIVATE", "must-not-reach-child")
+    children, environments = [], []
+    original = wire.SubprocessPeer
+    def child(command, **kwargs):
+        environments.append(kwargs["env"])
+        peer = original(command, **kwargs)
+        children.append(peer)
+        return peer
+    monkeypatch.setattr(wire, "SubprocessPeer", child)
+    incoming = io.BytesIO(b"".join(wire.canonical_json_line(message) for message in [
+        {"protocol": "spellbench/v2", "request_type": "hello", "request_id": "h-1"},
+        {"protocol": "spellbench/v2", "request_type": "game_start", "request_id": "g-1",
+         "game_id": "g", "seat": "p0", "agent_seed": 1,
+         "own_deck": {"decklist": [{"count": 4, "name": "Lightning Bolt"}]}},
+        {"protocol": "spellbench/v2", "request_type": "choose", "request_id": "c-1",
+         **decision(forced=result == "forced").raw},
+    ]))
+    output = io.BytesIO()
+    monkeypatch.setattr(sys, "stdin", type("Input", (), {"buffer": incoming})())
+    monkeypatch.setattr(sys, "stdout", type("Output", (), {"buffer": output})())
+    monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--trusted-agent-process",
+                                    "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
+                                    "--max-run-requests", "8", "--max-run-tokens", "80000",
+                                    "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"])
+    assert hosted.main() == (1 if result in {"illegal", "timeout"} else 0)
+    responses = [wire.strict_json_loads(line) for line in output.getvalue().splitlines()]
+    assert responses[0]["response_type"] == "hello_ok"
+    assert responses[-1]["response_type"] == ("error" if result in {"illegal", "timeout"} else "choice")
+    assert provider.calls == (0 if result == "forced" else 1)
+    assert children[0]._proc.poll() is not None
+    assert not any(key in environments[0] for key in ("OPENAI_API_KEY", "RUNPOD_API_KEY", "SPELLBENCH_PRIVATE"))
+    summary = RunBudget(path, model="luna").summary()
+    assert summary["requests"] == provider.calls
+    assert summary["pending"] == 0
+    assert summary["policy"]["terminal_error"] == ("hosted_broker_failed" if result == "illegal" else None)
+    assert summary["unknown_usage"] == (1 if result == "timeout" else 0)
+    events = [json.loads(line) for line in next((tmp_path / "logs").glob("broker-*.jsonl")).read_text().splitlines()]
+    assert events[0]["provider"]["transport"] == "trusted-chatgpt-plan"
+    assert events[0]["provider"]["image_id"] is None
+
+
 class Peer:
     def __init__(self, image, command):
         self.image, self.command, self.closed = image, command, False
