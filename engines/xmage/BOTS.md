@@ -10,7 +10,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
 | DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated loading and repeated inference pass; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
-| MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated source loader prepared; tested with explicitly synthetic initialized weights | No public pretrained weights found; full fair adapter and qualification unfinished |
+| MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files found in five profiles | One archived Elves snapshot passes isolated tensor/metadata inspection | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
 ## Native policies and aliases
@@ -70,13 +70,18 @@ deck association; an arbitrary Standard deck cannot be substituted.
 The useful author handoff is an exported `.mz` or `model.pt.gz`, the exact
 deck list and version, source/encoder revision, vocabulary or ignore-list
 metadata, and inference/search settings. For raw weights, record the author's
-deck-association evidence. `.mz` handling and the full MageZero game adapter
-remain work to finish when those inputs arrive.
+deck-association evidence. The isolated loader now streams the original `.mz`
+layout, verifies its deck/version metadata, and refuses unexpected members.
+Its export check uses synthetic initialized weights, not a pretrained policy.
+The full MageZero game adapter remains unfinished. Author-supplied local
+checkpoints have an explicit provenance route without invented download URLs;
+see [the input instructions](../../integrations/xmage-models/README.md).
 
 Jack's archive contains 43 snapshot files in the five named profiles visible
 in its current manifest: Pauper-Affinity, Pauper-Elves, Pauper-Rally,
 Pauper-Wildfire and Pauper-Standard. The accompanying move note's older count
-differs. Current policy and mulligan files remain on Haley. Profile names alone
+differs. Current policy and mulligan files remain on Haley; all ten current
+files have SHA-256s recorded in the read-only 2026-10-03 inventory. Profile names alone
 do not establish exact deck hashes. Private source and weights stay outside
 this public repository.
 

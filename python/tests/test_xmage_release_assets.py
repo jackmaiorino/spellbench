@@ -109,3 +109,20 @@ def test_pinned_github_blob_download_requests_raw_bytes(tmp_path):
     item["url"] = "https://example.invalid/changed-transport"
     with pytest.raises(ValueError, match="public Git blob"):
         assets.validate_asset(item)
+
+
+def test_local_checkpoint_is_verified_opaquely_and_never_downloaded(tmp_path):
+    data = b"private checkpoint bytes"
+    item = pinned(data)
+    item.pop("url")
+    item.update(kind="checkpoint", transport="local-file", provenance="Jack's archived export")
+    def must_not_open(*args, **kwargs):
+        pytest.fail("a local checkpoint reached the network")
+    with pytest.raises(ValueError, match="already be staged"):
+        assets.fetch(tmp_path, item, {"cap_bytes": 100, "reserve_bytes": 0}, opener=must_not_open)
+    (tmp_path / item["filename"]).write_bytes(data)
+    assert assets.fetch(tmp_path, item, {"cap_bytes": 100, "reserve_bytes": 0},
+                        opener=must_not_open)["sha256"] == item["sha256"]
+    item.pop("provenance")
+    with pytest.raises(ValueError, match="explicit provenance"):
+        assets.validate_asset(item)

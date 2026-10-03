@@ -85,3 +85,34 @@ def test_deck_local_magezero_weight_requires_association_and_keeps_its_own_archi
     argv = backend.pinned_command(manifest, tmp_path, "ckpt", IMAGE, "probe")
     assert argv[argv.index("--architecture") + 1] == "magezero-v02"
     assert "--actions" not in argv and argv.count("--mount") == 3
+
+
+def test_magezero_export_requires_pinned_metadata_and_is_mountable_as_a_local_checkpoint(tmp_path):
+    manifest = fixture_inputs(tmp_path)
+    config = manifest["inference_backends"].pop("draftzero-exp1")
+    config.pop("action_vocab")
+    manifest["inference_backends"]["magezero-v02"] = config
+    checkpoint = manifest["assets"][0]
+    checkpoint.pop("url")
+    checkpoint.update(transport="local-file", provenance="author-supplied export",
+                      checkpoint_format="magezero-mz", deck_id="sha256:" + "b" * 64,
+                      deck_association_evidence="author supplied the exact deck list")
+    with pytest.raises(ValueError, match="pinned deck name"):
+        backend.pinned_command(manifest, tmp_path, "ckpt", IMAGE, "probe")
+    checkpoint["export_metadata"] = {"deck": "Standard-MonoU", "version": 2}
+    argv = backend.pinned_command(manifest, tmp_path, "ckpt", IMAGE, "serve")
+    assert argv[argv.index("--checkpoint-format") + 1] == "magezero-mz"
+    assert argv[argv.index("--export-deck") + 1] == "Standard-MonoU"
+    assert argv[argv.index("--export-version") + 1] == "2"
+    assert argv[argv.index("--checkpoint") + 1] == "/inputs/checkpoint.mz"
+    assert argv.count("--mount") == 3
+    checkpoint["deck_id"] = "a non-hashed deck nickname"
+    with pytest.raises(ValueError, match="deck association"):
+        backend.pinned_command(manifest, tmp_path, "ckpt", IMAGE, "probe")
+
+
+def test_magezero_export_cannot_be_selected_as_draftzero(tmp_path):
+    manifest = fixture_inputs(tmp_path)
+    manifest["assets"][0]["checkpoint_format"] = "magezero-mz"
+    with pytest.raises(ValueError, match="MageZero architecture"):
+        backend.pinned_command(manifest, tmp_path, "ckpt", IMAGE, "probe")

@@ -9,7 +9,6 @@ needs the audited encoder, action mapping and sampled-world search adapter.
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import importlib.util
 import json
@@ -17,6 +16,8 @@ import os
 import sys
 from importlib.metadata import version
 from pathlib import Path
+
+from checkpoint_format import checkpoint_stream
 
 
 def file_hash(path: Path) -> str:
@@ -32,7 +33,8 @@ def check_pin(path: Path, expected: str) -> None:
 class Runtime:
     def __init__(self, checkpoint: Path, checkpoint_sha256: str, source: Path,
                  model_sha256: str, vocab_sha256: str, actions: Path | None, actions_sha256: str | None,
-                 architecture: str):
+                 architecture: str, checkpoint_format: str = "torch-gzip",
+                 expected_export: dict | None = None):
         # The actual confinement boundary is the host's Docker command; this
         # additional refusal catches an accidental direct invocation on the host.
         if not Path("/.dockerenv").is_file():
@@ -46,6 +48,8 @@ class Runtime:
             check_pin(actions, actions_sha256)
         elif architecture != "magezero-v02":
             raise ValueError("unknown checkpoint architecture")
+        if checkpoint_format == "magezero-mz" and architecture != "magezero-v02":
+            raise ValueError("MageZero exports require the MageZero architecture")
         import torch
         self.torch = torch
         torch.set_num_threads(1)
@@ -56,8 +60,7 @@ class Runtime:
         os.environ.pop("MZ_EMBED_ROWS", None)
         os.environ.pop("MZ_PAD_BUCKET", None)
         # weights_only has no unsafe fallback and admits no arbitrary pickle globals.
-        opener = gzip.open if checkpoint.suffix == ".gz" else open
-        with opener(checkpoint, "rb") as stream:
+        with checkpoint_stream(checkpoint, checkpoint_format, expected_export) as (stream, export_metadata):
             state = torch.load(stream, map_location="cpu", weights_only=True)
         if not isinstance(state, dict) or "model_state_dict" not in state or "feature_vocab" not in state:
             raise ValueError("checkpoint lacks model weights or its feature vocabulary")
@@ -96,6 +99,7 @@ class Runtime:
         self.encoding = {**recorded_encoding,
                          "feature_hash_bins": self.model_module.GLOBAL_MAX}
         self.summary = {"checkpoint_sha256": checkpoint_sha256,
+                        "checkpoint_format": checkpoint_format, "export_metadata": export_metadata,
                         "model_source_sha256": model_sha256, "vocab_source_sha256": vocab_sha256,
                         "action_vocab_sha256": actions_sha256,
                         "architecture": architecture,
@@ -138,6 +142,10 @@ def main() -> int:
     parser.add_argument("mode", choices=("probe", "serve"))
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--checkpoint-sha256", required=True)
+    parser.add_argument("--checkpoint-format", choices=("torch", "torch-gzip", "magezero-mz"),
+                        default="torch-gzip")
+    parser.add_argument("--export-deck")
+    parser.add_argument("--export-version", type=int)
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--model-sha256", required=True)
     parser.add_argument("--vocab-sha256", required=True)
@@ -146,8 +154,12 @@ def main() -> int:
     parser.add_argument("--architecture", choices=("draftzero-exp1", "magezero-v02"), required=True)
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
+    expected_export = None
+    if args.export_deck is not None or args.export_version is not None:
+        expected_export = {"deck": args.export_deck, "version": args.export_version}
     runtime = Runtime(args.checkpoint, args.checkpoint_sha256, args.source, args.model_sha256,
-                      args.vocab_sha256, args.actions, args.actions_sha256, args.architecture)
+                      args.vocab_sha256, args.actions, args.actions_sha256, args.architecture,
+                      args.checkpoint_format, expected_export)
     if args.mode == "probe":
         first = runtime.evaluate(runtime.probe_features, runtime.encoding)
         second = runtime.evaluate(runtime.probe_features, runtime.encoding)

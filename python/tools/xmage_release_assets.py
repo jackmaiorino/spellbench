@@ -68,9 +68,15 @@ def validate_asset(asset: dict) -> None:
         raise ValueError("release asset needs a SHA-256 pin")
     if type(asset["bytes"]) is not int or asset["bytes"] <= 0:
         raise ValueError("release asset needs a positive byte count")
-    if not asset["url"].startswith("https://"):
+    transport = asset.get("transport", "bytes")
+    if transport == "local-file":
+        if (asset.get("kind") != "checkpoint" or not isinstance(asset.get("provenance"), str)
+                or not asset["provenance"].strip()):
+            raise ValueError("local checkpoint requires explicit provenance")
+        return
+    if not isinstance(asset.get("url"), str) or not asset["url"].startswith("https://"):
         raise ValueError("release asset needs an HTTPS source")
-    if asset.get("transport", "bytes") not in ("bytes", "github-raw-blob"):
+    if transport not in ("bytes", "github-raw-blob"):
         raise ValueError("unsupported release input transport")
     if asset.get("transport") == "github-raw-blob" and not re.fullmatch(
             r"https://api\.github\.com/repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/git/blobs/[a-f0-9]{40}", asset["url"]):
@@ -83,6 +89,8 @@ def fetch(root: Path, asset: dict, storage: dict, *, opener=urllib.request.urlop
     dest = root / asset["filename"]
     if dest.exists() or dest.is_symlink():
         return verify(dest, asset)
+    if asset.get("transport") == "local-file":
+        raise ValueError("local checkpoint must already be staged in the owned input root")
     usage = regular_tree(root)
     cap, reserve = storage["cap_bytes"], storage["reserve_bytes"]
     if type(cap) is not int or type(reserve) is not int or cap <= 0 or reserve < 0:

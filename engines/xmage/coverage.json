@@ -47,17 +47,17 @@
       "format": "Standard 2022-25, deck-local",
       "checkpoints": [],
       "input_status": "no public weights found in either release bundle",
-      "wiring_status": "separate isolated architecture; synthetic source contract tested",
+      "wiring_status": "isolated raw and mz export loading; synthetic architecture and export contracts tested",
       "integrated": false,
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["author weights with exact deck and encoder association", "mz export import", "full fair adapter", "qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["author weights with exact deck and encoder association", "full fair adapter", "qualification", "guarded evaluation", "review and publication"]
     },
     {
       "family": "jack-xmage-rl",
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
-      "input_status": "43 archived snapshots located; current policy and mulligan files located on Haley",
+      "input_status": "43 archived snapshots located; hashes recorded for ten current policy and mulligan files on Haley",
       "wiring_status": "archived Elves tensors and metadata inspected inside the isolated container",
       "integrated": false,
       "qualified": false,

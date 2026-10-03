@@ -49,11 +49,29 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     assets = {a["id"]: a for a in manifest["assets"]}
     if len(assets) != len(manifest["assets"]):
         raise ValueError("duplicate release input id")
+    checkpoint = assets[checkpoint_id]
+    checkpoint_format = checkpoint.get("checkpoint_format", "torch-gzip")
+    if checkpoint_format not in ("torch", "torch-gzip", "magezero-mz"):
+        raise ValueError("unsupported checkpoint format")
+    expected_export = checkpoint.get("export_metadata")
     if architecture == "magezero-v02":
-        checkpoint = assets[checkpoint_id]
-        if not checkpoint.get("deck_id") or not checkpoint.get("deck_association_evidence"):
+        if (not isinstance(checkpoint.get("deck_id"), str)
+                or not re.fullmatch(r"sha256:[a-f0-9]{64}", checkpoint["deck_id"])
+                or not isinstance(checkpoint.get("deck_association_evidence"), str)
+                or not checkpoint["deck_association_evidence"].strip()):
             raise ValueError("MageZero checkpoint needs its deck association and evidence")
-    mounts = {checkpoint_id: "/inputs/checkpoint.pt.gz", config["model"]: "/inputs/source/model.py",
+    if checkpoint_format == "magezero-mz":
+        if architecture != "magezero-v02":
+            raise ValueError("MageZero exports require the MageZero architecture")
+        if (not isinstance(expected_export, dict) or set(expected_export) != {"deck", "version"}
+                or not isinstance(expected_export["deck"], str) or not expected_export["deck"].strip()
+                or len(expected_export["deck"]) > 128
+                or type(expected_export["version"]) is not int or expected_export["version"] < 0):
+            raise ValueError("MageZero export needs a pinned deck name and version")
+    elif expected_export is not None:
+        raise ValueError("export metadata requires a MageZero .mz bundle")
+    checkpoint_path = "/inputs/checkpoint." + {"torch": "pt", "torch-gzip": "pt.gz", "magezero-mz": "mz"}[checkpoint_format]
+    mounts = {checkpoint_id: checkpoint_path, config["model"]: "/inputs/source/model.py",
               config["feature_vocab_code"]: "/inputs/source/vocab.py"}
     if architecture == "draftzero-exp1":
         mounts[config["action_vocab"]] = "/inputs/actions.tsv"
@@ -73,10 +91,13 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
         if any(x in str(path) for x in (",", "\n", "\r")):
             raise ValueError("input path cannot be expressed as one read-only Docker mount")
         argv.extend(["--mount", f"type=bind,src={path},dst={destination},readonly"])
-    argv.extend([image, mode, "--checkpoint", "/inputs/checkpoint.pt.gz", "--checkpoint-sha256",
+    argv.extend([image, mode, "--checkpoint", checkpoint_path, "--checkpoint-sha256",
                  assets[checkpoint_id]["sha256"], "--source", "/inputs/source", "--model-sha256",
                  assets[config["model"]]["sha256"], "--vocab-sha256",
-                 assets[config["feature_vocab_code"]]["sha256"], "--architecture", architecture])
+                 assets[config["feature_vocab_code"]]["sha256"], "--architecture", architecture,
+                 "--checkpoint-format", checkpoint_format])
+    if expected_export is not None:
+        argv.extend(["--export-deck", expected_export["deck"], "--export-version", str(expected_export["version"])])
     if architecture == "draftzero-exp1":
         argv.extend(["--actions", "/inputs/actions.tsv", "--actions-sha256", assets[config["action_vocab"]]["sha256"]])
     return argv
