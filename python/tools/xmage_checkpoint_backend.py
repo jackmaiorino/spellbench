@@ -133,6 +133,36 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     return argv
 
 
+def pinned_jack_feature_probe_command(manifest: dict, root: Path, checkpoint_id: str, image: str,
+                                     fixture: Path, fixture_sha256: str, staged_base_sha256: str,
+                                     staged_candidates_sha256: str, container_name: str) -> list[str]:
+    """Probe a fixed, hash-bound Java fixture while retaining the serve association check."""
+    config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if checkpoint_id not in config.get("checkpoints", []):
+        raise ValueError("real Jack feature probes require a pinned Jack checkpoint")
+    for digest in (fixture_sha256, staged_base_sha256, staged_candidates_sha256):
+        if not re.fullmatch(r"[a-f0-9]{64}", digest):
+            raise ValueError("real Jack feature probe identities must be SHA-256")
+    fixture = fixture.resolve()
+    if fixture.stat().st_size > 4 * 2**20 or hashlib.sha256(fixture.read_bytes()).hexdigest() != fixture_sha256:
+        raise ValueError("real Jack feature fixture differs")
+    helper = Path(__file__).resolve().parents[2] / "integrations/xmage-models/jack_feature_probe.py"
+    argv = pinned_command(manifest, root, checkpoint_id, image, "probe", container_name)
+    extra = ["--entrypoint", "python"]
+    for path, destination in ((fixture, "/checks/fixture.json"), (helper, "/checks/jack_feature_probe.py")):
+        if any(c in str(path) for c in (",", "\n", "\r")):
+            raise ValueError("real feature probe path cannot be a read-only Docker mount")
+        extra.extend(["--mount", f"type=bind,src={path},dst={destination},readonly"])
+    index = argv.index(image)
+    argv[index:index] = extra
+    index = argv.index(image)
+    argv.insert(index + 1, "/checks/jack_feature_probe.py")
+    argv.extend(["--fixture", "/checks/fixture.json", "--fixture-sha256", fixture_sha256,
+                 "--staged-base-sha256", staged_base_sha256,
+                 "--staged-candidates-sha256", staged_candidates_sha256])
+    return argv
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("probe", "serve"))

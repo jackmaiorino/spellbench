@@ -85,3 +85,22 @@ def test_request_envelope_refuses_nonfinite_features_fake_masks_and_hashed_id_ov
         runtime.vector([65536], 1, integers=65536)
     with pytest.raises(ValueError, match="row bound"):
         runtime.matrix([[0] * 48] * 513, 48)
+
+
+def test_real_feature_probe_keeps_pinned_inputs_and_does_not_enable_serve(tmp_path):
+    manifest = inputs(tmp_path)
+    fixture = tmp_path / "fixture.json"
+    fixture.write_text('{"fixed": "encoder fixture"}', encoding="utf-8")
+    digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
+    argv = backend.pinned_jack_feature_probe_command(manifest, tmp_path, "policy", IMAGE,
+        fixture, digest, "b" * 64, "c" * 64, "spellbench-xmage-" + "d" * 32)
+    assert argv.count("--mount") == 9
+    assert argv[argv.index("--entrypoint") + 1] == "python"
+    assert argv[argv.index(IMAGE) + 1:argv.index(IMAGE) + 3] == ["/checks/jack_feature_probe.py", "probe"]
+    assert argv[argv.index("--network") + 1] == "none" and "--read-only" in argv
+    with pytest.raises(ValueError, match="deck association"):
+        backend.pinned_command(manifest, tmp_path, "policy", IMAGE, "serve")
+    fixture.write_text("changed", encoding="utf-8")
+    with pytest.raises(ValueError, match="fixture differs"):
+        backend.pinned_jack_feature_probe_command(manifest, tmp_path, "policy", IMAGE,
+            fixture, digest, "b" * 64, "c" * 64, "spellbench-xmage-" + "d" * 32)
