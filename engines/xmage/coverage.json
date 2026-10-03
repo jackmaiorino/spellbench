@@ -57,13 +57,13 @@
     {
       "family": "jack-xmage-rl",
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
-      "input_status": "43 archived snapshots located; hashes recorded for ten current policy and mulligan files on Haley",
-      "wiring_status": "archived Elves tensors and metadata inspected inside the isolated container",
+      "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
+      "wiring_status": "all five current pairs strictly load and repeat finite inference in isolation; legacy Standard Q mulligan preserved",
       "integrated": false,
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["exact deck, source and encoder associations", "isolated policy and mulligan adapter", "qualification", "appropriate benchmark", "guarded evaluation", "review and publication"]
+      "remaining": ["exact deck, source and encoder associations", "full fair game adapter", "qualification", "appropriate benchmark", "guarded evaluation", "review and publication"]
     }
   ],
   "excluded_helpers": [

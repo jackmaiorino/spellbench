@@ -11,7 +11,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
 | DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated loading and repeated inference pass; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; synthetic architecture/export checks pass | No public pretrained weights found; full fair adapter and qualification unfinished |
-| Jack's XMage RL | Archived April snapshots plus current policy and mulligan files found in five profiles | One archived Elves snapshot passes isolated tensor/metadata inspection | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
+| Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference; Standard retains its legacy Q mulligan rule | Exact deck/encoder/source associations and complete fair adapter unfinished; unrated |
 
 ## Native policies and aliases
 
@@ -80,10 +80,17 @@ see [the input instructions](../../integrations/xmage-models/README.md).
 Jack's archive contains 43 snapshot files in the five named profiles visible
 in its current manifest: Pauper-Affinity, Pauper-Elves, Pauper-Rally,
 Pauper-Wildfire and Pauper-Standard. The accompanying move note's older count
-differs. Current policy and mulligan files remain on Haley; all ten current
-files have SHA-256s recorded in the read-only 2026-10-03 inventory. Profile names alone
-do not establish exact deck hashes. Private source and weights stay outside
-this public repository.
+differs. All ten current policy and mulligan files were copied opaquely from
+Haley and checked against the read-only 2026-10-03 size/hash inventory. Every
+current pair passes isolated strict loading and repeated finite inference
+through all five candidate heads, the legacy actor and its paired mulligan
+network. An archived Elves policy also passes the original candidate-head
+contract. Standard requires the older two-Q mulligan source and decision rule;
+the other four pairs use the April single-logit source. Both source revisions,
+Java encoder/callback sources and offline embedding caches are pinned.
+Synthetic probes do not establish cache coverage, encoder fairness or exact
+deck association. Unassociated entries cannot launch `serve`. Private source
+and weights stay outside this public repository.
 
 ## Next delivery steps
 

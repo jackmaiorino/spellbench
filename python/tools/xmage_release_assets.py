@@ -70,9 +70,10 @@ def validate_asset(asset: dict) -> None:
         raise ValueError("release asset needs a positive byte count")
     transport = asset.get("transport", "bytes")
     if transport == "local-file":
-        if (asset.get("kind") != "checkpoint" or not isinstance(asset.get("provenance"), str)
+        if (asset.get("kind") not in ("checkpoint", "source-code", "feature-data")
+                or not isinstance(asset.get("provenance"), str)
                 or not asset["provenance"].strip()):
-            raise ValueError("local checkpoint requires explicit provenance")
+            raise ValueError("local model input requires explicit provenance")
         return
     if not isinstance(asset.get("url"), str) or not asset["url"].startswith("https://"):
         raise ValueError("release asset needs an HTTPS source")
@@ -90,7 +91,7 @@ def fetch(root: Path, asset: dict, storage: dict, *, opener=urllib.request.urlop
     if dest.exists() or dest.is_symlink():
         return verify(dest, asset)
     if asset.get("transport") == "local-file":
-        raise ValueError("local checkpoint must already be staged in the owned input root")
+        raise ValueError("local model input must already be staged in the owned input root")
     usage = regular_tree(root)
     cap, reserve = storage["cap_bytes"], storage["reserve_bytes"]
     if type(cap) is not int or type(reserve) is not int or cap <= 0 or reserve < 0:

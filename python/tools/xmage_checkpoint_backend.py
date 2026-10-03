@@ -44,7 +44,7 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     if len(candidates) != 1:
         raise ValueError("checkpoint has no pinned inference backend")
     architecture, config = candidates[0]
-    if architecture not in ("draftzero-exp1", "magezero-v02"):
+    if architecture not in ("draftzero-exp1", "magezero-v02", "jack-rl-april"):
         raise ValueError("unsupported checkpoint architecture")
     assets = {a["id"]: a for a in manifest["assets"]}
     if len(assets) != len(manifest["assets"]):
@@ -54,12 +54,12 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     if checkpoint_format not in ("torch", "torch-gzip", "magezero-mz"):
         raise ValueError("unsupported checkpoint format")
     expected_export = checkpoint.get("export_metadata")
-    if architecture == "magezero-v02":
+    if architecture == "magezero-v02" or (architecture == "jack-rl-april" and mode == "serve"):
         if (not isinstance(checkpoint.get("deck_id"), str)
                 or not re.fullmatch(r"sha256:[a-f0-9]{64}", checkpoint["deck_id"])
                 or not isinstance(checkpoint.get("deck_association_evidence"), str)
                 or not checkpoint["deck_association_evidence"].strip()):
-            raise ValueError("MageZero checkpoint needs its deck association and evidence")
+            raise ValueError("deck-local checkpoint needs its deck association and evidence")
     if checkpoint_format == "magezero-mz":
         if architecture != "magezero-v02":
             raise ValueError("MageZero exports require the MageZero architecture")
@@ -71,10 +71,31 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     elif expected_export is not None:
         raise ValueError("export metadata requires a MageZero .mz bundle")
     checkpoint_path = "/inputs/checkpoint." + {"torch": "pt", "torch-gzip": "pt.gz", "magezero-mz": "mz"}[checkpoint_format]
-    mounts = {checkpoint_id: checkpoint_path, config["model"]: "/inputs/source/model.py",
-              config["feature_vocab_code"]: "/inputs/source/vocab.py"}
-    if architecture == "draftzero-exp1":
-        mounts[config["action_vocab"]] = "/inputs/actions.tsv"
+    mounts = {checkpoint_id: checkpoint_path, config["model"]: "/inputs/source/model.py"}
+    if architecture == "jack-rl-april":
+        if checkpoint_format != "torch":
+            raise ValueError("Jack checkpoints require their original raw Torch format")
+        required = {"mulligan_checkpoint": checkpoint.get("mulligan_checkpoint"),
+                    "mulligan_source": checkpoint.get("mulligan_source", config.get("mulligan_source")),
+                    "state_encoder": config.get("state_encoder"), "callback_source": config.get("callback_source"),
+                    "embedding_cache": checkpoint.get("embedding_cache", config.get("embedding_cache"))}
+        if any(not isinstance(aid, str) or aid not in assets for aid in required.values()):
+            raise ValueError("Jack inference needs paired mulligan, source, encoder and embedding inputs")
+        mulligan_format = checkpoint.get("mulligan_format", "keep-logit")
+        if mulligan_format not in ("keep-logit", "keep-mull-q"):
+            raise ValueError("unsupported Jack mulligan policy format")
+        destinations = {"mulligan_checkpoint": "/inputs/mulligan.pt",
+                        "mulligan_source": "/inputs/source/mulligan_model.py",
+                        "state_encoder": "/inputs/source/StateSequenceBuilder.java",
+                        "callback_source": "/inputs/source/ComputerPlayerRL.java",
+                        "embedding_cache": "/inputs/card_embeddings.json"}
+        if len({*mounts, *required.values()}) != len(mounts) + len(required):
+            raise ValueError("Jack's paired input identities must be distinct")
+        mounts.update({required[key]: destination for key, destination in destinations.items()})
+    else:
+        mounts[config["feature_vocab_code"]] = "/inputs/source/vocab.py"
+        if architecture == "draftzero-exp1":
+            mounts[config["action_vocab"]] = "/inputs/actions.tsv"
     argv = ["docker", "run", "--rm", "--interactive", "--network", "none", "--read-only",
             "--cpus", "1", "--memory", "3g", "--memory-swap", "3g", "--pids-limit", "64",
             "--security-opt", "no-new-privileges", "--cap-drop", "ALL",
@@ -93,9 +114,18 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
         argv.extend(["--mount", f"type=bind,src={path},dst={destination},readonly"])
     argv.extend([image, mode, "--checkpoint", checkpoint_path, "--checkpoint-sha256",
                  assets[checkpoint_id]["sha256"], "--source", "/inputs/source", "--model-sha256",
-                 assets[config["model"]]["sha256"], "--vocab-sha256",
-                 assets[config["feature_vocab_code"]]["sha256"], "--architecture", architecture,
+                 assets[config["model"]]["sha256"], "--architecture", architecture,
                  "--checkpoint-format", checkpoint_format])
+    if architecture == "jack-rl-april":
+        argv.extend(["--mulligan", "/inputs/mulligan.pt", "--mulligan-sha256",
+                     assets[required["mulligan_checkpoint"]]["sha256"], "--mulligan-source-sha256",
+                     assets[required["mulligan_source"]]["sha256"], "--encoder-sha256",
+                     assets[required["state_encoder"]]["sha256"], "--callback-sha256",
+                     assets[required["callback_source"]]["sha256"], "--embeddings", "/inputs/card_embeddings.json",
+                     "--embeddings-sha256", assets[required["embedding_cache"]]["sha256"],
+                     "--mulligan-format", mulligan_format])
+    else:
+        argv.extend(["--vocab-sha256", assets[config["feature_vocab_code"]]["sha256"]])
     if expected_export is not None:
         argv.extend(["--export-deck", expected_export["deck"], "--export-version", str(expected_export["version"])])
     if architecture == "draftzero-exp1":

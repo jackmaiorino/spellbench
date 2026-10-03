@@ -27,7 +27,7 @@ are retained. No checkpoint or upstream Python source is imported on the host.
 
 `serve` uses the same confinement and pins. It emits a readiness line, then
 accepts NDJSON requests with `id`, `features` and `encoding`. Each response
-contains four raw policy heads and a scalar value. Features are mapped through
+for MageZero/DraftZero contains four raw policy heads and a scalar value. Features are mapped through
 the checkpoint's saved dense vocabulary with the original deduplication and
 unknown-feature handling. An input with no known features is refused. Legal
 candidate mapping and the original search belong to the game adapter.
@@ -70,8 +70,40 @@ linked, encrypted or oversized metadata entries are refused.
 Raw `.pt.gz` and `.pt` inputs use `checkpoint_format` values `torch-gzip` and
 `torch`. They require the same exact deck hash and association evidence but no
 `export_metadata`. Public download assets still require an HTTPS source.
-Local assets require recorded provenance and an already staged, hash-matching
-file; the preparation tool never downloads or deserializes a local checkpoint.
+Local checkpoint, source-code and feature-data assets require recorded
+provenance and an already staged, hash-matching file. The preparation tool
+never downloads or deserializes a local input.
+
+Jack's five current policy/mulligan pairs also passed strict loading and
+repeated finite inference. Their weights, historical private sources and
+embedding caches stay outside this public repository. Standard's mulligan
+network has two Q outputs and uses the original `Q_keep >= Q_mulligan` rule.
+The other four pairs use the April single keep-logit architecture. The first
+Standard probe correctly refused the mismatched April source; that failed
+receipt remains part of the evidence.
+
+For these pairs an external manifest's `inference_backends.jack-rl-april`
+configuration supplies `model`, `mulligan_source`, `state_encoder`,
+`callback_source` and `checkpoints` asset IDs. Each policy checkpoint supplies
+`mulligan_checkpoint`, `embedding_cache` and `checkpoint_format: "torch"`.
+A legacy policy can override `mulligan_source` and set
+`mulligan_format: "keep-mull-q"`; the default is `"keep-logit"`. All seven
+inputs have individual hashes and read-only mounts. The saved configuration
+and tensor shapes construct the original networks, then strict loading checks
+every parameter. There is no partial load or randomly initialized fallback.
+
+Jack probes use synthetic features without playing Magic and do not require
+a deck association. `serve` requires the policy's exact `deck_id` hash and
+`deck_association_evidence`. Each request's encoding identity includes the
+state encoder, callback source, embedding cache and mulligan source/format.
+Candidate requests contain `sequence`, `padding`, `token_ids`, `head`,
+`candidate_features`, `candidate_ids` and `candidate_mask` and use one of the
+original `action`, `target`, `card_select`, `attack` or `block` heads.
+`legacy_actor` uses the original 15-action head; `mulligan` uses its original
+explicit features, hand IDs and deck IDs. Shapes, finite feature bounds,
+vocabulary ranges and boolean masks are checked before inference. These
+checks do not qualify the Java feature encoder, cache coverage or exact deck
+association. The complete fair game adapter and ratings remain unfinished.
 
 The container is limited to one CPU, 3 GiB RAM, 64 processes and a 64 MiB
 ephemeral temporary filesystem. It has no network, a read-only root filesystem,
