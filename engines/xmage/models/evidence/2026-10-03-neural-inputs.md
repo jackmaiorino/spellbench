@@ -362,8 +362,8 @@ finite 128-slot heads, checkpoint/source readiness and decision binding. It
 requires the actual own decklist digest to equal the checkpoint's recorded
 association before container launch. Missing weights cannot launch a
 substitute. All 219 affected checks pass, with one existing Windows symlink
-skip. These unit and source checks use no actual MageZero weights. Java
-runtime fixtures remain unstarted under claim generation 133, work
+skip. These unit and source checks use no actual MageZero weights. At preparation,
+Java runtime fixtures remained unstarted under claim generation 133, work
 `complete-agent-calibration-formal-001-003`. Full-game adapter, original search,
 checkpoint qualification, ratings and publication remain unfinished.
 
@@ -419,6 +419,49 @@ The repair compares the complete current observation before binding the mode
 source. It binds a new public stack reference to the corresponding actual
 replayed stack object in verified bottom-to-top order and retains exact source
 reference and ability identity checks. The real fixture also checks three
-unrelated or absent source mutations before any neural call. This repair's
-compiled fixture and checkpoint replay still need a fresh guarded runtime
-check; a source change and earlier CI do not imply that it passed.
+unrelated or absent source mutations before any neural call. Guarded generation
+142 now passes at source `7778146`: all three mutations refuse before inference,
+and two actual six-visit mode searches repeat identically with seven neural
+calls each. The original unoffered stop is pruned with zero spent visits and
+fully accounted. Its 332 source, class, fixture and result copies are reread in
+`E:/spellbench-xmage-all-20261002/original-modes-002/`, closure SHA-256
+`0c72f73d27c09ae1721014bccc6236e1b90188bd721d0a67175c42749dbe907e`.
+
+At source `2dd34fee71f1174d3bea5695658c41741aaff136`, guarded generation
+144 applies that saved learned mode through the actual XMage engine and
+reaches the next target callback. The original earlier-mode prefix is retained
+and the replayed observation matches exactly. Both actual target searches use
+six root visits and seven neural evaluations and produce identical results.
+The terminal exits zero in 54.174 seconds. All 334 source, class, fixture and
+result copies are reread in
+`E:/spellbench-xmage-all-20261002/original-mode-wire-001/`.
+
+| Mode-to-target record | SHA-256 |
+| --- | --- |
+| Reviewed build 051 manifest | `e7b6be8fc8ddf532340c1b783a18de6b96bb49f5d80377ca7975bc0c99821413` |
+| Repeated target result | `c21440bb2d3095dc35488cd946acb8c7be2a596ba08e8493095d7da25b961d2b` |
+| Cold closure | `054ea6496ff71a081ef9464c333d8827616de31f4ade342d63de3f713c84e47b` |
+
+Guarded generation 145 then runs the original MageZero priority encoder twice
+on real native fixtures at the same source, with reviewed build 052. Each
+execution returns 468 features and three policy slots identically. Sixteen
+hidden samples per execution include different hidden cards while preserving
+the encoding; changing visible own life changes it. No pretrained weights or
+model inference are used. The terminal exits zero in 33.539 seconds. All 348
+source, class, fixture and result copies are reread in
+`E:/spellbench-xmage-all-20261002/magezero-runtime-001/`.
+
+| MageZero encoder record | SHA-256 |
+| --- | --- |
+| Reviewed build 052 manifest | `ddc670a24a4aa27034b4975c0280b8fccdbbce16d5c361349acc142f4fd8d8cc` |
+| Repeated feature result | `7996ec67bec4e53ac82f1dae3911345def7b8486c2cec54a68cf23f5369d762b` |
+| Cold closure | `528d0126afede1aabcadb67c3be79bfc1563a27e3457555ec126b94aa0dabf42` |
+
+Both checks have confirmed owned process cleanup and reservation release;
+the mode check's unique model container is absent. Their closed mutable card
+DBs were removed only after evidence preservation and pinned-original checks,
+with individual receipts. Hot recovery remains. Combined input use is
+6,089,847,841 bytes, within the unchanged 6 GiB cap, with 60 GiB volume reserves.
+Java, Linux and Windows CI pass at source `2dd34fe`. Original play settings,
+other callbacks, pretrained MageZero inference, full learned qualification,
+ratings and publication remain unfinished.

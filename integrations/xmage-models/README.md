@@ -59,8 +59,9 @@ remaining callback families are refused. The saved feature result can be
 passed to `xmage_neural_decisions.py --architecture magezero-v02` with the same
 record and an author-supplied pinned checkpoint. That decision path recomputes
 the actual own decklist digest and checks it against the model's association
-before starting confined inference. Runtime encoder checks and actual-weight
-qualification remain pending; these changes do not qualify original search.
+before starting confined inference. Two actual native encoder checks repeat
+identically, preserve hidden-sample invariance and detect visible life changes.
+Actual-weight qualification and original search remain unfinished.
 
 The inspected v0.1 and v0.2 public engine bundles contain no pretrained
 weights. Author delivery needs the trained `.mz` export or raw weights, the
