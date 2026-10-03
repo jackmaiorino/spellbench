@@ -19,7 +19,9 @@ This engine correction must be disclosed with the benchmark's source variant.
 
 Two real-card regressions now pass. Only the land's controller receives the 52
 private library offers. Reversing the unseen library tail changes those private
-offers while preserving byte-identical caster history. After the controller
+offers while preserving byte-identical caster history. The extended check also
+selects different physical Forest copies and verifies byte-identical caster
+history through the completed public outcome. After the controller
 chooses a Forest and declines the optional shuffle, the caster's legitimate
 26-frame public history reconstructs coherently in 52 submits, without exhausting
 the existing budget. These fixtures play zero complete games.
@@ -31,6 +33,17 @@ the incorrect chooser. Their sealed records remain mechanical replay evidence
 for those old runtimes; they provide no fairness qualification and cannot be
 replayed as current-engine inputs. A fresh current-runtime qualification and
 review remain required. The field inspection below is retained with that limit.
+
+The corrected runtime016 completed 280 native seed blocks and their replays,
+560 natural games, without halts, truncations, validator violations, digest
+mismatches, resampling failures, forced choices or mapping fallbacks. Eight
+ordinary modes pass their native gates across the five decks. The four search
+modes fail: five stock mode/deck cells have no covered search decisions, and
+redeal modes record reconstruction exhaustion or refused roots. Three Wildfire
+refusals at seed index 50 report a known Drossforge Bridge without an object.
+The [sealed native audit](gorge-runtime016-native-audit-20261003.json) records
+these failures. This does not complete identity review, reference-host clock
+and isolation qualification, ratings or publication.
 
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision

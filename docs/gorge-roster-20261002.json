@@ -28,7 +28,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "lethal-pressure",
@@ -40,7 +47,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "ar8",
@@ -52,7 +66,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "blocks",
@@ -64,7 +85,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "explore",
@@ -76,7 +104,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "legacy",
@@ -86,7 +121,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "bot-auto-pay",
@@ -98,7 +140,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "lethal-pressure-auto-pay",
@@ -110,7 +159,14 @@
       "integration": "implemented_qualification_incomplete",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "search",
@@ -137,7 +193,14 @@
       "source_adaptations": "docs/gorge-search-bridge-20261002.md",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "search-mana",
@@ -155,7 +218,14 @@
       "source_adaptations": "docs/gorge-search-bridge-20261002.md",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "search-redeal",
@@ -170,7 +240,14 @@
       "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "search-mana-redeal",
@@ -190,7 +267,14 @@
       "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
       "qualified": false,
       "rated": false,
-      "published": false
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
     },
     {
       "key": "cast-profile",
@@ -258,14 +342,16 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "After the ownership correction, the full native effects package, affected rules tests, all nested strategy tests (42.366 seconds), strategies vet and git diff --check passed. Two real-card tests verify private library choice ownership and caster-history noninterference; the legitimate 26-frame caster history reconstructs in 52 submits. Hosted full CI at dba809f298d89939c176de16ea818a42fd4eef17 passed before this correction; a fresh run is required.",
-      "five_deck_search_qualification": "Attempted in the 120-game cloud matrix and 280-block native audit. Per-deck search coverage and public reconstruction gates failed; evidence: docs/gorge-native-audit-20261003.json.",
+      "full_adapter_suite": "Full hosted CI passed at af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550; later test-only head a1f851ae6a69428f2b630af3197734b2ece3c729 passes both extended real-card tests in 1.893 seconds. Production runtime remains source1ca4bb2, frozen runtime016.",
+      "five_deck_search_qualification": "Corrected runtime016 completes 280 blocks/560 natural games with no native validator, resample, parity or mapping faults. Five stock-search coverage cells and redeal refusal/exhaustion gates still fail. Full qualification remains incomplete.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
       "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json",
       "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json",
-      "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json"
+      "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json",
+      "current_corrected_runtime_audit": "docs/gorge-runtime016-native-audit-20261003.json",
+      "post_search_noninterference": "docs/gorge-private-search-outcome-20261003.json"
     }
   ],
   "publication": null,

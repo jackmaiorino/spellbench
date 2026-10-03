@@ -322,3 +322,20 @@ primary sampling, weights, chooser/scorer, rollout limits and reconstruction
 budgets retain their pinned implementation. The engine rules correction is an
 explicit source adaptation, recorded in the
 [updated identity audit](gorge-native-identity-audit-20261003.md).
+
+The corrected runtime016 audit completed 280 seed blocks and their replays,
+560 natural games. All native validator, digest, resampling, consistency and
+mapping checks passed. Eight ordinary modes pass their native gates. Search
+qualification remains unsuccessful: five stock mode/deck cells have zero
+coverage, and both redeal modes retain reconstruction exhaustion or refusal.
+Three Wildfire/search-redeal refusals at seed index 50 name a missing known
+Drossforge Bridge. The full failed result is preserved in the
+[current audit record](gorge-runtime016-native-audit-20261003.json).
+
+The guarded allocation comparison completed identical 26-block inputs at one,
+six and thirteen workers. All three primary outputs have the same SHA-256;
+thirteen workers were 4.80 times faster than serial. The canonical supervisor
+released generation 146 with no live descendants. These are placement and
+native correctness results, with zero rated games. Full hosted CI passed at
+`af29003`; the later test-only outcome extension passed its affected local tests.
+No mode is fully qualified, rated or published.

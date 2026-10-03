@@ -1,0 +1,137 @@
+{
+  "schema": "spellbench-gorge-runtime016-hosted-ci/v1",
+  "checked_at_utc": "2026-10-03T22:35:03.840335+00:00",
+  "source_head": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
+  "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+  "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261003-016",
+  "workflow": ".github/workflows/gorge.yml",
+  "hosted_toolchain": "Go 1.25.8",
+  "workflow_file_sha256": "462e0b75cba1359740e88c892ea680a6020217b2cd287de3d1fe60d360e6a1a3",
+  "run": {
+    "conclusion": "success",
+    "createdAt": "2026-10-03T22:11:07Z",
+    "headSha": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
+    "jobs": [
+      {
+        "completedAt": "2026-10-03T22:30:59Z",
+        "conclusion": "success",
+        "databaseId": 111304042825,
+        "name": "test",
+        "startedAt": "2026-10-03T22:11:11Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-03T22:11:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-03T22:11:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:14Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "number": 2,
+            "startedAt": "2026-10-03T22:11:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:16Z",
+            "conclusion": "success",
+            "name": "Clone gorge at the pin",
+            "number": 3,
+            "startedAt": "2026-10-03T22:11:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:39Z",
+            "conclusion": "success",
+            "name": "Fetch the Forge card corpus (GPL-3.0 build input, never committed)",
+            "number": 4,
+            "startedAt": "2026-10-03T22:11:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:39Z",
+            "conclusion": "success",
+            "name": "Resolve gorge through go.work",
+            "number": 5,
+            "startedAt": "2026-10-03T22:11:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:51Z",
+            "conclusion": "success",
+            "name": "Vet",
+            "number": 6,
+            "startedAt": "2026-10-03T22:11:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:54Z",
+            "conclusion": "success",
+            "name": "Check native policy identities and inventory",
+            "number": 7,
+            "startedAt": "2026-10-03T22:11:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:11:57Z",
+            "conclusion": "success",
+            "name": "Check payment mapping and agent failure handling",
+            "number": 8,
+            "startedAt": "2026-10-03T22:11:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:12:54Z",
+            "conclusion": "success",
+            "name": "Check native public search bridge",
+            "number": 9,
+            "startedAt": "2026-10-03T22:11:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:30:56Z",
+            "conclusion": "success",
+            "name": "Test",
+            "number": 10,
+            "startedAt": "2026-10-03T22:12:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:30:56Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "number": 20,
+            "startedAt": "2026-10-03T22:30:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-03T22:30:56Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-03T22:30:56Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37157560991/job/111304042825"
+      }
+    ],
+    "startedAt": "2026-10-03T22:11:07Z",
+    "status": "completed",
+    "updatedAt": "2026-10-03T22:30:59Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37157560991"
+  },
+  "passed": true,
+  "later_test_only_commit": "a1f851ae6a69428f2b630af3197734b2ece3c729",
+  "later_affected_tests_passed_locally": true,
+  "full_ci_covers_later_test_only_commit": false,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "scope": "Full adapter CI: source pins, policy inventory, payment mapping, agent failure handling, complete public search bridge suite, vet and all adapter packages.",
+  "limitation": "This is test evidence. It does not replace frozen runtime qualification, clock/container checks, benchmark review, rated results or public entries."
+}
