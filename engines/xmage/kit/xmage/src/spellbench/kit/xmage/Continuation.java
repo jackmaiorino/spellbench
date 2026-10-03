@@ -613,6 +613,8 @@ public final class Continuation {
         // 2. the anchor world
         byte[] seed = spellbench.kit.core.Seeds.unhex((String) Json.arr(anchor, "world_seeds").get(0));
         KitContext.reset();
+        KitRandom.installBoot();
+        List<String> nameFlags = WorldBuilder.restoreVisibleNames(aobs, Json.obj(anchorDecision, "x_history"));
         KitRandom random = KitRandom.install(seed, idSeed);
         Sampler.Sample sample = Sampler.sample(gameStart, aobs, random.stream("sampler"));
         WorldBuilder.Spec spec = new WorldBuilder.Spec();
@@ -629,6 +631,7 @@ public final class Continuation {
         };
         spec.otherFactory = Puppet::new;
         World w = WorldBuilder.build(spec);
+        w.flags.addAll(nameFlags);
         decider[0].attach(w);
         out.put("flags", new ArrayList<Object>(w.flags));
         Game game = w.game;

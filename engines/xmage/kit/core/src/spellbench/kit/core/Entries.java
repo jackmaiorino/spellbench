@@ -17,7 +17,7 @@ import java.util.Map;
  */
 public final class Entries {
 
-    public static final String KIT_VERSION = "0.2.0";
+    public static final String KIT_VERSION = "0.3.0";
 
     private Entries() {
     }
@@ -35,7 +35,8 @@ public final class Entries {
                         + "unsupported; the next ranked candidate answers (wrapper)",
                 "approximation_flags", Arrays.asList("approximate:watchers_reset (every world)",
                         "approximate:unexplained_characteristics", "approximate:activation_usage_other_seat",
-                        "approximate:first_strike_step_unknown", "approximate:token_characteristics"),
+                        "approximate:first_strike_step_unknown", "approximate:token_characteristics",
+                        "approximate:renamed_object (origin from this seat's observed history)"),
                 "fallback", "ranked, else declining, else lowest candidate id; always an offered candidate");
     }
 

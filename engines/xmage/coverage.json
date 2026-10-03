@@ -14,7 +14,7 @@
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["soak repairs", "new-entry qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["deadline replay qualification", "new-entry qualification", "guarded evaluation", "review and publication"]
     },
     {
       "family": "xmage-mcts",

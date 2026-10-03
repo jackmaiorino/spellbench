@@ -463,7 +463,7 @@ public final class FrontCheck {
                 allDistinct && invalidSkillsRefused && "xmage-mad7-fair-s7-custom".equals(changed.get("name"))
                         && Json.num(shallower, "effective_depth", 0) == 4
                         && !Entries.digest(changed).equals(Entries.digest(Entries.frozen("mad7-s7")))
-                        && "0.2.0+da7301f729c0".equals(Entries.version(frozen)),
+                        && Entries.version(frozen).startsWith("0.3.0+"),
                 Json.map("entries", skillNames, "invalid_skills_refused", invalidSkillsRefused,
                         "budget_override", changed.get("name"), "existing_h1", Entries.version(frozen)));
     }

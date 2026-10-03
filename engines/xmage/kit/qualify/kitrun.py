@@ -70,7 +70,10 @@ BOUND_MS = 300_000
 # the staged benchmark.json carries the same values.
 KIT_CLOCK = {"startup_ms": 300000, "game_start_ms": 300000, "bank_ms": 3600000, "increment_ms": 2000,
              "max_decision_ms": 120000, "engine_step_ms": 120000}
-CLOCKS = {"kit": KIT_CLOCK, "fdn-mirror-v0": KIT_CLOCK}
+CLOCKS = {"kit": KIT_CLOCK, "fdn-mirror-v0": KIT_CLOCK,
+          # A future qualification profile. Historical plans and benchmark
+          # clocks stay unchanged; publication must declare this profile too.
+          "kit-20261003": dict(KIT_CLOCK, max_decision_ms=600000, engine_step_ms=600000)}
 # Pairs per workload (multiples of 16: every deck the same share).
 PAIRS = {"heuristic": 256, "uniform": 256, "cross": 64}
 ENTRY_DESCRIPTIONS = {
@@ -83,6 +86,13 @@ ENTRY_DESCRIPTIONS = {
                 "expansion, the first in upstream's enumeration order, so it is biased toward that prefix (with "
                 "eight available attackers, the no-attack engagement is outside it).",
 }
+for _skill in range(1, 11):
+    ENTRY_DESCRIPTIONS[f"xmage-mad7-fair-s{_skill}"] = (
+        f"XMage CP7 at UI skill {_skill} (effective depth {max(4, _skill)}) on one sampled hidden world, "
+        "with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, "
+        "permitted reconstruction, explicit horizons, dialog heuristics and fallback. "
+        "This is a changed fair variant of the native policy.")
+ENTRIES = ("h1", "h2", "h3", *(f"mad7-s{s}" for s in range(1, 11)))
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +150,12 @@ def admitted_decks() -> list[str]:
 def make_plan(args: argparse.Namespace) -> None:
     kit = Path(args.kit)
     identities = [entry_identity(kit, e) for e in args.entry]
+    # UI skills 1..4 share depth 4 in this synchronous wrapper. H1 is skill 6.
+    # Giving aliases different bot seeds does not make independent policies.
+    canonical = ["mad7-s4" if e in ("mad7-s1", "mad7-s2", "mad7-s3", "mad7-s4")
+                 else "mad7-s6" if e in ("h1", "mad7-s6") else e for e in args.entry]
+    if len(canonical) != len(set(canonical)):
+        raise SystemExit("the rated roster contains duplicate CP7 policy aliases")
     if any(i["name"] == "kit-mcts" for i in identities) and not args.allow_mcts:
         raise SystemExit("kit-mcts waits for its own qualification (third review); pass --allow-mcts for that plan")
     master = secrets.token_hex(32)
@@ -161,7 +177,8 @@ def make_plan(args: argparse.Namespace) -> None:
             "descriptions": {i["name"]: ENTRY_DESCRIPTIONS[i["name"]] for i in identities},
             "master_secret": master, "workloads": workloads, "games_total": sum(w["games"] for w in workloads),
             "r1_replay_games": 20}
-    Path(args.out).write_text(json.dumps(plan, indent=1) + "\n", encoding="utf-8", newline="\n")
+    with Path(args.out).open("x", encoding="utf-8", newline="\n") as frozen:
+        frozen.write(json.dumps(plan, indent=1) + "\n")
     print(f"plan: {plan['games_total']} games in {len(workloads)} workloads, clock {args.clock} -> {args.out}")
 
 
@@ -619,7 +636,7 @@ def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("plan")
-    p.add_argument("--entry", action="append", required=True, choices=("h1", "h2", "h3"))
+    p.add_argument("--entry", action="append", required=True, choices=ENTRIES)
     p.add_argument("--kit", required=True)
     p.add_argument("--clock", choices=sorted(CLOCKS), default="kit")
     p.add_argument("--allow-mcts", action="store_true")

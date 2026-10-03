@@ -47,13 +47,14 @@ if [ -d "$HERE/xmage/resources" ]; then
   cp -R "$HERE/xmage/resources/." "$OUT/classes-xmage/"
 fi
 
-# reproducible jars: fixed entry order and times (jar from the javac's JDK when it is not on the PATH)
-JAR=jar
-if ! command -v jar >/dev/null 2>&1; then
-  for d in "${JAVA_HOME:-}" "/c/Program Files/Java/"*; do
-    if [ -n "$d" ] && [ -x "$d/bin/jar" -o -x "$d/bin/jar.exe" ]; then JAR="$d/bin/jar"; fi
-  done
-fi
+# The Windows PATH can contain JDK 23 java/javac and a JDK 8 jar. Resolve
+# the archiver from the running pinned JDK rather than accepting that mix.
+[ "$(javac -version 2>&1)" = "javac 23.0.1" ] || { echo "JDK 23.0.1 required" >&2; exit 2; }
+KIT_JDK_DIR=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java.home = //p' | tr -d '\r')
+if command -v cygpath >/dev/null 2>&1; then KIT_JDK_DIR=$(cygpath -u "$KIT_JDK_DIR"); fi
+JAR="$KIT_JDK_DIR/bin/jar"
+if [ -x "$KIT_JDK_DIR/bin/jar.exe" ]; then JAR="$KIT_JDK_DIR/bin/jar.exe"; fi
+[ -x "$JAR" ] || { echo "pinned JDK archiver unavailable" >&2; exit 2; }
 STAMP=2026-09-18T22:54:08Z
 "$JAR" --create --date="$STAMP" --file "$(native "$OUT/lib/kit-core.jar")" -C "$(native "$OUT/classes-core")" .
 "$JAR" --create --date="$STAMP" --file "$(native "$OUT/lib/kit-xmage.jar")" -C "$(native "$OUT/classes-xmage")" .
@@ -63,7 +64,7 @@ RULES_ID=$(grep -o '"rules_snapshot_id": "[^"]*"' "$ENGINE/BUILD-MANIFEST.json" 
 SRC_DIGEST=$(cd "$HERE" && find core/src xmage/src xmage/resources -type f | LC_ALL=C sort | while read -r f; do printf '%s  %s\n' "$(sha256 < "$f")" "$f"; done | sha256)
 {
   echo "{"
-  echo "  \"kit_version\": \"0.2.0\","
+  echo "  \"kit_version\": \"0.3.0\","
   echo "  \"engine_lib_digest\": \"$ENGINE_DIGEST\","
   echo "  \"engine_rules_snapshot_id\": \"$RULES_ID\","
   echo "  \"kit_source_digest\": \"$SRC_DIGEST\","

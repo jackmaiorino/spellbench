@@ -77,6 +77,7 @@ public final class RunnerLink {
     private volatile Thread reaper;
     /** The killed runner whose exit is not confirmed yet (the latch); null when every killed runner is confirmed gone. */
     private volatile Process unconfirmed;
+    private volatile boolean closed;
     /** Fixture hook: kills report the exit as unconfirmed and the reaper gives up at once (latch tests). */
     public volatile boolean simulateUnconfirmedExit;
     public long exitUnconfirmedRefusals;
@@ -126,6 +127,7 @@ public final class RunnerLink {
     }
 
     private void start() throws IOException, Timeout {
+        if (closed) throw new IOException("runner link is closed");
         Thread r = reaper;
         if (r != null && r != Thread.currentThread()) {
             try {
@@ -141,9 +143,13 @@ public final class RunnerLink {
         ProcessBuilder pb = new ProcessBuilder(command);
         pb.directory(workDir);
         pb.redirectError(ProcessBuilder.Redirect.appendTo(stderrLog));
-        Process p = pb.start();
+        final Process p;
         final BlockingQueue<String> queue = new ArrayBlockingQueue<>(64);
         synchronized (this) {
+            if (closed) throw new IOException("runner link closed while starting");
+            // Creation and adoption share the close lock: a closing front must
+            // either see this child or prevent it from starting.
+            p = pb.start();
             process = p;
             toRunner = new OutputStreamWriter(p.getOutputStream(), StandardCharsets.UTF_8);
             replies = queue;
@@ -189,6 +195,7 @@ public final class RunnerLink {
     public Map<String, Object> call(Map<String, Object> request, long waitUntil, long answerBy, long graceMs)
             throws IOException, Timeout, Busy {
         long t0 = System.nanoTime();
+        if (closed) throw new IOException("runner link is closed");
         boolean decisionRequest = request.containsKey("deadline_ms");
         if (Thread.currentThread() != starting && exitLatched()) {
             exitUnconfirmedRefusals++;
@@ -375,13 +382,16 @@ public final class RunnerLink {
         }
     }
 
-    public void close() {
+    /** Fits the host's two-second exit grace; never removes work while a child is alive. */
+    public boolean close() {
         Process p;
         Writer w;
         synchronized (this) {
+            closed = true;
             p = process;
             w = toRunner;
             process = null;
+            if (p != null && p.isAlive()) p.destroyForcibly();
         }
         if (p != null) {
             try {
@@ -390,13 +400,15 @@ public final class RunnerLink {
                 // closing stdin ends the runner
             }
             try {
-                if (!p.waitFor(5, TimeUnit.SECONDS)) {
+                if (!p.waitFor(200, TimeUnit.MILLISECONDS)) {
                     p.destroyForcibly();
-                    p.waitFor(10, TimeUnit.SECONDS);
+                    p.waitFor(500, TimeUnit.MILLISECONDS);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
+        Process pending = unconfirmed;
+        return (p == null || !p.isAlive()) && (pending == null || !pending.isAlive());
     }
 }

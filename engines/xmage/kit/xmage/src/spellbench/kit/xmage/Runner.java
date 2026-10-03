@@ -260,7 +260,9 @@ public final class Runner {
     private Map<String, Object> oneWorld(String path, Map<String, Object> req, Map<String, Object> decision,
                                          byte[] worldSeed, int k) {
         KitContext.reset();
-        Map<String, Object> obs = Json.obj(decision, "observation");
+        Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
+        KitRandom.installBoot();
+        List<String> nameFlags = WorldBuilder.restoreVisibleNames(obs, Json.obj(decision, "x_history"));
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("index", (long) k);
         long t0 = System.nanoTime();
@@ -310,6 +312,7 @@ public final class Runner {
                 spec.mode = WorldBuilder.Mode.SNAPSHOT;
         }
         World w = WorldBuilder.build(spec);
+        w.flags.addAll(nameFlags);
         if (decider[0] != null) {
             decider[0].attach(w);
         }

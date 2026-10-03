@@ -35,10 +35,18 @@ SEP=":"; command -v cygpath >/dev/null 2>&1 && SEP=";"
 
 mkdir -p "$WORK"
 DIR=$(mktemp -d "$WORK/kit-agent-XXXXXX")
-cleanup() { rm -rf "$DIR"; }
+# Normal cleanup belongs to the front, after confirmed runner exit. Before
+# it starts, use the same bounded path and link checks for a failed DB copy.
+FRONT_LAUNCHED=0
+cleanup() {
+  if [ "$FRONT_LAUNCHED" = 0 ] && [ -d "$DIR" ]; then
+    java -cp "$(native "$KIT/lib/kit-core.jar")" spellbench.kit.core.OwnedWork "$(native "$DIR")" "$(native "$WORK")"
+  fi
+}
 trap cleanup EXIT
 cp -R "$DB" "$DIR/db"
 CP_RUNNER="$(native "$KIT/lib/kit-xmage.jar")${SEP}$(native "$KIT/lib/kit-core.jar")${SEP}$(native "$ENGINE/lib")/*"
+FRONT_LAUNCHED=1
 java -Xmx128m -cp "$(native "$KIT/lib/kit-core.jar")" spellbench.kit.core.Front \
-  --work "$(native "$DIR")" "${FRONT[@]}" \
+  --work "$(native "$DIR")" --work-root "$(native "$WORK")" --cleanup-work 1 "${FRONT[@]}" \
   -- java -Xmx"$XMX" -XX:+UseSerialGC -cp "$CP_RUNNER" spellbench.kit.xmage.Runner

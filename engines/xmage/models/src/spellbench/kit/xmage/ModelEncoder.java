@@ -31,8 +31,10 @@ public final class ModelEncoder {
         if (!ActionEncoder.vocabLoaded() || ActionEncoder.ACTION_DIM != 1024) {
             throw new IllegalArgumentException("Exp1 requires the pinned FDN 1024-slot action vocabulary");
         }
-        Map<String, Object> obs = Json.obj(decision, "observation");
+        Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
         KitContext.reset();
+        KitRandom.installBoot();
+        List<String> nameFlags = WorldBuilder.restoreVisibleNames(obs, Json.obj(decision, "x_history"));
         KitRandom random = KitRandom.install(worldSeed, idSeed);
         WorldBuilder.Spec spec = new WorldBuilder.Spec();
         spec.gameStart = start;
@@ -44,6 +46,7 @@ public final class ModelEncoder {
         spec.otherFactory = Puppet::new;
         spec.history = Json.obj(decision, "x_history");
         World world = WorldBuilder.build(spec);
+        world.flags.addAll(nameFlags);
         for (String flag : world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
                 throw new IllegalArgumentException("encoded world is unsupported: " + flag);

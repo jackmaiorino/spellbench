@@ -95,6 +95,7 @@ public final class Front {
      * loyalty cost paid. Sent to the runner as {@code x_history.loyalty_used} for the current turn.
      */
     final List<Map<String, Object>> ownActivations = new ArrayList<>();
+    final Map<String, String> cardOrigins = new LinkedHashMap<>();
     /** Fixture hook: the next priority decision at this seat step executes this semantic instead of searching. */
     Map<String, Object> forced;
     long forcedAt = -1;
@@ -145,17 +146,27 @@ public final class Front {
         System.setOut(System.err);
         Front f = new Front(opts, runnerCmd);
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
-        String line;
-        while ((line = in.readLine()) != null) {
-            if (line.trim().isEmpty()) {
-                continue;
+        try {
+            String line;
+            while ((line = in.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                Map<String, Object> resp = f.handle(line);
+                protocol.println(Json.canonical(resp));
+                protocol.flush();
+                f.afterAnswer();
             }
-            Map<String, Object> resp = f.handle(line);
-            protocol.println(Json.canonical(resp));
-            protocol.flush();
-            f.afterAnswer();
+        } finally {
+            boolean exited = f.runner.close();
+            if ("1".equals(opts.get("cleanup-work")) && exited) {
+                try {
+                    OwnedWork.remove(new File(opts.get("work")).toPath(), new File(opts.get("work-root")).toPath());
+                } catch (IOException e) {
+                    System.err.println("kit-front: owned work cleanup failed: " + e);
+                }
+            }
         }
-        f.runner.close();
     }
 
     /**
@@ -223,6 +234,7 @@ public final class Front {
         }
         gameStart = req;
         gameId = Json.str(req, "game_id");
+        cardOrigins.clear();
         if (logDir != null) {
             try {
                 log = new PrintStream(new FileOutputStream(new File(logDir, gameId + "-" + Json.str(req, "seat") + ".jsonl"), true), true, "UTF-8");
@@ -323,6 +335,7 @@ public final class Front {
     Map<String, Object> choose(Map<String, Object> req, String requestId) {
         long t0 = System.nanoTime();
         Map<String, Object> d = Json.obj(req, "decision");
+        VisibleNames.observe(Json.obj(d, "observation"), cardOrigins);
         Map<String, Object> clockIn = Json.obj(req, "clock");
         long limit = Math.min(clockIn == null ? 60_000 : Json.num(clockIn, "max_decision_ms", 60_000),
                 clockIn == null ? 60_000 : Json.num(clockIn, "remaining_ms", 60_000));
@@ -705,7 +718,7 @@ public final class Front {
         }
         String top = Json.str(Json.obj(stack.get(stack.size() - 1)), "object_id");
         Map<String, Object> decision = new LinkedHashMap<>(d);
-        decision.put("x_history", Json.map("loyalty_used", loyaltyUsed(Json.obj(d, "observation"))));
+        decision.put("x_history", ownHistory(Json.obj(d, "observation")));
         anchors.put(top, Json.map("decision", decision, "world_seeds", worldSeeds(Json.num(d, "seat_step", 0), 1),
                 "seat_step", d.get("seat_step")));
     }
@@ -713,7 +726,7 @@ public final class Front {
     private Map<String, Object> request(String path, Map<String, Object> d, int k) {
         long seatStep = Json.num(d, "seat_step", 0);
         Map<String, Object> decision = new LinkedHashMap<>(d);
-        decision.put("x_history", Json.map("loyalty_used", loyaltyUsed(Json.obj(d, "observation"))));
+        decision.put("x_history", ownHistory(Json.obj(d, "observation")));
         Map<String, Object> profile = gameStart == null ? null : Json.obj(gameStart, "engine_profile");
         if (profile != null && profile.get("observation") != null) {
             decision.put("x_observation_flags", profile.get("observation"));
@@ -731,6 +744,11 @@ public final class Front {
             logLine(Json.map("event", "hang_hook", "seat_step", seatStep, "path", path));
         }
         return r;
+    }
+
+    private Map<String, Object> ownHistory(Map<String, Object> observation) {
+        return Json.map("loyalty_used", loyaltyUsed(observation),
+                "card_origins", VisibleNames.changed(observation, cardOrigins));
     }
 
     /** Calls the runner within the clock; null on a timeout (the runner was killed) or a refusal, recorded in detail. */
@@ -935,9 +953,12 @@ public final class Front {
             Map<String, Object> r = worldsCall(request(kind.equals("declare_attack") ? "attack" : "block", d, worlds),
                     clock, detail);
             boolean skipped = false;
+            List<Object> combatFlags = new ArrayList<>();
             for (Object o : r == null ? new ArrayList<>() : Json.arr(r, "worlds")) {
                 skipped |= Json.obj(o).get("skipped") != null;
+                combatFlags.addAll(Json.arr(Json.obj(o), "flags"));
             }
+            detail.put("world_flags", dedupe(combatFlags));
             if (skipped) {
                 // an unsupported state: not searched, so no bot plan (second review, item 2); declining, wrapper
                 Answer a = fallback(d, null, "wrapper", "approximate_state_without_search");
@@ -962,7 +983,8 @@ public final class Front {
                         best = e.getKey(); // ties: the lowest world index, which entered first
                     }
                 }
-                groupPlan = Json.map("pairs", byKey.get(best), "votes", votes.size());
+                groupPlan = Json.map("pairs", byKey.get(best), "votes", votes.size(),
+                        "world_flags", detail.get("world_flags"));
                 groupPlanGroupId = groupId;
             }
         }
@@ -971,6 +993,7 @@ public final class Front {
             a.detail.putAll(detail);
             return a;
         }
+        detail.put("world_flags", groupPlan.get("world_flags"));
         List<Object> cands = Json.arr(d, "candidates");
         Map<String, Object> s0 = Json.obj(Json.obj(cands.get(0)), "semantic");
         String self = Json.str(Json.obj(s0, kind.equals("declare_attack") ? "attacker" : "blocker"), "object_id");

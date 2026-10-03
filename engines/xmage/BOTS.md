@@ -7,7 +7,7 @@ The machine-readable status and alias relationships are in [coverage.json](cover
 
 | Family | Available inputs | Wiring | Qualification, rating and publication |
 |---|---|---|---|
-| XMage MAD / CP7 | Pinned public source; ten UI skills | Existing kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | New entries unqualified; inherited soak findings need fixes; unrated |
+| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Targeted rename/shutdown repairs pass; new build and deadline replay unqualified; unrated |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Separate qualification pending; unrated |
 | DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | Isolated loading and repeated inference pass; gen33 also scores a real priority fixture | Full dialogs, combat, search and game qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated source loader prepared; tested with explicitly synthetic initialized weights | No public pretrained weights found; full fair adapter and qualification unfinished |
@@ -38,9 +38,11 @@ iterations, with its published rollout, operation and combat-prefix caps.
 Its entry identity and description must retain those changes.
 
 The inherited kit recorded 2,176 natural-ending soak games with zero validator
-violations. `kit/evidence/soak/findings.json` records unresolved renamed-card
-reconstruction failures, deadline-dependent replays and a temporary-directory
-leak. This is qualification evidence with open findings, not a rating release.
+violations. `kit/evidence/soak/findings.json` retains renamed-card reconstruction
+failures, deadline-dependent replays and a temporary-directory leak. Version
+0.3.0 has targeted passing rename and shutdown checks; see
+[the repair evidence](kit/evidence/native-repairs-20261003.md). Deadline replay,
+new-build qualification and rated evaluation are still pending.
 
 ## Learned inputs and associations
 
@@ -80,7 +82,7 @@ this public repository.
 
 ## Next delivery steps
 
-Finish the game adapters, the native soak repairs, and learned encoder/action
+Finish the game adapters, native qualification, and learned encoder/action
 qualification. The tested Exp1 priority slice disables opponent-hand encoding,
 reconstructs a world from permitted inputs and uses explicit compatibility
 helpers. Its micro-decision history is empty at this slice; it does not run

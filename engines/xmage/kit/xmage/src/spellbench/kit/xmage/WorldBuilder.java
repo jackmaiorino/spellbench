@@ -137,6 +137,14 @@ public final class WorldBuilder {
         return b.world;
     }
 
+    /** Resolve changed names from this seat's own history before sampling or rebuilding. */
+    public static List<String> restoreVisibleNames(Map<String, Object> observation, Map<String, Object> history) {
+        Map<String, Object> repairs = spellbench.kit.core.VisibleNames.restore(observation, history,
+                name -> RESOLVER.resolve(name).isResolved());
+        return repairs.isEmpty() ? new ArrayList<>()
+                : new ArrayList<>(Collections.singletonList("approximate:renamed_object"));
+    }
+
     private void flag(String f) {
         if (!world.flags.contains(f)) {
             world.flags.add(f);
