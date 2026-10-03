@@ -7,9 +7,9 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from spellbench.llm.budget_transfer import continue_host_preflight, digest, export_budget
+from spellbench.llm.budget_transfer import continue_host_preflight, digest, export_budget, increase_failed_run_limits
 from spellbench.llm.provider import Completion, ProviderError
-from spellbench.llm.run_budget import BudgetedProvider, RunBudget, check_hosted_budgets
+from spellbench.llm.run_budget import BudgetedProvider, RunBudget, check_hosted_budgets, LIMIT_NAMES, LIMIT_INCREASE_SCHEMA
 from test_llm_run_budget import PROMPT, Provider, budget, failed_run_recovery, hosted_config
 
 
@@ -304,3 +304,206 @@ def test_present_transfer_anchor_cannot_erase_inherited_usage_with_new_hashes(tm
     with pytest.raises(ProviderError, match="run_budget_transfer_changed"):
         RunBudget(child.path, model=child.model, path_map=child.paths.manifest,
                   path_map_sha256=digest(child.paths.manifest))
+
+
+def increase_evidence(source, *, suffix="increase", limits=None, mutation=None):
+    root = source.paths.manifest.parent
+    before = source.summary()
+    old = {name: before["policy"][name] for name in LIMIT_NAMES}
+    new = limits or {**old, "max_requests": old["max_requests"] * 2,
+                    "max_reported_tokens": old["max_reported_tokens"] * 2}
+    retained = root / (suffix + "-aborted.json")
+    retained.write_text(json.dumps({"schema": "spellbench-tournament/v2",
+        "protocol": {"name": "spellbench/v2"}, "run": {"status": "aborted", "rated": False}}))
+    receipt = root / (suffix + "-receipt.json")
+    receipt.write_text(json.dumps({"schema": "spellbench-llm-failed-run-recovery/v1",
+        "parent": source.paths.key(source.path), "parent_sha256": digest(source.path),
+        "effective_deadline": before["effective_deadline"], "purpose": "fixed-panel-rerun",
+        "retained_run_manifest": str(retained.resolve()), "retained_run_sha256": digest(retained)}))
+    authority = root / (suffix + "-authority.json")
+    record = {"schema": LIMIT_INCREASE_SCHEMA, "model": source.model,
+        "parent": source.paths.key(source.path), "parent_sha256": digest(source.path),
+        "parent_limits": old, "approved_limits": new, "failure_receipt_sha256": digest(receipt),
+        "purpose": "fixed-panel-rerun", "user_authority": "Approved unchanged panel and cumulative caps."}
+    if mutation:
+        mutation(record)
+    authority.write_text(json.dumps(record))
+    return dict(approved_limits=new, failure_receipt=receipt, failure_receipt_sha256=digest(receipt),
+                authority=authority, authority_sha256=digest(authority))
+
+
+def increase(source, *, suffix="increase", **evidence):
+    leaf = source.path.parent / (suffix + ".sqlite3")
+    manifest = source.path.parent / (suffix + "-map.json")
+    increase_failed_run_limits(source, leaf, manifest, **evidence)
+    return RunBudget(leaf, model=source.model, path_map=manifest, path_map_sha256=digest(manifest),
+                     expected_limits=evidence["approved_limits"])
+
+
+def test_approved_increase_preserves_multihost_history_and_requires_new_qualification(tmp_path):
+    source = host_failure(tmp_path)
+    before, parent_bytes = source.summary(), source.path.read_bytes()
+    child = increase(source, **increase_evidence(source))
+    after = child.summary()
+    for name in ("requests", "accounted_tokens", "unknown_usage", "pending", "host_failures"):
+        assert after[name] == before[name]
+    assert after["effective_deadline"] is None
+    assert child.qualification_origin() == child.path.resolve()
+    assert source.path.read_bytes() == parent_bytes
+    with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+        source.check()
+    BudgetedProvider(Provider(Completion("{}", child.model, 10, 2)), child).complete(PROMPT, timeout_s=2)
+    assert child.summary()["requests"] == before["requests"] + 1
+    assert child.summary()["accounted_tokens"] == before["accounted_tokens"] + 12
+    assert child.summary()["unknown_usage"] == before["unknown_usage"] == 1
+    # A subsequent relocation must retain both sides of the cap boundary.
+    nested = tmp_path / "next-host"
+    nested.mkdir()
+    before_transfer = child.summary()
+    relocated = transfer(nested, child)
+    assert relocated.summary() == before_transfer
+    assert relocated.paths.key(relocated.qualification_origin()) == str(child.path.resolve())
+    assert any(path.name == "authority.json" for path in relocated.paths.files.values())
+    relocated.check()
+
+
+def test_host_recovery_after_increase_keeps_new_caps_and_qualification_identity(tmp_path):
+    source = host_failure(tmp_path)
+    child = increase(source, **increase_evidence(source))
+    child.fail("profile_renewal_failed")
+    recovered = recover_host(child)
+    assert recovered.qualification_origin() == child.path.resolve()
+    assert recovered.summary()["policy"]["max_reported_tokens"] == 8000
+    assert recovered.summary()["policy"]["max_requests"] == 8
+    assert recovered.summary()["requests"] == 1
+    recovered.check()
+
+
+@pytest.mark.parametrize("mutation", [
+    lambda record: record["parent_limits"].update(max_requests=3),
+    lambda record: record.update(model="another-model"),
+    lambda record: record.update(parent_sha256="0" * 64),
+    lambda record: record.update(failure_receipt_sha256="0" * 64),
+    lambda record: record.update(user_authority=""),
+])
+def test_increase_refuses_authority_not_bound_to_actual_parent(tmp_path, mutation):
+    source = host_failure(tmp_path)
+    evidence = increase_evidence(source, mutation=mutation)
+    with pytest.raises(ProviderError, match="run_budget_limit_increase_changed"):
+        increase(source, **evidence)
+    assert not (source.path.parent / "increase-map.json").exists()
+    assert not source.path.with_name(source.path.name + ".continuation.json").exists()
+
+
+@pytest.mark.parametrize("change", [
+    {"max_requests": 4, "max_reported_tokens": 4000},
+    {"max_requests": 3}, {"max_inflight": 2}, {"max_wall_seconds": 9999},
+    {"max_requests": True},
+])
+def test_increase_cannot_decrease_reset_or_change_other_limits(tmp_path, change):
+    source = host_failure(tmp_path)
+    old = {name: source.summary()["policy"][name] for name in LIMIT_NAMES}
+    evidence = increase_evidence(source, limits={**old, "max_requests": 8, "max_reported_tokens": 8000, **change})
+    with pytest.raises((ProviderError, ValueError)):
+        increase(source, **evidence)
+    assert not (source.path.parent / "increase-map.json").exists()
+
+
+@pytest.mark.parametrize("target", ["authority", "failure_receipt", "aborted_manifest", "old_parent"])
+def test_increase_admission_rechecks_retained_authority_and_failure(tmp_path, target):
+    source = host_failure(tmp_path)
+    evidence = increase_evidence(source)
+    child = increase(source, **evidence)
+    path = {"authority": evidence["authority"], "failure_receipt": evidence["failure_receipt"],
+            "aborted_manifest": source.path.parent / "increase-aborted.json", "old_parent": source.path}[target]
+    with path.open("ab") as stream:
+        stream.write(b"changed")
+    with pytest.raises(ProviderError, match="run_budget_transfer_changed"):
+        child.reserve(PROMPT, output_tokens=20)
+
+
+def test_concurrent_increases_select_only_one_successor(tmp_path):
+    source = host_failure(tmp_path)
+    evidence = [increase_evidence(source, suffix=f"increase-{index}") for index in range(2)]
+    def attempt(index):
+        try:
+            increase(source, suffix=f"increase-{index}", **evidence[index])
+            return "selected"
+        except ProviderError:
+            return "refused"
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        assert sorted(workers.map(attempt, (0, 1))) == ["refused", "selected"]
+
+
+@pytest.mark.parametrize("after_write", [False, True])
+def test_interrupted_increase_never_publishes_an_admitting_map(tmp_path, monkeypatch, after_write):
+    from spellbench.llm import run_budget
+    source = host_failure(tmp_path)
+    evidence = increase_evidence(source)
+    original = run_budget._write_marker
+    def write(path, value):
+        if path == source.path.with_name(source.path.name + ".continuation.json"):
+            if after_write:
+                original(path, value)
+            raise OSError("interrupted retirement")
+        original(path, value)
+    monkeypatch.setattr(run_budget, "_write_marker", write)
+    with pytest.raises(ProviderError, match="run_budget_unavailable"):
+        increase(source, **evidence)
+    assert not (source.path.parent / "increase-map.json").exists()
+    if after_write:
+        with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+            source.check()
+    else:
+        assert source.summary()["policy"]["terminal_error"] == "profile_renewal_failed"
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_healthy_or_unsettled_parent_cannot_start_an_increased_panel(tmp_path, pending):
+    source = host_failure(tmp_path)
+    healthy = increase(source, **increase_evidence(source))
+    if pending:
+        healthy.reserve(PROMPT, output_tokens=20)
+        healthy.fail("hosted_broker_failed")
+    evidence = increase_evidence(healthy, suffix="second")
+    with pytest.raises(ProviderError, match="run_budget_unresolved_request" if pending else "run_budget_parent_not_failed"):
+        increase(healthy, suffix="second", **evidence)
+    assert not (source.path.parent / "second-map.json").exists()
+
+
+def test_rebound_increase_cannot_remove_a_finite_parent_cutoff(tmp_path, monkeypatch):
+    from spellbench.llm.run_budget import _origin, _successor_claim
+    source = transfer(tmp_path, budget(tmp_path))
+    source.fail("hosted_broker_failed")
+    original_cutoff = source.summary()["effective_deadline"]
+    # Construct the formerly accepted boundary, bypassing only the creation
+    # check. Then bind all records to the actual finite parent cutoff.
+    monkeypatch.setattr(source, "_effective_deadline", lambda policy: None)
+    evidence = increase_evidence(source)
+    leaf, manifest = source.path.parent / "increase.sqlite3", source.path.parent / "increase-map.json"
+    increase_failed_run_limits(source, leaf, manifest, **evidence)
+    receipt = evidence["failure_receipt"]
+    value = json.loads(receipt.read_bytes())
+    value["effective_deadline"] = original_cutoff
+    receipt.write_text(json.dumps(value))
+    authority = evidence["authority"]
+    value = json.loads(authority.read_bytes())
+    value["failure_receipt_sha256"] = digest(receipt)
+    authority.write_text(json.dumps(value))
+    with sqlite3.connect(leaf) as database:
+        policy = json.loads(database.execute("SELECT json FROM policy").fetchone()[0])
+        policy["continuation"]["recovery"]["receipt_sha256"] = digest(receipt)
+        policy["continuation"]["limit_increase"]["authority_sha256"] = digest(authority)
+        database.execute("UPDATE policy SET json=?", (json.dumps(policy),))
+    claim = {"successor": str(leaf.resolve()), "parent_sha256": digest(source.path),
+             "policy": {key: item for key, item in policy.items() if key != "terminal_error"}}
+    for marker in (_origin(leaf), _successor_claim(source.path)):
+        marker.write_text(json.dumps(claim))
+    snapshot = leaf.with_name(leaf.name + ".initial.sqlite3")
+    shutil.copyfile(leaf, snapshot)
+    value = json.loads(manifest.read_bytes())
+    for path in (receipt, authority, _origin(leaf), _successor_claim(source.path), snapshot):
+        value["immutable"][path.relative_to(manifest.parent).as_posix()] = digest(path)
+    manifest.write_text(json.dumps(value))
+    with pytest.raises(ProviderError, match="run_budget_limit_increase_changed"):
+        RunBudget(leaf, model=source.model, path_map=manifest, path_map_sha256=digest(manifest))

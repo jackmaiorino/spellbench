@@ -217,6 +217,88 @@ def continue_host_preflight(budget, successor: Path, manifest: Path) -> Path:
     return manifest
 
 
+def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
+                               approved_limits: dict, failure_receipt: Path,
+                               failure_receipt_sha256: str, authority: Path,
+                               authority_sha256: str) -> Path:
+    """Explicit approved fresh-panel accounting, never a reset or in-place edit.
+
+    The failed mapped parent remains byte-identical and exclusively retired.
+    Receipt and authority paths must already lie within its retained bundle.
+    Only cumulative request/token caps can increase; no cutoff is introduced.
+    """
+    from .run_budget import (RunBudget, LIMIT_NAMES, _origin, _successor_claim,
+                             _retained_file, _totals, _write_marker, TIMEOUT_FORFEIT_SCHEMA,
+                             CONTINUATION_SCHEMA, _deadline_extension)
+    if budget.paths.manifest is None:
+        raise ProviderError("run_budget_transfer_required")
+    root = budget.paths.manifest.parent
+    successor, manifest = successor.resolve(), manifest.resolve()
+    failure_receipt, authority = failure_receipt.resolve(strict=True), authority.resolve(strict=True)
+    if (not successor.is_relative_to(root) or not manifest.is_relative_to(root)
+            or successor.exists() or manifest.exists() or successor == manifest
+            or not failure_receipt.is_relative_to(root) or not authority.is_relative_to(root)
+            or set(approved_limits) != set(LIMIT_NAMES)
+            or any(type(value) is not int or value < 1 for value in approved_limits.values())):
+        raise ValueError("fresh mapped paths and explicit positive limits required")
+    with budget._transaction() as database:
+        policy = budget._policy(database)
+        rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
+        _retained_file(budget.path)
+        if any(row["status"] == "pending" for row in rows):
+            raise ProviderError("run_budget_unresolved_request")
+        if not policy.get("terminal_error") or database.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
+            raise ProviderError("run_budget_parent_not_failed")
+        cutoff = budget._effective_deadline(policy)
+        if cutoff is not None:
+            raise ProviderError("run_budget_deadline_extension_present")
+        parent_sha = digest(budget.path)
+        recovery = {"receipt": str(failure_receipt), "receipt_sha256": failure_receipt_sha256}
+        RunBudget._recovery_receipt(recovery, budget.path.resolve(), parent_sha, cutoff,
+                                    parent_logical=budget.paths.key(budget.path))
+        retained_manifest = Path(json.loads(failure_receipt.read_bytes())["retained_run_manifest"]).resolve(strict=True)
+        if not retained_manifest.is_relative_to(root):
+            raise ValueError("retained aborted manifest must be inside bundle")
+        inherited = _totals(policy, rows)
+        child = {**policy, **approved_limits, "terminal_error": None,
+                 "schema": TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA,
+                 "continuation": {"kind": "failed-run-recovery", "parent": budget.paths.key(budget.path),
+                                  "parent_sha256": parent_sha, "inherited": inherited,
+                                  "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False),
+                                  "recovery": recovery, "no_cutoff": True,
+                                  "parent_overlay_sha256": (digest(_deadline_extension(budget.path))
+                                                            if _deadline_extension(budget.path).exists() else None),
+                                  "limit_increase": {"authority": str(authority), "authority_sha256": authority_sha256}}}
+        RunBudget._limit_increase(child["continuation"], budget.path.resolve(), policy, child,
+                                  parent_logical=budget.paths.key(budget.path))
+        if (inherited["requests"] >= child["max_requests"] or inherited["reported_input_tokens"]
+                + inherited["reported_output_tokens"] + inherited["uncertain_reserved_tokens"] >= child["max_reported_tokens"]):
+            raise ProviderError("run_budget_exhausted")
+        RunBudget._initialize(successor, child)
+        claim = {"successor": str(successor), "parent_sha256": parent_sha,
+                 "policy": {key: item for key, item in child.items() if key != "terminal_error"}}
+        _write_marker(_origin(successor), claim)
+        snapshot = successor.with_name(successor.name + ".initial.sqlite3")
+        shutil.copyfile(successor, snapshot)
+        snapshot.chmod(0o600)
+        value = dict(budget.paths.value)
+        value["files"] = list(value["files"])
+        value["immutable"] = dict(value["immutable"])
+        for path in (successor, failure_receipt, retained_manifest, authority):
+            if str(path) not in budget.paths.files:
+                value["files"].append({"logical": str(path), "file": path.relative_to(root).as_posix()})
+        value.update(active=str(successor), destination=str(successor),
+                     transfer_snapshot=value.get("transfer_snapshot", value["snapshot"]),
+                     snapshot=snapshot.relative_to(root).as_posix())
+        for path in (budget.path, _origin(successor), snapshot, failure_receipt, retained_manifest, authority):
+            value["immutable"][path.resolve().relative_to(root).as_posix()] = digest(path)
+        # An interrupted retirement leaves a non-admitting parent and no new map.
+        _write_marker(_successor_claim(budget.path), claim)
+        value["immutable"][_successor_claim(budget.path).resolve().relative_to(root).as_posix()] = digest(_successor_claim(budget.path))
+        _write_marker(manifest, value)
+    return manifest
+
+
 def export_budget(budget, bundle: Path, *, destination: str, host_identity_file: str,
                   host_identity: str) -> Path:
     """Retire an idle source and produce one bound destination bundle.
@@ -293,6 +375,9 @@ def export_budget(budget, bundle: Path, *, destination: str, host_identity_file:
                 publication = json.loads(receipt.read_bytes())
                 copy(budget.paths.resolve(publication["retained_run_manifest"]),
                      f"retained/{index}/aborted-manifest.json")
+            increase = continuation.get("limit_increase")
+            if increase is not None:
+                copy(budget.paths.resolve(increase["authority"]), f"retained/{index}/authority.json")
             current = budget.paths.resolve(continuation["parent"])
             with sqlite3.connect(current.as_uri() + "?mode=ro", uri=True) as retained:
                 child = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
