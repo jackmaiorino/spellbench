@@ -41,8 +41,10 @@ hidden deal, future chance state, engine log or callback into the environment.
 The redeal configurations use a marker to request public reconstruction; the
 placeholder engine is never used as their redeal root.
 The current engine profile declares the search extension with `native_ids:true`
-because it carries IDs across observation boundaries. Rated use still needs the
-published identity audit required by protocol sections 13 and 14.
+because it carries IDs across observation boundaries. The
+[pool identity audit](gorge-native-identity-audit-20261003.md) covers all 83 catalog
+cards and eight reachable tokens for protocol sections 13 and 14. Rated
+configuration must cite its published, compatible version.
 
 Checks observed on local Go 1.27.1, CGO disabled, one process and `-p 1`:
 
@@ -191,10 +193,12 @@ Jack's canonical reservation free and the previously observed formal PID
 absent, without inferring a research result. Haley's queued training window
 keeps priority; RunPod's read-only inventory still returned HTTP 403.
 
-Remaining work: finish the event and identity audit across the five-deck card pool, preserve legal
-mapping at shipped budgets under reference-host clocks, verify timeout cleanup
-under the current host isolation policy and guarded completed-work throughput, and freeze the
-complete roster before evaluation. All twelve playable strategies are
+The complete pool census and source audit are recorded in the linked identity
+audit. A fresh-capture hidden-state test passed across all 83 cards, and the
+rebuilt Windows runtimes passed a Rally reference-host replay plus startup and
+decision timeout cleanup. These checks leave full mode/deck qualification,
+shipped-budget clock evidence and guarded completed-work throughput to finish.
+Freeze the complete roster before evaluation. All twelve playable strategies are
 implemented; none is qualified, rated or published.
 The draft benchmark now lists all twelve plus uniform and heuristic. Its
 search profile, artifact versions and roster must pass qualification and be

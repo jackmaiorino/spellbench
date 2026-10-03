@@ -1,0 +1,109 @@
+# Public search identity audit for the pinned gorge Pauper pool
+
+This audit covers `x_gorge_search_v1` under protocol sections 13 and 14. Its
+stable IDs refer to information already observed by the acting seat. They
+do not expose gorge allocation IDs, unseen copy identities, event counters,
+opponent decision counts, hidden-zone order, or hashes of those values.
+
+The scope is the five catalog decks in `pauper-gorge`, gorge revision
+`26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
+`95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation
+in Spellbench `042c1912541f4a4251bd9e96a1912b299a4a742b`. Runtime registry SHA-256:
+`42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937`.
+Changes to that implementation, pool, compiler or registry require checking
+this audit's compatibility before reuse.
+
+## Complete pool and reachable behavior
+
+[The generated census](gorge-card-pool-census-20261003.json) contains all 83
+distinct catalog cards, eight reachable token scripts and 62 behavior symbols.
+The read-only `spellbench-gorge-audit` command checks the hash-pinned registry,
+follows every face, linked ability chain and SVar ability, includes token
+dependencies recursively, and adds Investigate's implicit Clue dependency.
+Unsupported cards or missing/unsupported tokens stop the census. The output
+contains names and behavior symbols, without card scripts or compiled IR.
+Embalm's generated Sacred Cat copy uses the already included public face.
+
+| Behavior | Pool carriers and native source | Information treatment |
+|---|---|---|
+| Draw, discard, discard costs, cycling, typecycling, madness | Draw/Discard in `effects/cardflow.go`; costs and keyword expansion in `rules` and `cards` | Private draws retain only their public shape for the other seat. Discards and face-up exile are visible zone changes. An unseen hidden-to-hidden move retires other-seat hidden copy links conservatively. |
+| Library search and return to hand/library | ChangeZone/ChangeZoneAll in `effects/zone.go`; Brainstorm, Land Grant, Gatecreeper Vine, Squadron Hawk, cycling searches, Twisted Landscape, Cleansing Wildfire, Lembas, graveyard returns and Mesmeric Fiend | Only the acting chooser receives offers for a private search. Typed fetches have explicit public reveals or enter public zones. Library ordering payloads are removed. Shuffle and the other seat's private reordering retire library copy links; anonymous known-name membership may remain. |
+| Private look, dig and scry | Dig/DigUntil/Scry in `effects/cardflow.go`, `rules/arrange.go`; Lead the Stampede, Winding Way, Preordain, Lembas, impulse effects and Balustrade Spy | Private look Notes are owner-only. Explicit reveals, mill and face-up exile are public. Private opponent asks and answers are removed, including their count. Only the actor's own observed arrangements retain copy position knowledge. |
+| Explore through a Map token | `effects/explore.go` | The top card is explicitly revealed before its public outcome. The opponent's private election transcript is removed. |
+| Face-up permanent, token, spell and ability effects | Mana, damage, life, counters, pump, tap/untap, destruction, countering, public choices, token/copy creation, Effect/Cleanup and their triggers/replacements/statics | Derived facts describe visible objects, printed abilities, public zones or the actor's own offers. Object-valued fields use observer aliases. A stack ability retains its public name after its source leaves, but cannot name an unobserved or retired hidden incarnation of that source. |
+
+The census closes the source inspection to this pool. It includes all reachable
+API, keyword, trigger, replacement and static families, including the eight
+token behaviors. This pool has no face-down library/exile mechanism, planar or
+commander objects, opponent blind library offers, or continuous library-top
+look grant. Those mechanisms are outside this audit. Plot, madness, adventures,
+bestow, the Saga transition and embalm use their ordinary visible zones here.
+
+## Fields and identities
+
+`strategies/history.go` captures owned values, then coalesces them at the
+actor's own observation boundaries. `public_history.go.txt` drops both seats'
+DecisionAsk/DecisionMade events, opponent answer transcripts and private
+opponent Notes. `Delta.from`, answer indices and `native_index` are actor-local;
+the raw feed index and event `Seq` are absent. Internal folded asks are the
+actor's own offers under this pool's open-look effects. No opponent boundary
+or offer count enters the payload.
+
+`public_collector.go.txt` and the pinned observation overlay allocate monotonic
+observer IDs only from displayed cards, permitted reveals/looks and visible
+zone transitions. Their allocation does not advance for an unseen card.
+`Frame.Board` is a seat projection with its in-memory continuation removed.
+Card IDs, stack/source/target IDs, combat references, pending sources and
+potential-action objects are rewritten. Native card `Token` strings are
+removed. Secret Shuffle and LibraryOrder events carry no ordered IDs for
+either seat. Observed events have no engine sequence or log hash.
+
+Identity introductions and retirement are folded in event order before the
+current board. A reveal followed by shuffle cannot restore the shuffled copy's
+old link. The collector preserves an actor's answered arrangement, but retires
+the other seat's private arrangement. The initial source binding of a stack
+ability stays retired after a shuffle even if the same physical card is drawn
+and receives a new visible identity.
+
+The companion `x_gorge_view_v1` uses fresh per-seat incarnation aliases and
+declares `native_ids:false`. `SearchAliases` joins only current source/option
+aliases to already observed history references. Its internal HMAC identity keys
+and move counters are absent from both extensions. Native decision sequence,
+group labels and option indices are rewritten. Payment action/plan hashes are
+recomputed from the rewritten actor-local decision and visible cast/mana-source
+aliases; native plan hashes and source zone counters are absent.
+
+The agent reconstructs hypothetical worlds from public setup and received
+history. It receives no original engine, live hidden zones, chance prefix,
+generator state, game secret or engine event log. Hypothetical worlds and their
+search values therefore cannot recover the live game's hidden state through a
+transported digest. Starvation/refusal statistics concern those reconstructions.
+
+## Observed checks and limits
+
+- `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
+  Each variant creates a fresh engine and fresh collector, places the card in
+  the opponent's actual hidden hand/library, and compares the complete actor
+  seat decisions including both extensions at initial mulligan and first
+  priority. The fixture checks the installed hidden objects directly. This
+  exercises all pool definitions at genesis; it does not execute every effect.
+- The shuffle/reorder, anonymous membership, hidden draw, chronology and stack
+  source regressions passed, including legal play of the pinned Lembas and a
+  separate redraw identity regression. See
+  [public-history evidence](gorge-public-history-checks-20261003.json).
+- A complete ordinary-bot game and deterministic replay passed on each of the
+  five decks with live histories, valid identity bindings and no recorded
+  literal-name leaks or semantic inconsistency. The literal-name check alone
+  is insufficient to establish noninterference; this audit also inspects the
+  fields and reachable emitters above.
+- The rebuilt Windows binaries passed a complete Rally mirror and its replay
+  through the Python reference host, with identical canonical game digest,
+  416 validated steps, no validator violation and all child processes closed.
+  Real engine and search-agent startup timeout checks also closed their
+  processes. Details: [reference-host evidence](gorge-reference-host-checks-20261003.json).
+
+This is a source and information audit for the stated pool. Full twelve-mode
+qualification, guarded throughput comparison, rated games and public ratings
+remain separate delivery work. Timing, public canonical-envelope limits and
+the other residual channels listed in protocol section 13 remain as declared
+by the protocol. No playing-strength result is claimed by these checks.

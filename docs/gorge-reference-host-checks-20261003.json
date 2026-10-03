@@ -1,0 +1,236 @@
+{
+  "schema": "spellbench-gorge-reference-host-diagnostic/v1",
+  "source_commit": "042c1912541f4a4251bd9e96a1912b299a4a742b",
+  "rated": false,
+  "admission_audit_completed": false,
+  "games": [
+    {
+      "repetition": 0,
+      "deck": "Rally",
+      "policy": "bot-auto-pay",
+      "wall_seconds": 3.5783562999858987,
+      "result": {
+        "outcome": "p1_win",
+        "classification": "natural",
+        "winner": "p1",
+        "reason": "p0_life_zero",
+        "adjudication": null,
+        "step_count": 416,
+        "decision_count": 399,
+        "decisions_checked": 416,
+        "last_selection_seat": null,
+        "game_digest": "sha256:ef67d3c52750948245893fa1fcc457d998fa5a303dcf6c15bfe075a8c4a5728b",
+        "violation": null,
+        "diagnostics": []
+      },
+      "processes": [
+        {
+          "pid": 55876,
+          "max_read_bytes": 74340,
+          "max_write_bytes": 2289,
+          "reads": 418,
+          "writes": 418,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 36556,
+          "max_read_bytes": 260,
+          "max_write_bytes": 74106,
+          "reads": 215,
+          "writes": 215,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 60992,
+          "max_read_bytes": 260,
+          "max_write_bytes": 53150,
+          "reads": 207,
+          "writes": 207,
+          "closed": true,
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "deck": "Rally",
+      "policy": "bot-auto-pay",
+      "wall_seconds": 3.6039484000066295,
+      "result": {
+        "outcome": "p1_win",
+        "classification": "natural",
+        "winner": "p1",
+        "reason": "p0_life_zero",
+        "adjudication": null,
+        "step_count": 416,
+        "decision_count": 399,
+        "decisions_checked": 416,
+        "last_selection_seat": null,
+        "game_digest": "sha256:ef67d3c52750948245893fa1fcc457d998fa5a303dcf6c15bfe075a8c4a5728b",
+        "violation": null,
+        "diagnostics": []
+      },
+      "processes": [
+        {
+          "pid": 47204,
+          "max_read_bytes": 74340,
+          "max_write_bytes": 2289,
+          "reads": 418,
+          "writes": 418,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 51176,
+          "max_read_bytes": 260,
+          "max_write_bytes": 53150,
+          "reads": 207,
+          "writes": 207,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 42792,
+          "max_read_bytes": 260,
+          "max_write_bytes": 74106,
+          "reads": 215,
+          "writes": 215,
+          "closed": true,
+          "exit_code": 0
+        }
+      ]
+    }
+  ],
+  "timeouts": [
+    {
+      "role": "engine",
+      "cause": "timeout",
+      "wall_seconds": 0.561593599995831,
+      "process": {
+        "pid": 18844,
+        "max_read_bytes": 0,
+        "max_write_bytes": 89,
+        "reads": 0,
+        "writes": 1,
+        "closed": true,
+        "exit_code": 0
+      }
+    },
+    {
+      "role": "agent",
+      "cause": "timeout",
+      "wall_seconds": 0.5603283999953419,
+      "process": {
+        "pid": 52640,
+        "max_read_bytes": 0,
+        "max_write_bytes": 89,
+        "reads": 0,
+        "writes": 1,
+        "closed": true,
+        "exit_code": 0
+      }
+    }
+  ],
+  "replay_equal": true,
+  "passed": true,
+  "limits": {
+    "transport_max_line_bytes": 8388608,
+    "startup_ms": 120000,
+    "game_start_ms": 60000,
+    "bank_ms": 600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 60000,
+    "engine_step_ms": 120000
+  },
+  "card_pool_test": {
+    "name": "TestFullPoolHiddenCardsDoNotChangePublicHistory",
+    "cards": 83,
+    "passed": true,
+    "boundaries": [
+      "actor_initial_mulligan",
+      "actor_first_priority"
+    ],
+    "fresh_capture": true,
+    "hidden_state_fixture_verified": true,
+    "seconds": 0.877
+  },
+  "census_sha256": "7b478b448e755208ccfb9d0441c39129aa0d34a2368ed980a814e7fd197f05a1",
+  "decision_timeout": {
+    "schema": "spellbench-gorge-reference-decision-timeout/v1",
+    "source_commit": "042c1912541f4a4251bd9e96a1912b299a4a742b",
+    "rated": false,
+    "deck": "Rally",
+    "policy": "search",
+    "max_decision_ms": 1,
+    "wall_seconds": 1.2304237999778707,
+    "result": {
+      "outcome": "p1_win",
+      "classification": "forfeit",
+      "winner": "p1",
+      "reason": "forfeit:timeout",
+      "adjudication": {
+        "kind": "forfeit",
+        "cause": "timeout",
+        "loser_seat": "p0",
+        "detail": "the answer to choose at seat step 0 exceeded the seat's clock"
+      },
+      "step_count": 0,
+      "decision_count": 0,
+      "decisions_checked": 1,
+      "last_selection_seat": null,
+      "game_digest": "sha256:9d5a8f0f23fbe1df5ffc07a82184b5cad27f021eb7df3f054de4e6a1b38e00d9",
+      "violation": null,
+      "diagnostics": []
+    },
+    "processes": [
+      {
+        "pid": 53804,
+        "max_read_bytes": 13370,
+        "max_write_bytes": 2289,
+        "reads": 2,
+        "writes": 2,
+        "closed": true,
+        "exit_code": 0
+      },
+      {
+        "pid": 23808,
+        "max_read_bytes": 294,
+        "max_write_bytes": 13133,
+        "reads": 4,
+        "writes": 4,
+        "closed": true,
+        "exit_code": 0
+      },
+      {
+        "pid": 61280,
+        "max_read_bytes": 294,
+        "max_write_bytes": 5044,
+        "reads": 3,
+        "writes": 3,
+        "closed": true,
+        "exit_code": 0
+      }
+    ]
+  },
+  "affected_checks": {
+    "go_version": "go1.27.1 windows/amd64",
+    "go_vet": "cmd/spellbench-gorge-audit and internal/session passed",
+    "go_session_tests": {
+      "passed": true,
+      "seconds": 38.921
+    },
+    "python_version": "3.13.14",
+    "pytest_version": "8.4.2",
+    "python_affected_tests": {
+      "files": [
+        "test_bench_definition.py",
+        "test_host_clock.py",
+        "test_host_agent_process.py"
+      ],
+      "passed": 201,
+      "seconds": 5.29
+    }
+  }
+}
