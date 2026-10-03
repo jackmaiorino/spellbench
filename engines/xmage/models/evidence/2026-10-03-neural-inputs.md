@@ -80,3 +80,18 @@ Recovery remains under `D:/e-scratch/spellbench-xmage-all-20261002`.
 Completed fixtures' disposable card-database copies are pruned with a path,
 size and hash receipt; their pinned original remains on E. Formal replay and
 rated qualification still require the complete agent and guarded launcher.
+
+Private Jack encoder preparation is retained at
+`E:/spellbench-xmage-all-20261002/jack-fair-preparation-001/` with a verified D
+recovery copy. The original April source hash is
+`51504c1ffffbf5db8554258b5dca28f54f26bb7760121e0098561eac0b14b916`;
+the staged fair source hash is
+`b1da6f428988d70e23a07477b9042c1ad6382f745d37ff0a1324cbb25957c3c2`.
+Changed source is refused and the actual source stage repeats byte-for-byte.
+Seventeen cold files, 252,228 bytes, were reread against their hashes. Backup
+manifest SHA-256 is
+`c921e4fc8a1a4e1a867bc252a02b4ac8e0ad925435c614f9cab5685fc1ea9c0d`.
+The four candidate decks and their registry are source-pinned to private Mage
+revision `750b3ff88c98f00a0d3218a54c16198b69b8a24c`. Exact checkpoint associations
+remain unconfirmed. Source staging and cache coverage are preparation only.
+The new public Java bridge and lookup have not compiled or run yet.

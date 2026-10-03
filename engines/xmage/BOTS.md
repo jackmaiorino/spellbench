@@ -101,6 +101,17 @@ Synthetic probes do not establish cache coverage, encoder fairness or exact
 deck association. Unassociated entries cannot launch `serve`. Private source
 and weights stay outside this public repository.
 
+The April base-state encoder now has a private staged fair port with an explicit
+acting viewer, named permitted entity tokens and public-alias ordering for known
+library cards. It replaces the original active-player perspective and whole-library
+encoding. Its new Java bridge and read-only embedding lookup await compilation
+and live invariance checks; candidate callbacks and full games are unfinished.
+Preparation hashes four historical 60-card Pauper candidate decks with 15-card
+sideboards. The global embedding cache covers their main decks; the Elves cache
+also covers every sideboard name. The historical `Pauper-Standard` registry
+selects that four-deck Pauper pool. These records do not yet bind any copied
+checkpoint to its actual training deck version.
+
 ## Next delivery steps
 
 Finish the game adapters, native qualification, and learned encoder/action

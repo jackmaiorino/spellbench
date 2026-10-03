@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 from xmage_encoder_sources import stage
+from xmage_jack_sources import stage as stage_jack
 from xmage_search_sources import stage as stage_search
 from xmage_verified_entry import verify_build
 from xmage_release_assets import verify
@@ -21,7 +22,11 @@ def main() -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--javac", default="javac")
     parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
+    parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
+    parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
     args = parser.parse_args()
+    if bool(args.jack_inputs) != bool(args.jack_manifest):
+        raise ValueError("Jack build needs both its private inputs and manifest")
     repo = Path(__file__).resolve().parents[2]
     manifest = repo / "engines/xmage/releases.json"
     engine = args.engine.resolve()
@@ -39,6 +44,8 @@ def main() -> int:
         raise ValueError("model build needs a new job directory")
     staged = stage(json.loads(manifest.read_text()), args.inputs, args.out / "sources")
     search = stage_search(json.loads(manifest.read_text()), args.search_inputs, args.out / "search-sources") if args.search_inputs else None
+    jack = stage_jack(json.loads(args.jack_manifest.read_bytes()), args.jack_inputs,
+                      args.out / "jack-sources") if args.jack_inputs else None
     dependencies = []
     if search:
         search_assets = {a["id"]: a for a in json.loads(manifest.read_text())["assets"]}
@@ -58,7 +65,9 @@ def main() -> int:
         source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
     else:
         source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
-                                and p.name not in ("ModelSearchMain.java", "ModelReplay.java")]
+                                and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java")]
+    if jack:
+        source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
@@ -72,6 +81,8 @@ def main() -> int:
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
               "source_sha256": hashes, "encoder_stage": staged,
               "search_stage": search,
+              "jack_stage": jack,
+              "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
               "class_files_sha256": {str(p.relative_to(args.out)): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for d in paths.values() for p in sorted(d.rglob("*.class"))},

@@ -118,6 +118,32 @@ vocabulary ranges and boolean masks are checked before inference. These
 checks do not qualify the Java feature encoder, cache coverage or exact deck
 association. The complete fair game adapter and ratings remain unfinished.
 
+The private April base encoder now has a staged fair port. The original picks
+the active player, uses that perspective for ownership features, and reads
+the selected player's whole library. The port requires an explicit acting
+viewer and a map of named, permitted object references. Anonymous entities
+and sampled hidden library cards cannot produce identity features. Known
+library tokens use public object-alias order. These changes are part of the
+variant's identity and need actual game qualification.
+
+`xmage_model_build.py --jack-inputs PRIVATE_ROOT --jack-manifest PRIVATE_MANIFEST`
+adds the private staged encoder to the reviewed model build. Both arguments
+are required; the source must match the recorded April hash. Private generated
+source remains in that owned build root. `JackEncoderMain` accepts recorded
+priority decisions or a private NDJSON pipe, and returns base-state features
+bound to the decision hash. It checks the staged method and pinned embedding
+cache before reporting readiness. Candidate features and callbacks remain
+unimplemented. The new Java classes await compilation and a live check.
+
+Embedding lookup uses one explicit hash-pinned cache with 32 finite numbers
+per card. It performs no network lookup or file writes and refuses missing
+names. Preparation verified 114 global and 174 Elves-cache entries. The global
+cache covers the main decks of all four historical Pauper candidates; it lacks
+some sideboard names. The Elves cache covers all four candidates including
+sideboards. Those coverage checks do not establish which cache or exact deck
+belongs to a copied checkpoint. The historical `Pauper-Standard` registry
+selects a four-deck Pauper pool. Its current checkpoint association is pending.
+
 The container is limited to one CPU, 3 GiB RAM, 64 processes and a 64 MiB
 ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the
