@@ -77,6 +77,8 @@ def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
     allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                           volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
                           rules=benchmark.qualification_rules())
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+        raise ValueError("native qualification outputs differ across worker counts")
     trials = trial_ledgers(records, allocation)
     report = {"schema": "spellbench-native-benchmark-qualification/v1", "benchmark": benchmark.id,
               "benchmark_sha256": benchmark_sha256, "allocation": allocation.to_json(),

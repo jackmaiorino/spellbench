@@ -95,3 +95,9 @@ confirm that changed definitions are refused and that a real later launch can
 reuse the prepared evidence without creating a rated run. This is engineering
 validation; the native benchmark remains unqualified. The Windows supervisor
 also monitors the benchmark's actual completed trial ledgers.
+
+Native qualification additionally requires natural completion and identical
+substantial-run outputs across worker counts. Cached evidence must retain the
+matching trial rows: their indices and canonical output digests are checked
+against the allocation before reuse can certify native play. A small real
+fake-engine test covers reuse and refuses it after its raw rows are missing.

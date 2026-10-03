@@ -44,6 +44,14 @@ it can launch. The loader requires the recorded wide hash range and strict
 weights only. No actual pretrained MageZero checkpoint has been qualified;
 complete game play remains unfinished.
 
+The inspected v0.1 and v0.2 public engine bundles contain no pretrained
+weights. Author delivery needs the trained `.mz` export or raw weights, the
+exact associated decklists, the engine and encoder source revision, and the
+search configuration. The v0.2 release changes the feature hashing and is
+incompatible with v0.1 models. Keep those versions separate. An author export
+can enter the existing hash-pinned isolated loading path as soon as those
+inputs arrive; an exact deck association is still required before serving.
+
 For an author-supplied `.mz` export, stage the opaque file in an owned input
 root and add its asset to an external copy of `releases.json`, then add that
 asset ID to `inference_backends.magezero-v02.checkpoints`. Record these fields:
