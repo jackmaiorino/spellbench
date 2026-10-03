@@ -23,6 +23,8 @@ offers while preserving byte-identical caster history. After the controller
 chooses a Forest and declines the optional shuffle, the caster's legitimate
 26-frame public history reconstructs coherently in 52 submits, without exhausting
 the existing budget. These fixtures play zero complete games.
+The [correctness and runtime record](gorge-library-owner-repair-20261003.json)
+links the sealed test logs, independently verified recovery and corrected inputs.
 
 Earlier Cleansing Wildfire fixtures and saved 97- and 166-frame histories used
 the incorrect chooser. Their sealed records remain mechanical replay evidence

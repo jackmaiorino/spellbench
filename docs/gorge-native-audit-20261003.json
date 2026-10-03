@@ -298,7 +298,7 @@
   "remaining": "Current-runtime qualification, failed per-deck search coverage and reconstruction gates, reviewed benchmark and seed commitment, rated evaluation and publication.",
   "current_runtime": "docs/gorge-runtime-preparation-20261003-013.json",
   "subsequent_repair": "docs/gorge-mana-history-repair-20261003.json",
-  "latest_runtime": "E:/spellbench-gorge-runtime-20261003-015",
+  "latest_runtime": "E:/spellbench-gorge-runtime-20261003-016",
   "public_basic_search_follow_up": "docs/gorge-basic-search-repair-20261003.json",
   "public_removal_follow_up": "docs/gorge-public-removal-repair-20261003.json",
   "fairness_compatibility": {
@@ -306,5 +306,12 @@
     "finding": "The pinned engine assigned Cleansing Wildfire opponent-library confirmation and offers to the caster instead of the targeted land controller.",
     "evidence_use": "Retain historical mechanical replay and completed-game records. Do not reuse them as fairness or current-runtime qualification evidence, or transplant their histories into the corrected engine.",
     "current_audit": "docs/gorge-native-identity-audit-20261003.md"
+  },
+  "library_ownership_follow_up": "docs/gorge-library-owner-repair-20261003.json",
+  "closed_unlaunched_preparation": {
+    "source_of_record": "E:/spellbench-gorge-native-audit-20261003-003",
+    "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261003-003",
+    "bytes": 67868,
+    "seal_sha256": "c6bb2ae1d0c5c363a9ae77e20b3cdf101e64255dc1139864220b8fbdcbb5b701"
   }
 }

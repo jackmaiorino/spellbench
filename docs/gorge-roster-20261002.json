@@ -264,11 +264,12 @@
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
       "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json",
-      "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json"
+      "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json",
+      "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json"
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-015.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-016.json",
   "engine_configuration": {
     "rated_registry_input": "explicit registry file and expected SHA-256; frozen runtime prepared and startup checked, qualification and rated launch are pending",
     "auto_pay": true,
