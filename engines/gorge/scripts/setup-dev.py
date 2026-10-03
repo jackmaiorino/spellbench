@@ -29,6 +29,8 @@ overlay = {
             (root / "native-overlay/public_payment.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_redeal.go").as_posix():
             (root / "native-overlay/public_redeal.go.txt").as_posix(),
+        (source / "internal/searchprobe/spellbench_public_basic_search.go").as_posix():
+            (root / "native-overlay/public_basic_search.go.txt").as_posix(),
         (source / "internal/searchprobe/spellbench_public_known.go").as_posix():
             (root / "native-overlay/public_known.go.txt").as_posix(),
         (source / "rules/spellbench_public_replay_clone.go").as_posix():

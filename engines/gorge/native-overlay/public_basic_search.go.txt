@@ -1,0 +1,208 @@
+package searchprobe
+
+import (
+	"slices"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+type spellbenchBasicSearch struct {
+	through int
+	names   []string
+	basics  map[string]bool
+}
+
+// A named, full-library basic-land search exposes membership and the relative
+// order of its matches. It does not expose their absolute positions, other
+// cards, physical copy IDs, or the opponent's hand. Restrict this guidance to
+// an unmodified initial opponent shuffle and a single printed search ability.
+// Other searches retain the existing proposal and full replay checks.
+func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenchBasicSearch {
+	windows := map[epochKey]spellbenchBasicSearch{}
+	identities := map[uint32]Identity{}
+	cursors := map[state.PlayerID]epochCursor{}
+	byName := map[string]*cards.Face{}
+	basics := map[string]bool{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			for _, face := range card.Faces {
+				byName[face.Name] = face
+				basics[face.Name] = slices.Contains(face.Types, "Basic") && slices.Contains(face.Types, "Land")
+			}
+		}
+	}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			cursor := cursors[ev.Player]
+			switch ev.Kind {
+			case events.Shuffle:
+				cursor.ordinal++
+				cursor.draws, cursor.reliable = 0, true
+				cursors[ev.Player] = cursor
+			case events.Draw:
+				cursor.draws++
+				cursors[ev.Player] = cursor
+			case events.LibraryOrder:
+				cursor.reliable = false
+				cursors[ev.Player] = cursor
+			case events.MoveZone:
+				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				identity, known := identities[ev.Obj]
+				for player, affected := range cursors {
+					if !known || player == identity.Owner {
+						affected.reliable = false
+						cursors[player] = affected
+					}
+				}
+			}
+		}
+		d := frame.Decision
+		if d == nil || d.Kind != decision.KChoose || d.Player != h.Actor || len(d.Options) == 0 {
+			continue
+		}
+		owner := d.Options[0].Action.Player
+		cursor := cursors[owner]
+		key := epochKey{Player: owner}
+		if owner == h.Actor || int(owner) >= len(setup.Decks) || cursor.ordinal != 1 || !cursor.reliable || windows[key].names != nil {
+			continue
+		}
+		if !spellbenchPrintedBasicSearch(byName[identities[d.Source].Name]) {
+			continue
+		}
+		var names []string
+		valid := true
+		for _, option := range d.Options {
+			identity, known := identities[option.Action.Obj]
+			if option.Action.Kind != "search" || option.Action.Player != owner || !known || identity.Owner != owner || !basics[identity.Name] {
+				valid = false
+				break
+			}
+			names = append(names, identity.Name)
+		}
+		if valid {
+			windows[key] = spellbenchBasicSearch{through: cursor.draws, names: names, basics: basics}
+		}
+	}
+	return windows
+}
+
+// The allowlist excludes filters, restricted search windows, blind options,
+// alternate origins and competing search abilities. This reads declared card
+// definitions, not an engine or its current hidden cards.
+func spellbenchPrintedBasicSearch(face *cards.Face) bool {
+	if face == nil {
+		return false
+	}
+	allowed := map[string]bool{"Origin": true, "Destination": true, "ChangeType": true, "ChangeTypeDesc": true,
+		"Tapped": true, "ChangeNum": true, "DefinedPlayer": true, "Shuffle": true, "ShuffleNonMandatory": true,
+		"SubAbility": true, "StackDescription": true, "Optional": true, "Mandatory": true, "SpellDescription": true}
+	searches := 0
+	valid := true
+	var visit func(*cards.SA)
+	visit = func(sa *cards.SA) {
+		if sa == nil {
+			return
+		}
+		if sa.API == "ChangeZone" && sa.Params["Origin"] == "Library" {
+			searches++
+			valid = valid && sa.Params["ChangeType"] == "Land.Basic"
+			for key := range sa.Params {
+				valid = valid && allowed[key]
+			}
+		}
+		visit(sa.Sub)
+	}
+	for _, sa := range face.Abilities {
+		visit(sa)
+	}
+	for _, trigger := range face.Triggers {
+		visit(trigger.Effect)
+	}
+	return valid && searches == 1
+}
+
+func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbenchBasicSearch) rules.ShufflePlanner {
+	return func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
+		key := epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}
+		window, guided := windows[key]
+		if !guided || len(p.epochs[key].Positions) > 0 || len(ctx.Hand) != 0 {
+			return p.plan(ctx)
+		}
+		if window.through > len(ctx.Library) {
+			return p.incompatible()
+		}
+		remaining := map[string]int{}
+		for _, name := range window.names {
+			remaining[name]++
+		}
+		counts := map[string]int{}
+		byID := map[state.ObjID]string{}
+		for _, card := range ctx.Library {
+			byID[card.ID] = card.Name
+			if window.basics[card.Name] {
+				counts[card.Name]++
+			}
+		}
+		guidedProposal := *p
+		guidedProposal.epochs = map[epochKey]epochConstraints{}
+		for k, epoch := range p.epochs {
+			guidedProposal.epochs[k] = epoch
+		}
+		guidedProposal.exclusions = newExclusionStore()
+		guidedProposal.exclusions.merge(p.exclusions)
+		epoch := guidedProposal.epochs[key]
+		epoch.Deadlines = append([]deadlineConstraint(nil), epoch.Deadlines...)
+		var basicNames []string
+		for name := range counts {
+			basicNames = append(basicNames, name)
+		}
+		slices.Sort(basicNames)
+		for _, name := range basicNames {
+			count := counts[name]
+			drawn := count - remaining[name]
+			if drawn < 0 {
+				return p.incompatible()
+			}
+			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: window.through, Name: name, Count: drawn})
+			guidedProposal.exclusions.add(key, exclusionConstraint{Through: window.through, Name: name, Cap: drawn})
+		}
+		guidedProposal.epochs[key] = epoch
+		order, err := guidedProposal.plan(ctx)
+		if err != nil {
+			return nil, err
+		}
+		// Keep the sampled basic/nonbasic positions and every drawn card. Only
+		// permute basic matches in the unseen tail into their observed order.
+		// This root is a replay witness, not a weighted native-sampler world;
+		// the unchanged redeal resamples the permitted hidden pool afterward.
+		queues := map[string][]state.ObjID{}
+		var positions []int
+		for i := window.through; i < len(order); i++ {
+			name := byID[order[i]]
+			if window.basics[name] {
+				positions = append(positions, i)
+				queues[name] = append(queues[name], order[i])
+			}
+		}
+		if len(positions) != len(window.names) {
+			return p.incompatible()
+		}
+		for i, name := range window.names {
+			if len(queues[name]) == 0 {
+				return p.incompatible()
+			}
+			order[positions[i]] = queues[name][0]
+			queues[name] = queues[name][1:]
+		}
+		return order, nil
+	}
+}

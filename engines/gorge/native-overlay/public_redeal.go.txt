@@ -41,6 +41,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	if err := validateGenesis(setup, epochs); err != nil {
 		return nil, work, err
 	}
+	basicSearches := spellbenchBasicSearches(setup, h)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
 		return nil, work, err
@@ -71,7 +72,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		observer := NewCollector(h.Actor)
 		var diagnostic SampleResult
 		proposal := &proposalState{epochs: epochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
-		e, err := rules.NewHypotheticalPlanned(cfg, tape, proposal.plan)
+		e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))
 		if errors.Is(err, errIncompatibleProposal) {
 			continue
 		}
@@ -138,7 +139,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 				cc := c.Clone()
 				pp := *p
 				pp.observer = cc
-				branch := e.SpellbenchClonePlannedHypothesis(pp.plan)
+				branch := e.SpellbenchClonePlannedHypothesis(spellbenchBasicSearchPlanner(&pp, basicSearches))
 				if branch == nil {
 					branchError = fmt.Errorf("reconstruction lost its hypothetical chance state")
 					return false

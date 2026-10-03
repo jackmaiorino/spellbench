@@ -268,3 +268,21 @@ public-root reconstruction/refusal work. It serializes public session labels
 and counters only. Search options, RNG streams, actor inputs and the game wire
 are unchanged. The supported guarded probe can collect these receipts to verify
 actual search coverage and compare it across worker rungs.
+
+Public reconstruction now guides an unmodified initial opponent library from
+a named full basic-land search. It conditions the number of each basic drawn
+before that search and the relative order of the offered matches. Nonbasic
+positions and hidden hand identities remain sampled. A strict printed-ability
+allowlist excludes restricted, blind and ambiguous searches. Every proposed
+root must still replay the complete actor-visible history within the original
+attempt and submit limits before supplying the native redeal.
+
+The naturally played Cleansing Wildfire fixture exposes 52 ordered opponent
+basics. Reconstruction exhausted 5,000 submits before this repair and succeeds
+in 45 after it. The real seed50 first root now reaches all 73 actor frames in
+1,129 submits. This changes the public replay witness planner; the native
+primary sampler, weights, search chooser, scorer and rollout limits retain
+their pinned implementation. Current qualification remains incomplete because
+later reconstruction attempts still exhaust their budget. The fixture checks
+a consistent replay root at the search choice, which is outside the native
+search chooser's eligible decision kinds.
