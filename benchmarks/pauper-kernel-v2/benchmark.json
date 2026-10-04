@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel-v2",
   "title": "Pauper · mtg-kernel v2",
-  "summary": "Eight Pauper decks with neutral protocol v2 choices. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation.",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -199,6 +199,7 @@
         "${SPELLBENCH_LLM_LOG_DIR}",
         "--renew-profile-before-game",
         "--allow-timeout-forfeits",
+        "--allow-http503-forfeits",
         "--reasoning-effort",
         "low",
         "--max-completion-tokens",
@@ -226,7 +227,7 @@
         "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.",
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       },
-      "evaluation_identity": "ffc2e05c5a68a9faad73ddd8dcb6807926f3f5999d693a7e0984f5a014362b59"
+      "evaluation_identity": "4066f8519344c3ff0ec63a4bca36e3b4dcaf192c4c05e79b04dfbea245f5cc67"
     }
   ],
   "qualification_sample": [
