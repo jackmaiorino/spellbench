@@ -897,6 +897,11 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "parent_dialog_callback" in config and type(config["parent_dialog_callback"]) is not bool:
+        raise ValueError("Jack parent dialog staging needs an explicit boolean flag")
+    if config.get("parent_dialog_callback") is True and not (
+            config.get("parent_mana_callback") is True and config.get("parent_card_callback") is True):
+        raise ValueError("Jack parent dialogs require the original parent mana and scoring callbacks")
     if "parent_mana_callback" in config and type(config["parent_mana_callback"]) is not bool:
         raise ValueError("Jack parent mana staging needs an explicit boolean flag")
     if config.get("parent_mana_callback") is True and config.get("activation_callback") is not True:
@@ -981,6 +986,7 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                  if config.get("card_set_callback") is True else None)
     parent_cards = None
     parent_mana = None
+    parent_dialogs = None
     if config.get("parent_card_callback") is True or config.get("parent_mana_callback") is True:
         from xmage_jack_parent_mana_sources import PARENT_MANA_PINS, parent_mana_source
         parent_sources = {}
@@ -1001,6 +1007,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
             parent_cards = parent_card_sources({key: parent_sources[key] for key in PARENT_SOURCE_PINS})
         if config.get("parent_mana_callback") is True:
             parent_mana = parent_mana_source({key: parent_sources[key] for key in PARENT_MANA_PINS}).encode("utf-8")
+        if config.get("parent_dialog_callback") is True:
+            from xmage_jack_parent_dialog_sources import parent_dialog_source
+            parent_dialogs = parent_dialog_source({key: parent_sources[key] for key in PARENT_SOURCE_PINS},
+                (root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -1027,6 +1037,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if parent_mana is not None:
         with (output / "OriginalParentManaPlayer.java").open("xb") as stream:
             stream.write(parent_mana)
+    if parent_dialogs is not None:
+        with (output / "OriginalParentDialogsPlayer.java").open("xb") as stream:
+            stream.write(parent_dialogs)
     if priority is not None:
         with (output / "PriorityRules.java").open("xb") as stream:
             stream.write(priority)
@@ -1116,6 +1129,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_parent_mana_sources_sha256=PARENT_MANA_PINS,
                       staged_parent_mana_player_sha256=hashlib.sha256(parent_mana).hexdigest(),
                       parent_mana_variant=PARENT_MANA_VARIANT, original_parent_mana_native_qualified=False)
+    if parent_dialogs is not None:
+        from xmage_jack_parent_dialog_sources import PARENT_DIALOG_VARIANT
+        result.update(staged_parent_dialog_player_sha256=hashlib.sha256(parent_dialogs).hexdigest(),
+                      parent_dialog_variant=PARENT_DIALOG_VARIANT, original_parent_dialog_native_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

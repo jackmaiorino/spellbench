@@ -403,6 +403,25 @@ engine hooks, alongside the existing activation checks. No native game, card
 database or model is started. Native replay, ordering/RNG qualification and
 complete persistent player integration remain unfinished.
 
+`parent_dialog_callback: true` requires both the original parent mana and parent
+card-scoring options. It emits abstract `OriginalParentDialogsPlayer`, preserving
+the inherited target scorer and damage/amount allocation, creature-type scan,
+queued card targets and copy behavior, and mode/use/X fallbacks. The inherited
+trigger, pile, replacement, constrained multi-amount and cast-ability callbacks
+also retain their original bodies. The RL target-amount and Target/Map overrides
+only add diagnostics to parent delegation; this stage executes that delegation
+without training/debug output.
+
+Each new path that reads a game requires its owned player and the runtime's
+`requireOriginalPermittedWorld` implementation. In particular, the creature-type
+library scan must run on a sampled permitted world, whose ordering can differ
+from the real hidden library. The gate remains abstract until the persistent
+runtime supplies its world/copy admission. Original ordering and fallback RNG
+remain unchanged. `JackParentDialogCheck.java` checks actual parent bodies with
+metadata engine hooks; neural overrides and the complete copied-callback marker
+remain unavailable. Native fairness, RNG/replay and full-game checks are still
+required before qualification or rating.
+
 `JackPriorityBinding` takes the actual validated list from the original rules'
 chooser hook and its cached permitted base state. It preserves the first 64
 slots in their original order, requires a unique exact offered semantic for
