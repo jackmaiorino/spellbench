@@ -34,7 +34,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -53,7 +56,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -72,7 +78,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -91,7 +100,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -110,7 +122,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -127,7 +142,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -146,7 +164,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -165,7 +186,10 @@
         "native_gates_passed": true,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -199,7 +223,10 @@
         "native_gates_passed": false,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -224,7 +251,10 @@
         "native_gates_passed": false,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -246,7 +276,10 @@
         "native_gates_passed": false,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -273,7 +306,10 @@
         "native_gates_passed": false,
         "qualified": false,
         "rated_games": 0,
-        "published": false
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
       }
     },
     {
@@ -342,18 +378,19 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full gorge CI37168253649 and Windows/Linux Python CI37168253646 passed at production source8d70516. All97 affected arena checks pass after the main merge. Complete native/reference-host qualification is not claimed.",
-      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games without execution faults but failed search gates. Runtime018 resolves the captured449-frame known-hand refusal and94-frame public reconstruction budget failure. Fresh full qualification covers all original280 blocks plus40 appended native-opponent coverage probes; it remains pending.",
+      "full_adapter_suite": "Full gorge and Windows/Linux Python CI passed at prior production8d70516. The actor London correction passes the complete affected strategies suite, vet and diff locally. Fresh hosted CI and corrected-runtime qualification remain pending.",
+      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games but failed search gates. Runtime018 passed matched1/6/13 output hashes with3.085x scaling; its3600-second cap stopped the full audit at319/320 natural blocks, missing original index166. The entire attempt is sealed. A47-frame seed48 failure now reconstructs eight worlds in109 submits with22 unchanged native fields; corrected-runtime qualification remains incomplete.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
       "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json",
       "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json",
       "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json",
-      "current_corrected_runtime_audit": "docs/gorge-runtime016-native-audit-20261003.json",
+      "current_corrected_runtime_audit": "docs/gorge-runtime018-native-audit-20261004.json",
       "post_search_noninterference": "docs/gorge-private-search-outcome-20261003.json",
       "known_hand_repair": "docs/gorge-known-hand-repair-20261003.json",
-      "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json"
+      "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json"
     }
   ],
   "publication": null,
@@ -380,7 +417,8 @@
       "repair": "docs/gorge-public-london-search-repair-20261004.json",
       "native_sampler_counters_preserved_on_captured_prefix": true,
       "native_attempt_and_submit_budgets_changed": false,
-      "current_full_qualification": false
+      "current_full_qualification": false,
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json"
     }
   }
 }

@@ -190,6 +190,17 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   independent constraints accepts 24/64 native proposals and supplies eight
   worlds. These are correctness fixtures within the shipped budgets.
 
+- A captured 47-frame history with an actor London mulligan exhausted 5,000
+  public reconstruction submits because later actor-visible draws lost their
+  positional guidance. London bottoms append behind the undrawn library.
+  The public witness now preserves those known draw names until another
+  library mutation or exhaustion of the original library. It reconstructs
+  eight worlds in one proposal and 109 submits, with all 22 recorded native
+  sampler fields unchanged. A legal two-seat London fixture verifies later
+  draws, known-card constraints and identical actor histories under an unseen
+  opponent land-order permutation. See
+  [actor London repair](gorge-actor-london-draws-repair-20261004.json).
+
 - `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
   Each variant creates a fresh engine and fresh collector, places the card in
   the opponent's actual hidden hand/library, and compares the complete actor

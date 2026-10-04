@@ -44,12 +44,21 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	if err := validateGenesis(setup, epochs); err != nil {
 		return nil, work, err
 	}
-	// London bottoming destroys absolute library positions, but every public
+	// Native constraints stop at London bottoming, but every public
 	// copy still came from the opening shuffle's drawn prefix. These weak name
 	// bounds guide this replay witness only, never the native weighted sampler.
 	for key, deadlines := range spellbenchLondonDeadlines(setup, h) {
 		epoch := epochs[key]
 		epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...), deadlines...)
+		epochs[key] = epoch
+	}
+	for key, positions := range spellbenchActorLondonDraws(setup, h) {
+		epoch := epochs[key]
+		for _, position := range positions {
+			if err := addEpochPosition(&epoch, position); err != nil {
+				return nil, work, err
+			}
+		}
 		epochs[key] = epoch
 	}
 	basicSearches := spellbenchBasicSearches(setup, h)
