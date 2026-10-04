@@ -249,6 +249,7 @@ class KernelEngine:
             else:
                 self.native_step(self.native_candidates[candidate])
         except (ValueError, KeyError, IndexError) as exc:
+            print(f"kernel_engine_v2: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
             return self.terminal(rid, "halted", f"engine_contract_failure:{type(exc).__name__}")
         return self.respond(rid)
 
@@ -356,7 +357,7 @@ class KernelEngine:
         try:
             return self.pose(rid)
         except (ValueError, KeyError, IndexError) as exc:
-            print(f"kernel_engine_v2: {type(exc).__name__}: {exc}", file=sys.stderr)
+            print(f"kernel_engine_v2: {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
             return self.terminal(rid, "halted", f"engine_contract_failure:{type(exc).__name__}")
 
     def pose(self, rid):
