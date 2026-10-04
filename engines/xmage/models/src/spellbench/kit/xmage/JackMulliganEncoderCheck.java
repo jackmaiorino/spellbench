@@ -39,7 +39,9 @@ public final class JackMulliganEncoderCheck {
                     && "mulligan".equals(Slice.Front_firstKind(d)), 20)) {
                 throw new IllegalStateException("native fixture did not reach its actual mulligan callback");
             }
-            Map<String, Object> start = Slice.gameStart("p0", a, b), decision = position.decision();
+            Map<String, Object> start = Slice.gameStart("p0", a, b);
+            // Match the private NDJSON encoder's parsed wire integer types.
+            Map<String, Object> decision = Json.parseObject(Json.canonical(position.decision()));
             byte[] ids = Seeds.hmac("jack-permitted-mulligan".getBytes(StandardCharsets.UTF_8), "ids");
             byte[] seed = Seeds.hmac(ids, "first world");
             Map<String, Object> first = JackMulliganEncoder.encode(start, decision, seed, ids);
