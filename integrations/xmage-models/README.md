@@ -357,3 +357,23 @@ bound, twelve turn steps, alternative-cost enumeration and actual validated
 choice application, and refusal of unported simulation callbacks. It starts no
 native game, card database or network. These checks do not qualify complete
 priority play, native hidden-world invariance, paired weights or full games.
+
+`JackPriorityBinding` takes the actual validated list from the original rules'
+chooser hook and its cached permitted base state. It preserves the first 64
+slots in their original order, requires a unique exact offered semantic for
+each selected slot, and rejects unnamed sources, unmatched Oracle indices,
+undeclared priority mana and unsupported worlds. Additional public choices
+remain outside the original prefix. Public IDs and offering order do not
+determine neural slot order. The frame binds the complete decision and game
+start, the source identities, original action IDs, float features and masks.
+Pass-only frames bypass feature encoding.
+
+`xmage_jack_priority.PrioritySelection` reuses the paired model and the same
+game-owned original Java chooser under one clock. It maps the selected original
+slot to its offered public ID, preserves the pass-only inference/RNG shortcut,
+and closes both components on refusal. Isolated Java and Python checks cover
+these bindings; a local optional check serializes the actual staged private
+candidate codec and cached state. This component does not execute simulation
+callbacks, reconstruct a persistent original player, activate abilities or
+qualify complete games. Those integrations and native replay checks remain
+unfinished.
