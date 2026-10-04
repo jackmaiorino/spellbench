@@ -8,9 +8,11 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
@@ -104,6 +106,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		}
 	}
 	basicSearches := spellbenchBasicSearches(setup, h)
+	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
@@ -235,6 +238,155 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		return nil, work, fmt.Errorf("public reconstruction submit budget exhausted")
 	}
 	return nil, work, fmt.Errorf("no public replay completion in %d proposals", work.Attempts)
+}
+
+// A bounded scry can bring a later draw forward by at most its printed look
+// count. Extend name-only replay-witness deadlines through that weak bound;
+// infer neither the hidden partition nor a physical card's exact position.
+// Native proposal weights and the later redeal do not use these constraints.
+// Other library mutations end the fold until the next public shuffle.
+func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	type cursor struct {
+		ordinal, draws, look int
+		reliable, guided     bool
+		counts               map[string]int
+	}
+	result := make(map[epochKey]epochConstraints, len(original))
+	for key, epoch := range original {
+		result[key] = epoch
+	}
+	faces := map[string]*cards.Face{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			for _, face := range card.Faces {
+				faces[face.Name] = face
+			}
+		}
+	}
+	identities := map[uint32]Identity{}
+	cursors := map[state.PlayerID]*cursor{}
+	get := func(player state.PlayerID) *cursor {
+		if cursors[player] == nil {
+			cursors[player] = &cursor{}
+		}
+		return cursors[player]
+	}
+	disable := func(owner state.PlayerID, known bool) {
+		for player, current := range cursors {
+			if !known || player == owner {
+				current.reliable = false
+			}
+		}
+	}
+	for frameIndex, frame := range h.Frames {
+		introduced := map[uint32]Identity{}
+		for _, identity := range frame.Identities {
+			identities[identity.ID], introduced[identity.ID] = identity, identity
+		}
+		var inferred map[int]state.PlayerID
+		if frameIndex > 0 {
+			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+		}
+		for index, ev := range frame.Events {
+			current := get(ev.Player)
+			switch ev.Kind {
+			case events.Shuffle:
+				current.ordinal++
+				current.draws, current.look = 0, 0
+				current.reliable, current.guided = true, false
+				current.counts = map[string]int{}
+			case events.Draw:
+				current.draws++
+			case events.LibraryOrder:
+				look := 0
+				if index+1 < len(frame.Events) {
+					next := frame.Events[index+1]
+					if next.Kind == events.Scry && next.Player == ev.Player {
+						look = spellbenchPrintedScryBound(faces[identities[next.Obj].Name])
+						if next.Amount < 0 || int(next.Amount) > look {
+							look = 0
+						}
+					}
+				}
+				if look == 0 {
+					current.reliable = false
+				} else {
+					current.look += look
+					current.guided = true
+				}
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+				disable(0, false)
+			case events.MoveZone:
+				if ev.From == state.ZLibrary || ev.To == state.ZLibrary {
+					// London bottoming moves an opening card behind the undrawn
+					// tail, so the upper prefix bound remains conservative.
+					if ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
+						continue
+					}
+					identity, known := identities[ev.Obj]
+					if owner, certain := inferred[index]; !known && certain {
+						identity.Owner, known = owner, true
+					}
+					disable(identity.Owner, known)
+				}
+			}
+			identity, first := introduced[ev.Obj]
+			if !first || identity.Owner == h.Actor || identity.Name == "" || ev.From != state.ZHand || ev.To.Hidden() {
+				continue
+			}
+			delete(introduced, ev.Obj)
+			owner := get(identity.Owner)
+			if owner.ordinal == 0 || int(identity.Owner) >= len(setup.Decks) {
+				continue
+			}
+			owner.counts[identity.Name]++
+			if owner.reliable && owner.guided {
+				key := epochKey{Player: identity.Owner, Ordinal: owner.ordinal - 1}
+				epoch := result[key]
+				epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...),
+					deadlineConstraint{Through: min(owner.draws+owner.look, len(setup.Decks[identity.Owner])), Name: identity.Name, Count: owner.counts[identity.Name]})
+				result[key] = epoch
+			}
+		}
+	}
+	return result
+}
+
+// Dynamic counts, unknown source text and multiple ambiguous faces stay
+// unguided. A constant bound covers every declared scry on the visible face.
+func spellbenchPrintedScryBound(face *cards.Face) int {
+	if face == nil {
+		return 0
+	}
+	bound, valid := 0, true
+	var visit func(*cards.SA)
+	visit = func(sa *cards.SA) {
+		if sa == nil {
+			return
+		}
+		if sa.API == "Scry" {
+			count, err := strconv.Atoi(sa.Params["ScryNum"])
+			if err != nil || count < 1 || count > 60 {
+				valid = false
+			} else {
+				bound = max(bound, count)
+			}
+		}
+		visit(sa.Sub)
+	}
+	for _, sa := range face.Abilities {
+		visit(sa)
+	}
+	for _, trigger := range face.Triggers {
+		visit(trigger.Effect)
+	}
+	for _, replacement := range face.Repls {
+		visit(replacement.With)
+	}
+	if !valid {
+		return 0
+	}
+	return bound
 }
 
 // Later public hand exits can outnumber the draws after a shuffle. For a
