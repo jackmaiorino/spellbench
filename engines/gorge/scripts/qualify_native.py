@@ -46,7 +46,8 @@ def assigned_free(path):
     free=machine.free_bytes(path)
     if Path(path).resolve().is_relative_to(Path('/workspace')):
         used=int(subprocess.check_output(['du','-s','-B','1','/workspace'],text=True,timeout=10).split()[0])
-        return min(free,100_000_000_000-used)
+        assigned=int(os.environ.get('GORGE_ASSIGNED_DISK_BYTES','100000000000'))
+        return min(free,assigned-used)
     return free
 
 def valid_completed(report):
