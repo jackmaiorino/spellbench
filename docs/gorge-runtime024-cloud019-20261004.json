@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-live-cloud-progress/v1",
-  "observed_at_utc": "2026-10-04T11:47:43.622056+00:00",
-  "recorded_at_utc": "2026-10-04T11:48:36.703361+00:00",
+  "observed_at_utc": "2026-10-04T11:52:12.918089+00:00",
+  "recorded_at_utc": "2026-10-04T11:56:03.984524+00:00",
   "status": "native_qualification_guarded",
   "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-024",
   "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
@@ -73,13 +73,13 @@
   "public_ip_required": true,
   "persistent_volume_gb": 0,
   "provider_schema_sha256": "d3ef9cc0ad5b9d7ef782ed28381bdbf0ff271b7cf85c844050228b6dd4cc6ee1",
-  "current_observation_path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\OBSERVATIONS\\20261004T114743655242Z.json",
+  "current_observation_path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\OBSERVATIONS\\20261004T115212947900Z.json",
   "current_trials": [
     {
       "stage": "qualification-1-workers-1",
-      "natural_blocks": 4,
-      "emitted_rows": 4,
-      "last_game": 45
+      "natural_blocks": 5,
+      "emitted_rows": 5,
+      "last_game": 48
     }
   ],
   "current_allocation": null,
@@ -87,11 +87,11 @@
   "current_closure": null,
   "latest_guardian_recovery": {
     "pod_id": "pr52w650htj23w",
-    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\recovery-20261004T114710Z.tar.gz",
-    "at_utc": "2026-10-04T11:47:12.0268264+00:00",
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\recovery-20261004T115227Z.tar.gz",
+    "at_utc": "2026-10-04T11:52:28.5554211+00:00",
     "event": "recovered",
-    "sha256": "24a4a22630e9f37637c97732890b875a4e371c0a7ba5f1bdc622a57bcddd77fe",
-    "bytes": 67094
+    "sha256": "da14bc75b9fa77f2711bc22edefeda32f0d0fc1a6b07c9b5c6388ab8cb8c7052",
+    "bytes": 68253
   },
   "latest_operator_recovery": {
     "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\recovery-operator-20261004T114401Z.tar.gz",
@@ -102,21 +102,21 @@
     "stage": "isolated serial completed-work timing baseline",
     "measured_consecutive_windows": [
       {
-        "start_utc": "2026-10-04T11:45:28.103110+00:00",
-        "end_utc": "2026-10-04T11:46:28.178109+00:00",
-        "elapsed_seconds": 60.07466104719788,
-        "effective_cores": 1.0028662659064667,
-        "natural_blocks_before": 3,
-        "natural_blocks_after": 4,
+        "start_utc": "2026-10-04T11:49:28.413280+00:00",
+        "end_utc": "2026-10-04T11:50:28.490703+00:00",
+        "elapsed_seconds": 60.07770400587469,
+        "effective_cores": 1.0037353124231139,
+        "natural_blocks_before": 4,
+        "natural_blocks_after": 5,
         "throttle_period_delta": 0
       },
       {
-        "start_utc": "2026-10-04T11:46:28.178109+00:00",
-        "end_utc": "2026-10-04T11:47:28.257347+00:00",
-        "elapsed_seconds": 60.07877885270864,
-        "effective_cores": 1.0049705761833723,
-        "natural_blocks_before": 4,
-        "natural_blocks_after": 4,
+        "start_utc": "2026-10-04T11:50:28.490703+00:00",
+        "end_utc": "2026-10-04T11:51:28.568315+00:00",
+        "elapsed_seconds": 60.07709178328514,
+        "effective_cores": 1.003754413038642,
+        "natural_blocks_before": 5,
+        "natural_blocks_after": 5,
         "throttle_period_delta": 0
       }
     ],
@@ -124,6 +124,50 @@
     "largest_feasible_ladder_bound": 16,
     "idle_capacity_reason": "One worker is the required isolated timing baseline before matched parallel trials. Concurrent evaluation would contaminate this measurement. No substantial native audit is running.",
     "correction": "Retain the healthy baseline and then compare matched8/16-worker trials. The supported guard selects the fastest valid allocation before substantial evaluation."
+  },
+  "previously_failing_wildfire_block": {
+    "source_observation": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\WORK-OBSERVATIONS\\20261004T115227363990Z.json",
+    "observed_at_utc": "2026-10-04T11:52:27.340411+00:00",
+    "row": {
+      "game": 48,
+      "deck": "Wildfire",
+      "pairing": "search-redeal/uniform",
+      "classification": "natural",
+      "digest": "sha256:fa2423a570455815a3cb0192c8e9235a2bafc3da45db862e2e26320b5cc632a7",
+      "steps": 517,
+      "fallbacks": 0,
+      "forced": 0,
+      "inconsistent": 0,
+      "leaks": 0,
+      "parity_mismatch": 0
+    },
+    "search_coverage": {
+      "Natives": 280,
+      "Eligible": 29,
+      "Attempted": 16,
+      "Covered": 16,
+      "Attempts": 1024,
+      "Accepted": 0,
+      "Worlds": 128,
+      "Rollouts": 552,
+      "Submits": 379541,
+      "Terminal": 552,
+      "Capped": 0,
+      "Redealt": 128,
+      "ReconstructionAttempts": 16,
+      "ReconstructionSubmits": 5110,
+      "ReconstructionNodes": 789,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 13
+      },
+      "Kinds": {
+        "attackers": 6,
+        "cast": 10
+      }
+    },
+    "meaning": "Previously failing native Wildfire48 now completes without reconstruction refusal or exhaustion. This block alone does not qualify the full roster."
   },
   "guard_path": "bounded owned Linux process group -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
   "driver_sha256": "4049cad71fe698b068f28a47bff85ff0e72d87932b9db517a0dee8e9abd8984d",
