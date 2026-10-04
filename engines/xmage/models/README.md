@@ -321,8 +321,8 @@ It checks the exact encoding, 128-slot heads, checkpoint and source identities,
 decision hash and complete offered-choice mapping. It recomputes the supplied
 own decklist's Spellbench digest and requires the checkpoint's recorded deck
 association before launch. Argmax masks unoffered actions and uses a stable
-tie rule. This is an explicitly distinct direct-policy priority slice; original
-MageZero search and complete-game serving are unfinished. No actual pretrained
+tie rule. This is an explicitly distinct direct-policy priority slice;
+trained-checkpoint qualification and complete-game serving are unfinished. No actual pretrained
 MageZero weights have been found or qualified.
 
 `--magezero-search-inputs` additionally stages MageZero's actual original
@@ -340,9 +340,9 @@ require explicit source search settings, including every policy-head flag and
 the original time stopping rule. The pinned default disables all policy priors;
 the learned author configuration is therefore needed with the weights. A
 separate diagnostic method enables all heads and enforces minimum visits.
-These settings remain distinct in any future adapter identity. The classes
-are preparation for the request adapter; native search execution, trained
-weights and full-game serving remain unfinished. Two real source staging
+These settings remain distinct in any future adapter identity. Native priority
+and public callback replay now pass with synthetic scores; trained weights
+and full-game serving remain unfinished. Two real source staging
 executions produce identical hashes and preserve `new int[128]` and `%128`.
 
 Spell-mode callbacks now enter Exp1's original `chooseMode`, which constructs
@@ -371,3 +371,27 @@ retains the original earlier-mode history in the target record. The guarded
 check repeats this subsequent target search identically with seven neural
 calls each and reproduces the current observation exactly. Broader callback
 and full-game qualification remain unfinished.
+
+MageZero's typed replay also covers targets, library targets, binary choices,
+amounts, named choices and spell modes. Native paired checks use six visits
+and seven synthetic calls per root. Mode selection applies through XMage and
+reaches its following target, whose replay reproduces the observation exactly.
+MageZero prepends the original numeric stop only when a mode may be stopped;
+Exp1 always prepends it. The mode binding preserves both rules. The separate
+Exp1 control repeats identically, and four changed-source or changed-observation
+requests refuse before inference. These checks use no trained MageZero weights.
+
+`MageZeroSearchCombatMain` and `xmage_magezero_combat` connect the separately
+pinned original per-creature attack and block loops to the 128-slot transport.
+Each real callback gets a fresh tree with every explicitly supplied original
+setting. Work receipts preserve pruned and masked visits and echo the stopping
+rule per root. The source time-or-visits profile may stop below its visit budget;
+the separately named diagnostic profile requires minimum visits. A retained
+plan binds each later declaration substep to the same original assignment.
+
+`MageZeroSearchBridgeMain` and `xmage_magezero_bridge` share one model, serial
+request sequence and owned private pipe across priority, replayed dialogs and
+combat. A failed operation closes the session. The reconstructed combat anchor
+resumes before declarations, as in the existing Exp1 compatibility port. Native
+combat and mixed-operation validation, complete games, trained weights and
+ratings remain unfinished; passing transport tests does not qualify an entrant.
