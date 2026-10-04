@@ -1,0 +1,108 @@
+{
+  "schema": "spellbench-gorge-runtime026-cloud020/v1",
+  "observed_at_utc": "2026-10-04T17:23:15.962005+00:00",
+  "phase": "matched_scaling_baseline",
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "source_archive_commit": "ed2592f56830878078949a2fc88f80e535d4c188",
+  "native_sha256": "2c0df7a01ea51a7681c78656aeb611a3d8fd2c614d6631bb3b54220ec25639dd",
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "live_recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-020",
+  "planned_source_of_record": "E:/spellbench-gorge-runpod-20261004-020",
+  "preparation_sha256": "ef85f5dd9a237cc7f7f5d4910bb33935a6ac5182af6be9003cb78d1d602cea16",
+  "bundle_sha256": "7ea43fa2033b57f3a6b7affe1297079cd4b6729101b95fae890ee1a93b961a6a",
+  "dispatch": {
+    "at_utc": "2026-10-04T17:21:45.339116+00:00",
+    "pod_id": "s2th5rplbc7u87",
+    "driver_pid": 3176,
+    "guarded_launch": "driver.py -> qualify_native.py -> arena.throughput.plan_allocation -> bounded native callback",
+    "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621"
+  },
+  "verified_remote_inputs": 990,
+  "measured_resources": {
+    "cpu_model": "AMD EPYC 7702P 64-Core Processor",
+    "raw_cpus": 128,
+    "cfs_cpu_quota_us": 2125000,
+    "cfs_cpu_period_us": 100000,
+    "cfs_effective_cores": 21.25,
+    "launcher_reported_usable_cpus": 22,
+    "memory_limit_bytes": 49999998976,
+    "worker_cap": 16,
+    "worker_ladder": [
+      1,
+      8,
+      16
+    ],
+    "matched_probe_blocks": 32,
+    "gpu_ordinal": null,
+    "gpu_compute": false
+  },
+  "guarded_launch": {
+    "path": "engines/gorge/scripts/qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
+    "remote_process_group_containment": true,
+    "stage_wall_cap_seconds": 6000,
+    "native_callback_wall_cap_seconds": 2700,
+    "guardian_armed_before_paid_create": true,
+    "guardian_pid": 55452,
+    "hard_lease_deadline_utc": "2026-10-04T19:19:37.0630436+00:00",
+    "recovery_cadence_seconds": 300,
+    "early_stop_guard": "Remote contained driver stops only owned work when an emitted redeal cell already violates the unchanged Report.Clean zero reconstruction/refusal gate. Coverage zero is not an early-stop condition.",
+    "only_owned_allocation_can_be_stopped": true
+  },
+  "budget": {
+    "authorized_cap_usd": 10,
+    "prior_conservative_ceiling_usd": 7.81026747,
+    "maximum_new_lease_usd": 0.85,
+    "cumulative_conservative_ceiling_usd": 8.66026747,
+    "provider_reported_closed_spend_usd_so_far": 2.5682813890016405,
+    "final_invoice_verified": false,
+    "ledger": "E:\\spellbench-gorge-billing-20261004-002",
+    "ledger_seal_sha256": "2f5d7e7a81c6c588cce6ab9155a44a671d733dfb0047c2d095007ced0de7a5d2"
+  },
+  "observed_trials": [
+    {
+      "stage": "qualification-1-workers-1",
+      "natural_blocks": 1,
+      "emitted_rows": 1,
+      "last_game": 40,
+      "COMMAND.json": {
+        "command": [
+          "/workspace/gorge/runtime/gorgequal-linux-amd64",
+          "-games",
+          "4",
+          "-workers",
+          "1",
+          "-resample",
+          "7",
+          "-audit=true",
+          "-progress",
+          "-registry",
+          "/workspace/gorge/runtime/registry.gob.gz",
+          "-registry-sha256",
+          "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+          "-out",
+          "/workspace/gorge/native-001/qualification-1-workers-1/report.json",
+          "-game-indices",
+          "40,44,48,52,96,100,104,108,152,156,160,164,208,212,216,220,264,268,272,276,280,284,288,292,296,300,304,308,312,316,41,45"
+        ],
+        "GOMAXPROCS": 1,
+        "at_utc": "2026-10-04T17:21:45.930805+00:00"
+      }
+    }
+  ],
+  "initial_observation": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-020\\OBSERVATIONS\\20261004T172316037501Z.json",
+  "initial_recovery": {
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-020\\recovery-operator-20261004T172317Z.tar.gz",
+    "bytes": 67016,
+    "sha256": "45f7e2fef23d36d2e30f9ac67b57d72516656ff9dbbb63e64942e2c8d5d2e061"
+  },
+  "host_coordination": "Jack remains reserved by Pauper generation174. Haley queued training-performance priority remains binding. No local gorge claim or unrelated lease is touched.",
+  "next_wake": "First matched native callback closes, an existing native gate fails, or the bounded lease/driver closes. Existing guardian and Goal continuation provide follow-up; no duplicate watcher.",
+  "unchanged_status_check_not_before_utc": "2026-10-04T17:38:15Z",
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "allocation_qualified": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Complete matched useful-throughput qualification and full native audit, then compatible reference audit, fair review, frozen ratings and publication."
+}
