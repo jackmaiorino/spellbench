@@ -14,6 +14,7 @@ import spellbench.models.exp1.MCTSNode;
 import spellbench.models.exp1.MCTSNode2;
 import spellbench.models.exp1.RemoteModelEvaluator;
 import spellbench.models.exp1.SearchPlayer;
+import spellbench.models.exp1.PlaySettings;
 
 import java.io.BufferedReader;
 import java.io.FileDescriptor;
@@ -102,13 +103,17 @@ public final class ModelCombatMain {
         private Game liveGame;
         private World world;
         private int visits;
+        private PlaySettings settings;
         private final List<Object> roots = new ArrayList<>();
         CombatPlayer(String seat) { super(seat); }
         private CombatPlayer(CombatPlayer player) { super(player); }
         @Override public CombatPlayer copy() { return new CombatPlayer(this); }
         void begin(World built, RemoteModelEvaluator model, int budget) {
-            world = built; liveGame = built.game; visits = budget;
-            configure(model, budget);
+            begin(built, model, PlaySettings.diagnostic(budget));
+        }
+        void begin(World built, RemoteModelEvaluator model, PlaySettings declared) {
+            world = built; liveGame = built.game; settings = declared; visits = declared.defaults.searchBudget;
+            configure(model, declared);
         }
         @Override protected Game createMCTSGame(Game anchor) {
             if (anchor.getStep() == null || anchor.getStep().getStepPart() != Step.StepPart.PRE
@@ -141,7 +146,7 @@ public final class ModelCombatMain {
             MCTSNode2 chosen = super.getNextAction(game, type);
             requireRootType(type);
             MCTSNode2 tree = tree();
-            if (chosen == null || tree == null || tree.getVisits() < visits || calls <= before) {
+            if (chosen == null || tree == null || tree.getVisits() < 1 || !settings.published && tree.getVisits() < visits || calls <= before) {
                 throw new IllegalStateException("original combat root did not complete real neural work");
             }
             Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
@@ -155,18 +160,18 @@ public final class ModelCombatMain {
                         "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
                         "selection_masked", masked, "discarded_visits", masked ? (long) discardedSelectionVisits(child) : 0L));
             }
-            roots.add(Json.map("index", (long) roots.size(), "type", type.name(), "selected", action(chosen, type),
-                    "root_visits", (long) tree.getVisits(), "requested_minimum", (long) visits,
-                    "neural_calls", calls - before, "children", children));
+            Map<String, Object> receipt = Json.map("index", (long) roots.size(), "type", type.name(), "selected", action(chosen, type),
+                    "root_visits", (long) tree.getVisits(), "requested_minimum", settings.published ? 0L : (long) visits,
+                    "neural_calls", calls - before, "children", children);
+            if (settings.published) receipt.put("search_budget", settings.budget());
+            roots.add(receipt);
             return chosen;
         }
     }
     static Map<String, Object> plan(Map<String, Object> record) {
         if (!ActionEncoder.vocabLoaded() || ActionEncoder.ACTION_DIM != 1024) throw new IllegalArgumentException("Exp1 action vocabulary");
-        Object count = record.get("visits");
-        if (!(count instanceof Number) || ((Number) count).doubleValue() != ((Number) count).intValue()) {
-            throw new IllegalArgumentException("integer combat visit budget required");
-        }
+        PlaySettings declared = PlaySettings.from(record);
+        declared.activate();
         Map<String, Object> decision = Json.obj(record, "decision");
         String path = family(decision);
         Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
@@ -197,7 +202,7 @@ public final class ModelCombatMain {
         spec.history = Json.obj(decision, "x_history");
         spec.viewerFactory = seat -> player[0] = new CombatPlayer(seat); spec.otherFactory = Puppet::new;
         World world = WorldBuilder.build(spec); world.flags.addAll(nameFlags); supported(world);
-        player[0].begin(world, new RemoteModelEvaluator(ModelCombatMain::infer), ((Number) count).intValue());
+        player[0].begin(world, new RemoteModelEvaluator(ModelCombatMain::infer), declared);
         Game game = world.game;
         if (game.isSimulation()) throw new IllegalArgumentException("initial combat plan must execute original decision callbacks");
         GameAccess.setLastPriority(game, player[0].getId());
@@ -209,10 +214,15 @@ public final class ModelCombatMain {
         if (accounted != calls) throw new IllegalStateException("combat neural work is unaccounted");
         world.flags.add("approximate:initial_combat_anchor_resume");
         world.flags.add("approximate:exp1_combat_simulation_flag_port");
-        return Json.map("decision_sha256", hash(decision), "combat", path, "pairs", Runner.combatPairs(world, game, "attack".equals(path)),
+        Map<String, Object> result = Json.map("decision_sha256", hash(decision), "combat", path, "pairs", Runner.combatPairs(world, game, "attack".equals(path)),
                 "roots", player[0].roots, "neural_calls", calls, "world_flags", world.flags,
                 "variant", "original Exp1 per-creature binary attacks and target blocks; sampled permitted world; fresh tree per callback; all priors; original minimum visits and legal-future stopping; no noise",
                 "scope", "combat plan and callback receipts; complete-game agent and fork simulation-flag parity unfinished");
+        if (declared.published) {
+            result.put("settings", declared.values); result.put("policy_width", 1024L); result.put("search_budget", declared.budget());
+            result.put("variant", "Exp1 released final-evaluation play settings; original per-creature binary attacks and target blocks; binary prior only; source time-or-visits and legal-future stopping; sampled permitted world with opponent-hand encoding disabled; fresh tree per callback; synchronous neural transport; no noise");
+        }
+        return result;
     }
     public static void main(String[] args) throws Exception {
         if (args.length != 0) throw new IllegalArgumentException("private NDJSON combat pipe takes no arguments");
@@ -232,7 +242,7 @@ public final class ModelCombatMain {
                 e.printStackTrace(System.err);
                 out.println(Json.canonical(Json.map("id", record == null ? null : record.get("id"), "event", "result", "ok", false,
                         "error", e.toString(), "neural_calls", calls)));
-            } finally { GameAccess.reset(); }
+            } finally { GameAccess.reset(); PlaySettings.reset(); }
         }
     }
 }

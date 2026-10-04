@@ -12,6 +12,7 @@ import spellbench.models.exp1.MCTSNode;
 import spellbench.models.exp1.MCTSNode2;
 import spellbench.models.exp1.RemoteModelEvaluator;
 import spellbench.models.exp1.SearchPlayer;
+import spellbench.models.exp1.PlaySettings;
 
 import java.io.BufferedReader;
 import java.io.FileDescriptor;
@@ -80,10 +81,8 @@ public final class ModelSearchMain {
         Map<String, Object> context = Json.obj(decision, "context");
         boolean priority = "priority".equals(Json.str(context, "kind"));
         seed(Json.str(record, "world_seed")); seed(Json.str(record, "id_seed"));
-        Object count = record.get("visits");
-        if (!(count instanceof Number) || ((Number) count).doubleValue() != ((Number) count).intValue()) {
-            throw new IllegalArgumentException("integer visit budget required");
-        }
+        PlaySettings declared = PlaySettings.from(record);
+        declared.activate();
         RemoteModelEvaluator evaluator = new RemoteModelEvaluator(ModelSearchMain::infer);
         SearchPlayer active;
         World world;
@@ -93,7 +92,7 @@ public final class ModelSearchMain {
         boolean libraryFailToFindExcluded = false;
         Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
         if (!priority) {
-            ModelReplay.Result replay = ModelReplay.run(record, evaluator, ((Number) count).intValue());
+            ModelReplay.Result replay = ModelReplay.run(record, evaluator, declared);
             callback = replay;
             world = replay.world; active = replay.player; chosen = replay.chosen;
             libraryFailToFindExcluded = replay.libraryFailToFindExcluded;
@@ -116,7 +115,7 @@ public final class ModelSearchMain {
                 throw new IllegalArgumentException("search world is unsupported: " + flag);
             }
         }
-        player[0].configure(evaluator, ((Number) count).intValue());
+        player[0].configure(evaluator, declared);
         chosen = player[0].searchPriority(world.game);
         active = player[0];
         }
@@ -184,12 +183,16 @@ public final class ModelSearchMain {
         Map<String, Object> result = Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
                 "decision_sha256", decisionHash,
                 "children", children, "root_visits", (long) tree.getVisits(), "neural_calls", calls,
-                "search_budget", Json.map("kind", "minimum_root_visits_until_legal_future", "requested", count),
+                "search_budget", declared.budget(),
                 "world_flags", world.flags, "replay", replayProof,
                 "policy_restrictions", libraryFailToFindExcluded ? java.util.Collections.singletonList("library_fail_to_find_before_minimum")
                         : java.util.Collections.emptyList(),
                 "variant", "Exp1 original PUCT and dialog scripts; numeric roots use the legal offered range; sampled permitted world; fresh tree per root; synchronous neural transport; all priors; original minimum visits and legal-future stopping; no noise",
                 "scope", "priority and saved-anchor target/binary/numeric/named roots; complete history, other callbacks, full games and ratings unfinished");
+        if (declared.published) {
+            result.put("settings", declared.values); result.put("policy_width", 1024L);
+            result.put("variant", "Exp1 released final-evaluation play settings; binary prior only; source time-or-visits and legal-future stopping; sampled permitted world with opponent-hand encoding disabled; fresh tree per root; synchronous neural transport; no noise");
+        }
         if (callback != null && callback.modeActions != null) {
             result.put("unoffered_mode_branches", unofferedModes);
             result.put("scope", "original numeric spell-mode callback; complete-game qualification and ratings unfinished");
@@ -248,7 +251,7 @@ public final class ModelSearchMain {
                 out.println(Json.canonical(Json.map("id", requestId, "event", "result", "ok", true, "result", result)));
             } catch (RuntimeException e) {
                 out.println(Json.canonical(Json.map("id", record == null ? null : record.get("id"), "event", "result", "ok", false, "error", e.toString(), "neural_calls", calls)));
-            } finally { GameAccess.reset(); }
+            } finally { GameAccess.reset(); PlaySettings.reset(); }
         }
     }
 }

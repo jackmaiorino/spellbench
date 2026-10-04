@@ -37,12 +37,20 @@ process for priority, saved-anchor targets, binary dialogs and a visible library
 search after a recorded earlier choice. Remaining history, callbacks and full games still need the
 complete game adapter.
 
-The public frontend has now completed one gen33 six-visit FDN UR game against
+All three public checkpoints have completed a six-visit FDN UR game against
 heuristic and its exact-seed replay, naturally and without validator violations.
 Both primary stores and the decision/choice streams excluding clocks match.
 That single-game diagnostic exercises priority, targets, attacks and blocks;
-other callbacks, decks, generations and original search settings remain
+Broader callbacks, decks and released search settings remain
 unqualified. See [the retained evidence](../../engines/xmage/models/evidence/2026-10-03-neural-inputs.md).
+
+The public launcher also wires `--play-profile published-exp1-final-eval-fair-v1`
+with the released 96-visit, 12-second final-evaluation settings. It accepts the
+original source-time stopping rule below 96 visits and enables only the binary
+prior. This distinct identity records the disabled opponent-hand encoder,
+fresh-tree synchronous port and CPU float32 inference change. Native full-game
+and throughput qualification for this profile are pending. Its pinned source
+derivation and runtime instructions are in [the model adapter documentation](../../engines/xmage/models/README.md).
 
 MageZero v0.2 source is wired as a separate architecture. A supplied weight
 needs a pinned manifest entry, a deck ID and deck-association evidence before

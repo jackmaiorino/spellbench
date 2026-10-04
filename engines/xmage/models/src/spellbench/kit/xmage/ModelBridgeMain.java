@@ -4,6 +4,7 @@ import mage.player.cabt.CardResolver;
 import mage.player.spellbench.Warmup;
 import spellbench.kit.core.Json;
 import spellbench.models.exp1.GameAccess;
+import spellbench.models.exp1.PlaySettings;
 
 import java.io.BufferedReader;
 import java.io.FileDescriptor;
@@ -73,7 +74,7 @@ public final class ModelBridgeMain {
                 // An inference error can leave an unread response. Never
                 // resynchronize a failed mixed session onto a later request.
                 break;
-            } finally { GameAccess.reset(); }
+            } finally { GameAccess.reset(); PlaySettings.reset(); }
         }
     }
 }
