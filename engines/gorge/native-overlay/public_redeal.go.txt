@@ -82,6 +82,26 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		}
 		epochs[key] = epoch
 	}
+	for key, extra := range spellbenchTopExileEpochs(setup, h) {
+		epoch := epochs[key]
+		epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
+		compatible := true
+		for _, position := range extra.Positions {
+			for _, existing := range epoch.Positions {
+				if existing.Index == position.Index && existing.Name == position.Name {
+					position.Ref = existing.Ref
+				}
+			}
+			if addEpochPosition(&epoch, position) != nil {
+				compatible = false
+				break
+			}
+		}
+		if compatible {
+			epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...), extra.Deadlines...)
+			epochs[key] = epoch
+		}
+	}
 	basicSearches := spellbenchBasicSearches(setup, h)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {

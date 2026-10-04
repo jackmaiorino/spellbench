@@ -1,0 +1,325 @@
+package searchprobe
+
+import (
+	"encoding/json"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
+)
+
+type spellbenchExileBoard struct {
+	Players []struct {
+		Seat                                   state.PlayerID `json:"seat"`
+		Size                                   *int           `json:"library_size"`
+		Battlefield, Graveyard, Exile, Command []struct {
+			ID uint32 `json:"id"`
+		}
+	}
+	Stack []struct {
+		ID         uint32         `json:"id"`
+		Controller state.PlayerID `json:"controller"`
+		Kind, Text string
+		Card       struct {
+			ID   uint32 `json:"id"`
+			Name string `json:"name"`
+		}
+	}
+}
+
+// Recognize only a declared, unfiltered Dig of one or two top cards to
+// exile, with its exact public stack source. Public zone membership and
+// library-size changes independently identify the affected library. Neither
+// an anonymous MoveZone's controller nor a live hidden object supplies it.
+func spellbenchTopExiles(setup PublicGame, before, after Frame, ids map[uint32]Identity) map[int]Identity {
+	var a, b spellbenchExileBoard
+	if json.Unmarshal(before.Board, &a) != nil || json.Unmarshal(after.Board, &b) != nil || len(a.Players) != len(b.Players) {
+		return nil
+	}
+	var moves []int
+	resolved := uint32(0)
+	for i, ev := range after.Events {
+		switch ev.Kind {
+		case events.Draw, events.Shuffle, events.LibraryOrder, events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+			return nil
+		case events.Resolve:
+			if resolved != 0 {
+				return nil
+			}
+			resolved = ev.Obj
+		case events.MoveZone:
+			if ev.From == state.ZLibrary || ev.To == state.ZLibrary {
+				if ev.From != state.ZLibrary || ev.To != state.ZExile {
+					return nil
+				}
+				moves = append(moves, i)
+			}
+		}
+	}
+	if resolved == 0 || len(moves) < 1 || len(moves) > 2 {
+		return nil
+	}
+	var owner state.PlayerID
+	count := 0
+	for _, entry := range a.Stack {
+		if entry.ID != resolved || int(entry.Controller) >= len(setup.Decks) {
+			continue
+		}
+		identity, known := ids[entry.Card.ID]
+		if !known || int(identity.Owner) >= len(setup.Decks) || identity.Name == "" || identity.Name != entry.Card.Name {
+			return nil
+		}
+		for _, card := range setup.Decks[identity.Owner] {
+			if len(card.Faces) == 0 || card.Faces[0].Name != identity.Name {
+				continue
+			}
+			face := card.Faces[0]
+			var candidates []*cards.SA
+			if entry.Kind == "spell" {
+				for _, sa := range face.Abilities {
+					if sa.Kind == "SP" {
+						candidates = append(candidates, sa)
+					}
+				}
+			} else if entry.Kind == "trigger" {
+				for _, trigger := range face.Triggers {
+					text := strings.ReplaceAll(trigger.Params["TriggerDescription"], "CARDNAME", face.Name)
+					if text == entry.Text {
+						candidates = append(candidates, trigger.Effect)
+					}
+				}
+			}
+			if len(candidates) == 0 {
+				return nil
+			}
+			for _, sa := range candidates {
+				n := spellbenchPrintedTopExile(sa)
+				if n == 0 || (count != 0 && count != n) {
+					return nil
+				}
+				count = n
+			}
+			break
+		}
+		owner = entry.Controller
+	}
+	if count != len(moves) {
+		return nil
+	}
+	oldExile := map[uint32]bool{}
+	previous := map[state.PlayerID]int{}
+	for _, player := range a.Players {
+		if player.Size == nil {
+			return nil
+		}
+		previous[player.Seat] = *player.Size
+		for _, card := range player.Exile {
+			oldExile[card.ID] = true
+		}
+	}
+	var entered []Identity
+	for _, player := range b.Players {
+		oldSize, exists := previous[player.Seat]
+		if !exists || player.Size == nil {
+			return nil
+		}
+		decrease := 0
+		if player.Seat == owner {
+			decrease = count
+		}
+		if oldSize-*player.Size != decrease {
+			return nil
+		}
+		for _, card := range player.Exile {
+			if oldExile[card.ID] {
+				continue
+			}
+			identity, known := ids[card.ID]
+			if !known || identity.Owner != owner || identity.Name == "" {
+				return nil
+			}
+			entered = append(entered, identity)
+		}
+	}
+	if len(entered) != count {
+		return nil
+	}
+	result := map[int]Identity{}
+	for i, index := range moves {
+		if ref := after.Events[index].Obj; ref != 0 && ref != entered[i].ID {
+			return nil
+		}
+		result[index] = entered[i]
+	}
+	return result
+}
+
+func spellbenchPrintedTopExile(sa *cards.SA) int {
+	if sa == nil || sa.API != "Dig" || sa.Params["ChangeNum"] != "All" || sa.Params["DestinationZone"] != "Exile" || (sa.Params["Defined"] != "" && sa.Params["Defined"] != "You") {
+		return 0
+	}
+	n, err := strconv.Atoi(sa.Params["DigNum"])
+	if err != nil || n < 1 || n > 2 {
+		return 0
+	}
+	allowed := map[string]bool{"Defined": true, "DigNum": true, "ChangeNum": true, "DestinationZone": true, "RememberChanged": true, "Imprint": true, "SubAbility": true, "StackDescription": true, "SpellDescription": true}
+	for key := range sa.Params {
+		if !allowed[key] {
+			return 0
+		}
+	}
+	for sub := sa.Sub; sub != nil; sub = sub.Sub {
+		if sub.API != "Effect" && sub.API != "Cleanup" {
+			return 0
+		}
+	}
+	return n
+}
+
+// Once a recognized top exile occurs, preserve the consumed opening prefix
+// and later public hand-exit bounds for both libraries. Exile array order is
+// only a replay-witness proposal: full chronological replay still decides
+// whether that proposal matches. This never changes native sampling weights,
+// reports a live library order, or moves a card in the original engine.
+// London bottoms, reorders, additions and unrecognized removals stop guidance
+// for the affected library. Copy creation stops it for all libraries.
+func spellbenchTopExileEpochs(setup PublicGame, h History) map[epochKey]epochConstraints {
+	type cursor struct {
+		ordinal, consumed int
+		reliable          bool
+	}
+	cursors := map[state.PlayerID]cursor{}
+	ids := map[uint32]Identity{}
+	result := map[epochKey]epochConstraints{}
+	seenTop := false
+	deckNames := map[string]bool{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			deckNames[card.Faces[0].Name] = true
+		}
+	}
+	disable := func(owner state.PlayerID, known bool) {
+		for player, current := range cursors {
+			if !known || player == owner {
+				current.reliable = false
+				cursors[player] = current
+			}
+		}
+	}
+	for frameIndex, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			ids[identity.ID] = identity
+		}
+		var exiles map[int]Identity
+		if frameIndex > 0 {
+			exiles = spellbenchTopExiles(setup, h.Frames[frameIndex-1], frame, ids)
+		}
+		for index, ev := range frame.Events {
+			current := cursors[ev.Player]
+			switch ev.Kind {
+			case events.Shuffle:
+				current.ordinal++
+				current.consumed = 0
+				current.reliable = current.ordinal == 1
+				cursors[ev.Player] = current
+			case events.Draw:
+				if current.reliable && ev.Player == h.Actor && ev.Obj != 0 {
+					identity := ids[ev.Obj]
+					if identity.Owner != ev.Player || identity.Name == "" {
+						current.reliable = false
+					} else {
+						key := epochKey{Player: ev.Player, Ordinal: current.ordinal - 1}
+						epoch := result[key]
+						epoch.Positions = append(epoch.Positions, epochPosition{Index: current.consumed, Name: identity.Name})
+						result[key] = epoch
+					}
+				}
+				current.consumed++
+				cursors[ev.Player] = current
+			case events.LibraryOrder:
+				disable(ev.Player, true)
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+				disable(0, false)
+			case events.TokenCreate:
+				token := setup.Tokens[ev.Text]
+				if token == nil || len(token.Faces) == 0 || deckNames[token.Faces[0].Name] {
+					disable(0, false)
+				}
+			case events.MoveZone:
+				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				if identity, recognized := exiles[index]; recognized {
+					ownerCursor := cursors[identity.Owner]
+					if ownerCursor.reliable {
+						key := epochKey{Player: identity.Owner, Ordinal: ownerCursor.ordinal - 1}
+						epoch := result[key]
+						epoch.Positions = append(epoch.Positions, epochPosition{Index: ownerCursor.consumed, Name: identity.Name})
+						result[key] = epoch
+						ownerCursor.consumed++
+						cursors[identity.Owner] = ownerCursor
+						seenTop = true
+					}
+					continue
+				}
+				identity, known := ids[ev.Obj]
+				disable(identity.Owner, known)
+			}
+		}
+		var board spellbenchExileBoard
+		if json.Unmarshal(frame.Board, &board) != nil {
+			disable(0, false)
+			continue
+		}
+		counts := map[state.PlayerID]map[string]int{}
+		seen := map[uint32]bool{}
+		count := func(ref uint32) {
+			identity, known := ids[ref]
+			if !known || seen[ref] || !deckNames[identity.Name] {
+				return
+			}
+			seen[ref] = true
+			if counts[identity.Owner] == nil {
+				counts[identity.Owner] = map[string]int{}
+			}
+			counts[identity.Owner][identity.Name]++
+		}
+		for _, player := range board.Players {
+			for _, zone := range [][]struct {
+				ID uint32 `json:"id"`
+			}{player.Battlefield, player.Graveyard, player.Exile, player.Command} {
+				for _, card := range zone {
+					count(card.ID)
+				}
+			}
+		}
+		for _, entry := range board.Stack {
+			if entry.Kind == "spell" {
+				count(entry.Card.ID)
+			}
+		}
+		for player, current := range cursors {
+			if player == h.Actor || !current.reliable || current.ordinal != 1 {
+				continue
+			}
+			key := epochKey{Player: player}
+			epoch := result[key]
+			var names []string
+			for name := range counts[player] {
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			for _, name := range names {
+				epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: current.consumed, Name: name, Count: counts[player][name]})
+			}
+			result[key] = epoch
+		}
+	}
+	if !seenTop {
+		return nil
+	}
+	return result
+}

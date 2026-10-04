@@ -335,6 +335,18 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   checks pass. The separate 47-frame Rally reconstruction still exhausts the
   shipped budget. See [copy target repair](gorge-copy-target-repair-20261004.json).
 
+- Public top exiles now retain consumed opening-prefix and later hand-exit
+  constraints only for recognized printed effects, exact public stack sources,
+  observed new exile membership and consistent library-size changes. This
+  repairs the saved Rally failure in 91 submits. Actor-owned ordered look
+  notes preserve their known top-card window, repairing Spy in 367 submits.
+  All 16 saved failure roots produce eight known-card-valid worlds with
+  identical native diagnostics. Legal printed-effect fixtures preserve full
+  history under unseen-tail swaps; all affected strategy cases, vet and diff
+  checks pass. These checks preserve the 64/8/5000 budgets and native sampler.
+  See [public Dig repair](gorge-public-dig-repair-20261004.json). Complete
+  qualification still requires the next immutable runtime and native panel.
+
 This is a source and information audit for the stated pool. Full twelve-mode
 qualification, compatible guarded throughput evidence, rated games and public ratings
 remain separate delivery work. Timing, public canonical-envelope limits and

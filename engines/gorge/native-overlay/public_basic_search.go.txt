@@ -212,6 +212,22 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 				if ev.Player == h.Actor && len(ev.IDs) == 1 && !moved[ev.IDs[0]] {
 					add(0, ev.IDs[0], false)
 				}
+			case events.Note:
+				// The pinned library look note carries its ordered window to
+				// the permitted viewer. Ownership of every named card must
+				// independently identify this actor's own library.
+				if ev.Player == h.Actor && ev.Secret && ev.Text == "looks at the top of the library" && len(ev.IDs) > 0 {
+					owned := true
+					for _, ref := range ev.IDs {
+						identity, known := identities[ref]
+						owned = owned && known && identity.Owner == h.Actor && identity.Name != ""
+					}
+					if owned {
+						for offset, ref := range ev.IDs {
+							add(offset, ref, false)
+						}
+					}
+				}
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
 					continue
