@@ -642,15 +642,15 @@ final class ModelReplay {
     }
     static Result runMode(Map<String, Object> record, ModeCapture capture) {
         if (capture == null) throw new IllegalArgumentException("mode capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), capture, null, null);
+        return run(record, null, PlaySettings.diagnostic(2), capture, null, null);
     }
     static Result runDialog(Map<String, Object> record, DialogCapture capture) {
         if (capture == null) throw new IllegalArgumentException("dialog capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), null, capture, null);
+        return run(record, null, PlaySettings.diagnostic(2), null, capture, null);
     }
     static Result runTarget(Map<String, Object> record, TargetCapture capture) {
         if (capture == null) throw new IllegalArgumentException("target capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), capture, capture, capture);
+        return run(record, null, PlaySettings.diagnostic(2), capture, capture, capture);
     }
     private static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
                               PlaySettings settings, ModeCapture capture, DialogCapture dialogs, TargetCapture targets) {
