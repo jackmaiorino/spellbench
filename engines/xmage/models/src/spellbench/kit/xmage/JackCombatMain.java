@@ -101,7 +101,7 @@ public final class JackCombatMain {
         Object state, codec;
         Map<String, Object> base;
         Class<?> candidateClass;
-        Frames(World world, Map<String, Object> decision) {
+        Frames(World world, Map<String, Object> decision) throws Exception {
             this.world = world; this.decision = decision;
             permitted = JackModeEncoder.namedAliases(world, decision);
         }
