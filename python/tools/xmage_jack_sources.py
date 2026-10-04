@@ -897,6 +897,14 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "callback_player" in config and type(config["callback_player"]) is not bool:
+        raise ValueError("Jack callback player staging needs an explicit boolean flag")
+    if config.get("callback_player") is True and not all(config.get(key) is True for key in (
+            "priority_choice_player", "target_callback", "card_set_callback", "mode_callback",
+            "dialog_callback", "combat_callback", "london_callback")):
+        raise ValueError("Jack callback player requires every original strategic callback")
+    if config.get("callback_player") is True and not config.get("mulligan_encoder"):
+        raise ValueError("Jack callback player requires the original mulligan encoder")
     if "priority_choice_player" in config and type(config["priority_choice_player"]) is not bool:
         raise ValueError("Jack priority/choice player staging needs an explicit boolean flag")
     if config.get("priority_choice_player") is True and not (
@@ -991,6 +999,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if config.get("priority_choice_player") is True:
         from xmage_jack_priority_choice_sources import priority_choice_source
         priority_choice = priority_choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    callback_player = None
+    if config.get("callback_player") is True:
+        from xmage_jack_callback_player_sources import callback_player_source
+        callback_player = callback_player_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -1066,6 +1078,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if priority_choice is not None:
         with (output / "OriginalPriorityChoicePlayer.java").open("xb") as stream:
             stream.write(priority_choice)
+    if callback_player is not None:
+        with (output / "OriginalCallbackPlayer.java").open("xb") as stream:
+            stream.write(callback_player)
     if mulligan is not None:
         with (output / "MulliganEncoder.java").open("xb") as stream:
             stream.write(mulligan)
@@ -1103,6 +1118,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
               "candidate_scope": "original priority IDs and 48 features; explicit acting player; extraction failures refuse",
               "scope": "base-state and priority features; original generic candidate methods and chooser; other game callbacks, deck qualification and games unfinished",
               "private_source": True, "embedding_source": "explicit hash-pinned offline cache"}
+    if callback_player is not None:
+        from xmage_jack_callback_player_sources import CALLBACK_PLAYER_VARIANT
+        result.update(staged_callback_player_sha256=hashlib.sha256(callback_player).hexdigest(),
+                      callback_player_variant=CALLBACK_PLAYER_VARIANT, original_callback_player_qualified=False)
     if mulligan is not None:
         result.update(original_mulligan_encoder_sha256=MULLIGAN_JAVA_SHA256,
                       staged_mulligan_encoder_sha256=hashlib.sha256(mulligan).hexdigest(),

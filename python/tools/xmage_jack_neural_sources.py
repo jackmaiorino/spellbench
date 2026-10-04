@@ -42,13 +42,25 @@ public final class OriginalNeuralSelection {
     public static final String GREEDY = "jack-april-eval-greedy-fair-v1";
     public static final String SAMPLED = "jack-april-no-training-sampled-fair-v1";
 
-    public interface Admission { void require(Game game, Player viewer); }
+    public interface Admission {
+        void require(Game game, Player viewer);
+        default Map<UUID, String> aliases(Game game, Player viewer) { return null; }
+        default Admission copy(Game source, Game copied, Player copiedViewer) {
+            throw new IllegalArgumentException("permitted simulation copy admission unavailable");
+        }
+    }
     /** Implement with the isolated paired policy/value backend, never a baseline. */
     public interface Model {
         String callbackSourceSha256();
         String profile();
         long seed();
         Prediction score(Request request, double remainingSeconds);
+        default MulliganPrediction mulligan(float[] features, double remainingSeconds) {
+            throw new IllegalArgumentException("paired mulligan backend unavailable");
+        }
+        default int physicalCopy(int count, double remainingSeconds) {
+            throw new IllegalArgumentException("declared game-owned physical-copy stream unavailable");
+        }
         void close();
     }
     public static final class Prediction {
@@ -58,18 +70,25 @@ public final class OriginalNeuralSelection {
             this.policy = policy == null ? null : policy.clone(); this.value = value;
         }
     }
+    public static final class MulliganPrediction {
+        public final String format;
+        public final float first, second;
+        public MulliganPrediction(String format, float first, float second) {
+            this.format = format; this.first = first; this.second = second;
+        }
+    }
     /** Model receives copies, so a backend cannot mutate cached state or choice masks. */
     public static final class Request {
         private final float[][] tokens, features;
         private final int[] tokenMask, tokenIds, actionIds, candidateMask;
         public final String head;
-        public final int pickIndex = 0, minimum, maximum, count;
+        public final int pickIndex, minimum, maximum, count;
         private Request(StateSequenceBuilder.SequenceOutput state, int[] actionIds,
-                float[][] features, int[] mask, String head, int minimum, int maximum, int count) {
+                float[][] features, int[] mask, String head, int pickIndex, int minimum, int maximum, int count) {
             this.tokens = copy(state.tokens); this.tokenMask = state.mask.clone();
             this.tokenIds = state.tokenIds.clone(); this.actionIds = actionIds.clone();
             this.features = copy(features); this.candidateMask = mask.clone();
-            this.head = head; this.minimum = minimum; this.maximum = maximum; this.count = count;
+            this.head = head; this.pickIndex = pickIndex; this.minimum = minimum; this.maximum = maximum; this.count = count;
         }
         private static float[][] copy(float[][] source) {
             float[][] result = new float[source.length][];
@@ -109,7 +128,7 @@ public final class OriginalNeuralSelection {
         }
         private synchronized List<Integer> choose(StateSequenceBuilder.SequenceOutput state,
                 int[] ids, float[][] features, int[] mask, String head,
-                int minimum, int maximum, int count, int picks, boolean sequential) {
+                int pickIndex, int minimum, int maximum, int count, int picks, boolean sequential) {
             try {
                 double allowance = remaining();
                 int valid = 0; for (int i = 0; i < count; i++) valid += mask[i];
@@ -121,7 +140,7 @@ public final class OriginalNeuralSelection {
                     prediction = new Prediction(policy, 0.0f);
                 } else {
                     prediction = model.score(new Request(state, ids, features, mask, head,
-                            minimum, maximum, count), allowance);
+                            pickIndex, minimum, maximum, count), allowance);
                 }
                 remaining();
                 if (prediction == null || prediction.policy == null || prediction.policy.length != 64
@@ -144,6 +163,35 @@ public final class OriginalNeuralSelection {
             try { model.close(); } catch (RuntimeException | Error closing) { failure.addSuppressed(closing); }
         }
         public synchronized float lastValue() { requireOpen(); return lastValue; }
+        public synchronized boolean mulligan(float[] features) {
+            try {
+                double allowance = remaining();
+                if (features == null || features.length != 71) throw new IllegalArgumentException("original mulligan needs 71 features");
+                for (float value : features) if (!Float.isFinite(value)) throw new IllegalArgumentException("non-finite mulligan feature");
+                MulliganPrediction result = model.mulligan(features.clone(), allowance); remaining();
+                if (result == null || !Float.isFinite(result.first) || !Float.isFinite(result.second))
+                    throw new IllegalArgumentException("invalid original mulligan prediction");
+                if ("keep-mull-q".equals(result.format)) return result.first < result.second;
+                if ("keep-logit".equals(result.format)) {
+                    double expected = result.first >= 0 ? 1/(1+Math.exp(-result.first))
+                            : Math.exp(result.first)/(1+Math.exp(result.first));
+                    if (result.second < 0 || result.second > 1 || Math.abs(result.second-expected)>2e-7)
+                        throw new IllegalArgumentException("original keep probability differs from sigmoid logit");
+                    return result.second < 0.5f;
+                }
+                throw new IllegalArgumentException("unsupported declared mulligan format");
+            } catch (RuntimeException | Error failure) { closeAfterFailure(failure); throw failure; }
+        }
+        public synchronized int physicalCopy(int count) {
+            try {
+                double allowance = remaining();
+                if (count < 1) throw new IllegalArgumentException("empty physical-copy group");
+                if (count == 1) return 0;
+                int selected = model.physicalCopy(count, allowance); remaining();
+                if (selected < 0 || selected >= count) throw new IllegalArgumentException("physical-copy stream escaped offered group");
+                return selected;
+            } catch (RuntimeException | Error failure) { closeAfterFailure(failure); throw failure; }
+        }
         @Override public synchronized void close() { if (!closed) { closed = true; model.close(); } }
     }
     private final Player viewer;
@@ -167,6 +215,8 @@ public final class OriginalNeuralSelection {
             if (game == null || game.getPlayer(viewer.getId()) != viewer)
                 throw new IllegalArgumentException("original neural path needs its owned player");
             admission.require(game, viewer);
+            Map<UUID, String> refreshed = admission.aliases(game, viewer);
+            if (refreshed != null) rules.refreshPermittedAliases(refreshed);
             session.remaining();
         } catch (RuntimeException | Error failure) { session.closeAfterFailure(failure); throw failure; }
     }
@@ -180,8 +230,38 @@ public final class OriginalNeuralSelection {
         StateSequenceBuilder.SequenceOutput baseState = rules.baseState(game);
 ''' + tensors + '''
         return session.choose(baseState, candidateActionIds, candidateFeatures, candidateMask,
-                CandidateEncoder.head(actionType.name()), minTargets, maxTargets,
+                CandidateEncoder.head(actionType.name()), 0, minTargets, maxTargets,
                 candidateCount, maxTargets, true);
+        } catch (RuntimeException | Error failure) { session.closeAfterFailure(failure); throw failure; }
+    }
+    public StateSequenceBuilder.SequenceOutput capture(Game game) { require(game); return rules.baseState(game); }
+    public <T> List<Integer> select(List<T> candidates, StateSequenceBuilder.ActionType type, Ability source,
+            Game game, StateSequenceBuilder.SequenceOutput state, int[] offeredMask, int pickIndex,
+            int minimum, int maximum, int picks, boolean sequential, boolean modeOrdinal, boolean useIds) {
+        require(game);
+        try {
+            int count = Math.min(64,candidates.size());
+            if (count < 1 || state == null || picks < 1 || picks > count || pickIndex < 0)
+                throw new IllegalArgumentException("invalid original callback tensor request");
+            int[] ids = new int[64], mask = new int[64]; float[][] features = new float[64][48];
+            if (offeredMask != null && offeredMask.length != 64) throw new IllegalArgumentException("invalid mode mask");
+            if (minimum<0 || maximum<minimum) throw new IllegalArgumentException("invalid original pick bounds");
+            if (offeredMask != null) for(int i=count;i<64;i++) if(offeredMask[i]!=0)
+                throw new IllegalArgumentException("mode mask names an unoffered slot");
+            int legal=0;
+            for (int i=0;i<count;i++) {
+                mask[i] = offeredMask == null ? 1 : offeredMask[i];
+                if (mask[i]!=0 && mask[i]!=1) throw new IllegalArgumentException("invalid original legality mask");
+                legal+=mask[i];
+                T candidate = candidates.get(i);
+                ids[i] = useIds ? new DialogRules(viewer).useId(Boolean.TRUE.equals(candidate))
+                        : encoder.candidateId(type.name(),game,source,candidate);
+                features[i] = encoder.candidateFeatures(type.name(),game,source,candidate,state);
+                if (modeOrdinal) features[i][0]=i/(float)count;
+            }
+            if(legal<picks) throw new IllegalArgumentException("original callback has too few legal slots");
+            return session.choose(state,ids,features,mask,CandidateEncoder.head(type.name()),
+                    pickIndex,minimum,maximum,count,picks,sequential);
         } catch (RuntimeException | Error failure) { session.closeAfterFailure(failure); throw failure; }
     }
 }

@@ -49,6 +49,7 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
     private PriorityRules originalPriority;
     private OriginalNeuralSelection originalNeural;
     private OriginalNeuralSelection.Session originalSession;
+    private OriginalNeuralSelection.Admission originalAdmission;
     protected OriginalPriorityChoicePlayer(String name, RangeOfInfluence range) { super(name, range); }
     protected OriginalPriorityChoicePlayer(OriginalPriorityChoicePlayer player) {
         super(player);
@@ -68,6 +69,7 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
         OriginalNeuralSelection neural = new OriginalNeuralSelection(this, rules, session, admission);
         neural.requireWorld(game);
         originalWorld = game; originalPriority = rules; originalNeural = neural; originalSession = session;
+        originalAdmission = admission;
     }
     @Override protected final void requireOriginalPermittedWorld(Game game) {
         if (originalWorld == null || game != originalWorld || game.getPlayer(getId()) != this) {
@@ -78,6 +80,8 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
     }
     protected final PriorityRules originalPriorityRules() { return originalPriority; }
     protected final OriginalNeuralSelection.Session originalNeuralSession() { return originalSession; }
+    protected final OriginalNeuralSelection originalNeuralSelection() { return originalNeural; }
+    protected final OriginalNeuralSelection.Admission originalWorldAdmission() { return originalAdmission; }
     @Override protected final void requireOriginalActivationWorld(Game game) { requireOriginalPermittedWorld(game); }
     @Override protected final void act(Game game, ActivatedAbility ability) {
         requireOriginalPermittedWorld(game); super.act(game, ability); requireOriginalPermittedWorld(game);

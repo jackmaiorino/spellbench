@@ -96,13 +96,31 @@ public final class PriorityRules {
     private final Map<UUID, Set<String>> validAlternativeCosts = new HashMap<>();
     private static final ThreadLocal<String> forcedAlternativeChoice = new ThreadLocal<>();
     private static final ThreadLocal<ChoiceTrackingData> choiceTrackingData = new ThreadLocal<>();
-    public interface OriginalCallbacks { String priorityCallbackSourceSha256(); }
+    public interface OriginalCallbacks {
+        String priorityCallbackSourceSha256();
+        default void admitOriginalSimulation(Game source, Game copied) {
+            throw new IllegalArgumentException("original copied-player admission unavailable");
+        }
+    }
     public PriorityRules(Player viewer, Map<UUID, String> aliases) {
         if (viewer == null || aliases == null) throw new IllegalArgumentException("explicit permitted priority viewer required");
         this.viewer = viewer; this.playerId = viewer.getId(); this.permittedAliases = new HashMap<>(aliases);
     }
     private UUID getId() { return playerId; }
     public Player owner() { return viewer; }
+    public Map<UUID,String> aliases() { return Collections.unmodifiableMap(new HashMap<>(permittedAliases)); }
+    public void refreshPermittedAliases(Map<UUID,String> aliases) {
+        if (aliases == null) throw new IllegalArgumentException("permitted aliases required");
+        Set<String> names = new HashSet<>();
+        for (Map.Entry<UUID,String> entry : aliases.entrySet())
+            if (entry.getKey()==null || entry.getValue()==null || entry.getValue().isEmpty() || !names.add(entry.getValue()))
+                throw new IllegalArgumentException("permitted aliases must be unique and named");
+        if (!permittedAliases.equals(aliases)) {
+            permittedAliases.clear(); permittedAliases.putAll(aliases);
+            invalidateBaseStateCache(); invalidateAlternativeCostValidationCache();
+            validAlternativeCosts.clear();
+        }
+    }
     private String getName() { return viewer.getName(); }
     private List<ActivatedAbility> getPlayableFast(Game game, boolean hidden, Zone zone, boolean duplicates) {
         throw new IllegalArgumentException("original default priority profile disables no-clone lookup");
@@ -112,6 +130,9 @@ public final class PriorityRules {
         Player player = copied.getPlayer(getId());
         if (!(player instanceof OriginalCallbacks) || !SOURCE_SHA256.equals(((OriginalCallbacks) player).priorityCallbackSourceSha256()))
             throw new IllegalArgumentException("priority activation simulation requires original copied-player callbacks");
+        if (!(viewer instanceof OriginalCallbacks))
+            throw new IllegalArgumentException("priority source player lacks original copy admission");
+        ((OriginalCallbacks) viewer).admitOriginalSimulation(game, copied);
         return copied;
     }
     public StateSequenceBuilder.SequenceOutput baseState(Game game) { return getOrBuildBaseState(game); }

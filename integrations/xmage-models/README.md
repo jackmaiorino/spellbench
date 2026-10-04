@@ -483,3 +483,27 @@ cleanup, direct foreign-world refusal and nested model failure. Remaining
 strategic callbacks stay abstract, and this class does not implement the complete
 copied-player marker. Persistent alias/cache lifecycle, the isolated backend and
 native/full-game qualification remain required.
+
+`callback_player: true` additionally requires the priority/choice player, target,
+provided-card, mode, dialog, combat, London and mulligan encoder components. It
+emits concrete `OriginalCallbackPlayer`, retaining the original target/card loops,
+pick indices, mode masks, YES/NO order, X bounds, combat base-state reuse and
+London ranking. Payment targets use the activation player's existing TLS and
+tap reservations. Physical-copy picks use the declared game-owned backend stream;
+singleton groups consume no draw. Mulligan inference accepts the declared
+keep/mull Q format or keep-logit format, keeps on ties and caches repeated prompts.
+
+The complete player implements copied callbacks and requests separate admission
+for alternative-cost and playable-mana simulations. Copies share the model and
+chooser session, while admission refreshes permitted aliases and invalidates
+state/playable/alternative caches when those aliases change. Missing admission,
+backend errors and expired decisions close the session. Default backend methods
+refuse unavailable mulligan or physical-copy inference.
+
+`JackCallbackPlayerCheck.java` verifies actual callback dispatch with metadata
+worlds and synthetic predictions, including target removal and pick indices,
+mode/card application, mulligan ties and caching, alias refresh, admitted copies
+and failure closure. These checks do not load pretrained weights or play games.
+The isolated persistent backend, real permitted-world registry, hidden-world and
+ordering/RNG replay, checkpoint/deck associations and complete-game qualification
+remain required before rating or publication.

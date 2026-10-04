@@ -23,6 +23,8 @@ def activation_source(source: str) -> str:
     plumbing = replace_once(plumbing, "super.playMana(ability, unpaid, promptText, game)",
                             "originalParentPlayMana(ability, unpaid, promptText, game)")
     plumbing = replace_once(plumbing, "super.getAvailableManaProducers(game)", "originalParentManaProducers(game)")
+    plumbing = replace_once(plumbing, "Game game = originalGame.createSimulationForPlayableCalc();",
+                            "Game game = originalGame.createSimulationForPlayableCalc();\n        requireOriginalManaSimulation(originalGame, game);")
     # The pinned engine has no fast-getter hook. Retain the original body as an explicit method.
     plumbing = replace_once(plumbing, "    @Override\n    protected ManaOptions getManaAvailableFast(Game game)",
                             "    protected ManaOptions getManaAvailableFast(Game game)")
@@ -30,6 +32,9 @@ def activation_source(source: str) -> str:
     recovery = replace_once(recovery, "super.cast(ability, game, noMana, approvingObject)",
                             "castOriginalSpell(ability, game, noMana, approvingObject)")
     recovery = replace_once(recovery, "super.playAbility(ability, game)", "playOriginalAbility(ability, game)")
+    mana_target = extract(source, "        // During mana payment, avoid tapping key mana producers",
+                          "        // RL-only target selection. No engine fallback.")
+    mana_target = mana_target.replace("super.chooseTarget(outcome, target, source, game)", "parent.getAsBoolean()")
     return '''package spellbench.models.jack;
 
 import mage.MageObject;
@@ -105,6 +110,9 @@ public abstract class OriginalActivationPlayer extends ComputerPlayer {
         if (game == null || game.getPlayer(getId()) != this)
             throw new IllegalArgumentException("original activation needs its owned player");
     }
+    protected void requireOriginalManaSimulation(Game source, Game copied) {
+        // A complete player supplies the permitted-copy gate; partial components cannot qualify it.
+    }
     public final void applyOriginalPriorityAbility(Game game, ActivatedAbility ability) {
         if (game == null || game.getPlayer(getId()) != this) throw new IllegalArgumentException("original activation needs its owned permitted player");
         requireOriginalActivationWorld(game);
@@ -139,4 +147,7 @@ public abstract class OriginalActivationPlayer extends ComputerPlayer {
     private void writeActivationFailureToFile(ActivatedAbility ability, Game game, Exception error, List<String> trace) { }
     private void logAbilityTargets(ActivatedAbility ability, Game game) { }
     private void pauseOnActivationFailure() { }
-''' % (CALLBACK_SHA256, ACTIVATION_VARIANT) + action + trace + fresh + helpers + plumbing + recovery + "}\n"
+''' % (CALLBACK_SHA256, ACTIVATION_VARIANT) + action + trace + fresh + helpers + plumbing + recovery + '''
+    protected final Boolean originalManaTarget(Outcome outcome, Target target, Ability source, Game game,
+            java.util.function.BooleanSupplier parent) {
+''' + mana_target + "        return null;\n    }\n}\n"
