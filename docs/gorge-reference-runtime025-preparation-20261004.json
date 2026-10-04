@@ -1,0 +1,29 @@
+{
+  "schema": "spellbench-gorge-reference-preparation/v1",
+  "source_of_record": "E:\\spellbench-gorge-reference-matrix-runtime025-20261004-001",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-matrix-runtime025-20261004-001",
+  "preparation_sha256": "f33c26aeee8fa6f4bde7afb6981504dbd348b1042e2ea3e257150533b442bae8",
+  "source_commit": "c4af9c1477920bb4b6d257da7d36585cba7abe4c",
+  "native_source_commit": "75c6d2bd826d4ebe5abc6eebd37e9820b1d87392",
+  "frozen_inputs_verified_on_E_and_D": true,
+  "guard_path": "canonical host_reservation_v1.dispatch/supervise -> contained reference-driver -> reference_matrix.py -> bench.run.plan_for -> arena.throughput.plan_allocation -> arena.runner.play_games",
+  "worker_ladder": [
+    1,
+    2,
+    4
+  ],
+  "wall_cap_seconds": 7200,
+  "reference_matrix_games": 140,
+  "expected_native_participant_receipts": 160,
+  "benchmark_sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0",
+  "evaluation_launched": false,
+  "wake_condition": "Runtime025 complete native audit passes, is sealed and releases its canonical CPU claim; then fresh all-host census and atomic guard acquisition",
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "preparation": "E:\\spellbench-gorge-reference-matrix-runtime025-20261004-001\\PREPARATION-v2.json",
+  "recipe_version": 2,
+  "original_preparation_retained": true,
+  "guard_notes": "Frozen benchmark clocks and7200-second overall cap. Native callback cap is not claimed for the reference host."
+}
