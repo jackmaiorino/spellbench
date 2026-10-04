@@ -403,7 +403,8 @@
       "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json",
       "runtime022_hosted_ci": "docs/gorge-runtime022-ci-20261004.json",
       "public_london_token_repair": "docs/gorge-public-london-token-repair-20261004.json",
-      "runtime023_hosted_ci": "docs/gorge-runtime023-ci-20261004.json"
+      "runtime023_hosted_ci": "docs/gorge-runtime023-ci-20261004.json",
+      "public_arrange_diagnosis": "docs/gorge-public-arrange-diagnosis-20261004.json"
     }
   ],
   "publication": null,
