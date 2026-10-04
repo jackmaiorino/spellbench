@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-runtime019-live-cloud/v1",
-  "observed_at_utc": "2026-10-04T03:52:57.070416+00:00",
+  "observed_at_utc": "2026-10-04T04:18:33.114312+00:00",
   "status": "serial_throughput_qualification_running",
   "pod_id": "tiqm4e02o5jdv9",
   "cloud": "COMMUNITY",
@@ -37,18 +37,75 @@
   "independent_guard_pid": 40744,
   "independent_guard_recovery": {
     "pod_id": "tiqm4e02o5jdv9",
-    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-011\\recovery-20261004T034925Z.tar.gz",
-    "at_utc": "2026-10-04T03:49:27.0528157+00:00",
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-011\\recovery-20261004T041538Z.tar.gz",
+    "at_utc": "2026-10-04T04:15:39.6874545+00:00",
     "event": "recovered",
-    "sha256": "d7bbb6eeb511fd51375837147a5bc2ebc95b92035ca3678adfe54d673938fcb0",
-    "bytes": 123707
+    "sha256": "c66b0e7af07289ba28810480844ada8e7bdf012e32635b177d4ab87dcacf89ff",
+    "bytes": 128360
   },
   "preflight_stage001": "Placement parser rejected before any game. Closed stage and recovery retained; corrected operator manifest starts separate stage002 with unchanged frozen engine and source.",
-  "serial_probe_completed_blocks": 2,
+  "serial_probe_completed_blocks": 11,
   "native_qualification_complete": false,
   "fully_qualified_entries": 0,
   "rated_games": 0,
   "published_entries": 0,
   "guarded_launch": "bounded owned Linux process group -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
-  "remaining": "Matched serial and parallel stores must agree before full320-block/640-game native audit. Complete reference-host clocks/isolation, identity review, benchmark review, ratings and publication remain pending."
+  "remaining": "Matched serial and parallel stores must agree before full320-block/640-game native audit. Complete reference-host clocks/isolation, identity review, benchmark review, ratings and publication remain pending.",
+  "serial_probe_completed_natural_blocks": 11,
+  "serial_probe_expected_blocks": 26,
+  "serial_probe_completed_physical_games": 22,
+  "serial_probe_indices_completed": [
+    40,
+    44,
+    48,
+    52,
+    96,
+    100,
+    104,
+    108,
+    152,
+    156,
+    160
+  ],
+  "current_heartbeat": {
+    "at_utc": "2026-10-04T04:18:26.017328+00:00",
+    "elapsed_seconds": 1742.450034420006,
+    "artifact_bytes": 25558,
+    "free_bytes": 79558307840,
+    "natural_blocks": 11,
+    "cpu_stat": null,
+    "memory_current": null,
+    "io_stat": null,
+    "cpu_v1_stat": "nr_periods 17822\nnr_throttled 0\nthrottled_time 0\nnr_bursts 0\nburst_time 0",
+    "memory_v1_usage": "923848704",
+    "cpu_model": "AMD EPYC 7663 56-Core Processor"
+  },
+  "current_cpu_diagnosis": "Required single-worker baseline is actively computing, with increasing native CPU counters and zero recorded quota throttles. Parallel trial and full audit have not started; no whole baseline or allocation result is claimed.",
+  "observation_sha256": "1cd7b52dc81fc126143e9a5b2003b90772dcdfc2ab3334c550457f13cff6987a",
+  "fresh_resource_snapshot": {
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-011\\gorge-resources-runtime019-cloud011-refresh003-20261004.json",
+    "sha256": "f8a4d2eeb70b0d10491754c48fc19ea6d6567bc13f3dec14460188aaf48ecbea",
+    "Jack_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=london-opening-pilot-001 generation=167 since=2026-10-04T03:51:18.080+00:00"
+  },
+  "reference_launcher_follow_up": {
+    "source_commit": "2a117aba0582c505dc3c8ea5371a0c3022de5ef5",
+    "evidence": "docs/gorge-reference-placement-repair-20261004.json",
+    "affected_python_checks_passed": 85,
+    "native_binary_or_schedule_changed": false,
+    "hosted_follow_up_ci": "Go and Windows/Linux Python CI still pending at last observed check; LLM isolation passed."
+  },
+  "current_pod_billing": {
+    "observed_at_utc": "2026-10-04T04:17:01.516804+00:00",
+    "provider_reported_current_pod": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "conservative_cumulative_lease_ceiling_usd": 2.71026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "billing_limit": "The live provider response is not finalized and reports zero so far. The conservative cumulative lease ceiling remainsUSD2.71026747; this is not a free-compute claim."
 }
