@@ -57,6 +57,8 @@ jobs:
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
       - name: Compile both original model searches, mixed bridge and MageZero encoder
+        env:
+          SPELLBENCH_CI_GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           python python/tools/xmage_model_ci_inputs.py --root "$RUNNER_TEMP/model-inputs"
