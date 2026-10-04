@@ -383,6 +383,26 @@ choice application, and refusal of unported simulation callbacks. It starts no
 native game, card database or network. These checks do not qualify complete
 priority play, native hidden-world invariance, paired weights or full games.
 
+The private manifest can additionally enable `parent_mana_callback: true` with
+`activation_callback: true`. It requires the three pinned April parent sources
+and `parent_choice_source`, the pinned April `ChoiceImpl.java`. The stager emits
+abstract `OriginalParentManaPlayer`, retaining the inherited payment algorithm,
+producer scores, conditional and as-though tests, phyrexian recursion guard,
+special mana action, unpaid-color hint and ComputerPlayer6's queued answers.
+The old choice-answer helper is extracted from that same commit because the
+pinned engine lacks its method. Queued answers copy; unpaid hints and the
+phyrexian guard reset, as in the original constructors.
+
+The engine's producer primitive feeds the existing original activation filters
+and tap reservations. Payment calls the player's actual activation callback.
+Original parent color order, map iteration, nested payment mode behavior and
+random fallback are retained. Strategic callbacks and creature-type selection
+remain required; this abstract component does not implement the full copied
+callback marker. `JackParentManaCheck.java` executes these bodies with metadata
+engine hooks, alongside the existing activation checks. No native game, card
+database or model is started. Native replay, ordering/RNG qualification and
+complete persistent player integration remain unfinished.
+
 `JackPriorityBinding` takes the actual validated list from the original rules'
 chooser hook and its cached permitted base state. It preserves the first 64
 slots in their original order, requires a unique exact offered semantic for

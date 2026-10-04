@@ -99,6 +99,8 @@ public abstract class OriginalActivationPlayer extends ComputerPlayer {
     @Override public abstract boolean chooseMulligan(Game game);
     protected abstract boolean originalParentPlayMana(Ability ability, mage.abilities.costs.mana.ManaCost unpaid, String promptText, Game game);
     protected abstract List<MageObject> originalParentManaProducers(Game game);
+    // The pinned engine ComputerPlayer delegates this primitive directly to PlayerImpl.
+    protected List<MageObject> engineParentManaProducers(Game game) { return super.getAvailableManaProducers(game); }
     public final void applyOriginalPriorityAbility(Game game, ActivatedAbility ability) {
         if (game == null || game.getPlayer(getId()) != this) throw new IllegalArgumentException("original activation needs its owned permitted player");
         act(game, ability);

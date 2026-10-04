@@ -897,6 +897,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "parent_mana_callback" in config and type(config["parent_mana_callback"]) is not bool:
+        raise ValueError("Jack parent mana staging needs an explicit boolean flag")
+    if config.get("parent_mana_callback") is True and config.get("activation_callback") is not True:
+        raise ValueError("Jack parent mana staging requires the original activation player")
     if "activation_callback" in config and type(config["activation_callback"]) is not bool:
         raise ValueError("Jack activation staging needs an explicit boolean flag")
     if config.get("activation_callback") is True and config.get("priority_callback") is not True:
@@ -976,9 +980,14 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     card_sets = (card_set_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                  if config.get("card_set_callback") is True else None)
     parent_cards = None
-    if config.get("parent_card_callback") is True:
+    parent_mana = None
+    if config.get("parent_card_callback") is True or config.get("parent_mana_callback") is True:
+        from xmage_jack_parent_mana_sources import PARENT_MANA_PINS, parent_mana_source
         parent_sources = {}
-        for key, digest in PARENT_SOURCE_PINS.items():
+        required_pins = dict(PARENT_SOURCE_PINS) if config.get("parent_card_callback") is True else {}
+        if config.get("parent_mana_callback") is True:
+            required_pins.update(PARENT_MANA_PINS)
+        for key, digest in required_pins.items():
             matches = [a for a in manifest["assets"] if a["id"] == config.get(key)]
             if len(matches) != 1:
                 raise ValueError("Jack parent stage needs every original parent asset")
@@ -988,7 +997,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                 raise ValueError("Jack parent stage requires the pinned private local source")
             verify(root / parent_asset["filename"], parent_asset)
             parent_sources[key] = (root / parent_asset["filename"]).read_bytes().decode("utf-8")
-        parent_cards = parent_card_sources(parent_sources)
+        if config.get("parent_card_callback") is True:
+            parent_cards = parent_card_sources({key: parent_sources[key] for key in PARENT_SOURCE_PINS})
+        if config.get("parent_mana_callback") is True:
+            parent_mana = parent_mana_source({key: parent_sources[key] for key in PARENT_MANA_PINS}).encode("utf-8")
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -1012,6 +1024,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if activation is not None:
         with (output / "OriginalActivationPlayer.java").open("xb") as stream:
             stream.write(activation)
+    if parent_mana is not None:
+        with (output / "OriginalParentManaPlayer.java").open("xb") as stream:
+            stream.write(parent_mana)
     if priority is not None:
         with (output / "PriorityRules.java").open("xb") as stream:
             stream.write(priority)
@@ -1096,6 +1111,11 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_activation_callback_sha256=CALLBACK_SHA256,
                       staged_activation_player_sha256=hashlib.sha256(activation).hexdigest(),
                       activation_variant=ACTIVATION_VARIANT, original_activation_player_qualified=False)
+    if parent_mana is not None:
+        from xmage_jack_parent_mana_sources import PARENT_MANA_VARIANT, PARENT_MANA_PINS
+        result.update(original_parent_mana_sources_sha256=PARENT_MANA_PINS,
+                      staged_parent_mana_player_sha256=hashlib.sha256(parent_mana).hexdigest(),
+                      parent_mana_variant=PARENT_MANA_VARIANT, original_parent_mana_native_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
