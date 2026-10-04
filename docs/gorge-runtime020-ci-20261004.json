@@ -1,23 +1,23 @@
 {
   "schema": "spellbench-gorge-runtime020-hosted-ci/v1",
-  "checked_at_utc": "2026-10-04T05:19:28.328106+00:00",
+  "checked_at_utc": "2026-10-04T05:43:58.993522+00:00",
   "runtime_source_commit": "cfb7ff2def65eb0572255708f05422a1f05730e3",
   "runtime_preparation": "docs/gorge-runtime-preparation-20261004-020.json",
   "runs": [
     {
-      "conclusion": "",
+      "conclusion": "success",
       "databaseId": 37179246208,
       "headSha": "cfb7ff2def65eb0572255708f05422a1f05730e3",
       "name": "gorge adapter",
-      "status": "in_progress",
+      "status": "completed",
       "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37179246208"
     },
     {
-      "conclusion": "",
+      "conclusion": "success",
       "databaseId": 37179246248,
       "headSha": "cfb7ff2def65eb0572255708f05422a1f05730e3",
       "name": "CI",
-      "status": "in_progress",
+      "status": "completed",
       "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37179246248"
     },
     {
@@ -29,7 +29,7 @@
       "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37179246213"
     }
   ],
-  "all_hosted_checks_passed": false,
+  "all_hosted_checks_passed": true,
   "local_strategy_cases_passed": 51,
   "local_strategy_evidence": "docs/gorge-caw-opening-draws-repair-20261004.json",
   "local_go_vet_passed": true,

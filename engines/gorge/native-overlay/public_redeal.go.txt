@@ -47,9 +47,21 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	// Native constraints stop at London bottoming, but every public
 	// copy still came from the opening shuffle's drawn prefix. These weak name
 	// bounds guide this replay witness only, never the native weighted sampler.
-	for key, deadlines := range spellbenchLondonDeadlines(setup, h) {
+	londonDeadlines := spellbenchLondonDeadlines(setup, h)
+	for key, deadlines := range londonDeadlines {
 		epoch := epochs[key]
 		epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...), deadlines...)
+		epochs[key] = epoch
+	}
+	bottomPositions := spellbenchLondonBottomPositions(setup, h, londonDeadlines)
+	for key, positions := range bottomPositions {
+		epoch := epochs[key]
+		epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
+		if err := addEpochPosition(&epoch, positions[0]); err != nil {
+			// This optional witness proposal must not override a public fact.
+			delete(bottomPositions, key)
+			continue
+		}
 		epochs[key] = epoch
 	}
 	for key, positions := range spellbenchActorOpeningDraws(setup, h) {
@@ -150,6 +162,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			seed := taggedSeed(opts.Seed, digest, attempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
 			preferred := botpolicy.Decide(opponentBoard(e, d.Player, newOpponentBoards(len(setup.Names))), d, rand.New(rand.NewPCG(seed[0], seed[1])))
 			preferred = spellbenchObservedPreferred(e, c, d, preferred, want.Events[len(burst):], want.Identities)
+			preferred = spellbenchLondonBottomPreferred(e, d, preferred, bottomPositions)
 			var root *RedealBase
 			var branchError error
 			spellbenchEachIntent(d, preferred, budget, func(in decision.Intent) bool {

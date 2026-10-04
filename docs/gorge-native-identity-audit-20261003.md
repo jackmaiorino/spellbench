@@ -178,6 +178,16 @@ Actor mutations, reordering, later shuffles, token/copy creation and exhaustion
 stop this guidance. The native proposal compiler and weighted sampler are
 unchanged.
 
+For a single anonymous London bottom, an unmutated opening library may need
+one spare card beyond the later public name bounds. The public witness can
+place a declared card absent from those bounds in an opening slot and prefer
+that legal hypothetical bottom. It does not infer the live bottom's name.
+Any later shuffle or library movement, library ordering, token/copy creation,
+multiple anonymous bottoms or conflict with an existing public position
+disables this optional proposal. All alternatives, submit limits, native
+proposal weights, complete public replay matching and known-card checks
+remain in force.
+
 The agent reconstructs hypothetical worlds from public setup and received
 history. It receives no original engine, live hidden zones, chance prefix,
 generator state, game secret or engine event log. Hypothetical worlds and their
@@ -220,6 +230,16 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   wall-cap attempt and completion of its unfinished cases; Go vet and diff
   checks pass. See
   [Caw opening draw repair](gorge-caw-opening-draws-repair-20261004.json).
+
+- A captured 316-frame Spy history exhausted 5,000 reconstruction submits
+  when its single anonymous London bottom removed a hypothetical copy needed
+  by later public discards. Optional spare-card guidance now supplies eight
+  worlds in 648 submits; every world passes the known-card check and all 22
+  recorded native sampler fields remain identical. A legal fixture with 12
+  later opponent discards preserves complete actor history under different
+  unseen opponent library tails. All 52 current affected strategy cases,
+  Go vet and diff checks pass. See
+  [Spy London bottom repair](gorge-spy-london-bottom-repair-20261004.json).
 
 - `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
   Each variant creates a fresh engine and fresh collector, places the card in

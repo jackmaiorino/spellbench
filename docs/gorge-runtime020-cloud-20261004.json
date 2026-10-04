@@ -1,0 +1,112 @@
+{
+  "schema": "spellbench-gorge-runtime020-closed-cloud/v1",
+  "observed_at_utc": "2026-10-04T06:05:35.182873+00:00",
+  "status": "released_after_spy_public_failure_capture",
+  "runtime_source_commit": "cfb7ff2def65eb0572255708f05422a1f05730e3",
+  "source_archive_commit": "45ebf6400528807b904209764b8e3ee0dd35a00b",
+  "pod_id": "mifqudv2fxokju",
+  "cloud": {
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261004-013",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-013",
+    "seal_sha256": "6a2b201c099d67593e9251998ba696346fc75b57ad169ee29a469dbad9eb5b58",
+    "bytes": 159950893,
+    "files": 1013,
+    "prune_manifest_sha256": "e21b0b987b2ca9a19e8989b85dcfd2ed2c046755c88642f95a1b89decdba9adc"
+  },
+  "preallocation_capacity_failure": {
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261004-012",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-012",
+    "seal_sha256": "fec00e3dc6a87db110f129bcb44932066481b92f9615f5032fed795033bc10e8",
+    "bytes": 151785398,
+    "files": 958,
+    "prune_manifest_sha256": "e21b0b987b2ca9a19e8989b85dcfd2ed2c046755c88642f95a1b89decdba9adc"
+  },
+  "public_prefix": {
+    "source_of_record": "E:\\spellbench-gorge-spy-prefix-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-spy-prefix-20261004-001",
+    "seal_sha256": "8e3c84aeb4505894461341eed3d1564fbc3b3b6d2f4a9d53a1e21e5f41a00d3f",
+    "bytes": 25281031,
+    "files": 34,
+    "prune_manifest_sha256": "e21b0b987b2ca9a19e8989b85dcfd2ed2c046755c88642f95a1b89decdba9adc"
+  },
+  "saved_trace": {
+    "source_of_record": "E:\\spellbench-gorge-spy-reconstruction-trace-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-spy-reconstruction-trace-20261004-001",
+    "seal_sha256": "86263c57996c67cf9ba797352d8c8f8f516272db965c41a098967e67081d4d2b",
+    "bytes": 19147309,
+    "files": 35,
+    "prune_manifest_sha256": "e21b0b987b2ca9a19e8989b85dcfd2ed2c046755c88642f95a1b89decdba9adc"
+  },
+  "public_input_sha256": "969c00039f0c5e0f3986a8fbf6b840e8542479f5a3af92a6344b634626da7734",
+  "cpu_model": "AMD EPYC 7702 64-Core Processor",
+  "cpu_quota_cores": 27.2,
+  "usable_cpus": 28,
+  "memory_bytes": 61999996928,
+  "container_disk_bytes": 80000000000,
+  "rate_usd_per_hour": 0.22,
+  "host_fingerprint_verified": true,
+  "remote_files_verified": 946,
+  "diagnostic_seconds": 48.715431298012845,
+  "saved_trace_seconds": 17.010294662992237,
+  "public_frames": 316,
+  "public_reconstruction": {
+    "Attempts": 1,
+    "Submits": 5000,
+    "Nodes": 4818,
+    "BudgetExhausted": 1
+  },
+  "worlds": 0,
+  "native_sampler_fields_identical": true,
+  "trace_farthest_frame": 279,
+  "observed_failure": "At the opponent discard, hypothetical observer ref46 was Generous Ent; public history requires Land Grant. Public event shapes match. The exact cause remains under investigation.",
+  "release": {
+    "at_utc": "2026-10-04T05:54:47.3618158+00:00",
+    "name": "spellbench-gorge-native-d2c063c01051416c",
+    "pod_id": "mifqudv2fxokju",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "eff0653afc3beb7339bc0621223528a1f18fb81691422b8218ab68cc8a9a8ae4",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 2.71026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 3.56026747,
+    "final_invoice_pending": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T06:02:14.458157+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0,
+        "gpuAmount": 0,
+        "totalAmount": 0
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 1.9786305303423433,
+    "conservative_cumulative_lease_ceiling_usd": 3.56026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "conservative_cumulative_lease_ceiling_usd": 3.56026747,
+  "spend_cap_usd": 10,
+  "final_invoice_pending": true,
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "fully_qualified_entries": 0,
+  "completed_games": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Repair the saved opponent-discard reconstruction defect without changing native policies, weighting or budgets. Obtain compatible guarded serial/parallel native and reference-host qualification, then reviews, ratings and publication."
+}

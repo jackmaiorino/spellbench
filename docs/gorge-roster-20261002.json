@@ -378,8 +378,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Hosted Go, Windows/Linux Python and isolation CI passed at438dffd and reference-launcher2a117ab. Current public opening-draw correction passes all51 affected strategy cases from the same binary across a retained suite timeout and bounded completion, plus vet and diff. Current hosted CI remains pending.",
-      "five_deck_search_qualification": "Runtime019 cloud serial callback timed out at21/26 natural blocks with42 paired physical games observed; no parallel trial, allocation or full audit. The captured96-frame Caw failure now supplies eight worlds in224 submits with22 native fields unchanged. Complete current qualification remains unfinished.",
+      "full_adapter_suite": "All52 current local affected strategy cases, Go vet and diff checks passed after the Spy London-bottom repair. Hosted Go, Windows/Linux Python and isolation CI passed at earlier runtime020 source cfb7ff2; hosted checks for the new source are pending. Full native and reference-host qualification remain incomplete.",
+      "five_deck_search_qualification": "Runtime020 captured the original Spy index166 public316-frame reconstruction failure and its discard-name trace. The production repair supplies eight known-card-valid worlds in648 submits, preserving all22 native sampler fields and64/8/5000 budgets. All owned cloud resources are released. A fresh runtime and guarded throughput/full native/reference qualification remain required.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -395,7 +395,9 @@
       "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
       "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-020.json",
-      "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json"
+      "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json",
+      "runtime020_cloud": "docs/gorge-runtime020-cloud-20261004.json",
+      "spy_london_bottom_repair": "docs/gorge-spy-london-bottom-repair-20261004.json"
     }
   ],
   "publication": null,

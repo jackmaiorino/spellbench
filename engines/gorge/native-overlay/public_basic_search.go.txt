@@ -18,6 +18,94 @@ type spellbenchBasicSearch struct {
 	deadlines []deadlineConstraint
 }
 
+// A single anonymous London bottom can consume the only hypothetical copy
+// satisfying a later public name deadline. Propose a spare declared card in
+// the opening hand and prefer bottoming it. This guides a replay witness,
+// never the native weighted sampler. The complete replay and known-card
+// checks still apply. Library mutation, ordering and token/copy creation
+// disable this optional proposal; multiple anonymous bottoms stay unguided.
+func spellbenchLondonBottomPositions(setup PublicGame, h History, deadlines map[epochKey][]deadlineConstraint) map[epochKey][]epochPosition {
+	result := map[epochKey][]epochPosition{}
+	ordinals := map[state.PlayerID]int{}
+	bottoms := map[epochKey]int{}
+	started := false
+	for _, frame := range h.Frames {
+		for _, ev := range frame.Events {
+			switch ev.Kind {
+			case events.TurnChange:
+				started = true
+			case events.Shuffle:
+				if started {
+					return result
+				}
+				ordinals[ev.Player]++
+			case events.LibraryOrder, events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+				return result
+			case events.MoveZone:
+				if started && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) {
+					return result
+				}
+				if !started && ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "bottomed" && ev.Obj == 0 {
+					bottoms[epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}]++
+				}
+			}
+		}
+	}
+	for key, count := range bottoms {
+		if key.Player == h.Actor || count != 1 || int(key.Player) >= len(setup.Decks) || len(deadlines[key]) == 0 {
+			continue
+		}
+		required := map[string]bool{}
+		for _, bound := range deadlines[key] {
+			required[bound.Name] = true
+		}
+		var spare string
+		for _, card := range setup.Decks[key.Player] {
+			if card == nil || len(card.Faces) == 0 {
+				continue
+			}
+			name := card.Faces[0].Name
+			if !required[name] && (spare == "" || name < spare) {
+				spare = name
+			}
+		}
+		if spare != "" {
+			result[key] = []epochPosition{{Index: 0, Name: spare}}
+		}
+	}
+	return result
+}
+
+func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fallback decision.Intent, positions map[epochKey][]epochPosition) decision.Intent {
+	if d.Kind != decision.KMulligan || d.Min != 1 || d.Max != 1 {
+		return fallback
+	}
+	ordinal := 0
+	for _, ev := range e.L.Events {
+		if ev.Player == d.Player && ev.Kind == events.Shuffle {
+			ordinal++
+		}
+	}
+	spare := positions[epochKey{Player: d.Player, Ordinal: ordinal - 1}]
+	if len(spare) != 1 {
+		return fallback
+	}
+	for i, option := range d.Options {
+		if option.Kind != "bottom" {
+			continue
+		}
+		object := e.G.Obj(option.Obj)
+		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 || object.Card.Faces[0].Name != spare[0].Name {
+			continue
+		}
+		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+		if d.Validate(in) == nil {
+			return in
+		}
+	}
+	return fallback
+}
+
 // Named actor draws identify opening-shuffle positions until that original
 // library is exhausted or mutated. London bottoms append behind the undrawn
 // library. An anonymous move in another library need not invalidate this one

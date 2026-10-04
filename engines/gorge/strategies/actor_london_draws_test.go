@@ -3,6 +3,7 @@ package strategies
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -16,6 +17,145 @@ import (
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
+
+func TestPublicLondonBottomReplayPreservesFutureDiscards(t *testing.T) {
+	setup, h := londonDiscardHistory(t, false)
+	_, other := londonDiscardHistory(t, true)
+	a, _ := json.Marshal(h)
+	b, _ := json.Marshal(other)
+	if string(a) != string(b) {
+		t.Fatal("unobserved opponent tail changed actor history")
+	}
+	bottomed, discards := false, 0
+	for _, frame := range h.Frames {
+		for _, ev := range frame.Events {
+			if ev.Kind == events.MoveZone && ev.Obj == 0 && ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "bottomed" {
+				bottomed = true
+			}
+			if bottomed && ev.Kind == events.MoveZone && ev.Player == 1 && ev.From == state.ZHand && ev.To == state.ZGraveyard && ev.Text == "discarded" {
+				discards++
+			}
+		}
+	}
+	if !bottomed || discards < 10 {
+		t.Fatalf("fixture needs a hidden London bottom and later public discards: %d", discards)
+	}
+	opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, Worlds: 8, MaxSubmits: 5000}
+	before, err := searchprobe.Sample(setup, h, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts.Redeal = &searchprobe.RedealBase{SpellbenchPublic: true}
+	after, err := searchprobe.Sample(setup, h, opts)
+	if err != nil || len(after.Worlds) != opts.Worlds || after.RedealRefused != "" || after.PublicReconstruction == nil || after.PublicReconstruction.BudgetExhausted != 0 {
+		t.Fatalf("London discard replay: %v worlds=%d result=%+v", err, len(after.Worlds), after)
+	}
+	if before.Attempts != after.Attempts || before.Accepted != after.Accepted || before.PrefixRejected != after.PrefixRejected || before.Submits != after.Submits || before.BudgetExhausted != after.BudgetExhausted {
+		t.Fatal("public witness changed the native weighted sampler")
+	}
+	known, err := searchprobe.ProjectKnownCards(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, world := range after.Worlds {
+		if err := known.Holds(world); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Logf("frames=%d discards=%d reconstruction=%+v", len(h.Frames), discards, after.PublicReconstruction)
+}
+
+func londonDiscardHistory(t *testing.T, swapTail bool) (PublicGame, History) {
+	t.Helper()
+	quiet := fixtureCard(t, "Name:Quiet London Actor\nManaCost:99\nTypes:Artifact\nOracle:Fixture.\n")
+	actor, opponent := make([]*cards.Card, 40), make([]*cards.Card, 40)
+	var actorNames, opponentNames []string
+	for i := range actor {
+		actor[i] = quiet
+		actorNames = append(actorNames, quiet.Faces[0].Name)
+		name := fmt.Sprintf("Quiet London Card %02d", i)
+		if i == 38 {
+			name = "A Spare London Card"
+		}
+		if i == 39 {
+			name = "B Spare London Card"
+		}
+		opponent[i] = fixtureCard(t, "Name:"+name+"\nManaCost:99\nTypes:Artifact\nOracle:Fixture.\n")
+		opponentNames = append(opponentNames, name)
+	}
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{actor, opponent}, StartingLife: 20, Mulligans: 1}
+	e, err := rules.NewHypotheticalPlanned(rules.Config{Seed: 17, Names: setup.Names, Decks: setup.Decks, StartingLife: 20, Mulligans: 1},
+		[]rules.ChanceDraw{{Bound: 2, Value: 0}}, func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
+			byName := map[string][]state.ObjID{}
+			for _, card := range ctx.Library {
+				byName[card.Name] = append(byName[card.Name], card.ID)
+			}
+			names := actorNames
+			if ctx.Player == 1 {
+				names = append([]string(nil), opponentNames...)
+				if swapTail {
+					names[38], names[39] = names[39], names[38]
+				}
+			}
+			var order []state.ObjID
+			for _, name := range names {
+				queue := byName[name]
+				if len(queue) == 0 {
+					t.Fatal("fixture shuffle lacks ", name)
+				}
+				order = append(order, queue[0])
+				byName[name] = queue[1:]
+			}
+			return order, nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.AdvanceHypothetical(); err != nil {
+		t.Fatal(err)
+	}
+	driver, bot := NewDriver(), seat.NewBot(3)
+	mulligan := [2]bool{}
+	for n := 0; n < 800 && !e.G.Over; n++ {
+		d := e.Pending()
+		driver.Observe(e)
+		if d.Player == 0 && d.Kind == decision.KPriority && e.G.Turn >= 27 {
+			if !mulligan[0] || !mulligan[1] {
+				t.Fatal("fixture skipped London")
+			}
+			return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
+		}
+		in, err := bot.Decide(context.Background(), view.Project(e.G, e, d.Player, d), *d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.Kind == decision.KMulligan && d.Options[0].Kind == "keep" {
+			in.Choices = []int{0}
+			if !mulligan[d.Player] && len(d.Options) > 1 {
+				in.Choices, mulligan[d.Player] = []int{1}, true
+			}
+		} else if d.Kind == decision.KMulligan && d.Options[0].Kind == "bottom" {
+			in.Choices = []int{len(d.Options) - 1}
+		}
+		for i, option := range d.Options {
+			if d.Kind == decision.KPriority && option.Kind == "pass" {
+				in.Choices = []int{i}
+			}
+			if option.Kind == "discard" {
+				in.Choices = []int{i}
+				break
+			}
+		}
+		if err := driver.RecordAnswer(d, in); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.SubmitHypothetical(in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Fatal("fixture did not reach the public discard sequence")
+	return setup, History{}
+}
 
 func TestPublicActorLondonReplayPreservesLaterDraws(t *testing.T) {
 	setup, h := actorLondonHistory(t, false)
