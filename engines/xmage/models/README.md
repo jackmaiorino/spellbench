@@ -270,6 +270,31 @@ passes in the later confined checks described above. Other callbacks and
 exact checkpoint deck associations,
 complete games and rating qualification remain unfinished.
 
+The private paired inference component `xmage_jack_inference.py` verifies the
+actual own deck against the checkpoint association before starting its owned
+container. Readiness binds both weight hashes, both network sources, the
+original Java sources, the selected embedding cache and the fixed network
+shapes. It supports all five candidate heads and both original mulligan
+formats. Stale responses, wrong shapes, invalid masked probabilities and an
+exhausted shared clock close the session. Container removal must be confirmed.
+This component consumes encoded features; it does not choose public actions.
+
+The stage also writes private `PolicySelector.java`, extracting the original
+float32 normalization, first-index greedy choice and sequential sampling
+without replacement. The private `JackSelectionMain` pipe and
+`xmage_jack_selection.py` preserve these original indices and an explicitly
+selected no-training profile. The original evaluation path uses greedy play.
+An optional sampled profile uses one Java RNG per game with its declared
+protocol seed. Source identities and changed fairness behavior are recorded
+in [jack-play-profiles.json](../jack-play-profiles.json).
+
+Generic candidate helpers expose the original head mapping, IDs, features
+and combat candidate type in the private stage. The game bridge still exposes
+priority features only. Original candidate filtering and order, per-callback
+feature adjustments, mulligan encoding and application rules remain to be
+wired. The new chooser has not yet executed in a guarded native check. These
+components are not a complete playing agent or rated entry.
+
 `ModelCombatMain` runs Exp1's original per-creature binary attacker choices
 and target blocker choices, with the same trained priors, minimum visit rule
 and recorded selection masking as the other search roots. Its initial

@@ -108,6 +108,8 @@ def candidate_source(source: str) -> str:
     helpers = extract(source, "    private int getOpponentLife(Game game) {",
                       "    /**\n     * Set the current episode number for logging purposes.")
     combat = extract(source, "    static class CombatCandidate {", "\n}\n\n// Helper class to store block options")
+    heads = extract(source, "    private static String headForActionType(",
+                    "    private mage.player.ai.rl.PythonMLBatchManager.PredictionResult scoreCandidatesWithMetrics(")
     # The April callback reads these fields from the player object. The
     # standalone port uses the acting player already in the permitted world.
     methods = methods.replace("this.getId()", "viewer.getId()").replace("this.getLife()", "viewer.getLife()")
@@ -148,7 +150,99 @@ public final class CandidateEncoder {
         return computeCandidateFeatures(StateSequenceBuilder.ActionType.ACTIVATE_ABILITY_OR_SPELL,
                 game, null, candidate, 48, state);
     }
-""" % CALLBACK_SHA256 + methods + helpers + combat + "}\n"
+    public static String head(String type) {
+        return headForActionType(StateSequenceBuilder.ActionType.valueOf(type));
+    }
+    public int candidateId(String type, Game game, Ability source, Object candidate) {
+        return computeCandidateActionId(StateSequenceBuilder.ActionType.valueOf(type), game, source, candidate);
+    }
+    public float[] candidateFeatures(String type, Game game, Ability source, Object candidate,
+                                    StateSequenceBuilder.SequenceOutput state) {
+        return computeCandidateFeatures(StateSequenceBuilder.ActionType.valueOf(type),
+                game, source, candidate, 48, state);
+    }
+    public static Object combatCandidate(Permanent creature, Object context) {
+        if (context != null && !(context instanceof UUID) && !(context instanceof Permanent)) {
+            throw new IllegalArgumentException("unsupported original combat context");
+        }
+        return new CombatCandidate(creature, context);
+    }
+""" % CALLBACK_SHA256 + heads + methods + helpers + combat + "}\n"
+
+
+def choice_source(source: str) -> str:
+    """Extract the original float32 chooser; campaign exploration stays disabled.
+
+    The original evaluation constructor uses greedy=true and a negative
+    episode. The no-training constructor also supports sampled play. Retain
+    both original selection paths, Java Random and first-index tie behavior.
+    This does not port the surrounding game callback or its candidate list.
+    """
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack chooser requires the pinned April callback bytes")
+    classes = extract(source, "    private static final class BehaviorPolicyView {",
+                      "    private static <K, V> Map<K, V> createLruCache(")
+    classes += extract(source, "    private static final class SequentialPickResult {",
+                       "    private boolean isMainExplorationEnabled() {")
+    normalize = extract(source, "    private static float[] normalizePolicyScores(",
+                        "    private static float[] buildUniformProbs(")
+    picks = extract(source, "    private int sampleFromDistribution(",
+                    "    private String explorationAnnotation(")
+    return """package spellbench.models.jack;
+
+import mage.game.Game;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+
+/** Private exact source extraction. No training, inference or game callbacks. */
+public final class PolicySelector {
+    public static final String SOURCE_SHA256 = "%s";
+    private static final String TURN_UNIFORM_OLD_LOGP_SOURCE = "policy";
+    private final boolean greedyMode;
+    private final Random stochasticRng;
+    public PolicySelector(boolean greedy, long seed) {
+        greedyMode = greedy;
+        stochasticRng = new Random(seed);
+    }
+    private BehaviorPolicyView buildBehaviorPolicy(float[] scores, int[] mask, int count, Game game) {
+        float[] policy = normalizePolicyScores(scores, mask, count);
+        return new BehaviorPolicyView(policy, Arrays.copyOf(policy, policy.length), "policy", 0, 0);
+    }
+    public int[] choose(float[] scores, int[] mask, int count, int picks, boolean sequential) {
+        if (scores == null || mask == null || scores.length != 64 || mask.length != 64
+                || count < 1 || count > 64 || picks < 1 || picks > count || (!sequential && picks != 1)) {
+            throw new IllegalArgumentException("original chooser needs its fixed 64 slots and valid pick count");
+        }
+        int valid = 0;
+        for (int i = 0; i < 64; i++) {
+            if ((mask[i] != 0 && mask[i] != 1) || (i >= count && mask[i] != 0)
+                    || !Float.isFinite(scores[i]) || scores[i] < 0 || scores[i] > 1) {
+                throw new IllegalArgumentException("invalid probability or original candidate mask");
+            }
+            valid += mask[i];
+        }
+        if (picks > valid) throw new IllegalArgumentException("pick count exceeds legal original candidates");
+        // The original genericChoose skips model selection for one candidate.
+        if (count == 1) return new int[] {0};
+        List<Integer> chosen = sequential
+                ? sampleSequentialWithoutReplacement(scores, mask, count, picks, null).selectedIndices
+                : Arrays.asList(sampleSinglePick(scores, mask, count, null).chosenIdx);
+        int[] result = new int[chosen.size()];
+        boolean[] seen = new boolean[count];
+        for (int i = 0; i < result.length; i++) {
+            int index = chosen.get(i);
+            if (index < 0 || index >= count || mask[index] != 1 || seen[index]) {
+                throw new IllegalArgumentException("original chooser returned an illegal or repeated pick");
+            }
+            seen[index] = true;
+            result[i] = index;
+        }
+        if (result.length != picks) throw new IllegalArgumentException("original chooser returned incomplete picks");
+        return result;
+    }
+""" % CALLBACK_SHA256 + classes + normalize + picks + "}\n"
 
 
 def stage(manifest: dict, root: Path, output: Path) -> dict:
@@ -175,6 +269,7 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         raise ValueError("Jack priority stage requires the pinned private local callback")
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     if output.exists() or output.is_symlink():
         raise ValueError("Jack source stage needs a new owned output directory")
     output = prepare_root(output)
@@ -182,12 +277,16 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         stream.write(modified)
     with (output / "CandidateEncoder.java").open("xb") as stream:
         stream.write(candidates)
+    with (output / "PolicySelector.java").open("xb") as stream:
+        stream.write(choices)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
               "staged_candidate_sha256": hashlib.sha256(candidates).hexdigest(),
+              "staged_choice_sha256": hashlib.sha256(choices).hexdigest(),
+              "choice_profile": "original evaluation greedy or explicit no-training sampled selection; no campaign exploration",
               "candidate_scope": "original priority IDs and 48 features; explicit acting player; extraction failures refuse",
-              "scope": "base-state and priority features; no other callbacks, deck qualification or games",
+              "scope": "base-state and priority features; original generic candidate methods and chooser; other game callbacks, deck qualification and games unfinished",
               "private_source": True, "embedding_source": "explicit hash-pinned offline cache"}
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)

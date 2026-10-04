@@ -1,0 +1,56 @@
+{
+  "schema": "spellbench-jack-play-profiles/v1",
+  "source": {
+    "visibility": "private; source bytes must stay outside public Git",
+    "revision": "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+    "callback": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/ComputerPlayerRL.java",
+      "sha256": "b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6",
+      "selection_lines": [693, 896],
+      "constructor_lines": [1587, 1603],
+      "head_mapping_lines": [1990, 2008]
+    },
+    "evaluation": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/rl/RLTrainer.java",
+      "sha256": "07886c37a5f011ecfbc92cca22e7657162c2483afe3b73e355b950f8a3abbd82",
+      "greedy_constructor_lines": [2489, 2491],
+      "no_training_constructor_lines": [3576, 3578]
+    }
+  },
+  "profiles": [
+    {
+      "id": "jack-april-eval-greedy-fair-v1",
+      "greedy": true,
+      "training": false,
+      "campaign_exploration": false,
+      "scope": "original evaluation choice component; complete game adapter unfinished"
+    },
+    {
+      "id": "jack-april-no-training-sampled-fair-v1",
+      "greedy": false,
+      "training": false,
+      "campaign_exploration": false,
+      "scope": "explicit original no-training sampled choice component; not the evaluation default"
+    }
+  ],
+  "selection": {
+    "implementation": "hash-verified original Java methods extracted to private build files",
+    "normalization": "original float32 log, maximum subtraction and softmax of candidate probabilities",
+    "nonpositive_probability_floor": "1e-20",
+    "greedy_ties": "first original candidate index",
+    "multi_pick": "original sequential selection without replacement",
+    "rng": "one java.util.Random per owned game, seeded directly from the protocol agent seed",
+    "fair_variant": "deterministic game seeding; invalid input or returned choices refuse rather than falling back",
+    "candidate_slots": 64
+  },
+  "remaining": [
+    "guarded execution of the staged chooser on source-derived numerical cases",
+    "original per-callback candidate ordering, filters, feature overwrites and application rules",
+    "original mulligan game encoding and override rules",
+    "exact checkpoint deck associations",
+    "full game adapter, deterministic replay, throughput qualification and rated benchmark"
+  ],
+  "full_game_qualified": false,
+  "rated": false,
+  "published": false
+}
