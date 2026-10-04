@@ -352,3 +352,18 @@ vet and diff checks pass. The
 original failure and both verification attempts. Policies and budgets remain
 unchanged. This source change requires a new frozen runtime and search
 qualification before rated play; runtime016's failed search report is retained.
+
+The later runtime021 qualification emitted nine natural blocks and their
+replays, then stopped because rows 48, 52 and 104 fail the unchanged
+zero-reconstruction-refusal gate. A saved Wildfire history identifies an
+actor-visible explore top-card mismatch. The public witness now uses completed
+explore records and the pending nonland election to constrain that position;
+normal battlefield token creation preserves the original library order. The
+same 110-frame history supplies eight known-card-valid worlds in 220 submits,
+with all 22 recorded native sampler fields and 64/8/5000 budgets identical.
+Legal land, kept nonland, discarded nonland and pending-choice fixtures
+preserve complete actor history under changes to the unseen tail. All 57
+affected strategy cases, Go vet and diff checks pass. The
+[repair evidence](gorge-public-explore-repair-20261004.json) and
+[released cloud attempt](gorge-runtime021-cloud-20261004.json) are sealed with
+independent recovery copies. Current full qualification remains unfinished.

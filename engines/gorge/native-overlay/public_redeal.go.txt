@@ -67,6 +67,15 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	for key, positions := range spellbenchActorOpeningDraws(setup, h) {
 		epoch := epochs[key]
 		for _, position := range positions {
+			// Name-only top-card facts can overlap a native position with a
+			// retained copy reference. Keep that stronger native constraint.
+			if position.Ref == 0 {
+				for _, existing := range epoch.Positions {
+					if existing.Index == position.Index && existing.Name == position.Name {
+						position.Ref = existing.Ref
+					}
+				}
+			}
 			if err := addEpochPosition(&epoch, position); err != nil {
 				return nil, work, err
 			}

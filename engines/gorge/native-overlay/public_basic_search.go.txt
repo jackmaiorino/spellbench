@@ -106,7 +106,7 @@ func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fall
 	return fallback
 }
 
-// Named actor draws identify opening-shuffle positions until that original
+// Named actor draws and explore reveals identify opening-shuffle positions until that original
 // library is exhausted or mutated. London bottoms append behind the undrawn
 // library. An anonymous move in another library need not invalidate this one
 // when the public library sizes uniquely identify the affected owner.
@@ -119,6 +119,24 @@ func spellbenchActorOpeningDraws(setup PublicGame, h History) map[epochKey][]epo
 	identities := map[uint32]Identity{}
 	ordinal, draws := 0, 0
 	started, reliable := false, false
+	add := func(ref uint32) {
+		identity, known := identities[ref]
+		if draws >= len(setup.Decks[h.Actor]) || !known || identity.Owner != h.Actor || identity.Name == "" {
+			reliable = false
+		}
+		if !reliable || ordinal < 1 {
+			return
+		}
+		key := epochKey{Player: h.Actor, Ordinal: ordinal - 1}
+		// A kept explore card can be revealed again and later drawn. Its
+		// name constrains one opening position throughout, not a new copy.
+		for _, existing := range result[key] {
+			if existing.Index == draws && existing.Name == identity.Name {
+				return
+			}
+		}
+		result[key] = append(result[key], epochPosition{Index: draws, Name: identity.Name})
+	}
 	for frameIndex, frame := range h.Frames {
 		introduced := map[uint32]bool{}
 		for _, identity := range frame.Identities {
@@ -128,6 +146,12 @@ func spellbenchActorOpeningDraws(setup PublicGame, h History) map[epochKey][]epo
 		var inferred map[int]state.PlayerID
 		if frameIndex > 0 {
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+		}
+		explored, moved := map[uint32]bool{}, map[uint32]bool{}
+		for _, ev := range frame.Events {
+			if ev.Kind == events.Explore && ev.Player == h.Actor && len(ev.IDs) == 1 {
+				explored[ev.IDs[0]] = true
+			}
 		}
 		for eventIndex, ev := range frame.Events {
 			switch ev.Kind {
@@ -152,15 +176,25 @@ func spellbenchActorOpeningDraws(setup PublicGame, h History) map[epochKey][]epo
 						position.Ref = ev.Obj
 					}
 					key := epochKey{Player: h.Actor, Ordinal: ordinal - 1}
-					result[key] = append(result[key], position)
+					seen := false
+					for _, existing := range result[key] {
+						seen = seen || existing.Index == position.Index && existing.Name == position.Name
+					}
+					if !seen {
+						result[key] = append(result[key], position)
+					}
 				}
 				draws++
 			case events.LibraryOrder:
 				if ev.Player == h.Actor {
 					reliable = false
 				}
-			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
 				reliable = false
+			case events.Explore:
+				if ev.Player == h.Actor && len(ev.IDs) == 1 && !moved[ev.IDs[0]] {
+					add(ev.IDs[0])
+				}
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
 					continue
@@ -179,7 +213,26 @@ func spellbenchActorOpeningDraws(setup PublicGame, h History) map[epochKey][]epo
 				if known && london && ev.Text == "bottomed" {
 					continue
 				}
+				if known && identity.Owner == h.Actor && explored[ev.Obj] && ev.From == state.ZLibrary && (ev.To == state.ZHand || ev.To == state.ZGraveyard) {
+					add(ev.Obj)
+					draws++
+					moved[ev.Obj] = true
+					continue
+				}
 				reliable = false
+			}
+		}
+		// The pinned engine's nonland explore election uniquely offers these
+		// two destinations for the same publicly revealed top card. It can
+		// be the current root, before the completed Explore marker exists.
+		if d := frame.Decision; d != nil && d.Player == h.Actor && d.Kind == decision.KChoose && d.Min == 1 && d.Max == 1 && len(d.Options) == 2 {
+			grave, top := d.Options[0].Action, d.Options[1].Action
+			if grave.Kind == "graveyard" && top.Kind == "top" && grave.Obj != 0 && grave.Obj == top.Obj && grave.Player == h.Actor && top.Player == h.Actor {
+				for _, ev := range frame.Events {
+					if ev.Kind == events.Note && !ev.Secret && ev.Player == h.Actor && len(ev.IDs) == 1 && ev.IDs[0] == grave.Obj {
+						add(grave.Obj)
+					}
+				}
 			}
 		}
 	}

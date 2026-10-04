@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-live-cloud-progress/v1",
   "observed_at_utc": "2026-10-04T07:03:30.193972+00:00",
-  "status": "native_serial_qualification_running",
+  "status": "released_after_observed_qualification_gate_failure",
   "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-021",
   "runtime_source_commit": "27bf0c78132b2f4e0cb42fb6a9dab8b62f431b92",
   "prepared_adapter_commit": "c99064984981471aad71e48404fb1831f50cd6da",
@@ -11,7 +11,7 @@
   "pod_name": "spellbench-gorge-native-1788c85f6ba042de",
   "deadline_utc": "2026-10-04T08:43:38.8354545+00:00",
   "guardian_pid": 8352,
-  "guardian_confirmed_alive": true,
+  "guardian_confirmed_alive": false,
   "host_fingerprint_verified": true,
   "bundle_sha256": "8a37015398520b01d20f8c8f8c24b62bd00bc09572ed21cb097abc4ae26b3229",
   "remote_files_verified": 950,
@@ -63,5 +63,11 @@
   "fully_qualified_entries": 0,
   "rated_games": 0,
   "published_entries": 0,
-  "limit": "Live observed progress, not a sealed final receipt. Compatible scaling, complete native/reference qualification, reviews, ratings and publication remain unfinished. Periodic recovery and bounded release are armed."
+  "limit": "Terminal evidence is sealed in the linked closure. No compatible allocation, complete qualification, rating or publication is claimed.",
+  "previous_live_status": "native_serial_qualification_running",
+  "terminal_observed_at_utc": "2026-10-04T08:10:29.952003+00:00",
+  "terminal_record": "docs/gorge-runtime021-cloud-20261004.json",
+  "pod_deleted": true,
+  "final_completed_native_blocks": 9,
+  "final_completed_physical_audited_and_replayed_games": 18
 }

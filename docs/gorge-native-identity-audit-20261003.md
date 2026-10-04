@@ -241,6 +241,22 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   Go vet and diff checks pass. See
   [Spy London bottom repair](gorge-spy-london-bottom-repair-20261004.json).
 
+- A captured 110-frame Wildfire history exhausted 5,000 reconstruction
+  submits because its actor-visible explore revealed Twisted Landscape while
+  the hypothetical top card was Writhing Chrysalis. Public explore records and
+  the pending nonland election now constrain that opening-library position.
+  Normal battlefield token creation preserves the remaining library order.
+  The same history supplies eight known-card-valid worlds in 220 submits,
+  preserving all 22 recorded native sampler fields and the 64/8/5000 budgets.
+  Legal land, kept nonland, discarded nonland and pending-choice fixtures
+  preserve complete actor history under changes to the unseen library tail.
+  All 57 affected strategy cases, Go vet and diff checks pass. See
+  [public explore repair](gorge-public-explore-repair-20261004.json).
+  Runtime021 emitted nine natural blocks before completed rows 48, 52 and 104
+  failed the unchanged reconstruction gate. Its pod is deleted and all
+  [terminal evidence](gorge-runtime021-cloud-20261004.json) is sealed.
+  Current full qualification remains unfinished.
+
 - `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
   Each variant creates a fresh engine and fresh collector, places the card in
   the opponent's actual hidden hand/library, and compares the complete actor

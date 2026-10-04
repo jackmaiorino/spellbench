@@ -1,0 +1,154 @@
+{
+  "schema": "spellbench-gorge-public-explore-repair/v1",
+  "observed_at_utc": "2026-10-04T08:10:29.952003+00:00",
+  "base_source_commit": "ba92ebff59df4c6301d8e323444e8de9af5441ea",
+  "base_runtime_source_commit": "27bf0c78132b2f4e0cb42fb6a9dab8b62f431b92",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "6ee9ef6bfa17a64f56040068ec0531f747554dda9a656138022ec9b0b9b9c17f",
+    "engines/gorge/native-overlay/public_redeal.go.txt": "388c4bf64f7297028508beb09319a5644b30d58aafdbb69976d40628545e5c6e",
+    "engines/gorge/strategies/explore_history_test.go": "96f6d21692079e114b3d1a312ea278c7b698bd76541bdfe03a0d857afad4c1b4"
+  },
+  "public_input": "E:\\spellbench-gorge-wildfire-prefix-20261004-001\\PUBLIC-PROJECTION.json",
+  "public_input_sha256": "d12427a9713a0a7707eba67618765573929b8acbf486ed60fd92702c750e580b",
+  "public_frames": 110,
+  "before": {
+    "worlds": 0,
+    "public_reconstruction": {
+      "Attempts": 2,
+      "Submits": 5000,
+      "Nodes": 4668,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "worlds": 8,
+    "public_reconstruction": {
+      "Attempts": 1,
+      "Submits": 220,
+      "Nodes": 35,
+      "BudgetExhausted": 0
+    },
+    "known_card_checks_passed_for_all_worlds": true
+  },
+  "native_fields_identical": [
+    "Attempts",
+    "Accepted",
+    "PrefixRejected",
+    "BudgetExhausted",
+    "Submits",
+    "Duplicates",
+    "ESS",
+    "FirstRejection",
+    "Rejections",
+    "GuidedGenesis",
+    "GuidedLater",
+    "ArrangeWindows",
+    "UnguidedConstraints",
+    "IncompatibleProposals",
+    "WeightDiagnostics",
+    "HandToStackCauses",
+    "StackRejectionContexts",
+    "CompetitionExclusions",
+    "CompetitionResidual",
+    "CompetitionUnguided",
+    "LandResidual",
+    "KnownCardClaims"
+  ],
+  "native_budgets": {
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000
+  },
+  "change": "Actor-visible completed explore records and the uniquely shaped pending nonland election identify the revealed top card in an unchanged opening library. Normal TokenCreate mints on the battlefield and preserves that library. Name-only positions retain any stronger native copy reference. This guides public witness reconstruction only; native policies, sampler and budgets are unchanged.",
+  "legal_explore_cases": [
+    "land",
+    "top",
+    "graveyard",
+    "pending"
+  ],
+  "byte_identical_actor_histories_under_unseen_tail_changes": true,
+  "passed_cases": 57,
+  "passed_root_tests": 38,
+  "affected_checks": {
+    "at_utc": "2026-10-04T08:07:27.142781+00:00",
+    "checks": [
+      {
+        "name": "explore-fixture",
+        "command": [
+          "E:\\pinned-binaries\\66ac2d060502f2725e4a71a1148901f4a7636e6314ebfe1e985b9be394170b80\\stock-prefix-tests.exe",
+          "-test.run",
+          "^TestPublicActorExploreAfterLondonAndToken$",
+          "-test.v",
+          "-test.timeout",
+          "120s"
+        ],
+        "exit_code": 0,
+        "seconds": 35.554706200025976
+      },
+      {
+        "name": "strategies",
+        "command": [
+          "E:\\pinned-binaries\\66ac2d060502f2725e4a71a1148901f4a7636e6314ebfe1e985b9be394170b80\\stock-prefix-tests.exe",
+          "-test.run",
+          "^(TestPublicLondonBottomReplayPreservesFutureDiscards|TestPublicActorLondonReplayPreservesLaterDraws|TestPublicActorOpeningDrawsSurviveOpponentLibrarySearch|TestPublicKnownLibraryKeepsAnonymousMembershipAfterShuffle|TestPublicKnownLibraryConsumesVisibleDrawAndForgetsUnseenDraw|TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle|TestPublicCollectorForgetsOpponentPrivateLibraryReorder|TestPublicCollectorKeepsActorsAnsweredLibraryArrangement|TestPublicKnownHandKeepsNameWithoutRetiredCopyAfterHiddenDraw|TestPublicKnownHandDoesNotDistinguishHiddenDrawnCopies|TestPublicKnownHandConsumesVisibleExitAfterMixing|TestPublicLondonReplayPreservesDrawsAndFilteredOwnSearch|TestPublicSamplerReplaysActorMultiColorMana|TestOpponentLondonBottomPreservesActorsObservedDraws|TestPublicSamplerReplaysActorsAtomicCast|TestPublicRedealReplaysOpponentsAtomicCast|TestOpponentLibrarySearchUsesLandControllerAndHidesOffers|TestPublicReconstructionAfterOpponentLibrarySearch|TestPublicRedealReconstructsZeroAcceptedNativeProposals|TestPublicRedealIgnoresDifferentHiddenDealsAndFutureSeeds|TestPublicRedealReconstructionBudgetFailsClosed|TestDriverMatchesNativeFeedAndDeltaDelivery|TestPublicHistoryIgnoresHiddenDealsAndFutureSeed|TestSearchDefaultsPreserveShippedConfiguration|TestPublicSearchMatchesNativeChooseWithRekeyedObjects|TestPublicSearchMatchesNativeChooseAtShippedBudgets|TestPublicRedealPreservesAcceptedNativeSearchAtShippedBudgets|TestCanonicalPublicHistoryStillRejectsChangedBoard|TestSearchDeltaRejectsWrongActorAndMissingFrames|TestSearchDeltaRejectsChangedAnswersWithoutMutation|TestPublicHistoryErasesOpponentPrivateAskCounts|TestPublicCollectorForgetsBlindShuffleCopyIdentity|TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst|TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController|TestPublicSamplerReconstructsDeclaredLondonMulligans|TestPublicRedealAfterNaturallyPlayedLembasShuffle|TestPublicStackSourceStaysUnlinkedAfterShuffleAndRedraw)$",
+          "-test.v",
+          "-test.timeout",
+          "500s"
+        ],
+        "exit_code": 0,
+        "seconds": 285.4453389000264
+      },
+      {
+        "name": "vet",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "vet",
+          "-p",
+          "1",
+          "./...",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 8.758900500019081
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.42274069995619357
+      }
+    ],
+    "passed": true,
+    "seconds": 330.18195609998656,
+    "rated_games": 0,
+    "completed_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "artifacts": {
+    "production": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-explore-repair-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-repair-20261004-005",
+      "seal_sha256": "7c00809555200a1c4fb8a45c301fe21da347fb8c6a3cfb420caf8ec5430ab706",
+      "bytes": 19303902,
+      "prune_manifest_sha256": "04855c3d687e79fd1454d352dc02614deb59c4a279ee0b51d718c478cf6fe329"
+    },
+    "affected_checks": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-explore-checks-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-checks-20261004-005",
+      "seal_sha256": "8361e6e12b1b795c99b5eb6a7d2afc889566cdc65279af3d29877f9aeb9989b6",
+      "bytes": 529964,
+      "prune_manifest_sha256": "04855c3d687e79fd1454d352dc02614deb59c4a279ee0b51d718c478cf6fe329"
+    }
+  },
+  "retained_failed_fixture_attempts": "docs/gorge-explore-fixture-attempts-20261004.json",
+  "closed_native_attempt": "docs/gorge-runtime021-cloud-20261004.json",
+  "new_cloud_spend_usd": 0,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Freeze the current runtime and obtain compatible guarded serial/parallel and complete native/reference qualification. Rows48,52,104 failed on runtime021; the saved repair is not a full qualification. Reviews, ratings and publication remain required."
+}
