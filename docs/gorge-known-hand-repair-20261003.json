@@ -1,0 +1,181 @@
+{
+  "schema": "spellbench-gorge-known-hand-repair/v1",
+  "at_utc": "2026-10-04T00:09:58.998385+00:00",
+  "source_parent_commit": "088148709003ed4618ade40469dd11718e4964da",
+  "source_files": {
+    "engines/gorge/native-overlay/public_known.go.txt": {
+      "saved": "SOURCE-public_known.go.txt",
+      "sha256": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e"
+    },
+    "engines/gorge/scripts/setup-dev.py": {
+      "saved": "SOURCE-setup-dev.py",
+      "sha256": "4d2e97f341f698269cd18b177ecc62016b1e8e6d8e6082f95237660b1cd92bda"
+    },
+    "engines/gorge/strategies/known_hand_test.go": {
+      "saved": "SOURCE-known_hand_test.go",
+      "sha256": "a0b07e5e20bd2719bc85cbc7a9fb54eeae30e4163b95e4f28860de8e89b94e40"
+    }
+  },
+  "public_input": "E:\\spellbench-gorge-known-projection-20261003-001\\PUBLIC-PROJECTION.json",
+  "public_input_sha256": "35caad3322a064f7a41f9c2ebe5b76a204f20a619c728ee6ea8beb509640eadd",
+  "cause": "A public opponent hand return retained a physical placement after a hidden draw retired the collector binding. A later visible play used a fresh reference and failed to consume that stale placement.",
+  "repair": "Retire the physical hand claim with the collector; retain conservative anonymous name/count minima, consume visible exits by observed owner/name, and pin anonymous hypothetical hand slots during native redeal. No wire copy link restored.",
+  "saved_prefix": {
+    "accepted": 0,
+    "frames": 449,
+    "known_hand": null,
+    "redealt": 8,
+    "refused": "",
+    "work": {
+      "Attempts": 1,
+      "Submits": 1006,
+      "Nodes": 144,
+      "BudgetExhausted": 0
+    },
+    "worlds": 8
+  },
+  "sampler_options": {
+    "Seed": 54321,
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000,
+    "KnownCards": true,
+    "SpellbenchPublicRedeal": true
+  },
+  "checks_passed": true,
+  "attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-known-hand-20261003-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-known-hand-20261003-001",
+      "bytes": 18699647,
+      "seal_sha256": "4c00940de537a28eeca97d9bf3902cc6405635fce6c11aab948855f5aeb2f28f",
+      "passed": false,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-known-hand-20261003-001\\known-hand-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 3.923749700014014
+        },
+        {
+          "name": "saved-public-prefix",
+          "command": [
+            "E:\\pinned-binaries\\443bd83ed022ce20c41510297f4062d4ac4c397aee6f92c48db8d2d413107a05\\known-hand-tests.exe",
+            "-test.run",
+            "^TestSavedKnownHandProjection449$",
+            "-test.v",
+            "-test.timeout",
+            "180s"
+          ],
+          "exit_code": 1,
+          "wall_seconds": 1.8727268000366166
+        }
+      ],
+      "wall_seconds": 5.898594500031322
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-known-hand-20261003-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-known-hand-20261003-002",
+      "bytes": 18704430,
+      "seal_sha256": "cdd2166b75bd3fec1983a53f445504ef3355c37d54a4e74e50442704074724c5",
+      "passed": true,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-known-hand-20261003-002\\known-hand-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 3.6880290000117384
+        },
+        {
+          "name": "saved-public-prefix",
+          "command": [
+            "E:\\pinned-binaries\\6d0cbf4b906c086ed2094d6fe25ba7b16b90efd8885b1f47482f73ad7c516753\\known-hand-tests.exe",
+            "-test.run",
+            "^TestSavedKnownHandProjection449$",
+            "-test.v",
+            "-test.timeout",
+            "180s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.692989800008945
+        },
+        {
+          "name": "affected-strategies",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-timeout",
+            "180s",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 88.39895629999228
+        },
+        {
+          "name": "native-known",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "github.com/adams-shaun/gorge/internal/searchprobe",
+            "-run",
+            "TestKnown",
+            "-count=1"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 13.990883199963719
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 2.578475199989043
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 0.1535390999633819
+        }
+      ],
+      "wall_seconds": 113.66392219997942
+    }
+  ],
+  "native_policies_and_search_budgets_changed": false,
+  "completed_games": 0,
+  "rated_games": 0,
+  "qualified": false,
+  "limitation": "Correctness and supplied-history reconstruction evidence only. Fresh runtime and search qualification, identity review, reference-host clocks/isolation, ratings and publication remain required.",
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0
+}

@@ -1,0 +1,13 @@
+This module imports gorge (https://github.com/adams-shaun/gorge), Apache License 2.0,
+at commit 26257e0eda1779d739a07e835c6500b9c4dabc62. Binaries built from this module
+include gorge; redistribute them with gorge's LICENSE.
+
+Spellbench's build overlays adapt gorge's searchprobe sampler and collector:
+actor-only public observation boundaries, declared mulligan setup and retirement
+of copy identities after knowledge loss. Native policy choice and rollout code
+are imported at the source pin above. Adaptations live in native-overlay/ and
+scripts/setup-dev.py; the local gorge checkout is not modified.
+
+Card behaviour is compiled at run time from Card-Forge/forge card scripts (GPL-3.0),
+fetched into a local corpus directory. No Forge script, and no IR compiled from one,
+is part of this module or of any binary built from it.

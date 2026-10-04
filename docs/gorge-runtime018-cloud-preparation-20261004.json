@@ -1,0 +1,25 @@
+{
+  "schema": "spellbench-gorge-unallocated-cloud-closure/v1",
+  "at_utc": "2026-10-04T01:42:08.542998+00:00",
+  "source_commit": "8d70516aa2b1b473dcb0bb938dda551faecf4e48",
+  "runtime_source_commit": "2e2ef656f394b79a39031ffb9c0c3fa5bd5dc7d1",
+  "paid_resource_created": false,
+  "new_spend_usd": 0,
+  "provider_reported_pilot_pod_usd": 1.8154247519996716,
+  "provider_reported_pilot_volume_usd": 0.029166667722165585,
+  "provider_reported_pilot_total_usd": 1.8445914197218372,
+  "conservative_cumulative_estimate_usd": 1.86026747,
+  "spend_cap_usd": 10,
+  "reason": "Prepared native CPU bundle was not allocated. Preflight001 lacked regional metadata; corrected global placement was not launched because local availability changed. Fresh local claim163 dispatched supported runtime018 native qualification.",
+  "local_active_job": "E:/spellbench-gorge-native-audit-20261004-005",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-005",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-005",
+  "rated_games": 0,
+  "prune": {
+    "removed": [],
+    "retained": "Exact frozen source bundle, Linux binaries, registry, all failed preflight records and recipes. No sole copy pruned."
+  },
+  "seal_sha256": "ff312688fcc4a210c4b9c4f13ccd5b633a0b1aad64c28a7139a9b34b866c6add",
+  "bytes": 151536180,
+  "files": 947
+}

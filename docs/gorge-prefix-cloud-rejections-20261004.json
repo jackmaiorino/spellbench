@@ -1,0 +1,92 @@
+{
+  "schema": "spellbench-gorge-prefix-cloud-rejections/v1",
+  "records": [
+    {
+      "closure": {
+        "schema": "spellbench-gorge-rejected-cloud-prefix-closure/v1",
+        "at_utc": "2026-10-04T02:31:13.880786+00:00",
+        "source_of_record": "E:\\spellbench-gorge-runpod-20261004-006",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-006",
+        "scope": "One native seed48 public-history failure capture. Logging-only overlay; zero complete or rated games. No training.",
+        "source_commit": "f6c9a5abf6f0fa669c2a9fc72e12d21bf802aae1",
+        "runtime_source_commit": "2e2ef656f394b79a39031ffb9c0c3fa5bd5dc7d1",
+        "binary_sha256": "371b39f0d938f4a7cacc72a0a92604097b7aca95acee8839a9528e91f87538bb",
+        "binary_pin": "E:\\pinned-binaries\\371b39f0d938f4a7cacc72a0a92604097b7aca95acee8839a9528e91f87538bb\\diagnostic-qualifier",
+        "reconciliation": {
+          "name": "spellbench-gorge-native-5d7e3a03dc1f44ad",
+          "pod_id": null,
+          "owned_matches": 0,
+          "guardian_pid_absent": true,
+          "guardian_release_confirmed": true,
+          "task_removed": true,
+          "credential_removed": true,
+          "new_spend_usd": 0,
+          "at_utc": "2026-10-04T02:23:41.5534636+00:00"
+        },
+        "create_error": {
+          "detail": "There are no longer any instances available with the requested specifications. Please refresh and try again.",
+          "status": 400,
+          "title": "Bad Request"
+        },
+        "new_cloud_spend_usd": 0,
+        "completed_games": 0,
+        "rated_games": 0,
+        "remaining_action": "Prepared Windows seed48 first-failure capture after healthy canonical generation163 releases.",
+        "catalog_limitation": "CPU catalog responses varied and did not guarantee schedulable matching instances. CPU5c preparation claimed HIGH although its saved snapshot says NONE; actual launch precheck passed on a fresh response, then POST returned400. No capacity or paid resource is claimed.",
+        "prune": {
+          "removed": [],
+          "retained": "All overlays, immutable binary, frozen registry, bundle, failed create response, lease, guardian events, cleanup evidence and recipes"
+        }
+      },
+      "seal_sha256": "6641bc6d11a37b32c79fc52e3385ea9ee4a259d59aa5fa9eb412a9bbe3935620",
+      "bytes": 50099487,
+      "files": 39
+    },
+    {
+      "closure": {
+        "schema": "spellbench-gorge-rejected-cloud-prefix-closure/v1",
+        "at_utc": "2026-10-04T02:31:14.642475+00:00",
+        "source_of_record": "E:\\spellbench-gorge-runpod-20261004-007",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-007",
+        "scope": "One native seed48 public-history failure capture. Logging-only overlay; zero complete or rated games. No training.",
+        "source_commit": "f6c9a5abf6f0fa669c2a9fc72e12d21bf802aae1",
+        "runtime_source_commit": "2e2ef656f394b79a39031ffb9c0c3fa5bd5dc7d1",
+        "binary_sha256": "371b39f0d938f4a7cacc72a0a92604097b7aca95acee8839a9528e91f87538bb",
+        "binary_pin": "E:\\pinned-binaries\\371b39f0d938f4a7cacc72a0a92604097b7aca95acee8839a9528e91f87538bb\\diagnostic-qualifier",
+        "reconciliation": {
+          "name": "spellbench-gorge-native-14add1b2c0dc46f3",
+          "pod_id": null,
+          "owned_matches": 0,
+          "guardian_pid_absent": true,
+          "guardian_release_confirmed": true,
+          "task_removed": true,
+          "credential_removed": true,
+          "new_spend_usd": 0,
+          "at_utc": "2026-10-04T02:29:13.2075291+00:00"
+        },
+        "create_error": {
+          "detail": "There are no longer any instances available with the requested specifications. Please refresh and try again.",
+          "status": 400,
+          "title": "Bad Request"
+        },
+        "new_cloud_spend_usd": 0,
+        "completed_games": 0,
+        "rated_games": 0,
+        "remaining_action": "Prepared Windows seed48 first-failure capture after healthy canonical generation163 releases.",
+        "catalog_limitation": "CPU catalog responses varied and did not guarantee schedulable matching instances. CPU5c preparation claimed HIGH although its saved snapshot says NONE; actual launch precheck passed on a fresh response, then POST returned400. No capacity or paid resource is claimed.",
+        "prune": {
+          "removed": [],
+          "retained": "All overlays, immutable binary, frozen registry, bundle, failed create response, lease, guardian events, cleanup evidence and recipes"
+        }
+      },
+      "seal_sha256": "ada452cd32f8df01bb1954a7f8662c6b143372bdbcbf5cdc79da65ef1a2fe14e",
+      "bytes": 50092537,
+      "files": 38
+    }
+  ],
+  "new_cloud_spend_usd": 0,
+  "cumulative_conservative_estimate_usd": 1.86026747,
+  "provider_reported_prior_spend_usd": 1.8445914197218372,
+  "cloud_cap_usd": 10,
+  "rated_games": 0
+}

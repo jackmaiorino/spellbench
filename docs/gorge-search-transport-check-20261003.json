@@ -1,0 +1,313 @@
+{
+  "schema": "spellbench-gorge-search-transport-check/v1",
+  "qualification_complete": false,
+  "rated_games": 0,
+  "diagnostic_source_of_record": "E:/spellbench-gorge-audit-check-20261003-005",
+  "diagnostic_recovery": "D:/e-scratch/spellbench-gorge-audit-check-20261003-005",
+  "observed_failure": "Reference-host Burn public redeal prefix: board bytes differed, decoded board JSON matched, and identities, events and decision matched. All64 proposals were rejected before any reconstruction submit.",
+  "repair": "Compare public actor boards as JSON objects with UseNumber and a required end of input. Retain every field and array position, exact non-board frame equality and existing native byte comparisons for non-actor histories.",
+  "regression_before_repair": {
+    "cast": {
+      "attempts": 16,
+      "accepted": 0,
+      "worlds": 0,
+      "first_rejection": "frame0 board"
+    },
+    "public_redeal": {
+      "attempts": 64,
+      "accepted": 0,
+      "redealt": 0,
+      "reconstruction_submits": 0,
+      "refusal": "no public replay completion in64 proposals"
+    }
+  },
+  "regression_after_repair": {
+    "cast": {
+      "attempts": 16,
+      "accepted": 16,
+      "worlds": 1,
+      "rollouts": 5
+    },
+    "public_redeal": {
+      "accepted": 0,
+      "redealt": 8,
+      "reconstruction_attempts": 1,
+      "reconstruction_submits": 120,
+      "rollouts": 16,
+      "terminal_rollouts": 16
+    },
+    "changed_life_extra_field_player_order_invalid_json": "all rejected",
+    "whole_strategy_suite": {
+      "passed": true,
+      "seconds": 35.258
+    },
+    "vet": "passed",
+    "diff_check": "passed"
+  },
+  "scope": "Canonical board regression, production transported search and same-digest diagnostic replay. These intentional capped prefixes do not count as completed games or ratings. Full mode/deck qualification is pending; uniform-opponent public reconstruction still exhausts its unchanged5000-submit limit.",
+  "reference_host_after_repair": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-006",
+      "check_sha256": "af05f760aa749ff05ad90a536d5dee843a189ef0e54091859ddd6483280defcb",
+      "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+      "diagnostic_binary_sha256": null,
+      "bots": [
+        "gorge-search",
+        "uniform"
+      ],
+      "classification": "forfeit",
+      "reason": "forfeit:stalling",
+      "wall_seconds": 1.7755288000043947,
+      "game_digest": "sha256:56eada2b87ed2be489a41270445fcf18676f941b14769f67610f45d166c38568",
+      "native_mapping_forced": 0,
+      "native_mapping_fallback": 0,
+      "search": {
+        "Natives": 64,
+        "Eligible": 2,
+        "Attempted": 1,
+        "Covered": 0,
+        "Attempts": 64,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 0,
+        "ReconstructionSubmits": 0,
+        "ReconstructionNodes": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 1,
+          "insufficient worlds/ESS": 1
+        },
+        "Kinds": {}
+      },
+      "all_processes_closed": true,
+      "diagnostic_stderr": [
+        "",
+        ""
+      ],
+      "case_check_passed": false,
+      "qualification_complete": false,
+      "rated_games": 0
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-007",
+      "check_sha256": "5388cdfd3f04ada64d140c78804966b60e9f2300cedcf16393c5f4eba4617572",
+      "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+      "diagnostic_binary_sha256": null,
+      "bots": [
+        "gorge-search-redeal",
+        "uniform"
+      ],
+      "classification": "forfeit",
+      "reason": "forfeit:stalling",
+      "wall_seconds": 2.9928690000087954,
+      "game_digest": "sha256:56eada2b87ed2be489a41270445fcf18676f941b14769f67610f45d166c38568",
+      "native_mapping_forced": 0,
+      "native_mapping_fallback": 0,
+      "search": {
+        "Natives": 64,
+        "Eligible": 2,
+        "Attempted": 1,
+        "Covered": 0,
+        "Attempts": 64,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 12,
+        "ReconstructionSubmits": 5000,
+        "ReconstructionNodes": 5192,
+        "ReconstructionBudgetExhausted": 1,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 1
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 1,
+          "insufficient worlds/ESS": 1
+        },
+        "Kinds": {}
+      },
+      "all_processes_closed": true,
+      "diagnostic_stderr": [
+        "",
+        ""
+      ],
+      "case_check_passed": false,
+      "qualification_complete": false,
+      "rated_games": 0
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-009",
+      "check_sha256": "3faf8cf7f6101b57efcf275d47aa4045ed9b6d99f809f3a9e218864ca094425f",
+      "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+      "diagnostic_binary_sha256": "1a5461dab806ba986f5e3112ad4a9ffd09b904a857bf42c4ae3f20f8c5fb473e",
+      "bots": [
+        "gorge-search-redeal",
+        "uniform"
+      ],
+      "classification": "forfeit",
+      "reason": "forfeit:stalling",
+      "wall_seconds": 2.9285328999976628,
+      "game_digest": "sha256:56eada2b87ed2be489a41270445fcf18676f941b14769f67610f45d166c38568",
+      "native_mapping_forced": 0,
+      "native_mapping_fallback": 0,
+      "search": {
+        "DiagnosticRejections": {
+          "1/events/move_zone_to_move_zone": 10,
+          "1/events/turn_to_move_zone": 39,
+          "12/identities/hand_to_battlefield": 2,
+          "12/identities/hand_to_stack": 13
+        },
+        "DiagnosticPrefixRejected": 64,
+        "DiagnosticIncompatibleProposals": 0,
+        "Natives": 64,
+        "Eligible": 2,
+        "Attempted": 1,
+        "Covered": 0,
+        "Attempts": 64,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 12,
+        "ReconstructionSubmits": 5000,
+        "ReconstructionNodes": 5192,
+        "ReconstructionBudgetExhausted": 1,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 1
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 1,
+          "insufficient worlds/ESS": 1
+        },
+        "Kinds": {}
+      },
+      "all_processes_closed": true,
+      "diagnostic_stderr": [
+        "",
+        "public reconstruction diagnostic deepest_actor_frame 14 rejections map[event_prefix:817] work {12 5000 5192 1}\n"
+      ],
+      "case_check_passed": true,
+      "qualification_complete": false,
+      "rated_games": 0
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-010",
+      "check_sha256": "3315df89f75bdba580490a1ed80ec90deb07fff83895cc443cbbe315dd1772a4",
+      "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+      "diagnostic_binary_sha256": "1a5461dab806ba986f5e3112ad4a9ffd09b904a857bf42c4ae3f20f8c5fb473e",
+      "bots": [
+        "gorge-search",
+        "gorge-bot"
+      ],
+      "classification": "forfeit",
+      "reason": "forfeit:stalling",
+      "wall_seconds": 3.525458100019023,
+      "game_digest": "sha256:034f9327413402dda9c97925c3eaffd5bdc2e7f18bdf8b14066e4323846d7e84",
+      "native_mapping_forced": 0,
+      "native_mapping_fallback": 0,
+      "search": {
+        "DiagnosticRejections": {
+          "1/events/move_zone_to_turn": 21,
+          "12/identities/hand_to_stack": 5
+        },
+        "DiagnosticPrefixRejected": 26,
+        "DiagnosticIncompatibleProposals": 0,
+        "Natives": 64,
+        "Eligible": 2,
+        "Attempted": 1,
+        "Covered": 1,
+        "Attempts": 64,
+        "Accepted": 38,
+        "Worlds": 8,
+        "Rollouts": 48,
+        "Submits": 17811,
+        "Terminal": 48,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 0,
+        "ReconstructionSubmits": 0,
+        "ReconstructionNodes": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 1
+        },
+        "Kinds": {
+          "cast": 1
+        }
+      },
+      "all_processes_closed": true,
+      "diagnostic_stderr": [
+        "",
+        "",
+        ""
+      ],
+      "case_check_passed": true,
+      "qualification_complete": false,
+      "rated_games": 0
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-011",
+      "check_sha256": "62ac42536acc2c030143113101b6dff312c89889e4b1f28f734b2f67624122cc",
+      "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+      "diagnostic_binary_sha256": null,
+      "bots": [
+        "gorge-search",
+        "gorge-bot"
+      ],
+      "classification": "forfeit",
+      "reason": "forfeit:stalling",
+      "wall_seconds": 3.571838999981992,
+      "game_digest": "sha256:034f9327413402dda9c97925c3eaffd5bdc2e7f18bdf8b14066e4323846d7e84",
+      "native_mapping_forced": 0,
+      "native_mapping_fallback": 0,
+      "search": {
+        "Natives": 64,
+        "Eligible": 2,
+        "Attempted": 1,
+        "Covered": 1,
+        "Attempts": 64,
+        "Accepted": 38,
+        "Worlds": 8,
+        "Rollouts": 48,
+        "Submits": 17811,
+        "Terminal": 48,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 0,
+        "ReconstructionSubmits": 0,
+        "ReconstructionNodes": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 1
+        },
+        "Kinds": {
+          "cast": 1
+        }
+      },
+      "all_processes_closed": true,
+      "diagnostic_stderr": [
+        "",
+        "",
+        ""
+      ],
+      "case_check_passed": true,
+      "qualification_complete": false,
+      "rated_games": 0
+    }
+  ],
+  "preserved_diagnostic_closure": "ARTIFACTS/spellbench-gorge-search-diagnostics-20261003-002.json in the collab preparation PR"
+}

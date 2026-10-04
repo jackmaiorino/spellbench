@@ -1,0 +1,745 @@
+{
+  "schema": "spellbench-gorge-native-audit-status/v1",
+  "at_utc": "2026-10-03T18:07:55.007545+00:00",
+  "runtime_source_commit": "bedf32b39b69b9a566e764671612f4830593fbb0",
+  "driver_source_commit": "45263e53bc80b484b0e16b0decf629dc7874a91e",
+  "raw_report": {
+    "source_of_record": "E:\\spellbench-gorge-native-audit-20261003-002\\native\\full-native-audit-4-workers-13\\report.json",
+    "sha256": "58cedae435378e25e7881d353dfa31c63c11105e55241fd65023378e3eb62b1d",
+    "seed_blocks": 280,
+    "physical_games": 560,
+    "natural_games": 552,
+    "non_natural_seeds": [
+      {
+        "game": 75,
+        "deck": "Rally",
+        "pairing": "lethal-pressure/uniform",
+        "classification": "halted",
+        "reason": "engine_contract_failure:unresolvable_source"
+      },
+      {
+        "game": 79,
+        "deck": "Rally",
+        "pairing": "lethal-pressure-auto-pay/uniform",
+        "classification": "halted",
+        "reason": "engine_contract_failure:unresolvable_source"
+      },
+      {
+        "game": 85,
+        "deck": "Rally",
+        "pairing": "blocks/uniform",
+        "classification": "halted",
+        "reason": "engine_contract_failure:unresolvable_source"
+      },
+      {
+        "game": 224,
+        "deck": "CawGates",
+        "pairing": "uniform/uniform",
+        "classification": "halted",
+        "reason": "engine_contract_failure:unresolvable_source"
+      }
+    ],
+    "totals": {
+      "CompletedGames": 552,
+      "Games": 280,
+      "Halts": 4,
+      "Truncations": 0,
+      "Violations": 0,
+      "DigestMismatch": 0,
+      "ResampleChecks": 28300,
+      "ResampleFailures": 0,
+      "LeakHits": 0,
+      "Inconsistent": 0,
+      "ParityCompared": 93901,
+      "ParityMismatch": 0,
+      "Fallbacks": 0,
+      "Forced": 0,
+      "GamesPerSecond": 0.8089448867478273,
+      "GoMemoryMB": 6023
+    },
+    "passed": false,
+    "qualified": false
+  },
+  "throughput": {
+    "host": "main-pc",
+    "worker_ladder": [
+      1,
+      6,
+      13
+    ],
+    "selected_workers": 13,
+    "completed_games_per_rung": 52,
+    "wall_seconds": [
+      1387.4799064000254,
+      369.21976229999564,
+      363.19381280001835
+    ],
+    "wall_speedup_13_vs_one": 3.8202190056690175,
+    "primary_sha256": "24ee4fa4c72f59c635cb6e0b1dece0a3e79ac09a6e1e7643b35bbc63856435e9",
+    "outputs_identical": true,
+    "worker_selection": "busy",
+    "placement": {
+      "main-pc": {
+        "disposition": "used",
+        "reason": "fresh canonical free claim,24 logical CPUs and local pinned inputs, same-input1/6/13 native audit blocks measured before full dispatch"
+      },
+      "haleyspc": {
+        "disposition": "unavailable",
+        "reason": "queued training-performance owner priority retained"
+      },
+      "runpod": {
+        "disposition": "slower",
+        "reason": "prior owned13.6-core CPU placement requires new provisioning, transfer and recovery after closure, while local inputs are ready and CPU capacity available, cumulative prior cloud estimate USD1.86026747 of USD10 cap"
+      }
+    },
+    "limitation": "Timing comparison is native in-process qualification, separate from the cloud reference-host matrix."
+  },
+  "search_coverage_columns": [
+    "eligible",
+    "covered",
+    "redealt_worlds",
+    "reconstruction_budget_exhaustions",
+    "redeal_refusals"
+  ],
+  "search_coverage": {
+    "Burn/search": [
+      27,
+      4,
+      0,
+      0,
+      0
+    ],
+    "Burn/search-mana": [
+      368,
+      2,
+      0,
+      0,
+      0
+    ],
+    "Burn/search-mana-redeal": [
+      221,
+      43,
+      328,
+      37,
+      37
+    ],
+    "Burn/search-redeal": [
+      52,
+      25,
+      168,
+      12,
+      12
+    ],
+    "CawGates/search": [
+      131,
+      0,
+      0,
+      0,
+      0
+    ],
+    "CawGates/search-mana": [
+      396,
+      0,
+      0,
+      0,
+      0
+    ],
+    "CawGates/search-mana-redeal": [
+      249,
+      0,
+      0,
+      99,
+      105
+    ],
+    "CawGates/search-redeal": [
+      85,
+      1,
+      8,
+      45,
+      53
+    ],
+    "Rally/search": [
+      53,
+      2,
+      0,
+      0,
+      0
+    ],
+    "Rally/search-mana": [
+      156,
+      3,
+      0,
+      0,
+      0
+    ],
+    "Rally/search-mana-redeal": [
+      287,
+      6,
+      32,
+      47,
+      62
+    ],
+    "Rally/search-redeal": [
+      65,
+      21,
+      136,
+      29,
+      29
+    ],
+    "Spy/search": [
+      114,
+      2,
+      0,
+      0,
+      0
+    ],
+    "Spy/search-mana": [
+      195,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Spy/search-mana-redeal": [
+      246,
+      30,
+      240,
+      73,
+      98
+    ],
+    "Spy/search-redeal": [
+      73,
+      1,
+      0,
+      13,
+      49
+    ],
+    "Wildfire/search": [
+      139,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Wildfire/search-mana": [
+      394,
+      0,
+      0,
+      0,
+      0
+    ],
+    "Wildfire/search-mana-redeal": [
+      955,
+      3,
+      24,
+      324,
+      324
+    ],
+    "Wildfire/search-redeal": [
+      101,
+      0,
+      0,
+      49,
+      67
+    ]
+  },
+  "host_closure": {
+    "canonical_generation": 128,
+    "exit_code": 1,
+    "token_fate": "released",
+    "live_descendants": [],
+    "elapsed_seconds": 2803.2925492000068
+  },
+  "source_repair": {
+    "source_commit": "0a72d4848dee0346d3c80d301a0bf7726ca5b534",
+    "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261003-012",
+    "check_source_of_record": "E:/spellbench-gorge-source-repair-check-20261003-001/CHECK.json",
+    "selected_indices": [
+      75,
+      79,
+      85,
+      224
+    ],
+    "natural_games": 8,
+    "digest_mismatches": 0,
+    "resample_checks": 449,
+    "resample_failures": 0,
+    "leak_hits": 0,
+    "parity_mismatches": 0,
+    "native_decisions_unchanged": true,
+    "limitation": "Four exact failed seeds and deterministic repeats pass after repair. This does not replace full current-runtime qualification."
+  },
+  "ci": {
+    "head_sha": "45263e53bc80b484b0e16b0decf629dc7874a91e",
+    "conclusion": "success",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37139688788",
+    "limitation": "Full CI passed before the subsequent source-resolution fix; affected mapping tests and vet passed after it."
+  },
+  "artifacts": [
+    {
+      "path": "E:\\spellbench-gorge-rally-source-diagnostic-20261003-001",
+      "seal_sha256": "cf6e4aca9e23b749c4b08bc0f3790bc011a45f03ce3f91de43b1026419b0c452"
+    },
+    {
+      "path": "E:\\spellbench-gorge-source-repair-check-20261003-001",
+      "seal_sha256": "23ce5128bf3c71457525b4aebf4519403b1834c7f42987ecce0901f09807bd69"
+    },
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261003-002",
+      "seal_sha256": "a852e003f68669d437becbbd6a5ccaff751a1bf6b6c825cbc92e87cbc4695a63"
+    }
+  ],
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "remaining": "Current-runtime qualification, failed per-deck search coverage and reconstruction gates, reviewed benchmark and seed commitment, rated evaluation and publication.",
+  "current_runtime": "docs/gorge-runtime-preparation-20261003-013.json",
+  "subsequent_repair": "docs/gorge-mana-history-repair-20261003.json",
+  "latest_runtime": "E:/spellbench-gorge-runtime-20261003-016",
+  "public_basic_search_follow_up": "docs/gorge-basic-search-repair-20261003.json",
+  "public_removal_follow_up": "docs/gorge-public-removal-repair-20261003.json",
+  "fairness_compatibility": {
+    "status": "superseded_by_library_ownership_correction",
+    "finding": "The pinned engine assigned Cleansing Wildfire opponent-library confirmation and offers to the caster instead of the targeted land controller.",
+    "evidence_use": "Retain historical mechanical replay and completed-game records. Do not reuse them as fairness or current-runtime qualification evidence, or transplant their histories into the corrected engine.",
+    "current_audit": "docs/gorge-native-identity-audit-20261003.md"
+  },
+  "library_ownership_follow_up": "docs/gorge-library-owner-repair-20261003.json",
+  "closed_unlaunched_preparation": {
+    "source_of_record": "E:/spellbench-gorge-native-audit-20261003-003",
+    "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261003-003",
+    "bytes": 67868,
+    "seal_sha256": "c6bb2ae1d0c5c363a9ae77e20b3cdf101e64255dc1139864220b8fbdcbb5b701"
+  },
+  "current_corrected_runtime_audit": {
+    "schema": "spellbench-gorge-corrected-runtime-native-audit/v1",
+    "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+    "launch_source_commit": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
+    "runtime": "E:\\spellbench-gorge-runtime-20261003-016\\PREPARATION.json",
+    "full_seed_blocks": 280,
+    "full_natural_games": 560,
+    "throughput_qualification_natural_games": 156,
+    "full_totals": {
+      "CompletedGames": 560,
+      "Games": 280,
+      "Halts": 0,
+      "Truncations": 0,
+      "Violations": 0,
+      "DigestMismatch": 0,
+      "ResampleChecks": 28112,
+      "ResampleFailures": 0,
+      "LeakHits": 0,
+      "Inconsistent": 0,
+      "ParityCompared": 92803,
+      "ParityMismatch": 0,
+      "Fallbacks": 0,
+      "Forced": 0,
+      "GamesPerSecond": 0.6992359103086282,
+      "GoMemoryMB": 5156
+    },
+    "full_native_gate_passed": false,
+    "zero_coverage_cells": [
+      "CawGates/search",
+      "CawGates/search-mana",
+      "Spy/search-mana",
+      "Wildfire/search",
+      "Wildfire/search-mana"
+    ],
+    "search_coverage": {
+      "Burn/search": {
+        "Eligible": 27,
+        "Attempted": 20,
+        "Covered": 4,
+        "Worlds": 32,
+        "Rollouts": 104,
+        "Accepted": 104,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Burn/search-mana": {
+        "Eligible": 368,
+        "Attempted": 112,
+        "Covered": 2,
+        "Worlds": 16,
+        "Rollouts": 64,
+        "Accepted": 57,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Burn/search-mana-redeal": {
+        "Eligible": 221,
+        "Attempted": 80,
+        "Covered": 43,
+        "Worlds": 344,
+        "Rollouts": 1256,
+        "Accepted": 85,
+        "Redealt": 328,
+        "ReconstructionBudgetExhausted": 37,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 37
+        }
+      },
+      "Burn/search-redeal": {
+        "Eligible": 52,
+        "Attempted": 37,
+        "Covered": 25,
+        "Worlds": 200,
+        "Rollouts": 744,
+        "Accepted": 110,
+        "Redealt": 168,
+        "ReconstructionBudgetExhausted": 12,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 12
+        }
+      },
+      "CawGates/search": {
+        "Eligible": 131,
+        "Attempted": 84,
+        "Covered": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Accepted": 0,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "CawGates/search-mana": {
+        "Eligible": 396,
+        "Attempted": 153,
+        "Covered": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Accepted": 0,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "CawGates/search-mana-redeal": {
+        "Eligible": 240,
+        "Attempted": 102,
+        "Covered": 10,
+        "Worlds": 80,
+        "Rollouts": 224,
+        "Accepted": 0,
+        "Redealt": 80,
+        "ReconstructionBudgetExhausted": 92,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 92
+        }
+      },
+      "CawGates/search-redeal": {
+        "Eligible": 85,
+        "Attempted": 54,
+        "Covered": 2,
+        "Worlds": 16,
+        "Rollouts": 56,
+        "Accepted": 0,
+        "Redealt": 16,
+        "ReconstructionBudgetExhausted": 52,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 52
+        }
+      },
+      "Rally/search": {
+        "Eligible": 53,
+        "Attempted": 38,
+        "Covered": 2,
+        "Worlds": 16,
+        "Rollouts": 64,
+        "Accepted": 33,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Rally/search-mana": {
+        "Eligible": 156,
+        "Attempted": 56,
+        "Covered": 3,
+        "Worlds": 24,
+        "Rollouts": 96,
+        "Accepted": 133,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Rally/search-mana-redeal": {
+        "Eligible": 287,
+        "Attempted": 68,
+        "Covered": 6,
+        "Worlds": 48,
+        "Rollouts": 200,
+        "Accepted": 88,
+        "Redealt": 32,
+        "ReconstructionBudgetExhausted": 47,
+        "RedealRefusals": {
+          "no public replay completion in 64 proposals": 15,
+          "public reconstruction submit budget exhausted": 47
+        }
+      },
+      "Rally/search-redeal": {
+        "Eligible": 65,
+        "Attempted": 50,
+        "Covered": 21,
+        "Worlds": 168,
+        "Rollouts": 824,
+        "Accepted": 135,
+        "Redealt": 136,
+        "ReconstructionBudgetExhausted": 29,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 29
+        }
+      },
+      "Spy/search": {
+        "Eligible": 114,
+        "Attempted": 78,
+        "Covered": 2,
+        "Worlds": 16,
+        "Rollouts": 40,
+        "Accepted": 58,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Spy/search-mana": {
+        "Eligible": 195,
+        "Attempted": 110,
+        "Covered": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Accepted": 2,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Spy/search-mana-redeal": {
+        "Eligible": 246,
+        "Attempted": 128,
+        "Covered": 31,
+        "Worlds": 248,
+        "Rollouts": 848,
+        "Accepted": 1,
+        "Redealt": 248,
+        "ReconstructionBudgetExhausted": 72,
+        "RedealRefusals": {
+          "no public replay completion in 64 proposals": 25,
+          "public reconstruction submit budget exhausted": 72
+        }
+      },
+      "Spy/search-redeal": {
+        "Eligible": 84,
+        "Attempted": 61,
+        "Covered": 18,
+        "Worlds": 144,
+        "Rollouts": 552,
+        "Accepted": 42,
+        "Redealt": 120,
+        "ReconstructionBudgetExhausted": 21,
+        "RedealRefusals": {
+          "no public replay completion in 64 proposals": 22,
+          "public reconstruction submit budget exhausted": 21
+        }
+      },
+      "Wildfire/search": {
+        "Eligible": 107,
+        "Attempted": 61,
+        "Covered": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Accepted": 3,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Wildfire/search-mana": {
+        "Eligible": 481,
+        "Attempted": 195,
+        "Covered": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Accepted": 0,
+        "Redealt": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {}
+      },
+      "Wildfire/search-mana-redeal": {
+        "Eligible": 711,
+        "Attempted": 249,
+        "Covered": 13,
+        "Worlds": 104,
+        "Rollouts": 296,
+        "Accepted": 4,
+        "Redealt": 104,
+        "ReconstructionBudgetExhausted": 236,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 236
+        }
+      },
+      "Wildfire/search-redeal": {
+        "Eligible": 102,
+        "Attempted": 69,
+        "Covered": 8,
+        "Worlds": 64,
+        "Rollouts": 240,
+        "Accepted": 0,
+        "Redealt": 64,
+        "ReconstructionBudgetExhausted": 58,
+        "RedealRefusals": {
+          "projection does not hold in the base engine: known card 26 (Drossforge Bridge) has no object": 3,
+          "public reconstruction submit budget exhausted": 58
+        }
+      }
+    },
+    "native_policy_status": {
+      "bot": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "bot-auto-pay": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "lethal-pressure": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "lethal-pressure-auto-pay": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "ar8": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "blocks": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "explore": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "legacy": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "search": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "search-mana": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "search-redeal": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      },
+      "search-mana-redeal": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false
+      }
+    },
+    "trials": [
+      {
+        "at_utc": "2026-10-03T22:41:51.395564+00:00",
+        "workers": 1,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 1246.0109500999679,
+        "exit_code": 1,
+        "primary_sha256": "53e370ac80494af750c6ff1228ac771b1a1dd44018aac841319f06019ab0b70a",
+        "full_native_gate_passed": false
+      },
+      {
+        "at_utc": "2026-10-03T22:46:24.122351+00:00",
+        "workers": 6,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 272.69565860001603,
+        "exit_code": 1,
+        "primary_sha256": "53e370ac80494af750c6ff1228ac771b1a1dd44018aac841319f06019ab0b70a",
+        "full_native_gate_passed": false
+      },
+      {
+        "at_utc": "2026-10-03T22:50:43.616224+00:00",
+        "workers": 13,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 259.4689256999991,
+        "exit_code": 1,
+        "primary_sha256": "53e370ac80494af750c6ff1228ac771b1a1dd44018aac841319f06019ab0b70a",
+        "full_native_gate_passed": false
+      }
+    ],
+    "serial_to_selected_speedup": 4.802158665969196,
+    "full_phase_seconds": 801.6161042999593,
+    "closure": {
+      "at_utc": "2026-10-03T23:04:05.300156+00:00",
+      "exit_code": 1,
+      "elapsed_seconds": 2580.168558300007,
+      "host_token_fate": "released",
+      "live_descendants": [],
+      "artifact_bytes": 808896,
+      "rated_games": 0
+    },
+    "rated_games": 0,
+    "published": false,
+    "limitation": "All native games and replays completed cleanly. Stock search coverage and redeal refusal/exhaustion gates fail. Native ordinary gates pass; full reference-host clocks/isolation, identity review, benchmark review, rated results and publication remain separate.",
+    "source_of_record": "E:/spellbench-gorge-native-audit-20261003-004",
+    "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261003-004",
+    "bytes": 836930,
+    "seal_sha256": "d3cc1524d94e7eba1350c1dc6c40774d78bf02e6d1aa6e81cc38ed8d3cf26012",
+    "qualified": false,
+    "cloud_spend_estimate_usd": 1.86026747,
+    "cloud_cap_usd": 10,
+    "new_cloud_spend_usd": 0
+  },
+  "current_source_full_ci": {
+    "source_head": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
+    "conclusion": "success",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37157560991",
+    "subsequent_test_only_head": "a1f851ae6a69428f2b630af3197734b2ece3c729",
+    "limitation": "Full CI predates the later test-only outcome extension; both extended tests pass locally. Production runtime code is unchanged."
+  }
+}

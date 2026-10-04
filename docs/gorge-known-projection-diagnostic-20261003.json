@@ -1,0 +1,38 @@
+{
+  "schema": "spellbench-gorge-known-projection-diagnostic/v1",
+  "at_utc": "2026-10-04T00:01:15.263092+00:00",
+  "source_commit": "088148709003ed4618ade40469dd11718e4964da",
+  "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+  "source_of_record": "E:\\spellbench-gorge-known-projection-20261003-001",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-known-projection-20261003-001",
+  "seal_sha256": "301b6ee8be433205ef770a8ba9dd7f79f0de6692a44ace4cd908a767ff42e3bc",
+  "bytes": 24869451,
+  "public_history_sha256": "35caad3322a064f7a41f9c2ebe5b76a204f20a619c728ee6ea8beb509640eadd",
+  "frames": 449,
+  "work": {
+    "Attempts": 1,
+    "Submits": 1006,
+    "Nodes": 144,
+    "BudgetExhausted": 0
+  },
+  "refusal": "projection does not hold in the base engine: known card 26 (Drossforge Bridge) has no object",
+  "diagnostic_completed": true,
+  "diagnostic_wall_seconds": 58.4581773999962,
+  "stale_claim": {
+    "claimed_player": 1,
+    "claimed_zone": "hand",
+    "hypothetical_object_id": 0,
+    "identity": {
+      "ID": 26,
+      "Name": "Drossforge Bridge",
+      "Owner": 1
+    }
+  },
+  "observed_cause": "Reference26 entered opponent hand publicly at frame156. Later hidden draws retire opponent hidden-copy bindings; the known tracker retains a physical hand claim. The first later hidden draw occurs at frame173.",
+  "canonical_generation": 150,
+  "host_token_fate": "released",
+  "live_descendants": [],
+  "rated_games": 0,
+  "completed_games": 0,
+  "qualified": false
+}

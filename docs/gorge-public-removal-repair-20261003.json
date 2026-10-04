@@ -1,0 +1,105 @@
+{
+  "schema": "spellbench-gorge-public-removal-repair/v1",
+  "at_utc": "2026-10-03T21:24:50.066415+00:00",
+  "source_commit": "070428f7122e6e451d0312b7cfbd43693b70f3d1",
+  "runtime": "E:/spellbench-gorge-runtime-20261003-015",
+  "change": "Guide the replay witness using conservative public draw/removal prefix bounds, legal intents suggested by public events, and retained-hand requirements at the first later shuffle.",
+  "preserved": "Native primary sampling, weights, chooser/scorer, rollout settings,64 proposals,5000 shared submits and full public replay checks.",
+  "natural_fixture": {
+    "basic_search_only": {
+      "options": 52,
+      "submits": 45
+    },
+    "after_search_removal": {
+      "options": 6,
+      "actor_frames": 35,
+      "submits": 303
+    }
+  },
+  "matched_public_roots": [
+    {
+      "actor_frames": 97,
+      "before_submits": 5000,
+      "before_root_found": false,
+      "after": {
+        "coherent": true,
+        "completed_games": 0,
+        "error": "",
+        "frames": 97,
+        "rated_games": 0,
+        "root_found": true,
+        "work": {
+          "Attempts": 3,
+          "Submits": 585,
+          "Nodes": 405,
+          "BudgetExhausted": 0
+        }
+      }
+    },
+    {
+      "actor_frames": 166,
+      "before_submits": 5000,
+      "before_root_found": false,
+      "after": {
+        "coherent": true,
+        "completed_games": 0,
+        "error": "",
+        "frames": 166,
+        "rated_games": 0,
+        "root_found": true,
+        "work": {
+          "Attempts": 1,
+          "Submits": 337,
+          "Nodes": 41,
+          "BudgetExhausted": 0
+        }
+      }
+    }
+  ],
+  "affected_checks": {
+    "all_strategies_tests": "passed",
+    "seconds": 43.289,
+    "strategies_vet": "passed",
+    "diff_check": "passed"
+  },
+  "artifacts": [
+    {
+      "source_of_record": "E:/spellbench-gorge-public-next-failure-20261003-001",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-public-next-failure-20261003-001",
+      "bytes": 19678157,
+      "seal_sha256": "b21acf175dae0b1d667cbb9b99e6d7d60e45bad2851ab38c23918c69c40a4477"
+    },
+    {
+      "source_of_record": "E:/spellbench-gorge-public-next-failure-20261003-002",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-public-next-failure-20261003-002",
+      "bytes": 20245043,
+      "seal_sha256": "889fe4a3131f392e9ccc5f6b67bacfbb98ae4586b938f76e340f1b68b1ef9178"
+    },
+    {
+      "source_of_record": "E:/spellbench-gorge-public-next-failure-20261003-003",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-public-next-failure-20261003-003",
+      "bytes": 2107101,
+      "seal_sha256": "bc2a37049ab6707f4a6eb379162409417e2c8de8eb6f221e5561246a31907771"
+    }
+  ],
+  "prior_full_ci": {
+    "head": "7c0428ae2e97919f4a4c11c8ec7b513f4246b183",
+    "conclusion": "success",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37151317759"
+  },
+  "current_source_full_ci": "not_started",
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "completed_games": 0,
+  "qualified": false,
+  "rated_games": 0,
+  "published": false,
+  "limitation": "Two saved failures now reconstruct. Full current-runtime qualification, reference-host compatibility and rated publication gates remain unfinished.",
+  "fairness_compatibility": {
+    "status": "superseded_by_library_ownership_correction",
+    "finding": "The pinned engine assigned Cleansing Wildfire opponent-library confirmation and offers to the caster instead of the targeted land controller.",
+    "evidence_use": "Retain historical mechanical replay and completed-game records. Do not reuse them as fairness or current-runtime qualification evidence, or transplant their histories into the corrected engine.",
+    "current_audit": "docs/gorge-native-identity-audit-20261003.md"
+  }
+}

@@ -1,0 +1,426 @@
+{
+  "schema": "spellbench-gorge-inventory/v1",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "adapter_base_pr": "https://github.com/jackmaiorino/spellbench/pull/54",
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Spy",
+    "Burn",
+    "CawGates"
+  ],
+  "sources": [
+    "cmd/botbench/main.go:134",
+    "host/bot_policy.go:8",
+    "cmd/gorged/main.go:186",
+    "seat/bot.go:67",
+    "internal/searchseat/searchseat.go:174"
+  ],
+  "entries": [
+    {
+      "key": "bot",
+      "upstream_policy": "bot",
+      "name": "gorge-bot",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "lethal-pressure",
+      "upstream_policy": "lethal-pressure",
+      "name": "gorge-lethal-pressure",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "ar8",
+      "upstream_policy": "ar8",
+      "name": "gorge-ar8",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "blocks",
+      "upstream_policy": "blocks",
+      "name": "gorge-blocks",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "explore",
+      "upstream_policy": "explore",
+      "name": "gorge-explore",
+      "configuration": {
+        "auto_pay_mana": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "legacy",
+      "upstream_policy": "legacy",
+      "name": "gorge-legacy",
+      "configuration": {},
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "bot-auto-pay",
+      "upstream_policy": "bot-auto-pay",
+      "name": "gorge-bot-auto-pay",
+      "configuration": {
+        "auto_pay_mana": true
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "lethal-pressure-auto-pay",
+      "upstream_policy": "lethal-pressure",
+      "name": "gorge-lethal-pressure-auto-pay",
+      "configuration": {
+        "auto_pay_mana": true
+      },
+      "integration": "implemented_qualification_incomplete",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": true,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "search",
+      "upstream_policy": "search",
+      "name": "gorge-search",
+      "configuration": {
+        "kinds": [
+          "attackers",
+          "cast"
+        ],
+        "worlds": 8,
+        "attempts": 64,
+        "min_ess": 0,
+        "candidates": 6,
+        "margin": 0,
+        "horizon_turns": 0,
+        "max_submits": 5000,
+        "sample_seed": 54321,
+        "parallelism": 1,
+        "redeal": false,
+        "clairvoyant": false
+      },
+      "integration": "implemented_qualification_incomplete",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "search-mana",
+      "upstream_policy": "search",
+      "name": "gorge-search-mana",
+      "configuration": {
+        "base": "search",
+        "kinds": [
+          "attackers",
+          "cast",
+          "mana"
+        ]
+      },
+      "integration": "implemented_qualification_incomplete",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "search-redeal",
+      "upstream_policy": "search",
+      "name": "gorge-search-redeal",
+      "configuration": {
+        "base": "search",
+        "redeal": true
+      },
+      "integration": "implemented_qualification_incomplete",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "search-mana-redeal",
+      "upstream_policy": "search",
+      "name": "gorge-search-mana-redeal",
+      "configuration": {
+        "base": "search",
+        "kinds": [
+          "attackers",
+          "cast",
+          "mana"
+        ],
+        "redeal": true
+      },
+      "integration": "implemented_qualification_incomplete",
+      "source_adaptations": "docs/gorge-search-bridge-20261002.md",
+      "reason": "Public reconstruction handles zero accepted native proposals and feeds the native redeal. Complete-history knowledge, clock and container qualification remain pending.",
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "native_runtime_audit": {
+        "mapping_gates_passed": true,
+        "native_gates_passed": false,
+        "qualified": false,
+        "rated_games": 0,
+        "published": false,
+        "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
+        "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+        "current_complete_qualification": false
+      }
+    },
+    {
+      "key": "cast-profile",
+      "upstream_policy": "cast-profile",
+      "alias_of": "bot",
+      "configuration": {
+        "profile": "embedded-default",
+        "auto_pay_mana": false
+      },
+      "reason": "The only shipped profile equals DefaultCastWeights and is intent-identical to bot. With auto-pay it aliases bot-auto-pay. No separately rated duplicate."
+    },
+    {
+      "key": "policynet",
+      "upstream_policy": "policynet",
+      "configuration": {
+        "checkpoint": null,
+        "kinds": [
+          "attackers"
+        ],
+        "admission": "auto",
+        "temperature": 0
+      },
+      "integration": "uninstantiated_model_runner",
+      "public_model_search": "docs/gorge-public-model-search-20261002.json",
+      "reason": "No checkpoint is tracked at this pin or recovered from local artifacts, Hugging Face, the author's public repositories, or GitHub releases in the bounded search. The native CLI refuses policynet without one. Existing trained weights will be integrated if recovered; random test weights are never rated as a shipped bot."
+    }
+  ],
+  "non_playing_helpers": [
+    {
+      "name": "cast-profile with external weights",
+      "reason": "Configuration interface; no tuned profile ships at this pin."
+    },
+    {
+      "name": "search learned prior or value models",
+      "reason": "Optional external-checkpoint interfaces; no concrete model ships at this pin."
+    },
+    {
+      "name": "clairvoyant, NoLandExclusion, ComparePotentialActions",
+      "reason": "Oracle ceiling and sampler measurement switches, explicitly excluded by upstream from playing-seat defaults."
+    },
+    {
+      "name": "hindsight, searchteacher, policytrain, cardfuzz, replay/test seats",
+      "reason": "Analysis, labels, training, coverage or fixtures. The actual exploration policy used by cardfuzz is included above."
+    }
+  ],
+  "validation": [
+    {
+      "scope": "Bounded checks and completed failed qualification attempts; no complete qualification or rated games",
+      "toolchain": "Go 1.27.1 local, CGO_ENABLED=0, GOMAXPROCS=1, go test -p 1; CI remains Go 1.25.8",
+      "receipt": "docs/gorge-search-bridge-20261002.md",
+      "observed_passes": [
+        "all nested strategies tests",
+        "public redeal reconstructs a legal nondefault opponent history after all 64 native proposals are rejected; eight redealt worlds match native redeal's intent and values, with 16 terminal rollouts and none capped",
+        "different unobserved opponent card deals and future seeds produce identical complete fixture histories and reconstructed worlds; public discards are held fixed",
+        "public reconstruction shares a 5000-submit budget across branches and proposals and refuses a root on exhaustion",
+        "redeal modes preserve accepted native attacker, cast and mana search at shipped budgets, including serial and parallel parity",
+        "attacker, cast and mana native Choose parity with rekeyed objects and serial/parallel sampling and rollouts",
+        "shipped-budget parity: each fixture accepted 64 proposals and 8 worlds; attacker/cast/mana completed 16/40/16 rollouts with none capped",
+        "five 64-decision transport prefixes with live actor-only deltas, zero leak/inconsistency counters and deliberate truncation; cached-history probe is not whole-history noninterference evidence",
+        "hidden copy links retired when the effect controller differs from the hidden card owner",
+        "bounded search and search-mana host replay with identical digests at deliberate truncation",
+        "policy identity, payment mapping and effect equivalence, hidden payment rejection, agent failure handling and search coverage rejection",
+        "native sampler full-prefix replay and explicit-history seed tests with overlay installed",
+        "Go vet for both adapter and strategies modules",
+        "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
+        "draft benchmark profile and reference loader accept the single-file registry launch path"
+      ],
+      "full_adapter_suite": "Full hosted gorge, Windows/Linux Python and LLM isolation CI passed at the actual runtime019 production source438dffd. The complete affected strategies suite passes50 cases, with Go vet and diff checks. Qualification remains incomplete.",
+      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games but failed search gates. Runtime018 passed matched1/6/13 output hashes with3.085x scaling; its3600-second cap stopped the full audit at319/320 natural blocks, missing original index166. The entire attempt is sealed. A47-frame seed48 failure now reconstructs eight worlds in109 submits with22 unchanged native fields; corrected-runtime qualification remains incomplete.",
+      "native_audit": "docs/gorge-native-audit-20261003.json",
+      "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
+      "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
+      "public_basic_search_repair": "docs/gorge-basic-search-repair-20261003.json",
+      "public_removal_repair": "docs/gorge-public-removal-repair-20261003.json",
+      "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json",
+      "current_corrected_runtime_audit": "docs/gorge-runtime018-native-audit-20261004.json",
+      "post_search_noninterference": "docs/gorge-private-search-outcome-20261003.json",
+      "known_hand_repair": "docs/gorge-known-hand-repair-20261003.json",
+      "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
+      "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
+      "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json"
+    }
+  ],
+  "publication": null,
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-019.json",
+  "engine_configuration": {
+    "rated_registry_input": "Explicit registry and SHA-256; runtime019 inputs frozen. Current native/reference-host qualification, clocks/isolation and rated launch remain pending.",
+    "auto_pay": true,
+    "wire_mana_payment": null,
+    "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
+    "pool_only_translation": "Existing manual cast is retained when the native witness has zero activations. Native and translated intents are recorded separately, with an effect-equivalence regression check.",
+    "library_search_ownership": {
+      "source_adaptation": "Generated effects/zone.go overlay defaults library confirmation, look and pick to the searched player. Explicit Chooser selectors retain precedence.",
+      "primary_reference": "https://github.com/Card-Forge/forge/blob/95f04e8a04c8925fa97cb226fc3341cabcc90a53/forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java#L840",
+      "bot_policy_changes": false,
+      "qualification": "Fresh corrected-runtime qualification and review required. Earlier runtime records are incompatible fairness evidence."
+    },
+    "known_hand_projection": {
+      "physical_copy_links_retained_after_private_mixing": false,
+      "public_name_counts_retained": true,
+      "native_policy_changes": false,
+      "repair": "docs/gorge-known-hand-repair-20261003.json"
+    },
+    "public_witness_repair": {
+      "repair": "docs/gorge-public-london-search-repair-20261004.json",
+      "native_sampler_counters_preserved_on_captured_prefix": true,
+      "native_attempt_and_submit_budgets_changed": false,
+      "current_full_qualification": false,
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json"
+    }
+  }
+}
