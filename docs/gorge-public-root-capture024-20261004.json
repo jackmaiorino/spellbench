@@ -85,7 +85,7 @@
   "reference_qualification_complete": false,
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-024\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-024\\CATALOG.json",
-  "observed_at_utc": "2026-10-04T21:19:27.215106+00:00",
+  "observed_at_utc": "2026-10-04T21:25:14.971066+00:00",
   "dispatch": {
     "pod_id": "c2sd1b4g72gyf5",
     "driver_pid": 3156,
@@ -121,5 +121,52 @@
   "active_lease_maximum_usd": 0.5625,
   "conservative_cumulative_ceiling_usd": 5.46164747,
   "source_format_preflight": "Pinned checkout with core.autocrlf true, exact embedded cards source digest and existing linked-compiler test before parity/capture",
-  "launch_path": "Bounded small correctness diagnostic only; no full native/reference/rated launch"
+  "launch_path": "Bounded small correctness diagnostic only; no full native/reference/rated launch",
+  "first_public_failure": {
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261004-024\\FIRST-PUBLIC-FAILURE.json",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\FIRST-PUBLIC-FAILURE.json",
+    "sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+    "frames": 364,
+    "actor": 0,
+    "reconstruction": {
+      "Attempts": 1,
+      "Submits": 5000,
+      "Nodes": 4858,
+      "BudgetExhausted": 1
+    },
+    "scope": "Declared setup and actor-visible history only; no live hidden engine",
+    "independent_recovery_verified": true
+  },
+  "binary_pin_ack": {
+    "at_utc": "2026-10-04T21:20:06.036928+00:00",
+    "binary_sha256": "66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d",
+    "pins": {
+      "gorgequal-diagnostic": {
+        "sha256": "66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d",
+        "source_of_record": "E:\\pinned-binaries\\66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d\\gorgequal-diagnostic",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-gorgequal-diagnostic"
+      },
+      "go": {
+        "sha256": "30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624",
+        "source_of_record": "E:\\pinned-binaries\\30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624\\go",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-go"
+      },
+      "compile": {
+        "sha256": "3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4",
+        "source_of_record": "E:\\pinned-binaries\\3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4\\compile",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-compile"
+      },
+      "link": {
+        "sha256": "a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9",
+        "source_of_record": "E:\\pinned-binaries\\a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9\\link",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-link"
+      }
+    },
+    "independent_recovery_verified": true
+  },
+  "source_fingerprint_and_linked_compiler_preflight": "Passed before the repeated parity fixtures and acknowledged binary build",
+  "repeated_shipped_fixture_parity": "Passed six fixtures with full intent/trace equality at1/16 ordered teacher workers",
+  "full_seed52_row_parity_pending": true,
+  "public_prefix182_parity_pending": true,
+  "next_action": "Use recovered364-frame root for exact reconstruction branch diagnosis; preserve original full-row comparison and zero-failure qualification gate"
 }
