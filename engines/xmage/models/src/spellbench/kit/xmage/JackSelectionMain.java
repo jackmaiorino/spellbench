@@ -20,7 +20,7 @@ public final class JackSelectionMain {
     private JackSelectionMain() { }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2 || !(GREEDY.equals(args[0]) || SAMPLED.equals(args[0]))
+        if (args.length != 2 || !(GREEDY.equals(args[0]) || SAMPLED.equals(args[0])))
             throw new IllegalArgumentException("usage: original no-training selection profile and nonnegative game seed");
         long seed = Long.parseLong(args[1]);
         if (seed < 0 || seed > 9007199254740991L) throw new IllegalArgumentException("invalid protocol game seed");
