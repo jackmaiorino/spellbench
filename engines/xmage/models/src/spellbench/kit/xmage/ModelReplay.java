@@ -99,6 +99,16 @@ final class ModelReplay {
                                         List<List<UUID>> groups, int selected, int minimum, int maximum,
                                         boolean forced, boolean deduplicated);
     }
+    interface ParentCardPick {
+        void choose(List<UUID> possible, UUID chosen, int selected, int minimum, int maximum, String rule);
+    }
+    interface ParentCardCapture extends CardSetCapture {
+        boolean selectParentCards(Player viewer, Outcome outcome, Cards cards, TargetCard target, Ability source, Game game, ParentCardPick picker);
+        void earlierParentCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
+                                List<UUID> possible, UUID chosen, int selected, int minimum, int maximum, String rule, Map<String, Object> semantic);
+        Map<String, Object> encodeParentCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
+                                             List<UUID> possible, UUID chosen, int selected, int minimum, int maximum, String rule);
+    }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
     private static Result live;
@@ -261,11 +271,33 @@ final class ModelReplay {
             } catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
         }
         @Override public boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
-            Result replay = context(game);
-            if (replay != null && replay.targetCapture instanceof CardSetCapture) {
-                throw new Failure(new IllegalArgumentException("inherited choose(Cards) is separate from original neural chooseTarget(Cards)"));
-            }
-            return super.choose(outcome, cards, target, source, game);
+            try {
+                Result replay = context(game);
+                if (replay != null && replay.targetCapture instanceof ParentCardCapture) {
+                    if (!getId().equals(replay.world.player(replay.world.viewer)) || cards == null || target == null) {
+                        throw new IllegalArgumentException("parent card callback exceeds its acting-player scope");
+                    }
+                    ParentCardCapture capture = (ParentCardCapture) replay.targetCapture;
+                    return capture.selectParentCards(this, outcome, cards, target, source, game,
+                            (possible, chosen, selected, minimum, maximum, rule) -> {
+                                Map<String, Object> past = replay.earlierPick(game);
+                                if (past != null) {
+                                    capture.earlierParentCards(replay.world, replay.callbackDecision(), target, source, game,
+                                            possible, chosen, selected, minimum, maximum, rule, past);
+                                    replay.replayed++;
+                                    return;
+                                }
+                                replay.compare(game); replay.player = this;
+                                replay.encoded = capture.encodeParentCards(replay.world, replay.decision, target, source, game,
+                                        possible, chosen, selected, minimum, maximum, rule);
+                                throw new Stop();
+                            });
+                }
+                if (replay != null && replay.targetCapture instanceof CardSetCapture) {
+                    throw new IllegalArgumentException("inherited choose(Cards) is separate from original neural chooseTarget(Cards)");
+                }
+                return super.choose(outcome, cards, target, source, game);
+            } catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
         }
         @Override public ManaOptions getManaAvailable(Game game) {
             Result replay = live;

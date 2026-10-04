@@ -97,7 +97,8 @@ def main() -> int:
                                                    "JackTargetEncoder.java", "JackTargetEncoderMain.java",
                                                    "JackGeneralTargetEncoder.java", "JackGeneralTargetEncoderMain.java",
                                                    "JackGeneralTargetNormalizationCheck.java",
-                                                   "JackCardSetEncoder.java", "JackCardSetEncoderMain.java")]
+                                                   "JackCardSetEncoder.java", "JackCardSetEncoderMain.java",
+                                                   "JackParentCardEncoder.java", "JackParentCardEncoderMain.java")]
     if jack:
         source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
     if magezero:

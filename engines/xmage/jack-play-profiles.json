@@ -149,6 +149,23 @@
     "wire_binding": "Every physical copy, STOP, source and range bound to the original public action; recorded earlier picks consume neither model nor copy RNG",
     "limitations": "Private native execution and full games unqualified; inherited choose(Cards), divided targets, opponent callbacks and incompatible public/original ranges remain unfinished"
   },
+  "parent_cards": {
+    "source_staging_flag": "parent_card_callback: true; requires card_set_callback and all original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackParentCardEncoderMain",
+    "owned_session": "xmage_jack_parent_cards.ParentCardSession",
+    "private_stage_bodies": 14,
+    "original_parent_revision": "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+    "original_base_source_sha256": "7c5ecab1cf4796886cb0c505560b239556a91582bef721f651b07760603d78f4",
+    "original_base_lines": [130, 178],
+    "decision_kinds": ["select_object", "finish_selection", "choose_target", "finish_target_selection"],
+    "original_policy": "Inherited choose(Outcome, Cards, TargetCard, Ability, Game) through original ComputerPlayer7/6 with empty planning queues",
+    "original_helpers": ["PossibleTargetsSelector", "PossibleTargetsComparator", "GameStateEvaluator2.evaluatePermanent", "ArtificialScoringSystem"],
+    "ordering": "Original good/bad target lists, score and name ordering, UUID ties and target.add; no public-ID re-ranking or current-engine scorer substitution",
+    "completion_variant": "Original implicit completion is bound to an offered legal STOP; unsupported or incomplete minima refuse",
+    "owner_streams": "No model, neural chooser or physical-copy RNG; recorded parent prefix must equal the original determined choice",
+    "prefix_rules": "Original neural provided-card, general-target, mode, binary, X and payment rules",
+    "limitations": "Private native execution, planning queues, other callbacks, exact decks and full games remain unqualified; incompatible ranges, divided targets and opponent callbacks refuse"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -159,6 +176,7 @@
     "guarded original automatic mana rules, context cleanup and engine delegation parity",
     "guarded original sequential targets, forced returns, STOP, prefix verification and chooser application",
     "guarded original provided-card groups, representative features, first-64 cap, STOP and seeded physical-copy application",
+    "guarded original inherited card sorting, UUID ties, target.add, legal completion and exact prefix parity",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

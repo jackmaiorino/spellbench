@@ -18,6 +18,19 @@ ENCODER_SHA256 = "51504c1ffffbf5db8554258b5dca28f54f26bb7760121e0098561eac0b14b9
 CALLBACK_SHA256 = "b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6"
 MULLIGAN_JAVA_SHA256 = "69e039a69c5d983f5614d6a9c7efc77a7cf9f0ca1df64851d642d0f2ad718497"
 MULLIGAN_VARIANT = "original own-hand features and remaining-library multiset; library sorted by card name; no hidden order"
+PARENT_SOURCE_PINS = {
+    "parent_card_source": "7c5ecab1cf4796886cb0c505560b239556a91582bef721f651b07760603d78f4",
+    "parent_selector_source": "d50b426cc9fba71c7c6c1a2c6fd392d89cb96d209b5bb41e38d74d2343b13f70",
+    "parent_comparator_source": "cf32e14a3e4ef75307d877b578c9bca816ecca0f4f88895f4234e9464694e05c",
+    "parent_permanent_source": "25c5f984c70602772a6e2df7f38ac2814c115677fd7760cfca595928acc1e5c7",
+    "parent_scoring_source": "d210d4a977e5de4c9fdeff22e4a049887864bcdd603656501e592ac452bc8952",
+    "parent6_source": "b271d46971c0273dc01a1bd76d085e16e62fbb48a8c93b2700315ea696e46cf4",
+    "parent7_source": "d198011baada4145a94016371a6f067483a4b6c2d7acd2286f532c2286cc7fc2",
+}
+PARENT_CARD_VARIANT = ("original inherited choose(Cards) good/bad target sorting, UUID ties and target.add application; "
+                       "original April base, selector, comparator and permanent scoring; empty planning queues; "
+                       "permitted callback replay; implicit completion bound to offered STOP; "
+                       "no model or neural chooser/copy RNG; divided and opponent callbacks unqualified")
 VARIANT = ("acting-player perspective; entity tokens limited to named permitted references; "
            "only explicitly known library cards, ordered by public object alias; "
            "pinned read-only text embeddings with no generated fallback")
@@ -629,6 +642,101 @@ public final class CardSetRules {
 ''' % (CALLBACK_SHA256, hashlib.sha256(method.encode()).hexdigest()) + walk + "        return chosenCount >= minTargets;\n    }\n}\n"
 
 
+def parent_card_sources(sources: dict[str, str]) -> dict[str, bytes]:
+    """Port original parent callbacks and scoring without publishing private bodies."""
+    if (set(sources) != set(PARENT_SOURCE_PINS)
+            or any(hashlib.sha256(sources[key].encode()).hexdigest() != digest for key, digest in PARENT_SOURCE_PINS.items())):
+        raise ValueError("Jack parent card staging requires every exact April parent source")
+    base = sources["parent_card_source"]
+    method = extract(base, "    private boolean makeChoice(Outcome outcome, Target target, Ability source, Game game, Cards fromCards) {",
+                     "    /**\n     * Default choice logic for X or amount values")
+    method = replace_once(method,
+        "private boolean makeChoice(Outcome outcome, Target target, Ability source, Game game, Cards fromCards)",
+        "public boolean select(Outcome outcome, TargetCard target, Ability source, Game game, Cards fromCards, Picker picker)")
+    method = method.replace("this.getId()", "viewer.getId()")
+    method = replace_once(method, "target.getAffectedAbilityControllerId(getId())", "target.getAffectedAbilityControllerId(viewer.getId())")
+    method = method.replace("PossibleTargetsSelector", "ParentTargetsSelector")
+    method = replace_once(method, "            target.add(item.getId(), game);\n            if (target.isChoiceCompleted",
+        "            notifyPick(item.getId(), possibleTargetsSelector, target, source, game, fromCards, picker, \"good_target\");\n"
+        "            target.add(item.getId(), game);\n            if (target.isChoiceCompleted")
+    method = replace_once(method, "            target.add(item.getId(), game);\n        }\n\n        return target.isChosen",
+        "            notifyPick(item.getId(), possibleTargetsSelector, target, source, game, fromCards, picker, \"bad_target\");\n"
+        "            target.add(item.getId(), game);\n        }\n\n"
+        "        notifyFinish(possibleTargetsSelector, target, source, game, fromCards, picker);\n        return target.isChosen")
+    method = method.replace("            return false;", "            notifyFinish(null, target, source, game, fromCards, picker);\n            return false;")
+    rules = """package spellbench.models.jack;
+import mage.MageItem;
+import mage.abilities.Ability;
+import mage.cards.Cards;
+import mage.constants.Outcome;
+import mage.game.Game;
+import mage.players.Player;
+import mage.target.TargetCard;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+/** Private original parent loop; capture precedes actual target.add application. */
+public final class ParentCardRules {
+    public static final String SOURCE_SHA256 = "%s";
+    public static final String PARENT6_SHA256 = "%s";
+    public static final String PARENT7_SHA256 = "%s";
+    private final Player viewer;
+    public ParentCardRules(Player viewer) { if (viewer == null) throw new IllegalArgumentException("acting parent card player required"); this.viewer = viewer; }
+    public interface Picker {
+        void choose(List<UUID> possible, UUID selected, int count, int minimum, int maximum, String rule);
+    }
+    private List<UUID> remaining(ParentTargetsSelector selector, TargetCard target, Ability source, Game game, Cards cards) {
+        List<UUID> result = new ArrayList<>();
+        if (selector == null) {
+            if (cards != null) for (UUID id : target.possibleTargets(target.getAffectedAbilityControllerId(viewer.getId()), source, game, cards)) {
+                if (!target.contains(id)) result.add(id);
+            }
+        } else for (MageItem item : selector.getAny()) if (!target.contains(item.getId())) result.add(item.getId());
+        if (target.isChosen(game)) result.add(0, null);
+        return result;
+    }
+    private void notifyPick(UUID selected, ParentTargetsSelector selector, TargetCard target, Ability source, Game game, Cards cards, Picker picker, String rule) {
+        if (picker == null || game == null || cards == null) throw new IllegalArgumentException("provided parent cards required");
+        List<UUID> possible = remaining(selector, target, source, game, cards);
+        if (!possible.contains(selected)) throw new IllegalArgumentException("original parent pick is unavailable");
+        picker.choose(possible, selected, target.getTargets().size(), target.getMinNumberOfTargets(), target.getMaxNumberOfTargets(), rule);
+    }
+    private void notifyFinish(ParentTargetsSelector selector, TargetCard target, Ability source, Game game, Cards cards, Picker picker) {
+        if (game == null || cards == null || picker == null) throw new IllegalArgumentException("provided parent cards required");
+        if (target.getTargets().size() >= target.getMaxNumberOfTargets()) return;
+        if (!target.isChosen(game)) throw new IllegalArgumentException("original parent callback cannot meet its minimum");
+        List<UUID> possible = remaining(selector, target, source, game, cards);
+        picker.choose(possible, null, target.getTargets().size(), target.getMinNumberOfTargets(), target.getMaxNumberOfTargets(), "implicit_finish");
+    }
+""" % (PARENT_SOURCE_PINS["parent_card_source"], PARENT_SOURCE_PINS["parent6_source"], PARENT_SOURCE_PINS["parent7_source"]) + method + "}\n"
+    result = {"ParentCardRules.java": rules.encode()}
+    for key, old, new in (("parent_selector_source", "PossibleTargetsSelector", "ParentTargetsSelector"),
+                          ("parent_comparator_source", "PossibleTargetsComparator", "ParentTargetsComparator"),
+                          ("parent_scoring_source", "ArtificialScoringSystem", "ParentArtificialScoring")):
+        body = sources[key]
+        package = "mage.player.ai.score" if key == "parent_scoring_source" else "mage.player.ai"
+        body = replace_once(body, "package " + package + ";", "package spellbench.models.jack;")
+        body = body.replace(old, new).replace("PossibleTargetsSelector", "ParentTargetsSelector").replace("PossibleTargetsComparator", "ParentTargetsComparator")
+        body = body.replace("import mage.player.ai.score.GameStateEvaluator2;", "import spellbench.models.jack.ParentPermanentScore;").replace("GameStateEvaluator2", "ParentPermanentScore")
+        declaration = "public final class " + new + " {" if key == "parent_scoring_source" else "public class " + new + " {"
+        body = replace_once(body, declaration, declaration + '\n    public static final String SOURCE_SHA256 = "' + PARENT_SOURCE_PINS[key] + '";')
+        result[new + ".java"] = body.encode()
+    permanent = extract(sources["parent_permanent_source"], "    public static int evaluatePermanent(", "    public static class PlayerEvaluateScore {")
+    permanent = permanent.replace("ArtificialScoringSystem", "ParentArtificialScoring")
+    result["ParentPermanentScore.java"] = ("""package spellbench.models.jack;
+import mage.abilities.Ability;
+import mage.abilities.effects.Effect;
+import mage.constants.Outcome;
+import mage.game.Game;
+import mage.game.permanent.Permanent;
+import java.util.UUID;
+public final class ParentPermanentScore {
+    public static final String SOURCE_SHA256 = "%s";
+""" % PARENT_SOURCE_PINS["parent_permanent_source"] + permanent + "}\n").encode()
+    return result
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -654,6 +762,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         raise ValueError("Jack provided-card staging needs an explicit boolean flag")
     if config.get("card_set_callback") is True and config.get("target_callback") is not True:
         raise ValueError("Jack provided cards require the original general target and prefix rules")
+    if "parent_card_callback" in config and type(config["parent_card_callback"]) is not bool:
+        raise ValueError("Jack parent card staging needs an explicit boolean flag")
+    if config.get("parent_card_callback") is True and config.get("card_set_callback") is not True:
+        raise ValueError("Jack parent cards require the original neural card and prefix rules")
     matches = [a for a in manifest.get("assets", []) if a.get("id") == config.get("state_encoder")]
     if len(matches) != 1:
         raise ValueError("Jack stage needs one private encoder asset")
@@ -685,6 +797,20 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                if config.get("target_callback") is True else None)
     card_sets = (card_set_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                  if config.get("card_set_callback") is True else None)
+    parent_cards = None
+    if config.get("parent_card_callback") is True:
+        parent_sources = {}
+        for key, digest in PARENT_SOURCE_PINS.items():
+            matches = [a for a in manifest["assets"] if a["id"] == config.get(key)]
+            if len(matches) != 1:
+                raise ValueError("Jack parent stage needs every original parent asset")
+            parent_asset = matches[0]
+            validate_asset(parent_asset)
+            if parent_asset["sha256"] != digest or parent_asset.get("transport") != "local-file":
+                raise ValueError("Jack parent stage requires the pinned private local source")
+            verify(root / parent_asset["filename"], parent_asset)
+            parent_sources[key] = (root / parent_asset["filename"]).read_bytes().decode("utf-8")
+        parent_cards = parent_card_sources(parent_sources)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -723,6 +849,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if card_sets is not None:
         with (output / "CardSetRules.java").open("xb") as stream:
             stream.write(card_sets)
+    if parent_cards is not None:
+        for filename, body in parent_cards.items():
+            with (output / filename).open("xb") as stream:
+                stream.write(body)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -756,6 +886,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_card_set_callback_sha256=CALLBACK_SHA256,
                       original_card_set_method_sha256=hashlib.sha256(card_set_method((root / callback["filename"]).read_bytes().decode("utf-8")).encode()).hexdigest(),
                       staged_card_set_rules_sha256=hashlib.sha256(card_sets).hexdigest(), card_set_variant=CARD_SET_VARIANT)
+    if parent_cards is not None:
+        result.update(original_parent_sources_sha256=PARENT_SOURCE_PINS,
+                      staged_parent_sources_sha256={name: hashlib.sha256(body).hexdigest() for name, body in parent_cards.items()},
+                      parent_card_variant=PARENT_CARD_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

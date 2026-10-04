@@ -22,7 +22,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Original provided-card groups and features; the owner chooses a seeded physical copy. */
-final class JackCardSetEncoder extends JackGeneralTargetEncoder implements ModelReplay.CardSetCapture {
+class JackCardSetEncoder extends JackGeneralTargetEncoder implements ModelReplay.CardSetCapture {
     static final String RULE_VARIANT = "original provided-card filtering, library/hand name groups, first available representatives, "
             + "sequential STOP gates, first 64 groups and minimum completion; original card_select head; "
             + "permitted callback replay; refusal instead of model-error fallback; "
