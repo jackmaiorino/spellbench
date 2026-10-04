@@ -465,3 +465,51 @@ with individual receipts. Hot recovery remains. Combined input use is
 Java, Linux and Windows CI pass at source `2dd34fe`. Original play settings,
 other callbacks, pretrained MageZero inference, full learned qualification,
 ratings and publication remain unfinished.
+
+All three public DraftZero checkpoints now complete this fixed six-visit FDN
+UR game and an exact-seed replay. Each pair ends naturally with a heuristic
+win, no violation, identical primary stores and identical decision/choice
+streams after excluding clocks.
+
+| Checkpoint | Guard generation | Steps per execution | Neural evaluations per execution |
+| --- | --- | --- | --- |
+| gen0 | 151 | 293 | 182 |
+| gen10 | 148 | 313 | 735 |
+| gen33 | 136 | 323 | 336 |
+
+Gen10 uses source `4b8e466` and reviewed build 051. Its primary SHA-256 is
+`c085c5761dbd55c8ecdf85e1660de8295a90faeea57dd8d34b3f5e38b94d56f2`.
+All 148 source and diagnostic copies are reread in
+`E:/spellbench-xmage-full-agent-20261003-004/`, closure SHA-256
+`5ac87186c23c31530178ae7783c2ed110d6e8292f3250dd1d70a2a1be4a46b11`.
+
+The first gen0 attempt, generation 147, stopped at its first cleanup discard
+because the public-history guard rejected the transition from end step to
+cleanup. That failure is retained in
+`E:/spellbench-xmage-full-agent-20261003-003/`, with 141 reread copies and closure
+`590abec68182a7851a72eb9351ef125b2ae4eec8dc766c35cfb1931feee96c61`.
+The repair permits only the same-turn transition after the recorded own pass,
+both completed public passes, an empty stack and an owned hand-card discard.
+The original Java replay still compares the entire callback observation
+before searching.
+
+Generation 151 uses repair source `d1ae380` and the unchanged build 051. Its
+four actual cleanup discards, on turns 3, 5, 7 and 11, each use seven neural
+evaluations and repeat identically. The primary SHA-256 is
+`869e5a512f5c1186baabb6a1b1b6aeb709f6cd3c7bf3207aaab7b34bb55b2be1`.
+All 149 source and diagnostic copies are reread in
+`E:/spellbench-xmage-full-agent-20261003-005/`, closure SHA-256
+`5845874c5c5d0b930ae68bf0f06dce50d5b5f98e624b41c69876ad7f27b71d53`.
+The separate public/diagnostic cross-check is `CLEANUP-VERIFIED.json`, SHA-256
+`f0d1ef1f311a9aec9797afc020690df0cd27c4b1c92a41a457b050bde332cc73`.
+Private replay results are not separately logged; the sealed bridge source
+requires observation and original-tree validation before the recorded choices.
+All 101 affected checks passed, and Linux and Windows CI pass at `d1ae380`.
+
+All three completed game jobs have confirmed child/container cleanup and
+reservation release. Their working databases are removed by the supported
+lifecycle; failed records remain. The unchanged 2 GiB combined output cap
+counts attempts 001 through 005 on both drives. These fixed diagnostics still
+do not qualify original default search settings, other decks or seeds,
+complete callback coverage, useful throughput, ratings or playing strength.
+There remain zero rated XMage games and zero published XMage entries.
