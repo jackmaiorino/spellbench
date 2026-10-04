@@ -58,6 +58,9 @@ def mapping_pass(native, bad):
 
 def main():
     started = time.perf_counter()
+    placement = os.environ['GORGE_PLACEMENT']
+    Placement.parse(placement)
+    assigned = int(os.environ['GORGE_ASSIGNED_DISK_BYTES'])
     os.environ['GOMAXPROCS'] = '1'
     values = {'GORGE_SPELLBENCH_ENV':str(RUNTIME/'spellbench-gorge-env-linux-amd64'),
               'GORGE_SPELLBENCH_AGENT':str(RUNTIME/'spellbench-gorge-agent-linux-amd64'),
@@ -68,7 +71,7 @@ def main():
         actual = original_free(path)
         if Path(path).resolve().is_relative_to(Path('/workspace')):
             used = int(subprocess.check_output(['du','-s','-B','1','/workspace'], text=True, timeout=10).split()[0])
-            return min(actual, 100_000_000_000 - used)
+            return min(actual, assigned - used)
         return actual
     bench_run.machine.free_bytes = assigned_free
     benchmark = definition.load_benchmark(ROOT/'benchmarks/pauper-gorge')
@@ -99,10 +102,6 @@ def main():
                     expected_cells=[list(cell) for cell in sorted(expected)],
                     scope='reference-host clocks, lifecycle, native mapping and search coverage; not native leak/parity qualification or ratings')
     write(STAGE/'MANIFEST.json', manifest)
-    placement = ('main-pc=unavailable: peer XMage announced guarded qualification after canonical research release; '
-                 'haleyspc=unavailable: queued training-performance window retains priority per CODEX811; '
-                 'runpod=used: owned CPU game allocation with13.6-core CFS quota, current four-worker scaling2.7568x and identical outputs, separate gorge USD10 total cap')
-    Placement.parse(placement)
     original_qualification = bench_run.qualification_play
     state = {'trial':0, 'directory':None}
     def preserve(*args, **kwargs):
