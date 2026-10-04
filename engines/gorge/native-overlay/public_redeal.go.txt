@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"reflect"
+	"sort"
 	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -103,6 +104,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		}
 	}
 	basicSearches := spellbenchBasicSearches(setup, h)
+	carryEpochs := spellbenchCarryEpochs(h, epochs)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
 		return nil, work, err
@@ -132,7 +134,11 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife, Mulligans: setup.Mulligans}
 		observer := NewCollector(h.Actor)
 		var diagnostic SampleResult
-		proposal := &proposalState{epochs: epochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
+		witnessEpochs := epochs
+		if attempt%2 == 0 {
+			witnessEpochs = carryEpochs
+		}
+		proposal := &proposalState{epochs: witnessEpochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
 		e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))
 		if errors.Is(err, errIncompatibleProposal) {
 			continue
@@ -231,6 +237,112 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	return nil, work, fmt.Errorf("no public replay completion in %d proposals", work.Attempts)
 }
 
+// Later public hand exits can outnumber the draws after a shuffle. For a
+// witness proposal, retain enough named cards from an earlier draw prefix to
+// make those windows feasible. The chosen names are optional hypotheses,
+// not claims about the hidden hand. Odd proposals retain the original fold;
+// every completion still replays the whole public history and is redealt.
+func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	type link struct {
+		previous    epochKey
+		draws, hand int
+	}
+	links := map[epochKey]link{}
+	ordinals, draws := map[state.PlayerID]int{}, map[state.PlayerID]int{}
+	started := false
+	for _, frame := range h.Frames {
+		var board struct {
+			Players []struct {
+				Seat state.PlayerID `json:"seat"`
+				Hand *int           `json:"hand_size"`
+			}
+		}
+		json.Unmarshal(frame.Board, &board)
+		for _, ev := range frame.Events {
+			switch ev.Kind {
+			case events.TurnChange:
+				started = true
+			case events.Draw:
+				draws[ev.Player]++
+			case events.Shuffle:
+				if started && ev.Player != h.Actor && ordinals[ev.Player] > 0 {
+					for _, player := range board.Players {
+						if player.Seat == ev.Player && player.Hand != nil {
+							key := epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player]}
+							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], hand: *player.Hand}
+						}
+					}
+				}
+				ordinals[ev.Player]++
+				draws[ev.Player] = 0
+			}
+		}
+	}
+	guided := make(map[epochKey]epochConstraints, len(original))
+	for key, epoch := range original {
+		epoch.Deadlines = append([]deadlineConstraint(nil), epoch.Deadlines...)
+		guided[key] = epoch
+	}
+	var keys []epochKey
+	for key := range links {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].Player != keys[j].Player {
+			return keys[i].Player < keys[j].Player
+		}
+		return keys[i].Ordinal > keys[j].Ordinal
+	})
+	for _, key := range keys {
+		prior := links[key]
+		deadlines := append([]deadlineConstraint(nil), guided[key].Deadlines...)
+		sort.SliceStable(deadlines, func(i, j int) bool { return deadlines[i].Through < deadlines[j].Through })
+		needed, carry := map[string]int{}, map[string]int{}
+		for _, bound := range deadlines {
+			needed[bound.Name] = max(needed[bound.Name], bound.Count)
+			demand := 0
+			for name, count := range needed {
+				demand += max(0, count-carry[name])
+			}
+			deficit := demand - bound.Through
+			for _, earlier := range deadlines {
+				if deficit <= 0 || earlier.Through > bound.Through {
+					break
+				}
+				added := min(deficit, needed[earlier.Name]-carry[earlier.Name])
+				carry[earlier.Name] += added
+				deficit -= added
+			}
+		}
+		count := 0
+		for _, n := range carry {
+			count += n
+		}
+		if count == 0 || count > prior.hand {
+			continue
+		}
+		epoch := guided[prior.previous]
+		var names []string
+		for name, n := range carry {
+			if n > 0 {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			consumed := 0
+			for _, bound := range epoch.Deadlines {
+				if bound.Name == name && bound.Through <= prior.draws {
+					consumed = max(consumed, bound.Count)
+				}
+			}
+			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: prior.draws, Name: name, Count: consumed + carry[name]})
+		}
+		guided[prior.previous] = epoch
+	}
+	return guided
+}
+
 // Prioritize a legal hypothetical answer suggested by the next public action.
 // This orders witness search only. It neither submits an extra intent nor
 // removes any alternative from the existing exhaustive, shared-budget walk.
@@ -253,8 +365,9 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 		}
 		return false
 	}
-	for _, ev := range remaining {
+	for at, ev := range remaining {
 		kind := ""
+		ability := -1
 		switch {
 		case d.Kind == decision.KPriority && ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZBattlefield:
 			kind = "play_land"
@@ -262,6 +375,20 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 			kind = "cast"
 		case d.Kind == decision.KPriority && ev.Kind == events.Tap:
 			kind = "activate"
+			// A tap can pay either a mana ability or a stacked ability on
+			// the same source. Its public push records the exact ability;
+			// stop before a later priority action or completed mana action.
+			for _, next := range remaining[at+1:] {
+				if next.Kind == events.Priority || next.Kind == events.ManaAdd {
+					break
+				}
+				if next.Kind == events.AbilityPush && next.Player == d.Player && next.Obj == ev.Obj {
+					kind, ability = "ability", int(next.Amount)
+					break
+				}
+			}
+		case d.Kind == decision.KPriority && ev.Kind == events.AbilityPush && ev.Player == d.Player:
+			kind, ability = "ability", int(ev.Amount)
 		case d.Kind == decision.KChoose && ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZGraveyard:
 			kind = "discard"
 		case d.Kind == decision.KChoose && ev.Kind == events.ManaAdd && ev.Player == d.Player:
@@ -280,7 +407,7 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 			continue
 		}
 		for i, option := range d.Options {
-			if option.Kind == kind && match(option.Obj, ev.Obj) {
+			if option.Kind == kind && match(option.Obj, ev.Obj) && (kind != "ability" || option.Ability == ability) {
 				in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
 				if d.Validate(in) == nil {
 					return in
