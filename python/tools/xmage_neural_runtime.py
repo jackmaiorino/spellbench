@@ -65,20 +65,33 @@ def checked_tree(root, declared, *, suffix=None):
             raise ValueError("model classpath has missing or undeclared classes")
 
 
-def verify_model_build(build: Path, digest: str, engine: Path, releases: Path):
+def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *, architecture="draftzero-exp1"):
     if sha(build / "BUILD.json") != digest:
         raise ValueError("model build manifest changed")
     metadata = json.loads((build / "BUILD.json").read_bytes())
     if (metadata.get("schema") != "spellbench-draftzero-encoder-build/v1"
             or metadata.get("engine_manifest_sha256") != REVIEWED_ENGINE
             or metadata.get("inputs_manifest_sha256") != sha(releases)
-            or metadata.get("jdk") != "javac 23.0.1" or not metadata.get("search_stage")):
+            or metadata.get("jdk") != "javac 23.0.1"):
         raise ValueError("model runtime needs the reviewed, pinned original search build")
+    if architecture == "draftzero-exp1":
+        required_stages = ("search_stage",)
+    elif architecture == "magezero-v02":
+        required_stages = ("magezero_stage", "magezero_search_stage")
+    else:
+        raise ValueError("unsupported model runtime architecture")
+    if any(not metadata.get(stage) for stage in required_stages):
+        raise ValueError("model runtime lacks its pinned architecture and search stages")
     verify_build(engine, engine / "BUILD-MANIFEST.json", REVIEWED_ENGINE)
     classes = relative_files(metadata.get("class_files_sha256"))
     if (not classes or any(not name.startswith(("core/", "kit/", "model/")) or not name.endswith(".class")
                           for name in classes)):
         raise ValueError("model runtime class directories differ")
+    if architecture == "magezero-v02" and not {
+            "model/spellbench/kit/xmage/MageZeroSearchMain.class",
+            "model/spellbench/kit/xmage/MageZeroSearchCombatMain.class",
+            "model/spellbench/kit/xmage/MageZeroSearchBridgeMain.class"}.issubset(classes):
+        raise ValueError("MageZero runtime lacks its mixed search and combat entrypoints")
     checked_tree(build, classes, suffix=".class")
     resources = relative_files(metadata.get("resource_files_sha256"))
     checked_tree(build / "kit", resources)

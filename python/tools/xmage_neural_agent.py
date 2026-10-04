@@ -31,6 +31,7 @@ PROFILE = {
     "opponent_hand_encoding": False,
     "mulligan": "original constructor default allowMulligans=false",
     "modes": "original numeric mode ordinals; offered-choice binding; original unoffered-branch accounting",
+    "cleanup": "recorded end-step pass and public completed passes; original discard callback and full observation comparison",
     "full_game_qualified": False,
 }
 _START_FIELDS = ("seat", "format", "own_deck", "opponent_deck", "rules", "engine",
@@ -95,16 +96,17 @@ class PublicHistory:
             raise ValueError("callback has no recorded own priority anchor")
         observation = decision["observation"]
         previous = self.anchor["decision"]["observation"]
-        if (observation.get("turn"), observation.get("phase_step")) != (
-                previous.get("turn"), previous.get("phase_step")):
-            raise ValueError("callback crossed an unrecorded turn or phase transition")
         action = self.anchor["selection"]["semantic_echo"]
+        cleanup = self.cleanup_discard(decision, previous, action)
+        if (observation.get("turn"), observation.get("phase_step")) != (
+                previous.get("turn"), previous.get("phase_step")) and not cleanup:
+            raise ValueError("callback crossed an unrecorded turn or phase transition")
         passes = []
         if action.get("kind") == "pass":
-            if not previous.get("stack"):
+            if not previous.get("stack") and not cleanup:
                 raise ValueError("callback followed an empty-stack pass without a public replay anchor")
-            # Once this seat passes the saved top object, the other seat must
-            # pass before that object resolves unless it had already passed.
+            # The other seat must pass before the saved top object resolves
+            # or the recorded end step finishes, unless it had already passed.
             # Java replay compares every resulting observation. Any intervening
             # response, callback or changed object is refused there.
             other = "p1" if self.seat == "p0" else "p0"
@@ -117,6 +119,39 @@ class PublicHistory:
             raise ValueError("callback has no replayable recorded action")
         return {"anchor": copy.deepcopy(self.anchor),
                 "replay": {"priority_passes": passes, "earlier": copy.deepcopy(self.earlier)}}
+
+    def cleanup_discard(self, decision, previous, action):
+        observation = decision["observation"]
+        context = decision.get("context", {})
+        completed = observation.get("passed_seats")
+        if not (action.get("kind") == "pass" and previous.get("phase_step") == "end_step"
+                and observation.get("phase_step") == "cleanup"
+                and type(previous.get("turn")) is int and type(observation.get("turn")) is int
+                and observation["turn"] == previous["turn"]
+                and previous.get("active_seat") == observation.get("active_seat") == self.seat
+                and observation.get("viewer") == decision.get("acting_seat") == self.seat
+                and not previous.get("stack") and not observation.get("stack")
+                and observation.get("priority_seat") is None
+                and isinstance(completed, list) and len(completed) == 2 and set(completed) == {"p0", "p1"}
+                and context.get("kind") == "choice" and context.get("purpose") == "discard"
+                and context.get("source") is None):
+            return False
+        candidates = decision.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            return False
+        for candidate in candidates:
+            semantic = candidate.get("semantic", {})
+            obj = semantic.get("choice", {}).get("object", {})
+            if not (semantic.get("kind") == "select_object" and semantic.get("purpose") == "discard"
+                    and semantic.get("source") is None and semantic.get("minimum") == 1
+                    and semantic.get("maximum") == 1 and semantic.get("selected_count") == 0
+                    and obj.get("zone") == "hand" and obj.get("owner_seat") == self.seat
+                    and obj.get("controller_seat") == self.seat):
+                return False
+        # These facts permit replaying the original end-step completion. Java
+        # must still reach the actual discard callback and compare its entire
+        # observation before any search. Earlier discard picks stay in history.
+        return True
 
     def selected(self, decision, selection):
         semantic = selection["semantic_echo"]
@@ -136,11 +171,14 @@ class PublicHistory:
 
 class NeuralAgent:
     """Own one mixed search session through one public game lifecycle."""
-    def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None):
+    def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
+                 profile=None, plan_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
             raise ValueError("Exp1 visits must be 2..1000")
         self.factory, self.checkpoint, self.visits = factory, checkpoint, visits
         self.audit = audit or (lambda event: None)
+        self.profile = copy.deepcopy(PROFILE if profile is None else profile)
+        self.plan_factory = CombatPlan if plan_factory is None else plan_factory
         self.session = self.game = self.history = self.key = self.plan = None
         self.failed = False
         self.step = None
@@ -162,7 +200,7 @@ class NeuralAgent:
             if self.session.model.checkpoint != self.checkpoint:
                 raise ValueError("neural session checkpoint differs from its public bot identity")
             self.audit({"event": "neural_game_start", "checkpoint": self.checkpoint,
-                        "visits": self.visits, "profile": PROFILE})
+                        "visits": self.visits, "profile": copy.deepcopy(self.profile)})
         except BaseException:
             self.failed = True
             self.close()
@@ -215,7 +253,7 @@ class NeuralAgent:
                 family = combat_kind(received)
                 if self.plan is None or self.plan.complete:
                     result = self.session.plan(record, visits=self.visits, timeout_s=remaining())
-                    self.plan = CombatPlan(received, result, visits=self.visits)
+                    self.plan = self.plan_factory(received, result, visits=self.visits)
                 selection = self.plan.select(received)
             elif kinds == {"mulligan"}:
                 # This is the original newly constructed player's shipped flag,

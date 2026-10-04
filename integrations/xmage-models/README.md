@@ -133,9 +133,40 @@ minimum visits. The original library fail-to-find restriction and unoffered
 mode work remain visible in the result and visit accounting. MageZero v0.2
 prepends a numeric stop option only when the mode minimum is already met;
 mandatory mode roots preserve its zero-based mode ordinals. Exp1 retains its
-original unconditional stop option. Combat, other
-callbacks, actual pretrained native checks, full games and useful-throughput
-qualification remain unfinished.
+original unconditional stop option. The typed mixed bridge now includes original
+per-creature combat decisions. Native combat and mixed-operation checks, actual
+pretrained native checks, full games and useful-throughput qualification remain
+unfinished.
+
+`python/tools/xmage_magezero_runtime.py` serves the public frontend with that
+mixed bridge. Supply the external copy containing author weights as `--manifest`
+and the unchanged repository manifest as `--public-manifest`. The latter is the
+manifest used to compile and verify the MageZero model build. Additional weights
+must retain every public source and encoder pin; legacy ONNX exports are refused.
+Every original parameter must be present in the `--settings` JSON file. Those
+settings, the exact deck digest, checkpoint, build, image and frontend sources
+determine the bot version. `--print-identity` checks pinned inputs without starting
+a model or a JVM. Run serving only through the guarded arena launcher and include
+the frontend's private database copy in the job's storage manifest:
+
+```powershell
+python python/tools/xmage_magezero_runtime.py `
+  --manifest AUTHOR_RELEASES.json --public-manifest engines/xmage/releases.json `
+  --settings AUTHOR_SETTINGS.json --root OWNED_INPUT_ROOT --checkpoint MODEL_ASSET_ID `
+  --image sha256:PINNED_IMAGE_SHA256 `
+  --java PINNED_JAVA --java-sha256 JAVA_SHA256 --engine REVIEWED_ENGINE_ROOT `
+  --model-build MAGEZERO_BUILD_ROOT --model-build-sha256 BUILD_MANIFEST_SHA256 `
+  --db-file PINNED_CARDS_DB --db-sha256 DB_SHA256 --work OWNED_WORK_ROOT
+```
+
+The runtime needs a build containing `MageZeroSearchBridgeMain` and both search
+and combat entrypoints. At game start, the actual own decklist must match the
+checkpoint association before confined inference starts. The public lifecycle
+retains only replayable visible history and closes each per-game session. Local
+tests cover both stopping profiles, declaration-plan reuse, cleanup replay,
+startup failure and resource cleanup. These tests use synthetic weights or model
+peers and establish wiring; actual author weights and full-game qualification
+are still required.
 
 Raw `.pt.gz` and `.pt` inputs use `checkpoint_format` values `torch-gzip` and
 `torch`. They require the same exact deck hash and association evidence but no

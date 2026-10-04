@@ -14,7 +14,7 @@ entries. It has no rated run. The historical `fdn-mirror-v0` definition is uncha
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Native benchmark passes 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; rated run pending |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Included in the same passing native benchmark qualification; unrated |
 | DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | All three pass real target and boolean selection; gen33 completes one six-visit FDN game and identical same-seed replay, plus actual spell-mode selection and subsequent target replay | Broader transition/callback coverage, fork combat retry parity and benchmark qualification unfinished; unrated |
-| MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Isolated raw and `.mz` export loaders; original priority encoder passes repeated native hidden-sample and visible-life checks; deck-bound decision path and all CI pass | No public pretrained weights found in inspected bundles; full fair adapter and qualification unfinished |
+| MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Original priority and dialog search pass native synthetic checks; typed combat, mixed bridge, public frontend and deck-bound confined runtime are wired | Compatible trained weights and author settings absent; native combat/mixed checks and full-game qualification pending; unrated |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference on actual permitted Java priority features; Standard retains its legacy Q mulligan rule | Exact deck associations, original game selection and complete fair adapter unfinished; unrated |
 
 ## Native policies and aliases
@@ -87,7 +87,8 @@ metadata, and inference/search settings. For raw weights, record the author's
 deck-association evidence. The isolated loader now streams the original `.mz`
 layout, verifies its deck/version metadata, and refuses unexpected members.
 Its export check uses synthetic initialized weights, not a pretrained policy.
-The full MageZero game adapter remains unfinished. Author-supplied local
+The MageZero public frontend and confined runtime are wired; native combat and
+full-game qualification remain unfinished. Author-supplied local
 checkpoints have an explicit provenance route without invented download URLs;
 see [the input instructions](../../integrations/xmage-models/README.md).
 
