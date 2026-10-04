@@ -378,7 +378,7 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full gorge and Windows/Linux Python CI passed at prior production8d70516. The actor London correction passes the complete affected strategies suite, vet and diff locally. Fresh hosted CI and corrected-runtime qualification remain pending.",
+      "full_adapter_suite": "Full hosted gorge, Windows/Linux Python and LLM isolation CI passed at the actual runtime019 production source438dffd. The complete affected strategies suite passes50 cases, with Go vet and diff checks. Qualification remains incomplete.",
       "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games but failed search gates. Runtime018 passed matched1/6/13 output hashes with3.085x scaling; its3600-second cap stopped the full audit at319/320 natural blocks, missing original index166. The entire attempt is sealed. A47-frame seed48 failure now reconstructs eight worlds in109 submits with22 unchanged native fields; corrected-runtime qualification remains incomplete.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
@@ -390,7 +390,9 @@
       "post_search_noninterference": "docs/gorge-private-search-outcome-20261003.json",
       "known_hand_repair": "docs/gorge-known-hand-repair-20261003.json",
       "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
-      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json"
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
+      "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
+      "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json"
     }
   ],
   "publication": null,

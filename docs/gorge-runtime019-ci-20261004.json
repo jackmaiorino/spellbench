@@ -1,0 +1,68 @@
+{
+  "schema": "spellbench-gorge-runtime019-hosted-ci/v1",
+  "checked_at_utc": "2026-10-04T03:52:59.370645+00:00",
+  "runtime_source_commit": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-019.json",
+  "runs": [
+    {
+      "kind": "gorge",
+      "run_id": 37173198545,
+      "head_sha": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37173198545",
+      "jobs": [
+        {
+          "name": "test",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-04T03:20:56Z"
+        }
+      ]
+    },
+    {
+      "kind": "python",
+      "run_id": 37173198554,
+      "head_sha": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37173198554",
+      "jobs": [
+        {
+          "name": "Python tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-04T03:16:41Z"
+        },
+        {
+          "name": "Python tests (windows-2025)",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-04T03:31:12Z"
+        }
+      ]
+    },
+    {
+      "kind": "llm-isolation",
+      "run_id": 37173198549,
+      "head_sha": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37173198549",
+      "jobs": [
+        {
+          "name": "container",
+          "status": "completed",
+          "conclusion": "success",
+          "completedAt": "2026-10-04T03:09:44Z"
+        }
+      ]
+    }
+  ],
+  "local_strategy_cases_passed": 50,
+  "local_strategy_evidence": "docs/gorge-actor-london-draws-repair-20261004.json",
+  "local_go_vet_passed": true,
+  "native_qualification_complete": false,
+  "rated_games": 0,
+  "published": false
+}
