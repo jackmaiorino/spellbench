@@ -148,14 +148,6 @@ final class ModelReplay {
             }
             return super.getManaAvailable(game);
         }
-        @Override protected ManaOptions getManaAvailableFast(Game game) {
-            Result replay = live;
-            if (replay != null && replay.dialogCapture != null
-                    && getId().equals(replay.world.player(replay.world.viewer))) {
-                return replay.dialogCapture.available(this, game, true);
-            }
-            return super.getManaAvailableFast(game);
-        }
         @Override public boolean priority(Game game) {
             Result replay = context(game);
             if (replay == null) { pass(game); return false; }
