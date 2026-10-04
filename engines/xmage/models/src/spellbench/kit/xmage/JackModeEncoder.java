@@ -255,7 +255,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
         catch (Exception e) { throw new IllegalStateException("original mode encoding failed", e); }
     }
 
-    private static List<Object> numbers(float[] values, int width) {
+    static List<Object> numbers(float[] values, int width) {
         if (values.length != width) throw new IllegalArgumentException("original mode vector has the wrong width");
         List<Object> result = new ArrayList<>();
         for (float value : values) {
@@ -267,7 +267,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
         return result;
     }
 
-    private static Map<UUID, String> namedAliases(World world, Map<String, Object> decision) throws Exception {
+    static Map<UUID, String> namedAliases(World world, Map<String, Object> decision) throws Exception {
         Map<String, Object> obs = Json.obj(decision, "observation");
         ObsIndex index = new ObsIndex(obs);
         List<Look> looks = new ArrayList<>();

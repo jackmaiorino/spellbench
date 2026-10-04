@@ -5,12 +5,14 @@ import mage.abilities.ActivatedAbility;
 import mage.abilities.common.PassAbility;
 import mage.abilities.Mode;
 import mage.abilities.Modes;
+import mage.abilities.mana.ManaOptions;
 import mage.MageObject;
 import mage.cards.Card;
 import mage.cards.Cards;
 import mage.choices.Choice;
 import mage.constants.Outcome;
 import mage.game.Game;
+import mage.players.Player;
 import mage.player.ai.encoder.ActionEncoder;
 import mage.target.Target;
 import mage.target.TargetAmount;
@@ -43,6 +45,17 @@ final class ModelReplay {
                      Game game, Map<String, Object> semantic);
         Map<String, Object> encode(World world, Map<String, Object> decision, Modes modes, Ability source,
                                    Game game);
+    }
+    interface DialogCapture {
+        ManaOptions available(Player viewer, Game game, boolean fast);
+        boolean earlierUse(World world, Map<String, Object> decision, Outcome outcome, String message,
+                           Ability source, Game game, Map<String, Object> semantic);
+        Map<String, Object> encodeUse(World world, Map<String, Object> decision, Outcome outcome, String message,
+                                     Ability source, Game game);
+        int earlierX(World world, Map<String, Object> decision, int min, int max, boolean mana,
+                     Ability source, Game game, Map<String, Object> semantic);
+        Map<String, Object> encodeX(World world, Map<String, Object> decision, int min, int max, boolean mana,
+                                   Ability source, Game game);
     }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
@@ -77,10 +90,12 @@ final class ModelReplay {
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
         ModeCapture modeCapture;
+        DialogCapture dialogCapture;
         Map<String, Object> encoded;
 
         void searchAllowed() {
             if (modeCapture != null) throw new IllegalArgumentException("mode feature capture reached another callback");
+            if (dialogCapture != null) throw new IllegalArgumentException("dialog feature capture reached another callback");
         }
 
         void compare(Game game) {
@@ -125,6 +140,22 @@ final class ModelReplay {
         ReplayPlayer(String seat) { super(seat); this.seat = seat; }
         private ReplayPlayer(ReplayPlayer p) { super(p); seat = p.seat; }
         @Override public ReplayPlayer copy() { return new ReplayPlayer(this); }
+        @Override public ManaOptions getManaAvailable(Game game) {
+            Result replay = live;
+            if (replay != null && replay.dialogCapture != null
+                    && getId().equals(replay.world.player(replay.world.viewer))) {
+                return replay.dialogCapture.available(this, game, false);
+            }
+            return super.getManaAvailable(game);
+        }
+        @Override protected ManaOptions getManaAvailableFast(Game game) {
+            Result replay = live;
+            if (replay != null && replay.dialogCapture != null
+                    && getId().equals(replay.world.player(replay.world.viewer))) {
+                return replay.dialogCapture.available(this, game, true);
+            }
+            return super.getManaAvailableFast(game);
+        }
         @Override public boolean priority(Game game) {
             Result replay = context(game);
             if (replay == null) { pass(game); return false; }
@@ -187,14 +218,19 @@ final class ModelReplay {
             }
             Map<String, Object> past = replay.earlierPick(game);
             if (past != null) {
-                Object value = booleanValue(past);
+                Object value = replay.dialogCapture == null ? booleanValue(past)
+                        : replay.dialogCapture.earlierUse(replay.world, replay.callbackDecision(), outcome, message, source, game, past);
                 if (!(value instanceof Boolean)) throw new IllegalArgumentException("recorded dialog is not binary");
-                getPlayerHistory().useSequence.add((Boolean) value);
+                if (replay.dialogCapture == null) getPlayerHistory().useSequence.add((Boolean) value);
                 replay.replayed++;
                 return (Boolean) value;
             }
             replay.compare(game);
             replay.player = this;
+            if (replay.dialogCapture != null) {
+                replay.encoded = replay.dialogCapture.encodeUse(replay.world, replay.decision, outcome, message, source, game);
+                throw new Stop();
+            }
             replay.searchAllowed();
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchAction(game, ActionEncoder.ActionType.CHOOSE_USE, message);
@@ -233,6 +269,26 @@ final class ModelReplay {
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchChoice(game, choice);
             throw new Stop();
+        }
+        @Override public int announceX(int min, int max, String message, Game game, Ability source, boolean mana) {
+            Result replay = context(game);
+            if (replay == null || replay.dialogCapture == null) return super.announceX(min, max, message, game, source, mana);
+            try {
+                if (!getId().equals(replay.world.player(replay.world.viewer))) {
+                    throw new IllegalArgumentException("unrecorded opponent X callback");
+                }
+                Map<String, Object> past = replay.earlierPick(game);
+                if (past != null) {
+                    int value = replay.dialogCapture.earlierX(replay.world, replay.callbackDecision(), min, max,
+                            mana, source, game, past);
+                    replay.replayed++;
+                    return value;
+                }
+                replay.compare(game);
+                replay.player = this;
+                replay.encoded = replay.dialogCapture.encodeX(replay.world, replay.decision, min, max, mana, source, game);
+                throw new Stop();
+            } catch (RuntimeException e) { throw new Failure(e); }
         }
         @Override protected int makeChoiceAmount(int min, int max, Game game, Ability source, boolean mana) {
             try { return replayAmount(min, max, game, source, mana); }
@@ -423,14 +479,18 @@ final class ModelReplay {
         return run(record, evaluator, PlaySettings.diagnostic(visits));
     }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator, PlaySettings settings) {
-        return run(record, evaluator, settings, null);
+        return run(record, evaluator, settings, null, null);
     }
     static Result runMode(Map<String, Object> record, ModeCapture capture) {
         if (capture == null) throw new IllegalArgumentException("mode capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), capture);
+        return run(record, null, PlaySettings.diagnostic(1), capture, null);
+    }
+    static Result runDialog(Map<String, Object> record, DialogCapture capture) {
+        if (capture == null) throw new IllegalArgumentException("dialog capture is required");
+        return run(record, null, PlaySettings.diagnostic(1), null, capture);
     }
     private static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
-                              PlaySettings settings, ModeCapture capture) {
+                              PlaySettings settings, ModeCapture capture, DialogCapture dialogs) {
         settings.activate();
         Map<String, Object> anchor = Json.obj(record, "anchor");
         Map<String, Object> a = Json.obj(anchor, "decision");
@@ -440,6 +500,7 @@ final class ModelReplay {
         Map<String, Object> action = selectedSemantic(a, Json.obj(anchor, "selection"));
         Result result = new Result();
         result.modeCapture = capture;
+        result.dialogCapture = dialogs;
         result.evaluator = evaluator; result.visits = settings.defaults.searchBudget; result.settings = settings;
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
@@ -496,7 +557,7 @@ final class ModelReplay {
                 throw new IllegalArgumentException("callback anchor is unsupported: " + flag);
             }
         }
-        if (capture == null) result.player.configure(evaluator, settings);
+        if (capture == null && dialogs == null) result.player.configure(evaluator, settings);
         Game game = result.world.game;
         game.getState().resume();
         Ability ability = "pass".equals(Json.str(action, "kind")) ? new PassAbility()

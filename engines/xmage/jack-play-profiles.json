@@ -73,14 +73,28 @@
     "single_or_exhausted": "direct original return; no model or RNG use",
     "source_staging_flag": "mode_callback: true",
     "wiring": "permitted callback replay, source-bound frame, paired policy and owned original chooser",
-    "limitations": "native execution pending; cost-bearing multi-mode callbacks refuse until original mana filters are ported"
+    "limitations": "native execution pending; cost-bearing multi-mode callbacks refuse until original mana rules are integrated into mode replay"
+  },
+  "dialogs": {
+    "source_staging_flag": "dialog_callback: true",
+    "choose_use_source_lines": [4053, 4252],
+    "announce_x_source_lines": [3903, 4044],
+    "mana_availability_source_lines": [6330, 6442],
+    "binary_order": [true, false],
+    "binary_ids": "original CHOOSE_USE_YES and CHOOSE_USE_NO Java token IDs",
+    "x_bound": "original cap at 20, tightened by filtered mana, base cost, X instances and conditional mana applicability",
+    "head": "action",
+    "forced_returns": "original mana feasibility gates and single X value; no model or RNG use",
+    "wiring": "permitted actual callback replay, original private rules, paired model and owned original chooser",
+    "limitations": "native execution pending; automatic mana production, other numeric callbacks and complete games unfinished"
   },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
     "guarded original mulligan feature and policy execution; duplicate-prompt handling",
     "guarded original spell-mode execution and hidden-world replay",
-    "original custom mana filters for binary, numeric and cost-bearing modes",
+    "guarded original binary and X feature, mana gate and selection execution",
+    "cost-bearing mode integration and original automatic mana production rules",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

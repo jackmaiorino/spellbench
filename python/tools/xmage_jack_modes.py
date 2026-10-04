@@ -118,13 +118,19 @@ def validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict,
 
 
 class ModeSession:
+    SOURCE_KEYS = SOURCE_KEYS
+    ENCODER = "jack-permitted-mode"
+    VARIANT = MODE_VARIANT
+    bound_view = staticmethod(bound_view)
+    validate_encoding = staticmethod(validate_encoding)
+
     def __init__(self, peer, model, selection, *, game_start: dict, sources: dict, profile: str = GREEDY):
         self.peer, self.model, self.selection = peer, model, selection
         self.start, self.sources = copy.deepcopy(game_start), copy.deepcopy(sources)
         self.profile, self.sequence = profile, 0
         self.closed = self.failed = False
         try:
-            if (set(sources) != set(SOURCE_KEYS) or any(not isinstance(s, str) or not re.fullmatch("[a-f0-9]{64}", s)
+            if (set(sources) != set(self.SOURCE_KEYS) or any(not isinstance(s, str) or not re.fullmatch("[a-f0-9]{64}", s)
                     for s in sources.values()) or profile not in PROFILES or selection.profile != profile
                     or type(self.start.get("agent_seed")) is not int or selection.seed != self.start["agent_seed"]
                     or model.game_start_sha256 != decision_hash(self.start)
@@ -134,8 +140,8 @@ class ModeSession:
                 raise ValueError("mode component needs the same game, original paired model and chooser profile")
             selection.bind_game_start(self.start)
             ready = load_response(peer.read_line())
-            expected = {"ready":True, "encoder":"jack-permitted-mode", "original_callback_sha256":CALLBACK_SHA256,
-                        "variant":MODE_VARIANT, **sources}
+            expected = {"ready":True, "encoder":self.ENCODER, "original_callback_sha256":CALLBACK_SHA256,
+                        "variant":self.VARIANT, **sources}
             if (wire.canonical_json_dumps({k:ready.get(k) for k in expected}) != wire.canonical_json_dumps(expected)
                     or type(ready.get("embedding_count")) is not int or ready["embedding_count"] <= 0):
                 raise ValueError("mode encoder readiness differs from its original staged sources")
@@ -153,7 +159,7 @@ class ModeSession:
                 if value <= 0: raise TimeoutError("mode exhausted its shared clock")
                 return value
             decision = copy.deepcopy(decision)
-            offered = bound_view(self.start, decision)
+            offered = self.bound_view(self.start, decision)
             if not isinstance(anchor, dict) or not isinstance(replay, dict):
                 raise ValueError("mode requires an explicit priority anchor and recorded callback prefix")
             if any(not isinstance(s, str) or not re.fullmatch("[a-f0-9]{64}", s) for s in (world_seed, id_seed)):
@@ -166,7 +172,7 @@ class ModeSession:
             if result.get("id") != rid or result.get("ok") is not True or not isinstance(result.get("encoded"), dict):
                 raise ValueError("mode encoder refused or returned a stale request")
             encoded = result["encoded"]
-            features, bound = validate_encoding(self.start, decision, encoded, self.sources, decision_hash(request))
+            features, bound = self.validate_encoding(self.start, decision, encoded, self.sources, decision_hash(request))
             scores = None
             if features is None: cid = bound[0]
             else:
@@ -180,7 +186,7 @@ class ModeSession:
             remaining()
             return {"selection":{"candidate_id":cid, "semantic_echo":offered[cid]}, "scores":scores,
                     "decision_sha256":encoded["decision_sha256"], "checkpoint":self.model.checkpoint,
-                    "profile":self.profile, "variant":MODE_VARIANT, "world_flags":encoded["world_flags"]}
+                    "profile":self.profile, "variant":self.VARIANT, "world_flags":encoded["world_flags"]}
         except BaseException:
             self.failed = True; self.close(); raise
 

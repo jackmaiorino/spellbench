@@ -1,5 +1,23 @@
 # DraftZero neural adapters
 
+Jack's original yes/no and X component uses `JackDialogEncoderMain` and
+`xmage_jack_dialogs.DialogSession`. Set `dialog_callback: true` in the private
+input manifest to stage `DialogRules.java` from the pinned April callback.
+The component requires the reviewed replay build, original offline embedding
+cache and staged source pins. It reaches the actual callback, checks its
+visible source and observation, and binds the full replay request.
+
+The private rules retain all three original binary mana feasibility gates,
+the original filtered mana availability, conditional mana checks and X cap
+at 20. Ordinary binary choices use YES then NO and their distinct original
+token IDs. X choices retain the original affordable integer range and mana
+budget features. Both use the action head, paired policy and one game-owned
+original Java chooser. Forced feasibility and single-X returns bypass the
+model and chooser. The shared clock and resource cleanup are inherited from
+the tested mode component. Other number callbacks, automatic mana production,
+cost-bearing mode integration, native execution and complete games remain
+unfinished. This component has no trained-checkpoint or full-game claim.
+
 Jack's original spell-mode component uses `JackModeEncoderMain` and
 `xmage_jack_modes.ModeSession`. An explicit `mode_callback: true` in the private
 input manifest stages the original legality rule as `ModeRules.java`. The
@@ -18,8 +36,8 @@ The remaining mode frame uses the paired policy and game-owned Java chooser.
 The full request, game, decision, sources, offered slots and shared clock are
 bound; failures close all three owned resources.
 
-Cost-bearing multi-mode callbacks refuse until the original custom mana
-filters are ported. Invalid or unsupported callbacks refuse in place of the
+Cost-bearing multi-mode callbacks refuse until the original mana rules are
+integrated into that replay. Invalid or unsupported callbacks refuse in place of the
 original heuristic fallback. Local transport checks do not execute private
 Java or checkpoints; native callback and hidden-world replay checks, other
 callbacks, exact deck associations and complete games remain unfinished.

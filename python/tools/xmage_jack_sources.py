@@ -322,6 +322,81 @@ public final class ModeRules {
 """ % CALLBACK_SHA256 + method + "}\n"
 
 
+DIALOG_VARIANT = ("original choose-use feasibility gates, YES/NO IDs and order; original X cap, "
+                  "conditional mana bounds and integer order; permitted callback replay; "
+                  "refusal instead of heuristic fallback; automatic mana production and other callbacks unqualified")
+
+
+def dialog_source(source: str) -> str:
+    """Stage original dialog and mana-availability rules outside public Git."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack dialog port requires the pinned April callback bytes")
+    helpers = extract(source, "    private static boolean hasTapSourceCost(",
+                      "    private Abilities<Ability> getAbilitiesForObject(")
+    helpers += extract(source, "    private mage.abilities.Abilities<mage.abilities.mana.ActivatedManaAbilityImpl> filterUsableManaAbilities(",
+                       "    private boolean mageObjectCanProduceManaForCurrentPayment(")
+    helpers += extract(source, "    private Mana parseManaCostFromMessage(",
+                       "    /**\n     * Logs every target that has been recorded on the provided ability.")
+    helpers += extract(source, "    private static int toVocabId(",
+                       "    private int computeCandidateActionId(")
+    available = extract(source, "    @Override\n    public ManaOptions getManaAvailable(",
+                        "    // CRITICAL FIX: Exclude permanents from mana producers")
+    available = available.replace("    @Override\n", "")
+    available = replace_once(available, "protected ManaOptions getManaAvailableFast(",
+                             "public ManaOptions getManaAvailableFast(")
+    gates = extract(source, "        // Mana feasibility gate: for optional additional costs",
+                    "        try {\n            final int maxCandidates = StateSequenceBuilder.TrainingData.MAX_CANDIDATES;\n            final int candFeatDim = StateSequenceBuilder.TrainingData.CAND_FEAT_DIM;\n\n            // Build 2-candidate decision")
+    bounds = extract(source, "            int realMin = min;\n            int realMax = max == Integer.MAX_VALUE",
+                     "            if (realMin == realMax) {\n                trace(\"announceX EXIT: only one option")
+    return """package spellbench.models.jack;
+import mage.Mana;
+import mage.ConditionalMana;
+import mage.abilities.Ability;
+import mage.abilities.SpellAbility;
+import mage.abilities.costs.mana.ManaCostsImpl;
+import mage.abilities.costs.mana.VariableManaCost;
+import mage.abilities.mana.ManaAbility;
+import mage.abilities.mana.ManaOptions;
+import mage.cards.Card;
+import mage.cards.Cards;
+import mage.constants.Outcome;
+import mage.constants.Zone;
+import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.players.Player;
+import mage.players.ManaPool;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.UUID;
+
+/** Private original rules; no network, heuristic choice or training. */
+public final class DialogRules {
+    public static final String SOURCE_SHA256 = "%s";
+    private final Player viewer;
+    private final UUID playerId;
+    private final ManaPool manaPool;
+    public DialogRules(Player viewer) {
+        if (viewer == null) throw new IllegalArgumentException("acting player required");
+        this.viewer = viewer;
+        this.playerId = viewer.getId();
+        this.manaPool = viewer.getManaPool();
+    }
+    private UUID getId() { return viewer.getId(); }
+    private int getLife() { return viewer.getLife(); }
+    private Cards getHand() { return viewer.getHand(); }
+    private void trace(String message) { }
+    public int useId(boolean value) {
+        return toVocabId(StateSequenceBuilder.ActionType.CHOOSE_USE.name() + "_" + (value ? "YES" : "NO"));
+    }
+    public Boolean forcedUse(Outcome outcome, String message, Ability source, Game game) {
+        if (game == null) throw new IllegalArgumentException("dialog needs its replayed game");
+""" % CALLBACK_SHA256 + gates + "        return null;\n    }\n" + """
+    public int[] xRange(int min, int max, boolean isManaPay, Ability source, Game game) {
+        if (game == null) throw new IllegalArgumentException("X choice needs its replayed game");
+""" + bounds + "        return new int[]{realMin, realMax};\n    }\n" + helpers + available + "}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -351,6 +426,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         raise ValueError("Jack mode staging needs an explicit boolean flag")
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
+    if "dialog_callback" in config and type(config["dialog_callback"]) is not bool:
+        raise ValueError("Jack dialog staging needs an explicit boolean flag")
+    dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+               if config.get("dialog_callback") is True else None)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -377,6 +456,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if modes is not None:
         with (output / "ModeRules.java").open("xb") as stream:
             stream.write(modes)
+    if dialogs is not None:
+        with (output / "DialogRules.java").open("xb") as stream:
+            stream.write(dialogs)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -393,6 +475,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if modes is not None:
         result.update(original_mode_callback_sha256=CALLBACK_SHA256,
                       staged_mode_rules_sha256=hashlib.sha256(modes).hexdigest(), mode_variant=MODE_VARIANT)
+    if dialogs is not None:
+        result.update(original_dialog_callback_sha256=CALLBACK_SHA256,
+                      staged_dialog_rules_sha256=hashlib.sha256(dialogs).hexdigest(), dialog_variant=DIALOG_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
