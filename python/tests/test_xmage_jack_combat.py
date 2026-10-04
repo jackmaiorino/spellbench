@@ -108,6 +108,28 @@ def test_done_first_keeps_full_original_rng_work_but_declares_no_attack():
     owned.close()
 
 
+def test_native_float_base_state_is_retained_across_original_rounds():
+    def floats(frame):
+        frame["features"]["sequence"][0][9] = 0.75
+    owned, decision, peer, model, chooser, _ = setup(edit_frame=floats, extra_round=floats)
+    result, plan = run(owned, decision)
+    assert len(model.requests) == 2
+    assert model.requests[0][0]["sequence"][0][9] == model.requests[1][0]["sequence"][0][9] == 0.75
+    assert result["neural_calls"] == 2
+    owned.close()
+
+
+def test_changed_native_float_base_state_refuses_the_next_round():
+    def first(frame):
+        frame["features"]["sequence"][0][9] = 0.75
+    def next_(frame):
+        frame["features"]["sequence"][0][9] = 0.5
+    owned, decision, peer, model, chooser, _ = setup(edit_frame=first, extra_round=next_)
+    with pytest.raises(ValueError, match="cached base state"):
+        run(owned, decision)
+    assert len(model.requests) == 1 and peer.closed and chooser.closed and model.closed == 1
+
+
 def test_separate_defender_round_uses_same_attack_head_and_single_original_pick():
     owned, decision, peer, model, chooser, _ = setup(extra_round=lambda frame:None)
     result, _ = run(owned, decision)

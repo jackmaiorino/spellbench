@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 import re
 import time
@@ -189,9 +190,10 @@ class CombatSession(ModeSession):
                 if len(rounds) >= 4096: raise ValueError("combat exceeds the declared round envelope")
                 validate_round(decision, message)
                 current_base = {key:message["features"][key] for key in ("sequence", "padding", "token_ids")}
-                if base_state is not None and wire.canonical_json_dumps(current_base) != base_state:
+                current_base_json = json.dumps(current_base, sort_keys=True, separators=(",", ":"), allow_nan=False)
+                if base_state is not None and current_base_json != base_state:
                     raise ValueError("original combat changed its cached base state within a callback")
-                base_state = wire.canonical_json_dumps(current_base)
+                base_state = current_base_json
                 scores = self.model.score(message["features"], timeout_s=remaining())
                 scores = validate_scores(scores, message["features"], self.model.encoding["mulligan_format"])
                 indices = self.selection.choose(scores["probabilities"], message["features"]["candidate_mask"],
