@@ -342,7 +342,7 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full hosted CI37164344311 passed at4e83316007cdafdce37c68610ef15602ec76479a for the known-hand repair. It predates the public London/search repair; new full CI remains pending. All affected repair checks and the corpus-dependent retries pass.",
+      "full_adapter_suite": "Full gorge hosted CI37168253649 passed at8d70516, including the public London/filtered-search repair. All97 affected arena checks pass after the main merge. Current full Python CI remains pending; complete native/reference-host qualification is not claimed.",
       "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games without execution faults but failed search gates. Runtime018 resolves the captured449-frame known-hand refusal and94-frame public reconstruction budget failure. Fresh full qualification covers all original280 blocks plus40 appended native-opponent coverage probes; it remains pending.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",

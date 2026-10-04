@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-runtime016-hosted-ci/v1",
-  "checked_at_utc": "2026-10-03T22:35:03.840335+00:00",
+  "checked_at_utc": "2026-10-04T01:51:03.425011+00:00",
   "source_head": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
   "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
   "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261003-016",
@@ -154,5 +154,353 @@
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37164344311"
   },
   "known_hand_repair_full_ci_passed": true,
-  "known_hand_repair_full_ci_covers_public_london_repair": false
+  "known_hand_repair_full_ci_covers_public_london_repair": false,
+  "public_london_repair_full_ci": {
+    "conclusion": "success",
+    "databaseId": 37168253649,
+    "event": "pull_request",
+    "headSha": "8d70516aa2b1b473dcb0bb938dda551faecf4e48",
+    "jobs": [
+      {
+        "completedAt": "2026-10-04T01:43:51Z",
+        "conclusion": "success",
+        "databaseId": 111335668179,
+        "name": "test",
+        "startedAt": "2026-10-04T01:31:07Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-04T01:31:08Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-04T01:31:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:10Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "number": 2,
+            "startedAt": "2026-10-04T01:31:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:12Z",
+            "conclusion": "success",
+            "name": "Clone gorge at the pin",
+            "number": 3,
+            "startedAt": "2026-10-04T01:31:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:29Z",
+            "conclusion": "success",
+            "name": "Fetch the Forge card corpus (GPL-3.0 build input, never committed)",
+            "number": 4,
+            "startedAt": "2026-10-04T01:31:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:29Z",
+            "conclusion": "success",
+            "name": "Resolve gorge through go.work",
+            "number": 5,
+            "startedAt": "2026-10-04T01:31:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:37Z",
+            "conclusion": "success",
+            "name": "Vet",
+            "number": 6,
+            "startedAt": "2026-10-04T01:31:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:39Z",
+            "conclusion": "success",
+            "name": "Check native policy identities and inventory",
+            "number": 7,
+            "startedAt": "2026-10-04T01:31:37Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:41Z",
+            "conclusion": "success",
+            "name": "Check payment mapping and agent failure handling",
+            "number": 8,
+            "startedAt": "2026-10-04T01:31:39Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:32:16Z",
+            "conclusion": "success",
+            "name": "Check native public search bridge",
+            "number": 9,
+            "startedAt": "2026-10-04T01:31:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:47Z",
+            "conclusion": "success",
+            "name": "Test",
+            "number": 10,
+            "startedAt": "2026-10-04T01:32:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:48Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "number": 20,
+            "startedAt": "2026-10-04T01:43:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:48Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 21,
+            "startedAt": "2026-10-04T01:43:48Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253649/job/111335668179"
+      }
+    ],
+    "status": "completed",
+    "updatedAt": "2026-10-04T01:43:51Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253649"
+  },
+  "public_london_repair_full_ci_passed": true,
+  "public_london_repair_runtime_source_commit": "2e2ef656f394b79a39031ffb9c0c3fa5bd5dc7d1",
+  "public_london_repair_runtime_source_of_record": "E:/spellbench-gorge-runtime-20261004-018",
+  "current_source_python_ci": {
+    "conclusion": "",
+    "headSha": "8d70516aa2b1b473dcb0bb938dda551faecf4e48",
+    "jobs": [
+      {
+        "completedAt": "2026-10-04T01:43:41Z",
+        "conclusion": "success",
+        "databaseId": 111335667689,
+        "name": "Python tests (ubuntu-24.04)",
+        "startedAt": "2026-10-04T01:31:08Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-10-04T01:31:11Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-04T01:31:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:12Z",
+            "conclusion": "success",
+            "name": "Check out repository",
+            "number": 2,
+            "startedAt": "2026-10-04T01:31:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:19Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 3,
+            "startedAt": "2026-10-04T01:31:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:21Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 4,
+            "startedAt": "2026-10-04T01:31:19Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:22Z",
+            "conclusion": "success",
+            "name": "Sync the locked environment",
+            "number": 5,
+            "startedAt": "2026-10-04T01:31:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:26Z",
+            "conclusion": "success",
+            "name": "Check protocol golden transcripts",
+            "number": 6,
+            "startedAt": "2026-10-04T01:31:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:26Z",
+            "conclusion": "success",
+            "name": "Check the run history",
+            "number": 7,
+            "startedAt": "2026-10-04T01:31:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:14Z",
+            "conclusion": "success",
+            "name": "Run tests",
+            "number": 8,
+            "startedAt": "2026-10-04T01:31:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:38Z",
+            "conclusion": "success",
+            "name": "Validate committed benchmark runs",
+            "number": 9,
+            "startedAt": "2026-10-04T01:43:14Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:38Z",
+            "conclusion": "success",
+            "name": "Post Set up Python",
+            "number": 17,
+            "startedAt": "2026-10-04T01:43:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:38Z",
+            "conclusion": "success",
+            "name": "Post Check out repository",
+            "number": 18,
+            "startedAt": "2026-10-04T01:43:38Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:43:38Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-04T01:43:38Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253646/job/111335667689"
+      },
+      {
+        "completedAt": "0001-01-01T00:00:00Z",
+        "conclusion": "",
+        "databaseId": 111335667781,
+        "name": "Python tests (windows-2025)",
+        "startedAt": "2026-10-04T01:31:07Z",
+        "status": "in_progress",
+        "steps": [
+          {
+            "completedAt": "2026-10-04T01:31:09Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-10-04T01:31:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:15Z",
+            "conclusion": "success",
+            "name": "Check out repository",
+            "number": 2,
+            "startedAt": "2026-10-04T01:31:09Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:31:58Z",
+            "conclusion": "success",
+            "name": "Set up Python",
+            "number": 3,
+            "startedAt": "2026-10-04T01:31:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:32:02Z",
+            "conclusion": "success",
+            "name": "Install uv",
+            "number": 4,
+            "startedAt": "2026-10-04T01:31:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:32:05Z",
+            "conclusion": "success",
+            "name": "Sync the locked environment",
+            "number": 5,
+            "startedAt": "2026-10-04T01:32:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:32:11Z",
+            "conclusion": "success",
+            "name": "Check protocol golden transcripts",
+            "number": 6,
+            "startedAt": "2026-10-04T01:32:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:32:12Z",
+            "conclusion": "success",
+            "name": "Check the run history",
+            "number": 7,
+            "startedAt": "2026-10-04T01:32:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Run tests",
+            "number": 8,
+            "startedAt": "2026-10-04T01:32:12Z",
+            "status": "in_progress"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Validate committed benchmark runs",
+            "number": 9,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Set up Python",
+            "number": 17,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          },
+          {
+            "completedAt": "0001-01-01T00:00:00Z",
+            "conclusion": "",
+            "name": "Post Check out repository",
+            "number": 18,
+            "startedAt": "0001-01-01T00:00:00Z",
+            "status": "pending"
+          }
+        ],
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253646/job/111335667781"
+      }
+    ],
+    "status": "in_progress"
+  },
+  "current_source_arena_affected_tests": {
+    "passed": 97,
+    "seconds": 137.23,
+    "scope": [
+      "test_machine_container.py",
+      "test_machine_limits.py",
+      "test_throughput.py",
+      "test_bench_guards.py"
+    ],
+    "production_source": "f1422a2f0e1d73777fc0b08911859db4054d1eb3"
+  },
+  "current_complete_qualification": false,
+  "current_native_run": "E:/spellbench-gorge-native-audit-20261004-005",
+  "current_native_run_status": "Running under canonical generation163; first3 blocks completed naturally, first redeal block retains reconstruction budget failures. No complete qualification or ratings claimed."
 }
