@@ -1,5 +1,27 @@
 # DraftZero neural adapters
 
+Jack's original general target component uses `JackTargetEncoderMain` and
+`xmage_jack_targets.TargetSession`. Set `target_callback: true` in the private
+input manifest with the mode, dialog, filtered-mana and automatic payment flags.
+The pipe takes the embedding file and seven source hashes: embedding, state,
+candidate, target rules, mode rules, dialog rules and payment rules. Private
+source and paired weights stay outside public Git.
+
+The actual original loop preserves legal target order, earlier picks, STOP
+availability, direct single/same-name choices, the `target` head, original
+candidate IDs/features and the first 64 slots. Forced choices bypass both
+inference and chooser RNG. A model error refuses. Each frame binds named
+permitted objects or players, source, slot, selected count, range and the full
+replay request. Earlier mode, binary and X choices use their original rules;
+automatic payment shares the original private bridge. The paired network,
+original chooser and one shared clock are owned by the session.
+
+This path supports the acting player's named-source `choose_target` and
+`finish_target_selection` spell callbacks. Native execution, costs, provided
+card sets, divided targets, opponent-sourced choices, complete games and deck
+qualification remain unfinished. The extracted loop retains its original
+minimum and Crew/Saddle completion rules for future callback qualification.
+
 Jack's original yes/no and X component uses `JackDialogEncoderMain` and
 `xmage_jack_dialogs.DialogSession`. Set `dialog_callback: true` in the private
 input manifest to stage `DialogRules.java` from the pinned April callback.

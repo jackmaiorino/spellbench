@@ -101,6 +101,22 @@
     "wiring": "optional source-bound replay hooks in both mode and binary/X pipes; separate payment variants and strict paired-policy consumers",
     "limitations": "private rules, activation/payment lifecycle and engine delegation parity require guarded native qualification; full games unfinished"
   },
+  "targets": {
+    "source_staging_flag": "target_callback: true; requires mana_payment_callback and the original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackTargetEncoderMain",
+    "owned_session": "xmage_jack_targets.TargetSession",
+    "decision_kinds": [
+      "choose_target",
+      "finish_target_selection"
+    ],
+    "original_head": "target",
+    "original_order": "actual possible-target order, filtered by original legality and earlier picks; STOP first when the original gate permits",
+    "direct_returns": "one option and same-name non-null targets bypass inference and chooser RNG, including when STOP is offered",
+    "feature_shapes": "256 by 128 state; 64 by 48 candidates; original IDs and first 64 slots",
+    "prefix_rules": "original mode legality, binary feasibility, X ranges and automatic mana payment",
+    "completion_rules": "original minimum and Crew/Saddle completion retained in the private loop; native cost adapters remain unfinished",
+    "limitations": "native private target execution, prefix/copy semantics and chooser application pending; cost, provided-card, divided-target and opponent-sourced callbacks, exact decks and complete games unfinished"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -109,6 +125,7 @@
     "guarded original binary and X feature, mana gate and selection execution",
     "guarded modes with costs and original filtered mana legality",
     "guarded original automatic mana rules, context cleanup and engine delegation parity",
+    "guarded original sequential targets, forced returns, STOP, prefix verification and chooser application",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

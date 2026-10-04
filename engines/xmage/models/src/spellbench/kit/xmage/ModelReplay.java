@@ -15,6 +15,7 @@ import mage.game.Game;
 import mage.players.Player;
 import mage.player.ai.encoder.ActionEncoder;
 import mage.target.Target;
+import mage.target.TargetCard;
 import mage.target.TargetAmount;
 import mage.target.common.TargetCardInLibrary;
 import spellbench.kit.core.Json;
@@ -70,6 +71,20 @@ final class ModelReplay {
         Boolean target(Player viewer, Outcome outcome, Target target, Ability source, Game game);
         Boolean color(Player viewer, Outcome outcome, Choice choice, Game game);
     }
+    interface TargetPick {
+        UUID choose(List<UUID> possible, int selected, int minimum, int maximum,
+                    boolean forced, UUID direct, String reason);
+    }
+    interface TargetCapture extends ModeCapture, DialogCapture {
+        @Override ManaCapture paymentRules();
+        boolean select(Player viewer, Outcome outcome, Target target, Ability source, Game game, TargetPick picker);
+        UUID earlier(World world, Map<String, Object> decision, Target target, Ability source, Game game,
+                     List<UUID> possible, int selected, int minimum, int maximum,
+                     boolean forced, UUID direct, String reason, Map<String, Object> semantic);
+        Map<String, Object> encode(World world, Map<String, Object> decision, Target target, Ability source, Game game,
+                                   List<UUID> possible, int selected, int minimum, int maximum,
+                                   boolean forced, UUID direct, String reason);
+    }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
     private static Result live;
@@ -105,9 +120,11 @@ final class ModelReplay {
         ModeCapture modeCapture;
         DialogCapture dialogCapture;
         ManaCapture manaCapture;
+        TargetCapture targetCapture;
         Map<String, Object> encoded;
 
         void searchAllowed() {
+            if (targetCapture != null) throw new IllegalArgumentException("target feature capture reached another callback");
             if (modeCapture != null) throw new IllegalArgumentException("mode feature capture reached another callback");
             if (dialogCapture != null) throw new IllegalArgumentException("dialog feature capture reached another callback");
         }
@@ -172,8 +189,35 @@ final class ModelReplay {
             try {
                 ManaCapture rules = paymentRules();
                 Boolean handled = rules == null ? null : rules.target(this, outcome, target, source, game);
-                return handled == null ? super.chooseTarget(outcome, target, source, game) : handled;
+                if (handled != null) return handled;
+                Result replay = context(game);
+                if (replay == null || replay.targetCapture == null) return super.chooseTarget(outcome, target, source, game);
+                if (!getId().equals(replay.world.player(replay.world.viewer)) || target == null
+                        || target instanceof TargetAmount || target instanceof TargetCard) {
+                    throw new IllegalArgumentException("original general targets exclude opponent, card-set and divided callbacks");
+                }
+                return replay.targetCapture.select(this, outcome, target, source, game,
+                        (possible, selected, minimum, maximum, forced, direct, reason) -> {
+                            Map<String, Object> past = replay.earlierPick(game);
+                            if (past != null) {
+                                UUID pick = replay.targetCapture.earlier(replay.world, replay.callbackDecision(), target, source,
+                                        game, possible, selected, minimum, maximum, forced, direct, reason, past);
+                                getPlayerHistory().targetSequence.add(pick == null ? GameAccess.STOP_CHOOSING : pick);
+                                replay.replayed++;
+                                return pick;
+                            }
+                            replay.compare(game);
+                            replay.player = this;
+                            replay.encoded = replay.targetCapture.encode(replay.world, replay.decision, target, source,
+                                    game, possible, selected, minimum, maximum, forced, direct, reason);
+                            throw new Stop();
+                        });
             } catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
+        }
+        @Override public boolean choose(Outcome outcome, Target target, Ability source, Game game) {
+            Result replay = context(game);
+            return replay != null && replay.targetCapture != null ? chooseTarget(outcome, target, source, game)
+                    : super.choose(outcome, target, source, game);
         }
         @Override public ManaOptions getManaAvailable(Game game) {
             Result replay = live;
@@ -514,18 +558,22 @@ final class ModelReplay {
         return run(record, evaluator, PlaySettings.diagnostic(visits));
     }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator, PlaySettings settings) {
-        return run(record, evaluator, settings, null, null);
+        return run(record, evaluator, settings, null, null, null);
     }
     static Result runMode(Map<String, Object> record, ModeCapture capture) {
         if (capture == null) throw new IllegalArgumentException("mode capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), capture, null);
+        return run(record, null, PlaySettings.diagnostic(1), capture, null, null);
     }
     static Result runDialog(Map<String, Object> record, DialogCapture capture) {
         if (capture == null) throw new IllegalArgumentException("dialog capture is required");
-        return run(record, null, PlaySettings.diagnostic(1), null, capture);
+        return run(record, null, PlaySettings.diagnostic(1), null, capture, null);
+    }
+    static Result runTarget(Map<String, Object> record, TargetCapture capture) {
+        if (capture == null) throw new IllegalArgumentException("target capture is required");
+        return run(record, null, PlaySettings.diagnostic(1), capture, capture, capture);
     }
     private static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
-                              PlaySettings settings, ModeCapture capture, DialogCapture dialogs) {
+                              PlaySettings settings, ModeCapture capture, DialogCapture dialogs, TargetCapture targets) {
         settings.activate();
         Map<String, Object> anchor = Json.obj(record, "anchor");
         Map<String, Object> a = Json.obj(anchor, "decision");
@@ -536,6 +584,7 @@ final class ModelReplay {
         Result result = new Result();
         result.modeCapture = capture;
         result.dialogCapture = dialogs;
+        result.targetCapture = targets;
         result.manaCapture = capture != null ? capture.paymentRules() : dialogs != null ? dialogs.paymentRules() : null;
         result.evaluator = evaluator; result.visits = settings.defaults.searchBudget; result.settings = settings;
         result.decision = Json.obj(record, "decision");

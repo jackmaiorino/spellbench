@@ -488,6 +488,75 @@ public final class ManaPaymentRules {
 """ + colors + "        return null;\n    }\n" + helpers + producers + "}\n"
 
 
+TARGET_VARIANT = ("original general target order, sequential STOP gates, single and same-name direct returns, "
+                  "first 64 slots and minimum/crew completion; permitted callback replay; "
+                  "refusal instead of model-error fallback; acting-player named-source spell targets only; "
+                  "cost, provided-card and divided-target callbacks unqualified")
+
+
+def target_source(source: str) -> str:
+    """Extract the original general-target loop and force rules, with an owned picker."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack targets require the pinned April callback bytes")
+    walk = extract(source, "        // RL-only target selection. No engine fallback.",
+                   "    private int parseCrewOrSaddleRequiredPower(")
+    beginning = walk.index("            UUID picked = null;")
+    ending = walk.index("            if (picked == null) { // STOP", beginning)
+    decision = walk[beginning:ending]
+    names = extract(decision, "                boolean allSameName = true;",
+                    "                if (allSameName && firstName != null) {")
+    direct = extract(decision, "                    for (UUID id : possible) {\n                        if (id != null) {",
+                     "                } else {\n                    // Non-trivial decision")
+    # The final brace belongs to the original all-same-name branch.
+    direct = direct.rstrip()
+    if not direct.endswith("}"):
+        raise ValueError("original direct target branch changed")
+    replacement = ("            UUID picked = null;\n            boolean forced = possible.size() == 1;\n"
+                   "            String reason = forced ? \"single_option\" : \"model\";\n"
+                   "            if (forced) picked = possible.get(0);\n            else {\n" + names
+                   + "                if (allSameName && firstName != null) {\n"
+                   + direct + "\n                    forced = true; reason = \"same_name\";\n"
+                   + "                }\n            }\n"
+                   + "            UUID directPick = picked;\n"
+                   + "            picked = picker.choose(new ArrayList<>(possible), chosenCount, minTargets, maxTargets,\n"
+                   + "                    forced, directPick, reason);\n"
+                   + "            if (forced && !java.util.Objects.equals(picked, directPick)) {\n"
+                   + "                throw new IllegalArgumentException(\"original forced target changed\");\n            }\n"
+                   + "            if (!forced && !possible.subList(0, Math.min(64, possible.size())).contains(picked)) {\n"
+                   + "                throw new IllegalArgumentException(\"target picker escaped the original first 64 slots\");\n            }\n")
+    walk = walk[:beginning] + replacement + walk[ending:]
+    helpers = extract(source, "    private int parseCrewOrSaddleRequiredPower(",
+                      "    @Override\n    public boolean choose(Outcome outcome, Target target, Ability source, Game game)")
+    return '''package spellbench.models.jack;
+
+import mage.MageObject;
+import mage.abilities.Ability;
+import mage.cards.Card;
+import mage.constants.Outcome;
+import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.players.Player;
+import mage.target.Target;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+/** Private original loop and deterministic rules; owned inference and no training. */
+public final class TargetRules {
+    public static final String SOURCE_SHA256 = "%s";
+    private final UUID playerId;
+    public TargetRules(Player viewer) { if (viewer == null) throw new IllegalArgumentException("acting target player required"); playerId = viewer.getId(); }
+    public interface Picker {
+        UUID choose(List<UUID> possible, int chosenCount, int minimum, int maximum,
+                    boolean forced, UUID directPick, String reason);
+    }
+    private static void trace(String value) { }
+    public boolean select(Outcome outcome, Target target, Ability source, Game game, Picker picker) {
+        if (target == null || game == null || picker == null) throw new IllegalArgumentException("actual general target callback required");
+''' % CALLBACK_SHA256 + walk + helpers + "}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -505,6 +574,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         raise ValueError("Jack mana payment staging needs an explicit boolean flag")
     if config.get("mana_payment_callback") is True and config.get("mode_mana_callback") is not True:
         raise ValueError("Jack mana payment staging requires the original filtered mana callback")
+    if "target_callback" in config and type(config["target_callback"]) is not bool:
+        raise ValueError("Jack target staging needs an explicit boolean flag")
+    if config.get("target_callback") is True and config.get("mana_payment_callback") is not True:
+        raise ValueError("Jack targets require the original payment and prefix callback rules")
     matches = [a for a in manifest.get("assets", []) if a.get("id") == config.get("state_encoder")]
     if len(matches) != 1:
         raise ValueError("Jack stage needs one private encoder asset")
@@ -532,6 +605,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                if config.get("dialog_callback") is True else None)
     payments = (mana_payment_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                 if config.get("mana_payment_callback") is True else None)
+    targets = (target_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+               if config.get("target_callback") is True else None)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -564,6 +639,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if payments is not None:
         with (output / "ManaPaymentRules.java").open("xb") as stream:
             stream.write(payments)
+    if targets is not None:
+        with (output / "TargetRules.java").open("xb") as stream:
+            stream.write(targets)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -590,6 +668,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_mana_payment_callback_sha256=CALLBACK_SHA256,
                       staged_mana_payment_rules_sha256=hashlib.sha256(payments).hexdigest(),
                       mana_payment_variant=MANA_PAYMENT_VARIANT)
+    if targets is not None:
+        result.update(original_target_callback_sha256=CALLBACK_SHA256,
+                      staged_target_rules_sha256=hashlib.sha256(targets).hexdigest(), target_variant=TARGET_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
