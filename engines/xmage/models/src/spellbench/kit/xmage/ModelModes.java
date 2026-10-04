@@ -24,6 +24,11 @@ final class ModelModes {
     final List<Integer> publicIndices = new ArrayList<>();
 
     ModelModes(World world, Map<String, Object> decision, Modes modes, Ability source, Game game) {
+        this(world, decision, modes, source, game, true);
+    }
+
+    ModelModes(World world, Map<String, Object> decision, Modes modes, Ability source, Game game,
+               boolean includeStop) {
         if (source == null || !world.player(world.viewer).equals(source.getControllerId())) {
             throw new IllegalArgumentException("mode callback needs the viewer's actual source ability");
         }
@@ -35,9 +40,9 @@ final class ModelModes {
             throw new IllegalArgumentException("mode candidate belongs to a different source");
         }
         List<Mode> all = new ArrayList<>(modes.values());
-        // Exactly ComputerPlayerMCTS.chooseMode: null at ordinal zero, then
-        // available unselected modes whose targets can be chosen, in source order.
-        options.add(null);
+        // Exp1 always prepends stop. MageZero v0.2 prepends it only when its
+        // minimum is met. Preserve the resulting original numeric ordinals.
+        if (includeStop) options.add(null);
         for (Mode mode : modes.getAvailableModes(source, game)) {
             if (!modes.getSelectedModes().contains(mode.getId())
                     && mode.getTargets().canChoose(source.getControllerId(), source, game)) {
@@ -45,8 +50,8 @@ final class ModelModes {
             }
         }
         if (options.size() > 65) throw new IllegalArgumentException("mode callback exceeds the original numeric clamp");
-        publicIndices.add(-1);
-        for (int i = 1; i < options.size(); i++) {
+        for (int i = 0; i < options.size(); i++) {
+            if (options.get(i) == null) { publicIndices.add(-1); continue; }
             int index = all.indexOf(options.get(i));
             if (index < 0) throw new IllegalArgumentException("available mode is absent from the actual source");
             publicIndices.add(index);
@@ -69,7 +74,9 @@ final class ModelModes {
                     throw new IllegalArgumentException("mode candidate count or range differs from the actual callback");
                 }
                 ordinal = options.indexOf(all.get(Math.toIntExact((Long) index)));
-                if (ordinal <= 0) throw new IllegalArgumentException("offered mode is unavailable to the original policy");
+                if (ordinal < 0 || options.get(ordinal) == null) {
+                    throw new IllegalArgumentException("offered mode is unavailable to the original policy");
+                }
             } else if ("finish_selection".equals(kind) && "modes".equals(Json.str(action, "purpose"))) {
                 if (Json.num(action, "selected_count", -1) != modes.getSelectedModes().size()) {
                     throw new IllegalArgumentException("mode stop candidate has a different selected count");
@@ -79,7 +86,8 @@ final class ModelModes {
                         : selected >= modes.getMinModes() || modes.isMayChooseNone() && selected == 0)) {
                     throw new IllegalArgumentException("mode stop is offered before the actual callback permits it");
                 }
-                ordinal = 0;
+                ordinal = options.indexOf(null);
+                if (ordinal < 0) throw new IllegalArgumentException("original mode callback has no stop ordinal");
             } else {
                 throw new IllegalArgumentException("mode decision mixes unrelated candidate families");
             }

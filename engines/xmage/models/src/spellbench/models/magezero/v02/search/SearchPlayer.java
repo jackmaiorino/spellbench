@@ -20,7 +20,7 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
     private Map<MCTSNode, Integer> beforeSelectionVisits = new IdentityHashMap<>();
     private Set<MCTSNode> selectionMasked = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
     public SearchPlayer(String name) { super(name, RangeOfInfluence.ALL, 6); }
-    protected SearchPlayer(SearchPlayer player) { super(player); }
+    protected SearchPlayer(SearchPlayer player) { super(player); requireVisitBudget = player.requireVisitBudget; }
     @Override public SearchPlayer copy() { return new SearchPlayer(this); }
     public void configure(RemoteModelEvaluator model, MCTSDefaults settings) {
         if (model == null || settings == null || settings.searchBudget < 2 || settings.searchBudget > 1000

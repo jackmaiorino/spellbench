@@ -101,7 +101,9 @@ def main() -> int:
     if magezero_search:
         source_sets["model"] += sorted((args.out / "magezero-search-sources").rglob("*.java"))
     else:
-        source_sets["model"] = [p for p in source_sets["model"] if not ("magezero" in p.parts and "search" in p.parts)]
+        source_sets["model"] = [p for p in source_sets["model"]
+                                if not ("magezero" in p.parts and "search" in p.parts)
+                                and not p.name.startswith("MageZeroSearch")]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
