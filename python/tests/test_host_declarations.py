@@ -126,6 +126,25 @@ def test_v8_under_its_engine_defaults_the_seat_still_decides_the_rest() -> None:
     check_declarations(seat_decision([SAMPLES["distribute"]], kind="choice"), engine, RULES)          # damage a spell divides
 
 
+def test_priority_mana_activation_is_distinct_from_automatic_cost_payment() -> None:
+    engine = _defaults(mana_payment="engine_autopay")
+    priority = seat_decision([SAMPLES["pass"], SAMPLES["activate_mana_ability"]])
+    check_declarations(priority, engine, RULES)
+    check_context(priority)
+
+    undeclared = EngineProfile.from_json({**engine.to_json(), "decision_kinds": [
+        kind for kind in engine.decision_kinds if kind != "activate_mana_ability"
+    ]})
+    with pytest.raises(ValidatorViolation, match="decision_kinds") as caught:
+        check_declarations(priority, undeclared, RULES)
+    assert caught.value.rule == "V8"
+
+    payment = seat_decision(MANA, kind="choice", purpose="mana_payment")
+    with pytest.raises(ValidatorViolation, match="engine_defaults.mana_payment") as caught:
+        check_declarations(payment, engine, RULES)
+    assert caught.value.rule == "V8"
+
+
 def test_v8_an_extension_key_is_declared_and_enabled() -> None:
     rules = Rules.from_json({**RULES_JSON, "extensions": ["x_kernel_v5", "x_other"]})
     check_declarations(seat_decision(extensions={"x_kernel_v5": {}}), PROFILE, rules)
