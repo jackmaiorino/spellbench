@@ -1,5 +1,27 @@
 # DraftZero neural adapters
 
+Jack's private paired inference now also has an original mulligan feature
+component. A `mulligan_encoder` asset in the external Jack manifest stages
+the hash-pinned private `MulliganModel.java` into `MulliganEncoder.java`.
+The Java source is identical at the declared April and legacy Q network
+revisions. The port retains the original 71 features, hand card IDs, land and
+creature counts, average nonland mana value, and remaining-library composition.
+It orders the library by known card name to remove hidden order. This is a
+declared fair variant; pooled floating-point outputs still need native replay.
+
+`JackMulliganEncoderMain` reads owned pregame records through a private pipe.
+`xmage_jack_mulligan.MulliganSession` binds each encoded decision and observed
+counts to the exact game start already verified by the paired model. Both
+networks keep ties: the April network keeps at probability 0.5 or greater,
+and the legacy Q network keeps when Q_keep is at least Q_mull. Evaluation
+disables the original training exploration, keep floor and hard overrides.
+The shared clock includes encoding, inference and validation. Changed source,
+stale responses, malformed padding and unoffered choices close both resources.
+`JackMulliganEncoderCheck` prepares actual pregame and hidden-world checks for
+the guarded native job. These checks have not executed. Other callbacks, deck
+associations, original duplicate-prompt handling and complete games remain
+unfinished; this component is not a full agent or a rated entrant.
+
 This is the tested connection from permitted XMage observations to Exp1's
 feature hash and legal priority, target and binary policy slots. It is not a
 complete agent. The neural connector selects directly from these trained

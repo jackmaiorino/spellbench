@@ -15,6 +15,18 @@
       "sha256": "07886c37a5f011ecfbc92cca22e7657162c2483afe3b73e355b950f8a3abbd82",
       "greedy_constructor_lines": [2489, 2491],
       "no_training_constructor_lines": [3576, 3578]
+    },
+    "mulligan_game_encoder": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/rl/MulliganModel.java",
+      "sha256": "69e039a69c5d983f5614d6a9c7efc77a7cf9f0ca1df64851d642d0f2ad718497",
+      "identical_at_revisions": [
+        "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+        "80f912c9e238ebd0448fc1140a617d71363d02fe"
+      ],
+      "feature_lines": [
+        201,
+        296
+      ]
     }
   },
   "profiles": [
@@ -43,10 +55,20 @@
     "fair_variant": "deterministic game seeding; invalid input or returned choices refuse rather than falling back",
     "candidate_slots": 64
   },
+  "mulligan": {
+    "features": 71,
+    "evaluation_episode": -1,
+    "training_exploration": false,
+    "training_overrides": false,
+    "april_keep_rule": "keep_probability >= 0.5",
+    "legacy_keep_rule": "Q_keep >= Q_mull",
+    "fair_variant": "original own-hand features and remaining-library multiset; library sorted by card name; no hidden order",
+    "wiring": "private original feature port and paired-network pregame component; guarded native execution unfinished"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
-    "original mulligan game encoding and override rules",
+    "guarded original mulligan feature and policy execution; duplicate-prompt handling",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

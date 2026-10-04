@@ -7,6 +7,7 @@ through the existing confined launcher, under the caller's guarded job.
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import math
 import time
@@ -138,6 +139,7 @@ class JackInferenceSession:
         if (not isinstance(deck, dict) or not isinstance(deck.get("decklist"), list)
                 or digests.deck_id(deck["decklist"]) != policy.get("deck_id")):
             raise ValueError("Jack checkpoint association differs from the actual own deck")
+        self.game_start_sha256 = hashlib.sha256(wire.canonical_json_dumps(game_start)).hexdigest()
         self.container = "spellbench-xmage-" + uuid.uuid4().hex
         self.argv = pinned_command(manifest, root, checkpoint, image, "serve", self.container)
         try:

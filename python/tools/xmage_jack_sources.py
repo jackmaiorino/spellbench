@@ -16,6 +16,8 @@ from xmage_release_assets import prepare_root, validate_asset, verify
 
 ENCODER_SHA256 = "51504c1ffffbf5db8554258b5dca28f54f26bb7760121e0098561eac0b14b916"
 CALLBACK_SHA256 = "b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6"
+MULLIGAN_JAVA_SHA256 = "69e039a69c5d983f5614d6a9c7efc77a7cf9f0ca1df64851d642d0f2ad718497"
+MULLIGAN_VARIANT = "original own-hand features and remaining-library multiset; library sorted by card name; no hidden order"
 VARIANT = ("acting-player perspective; entity tokens limited to named permitted references; "
            "only explicitly known library cards, ordered by public object alias; "
            "pinned read-only text embeddings with no generated fallback")
@@ -245,6 +247,53 @@ public final class PolicySelector {
 """ % CALLBACK_SHA256 + classes + normalize + picks + "}\n"
 
 
+def mulligan_source(source: str) -> str:
+    """Keep the original 71 features, with no sampled library-order feature.
+
+    The original networks pool the deck embeddings. Preserve the remaining
+    library's composition while giving it a fixed order from permitted names.
+    The original evaluation has no training exploration or hard overrides.
+    """
+    if hashlib.sha256(source.encode()).hexdigest() != MULLIGAN_JAVA_SHA256:
+        raise ValueError("Jack mulligan port requires the pinned April Java source")
+    methods = extract(source, "    private float[] buildFeatureVector(",
+                      "    // Logging is now handled entirely in ComputerPlayerRL.java:")
+    methods = replace_once(methods,
+        "            List<Card> deck = new ArrayList<>(player.getLibrary().getCards(game));",
+        "            List<Card> deck = new ArrayList<>(player.getLibrary().getCards(game));\n"
+        "            deck.sort(java.util.Comparator.comparing(Card::getName));")
+    return """package spellbench.models.jack;
+import mage.cards.Card;
+import mage.game.Game;
+import mage.players.Player;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Private original mulligan feature port. No model, training or fallback. */
+public final class MulliganEncoder {
+    public static final String SOURCE_SHA256 = "%s";
+    private static final int MAX_HAND_SIZE = 7, MAX_DECK_SIZE = 60, NUM_EXPLICIT = 3;
+    private static final int FEATURE_SIZE = 71, TOKEN_ID_VOCAB = 65536;
+    public float[] features(Player player, Game game, int mulliganCount) {
+        if (player == null || game == null || player.getLibrary() == null
+                || mulliganCount < 0 || mulliganCount > 7
+                || player.getHand().size() < 1 || player.getHand().size() > 7
+                || player.getLibrary().size() > MAX_DECK_SIZE) {
+            throw new IllegalArgumentException("unsupported original mulligan feature envelope");
+        }
+        for (Card card : player.getHand().getCards(game)) requireNamed(card);
+        for (Card card : player.getLibrary().getCards(game)) requireNamed(card);
+        return buildFeatureVector(player, game, mulliganCount,
+                extractHandCardIds(player, game), extractDeckCardIds(player, game));
+    }
+    private static void requireNamed(Card card) {
+        if (card == null || card.getName() == null || card.getName().isEmpty()) {
+            throw new IllegalArgumentException("own permitted cards must have names");
+        }
+    }
+""" % MULLIGAN_JAVA_SHA256 + methods + "}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -270,6 +319,17 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    mulligan = None
+    if config.get("mulligan_encoder") is not None:
+        matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
+        if len(matches) != 1:
+            raise ValueError("Jack mulligan stage needs one private encoder asset")
+        asset = matches[0]
+        validate_asset(asset)
+        if asset["sha256"] != MULLIGAN_JAVA_SHA256 or asset.get("transport") != "local-file":
+            raise ValueError("Jack mulligan stage requires the pinned private local source")
+        verify(root / asset["filename"], asset)
+        mulligan = mulligan_source((root / asset["filename"]).read_text(encoding="utf-8")).encode("utf-8")
     if output.exists() or output.is_symlink():
         raise ValueError("Jack source stage needs a new owned output directory")
     output = prepare_root(output)
@@ -279,6 +339,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         stream.write(candidates)
     with (output / "PolicySelector.java").open("xb") as stream:
         stream.write(choices)
+    if mulligan is not None:
+        with (output / "MulliganEncoder.java").open("xb") as stream:
+            stream.write(mulligan)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -288,6 +351,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
               "candidate_scope": "original priority IDs and 48 features; explicit acting player; extraction failures refuse",
               "scope": "base-state and priority features; original generic candidate methods and chooser; other game callbacks, deck qualification and games unfinished",
               "private_source": True, "embedding_source": "explicit hash-pinned offline cache"}
+    if mulligan is not None:
+        result.update(original_mulligan_encoder_sha256=MULLIGAN_JAVA_SHA256,
+                      staged_mulligan_encoder_sha256=hashlib.sha256(mulligan).hexdigest(),
+                      mulligan_variant=MULLIGAN_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
