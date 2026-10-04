@@ -88,8 +88,11 @@ def main():
     Placement.parse(placement)
     assigned = int(os.environ['GORGE_ASSIGNED_DISK_BYTES'])
     os.environ['GOMAXPROCS'] = '1'
-    values = {'GORGE_SPELLBENCH_ENV':str(RUNTIME/'spellbench-gorge-env-linux-amd64'),
-              'GORGE_SPELLBENCH_AGENT':str(RUNTIME/'spellbench-gorge-agent-linux-amd64'),
+    platform = 'windows-amd64.exe' if os.name == 'nt' else 'linux-amd64'
+    values = {'GORGE_SPELLBENCH_ENV':os.environ.get('GORGE_SPELLBENCH_ENV',
+                  str(RUNTIME/f'spellbench-gorge-env-{platform}')),
+              'GORGE_SPELLBENCH_AGENT':os.environ.get('GORGE_SPELLBENCH_AGENT',
+                  str(RUNTIME/f'spellbench-gorge-agent-{platform}')),
               'GORGE_REGISTRY':str(RUNTIME/'registry.gob.gz'),
               'GORGE_REGISTRY_SHA256':'42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937'}
     original_free = bench_run.machine.free_bytes
