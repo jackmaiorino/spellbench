@@ -158,14 +158,14 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
                 Object cid = candidate.get("candidate_id"); String kind = Json.str(semantic, "kind");
                 if (!(cid instanceof Long) || (Long) cid < 0 || (Long) cid > 9007199254740991L || !publicIds.add((Long) cid)
                         || !Json.canonical(reference).equals(Json.canonical(semantic.get("source")))
-                        || Json.num(semantic, "selected_count", -1) != selected || Json.num(semantic, "slot", -1) != slot) {
+                        || !Long.valueOf(selected).equals(semantic.get("selected_count")) || !Long.valueOf(slot).equals(semantic.get("slot"))) {
                     throw new IllegalArgumentException("target action has another source, slot or selected count");
                 }
                 UUID id;
                 if ("choose_target".equals(kind)) {
                     id = Dialogs.uuidOf(world, semantic);
-                    if (id == null || !possible.contains(id) || Json.num(semantic, "minimum", -1) != minimum
-                            || Json.num(semantic, "maximum", -1) != maximum
+                    if (id == null || !possible.contains(id) || !Long.valueOf(minimum).equals(semantic.get("minimum"))
+                            || !Long.valueOf(maximum).equals(semantic.get("maximum"))
                             || !Json.canonical(targets.get(possible.indexOf(id))).equals(Json.canonical(semantic.get("target")))) {
                         throw new IllegalArgumentException("public target differs from the original order, range or visible object");
                     }
