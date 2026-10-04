@@ -378,8 +378,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "All69 affected check nodes across40 root tests, Go vet and diff checks passed. Exact frozen native source556f7c0 passes hosted Go, Linux/Windows Python and isolation checks. Full native and reference-host qualification remain incomplete.",
-      "five_deck_search_qualification": "Runtime024 repaired the saved thirteen Wildfire/search-redeal failures and completed native Wildfire48 with16 covered decisions and no refusals. The larger run emitted19 natural rows and a Rally halt; search-mana-redeal rows52/108/164 have66/13/14 reconstruction refusals and Rally108 reports target123 not visible. The pod is released and all terminal evidence retained for local diagnosis. No compatible allocation or full current qualification exists.",
+      "full_adapter_suite": "Historical source556f7c0 passed69 affected check nodes across40 root tests and hosted Go, Linux/Windows Python and isolation checks. Runtime026's public replay repair passes45 affected strategy root tests, all17 saved failure roots with eight known-card-valid worlds and unchanged native diagnostics, plus separately corrected Go vet and diff checks. Current-head hosted checks and complete native/reference-host qualification remain pending.",
+      "five_deck_search_qualification": "Runtime025 stopped after13 natural blocks; Wildfire52/search-mana-redeal had26 reconstruction budget failures. Runtime026 repairs exact public ability selection and retained-hand shuffle witnesses. The saved260-frame root now returns eight valid worlds in551 submits instead of exhausting5000. A bounded RunPod matched1/8/16-worker qualification is active; the supported launcher must qualify compatible throughput before the full320-block native audit. No full current native or reference qualification exists.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -392,9 +392,9 @@
       "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
-      "current_runtime_native_attempt": "docs/gorge-runtime024-cloud019-20261004.json",
+      "current_runtime_native_attempt": "docs/gorge-runtime026-cloud020-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
-      "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-024.json",
+      "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
       "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json",
       "runtime020_cloud": "docs/gorge-runtime020-cloud-20261004.json",
       "spy_london_bottom_repair": "docs/gorge-spy-london-bottom-repair-20261004.json",
@@ -407,13 +407,19 @@
       "public_arrange_diagnosis": "docs/gorge-public-arrange-diagnosis-20261004.json",
       "public_arrange_repair": "docs/gorge-public-arrange-repair-20261004.json",
       "runtime024_hosted_ci": "docs/gorge-runtime024-ci-20261004.json",
-      "reference_coverage_repair": "docs/gorge-reference-coverage-repair-20261004.json"
+      "reference_coverage_repair": "docs/gorge-reference-coverage-repair-20261004.json",
+      "runtime024_native_attempt": "docs/gorge-runtime024-cloud019-20261004.json",
+      "runtime025_native_attempt": "docs/gorge-runtime025-local-native-20261004.json",
+      "public_copy_target_repair": "docs/gorge-copy-target-repair-20261004.json",
+      "public_dig_repair": "docs/gorge-public-dig-repair-20261004.json",
+      "public_ability_and_retained_hand_repair": "docs/gorge-public-ability-repair-20261004.json",
+      "current_reference_preparation": "docs/gorge-reference-runtime026-preparation-20261004.json"
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-024.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA-256; current runtime024 inputs frozen. Compatible native/reference-host qualification, clocks/isolation and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry and SHA-256; current runtime026 inputs frozen. Compatible native/reference-host qualification, clocks/isolation and rated launch remain pending.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
@@ -438,7 +444,8 @@
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
       "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json",
-      "public_london_token_repair": "docs/gorge-public-london-token-repair-20261004.json"
+      "public_london_token_repair": "docs/gorge-public-london-token-repair-20261004.json",
+      "public_ability_and_retained_hand_repair": "docs/gorge-public-ability-repair-20261004.json"
     }
   }
 }
