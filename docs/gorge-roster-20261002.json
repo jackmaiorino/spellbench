@@ -342,8 +342,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full hosted CI passed at088148709003ed4618ade40469dd11718e4964da, including the extended real-card outcome test. The subsequent known-hand repair passes all affected strategy/native-known tests, vet and diff; new full CI remains pending.",
-      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games without native execution faults but failed search gates. Runtime017 repairs the known-hand refusal in the supplied449-frame history; fresh full search qualification remains pending.",
+      "full_adapter_suite": "Full hosted CI37164344311 passed at4e83316007cdafdce37c68610ef15602ec76479a for the known-hand repair. It predates the public London/search repair; new full CI remains pending. All affected repair checks and the corpus-dependent retries pass.",
+      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games without execution faults but failed search gates. Runtime018 resolves the captured449-frame known-hand refusal and94-frame public reconstruction budget failure. Fresh full qualification covers all original280 blocks plus40 appended native-opponent coverage probes; it remains pending.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -352,13 +352,14 @@
       "library_ownership_repair": "docs/gorge-library-owner-repair-20261003.json",
       "current_corrected_runtime_audit": "docs/gorge-runtime016-native-audit-20261003.json",
       "post_search_noninterference": "docs/gorge-private-search-outcome-20261003.json",
-      "known_hand_repair": "docs/gorge-known-hand-repair-20261003.json"
+      "known_hand_repair": "docs/gorge-known-hand-repair-20261003.json",
+      "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json"
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-017.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-018.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry file and SHA-256; runtime017 inputs frozen. Current startup/isolation/qualification and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry file and SHA-256; runtime018 inputs frozen. Current startup, isolation, native qualification and rated launch remain pending.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
@@ -374,6 +375,12 @@
       "public_name_counts_retained": true,
       "native_policy_changes": false,
       "repair": "docs/gorge-known-hand-repair-20261003.json"
+    },
+    "public_witness_repair": {
+      "repair": "docs/gorge-public-london-search-repair-20261004.json",
+      "native_sampler_counters_preserved_on_captured_prefix": true,
+      "native_attempt_and_submit_budgets_changed": false,
+      "current_full_qualification": false
     }
   }
 }
