@@ -101,17 +101,28 @@ public abstract class OriginalActivationPlayer extends ComputerPlayer {
     protected abstract List<MageObject> originalParentManaProducers(Game game);
     // The pinned engine ComputerPlayer delegates this primitive directly to PlayerImpl.
     protected List<MageObject> engineParentManaProducers(Game game) { return super.getAvailableManaProducers(game); }
+    protected void requireOriginalActivationWorld(Game game) {
+        if (game == null || game.getPlayer(getId()) != this)
+            throw new IllegalArgumentException("original activation needs its owned player");
+    }
     public final void applyOriginalPriorityAbility(Game game, ActivatedAbility ability) {
         if (game == null || game.getPlayer(getId()) != this) throw new IllegalArgumentException("original activation needs its owned permitted player");
+        requireOriginalActivationWorld(game);
         act(game, ability);
     }
     public final boolean dispatchOriginalPriority(PriorityRules rules, Game game,
             java.util.function.ToIntFunction<List<ActivatedAbility>> chooser) {
         if (rules == null || rules.owner() != this || game == null || game.getPlayer(getId()) != this || chooser == null)
             throw new IllegalArgumentException("priority dispatch needs its persistent owned rules and original chooser");
+        requireOriginalActivationWorld(game);
         return rules.dispatch(game, chooser, ability -> act(game, ability), () -> pass(game));
     }
     public final Ability activationAbility() { return currentAbility; }
+    protected final boolean inOriginalPlayManaContext() { return inPlayManaContext(); }
+    protected final String originalUnpaidManaText() { return currentUnpaidManaText.get(); }
+    protected final String originalPreferredManaColor(Choice choice) {
+        return preferredManaColorForUnpaid(currentUnpaidManaText.get(), choice.getChoices());
+    }
     public final UUID excludedManaSource() { return abilitySourceToExcludeFromMana; }
     public final Set<UUID> reservedTapSources() { return Collections.unmodifiableSet(new HashSet<>(tapTargetCostReservations)); }
     public final boolean activationHadStateLeak() { return lastActivationHadStateLeak; }

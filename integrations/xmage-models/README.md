@@ -460,3 +460,26 @@ The runtime must still supply the isolated paired backend and verified world
 admission, connect the remaining callback bodies, and qualify native replay and
 complete games. This component does not implement the full copied-player marker
 or admit a real engine's hidden state by itself.
+
+`priority_choice_player: true` requires both `parent_dialog_callback` and
+`neural_selection`. It emits abstract `OriginalPriorityChoicePlayer`, with
+concrete original priority and Choice callbacks. Priority retains the original
+phase dispatch, pass-only shortcut and activation path. Choice preserves mana
+color delegation first, alternative-cost handling second, then regular neural
+choices in their original order. Optional and large card-name menus retain the
+actual inherited policy. The original payment TLS supplies unpaid-color hints.
+
+Each player binds once to its owned admitted world, cached rules and shared
+neural session. A copy shares the session and copied parent queues, but requires
+its own binding; it receives no root-world reference or cache. Direct priority,
+activation, mana and cast/play entry points also enforce admission. A closed
+session or expired decision is checked again after callback execution, so the
+original activation exception handler cannot hide a nested model refusal.
+
+`JackPriorityChoiceCheck.java` exercises these actual bodies with metadata worlds
+and synthetic paired predictions, including actual PassEffect application,
+neural priority activation, parent and forced choice paths, copy binding, timer
+cleanup, direct foreign-world refusal and nested model failure. Remaining
+strategic callbacks stay abstract, and this class does not implement the complete
+copied-player marker. Persistent alias/cache lifecycle, the isolated backend and
+native/full-game qualification remain required.

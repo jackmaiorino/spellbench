@@ -897,6 +897,11 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "priority_choice_player" in config and type(config["priority_choice_player"]) is not bool:
+        raise ValueError("Jack priority/choice player staging needs an explicit boolean flag")
+    if config.get("priority_choice_player") is True and not (
+            config.get("parent_dialog_callback") is True and config.get("neural_selection") is True):
+        raise ValueError("Jack priority/choice player requires original parent dialogs and neural selection")
     if "neural_selection" in config and type(config["neural_selection"]) is not bool:
         raise ValueError("Jack neural selection staging needs an explicit boolean flag")
     if config.get("neural_selection") is True and config.get("priority_callback") is not True:
@@ -982,6 +987,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if config.get("neural_selection") is True:
         from xmage_jack_neural_sources import neural_selection_source
         neural = neural_selection_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    priority_choice = None
+    if config.get("priority_choice_player") is True:
+        from xmage_jack_priority_choice_sources import priority_choice_source
+        priority_choice = priority_choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -1054,6 +1063,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if neural is not None:
         with (output / "OriginalNeuralSelection.java").open("xb") as stream:
             stream.write(neural)
+    if priority_choice is not None:
+        with (output / "OriginalPriorityChoicePlayer.java").open("xb") as stream:
+            stream.write(priority_choice)
     if mulligan is not None:
         with (output / "MulliganEncoder.java").open("xb") as stream:
             stream.write(mulligan)
@@ -1148,6 +1160,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         from xmage_jack_neural_sources import NEURAL_VARIANT
         result.update(staged_neural_selection_sha256=hashlib.sha256(neural).hexdigest(),
                       neural_selection_variant=NEURAL_VARIANT, original_neural_native_qualified=False)
+    if priority_choice is not None:
+        from xmage_jack_priority_choice_sources import PRIORITY_CHOICE_VARIANT
+        result.update(staged_priority_choice_player_sha256=hashlib.sha256(priority_choice).hexdigest(),
+                      priority_choice_player_variant=PRIORITY_CHOICE_VARIANT, original_priority_choice_native_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

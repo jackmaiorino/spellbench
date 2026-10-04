@@ -160,6 +160,7 @@ public final class OriginalNeuralSelection {
     public OriginalNeuralSelection forCopy(Player copiedViewer, PriorityRules copiedRules, Admission copiedAdmission) {
         return new OriginalNeuralSelection(copiedViewer, copiedRules, session, copiedAdmission);
     }
+    public void requireWorld(Game game) { require(game); }
     private void require(Game game) {
         try {
             session.requireOpen();
