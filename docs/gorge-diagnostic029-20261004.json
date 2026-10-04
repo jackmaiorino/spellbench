@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-04T23:50:24.843566+00:00",
+  "at_utc": "2026-10-04T23:53:36.264282+00:00",
   "spellbench_commit": "0612e86e7828a557d12917a44103907d94e450c3",
   "runtime_source_commit": "7b703fed33a1533158b69a28ab6ea3e2b5034d53",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -62,13 +62,6 @@
   },
   "cloud_host_alias": "RunPod-gorge029",
   "placement": "main-pc=unavailable: verified human research priority; haleyspc=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host, actual quota measured and parallel allocation selected by supported launcher",
-  "runtime_seal_sha256": "b7be1bb34ad813cad9e4663c86bc629bb2092f4a49b26e05aafdee66794b23f3",
-  "native_qualifier_sha256": "7e1450285b2a04e38fe2f1cdbd9bbb991f832f6019d450af2af9a93039c6e492",
-  "runtime_binaries": [
-    "spellbench-gorge-env-linux-amd64",
-    "spellbench-gorge-agent-linux-amd64",
-    "gorgequal-linux-amd64"
-  ],
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "source_archive_verified": true,
   "bundle_verified": true,
@@ -78,7 +71,7 @@
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-029\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-029\\CATALOG.json",
   "guard_path": "Independent one-hour release guardian; diagnostic build parent; independent durable binary pins before execution; one exact seed52 first-failure capture",
-  "observed_driver_phase": "durable_runtime_pins",
+  "observed_driver_phase": "first_public_failure_capture",
   "pod_id": "r2xapqctau0zkm",
   "owned_lease_name": "spellbench-gorge-diagnostic-1886ac0e70214da5",
   "lease_deadline_utc": "2026-10-05T00:46:12.8381383+00:00",
@@ -88,9 +81,9 @@
   "observed_cpu_model": "AMD Ryzen 7 7700 8-Core Processor",
   "parent_source_of_record": "E:\\spellbench-gorge-runpod-20261004-029\\DRIVER-ACTUAL.py",
   "parent_sha256": "3a8414c1b3d8fb719ff9ccf35459a378ad4c1ad8074f638b4816d04e82c9efe6",
-  "owner_supervision_record": "E:\\spellbench-gorge-runpod-20261004-029\\SUPERVISION.json",
+  "owner_supervision_record": "E:\\spellbench-gorge-runpod-20261004-029\\SUPERVISION-PIN-STAGE-RESUMED-001.json",
   "independent_lease_guard_record": "E:\\spellbench-gorge-runpod-20261004-029\\LIVE-GUARD-ARMED.json",
-  "observed_live_record": "E:\\spellbench-gorge-runpod-20261004-029\\LIVE-OBSERVATION-001.json",
+  "observed_live_record": "E:\\spellbench-gorge-runpod-20261004-029\\LIVE-OBSERVATION-002.json",
   "diagnostic_only": true,
   "reference_qualification_complete": false,
   "budgets": {
@@ -103,5 +96,22 @@
     "teacher_parallelism": 0
   },
   "previous_native_failure_record": "docs/gorge-native028-20261004.json",
-  "next_wake_condition": "Diagnostic binary build and durable pin acknowledgement, first failing public root recovered, parent failure or one-hour lease deadline; one owner watcher and independent release guardian remain active"
+  "next_wake_condition": "First failing actor-public root recovered, diagnostic parent failure or one-hour lease deadline; the resumed single owner watcher and original release guardian remain active",
+  "production_native_qualifier_sha256": "7e1450285b2a04e38fe2f1cdbd9bbb991f832f6019d450af2af9a93039c6e492",
+  "production_runtime_seal_sha256": "b7be1bb34ad813cad9e4663c86bc629bb2092f4a49b26e05aafdee66794b23f3",
+  "production_runtime_binaries": [
+    "spellbench-gorge-env-linux-amd64",
+    "spellbench-gorge-agent-linux-amd64",
+    "gorgequal-linux-amd64"
+  ],
+  "diagnostic_qualifier_sha256": "8dfc3a2ff899d22ba3882002103f99eaaa81021208b7f0e815f91a8b8bb21f4a",
+  "diagnostic_runtime_seal_sha256": "cd1b4ccb460aa16ea26e9e9be608e54f153a3334bcab232cefbcf49bae08a424",
+  "diagnostic_build_complete": true,
+  "independent_binary_pins_verified_before_execution": true,
+  "diagnostic_build_record": "E:\\spellbench-gorge-diagnostic-runtime-20261004-029\\BUILD.json",
+  "logging_overlay_sha256": "4269fb3d7644f0bae5bbb614f236765e2a418951a274615ea23c56bdc6c245d0",
+  "source_fingerprint_passed": true,
+  "linked_compiler_test_passed": true,
+  "watcher_recovery_record": "E:\\spellbench-gorge-runpod-20261004-029\\PIN-WATCHER-RECOVERY-001.json",
+  "diagnostic_capture_passed": false
 }
