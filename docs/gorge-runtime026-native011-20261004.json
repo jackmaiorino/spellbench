@@ -1,0 +1,91 @@
+{
+  "schema": "spellbench-gorge-local-native-launch/v1",
+  "observed_at_utc": "2026-10-04T19:17:48.109476+00:00",
+  "phase": "launched_matched_scaling",
+  "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-011",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011",
+  "preparation_sha256": "e794e5fe4422c689958be6afd62439161715e763b282b1eaef13053f312751a6",
+  "source_archive_commit": "d2b252bc889994d3ade0097fd0f008a320703907",
+  "native_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "native_sha256": "68612a90a3dd53e4156c8833701dd45bd9fb4d25774d4b45edfc948e3e3e8f4a",
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "canonical_generation": 183,
+  "dispatch_pid": 53148,
+  "adoption": {
+    "at_utc": "2026-10-04T19:16:04.104024+00:00",
+    "generation": 183,
+    "work_id": "gorge-runtime026-native-audit-20261004-011",
+    "driver_pid": 51856,
+    "contained_driver_job": true,
+    "canonical_supervisor_pid": 50976
+  },
+  "immutable_launch_receipts": [
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261004-011\\launch-receipts\\DISPATCH.json",
+      "sha256": "c1e31ec58cbc30ddeab35193894fa8f037befecebc915e7679e5ed358d2dc076",
+      "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\DISPATCH.json"
+    },
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261004-011\\launch-receipts\\HOST-ADOPTION.json",
+      "sha256": "77abff3470af9fdc529bff299f729b19c93457316a95beb3bd067d0c01dd998b",
+      "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\HOST-ADOPTION.json"
+    },
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261004-011\\launch-receipts\\DRIVER-DISPATCH.json",
+      "sha256": "e1f88d2ec3717c4f59c30246afb0d03e0ff8e697b2074cb97383a06878009928",
+      "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\DRIVER-DISPATCH.json"
+    },
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261004-011\\launch-receipts\\PID.json",
+      "sha256": "caaa8e2e7bdadcabd6b18e0397f6da94b351dea96308c3e6ad2a6dec44d0c0b3",
+      "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\PID.json"
+    },
+    {
+      "path": "E:\\spellbench-gorge-native-audit-20261004-011\\launch-receipts\\RESOURCES-LAUNCH.json",
+      "sha256": "449838655e1d1be68abf4564eb4f1366cf3e03920e16a832119d8cb4ba2c893d",
+      "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\RESOURCES-LAUNCH.json"
+    }
+  ],
+  "worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "matched_probe_blocks": 32,
+  "full_native_seed_blocks": 320,
+  "full_native_physical_games": 640,
+  "callback_wall_cap_seconds": 21600,
+  "enclosing_wall_cap_seconds": 28800,
+  "guard_path": "production canonical dispatch/supervise -> contained native-driver -> qualify_native.py -> plan_allocation -> bounded native callback",
+  "frozen_policies_seeds_decks_sampler_budgets_and_analysis_gates_unchanged": true,
+  "callback_default_seconds": 2700,
+  "callback_override_scope": "Future callbacks only; prior timeout remains a failed attempt",
+  "failed_preparations_preserved": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-009",
+      "seal_sha256": "db782cf1f502a6557d8f8d3c1677fd0eabc700fb8529d711b88adbd5b3dda398",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261004-009",
+      "evaluation_launched": false,
+      "cause": "Placement.parse refused internal semicolons in a reason; frozen partial inputs and failed recipe retained"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-010",
+      "seal_sha256": "befd1643c878f6fa0e6e658655c4186357fe1984eb068cb2e44aafdfe7c216f8",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261004-010",
+      "evaluation_launched": false,
+      "cause": "Placement.parse refused internal semicolons in a reason; frozen partial inputs and failed recipe retained"
+    }
+  ],
+  "all_host_census_at_launch": true,
+  "queued_Haley_priority_preserved": true,
+  "new_cloud_spend_usd": 0,
+  "gpu_work": false,
+  "authorized_cloud_cap_usd": 10,
+  "conservative_closed_lease_upper_bound_usd": 4.70239147,
+  "final_invoice_verified": false,
+  "full_native_qualification": false,
+  "reference_qualification": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "next_action": "Observe complete matched trials, identical primary rows and selected allocation; then full native audit. Seal terminal evidence and verified release before the reference successor can dispatch."
+}
