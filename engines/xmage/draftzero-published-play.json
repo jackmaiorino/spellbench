@@ -1,0 +1,67 @@
+{
+  "schema": "spellbench-draftzero-published-play/v1",
+  "profile": "published-exp1-final-eval-fair-v1",
+  "checkpoint_comparison": "The three public Exp1 generations use one common final-evaluation play profile; this does not claim each generation's original training-time profile.",
+  "hf_revision": "c0ac902361c041f986f429ad9d42e7b92494741f",
+  "harness_revision": "dabcca9050f8cda943c8b8b382a0feccb6d2685a",
+  "engine_revision": "5a32441c8ae587982e52cbd4616b5fbc30db7c2e",
+  "source_inventory_sha256": "ca8eed18f64dae139cf4534f7c6b7c1a2c6f2c9d321ee23b3e543ec0fa4b2c3f",
+  "sources": {
+    "run/run.json": {
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1/resolve/c0ac902361c041f986f429ad9d42e7b92494741f/run/run.json",
+      "sha256": "47d44f33d7b47c6d90ed8e23ac3d4d67ad2cf7af6fcaa4a4befb7d8b3ab03a62"
+    },
+    "configs/game.yml": {
+      "git_blob": "6130a68f7426d86be6b64ae40901b34279655d68",
+      "sha256": "f15d863ed9e9d845747509167eab103a581cc882569cf4498de95e19c726380f"
+    },
+    "src/draftzero/loop.py": {
+      "git_blob": "6768daa19997a27230c211dcff3b98790bd12172",
+      "sha256": "afa0d37765f0a32f8b4aef4adadf4037768dae445a439e2952f625834f9f62c2"
+    },
+    "src/draftzero/final_eval.py": {
+      "git_blob": "363b0c5dcb6eb7bcb39bcb6e3b6238e2b72816dc",
+      "sha256": "1724400bba3231faedace2aea616e99bd0d9a2af57160b45a7e72f81274d6ba1"
+    },
+    "Mage.MageZero/Config.java": {
+      "git_blob": "28db3d7fc759b5dbce674a6566cdf29b64356a21",
+      "sha256": "3543247083c155a3fe6188c980f7dba1ad848f07f4165a3b808498e40d6e1473"
+    },
+    "Mage.MageZero/ParallelDataGenerator.java": {
+      "git_blob": "332a7056f28f84910acef9b1e0cffe92f0be501d",
+      "sha256": "dd3b47ee3ce099dcfa7cdf3f0337875ef9994b5da36cfbe4ae6822f42b222ed5"
+    },
+    "Mage.MageZero/PlayConfigLoader.java": {
+      "git_blob": "8d2d12dbfe3516cc4241e7bb4c0f0398d7cf45b4",
+      "sha256": "12a55407a16122d55ca546e529a61a4c4a3d58490795dadef1d418ea6223b1ef"
+    }
+  },
+  "effective_play": {
+    "searchBudget": 96,
+    "searchTimeout": "12",
+    "backpropDiscount": "0.99",
+    "priorTemp": "1.5",
+    "priorBonus": "0.1",
+    "noNoise": true,
+    "dirichletNoiseEps": "0.15",
+    "selectionTemperature": "2",
+    "noPolicyPriority": true,
+    "noPolicyTarget": true,
+    "noPolicyUse": false,
+    "noPolicyOpponent": true
+  },
+  "derivation": [
+    "run_config_snapshot.jvm supplies 96 visits and timeout_ms=12000. gen33.settings supplies prior_temperature=1.5 and only the binary prior. final_eval selects the final generation's curriculum settings for both players.",
+    "loop._player overlays the base game config. Config.MctsConfig distinguishes td_discount from backprop_discount; ParallelDataGenerator.configurePlayer applies backpropDiscount, whose unchanged default is 0.99. The recorded 0.7 discounts training labels only.",
+    "ParallelDataGenerator applies the base game's disabled noise, epsilon=0.15, temperature=2, automatic mana tapping, disabled mulligans and duplicate-state retention. Original bestChild chooses the greatest visit count when the root has no noise seed.",
+    "PlayConfigLoader is a partial human-play loader and does not define the released evaluation runner's complete settings."
+  ],
+  "declared_port_changes": [
+    "The published runner enables opponent-hand encoding. The fair variant disables it and reconstructs only permitted sampled worlds.",
+    "The existing reviewed port uses a fresh tree at each received root and synchronous confined neural transport.",
+    "The confined CPU backend uses float32; the released run recorded float16."
+  ],
+  "full_game_qualified": false,
+  "rated_games": 0,
+  "published": false
+}

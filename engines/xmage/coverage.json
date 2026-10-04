@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-xmage-coverage/v1",
-  "checked_at": "2026-10-03",
+  "checked_at": "2026-10-04",
   "inputs": "releases.json",
   "entries": [
     {
@@ -40,12 +40,14 @@
       "format": "FDN Limited",
       "action_vocabulary": "draftzero-exp1-actions",
       "input_status": "all public checkpoints hash verified and isolated inference tested",
-      "wiring_status": "all public checkpoints hash verified and isolated inference tested; original gen33 search and combat share one JVM/checkpoint session; public v2 lifecycle, visible history, retained combat plans, deterministic seeds and owned cleanup implemented; one six-visit FDN UR game and exact-seed replay complete naturally with identical primary and clock-excluded decision/choice stores, 323 steps and 336 real neural calls each; actual original spell-mode replay passes three unrelated-source refusals before inference and identical mode results; learned mode application reaches the target callback, whose two real neural results and replayed observation are identical; broader agent qualification remains pending",
+      "wiring_status": "all three public checkpoints complete a six-visit FDN UR game and identical-seed replay; priority, dialog, original spell-mode, retained combat plans and public lifecycle are wired; a distinct released final-evaluation fair profile carries 96 visits, 12 seconds, binary prior only and source time-or-visits stopping through priority, saved-anchor dialogs and combat; profile-specific full games and broader qualification remain pending",
+      "play_profiles": ["minimum-visits-diagnostic", "published-exp1-final-eval-fair-v1"],
+      "published_play_source": "draftzero-published-play.json",
       "integrated": false,
       "qualified": false,
       "rated": false,
       "published": false,
-      "remaining": ["full history across draws and other transitions; remaining callback families", "fork illegal-block retry parity and full-game correctness across public transitions", "full-game qualification", "guarded evaluation", "review and publication"]
+      "remaining": ["published-profile full games, same-seed replay and clock sensitivity", "broader FDN transitions and callback coverage", "completed-work throughput qualification", "reviewed frozen benchmark and guarded evaluation", "result review and publication"]
     },
     {
       "family": "magezero-v02",

@@ -67,6 +67,7 @@ jobs:
             --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-build"
           java -cp "$RUNNER_TEMP/model-build/model" spellbench.models.magezero.v02.search.TransportCheck
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.MageZeroSearchSettingsCheck
+          java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core" spellbench.models.exp1.PlaySettingsCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}

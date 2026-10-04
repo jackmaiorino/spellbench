@@ -26,6 +26,31 @@ default. Human-player takeover configurations that enable mulligans are
 unfinished. Unsupported callbacks, missing anchors, changed combat groups,
 rewinds and expired clocks close the session without a substitute policy.
 
+`--play-profile published-exp1-final-eval-fair-v1` selects the separately
+identified released final-evaluation play settings: 96 visits, 12 seconds,
+backpropagation discount 0.99, prior temperature 1.5, bonus 0.1, and only the
+binary prior. `--visits` may be omitted or set to 96 for this profile. The
+original time-or-visits loop can stop below 96 visits after it has a legal
+future. Priority, saved-anchor dialogs and every per-creature combat root
+retain that stopping rule; the public frontend reuses the resulting combat
+plan across the declaration group. Changed settings, architecture and work
+receipts close the session. Older builds without `PlaySettings.class` cannot
+serve this identity.
+
+The pinned [source derivation](../draftzero-published-play.json) distinguishes
+the recorded 0.7 training-label discount from the runner's 0.99 play-time
+backpropagation discount. Noise is disabled; the recorded epsilon 0.15 and
+selection temperature 2 are retained, with maximum-visit selection as in the
+original no-noise tree. Automatic mana tapping, duplicate states and the
+released no-mulligan rule are retained. All three public checkpoints use one
+common final-evaluation profile rather than their separate training-time
+profiles. The released runner enabled opponent-hand encoding; this entry
+disables it and is explicitly a fair variant. The existing fresh-tree,
+synchronous transport and confined CPU float32 changes also remain declared.
+Full-game replay, clock sensitivity, broader FDN coverage and completed-work
+throughput must be qualified for this profile before rated play. Earlier
+six-visit diagnostic games do not qualify its published time control.
+
 The launcher requires SHA-256 pins for Java, the reviewed model build and
 the immutable card database. It verifies every class, classpath resource,
 engine jar, original-search dependency and action vocabulary before serving.

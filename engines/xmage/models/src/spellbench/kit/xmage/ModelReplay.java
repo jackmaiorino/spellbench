@@ -24,6 +24,7 @@ import spellbench.models.exp1.GameAccess;
 import spellbench.models.exp1.MCTSNode2;
 import spellbench.models.exp1.RemoteModelEvaluator;
 import spellbench.models.exp1.SearchPlayer;
+import spellbench.models.exp1.PlaySettings;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -61,6 +62,7 @@ final class ModelReplay {
         ArrayDeque<String> passes = new ArrayDeque<>();
         RemoteModelEvaluator evaluator;
         int visits;
+        PlaySettings settings;
         int replayed;
         int binaryCallbacks;
         boolean libraryFailToFindExcluded;
@@ -153,7 +155,7 @@ final class ModelReplay {
                     && "search".equals(Json.str(Json.obj(replay.decision, "context"), "purpose"));
             String text = (source == null ? "null" : source.getRule()) + ":Choose a target:" + target.getTargetName();
             replay.player = this;
-            configure(replay.evaluator, replay.visits);
+            configure(replay.evaluator, replay.settings);
             replay.chosen = searchAction(game, ActionEncoder.ActionType.CHOOSE_TARGET, text);
             throw new Stop();
         }
@@ -180,7 +182,7 @@ final class ModelReplay {
             }
             replay.compare(game);
             replay.player = this;
-            configure(replay.evaluator, replay.visits);
+            configure(replay.evaluator, replay.settings);
             replay.chosen = searchAction(game, ActionEncoder.ActionType.CHOOSE_USE, message);
             throw new Stop();
         }
@@ -213,7 +215,7 @@ final class ModelReplay {
             replay.compare(game);
             replay.player = this;
             replay.namedActions = actions;
-            configure(replay.evaluator, replay.visits);
+            configure(replay.evaluator, replay.settings);
             replay.chosen = searchChoice(game, choice);
             throw new Stop();
         }
@@ -241,7 +243,7 @@ final class ModelReplay {
                 }
                 replay.compare(game);
                 replay.player = this;
-                configure(replay.evaluator, replay.visits);
+                configure(replay.evaluator, replay.settings);
                 replay.chosen = searchAmount(game, min, max, source);
                 throw new Stop();
             }
@@ -264,7 +266,7 @@ final class ModelReplay {
             replay.player = this;
             replay.numericMinimum = min;
             replay.numericRangeRestricted = offeredMax != max;
-            configure(replay.evaluator, replay.visits);
+            configure(replay.evaluator, replay.settings);
             replay.chosen = searchAmount(game, min, offeredMax, source);
             throw new Stop();
         }
@@ -389,6 +391,10 @@ final class ModelReplay {
         return result;
     }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator, int visits) {
+        return run(record, evaluator, PlaySettings.diagnostic(visits));
+    }
+    static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator, PlaySettings settings) {
+        settings.activate();
         Map<String, Object> anchor = Json.obj(record, "anchor");
         Map<String, Object> a = Json.obj(anchor, "decision");
         if (a == null || !"priority".equals(Json.str(Json.obj(a, "context"), "kind"))) {
@@ -396,7 +402,7 @@ final class ModelReplay {
         }
         Map<String, Object> action = selectedSemantic(a, Json.obj(anchor, "selection"));
         Result result = new Result();
-        result.evaluator = evaluator; result.visits = visits;
+        result.evaluator = evaluator; result.visits = settings.defaults.searchBudget; result.settings = settings;
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
         if (history == null) throw new IllegalArgumentException("callback search needs explicit replay history");
@@ -452,7 +458,7 @@ final class ModelReplay {
                 throw new IllegalArgumentException("callback anchor is unsupported: " + flag);
             }
         }
-        result.player.configure(evaluator, visits);
+        result.player.configure(evaluator, settings);
         Game game = result.world.game;
         game.getState().resume();
         Ability ability = "pass".equals(Json.str(action, "kind")) ? new PassAbility()

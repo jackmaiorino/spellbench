@@ -19,6 +19,7 @@ from spellbench.bot import serve
 from xmage_checkpoint_backend import cleanup_container
 from xmage_neural_agent import NeuralAgent, PROFILE
 from xmage_neural_bridge import BridgeSession
+from xmage_exp1_play import PROFILE_NAME, PublishedAgent, PublishedSession, profile as published_profile
 from xmage_neural_decisions import InferenceSession
 from xmage_release_assets import is_link, prepare_root, verify
 from xmage_verified_entry import verify_build
@@ -65,7 +66,8 @@ def checked_tree(root, declared, *, suffix=None):
             raise ValueError("model classpath has missing or undeclared classes")
 
 
-def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *, architecture="draftzero-exp1"):
+def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *, architecture="draftzero-exp1",
+                       play_profile="minimum-visits-diagnostic"):
     if sha(build / "BUILD.json") != digest:
         raise ValueError("model build manifest changed")
     metadata = json.loads((build / "BUILD.json").read_bytes())
@@ -87,6 +89,10 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
     if (not classes or any(not name.startswith(("core/", "kit/", "model/")) or not name.endswith(".class")
                           for name in classes)):
         raise ValueError("model runtime class directories differ")
+    if play_profile != "minimum-visits-diagnostic":
+        if (architecture != "draftzero-exp1" or play_profile != PROFILE_NAME
+                or "model/spellbench/models/exp1/PlaySettings.class" not in classes):
+            raise ValueError("model runtime lacks the supported published Exp1 play settings")
     if architecture == "magezero-v02" and not {
             "model/spellbench/kit/xmage/MageZeroSearchMain.class",
             "model/spellbench/kit/xmage/MageZeroSearchCombatMain.class",
@@ -113,20 +119,40 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
     return metadata
 
 
-def identity(*, checkpoint, visits, build_sha256, image, manifest):
+def selected_visits(play_profile, visits):
+    if play_profile == PROFILE_NAME:
+        if visits is not None and (type(visits) is not int or visits != 96):
+            raise ValueError("published Exp1 play requires its released 96-visit budget")
+        return 96
+    if play_profile != "minimum-visits-diagnostic":
+        raise ValueError("unsupported Exp1 play profile")
+    visits = 1000 if visits is None else visits
+    if type(visits) is not int or not 2 <= visits <= 1000:
+        raise ValueError("Exp1 diagnostic visit budget must be 2..1000")
+    return visits
+
+
+def identity(*, checkpoint, visits, build_sha256, image, manifest, play_profile="minimum-visits-diagnostic"):
+    visits = selected_visits(play_profile, visits)
     config = manifest["inference_backends"]["draftzero-exp1"]
     if checkpoint not in config["checkpoints"] or type(visits) is not int or not 2 <= visits <= 1000:
         raise ValueError("neural identity needs a pinned Exp1 checkpoint and visit count")
     assets = {a["id"]: a for a in manifest["assets"]}
-    bound = {"profile": PROFILE, "checkpoint": checkpoint, "visits": visits,
+    published = play_profile == PROFILE_NAME
+    bound = {"profile": published_profile() if published else PROFILE, "checkpoint": checkpoint, "visits": visits,
              "checkpoint_sha256": assets[checkpoint]["sha256"], "model_build_sha256": build_sha256,
              "image": image,
              "source_sha256": {name: sha(Path(__file__).with_name(name)) for name in
                                ("xmage_neural_agent.py", "xmage_neural_runtime.py", "xmage_neural_rpc.py",
                                 "xmage_neural_bridge.py", "xmage_neural_search.py", "xmage_neural_combat.py",
                                 "xmage_neural_decisions.py", "xmage_checkpoint_backend.py")}}
+    if published:
+        bound["source_sha256"]["xmage_exp1_play.py"] = sha(Path(__file__).with_name("xmage_exp1_play.py"))
+        bound["source_sha256"]["engines/xmage/draftzero-published-play.json"] = sha(
+            Path(__file__).resolve().parents[2] / "engines/xmage/draftzero-published-play.json")
     digest = hashlib.sha256(wire.canonical_json_dumps(bound)).hexdigest()
-    return {"name": checkpoint + "-fair-search", "version": "exp1-visible-v1-" + digest[:24], "identity": bound}
+    return {"name": checkpoint + ("-published-final-eval-fair" if published else "-fair-search"),
+            "version": ("exp1-published-fair-v1-" if published else "exp1-visible-v1-") + digest[:24], "identity": bound}
 
 
 def main():
@@ -143,17 +169,21 @@ def main():
     parser.add_argument("--db-file", type=Path, required=True)
     parser.add_argument("--db-sha256", required=True)
     parser.add_argument("--work", type=Path, required=True)
-    parser.add_argument("--visits", type=int, default=1000)
+    parser.add_argument("--play-profile", choices=("minimum-visits-diagnostic", PROFILE_NAME),
+                        default="minimum-visits-diagnostic")
+    parser.add_argument("--visits", type=int, help="diagnostic default 1000; published profile requires 96")
     parser.add_argument("--print-identity", action="store_true")
     args = parser.parse_args()
+    args.visits = selected_visits(args.play_profile, args.visits)
     for key in ("java", "engine", "model_build", "manifest", "root", "db_file", "work"):
         setattr(args, key, getattr(args, key).absolute())
     manifest = json.loads(args.manifest.read_bytes())
-    metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest)
+    metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest,
+                                  play_profile=args.play_profile)
     if sha(args.java) != args.java_sha256 or sha(args.db_file) != args.db_sha256:
         raise ValueError("model runtime Java or database differs from its pin")
     descriptor = identity(checkpoint=args.checkpoint, visits=args.visits, build_sha256=args.model_build_sha256,
-                          image=args.image, manifest=manifest)
+                          image=args.image, manifest=manifest, play_profile=args.play_profile)
     config = manifest["inference_backends"]["draftzero-exp1"]
     assets = {a["id"]: a for a in manifest["assets"]}
     vocab = args.root / assets[config["action_vocab"]]["filename"]
@@ -192,7 +222,7 @@ def main():
                     owned.append(container)
                 model = InferenceSession(manifest, args.root, args.checkpoint, args.image, on_owned=record_owned)
                 peer = wire.SubprocessPeer(command, timeout_s=90)
-                return BridgeSession(peer, model)
+                return (PublishedSession(peer, model) if args.play_profile == PROFILE_NAME else BridgeSession(peer, model))
             except BaseException:
                 try:
                     if peer is not None:
@@ -205,7 +235,8 @@ def main():
         def audit(event):
             print(json.dumps(event, separators=(",", ":"), allow_nan=False), file=sys.stderr, flush=True)
 
-        agent = NeuralAgent(factory, checkpoint=args.checkpoint, visits=args.visits, audit=audit)
+        agent = (PublishedAgent(factory, checkpoint=args.checkpoint, audit=audit) if args.play_profile == PROFILE_NAME
+                 else NeuralAgent(factory, checkpoint=args.checkpoint, visits=args.visits, audit=audit))
         return serve(agent, name=descriptor["name"], version=descriptor["version"],
                      requires_observation=("passed_seats", "keywords"))
     finally:

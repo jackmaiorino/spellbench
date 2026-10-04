@@ -1,6 +1,6 @@
 # XMage bot coverage
 
-Snapshot: 2026-10-03 UTC. This is the delivery inventory, not a leaderboard.
+Snapshot: 2026-10-04 UTC. This is the delivery inventory, not a leaderboard.
 The intended outcome remains reproducible public ratings for every distinct
 playable family. No new bot rating has been produced by this preparation slice.
 The machine-readable status and alias relationships are in [coverage.json](coverage.json).
@@ -13,7 +13,7 @@ entries. It has no rated run. The historical `fdn-mirror-v0` definition is uncha
 |---|---|---|---|
 | XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Native benchmark passes 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; rated run pending |
 | XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Included in the same passing native benchmark qualification; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | All three pass real target and boolean selection; gen33 completes one six-visit FDN game and identical same-seed replay, plus actual spell-mode selection and subsequent target replay | Broader transition/callback coverage, fork combat retry parity and benchmark qualification unfinished; unrated |
+| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | All three complete a six-visit FDN game and same-seed replay; a distinct released final-evaluation fair profile is wired through priority, dialogs and combat | Published-profile full games, broader FDN coverage and benchmark qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Original priority and dialog search pass native synthetic checks; typed combat, mixed bridge, public frontend and deck-bound confined runtime are wired | Compatible trained weights and author settings absent; native combat/mixed checks and full-game qualification pending; unrated |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference on actual permitted Java priority features; Standard retains its legacy Q mulligan rule | Exact deck associations, original game selection and complete fair adapter unfinished; unrated |
 
