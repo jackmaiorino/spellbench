@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-runtime016-hosted-ci/v1",
-  "checked_at_utc": "2026-10-04T01:51:03.425011+00:00",
+  "checked_at_utc": "2026-10-04T02:08:01.365510+00:00",
   "source_head": "af29003db8d9e1d1dd4c1ba0fbd1ece4a8fbd550",
   "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
   "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261003-016",
@@ -277,7 +277,8 @@
   "public_london_repair_runtime_source_commit": "2e2ef656f394b79a39031ffb9c0c3fa5bd5dc7d1",
   "public_london_repair_runtime_source_of_record": "E:/spellbench-gorge-runtime-20261004-018",
   "current_source_python_ci": {
-    "conclusion": "",
+    "conclusion": "success",
+    "databaseId": 37168253646,
     "headSha": "8d70516aa2b1b473dcb0bb938dda551faecf4e48",
     "jobs": [
       {
@@ -388,12 +389,12 @@
         "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253646/job/111335667689"
       },
       {
-        "completedAt": "0001-01-01T00:00:00Z",
-        "conclusion": "",
+        "completedAt": "2026-10-04T01:52:19Z",
+        "conclusion": "success",
         "databaseId": 111335667781,
         "name": "Python tests (windows-2025)",
         "startedAt": "2026-10-04T01:31:07Z",
-        "status": "in_progress",
+        "status": "completed",
         "steps": [
           {
             "completedAt": "2026-10-04T01:31:09Z",
@@ -452,42 +453,50 @@
             "status": "completed"
           },
           {
-            "completedAt": "0001-01-01T00:00:00Z",
-            "conclusion": "",
+            "completedAt": "2026-10-04T01:51:47Z",
+            "conclusion": "success",
             "name": "Run tests",
             "number": 8,
             "startedAt": "2026-10-04T01:32:12Z",
-            "status": "in_progress"
+            "status": "completed"
           },
           {
-            "completedAt": "0001-01-01T00:00:00Z",
-            "conclusion": "",
+            "completedAt": "2026-10-04T01:52:14Z",
+            "conclusion": "success",
             "name": "Validate committed benchmark runs",
             "number": 9,
-            "startedAt": "0001-01-01T00:00:00Z",
-            "status": "pending"
+            "startedAt": "2026-10-04T01:51:47Z",
+            "status": "completed"
           },
           {
-            "completedAt": "0001-01-01T00:00:00Z",
-            "conclusion": "",
+            "completedAt": "2026-10-04T01:52:15Z",
+            "conclusion": "success",
             "name": "Post Set up Python",
             "number": 17,
-            "startedAt": "0001-01-01T00:00:00Z",
-            "status": "pending"
+            "startedAt": "2026-10-04T01:52:14Z",
+            "status": "completed"
           },
           {
-            "completedAt": "0001-01-01T00:00:00Z",
-            "conclusion": "",
+            "completedAt": "2026-10-04T01:52:17Z",
+            "conclusion": "success",
             "name": "Post Check out repository",
             "number": 18,
-            "startedAt": "0001-01-01T00:00:00Z",
-            "status": "pending"
+            "startedAt": "2026-10-04T01:52:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-10-04T01:52:17Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 19,
+            "startedAt": "2026-10-04T01:52:17Z",
+            "status": "completed"
           }
         ],
         "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37168253646/job/111335667781"
       }
     ],
-    "status": "in_progress"
+    "status": "completed"
   },
   "current_source_arena_affected_tests": {
     "passed": 97,
@@ -502,5 +511,6 @@
   },
   "current_complete_qualification": false,
   "current_native_run": "E:/spellbench-gorge-native-audit-20261004-005",
-  "current_native_run_status": "Running under canonical generation163; first3 blocks completed naturally, first redeal block retains reconstruction budget failures. No complete qualification or ratings claimed."
+  "current_native_run_status": "Running under canonical generation163; first3 blocks completed naturally, first redeal block retains reconstruction budget failures. No complete qualification or ratings claimed.",
+  "current_source_python_ci_passed": true
 }
