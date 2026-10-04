@@ -185,6 +185,31 @@ func policyPairings(keys []string) []string {
 	return out
 }
 
+func qualificationJobs(o options) []job {
+	var jobs []job
+	appendPair := func(d catalog.Deck, pairing string) {
+		for g := 0; g < o.games; g++ {
+			jobs = append(jobs, job{uint64(len(jobs)), d, pairing})
+		}
+	}
+	for _, d := range catalog.Decks() {
+		for _, pairing := range policyPairings(o.policyKeys) {
+			appendPair(d, pairing)
+		}
+	}
+	// Retain every original uniform pairing and seed. Additional stock-search
+	// probes use the native opponent policy assumed by its rejection sampler.
+	// Uniform histories can legitimately starve that model before any rollout.
+	for _, d := range catalog.Decks() {
+		for _, key := range []string{"search", "search-mana"} {
+			if o.policyKeys == nil || slices.Contains(o.policyKeys, key) {
+				appendPair(d, key+"/bot")
+			}
+		}
+	}
+	return jobs
+}
+
 // auditLink runs a resample check before every k-th step it forwards.
 type auditLink struct {
 	srv            *server.Server
@@ -292,14 +317,7 @@ func qualify(o options) (Report, error) {
 	for _, k := range server.DecisionKinds {
 		kinds[k] = true
 	}
-	var jobs []job
-	for _, d := range catalog.Decks() {
-		for _, p := range policyPairings(o.policyKeys) {
-			for g := 0; g < o.games; g++ {
-				jobs = append(jobs, job{uint64(len(jobs)), d, p})
-			}
-		}
-	}
+	jobs := qualificationJobs(o)
 	scheduledGames := len(jobs)
 	jobs, err = selectQualificationJobs(jobs, o.gameIndices)
 	if err != nil {

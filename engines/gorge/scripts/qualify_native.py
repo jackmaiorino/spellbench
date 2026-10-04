@@ -27,6 +27,9 @@ POLICIES = ['bot','bot-auto-pay','lethal-pressure','lethal-pressure-auto-pay','a
 DECKS = ['Wildfire','Rally','Spy','Burn','CawGates']
 PAIRINGS = ['uniform/uniform','bot/lethal-pressure']+[p+'/uniform' for p in POLICIES]
 GAMES = [(d,p,g) for d in DECKS for p in PAIRINGS for g in range(4)]
+# Append coverage probes so all original deck/pairing/seed bindings survive.
+# These are qualification inputs, separate from the frozen rated benchmark.
+GAMES += [(d,p+'/bot',g) for d in DECKS for p in ['search','search-mana'] for g in range(4)]
 
 def stamp():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -66,6 +69,7 @@ def main():
     manifest.update(native_qualifier_sha256=expected_native, registry_sha256=REGISTRY_SHA,
         unit='fixed-seed audit block containing two completed games', fixed_seed_indices=list(range(len(GAMES))),
         policies=POLICIES, decks=DECKS, games_per_deck_pairing=4, resample_every=7,
+        extra_coverage_pairings=['search/bot','search-mana/bot'], original_seed_blocks=280,
         native_run_secret='gorge-qualification-run-secret!!',
         guard_path='engines/gorge/scripts/qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback',
         scope='native validator, determinism, leak, consistency, resample, intent parity, mapping and search gates; unrated')

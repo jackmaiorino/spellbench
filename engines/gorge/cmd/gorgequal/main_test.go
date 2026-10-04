@@ -47,6 +47,30 @@ func TestPaymentParityComparesTheWitness(t *testing.T) {
 	}
 }
 
+func TestNativeOpponentCoverageProbesPreserveEveryOriginalSeed(t *testing.T) {
+	var original []job
+	for _, deck := range catalog.Decks() {
+		for _, pairing := range policyPairings(nil) {
+			for g := 0; g < 4; g++ {
+				original = append(original, job{uint64(len(original)), deck, pairing})
+			}
+		}
+	}
+	jobs := qualificationJobs(options{games: 4})
+	if len(original) != 280 || len(jobs) != 320 || !reflect.DeepEqual(jobs[:280], original) {
+		t.Fatal("additional coverage probes changed an original game seed, deck or opponent")
+	}
+	for _, j := range jobs[280:] {
+		if j.pairing != "search/bot" && j.pairing != "search-mana/bot" {
+			t.Fatalf("unexpected coverage opponent: %+v", j)
+		}
+	}
+	ordinary := qualificationJobs(options{games: 1, policyKeys: []string{"bot"}})
+	if len(ordinary) != 15 {
+		t.Fatal("search probes were added to an ordinary-only qualification")
+	}
+}
+
 func TestCleanRejectsRedealWithoutFallbackWorldsOrWithRefusedRoots(t *testing.T) {
 	r := Report{Policies: []string{"search-redeal"}, Totals: Totals{Games: 1}, SearchCoverage: map[string]SearchCoverage{}}
 	for _, deck := range catalog.Decks() {
