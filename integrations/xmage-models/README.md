@@ -130,7 +130,10 @@ minimum-visit profile. Requests and results bind the exact settings, decision,
 architecture and original root visit accounting. The source time-based profile
 may finish below its visit budget; the diagnostic profile must complete its
 minimum visits. The original library fail-to-find restriction and unoffered
-mode work remain visible in the result and visit accounting. Combat, other
+mode work remain visible in the result and visit accounting. MageZero v0.2
+prepends a numeric stop option only when the mode minimum is already met;
+mandatory mode roots preserve its zero-based mode ordinals. Exp1 retains its
+original unconditional stop option. Combat, other
 callbacks, actual pretrained native checks, full games and useful-throughput
 qualification remain unfinished.
 

@@ -285,7 +285,8 @@ final class MageZeroSearchReplay {
                     throw new IllegalArgumentException("unrecorded opponent mode callback");
                 }
                 replay.compare(game, replay.callbackDecision());
-                replay.modeActions = new ModelModes(replay.world, replay.callbackDecision(), modes, source, game);
+                replay.modeActions = new ModelModes(replay.world, replay.callbackDecision(), modes, source, game,
+                        modes.getMinModes() <= modes.getSelectedModes().size());
                 Mode picked = super.chooseMode(modes, source, game);
                 replay.modeActions = null;
                 return picked;
