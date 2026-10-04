@@ -358,6 +358,19 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   [closed local attempt](gorge-runtime025-local-native-20261004.json).
   The prepared reference matrix remains gated on complete native qualification.
 
+- The new public replay repair resolves Wildfire's saved 260-frame failure
+  in 551 submits and returns eight known-card-valid worlds. It selects the
+  observed stacked ability on Twisted Landscape and proposes a feasible
+  retained hand across later shuffles. All 17 saved failure roots preserve
+  native sampler diagnostics and pass known-card checks. All 45 affected
+  strategy tests pass, including legal activation and retained-hand fixtures
+  with identical public history under unseen tail swaps. Correct Go vet and
+  diff checks pass separately after a verification helper substituted the
+  test binary for those commands. That failed helper attempt remains sealed.
+  See [public ability repair](gorge-public-ability-repair-20261004.json).
+  Complete native qualification, reference qualification and ratings remain
+  unfinished; no prior failed audit is qualified by these local checks.
+
 This is a source and information audit for the stated pool. Full twelve-mode
 qualification, compatible guarded throughput evidence, rated games and public ratings
 remain separate delivery work. Timing, public canonical-envelope limits and

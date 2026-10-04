@@ -1,0 +1,818 @@
+{
+  "schema": "spellbench-gorge-public-ability-repair/v1",
+  "observed_at_utc": "2026-10-04T17:09:43.079118+00:00",
+  "repair_source_commit": "d436ce912c6e522597fbc0a61bdf3cf499eede0e",
+  "previous_native_source_commit": "75c6d2bd826d4ebe5abc6eebd37e9820b1d87392",
+  "problem": "Runtime025 native pilot stopped after13 natural blocks: Wildfire fixed seed52/search-mana-redeal had26 public reconstruction budget failures.",
+  "repairs": [
+    "Prioritize the exact public AbilityPush index when a tap pays a stacked ability, bounded by the next priority or completed mana action. Preserve all alternative legal intents and the shared submit budget.",
+    "For even witness proposals, carry enough hypothetical named cards across public shuffles when later hand exits outnumber later draws. Infer only from public history, preserve original constraints on odd proposals, and validate the whole public replay and every redealt world."
+  ],
+  "native_policy_and_weighted_sampler_unchanged": true,
+  "exact_options": {
+    "seed": 54321,
+    "attempts": 64,
+    "worlds": 8,
+    "max_submits": 5000
+  },
+  "first_failure": {
+    "public_input": "E:/spellbench-gorge-mana-prefix-20261004-007/PUBLIC-FAILURE-000260.json",
+    "sha256": "e553a870f0a9dd6ce572c518d75ef6b376682353d083d864624d8af6c6f0b07a",
+    "frames": 260,
+    "before": {
+      "attempts": 1,
+      "submits": 5000,
+      "nodes": 4920,
+      "budget_exhausted": 1,
+      "worlds": 0
+    },
+    "after": {
+      "attempts": 1,
+      "submits": 551,
+      "nodes": 63,
+      "budget_exhausted": 0,
+      "worlds": 8
+    },
+    "native_diagnostics_identical": true,
+    "every_world_known_card_valid": true
+  },
+  "verification": {
+    "saved_public_roots": 17,
+    "every_saved_root_worlds": 8,
+    "native_diagnostics_identical": true,
+    "known_card_checks": true,
+    "affected_strategy_root_test_passes": 45,
+    "legal_fixtures": [
+      "Real Twisted Landscape mana activation and its separate sacrifice/search activation",
+      "An opponent retains a named card through a shuffle and casts it before another draw"
+    ],
+    "unseen_tail_full_public_history_equality": true,
+    "vet_passed": true,
+    "diff_check_passed": true,
+    "corpus": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-006",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-006",
+      "seal_sha256": "9493a2e407bbe7c4896d39a292131645f2ae8cca7879e86ea18558daae588925",
+      "bytes": 19625879,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-006\\arrange-corpus-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 4.377426300023217
+        },
+        {
+          "name": "saved-corpus",
+          "command": [
+            "E:\\pinned-binaries\\0b314ac5feebe2ca231968791e7e7c5ace6d61ac83b8bec0369575bb61558173\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^TestSavedWildfireActorArrangeCorpus$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 15.974957400001585
+        },
+        {
+          "name": "additional-roots",
+          "command": [
+            "E:\\pinned-binaries\\0b314ac5feebe2ca231968791e7e7c5ace6d61ac83b8bec0369575bb61558173\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^TestSavedAdditionalManaRoots$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 4.763569600007031
+        },
+        {
+          "name": "affected-strategies",
+          "command": [
+            "E:\\pinned-binaries\\0b314ac5feebe2ca231968791e7e7c5ace6d61ac83b8bec0369575bb61558173\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^Test",
+            "-test.skip",
+            "^TestSavedWildfireActorArrangeCorpus$|^TestSavedAdditionalManaRoots$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 171.87832999997772
+        },
+        {
+          "name": "vet",
+          "command": [
+            "E:\\pinned-binaries\\0b314ac5feebe2ca231968791e7e7c5ace6d61ac83b8bec0369575bb61558173\\arrange-corpus-tests.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 177.932993000024
+        }
+      ],
+      "passed": false
+    },
+    "corrected_tooling_checks": {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-013",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-013",
+      "seal_sha256": "2598405bfa7e3034556f100679f09a071be5df89aa9e396c5e17c1d8d033d69f",
+      "bytes": 19494255,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-013\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 3.476867499994114
+        },
+        {
+          "name": "selected-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\42a51775ca9d75f479e0e7195494d30d66973a2071820114c87c90b576f27fea\\arrange-tests.exe",
+            "-test.run",
+            "^TestPublicRedeal(DistinguishesSameSourceManaAndStackAbility|RetainsOpponentsHandAcrossShuffle)$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 6.951250699989032
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 6.480798300006427
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.15772349998587742
+        }
+      ],
+      "passed": true
+    },
+    "corpus_terminal_note": "The first four semantic checks passed. The helper then substituted the test binary for vet and diff; the actual diff step timed out. Correct commands passed in the separate corrected verification artifact. No native gate or rating is claimed.",
+    "trace": {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-014",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-014",
+      "seal_sha256": "31ef542849196e73172bf42dac431c19c9babfa302d2566761c3cfc65cf7d686",
+      "bytes": 19555195,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-014\\mana-root-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 6.740765599999577
+        },
+        {
+          "name": "saved-root",
+          "command": [
+            "E:\\pinned-binaries\\97d1bd689bfd6fd87722116c4981ab68342a5728c3abeace7346784276864e8b\\mana-root-tests.exe",
+            "-test.run",
+            "^TestSavedManaPublicRoot$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 3.2566414999892004
+        }
+      ],
+      "passed": true
+    }
+  },
+  "failed_attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-011",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-011",
+      "seal_sha256": "3545f6afeef1cbced5bce756ab8038736035aef7a371ce5c5ca89014ef552027",
+      "bytes": 19492752,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-011\\mana-root-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 4.516075899999123
+        },
+        {
+          "name": "saved-root",
+          "command": [
+            "E:\\pinned-binaries\\f815dc126ce01471d785445bbef57409c6acf71a4c4ebbede6ca6cdc72958142\\mana-root-tests.exe",
+            "-test.run",
+            "^TestSavedManaPublicRoot$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "seconds": 6.578240000002552
+        }
+      ],
+      "passed": false
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-012",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-012",
+      "seal_sha256": "4496f39f4409160d7f2965b6263f5494f6daf3b93231eb4641b29853921328fa",
+      "bytes": 19512819,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-012\\mana-root-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 4.301901699975133
+        },
+        {
+          "name": "saved-root",
+          "command": [
+            "E:\\pinned-binaries\\86982ec4fca8576d44331f6ce86a23a2a4792e65f5d92de56c33f355dd3dcd8c\\mana-root-tests.exe",
+            "-test.run",
+            "^TestSavedManaPublicRoot$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "seconds": 7.131965700013097
+        }
+      ],
+      "passed": false
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-013",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-013",
+      "seal_sha256": "46f82e911e8cbc15e7029a319e23911dcf3652c5f2bf8e7a6604bd486b5e1f25",
+      "bytes": 19679344,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-013\\mana-root-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 4.687460399989504
+        },
+        {
+          "name": "saved-root",
+          "command": [
+            "E:\\pinned-binaries\\0985b3f4cdfa23aecab435bf092a4b13aa1bb4c1ff7876475d1cd8cb404afb05\\mana-root-tests.exe",
+            "-test.run",
+            "^TestSavedManaPublicRoot$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "seconds": 7.5865840000333264
+        }
+      ],
+      "passed": false
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-010",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-010",
+      "seal_sha256": "aa76cc55e7a1697b74ab5941288121b12823f02746e4e43c01a3b88b48700b8e",
+      "bytes": 19469569,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-010\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 4.302110899996478
+        },
+        {
+          "name": "selected-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\3dddf8232d6c55ed8b8ffc375bce464896d73f31852abb530ca6a73200e325b0\\arrange-tests.exe",
+            "-test.run",
+            "^TestPublicRedealDistinguishesSameSourceManaAndStackAbility$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "seconds": 3.0300338999950327
+        }
+      ],
+      "passed": false
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-011",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-011",
+      "seal_sha256": "614038060b909f03ddda93754a3bab0619b171174db177b7639d0d3593b1ce71",
+      "bytes": 19468547,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-011\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 2.8408812999841757
+        },
+        {
+          "name": "selected-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\a99a3693ed000bcb1779820415cfa424b83ebde122675f20c96e1280b9e37674\\arrange-tests.exe",
+            "-test.run",
+            "^TestPublicRedealDistinguishesSameSourceManaAndStackAbility$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "seconds": 3.4146782999741845
+        }
+      ],
+      "passed": false
+    }
+  ],
+  "failure_disposition": "The first ability-only repair exposed a later impossible shuffle prefix. Two fixture-authoring comparisons initially used different KnownCards settings; the final fixture compares identical settings. Exact captured-root options never changed.",
+  "diagnostic_capture": {
+    "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-007",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-007",
+    "seal_sha256": "3033252425eb412d6f49402708ef04b05e110defd60ab76215b73538ba2e735e",
+    "bytes": 27312477,
+    "checks": [
+      {
+        "name": "bounded-public-mana-capture",
+        "exit_code": 0,
+        "seconds": 337.3013364999788,
+        "timed_out": false
+      }
+    ],
+    "passed": true
+  },
+  "diagnostic_before": {
+    "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-010",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-010",
+    "seal_sha256": "e2c9b1c3bc1e4d5b9f8a111f286ed8d546369b437b665f31f0bc5ea7e517035b",
+    "bytes": 19489179,
+    "checks": [
+      {
+        "name": "build",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-vet=off",
+          "-p",
+          "1",
+          "-c",
+          "-o",
+          "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-010\\mana-root-tests.exe",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 4.262922100024298
+      },
+      {
+        "name": "saved-root",
+        "command": [
+          "E:\\pinned-binaries\\0588f15f79119a1c7c61ae2b1128594a0dd279fa4a8085a0cb47f33876fffba6\\mana-root-tests.exe",
+          "-test.run",
+          "^TestSavedManaPublicRoot$",
+          "-test.v",
+          "-test.timeout",
+          "120s"
+        ],
+        "exit_code": 0,
+        "seconds": 7.1593273999751545
+      }
+    ],
+    "passed": true
+  },
+  "diagnostic_before_claim": "Passed means faithful reproduction of the broken root, not successful reconstruction.",
+  "current_resource_observation": {
+    "checked_at_utc": "2026-10-04T17:03:59.173007+00:00",
+    "Jack": {
+      "checked_at_utc": "2026-10-04T17:04:01.1683179Z",
+      "memory_free_kib": 82427796,
+      "memory_total_kib": 134025436,
+      "cpu_logical": 24,
+      "cpu_name": "13th Gen Intel(R) Core(TM) i7-13700K",
+      "c_free_bytes": 88696320000,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 3050",
+        "NVIDIA GeForce RTX 4070 SUPER"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 88696320000,
+          "Size": 999136686080
+        },
+        {
+          "DeviceID": "D:",
+          "FreeSpace": 267724529664,
+          "Size": 1000186310656
+        },
+        {
+          "DeviceID": "E:",
+          "FreeSpace": 1038075006976,
+          "Size": 4000768323584
+        }
+      ],
+      "workloads": [
+        {
+          "ProcessId": 40432,
+          "Name": "python.exe",
+          "WorkingSetSize": 176128
+        },
+        {
+          "ProcessId": 40520,
+          "Name": "python.exe",
+          "WorkingSetSize": 1613824
+        },
+        {
+          "ProcessId": 41108,
+          "Name": "python.exe",
+          "WorkingSetSize": 1654784
+        },
+        {
+          "ProcessId": 41852,
+          "Name": "python.exe",
+          "WorkingSetSize": 25612288
+        },
+        {
+          "ProcessId": 49752,
+          "Name": "python.exe",
+          "WorkingSetSize": 4313088
+        },
+        {
+          "ProcessId": 53060,
+          "Name": "python.exe",
+          "WorkingSetSize": 13922304
+        },
+        {
+          "ProcessId": 20784,
+          "Name": "python.exe",
+          "WorkingSetSize": 4313088
+        },
+        {
+          "ProcessId": 46696,
+          "Name": "python.exe",
+          "WorkingSetSize": 47116288
+        },
+        {
+          "ProcessId": 47364,
+          "Name": "python.exe",
+          "WorkingSetSize": 20262912
+        },
+        {
+          "ProcessId": 53344,
+          "Name": "python.exe",
+          "WorkingSetSize": 31576064
+        },
+        {
+          "ProcessId": 29628,
+          "Name": "python.exe",
+          "WorkingSetSize": 30814208
+        },
+        {
+          "ProcessId": 8628,
+          "Name": "python.exe",
+          "WorkingSetSize": 31911936
+        },
+        {
+          "ProcessId": 27388,
+          "Name": "python.exe",
+          "WorkingSetSize": 31318016
+        },
+        {
+          "ProcessId": 4632,
+          "Name": "python.exe",
+          "WorkingSetSize": 4243456
+        },
+        {
+          "ProcessId": 49652,
+          "Name": "python.exe",
+          "WorkingSetSize": 27901952
+        },
+        {
+          "ProcessId": 10148,
+          "Name": "python.exe",
+          "WorkingSetSize": 4243456
+        },
+        {
+          "ProcessId": 61076,
+          "Name": "python.exe",
+          "WorkingSetSize": 27639808
+        },
+        {
+          "ProcessId": 24272,
+          "Name": "python.exe",
+          "WorkingSetSize": 4227072
+        },
+        {
+          "ProcessId": 30308,
+          "Name": "python.exe",
+          "WorkingSetSize": 4239360
+        },
+        {
+          "ProcessId": 50360,
+          "Name": "python.exe",
+          "WorkingSetSize": 4227072
+        },
+        {
+          "ProcessId": 22176,
+          "Name": "python.exe",
+          "WorkingSetSize": 4243456
+        },
+        {
+          "ProcessId": 48060,
+          "Name": "python.exe",
+          "WorkingSetSize": 23818240
+        },
+        {
+          "ProcessId": 45268,
+          "Name": "python.exe",
+          "WorkingSetSize": 46075904
+        },
+        {
+          "ProcessId": 14056,
+          "Name": "python.exe",
+          "WorkingSetSize": 24096768
+        },
+        {
+          "ProcessId": 54992,
+          "Name": "python.exe",
+          "WorkingSetSize": 44302336
+        },
+        {
+          "ProcessId": 55124,
+          "Name": "python.exe",
+          "WorkingSetSize": 4194304
+        },
+        {
+          "ProcessId": 47816,
+          "Name": "python.exe",
+          "WorkingSetSize": 27693056
+        },
+        {
+          "ProcessId": 15556,
+          "Name": "python.exe",
+          "WorkingSetSize": 4198400
+        },
+        {
+          "ProcessId": 36416,
+          "Name": "python.exe",
+          "WorkingSetSize": 27734016
+        },
+        {
+          "ProcessId": 21176,
+          "Name": "python.exe",
+          "WorkingSetSize": 23105536
+        },
+        {
+          "ProcessId": 5136,
+          "Name": "python.exe",
+          "WorkingSetSize": 23691264
+        }
+      ],
+      "canonical_reservation": "host-reservation DESKTOP-DJ1C40R state=held lane=spellbench-pauper-luna-20261003 work_id=pauper-luna-approved-qualification-004 generation=174 since=2026-10-04T16:39:08.234+00:00",
+      "previous_formal_pid_58872_present": false,
+      "formal_completion": "Not inferred from process absence; no research outcomes read"
+    },
+    "Haley": {
+      "checked_at_utc": "2026-10-04T17:04:03.3186319Z",
+      "memory_free_kib": 23371036,
+      "memory_total_kib": 33478692,
+      "cpu_logical": 16,
+      "cpu_name": "AMD Ryzen 7 3700X 8-Core Processor             ",
+      "c_free_bytes": 116709212160,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 4060"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 116709212160,
+          "Size": 999123054592
+        }
+      ],
+      "host_lock_exists": false,
+      "workloads": [],
+      "reservation": "Queued training-performance window retains priority per TO-CODEX #811 until owner or user disposition; no claim taken"
+    },
+    "RunPod": {
+      "checked_at_utc": "2026-10-04T17:03:59.173007+00:00",
+      "new_paid_compute": 0,
+      "inventory": [
+        {
+          "id": "842qs8tfojssm7",
+          "name": "spellbench-luna-approved-e92937de",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.08
+        },
+        {
+          "id": "sg44qx00hkwn8o",
+          "name": "spellbench-luna-small-65cd52ba",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.08
+        },
+        {
+          "id": "7yiducujj2iy3v",
+          "name": "spellbench-x5-download-f9377613",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.092
+        },
+        {
+          "id": "1qeikbu63ugou0",
+          "name": "spellbench-x5-recovery-2a1e9848",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.092
+        },
+        {
+          "id": "j7nhcnc5x3a9l3",
+          "name": "spellbench-x5-004913a-582386ea",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 16,
+          "memoryInGb": 64,
+          "costPerHr": 0.736
+        }
+      ],
+      "inventory_status": "HTTP200",
+      "allocation_disposition": "No owned gorge pod remains. Unrelated leases are untouched.",
+      "owned_gorge_running": [],
+      "budget": {
+        "verified_ledger": "E:\\spellbench-gorge-billing-20261004-001",
+        "provider_reported_spend_usd": 2.541344251760165,
+        "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+        "authorized_cap_usd": 10,
+        "final_invoice_verified": false,
+        "scope": "Verified billing snapshot reused while no new gorge cloud resources have been launched. Refresh through the same ledger before a paid launch."
+      }
+    },
+    "obsolete_reservation": "Old forty-minute Jack Spellbench queue is retired per CODEX811",
+    "coordination": "Current canonical Jack reservation and queued Haley training-performance priority remain binding. No host or GPU claim is taken.",
+    "allocation": "Runtime026 needs fresh matched serial and parallel completed-work qualification through the supported guarded launcher.",
+    "qualification": "All17 saved failure roots pass with eight worlds, unchanged native diagnostics and known-card checks. The affected strategy package is being checked. Full native and reference qualification remains unfinished."
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "fully_qualified_entries": 0,
+  "completed_games": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "remaining": "Freeze a new runtime, qualify matched serial/parallel useful compute, complete native and reference audits, fair review, frozen ratings and publication.",
+  "cloud_budget_verified_snapshot": {
+    "ledger": "E:/spellbench-gorge-billing-20261004-002",
+    "seal_sha256": "2f5d7e7a81c6c588cce6ab9155a44a671d733dfb0047c2d095007ced0de7a5d2",
+    "observed_at_utc": "2026-10-04T17:09:00.525243+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "runtime021-014": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.19882145593874156,
+        "totalAmount": 0.20900664094369859
+      },
+      "runtime022-015": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.0559598496183753,
+        "totalAmount": 0.05873762734699994
+      },
+      "runtime023-016": {
+        "cpuAmount": 0,
+        "diskAmount": 0.003703703638166189,
+        "gpuAmount": 0.051996649941429496,
+        "totalAmount": 0.055700353579595685
+      },
+      "runtime024-017": {
+        "cpuAmount": 0,
+        "diskAmount": 0.0009259259095415473,
+        "gpuAmount": 0.02108979970216751,
+        "totalAmount": 0.02201572561170906
+      },
+      "runtime024-019": {
+        "cpuAmount": 0,
+        "diskAmount": 0.009259259095415473,
+        "gpuAmount": 0.17537672887556255,
+        "totalAmount": 0.18463598797097802
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.5682813890016405,
+    "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  }
+}
