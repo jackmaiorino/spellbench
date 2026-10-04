@@ -56,6 +56,11 @@ jobs:
         run: |
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
+          mkdir -p "$RUNNER_TEMP/priority-mana-check"
+          javac --release 8 -cp "$RUNNER_TEMP/xmage-build/lib/*" \
+            -d "$RUNNER_TEMP/priority-mana-check" engines/xmage/tests/priority-mana/EngineProfileCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$RUNNER_TEMP/xmage-build/lib/*" \
+            mage.player.spellbench.server.EngineProfileCheck
       - name: Compile both original model searches, mixed bridge and MageZero encoder
         env:
           SPELLBENCH_CI_GITHUB_TOKEN: ${{ github.token }}

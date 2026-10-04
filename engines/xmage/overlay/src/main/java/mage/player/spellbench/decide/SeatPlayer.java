@@ -197,8 +197,9 @@ final class SeatPlayer extends AutoPayPlayer {
             keys.add(null);
             for (ActivatedAbility a : playables) {
                 AbilityType type = a.getAbilityType();
-                if (type == AbilityType.ACTIVATED_MANA || type == AbilityType.SPECIAL_MANA_PAYMENT) {
-                    continue; // engine_autopay: mana abilities are the engine's, never offered (Section 7.6)
+                if ((type == AbilityType.ACTIVATED_MANA && !ex().priorityMana)
+                        || type == AbilityType.SPECIAL_MANA_PAYMENT) {
+                    continue; // cost payment stays engine-owned; ordinary mana activation is opt-in
                 }
                 String key = actionKey(a);
                 if (st.excluded.contains(key)) {
@@ -250,7 +251,8 @@ final class SeatPlayer extends AutoPayPlayer {
      */
     private boolean completable(ActivatedAbility a, Game game) {
         AbilityType type = a.getAbilityType();
-        if (type != AbilityType.SPELL && type != AbilityType.ACTIVATED_NONMANA) {
+        if (type != AbilityType.SPELL && type != AbilityType.ACTIVATED_NONMANA
+                && type != AbilityType.ACTIVATED_MANA) {
             return true;
         }
         try {
@@ -282,7 +284,8 @@ final class SeatPlayer extends AutoPayPlayer {
                 }
                 return !costed;
             }
-            if (type == AbilityType.ACTIVATED_NONMANA && !a.getManaCostsToPay().isEmpty()) {
+            if ((type == AbilityType.ACTIVATED_NONMANA || type == AbilityType.ACTIVATED_MANA)
+                    && !a.getManaCostsToPay().isEmpty()) {
                 // a source that taps as part of the cost cannot also make mana for it (XMage counts it)
                 boolean tapsSource = false;
                 for (mage.abilities.costs.Cost c : a.getCosts()) {
@@ -358,6 +361,20 @@ final class SeatPlayer extends AutoPayPlayer {
                     s.put("method", method);
                     return s;
                 }, src).order(2, src, 0);
+            }
+            case ACTIVATED_MANA: {
+                long index = abilityIndex(game, a);
+                if (index < 0) {
+                    throw ex().halt("unmatched_priority_mana_ability");
+                }
+                return pose.add(o -> {
+                    Map<String, Object> s = sem("activate_mana_ability");
+                    s.put("source", ref(o, src));
+                    s.put("ability_index", index);
+                    s.put("mana_choice", null);
+                    s.put("cost_target", null);
+                    return s;
+                }, src).order(5, src, index);
             }
             case ACTIVATED_NONMANA: {
                 long index = abilityIndex(game, a);

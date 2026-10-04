@@ -202,6 +202,15 @@ public final class Slice {
         }
 
         private static EnginePos start(String label, SeatSetup s0, SeatSetup s1, boolean mulliganNone) {
+            return start(label, s0, s1, mulliganNone, false);
+        }
+
+        static EnginePos startPriorityMana(String label, SeatSetup s0, SeatSetup s1) {
+            return start(label, s0, s1, true, true);
+        }
+
+        private static EnginePos start(String label, SeatSetup s0, SeatSetup s1, boolean mulliganNone,
+                                       boolean priorityMana) {
             EnginePos e = new EnginePos();
             e.secret = Seeds.hmac("spellbench-kit-slice".getBytes(), label);
             GameRandom.installBoot();
@@ -236,7 +245,7 @@ public final class Slice {
             names.addAll(s1.all());
             List<String> domain = new ArrayList<>(names);
             Collections.sort(domain);
-            e.seats.connect(e.secret, FLAGS, 10000, 10000, domain, mulliganNone);
+            e.seats.connect(e.secret, FLAGS, 10000, 10000, domain, mulliganNone, priorityMana);
             for (int k = 0; k < 2; k++) {
                 Player p = e.seats.player(k);
                 List<Card> hand = new ArrayList<>();

@@ -71,6 +71,8 @@ Nothing is installed into the Maven repository. Network use is Maven Central, pl
 
 Each engine process runs in its own working directory with its own copy of the card database (`./db`, about 259 MB). The database is built once with `DeterminismCheck --scan-only` and copied.
 
+For adapters that need to float mana at ordinary priority, add `-Dspellbench.priorityMana=true` to the engine JVM command. The engine freezes this setting when loading its profile and declares `activate_mana_ability` only when enabled. Payment of spell and ability costs still uses `engine_autopay`; color and additional-cost choices follow the usual choice callbacks. The default is `false`. Pin the JVM command and profile with evaluation settings. This mapper support does not establish fidelity of a bot's original priority policy or native qualification of this opt-in profile.
+
 ### Reproducibility (2026-09-30, branch commit 4c4f189)
 
 | Builds | Toolchain | Wall time | Result |
