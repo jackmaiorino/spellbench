@@ -213,9 +213,9 @@
         "--timeout-ms",
         "60000",
         "--max-run-requests",
-        "20000",
+        "27000",
         "--max-run-tokens",
-        "125000000",
+        "180000000",
         "--max-run-wall-seconds",
         "${SPELLBENCH_LLM_WALL_SECONDS}",
         "--max-inflight",
@@ -227,7 +227,7 @@
         "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.",
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       },
-      "evaluation_identity": "4066f8519344c3ff0ec63a4bca36e3b4dcaf192c4c05e79b04dfbea245f5cc67"
+      "evaluation_identity": "cce8e04cede01402b4d05abcc8084da687ab6f83f17e05fdc2f1718ef2b89644"
     }
   ],
   "qualification_sample": [
