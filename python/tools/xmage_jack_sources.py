@@ -324,12 +324,12 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
         if len(matches) != 1:
             raise ValueError("Jack mulligan stage needs one private encoder asset")
-        asset = matches[0]
-        validate_asset(asset)
-        if asset["sha256"] != MULLIGAN_JAVA_SHA256 or asset.get("transport") != "local-file":
+        mulligan_asset = matches[0]
+        validate_asset(mulligan_asset)
+        if mulligan_asset["sha256"] != MULLIGAN_JAVA_SHA256 or mulligan_asset.get("transport") != "local-file":
             raise ValueError("Jack mulligan stage requires the pinned private local source")
-        verify(root / asset["filename"], asset)
-        mulligan = mulligan_source((root / asset["filename"]).read_text(encoding="utf-8")).encode("utf-8")
+        verify(root / mulligan_asset["filename"], mulligan_asset)
+        mulligan = mulligan_source((root / mulligan_asset["filename"]).read_text(encoding="utf-8")).encode("utf-8")
     if output.exists() or output.is_symlink():
         raise ValueError("Jack source stage needs a new owned output directory")
     output = prepare_root(output)
