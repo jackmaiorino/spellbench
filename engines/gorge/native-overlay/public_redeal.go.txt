@@ -64,7 +64,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		}
 		epochs[key] = epoch
 	}
-	for key, positions := range spellbenchActorOpeningDraws(setup, h) {
+	for key, positions := range spellbenchActorLibraryPositions(setup, h) {
 		epoch := epochs[key]
 		for _, position := range positions {
 			// Name-only top-card facts can overlap a native position with a

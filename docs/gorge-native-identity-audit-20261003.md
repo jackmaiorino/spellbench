@@ -96,6 +96,21 @@ preserve complete actor history when unseen opponent cards change order. All
 qualification and exact public diagnosis. This saved repair requires a new
 runtime and compatible complete qualification before ratings or publication.
 
+Runtime023 retained 13 failed public roots after actor London bottoming, Lembas
+scry and a later shuffle. The public witness now tracks observed draw, explore
+and top-window positions in each owned shuffle, preserving original positions
+through observed London bottoms and provable actor arrangements. Later shuffle
+sizes use visible library sizes and recorded draws or moves with a known owner.
+Unrecorded complement orders and unknown mutations stop the optional fold.
+Earlier conservative opponent London bounds also survive when proposing a spare
+opening bottom, including after events in another library. All 13 roots supply
+eight known-card-valid worlds in 284 to 628 submits, with every emitted native
+diagnostic unchanged. Eight legal arrangement cases preserve complete history
+under unseen tail permutations. All 69 affected checks, vet and diff pass.
+The [repair record](gorge-public-arrange-repair-20261004.json) preserves passing
+and failed attempts. Fresh complete qualification and identity review remain
+required; these local checks play zero complete games.
+
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation

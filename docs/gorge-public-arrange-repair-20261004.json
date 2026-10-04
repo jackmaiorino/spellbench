@@ -1,0 +1,895 @@
+{
+  "schema": "spellbench-gorge-public-arrange-repair/v1",
+  "at_utc": "2026-10-04T10:56:09.173297+00:00",
+  "base_runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "source_commit_before_patch": "f5851627eaec7dde5aa4c682d21808fa64f09fb7",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "218a3b0f6bce2ee8a4063de20ed214ecc0a0b0487562d62d26f19004bf5bb18f",
+    "engines/gorge/native-overlay/public_redeal.go.txt": "a58c5265d5332fca18bcf87e18cfa855bdfde97d62b620b7b75e083ed5fceed8",
+    "engines/gorge/strategies/arrange_history_test.go": "f2ac7f2e2652a50cd76e11c481bdc42c23d37e7c3148120b55ca6269a1edd5a6"
+  },
+  "public_corpus": "E:\\spellbench-gorge-wildfire-prefix-20261004-003",
+  "public_corpus_seal_sha256": "b0dbfc98c7628e71c67ae404f9d286b562e48fd4037fb7d4764fefb3e187d123",
+  "roots": [
+    {
+      "frames": 141,
+      "public_input_sha256": "ae6482f87bb807da8d0c09e3b350d2c269c9068907e7958510739916322fbd03",
+      "before": {
+        "Attempts": 1,
+        "Submits": 5000,
+        "Nodes": 4699,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 284,
+        "Nodes": 40,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 164,
+      "public_input_sha256": "0bb0e504f2e74943c2e84b5583f3e562970995fe121f6182fd9ac0bcf7dcbf8e",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4803,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 330,
+        "Nodes": 48,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 166,
+      "public_input_sha256": "e6b9ff4dca16116b69c76eba421169147e825a10f9fd660caa734bf8dc073908",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4770,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 332,
+        "Nodes": 48,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 176,
+      "public_input_sha256": "69472444a40e6004251a6b952c4f59defc1de397e53b5969c7c763288d9c3925",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4720,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 347,
+        "Nodes": 47,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 202,
+      "public_input_sha256": "b6d4e6782e457af39abd1b001102b9add58bf3b81375f46a76c21b42a650a147",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4751,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 400,
+        "Nodes": 56,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 207,
+      "public_input_sha256": "31e230d27ed3feb126e29393261cfb637326a989b078ee33227c612263703870",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4680,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 412,
+        "Nodes": 65,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 228,
+      "public_input_sha256": "d7196a626ae01ec78a7b67c7c8070e951836b89333a22402550b4d23ec3c64c5",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4798,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 449,
+        "Nodes": 53,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 235,
+      "public_input_sha256": "7c12eaca9c75b4277d9c497f2d193aef69347df4d4cb4dd7d880af837aa5da98",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4751,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 481,
+        "Nodes": 87,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 255,
+      "public_input_sha256": "cef992f2d0d8495a25e972997aa245dadb874ea5d5561b9f684a86bea83cf1c2",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4830,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 504,
+        "Nodes": 76,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 274,
+      "public_input_sha256": "119c517b1b0a2c8908eac9672df9bbed2d773059da1582e612d2c34f88361fae",
+      "before": {
+        "Attempts": 1,
+        "Submits": 5000,
+        "Nodes": 4728,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 549,
+        "Nodes": 82,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 295,
+      "public_input_sha256": "2fbacf2d5eb2b3ada675d5283604030995c801010dce00b2684febc5e5ca06c8",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4798,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 575,
+        "Nodes": 76,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 313,
+      "public_input_sha256": "6eb652c3b7c9b08cbe2832a2796685eea6d522a45f75320e3feeac9d39b8a4c3",
+      "before": {
+        "Attempts": 1,
+        "Submits": 5000,
+        "Nodes": 4687,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 622,
+        "Nodes": 86,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    },
+    {
+      "frames": 320,
+      "public_input_sha256": "aa4ef7735030c82433724fcba17f45ee54e70dab12c4f5d317155672d9915a56",
+      "before": {
+        "Attempts": 2,
+        "Submits": 5000,
+        "Nodes": 4724,
+        "BudgetExhausted": 1
+      },
+      "after": {
+        "Attempts": 1,
+        "Submits": 628,
+        "Nodes": 86,
+        "BudgetExhausted": 0
+      },
+      "worlds": 8,
+      "native_diagnostics_identical": true,
+      "emitted_native_fields": [
+        "Accepted",
+        "ArrangeWindows",
+        "Attempts",
+        "BudgetExhausted",
+        "CompetitionExclusions",
+        "CompetitionResidual",
+        "CompetitionUnguided",
+        "Duplicates",
+        "ESS",
+        "FirstRejection",
+        "GuidedGenesis",
+        "GuidedLater",
+        "HandToStackCauses",
+        "IncompatibleProposals",
+        "KnownCardClaims",
+        "LandResidual",
+        "LandUnguided",
+        "PrefixRejected",
+        "Rejections",
+        "StackRejectionContexts",
+        "Submits",
+        "UnguidedConstraints",
+        "WeightDiagnostics"
+      ],
+      "known_card_checks_passed_for_all_worlds": true
+    }
+  ],
+  "repair": "Track observed actor draws, explore reveals and top arrangement windows in every owned shuffle. Observed London bottoms retain their original shuffle positions. Reorders follow provable actor answers; ambiguous unrecorded complement orders and unknown mutations stop the optional fold. Later shuffle sizes come only from visible boundary sizes and recorded draws or moves with a known owner. Preserve earlier conservative opponent London bounds when proposing a spare opening bottom, including after events in a different library.",
+  "native_sampler_policies_weights_and_budgets_unchanged": true,
+  "frozen_options": {
+    "Seed": 54321,
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000
+  },
+  "legal_cases": [
+    {
+      "name": "pending",
+      "frames": 10,
+      "attempts": 1,
+      "submits": 14,
+      "nodes": 0,
+      "budget_exhausted": 0,
+      "native_accepted": 2
+    },
+    {
+      "name": "keep",
+      "frames": 13,
+      "attempts": 1,
+      "submits": 18,
+      "nodes": 0,
+      "budget_exhausted": 0,
+      "native_accepted": 0
+    },
+    {
+      "name": "bottom",
+      "frames": 13,
+      "attempts": 1,
+      "submits": 18,
+      "nodes": 0,
+      "budget_exhausted": 0,
+      "native_accepted": 0
+    },
+    {
+      "name": "reverse",
+      "frames": 13,
+      "attempts": 1,
+      "submits": 19,
+      "nodes": 2,
+      "budget_exhausted": 0,
+      "native_accepted": 0
+    },
+    {
+      "name": "shuffle-pending",
+      "frames": 12,
+      "attempts": 1,
+      "submits": 17,
+      "nodes": 0,
+      "budget_exhausted": 0,
+      "native_accepted": 45
+    },
+    {
+      "name": "shuffle-keep",
+      "frames": 15,
+      "attempts": 1,
+      "submits": 21,
+      "nodes": 0,
+      "budget_exhausted": 0,
+      "native_accepted": 40
+    },
+    {
+      "name": "shuffle-bottom",
+      "frames": 15,
+      "attempts": 1,
+      "submits": 22,
+      "nodes": 2,
+      "budget_exhausted": 0,
+      "native_accepted": 43
+    },
+    {
+      "name": "shuffle-reverse",
+      "frames": 15,
+      "attempts": 1,
+      "submits": 22,
+      "nodes": 2,
+      "budget_exhausted": 0,
+      "native_accepted": 48
+    }
+  ],
+  "entire_history_byte_identical_under_unseen_tail_permutation": true,
+  "native_diagnostics_identical_for_each_legal_history": true,
+  "known_card_root_and_world_checks_passed": true,
+  "passed_cases": 69,
+  "passed_root_tests": 40,
+  "affected_checks": {
+    "at_utc": "2026-10-04T10:51:44.334871+00:00",
+    "checks": [
+      {
+        "name": "build",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-vet=off",
+          "-p",
+          "1",
+          "-c",
+          "-o",
+          "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-002\\arrange-tests.exe",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 7.902357799990568
+      },
+      {
+        "name": "arrange-fixture",
+        "command": [
+          "E:\\pinned-binaries\\653adc0c74368ba8234d22bb96a0662db090198f847462a0d89c25d46528826d\\arrange-tests.exe",
+          "-test.run",
+          "^TestPublicActorArrangeAfterLondon$",
+          "-test.v",
+          "-test.timeout",
+          "240s"
+        ],
+        "exit_code": 0,
+        "seconds": 56.15116130001843
+      },
+      {
+        "name": "strategies",
+        "command": [
+          "E:\\pinned-binaries\\653adc0c74368ba8234d22bb96a0662db090198f847462a0d89c25d46528826d\\arrange-tests.exe",
+          "-test.run",
+          "^Test",
+          "-test.skip",
+          "^TestPublicActorArrangeAfterLondon$",
+          "-test.v",
+          "-test.timeout",
+          "500s"
+        ],
+        "exit_code": 0,
+        "seconds": 294.9682422999758
+      },
+      {
+        "name": "vet",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "vet",
+          "-p",
+          "1",
+          "./...",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 16.5110990999965
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.30977370002074167
+      }
+    ],
+    "passed": true,
+    "seconds": 376.89982849999797,
+    "completed_games": 0,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "corpus_checks": {
+    "at_utc": "2026-10-04T10:44:09.540394+00:00",
+    "checks": [
+      {
+        "name": "build",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-vet=off",
+          "-p",
+          "1",
+          "-c",
+          "-o",
+          "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-003\\arrange-corpus-tests.exe",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 12.281770400004461
+      },
+      {
+        "name": "saved-corpus",
+        "command": [
+          "E:\\pinned-binaries\\47e51d0820b4cf0cb4385bfbd2a7e873952893828f6357f33899511899abfc2c\\arrange-corpus-tests.exe",
+          "-test.run",
+          "^TestSavedWildfireActorArrangeCorpus$",
+          "-test.v",
+          "-test.timeout",
+          "500s"
+        ],
+        "exit_code": 0,
+        "seconds": 37.82179279997945
+      }
+    ],
+    "passed": true,
+    "seconds": 50.206451800011564,
+    "completed_games": 0,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "artifacts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-001",
+      "bytes": 19406658,
+      "seal_sha256": "090b6335557efd1f331f7a66647566290a8e5c9dcb9bbb69bf2c2daaac94ca11",
+      "prune_manifest_sha256": "7053fd97e93f5b5f51e922a44c56a71e2e012a3bc6fe1777bebc5b9a31c6e8f5",
+      "status": "partial_repair_failed_six_roots"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-reconstruction-trace-20261004-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-004",
+      "bytes": 19422381,
+      "seal_sha256": "c6b26b121efd8dd70a58621101f8b7231ee5d5b22952f1f2f35497946be7ba44",
+      "prune_manifest_sha256": "7053fd97e93f5b5f51e922a44c56a71e2e012a3bc6fe1777bebc5b9a31c6e8f5",
+      "status": "reproduced_candidate_public228_failure"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-002",
+      "bytes": 19414314,
+      "seal_sha256": "be4f78464faf23c4c41dcf61a34a5282295a7e67bf12010b4ce3481ac03439ea",
+      "prune_manifest_sha256": "f49dc85ddb5eca0e8dcf02c75a014a83e88484c7e7ca252e663062d5ecbc9b88",
+      "status": "failed"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-reconstruction-trace-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-005",
+      "bytes": 19400149,
+      "seal_sha256": "17ab2acfa4b7bbf8b0124253b224b94349eab82153aaa1462ae51aaf08d56f0f",
+      "prune_manifest_sha256": "eac6c09190aee9af2491dcf8e06285f4fc3441ab137cd8ce31a741c7b89089ae",
+      "status": "passed"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-001",
+      "bytes": 19353102,
+      "seal_sha256": "ee04d315c729ba80143efaf42e2232b5af6be5d29858b86f96829baf072242df",
+      "prune_manifest_sha256": "ee7ab7ce8d8461213c24418fef877bb6f94878fdb4f3cee56f6039831390e3b9",
+      "status": "passed"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-003",
+      "bytes": 19445082,
+      "seal_sha256": "7093215449997636f3006a6df4bb7828f30852629b8973e0ce9b900a45a02e6c",
+      "prune_manifest_sha256": "92b6efb37879e537519476fa4e6355d1933577f943205181c718469713198d07",
+      "status": "passed"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-002",
+      "bytes": 19377133,
+      "seal_sha256": "24fe59ad8b6008c732e19eee4e607e22c18a16216198c8509a9adf3eb81f85c1",
+      "prune_manifest_sha256": "c094801aaec1671a8024f48b4699a5214b2b8bff55e5a73b210b32b0a7eccc1b",
+      "status": "passed"
+    }
+  ],
+  "resource_check": {
+    "checked_at_utc": "2026-10-04T10:49:06.465528+00:00",
+    "all_three_placements_checked": true,
+    "local_reservations_preserved": true,
+    "owned_gorge_pods": 0,
+    "cloud_budget": {
+      "observed_at_utc": "2026-10-04T10:49:11.905218+00:00",
+      "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+      "provider_reported_refreshed_pods": {
+        "runtime019-011": {
+          "cpuAmount": 0,
+          "diskAmount": 0.01018518500495702,
+          "gpuAmount": 0.12385392561554909,
+          "totalAmount": 0.1340391106205061
+        },
+        "runtime020-013": {
+          "cpuAmount": 0,
+          "diskAmount": 0.002777777728624642,
+          "gpuAmount": 0.05677674547769129,
+          "totalAmount": 0.059554523206315935
+        },
+        "runtime021-014": {
+          "cpuAmount": 0,
+          "diskAmount": 0.01018518500495702,
+          "gpuAmount": 0.19882145593874156,
+          "totalAmount": 0.20900664094369859
+        },
+        "runtime022-015": {
+          "cpuAmount": 0,
+          "diskAmount": 0.002777777728624642,
+          "gpuAmount": 0.0559598496183753,
+          "totalAmount": 0.05873762734699994
+        },
+        "runtime023-016": {
+          "cpuAmount": 0,
+          "diskAmount": 0.003703703638166189,
+          "gpuAmount": 0.0470138497184962,
+          "totalAmount": 0.05071755335666239
+        }
+      },
+      "provider_reported_combined_spend_usd_so_far": 2.35664687519602,
+      "conservative_cumulative_lease_ceiling_usd": 6.11026747,
+      "cloud_cap_usd": 10,
+      "final_invoice_pending": true
+    }
+  },
+  "completed_games": 0,
+  "rated_games": 0,
+  "fully_qualified_entries": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "owned_pod_allocated": false,
+  "remaining": "Rebuild committed source, pass compatible guarded native and reference-host qualification, complete identity and benchmark reviews, then run ratings and publication."
+}
