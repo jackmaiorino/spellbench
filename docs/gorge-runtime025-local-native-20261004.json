@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-runtime025-local-native/v1",
   "observed_at_utc": "2026-10-04T15:37:27.389728+00:00",
-  "phase": "matched_scaling_running",
+  "phase": "closed_failed_or_incomplete",
   "source_commit": "75c6d2bd826d4ebe5abc6eebd37e9820b1d87392",
   "native_sha256": "f98783e1eb9236badfc10b88e4e48432404d311c5aec011cbed386809a552831",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
@@ -95,5 +95,78 @@
   "rated_games": 0,
   "published_entries": 0,
   "next_result": "Observe matched canonical rows and measured allocation, then the complete native audit; seal retained output and confirm canonical release",
-  "remaining": "Reference-host qualification, current fair-play review, frozen rated evaluation and verified public leaderboard entries"
+  "remaining": "Reference-host qualification, current fair-play review, frozen rated evaluation and verified public leaderboard entries",
+  "closure": "E:\\spellbench-gorge-native-audit-20261004-008\\CLOSURE.json",
+  "closure_sha256": "0ac224d34908c08d1cbf4af78bfb934dbce0b99fc5f64ece16af304c06fa3d2e",
+  "seal_sha256": "3da74bd673ff85eec7e0ca9d75fc6a8cf095b94bae6cfae1676082c84daee7fa",
+  "bytes": 35351825,
+  "native_qualification_complete": false,
+  "canonical_released": true,
+  "observed_result": {
+    "schema": "spellbench-gorge-runtime025-native-closure/v1",
+    "at_utc": "2026-10-04T16:18:26.968917+00:00",
+    "status": "failed_or_incomplete",
+    "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-008",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-008",
+    "source_commit": "75c6d2bd826d4ebe5abc6eebd37e9820b1d87392",
+    "native_sha256": "f98783e1eb9236badfc10b88e4e48432404d311c5aec011cbed386809a552831",
+    "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "exit_code": 124,
+    "native_qualification_complete": false,
+    "canonical_generation": 170,
+    "host_token_fate": "released",
+    "owned_process_cleanup_verified": true,
+    "terminal": null,
+    "guard_stop": {
+      "at_utc": "2026-10-04T16:17:20.833665+00:00",
+      "reason": "Owned STOP",
+      "elapsed_seconds": 2684.081420100003,
+      "artifact_bytes": 35341497,
+      "rated_games": 0
+    },
+    "launcher_failure": null,
+    "driver_failure": null,
+    "native_audit": null,
+    "trial_receipts": [],
+    "observed_progress": {
+      "qualification-1-workers-1": {
+        "blocks": 16,
+        "natural_blocks": 16,
+        "completed_indices": [
+          40,
+          41,
+          44,
+          45,
+          48,
+          52,
+          96,
+          100,
+          104,
+          108,
+          152,
+          156,
+          160,
+          164,
+          208,
+          212
+        ],
+        "stdout_sha256": "f7b3b8581a752ec5420db64450e72cc80b3c8483b1058d404a208b34b1816f1d"
+      }
+    },
+    "full_seed_blocks": 320,
+    "full_completed_games": 0,
+    "measured_allocation": null,
+    "rated_games": 0,
+    "published_entries": 0,
+    "new_cloud_spend_usd": 0,
+    "cloud_budget": {
+      "cap_usd": 10,
+      "provider_reported_spend_usd_so_far": 2.541344251760165,
+      "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+      "final_invoice_verified": false,
+      "verified_ledger": "E:/spellbench-gorge-billing-20261004-001"
+    },
+    "retention": "All exact source, frozen inputs, partial outputs, reports, failures, logs, terminal state and recovery retained",
+    "next_step": "Diagnose the exact declared failure using preserved public inputs before any corrected successor"
+  }
 }

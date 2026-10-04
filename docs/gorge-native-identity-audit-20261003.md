@@ -347,13 +347,16 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   See [public Dig repair](gorge-public-dig-repair-20261004.json). Complete
   qualification still requires the next immutable runtime and native panel.
 
-- Runtime025 is now executing through the canonical local CPU guard, generation
-  170. The supported launcher compares the same 32 blocks at 1, 8 and 16
-  workers before the complete 320-block audit. The source, binary and registry
-  are frozen; STOP, timeout, storage and owned process cleanup are enforced.
-  Two placement-note preparations were rejected before any dispatch and remain
-  sealed. See [current local launch](gorge-runtime025-local-native-20261004.json).
-  This launch has no native qualification result yet and plays zero rated games.
+- Runtime025's guarded local attempt completed 13 natural serial pilot blocks.
+  Wildfire seed 52 still recorded 26 public reconstruction-budget failures, so
+  it was stopped under the existing gate before a measured allocation or full
+  audit. Rally seed 108 now completes with 23 covered search decisions and no
+  reconstruction exhaustion or mapping failures. The frozen inputs, partial
+  output and terminal state are sealed with verified independent recovery;
+  canonical generation 170 has released. Two rejected placement-note
+  preparations remain retained. See the
+  [closed local attempt](gorge-runtime025-local-native-20261004.json).
+  The prepared reference matrix remains gated on complete native qualification.
 
 This is a source and information audit for the stated pool. Full twelve-mode
 qualification, compatible guarded throughput evidence, rated games and public ratings
