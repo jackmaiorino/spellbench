@@ -66,7 +66,7 @@
       "family": "jack-xmage-rl",
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
       "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
-      "wiring_status": "all five pairs strictly load and repeat finite isolated inference on actual permitted Java priority features; original paired inference, private chooser and permitted original mulligan feature component are wired; legacy Standard Q keep ties are preserved; guarded chooser/mulligan execution, other original callbacks, duplicate-prompt handling, exact decks and full game adapter unfinished",
+      "wiring_status": "all five pairs strictly load and repeat finite isolated inference on actual permitted Java priority features; paired inference, private chooser, permitted mulligan features and original mode component are wired; mode slots preserve order, legality, first-64 cap and ordinal overwrite; single and exhausted mode lists bypass model and RNG; legacy Standard Q keep ties are preserved; native source checks, custom mana filters, other callbacks, duplicate-prompt handling, exact decks and full game adapter unfinished",
       "play_profile_source": "jack-play-profiles.json",
       "integrated": false,
       "qualified": false,

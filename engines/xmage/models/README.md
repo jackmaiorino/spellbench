@@ -1,5 +1,29 @@
 # DraftZero neural adapters
 
+Jack's original spell-mode component uses `JackModeEncoderMain` and
+`xmage_jack_modes.ModeSession`. An explicit `mode_callback: true` in the private
+input manifest stages the original legality rule as `ModeRules.java`. The
+callback encoder requires the reviewed search/replay source build through
+`--search-inputs`, the pinned offline embedding file, and the staged state,
+candidate and mode-rule source hashes.
+
+The bridge replays a saved permitted priority and its recorded prefix,
+verifies the current observation, and resolves named entities against that
+current visible projection. It preserves original available-mode order,
+the first 64 slots, the original legality mask, action IDs, 48 features and
+the float32 ordinal overwrite in feature 0. It builds the base state before
+checking costs and targets, as the original callback does. A sole available
+mode or exhausted mode list returns directly without inference or RNG use.
+The remaining mode frame uses the paired policy and game-owned Java chooser.
+The full request, game, decision, sources, offered slots and shared clock are
+bound; failures close all three owned resources.
+
+Cost-bearing multi-mode callbacks refuse until the original custom mana
+filters are ported. Invalid or unsupported callbacks refuse in place of the
+original heuristic fallback. Local transport checks do not execute private
+Java or checkpoints; native callback and hidden-world replay checks, other
+callbacks, exact deck associations and complete games remain unfinished.
+
 Jack's private paired inference now also has an original mulligan feature
 component. A `mulligan_encoder` asset in the external Jack manifest stages
 the hash-pinned private `MulliganModel.java` into `MulliganEncoder.java`.

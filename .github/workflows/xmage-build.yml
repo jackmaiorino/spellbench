@@ -61,6 +61,9 @@ jobs:
         run: |
           python python/tools/xmage_model_ci_inputs.py --root "$RUNNER_TEMP/model-inputs"
           python python/tools/xmage_model_build.py --compile-only \
+            --inputs "$RUNNER_TEMP/model-inputs" \
+            --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-slices-build"
+          python python/tools/xmage_model_build.py --compile-only \
             --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \

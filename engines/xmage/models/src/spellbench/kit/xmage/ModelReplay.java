@@ -38,6 +38,12 @@ import java.util.UUID;
 /** Reaches original search callbacks by replaying a saved permitted priority. */
 final class ModelReplay {
     private ModelReplay() { }
+    interface ModeCapture {
+        Mode earlier(World world, Map<String, Object> decision, Modes modes, Ability source,
+                     Game game, Map<String, Object> semantic);
+        Map<String, Object> encode(World world, Map<String, Object> decision, Modes modes, Ability source,
+                                   Game game);
+    }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
     private static Result live;
@@ -70,6 +76,12 @@ final class ModelReplay {
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
+        ModeCapture modeCapture;
+        Map<String, Object> encoded;
+
+        void searchAllowed() {
+            if (modeCapture != null) throw new IllegalArgumentException("mode feature capture reached another callback");
+        }
 
         void compare(Game game) {
             compare(game, decision);
@@ -155,6 +167,7 @@ final class ModelReplay {
                     && "search".equals(Json.str(Json.obj(replay.decision, "context"), "purpose"));
             String text = (source == null ? "null" : source.getRule()) + ":Choose a target:" + target.getTargetName();
             replay.player = this;
+            replay.searchAllowed();
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchAction(game, ActionEncoder.ActionType.CHOOSE_TARGET, text);
             throw new Stop();
@@ -182,6 +195,7 @@ final class ModelReplay {
             }
             replay.compare(game);
             replay.player = this;
+            replay.searchAllowed();
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchAction(game, ActionEncoder.ActionType.CHOOSE_USE, message);
             throw new Stop();
@@ -215,6 +229,7 @@ final class ModelReplay {
             replay.compare(game);
             replay.player = this;
             replay.namedActions = actions;
+            replay.searchAllowed();
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchChoice(game, choice);
             throw new Stop();
@@ -243,6 +258,7 @@ final class ModelReplay {
                 }
                 replay.compare(game);
                 replay.player = this;
+                replay.searchAllowed();
                 configure(replay.evaluator, replay.settings);
                 replay.chosen = searchAmount(game, min, max, source);
                 throw new Stop();
@@ -266,6 +282,7 @@ final class ModelReplay {
             replay.player = this;
             replay.numericMinimum = min;
             replay.numericRangeRestricted = offeredMax != max;
+            replay.searchAllowed();
             configure(replay.evaluator, replay.settings);
             replay.chosen = searchAmount(game, min, offeredMax, source);
             throw new Stop();
@@ -276,6 +293,18 @@ final class ModelReplay {
             try {
                 if (!getId().equals(replay.world.player(replay.world.viewer))) {
                     throw new IllegalArgumentException("unrecorded opponent mode callback");
+                }
+                if (replay.modeCapture != null) {
+                    Map<String, Object> past = replay.earlierPick(game);
+                    if (past != null) {
+                        Mode picked = replay.modeCapture.earlier(replay.world, replay.callbackDecision(),
+                                modes, source, game, past);
+                        replay.replayed++;
+                        return picked;
+                    }
+                    replay.compare(game);
+                    replay.encoded = replay.modeCapture.encode(replay.world, replay.decision, modes, source, game);
+                    throw new Stop();
                 }
                 replay.compare(game, replay.callbackDecision());
                 replay.modeActions = new ModelModes(replay.world, replay.callbackDecision(), modes, source, game);
@@ -394,6 +423,14 @@ final class ModelReplay {
         return run(record, evaluator, PlaySettings.diagnostic(visits));
     }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator, PlaySettings settings) {
+        return run(record, evaluator, settings, null);
+    }
+    static Result runMode(Map<String, Object> record, ModeCapture capture) {
+        if (capture == null) throw new IllegalArgumentException("mode capture is required");
+        return run(record, null, PlaySettings.diagnostic(1), capture);
+    }
+    private static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
+                              PlaySettings settings, ModeCapture capture) {
         settings.activate();
         Map<String, Object> anchor = Json.obj(record, "anchor");
         Map<String, Object> a = Json.obj(anchor, "decision");
@@ -402,6 +439,7 @@ final class ModelReplay {
         }
         Map<String, Object> action = selectedSemantic(a, Json.obj(anchor, "selection"));
         Result result = new Result();
+        result.modeCapture = capture;
         result.evaluator = evaluator; result.visits = settings.defaults.searchBudget; result.settings = settings;
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
@@ -458,7 +496,7 @@ final class ModelReplay {
                 throw new IllegalArgumentException("callback anchor is unsupported: " + flag);
             }
         }
-        result.player.configure(evaluator, settings);
+        if (capture == null) result.player.configure(evaluator, settings);
         Game game = result.world.game;
         game.getState().resume();
         Ability ability = "pass".equals(Json.str(action, "kind")) ? new PassAbility()
@@ -483,7 +521,8 @@ final class ModelReplay {
         } catch (Failure failure) {
             throw failure.failure;
         } catch (Stop stop) {
-            if (result.chosen == null || result.replayed != result.earlier.size()) {
+            if (result.chosen == null && result.encoded == null || result.replayed != result.earlier.size()
+                    || !result.passes.isEmpty()) {
                 throw new IllegalArgumentException("callback replay did not complete its recorded prefix");
             }
             return result;

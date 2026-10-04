@@ -65,10 +65,22 @@
     "fair_variant": "original own-hand features and remaining-library multiset; library sorted by card name; no hidden order",
     "wiring": "private original feature port and paired-network pregame component; guarded native execution unfinished"
   },
+  "modes": {
+    "source_lines": [3777, 3900],
+    "candidate_order": "original Modes.getAvailableModes order, first 64 entries",
+    "head": "action",
+    "feature_overwrite": "feature 0 = original float32 ordinal / candidate count",
+    "single_or_exhausted": "direct original return; no model or RNG use",
+    "source_staging_flag": "mode_callback: true",
+    "wiring": "permitted callback replay, source-bound frame, paired policy and owned original chooser",
+    "limitations": "native execution pending; cost-bearing multi-mode callbacks refuse until original mana filters are ported"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
     "guarded original mulligan feature and policy execution; duplicate-prompt handling",
+    "guarded original spell-mode execution and hidden-world replay",
+    "original custom mana filters for binary, numeric and cost-bearing modes",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

@@ -91,7 +91,8 @@ def main() -> int:
     else:
         source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
                                 and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java",
-                                                   "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java")]
+                                                   "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java",
+                                                   "JackModeEncoder.java", "JackModeEncoderMain.java")]
     if jack:
         source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
     if magezero:

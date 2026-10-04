@@ -35,6 +35,8 @@ class JackSelectionSession:
         self.peer = peer
         self.closed = self.failed = False
         self.sequence = 0
+        self.profile, self.seed = profile, seed
+        self.game_start_sha256 = None
         try:
             if profile not in PROFILES or type(seed) is not int or not 0 <= seed <= wire.MAX_JSON_INT:
                 raise ValueError("original Jack chooser needs an explicit no-training profile and game seed")
@@ -79,6 +81,22 @@ class JackSelectionSession:
                 raise ValueError("original Jack chooser returned illegal, repeated or incomplete picks")
             remaining()
             return indices
+        except BaseException:
+            self.failed = True
+            self.close()
+            raise
+
+    def bind_game_start(self, game_start: dict):
+        """All callbacks share this game's original RNG, with no cross-game reuse."""
+        from xmage_neural_decisions import decision_hash
+        try:
+            digest = decision_hash(game_start)
+            if (self.closed or self.failed or type(game_start.get("agent_seed")) is not int
+                    or game_start["agent_seed"] != self.seed
+                    or self.game_start_sha256 not in (None, digest)
+                    or self.game_start_sha256 is None and self.sequence != 0):
+                raise ValueError("original Jack chooser cannot be rebound to another game or RNG history")
+            self.game_start_sha256 = digest
         except BaseException:
             self.failed = True
             self.close()

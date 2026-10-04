@@ -294,6 +294,34 @@ public final class MulliganEncoder {
 """ % MULLIGAN_JAVA_SHA256 + methods + "}\n"
 
 
+MODE_VARIANT = "original available-mode order, legality mask, 64-slot cap and ordinal feature; permitted callback replay; refusal instead of heuristic fallback; cost-bearing multi-mode callbacks unsupported"
+
+
+def mode_source(source: str) -> str:
+    """Stage the original legality rule without publishing the private body."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack mode port requires the pinned April callback bytes")
+    method = extract(source, "    private boolean isModeChoiceCurrentlyLegal(",
+                     "    @Override\n    public int announceX(")
+    method = replace_once(method, "private boolean isModeChoiceCurrentlyLegal(", "public boolean legal(")
+    method = method.replace("playerId", "viewer.getId()")
+    return """package spellbench.models.jack;
+import mage.abilities.Ability;
+import mage.game.Game;
+import mage.players.Player;
+
+/** Private original mode legality rule, evaluated on the permitted world. */
+public final class ModeRules {
+    public static final String SOURCE_SHA256 = "%s";
+    private final Player viewer;
+    public ModeRules(Player viewer) {
+        if (viewer == null) throw new IllegalArgumentException("acting player required");
+        this.viewer = viewer;
+    }
+    private void trace(String message) { }
+""" % CALLBACK_SHA256 + method + "}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -319,6 +347,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    if "mode_callback" in config and type(config["mode_callback"]) is not bool:
+        raise ValueError("Jack mode staging needs an explicit boolean flag")
+    modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+             if config.get("mode_callback") is True else None)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -342,6 +374,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if mulligan is not None:
         with (output / "MulliganEncoder.java").open("xb") as stream:
             stream.write(mulligan)
+    if modes is not None:
+        with (output / "ModeRules.java").open("xb") as stream:
+            stream.write(modes)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -355,6 +390,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_mulligan_encoder_sha256=MULLIGAN_JAVA_SHA256,
                       staged_mulligan_encoder_sha256=hashlib.sha256(mulligan).hexdigest(),
                       mulligan_variant=MULLIGAN_VARIANT)
+    if modes is not None:
+        result.update(original_mode_callback_sha256=CALLBACK_SHA256,
+                      staged_mode_rules_sha256=hashlib.sha256(modes).hexdigest(), mode_variant=MODE_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
