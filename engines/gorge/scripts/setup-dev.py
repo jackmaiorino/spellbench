@@ -216,16 +216,19 @@ for relative, patches in [
          "\t\textra, reason := known.spellbenchAnonymousPins(e, p, pinLib)\n"
          "\t\tif reason != \"\" { return nil, reason }\n"
          "\t\tfor _, id := range extra { pinLib[id] = true; plan.loose = append(plan.loose, id); take(p, e.G.Obj(id).Card.Faces[0].Name) }\n"
+         "\t\textraHand, reason := known.spellbenchAnonymousHandPins(e, p, plan.pinHand)\n"
+         "\t\tif reason != \"\" { return nil, reason }\n"
+         "\t\tfor _, id := range extraHand { plan.pinHand[id] = true; take(p, e.G.Obj(id).Card.Faces[0].Name) }\n"
          "\t\tfor _, id := range append(append([]state.ObjID(nil), plan.hand...), lib...) {\n"),
     ]),
     ("internal/searchprobe/known.go", [
-        ("type KnownCards struct {\n", 'type KnownCards struct {\n\tSpellbenchAnonymous []SpellbenchLibraryMinimum `json:",omitempty"`\n'),
-        ("type KnownCardTracker struct {\n", "type KnownCardTracker struct {\n\tspellbenchPublic bool\n\tspellbenchMinimum map[state.PlayerID]map[string]int\n"),
+        ("type KnownCards struct {\n", 'type KnownCards struct {\n\tSpellbenchAnonymous []SpellbenchLibraryMinimum `json:",omitempty"`\n\tSpellbenchAnonymousHands []SpellbenchHandMinimum `json:",omitempty"`\n'),
+        ("type KnownCardTracker struct {\n", "type KnownCardTracker struct {\n\tspellbenchPublic bool\n\tspellbenchMinimum map[state.PlayerID]map[string]int\n\tspellbenchHandMinimum map[state.PlayerID]map[string]int\n"),
         ("\tt := NewKnownCardTracker(h.Actor)\n", "\tt := NewKnownCardTracker(h.Actor)\n\tt.spellbenchPublic = h.ActorBoundaries\n"),
         ("func (k KnownCards) Count() int {\n\tn := 0\n", "func (k KnownCards) Count() int {\n\tn := k.spellbenchExtraAnonymousCount()\n"),
         ("\tfor _, ev := range frame.Events {\n\t\tt.event(ev)\n", "\tfor _, ev := range frame.Events {\n\t\tif t.spellbenchPublic { t.spellbenchKnowledgeEvent(ev) }\n\t\tt.event(ev)\n"),
-        ("func (t *KnownCardTracker) clearZone(z knownLoc) {\n", "func (t *KnownCardTracker) clearZone(z knownLoc) {\n\tif z.zone == state.ZLibrary { delete(t.spellbenchMinimum, z.player) }\n"),
-        ("\tout := KnownCards{Actor: t.actor}\n", "\tout := KnownCards{Actor: t.actor}\n\tif t.spellbenchPublic { out.SpellbenchAnonymous = t.spellbenchMinimumClaims() }\n"),
+        ("func (t *KnownCardTracker) clearZone(z knownLoc) {\n", "func (t *KnownCardTracker) clearZone(z knownLoc) {\n\tif z.zone == state.ZLibrary { delete(t.spellbenchMinimum, z.player) }\n\tif z.zone == state.ZHand { delete(t.spellbenchHandMinimum, z.player) }\n"),
+        ("\tout := KnownCards{Actor: t.actor}\n", "\tout := KnownCards{Actor: t.actor}\n\tif t.spellbenchPublic { out.SpellbenchAnonymous = t.spellbenchMinimumClaims(); out.SpellbenchAnonymousHands = t.spellbenchHandMinimumClaims() }\n"),
         ("func (k KnownCards) holds(e *rules.Engine, c *Collector) error {\n", "func (k KnownCards) holds(e *rules.Engine, c *Collector) error {\n\tif err := k.spellbenchAnonymousHolds(e); err != nil { return err }\n"),
     ]),
     ("internal/searchseat/searchseat.go", [

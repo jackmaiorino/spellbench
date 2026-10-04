@@ -339,3 +339,16 @@ released generation 146 with no live descendants. These are placement and
 native correctness results, with zero rated games. Full hosted CI passed at
 `af29003`; the later test-only outcome extension passed its affected local tests.
 No mode is fully qualified, rated or published.
+
+A focused seed50 diagnostic reproduced the missing Drossforge Bridge reference
+in 449 actor-visible frames. Private mixing had retired an opponent hand copy
+link while known-card projection still required it. The projection now retains
+anonymous hand name/count minima and native redeal pins matching hypothetical
+slots. It creates no observer binding. Visible exits consume the known name.
+The same saved history now supplies eight redealt worlds in 1,006 submits,
+without exhaustion or refusal. All affected strategy and native knowledge tests,
+vet and diff checks pass. The
+[sealed repair evidence](gorge-known-hand-repair-20261003.json) preserves the
+original failure and both verification attempts. Policies and budgets remain
+unchanged. This source change requires a new frozen runtime and search
+qualification before rated play; runtime016's failed search report is retained.

@@ -45,6 +45,24 @@ The [sealed native audit](gorge-runtime016-native-audit-20261003.json) records
 these failures. This does not complete identity review, reference-host clock
 and isolation qualification, ratings or publication.
 
+The Wildfire refusal was reproduced in a sealed 449-frame public input. A
+public return placed Drossforge Bridge in the opponent's hand at frame 156.
+An unseen draw at frame 173 retired its collector copy link. The known-card
+projection kept the retired physical reference, including after a later public
+Bridge play introduced a fresh reference at frame 180.
+
+The projection now retires hand copy claims with private mixing while retaining
+anonymous name/count minima. A visible exit consumes that name claim. Native
+redeal pins matching hypothetical hand slots without creating observer links.
+The saved 449-frame history supplies eight worlds in one public reconstruction
+proposal and 1,006 submits, with no refusal or exhaustion. The earlier physical
+reference is absent, the known name survives the hidden draw, and the later
+public exit consumes it. Boundary tests, all strategy tests, native known-card
+tests, vet and diff checks pass. See the
+[repair record](gorge-known-hand-repair-20261003.json). Runtime016 search
+qualification predates this change; a rebuilt runtime and fresh compatible
+qualification remain required. Native policies and search budgets are unchanged.
+
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation

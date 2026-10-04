@@ -133,5 +133,15 @@
   "rated_games": 0,
   "published": false,
   "scope": "Full adapter CI: source pins, policy inventory, payment mapping, agent failure handling, complete public search bridge suite, vet and all adapter packages.",
-  "limitation": "This is test evidence. It does not replace frozen runtime qualification, clock/container checks, benchmark review, rated results or public entries."
+  "limitation": "This is test evidence. It does not replace frozen runtime qualification, clock/container checks, benchmark review, rated results or public entries.",
+  "later_full_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-03T23:36:39Z",
+    "headSha": "088148709003ed4618ade40469dd11718e4964da",
+    "status": "completed",
+    "updatedAt": "2026-10-03T23:52:26Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37162326595"
+  },
+  "later_full_ci_covers_extended_private_search_test": true,
+  "later_full_ci_covers_known_hand_repair": false
 }

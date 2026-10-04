@@ -18,6 +18,34 @@ type SpellbenchLibraryMinimum struct {
 	Count  int
 }
 
+// The containing field identifies the zone. An anonymous hand claim preserves
+// a public return's name/count after private mixing retires its copy link.
+type SpellbenchHandMinimum = SpellbenchLibraryMinimum
+
+func (t *KnownCardTracker) spellbenchAnonymizeHand(player state.PlayerID) {
+	if !t.validPlayer(player) {
+		return
+	}
+	if t.spellbenchHandMinimum == nil {
+		t.spellbenchHandMinimum = map[state.PlayerID]map[string]int{}
+	}
+	if t.spellbenchHandMinimum[player] == nil {
+		t.spellbenchHandMinimum[player] = map[string]int{}
+	}
+	counts := map[string]int{}
+	for ref, loc := range t.loc {
+		if loc.zone == state.ZHand && loc.player == player {
+			if name := t.ids[ref].Name; name != "" {
+				counts[name]++
+			}
+			delete(t.loc, ref)
+		}
+	}
+	for name, count := range counts {
+		t.spellbenchHandMinimum[player][name] = max(t.spellbenchHandMinimum[player][name], count)
+	}
+}
+
 func (t *KnownCardTracker) spellbenchAnonymizeLibrary(player state.PlayerID) {
 	if !t.validPlayer(player) {
 		return
@@ -57,6 +85,26 @@ func (t *KnownCardTracker) spellbenchKnowledgeEvent(ev ObservedEvent) {
 		for _, player := range t.players {
 			if player != t.actor {
 				t.spellbenchAnonymizeLibrary(player)
+				t.spellbenchAnonymizeHand(player)
+			}
+		}
+	}
+	if ev.From == state.ZHand && ev.To != state.ZHand {
+		if identity, ok := t.ids[ev.Obj]; ev.Obj != 0 && ok {
+			minimum := t.spellbenchHandMinimum[identity.Owner]
+			if minimum != nil {
+				minimum[identity.Name] = max(0, minimum[identity.Name]-1)
+			}
+		} else {
+			// An unseen hand exit can consume any previously known name.
+			clear(t.spellbenchHandMinimum)
+		}
+	}
+	if ev.To == state.ZHand && ev.From != state.ZHand {
+		if identity, ok := t.ids[ev.Obj]; ev.Obj != 0 && ok {
+			minimum := t.spellbenchHandMinimum[identity.Owner]
+			if minimum[identity.Name] > 0 {
+				minimum[identity.Name]++
 			}
 		}
 	}
@@ -86,17 +134,25 @@ func (t *KnownCardTracker) spellbenchKnowledgeEvent(ev ObservedEvent) {
 }
 
 func (t *KnownCardTracker) spellbenchMinimumClaims() []SpellbenchLibraryMinimum {
+	return spellbenchMinimumClaimsFor(t.players, t.spellbenchMinimum)
+}
+
+func (t *KnownCardTracker) spellbenchHandMinimumClaims() []SpellbenchHandMinimum {
+	return spellbenchMinimumClaimsFor(t.players, t.spellbenchHandMinimum)
+}
+
+func spellbenchMinimumClaimsFor(players []state.PlayerID, counts map[state.PlayerID]map[string]int) []SpellbenchLibraryMinimum {
 	var out []SpellbenchLibraryMinimum
-	for _, player := range t.players {
+	for _, player := range players {
 		var names []string
-		for name, count := range t.spellbenchMinimum[player] {
+		for name, count := range counts[player] {
 			if count > 0 {
 				names = append(names, name)
 			}
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			out = append(out, SpellbenchLibraryMinimum{Player: player, Name: name, Count: t.spellbenchMinimum[player][name]})
+			out = append(out, SpellbenchLibraryMinimum{Player: player, Name: name, Count: counts[player][name]})
 		}
 	}
 	return out
@@ -119,19 +175,39 @@ func (k KnownCards) spellbenchExtraAnonymousCount() int {
 	for _, minimum := range k.SpellbenchAnonymous {
 		n += max(0, minimum.Count-k.spellbenchPhysicalLibraryCounts(minimum.Player)[minimum.Name])
 	}
+	for _, minimum := range k.SpellbenchAnonymousHands {
+		physical := 0
+		for _, hand := range k.Hands {
+			if hand.Player == minimum.Player {
+				for _, card := range hand.Cards {
+					if card.Name == minimum.Name {
+						physical++
+					}
+				}
+			}
+		}
+		n += max(0, minimum.Count-physical)
+	}
 	return n
 }
 
 func (k KnownCards) spellbenchAnonymousHolds(e *rules.Engine) error {
-	for _, minimum := range k.SpellbenchAnonymous {
+	if err := spellbenchAnonymousZoneHolds(e, state.ZLibrary, k.SpellbenchAnonymous); err != nil {
+		return err
+	}
+	return spellbenchAnonymousZoneHolds(e, state.ZHand, k.SpellbenchAnonymousHands)
+}
+
+func spellbenchAnonymousZoneHolds(e *rules.Engine, zone state.Zone, minimums []SpellbenchLibraryMinimum) error {
+	for _, minimum := range minimums {
 		count := 0
-		for _, id := range e.G.Zone(state.ZLibrary, minimum.Player) {
+		for _, id := range e.G.Zone(zone, minimum.Player) {
 			if o := e.G.Obj(id); o != nil && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].Name == minimum.Name {
 				count++
 			}
 		}
 		if count < minimum.Count {
-			return fmt.Errorf("player %d library holds %d %s, needs at least %d known copies", minimum.Player, count, minimum.Name, minimum.Count)
+			return fmt.Errorf("player %d zone %v holds %d %s, needs at least %d known copies", minimum.Player, zone, count, minimum.Name, minimum.Count)
 		}
 	}
 	return nil
@@ -140,17 +216,25 @@ func (k KnownCards) spellbenchAnonymousHolds(e *rules.Engine) error {
 // Pick anonymous copies only within a hypothetical root, in canonical order.
 // They never receive observer bindings and cannot restore a wire copy link.
 func (k KnownCards) spellbenchAnonymousPins(e *rules.Engine, player state.PlayerID, physical map[state.ObjID]bool) ([]state.ObjID, string) {
+	return spellbenchAnonymousZonePins(e, player, state.ZLibrary, k.SpellbenchAnonymous, physical)
+}
+
+func (k KnownCards) spellbenchAnonymousHandPins(e *rules.Engine, player state.PlayerID, physical map[state.ObjID]bool) ([]state.ObjID, string) {
+	return spellbenchAnonymousZonePins(e, player, state.ZHand, k.SpellbenchAnonymousHands, physical)
+}
+
+func spellbenchAnonymousZonePins(e *rules.Engine, player state.PlayerID, zone state.Zone, minimums []SpellbenchLibraryMinimum, physical map[state.ObjID]bool) ([]state.ObjID, string) {
 	counts := map[string]int{}
 	for id := range physical {
 		if o := e.G.Obj(id); o != nil && o.Card != nil && len(o.Card.Faces) > 0 {
 			counts[o.Card.Faces[0].Name]++
 		}
 	}
-	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, player)...)
+	lib := append([]state.ObjID(nil), e.G.Zone(zone, player)...)
 	sortByName(e, lib)
 	used := map[state.ObjID]bool{}
 	var out []state.ObjID
-	for _, minimum := range k.SpellbenchAnonymous {
+	for _, minimum := range minimums {
 		if minimum.Player != player {
 			continue
 		}
@@ -164,7 +248,7 @@ func (k KnownCards) spellbenchAnonymousPins(e *rules.Engine, player state.Player
 			}
 		}
 		if need != 0 {
-			return nil, fmt.Sprintf("player %d library cannot satisfy anonymous %s membership", player, minimum.Name)
+			return nil, fmt.Sprintf("player %d zone %v cannot satisfy anonymous %s membership", player, zone, minimum.Name)
 		}
 	}
 	return out, ""
