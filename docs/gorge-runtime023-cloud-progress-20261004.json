@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-live-cloud-progress/v1",
-  "observed_at_utc": "2026-10-04T09:34:43.145630+00:00",
-  "status": "native_serial_qualification_running",
+  "observed_at_utc": "2026-10-04T09:51:59.796135+00:00",
+  "status": "released_after_observed_qualification_gate_failure",
   "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-023",
   "runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
   "prepared_adapter_commit": "879c215ba7f13d7904ac9bdafc0d053ff55f5c08",
@@ -11,7 +11,7 @@
   "pod_name": "spellbench-gorge-native-3ea679f4c9384ec5",
   "deadline_utc": "2026-10-04T11:31:40.1164216+00:00",
   "guardian_pid": 17328,
-  "guardian_confirmed_alive": true,
+  "guardian_confirmed_alive": false,
   "host_fingerprint_verified": true,
   "latest_guardian_recovery": null,
   "latest_operator_recovery": {
@@ -115,5 +115,10 @@
   "fully_qualified_entries": 0,
   "rated_games": 0,
   "published_entries": 0,
-  "limit": "Live observations. Matching serial/parallel completed-work evidence, full native/reference qualification, reviews, ratings and publication remain unfinished. Recovery and bounded release are armed."
+  "limit": "This lease is released and terminal evidence is sealed. Complete qualification, ratings and publication remain unfinished.",
+  "previous_live_status": "native_serial_qualification_running",
+  "terminal_record": "docs/gorge-runtime023-cloud-20261004.json",
+  "pod_deleted": true,
+  "completed_native_blocks": 5,
+  "completed_physical_audited_and_replayed_games": 10
 }

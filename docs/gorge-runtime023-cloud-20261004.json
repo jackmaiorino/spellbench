@@ -1,0 +1,233 @@
+{
+  "schema": "spellbench-gorge-runtime023-closed-cloud/v1",
+  "observed_at_utc": "2026-10-04T09:51:59.796135+00:00",
+  "status": "released_after_observed_qualification_gate_failure",
+  "runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "source_archive_commit": "879c215ba7f13d7904ac9bdafc0d053ff55f5c08",
+  "pod_id": "whzmn4cce60oph",
+  "artifacts": {
+    "cloud": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261004-016",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-016",
+      "seal_sha256": "4978d2cbbb2b9c84717abb907f2519f313426540e203cc7ff2409bb61026c650",
+      "bytes": 183374129,
+      "files": 1075,
+      "prune_manifest_sha256": "93ea03e71c51b3e6d03faeb68f8db643b1c7fd43a4fed00b35b2fbe148380662"
+    },
+    "public_prefix": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-prefix-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-prefix-20261004-003",
+      "seal_sha256": "b0dbfc98c7628e71c67ae404f9d286b562e48fd4037fb7d4764fefb3e187d123",
+      "bytes": 45430329,
+      "files": 53,
+      "prune_manifest_sha256": "93ea03e71c51b3e6d03faeb68f8db643b1c7fd43a4fed00b35b2fbe148380662"
+    }
+  },
+  "cpu_model": "AMD EPYC 7663 56-Core Processor",
+  "cpu_quota_cores": 23.8,
+  "usable_cpus": 24,
+  "qualified_worker_bound_proposed": 16,
+  "gpu_used": false,
+  "cost_per_hour_usd": 0.18,
+  "completed_native_blocks": 5,
+  "completed_physical_audited_and_replayed_games": 10,
+  "failing_rows": [
+    {
+      "index": 48,
+      "deck": "Wildfire",
+      "pairing": "search-redeal/uniform",
+      "name": "Wildfire/search-redeal",
+      "search_coverage": {
+        "Natives": 309,
+        "Eligible": 30,
+        "Attempted": 19,
+        "Covered": 6,
+        "Attempts": 1216,
+        "Accepted": 0,
+        "Worlds": 48,
+        "Rollouts": 216,
+        "Submits": 219786,
+        "Terminal": 216,
+        "Capped": 0,
+        "Redealt": 48,
+        "ReconstructionAttempts": 29,
+        "ReconstructionSubmits": 65983,
+        "ReconstructionNodes": 61905,
+        "ReconstructionBudgetExhausted": 13,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 13
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 11,
+          "insufficient worlds/ESS": 13
+        },
+        "Kinds": {
+          "attackers": 1,
+          "cast": 5
+        }
+      }
+    }
+  ],
+  "serial_stage_seconds": 510.74611685499985,
+  "first_public_frames": 141,
+  "first_public_input_sha256": "ae6482f87bb807da8d0c09e3b350d2c269c9068907e7958510739916322fbd03",
+  "first_public_reconstruction": {
+    "Attempts": 1,
+    "Submits": 5000,
+    "Nodes": 4699,
+    "BudgetExhausted": 1
+  },
+  "public_failure_roots": [
+    {
+      "name": "PUBLIC-FAILURE-000141.json",
+      "sha256": "ae6482f87bb807da8d0c09e3b350d2c269c9068907e7958510739916322fbd03",
+      "bytes": 887178,
+      "frames": 141
+    },
+    {
+      "name": "PUBLIC-FAILURE-000164.json",
+      "sha256": "0bb0e504f2e74943c2e84b5583f3e562970995fe121f6182fd9ac0bcf7dcbf8e",
+      "bytes": 1120123,
+      "frames": 164
+    },
+    {
+      "name": "PUBLIC-FAILURE-000166.json",
+      "sha256": "e6b9ff4dca16116b69c76eba421169147e825a10f9fd660caa734bf8dc073908",
+      "bytes": 1141314,
+      "frames": 166
+    },
+    {
+      "name": "PUBLIC-FAILURE-000176.json",
+      "sha256": "69472444a40e6004251a6b952c4f59defc1de397e53b5969c7c763288d9c3925",
+      "bytes": 1243613,
+      "frames": 176
+    },
+    {
+      "name": "PUBLIC-FAILURE-000202.json",
+      "sha256": "b6d4e6782e457af39abd1b001102b9add58bf3b81375f46a76c21b42a650a147",
+      "bytes": 1521880,
+      "frames": 202
+    },
+    {
+      "name": "PUBLIC-FAILURE-000207.json",
+      "sha256": "31e230d27ed3feb126e29393261cfb637326a989b078ee33227c612263703870",
+      "bytes": 1580984,
+      "frames": 207
+    },
+    {
+      "name": "PUBLIC-FAILURE-000228.json",
+      "sha256": "d7196a626ae01ec78a7b67c7c8070e951836b89333a22402550b4d23ec3c64c5",
+      "bytes": 1840383,
+      "frames": 228
+    },
+    {
+      "name": "PUBLIC-FAILURE-000235.json",
+      "sha256": "7c12eaca9c75b4277d9c497f2d193aef69347df4d4cb4dd7d880af837aa5da98",
+      "bytes": 1928416,
+      "frames": 235
+    },
+    {
+      "name": "PUBLIC-FAILURE-000255.json",
+      "sha256": "cef992f2d0d8495a25e972997aa245dadb874ea5d5561b9f684a86bea83cf1c2",
+      "bytes": 2179450,
+      "frames": 255
+    },
+    {
+      "name": "PUBLIC-FAILURE-000274.json",
+      "sha256": "119c517b1b0a2c8908eac9672df9bbed2d773059da1582e612d2c34f88361fae",
+      "bytes": 2431492,
+      "frames": 274
+    },
+    {
+      "name": "PUBLIC-FAILURE-000295.json",
+      "sha256": "2fbacf2d5eb2b3ada675d5283604030995c801010dce00b2684febc5e5ca06c8",
+      "bytes": 2725837,
+      "frames": 295
+    },
+    {
+      "name": "PUBLIC-FAILURE-000313.json",
+      "sha256": "6eb652c3b7c9b08cbe2832a2796685eea6d522a45f75320e3feeac9d39b8a4c3",
+      "bytes": 2978090,
+      "frames": 313
+    },
+    {
+      "name": "PUBLIC-FAILURE-000320.json",
+      "sha256": "aa4ef7735030c82433724fcba17f45ee54e70dab12c4f5d317155672d9915a56",
+      "bytes": 3082456,
+      "frames": 320
+    }
+  ],
+  "captured_failed_roots": 13,
+  "public_capture_seconds": 129.80987680399994,
+  "public_capture_completed_games": 0,
+  "public_capture_scope": "Declared decks, actor-visible history and hypothetical sampler diagnostics only. Stops at the13th unique failed root or300seconds.",
+  "exact_local_diagnostic_reproduction_pending": true,
+  "release": {
+    "at_utc": "2026-10-04T09:50:03.1840318+00:00",
+    "name": "spellbench-gorge-native-3ea679f4c9384ec5",
+    "pod_id": "whzmn4cce60oph",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "c80d9d5d968ea1dd4566b12c6b1122e59597082c7f26468c3572a5c68eef6545",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 5.26026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 6.11026747,
+    "final_invoice_pending": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T09:50:04.112089+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "runtime021-014": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.19882145593874156,
+        "totalAmount": 0.20900664094369859
+      },
+      "runtime022-015": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.0559598496183753,
+        "totalAmount": 0.05873762734699994
+      },
+      "runtime023-016": {
+        "cpuAmount": 0,
+        "diskAmount": 0,
+        "gpuAmount": 0,
+        "totalAmount": 0
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.3059293218393577,
+    "conservative_cumulative_lease_ceiling_usd": 6.11026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "cloud_cap_usd": 10,
+  "conservative_cumulative_lease_ceiling_usd": 6.11026747,
+  "final_invoice_pending": true,
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Diagnose and repair the retained public root corpus, then obtain compatible guarded scaling and complete native/reference qualification, reviews, ratings and publication."
+}
