@@ -166,6 +166,22 @@
     "prefix_rules": "Original neural provided-card, general-target, mode, binary, X and payment rules",
     "limitations": "Private native execution, planning queues, other callbacks, exact decks and full games remain unqualified; incompatible ranges, divided targets and opponent callbacks refuse"
   },
+  "combat": {
+    "source_staging_flag": "combat_callback: true; independent of target-prefix flags",
+    "source_lines": [
+      4280,
+      4651
+    ],
+    "java_encoder": "spellbench.kit.xmage.JackCombatMain",
+    "owned_session": "xmage_jack_combat.CombatSession",
+    "owned_plan": "xmage_jack_combat.JackCombatPlan",
+    "private_stage_bodies": 16,
+    "original_order": "First 63 attacking creatures and DONE last; separate legal defender list; blocking attackers sorted by descending power; original filtered blocker pool",
+    "selection": "Original complete sequential draw without replacement, including choices after DONE; single original pick for defender rounds",
+    "state": "One cached permitted base state per callback, shared by all rounds",
+    "application": "Original declareAttacker/declareBlocker, removal from blocker pool and resetPassed; actual declarations bound to consecutive public group substeps",
+    "limitations": "Source staging and Python component checks only; nested callbacks refuse; private native execution, actual paired-weight combat, exact decks and full games remain unqualified"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -177,6 +193,7 @@
     "guarded original sequential targets, forced returns, STOP, prefix verification and chooser application",
     "guarded original provided-card groups, representative features, first-64 cap, STOP and seeded physical-copy application",
     "guarded original inherited card sorting, UUID ties, target.add, legal completion and exact prefix parity",
+    "guarded original attack/block candidate frames, cached state, full chooser draws and actual wire declarations",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

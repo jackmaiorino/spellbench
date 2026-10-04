@@ -185,6 +185,9 @@ class CombatPlan:
             raise ValueError("combat visits must be 2..1000")
         validate_result(decision, result, visits, result.get("neural_calls"),
                         minimum_visits=minimum_visits, expected_budget=expected_budget)
+        self._initialize(decision, result)
+
+    def _initialize(self, decision, result):
         self.initial, self.result = copy.deepcopy(decision), copy.deepcopy(result)
         self.family = combat_kind(decision)
         self.viewer, self.objects = battlefield(self.initial)

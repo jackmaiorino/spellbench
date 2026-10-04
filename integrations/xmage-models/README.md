@@ -291,6 +291,23 @@ earlier neural card choices but refuses a neural card root. Native execution,
 queued planning behavior, other callbacks, exact decks and full games remain
 unqualified.
 
+The optional `combat_callback: true` flag adds the original April `CombatRules`
+body independently of the target-prefix flags. `JackCombatMain` takes the
+embedding path and hash, original state and candidate hashes, and staged combat
+rules hash. Its private pipe requests paired inference and the shared original
+chooser for each original combat round. Attacks retain the first 63 creatures
+and final DONE, followed by separate defender choices. Blocks retain the
+original attacker power ordering, legality filters and blocker removal. Both
+use one cached permitted base state per callback. The full sequential chooser
+draw is retained even after DONE, preserving the game's original RNG stream.
+
+`xmage_jack_combat.CombatSession` owns this pipe, paired model and chooser with
+one shared clock. Its returned `JackCombatPlan` binds the actual declarations
+to consecutive public group substeps and refuses changed or rewound public
+state. Nested interactive or mana-payment combat callbacks refuse. This is
+wiring and source staging; native execution, exact decks and complete games
+remain unqualified.
+
 The container is limited to one CPU, 3 GiB RAM, 64 processes and a 64 MiB
 ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the

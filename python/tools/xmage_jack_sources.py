@@ -32,6 +32,10 @@ PARENT_CARD_VARIANT = ("original inherited choose(Cards) good/bad target sorting
                        "original April base, selector, comparator and permanent scoring; empty planning queues; "
                        "permitted callback replay; implicit completion bound to offered STOP; "
                        "no model or neural chooser/copy RNG; divided and opponent callbacks unqualified")
+COMBAT_VARIANT = ("original April attacker pool and DONE-last sequential selection; separate defender choice; "
+                  "original descending-power attacker block order, filtered blocker pool and removal after declaration; "
+                  "one cached permitted base state per callback; original attack/block heads and game-owned chooser; "
+                  "refusal instead of model-error fallback; nested combat callbacks and complete games unqualified")
 VARIANT = ("acting-player perspective; entity tokens limited to named permitted references; "
            "only explicitly known library cards, ordered by public object alias; "
            "pinned read-only text embeddings with no generated fallback")
@@ -184,6 +188,97 @@ public final class CandidateEncoder {
         return new CombatCandidate(creature, context);
     }
 """ % CALLBACK_SHA256 + heads + methods + helpers + combat + "}\n"
+
+
+def combat_source(source: str) -> str:
+    """Keep the actual combat loops; move only inference/selection to owned RPC.
+
+    Training records and logging do not run in the no-training play profile.
+    Extract from the exact private callback rather than recreating its policy.
+    """
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack combat requires the pinned April callback bytes")
+    attacks = extract(source, "    @Override\n    public void selectAttackers(",
+                      "    @Override\n    public void selectBlockers(")
+    blocks = extract(source, "    @Override\n    public void selectBlockers(",
+                     "    private List<Permanent> filterOutNonblocking(")
+    helpers = extract(source, "    private List<Permanent> filterOutNonblocking(",
+                      "    @Override\n    public boolean chooseMulligan(")
+
+    def remove_training(body):
+        marker = "            if (trainingEnabled && !game.isSimulation()) {"
+        while marker in body:
+            start = body.index(marker)
+            opening = body.index("{", start)
+            depth = 1
+            end = opening + 1
+            while depth:
+                if body[end] == "{": depth += 1
+                elif body[end] == "}": depth -= 1
+                end += 1
+            body = body[:start] + body[end:]
+        return body
+
+    attacks, blocks = remove_training(attacks), remove_training(blocks)
+    for name, body in (("attacks", attacks), ("blocks", blocks)):
+        start = body.index("            int candidateCount =")
+        end = body.index("            List<Permanent> selected" , start)
+        action = "DECLARE_ATTACKS" if name == "attacks" else "DECLARE_BLOCKS"
+        candidates = "phase1Candidates" if name == "attacks" else "blockCandidates"
+        indent = "            " if name == "attacks" else "                "
+        body = body[:start] + (f'{indent}int candidateCount = {candidates}.size();\n'
+                              f'{indent}List<Integer> selectedIndices = picker.choose("{action}", '
+                              f'{candidates}, candidateCount, true);\n') + body[end:]
+        if name == "attacks": attacks = body
+        else: blocks = body
+    start = attacks.index("                    long attackTargetPrepStartNanos")
+    end = attacks.index("                    UUID chosenDefId", start)
+    attacks = attacks[:start] + ('                    int p2PickIdx = picker.choose("DECLARE_ATTACK_TARGET",\n'
+                                '                            new ArrayList<>(phase2Candidates.subList(0, p2Count)), 1, false).get(0);\n') + attacks[end:]
+    # Preserve declarations and resetPassed, but remove unrelated game logging.
+    start = attacks.index("            // Game log")
+    end = attacks.index("        } catch (Exception e) {", start)
+    attacks = attacks[:start] + attacks[end:]
+    start = blocks.index("                // Game log")
+    end = blocks.index("            if (anyBlockerDeclared)", start)
+    blocks = blocks[:start] + "            }\n\n" + blocks[end:]
+    for label, body in (("attacks", attacks), ("blocks", blocks)):
+        body = body.replace("    @Override\n", "")
+        body = body.replace("StateSequenceBuilder.TrainingData.MAX_CANDIDATES", "64")
+        body = body.replace("            final int candFeatDim = StateSequenceBuilder.TrainingData.CAND_FEAT_DIM;\n", "")
+        body = body.replace("            StateSequenceBuilder.SequenceOutput baseState = getOrBuildBaseState(game);\n", "")
+        body = body.replace("super.getAvailableBlockers(game)", "viewer.getAvailableBlockers(game)")
+        body = body.replace("this.declareAttacker", "viewer.declareAttacker")
+        body = body.replace("this.declareBlocker(playerId,", "viewer.declareBlocker(viewer.getId(),")
+        first = body.index('            RLTrainer.threadLocalLogger.get().warn(')
+        end = body.index("\n", first)
+        body = body[:first] + '            throw new IllegalArgumentException("original combat callback failed", e);' + body[end:]
+        if label == "attacks": attacks = body
+        else: blocks = body
+    executable_lines = "\n".join(line for line in (attacks + blocks).splitlines() if not line.lstrip().startswith("//"))
+    if any(token in executable_lines for token in ("RLTrainer", "TrainingData", "prediction", "baseState", "trainingEnabled")):
+        raise ValueError("Jack combat extraction left unrelated model/training code")
+    candidates = extract(source, "    static class CombatCandidate {", "\n}\n\n// Helper class to store block options")
+    candidates = candidates.replace("static class CombatCandidate", "public static final class CombatCandidate")
+    candidates = candidates.replace("        final Permanent creature;", "        public final Permanent creature;")
+    candidates = candidates.replace("        final Object context;", "        public final Object context;")
+    return ('''package spellbench.models.jack;
+import mage.abilities.Ability;
+import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.players.Player;
+import mage.player.ai.util.CombatUtil;
+import java.util.*;
+/** Private original no-training combat loops with owned inference transport. */
+public final class CombatRules {
+    public static final String SOURCE_SHA256 = "%s";
+    public interface Picker {
+        List<Integer> choose(String type, List<CombatCandidate> candidates, int picks, boolean sequential);
+    }
+    private final Player viewer;
+    private final Picker picker;
+    public CombatRules(Player viewer, Picker picker) { this.viewer = viewer; this.picker = picker; }
+''' % CALLBACK_SHA256) + attacks + blocks + helpers + candidates + "}\n"
 
 
 def choice_source(source: str) -> str:
@@ -744,6 +839,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "combat_callback" in config and type(config["combat_callback"]) is not bool:
+        raise ValueError("Jack combat staging needs an explicit boolean flag")
     if "mode_callback" in config and type(config["mode_callback"]) is not bool:
         raise ValueError("Jack mode staging needs an explicit boolean flag")
     if "dialog_callback" in config and type(config["dialog_callback"]) is not bool:
@@ -790,6 +887,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    combat = (combat_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+              if config.get("combat_callback") is True else None)
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -852,6 +951,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if card_sets is not None:
         with (output / "CardSetRules.java").open("xb") as stream:
             stream.write(card_sets)
+    if combat is not None:
+        with (output / "CombatRules.java").open("xb") as stream:
+            stream.write(combat)
     if parent_cards is not None:
         for filename, body in parent_cards.items():
             with (output / filename).open("xb") as stream:
@@ -893,6 +995,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_parent_sources_sha256=PARENT_SOURCE_PINS,
                       staged_parent_sources_sha256={name: hashlib.sha256(body).hexdigest() for name, body in parent_cards.items()},
                       parent_card_variant=PARENT_CARD_VARIANT)
+    if combat is not None:
+        result.update(original_combat_callback_sha256=CALLBACK_SHA256,
+                      staged_combat_rules_sha256=hashlib.sha256(combat).hexdigest(), combat_variant=COMBAT_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

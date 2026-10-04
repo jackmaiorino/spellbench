@@ -87,8 +87,10 @@ metadata, and inference/search settings. For raw weights, record the author's
 deck-association evidence. The isolated loader now streams the original `.mz`
 layout, verifies its deck/version metadata, and refuses unexpected members.
 Its export check uses synthetic initialized weights, not a pretrained policy.
-The MageZero public frontend and confined runtime are wired; native combat and
-full-game qualification remain unfinished. Author-supplied local
+The MageZero public frontend and confined runtime are wired. Native synthetic
+attack, block and mixed-bridge checks now repeat identically and bind the actual
+wire declarations. They used no pretrained weights. Full-game qualification
+remains unfinished. Author-supplied local
 checkpoints have an explicit provenance route without invented download URLs;
 see [the input instructions](../../integrations/xmage-models/README.md).
 
@@ -132,6 +134,16 @@ selects that four-deck Pauper pool. These records do not yet bind any copied
 checkpoint to its actual training deck version.
 
 ## Next delivery steps
+
+Jack's original attack and block loops now have a separate private staged port
+and paired-policy transport. It retains DONE-last sequential selection, the
+separate defender round, descending-power attacker order, blocker filtering and
+removal, and one cached base state per callback. The game-owned original chooser
+finishes its full sequential draw even when DONE appears earlier. A plan binds
+the original declarations to consecutive offered wire substeps. Nested combat
+callbacks refuse until qualified. Source staging preserves all fifteen earlier
+private bodies byte for byte; native combat and complete games remain unfinished.
+See [the combat delivery evidence](models/evidence/2026-10-04-jack-combat.md).
 
 Finish the game adapters, native qualification, and learned encoder/action
 qualification. The tested Exp1 decision slices disable opponent-hand encoding,
