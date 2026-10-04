@@ -75,6 +75,11 @@ def main():
         guard_path='engines/gorge/scripts/qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback',
         scope='native validator, determinism, leak, consistency, resample, intent parity, mapping and search gates; unrated')
     write(STAGE/'MANIFEST.json',manifest)
+    callback_wall_seconds=int(os.environ.get('GORGE_NATIVE_CALLBACK_WALL_SECONDS','2700'))
+    if not 60 <= callback_wall_seconds <= 21600:
+        raise ValueError('Native callback wall cap must be between 60 and 21600 seconds')
+    manifest['native_callback_wall_cap_seconds']=callback_wall_seconds
+    write(STAGE/'MANIFEST.json',manifest)
     trial=0
     def execute(workers,indices,label):
         nonlocal trial
@@ -85,12 +90,13 @@ def main():
         args=[str(NATIVE),'-games','4','-workers',str(workers),'-resample','7','-audit=true',
               '-progress','-registry',str(REGISTRY),'-registry-sha256',REGISTRY_SHA,'-out',str(output)]
         if indices is not None: args += ['-game-indices',','.join(str(i) for i in indices)]
-        write(directory/'COMMAND.json',{'command':args,'GOMAXPROCS':workers,'at_utc':stamp()})
+        write(directory/'COMMAND.json',{'command':args,'GOMAXPROCS':workers,'at_utc':stamp(),
+            'wall_cap_seconds':callback_wall_seconds})
         if sha(NATIVE)!=expected_native or sha(REGISTRY)!=REGISTRY_SHA:
             raise RuntimeError('Native launch input changed')
         start=time.perf_counter()
         with (directory/'stdout.jsonl').open('xb') as out,(directory/'stderr.log').open('xb') as err:
-            result=subprocess.run(args,env=dict(os.environ,GOMAXPROCS=str(workers)),stdout=out,stderr=err,timeout=2700)
+            result=subprocess.run(args,env=dict(os.environ,GOMAXPROCS=str(workers)),stdout=out,stderr=err,timeout=callback_wall_seconds)
         report=json.loads(output.read_bytes())
         if report['policies']!=POLICIES or report['scheduled_games']!=len(GAMES):
             raise RuntimeError('Native schedule differs from its declaration')
