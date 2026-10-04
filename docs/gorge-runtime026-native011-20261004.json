@@ -87,5 +87,20 @@
   "reference_qualification": false,
   "rated_games": 0,
   "published_entries": 0,
-  "next_action": "Observe complete matched trials, identical primary rows and selected allocation; then full native audit. Seal terminal evidence and verified release before the reference successor can dispatch."
+  "next_action": "Observe complete matched trials, identical primary rows and selected allocation; then full native audit. Seal terminal evidence and verified release before the reference successor can dispatch.",
+  "windows_linux_completed_prefix_parity": {
+    "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-011\\observations\\windows-linux-completed-prefix-parity.json",
+    "sha256": "b91696b1158a62c84dc5cd56211de109ee3975e279ef74a82fc51edcf0fb8659",
+    "recovery_source": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011\\observations\\windows-linux-completed-prefix-parity.json",
+    "shared_seed_indices": [
+      40,
+      41,
+      44,
+      45,
+      48
+    ],
+    "complete_row_objects_identical": true,
+    "allocation_qualified": false,
+    "full_native_qualification": false
+  }
 }
