@@ -1,86 +1,103 @@
 {
-  "schema": "spellbench-gorge-public-capture-preparation/v1",
-  "at_utc": "2026-10-04T21:03:03.076636+00:00",
-  "spellbench_commit": "426a80bfe70c3c47c0c2a1355b3b9dda2aa8ff9c",
-  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
-  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
-  "source_of_record": "E:/spellbench-gorge-runpod-20261004-023",
-  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023",
-  "user_authority": "Jack: Sure. 10$ cap go",
-  "spend_cap_usd": 10,
-  "prior_spend_estimate_usd": 4.70239147,
-  "new_lease_cap_usd": 0.5625,
-  "lease_seconds": 2700,
-  "all_in_rate_cap_usd_per_hour": 0.35,
-  "ancillary_allowance_usd": 0.15,
-  "cumulative_conservative_ceiling_usd": 5.26489147,
-  "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261004-004",
-  "billing_seal_sha256": "7582ea9ee2a2bcec4997985e249788ccd784019163db5c9aca1a8e8e33298fcd",
-  "provider_reported_spend_usd_so_far": 2.7578938998485683,
-  "final_invoice_verified": false,
-  "scope": "One bounded600-second original seed52 actor-public failure capture, after real shipped-budget serial/parallel intent and trace parity. No full native audit, ratings, training or publication.",
-  "teacher_parallelism": "Temporary diagnostic-only1/16 override; ordered rollouts; sampler options and shipped budgets unchanged",
-  "budgets": {
-    "attempts": 64,
-    "worlds": 8,
-    "max_submits": 5000,
-    "audit": true,
-    "resample": 7,
-    "game_index": 52
+  "at_utc": "2026-10-04T21:13:05.867239+00:00",
+  "phase": "released_failed_source_format",
+  "pod_id": "p71glgqep3x9j0",
+  "release": {
+    "at_utc": "2026-10-04T21:11:37.1473614+00:00",
+    "name": "spellbench-gorge-native-2626254ff9db451d",
+    "pod_id": "p71glgqep3x9j0",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "541ba28a86ccbcdf3c573c94c5d5ced82c1073d1aef705b8a85166910856288e",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 4.70239147,
+    "maximum_lease_usd": 0.5625,
+    "conservative_cumulative_lease_ceiling_usd": 5.26489147,
+    "final_invoice_pending": true
   },
-  "minimum_vcpu_count": 8,
-  "minimum_memory_gb": 16,
-  "actual_diagnostic_cpu_minimum": 16,
-  "actual_diagnostic_memory_minimum_bytes": 32000000000,
-  "container_disk_gb": 100,
-  "projected_bytes": 268435456,
-  "cap_bytes": 4294967296,
-  "reserve_bytes": 64424509440,
-  "remote_cap_bytes": 4294967296,
-  "remote_wall_cap_seconds": 2100,
-  "public_ip_required": true,
-  "provider_create_endpoint": "https://rest.runpod.io/v1/pods",
-  "gpu_type": "NVIDIA RTX A4500",
-  "gpu_types": [
-    "NVIDIA GeForce RTX 3070",
-    "NVIDIA GeForce RTX 3080",
-    "NVIDIA GeForce RTX 3080 Ti",
-    "NVIDIA RTX A4000",
-    "NVIDIA RTX A4500"
-  ],
-  "gpu_compute": false,
-  "gpu_ordinal": null,
-  "production_changes": false,
+  "terminal": {
+    "at_utc": "2026-10-04T21:09:06.452917+00:00",
+    "phase": "closed",
+    "diagnostic_passed": false,
+    "elapsed_seconds": 132.06976586487144,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "first_failure": "Registry source compiler fingerprint mismatch before any game",
+  "pinned_fingerprint": "4e081d8104fbe09256edb9fa696ce6f7",
+  "remedy": "git core.autocrlf true before checkout, verify exact cards source fingerprint and existing linked-compiler test before capture",
+  "parity": {
+    "passed": true,
+    "fixtures": 6,
+    "teacher_parallelism": [
+      1,
+      16
+    ],
+    "full_intents_and_traces_equal": true,
+    "existing_sampler_and_teacher_parallelism2_checks_passed": true,
+    "scope": "Shipped fixtures only; seed52 complete row separately required"
+  },
+  "binary_pins": {
+    "at_utc": "2026-10-04T21:08:55.363425+00:00",
+    "binary_sha256": "98e61140055ed350fccadf5a4238dceca49a81bd930233a5bb24d1f713713045",
+    "pins": {
+      "gorgequal-diagnostic": {
+        "sha256": "98e61140055ed350fccadf5a4238dceca49a81bd930233a5bb24d1f713713045",
+        "source_of_record": "E:\\pinned-binaries\\98e61140055ed350fccadf5a4238dceca49a81bd930233a5bb24d1f713713045\\gorgequal-diagnostic",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023\\PIN-gorgequal-diagnostic"
+      },
+      "go": {
+        "sha256": "30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624",
+        "source_of_record": "E:\\pinned-binaries\\30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624\\go",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023\\PIN-go"
+      },
+      "compile": {
+        "sha256": "3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4",
+        "source_of_record": "E:\\pinned-binaries\\3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4\\compile",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023\\PIN-compile"
+      },
+      "link": {
+        "sha256": "a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9",
+        "source_of_record": "E:\\pinned-binaries\\a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9\\link",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023\\PIN-link"
+      }
+    },
+    "independent_recovery_verified": true
+  },
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-023",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-023",
+  "billing": {
+    "observed_at_utc": "2026-10-04T21:13:05.867239+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-004",
+    "prior_closed_ledger_seal_sha256": "7582ea9ee2a2bcec4997985e249788ccd784019163db5c9aca1a8e8e33298fcd",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 480.913721,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.196756,
+    "conservative_cumulative_lease_ceiling_usd": 4.89914747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0,
+    "no_capacity_attempts021_022_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-005",
+  "billing_seal_sha256": "22042270de44e5aeafe125101804cbf9744ee59ba718ef06d2357ec551504e16",
   "native_qualification_complete": false,
+  "reference_qualification_complete": false,
   "rated_games": 0,
   "published_entries": 0,
-  "linux_sdk": {
-    "filename": "go1.27.1.linux-amd64.tar.gz",
-    "os": "linux",
-    "arch": "amd64",
-    "version": "go1.27.1",
-    "sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
-    "size": 70553950,
-    "kind": "archive",
-    "url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
-    "manifest_url": "https://go.dev/dl/?mode=json"
-  },
-  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
-  "source_archive_verified": true,
-  "bundle_verified": true,
-  "bundle_sha256": "a636e7b11c5ca5a702f6c48ff51d4eeb898e31482871f54c81806b6c5a7d070a",
-  "preparation_sha256": "67d256273eb29f4ec1f36d4aee514a93f04b5d700653f1fcf511975a358a682c",
-  "prepared_launch_helpers": {
-    "gorge-cloud-create-capture023-20261004.ps1": "e1eba30db35dc33e120eb8c837946618c47b7094f5de409f92c2a3c253695748",
-    "gorge-cloud-native-guard-20261004-023.ps1": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592",
-    "gorge-cloud-native-scheduled-guard-20261004-023.ps1": "00c8fcc92a2f905793afe2fa62a2c7dfc1aa312b81149b7b4f2ac27687624a22"
-  },
-  "guardian_armed_before_create_required": true,
-  "guarded_path": "Owned remote process group, stage timeout, actual CPU/memory check,60GiB storage reserve,4GiB artifact cap, independent45-minute cloud release guardian",
-  "phase": "prepared_not_launched",
-  "new_cloud_spend_usd": 0,
-  "missing_root": "Later seed52 first budget exhaustion; earlier182-frame prefix passed",
-  "reference_qualification_complete": false,
-  "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-023\\HOSTS.json",
-  "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-023\\CATALOG.json"
+  "seal_sha256": "96523f21d530692b0c961b89ccae6efc7c420d61dd57b5425ae26be89346ebba"
 }
