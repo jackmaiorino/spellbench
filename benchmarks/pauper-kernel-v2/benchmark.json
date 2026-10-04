@@ -77,7 +77,7 @@
         "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
         "url": null
       },
-      "evaluation_identity": "17d4caef8fb42dc6d533bc602aa966ad1ab006eb0945b278664cd5ab591eb8a1"
+      "evaluation_identity": "1061f3d2a1bdbb05d1c54c7710bbfa910c4d72bb064046e7fb60ed1bf2a4e6cc"
     },
     {
       "name": "g115",
