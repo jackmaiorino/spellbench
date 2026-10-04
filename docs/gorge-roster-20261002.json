@@ -378,8 +378,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "All57 affected strategy cases, Go vet and diff checks passed for native sourcec87d7ac. Compatible head ae4beb4 passed hosted Go, Linux/Windows Python and isolation checks. Full native and reference-host qualification remain incomplete.",
-      "five_deck_search_qualification": "Runtime022 attempt015 is released and sealed after5 natural blocks and10 audited/replayed games. Wildfire row48 still has14 public reconstruction budget refusals. No compatible allocation or full qualification is claimed. The next public132-frame failure is captured and reproduced without changes to the native or public diagnostics; replay witness constraints remain under investigation.",
+      "full_adapter_suite": "All60 affected strategy cases, Go vet and diff checks passed for the current London/token/stack witness repair. Preceding compatible head ae4beb4 passed hosted Go, Linux/Windows Python and isolation checks for runtime022. Current-source hosted checks and full native/reference qualification remain pending.",
+      "five_deck_search_qualification": "Runtime022 attempt015 is released and sealed after5 natural blocks and10 audited/replayed games; row48 has14 reconstruction budget refusals. The next public132 failure now supplies8 valid worlds in267 reconstruction submits, preserving all23 emitted native diagnostics and64/8/5000 budgets. Current complete qualification remains unfinished.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -401,7 +401,8 @@
       "runtime021_hosted_ci": "docs/gorge-runtime021-ci-20261004.json",
       "reference_scaling_repair": "docs/gorge-reference-scaling-repair-20261004.json",
       "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json",
-      "runtime022_hosted_ci": "docs/gorge-runtime022-ci-20261004.json"
+      "runtime022_hosted_ci": "docs/gorge-runtime022-ci-20261004.json",
+      "public_london_token_repair": "docs/gorge-public-london-token-repair-20261004.json"
     }
   ],
   "publication": null,
@@ -431,7 +432,8 @@
       "current_full_qualification": false,
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
-      "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json"
+      "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json",
+      "public_london_token_repair": "docs/gorge-public-london-token-repair-20261004.json"
     }
   }
 }

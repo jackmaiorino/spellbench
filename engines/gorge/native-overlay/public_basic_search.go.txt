@@ -383,8 +383,16 @@ func spellbenchLondonDeadlines(setup PublicGame, h History) map[epochKey][]deadl
 				cursors[ev.Player] = current
 			case events.LibraryOrder:
 				disable(ev.Player, true)
-			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
 				disable(0, false)
+			case events.TokenCreate:
+				// A declared token minted on the battlefield leaves the library
+				// unchanged. A name collision would contaminate the visible
+				// deck-card multiset, so that ambiguous case stays disabled.
+				token := setup.Tokens[ev.Text]
+				if token == nil || len(token.Faces) == 0 || deckNames[token.Faces[0].Name] {
+					disable(0, false)
+				}
 			case events.MoveZone:
 				if !started && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
 					if ev.Text == "bottomed" {
@@ -405,20 +413,28 @@ func spellbenchLondonDeadlines(setup PublicGame, h History) map[epochKey][]deadl
 		}
 		counts := map[state.PlayerID]map[string]int{}
 		seen := map[uint32]bool{}
+		count := func(card knownCardID) {
+			identity, known := identities[card.ID]
+			if !known || seen[card.ID] || !deckNames[identity.Name] {
+				return
+			}
+			seen[card.ID] = true
+			if counts[identity.Owner] == nil {
+				counts[identity.Owner] = map[string]int{}
+			}
+			counts[identity.Owner][identity.Name]++
+		}
 		for _, player := range board.Players {
 			for _, zone := range [][]knownCardID{player.Battlefield, player.Graveyard, player.Exile, player.Command} {
 				for _, card := range zone {
-					identity, known := identities[card.ID]
-					if !known || seen[card.ID] || !deckNames[identity.Name] {
-						continue
-					}
-					seen[card.ID] = true
-					if counts[identity.Owner] == nil {
-						counts[identity.Owner] = map[string]int{}
-					}
-					counts[identity.Owner][identity.Name]++
+					count(card)
 				}
 			}
+		}
+		// A public spell was already drawn before its effects can draw more
+		// cards. Its stack appearance therefore gives the earlier bound.
+		for _, card := range board.Stack {
+			count(card)
 		}
 		for player, current := range cursors {
 			if player == h.Actor || !current.active || !current.bottomed || current.ordinal < 1 || int(player) >= len(setup.Decks) {

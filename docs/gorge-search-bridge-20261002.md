@@ -115,6 +115,16 @@ A public hand exit before any post-shuffle draw requires that card to be in the
 pre-shuffle hand. The witness carries the native sampler's corresponding
 zero-draw deadline into the earlier weak prefix bound, subtracting library
 exits and unknown removals there too.
+London bounds also count public spells while on the stack, before a draw
+effect resolves. Declared ordinary tokens whose names are absent from the
+decks preserve those bounds. Unknown tokens, deck-name collisions, copying
+and affected library mutations keep the optional guidance disabled. The saved
+132-frame Wildfire failure now supplies eight valid worlds in 267 submits,
+with all 23 emitted native diagnostics unchanged. Legal stack and later-land
+cases preserve complete actor history under unseen opponent-tail changes.
+All 60 affected cases, vet and diff checks passed; complete qualification
+remains required. See the
+[current repair](gorge-public-london-token-repair-20261004.json).
 The replay also tries legal intents suggested by the next public action before
 its other alternatives. Both changes affect witness construction only; native
 world sampling, weights, scoring and the shared reconstruction budgets remain

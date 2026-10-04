@@ -66,8 +66,11 @@ qualification remain required. Native policies and search budgets are unchanged.
 A separate 94-frame Wildfire history exhausted public reconstruction after
 5,000 submits. The replay now preserves weak public name/count bounds after
 opening London bottoming, without restoring physical copy links or unseen
-positions. That guidance stops at later library mutation, reorder, shuffle or
-token/copy creation. Initial, observed basic-land searches also guide their
+positions. Those bounds stop at affected library mutation, reorder, shuffle,
+copying, unknown tokens or token names that collide with declared deck cards.
+Ordinary declared tokens absent from the decks preserve the draw bounds.
+Public spells count when they appear on the stack, before their effects can
+draw more cards. Initial, observed basic-land searches also guide their
 filtered relative order, including the actor's own Twisted Landscape subtype
 filter. The fold preserves earlier actor draw positions and leaves nonmatching
 cards unconstrained. These changes apply only to public replay witnesses;
@@ -81,6 +84,17 @@ nonmatching library cards change order. The
 [repair evidence](gorge-public-london-search-repair-20261004.json) retains the
 failed candidates and the corpus-environment retry. Complete qualification and
 review remain pending.
+
+Runtime022 exposed a later 132-frame Wildfire failure after the earlier explore
+repair. Keeping the London bounds through ordinary token creation and counting
+the visible stack spell supplies eight known-card-valid worlds in 267 submits,
+with all 23 emitted native diagnostics identical. Two legal token/stack cases
+preserve complete actor history when unseen opponent cards change order. All
+60 affected cases, vet and diff checks pass. The
+[repair record](gorge-public-london-token-repair-20261004.json) and
+[released cloud record](gorge-runtime022-cloud-20261004.json) preserve the failed
+qualification and exact public diagnosis. This saved repair requires a new
+runtime and compatible complete qualification before ratings or publication.
 
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
