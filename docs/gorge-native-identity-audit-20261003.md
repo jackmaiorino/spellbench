@@ -322,6 +322,19 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   Real engine and search-agent startup timeout checks also closed their
   processes. Details: [reference-host evidence](gorge-reference-host-checks-20261003.json).
 
+- The exact failed Rally seed retained target 123, a ceased token, in a copied
+  Chain Lightning target ask. Keeping the inherited target is a legal decline
+  of new targets. The adapter now represents that option as
+  `choose_boolean(change_copy_targets, false)` while preserving the native
+  option index. The branch requires a single inherited object target on a
+  stack copy and a matching ceased token. It does not create a current object
+  reference. The real native ask, protocol validation, public extension and
+  agent checks pass for keeping the target and retargeting a player. Keeping
+  correctly fizzles the copy; retargeting deals three damage. All affected
+  mapping, extension, agent, observation and validator tests, Go vet and diff
+  checks pass. The separate 47-frame Rally reconstruction still exhausts the
+  shipped budget. See [copy target repair](gorge-copy-target-repair-20261004.json).
+
 This is a source and information audit for the stated pool. Full twelve-mode
 qualification, compatible guarded throughput evidence, rated games and public ratings
 remain separate delivery work. Timing, public canonical-envelope limits and

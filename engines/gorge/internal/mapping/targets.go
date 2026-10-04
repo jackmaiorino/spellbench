@@ -46,6 +46,19 @@ func (s *slotTx) Answer(i int) ([]decision.Intent, bool, error) {
 	return c, done, err
 }
 
+// The native copy ask retains its inherited target even when that token has
+// ceased to exist. Keeping it is a legal decline of new targets; the copy
+// then fizzles. No current object reference exists for the ceased token.
+func keepCeasedCopyTarget(env *Env, d *decision.Decision, o decision.Option) bool {
+	if d.ResumeKind != "copy_targets" || d.Min != 1 || d.Max != 1 || o.Kind == "player" {
+		return false
+	}
+	source, target := env.G.E.G.Obj(d.Source), env.G.E.G.Obj(o.Obj)
+	return source != nil && source.IsCopy && source.Zone == state.ZStack &&
+		len(source.Targets) == 1 && !source.Targets[0].IsPlayer && source.Targets[0].Obj == o.Obj &&
+		target != nil && target.IsToken && target.Zone == state.ZCeased
+}
+
 func newTargets(env *Env, d *decision.Decision) (Transaction, error) {
 	src, err := MustSource(env, d)
 	if err != nil {
@@ -55,6 +68,9 @@ func newTargets(env *Env, d *decision.Decision) (Transaction, error) {
 	lo, hi := uint32(d.Min), uint32(d.Max)
 	spec := PickSpec{D: d, Options: allOptions(d), Context: protocol.Context{Kind: "choice", Source: &src},
 		Sem: func(opt int, sel uint32) (Cand, error) {
+			if keepCeasedCopyTarget(env, d, d.Options[opt]) {
+				return Cand{Sem: protocol.ChooseBoolean(&src, "change_copy_targets", false)}, nil
+			}
 			tg, err := TargetOf(env, d, d.Options[opt])
 			return Cand{Sem: protocol.ChooseTarget(src, slot, tg, sel, lo, hi)}, err
 		},
