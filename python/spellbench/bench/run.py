@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import contextlib
 import datetime
+import hashlib
 import json
 import json
 import os
@@ -90,6 +91,17 @@ _GUARD_ERRORS = (ThroughputError, PinningError, GuardError)
 Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
 
 
+@dataclass(frozen=True)
+class QualificationPlay:
+    """A measurement and its operator-only replay record, revealed after all games exit."""
+
+    play: Play
+    finish: Callable[[], None]
+
+    def __call__(self, workers: int, positions: tuple[int, ...]):
+        return self.play(workers, positions)
+
+
 # ---------------------------------------------------------------------------
 # The launch guard (Decision 10)
 # ---------------------------------------------------------------------------
@@ -97,7 +109,7 @@ Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
 
 def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None,
                        storage_dir: Path | None = None, files: Sequence[EngineFile] | None = None,
-                       job_storage: JobStorageGuard | None = None) -> Play:
+                       job_storage: JobStorageGuard | None = None) -> QualificationPlay:
     """The ``play`` a qualification calls (``throughput.plan_allocation``).
 
     ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
@@ -106,7 +118,10 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     digest of its canonical ledger row and that row's bytes, newline included. Every call plays under one
     throwaway secret (``RunSecret.generate()``), so the rungs play identical games; the one preflight runs at the
     first call, so a reused measurement starts no process. The caller samples positions across the matchups
-    (:func:`plan_for`, R3-6). ``config`` is the executed config.
+    (:func:`plan_for`, R3-6). ``config`` is the executed config. The caller must call ``finish`` after the last
+    trial exits, including on failure. It reveals the replay secret only then, never during measured games.
+    ``REPLAY.json`` and the per-trial diagnostics are operator artifacts, outside prompts and primary digests.
+    A hard process kill can prevent this final reveal; it cannot recover secrets from older qualifications.
     """
     secret = RunSecret.generate()
     files = run_files(config) if files is None else tuple(files)
@@ -117,9 +132,15 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     stored: list[Path] = []
     trial_number = 0
     qualification_completed = 0
+    trials = []
+    finished = False
+    harness = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+               for path in (Path(__file__), Path(runner.__file__))}
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
         nonlocal trial_number
+        if finished:
+            raise ThroughputError("qualification replay secret already revealed; refusing more trials")
         _hosted_budget_guard(config)
         pinning.verify_files(files)
         if not setups:
@@ -130,6 +151,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                 parent.mkdir(parents=True, exist_ok=True)
             stored.append(Path(tempfile.mkdtemp(prefix="qualification-", dir=parent)))
         trial_number += 1
+        trials.append({"workers": workers, "schedule_indices": [chosen[position].game_index for position in positions]})
         ledger = stored[0] / f"trial-{trial_number}-workers-{workers}.jsonl"
         write_seconds = {}
 
@@ -137,6 +159,9 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
             nonlocal qualification_completed
             started_write = time.perf_counter()
             store.append_ledger_row(ledger, outcome.row.to_json())
+            if outcome.diagnostics:
+                store.append_diagnostics(stored[0] / f"trial-{trial_number}-diagnostics.jsonl",
+                                         outcome.row.game_id, outcome.diagnostics)
             write_seconds[outcome.row.game_index] = time.perf_counter() - started_write
             _hosted_budget_guard(config, allow_pending=True)
             if job_storage is not None:
@@ -169,7 +194,20 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                                      row_bytes=len(store.canonical_bytes(outcome.row.to_json())) + 1))
         return wall, tuple(played)
 
-    return play
+    def finish() -> None:
+        nonlocal finished
+        finished = True
+        if not stored:
+            return  # Cached allocations start no games and create no replay artifacts.
+        store.write_json_atomic(stored[0] / "REPLAY.json", {
+            "schema": "spellbench-qualification-replay/v1", "run_secret": secret.hex(),
+            "config": config.to_json(), "files": [file.to_json() for file in files],
+            "harness_files": harness, "arena_version": __version__, "trials": trials,
+        })
+        if job_storage is not None:
+            job_storage.check()
+
+    return QualificationPlay(play, finish)
 
 
 def _hosted_budget_guard(config: TournamentConfig, *, allow_pending: bool = False) -> None:
@@ -316,14 +354,18 @@ def plan_for(
         identity["job_storage_budget"] = job_storage.settings
     workload = workload_id(identity)
     _hosted_budget_guard(config)
-    allocation = plan_allocation(
-        games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
-        play=qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
-                                files=files, job_storage=job_storage),
-        placement=placement, host=host, sample=ordered_sample, workload=workload,
-        evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
-        rules=rules,
-    )
+    measured = qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
+                                  files=files, job_storage=job_storage)
+    try:
+        allocation = plan_allocation(
+            games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
+            play=measured,
+            placement=placement, host=host, sample=ordered_sample, workload=workload,
+            evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
+            rules=rules,
+        )
+    finally:
+        measured.finish()
     assert allocation.budget is not None
     # The disk may have filled while the qualification played: the reserve holds now, just before the first game.
     check_reserve(_free_space(roles), allocation.budget.projected_bytes)

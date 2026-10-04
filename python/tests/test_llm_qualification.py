@@ -37,7 +37,7 @@ def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_
     monkeypatch.setattr(run, "_free_space", lambda volumes: MACHINE)
     monkeypatch.setattr(qualification, "usable_cpus", lambda count=None: 24)
     play, calls = _player(120, {1: 1, 2: 2, 4: 3})
-    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: play)
+    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: run.QualificationPlay(play, lambda: None))
     evidence = tmp_path / "evidence.jsonl"
     options = dict(placement=PLACEMENT, evidence=evidence,
                    volumes={"run_dir": tmp_path, "pin_root": tmp_path}, rules=bench.qualification_rules())
@@ -55,7 +55,7 @@ def test_supported_guard_reuses_recovery_evidence_without_new_qualification(tmp_
         def play(*args, **kwargs):
             attempts.append(True)
             raise ThroughputError("fresh qualification refused")
-        return play
+        return run.QualificationPlay(play, lambda: None)
 
     monkeypatch.setattr(run, "qualification_play", refuse)
     reused = run.plan_for(executed, **options)
