@@ -402,7 +402,8 @@ def continue_stopped_qualification(budget, successor: Path, manifest: Path, *,
     snapshot = successor.with_name(successor.name + ".initial.sqlite3")
     outputs = (successor, manifest, _origin(successor), snapshot)
     record = json.loads(receipt.read_bytes())
-    retained = (receipt, Path(record["completion"]).resolve(strict=True), budget.paths.manifest)
+    retained = (receipt, Path(record["completion"]).resolve(strict=True),
+                Path(record["dispatch"]).resolve(strict=True), budget.paths.manifest)
     if (len(set(outputs)) != len(outputs) or any(not path.is_relative_to(root) or path.exists() for path in outputs)
             or any(not path.is_relative_to(root) for path in retained)):
         raise ValueError("fresh distinct outputs and retained actual qualification evidence required")
@@ -542,6 +543,7 @@ def export_budget(budget, bundle: Path, *, destination: str, host_identity_file:
                 copy(receipt, f"retained/{index}/qualification-recovery.json")
                 stopped = json.loads(receipt.read_bytes())
                 copy(budget.paths.resolve(stopped["completion"]), f"retained/{index}/qualification-completion.json")
+                copy(budget.paths.resolve(stopped["dispatch"]), f"retained/{index}/qualification-dispatch.json")
                 copy(budget.paths.resolve(stopped["parent_map"]), f"retained/{index}/qualification-parent-map.json")
             increase = continuation.get("limit_increase")
             if increase is not None:

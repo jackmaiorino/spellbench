@@ -294,17 +294,22 @@ class RunBudget:
             record = json.loads(receipt.read_bytes())
             names = {"schema", "phase", "source", "model", "parent", "parent_sha256",
                      "parent_map", "parent_map_sha256", "completion", "completion_sha256",
+                     "dispatch", "dispatch_sha256",
                      "failed_row", "limits", "effective_deadline", "owned_processes_absent",
                      "formal_started", "public_commitment", "allow_http503_forfeits", "user_authority"}
             failed = [row for row in rows if _terminal_request(prior, row)]
             fields = ("id", "status", "error", "reserved_tokens", "input_tokens", "output_tokens")
             completion_path = resolve(record["completion"])
             completion = json.loads(completion_path.read_bytes())
+            dispatch_path = resolve(record["dispatch"])
+            dispatch = json.loads(dispatch_path.read_bytes())
             totals = _totals(prior, rows)
             if (set(record) != names or record["schema"] != "spellbench-llm-stopped-qualification/v1"
                     or record["phase"] != "precommit-qualification"
                     or not isinstance(record["source"], str) or len(record["source"]) != 40
                     or any(c not in "0123456789abcdef" for c in record["source"])
+                    or _digest(dispatch_path) != record["dispatch_sha256"]
+                    or dispatch.get("source") != record["source"] or dispatch.get("formal_dispatches") != 0
                     or record["model"] != child["model"]
                     or record["parent"] != logical
                     or record["parent_sha256"] != continuation["parent_sha256"]

@@ -17,7 +17,7 @@ not establish reduced inference cost or representative completed-work speed.
 `continue_stopped_qualification` supports one exclusive mapped successor for a
 stopped **precommit** qualification whose sole new terminal request is HTTP503.
 It requires a retained `spellbench-llm-stopped-qualification/v1` receipt binding
-the actual source, failed row, completion and original map hashes, limits,
+the actual source, failed row, dispatch, completion and original map hashes, limits,
 cutoff, absent processes and absence of a formal commitment. Every request,
 known token, failed/unknown count, uncertain reservation and host failure is
 inherited. Failed parent bytes remain unchanged; its exclusive claim retires

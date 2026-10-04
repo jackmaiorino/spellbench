@@ -29,12 +29,15 @@ def evidence(source, *, suffix="recovery", mutate=None):
     summary = source.summary()
     completion = root / (suffix + "-completion.json")
     completion.write_text(json.dumps(dict(exit_code=1, formal_dispatches=0, budget_after=summary)))
+    dispatch = root / (suffix + "-dispatch.json")
+    dispatch.write_text(json.dumps(dict(source="a" * 40, formal_dispatches=0)))
     row = dict(id=2, status="failed", error="http_503", reserved_tokens=PROMPT.bytes + 1024,
                input_tokens=None, output_tokens=None)
     record = dict(schema="spellbench-llm-stopped-qualification/v1", phase="precommit-qualification",
                   source="a" * 40, model="luna", parent=source.paths.key(source.path), parent_sha256=digest(source.path),
                   parent_map=str(source.paths.manifest), parent_map_sha256=source.paths.sha256,
                   completion=str(completion), completion_sha256=digest(completion), failed_row=row,
+                  dispatch=str(dispatch), dispatch_sha256=digest(dispatch),
                   limits={name: summary["policy"][name] for name in LIMIT_NAMES},
                   effective_deadline=summary["effective_deadline"], owned_processes_absent=True,
                   formal_started=False, public_commitment=None, allow_http503_forfeits=True,
@@ -94,6 +97,7 @@ def test_recovery_preserves_finite_cutoff_and_can_relocate_with_all_proofs(tmp_p
     lambda r: r.update(owned_processes_absent=False), lambda r: r.update(effective_deadline=123),
     lambda r: r["limits"].update(max_requests=100), lambda r: r.update(parent_sha256="0" * 64),
     lambda r: r.update(parent_map_sha256="0" * 64), lambda r: r.update(completion_sha256="0" * 64),
+    lambda r: r.update(source="b" * 40), lambda r: r.update(dispatch_sha256="0" * 64),
     lambda r: r["failed_row"].update(reserved_tokens=1), lambda r: r["failed_row"].update(error="http_429"),
     lambda r: r.update(allow_http503_forfeits=False), lambda r: r.update(user_authority=""),
 ])
@@ -106,11 +110,12 @@ def test_invalid_stopped_receipt_cannot_activate_or_retire_parent(tmp_path, muta
     assert not source.path.with_name(source.path.name + ".continuation.json").exists()
 
 
-@pytest.mark.parametrize("target", ["receipt", "completion", "map", "parent"])
+@pytest.mark.parametrize("target", ["receipt", "completion", "dispatch", "map", "parent"])
 def test_admission_rechecks_every_retained_failure_binding(tmp_path, target):
     source, proof = stopped(tmp_path)
     child = recover(source, proof)
     path = {"receipt": proof["receipt"], "completion": source.path.parent / "recovery-completion.json",
+            "dispatch": source.path.parent / "recovery-dispatch.json",
             "map": source.paths.manifest, "parent": source.path}[target]
     with path.open("ab") as stream:
         stream.write(b"changed")
