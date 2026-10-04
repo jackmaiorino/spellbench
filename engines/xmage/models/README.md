@@ -395,3 +395,20 @@ combat. A failed operation closes the session. The reconstructed combat anchor
 resumes before declarations, as in the existing Exp1 compatibility port. Native
 combat and mixed-operation validation, complete games, trained weights and
 ratings remain unfinished; passing transport tests does not qualify an entrant.
+
+`xmage_magezero_agent` now exposes that mixed bridge through Spellbench's public
+game lifecycle. It shares the public replay history and decision clock, binds
+MageZero's conditional mode rule and explicit settings, and retains its typed
+combat plan across declaration substeps. The original constructor keeps
+mulligans. Each new game creates a separate model session using only its seat
+and exact own deck; terminal and failure paths close it.
+
+`xmage_magezero_runtime.py` launches this frontend with one private JVM and the
+existing confined inference backend. Its external weights manifest can add
+deck-bound checkpoints while preserving every public source, encoder and backend
+pin. The compiled build remains bound to the canonical public manifest, requires
+both MageZero stages and the mixed entrypoints, and is verified before launch.
+The public bot version binds the exact deck, checkpoint, search settings, build,
+image and frontend source hashes. Startup failures clean up owned resources;
+uncertain container cleanup retains the work directory. No trained MageZero
+checkpoint or complete game has been qualified by these frontend tests.

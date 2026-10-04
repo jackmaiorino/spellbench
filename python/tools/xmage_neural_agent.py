@@ -171,11 +171,14 @@ class PublicHistory:
 
 class NeuralAgent:
     """Own one mixed search session through one public game lifecycle."""
-    def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None):
+    def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
+                 profile=None, plan_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
             raise ValueError("Exp1 visits must be 2..1000")
         self.factory, self.checkpoint, self.visits = factory, checkpoint, visits
         self.audit = audit or (lambda event: None)
+        self.profile = copy.deepcopy(PROFILE if profile is None else profile)
+        self.plan_factory = CombatPlan if plan_factory is None else plan_factory
         self.session = self.game = self.history = self.key = self.plan = None
         self.failed = False
         self.step = None
@@ -197,7 +200,7 @@ class NeuralAgent:
             if self.session.model.checkpoint != self.checkpoint:
                 raise ValueError("neural session checkpoint differs from its public bot identity")
             self.audit({"event": "neural_game_start", "checkpoint": self.checkpoint,
-                        "visits": self.visits, "profile": PROFILE})
+                        "visits": self.visits, "profile": copy.deepcopy(self.profile)})
         except BaseException:
             self.failed = True
             self.close()
@@ -250,7 +253,7 @@ class NeuralAgent:
                 family = combat_kind(received)
                 if self.plan is None or self.plan.complete:
                     result = self.session.plan(record, visits=self.visits, timeout_s=remaining())
-                    self.plan = CombatPlan(received, result, visits=self.visits)
+                    self.plan = self.plan_factory(received, result, visits=self.visits)
                 selection = self.plan.select(received)
             elif kinds == {"mulligan"}:
                 # This is the original newly constructed player's shipped flag,
