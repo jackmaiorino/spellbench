@@ -72,7 +72,7 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("target source pin missing: " + name);
         return value;
     }
-    static Class<?> original(String name) throws Exception {
+    static Class<?> original(String name) throws ReflectiveOperationException {
         Class<?> type = Class.forName("spellbench.models.jack." + name);
         if (!JackModeEncoder.SOURCE.equals(type.getField("SOURCE_SHA256").get(null))) {
             throw new IllegalArgumentException("target class differs from the original callback: " + name);
