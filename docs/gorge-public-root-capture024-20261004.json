@@ -79,10 +79,47 @@
   },
   "guardian_armed_before_create_required": true,
   "guarded_path": "Owned remote process group, stage timeout, actual CPU/memory check,60GiB storage reserve,4GiB artifact cap, independent45-minute cloud release guardian",
-  "phase": "prepared_not_launched",
+  "phase": "bounded_remote_correctness_running",
   "new_cloud_spend_usd": 0,
   "missing_root": "Later seed52 first budget exhaustion; earlier182-frame prefix passed",
   "reference_qualification_complete": false,
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-024\\HOSTS.json",
-  "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-024\\CATALOG.json"
+  "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-024\\CATALOG.json",
+  "observed_at_utc": "2026-10-04T21:19:27.215106+00:00",
+  "dispatch": {
+    "pod_id": "c2sd1b4g72gyf5",
+    "driver_pid": 3156,
+    "guarded_launch": "Bounded small correctness capture driver and owned process groups",
+    "rated_games": 0
+  },
+  "supervision": {
+    "at_utc": "2026-10-04T21:17:57.574452+00:00",
+    "pod_id": "c2sd1b4g72gyf5",
+    "driver_pid": 3156,
+    "driver_start_tick": "476702296",
+    "confirmed_live": true,
+    "cadence": "30 then60 seconds for build,300seconds for native capture; no model polling",
+    "lease_deadline_utc": "2026-10-04T22:01:45.6785234+00:00"
+  },
+  "actual_host": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "raw_cpu": 48,
+    "disk": {
+      "total": 107374182400,
+      "used": 218710016,
+      "free": 107155472384
+    },
+    "cpu.max": "2040000 100000",
+    "memory.max": "21999996928",
+    "cpuset.cpus.effective": "0-47",
+    "cpu/cpu.cfs_quota_us": null,
+    "cpu/cpu.cfs_period_us": null,
+    "memory/memory.limit_in_bytes": null,
+    "cpu_model": "AMD Ryzen Threadripper 7960X 24-Cores"
+  },
+  "lease_deadline_utc": "2026-10-04T22:01:45.6785234+00:00",
+  "active_lease_maximum_usd": 0.5625,
+  "conservative_cumulative_ceiling_usd": 5.46164747,
+  "source_format_preflight": "Pinned checkout with core.autocrlf true, exact embedded cards source digest and existing linked-compiler test before parity/capture",
+  "launch_path": "Bounded small correctness diagnostic only; no full native/reference/rated launch"
 }
