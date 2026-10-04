@@ -18,10 +18,119 @@ type spellbenchBasicSearch struct {
 	deadlines []deadlineConstraint
 }
 
+// A London bottom puts an unknown opening-hand card at the library's tail.
+// It invalidates exact positions without changing the source of later public
+// copies: before another library mutation, the simultaneously visible copies
+// were among the opening shuffle's first (opening draws + later draws) cards.
+// Count current public zones rather than identity introductions, since hidden
+// mixing may give one physical card several observer references over time.
+func spellbenchLondonDeadlines(setup PublicGame, h History) map[epochKey][]deadlineConstraint {
+	type cursor struct {
+		ordinal, draws   int
+		active, bottomed bool
+		maximum          map[string]int
+	}
+	result := map[epochKey][]deadlineConstraint{}
+	cursors := map[state.PlayerID]cursor{}
+	identities := map[uint32]Identity{}
+	deckNames := map[string]bool{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			deckNames[card.Faces[0].Name] = true
+		}
+	}
+	started := false
+	disable := func(owner state.PlayerID, known bool) {
+		for player, current := range cursors {
+			if !known || player == owner {
+				current.active = false
+				cursors[player] = current
+			}
+		}
+	}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			current := cursors[ev.Player]
+			switch ev.Kind {
+			case events.TurnChange:
+				started = true
+			case events.Shuffle:
+				current.ordinal++
+				current.draws = 0
+				current.active, current.bottomed = !started, false
+				current.maximum = map[string]int{}
+				cursors[ev.Player] = current
+			case events.Draw:
+				current.draws++
+				cursors[ev.Player] = current
+			case events.LibraryOrder:
+				disable(ev.Player, true)
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+				disable(0, false)
+			case events.MoveZone:
+				if !started && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
+					if ev.Text == "bottomed" {
+						current.bottomed = true
+						cursors[ev.Player] = current
+					}
+					continue
+				}
+				if ev.From == state.ZLibrary || ev.To == state.ZLibrary {
+					identity, known := identities[ev.Obj]
+					disable(identity.Owner, known)
+				}
+			}
+		}
+		var board knownBoard
+		if json.Unmarshal(frame.Board, &board) != nil {
+			continue
+		}
+		counts := map[state.PlayerID]map[string]int{}
+		seen := map[uint32]bool{}
+		for _, player := range board.Players {
+			for _, zone := range [][]knownCardID{player.Battlefield, player.Graveyard, player.Exile, player.Command} {
+				for _, card := range zone {
+					identity, known := identities[card.ID]
+					if !known || seen[card.ID] || !deckNames[identity.Name] {
+						continue
+					}
+					seen[card.ID] = true
+					if counts[identity.Owner] == nil {
+						counts[identity.Owner] = map[string]int{}
+					}
+					counts[identity.Owner][identity.Name]++
+				}
+			}
+		}
+		for player, current := range cursors {
+			if player == h.Actor || !current.active || !current.bottomed || current.ordinal < 1 || int(player) >= len(setup.Decks) {
+				continue
+			}
+			var names []string
+			for name := range counts[player] {
+				names = append(names, name)
+			}
+			slices.Sort(names)
+			key := epochKey{Player: player, Ordinal: current.ordinal - 1}
+			for _, name := range names {
+				count := counts[player][name]
+				if count > current.maximum[name] {
+					result[key] = append(result[key], deadlineConstraint{Through: min(current.draws, len(setup.Decks[player])), Name: name, Count: count})
+					current.maximum[name] = count
+				}
+			}
+		}
+	}
+	return result
+}
+
 // A named, full-library basic-land search exposes membership and the relative
 // order of its matches. It does not expose their absolute positions, other
 // cards, physical copy IDs, or the opponent's hand. Restrict this guidance to
-// an unmodified initial opponent shuffle and a single printed search ability.
+// an unmodified initial shuffle and a single printed search ability.
 // Other searches retain the existing proposal and full replay checks.
 func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenchBasicSearch {
 	windows := map[epochKey]spellbenchBasicSearch{}
@@ -59,6 +168,9 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 					continue
 				}
 				identity, known := identities[ev.Obj]
+				if h.ActorBoundaries && !known && ev.Obj == 0 && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
+					identity.Owner, known = ev.Player, true
+				}
 				for player, affected := range cursors {
 					if !known || player == identity.Owner {
 						affected.reliable = false
@@ -74,24 +186,35 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 		owner := d.Options[0].Action.Player
 		cursor := cursors[owner]
 		key := epochKey{Player: owner}
-		if owner == h.Actor || int(owner) >= len(setup.Decks) || cursor.ordinal != 1 || !cursor.reliable || windows[key].names != nil {
+		if int(owner) >= len(setup.Decks) || cursor.ordinal != 1 || !cursor.reliable || windows[key].names != nil {
 			continue
 		}
-		if !spellbenchPrintedBasicSearch(byName[identities[d.Source].Name]) {
+		subtypes, printed := spellbenchPrintedBasicSearch(byName[identities[d.Source].Name])
+		if !printed {
 			continue
+		}
+		matches := map[string]bool{}
+		for name, face := range byName {
+			if !basics[name] {
+				continue
+			}
+			matches[name] = len(subtypes) == 0
+			for _, subtype := range subtypes {
+				matches[name] = matches[name] || slices.Contains(face.Types, subtype)
+			}
 		}
 		var names []string
 		valid := true
 		for _, option := range d.Options {
 			identity, known := identities[option.Action.Obj]
-			if option.Action.Kind != "search" || option.Action.Player != owner || !known || identity.Owner != owner || !basics[identity.Name] {
+			if option.Action.Kind != "search" || option.Action.Player != owner || !known || identity.Owner != owner || !matches[identity.Name] {
 				valid = false
 				break
 			}
 			names = append(names, identity.Name)
 		}
 		if valid {
-			windows[key] = spellbenchBasicSearch{through: cursor.draws, names: names, basics: basics}
+			windows[key] = spellbenchBasicSearch{through: cursor.draws, names: names, basics: matches}
 		}
 	}
 	if len(windows) == 0 {
@@ -248,18 +371,20 @@ func spellbenchRemovalDeadlines(setup PublicGame, h History) map[epochKey][]dead
 	return result
 }
 
-// The allowlist excludes filters, restricted search windows, blind options,
-// alternate origins and competing search abilities. This reads declared card
+// Allow full basic-land searches and the printed Landscape subtype filter.
+// Exclude other filters, restricted windows, blind options, alternate origins
+// and competing search abilities. This reads declared card
 // definitions, not an engine or its current hidden cards.
-func spellbenchPrintedBasicSearch(face *cards.Face) bool {
+func spellbenchPrintedBasicSearch(face *cards.Face) ([]string, bool) {
 	if face == nil {
-		return false
+		return nil, false
 	}
 	allowed := map[string]bool{"Origin": true, "Destination": true, "ChangeType": true, "ChangeTypeDesc": true,
 		"Tapped": true, "ChangeNum": true, "DefinedPlayer": true, "Shuffle": true, "ShuffleNonMandatory": true,
-		"SubAbility": true, "StackDescription": true, "Optional": true, "Mandatory": true, "SpellDescription": true}
+		"SubAbility": true, "StackDescription": true, "Optional": true, "Mandatory": true, "SpellDescription": true, "Cost": true}
 	searches := 0
 	valid := true
+	var subtypes []string
 	var visit func(*cards.SA)
 	visit = func(sa *cards.SA) {
 		if sa == nil {
@@ -267,7 +392,13 @@ func spellbenchPrintedBasicSearch(face *cards.Face) bool {
 		}
 		if sa.API == "ChangeZone" && sa.Params["Origin"] == "Library" {
 			searches++
-			valid = valid && sa.Params["ChangeType"] == "Land.Basic"
+			switch sa.Params["ChangeType"] {
+			case "Land.Basic":
+			case "Swamp.Basic,Mountain.Basic,Forest.Basic":
+				subtypes = []string{"Swamp", "Mountain", "Forest"}
+			default:
+				valid = false
+			}
 			for key := range sa.Params {
 				valid = valid && allowed[key]
 			}
@@ -280,15 +411,22 @@ func spellbenchPrintedBasicSearch(face *cards.Face) bool {
 	for _, trigger := range face.Triggers {
 		visit(trigger.Effect)
 	}
-	return valid && searches == 1
+	return subtypes, valid && searches == 1
 }
 
 func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbenchBasicSearch) rules.ShufflePlanner {
 	return func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
 		key := epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}
 		window, guided := windows[key]
-		if !guided || len(p.epochs[key].Positions) > 0 || len(ctx.Hand) != 0 {
+		if !guided || len(ctx.Hand) != 0 {
 			return p.plan(ctx)
+		}
+		// The fold changes only the unseen tail. Actor draws and opening-hand
+		// positions already before the observed search remain fixed by p.plan.
+		for _, position := range p.epochs[key].Positions {
+			if position.Index >= window.through {
+				return p.plan(ctx)
+			}
 		}
 		if window.through > len(ctx.Library) {
 			return p.incompatible()

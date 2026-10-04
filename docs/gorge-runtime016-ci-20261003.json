@@ -143,5 +143,16 @@
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37162326595"
   },
   "later_full_ci_covers_extended_private_search_test": true,
-  "later_full_ci_covers_known_hand_repair": false
+  "later_full_ci_covers_known_hand_repair": false,
+  "known_hand_repair_full_ci": {
+    "conclusion": "success",
+    "createdAt": "2026-10-04T00:14:44Z",
+    "databaseId": 37164344311,
+    "headSha": "4e83316007cdafdce37c68610ef15602ec76479a",
+    "status": "completed",
+    "updatedAt": "2026-10-04T00:34:55Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37164344311"
+  },
+  "known_hand_repair_full_ci_passed": true,
+  "known_hand_repair_full_ci_covers_public_london_repair": false
 }

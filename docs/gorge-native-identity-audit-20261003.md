@@ -63,6 +63,25 @@ tests, vet and diff checks pass. See the
 qualification predates this change; a rebuilt runtime and fresh compatible
 qualification remain required. Native policies and search budgets are unchanged.
 
+A separate 94-frame Wildfire history exhausted public reconstruction after
+5,000 submits. The replay now preserves weak public name/count bounds after
+opening London bottoming, without restoring physical copy links or unseen
+positions. That guidance stops at later library mutation, reorder, shuffle or
+token/copy creation. Initial, observed basic-land searches also guide their
+filtered relative order, including the actor's own Twisted Landscape subtype
+filter. The fold preserves earlier actor draw positions and leaves nonmatching
+cards unconstrained. These changes apply only to public replay witnesses;
+the native weighted rejection sampler, policies and budgets are unchanged.
+
+The exact saved history now supplies eight redealt worlds in one proposal and
+194 submits. All its native rejection counters remain identical. A legal
+62-frame London/filtered-search regression reconstructs in 151 submits, keeps
+every known-card claim, and receives byte-identical history when unseen,
+nonmatching library cards change order. The
+[repair evidence](gorge-public-london-search-repair-20261004.json) retains the
+failed candidates and the corpus-environment retry. Complete qualification and
+review remain pending.
+
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation

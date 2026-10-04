@@ -1,0 +1,590 @@
+{
+  "schema": "spellbench-gorge-public-london-search-repair/v1",
+  "at_utc": "2026-10-04T01:16:22.442725+00:00",
+  "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+  "source_files": {
+    "engines/gorge/native-overlay/public_redeal.go.txt": {
+      "saved": "SOURCE-public_redeal.go.txt",
+      "sha256": "ce8472fecceb97a6c922cc4f5223677cbc289aed438a58cad171e32b0883b7e5"
+    },
+    "engines/gorge/native-overlay/public_basic_search.go.txt": {
+      "saved": "SOURCE-public_basic_search.go.txt",
+      "sha256": "5a2c77c925e75f0c1c8e2f2ab6321949466ff633e885446fa7a8870ed6f0ddc9"
+    },
+    "engines/gorge/strategies/london_deadlines_test.go": {
+      "saved": "SOURCE-london_deadlines_test.go",
+      "sha256": "b0079f62fddf9a10c7165305b6484c1c30cfa6568ef0ca695cd581a2750d87f4"
+    }
+  },
+  "public_input": "E:/spellbench-gorge-reconstruction-budget-20261004-001/PUBLIC-PROJECTION.json",
+  "public_input_sha256": "9ca304b6bdd005cb022f1a3d0d7b4421215bdca287a5f2d5b23806d07a89fe09",
+  "before": {
+    "frames": 94,
+    "worlds": 0,
+    "work": {
+      "Attempts": 7,
+      "Submits": 5000,
+      "Nodes": 4731,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "frames": 94,
+    "worlds": 8,
+    "redealt": 8,
+    "work": {
+      "Attempts": 1,
+      "Submits": 194,
+      "Nodes": 20,
+      "BudgetExhausted": 0
+    },
+    "all_native_rejection_counters_identical": true,
+    "all_worlds_hold_known_cards": true
+  },
+  "cause": "London bottoming disables native positional constraints. Public witness reconstruction lost all later opponent name/count guidance. An actor-owned Twisted Landscape search also lacked guidance for its observed filtered relative order.",
+  "repair": "For public reconstruction only, derive weak simultaneous visible-copy bounds from the opening shuffle before further library mutation, and preserve actor draws while folding the observed basic-land subtype matches. No hidden physical copy or absolute unseen position is inferred.",
+  "soundness_limits": "London guidance stops at library mutation, reorder, later shuffle or token/copy creation. Filter guidance permits only the printed full-basic or Landscape subtype filters, an unmodified initial shuffle, and no fixed positions in the folded tail.",
+  "regression": {
+    "actor_frames": 62,
+    "accepted": 0,
+    "redealt": 8,
+    "work": {
+      "Attempts": 1,
+      "Submits": 151,
+      "Nodes": 54,
+      "BudgetExhausted": 0
+    },
+    "unseen_nonmatching_library_variants_have_identical_complete_received_history": true,
+    "filtered_offers_exclude_islands": true,
+    "all_worlds_hold_known_cards": true
+  },
+  "checks": "The broad affected-strategy invocation failed only five corpus fixtures because the wrapper omitted GORGE_CARDS. Its successful other tests are retained. Restoring the pinned environment made every failed fixture pass; native qualification gate tests, vet and diff also pass. Fresh full hosted CI remains pending.",
+  "attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-reconstruction-trace-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-001",
+      "bytes": 19221615,
+      "seal_sha256": "39b8098f926188c5572fd69c555a24047040e24f3a91e633a18912f3e2efc800",
+      "passed": true,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-001\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 5.015765900025144
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\25e50324c12cd68c3ca13528afabd5313917bbb2222de9d0bdf569b1962e1c0d\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 6.512265200028196
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 0,
+        "Accepted": 0,
+        "Redealt": null,
+        "RedealRefused": "public reconstruction submit budget exhausted",
+        "PublicReconstruction": {
+          "Attempts": 7,
+          "Submits": 5000,
+          "Nodes": 4731,
+          "BudgetExhausted": 1
+        }
+      },
+      "trace": {
+        "work": {
+          "Attempts": 7,
+          "Submits": 5000,
+          "Nodes": 4731,
+          "BudgetExhausted": 1
+        },
+        "attempts": [
+          {
+            "Reached": 20,
+            "Failed": 20,
+            "Reason": "prefix:frame 20 identities"
+          },
+          {
+            "Reached": 41,
+            "Failed": 41,
+            "Reason": "prefix:frame 41 identities"
+          },
+          {
+            "Reached": 41,
+            "Failed": 41,
+            "Reason": "prefix:frame 41 identities"
+          },
+          {
+            "Reached": 20,
+            "Failed": 20,
+            "Reason": "prefix:frame 20 identities"
+          },
+          {
+            "Reached": 66,
+            "Failed": 66,
+            "Reason": "prefix:frame 66 identities"
+          },
+          {
+            "Reached": 41,
+            "Failed": 41,
+            "Reason": "prefix:frame 41 identities"
+          },
+          {
+            "Reached": 66,
+            "Failed": 66,
+            "Reason": "prefix:frame 66 identities"
+          }
+        ]
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-reconstruction-trace-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-002",
+      "bytes": 19190632,
+      "seal_sha256": "8decc04632fd03cdd0b5d8c72cf2d4782a8488e723f4a3bd712cf3791b4a5c5c",
+      "passed": true,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-002\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 5.08538820000831
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\c280a4a55ead37ef376c7c191472cf5a17349a74b135f2ea8078f7030c32823e\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 6.6669362999964505
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 0,
+        "Accepted": 0,
+        "Redealt": null,
+        "RedealRefused": "public reconstruction submit budget exhausted",
+        "PublicReconstruction": {
+          "Attempts": 2,
+          "Submits": 5000,
+          "Nodes": 4706,
+          "BudgetExhausted": 1
+        }
+      },
+      "trace": {
+        "work": {
+          "Attempts": 2,
+          "Submits": 5000,
+          "Nodes": 4706,
+          "BudgetExhausted": 1
+        },
+        "attempts": [
+          {
+            "Reached": 76,
+            "Failed": 76,
+            "Reason": "prefix:frame 76 identities"
+          },
+          {
+            "Reached": 76,
+            "Failed": 76,
+            "Reason": "prefix:frame 76 identities"
+          }
+        ]
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-001",
+      "bytes": 491261,
+      "seal_sha256": "36163f8f31552eed947f4922ae4afe9ba2fa76258179bf133bb9b9ab837aff55",
+      "passed": false,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-001\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 1,
+          "wall_seconds": 1.760785799997393
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-002",
+      "bytes": 19155534,
+      "seal_sha256": "476b2bf32041d24deb7bbcbb54f7d5572d1fca082c07a91736b74f3c2ce4f4d1",
+      "passed": false,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-002\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 5.063388100010343
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\16df4254daed05edbf25a8ef53bfc9f48d21acdf154f3bf715060114cc24b9e5\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedLondonBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "wall_seconds": 7.0115066000144
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 0,
+        "Accepted": 0,
+        "Redealt": null,
+        "RedealRefused": "public reconstruction submit budget exhausted",
+        "PublicReconstruction": {
+          "Attempts": 2,
+          "Submits": 5000,
+          "Nodes": 4706,
+          "BudgetExhausted": 1
+        }
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-003",
+      "bytes": 19156978,
+      "seal_sha256": "1fca7da9af55ff34b6833a0a305683bb2f77bf91756e48d1d5085ba6d399c2a2",
+      "passed": false,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-003\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 5.232849400024861
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\a3481d0b450106c8d57b7c987ea9ef711f8c3852ec726c646fe703dc3994e29d\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedLondonBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 1,
+          "wall_seconds": 7.016778000048362
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 0,
+        "Accepted": 0,
+        "Redealt": null,
+        "RedealRefused": "public reconstruction submit budget exhausted",
+        "PublicReconstruction": {
+          "Attempts": 2,
+          "Submits": 5000,
+          "Nodes": 4706,
+          "BudgetExhausted": 1
+        }
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-004",
+      "bytes": 19158295,
+      "seal_sha256": "2b751bb913c52eb1f30914b28899f425a841e0ba92f2819f46618bd922280c66",
+      "passed": true,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-004\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.231829700001981
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\788d0ca47e24515c0d89e9b2c0aaf50838274c7961b0bcefa02d2dc9ef535c87\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedLondonBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 2.0095723000122234
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 8,
+        "Accepted": 0,
+        "Redealt": 8,
+        "RedealRefused": null,
+        "PublicReconstruction": {
+          "Attempts": 1,
+          "Submits": 194,
+          "Nodes": 20,
+          "BudgetExhausted": 0
+        }
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-005",
+      "bytes": 19226933,
+      "seal_sha256": "b5018aa5866569e89f1038b0f4a1573c2051c403aacbeba026d9ecb3f715a038",
+      "passed": false,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-005\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.664685800031293
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\0386d4dc631711fab721520841b42f1b05e274002cd6c37b49016d6602883002\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedLondonBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 3.4495380999869667
+        },
+        {
+          "name": "affected-strategies",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-timeout",
+            "180s",
+            "./strategies",
+            "-count=1"
+          ],
+          "exit_code": 1,
+          "wall_seconds": 106.44613840000238
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 8,
+        "Accepted": 0,
+        "Redealt": 8,
+        "RedealRefused": null,
+        "PublicReconstruction": {
+          "Attempts": 1,
+          "Submits": 194,
+          "Nodes": 20,
+          "BudgetExhausted": 0
+        }
+      }
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-london-deadline-20261004-006",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-006",
+      "bytes": 19230648,
+      "seal_sha256": "3a9f4ee7f2116a54b5e781db75bfbe1769ca98ce0c90faf75c8128ab4f0d6637",
+      "passed": true,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-london-deadline-20261004-006\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 3.082476899959147
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\0ad99d261eb19e24000005a77c3fb79ac345f78440132a4b04ed4a3de5d7ff5f\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedLondonBudgetPrefix94$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 2.2793689000536688
+        },
+        {
+          "name": "affected-corpus-fixtures-retry",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-timeout",
+            "180s",
+            "./strategies",
+            "-run",
+            "^Test(PublicLondonReplayPreservesDrawsAndFilteredOwnSearch|OpponentLibrarySearchUsesLandControllerAndHidesOffers|PublicReconstructionAfterOpponentLibrarySearch|PublicRedealAfterNaturallyPlayedLembasShuffle|PublicStackSourceStaysUnlinkedAfterShuffleAndRedraw)$",
+            "-count=1",
+            "-v"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 11.785762200015597
+        },
+        {
+          "name": "qualification-gates",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "./cmd/gorgequal",
+            "-run",
+            "Test(NativeOpponent|Scaling|Clean)",
+            "-count=1"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.353385799971875
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "./strategies",
+            "./cmd/gorgequal"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 2.6488835999625735
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 0.1274773000041023
+        }
+      ],
+      "source_parent_commit": "d3f8067e7dbc740df51fbca325ded1afc6ef395f",
+      "sample": {
+        "frames": 94,
+        "worlds": 8,
+        "Accepted": 0,
+        "Redealt": 8,
+        "RedealRefused": null,
+        "PublicReconstruction": {
+          "Attempts": 1,
+          "Submits": 194,
+          "Nodes": 20,
+          "BudgetExhausted": 0
+        }
+      }
+    }
+  ],
+  "native_policies_and_search_budgets_changed": false,
+  "native_weighted_rejection_sampler_changed": false,
+  "benchmark_changed": false,
+  "qualified": false,
+  "completed_games": 0,
+  "rated_games": 0,
+  "published": false,
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0
+}
