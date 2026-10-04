@@ -1,5 +1,6 @@
 """Guarded reference-host qualification of all twelve gorge modes and five decks."""
 import datetime
+from collections import Counter
 from dataclasses import replace
 import hashlib
 import json
@@ -15,7 +16,8 @@ sys.path.insert(0, str(ROOT / 'python'))
 from spellbench.arena import config, runner, store
 from spellbench.arena.schedule import preflight, schedule
 from spellbench.bench import definition, run as bench_run
-from spellbench.arena.throughput import Placement, resource_bound, usable_cpus
+from spellbench.arena.machine import usable_cpus
+from spellbench.arena.throughput import Placement, resource_bound
 from spellbench.run_secret import RunSecret
 
 STAGE = Path(os.environ['GORGE_CLOUD_STAGE'])
@@ -57,6 +59,29 @@ def join_receipts(row, directory):
 def mapping_pass(native, bad):
     return 100 * bad < native if native else bad == 0
 
+def select_matrix(contexts):
+    baseline = [c for c in contexts if c.pair_index < 5
+                and any(s.name == 'uniform' for _, s in c.seat_specs)
+                and any(s.name.startswith('gorge-') for _, s in c.seat_specs)]
+    # Preserve the original uniform games, seed bindings and replay selection.
+    baseline.sort(key=lambda c: (not any('search' in s.name for _, s in c.seat_specs), c.game_index))
+    if len(baseline) != 120:
+        raise RuntimeError('Original all-mode/all-deck matrix must contain 120 games')
+    probes = [c for c in contexts if c.pair_index < 5
+              and {s.name for _, s in c.seat_specs} in
+              ({'gorge-search', 'gorge-bot'}, {'gorge-search-mana', 'gorge-bot'})]
+    probes.sort(key=lambda c: c.game_index)
+    if len(probes) != 20:
+        raise RuntimeError('Stock sampler coverage needs 20 native-bot probe games')
+    chosen = baseline + probes
+    if len({c.game_index for c in chosen}) != len(chosen):
+        raise RuntimeError('Reference matrix duplicated a frozen seed')
+    expected = Counter((s.name, c.decks[0].catalog_id) for c in chosen
+                       for _, s in c.seat_specs if s.name.startswith('gorge-'))
+    if len(expected) != 60:
+        raise RuntimeError('Matrix omits a policy/deck cell')
+    return chosen, expected
+
 def main():
     started = time.perf_counter()
     placement = os.environ['GORGE_PLACEMENT']
@@ -85,7 +110,7 @@ def main():
     # cannot fit the qualification budget would select the small-run path,
     # which only probes serially before using its configured workers.
     measured_bounds = [workers for workers in range(2, eligible_workers + 1)
-                       if rules.ladder_fits(120, workers)]
+                       if rules.ladder_fits(140, workers)]
     if not measured_bounds:
         raise RuntimeError('No parallel reference-host ladder fits the current resources and qualification budget')
     cfg = replace(cfg, workers=max(measured_bounds))
@@ -95,17 +120,7 @@ def main():
               if prior_secret else RunSecret.generate())
     private_secret(STAGE/'PRIVATE-MATRIX-SECRET.json', secret)
     contexts = schedule(cfg, secret)
-    chosen = [c for c in contexts if c.pair_index < 5
-              and any(s.name == 'uniform' for _, s in c.seat_specs)
-              and any(s.name.startswith('gorge-') for _, s in c.seat_specs)]
-    # Search games first gives the guarded sample representative expensive work.
-    chosen.sort(key=lambda c: (not any('search' in s.name for _, s in c.seat_specs), c.game_index))
-    if len(chosen) != 120:
-        raise RuntimeError('Frozen all-mode/all-deck matrix must contain 120 games')
-    expected = {(next(s.name for _,s in c.seat_specs if s.name.startswith('gorge-')), c.decks[0].catalog_id)
-                for c in chosen}
-    if len(expected) != 60:
-        raise RuntimeError('Matrix omits a policy/deck cell')
+    chosen, expected = select_matrix(contexts)
     manifest = json.loads((STAGE/'MANIFEST.json').read_bytes())
     manifest.update(started_at_utc=stamp(), executed_config=cfg.to_json(),
                     launch_files=[f.to_json() for f in files], python=sys.version,
@@ -115,6 +130,8 @@ def main():
                     secret_commitment=secret.commitment(), selected_indices=[c.game_index for c in chosen],
                     prior_qualification_secret=prior_secret,
                     expected_cells=[list(cell) for cell in sorted(expected)],
+                    expected_cell_games={policy+'/'+deck:count for (policy,deck),count in sorted(expected.items())},
+                    original_uniform_games=120, stock_sampler_native_bot_probe_games=20,
                     scope='reference-host clocks, lifecycle, native mapping and search coverage; not native leak/parity qualification or ratings')
     write(STAGE/'MANIFEST.json', manifest)
     original_qualification = bench_run.qualification_play
@@ -185,7 +202,7 @@ def main():
         if row['classification'] != 'natural': bad_rows.append(row['game_index'])
         seconds.append({'game_index':row['game_index'], 'seconds':outcome.seconds})
         write(STAGE/'PROGRESS.json', {'at_utc':stamp(), 'completed_games':len(seconds),
-            'expected_games':120, 'bad_rows':bad_rows, 'aggregates':aggregates})
+            'expected_games':len(chosen), 'bad_rows':bad_rows, 'aggregates':aggregates})
         print(json.dumps({'matrix_game':row['game_index'], 'classification':row['classification'],
                           'seconds':outcome.seconds, 'completed':len(seconds), 'at_utc':stamp()}), flush=True)
     result = runner.play_games(cfg, setup, chosen, run_secret=secret, entries=entries,
@@ -194,7 +211,8 @@ def main():
     failures = []
     redealt = {}
     for key, aggregate in aggregates.items():
-        if aggregate['games'] != 2: failures.append(key+': incomplete seat pair')
+        if aggregate['games'] != expected[(key.split('/')[0], key.split('/')[1])]:
+            failures.append(key+': incomplete declared seat pairs')
         if not mapping_pass(aggregate['native_decisions'], aggregate['bad_native_decisions']):
             failures.append(key+': native mapping is not under one percent')
         policy = aggregate['policy']
@@ -209,8 +227,8 @@ def main():
     for policy,n in redealt.items():
         if n == 0: failures.append(policy+': no accepted redealt world')
     if bad_rows: failures.append('non-natural matrix games: '+str(bad_rows))
-    if len(aggregates) != 60 or len(seconds) != 120: failures.append('incomplete matrix')
-    if len(seconds) != 120:
+    if len(aggregates) != 60 or len(seconds) != len(chosen): failures.append('incomplete matrix')
+    if len(seconds) != len(chosen):
         report = {'schema':'spellbench-gorge-reference-host-matrix/v1', 'at_utc':stamp(),
             'passed':False, 'failures':failures, 'completed_games':len(seconds), 'cells':aggregates,
             'allocation':allocation.to_json(), 'game_seconds':seconds, 'wall_seconds':time.perf_counter()-started,
