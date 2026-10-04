@@ -1,0 +1,121 @@
+{
+  "schema": "spellbench-gorge-live-cloud-progress/v1",
+  "observed_at_utc": "2026-10-04T08:25:40.283322+00:00",
+  "status": "native_serial_qualification_running",
+  "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-022",
+  "runtime_source_commit": "c87d7ac335d7113176f969be9e3c6e0cabbeae71",
+  "prepared_adapter_commit": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+  "planned_sealed_source_of_record": "E:/spellbench-gorge-runpod-20261004-015",
+  "live_recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-015",
+  "pod_id": "x5pp903hr4ke2h",
+  "pod_name": "spellbench-gorge-native-57a9466c994249ad",
+  "deadline_utc": "2026-10-04T10:18:28.2933109+00:00",
+  "guardian_pid": 45796,
+  "guardian_confirmed_alive": true,
+  "host_fingerprint_verified": true,
+  "latest_guardian_recovery": {
+    "pod_id": "x5pp903hr4ke2h",
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-015\\recovery-20261004T082359Z.tar.gz",
+    "at_utc": "2026-10-04T08:24:01.2517590+00:00",
+    "event": "recovered",
+    "sha256": "bbe6e435e78f8729018997001431ff0d96c41d327823ef4aa05f863760209398",
+    "bytes": 65674
+  },
+  "bundle_sha256": "67a48caf9d745d09083589f3d25bc8c849b7604dab3e656c4a5f1c26d48c962a",
+  "remote_files_verified": 958,
+  "usable_cpus": 24,
+  "memory_bytes": 30999998464,
+  "actual_remote_facts": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "raw_cpu": 112,
+    "disk": {
+      "total": 85899345920,
+      "used": 218808320,
+      "free": 85680537600
+    },
+    "cpu.max": "2380000 100000",
+    "memory.max": "30999998464",
+    "cpuset.cpus.effective": "0-111",
+    "cpu/cpu.cfs_quota_us": null,
+    "cpu/cpu.cfs_period_us": null,
+    "memory/memory.limit_in_bytes": null,
+    "cpu_model": "AMD EPYC 7663 56-Core Processor"
+  },
+  "qualified_worker_bound": 16,
+  "planned_worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "capacity_diagnosis": {
+    "at_utc": "2026-10-04T08:27:43.455818+00:00",
+    "stage": "isolated serial completed-work timing baseline",
+    "observed_worker_count": 1,
+    "eligible_cpus": 24,
+    "qualified_ladder_ceiling": 16,
+    "planned_ladder": [
+      1,
+      8,
+      16
+    ],
+    "measured_consecutive_windows": [
+      {
+        "start_utc": "2026-10-04T08:23:54.117949+00:00",
+        "end_utc": "2026-10-04T08:24:54.200941+00:00",
+        "elapsed_seconds": 60.0855313830034,
+        "cpu_seconds": 60.523563,
+        "effective_cores": 1.0072901346948977,
+        "usable_core_fraction": 0.04197042227895407,
+        "throttle_period_delta": 0,
+        "natural_blocks_before": 4,
+        "natural_blocks_after": 4
+      },
+      {
+        "start_utc": "2026-10-04T08:24:54.200941+00:00",
+        "end_utc": "2026-10-04T08:25:54.281882+00:00",
+        "elapsed_seconds": 60.0831459789988,
+        "cpu_seconds": 60.466016,
+        "effective_cores": 1.0063723364474795,
+        "usable_core_fraction": 0.04193218068531165,
+        "throttle_period_delta": 0,
+        "natural_blocks_before": 4,
+        "natural_blocks_after": 4
+      }
+    ],
+    "source_observation": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-015\\WORK-OBSERVATIONS\\20261004T082558061645Z.json",
+    "idle_capacity_reason": "The matched serial baseline must finish before queued parallel timing trials. Concurrent work would contaminate this baseline. No qualified allocation exists yet. The supported current12percent guard permits the1/8/16-worker ladder.",
+    "correction": "Retain the healthy baseline and proceed to the queued matched parallel trials on completion. Do not start substantial qualification before compatible output hashes and completed-work measurements pass the guard.",
+    "full_native_audit_started": false,
+    "reference_matrix_started": false
+  },
+  "current_trials": [
+    {
+      "stage": "qualification-1-workers-1",
+      "natural_blocks": 4,
+      "emitted_rows": 4,
+      "last_game": 45
+    }
+  ],
+  "guard_path": "driver.py -> qualify_native.py -> arena.throughput.plan_allocation -> bounded native callback",
+  "driver_sha256": "4049cad71fe698b068f28a47bff85ff0e72d87932b9db517a0dee8e9abd8984d",
+  "native_script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
+  "cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "cost_per_hour_usd": 0.18,
+  "cloud_cap_usd": 10,
+  "conservative_prior_lease_ceiling_usd": 4.41026747,
+  "maximum_new_lease_usd": 0.85,
+  "conservative_cumulative_lease_ceiling_usd": 5.26026747,
+  "final_invoice_pending": true,
+  "previous_closed_cloud": "docs/gorge-runtime021-cloud-20261004.json",
+  "production_repair": "docs/gorge-public-explore-repair-20261004.json",
+  "reference_launcher_repair": "docs/gorge-reference-scaling-repair-20261004.json",
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "limit": "Live observed progress, not a sealed final receipt. Compatible scaling, complete native/reference qualification, reviews, ratings and publication remain unfinished. Periodic recovery and bounded release are armed."
+}

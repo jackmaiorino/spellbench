@@ -378,8 +378,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "All57 affected strategy cases, Go vet and diff checks passed for the public explore repair. The preceding headba92ebf passed all hosted Go, Python and isolation checks. New-source hosted checks and complete native/reference qualification remain pending.",
-      "five_deck_search_qualification": "Runtime021 ended after9 natural blocks and18 audited/replayed physical games. Rows48,52,104 fail the unchanged zero-reconstruction-refusal gate. The owned pod is deleted and evidence sealed. The saved public110-frame Wildfire failure now supplies8 known-card-valid worlds in220 submits with all22 native sampler fields and64/8/5000 budgets identical. Current full qualification remains unfinished.",
+      "full_adapter_suite": "All57 affected strategy cases, Go vet and diff checks passed for native sourcec87d7ac. Current hosted Windows/Linux checks are recorded separately and may remain pending. The unchanged reference-host scaling repair passed85 affected Python checks and its compatible hosted checks. Full native and reference-host qualification remain incomplete.",
+      "five_deck_search_qualification": "Runtime022 is running the supported isolated serial timing baseline on a bounded owned RunPod lease. The guard must complete matching1/8/16-worker trials before the320-block native audit. No compatible allocation or full qualification is claimed. The saved public Wildfire110-frame prefix supplies8 known-card-valid worlds in220 reconstruction submits, with all22 native diagnostics and the64/8/5000 budgets unchanged.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -392,7 +392,7 @@
       "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
-      "current_runtime_native_attempt": "docs/gorge-runtime021-cloud-20261004.json",
+      "current_runtime_native_attempt": "docs/gorge-runtime022-cloud-progress-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
       "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-022.json",
       "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json",
@@ -400,13 +400,14 @@
       "spy_london_bottom_repair": "docs/gorge-spy-london-bottom-repair-20261004.json",
       "runtime021_hosted_ci": "docs/gorge-runtime021-ci-20261004.json",
       "reference_scaling_repair": "docs/gorge-reference-scaling-repair-20261004.json",
-      "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json"
+      "public_explore_repair": "docs/gorge-public-explore-repair-20261004.json",
+      "runtime022_hosted_ci": "docs/gorge-runtime022-ci-20261004.json"
     }
   ],
   "publication": null,
   "runtime_preparation": "docs/gorge-runtime-preparation-20261004-022.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA-256; runtime022 inputs frozen from sourcec87d7ac. Current native/reference qualification, clocks/isolation and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry and SHA-256; runtime022 inputs frozen. Current native/reference-host qualification, clocks/isolation and rated launch remain pending.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
