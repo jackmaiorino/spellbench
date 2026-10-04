@@ -295,6 +295,9 @@ public final class MulliganEncoder {
 
 
 MODE_VARIANT = "original available-mode order, legality mask, 64-slot cap and ordinal feature; permitted callback replay; refusal instead of heuristic fallback; cost-bearing multi-mode callbacks unsupported"
+MODE_MANA_VARIANT = ("original available-mode order, legality mask, 64-slot cap, ordinal and mode-cost features; "
+                     "original filtered mana availability on permitted callback replay; refusal instead of heuristic fallback; "
+                     "automatic mana production and other callbacks unqualified")
 
 
 def mode_source(source: str) -> str:
@@ -401,6 +404,15 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "mode_callback" in config and type(config["mode_callback"]) is not bool:
+        raise ValueError("Jack mode staging needs an explicit boolean flag")
+    if "dialog_callback" in config and type(config["dialog_callback"]) is not bool:
+        raise ValueError("Jack dialog staging needs an explicit boolean flag")
+    if "mode_mana_callback" in config and type(config["mode_mana_callback"]) is not bool:
+        raise ValueError("Jack mode mana staging needs an explicit boolean flag")
+    if config.get("mode_mana_callback") is True and not (
+            config.get("mode_callback") is True and config.get("dialog_callback") is True):
+        raise ValueError("Jack mode mana staging requires the original mode and dialog rules")
     matches = [a for a in manifest.get("assets", []) if a.get("id") == config.get("state_encoder")]
     if len(matches) != 1:
         raise ValueError("Jack stage needs one private encoder asset")
@@ -422,12 +434,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
-    if "mode_callback" in config and type(config["mode_callback"]) is not bool:
-        raise ValueError("Jack mode staging needs an explicit boolean flag")
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
-    if "dialog_callback" in config and type(config["dialog_callback"]) is not bool:
-        raise ValueError("Jack dialog staging needs an explicit boolean flag")
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                if config.get("dialog_callback") is True else None)
     mulligan = None
@@ -474,7 +482,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                       mulligan_variant=MULLIGAN_VARIANT)
     if modes is not None:
         result.update(original_mode_callback_sha256=CALLBACK_SHA256,
-                      staged_mode_rules_sha256=hashlib.sha256(modes).hexdigest(), mode_variant=MODE_VARIANT)
+                      staged_mode_rules_sha256=hashlib.sha256(modes).hexdigest(),
+                      mode_variant=MODE_MANA_VARIANT if config.get("mode_mana_callback") is True else MODE_VARIANT)
+        if config.get("mode_mana_callback") is True:
+            result["mode_mana_callback"] = True
     if dialogs is not None:
         result.update(original_dialog_callback_sha256=CALLBACK_SHA256,
                       staged_dialog_rules_sha256=hashlib.sha256(dialogs).hexdigest(), dialog_variant=DIALOG_VARIANT)

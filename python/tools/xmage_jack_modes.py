@@ -15,10 +15,11 @@ import time
 from spellbench import observation, wire
 from xmage_jack_inference import validate_features, validate_scores
 from xmage_jack_selection import GREEDY, PROFILES
-from xmage_jack_sources import CALLBACK_SHA256, ENCODER_SHA256, MODE_VARIANT
+from xmage_jack_sources import CALLBACK_SHA256, ENCODER_SHA256, MODE_VARIANT, MODE_MANA_VARIANT
 from xmage_neural_decisions import decision_hash, load_response
 
 SOURCE_KEYS = ("encoder_source_sha256", "candidate_source_sha256", "mode_rules_source_sha256", "embedding_cache_sha256")
+MANA_SOURCE_KEYS = SOURCE_KEYS + ("dialog_rules_source_sha256",)
 
 
 def bound_view(start: dict, decision: dict) -> dict[int, dict]:
@@ -66,10 +67,23 @@ def bound_view(start: dict, decision: dict) -> dict[int, dict]:
 
 
 def validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str):
+    return _validate_encoding(start, decision, encoded, sources, request_hash, original_mana=False)
+
+
+def validate_mana_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str):
+    return _validate_encoding(start, decision, encoded, sources, request_hash, original_mana=True)
+
+
+def _validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str, *, original_mana: bool):
+    keys = MANA_SOURCE_KEYS if original_mana else SOURCE_KEYS
+    if (not isinstance(sources, dict) or set(sources) != set(keys)
+            or any(not isinstance(value, str) or not re.fullmatch("[a-f0-9]{64}", value) for value in sources.values())):
+        raise ValueError("mode frame needs every original staged source pin")
     offered = bound_view(start, decision)
     expected = {"schema":"spellbench-jack-mode-features/v1", "decision_sha256":decision_hash(decision),
                 "game_start_sha256":decision_hash(start), "request_sha256":request_hash,
-                "original_callback_sha256":CALLBACK_SHA256, "variant":MODE_VARIANT, **sources}
+                "original_callback_sha256":CALLBACK_SHA256,
+                "variant":MODE_MANA_VARIANT if original_mana else MODE_VARIANT, **sources}
     if wire.canonical_json_dumps({k:encoded.get(k) for k in expected}) != wire.canonical_json_dumps(expected):
         raise ValueError("mode frame differs from its original sources, game, decision or replay request")
     available, count, order = (encoded.get(k) for k in ("available_count", "candidate_count", "original_mode_indices"))
@@ -77,6 +91,9 @@ def validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict,
             or not isinstance(order, list) or len(order) != count
             or any(type(i) is not int or not 0 <= i < 4096 for i in order) or len(set(order)) != count):
         raise ValueError("mode frame changed the original order or 64-slot cap")
+    costs = encoded.get("original_mode_cost_flags") if original_mana else [False]*count
+    if not isinstance(costs, list) or len(costs) != count or any(type(value) is not bool for value in costs):
+        raise ValueError("mode frame changed its original cost-presence flags")
     flags = encoded.get("world_flags")
     if (not isinstance(flags, list) or any(not isinstance(f, str) for f in flags)
             or any(f.startswith(("unsupported:", "horizon:")) for f in flags)):
@@ -96,7 +113,7 @@ def validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict,
     for i in range(64):
         row, ident = encoded["candidate_features"][i], encoded["candidate_ids"][i]
         ordinal = struct.unpack("!f", struct.pack("!f", i / count))[0] if i < count else 0
-        if (row[0] != ordinal or i < count and (ident == 0 or row[13] != 0)
+        if (row[0] != ordinal or i < count and (ident == 0 or row[13] != int(costs[i]))
                 or i >= count and (ident != 0 or any(row))):
             raise ValueError("mode ordinal feature or original padding differs")
     refs = encoded.get("candidate_refs")
@@ -197,3 +214,11 @@ class ModeSession:
         finally:
             try: self.selection.close()
             finally: self.model.close()
+
+
+class ManaModeSession(ModeSession):
+    """Mode legality uses the original filtered mana rules on the permitted game."""
+    SOURCE_KEYS = MANA_SOURCE_KEYS
+    ENCODER = "jack-permitted-mode-mana"
+    VARIANT = MODE_MANA_VARIANT
+    validate_encoding = staticmethod(validate_mana_encoding)

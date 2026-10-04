@@ -41,6 +41,7 @@ import java.util.UUID;
 final class ModelReplay {
     private ModelReplay() { }
     interface ModeCapture {
+        default ManaOptions available(Player viewer, Game game) { return null; }
         Mode earlier(World world, Map<String, Object> decision, Modes modes, Ability source,
                      Game game, Map<String, Object> semantic);
         Map<String, Object> encode(World world, Map<String, Object> decision, Modes modes, Ability source,
@@ -145,6 +146,11 @@ final class ModelReplay {
             if (replay != null && replay.dialogCapture != null
                     && getId().equals(replay.world.player(replay.world.viewer))) {
                 return replay.dialogCapture.available(this, game, false);
+            }
+            if (replay != null && replay.modeCapture != null
+                    && getId().equals(replay.world.player(replay.world.viewer))) {
+                ManaOptions available = replay.modeCapture.available(this, game);
+                if (available != null) return available;
             }
             return super.getManaAvailable(game);
         }

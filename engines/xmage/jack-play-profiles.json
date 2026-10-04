@@ -70,10 +70,12 @@
     "candidate_order": "original Modes.getAvailableModes order, first 64 entries",
     "head": "action",
     "feature_overwrite": "feature 0 = original float32 ordinal / candidate count",
+    "mode_cost_feature": "feature 13 = 1.0 when Mode.getCost() is non-null, else 0.0",
     "single_or_exhausted": "direct original return; no model or RNG use",
     "source_staging_flag": "mode_callback: true",
-    "wiring": "permitted callback replay, source-bound frame, paired policy and owned original chooser",
-    "limitations": "native execution pending; cost-bearing multi-mode callbacks refuse until original mana rules are integrated into mode replay"
+    "mana_source_staging_flag": "mode_mana_callback: true; requires mode_callback and dialog_callback",
+    "wiring": "permitted callback replay, source-bound frame, paired policy and owned original chooser; optional original filtered mana rules preserve mode costs and legality",
+    "limitations": "native execution including modes with costs pending; original automatic mana production and complete games unfinished"
   },
   "dialogs": {
     "source_staging_flag": "dialog_callback: true",
@@ -94,7 +96,8 @@
     "guarded original mulligan feature and policy execution; duplicate-prompt handling",
     "guarded original spell-mode execution and hidden-world replay",
     "guarded original binary and X feature, mana gate and selection execution",
-    "cost-bearing mode integration and original automatic mana production rules",
+    "guarded modes with costs and original filtered mana legality",
+    "original automatic mana production rules",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

@@ -65,7 +65,12 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
     }
 
     @Override public ManaOptions available(Player viewer, Game game, boolean fast) {
+        return originalManaAvailable(viewer, game, fast);
+    }
+
+    static ManaOptions originalManaAvailable(Player viewer, Game game, boolean fast) {
         try {
+            pin("dialogRulesSourceSha256");
             Object rules = rules(viewer);
             return (ManaOptions) rules.getClass().getMethod(fast ? "getManaAvailableFast" : "getManaAvailable", Game.class)
                     .invoke(rules, game);

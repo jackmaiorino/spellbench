@@ -3,6 +3,7 @@ package spellbench.kit.xmage;
 import mage.abilities.Ability;
 import mage.abilities.Mode;
 import mage.abilities.Modes;
+import mage.abilities.mana.ManaOptions;
 import mage.constants.TurnPhase;
 import mage.game.Game;
 import mage.players.Player;
@@ -35,9 +36,23 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
     static final String SOURCE = "b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6";
     static final String VARIANT = "original available-mode order, legality mask, 64-slot cap and ordinal feature; "
             + "permitted callback replay; refusal instead of heuristic fallback; cost-bearing multi-mode callbacks unsupported";
+    static final String MANA_VARIANT = "original available-mode order, legality mask, 64-slot cap, ordinal and mode-cost features; "
+            + "original filtered mana availability on permitted callback replay; refusal instead of heuristic fallback; "
+            + "automatic mana production and other callbacks unqualified";
     private final Map<String, Object> start;
+    private final boolean originalMana;
 
-    JackModeEncoder(Map<String, Object> start) { this.start = start; }
+    JackModeEncoder(Map<String, Object> start) { this(start, false); }
+    JackModeEncoder(Map<String, Object> start, boolean originalMana) {
+        this.start = start; this.originalMana = originalMana;
+    }
+
+    @Override public ManaOptions available(Player viewer, Game game) {
+        if (!originalMana) return null;
+        ManaOptions available = JackDialogEncoder.originalManaAvailable(viewer, game, false);
+        if (available == null) throw new IllegalArgumentException("original mode mana rules returned no availability");
+        return available;
+    }
 
     static String hash(Object value) {
         try {
@@ -143,12 +158,12 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
             }
         }
 
-        void applyMask(World world, Ability source, Game game) throws Exception {
+        void applyMask(World world, Ability source, Game game, boolean originalMana) throws Exception {
             Class<?> rules = original("ModeRules");
             Object checker = rules.getConstructor(Player.class).newInstance(world.viewerPlayer());
             int legal = 0;
             for (int i = 0; i < mask.length; i++) {
-                if (available.size() > 1 && available.get(i).getCost() != null) {
+                if (!originalMana && available.size() > 1 && available.get(i).getCost() != null) {
                     throw new IllegalArgumentException("original cost-bearing modes need Jack's custom mana filters");
                 }
                 // Preserve the original direct return before any legality check.
@@ -168,7 +183,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                                    Game game, Map<String, Object> semantic) {
         try {
             Binding bound = new Binding(world, decision, modes, source, game);
-            bound.applyMask(world, source, game);
+            bound.applyMask(world, source, game, originalMana);
             if ("finish_selection".equals(Json.str(semantic, "kind")) && bound.finish != null) return null;
             for (Map.Entry<Integer, Map<String, Object>> entry : bound.offered.entrySet()) {
                 if (bound.mask[entry.getKey()] && Json.canonical(entry.getValue()).equals(Json.canonical(semantic))) {
@@ -194,11 +209,17 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                     "candidate_source_sha256", pin("candidateSourceSha256"),
                     "mode_rules_source_sha256", pin("modeRulesSourceSha256"),
                     "embedding_cache_sha256", pin("embeddingSha256"), "original_callback_sha256", SOURCE,
-                    "variant", VARIANT, "world_flags", world.flags,
+                    "variant", originalMana ? MANA_VARIANT : VARIANT, "world_flags", world.flags,
                     "available_count", (long) bound.available.size(), "candidate_count", (long) bound.mask.length,
                     "original_mode_indices", bound.order);
+            if (originalMana) {
+                List<Object> costs = new ArrayList<>();
+                for (int i = 0; i < bound.mask.length; i++) costs.add(bound.available.get(i).getCost() != null);
+                result.put("original_mode_cost_flags", costs);
+                result.put("dialog_rules_source_sha256", pin("dialogRulesSourceSha256"));
+            }
             if (bound.available.size() <= 1) {
-                bound.applyMask(world, source, game);
+                bound.applyMask(world, source, game, originalMana);
                 result.put("kind", "jack-mode-forced");
                 result.put("forced_candidate_id", bound.available.isEmpty() ? bound.finish : bound.ids.get(0));
                 result.put("reason", bound.available.isEmpty() ? "no_available_modes" : "single_available_mode");
@@ -222,7 +243,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                 rows.add(numbers(tokens[i], 128)); masks.add(padding[i] == 1); ids.add((long) tokenIds[i]);
             }
             // The original builds its base state before checking mode costs/targets.
-            bound.applyMask(world, source, game);
+            bound.applyMask(world, source, game, originalMana);
             Class<?> codec = original("CandidateEncoder");
             Object candidates = codec.getConstructor(Player.class).newInstance(world.viewerPlayer());
             if (!"action".equals(codec.getMethod("head", String.class).invoke(null, "CHOOSE_MODE"))) {

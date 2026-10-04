@@ -15,7 +15,7 @@ budget features. Both use the action head, paired policy and one game-owned
 original Java chooser. Forced feasibility and single-X returns bypass the
 model and chooser. The shared clock and resource cleanup are inherited from
 the tested mode component. Other number callbacks, automatic mana production,
-cost-bearing mode integration, native execution and complete games remain
+native execution and complete games remain
 unfinished. This component has no trained-checkpoint or full-game claim.
 
 Jack's original spell-mode component uses `JackModeEncoderMain` and
@@ -36,8 +36,18 @@ The remaining mode frame uses the paired policy and game-owned Java chooser.
 The full request, game, decision, sources, offered slots and shared clock are
 bound; failures close all three owned resources.
 
-Cost-bearing multi-mode callbacks refuse until the original mana rules are
-integrated into that replay. Invalid or unsupported callbacks refuse in place of the
+For modes with costs, set `mode_mana_callback: true` together with
+`mode_callback: true` and `dialog_callback: true`. Pass the staged dialog-rule
+source hash as the sixth `JackModeEncoderMain` argument and use
+`xmage_jack_modes.ManaModeSession`. The replay player then uses the original
+filtered mana availability for the acting viewer, including copied games
+used by cost checks. The original mode legality rule and cost-presence
+feature 13 are retained. Frames bind the extra mana-rule source and the
+Boolean cost flags for all original candidate slots, including masked modes.
+The pipe advertises `jack-permitted-mode-mana`; the five-argument pipe retains
+its original restricted mode variant.
+
+Invalid or unsupported callbacks refuse in place of the
 original heuristic fallback. Local transport checks do not execute private
 Java or checkpoints; native callback and hidden-world replay checks, other
 callbacks, exact deck associations and complete games remain unfinished.
