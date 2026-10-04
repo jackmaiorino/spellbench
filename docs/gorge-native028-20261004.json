@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-04T22:45:47.395858+00:00",
+  "at_utc": "2026-10-04T22:54:32.425610+00:00",
   "spellbench_commit": "8055c8a1b0bb162f25bf8ac0fef7022dcf58cf9e",
   "runtime_source_commit": "7b703fed33a1533158b69a28ab6ea3e2b5034d53",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -74,8 +74,31 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "e8b13f841dc178025ce2b4d93454f477f2046231862b698a3c472977c75a6255",
-  "phase": "prepared_not_launched",
+  "phase": "supported_native_qualification_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-028\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-028\\CATALOG.json",
-  "guard_path": "Independent four-hour release guardian; preverified durable runtime027 pins and placement; bounded native parent; qualify_native.py -> plan_allocation -> fixed audit callback"
+  "guard_path": "Independent four-hour release guardian; preverified durable runtime027 pins and placement; bounded native parent; qualify_native.py -> plan_allocation -> fixed audit callback",
+  "pod_id": "3k5tp0g34mkmoe",
+  "owned_lease_name": "spellbench-gorge-native-2c89b4183fac4378",
+  "lease_deadline_utc": "2026-10-05T02:47:26.6693879+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.17,
+  "observed_effective_cpu_quota": 11.9,
+  "observed_usable_cpus": 12,
+  "observed_cpu_model": "AMD EPYC7453",
+  "observed_memory_limit_bytes": 61999996928,
+  "runtime_reused": true,
+  "runtime_build_complete": true,
+  "reference_qualification_complete": false,
+  "placement_parser_passed": true,
+  "exact_runtime_and_source_preflight_passed": true,
+  "owner_supervisor_record": "E:\\spellbench-gorge-runpod-20261004-028\\SUPERVISION.json",
+  "independent_lease_guard_record": "E:\\spellbench-gorge-runpod-20261004-028\\LIVE-GUARD-ARMED.json",
+  "observed_live_record": "E:\\spellbench-gorge-runpod-20261004-028\\LIVE-OBSERVATION-001.json",
+  "cpu_window_reader_record": "E:\\spellbench-gorge-runpod-20261004-028\\CPU-METRICS-DISPATCH.json",
+  "source_compatible_go_ci": {
+    "passed": true,
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37238845969"
+  },
+  "next_wake_condition": "Matched serial/parallel qualification closes, existing native gate fails, parent becomes terminal or owned lease deadline; single owner watcher and independent release guardian remain active",
+  "billing_disposition": "Prior closed ceilingUSD5.71347147 plus maxUSD1.55 reservation; cumulative ceilingUSD7.26347147. Provider final settlement unverified."
 }
