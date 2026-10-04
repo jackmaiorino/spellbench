@@ -1,5 +1,6 @@
 """Guarded reference-host qualification of all twelve gorge modes and five decks."""
 import datetime
+from dataclasses import replace
 import hashlib
 import json
 import os
@@ -14,7 +15,7 @@ sys.path.insert(0, str(ROOT / 'python'))
 from spellbench.arena import config, runner, store
 from spellbench.arena.schedule import preflight, schedule
 from spellbench.bench import definition, run as bench_run
-from spellbench.arena.throughput import Placement
+from spellbench.arena.throughput import Placement, resource_bound, usable_cpus
 from spellbench.run_secret import RunSecret
 
 STAGE = Path(os.environ['GORGE_CLOUD_STAGE'])
@@ -77,6 +78,17 @@ def main():
     benchmark = definition.load_benchmark(ROOT/'benchmarks/pauper-gorge')
     cfg = config.TournamentConfig.from_json(benchmark.tournament_config(str(STAGE/'diagnostics')))
     cfg = runner.executed_config(cfg, lambda text: definition.substitute(text, values))
+    configured_workers = cfg.workers
+    rules = benchmark.qualification_rules()
+    eligible_workers = min(configured_workers, resource_bound(usable_cpus(), cfg.per_game_cores()))
+    # This shorter unrated matrix needs its own measured ladder. A bound that
+    # cannot fit the qualification budget would select the small-run path,
+    # which only probes serially before using its configured workers.
+    measured_bounds = [workers for workers in range(2, eligible_workers + 1)
+                       if rules.ladder_fits(120, workers)]
+    if not measured_bounds:
+        raise RuntimeError('No parallel reference-host ladder fits the current resources and qualification budget')
+    cfg = replace(cfg, workers=max(measured_bounds))
     files = bench_run.run_files(cfg)
     prior_secret = os.environ.get('GORGE_MATRIX_SECRET_FILE')
     secret = (RunSecret.from_hex(json.loads(Path(prior_secret).read_bytes())['secret_hex'])
@@ -97,6 +109,9 @@ def main():
     manifest = json.loads((STAGE/'MANIFEST.json').read_bytes())
     manifest.update(started_at_utc=stamp(), executed_config=cfg.to_json(),
                     launch_files=[f.to_json() for f in files], python=sys.version,
+                    configured_benchmark_workers=configured_workers,
+                    reference_qualification_worker_bound=cfg.workers,
+                    reference_qualification_rules=rules.to_json(),
                     secret_commitment=secret.commitment(), selected_indices=[c.game_index for c in chosen],
                     prior_qualification_secret=prior_secret,
                     expected_cells=[list(cell) for cell in sorted(expected)],
@@ -131,11 +146,13 @@ def main():
     try:
         allocation = bench_run.plan_for(cfg, games=[c.game_index for c in chosen], placement=placement,
             evidence=STAGE/'throughput-evidence.json', volumes={'run_dir':STAGE}, files=files,
-            rules=benchmark.qualification_rules())
+            rules=rules)
     finally:
         store.append_ledger_row = original_append
         bench_run.qualification_play = original_qualification
     write(STAGE/'ALLOCATION.json', allocation.to_json())
+    if allocation.kind != 'substantial' or allocation.outputs_identical is not True:
+        raise RuntimeError('The reference-host matrix requires completed serial/parallel scaling with identical primary rows')
     setup = preflight(cfg, secret)
     entries = {e.name:e for e in runner.registry_entries(cfg,cfg)}
     directory = STAGE/'matrix-native-audits'
