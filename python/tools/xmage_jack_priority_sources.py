@@ -102,6 +102,7 @@ public final class PriorityRules {
         this.viewer = viewer; this.playerId = viewer.getId(); this.permittedAliases = new HashMap<>(aliases);
     }
     private UUID getId() { return playerId; }
+    public Player owner() { return viewer; }
     private String getName() { return viewer.getName(); }
     private List<ActivatedAbility> getPlayableFast(Game game, boolean hidden, Zone zone, boolean duplicates) {
         throw new IllegalArgumentException("original default priority profile disables no-clone lookup");

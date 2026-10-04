@@ -146,6 +146,31 @@ per-creature combat decisions. Native combat and mixed-operation checks, actual
 pretrained native checks, full games and useful-throughput qualification remain
 unfinished.
 
+The optional private `activation_callback: true` requires `priority_callback:
+true` and stages `OriginalActivationPlayer`. Its actual April activation body
+refreshes ability objects, reserves tap sources and tap targets, clears payment
+state, retains failed-activation forced passes and passes successful stack
+actions. Original mana availability/producer filtering, nested payment context
+and cast/play-ability bookmark recovery are retained in the player. The missing
+fast-getter override annotation is adapted to the pinned engine's API while
+preserving that method body. Training/debug file logging is excluded.
+
+`dispatchOriginalPriority` connects persistent owner-matched `PriorityRules`
+and the caller's original chooser to those activation/pass callbacks. Copies
+retain the current ability and reset payment reservations as the original
+copy constructor does. Strategic callbacks, original parent mana payment and
+parent producer lookup are abstract requirements, so this class cannot run a
+substitute strategic player. It does not assert the full copied-callback marker.
+The caller still owns the permitted reconstructed world, persistent rules,
+all original callbacks and shared inference/RNG. Isolated metadata checks cover
+the actual dispatch, fresh activation, tap reservations/producer exclusion,
+copy resets, failure cleanup, nested payment context and bookmark recovery.
+Native callbacks, full player integration and games remain unqualified.
+The pinned engine's `ComputerPlayer` supplies engine primitives here. The
+private April ComputerPlayer6/7 inheritance and its skill-10 behavior still
+require complete parent-policy integration before this can be qualified as
+the original player; the declared parent skill is retained as metadata.
+
 `python/tools/xmage_magezero_runtime.py` serves the public frontend with that
 mixed bridge. Supply the external copy containing author weights as `--manifest`
 and the unchanged repository manifest as `--public-manifest`. The latter is the

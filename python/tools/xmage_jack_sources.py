@@ -897,6 +897,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "activation_callback" in config and type(config["activation_callback"]) is not bool:
+        raise ValueError("Jack activation staging needs an explicit boolean flag")
+    if config.get("activation_callback") is True and config.get("priority_callback") is not True:
+        raise ValueError("Jack activation staging requires the original priority rules")
     if "priority_callback" in config and type(config["priority_callback"]) is not bool:
         raise ValueError("Jack priority staging needs an explicit boolean flag")
     if "london_callback" in config and type(config["london_callback"]) is not bool:
@@ -950,6 +954,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     priority = None
+    activation = None
+    if config.get("activation_callback") is True:
+        from xmage_jack_activation_sources import activation_source
+        activation = activation_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     if config.get("priority_callback") is True:
         from xmage_jack_priority_sources import priority_source
         priority = priority_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -1001,6 +1009,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         stream.write(candidates)
     with (output / "PolicySelector.java").open("xb") as stream:
         stream.write(choices)
+    if activation is not None:
+        with (output / "OriginalActivationPlayer.java").open("xb") as stream:
+            stream.write(activation)
     if priority is not None:
         with (output / "PriorityRules.java").open("xb") as stream:
             stream.write(priority)
@@ -1080,6 +1091,11 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         result.update(original_priority_callback_sha256=CALLBACK_SHA256,
                       staged_priority_rules_sha256=hashlib.sha256(priority).hexdigest(), priority_variant=PRIORITY_VARIANT,
                       original_priority_player_qualified=False)
+    if activation is not None:
+        from xmage_jack_activation_sources import ACTIVATION_VARIANT
+        result.update(original_activation_callback_sha256=CALLBACK_SHA256,
+                      staged_activation_player_sha256=hashlib.sha256(activation).hexdigest(),
+                      activation_variant=ACTIVATION_VARIANT, original_activation_player_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
