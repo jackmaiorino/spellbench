@@ -55,6 +55,19 @@
     "fair_variant": "deterministic game seeding; invalid input or returned choices refuse rather than falling back",
     "candidate_slots": 64
   },
+  "priority": {
+    "original_dispatch_source_lines": [5199, 5254],
+    "original_option_source_lines": [6050, 6244],
+    "feature_probe": "JackEncoder/JackEncoderMain reconstruct permitted priority features in received wire candidate order; this is not the original action policy",
+    "original_order": "getPlayableForCurrentState order; first occurrence of ability text, except mana abilities keyed by source UUID plus text; pass inserted first; genericChoose keeps first 64 slots",
+    "original_validation": "activation and alternative-cost filtering before inference; selected valid alternative choices retained; default RL_SKIP_SIM_VALIDATION=false",
+    "original_forced_pass_phases": ["upkeep", "draw", "begin_combat", "first_combat_damage", "combat_damage", "end_combat", "end_step", "cleanup"],
+    "original_action_phases": ["precombat_main", "postcombat_main"],
+    "original_action_then_pass_phases": ["declare_attackers", "declare_blockers"],
+    "original_mana_options": "distinct mana abilities can be selected as priority actions; the public engine_autopay surface hides activated-mana and special-mana-payment abilities",
+    "wiring": "feature inference qualified separately; original ordered action construction, validation and phase dispatch remain unwired",
+    "limitations": "a complete adapter must preserve the original option set and action/pass lifecycle, including explicit mana, or identify a changed policy as a separate variant; no playable original priority policy or full-game qualification"
+  },
   "mulligan": {
     "features": 71,
     "evaluation_episode": -1,

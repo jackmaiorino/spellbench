@@ -135,6 +135,13 @@ checkpoint to its actual training deck version.
 
 ## Next delivery steps
 
+Jack's permitted priority feature pipe follows the received public action list.
+The original priority player separately constructs, deduplicates and validates
+its options, includes individual mana abilities, and dispatches by phase with
+different action/pass behavior. Those policy steps remain unwired. Existing
+paired-network feature checks retain their tested scope; see
+[the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
+
 Jack's original attack and block loops now have a separate private staged port
 and paired-policy transport. It retains DONE-last sequential selection, the
 separate defender round, descending-power attacker order, blocker filtering and

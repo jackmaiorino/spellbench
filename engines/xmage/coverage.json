@@ -64,6 +64,7 @@
     },
     {
       "family": "jack-xmage-rl",
+      "priority_policy_wiring": {"status": "unwired", "feature_probe_qualified_separately": true, "original_option_order_and_validation_qualified": false, "original_phase_dispatch_qualified": false, "original_manual_mana_qualified": false, "full_game_qualified": false},
       "combat_wiring": {"source": "original private April callbacks", "status": "staged and paired-policy/chooser pipe wired; native qualification pending", "checkpoints_used": false, "full_game_qualified": false},
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
       "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
