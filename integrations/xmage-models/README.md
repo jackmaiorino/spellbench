@@ -308,6 +308,21 @@ state. Nested interactive or mana-payment combat callbacks refuse. This is
 wiring and source staging; native execution, exact decks and complete games
 remain unqualified.
 
+The optional `london_callback: true` stages `LondonRules` independently. The
+engine's London loop calls the original policy with a one-card target on each
+iteration. `JackLondonMain` ranks the shrinking whole hand for every card,
+uses the original `card_select` head and complete sequential chooser draw,
+applies the last ranked card to the target, and moves it to the library before
+the next callback. The original default-enabled base-cache signature is
+extracted from the private source. A singleton bypasses inference and RNG.
+
+`xmage_jack_london.LondonSession` shares the paired model, original chooser and
+clock. Its `LondonPlan` binds these repeated picks to consecutive public
+bottoming substeps and rejects changed hand references or reused picks. Moved
+hand aliases are excluded from newly built known-library features. Original
+model-error fallback becomes refusal. Native execution, actual paired-weight
+bottoming, exact decks and complete games remain unqualified.
+
 The container is limited to one CPU, 3 GiB RAM, 64 processes and a 64 MiB
 ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the

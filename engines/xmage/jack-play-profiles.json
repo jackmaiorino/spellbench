@@ -195,6 +195,24 @@
     "application": "Original declareAttacker/declareBlocker, removal from blocker pool and resetPassed; actual declarations bound to consecutive public group substeps",
     "limitations": "Source staging and Python component checks only; nested callbacks refuse; private native execution, actual paired-weight combat, exact decks and full games remain unqualified"
   },
+  "london_bottom": {
+    "source_staging_flag": "london_callback: true; independent of other callback flags",
+    "source_lines": [
+      4842,
+      5015
+    ],
+    "java_encoder": "spellbench.kit.xmage.JackLondonMain",
+    "owned_session": "xmage_jack_london.LondonSession",
+    "owned_plan": "xmage_jack_london.LondonPlan",
+    "private_stage_bodies": 17,
+    "engine_lifecycle": "Actual LondonMulligan calls chooseTarget with a one-card TargetCardInHand; rank the current whole hand for every bottom card and move it to the library before the next callback",
+    "original_head": "card_select",
+    "selection": "Full sequential draw for each shrinking-hand ranking; bottom that ranking's last card; singleton direct return",
+    "base_cache": "Original default-enabled cache signature, extracted from the April source; rebuilding uses permitted named own-hand and explicit known-library aliases",
+    "application": "Original Target.addTarget loop and actual engine putCardsOnBottomOfLibrary; consecutive public order_pick:mulligan_bottom substeps bind each physical pick",
+    "fair_variant": "Only named own-hand candidates and permitted base state; moved hand aliases are not introduced as new known-library references; model or transport failures refuse instead of the original exception fallback",
+    "limitations": "Private source staging and affected component checks; native execution, actual paired weights, deck associations and complete games remain unqualified"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -207,6 +225,7 @@
     "guarded original provided-card groups, representative features, first-64 cap, STOP and seeded physical-copy application",
     "guarded original inherited card sorting, UUID ties, target.add, legal completion and exact prefix parity",
     "guarded original attack/block candidate frames, cached state, full chooser draws and actual wire declarations",
+    "guarded original repeated London shrinking-hand ranking and one-card bottom callbacks",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

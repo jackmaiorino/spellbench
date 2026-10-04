@@ -142,6 +142,13 @@ different action/pass behavior. Those policy steps remain unwired. Existing
 paired-network feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
 
+Jack's London bottoming loop is staged separately. It ranks the shrinking
+whole hand on each engine one-card callback, retains each complete sequential
+draw and the original base-cache signature, then binds the final ranked card
+to the next public bottoming substep. Local compilation and 580 affected
+checks pass. Native execution, actual trained-weight bottoming and complete
+games remain unqualified; see [the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
+
 Jack's original attack and block loops now have a separate private staged port
 and paired-policy transport. It retains DONE-last sequential selection, the
 separate defender round, descending-power attacker order, blocker filtering and

@@ -36,6 +36,9 @@ COMBAT_VARIANT = ("original April attacker pool and DONE-last sequential selecti
                   "original descending-power attacker block order, filtered blocker pool and removal after declaration; "
                   "one cached permitted base state per callback; original attack/block heads and game-owned chooser; "
                   "refusal instead of model-error fallback; nested combat callbacks and complete games unqualified")
+LONDON_VARIANT = ("original April London loop; rerank the shrinking whole hand for each engine one-card bottom callback; "
+                  "original card_select head and complete sequential chooser draw per callback; named own hand only; "
+                  "model-error fallback refuses; native and complete games unqualified")
 VARIANT = ("acting-player perspective; entity tokens limited to named permitted references; "
            "only explicitly known library cards, ordered by public object alias; "
            "pinned read-only text embeddings with no generated fallback")
@@ -279,6 +282,61 @@ public final class CombatRules {
     private final Picker picker;
     public CombatRules(Player viewer, Picker picker) { this.viewer = viewer; this.picker = picker; }
 ''' % CALLBACK_SHA256) + attacks + blocks + helpers + candidates + "}\n"
+
+
+def london_source(source: str) -> str:
+    """Extract the actual ranking and target loop, excluding training/logging."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack London requires the pinned April callback bytes")
+    body = extract(source, "    private boolean chooseLondonMulliganCards(",
+                   "    /**\n     * Get mulligan training data and clear buffer.")
+    body = body[body.index("            List<Card> hand ="):body.index("            // Build detailed card list")]
+    # Trace calls have balanced parentheses and contain only diagnostic data.
+    marker = "                mulliganTraceJsonl("
+    while marker in body:
+        start = body.index(marker)
+        end = body.index("\n                );", start) + len("\n                );")
+        body = body[:start] + body[end:]
+    body = body.replace("getHand()", "viewer.getHand()")
+    before = """            List<Integer> rankedIndices = genericChoose(
+                    hand,
+                    hand.size(),
+                    hand.size(),
+                    StateSequenceBuilder.ActionType.LONDON_MULLIGAN,
+                    game,
+                    null
+            );"""
+    body = replace_once(body, before,
+        "            List<Integer> rankedIndices = hand.size() == 1 ? java.util.Arrays.asList(0) : picker.rank(hand);")
+    cache_start = source.index("    private StateSequenceBuilder.SequenceOutput getOrBuildBaseState(Game game) {")
+    cache = source[cache_start:source.index("\n        if (BASE_STATE_CACHE_ENABLED", cache_start)]
+    cache = replace_once(cache, "    private StateSequenceBuilder.SequenceOutput getOrBuildBaseState(Game game) {",
+                         "    public static java.util.List<Object> baseCacheKey(Game game) {")
+    cache += "\n        return java.util.Arrays.asList(gameId, turnPhase, activePlayerId, priorityPlayerId, choosingPlayerId, turnNum, stepNum, applyEffectsCounter, stackSize);\n    }\n"
+    return """package spellbench.models.jack;
+import mage.cards.Card;
+import mage.game.Game;
+import mage.game.GameState;
+import mage.constants.TurnPhase;
+import mage.players.Player;
+import mage.target.Target;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+/** Private original London ranking and application loop. */
+public final class LondonRules {
+    public static final String SOURCE_SHA256 = "%s";
+    public interface Picker { List<Integer> rank(List<Card> hand) throws Exception; }
+    private final Player viewer;
+    private final Picker picker;
+    public LondonRules(Player viewer, Picker picker) {
+        if (viewer == null || picker == null) throw new IllegalArgumentException("London owner and picker required");
+        this.viewer = viewer; this.picker = picker;
+    }
+    public boolean chooseLondonMulliganCards(Target target, Game game) throws Exception {
+        if (target == null) throw new IllegalArgumentException("London target required");
+        int numToPutBack = target.getMinNumberOfTargets();
+""" % CALLBACK_SHA256 + body + "            return true;\n    }\n" + cache + "}\n"
 
 
 def choice_source(source: str) -> str:
@@ -839,6 +897,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "london_callback" in config and type(config["london_callback"]) is not bool:
+        raise ValueError("Jack London staging needs an explicit boolean flag")
     if "combat_callback" in config and type(config["combat_callback"]) is not bool:
         raise ValueError("Jack combat staging needs an explicit boolean flag")
     if "mode_callback" in config and type(config["mode_callback"]) is not bool:
@@ -889,6 +949,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     combat = (combat_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
               if config.get("combat_callback") is True else None)
+    london = (london_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+              if config.get("london_callback") is True else None)
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -954,6 +1016,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if combat is not None:
         with (output / "CombatRules.java").open("xb") as stream:
             stream.write(combat)
+    if london is not None:
+        with (output / "LondonRules.java").open("xb") as stream:
+            stream.write(london)
     if parent_cards is not None:
         for filename, body in parent_cards.items():
             with (output / filename).open("xb") as stream:
@@ -998,6 +1063,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if combat is not None:
         result.update(original_combat_callback_sha256=CALLBACK_SHA256,
                       staged_combat_rules_sha256=hashlib.sha256(combat).hexdigest(), combat_variant=COMBAT_VARIANT)
+    if london is not None:
+        result.update(original_london_callback_sha256=CALLBACK_SHA256,
+                      staged_london_rules_sha256=hashlib.sha256(london).hexdigest(), london_variant=LONDON_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
