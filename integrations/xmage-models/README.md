@@ -441,3 +441,22 @@ candidate codec and cached state. This component does not execute simulation
 callbacks, reconstruct a persistent original player, activate abilities or
 qualify complete games. Those integrations and native replay checks remain
 unfinished.
+
+`neural_selection: true` requires the original cached priority rules and emits
+private `OriginalNeuralSelection`. Its actual April generic chooser preserves
+the first 64 candidates, original target-count clamps, empty/singleton shortcuts,
+48-feature candidate encoding and head routing. It passes policy and value
+through one paired model session and selects with the original Java chooser.
+Copies bind their own player, cached rules and admitted world while sharing the
+declared game-seeded model/chooser session. This shared stream is a named fair
+variant; the original unseeded per-copy stream is not claimed equivalent.
+
+The model sees copied tensors and the remaining decision allowance. Shape,
+probability, ownership, admission and deadline failures close the shared model;
+there is no replacement policy. Zero-pick callbacks retain original scoring
+without a random draw. `JackNeuralSelectionCheck.java` exercises actual staged
+tensors and selection with metadata worlds and synthetic paired predictions.
+The runtime must still supply the isolated paired backend and verified world
+admission, connect the remaining callback bodies, and qualify native replay and
+complete games. This component does not implement the full copied-player marker
+or admit a real engine's hidden state by itself.

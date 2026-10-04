@@ -897,6 +897,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "neural_selection" in config and type(config["neural_selection"]) is not bool:
+        raise ValueError("Jack neural selection staging needs an explicit boolean flag")
+    if config.get("neural_selection") is True and config.get("priority_callback") is not True:
+        raise ValueError("Jack neural selection requires the original cached priority rules")
     if "parent_dialog_callback" in config and type(config["parent_dialog_callback"]) is not bool:
         raise ValueError("Jack parent dialog staging needs an explicit boolean flag")
     if config.get("parent_dialog_callback") is True and not (
@@ -974,6 +978,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
               if config.get("combat_callback") is True else None)
     london = (london_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
               if config.get("london_callback") is True else None)
+    neural = None
+    if config.get("neural_selection") is True:
+        from xmage_jack_neural_sources import neural_selection_source
+        neural = neural_selection_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     modes = (mode_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -1043,6 +1051,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if priority is not None:
         with (output / "PriorityRules.java").open("xb") as stream:
             stream.write(priority)
+    if neural is not None:
+        with (output / "OriginalNeuralSelection.java").open("xb") as stream:
+            stream.write(neural)
     if mulligan is not None:
         with (output / "MulliganEncoder.java").open("xb") as stream:
             stream.write(mulligan)
@@ -1133,6 +1144,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         from xmage_jack_parent_dialog_sources import PARENT_DIALOG_VARIANT
         result.update(staged_parent_dialog_player_sha256=hashlib.sha256(parent_dialogs).hexdigest(),
                       parent_dialog_variant=PARENT_DIALOG_VARIANT, original_parent_dialog_native_qualified=False)
+    if neural is not None:
+        from xmage_jack_neural_sources import NEURAL_VARIANT
+        result.update(staged_neural_selection_sha256=hashlib.sha256(neural).hexdigest(),
+                      neural_selection_variant=NEURAL_VARIANT, original_neural_native_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
