@@ -347,6 +347,14 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   See [public Dig repair](gorge-public-dig-repair-20261004.json). Complete
   qualification still requires the next immutable runtime and native panel.
 
+- Runtime025 is now executing through the canonical local CPU guard, generation
+  170. The supported launcher compares the same 32 blocks at 1, 8 and 16
+  workers before the complete 320-block audit. The source, binary and registry
+  are frozen; STOP, timeout, storage and owned process cleanup are enforced.
+  Two placement-note preparations were rejected before any dispatch and remain
+  sealed. See [current local launch](gorge-runtime025-local-native-20261004.json).
+  This launch has no native qualification result yet and plays zero rated games.
+
 This is a source and information audit for the stated pool. Full twelve-mode
 qualification, compatible guarded throughput evidence, rated games and public ratings
 remain separate delivery work. Timing, public canonical-envelope limits and
