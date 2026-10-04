@@ -201,7 +201,7 @@ class ModeSession:
             encoded = result["encoded"]
             features, bound = self.validate_encoding(self.start, decision, encoded, self.sources, decision_hash(request))
             scores = None
-            if features is None: cid = bound[0]
+            if features is None: index = 0
             else:
                 scores = self.model.score(features, timeout_s=remaining())
                 scores = validate_scores(scores, features, self.model.encoding.get("mulligan_format"))
@@ -209,13 +209,17 @@ class ModeSession:
                     count=encoded["candidate_count"], picks=1, sequential=False, timeout_s=remaining())
                 if len(indices) != 1 or type(indices[0]) is not int or indices[0] not in bound:
                     raise ValueError("original mode chooser returned an unbound slot")
-                cid = bound[indices[0]]
+                index = indices[0]
+            cid = self.select_candidate(encoded, bound, index)
             remaining()
             return {"selection":{"candidate_id":cid, "semantic_echo":offered[cid]}, "scores":scores,
                     "decision_sha256":encoded["decision_sha256"], "checkpoint":self.model.checkpoint,
                     "profile":self.profile, "variant":self.VARIANT, "world_flags":encoded["world_flags"]}
         except BaseException:
             self.failed = True; self.close(); raise
+
+    def select_candidate(self, encoded, bound, index):
+        return bound[index]
 
     def close(self):
         if self.closed: return

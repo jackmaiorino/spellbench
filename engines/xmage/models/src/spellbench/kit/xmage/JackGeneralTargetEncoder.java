@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Original general target loop for spell targets, costs and object choices. */
-final class JackGeneralTargetEncoder implements ModelReplay.TargetCapture {
+class JackGeneralTargetEncoder implements ModelReplay.TargetCapture {
     static final String VARIANT = JackTargetEncoder.RULE_VARIANT.replace(
             "acting-player named-source spell targets only; cost, provided-card and divided-target callbacks unqualified",
             "acting-player named-source spell, cost and general object selections; provided-card, divided-target and opponent callbacks unqualified")

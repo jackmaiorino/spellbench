@@ -110,7 +110,7 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
         for (Target candidate : source.getTargets()) { if (candidate == target) return index; index++; }
         return 0;
     }
-    private static final class Binding {
+    static final class Binding {
         final Map<UUID, String> permitted;
         final List<Object> targets = new ArrayList<>(), names = new ArrayList<>();
         final Map<UUID, Long> ids = new HashMap<>();

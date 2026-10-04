@@ -251,6 +251,27 @@ sideboards. Those coverage checks do not establish which cache or exact deck
 belongs to a copied checkpoint. The historical `Pauper-Standard` registry
 selects a four-deck Pauper pool. Its current checkpoint association is pending.
 
+The optional `card_set_callback: true` private staging flag adds a ninth
+source body for the original `chooseTarget(Outcome, Cards, TargetCard, Ability,
+Game)` callback. It requires `target_callback` and the existing mode, dialog
+and payment prefix rules. `JackCardSetEncoderMain` takes the eight general-target
+arguments followed by the staged card-set rules SHA-256. The owned
+`xmage_jack_card_sets.CardSetSession` retains the original provided-card filter,
+library/hand name groups, first available representatives, `card_select` head,
+STOP gates, first 64 groups and minimum completion. All physical copies are
+bound to offered public actions.
+
+The original callback chooses a physical copy with a fresh unseeded Java RNG.
+This explicitly declared fair variant uses a separate game-owned Python
+MT19937 stream, seeded from SHA-256 of
+`spellbench-jack-card-copy-mt19937/v1\0` followed by canonical `game_start`
+bytes. A singleton copy consumes no copy RNG; a single original group consumes
+no neural inference or chooser RNG. The original Java neural chooser stream
+is unchanged, and recorded prefix choices consume neither stream. The
+inherited `choose(Cards)` callback remains separate from this neural callback.
+Private native execution, other callbacks, incompatible public/original ranges,
+exact deck associations and complete games remain unqualified.
+
 The container is limited to one CPU, 3 GiB RAM, 64 processes and a 64 MiB
 ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the

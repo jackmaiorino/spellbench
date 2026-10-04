@@ -133,6 +133,22 @@
     "prefix_rules": "Original mode, binary, X, payment and earlier general target choices",
     "limitations": "Native execution, generic card/cost callbacks and full games unqualified; provided-card, divided-target, opponent-source and incompatible public/original ranges remain unfinished"
   },
+  "card_sets": {
+    "source_staging_flag": "card_set_callback: true; requires target_callback and the original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackCardSetEncoderMain",
+    "owned_session": "xmage_jack_card_sets.CardSetSession",
+    "private_stage_bodies": 9,
+    "source_lines": [3183, 3459],
+    "original_method_sha256": "569764ce74bd1e906aefd11606b164d27150d8162ba0a7d2a1231e15b55fd41c",
+    "decision_kinds": ["select_object", "finish_selection", "choose_target", "finish_target_selection"],
+    "original_policy": "chooseTarget(Outcome, Cards, TargetCard, Ability, Game); original provided-card filtering and sequential selection",
+    "original_head": "card_select",
+    "original_groups": "Name groups only for TargetCardInLibrary and TargetCardInHand; other TargetCard types retain separate copies; first available representative and first 64 groups",
+    "direct_returns": "One original group bypasses model and chooser RNG; a multi-copy group still chooses a physical copy",
+    "copy_variant": "Owned Python MT19937 seeded from SHA-256 of the card-copy domain and canonical game_start; singleton copies direct; original Java neural chooser stream unchanged",
+    "wire_binding": "Every physical copy, STOP, source and range bound to the original public action; recorded earlier picks consume neither model nor copy RNG",
+    "limitations": "Private native execution and full games unqualified; inherited choose(Cards), divided targets, opponent callbacks and incompatible public/original ranges remain unfinished"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -142,6 +158,7 @@
     "guarded modes with costs and original filtered mana legality",
     "guarded original automatic mana rules, context cleanup and engine delegation parity",
     "guarded original sequential targets, forced returns, STOP, prefix verification and chooser application",
+    "guarded original provided-card groups, representative features, first-64 cap, STOP and seeded physical-copy application",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

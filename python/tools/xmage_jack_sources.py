@@ -557,6 +557,78 @@ public final class TargetRules {
 ''' % CALLBACK_SHA256 + walk + helpers + "}\n"
 
 
+CARD_SET_VARIANT = ("original provided-card filtering, library/hand name groups, first available representatives, "
+                    "sequential STOP gates, first 64 groups and minimum completion; original card_select head; "
+                    "permitted callback replay; refusal instead of model-error fallback; "
+                    "owned MT19937 copy stream derived from game start, singleton copies direct; "
+                    "chooseTarget(Cards) only, inherited choose(Cards), divided and opponent callbacks unqualified")
+
+
+def card_set_method(source: str) -> str:
+    return extract(source, "    @Override\n    public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {",
+                   "    @Override\n    public boolean choose(Outcome outcome, Choice choice, Game game) {")
+
+
+def card_set_source(source: str) -> str:
+    """Extract the original provided-card loop; delegate group/copy selection to its owner."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack provided cards require the pinned April callback bytes")
+    method = card_set_method(source)
+    beginning = method.index("        // CRITICAL: Filter cards by target's filter")
+    ending = method.index("        boolean result = chosenCount >= minTargets;")
+    walk = method[beginning:ending]
+    start = walk.index("            String pickedName = null;")
+    stop = walk.index("            if (picked == null) { // STOP or error", start)
+    replacement = '''            List<List<UUID>> groups = new ArrayList<>();
+            for (String name : remainingNames) {
+                List<UUID> copies = new ArrayList<>();
+                if (name != null) for (Card card : cardsByName.get(name)) {
+                    if (!chosen.contains(card.getId())) copies.add(card.getId());
+                }
+                groups.add(copies);
+            }
+            UUID selected = picker.choose(groups, chosenCount, minTargets, maxTargets,
+                    remainingNames.size() == 1, shouldDedupe);
+            boolean offered = false;
+            for (List<UUID> group : groups.subList(0, Math.min(64, groups.size()))) {
+                if (selected == null ? group.isEmpty() : group.contains(selected)) offered = true;
+            }
+            if (!offered) throw new IllegalArgumentException("card picker escaped the original first 64 groups");
+            Card picked = selected == null ? null : game.getCard(selected);
+            if (selected != null && picked == null) throw new IllegalArgumentException("selected original card disappeared");
+
+'''
+    walk = walk[:start] + replacement + walk[stop:]
+    walk = walk.replace("this.getId()", "viewer.getId()")
+    return '''package spellbench.models.jack;
+
+import mage.abilities.Ability;
+import mage.cards.Card;
+import mage.cards.Cards;
+import mage.constants.Outcome;
+import mage.game.Game;
+import mage.players.Player;
+import mage.target.TargetCard;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+/** Private original card grouping and completion; owned inference and seeded copy choice. */
+public final class CardSetRules {
+    public static final String SOURCE_SHA256 = "%s";
+    public static final String METHOD_SHA256 = "%s";
+    private final Player viewer;
+    public CardSetRules(Player viewer) { if (viewer == null) throw new IllegalArgumentException("acting card player required"); this.viewer = viewer; }
+    public interface Picker {
+        UUID choose(List<List<UUID>> groups, int selected, int minimum, int maximum, boolean forced, boolean deduplicated);
+    }
+    public boolean select(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game, Picker picker) {
+        if (cards == null || target == null) return false;
+        if (game == null || picker == null) throw new IllegalArgumentException("actual provided-card callback required");
+''' % (CALLBACK_SHA256, hashlib.sha256(method.encode()).hexdigest()) + walk + "        return chosenCount >= minTargets;\n    }\n}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -578,6 +650,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         raise ValueError("Jack target staging needs an explicit boolean flag")
     if config.get("target_callback") is True and config.get("mana_payment_callback") is not True:
         raise ValueError("Jack targets require the original payment and prefix callback rules")
+    if "card_set_callback" in config and type(config["card_set_callback"]) is not bool:
+        raise ValueError("Jack provided-card staging needs an explicit boolean flag")
+    if config.get("card_set_callback") is True and config.get("target_callback") is not True:
+        raise ValueError("Jack provided cards require the original general target and prefix rules")
     matches = [a for a in manifest.get("assets", []) if a.get("id") == config.get("state_encoder")]
     if len(matches) != 1:
         raise ValueError("Jack stage needs one private encoder asset")
@@ -607,6 +683,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
                 if config.get("mana_payment_callback") is True else None)
     targets = (target_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                if config.get("target_callback") is True else None)
+    card_sets = (card_set_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+                 if config.get("card_set_callback") is True else None)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -642,6 +720,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if targets is not None:
         with (output / "TargetRules.java").open("xb") as stream:
             stream.write(targets)
+    if card_sets is not None:
+        with (output / "CardSetRules.java").open("xb") as stream:
+            stream.write(card_sets)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -671,6 +752,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if targets is not None:
         result.update(original_target_callback_sha256=CALLBACK_SHA256,
                       staged_target_rules_sha256=hashlib.sha256(targets).hexdigest(), target_variant=TARGET_VARIANT)
+    if card_sets is not None:
+        result.update(original_card_set_callback_sha256=CALLBACK_SHA256,
+                      original_card_set_method_sha256=hashlib.sha256(card_set_method((root / callback["filename"]).read_bytes().decode("utf-8")).encode()).hexdigest(),
+                      staged_card_set_rules_sha256=hashlib.sha256(card_sets).hexdigest(), card_set_variant=CARD_SET_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

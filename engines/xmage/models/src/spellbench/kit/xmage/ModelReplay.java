@@ -86,6 +86,19 @@ final class ModelReplay {
                                    List<UUID> possible, int selected, int minimum, int maximum,
                                    boolean forced, UUID direct, String reason);
     }
+    interface CardSetPick {
+        UUID choose(List<List<UUID>> groups, int selected, int minimum, int maximum,
+                    boolean forced, boolean deduplicated);
+    }
+    interface CardSetCapture extends TargetCapture {
+        boolean selectCards(Player viewer, Outcome outcome, Cards cards, TargetCard target, Ability source, Game game, CardSetPick picker);
+        UUID earlierCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
+                          List<List<UUID>> groups, int selected, int minimum, int maximum,
+                          boolean forced, boolean deduplicated, Map<String, Object> semantic);
+        Map<String, Object> encodeCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
+                                        List<List<UUID>> groups, int selected, int minimum, int maximum,
+                                        boolean forced, boolean deduplicated);
+    }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
     private static Result live;
@@ -219,6 +232,40 @@ final class ModelReplay {
             Result replay = context(game);
             return replay != null && replay.targetCapture != null ? chooseTarget(outcome, target, source, game)
                     : super.choose(outcome, target, source, game);
+        }
+        @Override public boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
+            try {
+                Result replay = context(game);
+                if (replay == null || !(replay.targetCapture instanceof CardSetCapture)) {
+                    return super.chooseTarget(outcome, cards, target, source, game);
+                }
+                if (!getId().equals(replay.world.player(replay.world.viewer)) || cards == null || target == null) {
+                    throw new IllegalArgumentException("provided-card callback exceeds its acting-player scope");
+                }
+                CardSetCapture capture = (CardSetCapture) replay.targetCapture;
+                return capture.selectCards(this, outcome, cards, target, source, game,
+                        (groups, selected, minimum, maximum, forced, deduplicated) -> {
+                            Map<String, Object> past = replay.earlierPick(game);
+                            if (past != null) {
+                                UUID pick = capture.earlierCards(replay.world, replay.callbackDecision(), target, source, game,
+                                        groups, selected, minimum, maximum, forced, deduplicated, past);
+                                replay.replayed++;
+                                return pick;
+                            }
+                            replay.compare(game);
+                            replay.player = this;
+                            replay.encoded = capture.encodeCards(replay.world, replay.decision, target, source, game,
+                                    groups, selected, minimum, maximum, forced, deduplicated);
+                            throw new Stop();
+                        });
+            } catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
+        }
+        @Override public boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
+            Result replay = context(game);
+            if (replay != null && replay.targetCapture instanceof CardSetCapture) {
+                throw new Failure(new IllegalArgumentException("inherited choose(Cards) is separate from original neural chooseTarget(Cards)"));
+            }
+            return super.choose(outcome, cards, target, source, game);
         }
         @Override public ManaOptions getManaAvailable(Game game) {
             Result replay = live;
