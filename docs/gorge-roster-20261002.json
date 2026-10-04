@@ -378,8 +378,8 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Full hosted gorge, Windows/Linux Python and LLM isolation CI passed at the actual runtime019 production source438dffd. The complete affected strategies suite passes50 cases, with Go vet and diff checks. Qualification remains incomplete.",
-      "five_deck_search_qualification": "Runtime016 completed280 blocks/560 natural games but failed search gates. Runtime018 passed matched1/6/13 output hashes with3.085x scaling; its3600-second cap stopped the full audit at319/320 natural blocks, missing original index166. The entire attempt is sealed. A47-frame seed48 failure now reconstructs eight worlds in109 submits with22 unchanged native fields; corrected-runtime qualification remains incomplete.",
+      "full_adapter_suite": "Hosted Go, Windows/Linux Python and isolation CI passed at438dffd and reference-launcher2a117ab. Current public opening-draw correction passes all51 affected strategy cases from the same binary across a retained suite timeout and bounded completion, plus vet and diff. Current hosted CI remains pending.",
+      "five_deck_search_qualification": "Runtime019 cloud serial callback timed out at21/26 natural blocks with42 paired physical games observed; no parallel trial, allocation or full audit. The captured96-frame Caw failure now supplies eight worlds in224 submits with22 native fields unchanged. Complete current qualification remains unfinished.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -392,7 +392,8 @@
       "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
-      "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json"
+      "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json",
+      "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json"
     }
   ],
   "publication": null,
@@ -420,7 +421,8 @@
       "native_sampler_counters_preserved_on_captured_prefix": true,
       "native_attempt_and_submit_budgets_changed": false,
       "current_full_qualification": false,
-      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json"
+      "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
+      "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json"
     }
   }
 }

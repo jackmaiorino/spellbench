@@ -64,5 +64,68 @@
   "local_go_vet_passed": true,
   "native_qualification_complete": false,
   "rated_games": 0,
-  "published": false
+  "published": false,
+  "reference_launcher_follow_up": {
+    "checked_at_utc": "2026-10-04T05:05:41.438533+00:00",
+    "source_commit": "2a117aba0582c505dc3c8ea5371a0c3022de5ef5",
+    "runs": [
+      {
+        "kind": "gorge",
+        "run_id": 37175914738,
+        "head_sha": "2a117aba0582c505dc3c8ea5371a0c3022de5ef5",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37175914738",
+        "jobs": [
+          {
+            "name": "test",
+            "status": "completed",
+            "conclusion": "success",
+            "completedAt": "2026-10-04T04:24:19Z"
+          }
+        ]
+      },
+      {
+        "kind": "python",
+        "run_id": 37175914756,
+        "head_sha": "2a117aba0582c505dc3c8ea5371a0c3022de5ef5",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37175914756",
+        "jobs": [
+          {
+            "name": "Python tests (windows-2025)",
+            "status": "completed",
+            "conclusion": "success",
+            "completedAt": "2026-10-04T04:26:59Z"
+          },
+          {
+            "name": "Python tests (ubuntu-24.04)",
+            "status": "completed",
+            "conclusion": "success",
+            "completedAt": "2026-10-04T04:17:33Z"
+          }
+        ]
+      },
+      {
+        "kind": "llm-isolation",
+        "run_id": 37175914733,
+        "head_sha": "2a117aba0582c505dc3c8ea5371a0c3022de5ef5",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37175914733",
+        "jobs": [
+          {
+            "name": "container",
+            "status": "completed",
+            "conclusion": "success",
+            "completedAt": "2026-10-04T04:04:58Z"
+          }
+        ]
+      }
+    ],
+    "affected_python_checks_passed": 85,
+    "native_runtime_source_unchanged": true,
+    "new_caw_opening_draw_source_hosted_ci_complete": false
+  }
 }

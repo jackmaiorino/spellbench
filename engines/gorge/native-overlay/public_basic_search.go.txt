@@ -18,32 +18,37 @@ type spellbenchBasicSearch struct {
 	deadlines []deadlineConstraint
 }
 
-// London bottoming appends cards behind the undrawn library. The actor's
-// later named draws still identify their opening-shuffle positions until
-// that original library is exhausted or another library mutation occurs.
+// Named actor draws identify opening-shuffle positions until that original
+// library is exhausted or mutated. London bottoms append behind the undrawn
+// library. An anonymous move in another library need not invalidate this one
+// when the public library sizes uniquely identify the affected owner.
 // These positions guide the public replay witness only, never native weights.
-func spellbenchActorLondonDraws(setup PublicGame, h History) map[epochKey][]epochPosition {
+func spellbenchActorOpeningDraws(setup PublicGame, h History) map[epochKey][]epochPosition {
 	result := map[epochKey][]epochPosition{}
 	if !h.ActorBoundaries || int(h.Actor) >= len(setup.Decks) {
 		return result
 	}
 	identities := map[uint32]Identity{}
 	ordinal, draws := 0, 0
-	started, reliable, bottomed := false, false, false
-	for _, frame := range h.Frames {
+	started, reliable := false, false
+	for frameIndex, frame := range h.Frames {
 		introduced := map[uint32]bool{}
 		for _, identity := range frame.Identities {
 			identities[identity.ID] = identity
 			introduced[identity.ID] = true
 		}
-		for _, ev := range frame.Events {
+		var inferred map[int]state.PlayerID
+		if frameIndex > 0 {
+			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+		}
+		for eventIndex, ev := range frame.Events {
 			switch ev.Kind {
 			case events.TurnChange:
 				started = true
 			case events.Shuffle:
 				if ev.Player == h.Actor {
 					ordinal++
-					draws, reliable, bottomed = 0, !started, false
+					draws, reliable = 0, !started
 				}
 			case events.Draw:
 				if ev.Player != h.Actor {
@@ -53,7 +58,7 @@ func spellbenchActorLondonDraws(setup PublicGame, h History) map[epochKey][]epoc
 				if draws >= len(setup.Decks[h.Actor]) || !known || identity.Owner != h.Actor {
 					reliable = false
 				}
-				if reliable && bottomed && ordinal > 0 {
+				if reliable && ordinal > 0 {
 					position := epochPosition{Index: draws, Name: identity.Name}
 					if !introduced[ev.Obj] {
 						position.Ref = ev.Obj
@@ -73,6 +78,9 @@ func spellbenchActorLondonDraws(setup PublicGame, h History) map[epochKey][]epoc
 					continue
 				}
 				identity, known := identities[ev.Obj]
+				if owner, certain := inferred[eventIndex]; !known && certain {
+					identity.Owner, known = owner, true
+				}
 				london := !started && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed")
 				if !known && ev.Obj == 0 && london {
 					identity.Owner, known = ev.Player, true
@@ -81,7 +89,6 @@ func spellbenchActorLondonDraws(setup PublicGame, h History) map[epochKey][]epoc
 					continue
 				}
 				if known && london && ev.Text == "bottomed" {
-					bottomed = true
 					continue
 				}
 				reliable = false
@@ -89,6 +96,101 @@ func spellbenchActorLondonDraws(setup PublicGame, h History) map[epochKey][]epoc
 		}
 	}
 	return result
+}
+
+// Infer only a single unnamed library move whose size change, after all
+// recorded draws and named moves, belongs to exactly one public library.
+// MoveZone.Player may be the effect controller and is never used as its owner.
+// Multiple anonymous moves, missing sizes or unexplained changes stay unknown.
+func spellbenchLibraryMoveOwners(before, after Frame, identities map[uint32]Identity) map[int]state.PlayerID {
+	type playerSize struct {
+		Seat state.PlayerID `json:"seat"`
+		Size *int           `json:"library_size"`
+	}
+	read := func(frame Frame) (map[state.PlayerID]int, bool) {
+		var board struct {
+			Players []playerSize `json:"players"`
+		}
+		if json.Unmarshal(frame.Board, &board) != nil || len(board.Players) == 0 {
+			return nil, false
+		}
+		sizes := map[state.PlayerID]int{}
+		for _, player := range board.Players {
+			if _, duplicate := sizes[player.Seat]; duplicate || player.Size == nil || *player.Size < 0 {
+				return nil, false
+			}
+			sizes[player.Seat] = *player.Size
+		}
+		return sizes, true
+	}
+	previous, ok := read(before)
+	if !ok {
+		return nil
+	}
+	current, ok := read(after)
+	if !ok || len(previous) != len(current) {
+		return nil
+	}
+	change := map[state.PlayerID]int{}
+	for player, size := range previous {
+		next, exists := current[player]
+		if !exists {
+			return nil
+		}
+		change[player] = next - size
+	}
+	unknown, delta := -1, 0
+	for index, ev := range after.Events {
+		switch ev.Kind {
+		case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy, events.TokenCreate:
+			return nil
+		case events.Draw:
+			if _, exists := change[ev.Player]; !exists {
+				return nil
+			}
+			change[ev.Player]++
+		case events.MoveZone:
+			if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+				continue
+			}
+			if ev.From == ev.To {
+				return nil
+			}
+			movement := -1
+			if ev.To == state.ZLibrary {
+				movement = 1
+			}
+			if identity, known := identities[ev.Obj]; known {
+				if _, exists := change[identity.Owner]; !exists {
+					return nil
+				}
+				change[identity.Owner] -= movement
+			} else {
+				if unknown >= 0 {
+					return nil
+				}
+				unknown, delta = index, movement
+			}
+		}
+	}
+	if unknown < 0 {
+		return nil
+	}
+	var owner state.PlayerID
+	found := false
+	for player, remaining := range change {
+		if remaining == 0 {
+			continue
+		}
+		if found || remaining != delta {
+			return nil
+		}
+		owner, found = player, true
+	}
+	if !found {
+		return nil
+	}
+	return map[int]state.PlayerID{unknown: owner}
 }
 
 // A London bottom puts an opening-hand card at the library's tail. Before

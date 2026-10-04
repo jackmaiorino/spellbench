@@ -52,7 +52,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...), deadlines...)
 		epochs[key] = epoch
 	}
-	for key, positions := range spellbenchActorLondonDraws(setup, h) {
+	for key, positions := range spellbenchActorOpeningDraws(setup, h) {
 		epoch := epochs[key]
 		for _, position := range positions {
 			if err := addEpochPosition(&epoch, position); err != nil {

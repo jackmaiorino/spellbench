@@ -165,9 +165,18 @@ The two London move sites in `rules/mulligan.go` emit `mulligan` and `bottomed`
 for their asking player's own hand. The public sampler uses that observed
 ownership to invalidate that player's library cursor. It does not infer a
 hidden card identity, position or name. Other moves with an unknown owner
-still invalidate all potentially affected library cursors. This keeps an
+still invalidate all potentially affected native library cursors. This keeps an
 opponent's London bottoming from discarding constraints on the actor's later
 observed draws.
+
+The public replay witness separately preserves actor opening-shuffle draw
+positions when public library sizes uniquely identify a single anonymous
+library move's owner. It accounts for all recorded draws and named library
+moves, and refuses this inference for multiple unnamed moves, missing sizes
+or unexplained changes. It never uses the effect controller as ownership.
+Actor mutations, reordering, later shuffles, token/copy creation and exhaustion
+stop this guidance. The native proposal compiler and weighted sampler are
+unchanged.
 
 The agent reconstructs hypothetical worlds from public setup and received
 history. It receives no original engine, live hidden zones, chance prefix,
@@ -200,6 +209,17 @@ transported digest. Starvation/refusal statistics concern those reconstructions.
   draws, known-card constraints and identical actor histories under an unseen
   opponent land-order permutation. See
   [actor London repair](gorge-actor-london-draws-repair-20261004.json).
+
+- A captured 96-frame CawGates history exhausted 5,000 reconstruction submits
+  after an opponent Islandcycling search discarded guidance for later named
+  actor draws. The public witness now supplies eight worlds in 224 submits,
+  with all 22 recorded native sampler fields unchanged. A legal real-card
+  search fixture supplies eight worlds in 122 submits and preserves complete
+  actor history under different unseen opponent library orders. All 51
+  affected strategy cases pass from one pinned binary across a retained suite
+  wall-cap attempt and completion of its unfinished cases; Go vet and diff
+  checks pass. See
+  [Caw opening draw repair](gorge-caw-opening-draws-repair-20261004.json).
 
 - `TestFullPoolHiddenCardsDoNotChangePublicHistory` passed for all 83 cards.
   Each variant creates a fresh engine and fresh collector, places the card in

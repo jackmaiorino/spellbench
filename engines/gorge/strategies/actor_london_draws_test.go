@@ -8,6 +8,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
@@ -53,10 +54,61 @@ func TestPublicActorLondonReplayPreservesLaterDraws(t *testing.T) {
 	t.Logf("frames=%d native_accepted=%d reconstruction=%+v", len(h.Frames), after.Accepted, work)
 }
 
+func TestPublicActorOpeningDrawsSurviveOpponentLibrarySearch(t *testing.T) {
+	setup, h := actorOpeningHistory(t, false, true)
+	_, other := actorOpeningHistory(t, true, true)
+	a, _ := json.Marshal(h)
+	b, _ := json.Marshal(other)
+	if string(a) != string(b) {
+		t.Fatal("unobserved opponent library order changed actor history")
+	}
+	searched, laterDraw := false, false
+	for _, frame := range h.Frames {
+		for _, event := range frame.Events {
+			if event.Kind == events.MoveZone && event.Obj == 0 && event.From == state.ZLibrary && event.To == state.ZHand {
+				searched = true
+			}
+			if searched && event.Kind == events.Draw && event.Player == h.Actor && event.Obj != 0 {
+				laterDraw = true
+			}
+		}
+	}
+	if !searched || !laterDraw {
+		t.Fatal("fixture needs an anonymous opponent library exit followed by a named actor draw")
+	}
+	opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, Worlds: 8, MaxSubmits: 5000}
+	before, err := searchprobe.Sample(setup, h, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts.Redeal = &searchprobe.RedealBase{SpellbenchPublic: true}
+	after, err := searchprobe.Sample(setup, h, opts)
+	if err != nil || len(after.Worlds) != opts.Worlds || after.RedealRefused != "" || after.PublicReconstruction == nil || after.PublicReconstruction.BudgetExhausted != 0 {
+		t.Fatalf("public search reconstruction: %v worlds=%d result=%+v", err, len(after.Worlds), after)
+	}
+	if before.Attempts != after.Attempts || before.Accepted != after.Accepted || before.PrefixRejected != after.PrefixRejected || before.Submits != after.Submits || before.BudgetExhausted != after.BudgetExhausted {
+		t.Fatal("public witness changed the native weighted sampler")
+	}
+	known, err := searchprobe.ProjectKnownCards(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, world := range after.Worlds {
+		if err := known.Holds(world); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Logf("frames=%d native_accepted=%d reconstruction=%+v", len(h.Frames), after.Accepted, after.PublicReconstruction)
+}
+
 // Both seats legally mulligan and bottom. The actor then observes two distinct
 // draws from its unchanged library. Only the opponent's unseen land order
 // varies; it passes priority and discards the same named artifact if needed.
 func actorLondonHistory(t *testing.T, swapOpponent bool) (PublicGame, History) {
+	return actorOpeningHistory(t, swapOpponent, false)
+}
+
+func actorOpeningHistory(t *testing.T, swapOpponent, cycleOpponent bool) (PublicGame, History) {
 	t.Helper()
 	reg, err := testutil.OpenCorpusRegistry(os.Getenv("GORGE_CARDS"))
 	if err != nil {
@@ -84,6 +136,10 @@ func actorLondonHistory(t *testing.T, swapOpponent bool) (PublicGame, History) {
 		opponent[i] = quiet
 	}
 	opponent[0], opponent[1] = lookup("Forest"), lookup("Mountain")
+	if cycleOpponent {
+		opponent[1], opponent[8] = lookup("Lórien Revealed"), lookup("Island")
+		opponent[10], opponent[11] = lookup("Mountain"), lookup("Swamp")
+	}
 	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{actor, opponent}, Tokens: reg.Tokens, StartingLife: 20, Mulligans: 1}
 	e, err := rules.NewHypotheticalPlanned(rules.Config{Seed: 17, Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: 20, Mulligans: 1},
 		[]rules.ChanceDraw{{Bound: 2, Value: 0}}, func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
@@ -99,6 +155,30 @@ func actorLondonHistory(t *testing.T, swapOpponent bool) (PublicGame, History) {
 				}
 				if swapOpponent {
 					orderNames[0], orderNames[1] = orderNames[1], orderNames[0]
+				}
+				if cycleOpponent {
+					orderNames = []string{"Forest", "Lórien Revealed"}
+					for range len(names) - 2 {
+						orderNames = append(orderNames, quiet.Faces[0].Name)
+					}
+					orderNames[8], orderNames[10], orderNames[11] = "Island", "Mountain", "Swamp"
+					if swapOpponent {
+						orderNames[10], orderNames[11] = orderNames[11], orderNames[10]
+					}
+					// A search has removed an Island and may have drawn other cards.
+					// Preserve the visible names while varying only the unseen tail.
+					var remaining []string
+					for _, name := range orderNames {
+						if len(byName[name]) > 0 {
+							remaining = append(remaining, name)
+							byName[name] = byName[name][1:]
+						}
+					}
+					byName = map[string][]state.ObjID{}
+					for _, card := range ctx.Library {
+						byName[card.Name] = append(byName[card.Name], card.ID)
+					}
+					orderNames = remaining
 				}
 			}
 			var order []state.ObjID
@@ -141,7 +221,7 @@ func actorLondonHistory(t *testing.T, swapOpponent bool) (PublicGame, History) {
 			}
 		}
 		for i, option := range d.Options {
-			if d.Kind == decision.KPriority && option.Kind == "pass" {
+			if d.Kind == decision.KPriority && option.Kind == "pass" && (!cycleOpponent || d.Player == 0) {
 				in.Choices = []int{i}
 			}
 			if (option.Kind == "bottom" || option.Kind == "discard") && e.G.Obj(option.Obj).Card.Faces[0].Name == quiet.Faces[0].Name {
