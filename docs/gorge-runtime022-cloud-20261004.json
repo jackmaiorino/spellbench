@@ -1,0 +1,153 @@
+{
+  "schema": "spellbench-gorge-runtime022-closed-cloud/v1",
+  "observed_at_utc": "2026-10-04T08:43:14.817500+00:00",
+  "status": "released_after_observed_qualification_gate_failure",
+  "runtime_source_commit": "c87d7ac335d7113176f969be9e3c6e0cabbeae71",
+  "source_archive_commit": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+  "pod_id": "x5pp903hr4ke2h",
+  "artifacts": {
+    "cloud": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261004-015",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-015",
+      "seal_sha256": "0c22b5b9c21c2ae074c9e157150c60f8d57ff2ca85cc8669da2e6bad248f0eab",
+      "bytes": 154302683,
+      "files": 1043,
+      "prune_manifest_sha256": "cd2d14ffb2153ae6797b3c9549ed83286ae6ab6e9670e92f317fad5038a5d642"
+    },
+    "public_prefix": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-prefix-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-prefix-20261004-002",
+      "seal_sha256": "72e0e5c27c441a198dfcf94129fdf5e9f2a69d42fecbf9053f2689f183659be0",
+      "bytes": 20639401,
+      "files": 40,
+      "prune_manifest_sha256": "cd2d14ffb2153ae6797b3c9549ed83286ae6ab6e9670e92f317fad5038a5d642"
+    },
+    "saved_trace": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-reconstruction-trace-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-002",
+      "seal_sha256": "241bf0fbc04f5bf366a41807970cc54197d0163431c05a805d35f733b28a8e1d",
+      "bytes": 19372245,
+      "files": 34,
+      "prune_manifest_sha256": "cd2d14ffb2153ae6797b3c9549ed83286ae6ab6e9670e92f317fad5038a5d642"
+    }
+  },
+  "cpu_model": "AMD EPYC 7663 56-Core Processor",
+  "cpu_quota_cores": 23.8,
+  "usable_cpus": 24,
+  "qualified_worker_bound_proposed": 16,
+  "gpu_used": false,
+  "cost_per_hour_usd": 0.18,
+  "completed_native_blocks": 5,
+  "completed_physical_audited_and_replayed_games": 10,
+  "failing_rows": [
+    {
+      "index": 48,
+      "deck": "Wildfire",
+      "pairing": "search-redeal/uniform",
+      "name": "Wildfire/search-redeal",
+      "search_coverage": {
+        "Natives": 309,
+        "Eligible": 30,
+        "Attempted": 19,
+        "Covered": 5,
+        "Attempts": 1216,
+        "Accepted": 0,
+        "Worlds": 40,
+        "Rollouts": 168,
+        "Submits": 171338,
+        "Terminal": 168,
+        "Capped": 0,
+        "Redealt": 40,
+        "ReconstructionAttempts": 31,
+        "ReconstructionSubmits": 70716,
+        "ReconstructionNodes": 66485,
+        "ReconstructionBudgetExhausted": 14,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 14
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 11,
+          "insufficient worlds/ESS": 14
+        },
+        "Kinds": {
+          "attackers": 1,
+          "cast": 4
+        }
+      }
+    }
+  ],
+  "serial_stage_seconds": 730.0852704319987,
+  "public_frames": 132,
+  "public_input_sha256": "ab892e978a70ecdf877ead113888f060debc8c93dce41eafd5a2289853813c24",
+  "public_reconstruction": {
+    "Attempts": 2,
+    "Submits": 5000,
+    "Nodes": 4795,
+    "BudgetExhausted": 1
+  },
+  "native_sampler_and_public_result_identical": true,
+  "trace_farthest_zero_based_frame": 118,
+  "observed_failure": "Opponent visible ref38 requires Mountain; the farthest attempted hypothetical completion reveals Slagwoods Bridge.",
+  "release": {
+    "at_utc": "2026-10-04T08:38:05.4704142+00:00",
+    "name": "spellbench-gorge-native-57a9466c994249ad",
+    "pod_id": "x5pp903hr4ke2h",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "047895a649271434dde2569ed213fbb97fe7fde7c53c2f1970aafe920b86b19b",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 4.41026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 5.26026747,
+    "final_invoice_pending": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T08:38:06.393537+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "runtime021-014": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.19699276704341173,
+        "totalAmount": 0.20717795204836875
+      },
+      "runtime022-015": {
+        "cpuAmount": 0,
+        "diskAmount": 0,
+        "gpuAmount": 0,
+        "totalAmount": 0
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.245363005597028,
+    "conservative_cumulative_lease_ceiling_usd": 5.26026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "cloud_cap_usd": 10,
+  "conservative_cumulative_lease_ceiling_usd": 5.26026747,
+  "final_invoice_pending": true,
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Repair public replay witness constraints, then obtain current compatible guarded scaling and full native/reference qualification, reviews, ratings and publication."
+}
