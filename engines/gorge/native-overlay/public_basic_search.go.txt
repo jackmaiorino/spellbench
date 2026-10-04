@@ -562,7 +562,7 @@ func spellbenchLondonDeadlines(setup PublicGame, h History) map[epochKey][]deadl
 // A named, full-library basic-land search exposes membership and the relative
 // order of its matches. It does not expose their absolute positions, other
 // cards, physical copy IDs, or the opponent's hand. Restrict this guidance to
-// an unmodified initial shuffle and a single printed search ability.
+// an unmodified owned shuffle and a single printed search ability.
 // Other searches retain the existing proposal and full replay checks.
 func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenchBasicSearch {
 	windows := map[epochKey]spellbenchBasicSearch{}
@@ -617,8 +617,8 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 		}
 		owner := d.Options[0].Action.Player
 		cursor := cursors[owner]
-		key := epochKey{Player: owner}
-		if int(owner) >= len(setup.Decks) || cursor.ordinal != 1 || !cursor.reliable || windows[key].names != nil {
+		key := epochKey{Player: owner, Ordinal: cursor.ordinal - 1}
+		if owner != h.Actor || int(owner) >= len(setup.Decks) || cursor.ordinal < 1 || !cursor.reliable || windows[key].names != nil {
 			continue
 		}
 		subtypes, printed := spellbenchPrintedBasicSearch(byName[identities[d.Source].Name])
@@ -850,11 +850,12 @@ func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbe
 	return func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
 		key := epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}
 		window, guided := windows[key]
-		if !guided || len(ctx.Hand) != 0 {
+		if !guided || (key.Ordinal == 0 && len(ctx.Hand) != 0) {
 			return p.plan(ctx)
 		}
-		// The fold changes only the unseen tail. Actor draws and opening-hand
-		// positions already before the observed search remain fixed by p.plan.
+		// The fold changes only the shuffled library's unseen tail. A later
+		// shuffle may have an existing hand, which remains outside this pool.
+		// Actor draws and prior observed positions remain fixed by p.plan.
 		for _, position := range p.epochs[key].Positions {
 			if position.Index >= window.through {
 				return p.plan(ctx)

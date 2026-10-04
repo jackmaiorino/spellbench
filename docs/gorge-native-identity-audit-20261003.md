@@ -111,6 +111,21 @@ The [repair record](gorge-public-arrange-repair-20261004.json) preserves passing
 and failed attempts. Fresh complete qualification and identity review remain
 required; these local checks play zero complete games.
 
+Runtime024's mana-search failure was reproduced at a 157-frame public boundary.
+The second owned Twisted Landscape search followed an earlier shuffle, with
+cards already in hand. Public basic-search guidance now uses the observed
+shuffle epoch and preserves that hand outside the shuffled library. The saved
+eligible root supplies eight known-card-valid worlds in 319 submits with every
+emitted native diagnostic unchanged. All 13 earlier Wildfire failure roots
+still pass. Pending-search witness and answered-priority regressions preserve
+history under unseen nonmatching tail swaps. Existing strategy and arrangement
+checks passed; the two new fixture cases were corrected to compare the same
+native known-card reporting settings and respect shipped search eligibility.
+Those corrected cases, vet and diff checks pass. The
+[mana diagnosis and repair record](gorge-mana-diagnosis-20261004.json) retains
+every failed attempt. Rally's separate target-mapping failure, full
+qualification, review, ratings and publication remain unfinished.
+
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation

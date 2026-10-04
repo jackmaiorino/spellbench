@@ -9,6 +9,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
@@ -73,6 +74,10 @@ func TestPublicLondonReplayPreservesDrawsAndFilteredOwnSearch(t *testing.T) {
 }
 
 func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
+	return londonLandscapeSearchHistory(t, swapTail, 1, false)
+}
+
+func londonLandscapeSearchHistory(t *testing.T, swapTail bool, searches int, pending bool) (PublicGame, History) {
 	t.Helper()
 	reg, err := testutil.OpenCorpusRegistry(os.Getenv("GORGE_CARDS"))
 	if err != nil {
@@ -89,6 +94,9 @@ func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
 	actor := []*cards.Card{lookup("Twisted Landscape"), lookup("Mountain"), lookup("Forest"), lookup("Swamp"), quiet, quiet, lookup("Mountain"),
 		quiet, quiet, quiet, quiet, lookup("Forest"), lookup("Swamp"), lookup("Mountain"), lookup("Island"), quiet,
 		lookup("Forest"), lookup("Swamp"), lookup("Mountain"), lookup("Island")}
+	if searches == 2 {
+		actor[5] = lookup("Twisted Landscape")
+	}
 	opponent := make([]*cards.Card, 20)
 	for i := range opponent {
 		opponent[i] = quiet
@@ -115,6 +123,22 @@ func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
 			if swapTail && ctx.Player == 0 && ctx.Ordinal == 0 {
 				order[14], order[15] = order[15], order[14]
 			}
+			if swapTail && ctx.Player == 0 && ctx.Ordinal > 0 {
+				var nonmatches []int
+				byID := map[state.ObjID]string{}
+				for _, card := range ctx.Library {
+					byID[card.ID] = card.Name
+				}
+				for i, id := range order {
+					if i >= 4 && (byID[id] == "Island" || byID[id] == "Quiet Artifact") {
+						nonmatches = append(nonmatches, i)
+					}
+				}
+				if len(nonmatches) >= 2 {
+					a, b := nonmatches[0], nonmatches[len(nonmatches)-1]
+					order[a], order[b] = order[b], order[a]
+				}
+			}
 			return order, nil
 		})
 	if err != nil {
@@ -125,19 +149,22 @@ func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
 	}
 	driver := NewDriver()
 	bot := seat.NewBot(3)
-	taken, landscape, played := false, false, 0
-	searched := false
+	taken, landscapes, played := false, 0, 0
+	searched := 0
 	for n := 0; n < 350 && !e.G.Over; n++ {
 		d := e.Pending()
 		driver.Observe(e)
-		if searched && d.Player == 0 && d.Kind == decision.KPriority {
+		if searched == searches && d.Player == 0 && d.Kind == decision.KPriority {
 			return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
 		}
 		if d.Player == 0 && d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Kind == "search" {
 			if !taken || played != 3 {
 				t.Fatal("fixture skipped London bottoming or public lands")
 			}
-			searched = true
+			if pending && searched == searches-1 {
+				return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
+			}
+			searched++
 		}
 		in, err := bot.Decide(context.Background(), view.Project(e.G, e, d.Player, d), *d)
 		if err != nil {
@@ -173,11 +200,12 @@ func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
 					continue
 				}
 				name := object.Card.Faces[0].Name
-				if d.Player == 0 && !landscape && option.Kind == "play_land" && name == "Twisted Landscape" {
-					in.Choices, landscape = []int{i}, true
+				if d.Player == 0 && landscapes == searched && searched < searches && option.Kind == "play_land" && name == "Twisted Landscape" {
+					in.Choices = []int{i}
+					landscapes++
 					break
 				}
-				if d.Player == 0 && landscape && played == 3 && option.Kind == "ability" && option.Ability == 1 && name == "Twisted Landscape" {
+				if d.Player == 0 && landscapes > searched && played == 3 && option.Kind == "ability" && option.Ability == 1 && name == "Twisted Landscape" {
 					in.Choices = []int{i}
 					break
 				}
@@ -195,6 +223,87 @@ func londonLandscapeHistory(t *testing.T, swapTail bool) (PublicGame, History) {
 			t.Fatal(err)
 		}
 	}
-	t.Fatalf("fixture did not reach the filtered own search: took_mulligan=%v landscape=%v public_lands=%d", taken, landscape, played)
+	t.Fatalf("fixture did not reach the filtered own search: took_mulligan=%v landscapes=%d searches=%d public_lands=%d", taken, landscapes, searched, played)
 	return setup, History{}
+}
+
+// The second filtered search belongs to a later shuffle with an existing
+// actor hand. Reordering unseen nonmatching cards must preserve its history.
+func TestPublicFilteredOwnSearchAfterShuffle(t *testing.T) {
+	for _, pending := range []bool{true, false} {
+		t.Run(map[bool]string{true: "pending", false: "answered"}[pending], func(t *testing.T) {
+			setup, h := londonLandscapeSearchHistory(t, false, 2, pending)
+			_, other := londonLandscapeSearchHistory(t, true, 2, pending)
+			a, _ := json.Marshal(h)
+			b, _ := json.Marshal(other)
+			if string(a) != string(b) {
+				t.Fatal("unseen nonmatching order changed repeated-search history")
+			}
+			searches, shuffles := 0, 0
+			for _, frame := range h.Frames {
+				for _, event := range frame.Events {
+					if event.Kind == events.Shuffle && event.Player == h.Actor {
+						shuffles++
+					}
+				}
+				if d := frame.Decision; d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Action.Kind == "search" {
+					searches++
+				}
+			}
+			if searches != 2 || shuffles < 2 {
+				t.Fatalf("fixture needs two searches and a later owned shuffle: %d/%d", searches, shuffles)
+			}
+			opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, Worlds: 8, MaxSubmits: 5000,
+				Redeal: &searchprobe.RedealBase{}}
+			if pending {
+				// Library choices use the shipped policy directly. Check their
+				// public replay witness; redealt worlds are requested only at
+				// the later eligible priority boundary below.
+				root, work, err := searchprobe.SpellbenchReconstructRedeal(setup, h, opts)
+				if err != nil || root == nil || work.BudgetExhausted != 0 || work.Submits > 5000 {
+					t.Fatalf("pending later-shuffle search witness: %v work=%+v", err, work)
+				}
+				known, err := searchprobe.ProjectKnownCards(h)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := known.Holds(searchprobe.World{Engine: root.Engine, Observer: root.Observer}); err != nil {
+					t.Fatal(err)
+				}
+				t.Logf("pending frames=%d owned_shuffles=%d work=%+v", len(h.Frames), shuffles, work)
+				return
+			}
+			before, err := searchprobe.Sample(setup, h, opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			opts.Redeal = &searchprobe.RedealBase{SpellbenchPublic: true}
+			after, err := searchprobe.Sample(setup, h, opts)
+			if err != nil || len(after.Worlds) != 8 || after.RedealRefused != "" {
+				t.Fatalf("later-shuffle search reconstruction: %v worlds=%d result=%+v", err, len(after.Worlds), after)
+			}
+			left, _ := json.Marshal(before)
+			right, _ := json.Marshal(after)
+			var first, second map[string]any
+			json.Unmarshal(left, &first)
+			json.Unmarshal(right, &second)
+			for _, key := range []string{"PublicReconstruction", "Redealt", "RedealRefused"} {
+				delete(first, key)
+				delete(second, key)
+			}
+			if !reflect.DeepEqual(first, second) {
+				t.Fatal("later-shuffle witness changed native sampler diagnostics")
+			}
+			known, err := searchprobe.ProjectKnownCards(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, world := range after.Worlds {
+				if err := known.Holds(world); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Logf("frames=%d owned_shuffles=%d worlds=%d work=%+v", len(h.Frames), shuffles, len(after.Worlds), after.PublicReconstruction)
+		})
+	}
 }
