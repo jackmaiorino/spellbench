@@ -379,7 +379,7 @@
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
       "full_adapter_suite": "Historical source556f7c0 passed69 affected check nodes across40 root tests and hosted Go, Linux/Windows Python and isolation checks. Runtime026's public replay repair passes45 affected strategy root tests, all17 saved failure roots with eight known-card-valid worlds and unchanged native diagnostics, plus separately corrected Go vet and diff checks. Runtime026 hosted gorge, Linux/Windows Python and container isolation checks pass on code-identical head57c82e5. Complete native/reference-host qualification remains pending.",
-      "five_deck_search_qualification": "Runtime026 repairs exact public ability selection and retained-hand shuffle witnesses; all17 retained roots return eight known-card-valid worlds. Its RunPod serial callback completed five seed blocks, including Wildfire48/search-redeal with16 covered decisions and no reconstruction refusal, then reached the2700-second callback limit before Wildfire52/search-mana-redeal returned. The owned pod is released and terminal evidence sealed. Parallel qualification, allocation selection and the complete320-block native/reference audit remain unfinished.",
+      "five_deck_search_qualification": "Runtime026 fixes all17 retained earlier roots. Cloud020 timed out before seed52. Local native011 completed13 natural audited/replayed seed blocks, but Wildfire52/search-mana-redeal reports52 reconstruction budget exhaustions and refusals, failing the unchanged zero-failure gate. Owned work was stopped, all evidence sealed and generation183 released. Five Windows completed rows exactly match sealed Linux rows. No complete matched scaling, allocation, full native/reference qualification or ratings. Jack PC is now yielded to the human-prioritized research phase.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
       "public_reconstruction_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json",
@@ -392,7 +392,7 @@
       "public_london_search_repair": "docs/gorge-public-london-search-repair-20261004.json",
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
-      "current_runtime_native_attempt": "docs/gorge-runtime026-cloud020-20261004.json",
+      "current_runtime_native_attempt": "docs/gorge-runtime026-native011-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
       "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
       "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json",
@@ -413,8 +413,9 @@
       "public_copy_target_repair": "docs/gorge-copy-target-repair-20261004.json",
       "public_dig_repair": "docs/gorge-public-dig-repair-20261004.json",
       "public_ability_and_retained_hand_repair": "docs/gorge-public-ability-repair-20261004.json",
-      "current_reference_preparation": "docs/gorge-reference-runtime026-preparation-20261004.json",
-      "runtime026_hosted_ci": "docs/gorge-runtime026-ci-20261004.json"
+      "current_reference_preparation": "docs/gorge-reference-runtime026-preparation002-20261004.json",
+      "runtime026_hosted_ci": "docs/gorge-runtime026-ci-20261004.json",
+      "resource_handback": "docs/gorge-resource-handback-20261004.json"
     }
   ],
   "publication": null,

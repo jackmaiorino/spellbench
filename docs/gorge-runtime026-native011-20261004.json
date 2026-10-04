@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-local-native-launch/v1",
   "observed_at_utc": "2026-10-04T19:17:48.109476+00:00",
-  "phase": "launched_matched_scaling",
+  "phase": "closed_failed_or_incomplete_native_qualification",
   "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-011",
   "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-011",
   "preparation_sha256": "e794e5fe4422c689958be6afd62439161715e763b282b1eaef13053f312751a6",
@@ -87,7 +87,7 @@
   "reference_qualification": false,
   "rated_games": 0,
   "published_entries": 0,
-  "next_action": "Observe complete matched trials, identical primary rows and selected allocation; then full native audit. Seal terminal evidence and verified release before the reference successor can dispatch.",
+  "next_action": "Diagnose later seed52 public-history roots without competing with research; refresh all host, reservation and billing facts before any future execution",
   "windows_linux_completed_prefix_parity": {
     "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-011\\observations\\windows-linux-completed-prefix-parity.json",
     "sha256": "b91696b1158a62c84dc5cd56211de109ee3975e279ef74a82fc51edcf0fb8659",
@@ -102,5 +102,97 @@
     "complete_row_objects_identical": true,
     "allocation_qualified": false,
     "full_native_qualification": false
-  }
+  },
+  "closed_at_utc": "2026-10-04T19:59:46.344975+00:00",
+  "seal_sha256": "f8ce763d1dd584599d332546f26191898b409405ec6219a80bbd7fcf8b0e426a",
+  "bytes": 35383044,
+  "terminal": null,
+  "driver_failure": null,
+  "guard_stop": {
+    "at_utc": "2026-10-04T19:58:24.404580+00:00",
+    "reason": "Owned STOP",
+    "elapsed_seconds": 2540.283374099992,
+    "artifact_bytes": 35360924,
+    "rated_games": 0
+  },
+  "allocation": null,
+  "emitted_rows_by_stage": {
+    "qualification-1-workers-1": {
+      "emitted_blocks": 13,
+      "natural_blocks": 13,
+      "game_indices": [
+        40,
+        41,
+        44,
+        45,
+        48,
+        52,
+        96,
+        100,
+        104,
+        108,
+        152,
+        156,
+        160
+      ]
+    }
+  },
+  "existing_gate_failure": {
+    "at_utc": "2026-10-04T19:58:23.980143+00:00",
+    "work_id": "gorge-runtime026-native-audit-20261004-011",
+    "reason": "Existing zero-reconstruction-budget/refusal full-native gate violated by completed seed52",
+    "row": {
+      "classification": "natural",
+      "deck": "Wildfire",
+      "digest": "sha256:dc6a7513e6af2b911d09d442fb763b2b71fcac914999e48da7ffeb1b9c6746ee",
+      "fallbacks": 0,
+      "forced": 0,
+      "game": 52,
+      "inconsistent": 0,
+      "leaks": 0,
+      "outcome": "p0_win",
+      "pairing": "search-mana-redeal/uniform",
+      "parity_mismatch": 0,
+      "reason": "p1_life_zero",
+      "search_coverage": {
+        "Wildfire/search-mana-redeal": {
+          "Natives": 672,
+          "Eligible": 200,
+          "Attempted": 103,
+          "Covered": 51,
+          "Attempts": 6592,
+          "Accepted": 4,
+          "Worlds": 408,
+          "Rollouts": 1584,
+          "Submits": 1631342,
+          "Terminal": 1584,
+          "Capped": 0,
+          "Redealt": 408,
+          "ReconstructionAttempts": 103,
+          "ReconstructionSubmits": 284755,
+          "ReconstructionNodes": 256481,
+          "ReconstructionBudgetExhausted": 52,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 52
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 97,
+            "insufficient worlds/ESS": 52
+          },
+          "Kinds": {
+            "cast": 13,
+            "mana": 38
+          }
+        }
+      },
+      "steps": 1303
+    },
+    "full_native_qualification": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "existing_gate_failure_sha256": "7a21bc0bedf60775762996ae80142bf49628287c6d1c0d9258af731a389a2c3f",
+  "owned_claim_released": true,
+  "recorded_owned_processes_absent": true,
+  "resource_handback": "docs/gorge-resource-handback-20261004.json"
 }
