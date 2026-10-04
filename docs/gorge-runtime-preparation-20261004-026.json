@@ -1,0 +1,215 @@
+{
+  "schema": "spellbench-gorge-runtime-preparation/v1",
+  "phase": "frozen_inputs_prepared",
+  "evaluation_launched": false,
+  "adapter_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "scratch": "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026",
+  "source_of_record": "E:\\spellbench-gorge-runtime-20261004-026",
+  "storage": {
+    "projected_bytes": 268435456,
+    "cap_bytes_per_volume": 536870912,
+    "reserve_bytes": 64424509440
+  },
+  "scope": "Routine builds and registry freeze; no native qualification or rated evaluation",
+  "registry_regeneration": "Compile pinned card and token sources with spellbench-gorge-corpus. Preserve the resulting exact file; a second compilation is not assumed byte-identical.",
+  "files": [
+    {
+      "name": "BUILD-RECIPE.py",
+      "sha256": "d054c4b5f630cb2756150553ca5da20e98e82d14b9a431c3acfa5f82c3b2c2d8",
+      "bytes": 7727,
+      "kind": "recipe"
+    },
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "sha256": "fcf74f1e65e4162a03aface01a4b9417bccba3d851121e4e5f64bbb37f161488",
+      "bytes": 13475840,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\fcf74f1e65e4162a03aface01a4b9417bccba3d851121e4e5f64bbb37f161488\\spellbench-gorge-corpus-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "1d6e57865d247e70f71a91362167bb7db7cdbba6d5d74678cedcb5a4d6519152",
+      "bytes": 17488384,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\1d6e57865d247e70f71a91362167bb7db7cdbba6d5d74678cedcb5a4d6519152\\spellbench-gorge-env-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "29485ee982407d1b3075c3b946818080e27740c0d117ed43c3dd5b7a9e11317b",
+      "bytes": 18190336,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\29485ee982407d1b3075c3b946818080e27740c0d117ed43c3dd5b7a9e11317b\\spellbench-gorge-agent-windows-amd64.exe"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "sha256": "68612a90a3dd53e4156c8833701dd45bd9fb4d25774d4b45edfc948e3e3e8f4a",
+      "bytes": 19048960,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\68612a90a3dd53e4156c8833701dd45bd9fb4d25774d4b45edfc948e3e3e8f4a\\gorgequal-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "sha256": "ee17e9b854d58380d152855d40e17122fe728ee2b234458d62b796eab3537549",
+      "bytes": 17400188,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\ee17e9b854d58380d152855d40e17122fe728ee2b234458d62b796eab3537549\\spellbench-gorge-env-linux-amd64"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "sha256": "92c0bc31cf939fd15414885909c8e3e3a5045969eb5bed52a53d4b74a0bba919",
+      "bytes": 18095218,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\92c0bc31cf939fd15414885909c8e3e3a5045969eb5bed52a53d4b74a0bba919\\spellbench-gorge-agent-linux-amd64"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "sha256": "2c0df7a01ea51a7681c78656aeb611a3d8fd2c614d6631bb3b54220ec25639dd",
+      "bytes": 18946423,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\2c0df7a01ea51a7681c78656aeb611a3d8fd2c614d6631bb3b54220ec25639dd\\gorgequal-linux-amd64"
+    },
+    {
+      "name": "registry.gob.gz",
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329,
+      "kind": "registry"
+    }
+  ],
+  "build_commands": [
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\spellbench-gorge-corpus-windows-amd64.exe",
+      "./cmd/spellbench-gorge-corpus"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\spellbench-gorge-env-windows-amd64.exe",
+      "./cmd/spellbench-gorge-env"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\spellbench-gorge-agent-windows-amd64.exe",
+      "./cmd/spellbench-gorge-agent"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\gorgequal-windows-amd64.exe",
+      "./cmd/gorgequal"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\spellbench-gorge-env-linux-amd64",
+      "./cmd/spellbench-gorge-env"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\spellbench-gorge-agent-linux-amd64",
+      "./cmd/spellbench-gorge-agent"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026\\gorgequal-linux-amd64",
+      "./cmd/gorgequal"
+    ]
+  ],
+  "cpu_affinity_mask": 65536,
+  "priority": "BelowNormal",
+  "go_version": "go version go1.27.1 windows/amd64",
+  "compiler_sha256": "d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490",
+  "linker_sha256": "9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720",
+  "registry_reuse": {
+    "source": "E:\\spellbench-gorge-runtime-20261003\\registry.gob.gz",
+    "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "reason": "Same pinned card/compiler sources; exact prior frozen bytes, not a new gob encoding"
+  },
+  "registry": {
+    "schema": "spellbench-gorge-registry/v1",
+    "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+    "compiler_fingerprint": "4e081d8104fbe09256edb9fa696ce6f7",
+    "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+    "card_scripts_sha256": "377204728a927366bab4cc40bf89a64544bd5bf464d66d261e58e1a71b69bf5f",
+    "token_scripts_sha256": "6f6a6433a2075b2741982f28cc81963787d54e7fd5f81e643e754f71c24b2f58",
+    "card_scripts": 33669,
+    "token_scripts": 839,
+    "cards": 33669,
+    "tokens": 839,
+    "diagnostics": 13,
+    "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "registry_bytes": 9070329
+  },
+  "bytes": 131729120,
+  "recovery_source": "D:\\e-scratch\\spellbench-gorge-runtime-20261004-026",
+  "cold_hashes_verified": true,
+  "isolation_verified": false,
+  "throughput_qualified": false,
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "seal_sha256": "1b8c5896dee2ac8c263eba307bb9ba0cdd29821a5098318dd03b8f7472350b88",
+  "all_seven_binary_pins_verified": true,
+  "all_nine_inputs_verified_on_E_and_D": true,
+  "resource_evidence": {
+    "path": "E:\\spellbench-gorge-runtime-20261004-026\\RESOURCES.json",
+    "sha256": "3394343c556e13e82dbfd8d7f06add660126e6d8a9dad5def1cc3367d7c23f44",
+    "checked_at_utc": "2026-10-04T17:03:59.173007+00:00",
+    "Jack_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=spellbench-pauper-luna-20261003 work_id=pauper-luna-approved-qualification-004 generation=174 since=2026-10-04T16:39:08.234+00:00",
+    "Haley_priority_preserved": true,
+    "owned_runpod_running": []
+  },
+  "repair_record": "docs/gorge-public-ability-repair-20261004.json",
+  "prior_cloud_record": "docs/gorge-runtime024-cloud019-20261004.json",
+  "prune_manifest_sha256": "d0751cc90de1027d7134fec0fee9818489e75de0c99a8a4b4506610ce6541b0a",
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Fresh compatible guarded throughput and native/reference-host qualification, identity and benchmark reviews, ratings and publication."
+}
