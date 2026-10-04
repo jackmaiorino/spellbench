@@ -1,0 +1,161 @@
+{
+  "schema": "spellbench-gorge-public-mana-diagnosis/v1",
+  "observed_at_utc": "2026-10-04T13:10:26.981206+00:00",
+  "status": "later_first_failure_capture_in_progress",
+  "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "cloud_failure_record": "docs/gorge-runtime024-cloud019-20261004.json",
+  "bounded_captures": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-001",
+      "bytes": 19510935,
+      "seal_sha256": "9f86f874c417ee636af82862999380d6d9400889bb1812e29184a64ef9fa63d0",
+      "binary_sha256": "684c90a974518a15177cd1f98c7858fda5b4f7c1f842ab9d8829e312a5aea0cd",
+      "status": "bounded_timeout_before_first_failed_root",
+      "terminal": {
+        "at_utc": "2026-10-04T13:00:04.166352+00:00",
+        "exit_code": 1,
+        "timed_out": true,
+        "seconds": 120.38949339999817,
+        "first_failure_captured": false,
+        "captured": null,
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "independent_recovery_verified": true
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-002",
+      "bytes": 20057237,
+      "seal_sha256": "ed8d68b7030aee9d5d930b1202d44d47f9099bf6dfe9bdc1927bc6b17de05ad4",
+      "binary_sha256": "c2dc6854e37570b6acff5e8f288be580c49329786a6eb2dc9f9002c88c243e2b",
+      "status": "bounded_timeout_before_first_failed_root",
+      "terminal": {
+        "last_public_root": {
+          "path": "PUBLIC-LATEST.json",
+          "sha256": "42cde8031eca3fd181751a69435ba58bb657b695866b3369af8171ba5b6d7be4",
+          "frames": 94,
+          "actor": 0,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          }
+        },
+        "at_utc": "2026-10-04T13:04:47.558645+00:00",
+        "exit_code": 1,
+        "timed_out": true,
+        "seconds": 120.18519739998737,
+        "first_failure_captured": false,
+        "captured": null,
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "independent_recovery_verified": true
+    }
+  ],
+  "first_saved_root_trace": {
+    "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-001",
+    "seal_sha256": "53ceb8ba243a8e4999bcf275dd69a1fab6084adf8f0971f004131cc7aa99156a",
+    "bytes": 19385186,
+    "public_input_sha256": "42cde8031eca3fd181751a69435ba58bb657b695866b3369af8171ba5b6d7be4",
+    "frames": 94,
+    "worlds": 8,
+    "options": {
+      "Seed": 54321,
+      "Attempts": 64,
+      "Worlds": 8,
+      "MaxSubmits": 5000,
+      "MinESS": 0,
+      "NoLandExclusion": false,
+      "ComparePotentialActions": false,
+      "Parallelism": 0,
+      "KnownCards": false,
+      "Redeal": {
+        "SpellbenchPublic": true,
+        "Engine": null,
+        "Observer": null
+      }
+    },
+    "public_work": {
+      "Attempts": 1,
+      "Submits": 192,
+      "Nodes": 16,
+      "BudgetExhausted": 0
+    },
+    "status": "reconstructs_without_exhaustion",
+    "checks": {
+      "at_utc": "2026-10-04T13:07:05.987435+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-001\\mana-root-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 21.784889500006102
+        },
+        {
+          "name": "saved-root",
+          "command": [
+            "E:\\pinned-binaries\\98394e65011fae15716fa549103279f082ae77f8c5d38313639402f03337c29e\\mana-root-tests.exe",
+            "-test.run",
+            "^TestSavedManaPublicRoot$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 4.950881100026891
+        }
+      ],
+      "passed": true,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "diagnostic_note": "Input was captured at sample entry, so no previously returned native diagnostics exist to compare.",
+    "independent_recovery_verified": true
+  },
+  "current_capture": {
+    "source_of_record": "E:/spellbench-gorge-mana-prefix-20261004-003",
+    "recovery_root": "D:/e-scratch/spellbench-gorge-mana-prefix-20261004-003",
+    "wall_cap_seconds": 300,
+    "stop": "First exhausted public reconstruction root or the wall cap.",
+    "audit": false,
+    "resample": 0,
+    "diagnostic_only": true,
+    "cpu_affinity_mask": 65536,
+    "priority": "BelowNormal"
+  },
+  "frozen_gates_unchanged": true,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0
+}
