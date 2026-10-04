@@ -394,7 +394,7 @@
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
       "current_runtime_native_attempt": "docs/gorge-runtime023-cloud-20261004.json",
       "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
-      "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-023.json",
+      "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-024.json",
       "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json",
       "runtime020_cloud": "docs/gorge-runtime020-cloud-20261004.json",
       "spy_london_bottom_repair": "docs/gorge-spy-london-bottom-repair-20261004.json",
@@ -409,9 +409,9 @@
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-023.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-024.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA-256; current runtime023 inputs frozen. Compatible native/reference-host qualification, clocks/isolation and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry and SHA-256; current runtime024 inputs frozen. Compatible native/reference-host qualification, clocks/isolation and rated launch remain pending.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
