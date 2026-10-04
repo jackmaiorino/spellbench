@@ -579,3 +579,21 @@ The public bot version binds the exact deck, checkpoint, search settings, build,
 image and frontend source hashes. Startup failures clean up owned resources;
 uncertain container cleanup retains the work directory. No trained MageZero
 checkpoint or complete game has been qualified by these frontend tests.
+
+
+`JackGeneralTargetEncoderMain` and `xmage_jack_general_targets.GeneralTargetSession`
+extend the original general target loop to `choose_cost_target`, `select_object`
+and `finish_selection`, alongside spell targets. They preserve source, visible
+references, selected count, range and the original wire echo. Only callback
+fields are normalized; public observations stay intact. Generic `TargetCard`
+callbacks use the same original `target` head, ordering, direct returns and STOP
+rules. Earlier mode, binary, X, payment and target choices retain their original
+rules. The eight private stage bodies are unchanged. Source pins, the complete
+request, normalized mapping and distinct variant remain bound before inference.
+Use the existing target staging flag and the same seven source arguments.
+
+Provided-card selection has separate original filtering, name deduplication and
+copy selection and remains unfinished. Divided targets, opponent sources,
+incompatible public/original ranges, private native execution, exact decks,
+complete games, ratings and publication remain unqualified. Public normalization
+checks and transport tests do not qualify the full agent.

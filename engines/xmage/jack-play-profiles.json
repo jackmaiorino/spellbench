@@ -117,6 +117,22 @@
     "completion_rules": "original minimum and Crew/Saddle completion retained in the private loop; native cost adapters remain unfinished",
     "limitations": "native private target execution, prefix/copy semantics and chooser application pending; cost, provided-card, divided-target and opponent-sourced callbacks, exact decks and complete games unfinished"
   },
+  "general_targets": {
+    "source_staging_flag": "Uses the existing target_callback flag and eight unchanged private stage bodies",
+    "java_encoder": "spellbench.kit.xmage.JackGeneralTargetEncoderMain",
+    "owned_session": "xmage_jack_general_targets.GeneralTargetSession",
+    "decision_kinds": [
+      "choose_target",
+      "finish_target_selection",
+      "choose_cost_target",
+      "select_object",
+      "finish_selection"
+    ],
+    "original_policy": "Same original general target loop and target head; generic TargetCard callbacks are supported when no card set is provided",
+    "wire_binding": "Preserves original action echo, complete source/reference/range binding and original possible-target order; normalization never changes public observations",
+    "prefix_rules": "Original mode, binary, X, payment and earlier general target choices",
+    "limitations": "Native execution, generic card/cost callbacks and full games unqualified; provided-card, divided-target, opponent-source and incompatible public/original ranges remain unfinished"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",

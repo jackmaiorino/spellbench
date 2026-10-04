@@ -77,6 +77,7 @@ final class ModelReplay {
     }
     interface TargetCapture extends ModeCapture, DialogCapture {
         @Override ManaCapture paymentRules();
+        default boolean generalCardTargets() { return false; }
         boolean select(Player viewer, Outcome outcome, Target target, Ability source, Game game, TargetPick picker);
         UUID earlier(World world, Map<String, Object> decision, Target target, Ability source, Game game,
                      List<UUID> possible, int selected, int minimum, int maximum,
@@ -193,7 +194,7 @@ final class ModelReplay {
                 Result replay = context(game);
                 if (replay == null || replay.targetCapture == null) return super.chooseTarget(outcome, target, source, game);
                 if (!getId().equals(replay.world.player(replay.world.viewer)) || target == null
-                        || target instanceof TargetAmount || target instanceof TargetCard) {
+                        || target instanceof TargetAmount || target instanceof TargetCard && !replay.targetCapture.generalCardTargets()) {
                     throw new IllegalArgumentException("original general targets exclude opponent, card-set and divided callbacks");
                 }
                 return replay.targetCapture.select(this, outcome, target, source, game,

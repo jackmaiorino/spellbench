@@ -100,7 +100,7 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
         }
     }
 
-    private static long slot(Ability source, Target target) {
+    static long slot(Ability source, Target target) {
         long index = 0;
         for (UUID id : source.getModes().getSelectedModes()) {
             Mode mode = source.getModes().get(id); if (mode == null) continue;
