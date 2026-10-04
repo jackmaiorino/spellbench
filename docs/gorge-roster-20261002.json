@@ -393,7 +393,9 @@
       "actor_london_draws_repair": "docs/gorge-actor-london-draws-repair-20261004.json",
       "runtime019_hosted_ci": "docs/gorge-runtime019-ci-20261004.json",
       "current_runtime_native_attempt": "docs/gorge-runtime019-cloud-20261004.json",
-      "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json"
+      "caw_opening_draws_repair": "docs/gorge-caw-opening-draws-repair-20261004.json",
+      "current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-020.json",
+      "runtime020_hosted_ci": "docs/gorge-runtime020-ci-20261004.json"
     }
   ],
   "publication": null,
