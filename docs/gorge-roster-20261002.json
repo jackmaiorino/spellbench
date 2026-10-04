@@ -378,7 +378,7 @@
         "frozen registry file accepts exact card/token definitions and rejects altered bytes or forged source labels",
         "draft benchmark profile and reference loader accept the single-file registry launch path"
       ],
-      "full_adapter_suite": "Historical source556f7c0 passed69 affected check nodes across40 root tests and hosted Go, Linux/Windows Python and isolation checks. Runtime026's public replay repair passes45 affected strategy root tests, all17 saved failure roots with eight known-card-valid worlds and unchanged native diagnostics, plus separately corrected Go vet and diff checks. Current-head hosted checks and complete native/reference-host qualification remain pending.",
+      "full_adapter_suite": "Historical source556f7c0 passed69 affected check nodes across40 root tests and hosted Go, Linux/Windows Python and isolation checks. Runtime026's public replay repair passes45 affected strategy root tests, all17 saved failure roots with eight known-card-valid worlds and unchanged native diagnostics, plus separately corrected Go vet and diff checks. Runtime026 hosted gorge, Linux/Windows Python and container isolation checks pass on code-identical head57c82e5. Complete native/reference-host qualification remains pending.",
       "five_deck_search_qualification": "Runtime025 stopped after13 natural blocks; Wildfire52/search-mana-redeal had26 reconstruction budget failures. Runtime026 repairs exact public ability selection and retained-hand shuffle witnesses. The saved260-frame root now returns eight valid worlds in551 submits instead of exhausting5000. A bounded RunPod matched1/8/16-worker qualification is active; the supported launcher must qualify compatible throughput before the full320-block native audit. No full current native or reference qualification exists.",
       "native_audit": "docs/gorge-native-audit-20261003.json",
       "mana_history_repair": "docs/gorge-mana-history-repair-20261003.json",
@@ -413,7 +413,8 @@
       "public_copy_target_repair": "docs/gorge-copy-target-repair-20261004.json",
       "public_dig_repair": "docs/gorge-public-dig-repair-20261004.json",
       "public_ability_and_retained_hand_repair": "docs/gorge-public-ability-repair-20261004.json",
-      "current_reference_preparation": "docs/gorge-reference-runtime026-preparation-20261004.json"
+      "current_reference_preparation": "docs/gorge-reference-runtime026-preparation-20261004.json",
+      "runtime026_hosted_ci": "docs/gorge-runtime026-ci-20261004.json"
     }
   ],
   "publication": null,

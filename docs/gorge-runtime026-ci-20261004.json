@@ -1,0 +1,53 @@
+{
+  "schema": "spellbench-gorge-runtime026-hosted-ci/v1",
+  "observed_at_utc": "2026-10-04T18:05:00.633377+00:00",
+  "hosted_head": "57c82e56a73711406e9ac85641738d3901f4098c",
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "runtime_source_paths_unchanged": true,
+  "checks": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-04T17:54:01Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/jackmaiorino/spellbench/actions/runs/37221473403/job/111492525130",
+      "name": "Python tests (ubuntu-24.04)",
+      "startedAt": "2026-10-04T17:41:35Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-04T17:42:14Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/jackmaiorino/spellbench/actions/runs/37221473440/job/111492525603",
+      "name": "container",
+      "startedAt": "2026-10-04T17:41:34Z",
+      "status": "COMPLETED",
+      "workflowName": "LLM container isolation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-04T18:01:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/jackmaiorino/spellbench/actions/runs/37221473359/job/111492525041",
+      "name": "test",
+      "startedAt": "2026-10-04T17:41:34Z",
+      "status": "COMPLETED",
+      "workflowName": "gorge adapter"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-10-04T18:03:09Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/jackmaiorino/spellbench/actions/runs/37221473403/job/111492525319",
+      "name": "Python tests (windows-2025)",
+      "startedAt": "2026-10-04T17:41:34Z",
+      "status": "COMPLETED",
+      "workflowName": "CI"
+    }
+  ],
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

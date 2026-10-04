@@ -104,5 +104,17 @@
   "fully_qualified_entries": 0,
   "rated_games": 0,
   "published_entries": 0,
-  "remaining": "Complete matched useful-throughput qualification and full native audit, then compatible reference audit, fair review, frozen ratings and publication."
+  "remaining": "Complete matched useful-throughput qualification and full native audit, then compatible reference audit, fair review, frozen ratings and publication.",
+  "reconciled_budget": {
+    "observed_at_utc": "2026-10-04T18:01:32.357524+00:00",
+    "source_of_record": "E:\\spellbench-gorge-billing-20261004-003",
+    "seal_sha256": "cb7269fbdde2b9e396db2a28fddbce7b9257c37cfb46f825e896bf8b6e5247e9",
+    "reconciled_prior_closed_ceiling_usd": 4.25617947,
+    "active_full_reserved_maximum_usd": 0.85,
+    "reconciled_cumulative_ceiling_including_active_usd": 5.10617947,
+    "provider_reported_closed_spend_usd": 2.5682813890016405,
+    "provider_billing_observed_at_utc": "2026-10-04T17:09:00.525243+00:00",
+    "final_invoice_verified": false,
+    "method_record": "docs/gorge-budget-reconciliation-20261004.json"
+  }
 }
