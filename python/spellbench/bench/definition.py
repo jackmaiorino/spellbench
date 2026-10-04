@@ -84,6 +84,11 @@ _REQUIRED_FIELDS = (
     "bots",
 )
 _OPTIONAL_FIELDS = (
+    "opponent_panel",
+    "evaluation_version",
+    "evaluation_targets",
+    "evaluation_engine_identity",
+    "evaluation_engine_inputs",
     "pairing",
     "extensions",
     "native_id_audits",
@@ -94,6 +99,8 @@ _OPTIONAL_FIELDS = (
     "workers",
     "qualification_budget_percent",
     "qualification_worker_selection",
+    "qualification_sample",
+    "job_storage_budget",
 )
 # Protocol v1 fields and the v2 field that replaces each (spec 11.4: the clocks are time_control).
 _V1_FIELDS = {
@@ -158,6 +165,13 @@ class Benchmark:
     bots: tuple[BenchmarkBot, ...]
     qualification_budget_percent: int | None = None
     qualification_worker_selection: str = "busy"
+    qualification_sample: tuple[int, ...] = ()
+    job_storage_budget: dict[str, int] | None = None
+    opponent_panel: tuple[str, ...] = ()
+    evaluation_version: str | None = None
+    evaluation_targets: tuple[str, ...] | None = None
+    evaluation_engine_identity: str | None = None
+    evaluation_engine_inputs: tuple[str, ...] = ()
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -179,7 +193,7 @@ class Benchmark:
         values, never its own defaults; the rules are the fixed benchmark
         rules (spec 12.2).
         """
-        return {
+        document = {
             "schema": CONFIG_SCHEMA,
             "tournament_dir": tournament_dir,
             "format": self.format,
@@ -199,6 +213,23 @@ class Benchmark:
             "rating_anchor": ANCHOR_BOT,
             "include_self_play": False,
         }
+        if self.opponent_panel:
+            targets = {bot.name for bot in self.bots} if self.evaluation_targets is None else set(self.evaluation_targets)
+            active = set(self.opponent_panel) | targets | {ANCHOR_BOT}
+            document["bots"] = [bot for bot in document["bots"] if bot["name"] in active]
+            names = [bot["name"] for bot in document["bots"]]
+            # Targets outside the panel play every reference. Reference calibration is cheap and is only
+            # repeated when preparation selects a reference, or on the initial full-panel evaluation.
+            document["matchups"] = [[a, b] for i, a in enumerate(names) for b in names[i + 1:]
+                if (a in self.opponent_panel or b in self.opponent_panel)
+                and (a in targets or b in targets)]
+            document["opponent_panel"] = list(self.opponent_panel)
+            document["evaluation_version"] = self.evaluation_version
+            if self.evaluation_engine_identity is not None:
+                document["evaluation_engine_identity"] = self.evaluation_engine_identity
+            if self.evaluation_engine_inputs:
+                document["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
+        return document
 
 
 @dataclass(frozen=True)
@@ -437,7 +468,7 @@ def _parse_bots(value: Any, context: str) -> tuple[BenchmarkBot, ...]:
 
 
 def _check_placeholders(benchmark: Benchmark, context: str) -> None:
-    for field, text in _placeholder_fields(benchmark):
+    for field, text in _placeholder_fields(replace(benchmark, evaluation_targets=None)):
         if "${" in PLACEHOLDER_PATTERN.sub("", text):
             raise BenchmarkError(
                 f"{context}.{field}: malformed placeholder in {text!r}; "
@@ -454,7 +485,7 @@ def _check_arena_config(benchmark: Benchmark, context: str) -> None:
     bot and pool indices are the definition's.
     """
     try:
-        TournamentConfig.from_json(benchmark.tournament_config(_CHECK_DIR))
+        TournamentConfig.from_json(replace(benchmark, evaluation_targets=None).tournament_config(_CHECK_DIR))
     except TournamentError as exc:
         raise BenchmarkError(f"{context}: the arena refuses its config: {exc}") from exc
 
@@ -481,6 +512,39 @@ def parse_benchmark(value: Any) -> Benchmark:
     overhead = document.get("qualification_budget_percent")
     if "qualification_budget_percent" in document:
         overhead = _integer(overhead, "benchmark.qualification_budget_percent", minimum=1, maximum=100)
+    sample = document.get("qualification_sample", [])
+    if (not isinstance(sample, list) or any(type(index) is not int or index < 0 for index in sample)
+            or len(set(sample)) != len(sample)):
+        raise BenchmarkError("benchmark.qualification_sample: must be distinct nonnegative game indices")
+    from ..arena.job_storage import validate_settings
+    try:
+        storage = validate_settings(document.get("job_storage_budget"))
+    except ValueError as exc:
+        raise BenchmarkError(f"benchmark.{exc}") from exc
+    bots = _parse_bots(document["bots"], f"{context}.bots")
+    names = {bot.name for bot in bots}
+    panel = document.get("opponent_panel", [])
+    if not isinstance(panel, list) or any(type(name) is not str or name not in names for name in panel) or len(set(panel)) != len(panel):
+        raise BenchmarkError("benchmark.opponent_panel: must name distinct roster bots")
+    targets = document.get("evaluation_targets")
+    version = document.get("evaluation_version")
+    if "opponent_panel" in document:
+        if len(panel) < 2:
+            raise BenchmarkError("benchmark.opponent_panel: needs at least two references")
+        _string(version, "benchmark.evaluation_version")
+        if "evaluation_targets" in document and (
+            not isinstance(targets, list)
+            or any(type(name) is not str or name not in names for name in targets)
+            or len(set(targets)) != len(targets)
+        ):
+            raise BenchmarkError("benchmark.evaluation_targets: must name distinct roster bots")
+    elif any(key in document for key in ("evaluation_version", "evaluation_targets", "evaluation_engine_identity", "evaluation_engine_inputs")):
+        raise BenchmarkError("benchmark.evaluation_version and evaluation_targets require opponent_panel")
+    identity = document.get("evaluation_engine_identity")
+    if "evaluation_engine_identity" in document and (
+        type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
+    ):
+        raise BenchmarkError("benchmark.evaluation_engine_identity: must be 64 lowercase hex characters")
     benchmark = Benchmark(
         id=bench_id,
         title=_string(document["title"], f"{context}.title"),
@@ -507,9 +571,16 @@ def parse_benchmark(value: Any) -> Benchmark:
         workers=_integer(
             document.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         ),
-        bots=_parse_bots(document["bots"], f"{context}.bots"),
+        bots=bots,
         qualification_budget_percent=overhead,
         qualification_worker_selection=selection,
+        qualification_sample=tuple(sample),
+        job_storage_budget=storage,
+        opponent_panel=tuple(panel),
+        evaluation_version=version,
+        evaluation_targets=None if targets is None else tuple(targets),
+        evaluation_engine_identity=identity,
+        evaluation_engine_inputs=tuple(_strings(document["evaluation_engine_inputs"], "benchmark.evaluation_engine_inputs")) if "evaluation_engine_inputs" in document else (),
     )
     _check_placeholders(benchmark, context)
     _check_arena_config(benchmark, context)
@@ -587,7 +658,11 @@ def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
     """(field, text) for each string that may hold placeholders: command parts and checkpoints."""
     for index, part in enumerate(benchmark.engine_command):
         yield f"engine.command[{index}]", part
+    for index, path in enumerate(benchmark.evaluation_engine_inputs):
+        yield f"evaluation_engine_inputs[{index}]", path
     for bot_index, bot in enumerate(benchmark.bots):
+        if benchmark.opponent_panel and benchmark.evaluation_targets is not None and bot.name not in set(benchmark.opponent_panel) | set(benchmark.evaluation_targets):
+            continue
         command = bot.entry.get("command")
         if isinstance(command, list):
             for index, part in enumerate(command):
@@ -596,6 +671,8 @@ def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
         checkpoint = bot.entry.get("checkpoint")
         if isinstance(checkpoint, str):
             yield f"bots[{bot_index}].checkpoint", checkpoint
+        for index, path in enumerate(bot.entry.get("evaluation_inputs", [])):
+            yield f"bots[{bot_index}].evaluation_inputs[{index}]", path
 
 
 def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:

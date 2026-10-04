@@ -18,6 +18,18 @@ The bot reports name `llm-YOUR_MODEL` and version `0.1.0`; use those values in t
 
 Do not change the arena's submission isolation policy to run this command. Direct API access is for maintainer-authored trusted bots or local development. Submitted bots remain subject to the network-less sandbox; [#10](https://github.com/jackmaiorino/spellbench/issues/10) owns the controlled inference transport.
 
+The hosted broker normally requires `--image sha256:...` and starts a fresh network-less child container. A maintainer can explicitly replace that option with `--trusted-agent-process` on a machine that cannot launch Docker. This runs the same fixed adapter in a fresh subprocess, with a public environment and bounded teardown. It provides no OS confinement: the adapter can access host files and the network. Existing owner admission rules still apply, and the arena records the host broker as unsandboxed/self-reported. Model output remains a strictly validated legal candidate ID; it never executes code or tools. Changing execution mode requires fresh supported throughput qualification, with the flag retained in the workload hash.
+
+An idle aggregate budget can be relocated without resetting its accounting:
+
+```text
+python -m spellbench.llm.budget_transfer SOURCE.sqlite3 EXPORT_DIR --model gpt-6-luna --destination /cloud/ledger/active.sqlite3 --host-identity-file /cloud/host-id --host-identity POD_ID
+```
+
+First stop the source launcher and verify no dispatched run or pending requests. The export preserves all original ledger, ancestor, recovery-receipt and deadline-overlay bytes; it writes an exclusive source retirement marker under the existing SQLite lock. Copy the completed bundle over a secure channel to the declared destination, and create the owner-controlled host identity file there. An interrupted export after retirement leaves the source stopped. Never automatically reactivate it or create another allowance. Keep credentials outside the bundle and logs.
+
+Both the supported planner and hosted broker require `--run-budget-map /cloud/ledger/map.json --run-budget-map-sha256 SHA256` in the bot command, alongside the physical `--run-budget` path. The map binds one destination and host identity, verifies the immutable history and initial snapshot, and requires every pre-transfer request row and static policy to remain unchanged. New requests append to that same cumulative allowance. A later relocation must export the current authoritative leaf, preserving its additional usage. These flags are explicit because the arena removes private environment variables from bot children.
+
 ## ChatGPT subscription usage
 
 An eligible ChatGPT account can explicitly grant Spellbench permission to use its plan through [Sign in with ChatGPT](https://developers.openai.com/siwc/token-sharing-open-source/sign-in). Install the optional dependency and sign in outside a game:

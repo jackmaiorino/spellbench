@@ -1,0 +1,7 @@
+# Unplayed commitment replacement
+
+No formal games were dispatched under this commitment. The native one-shot queue stopped with `reason=stop_file` at 2026-10-03 01:55:17 UTC; its dispatch record and formal-attempt directory were absent, and both queue processes had exited.
+
+The approved RunPod path uses the trusted maintainer adapter without a Docker child. The launch guard requires a new commitment for that explicit command change. This commitment is therefore revealed as a preflight abort, and the unchanged 48-game panel will receive a fresh public commitment and game seeds. Decks, matchups, seat-swapped pairs, model, prompting, clocks, scoring settings and cumulative usage caps remain fixed. Every prior request and token debit remains charged. This replacement uses no formal outcomes and makes no strength claim.
+
+The second cloud qualification stopped before authorization or inference because the profile-renewal subprocess omitted the relocated budget map. The repair passes the explicit map and SHA-256 into that host child. A narrow `host-preflight-recovery` continuation permits a mapped leaf with zero requests and exactly `profile_renewal_failed` to resume after the prerequisite is repaired. It preserves the failed parent, host-failure count, original transfer proof and complete usage ancestry. It changes neither caps nor effective deadline, and retires the failed parent before publishing the successor map. A leaf with any inference request cannot use this path. Fresh supported qualification is required before formal play.

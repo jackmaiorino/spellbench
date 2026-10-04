@@ -59,6 +59,25 @@ def test_deleted_or_moved_run_is_reported(history, rename):
     assert result.returncode == 1 and "runs/2026-10-01/manifest.json" in result.stdout
 
 
+@pytest.mark.parametrize("delete", [False, True])
+def test_published_snapshots_are_immutable(history, delete):
+    root, bench, _, _ = history
+    path = bench / "snapshots" / "2026-10-02" / "manifest.json"
+    path.parent.mkdir(parents=True)
+    store.write_json_atomic(path, {"fixture": "snapshot"})
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "publish snapshot")
+    base = git(root, "rev-parse", "HEAD")
+    if delete:
+        git(root, "rm", str(path.relative_to(root)))
+    else:
+        store.write_json_atomic(path, {"fixture": "changed"})
+        git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "alter snapshot")
+    result = check(root, base)
+    assert result.returncode == 1 and "snapshots/2026-10-02/manifest.json" in result.stdout
+
+
 def test_old_pending_commitment_is_reported_until_revealed(history):
     root, bench, _, base = history
     pending = bench / "runs/2026-10-02"

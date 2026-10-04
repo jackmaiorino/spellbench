@@ -30,6 +30,7 @@ from __future__ import annotations
 import contextlib
 import datetime
 import json
+import json
 import os
 import sys
 import time
@@ -49,6 +50,7 @@ from ..arena.throughput import (
     sample_order, workload_id, QualificationRules,
 )
 from ..arena.validate import validate_tournament_dir
+from ..arena.job_storage import JobStorageGuard
 from ..errors import ProtocolError, RemoteError, TransportError
 from ..host.engine_process import EngineProcess
 from ..messages import EngineIdentity
@@ -94,7 +96,8 @@ Play = Callable[[int, tuple[int, ...]], tuple[float, tuple[PlayedGame, ...]]]
 
 
 def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None,
-                       storage_dir: Path | None = None, files: Sequence[EngineFile] | None = None) -> Play:
+                       storage_dir: Path | None = None, files: Sequence[EngineFile] | None = None,
+                       job_storage: JobStorageGuard | None = None) -> Play:
     """The ``play`` a qualification calls (``throughput.plan_allocation``).
 
     ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
@@ -113,6 +116,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     setups: list[RunSetup] = []
     stored: list[Path] = []
     trial_number = 0
+    qualification_completed = 0
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
         nonlocal trial_number
@@ -130,19 +134,33 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         write_seconds = {}
 
         def record(outcome):
+            nonlocal qualification_completed
             started_write = time.perf_counter()
             store.append_ledger_row(ledger, outcome.row.to_json())
             write_seconds[outcome.row.game_index] = time.perf_counter() - started_write
             _hosted_budget_guard(config, allow_pending=True)
+            if job_storage is not None:
+                qualification_completed += 1
+                job_storage.reconcile_game(len(chosen), qualification_games=max(0, 32 - qualification_completed))
 
         started = time.perf_counter()
         result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
                                    run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
-                                   timed=True, on_outcome=record, launch_files=files)
+                                   timed=True, on_outcome=record, launch_files=files,
+                                   guard=None if job_storage is None else job_storage.check)
         pinning.verify_files(files)
         wall = time.perf_counter() - started
+        counts = {name: sum(outcome.row.classification == name for outcome in result.outcomes)
+                  for name in ("natural", "forfeit", "halted", "truncated")}
+        summary = {"workers": workers, "elapsed_seconds": wall, "terminal_counts": counts,
+                   "useful_completed": counts["natural"] + counts["forfeit"],
+                   "requested_games": len(positions)}
+        (stored[0] / f"trial-{trial_number}-summary.json").write_text(
+            json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
         if result.error is not None:
             raise result.error
+        if counts["halted"] or counts["truncated"]:
+            raise ThroughputError("qualification has halted or truncated games; retained elapsed time and usage, no qualified rate")
         played = []
         for position, outcome in zip(positions, result.outcomes):
             assert isinstance(outcome, runner.TimedOutcome)
@@ -161,6 +179,26 @@ def _hosted_budget_guard(config: TournamentConfig, *, allow_pending: bool = Fals
         raise ThroughputError("hosted inference budget is failed, expired or unresolved; refusing further evaluation") from exc
 
 
+def _completed_game_guard(config, job_storage, games_total, completed):
+    _hosted_budget_guard(config, allow_pending=True)
+    if job_storage is not None:
+        job_storage.reconcile_game(max(0, games_total - completed))
+
+
+def _job_storage(config, benchmark, environ, paths):
+    if benchmark.job_storage_budget is None:
+        return None
+    paths = list(paths)
+    for bot in config.bots:
+        for index, part in enumerate(bot.command):
+            for flag in ("--log-dir", "--run-budget", "--run-budget-map"):
+                if part == flag and index + 1 < len(bot.command):
+                    paths.append(bot.command[index + 1])
+                elif part.startswith(flag + "="):
+                    paths.append(part.split("=", 1)[1])
+    return JobStorageGuard(benchmark.job_storage_budget, environ=environ, paths=paths)
+
+
 def _distinct(files: Sequence[EngineFile]) -> tuple[EngineFile, ...]:
     """Each file once (the same name and bytes, such as the interpreter of the engine and of a bot), in order."""
     seen: set[tuple[str, str]] = set()
@@ -175,13 +213,24 @@ def _distinct(files: Sequence[EngineFile]) -> tuple[EngineFile, ...]:
 def _launch_files(config: TournamentConfig) -> tuple[tuple[EngineFile, ...], tuple[EngineFile, ...]]:
     """The engine command's files (a manifest's ``engine_files``) and :func:`run_files`, each file hashed once, so
     the manifest records the very bytes that were pinned."""
-    engine = pinning.engine_files(config.engine_command)
+    engine = pinning.engine_files(config.engine_command, extra=config.evaluation_engine_inputs)
+    from ..arena.snapshot import files_identity
+    if config.evaluation_engine_identity is not None and files_identity(engine) != config.evaluation_engine_identity:
+        raise GuardError("engine inputs changed after bench prepare; prepare and commit a new evaluation")
     commands: list[EngineFile] = []
     checkpoints: list[EngineFile] = []
     for spec in config.bots:
         if spec.type != "subprocess":
+            if spec.evaluation_identity is not None:
+                from .panel import bot_files
+                files = bot_files(spec)
+                if files_identity(files) != spec.evaluation_identity:
+                    raise GuardError(f"bot {spec.name!r} inputs changed after bench prepare; prepare a new evaluation")
+                commands += list(files)
             continue
-        files = pinning.engine_files(spec.command, extra=() if spec.checkpoint is None else (spec.checkpoint,))
+        files = pinning.engine_files(spec.command, extra=(() if spec.checkpoint is None else (spec.checkpoint,)) + spec.evaluation_inputs)
+        if spec.evaluation_identity is not None and files_identity(files) != spec.evaluation_identity:
+            raise GuardError(f"bot {spec.name!r} inputs changed after bench prepare; prepare and commit a new evaluation")
         commands += [file for file in files if file.index < len(spec.command)]
         checkpoints += [file for file in files if file.index >= len(spec.command)]
     return engine, _distinct((*engine, *commands, *checkpoints))
@@ -215,6 +264,8 @@ def plan_for(
     games: Sequence[int] | None = None,
     environ: Mapping[str, str] | None = None,
     rules: QualificationRules | None = None,
+    sample: Sequence[int] = (),
+    job_storage: JobStorageGuard | None = None,
 ) -> Allocation:
     """Plan a launch's allocation before its first game (Decision 10; COMPUTE-POLICY.md; ARTIFACT-LAW.md clause 1).
 
@@ -247,18 +298,29 @@ def plan_for(
     matchups: dict[int, list[int]] = {}
     for position, index in enumerate(positions):
         matchups.setdefault(contexts[index].matchup_index, []).append(position)
+    if any(type(index) is not int or index not in positions for index in sample) or len(set(sample)) != len(sample):
+        raise ThroughputError("qualification sample must name distinct scheduled games")
+    preferred = [positions.index(index) for index in sample]
+    ordinary = sample_order(list(matchups.values()))
+    ordered_sample = tuple(preferred + [index for index in ordinary if index not in preferred])
     environ = os.environ if environ is None else environ
     host = environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS
     from ..llm.run_budget import qualification_config
     shape = {key: value for key, value in qualification_config(config).items() if key != "tournament_dir"}
-    workload = workload_id({"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
-                            "games": None if games is None else positions})
+    identity = {"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
+                "games": None if games is None else positions}
+    if sample:
+        identity["qualification_sample"] = list(sample)
+    if job_storage is not None:
+        job_storage.check()
+        identity["job_storage_budget"] = job_storage.settings
+    workload = workload_id(identity)
     _hosted_budget_guard(config)
     allocation = plan_allocation(
         games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
         play=qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
-                                files=files),
-        placement=placement, host=host, sample=sample_order(list(matchups.values())), workload=workload,
+                                files=files, job_storage=job_storage),
+        placement=placement, host=host, sample=ordered_sample, workload=workload,
         evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
         rules=rules,
     )
@@ -266,6 +328,8 @@ def plan_for(
     # The disk may have filled while the qualification played: the reserve holds now, just before the first game.
     check_reserve(_free_space(roles), allocation.budget.projected_bytes)
     _hosted_budget_guard(config)
+    if job_storage is not None:
+        job_storage.check()
     return allocation
 
 
@@ -373,6 +437,12 @@ def run_benchmark(
     # Absolute, so "." has a folder name and the parent holds local.json.
     benchmark_dir = Path(benchmark_dir).resolve()
     benchmark = definition.load_benchmark(benchmark_dir)
+    if benchmark.opponent_panel:
+        from ..arena.snapshot import contract
+        config = _config(benchmark, "check")
+        contract(config)
+        if not config.matchups:
+            raise BenchmarkError("no missing panel evaluations; use spellbench bench compose instead")
     values = definition.placeholder_values(
         definition.placeholder_names(benchmark), definition.load_local_values(benchmark_dir.parent), environ
     )
@@ -409,15 +479,18 @@ def _unrated_run(
     run_dir = benchmark_dir / definition.RUNS_DIR / name
     executed = runner.executed_config(config, resolve)
     engine, files = _launch_files(executed)
+    job_storage = _job_storage(executed, benchmark, environ, (benchmark_dir,))
     # Nothing is pinned: the run's volume keeps the reserve, and the files' hashes key the evidence (R1-6).
     allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                           volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
-                          rules=benchmark.qualification_rules())
+                          rules=benchmark.qualification_rules(), sample=benchmark.qualification_sample,
+                          job_storage=job_storage)
     summary = runner.run_tournament(
         config, run_secret=RunSecret.generate(), allocation=allocation, run_label=name, benchmark_id=benchmark.id,
         engine_files=engine, resolve=resolve, output_dir=run_dir,
         launch_files=files,
-        on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
+        on_game=lambda row: _completed_game_guard(executed, job_storage, allocation.games_total, row.game_index + 1),
+        guard=None if job_storage is None else job_storage.check,
     )
     return BenchmarkRun(run_dir=run_dir, summary=summary, failures=tuple(validate_tournament_dir(run_dir)))
 
@@ -471,10 +544,12 @@ def _committed_run(
             catalog = _catalog(environ, local)
             executed = runner.executed_config(config, resolve)
             engine, files = _launch_files(executed)
+            job_storage = _job_storage(executed, checked, environ, (benchmark_dir, catalog.pin_root))
             # Planned before pinning, so the pins' volume keeps its reserve too (ARTIFACT-LAW.md clause 1).
             allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
                                   volumes={"run_dir": benchmark_dir, "pin_root": catalog.pin_root}, files=files,
-                                  environ=environ, rules=checked.qualification_rules())
+                                  environ=environ, rules=checked.qualification_rules(), sample=checked.qualification_sample,
+                                  job_storage=job_storage)
             pinning.verify_files(files)
             identity = _engine_identity(executed)
             cited_by = f"{checked.id} run {name}"
@@ -489,7 +564,8 @@ def _committed_run(
                     commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
                     benchmark_id=checked.id, engine_files=engine, resolve=resolve, output_dir=run_dir,
                     launch_files=files,
-                    on_game=lambda row: _hosted_budget_guard(executed, allow_pending=True),
+                    on_game=lambda row: _completed_game_guard(executed, job_storage, allocation.games_total, row.game_index + 1),
+                    guard=None if job_storage is None else job_storage.check,
                 )
             except BaseException:
                 _close_run(run_dir, pins, catalog, cited_by=cited_by, regen=regen, failing=True)
@@ -534,9 +610,10 @@ def _reveal_reason(exc: BaseException, run_dir: Path) -> str:
 
 def _placeholders(config: TournamentConfig) -> list[str]:
     """The ``${NAME}`` placeholders of a recorded config's engine and bot commands and checkpoints."""
-    texts = [*config.engine_command]
+    texts = [*config.engine_command, *config.evaluation_engine_inputs]
     for spec in config.bots:
         texts += [*spec.command, *([spec.checkpoint] if spec.checkpoint is not None else [])]
+        texts += list(spec.evaluation_inputs)
     return sorted({name for text in texts for name in definition.PLACEHOLDER_PATTERN.findall(text)})
 
 

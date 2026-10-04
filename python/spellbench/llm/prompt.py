@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..bot import Decision
+from .compact import COMPACT_INSTRUCTIONS, COMPACT_PROMPT_VERSION, compact_payload
+from .prompt_json import canonical_json
 
 PROMPT_VERSION = "spellbench-llm/v1"
 SYSTEM_PROMPT = (
@@ -22,8 +24,13 @@ SYSTEM_PROMPT = (
 )
 
 
-def canonical_json(value: Any) -> str:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False)
+PROMPT_FORMATS = {"json-v1": PROMPT_VERSION, "shared-records-v1": COMPACT_PROMPT_VERSION}
+
+
+def system_prompt(prompt_format: str = "json-v1") -> str:
+    if prompt_format not in PROMPT_FORMATS:
+        raise ValueError("unsupported prompt format")
+    return SYSTEM_PROMPT if prompt_format == "json-v1" else SYSTEM_PROMPT + " " + COMPACT_INSTRUCTIONS
 
 
 def sha256(data: bytes) -> str:
@@ -59,6 +66,15 @@ class Prompt:
     bytes: int
 
 
+class PromptSizeError(ValueError):
+    """Safe size diagnostics without recording player data or exception text."""
+
+    def __init__(self, actual_bytes: int, maximum_bytes: int) -> None:
+        super().__init__("prompt exceeds configured byte cap; no candidates were truncated")
+        self.actual_bytes = actual_bytes
+        self.maximum_bytes = maximum_bytes
+
+
 def _card_names(value: Any) -> set[str]:
     found: set[str] = set()
     if isinstance(value, dict):
@@ -80,7 +96,9 @@ def render_prompt(
     history: Sequence[Mapping[str, Any]] = (),
     catalog: CardCatalog | None = None,
     max_bytes: int = 64_000,
+    prompt_format: str = "json-v1",
 ) -> Prompt:
+    instructions = system_prompt(prompt_format)
     # The host validates core observations before forwarding them. Extensions and
     # raw envelopes are deliberately excluded: they may carry engine-native IDs.
     if decision.acting_seat not in {"p0", "p1"} or decision.observation.get("viewer") != decision.acting_seat:
@@ -115,8 +133,9 @@ def render_prompt(
         names = sorted(_card_names(payload))
         payload["card_text"] = {name: catalog.cards[name] for name in names if name in catalog.cards}
         payload["missing_card_text"] = [name for name in names if name not in catalog.cards]
-    messages = ({"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": canonical_json(payload)})
+    body = payload if prompt_format == "json-v1" else compact_payload(payload)
+    messages = ({"role": "system", "content": instructions}, {"role": "user", "content": canonical_json(body)})
     encoded = canonical_json(messages).encode("utf-8")
     if len(encoded) > max_bytes:
-        raise ValueError("prompt exceeds configured byte cap; no candidates were truncated")
+        raise PromptSizeError(len(encoded), max_bytes)
     return Prompt(messages=messages, sha256=sha256(encoded), bytes=len(encoded))

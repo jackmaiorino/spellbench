@@ -37,8 +37,8 @@ def test_the_only_module_level_skips_left_are_the_kernel_bots_for_k2() -> None:
     modules = [path for root in (REPO / "python" / "tests", REPO / "integrations") if root.is_dir()
                for path in sorted(root.rglob("test_*.py"))]
     left = {path.relative_to(REPO).as_posix(): _module_level_skips(path) for path in modules if _module_level_skips(path)}
-    expected = {path.relative_to(REPO).as_posix(): [K2_SKIP] for path in modules if path.relative_to(REPO).parts[0] == "integrations"}
-    assert left == expected          # no migration skip is left; sub-project C's kernel-bot modules wait for K2 (R3-18)
+    expected = {"integrations/mtg_kernel/tests/test_kernel_flat_bot.py": [K2_SKIP]}
+    assert left == expected  # Only the legacy v1 module waits for K2; v2 integration tests run.
 
 
 def test_the_version_and_the_exports() -> None:

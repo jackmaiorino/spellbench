@@ -360,7 +360,7 @@ def definition_changes(benchmark_dir: Path, commit: str) -> str | None:
     """The first file of the benchmark folder, its runs aside, that differs between ``commit`` and ``HEAD``, or
     between ``commit`` and the work tree, or sits untracked in the work tree (a repository-relative path); None
     when the benchmark is the one ``commit`` holds."""
-    scope = ("--", ".", f":(exclude){definition.RUNS_DIR}")
+    scope = ("--", ".", f":(exclude){definition.RUNS_DIR}", ":(exclude)snapshots")
     for args in (("diff", "--name-only", "--no-renames", commit, "HEAD", *scope),
                  ("diff", "--name-only", "--no-renames", commit, *scope),
                  ("ls-files", "--full-name", "--others", "--exclude-standard", *scope)):
@@ -400,6 +400,13 @@ def commit_run(
     environ = os.environ if environ is None else environ
     benchmark_dir = Path(benchmark_dir).resolve()
     benchmark = definition.load_benchmark(benchmark_dir)
+    if benchmark.opponent_panel:
+        from ..arena.config import TournamentConfig
+        from ..arena.snapshot import contract
+        config = TournamentConfig.from_json(benchmark.tournament_config("check"))
+        contract(config)
+        if not config.matchups:
+            raise CommitError("no missing panel evaluations; use spellbench bench compose instead")
     local = definition.load_local_values(benchmark_dir.parent)
     # 1. The local values the rated run needs, before anything is published (R3-14).
     note = _checked_local_values(environ, local, placement)

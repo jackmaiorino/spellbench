@@ -21,11 +21,15 @@ from pathlib import Path
 
 from .prompt import Prompt
 from .provider import Completion, ProviderError
+from .budget_transfer import BudgetPaths
 
 SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
 TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
+SERVICE_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v4"
 DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
+LIMIT_INCREASE_SCHEMA = "spellbench-llm-budget-increase/v1"
+IDLE_AMENDMENT_SCHEMA = "spellbench-llm-idle-budget-amendment/v1"
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -102,16 +106,29 @@ def _timeout_forfeit(policy, row) -> bool:
             and row["status"] == "failed" and row["error"] == "timeout")
 
 
+def _http503_forfeit(policy, row) -> bool:
+    return (policy.get("allow_http503_forfeits", False) is True
+            and row["status"] == "failed" and row["error"] == "http_503")
+
+
+def _continuation_schema(policy: dict) -> str:
+    if policy.get("allow_http503_forfeits", False):
+        return SERVICE_FORFEIT_SCHEMA
+    return TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA
+
+
 def _terminal_request(policy, row) -> bool:
-    if _timeout_forfeit(policy, row):
+    if _timeout_forfeit(policy, row) or _http503_forfeit(policy, row):
         return False
     return (row["status"] not in {"pending", "completed"} or (row["status"] != "pending"
             and (row["input_tokens"] is None or row["output_tokens"] is None)))
 
 
 class RunBudget:
-    def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None):
+    def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None,
+                 path_map: Path | None = None, path_map_sha256: str | None = None):
         self.path, self.model = Path(path), model
+        self.paths = BudgetPaths(self.path, path_map, path_map_sha256)
         self.expected_limits = dict(expected_limits or {})
         with self._transaction() as database:
             policy = self._policy(database)
@@ -120,15 +137,16 @@ class RunBudget:
 
     @staticmethod
     def create(path: Path, *, model: str, requests: int, tokens: int,
-               wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False) -> None:
+               wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False,
+               allow_http503_forfeits: bool = False) -> None:
         if not isinstance(model, str) or not model.strip():
             raise ValueError("an explicit model is required")
         for name, value in (("requests", requests), ("tokens", tokens),
                             ("wall_seconds", wall_seconds), ("max_inflight", max_inflight)):
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        if type(allow_timeout_forfeits) is not bool:
-            raise ValueError("allow_timeout_forfeits must be boolean")
+        if type(allow_timeout_forfeits) is not bool or type(allow_http503_forfeits) is not bool:
+            raise ValueError("availability policy must be boolean")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = time.time()
@@ -139,6 +157,8 @@ class RunBudget:
                   "terminal_error": None}
         if allow_timeout_forfeits:
             policy.update(schema=TIMEOUT_FORFEIT_SCHEMA, allow_timeout_forfeits=True)
+        if allow_http503_forfeits:
+            policy.update(schema=SERVICE_FORFEIT_SCHEMA, allow_http503_forfeits=True)
         RunBudget._initialize(path, policy)
 
     @staticmethod
@@ -197,15 +217,18 @@ class RunBudget:
                                     recovery=recovery, no_cutoff=no_cutoff)
 
     @staticmethod
-    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None) -> None:
-        receipt = Path(recovery["receipt"]).resolve(strict=True)
+    def _recovery_receipt(recovery: dict, parent: Path, parent_sha256: str, deadline: float | None,
+                          paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> None:
+        receipt = paths.resolve(recovery["receipt"]) if paths else Path(recovery["receipt"]).resolve(strict=True)
         if _digest(receipt) != recovery["receipt_sha256"]:
             raise ProviderError("run_budget_recovery_changed")
         value = json.loads(receipt.read_bytes())
-        manifest = Path(value["retained_run_manifest"]).resolve(strict=True)
+        manifest = (paths.resolve(value["retained_run_manifest"]) if paths
+                    else Path(value["retained_run_manifest"]).resolve(strict=True))
         publication = json.loads(manifest.read_bytes())
         if (value["schema"] != "spellbench-llm-failed-run-recovery/v1"
-                or value["parent"] != str(parent) or value["parent_sha256"] != parent_sha256
+                or value["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
+                or value["parent_sha256"] != parent_sha256
                 or value["effective_deadline"] != deadline
                 or value["purpose"] not in {"provider-diagnostics", "fixed-panel-rerun"}
                 or _digest(manifest) != value["retained_run_sha256"]
@@ -214,6 +237,139 @@ class RunBudget:
                 or publication.get("run", {}).get("status") != "aborted"
                 or publication.get("run", {}).get("rated") is not False):
             raise ProviderError("run_budget_recovery_changed")
+
+    @staticmethod
+    def _limit_increase(continuation: dict, parent: Path, prior: dict, child: dict,
+                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict | None:
+        """Validate explicit operator authority for two cumulative caps only."""
+        increase = continuation.get("limit_increase")
+        if increase is None:
+            return None
+        try:
+            if (continuation["kind"] != "failed-run-recovery"
+                    or set(increase) != {"authority", "authority_sha256"}):
+                raise ValueError("invalid increase boundary")
+            authority = paths.resolve(increase["authority"]) if paths else Path(increase["authority"]).resolve(strict=True)
+            if _digest(authority) != increase["authority_sha256"]:
+                raise ValueError("authority changed")
+            record = json.loads(authority.read_bytes())
+            old = {name: prior[name] for name in LIMIT_NAMES}
+            new = {name: child[name] for name in LIMIT_NAMES}
+            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                               "approved_limits", "failure_receipt_sha256", "purpose", "user_authority"}
+                    or record["schema"] != LIMIT_INCREASE_SCHEMA or record["model"] != child["model"]
+                    or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or record["parent_limits"] != old or record["approved_limits"] != new
+                    or record["failure_receipt_sha256"] != continuation["recovery"]["receipt_sha256"]
+                    or record["purpose"] != "fixed-panel-rerun"
+                    or json.loads((paths.resolve(continuation["recovery"]["receipt"]) if paths
+                                   else Path(continuation["recovery"]["receipt"])).read_bytes())["purpose"] != "fixed-panel-rerun"
+                    or not prior.get("terminal_error")
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()
+                    or any(type(value) is not int or value < 1
+                           for limits in (record["parent_limits"], record["approved_limits"])
+                           for value in limits.values())
+                    or any(new[name] != old[name] for name in ("max_inflight", "max_wall_seconds"))
+                    or any(new[name] < old[name] for name in ("max_requests", "max_reported_tokens"))
+                    or new == old):
+                raise ValueError("unauthorized limit change")
+            return record
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_limit_increase_changed") from None
+
+    @staticmethod
+    def _stopped_qualification_receipt(continuation: dict, parent: Path, prior: dict, rows,
+                                       child: dict, paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> None:
+        """Bind a real stopped precommit phase, never a fabricated formal abort."""
+        try:
+            proof = continuation["qualification_recovery"]
+            if set(proof) != {"receipt", "receipt_sha256"}:
+                raise ValueError("invalid recovery proof")
+            resolve = paths.resolve if paths else lambda value: Path(value).resolve(strict=True)
+            logical = parent_logical or (paths.key(parent) if paths else str(parent))
+            receipt = resolve(proof["receipt"])
+            if _digest(receipt) != proof["receipt_sha256"]:
+                raise ValueError("changed recovery proof")
+            record = json.loads(receipt.read_bytes())
+            names = {"schema", "phase", "source", "model", "parent", "parent_sha256",
+                     "parent_map", "parent_map_sha256", "completion", "completion_sha256",
+                     "dispatch", "dispatch_sha256",
+                     "failed_row", "limits", "effective_deadline", "owned_processes_absent",
+                     "formal_started", "public_commitment", "allow_http503_forfeits", "user_authority"}
+            failed = [row for row in rows if _terminal_request(prior, row)]
+            fields = ("id", "status", "error", "reserved_tokens", "input_tokens", "output_tokens")
+            completion_path = resolve(record["completion"])
+            completion = json.loads(completion_path.read_bytes())
+            dispatch_path = resolve(record["dispatch"])
+            dispatch = json.loads(dispatch_path.read_bytes())
+            totals = _totals(prior, rows)
+            if (set(record) != names or record["schema"] != "spellbench-llm-stopped-qualification/v1"
+                    or record["phase"] != "precommit-qualification"
+                    or not isinstance(record["source"], str) or len(record["source"]) != 40
+                    or any(c not in "0123456789abcdef" for c in record["source"])
+                    or _digest(dispatch_path) != record["dispatch_sha256"]
+                    or dispatch.get("source") != record["source"] or dispatch.get("formal_dispatches") != 0
+                    or record["model"] != child["model"]
+                    or record["parent"] != logical
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or _digest(resolve(record["parent_map"])) != record["parent_map_sha256"]
+                    or _digest(completion_path) != record["completion_sha256"]
+                    or record["limits"] != {name: prior[name] for name in LIMIT_NAMES}
+                    or any(child[name] != prior[name] for name in LIMIT_NAMES)
+                    or record["effective_deadline"] != RunBudget._effective_deadline_for(parent, prior, logical=logical)
+                    or continuation.get("no_cutoff", False) != (record["effective_deadline"] is None)
+                    or prior.get("terminal_error") != "hosted_broker_failed"
+                    or len(failed) != 1 or failed[0]["status"] != "failed" or failed[0]["error"] != "http_503"
+                    or record["failed_row"] != {name: failed[0][name] for name in fields}
+                    or any(row["status"] == "pending" for row in rows)
+                    or type(completion["exit_code"]) is not int or completion["exit_code"] == 0
+                    or completion["formal_dispatches"] != 0
+                    or completion["budget_after"].get("pending") != 0
+                    or any(completion["budget_after"].get(name) != value for name, value in totals.items())
+                    or record["owned_processes_absent"] is not True
+                    or record["formal_started"] is not False or record["public_commitment"] is not None
+                    or record["allow_http503_forfeits"] is not True or child.get("allow_http503_forfeits") is not True
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()):
+                raise ValueError("invalid stopped qualification")
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_qualification_recovery_changed") from None
+
+    @staticmethod
+    def _idle_amendment(continuation: dict, parent: Path, prior: dict, child: dict,
+                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict:
+        """Bind prospective caps to explicit authority and the unchanged idle parent."""
+        try:
+            increase = continuation["limit_increase"]
+            if set(increase) != {"authority", "authority_sha256"}:
+                raise ValueError("invalid amendment boundary")
+            authority = paths.resolve(increase["authority"]) if paths else Path(increase["authority"]).resolve(strict=True)
+            if _digest(authority) != increase["authority_sha256"]:
+                raise ValueError("authority changed")
+            record = json.loads(authority.read_bytes())
+            old = {name: prior[name] for name in LIMIT_NAMES}
+            new = {name: child[name] for name in LIMIT_NAMES}
+            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                               "approved_limits", "no_cutoff", "purpose", "user_authority"}
+                    or record["schema"] != IDLE_AMENDMENT_SCHEMA or record["model"] != child["model"]
+                    or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or record["parent_limits"] != old or record["approved_limits"] != new
+                    or type(record["no_cutoff"]) is not bool
+                    or record["no_cutoff"] != continuation.get("no_cutoff", False)
+                    or record["purpose"] != "precommit-evaluation"
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()
+                    or prior.get("terminal_error")
+                    or any(type(value) is not int or value < 1
+                           for limits in (record["parent_limits"], record["approved_limits"])
+                           for value in limits.values())
+                    or any(new[name] != old[name] for name in ("max_inflight", "max_wall_seconds"))
+                    or any(new[name] < old[name] for name in ("max_requests", "max_reported_tokens"))
+                    or (new == old and not record["no_cutoff"])):
+                raise ValueError("unauthorized amendment")
+            return record
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_idle_amendment_changed") from None
 
     @staticmethod
     def _continue_failure(parent: Path, path: Path, *, model: str, parent_sha256: str,
@@ -279,7 +435,7 @@ class RunBudget:
             if (inherited["reported_input_tokens"] + inherited["reported_output_tokens"]
                     + inherited["uncertain_reserved_tokens"] >= policy["max_reported_tokens"]):
                 raise ProviderError("run_budget_tokens_exhausted")
-            successor = {**policy, "schema": TIMEOUT_FORFEIT_SCHEMA if allow_timeout_forfeits else CONTINUATION_SCHEMA,
+            successor = {**policy, "schema": _continuation_schema({**policy, "allow_timeout_forfeits": allow_timeout_forfeits}),
                          "terminal_error": None,
                          "continuation": {"kind": "precommit-qualification", "parent": str(parent),
                                           "parent_sha256": parent_sha256, "inherited": inherited,
@@ -326,6 +482,7 @@ class RunBudget:
             database.execute("BEGIN IMMEDIATE")
             if _successor_claim(self.path.resolve()).exists():
                 raise ProviderError("run_budget_attempt_continued")
+            self.paths.validate()
             yield database
             database.commit()
         except (sqlite3.Error, OSError, ValueError, KeyError, TypeError):
@@ -337,21 +494,24 @@ class RunBudget:
     def _policy(self, database):
         value = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
         self._validate_policy(value, self.model, self.expected_limits)
+        self.paths.validate_prefix(database, value)
         current = self.path.resolve()
+        if self.paths.manifest is not None and current == self.paths.required_ancestor:
+            self.paths.validate_transfer_anchor(database, value)
         origin = _origin(current)
         if origin.exists() or "continuation" in value:
             recorded = json.loads(origin.read_bytes())
-            if (recorded["successor"] != str(current)
+            if (recorded["successor"] != self.paths.key(current)
                     or recorded["policy"] != {key: item for key, item in value.items() if key != "terminal_error"}):
                 raise ProviderError("run_budget_continuation_changed")
         seen = {current}
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
-            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery"}:
+            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"}:
                 raise ValueError("invalid continuation kind")
             no_cutoff = continuation.get("no_cutoff", False)
-            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] != "failed-run-recovery"):
+            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"}):
                 raise ProviderError("run_budget_continuation_changed")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
@@ -365,7 +525,7 @@ class RunBudget:
                         or type(extension["parent_deadline"]) not in (int, float)
                         or not math.isfinite(extension["parent_deadline"])):
                     raise ValueError("invalid wall extension")
-            parent = Path(continuation["parent"]).resolve(strict=True)
+            parent = self.paths.resolve(continuation["parent"])
             _retained_file(parent)
             recovery = continuation.get("recovery") if continuation["kind"] == "failed-run-recovery" else None
             if continuation["kind"] == "failed-run-recovery" and not isinstance(recovery, dict):
@@ -376,7 +536,7 @@ class RunBudget:
                 raise ProviderError("run_budget_parent_changed")
             seen.add(parent)
             claim = json.loads(_successor_claim(parent).read_bytes())
-            if (claim["successor"] != str(current) or claim["parent_sha256"] != continuation["parent_sha256"]
+            if (claim["successor"] != self.paths.key(current) or claim["parent_sha256"] != continuation["parent_sha256"]
                     or claim["policy"] != {key: item for key, item in child.items() if key != "terminal_error"}):
                 raise ProviderError("run_budget_continuation_changed")
             retained = sqlite3.connect(parent.as_uri() + "?mode=ro", uri=True, timeout=10)
@@ -386,6 +546,8 @@ class RunBudget:
                 if retained.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
                     raise ProviderError("run_budget_parent_unsealed")
                 prior = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+                if self.paths.manifest is not None and parent == self.paths.required_ancestor:
+                    self.paths.validate_transfer_anchor(retained, prior)
                 if recovery is not None:
                     if prior.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False):
                         raise ProviderError("run_budget_recovery_changed")
@@ -394,19 +556,44 @@ class RunBudget:
                     overlay = _deadline_extension(parent)
                     if continuation["parent_overlay_sha256"] != (_digest(overlay) if overlay.exists() else None):
                         raise ProviderError("run_budget_recovery_changed")
-                    parent_deadline = self._effective_deadline_for(parent, prior)
-                    child_deadline = self._effective_deadline_for(current, child)
+                    parent_deadline = self._effective_deadline_for(parent, prior, logical=self.paths.key(parent))
+                    child_deadline = self._effective_deadline_for(current, child, logical=self.paths.key(current))
                     if child_deadline != (None if no_cutoff else parent_deadline):
                         raise ProviderError("run_budget_recovery_changed")
-                    self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline)
+                    self._recovery_receipt(recovery, parent, continuation["parent_sha256"], parent_deadline, self.paths)
+                idle_amendment = continuation["kind"] == "healthy-idle-amendment"
+                increase = (self._idle_amendment(continuation, parent, prior, child, self.paths) if idle_amendment
+                            else self._limit_increase(continuation, parent, prior, child, self.paths))
+                if increase is not None and not idle_amendment and (parent_deadline is not None or child_deadline is not None):
+                    raise ProviderError("run_budget_limit_increase_changed")
                 # Validate each ancestor against this boundary's retained wall
                 # limit, rather than the leaf's prospectively extended limit.
-                ancestor_limits = {name: limit for name, limit in self.expected_limits.items()
-                                   if name not in {"allow_timeout_forfeits", "max_wall_seconds"}}
+                ancestor_limits = {name: child[name] for name in LIMIT_NAMES}
+                if increase is not None:
+                    ancestor_limits.update(increase["parent_limits"])
                 ancestor_limits["max_wall_seconds"] = (child["max_wall_seconds"] if extension is None
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
+                if continuation["kind"] == "stopped-qualification-recovery":
+                    if extension is not None or recovery is not None or increase is not None:
+                        raise ProviderError("run_budget_qualification_recovery_changed")
+                    self._stopped_qualification_receipt(continuation, parent, prior, rows, child, self.paths)
+                elif child.get("allow_http503_forfeits", False) != prior.get("allow_http503_forfeits", False):
+                    raise ProviderError("run_budget_continuation_changed")
+                if idle_amendment:
+                    if (extension is not None or recovery is not None
+                            or any(_terminal_request(prior, row) for row in rows)
+                            or child.get("allow_timeout_forfeits", False) != prior.get("allow_timeout_forfeits", False)
+                            or self._effective_deadline_for(current, child, logical=self.paths.key(current))
+                            != (None if no_cutoff else self._effective_deadline_for(parent, prior, logical=self.paths.key(parent)))):
+                        raise ProviderError("run_budget_idle_amendment_changed")
+                if continuation["kind"] == "host-preflight-recovery":
+                    if (rows or prior.get("terminal_error") != "profile_renewal_failed" or extension is not None
+                            or child.get("allow_timeout_forfeits", False) != prior.get("allow_timeout_forfeits", False)
+                            or self._effective_deadline_for(parent, prior, logical=self.paths.key(parent))
+                            != self._effective_deadline_for(current, child, logical=self.paths.key(current))):
+                        raise ProviderError("run_budget_continuation_changed")
                 if any(row["status"] == "pending" for row in rows):
                     raise ProviderError("run_budget_unresolved_request")
                 if (prior.get("allow_timeout_forfeits", False) and not child.get("allow_timeout_forfeits", False)):
@@ -421,23 +608,26 @@ class RunBudget:
                                     and child["deadline"] > prior["deadline"])
                 if (not wall_matches
                         or any(child[name] != prior[name] for name in (*LIMIT_NAMES, "created_at", "provider_output_cap")
-                               if name != "max_wall_seconds")
+                               if name != "max_wall_seconds" and not (increase is not None
+                                   and name in {"max_requests", "max_reported_tokens"}))
                         or continuation["inherited"] != _totals(prior, rows)):
                     raise ProviderError("run_budget_continuation_changed")
             finally:
                 retained.close()
             current, child = parent, prior
+        if self.paths.manifest is not None and self.paths.required_ancestor not in seen:
+            raise ProviderError("run_budget_transfer_changed")
         self._effective_deadline(value)
         return value
 
     def _effective_deadline(self, policy: dict) -> float | None:
         """Validate the host-owned overlay without changing measured policy bytes."""
-        return self._effective_deadline_for(self.path.resolve(), policy)
+        return self._effective_deadline_for(self.path.resolve(), policy, logical=self.paths.key(self.path))
 
     def qualification_origin(self) -> Path:
         """The sealed budget path for the same qualified request configuration.
 
-        Only failed-run recovery preserves the qualified request settings.
+        Failed-run and host-preflight recovery preserve the request settings.
         Explicit removal of an overall cutoff does not change those settings.
         Precommit continuations can change policy, so traversal stops there.
         The active successor remains the only budget used for admission.
@@ -445,21 +635,22 @@ class RunBudget:
         with self._transaction() as database:
             policy = self._policy(database)  # verifies all ancestor/receipt/overlay bindings
             path = self.path.resolve()
-            while policy.get("continuation", {}).get("kind") == "failed-run-recovery":
-                path = Path(policy["continuation"]["parent"]).resolve(strict=True)
+            while (policy.get("continuation", {}).get("kind") in {"failed-run-recovery", "host-preflight-recovery"}
+                   and "limit_increase" not in policy["continuation"]):
+                path = self.paths.resolve(policy["continuation"]["parent"])
                 with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as retained:
                     policy = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
             return path
 
     @staticmethod
-    def _effective_deadline_for(path: Path, policy: dict) -> float | None:
+    def _effective_deadline_for(path: Path, policy: dict, *, logical: str | None = None) -> float | None:
         marker = _deadline_extension(path)
         continuation = policy.get("continuation", {})
         no_cutoff = continuation.get("no_cutoff", False)
         if type(no_cutoff) is not bool:
             raise ProviderError("run_budget_continuation_changed")
         if no_cutoff:
-            if continuation.get("kind") != "failed-run-recovery" or marker.exists():
+            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"} or marker.exists():
                 raise ProviderError("run_budget_deadline_extension_conflict")
             return None
         if not marker.exists():
@@ -468,7 +659,7 @@ class RunBudget:
         if (not isinstance(value, dict) or set(value) != {
                 "schema", "budget", "policy_sha256", "original_deadline", "effective_deadline", "sha256"}
                 or value["schema"] != DEADLINE_EXTENSION_SCHEMA
-                or value["budget"] != str(path)
+                or value["budget"] != (logical if logical is not None else str(path))
                 or value["policy_sha256"] != _static_policy_digest(policy)
                 or value["original_deadline"] != policy["deadline"]
                 or not _finite_timestamp(value["effective_deadline"])
@@ -486,6 +677,8 @@ class RunBudget:
         """
         if not _finite_timestamp(deadline):
             raise ValueError("an explicit finite absolute deadline is required")
+        if self.paths.manifest is not None:
+            raise ProviderError("run_budget_transfer_overlay_frozen")
         with self._transaction() as database:
             policy = self._policy(database)
             if self._effective_deadline(policy) is None:
@@ -517,9 +710,11 @@ class RunBudget:
     @staticmethod
     def _validate_policy(value, model, expected_limits):
         allow_timeouts = value.get("allow_timeout_forfeits", False)
-        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA, TIMEOUT_FORFEIT_SCHEMA)
-                or type(allow_timeouts) is not bool
-                or (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts
+        allow_503 = value.get("allow_http503_forfeits", False)
+        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA, TIMEOUT_FORFEIT_SCHEMA, SERVICE_FORFEIT_SCHEMA)
+                or type(allow_timeouts) is not bool or type(allow_503) is not bool
+                or (value["schema"] == SERVICE_FORFEIT_SCHEMA) != allow_503
+                or (not allow_503 and (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts)
                 or (value["schema"] == SCHEMA and "continuation" in value)
                 or (value["schema"] == CONTINUATION_SCHEMA and "continuation" not in value)
                 or ("continuation" in value and not isinstance(value["continuation"], dict))):
@@ -529,7 +724,7 @@ class RunBudget:
         for name in LIMIT_NAMES:
             if type(value[name]) is not int or value[name] < 1:
                 raise ValueError("invalid budget limits")
-        if any(value.get(name, False if name == "allow_timeout_forfeits" else None) != limit
+        if any(value.get(name, False if name in {"allow_timeout_forfeits", "allow_http503_forfeits"} else None) != limit
                for name, limit in expected_limits.items()):
             raise ProviderError("run_budget_limits_mismatch")
         if (any(type(value[name]) not in (float, int) or not math.isfinite(value[name])
@@ -632,6 +827,7 @@ class RunBudget:
                     "active_failed": sum(row["status"] == "failed" for row in rows),
                     "active_terminal_failures": sum(_terminal_request(policy, row) for row in rows),
                     "active_timeout_forfeits": sum(_timeout_forfeit(policy, row) for row in rows),
+                    "active_http503_forfeits": sum(_http503_forfeit(policy, row) for row in rows),
                     "active_unknown_usage": sum(row["input_tokens"] is None or row["output_tokens"] is None for row in rows),
                     "inherited": policy.get("continuation", {}).get("inherited", dict.fromkeys(INHERITED_NAMES, 0)),
                     "pending": sum(row["status"] == "pending" for row in rows),
@@ -724,13 +920,21 @@ def _hosted_budgets(config):
                          or part.startswith("--allow-timeout-forfeits=")]
         if len(timeout_flags) > 1 or any(part != "--allow-timeout-forfeits" for part in timeout_flags):
             raise ProviderError("run_budget_ambiguous_command")
+        service_flags = [part for part in command if part == "--allow-http503-forfeits"
+                         or part.startswith("--allow-http503-forfeits=")]
+        if len(service_flags) > 1 or any(part != "--allow-http503-forfeits" for part in service_flags):
+            raise ProviderError("run_budget_ambiguous_command")
 
-        budget = RunBudget(Path(option("--run-budget")), model=option("--model"), expected_limits={
+        map_option = option("--run-budget-map")
+        budget = RunBudget(Path(option("--run-budget")), model=option("--model"),
+                           path_map=Path(map_option) if map_option else None,
+                           path_map_sha256=option("--run-budget-map-sha256"), expected_limits={
             "max_requests": int(option("--max-run-requests", 4096)),
             "max_reported_tokens": int(option("--max-run-tokens", 10_000_000)),
             "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
             "max_inflight": int(option("--max-inflight", 4)),
             "allow_timeout_forfeits": bool(timeout_flags),
+            "allow_http503_forfeits": bool(service_flags),
         })
         yield index, budget
 
@@ -757,9 +961,9 @@ def qualification_config(config) -> dict:
         command = shape["bots"][index]["command"]
         for position, part in enumerate(command):
             if part.startswith("--run-budget="):
-                command[position] = "--run-budget=" + str(origin)
+                command[position] = "--run-budget=" + budget.paths.key(origin)
             elif part == "--run-budget":
-                command[position + 1] = str(origin)
+                command[position + 1] = budget.paths.key(origin)
     return shape
 
 
@@ -774,6 +978,7 @@ def main() -> int:
     create.add_argument("--max-wall-seconds", type=int, required=True)
     create.add_argument("--max-inflight", type=int, default=4)
     create.add_argument("--allow-timeout-forfeits", action="store_true")
+    create.add_argument("--allow-http503-forfeits", action="store_true")
     summary = commands.add_parser("summary")
     summary.add_argument("path", type=Path)
     summary.add_argument("--model", required=True)
@@ -801,7 +1006,8 @@ def main() -> int:
     if args.command == "create":
         RunBudget.create(args.path, model=args.model, requests=args.max_requests, tokens=args.max_tokens,
                          wall_seconds=args.max_wall_seconds, max_inflight=args.max_inflight,
-                         allow_timeout_forfeits=args.allow_timeout_forfeits)
+                         allow_timeout_forfeits=args.allow_timeout_forfeits,
+                         allow_http503_forfeits=args.allow_http503_forfeits)
     elif args.command == "continue-qualification":
         RunBudget.continue_qualification(args.parent, args.path, model=args.model, parent_sha256=args.parent_sha256,
                                          allow_timeout_forfeits=args.allow_timeout_forfeits,
