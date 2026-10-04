@@ -76,7 +76,8 @@
         "author": "Spellbench",
         "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
         "url": null
-      }
+      },
+      "evaluation_identity": "1061f3d2a1bdbb05d1c54c7710bbfa910c4d72bb064046e7fb60ed1bf2a4e6cc"
     },
     {
       "name": "g115",
@@ -107,7 +108,8 @@
         "author": "mipo",
         "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
-      }
+      },
+      "evaluation_identity": "8e72a2406fa6fc9fac1beaa2cd51baf99803340376e22c73ce7512989ccd6611"
     },
     {
       "name": "a48",
@@ -138,7 +140,8 @@
         "author": "mipo",
         "description": "mtg-kernel policy network, Phase 1 lineage a block 48 (8,800 updates, independent initialization), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
-      }
+      },
+      "evaluation_identity": "f7c3965c9cc491a4b72938358386799cd008280f14cd1a1b3128f6793bef3916"
     },
     {
       "name": "c12",
@@ -169,7 +172,8 @@
         "author": "mipo",
         "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
-      }
+      },
+      "evaluation_identity": "2f8514876870310b8e5fd54d7c9eba347c09135b4063bf88ecfd3d8eac641ab4"
     },
     {
       "name": "llm-gpt-6-luna",
@@ -208,9 +212,9 @@
         "--timeout-ms",
         "60000",
         "--max-run-requests",
-        "12000",
+        "20000",
         "--max-run-tokens",
-        "50000000",
+        "125000000",
         "--max-run-wall-seconds",
         "${SPELLBENCH_LLM_WALL_SECONDS}",
         "--max-inflight",
@@ -221,7 +225,8 @@
         "author": "OpenAI / mipo",
         "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.",
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
-      }
+      },
+      "evaluation_identity": "ffc2e05c5a68a9faad73ddd8dcb6807926f3f5999d693a7e0984f5a014362b59"
     }
   ],
   "qualification_sample": [
@@ -237,5 +242,13 @@
   "job_storage_budget": {
     "projected_bytes": 17179869184,
     "cap_bytes": 25769803776
-  }
+  },
+  "evaluation_engine_identity": "5c0287b687a4047dc6bebbd8fdd3d5d817bf2b160e75efe09606b33471e092b1",
+  "evaluation_targets": [
+    "a48",
+    "c12",
+    "g115",
+    "llm-gpt-6-luna",
+    "uniform"
+  ]
 }
