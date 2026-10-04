@@ -51,7 +51,8 @@ def target(value):
     raise ValueError("combat target has no permitted reference")
 
 
-def validate_result(decision: dict, result: dict, visits: int, calls: int) -> None:
+def validate_result(decision: dict, result: dict, visits: int, calls: int, *,
+                    minimum_visits: bool = True, expected_budget: dict | None = None) -> None:
     family = combat_kind(decision)
     viewer, objects = battlefield(decision)
     if (result.get("decision_sha256") != decision_hash(decision) or result.get("combat") != family
@@ -95,8 +96,11 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int) -> No
         neural = root.get("neural_calls")
         expected_type = "CHOOSE_USE" if family == "attack" else "CHOOSE_TARGET"
         if (type(root.get("index")) is not int or root["index"] != index or root.get("type") != expected_type
-                or type(root.get("requested_minimum")) is not int or root["requested_minimum"] != visits
-                or type(actual) is not int or actual < visits or type(neural) is not int or neural <= 0):
+                or type(root.get("requested_minimum")) is not int
+                or root["requested_minimum"] != (visits if minimum_visits else 0)
+                or expected_budget is not None and root.get("search_budget") != expected_budget
+                or type(actual) is not int or actual < 1 or minimum_visits and actual < visits
+                or type(neural) is not int or neural <= 0):
             raise ValueError("combat root did not complete its original search budget")
         accounted += neural
         children = root.get("children")
@@ -175,10 +179,12 @@ class CombatPlan:
     The engine may hold those choices until the group completes.
     An unexpected public change, skipped substep or rewind poisons this plan.
     """
-    def __init__(self, decision: dict, result: dict, *, visits: int):
+    def __init__(self, decision: dict, result: dict, *, visits: int,
+                 minimum_visits: bool = True, expected_budget: dict | None = None):
         if type(visits) is not int or not 2 <= visits <= 1000:
             raise ValueError("combat visits must be 2..1000")
-        validate_result(decision, result, visits, result.get("neural_calls"))
+        validate_result(decision, result, visits, result.get("neural_calls"),
+                        minimum_visits=minimum_visits, expected_budget=expected_budget)
         self.initial, self.result = copy.deepcopy(decision), copy.deepcopy(result)
         self.family = combat_kind(decision)
         self.viewer, self.objects = battlefield(self.initial)

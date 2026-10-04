@@ -33,6 +33,13 @@ public final class MageZeroSearchMain {
     private static PrintStream out;
     private static long calls;
     private static Object requestId;
+    static void bindPipe(BufferedReader input, PrintStream output) { in = input; out = output; }
+    static long neuralCalls() { return calls; }
+    static Map<String, Object> execute(Map<String, Object> record) {
+        calls = 0; requestId = record.get("id");
+        if (!(requestId instanceof String)) throw new IllegalArgumentException("search request id must be a string");
+        return search(record);
+    }
     private static final Set<String> SETTING_KEYS = new HashSet<>(Arrays.asList(
             "profile", "searchBudget", "searchTimeout", "backpropDiscount", "priorTemp", "priorBonus",
             "noNoise", "dirichletNoiseEps", "selectionTemperature", "noPolicyPriority", "noPolicyTarget",
