@@ -394,9 +394,9 @@
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-018.json",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261004-019.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry file and SHA-256; runtime018 inputs frozen. Current startup, isolation, native qualification and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry and SHA-256; runtime019 inputs frozen. Current native/reference-host qualification, clocks/isolation and rated launch remain pending.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
