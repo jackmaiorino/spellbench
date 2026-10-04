@@ -1,7 +1,8 @@
-"""Bind original MageZero v0.2 priority search to a confined 128-slot model.
+"""Bind original MageZero v0.2 search to a confined 128-slot model.
 
 Callers must supply explicit source settings or select the diagnostic profile.
-This priority component does not provide the remaining callbacks or full games.
+Replayed dialog roots require a saved public anchor and complete observation match.
+Combat, full games and trained-weight qualification remain unfinished.
 """
 from __future__ import annotations
 
@@ -10,9 +11,10 @@ import math
 import re
 
 from xmage_neural_rpc import NeuralSession
-from xmage_neural_search import search_request as checked_request, validate_result
+from xmage_neural_search import (root_family, search_request as checked_request,
+                                 search_result as checked_result)
 
-READY = {"ready": True, "search": "magezero-v02-original-priority", "policy_width": 128}
+READY = {"ready": True, "search": "magezero-v02-original-search", "policy_width": 128}
 ORIGINAL_DEFAULT_SETTINGS = {
     "profile": "original-source-time-or-visits", "searchBudget": 1000, "searchTimeout": "4",
     "backpropDiscount": "0.99", "priorTemp": "1.5", "priorBonus": "0.1",
@@ -50,7 +52,7 @@ def validate_settings(settings: dict) -> dict:
         if name in ("searchTimeout", "priorTemp") and value == 0:
             raise ValueError("MageZero timeout and prior temperature must be positive")
     if any(type(settings[key]) is not bool for key in _BOOLEANS) or settings["noNoise"] is not True:
-        raise ValueError("MageZero priority bridge requires deterministic no-noise selection")
+        raise ValueError("MageZero search bridge requires deterministic no-noise selection")
     if settings["profile"] == "minimum-visits-diagnostic":
         expected = {**ORIGINAL_DEFAULT_SETTINGS, "profile": "minimum-visits-diagnostic",
                     "searchBudget": settings["searchBudget"], "searchTimeout": "600"}
@@ -72,10 +74,11 @@ def search_request(record: dict, settings: dict) -> dict:
     observation = decision.get("observation", {})
     context = decision.get("context", {})
     seat = record.get("game_start", {}).get("seat")
-    if (context.get("kind") != "priority" or context.get("rewind") is not False
+    if (context.get("rewind") is not False
             or seat not in ("p0", "p1") or observation.get("viewer") != seat
             or decision.get("acting_seat") != seat):
-        raise ValueError("MageZero search requires a non-rewound own priority decision")
+        raise ValueError("MageZero search requires a non-rewound own decision")
+    root_family(decision)
     request = checked_request(record, settings["searchBudget"])
     request.pop("visits")
     return {**request, "settings": settings}
@@ -89,9 +92,9 @@ def search_result(record: dict, result: dict, settings: dict, calls: int) -> dic
         raise ValueError("MageZero search changed its architecture or explicit settings")
     if result.get("search_budget") != budget(settings):
         raise ValueError("MageZero search changed its original stopping rule")
-    validate_result(record["decision"], result, settings["searchBudget"], calls,
-                    expected_budget=budget(settings), source_label="MageZero",
-                    minimum_visits=settings["profile"] == "minimum-visits-diagnostic")
+    checked_result(record, result, settings["searchBudget"], calls,
+                   expected_budget=budget(settings), source_label="MageZero",
+                   minimum_visits=settings["profile"] == "minimum-visits-diagnostic")
     return result
 
 

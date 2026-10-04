@@ -124,3 +124,83 @@ def test_exp1_checkpoint_is_refused_before_any_search_request():
     with pytest.raises(ValueError, match="128-slot checkpoint"):
         search.SearchSession(peer, model)
     assert peer.closed and model.closed and peer.writes == []
+
+
+def callback_fixture(family, *, source_settings=False):
+    record, result, settings = fixture(search.ORIGINAL_DEFAULT_SETTINGS if source_settings else None)
+    anchor = {"decision": copy.deepcopy(record["decision"]), "selection": copy.deepcopy(result["selection"])}
+    source = {"object_id": "permitted-callback-source"}
+    semantics = {
+        "target": [{"kind": "choose_target", "target": {"object_id": name}, "source": source}
+                   for name in ("visible-creature-a", "visible-creature-b")],
+        "binary": [{"kind": "choose_boolean", "value": value, "source": source} for value in (False, True)],
+        "numeric": [{"kind": "choose_number", "minimum": 1, "maximum": 2, "value": value, "source": source}
+                    for value in (1, 2)],
+        "named": [{"kind": "choose_color", "color": color} for color in ("red", "blue")],
+        "mode": [{"kind": "choose_spell_mode", "mode_index": index, "mode_count": 2, "source": source}
+                 for index in (0, 1)],
+    }[family]
+    decision = record["decision"]
+    decision["context"] = {"kind": "choice", "rewind": False}
+    for candidate, semantic in zip(decision["candidates"], semantics):
+        candidate["semantic"] = semantic
+    record.update(anchor=anchor, replay={"priority_passes": ["p1", "p0"], "earlier": []})
+    result.update(decision_sha256=decision_hash(decision),
+                  selection={"candidate_id": 3, "semantic_echo": copy.deepcopy(semantics[1])},
+                  children=[{"semantic": copy.deepcopy(c["semantic"]), "visits": 2 if c["candidate_id"] == 3 else 0,
+                             "value": 0.2} for c in decision["candidates"]],
+                  replay={"earlier": 0, "priority_passes": 2, "observation_identical": True})
+    return record, result, settings
+
+
+@pytest.mark.parametrize("family", ["target", "binary", "numeric", "named", "mode"])
+def test_private_callback_exchange_binds_the_public_anchor_and_explicit_source_settings(family):
+    record, result, settings = callback_fixture(family, source_settings=True)
+    peer = Peer([{"id": "1", "event": "infer", "call": 1, "features": [2147483646]},
+                 {"id": "1", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.SearchSession(peer, model)
+    chosen = session.choose(record, settings=settings, timeout_s=3)
+    assert chosen["selection"]["semantic_echo"] == record["decision"]["candidates"][1]["semantic"]
+    assert peer.writes[0]["anchor"] == record["anchor"] and peer.writes[0]["replay"] == record["replay"]
+    assert peer.writes[0]["settings"] == settings and result["root_visits"] < settings["searchBudget"]
+    session.close()
+    assert peer.closed and model.closed
+
+
+@pytest.mark.parametrize("fault", ["missing-anchor", "missing-history", "incomplete-prefix", "missing-passes",
+                                  "false-observation", "integer-confirmation"])
+def test_callback_failure_poisoning_refuses_missing_or_unconfirmed_public_replay(fault):
+    record, result, settings = callback_fixture("target")
+    if fault == "missing-anchor": record.pop("anchor")
+    elif fault == "missing-history": record.pop("replay")
+    elif fault == "incomplete-prefix": record["replay"]["earlier"].append(copy.deepcopy(record["anchor"]))
+    elif fault == "missing-passes": result["replay"]["priority_passes"] = 0
+    elif fault == "false-observation": result["replay"]["observation_identical"] = False
+    elif fault == "integer-confirmation": result["replay"]["observation_identical"] = 1
+    peer = Peer([{"id": "1", "event": "infer", "call": 1, "features": [1]},
+                 {"id": "1", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.SearchSession(peer, model)
+    with pytest.raises(ValueError, match="anchor|replay"):
+        session.choose(record, settings=settings, timeout_s=3)
+    assert session.failed and peer.closed and model.closed
+    if fault in ("missing-anchor", "missing-history"):
+        assert model.calls == [] and peer.writes == []
+
+
+def test_library_fail_to_find_preserves_the_original_magezero_restriction_and_work_accounting():
+    record, result, settings = callback_fixture("target")
+    decision = record["decision"]
+    decision["context"]["purpose"] = "search"
+    decision["candidates"][0]["semantic"] = {"kind": "finish_selection", "purpose": "search"}
+    result["children"][0] = {
+        "semantic": decision["candidates"][0]["semantic"], "visits": 0, "value": None,
+        "excluded": True, "pruned": False,
+        "reason": "original MageZero library target expansion requires its minimum before finishing",
+    }
+    result.update(decision_sha256=decision_hash(decision), policy_restrictions=["library_fail_to_find_before_minimum"])
+    assert search.search_result(record, result, settings, 1) is result
+    result["children"][0]["reason"] = "original Exp1 library target expansion requires its minimum before finishing"
+    with pytest.raises(ValueError, match="original policy restriction"):
+        search.search_result(record, result, settings, 1)

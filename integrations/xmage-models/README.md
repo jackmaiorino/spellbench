@@ -114,7 +114,10 @@ alone does not establish association with an exact deck list. Extra, duplicate,
 linked, encrypted or oversized metadata entries are refused.
 
 `MageZeroSearchMain` and `xmage_magezero_search.SearchSession` connect the
-original 128-slot priority tree to that confined backend. Pass an explicit
+original 128-slot priority tree and replayed target, binary, numeric, named
+and spell-mode roots to that confined backend. Dialog roots require a saved
+own priority anchor and explicit public replay history. The original callback
+must match the whole received observation before inference. Pass an explicit
 settings object containing every original search parameter and head flag.
 `ORIGINAL_DEFAULT_SETTINGS` records the source's four-second timeout,
 1000-visit budget and four disabled policy priors. The authors' actual play
@@ -126,8 +129,10 @@ refused.
 minimum-visit profile. Requests and results bind the exact settings, decision,
 architecture and original root visit accounting. The source time-based profile
 may finish below its visit budget; the diagnostic profile must complete its
-minimum visits. This priority component still needs actual pretrained native
-checks, other callbacks, full games and useful-throughput qualification.
+minimum visits. The original library fail-to-find restriction and unoffered
+mode work remain visible in the result and visit accounting. Combat, other
+callbacks, actual pretrained native checks, full games and useful-throughput
+qualification remain unfinished.
 
 Raw `.pt.gz` and `.pt` inputs use `checkpoint_format` values `torch-gzip` and
 `torch`. They require the same exact deck hash and association evidence but no

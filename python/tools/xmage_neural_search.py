@@ -151,9 +151,11 @@ def search_request(record: dict, visits: int) -> dict:
     return {**request, "visits": visits}
 
 
-def search_result(record: dict, result: dict, visits: int, calls: int) -> dict:
+def search_result(record: dict, result: dict, visits: int, calls: int, *,
+                  expected_budget=None, minimum_visits=True, source_label="Exp1") -> dict:
     decision = record["decision"]
-    validate_result(decision, result, visits, calls)
+    validate_result(decision, result, visits, calls, expected_budget=expected_budget,
+                    minimum_visits=minimum_visits, source_label=source_label)
     if root_family(decision) != "priority":
         expected = {"earlier": len(record["replay"]["earlier"]),
                     "priority_passes": len(record["replay"]["priority_passes"]),

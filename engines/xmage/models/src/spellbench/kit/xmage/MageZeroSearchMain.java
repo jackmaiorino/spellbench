@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Original 128-slot MageZero priority tree over permitted sampled worlds. */
+/** Original 128-slot MageZero search and public callback replay over permitted sampled worlds. */
 public final class MageZeroSearchMain {
     private static BufferedReader in;
     private static PrintStream out;
@@ -75,7 +75,7 @@ public final class MageZeroSearchMain {
         result.dirichletNoiseEps = decimal(values, "dirichletNoiseEps", 0, false);
         result.selectionTemperature = decimal(values, "selectionTemperature", 0, false);
         result.noNoise = bool(values, "noNoise");
-        if (!result.noNoise) throw new IllegalArgumentException("MageZero priority bridge requires no-noise selection");
+        if (!result.noNoise) throw new IllegalArgumentException("MageZero search bridge requires no-noise selection");
         result.noPolicyPriority = bool(values, "noPolicyPriority");
         result.noPolicyTarget = bool(values, "noPolicyTarget");
         result.noPolicyUse = bool(values, "noPolicyUse");
@@ -126,79 +126,171 @@ public final class MageZeroSearchMain {
         Map<String, Object> decision = Json.obj(record, "decision");
         Map<String, Object> context = Json.obj(decision, "context");
         Map<String, Object> start = Json.obj(record, "game_start");
-        Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
-        String viewer = Json.str(obs, "viewer");
-        if (!"priority".equals(Json.str(context, "kind")) || !Boolean.FALSE.equals(context.get("rewind"))
+        String viewer = Json.str(Json.obj(decision, "observation"), "viewer");
+        if (!Boolean.FALSE.equals(context.get("rewind"))
                 || !("p0".equals(viewer) || "p1".equals(viewer)) || !viewer.equals(Json.str(start, "seat"))
                 || !viewer.equals(Json.str(decision, "acting_seat"))) {
-            throw new IllegalArgumentException("MageZero search needs a non-rewound own priority decision");
+            throw new IllegalArgumentException("MageZero search needs a non-rewound own decision");
         }
+        boolean priority = "priority".equals(Json.str(context, "kind"));
         Map<String, Object> values = Json.obj(record, "settings");
         MCTSDefaults configured = settings(values);
         boolean diagnostic = "minimum-visits-diagnostic".equals(Json.str(values, "profile"));
         // Original constructors and copy field initializers read CURRENT.
-        // Bind it before building the world so copied players retain the
-        // supplied play configuration as they do in the original launcher.
+        // Bind the explicit settings before building or replaying the world.
         MCTSDefaults.CURRENT = configured;
-        byte[] worldSeed = seed(Json.str(record, "world_seed")), idSeed = seed(Json.str(record, "id_seed"));
+        seed(Json.str(record, "world_seed")); seed(Json.str(record, "id_seed"));
+        RemoteModelEvaluator evaluator = new RemoteModelEvaluator(MageZeroSearchMain::infer);
+        SearchPlayer active;
+        World world;
+        MCTSNode2 chosen;
+        Map<String, Object> replayProof = null;
+        MageZeroSearchReplay.Result callback = null;
+        boolean libraryFailToFindExcluded = false;
+        Map<String, Object> obs = Json.obj(Json.copy(decision.get("observation")));
+        if (!priority) {
+            MageZeroSearchReplay.Result replay = MageZeroSearchReplay.run(record, evaluator, configured, diagnostic);
+            callback = replay;
+            world = replay.world; active = replay.player; chosen = replay.chosen;
+            libraryFailToFindExcluded = replay.libraryFailToFindExcluded;
+            replayProof = Json.map("earlier", (long) replay.replayed, "priority_passes",
+                    (long) Json.arr(Json.obj(record, "replay"), "priority_passes").size(), "observation_identical", true);
+        } else {
         KitContext.reset(); GameAccess.reset(); KitRandom.installBoot();
         List<String> nameFlags = WorldBuilder.restoreVisibleNames(obs, Json.obj(decision, "x_history"));
-        KitRandom random = KitRandom.install(worldSeed, idSeed);
+        KitRandom random = KitRandom.install(seed(Json.str(record, "world_seed")), seed(Json.str(record, "id_seed")));
         SearchPlayer[] player = new SearchPlayer[1];
         WorldBuilder.Spec spec = new WorldBuilder.Spec();
-        spec.gameStart = start; spec.observation = obs; spec.random = random;
-        spec.sample = Sampler.sample(start, obs, random.stream("sampler"));
+        spec.gameStart = Json.obj(record, "game_start"); spec.observation = obs;
+        spec.sample = Sampler.sample(spec.gameStart, obs, random.stream("sampler")); spec.random = random;
         spec.mode = WorldBuilder.Mode.PRIORITY; spec.history = Json.obj(decision, "x_history");
         spec.viewerFactory = seat -> player[0] = new SearchPlayer(seat); spec.otherFactory = Puppet::new;
-        World world = WorldBuilder.build(spec);
+        world = WorldBuilder.build(spec);
         world.flags.addAll(nameFlags);
         for (String flag : world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
-                throw new IllegalArgumentException("MageZero search world is unsupported: " + flag);
+                throw new IllegalArgumentException("search world is unsupported: " + flag);
             }
         }
-        RemoteModelEvaluator evaluator = new RemoteModelEvaluator(MageZeroSearchMain::infer);
         if (diagnostic) player[0].configureDiagnostic(evaluator, configured.searchBudget);
         else player[0].configure(evaluator, configured);
-        MCTSNode2 chosen = player[0].searchPriority(world.game);
-        ObsIndex index = new ObsIndex(obs);
-        Map<String, Object> selected = Mapping.prioritySemantic(world, world.game, chosen.getPriorityAction(), index);
-        Map<String, Object> offered = null;
-        Set<String> offeredKeys = new HashSet<>();
-        for (Object item : Json.arr(decision, "candidates")) {
-            Map<String, Object> candidate = Json.obj(item);
-            String key = Json.canonical(candidate.get("semantic"));
-            if (!offeredKeys.add(key)) throw new IllegalArgumentException("aliased MageZero priority candidate");
-            if (key.equals(Json.canonical(selected))) offered = candidate;
+        chosen = player[0].searchPriority(world.game);
+        active = player[0];
         }
-        if (offered == null) throw new IllegalArgumentException("MageZero selected an unoffered priority action");
-        MCTSNode2 tree = player[0].tree();
-        Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
-        Set<String> branchKeys = new HashSet<>();
-        List<Object> children = new ArrayList<>();
-        for (MCTSNode child : player[0].initialRootChildren()) {
-            boolean pruned = !retained.contains(child), masked = !pruned && player[0].selectionMasked(child);
-            Map<String, Object> semantic = Mapping.prioritySemantic(world, world.game, child.getPriorityAction(), index);
-            if (semantic == null || !branchKeys.add(Json.canonical(semantic))) {
-                throw new IllegalArgumentException("MageZero root has an unmapped or aliased priority action");
+        ObsIndex index = new ObsIndex(obs);
+        Map<String, Object> semantic = semantic(decision, world, chosen, index, priority, callback);
+        Map<String, Object> offered = null;
+        for (Object c : Json.arr(decision, "candidates")) {
+            Map<String, Object> candidate = Json.obj(c);
+            if (Json.canonical(candidate.get("semantic")).equals(Json.canonical(semantic))) {
+                if (offered != null) throw new IllegalArgumentException("aliased priority candidate");
+                offered = candidate;
             }
-            children.add(Json.map("semantic", semantic, "visits", pruned ? 0L : (long) child.getVisits(),
+        }
+        if (offered == null) throw new IllegalArgumentException("search chose an action outside the offered candidates");
+        List<Object> children = new ArrayList<>();
+        List<Object> unofferedModes = new ArrayList<>();
+        Set<String> branchKeys = new HashSet<>();
+        MCTSNode2 tree = active.tree();
+        Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
+        for (MCTSNode child : active.initialRootChildren()) {
+            boolean pruned = !retained.contains(child);
+            boolean masked = !pruned && active.selectionMasked(child);
+            if (callback != null && callback.modeActions != null
+                    && !callback.modeActions.actions.containsKey(child.getAmountAction())) {
+                if (!pruned && !masked || pruned && child.getVisits() != 0) {
+                    throw new IllegalArgumentException("original search retained an unoffered mode branch with a legal future");
+                }
+                int ordinal = child.getAmountAction();
+                if (ordinal < 0 || ordinal >= callback.modeActions.publicIndices.size()) {
+                    throw new IllegalArgumentException("original mode branch exceeds its callback ordinal range");
+                }
+                unofferedModes.add(Json.map("ordinal", (long) ordinal,
+                        "mode_index", (long) callback.modeActions.publicIndices.get(ordinal),
+                        "visits", 0L, "pruned", pruned, "selection_masked", masked,
+                        "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
+                        "reason", "original mode branch is unoffered and has no legal future"));
+                continue;
+            }
+            Map<String, Object> action = semantic(decision, world, child, index, priority, callback);
+            if (action == null || !branchKeys.add(Json.canonical(action))) {
+                throw new IllegalArgumentException("search root has an unmapped or aliased action");
+            }
+            children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) child.getVisits(),
                     "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
-                    "selection_masked", masked, "discarded_visits", masked ? (long) player[0].discardedSelectionVisits(child) : 0L,
+                    "selection_masked", masked,
+                    "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
                     "mask_reason", masked ? "original MageZero bestChild resets branches without a legal future" : null));
         }
-        if (!offeredKeys.equals(branchKeys)) throw new IllegalArgumentException("MageZero root does not cover the offered actions");
-        String digest;
-        try { digest = Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
+        Set<String> offeredKeys = new HashSet<>();
+        for (Object c : Json.arr(decision, "candidates")) {
+            Map<String, Object> action = Json.obj(Json.obj(c), "semantic");
+            String key = Json.canonical(action);
+            if (!offeredKeys.add(key)) throw new IllegalArgumentException("aliased MageZero candidate");
+            if (!branchKeys.contains(key) && libraryFailToFindExcluded
+                    && "finish_selection".equals(Json.str(action, "kind")) && "search".equals(Json.str(action, "purpose"))) {
+                branchKeys.add(key);
+                children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
+                        "excluded", true, "reason", "original MageZero library target expansion requires its minimum before finishing"));
+            }
+        }
+        if (!offeredKeys.equals(branchKeys)) throw new IllegalArgumentException("search root does not cover the offered actions");
+        String decisionHash;
+        try { decisionHash = Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
-        return Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
-                "decision_sha256", digest, "children", children, "root_visits", (long) tree.getVisits(),
-                "neural_calls", calls, "policy_width", 128L, "settings", Json.copy(values),
+        Map<String, Object> result = Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
+                "decision_sha256", decisionHash,
+                "children", children, "root_visits", (long) tree.getVisits(), "neural_calls", calls,
+                "policy_width", 128L, "settings", Json.copy(values),
                 "search_budget", Json.map("kind", diagnostic ? "minimum_root_visits_until_legal_future"
                         : "original_source_time_or_visits_until_legal_future", "requested", values.get("searchBudget"),
-                        "timeout_seconds", values.get("searchTimeout")), "world_flags", world.flags,
-                "variant", "original MageZero 128-slot priority tree; explicit head flags and stopping rule; permitted sampled world; fresh tree; synchronous neural transport; no noise",
-                "scope", "priority component only; other callbacks, pretrained native checks, complete games and ratings unfinished");
+                        "timeout_seconds", values.get("searchTimeout")),
+                "world_flags", world.flags, "replay", replayProof,
+                "policy_restrictions", libraryFailToFindExcluded ? java.util.Collections.singletonList("library_fail_to_find_before_minimum")
+                        : java.util.Collections.emptyList(),
+                "variant", "original MageZero 128-slot tree and dialog scripts; numeric roots use the legal offered range; explicit head flags and stopping rule; permitted sampled world; fresh tree; synchronous neural transport; no noise",
+                "scope", "priority and replayed target/binary/numeric/named/mode roots; combat, trained weights, full games and ratings unfinished");
+        if (callback != null && callback.modeActions != null) {
+            result.put("unoffered_mode_branches", unofferedModes);
+            result.put("scope", "original MageZero numeric spell-mode callback; trained weights, combat, complete games and ratings unfinished");
+        }
+        return result;
+    }
+    private static Map<String, Object> semantic(Map<String, Object> decision, World world, MCTSNode child,
+                                                ObsIndex index, boolean priority, MageZeroSearchReplay.Result callback) {
+        if (priority) return Mapping.prioritySemantic(world, world.game, child.getPriorityAction(), index);
+        if (callback.modeActions != null) {
+            Map<String, Object> action = callback.modeActions.actions.get(child.getAmountAction());
+            if (action == null) throw new IllegalArgumentException("original search chose an unoffered mode branch");
+            return action;
+        }
+        if (callback.namedActions != null) {
+            Map<String, Object> action = callback.namedActions.get(child.getChoiceAction());
+            if (action == null) throw new IllegalArgumentException("unmapped original named branch");
+            return action;
+        }
+        Map<String, Object> match = null;
+        for (Object item : Json.arr(decision, "candidates")) {
+            Map<String, Object> sem = Json.obj(Json.obj(item), "semantic");
+            String kind = Json.str(sem, "kind");
+            boolean found = false;
+            if (callback.numericMinimum != null) {
+                found = "choose_number".equals(kind)
+                        && Json.num(sem, "value", Long.MIN_VALUE) == (long) child.getAmountAction() + callback.numericMinimum;
+            } else if (child.getTargetAction() != null) {
+                boolean finish = "finish_target_selection".equals(kind) || "finish_selection".equals(kind);
+                found = finish ? GameAccess.STOP_CHOOSING.equals(child.getTargetAction())
+                        : child.getTargetAction().equals(Dialogs.uuidOf(world, sem));
+            } else if (MageZeroSearchReplay.booleanValue(sem) instanceof Boolean) {
+                found = Boolean.valueOf(child.getUseAction()).equals(MageZeroSearchReplay.booleanValue(sem));
+            }
+            if (found) {
+                if (match != null) throw new IllegalArgumentException("aliased callback branch");
+                match = sem;
+            }
+        }
+        if (match == null) throw new IllegalArgumentException("unmapped callback branch");
+        return match;
     }
     public static void main(String[] args) throws Exception {
         if (args.length != 0) throw new IllegalArgumentException("private MageZero pipe takes no arguments");
@@ -206,7 +298,7 @@ public final class MageZeroSearchMain {
         System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
         new CardResolver().resolve("Plains");
         in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
-        out.println(Json.canonical(Json.map("ready", true, "search", "magezero-v02-original-priority", "policy_width", 128L)));
+        out.println(Json.canonical(Json.map("ready", true, "search", "magezero-v02-original-search", "policy_width", 128L)));
         String line;
         while ((line = in.readLine()) != null) {
             Map<String, Object> record = null;
