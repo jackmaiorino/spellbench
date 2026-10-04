@@ -46,7 +46,7 @@ def test_unusable_qualification_terminals_retain_elapsed_and_rows(tmp_path, monk
     monkeypatch.setattr(run, "preflight", lambda *args: object())
     def play(*args, **kwargs):
         kwargs["on_outcome"](outcome)
-        return SimpleNamespace(outcomes=[outcome], error=None)
+        return SimpleNamespace(outcomes=[outcome], error=None, stopped=None)
     monkeypatch.setattr(runner, "play_games", play)
     with pytest.raises(ThroughputError, match="halted or truncated"):
         run.qualification_play(config, storage_dir=tmp_path, files=())(1, (0,))
@@ -102,6 +102,45 @@ def test_unused_qualification_reveal_creates_no_artifacts(tmp_path):
     assert not list(tmp_path.rglob("REPLAY.json"))
     with pytest.raises(ThroughputError, match="already revealed"):
         measured(1, (0,))
+
+
+def test_aborted_pool_does_not_disclose_replay_secret(tmp_path, monkeypatch):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    failure = RuntimeError("worker aborted before descendant cleanup")
+    monkeypatch.setattr(run, "preflight", lambda *args: object())
+    monkeypatch.setattr(runner, "play_games", lambda *args, **kwargs:
+        SimpleNamespace(outcomes=[], error=failure, stopped="aborted"))
+    measured = run.qualification_play(config, storage_dir=tmp_path, files=())
+    with pytest.raises(RuntimeError) as caught:
+        measured(2, (0,))
+    assert caught.value is failure
+    with pytest.raises(ThroughputError, match="cleanup unconfirmed"):
+        measured(2, (0,))
+    measured.finish()
+    assert not list(tmp_path.rglob("REPLAY.json"))
+    (path,) = list(tmp_path.rglob("FINALIZATION.json"))
+    assert json.loads(path.read_bytes())["secret_disclosed"] is False
+
+
+@pytest.mark.parametrize("earlier_failure", [False, True])
+def test_finalization_error_preserves_original_failure(tmp_path, monkeypatch, earlier_failure):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    primary = ThroughputError("original qualification failure")
+    secondary = OSError("metadata cannot be written")
+    def plan(**kwargs):
+        if earlier_failure:
+            raise primary
+        return None
+    def finish():
+        raise secondary
+    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: run.QualificationPlay(object(), finish))
+    monkeypatch.setattr(run, "plan_allocation", plan)
+    monkeypatch.setattr(run, "_machine_facts", lambda roles: None)
+    with pytest.raises((ThroughputError, OSError)) as caught:
+        run.plan_for(config, placement=None, evidence=tmp_path / "evidence", volumes={"run_dir": tmp_path})
+    assert caught.value is (primary if earlier_failure else secondary)
+    if earlier_failure:
+        assert "OSError: metadata cannot be written" in primary.__notes__[0]
 
 
 def _roomy_storage(monkeypatch):

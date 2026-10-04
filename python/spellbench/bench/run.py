@@ -119,7 +119,8 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     throwaway secret (``RunSecret.generate()``), so the rungs play identical games; the one preflight runs at the
     first call, so a reused measurement starts no process. The caller samples positions across the matchups
     (:func:`plan_for`, R3-6). ``config`` is the executed config. The caller must call ``finish`` after the last
-    trial exits, including on failure. It reveals the replay secret only then, never during measured games.
+    trial exits, including on failure. It reveals the replay secret only after confirmed normal cleanup, never
+    during measured games. An aborted pool leaves an explicit suppression record without a secret.
     ``REPLAY.json`` and the per-trial diagnostics are operator artifacts, outside prompts and primary digests.
     A hard process kill can prevent this final reveal; it cannot recover secrets from older qualifications.
     """
@@ -134,13 +135,16 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     qualification_completed = 0
     trials = []
     finished = False
+    cleanup_confirmed = True
     harness = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
                for path in (Path(__file__), Path(runner.__file__))}
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
-        nonlocal trial_number
+        nonlocal trial_number, cleanup_confirmed
         if finished:
             raise ThroughputError("qualification replay secret already revealed; refusing more trials")
+        if not cleanup_confirmed:
+            raise ThroughputError("qualification abort cleanup unconfirmed; refusing more trials")
         _hosted_budget_guard(config)
         pinning.verify_files(files)
         if not setups:
@@ -169,10 +173,13 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                 job_storage.reconcile_game(len(chosen), qualification_games=max(0, 32 - qualification_completed))
 
         started = time.perf_counter()
+        # Aborted pools do not wait for descendants. Do not publish the secret unless normal cleanup returns.
+        cleanup_confirmed = False
         result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
                                    run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
                                    timed=True, on_outcome=record, launch_files=files,
                                    guard=None if job_storage is None else job_storage.check)
+        cleanup_confirmed = result.stopped != "aborted"
         pinning.verify_files(files)
         wall = time.perf_counter() - started
         counts = {name: sum(outcome.row.classification == name for outcome in result.outcomes)
@@ -199,6 +206,12 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         finished = True
         if not stored:
             return  # Cached allocations start no games and create no replay artifacts.
+        if not cleanup_confirmed:
+            store.write_json_atomic(stored[0] / "FINALIZATION.json", {
+                "schema": "spellbench-qualification-finalization/v1", "secret_disclosed": False,
+                "reason": "abort_cleanup_unconfirmed", "trials": trials,
+            })
+            return
         store.write_json_atomic(stored[0] / "REPLAY.json", {
             "schema": "spellbench-qualification-replay/v1", "run_secret": secret.hex(),
             "config": config.to_json(), "files": [file.to_json() for file in files],
@@ -364,7 +377,14 @@ def plan_for(
             evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,
             rules=rules,
         )
-    finally:
+    except BaseException as failure:
+        try:
+            measured.finish()
+        except BaseException as finalization_error:
+            # Python prints notes alongside the original traceback in the operator's controller log.
+            failure.add_note(f"qualification finalization failed: {type(finalization_error).__name__}: {finalization_error}")
+        raise
+    else:
         measured.finish()
     assert allocation.budget is not None
     # The disk may have filled while the qualification played: the reserve holds now, just before the first game.
