@@ -88,10 +88,18 @@ public final class PriorityManaCheck {
                 }
                 require(!position.over() && Slice.priorityOf(position.decision(), "p0", "precombat_main"),
                         "mana activation did not return priority");
-                require(permanent(position, source).isTapped(), "selected producer did not tap");
+                int tappedProducers = 0;
+                for (Permanent p : position.game.getBattlefield().getAllActivePermanents()) {
+                    if (p.getControllerId().equals(position.player("p0").getId()) && source.equals(p.getName())
+                            && p.isTapped()) tappedProducers++;
+                }
+                require(tappedProducers == 1, "selected producer did not tap exactly once");
                 require(position.player("p0").getManaPool().getGreen() == 1, "selected producer did not float green");
-                require(Slice.candidateWhere(position.decision(), "activate_mana_ability", source) < 0
-                        || "Forest".equals(source) && "float-and-cast".equals(family), "tapped producer reoffered");
+                for (Object c : Json.arr(position.decision(), "candidates")) {
+                    Map<String, Object> next = Json.obj(Json.obj(c), "semantic");
+                    require(!"activate_mana_ability".equals(next.get("kind"))
+                            || !semantic.get("source").equals(next.get("source")), "tapped producer reoffered");
+                }
                 if ("color".equals(family)) require(position.player("p0").getLife() == initialLife - 1, "life cost skipped");
                 if ("cost".equals(family)) require(permanent(position, "Llanowar Elves").isTapped(), "creature cost skipped");
             }
@@ -100,7 +108,14 @@ public final class PriorityManaCheck {
                 require(cast >= 0, "spell unavailable after mana activation");
                 frames.add(Json.map("decision", position.decision(), "index", (long) cast));
                 position.answer(cast);
-                require(position.advance(d -> Slice.names(Slice.obsOf(d), "p0", "battlefield").contains("Grizzly Bears"), 20),
+                for (int step = 0; step < 20 && !position.over()
+                        && !Slice.names(Slice.obsOf(position.decision()), "p0", "battlefield").contains("Grizzly Bears"); step++) {
+                    require("priority".equals(Json.obj(position.decision(), "context").get("kind")),
+                            "automatic payment exposed a choice callback");
+                    frames.add(Json.map("decision", position.decision(), "index", 0L));
+                    position.answer(0);
+                }
+                require(!position.over() && Slice.names(Slice.obsOf(position.decision()), "p0", "battlefield").contains("Grizzly Bears"),
                         "automatic cost payment did not resolve the spell");
                 require(position.player("p0").getManaPool().isEmpty(), "floating mana was not spent");
             }
