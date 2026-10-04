@@ -76,6 +76,18 @@ Both MageZero release ZIP directories were inspected without extraction:
 v0.2 has 179 files and 41 deck files; v0.1 has 166 files and 29 deck files.
 Neither contains `.mz`, `.pt`, `.pt.gz`, `.pth`, ONNX, safetensors or pickle
 weights. Their deck lists do not establish which trained models exist.
+
+A public historical copy, `toastblademaster-arch/mtg-rl`, contains two UWTempo
+ONNX exports under `ver1` and `ver2`. Their observed Git identities, lengths
+and SHA-256s are pinned in [the candidate inventory](magezero-historical-exports.json).
+Only opaque streaming hashes were computed; the graphs were not deserialized
+or executed. Different exported bytes do not establish distinct trained bots.
+The pinned exporter describes ONNX export as unsupported and permits an
+uninitialized export after a checkpoint load fails. Training provenance, exact
+decklists, matching Java encoder/search revisions and play settings remain
+unknown. These candidates remain unfinished and are not qualified for the
+current v0.2 adapter.
+
 The current catalogue has 16 Standard opponent decks, including the 62-card
 `Standard-MonoU` list. Known training examples include UWTempo,
 Standard-MonoU and Standard-MonoB. Every supplied model must retain its own
