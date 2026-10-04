@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import copy
 import struct
+import re
 
 from spellbench import observation, wire
 from xmage_jack_inference import validate_features
 from xmage_jack_modes import ModeSession
-from xmage_jack_sources import CALLBACK_SHA256, DIALOG_VARIANT
+from xmage_jack_sources import CALLBACK_SHA256, DIALOG_VARIANT, MANA_PAYMENT_VARIANT
 from xmage_neural_decisions import decision_hash
 
 SOURCE_KEYS = ("encoder_source_sha256", "candidate_source_sha256", "dialog_rules_source_sha256", "embedding_cache_sha256")
+PAYMENT_SOURCE_KEYS = SOURCE_KEYS + ("mana_payment_rules_source_sha256",)
+DIALOG_PAYMENT_VARIANT = DIALOG_VARIANT + "; " + MANA_PAYMENT_VARIANT
 MAX_INT = 2**31 - 1
 
 
@@ -90,11 +93,25 @@ def f32(number):
 
 
 def validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str):
+    return _validate_encoding(start, decision, encoded, sources, request_hash, original_payment=False)
+
+
+def validate_payment_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str):
+    return _validate_encoding(start, decision, encoded, sources, request_hash, original_payment=True)
+
+
+def _validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str, *, original_payment):
+    keys = PAYMENT_SOURCE_KEYS if original_payment else SOURCE_KEYS
+    if (not isinstance(sources, dict) or set(sources) != set(keys)
+            or any(not isinstance(v, str) or not re.fullmatch("[a-f0-9]{64}", v) for v in sources.values())):
+        raise ValueError("dialog frame needs every original staged source pin")
     callback, offered, by_value, bounds = view(start, decision)
     expected = {"schema":"spellbench-jack-dialog-features/v1", "callback":callback,
                 "decision_sha256":decision_hash(decision), "game_start_sha256":decision_hash(start),
                 "request_sha256":request_hash, "original_callback_sha256":CALLBACK_SHA256,
-                "variant":DIALOG_VARIANT, **sources}
+                "variant":DIALOG_PAYMENT_VARIANT if original_payment else DIALOG_VARIANT, **sources}
+    if original_payment:
+        expected["mana_payment_variant"] = MANA_PAYMENT_VARIANT
     if wire.canonical_json_dumps({key:encoded.get(key) for key in expected}) != wire.canonical_json_dumps(expected):
         raise ValueError("dialog frame differs from its original sources, game, decision or replay request")
     flags = encoded.get("world_flags")
@@ -173,3 +190,11 @@ class DialogSession(ModeSession):
     VARIANT = DIALOG_VARIANT
     bound_view = staticmethod(bound_view)
     validate_encoding = staticmethod(validate_encoding)
+
+
+class PaymentDialogSession(DialogSession):
+    """Pin the original payment rules throughout original binary/X replay."""
+    SOURCE_KEYS = PAYMENT_SOURCE_KEYS
+    ENCODER = "jack-permitted-dialog-payment"
+    VARIANT = DIALOG_PAYMENT_VARIANT
+    validate_encoding = staticmethod(validate_payment_encoding)

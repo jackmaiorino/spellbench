@@ -41,11 +41,18 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
             + "automatic mana production and other callbacks unqualified";
     private final Map<String, Object> start;
     private final boolean originalMana;
+    private final ModelReplay.ManaCapture payments;
+    static final String PAYMENT_VARIANT = MANA_VARIANT + "; " + JackManaReplay.VARIANT;
 
     JackModeEncoder(Map<String, Object> start) { this(start, false); }
     JackModeEncoder(Map<String, Object> start, boolean originalMana) {
-        this.start = start; this.originalMana = originalMana;
+        this(start, originalMana, null);
     }
+    JackModeEncoder(Map<String, Object> start, boolean originalMana, ModelReplay.ManaCapture payments) {
+        if (payments != null && !originalMana) throw new IllegalArgumentException("original payment needs filtered mana rules");
+        this.start = start; this.originalMana = originalMana; this.payments = payments;
+    }
+    @Override public ModelReplay.ManaCapture paymentRules() { return payments; }
 
     @Override public ManaOptions available(Player viewer, Game game) {
         if (!originalMana) return null;
@@ -209,9 +216,13 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                     "candidate_source_sha256", pin("candidateSourceSha256"),
                     "mode_rules_source_sha256", pin("modeRulesSourceSha256"),
                     "embedding_cache_sha256", pin("embeddingSha256"), "original_callback_sha256", SOURCE,
-                    "variant", originalMana ? MANA_VARIANT : VARIANT, "world_flags", world.flags,
+                    "variant", payments != null ? PAYMENT_VARIANT : originalMana ? MANA_VARIANT : VARIANT, "world_flags", world.flags,
                     "available_count", (long) bound.available.size(), "candidate_count", (long) bound.mask.length,
                     "original_mode_indices", bound.order);
+            if (payments != null) {
+                result.put("mana_payment_rules_source_sha256", payments.sourceSha256());
+                result.put("mana_payment_variant", JackManaReplay.VARIANT);
+            }
             if (originalMana) {
                 List<Object> costs = new ArrayList<>();
                 for (int i = 0; i < bound.mask.length; i++) costs.add(bound.available.get(i).getCost() != null);

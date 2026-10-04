@@ -15,11 +15,13 @@ import time
 from spellbench import observation, wire
 from xmage_jack_inference import validate_features, validate_scores
 from xmage_jack_selection import GREEDY, PROFILES
-from xmage_jack_sources import CALLBACK_SHA256, ENCODER_SHA256, MODE_VARIANT, MODE_MANA_VARIANT
+from xmage_jack_sources import CALLBACK_SHA256, ENCODER_SHA256, MODE_VARIANT, MODE_MANA_VARIANT, MANA_PAYMENT_VARIANT
 from xmage_neural_decisions import decision_hash, load_response
 
 SOURCE_KEYS = ("encoder_source_sha256", "candidate_source_sha256", "mode_rules_source_sha256", "embedding_cache_sha256")
 MANA_SOURCE_KEYS = SOURCE_KEYS + ("dialog_rules_source_sha256",)
+PAYMENT_SOURCE_KEYS = MANA_SOURCE_KEYS + ("mana_payment_rules_source_sha256",)
+MODE_PAYMENT_VARIANT = MODE_MANA_VARIANT + "; " + MANA_PAYMENT_VARIANT
 
 
 def bound_view(start: dict, decision: dict) -> dict[int, dict]:
@@ -74,8 +76,12 @@ def validate_mana_encoding(start: dict, decision: dict, encoded: dict, sources: 
     return _validate_encoding(start, decision, encoded, sources, request_hash, original_mana=True)
 
 
-def _validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str, *, original_mana: bool):
-    keys = MANA_SOURCE_KEYS if original_mana else SOURCE_KEYS
+def validate_payment_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str):
+    return _validate_encoding(start, decision, encoded, sources, request_hash, original_mana=True, original_payment=True)
+
+
+def _validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict, request_hash: str, *, original_mana: bool, original_payment=False):
+    keys = PAYMENT_SOURCE_KEYS if original_payment else MANA_SOURCE_KEYS if original_mana else SOURCE_KEYS
     if (not isinstance(sources, dict) or set(sources) != set(keys)
             or any(not isinstance(value, str) or not re.fullmatch("[a-f0-9]{64}", value) for value in sources.values())):
         raise ValueError("mode frame needs every original staged source pin")
@@ -83,7 +89,9 @@ def _validate_encoding(start: dict, decision: dict, encoded: dict, sources: dict
     expected = {"schema":"spellbench-jack-mode-features/v1", "decision_sha256":decision_hash(decision),
                 "game_start_sha256":decision_hash(start), "request_sha256":request_hash,
                 "original_callback_sha256":CALLBACK_SHA256,
-                "variant":MODE_MANA_VARIANT if original_mana else MODE_VARIANT, **sources}
+                "variant":MODE_PAYMENT_VARIANT if original_payment else MODE_MANA_VARIANT if original_mana else MODE_VARIANT, **sources}
+    if original_payment:
+        expected["mana_payment_variant"] = MANA_PAYMENT_VARIANT
     if wire.canonical_json_dumps({k:encoded.get(k) for k in expected}) != wire.canonical_json_dumps(expected):
         raise ValueError("mode frame differs from its original sources, game, decision or replay request")
     available, count, order = (encoded.get(k) for k in ("available_count", "candidate_count", "original_mode_indices"))
@@ -159,6 +167,8 @@ class ModeSession:
             ready = load_response(peer.read_line())
             expected = {"ready":True, "encoder":self.ENCODER, "original_callback_sha256":CALLBACK_SHA256,
                         "variant":self.VARIANT, **sources}
+            if "mana_payment_rules_source_sha256" in self.SOURCE_KEYS:
+                expected["mana_payment_variant"] = MANA_PAYMENT_VARIANT
             if (wire.canonical_json_dumps({k:ready.get(k) for k in expected}) != wire.canonical_json_dumps(expected)
                     or type(ready.get("embedding_count")) is not int or ready["embedding_count"] <= 0):
                 raise ValueError("mode encoder readiness differs from its original staged sources")
@@ -222,3 +232,11 @@ class ManaModeSession(ModeSession):
     ENCODER = "jack-permitted-mode-mana"
     VARIANT = MODE_MANA_VARIANT
     validate_encoding = staticmethod(validate_mana_encoding)
+
+
+class PaymentModeSession(ModeSession):
+    """Own original mode features and opt-in original automatic mana replay."""
+    SOURCE_KEYS = PAYMENT_SOURCE_KEYS
+    ENCODER = "jack-permitted-mode-payment"
+    VARIANT = MODE_PAYMENT_VARIANT
+    validate_encoding = staticmethod(validate_payment_encoding)

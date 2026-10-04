@@ -19,9 +19,12 @@ import java.util.Map;
 public final class JackDialogEncoderMain {
     private JackDialogEncoderMain() { }
     public static void main(String[] args) throws Exception {
-        if (args.length != 5) throw new IllegalArgumentException("usage: EMBEDDINGS EMBEDDINGS_SHA ENCODER_SHA CANDIDATE_SHA DIALOG_RULES_SHA");
+        if (args.length != 5 && args.length != 6) throw new IllegalArgumentException("usage: EMBEDDINGS EMBEDDINGS_SHA ENCODER_SHA CANDIDATE_SHA DIALOG_RULES_SHA [MANA_PAYMENT_RULES_SHA]");
+        boolean originalPayment = args.length == 6;
         System.setProperty("spellbench.jack.embeddingFile", args[0]);
-        String[] names = {"embeddingSha256", "encoderSourceSha256", "candidateSourceSha256", "dialogRulesSourceSha256"};
+        String[] names = originalPayment
+                ? new String[]{"embeddingSha256", "encoderSourceSha256", "candidateSourceSha256", "dialogRulesSourceSha256", "manaPaymentRulesSourceSha256"}
+                : new String[]{"embeddingSha256", "encoderSourceSha256", "candidateSourceSha256", "dialogRulesSourceSha256"};
         for (int i = 0; i < names.length; i++) {
             if (!args[i + 1].matches("[a-f0-9]{64}")) throw new IllegalArgumentException("dialog sources must be SHA-256");
             System.setProperty("spellbench.jack." + names[i], args[i + 1]);
@@ -30,14 +33,17 @@ public final class JackDialogEncoderMain {
             throw new IllegalArgumentException("dialog pipe has the wrong original callback source");
         }
         JackDialogEncoder.rulesClass();
+        if (originalPayment) new JackManaReplay(args[5]);
         int embeddings = EmbeddingCache.size();
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
         System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
         new CardResolver().resolve("Plains");
-        out.println(Json.canonical(Json.map("ready", true, "encoder", "jack-permitted-dialog",
+        Map<String, Object> ready = Json.map("ready", true, "encoder", originalPayment ? "jack-permitted-dialog-payment" : "jack-permitted-dialog",
                 "encoder_source_sha256", args[2], "candidate_source_sha256", args[3], "dialog_rules_source_sha256", args[4],
                 "embedding_cache_sha256", args[1], "original_callback_sha256", JackModeEncoder.SOURCE,
-                "variant", JackDialogEncoder.VARIANT, "embedding_count", (long) embeddings)));
+                "variant", originalPayment ? JackDialogEncoder.PAYMENT_VARIANT : JackDialogEncoder.VARIANT, "embedding_count", (long) embeddings);
+        if (originalPayment) { ready.put("mana_payment_rules_source_sha256", args[5]); ready.put("mana_payment_variant", JackManaReplay.VARIANT); }
+        out.println(Json.canonical(ready));
         BufferedReader in = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
         String line; long last = 0;
         while ((line = in.readLine()) != null) {
@@ -55,7 +61,8 @@ public final class JackDialogEncoderMain {
                     String seed = Json.str(record, name);
                     if (seed == null || !seed.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("dialog seeds must be 32-byte hex");
                 }
-                ModelReplay.Result replay = ModelReplay.runDialog(record, new JackDialogEncoder(Json.obj(record, "game_start")));
+                ModelReplay.Result replay = ModelReplay.runDialog(record, new JackDialogEncoder(Json.obj(record, "game_start"),
+                        originalPayment ? new JackManaReplay(args[5]) : null));
                 replay.encoded.put("request_sha256", JackModeEncoder.hash(record));
                 out.println(Json.canonical(Json.map("id", id, "ok", true, "encoded", replay.encoded)));
             } catch (Exception | LinkageError e) {

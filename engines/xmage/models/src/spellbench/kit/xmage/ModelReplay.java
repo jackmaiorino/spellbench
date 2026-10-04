@@ -36,18 +36,22 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.text.Normalizer;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import mage.abilities.costs.mana.ManaCost;
 
 /** Reaches original search callbacks by replaying a saved permitted priority. */
 final class ModelReplay {
     private ModelReplay() { }
     interface ModeCapture {
         default ManaOptions available(Player viewer, Game game) { return null; }
+        default ManaCapture paymentRules() { return null; }
         Mode earlier(World world, Map<String, Object> decision, Modes modes, Ability source,
                      Game game, Map<String, Object> semantic);
         Map<String, Object> encode(World world, Map<String, Object> decision, Modes modes, Ability source,
                                    Game game);
     }
     interface DialogCapture {
+        default ManaCapture paymentRules() { return null; }
         ManaOptions available(Player viewer, Game game, boolean fast);
         boolean earlierUse(World world, Map<String, Object> decision, Outcome outcome, String message,
                            Ability source, Game game, Map<String, Object> semantic);
@@ -57,6 +61,14 @@ final class ModelReplay {
                      Ability source, Game game, Map<String, Object> semantic);
         Map<String, Object> encodeX(World world, Map<String, Object> decision, int min, int max, boolean mana,
                                    Ability source, Game game);
+    }
+    interface ManaCapture {
+        String sourceSha256();
+        List<MageObject> producers(Player viewer, List<MageObject> original, Game game);
+        boolean payment(Player viewer, ManaCost unpaid, BooleanSupplier engine);
+        boolean activation(Player viewer, ActivatedAbility source, Game game, BooleanSupplier engine);
+        Boolean target(Player viewer, Outcome outcome, Target target, Ability source, Game game);
+        Boolean color(Player viewer, Outcome outcome, Choice choice, Game game);
     }
     // The private pipe handles one request at a time. Game state restoration
     // may replace Player objects, so the replay context belongs to the game.
@@ -92,6 +104,7 @@ final class ModelReplay {
         ModelModes modeActions;
         ModeCapture modeCapture;
         DialogCapture dialogCapture;
+        ManaCapture manaCapture;
         Map<String, Object> encoded;
 
         void searchAllowed() {
@@ -141,6 +154,27 @@ final class ModelReplay {
         ReplayPlayer(String seat) { super(seat); this.seat = seat; }
         private ReplayPlayer(ReplayPlayer p) { super(p); seat = p.seat; }
         @Override public ReplayPlayer copy() { return new ReplayPlayer(this); }
+        private ManaCapture paymentRules() {
+            return live != null && live.manaCapture != null
+                    && getId().equals(live.world.player(live.world.viewer)) ? live.manaCapture : null;
+        }
+        @Override public List<MageObject> getAvailableManaProducers(Game game) {
+            List<MageObject> original = super.getAvailableManaProducers(game);
+            ManaCapture rules = paymentRules();
+            return rules == null ? original : rules.producers(this, original, game);
+        }
+        @Override public boolean playMana(Ability ability, ManaCost unpaid, String prompt, Game game) {
+            ManaCapture rules = paymentRules();
+            return rules == null ? super.playMana(ability, unpaid, prompt, game)
+                    : rules.payment(this, unpaid, () -> super.playMana(ability, unpaid, prompt, game));
+        }
+        @Override public boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
+            try {
+                ManaCapture rules = paymentRules();
+                Boolean handled = rules == null ? null : rules.target(this, outcome, target, source, game);
+                return handled == null ? super.chooseTarget(outcome, target, source, game) : handled;
+            } catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
+        }
         @Override public ManaOptions getManaAvailable(Game game) {
             Result replay = live;
             if (replay != null && replay.dialogCapture != null
@@ -239,6 +273,9 @@ final class ModelReplay {
             catch (RuntimeException e) { if (context(game) != null) throw new Failure(e); throw e; }
         }
         private boolean replayChoice(Outcome outcome, Choice choice, Game game) {
+            ManaCapture rules = paymentRules();
+            Boolean handled = rules == null ? null : rules.color(this, outcome, choice, game);
+            if (handled != null) return handled;
             Result replay = context(game);
             if (replay == null) return super.choose(outcome, choice, game);
             if (!getId().equals(replay.world.player(replay.world.viewer))) {
@@ -499,6 +536,7 @@ final class ModelReplay {
         Result result = new Result();
         result.modeCapture = capture;
         result.dialogCapture = dialogs;
+        result.manaCapture = capture != null ? capture.paymentRules() : dialogs != null ? dialogs.paymentRules() : null;
         result.evaluator = evaluator; result.visits = settings.defaults.searchBudget; result.settings = settings;
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
@@ -565,7 +603,9 @@ final class ModelReplay {
         live = result;
         try {
             if (ability instanceof PassAbility) result.player.pass(game);
-            else if (!result.player.activateAbility((ActivatedAbility) ability.copy(), game)) {
+            else if (!(result.manaCapture == null ? result.player.activateAbility((ActivatedAbility) ability.copy(), game)
+                    : result.manaCapture.activation(result.player, (ActivatedAbility) ability.copy(), game,
+                            () -> result.player.activateAbility((ActivatedAbility) ability.copy(), game)))) {
                 throw new IllegalArgumentException("recorded anchor action failed");
             }
             // resumePlay must continue the injected priority part rather than

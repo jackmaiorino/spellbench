@@ -25,8 +25,12 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
             + "conditional mana bounds and integer order; permitted callback replay; "
             + "refusal instead of heuristic fallback; automatic mana production and other callbacks unqualified";
     private final Map<String, Object> start;
+    private final ModelReplay.ManaCapture payments;
+    static final String PAYMENT_VARIANT = VARIANT + "; " + JackManaReplay.VARIANT;
 
-    JackDialogEncoder(Map<String, Object> start) { this.start = start; }
+    JackDialogEncoder(Map<String, Object> start) { this(start, null); }
+    JackDialogEncoder(Map<String, Object> start, ModelReplay.ManaCapture payments) { this.start = start; this.payments = payments; }
+    @Override public ModelReplay.ManaCapture paymentRules() { return payments; }
 
     private static String pin(String name) {
         String value = System.getProperty("spellbench.jack." + name);
@@ -214,11 +218,16 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
         for (String flag : world.flags) if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
             throw new IllegalArgumentException("unsupported original dialog replay: " + flag);
         }
-        return Json.map("schema", "spellbench-jack-dialog-features/v1", "callback", callback,
+        Map<String, Object> result = Json.map("schema", "spellbench-jack-dialog-features/v1", "callback", callback,
                 "decision_sha256", JackModeEncoder.hash(decision), "game_start_sha256", JackModeEncoder.hash(start),
                 "encoder_source_sha256", pin("encoderSourceSha256"), "candidate_source_sha256", pin("candidateSourceSha256"),
                 "dialog_rules_source_sha256", pin("dialogRulesSourceSha256"), "embedding_cache_sha256", pin("embeddingSha256"),
-                "original_callback_sha256", JackModeEncoder.SOURCE, "variant", VARIANT, "world_flags", world.flags);
+                "original_callback_sha256", JackModeEncoder.SOURCE, "variant", payments == null ? VARIANT : PAYMENT_VARIANT, "world_flags", world.flags);
+        if (payments != null) {
+            result.put("mana_payment_rules_source_sha256", payments.sourceSha256());
+            result.put("mana_payment_variant", JackManaReplay.VARIANT);
+        }
+        return result;
     }
 
     @Override public Map<String, Object> encodeUse(World world, Map<String, Object> decision, Outcome outcome, String message,

@@ -90,6 +90,17 @@
     "wiring": "permitted actual callback replay, original private rules, paired model and owned original chooser",
     "limitations": "native execution pending; automatic mana production, other numeric callbacks and complete games unfinished"
   },
+  "mana_payment": {
+    "source_staging_flag": "mana_payment_callback: true; requires mode_mana_callback",
+    "source_lines": [6290, 6488],
+    "engine_choices": true,
+    "engine_planning_queues": "empty, as in the original RL action path",
+    "producer_order": "original usable-producer filtering, source and tap-target exclusions, stable penalty ordering during payment",
+    "context": "original nested unpaid-mana thread context; separate activation reservations per actual or copied player",
+    "callbacks": "original color preference and tap-target heuristics; original ordinary engine delegation preserves ordered pending costs",
+    "wiring": "optional source-bound replay hooks in both mode and binary/X pipes; separate payment variants and strict paired-policy consumers",
+    "limitations": "private rules, activation/payment lifecycle and engine delegation parity require guarded native qualification; full games unfinished"
+  },
   "remaining": [
     "guarded execution of the staged chooser on source-derived numerical cases",
     "original per-callback candidate ordering, filters, feature overwrites and application rules",
@@ -97,7 +108,7 @@
     "guarded original spell-mode execution and hidden-world replay",
     "guarded original binary and X feature, mana gate and selection execution",
     "guarded modes with costs and original filtered mana legality",
-    "original automatic mana production rules",
+    "guarded original automatic mana rules, context cleanup and engine delegation parity",
     "exact checkpoint deck associations",
     "full game adapter, deterministic replay, throughput qualification and rated benchmark"
   ],

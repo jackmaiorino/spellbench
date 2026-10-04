@@ -400,6 +400,94 @@ public final class DialogRules {
 """ + bounds + "        return new int[]{realMin, realMax};\n    }\n" + helpers + available + "}\n"
 
 
+MANA_PAYMENT_VARIANT = ("original automatic mana producer filters and stable ordering; original activation tap reservations, "
+                        "nested unpaid-mana context, color preference and tap-target rules; "
+                        "permitted replay; engine-only delegation for original mana callbacks; native execution unqualified")
+
+
+def mana_payment_source(source: str) -> str:
+    """Extract original stateful mana plumbing; callers supply the engine delegation."""
+    if hashlib.sha256(source.encode()).hexdigest() != CALLBACK_SHA256:
+        raise ValueError("Jack mana payment port requires the pinned April callback bytes")
+    helpers = extract(source, "    private static boolean inPlayManaContext() {",
+                      "    public void setAttachedGameLogger(")
+    reservations = extract(source, "            tapTargetCostReservations.clear();\n            for (mage.abilities.costs.Cost cost : freshAbility.getCosts()) {",
+                           "            // Activate using the fresh ability from the real game")
+    producers = extract(source, "    @Override\n    public List<MageObject> getAvailableManaProducers(",
+                        "    /**\n     * Override cast() to add safety bookmarks")
+    producers = producers.replace("    @Override\n", "")
+    producers = replace_once(producers, "public List<MageObject> getAvailableManaProducers(Game game)",
+                             "public List<MageObject> filterProducers(List<MageObject> offered, Game game)")
+    producers = replace_once(producers, "super.getAvailableManaProducers(game)", "new ArrayList<>(offered)")
+    payment = extract(source, "        int prevDepth = playManaDepth.get();",
+                      "        if (ACTIVATION_DIAG) {\n            RLTrainer.threadLocalLogger.get().info(\n                    \"PLAYMANA: Result=")
+    payment = replace_once(payment, "super.playMana(ability, unpaid, promptText, game)", "engine.getAsBoolean()")
+    targets = extract(source, "        // During mana payment, avoid tapping key mana producers when a target",
+                      "        // RL-only target selection. No engine fallback.")
+    targets = targets.replace("super.chooseTarget(outcome, target, source, game)", "engine.getAsBoolean()")
+    colors = extract(source, "        // Mana color payment: delegate to base AI logic (not a strategic decision)",
+                     "        // Detect alternative cost choices (they use KEY-based choices!)")
+    colors = replace_once(colors, "super.choose(outcome, choice, game)", "engine.getAsBoolean()")
+    return """package spellbench.models.jack;
+import mage.MageObject;
+import mage.Mana;
+import mage.abilities.Ability;
+import mage.abilities.Abilities;
+import mage.abilities.ActivatedAbility;
+import mage.abilities.mana.ManaAbility;
+import mage.abilities.costs.mana.ManaCost;
+import mage.cards.Card;
+import mage.choices.Choice;
+import mage.constants.Outcome;
+import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.players.Player;
+import mage.target.Target;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.BooleanSupplier;
+import java.util.stream.Collectors;
+
+/** Original mana rules and context only. No strategic policy or network. */
+public final class ManaPaymentRules {
+    public static final String SOURCE_SHA256 = "%s";
+    private static final boolean USE_ENGINE_CHOICES = true;
+    private static final boolean ACTIVATION_DIAG = false;
+    private static final ThreadLocal<Integer> playManaDepth = ThreadLocal.withInitial(() -> 0);
+    private static final ThreadLocal<String> currentUnpaidManaText = new ThreadLocal<>();
+    private UUID abilitySourceToExcludeFromMana = null;
+    private Set<UUID> tapTargetCostReservations = new HashSet<>();
+    private final Player viewer;
+    private final UUID playerId;
+    public ManaPaymentRules(Player viewer) {
+        if (viewer == null) throw new IllegalArgumentException("acting player required");
+        this.viewer = viewer; this.playerId = viewer.getId();
+    }
+    private UUID getId() { return viewer.getId(); }
+    private static void trace(String message) { }
+    private static final class RLTrainer {
+        static final ThreadLocal<java.util.logging.Logger> threadLocalLogger =
+                ThreadLocal.withInitial(() -> java.util.logging.Logger.getLogger("spellbench.jack.mana"));
+    }
+    public void prepareActivation(ActivatedAbility freshAbility, Game game) {
+        if (freshAbility == null || game == null) throw new IllegalArgumentException("actual activation required");
+""" % CALLBACK_SHA256 + reservations + """    }
+    public void clearActivation() {
+        abilitySourceToExcludeFromMana = null;
+        tapTargetCostReservations.clear();
+    }
+    public boolean payment(ManaCost unpaid, BooleanSupplier engine) {
+""" + payment + "        return result;\n    }\n" + """
+    public Boolean target(Outcome outcome, Target target, Ability source, Game game, BooleanSupplier engine) {
+""" + targets + "        return null;\n    }\n" + """
+    public Boolean color(Outcome outcome, Choice choice, Game game, BooleanSupplier engine) {
+""" + colors + "        return null;\n    }\n" + helpers + producers + "}\n"
+
+
 def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
@@ -413,6 +501,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if config.get("mode_mana_callback") is True and not (
             config.get("mode_callback") is True and config.get("dialog_callback") is True):
         raise ValueError("Jack mode mana staging requires the original mode and dialog rules")
+    if "mana_payment_callback" in config and type(config["mana_payment_callback"]) is not bool:
+        raise ValueError("Jack mana payment staging needs an explicit boolean flag")
+    if config.get("mana_payment_callback") is True and config.get("mode_mana_callback") is not True:
+        raise ValueError("Jack mana payment staging requires the original filtered mana callback")
     matches = [a for a in manifest.get("assets", []) if a.get("id") == config.get("state_encoder")]
     if len(matches) != 1:
         raise ValueError("Jack stage needs one private encoder asset")
@@ -438,6 +530,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
              if config.get("mode_callback") is True else None)
     dialogs = (dialog_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
                if config.get("dialog_callback") is True else None)
+    payments = (mana_payment_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+                if config.get("mana_payment_callback") is True else None)
     mulligan = None
     if config.get("mulligan_encoder") is not None:
         matches = [a for a in manifest["assets"] if a["id"] == config["mulligan_encoder"]]
@@ -467,6 +561,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if dialogs is not None:
         with (output / "DialogRules.java").open("xb") as stream:
             stream.write(dialogs)
+    if payments is not None:
+        with (output / "ManaPaymentRules.java").open("xb") as stream:
+            stream.write(payments)
     result = {"schema": "spellbench-jack-encoder-stage/v1", "original_source_sha256": asset["sha256"],
               "staged_source_sha256": hashlib.sha256(modified).hexdigest(), "variant": VARIANT,
               "original_callback_sha256": callback["sha256"],
@@ -489,6 +586,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if dialogs is not None:
         result.update(original_dialog_callback_sha256=CALLBACK_SHA256,
                       staged_dialog_rules_sha256=hashlib.sha256(dialogs).hexdigest(), dialog_variant=DIALOG_VARIANT)
+    if payments is not None:
+        result.update(original_mana_payment_callback_sha256=CALLBACK_SHA256,
+                      staged_mana_payment_rules_sha256=hashlib.sha256(payments).hexdigest(),
+                      mana_payment_variant=MANA_PAYMENT_VARIANT)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")

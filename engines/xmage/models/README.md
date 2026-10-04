@@ -14,8 +14,8 @@ token IDs. X choices retain the original affordable integer range and mana
 budget features. Both use the action head, paired policy and one game-owned
 original Java chooser. Forced feasibility and single-X returns bypass the
 model and chooser. The shared clock and resource cleanup are inherited from
-the tested mode component. Other number callbacks, automatic mana production,
-native execution and complete games remain
+the tested mode component. Other number callbacks, native automatic mana
+qualification and complete games remain
 unfinished. This component has no trained-checkpoint or full-game claim.
 
 Jack's original spell-mode component uses `JackModeEncoderMain` and
@@ -46,6 +46,27 @@ feature 13 are retained. Frames bind the extra mana-rule source and the
 Boolean cost flags for all original candidate slots, including masked modes.
 The pipe advertises `jack-permitted-mode-mana`; the five-argument pipe retains
 its original restricted mode variant.
+
+The opt-in automatic payment path adds `mana_payment_callback: true` to the
+private manifest, with the original filtered mana path already enabled. It
+stages `ManaPaymentRules.java` from the same pinned callback. Producer
+filtering and stable ordering, activation source/tap-target reservations,
+nested unpaid-mana context, color preference and tap-target rules retain
+their original source. Actual and copied players hold separate reservations.
+The ordinary engine delegation preserves its ordered pending mana costs and
+does not call the Exp1 policy. This path pins the original default
+`RL_ENGINE_CHOICES=1` and empty parent planning queues used by the RL path.
+
+Pass the staged payment-rule hash as argument seven to `JackModeEncoderMain`
+or argument six to `JackDialogEncoderMain`, and use `PaymentModeSession` or
+`PaymentDialogSession`. Readiness and every frame carry the additional source
+pin and a distinct payment variant. Older consumers refuse these variants.
+The paired policy, original chooser, clock and cleanup remain owned by the
+same game session. Earlier pipe argument counts retain their previous
+variants. The public CI check compares ordinary engine color delegation for
+all six mana colors with ordered pending payments. Private rules and real
+payment/reservation lifecycle still require guarded native qualification;
+these source components do not qualify a complete entrant.
 
 Invalid or unsupported callbacks refuse in place of the
 original heuristic fallback. Local transport checks do not execute private
