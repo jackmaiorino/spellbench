@@ -32,10 +32,12 @@ public final class JackParentCardEncoderMain {
             System.setProperty("spellbench.jack." + names[i], args[i+1]);
         }
         for (String name : new String[]{"CandidateEncoder", "ModeRules", "TargetRules", "CardSetRules"}) JackTargetEncoder.original(name);
-        JackDialogEncoder.rulesClass(); new JackManaReplay(args[7]); JackParentCardEncoder.parentRules();
+        JackDialogEncoder.rulesClass(); new JackManaReplay(args[7]);
         int embeddings = EmbeddingCache.size();
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
         System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
+        // Original ability-score initialization creates abilities under the fixed boot stream.
+        JackParentCardEncoder.parentRules();
         new CardResolver().resolve("Plains");
         Map<String, Object> ready = Json.map("ready", true, "encoder", "jack-permitted-parent-card",
                 "original_callback_sha256", JackModeEncoder.SOURCE, "variant", JackParentCardEncoder.VARIANT,
