@@ -97,7 +97,7 @@ public final class JackManaEncoderCheck {
             } catch (IllegalArgumentException expected) {
                 require(expected.getMessage().contains("declared opt-in"), "wrong refusal");
             }
-            Map<String, Object> result = Json.map("passed", true, "decision", decision, "game_start", start,
+            Map<String, Object> result = Json.map("passed", true, "hello", hello, "decision", decision, "game_start", start,
                     "encoded", encoded, "mana_sources", sources, "hidden_worlds", 8L,
                     "different_hidden_samples", (long) different,
                     "scope", "priority mana feature encoding only; original priority chooser and full games unfinished");
