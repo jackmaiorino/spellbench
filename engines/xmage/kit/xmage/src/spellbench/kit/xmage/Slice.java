@@ -193,6 +193,15 @@ public final class Slice {
         final List<Map<String, Object>> trail = new ArrayList<>();
 
         static EnginePos start(String label, SeatSetup s0, SeatSetup s1) {
+            return start(label, s0, s1, true);
+        }
+
+        /** Keep the controlled opening zones and pose the engine's actual mulligan callbacks. */
+        static EnginePos startMulligan(String label, SeatSetup s0, SeatSetup s1) {
+            return start(label, s0, s1, false);
+        }
+
+        private static EnginePos start(String label, SeatSetup s0, SeatSetup s1, boolean mulliganNone) {
             EnginePos e = new EnginePos();
             e.secret = Seeds.hmac("spellbench-kit-slice".getBytes(), label);
             GameRandom.installBoot();
@@ -227,7 +236,7 @@ public final class Slice {
             names.addAll(s1.all());
             List<String> domain = new ArrayList<>(names);
             Collections.sort(domain);
-            e.seats.connect(e.secret, FLAGS, 10000, 10000, domain, true);
+            e.seats.connect(e.secret, FLAGS, 10000, 10000, domain, mulliganNone);
             for (int k = 0; k < 2; k++) {
                 Player p = e.seats.player(k);
                 List<Card> hand = new ArrayList<>();

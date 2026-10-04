@@ -33,7 +33,7 @@ public final class JackMulliganEncoderCheck {
                 "Lightning Bolt", "Abrade", "Runeclaw Bear"));
         Slice.SeatSetup b = new Slice.SeatSetup().lib("Mountain", 8).lib("Lightning Bolt", 2);
         b.hand.addAll(Arrays.asList("Mountain", "Mountain", "Mountain", "Fireball", "Shock", "Shock", "Shock"));
-        Slice.EnginePos position = Slice.EnginePos.start("jack-permitted-mulligan", a, b);
+        Slice.EnginePos position = Slice.EnginePos.startMulligan("jack-permitted-mulligan", a, b);
         try {
             if (!position.advance(d -> "p0".equals(Json.str(d, "acting_seat"))
                     && "mulligan".equals(Slice.Front_firstKind(d)), 20)) {
