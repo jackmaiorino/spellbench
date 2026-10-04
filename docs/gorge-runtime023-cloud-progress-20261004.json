@@ -1,0 +1,119 @@
+{
+  "schema": "spellbench-gorge-live-cloud-progress/v1",
+  "observed_at_utc": "2026-10-04T09:34:43.145630+00:00",
+  "status": "native_serial_qualification_running",
+  "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-023",
+  "runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "prepared_adapter_commit": "879c215ba7f13d7904ac9bdafc0d053ff55f5c08",
+  "planned_sealed_source_of_record": "E:/spellbench-gorge-runpod-20261004-016",
+  "live_recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-016",
+  "pod_id": "whzmn4cce60oph",
+  "pod_name": "spellbench-gorge-native-3ea679f4c9384ec5",
+  "deadline_utc": "2026-10-04T11:31:40.1164216+00:00",
+  "guardian_pid": 17328,
+  "guardian_confirmed_alive": true,
+  "host_fingerprint_verified": true,
+  "latest_guardian_recovery": null,
+  "latest_operator_recovery": {
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-016\\recovery-operator-20261004T093302Z.tar.gz",
+    "bytes": 64261,
+    "sha256": "c90366ab4f388611d784cb30f48e156c07c421e1f5e25ee65552fb79c021690b"
+  },
+  "bundle_sha256": "5a99d0c81d943669c921622a9d07c1c8d3230216a0ef43894c15412786cbdfdb",
+  "remote_files_verified": 964,
+  "usable_cpus": 24,
+  "memory_bytes": 30999998464,
+  "actual_remote_facts": {
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
+    "raw_cpu": 112,
+    "disk": {
+      "total": 85899345920,
+      "used": 218791936,
+      "free": 85680553984
+    },
+    "cpu.max": "2380000 100000",
+    "memory.max": "30999998464",
+    "cpuset.cpus.effective": "0-111",
+    "cpu/cpu.cfs_quota_us": null,
+    "cpu/cpu.cfs_period_us": null,
+    "memory/memory.limit_in_bytes": null,
+    "cpu_model": "AMD EPYC 7663 56-Core Processor"
+  },
+  "qualified_worker_bound": 16,
+  "planned_worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "capacity_diagnosis": {
+    "at_utc": "2026-10-04T09:34:49.867705+00:00",
+    "stage": "isolated serial completed-work timing baseline",
+    "observed_worker_count": 1,
+    "eligible_cpus": 24,
+    "qualified_ladder_ceiling": 16,
+    "planned_ladder": [
+      1,
+      8,
+      16
+    ],
+    "measured_consecutive_windows": [
+      {
+        "start_utc": "2026-10-04T09:32:28.778369+00:00",
+        "end_utc": "2026-10-04T09:33:28.860007+00:00",
+        "elapsed_seconds": 60.08673299400107,
+        "cpu_seconds": 60.651084,
+        "effective_cores": 1.0093922731005407,
+        "usable_core_fraction": 0.04205801137918919,
+        "throttle_period_delta": 0,
+        "natural_blocks_before": 0,
+        "natural_blocks_after": 1
+      },
+      {
+        "start_utc": "2026-10-04T09:33:28.860007+00:00",
+        "end_utc": "2026-10-04T09:34:28.942556+00:00",
+        "elapsed_seconds": 60.08224067899573,
+        "cpu_seconds": 60.395221,
+        "effective_cores": 1.005209198549642,
+        "usable_core_fraction": 0.041883716606235084,
+        "throttle_period_delta": 0,
+        "natural_blocks_before": 1,
+        "natural_blocks_after": 2
+      }
+    ],
+    "source_observation": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-016\\WORK-OBSERVATIONS\\20261004T093443163986Z.json",
+    "idle_capacity_reason": "The isolated serial baseline precedes matched parallel timing trials. Concurrent work would contaminate this baseline. No qualified allocation exists yet.",
+    "correction": "Retain the healthy baseline and proceed to matched parallel trials on completion. A completed row that fails the fixed audit gate requires diagnosis before substantial qualification.",
+    "full_native_audit_started": false,
+    "reference_matrix_started": false
+  },
+  "current_trials": [
+    {
+      "stage": "qualification-1-workers-1",
+      "natural_blocks": 3,
+      "emitted_rows": 3,
+      "last_game": 44
+    }
+  ],
+  "guard_path": "driver.py -> qualify_native.py -> arena.throughput.plan_allocation -> bounded native callback",
+  "driver_sha256": "4049cad71fe698b068f28a47bff85ff0e72d87932b9db517a0dee8e9abd8984d",
+  "native_script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
+  "cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "cost_per_hour_usd": 0.18,
+  "cloud_cap_usd": 10,
+  "conservative_prior_lease_ceiling_usd": 5.26026747,
+  "maximum_new_lease_usd": 0.85,
+  "conservative_cumulative_lease_ceiling_usd": 6.11026747,
+  "final_invoice_pending": true,
+  "previous_closed_cloud": "docs/gorge-runtime022-cloud-20261004.json",
+  "production_repair": "docs/gorge-public-london-token-repair-20261004.json",
+  "reference_launcher_repair": "docs/gorge-reference-scaling-repair-20261004.json",
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "limit": "Live observations. Matching serial/parallel completed-work evidence, full native/reference qualification, reviews, ratings and publication remain unfinished. Recovery and bounded release are armed."
+}
