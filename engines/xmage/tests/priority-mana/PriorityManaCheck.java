@@ -4,6 +4,7 @@ import mage.game.permanent.Permanent;
 import mage.player.cabt.CardResolver;
 import mage.player.spellbench.Warmup;
 import mage.player.spellbench.rng.GameRandom;
+import mage.player.spellbench.server.EngineProfile;
 import spellbench.kit.core.Json;
 
 import java.io.FileDescriptor;
@@ -39,8 +40,11 @@ public final class PriorityManaCheck {
         return -1;
     }
 
-    private static Map<String, Object> run(String family) {
+    private static Map<String, Object> run(String family) throws Exception {
         boolean enabled = !"default".equals(family);
+        System.setProperty("spellbench.priorityMana", Boolean.toString(enabled));
+        EngineProfile profile = EngineProfile.load();
+        require(profile.priorityMana == enabled, "profile setting mismatch");
         String source = "color".equals(family) ? "Mana Confluence"
                 : "cost".equals(family) ? "Springleaf Drum" : "Forest";
         Slice.SeatSetup own = new Slice.SeatSetup().lib("Forest", 12);
@@ -101,6 +105,7 @@ public final class PriorityManaCheck {
                 require(position.player("p0").getManaPool().isEmpty(), "floating mana was not spent");
             }
             return Json.map("family", family, "enabled", enabled, "frames", frames,
+                    "game_start", Slice.gameStart("p0", own, opponent), "hello", profile.helloOk("native", 0),
                     "final_decision", position.decision(), "passed", true);
         } finally {
             position.seats.exchange.close();
