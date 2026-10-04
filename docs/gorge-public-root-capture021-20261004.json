@@ -1,0 +1,4276 @@
+{
+  "schema": "spellbench-gorge-public-capture-preparation/v1",
+  "at_utc": "2026-10-04T20:53:37.973636+00:00",
+  "spellbench_commit": "f8ba8f3d6ea7c6b1484e6d239fc1b07fcef9f761",
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "source_of_record": "E:/spellbench-gorge-runpod-20261004-021",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-021",
+  "user_authority": "Jack: Sure. 10$ cap go",
+  "spend_cap_usd": 10,
+  "prior_spend_estimate_usd": 4.70239147,
+  "new_lease_cap_usd": 0.5625,
+  "lease_seconds": 2700,
+  "all_in_rate_cap_usd_per_hour": 0.35,
+  "ancillary_allowance_usd": 0.15,
+  "cumulative_conservative_ceiling_usd": 5.26489147,
+  "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261004-004",
+  "billing_seal_sha256": "7582ea9ee2a2bcec4997985e249788ccd784019163db5c9aca1a8e8e33298fcd",
+  "provider_reported_spend_usd_so_far": 2.7578938998485683,
+  "final_invoice_verified": false,
+  "scope": "One bounded600-second original seed52 actor-public failure capture, after real shipped-budget serial/parallel intent and trace parity. No full native audit, ratings, training or publication.",
+  "teacher_parallelism": "Temporary diagnostic-only1/16 override; ordered rollouts; sampler options and shipped budgets unchanged",
+  "budgets": {
+    "attempts": 64,
+    "worlds": 8,
+    "max_submits": 5000,
+    "audit": true,
+    "resample": 7,
+    "game_index": 52
+  },
+  "minimum_vcpu_count": 16,
+  "minimum_memory_gb": 32,
+  "container_disk_gb": 100,
+  "projected_bytes": 268435456,
+  "cap_bytes": 4294967296,
+  "reserve_bytes": 64424509440,
+  "remote_cap_bytes": 4294967296,
+  "remote_wall_cap_seconds": 2100,
+  "public_ip_required": true,
+  "provider_create_endpoint": "https://rest.runpod.io/v1/pods",
+  "gpu_type": "NVIDIA GeForce RTX 3090",
+  "gpu_compute": false,
+  "gpu_ordinal": null,
+  "production_changes": false,
+  "native_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "linux_sdk": {
+    "filename": "go1.27.1.linux-amd64.tar.gz",
+    "os": "linux",
+    "arch": "amd64",
+    "version": "go1.27.1",
+    "sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+    "size": 70553950,
+    "kind": "archive",
+    "url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+    "manifest_url": "https://go.dev/dl/?mode=json"
+  },
+  "resources_at_preparation": {
+    "checked_at_utc": "2026-10-04T20:53:38.188131+00:00",
+    "Jack": {
+      "checked_at_utc": "2026-10-04T20:53:40.4005922Z",
+      "memory_free_kib": 84959384,
+      "memory_total_kib": 134025436,
+      "cpu_logical": 24,
+      "cpu_name": "13th Gen Intel(R) Core(TM) i7-13700K",
+      "c_free_bytes": 87476731904,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 3050",
+        "NVIDIA GeForce RTX 4070 SUPER"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 87476731904,
+          "Size": 999136686080
+        },
+        {
+          "DeviceID": "D:",
+          "FreeSpace": 266064052224,
+          "Size": 1000186310656
+        },
+        {
+          "DeviceID": "E:",
+          "FreeSpace": 1036910874624,
+          "Size": 4000768323584
+        }
+      ],
+      "workloads": [
+        {
+          "ProcessId": 40432,
+          "Name": "python.exe",
+          "WorkingSetSize": 176128
+        },
+        {
+          "ProcessId": 40520,
+          "Name": "python.exe",
+          "WorkingSetSize": 1613824
+        },
+        {
+          "ProcessId": 41108,
+          "Name": "python.exe",
+          "WorkingSetSize": 1654784
+        },
+        {
+          "ProcessId": 41216,
+          "Name": "python.exe",
+          "WorkingSetSize": 32358400
+        },
+        {
+          "ProcessId": 60864,
+          "Name": "python.exe",
+          "WorkingSetSize": 656904192
+        },
+        {
+          "ProcessId": 51492,
+          "Name": "python.exe",
+          "WorkingSetSize": 23535616
+        },
+        {
+          "ProcessId": 42876,
+          "Name": "python.exe",
+          "WorkingSetSize": 23662592
+        },
+        {
+          "ProcessId": 49564,
+          "Name": "python.exe",
+          "WorkingSetSize": 16596992
+        }
+      ],
+      "canonical_reservation": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=london-opening-pilot-002 generation=184 since=2026-10-04T20:06:18.860+00:00",
+      "previous_formal_pid_58872_present": false,
+      "formal_completion": "Not inferred from process absence; no research outcomes read"
+    },
+    "Haley": {
+      "checked_at_utc": "2026-10-04T20:53:42.5782079Z",
+      "memory_free_kib": 23187556,
+      "memory_total_kib": 33478692,
+      "cpu_logical": 16,
+      "cpu_name": "AMD Ryzen 7 3700X 8-Core Processor             ",
+      "c_free_bytes": 121511616512,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 4060"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 121511616512,
+          "Size": 999123054592
+        }
+      ],
+      "host_lock_exists": false,
+      "workloads": [],
+      "reservation": "Queued training-performance window retains priority per TO-CODEX #811 until owner or user disposition; no claim taken"
+    },
+    "RunPod": {
+      "checked_at_utc": "2026-10-04T20:53:38.188131+00:00",
+      "new_paid_compute": 0,
+      "inventory": [
+        {
+          "id": "842qs8tfojssm7",
+          "name": "spellbench-luna-approved-e92937de",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.08
+        },
+        {
+          "id": "sg44qx00hkwn8o",
+          "name": "spellbench-luna-small-65cd52ba",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.08
+        },
+        {
+          "id": "7yiducujj2iy3v",
+          "name": "spellbench-x5-download-f9377613",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.092
+        },
+        {
+          "id": "1qeikbu63ugou0",
+          "name": "spellbench-x5-recovery-2a1e9848",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 2,
+          "memoryInGb": 8,
+          "costPerHr": 0.092
+        },
+        {
+          "id": "j7nhcnc5x3a9l3",
+          "name": "spellbench-x5-004913a-582386ea",
+          "desiredStatus": "EXITED",
+          "vcpuCount": 16,
+          "memoryInGb": 64,
+          "costPerHr": 0.736
+        }
+      ],
+      "inventory_status": "HTTP200",
+      "allocation_disposition": "All prior gorge pods deleted; proposed diagnostic021 remains unallocated under existing all-in USD10 cap; unrelated leases untouched"
+    },
+    "obsolete_reservation": "Old forty-minute Jack Spellbench queue is retired per CODEX811",
+    "coordination": "Verified human research priority binds Jack PC until phase handback, regardless of canonical status; Haley queued training-performance priority retained",
+    "allocation": "Remote small correctness capture proposed; no local native work; actual cloud quota and memory required before diagnostic dispatch",
+    "qualification": "Historical runtime007 scaling is retained; changed runtime requires compatibility qualification at an eligible allocation"
+  },
+  "gpu_catalog_candidate": {
+    "availability": "LOW",
+    "community": true,
+    "cudaVersions": [
+      {
+        "available": false,
+        "version": "12.4"
+      },
+      {
+        "available": false,
+        "version": "12.5"
+      },
+      {
+        "available": false,
+        "version": "12.7"
+      },
+      {
+        "available": true,
+        "version": "12.8"
+      },
+      {
+        "available": false,
+        "version": "12.9"
+      },
+      {
+        "available": false,
+        "version": "13.0"
+      },
+      {
+        "available": false,
+        "version": "13.2"
+      },
+      {
+        "available": false,
+        "version": "13.3"
+      }
+    ],
+    "id": "NVIDIA GeForce RTX 3090",
+    "manufacturer": "NVIDIA",
+    "maxCount": {
+      "community": 8,
+      "secure": 8
+    },
+    "memory": 24,
+    "name": "RTX 3090",
+    "pool": "AMPERE_24",
+    "price": {
+      "community": 0.22,
+      "secure": 0.5,
+      "serverless": 0.69
+    },
+    "secure": true
+  },
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "remote_files": {
+    "helpers/driver.py": {
+      "bytes": 10918,
+      "sha256": "12f7d29fa1ef43caa58f1c1789f7b53770b7c73fc5f8c553b5ca86b42a2238f8"
+    },
+    "helpers/sample-hook.go.txt": {
+      "bytes": 2233,
+      "sha256": "1584d8ad16f6d142750714f520f69889384a7372846cfa434c024b62063d8749"
+    },
+    "helpers/snapshot.py": {
+      "bytes": 616,
+      "sha256": "005afe5572ae7a272c303de9cbf8327adb8231e152d5c24f00af7bbd1466564e"
+    },
+    "runtime/prefix182-baseline.json": {
+      "bytes": 1492090,
+      "sha256": "f8cdeb7f699cd0c3996dc77d0049965d6c077dee68a843ff6cc4b96cb02e293e"
+    },
+    "runtime/registry.gob.gz": {
+      "bytes": 9070329,
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+    },
+    "runtime/seed52-baseline.json": {
+      "bytes": 1124,
+      "sha256": "15268bb76f6da0202746a25d85fdd6d548746ba9b85b3a7405dc8e61fc8196cf"
+    },
+    "source/.gitattributes": {
+      "bytes": 136,
+      "sha256": "47ef4f82f7d1f8c90b0c1375e91cae7942f4330ff1e1346ed3f213fb5600f5e6"
+    },
+    "source/.github/workflows/ci.yml": {
+      "bytes": 1338,
+      "sha256": "4d5ffc8bb55a0aa015ec470799f4f81de0b47907de0534ab7adad63eb1fefa91"
+    },
+    "source/.github/workflows/gorge.yml": {
+      "bytes": 2687,
+      "sha256": "462e0b75cba1359740e88c892ea680a6020217b2cd287de3d1fe60d360e6a1a3"
+    },
+    "source/.github/workflows/llm-container.yml": {
+      "bytes": 1785,
+      "sha256": "1f158bf334fe5810c14d8939f18a1977fb18800dbef4f6d1e68f75e7678d4239"
+    },
+    "source/.github/workflows/llm.yml": {
+      "bytes": 1465,
+      "sha256": "f2892512b82217c30403fd076069ee91d2532ce79e996471b826c4540f06f50c"
+    },
+    "source/.github/workflows/pages-local.yml": {
+      "bytes": 1657,
+      "sha256": "2f0cbdcb4e627a874b4bd208f0661dc7c27d8e703bfdb1fde031d3c9a064b7bf"
+    },
+    "source/.github/workflows/pages.yml": {
+      "bytes": 1687,
+      "sha256": "0ed379aee9ef3f2c2e59f821752aa75b6be399ec4a7793fc23cb7e25c660fd0a"
+    },
+    "source/.github/workflows/xmage-build.yml": {
+      "bytes": 2635,
+      "sha256": "5ec34780cc9dfe4848448a59422279eb46302b6522adf2bbb01e712f6fe79b31"
+    },
+    "source/.gitignore": {
+      "bytes": 291,
+      "sha256": "f56cfe1531bb77e5afa2e88bdf377e7d0593c147e986d3117934c85073340266"
+    },
+    "source/.python-version": {
+      "bytes": 8,
+      "sha256": "f8faecf2505680716c6279bf2cdec3d5a5ba2ba852f0d7df45d51ac1ce8d9ade"
+    },
+    "source/benchmarks/fdn-mirror-v0/benchmark.json": {
+      "bytes": 3093,
+      "sha256": "5738af5f159125cdfab620c538984553be869bb6112001c079b9f8e010bd9d01"
+    },
+    "source/benchmarks/fdn-mirror-v0/README.md": {
+      "bytes": 1491,
+      "sha256": "28d6989a79a386e519e35aa32f34a77813c1378f25296c14632a29d41bf0541e"
+    },
+    "source/benchmarks/fdn-mirror-v0/runs/2026-10-02/COMMITMENT.json": {
+      "bytes": 205,
+      "sha256": "108ec9560d9a01eeae87326c6a3c2b6786297f2bce14f4d7653a6ed3fe69f71e"
+    },
+    "source/benchmarks/pauper-gorge/benchmark.json": {
+      "bytes": 9582,
+      "sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0"
+    },
+    "source/benchmarks/pauper-kernel/benchmark.json": {
+      "bytes": 4231,
+      "sha256": "d452e64934c145deb3e5dc70470cd695fc68f4e734059d65db488c9a48869f0b"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/config.json": {
+      "bytes": 1072,
+      "sha256": "c8ab8b3387ab4ab3ecf5511604fdf5c56831ef56d4eaf82f6ff61f0cc32b252e"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/leaderboard.json": {
+      "bytes": 15618,
+      "sha256": "080a7eaaffed3eda74b97f75c5ccc7875d1c04dac19ef43e3bee5d6ca222e24a"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/LEADERBOARD.md": {
+      "bytes": 5787,
+      "sha256": "cfcc5f5ebf0de15dc6a83f33e7d04a91135421833469a68ec4edaf1c977d9b15"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/manifest.json": {
+      "bytes": 2023,
+      "sha256": "fce87122101c11640f343e272ee09f798c3297610c3788944891f61665e084d2"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/matches.jsonl": {
+      "bytes": 177394,
+      "sha256": "4557748c09c0181690b23dd78c9889ca564a473a28c960dd93e394e009de48a6"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-26/registry.json": {
+      "bytes": 656,
+      "sha256": "dc47f7b7eed14a3a1f7c4f5e98ddedb7249af365dffee9a939c14823b64bc7f3"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/config.json": {
+      "bytes": 2445,
+      "sha256": "c604019a6f3d93414f9a641ef2823f4623278fcd92353d405682c1b11dad40bc"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/leaderboard.json": {
+      "bytes": 32311,
+      "sha256": "cfe086ceee5f84995a1b7bf6d41fc444bd9cc2bab7385362996588256535e23a"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/LEADERBOARD.md": {
+      "bytes": 9145,
+      "sha256": "1fde44ef512da111da31b60411423d5fd1265a50c76913fb3b8c7827446ef0b5"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/manifest.json": {
+      "bytes": 2688,
+      "sha256": "6d4e4c87fa51db388fc710d825d10662cc09612a73f114c5cea0f756e677fa4e"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/matches.jsonl": {
+      "bytes": 881010,
+      "sha256": "1e503a30e4c691f9035d56315fb848808c77b9373068a17a4577cbad57cca1e0"
+    },
+    "source/benchmarks/pauper-kernel/runs/2026-09-27/registry.json": {
+      "bytes": 1320,
+      "sha256": "144a4cf1aa1adfb341945fee2aed62992eccaedc9a2c075b7bc585faf06c79c0"
+    },
+    "source/benchmarks/pauper-kernel-v2/benchmark.json": {
+      "bytes": 8147,
+      "sha256": "82f19926c8b63c11d1a7c070f9d4ffdb4dd1d473db181642ea5b1954f355603c"
+    },
+    "source/benchmarks/proposed.json": {
+      "bytes": 340,
+      "sha256": "144b0efc15abc2959799b068c986ea1dbe86d322208c0965db447181776416c7"
+    },
+    "source/benchmarks/standard-mirror-xmage/benchmark.json": {
+      "bytes": 3653,
+      "sha256": "9fbcfd35be15437a489c2438d9e9b8e586483ff36d36ddb267e73d5bd5db7190"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/COMMITMENT.json": {
+      "bytes": 213,
+      "sha256": "d1cf24a562457c6e6b367a808b3cae091774bae9c47129e28233b7379627d83f"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/config.json": {
+      "bytes": 2410,
+      "sha256": "10d1a34ffc0bfc0a7853f19ba38646b71e40f9820dacbca91f3a6bbd5dba99fa"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/leaderboard.json": {
+      "bytes": 8597,
+      "sha256": "528699fc7c650d754f9c2d14a7c883b1baa7fd8e16cf44bc0ab8371e1d523c6b"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/LEADERBOARD.md": {
+      "bytes": 3576,
+      "sha256": "fb03068e4197d19a0cb59487df2e3e4ac456ee8f47b2e1b28f051efc43a9f2d4"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/manifest.json": {
+      "bytes": 9175,
+      "sha256": "d36c364d330a995a2fdff6bc170e99a43f17a1f05943245458d3bda4701c5155"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/matches.jsonl": {
+      "bytes": 24354,
+      "sha256": "e573b950ceceaa6f4f0cd5ad87f6ab5f42ea58cff688ecf498b5b387a580cddb"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02/registry.json": {
+      "bytes": 669,
+      "sha256": "d81ce88f2800af1d01772682e8e6c371e7c3653b5511a1bb76d2a86cc7bd2e0c"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-2/COMMITMENT.json": {
+      "bytes": 215,
+      "sha256": "ed43d7ada3560708bc3ae873edbe5eefe1051651c9a06fe325166ba228730e9a"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-2/REVEAL.json": {
+      "bytes": 304,
+      "sha256": "e6cb24c14e4058ae0fb486acc93617172e332b2eebc0ffe4ce8127b0c60dea6d"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/COMMITMENT.json": {
+      "bytes": 215,
+      "sha256": "02861abd2c1815269ac420ccded3c05bb72de70f0b1678ec2db70c29f78f4d72"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/config.json": {
+      "bytes": 2468,
+      "sha256": "9b6cb88aa75212e65c6e361fb78eea150e0779de1df474848475944cbb4bc184"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/leaderboard.json": {
+      "bytes": 9419,
+      "sha256": "eb48d592b665581e68708c1e3a6f433ece96b1bc9be62c4d52920b7876a61269"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/LEADERBOARD.md": {
+      "bytes": 3782,
+      "sha256": "105b5c4d53ca777c329fcafd1a930f75544d95c3398496ddbfd11c9f50ca0587"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/manifest.json": {
+      "bytes": 8285,
+      "sha256": "80043443f9e0be22dbea3c8a930fe38cceb3e2144f37755561308f02dff91df0"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/matches.jsonl": {
+      "bytes": 61711,
+      "sha256": "a2e12ef9d329c76e6dec0bf2db5e07579cd06914622b8281bc867aa6cf38b393"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-02-3/registry.json": {
+      "bytes": 669,
+      "sha256": "1e71eac97292065dbce434a10870fa1d105a95db8c09a949c73a4e30f5f14147"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/COMMITMENT.json": {
+      "bytes": 213,
+      "sha256": "1dd9677d837281b44b0a68cfbfdc47f6073b8fce732e4aa2aa4edc4de355cd6e"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/config.json": {
+      "bytes": 2466,
+      "sha256": "6820d3d67a32a5e576d9bbeab7fd879d2eb47c2b8f8b246f895ba178a230b2b5"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/leaderboard.json": {
+      "bytes": 9421,
+      "sha256": "92633dcbeb64a714539a476630c0671529b0e947606308a1623e74dc0e1c20c7"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/LEADERBOARD.md": {
+      "bytes": 3784,
+      "sha256": "4ccda469ecc4d314b637ade2d32aea29ff60077b29226f033aae8bc6e7abe23e"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/manifest.json": {
+      "bytes": 8874,
+      "sha256": "1f7970dcbae47ccdaa849de8e10d839be1c32b0e724af86b5fbe121384623680"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/matches.jsonl": {
+      "bytes": 68753,
+      "sha256": "750c955bb4fff5331e661703cce5f4fa7ce552c100dc32bbcc4549ddd1b2adfb"
+    },
+    "source/benchmarks/standard-mirror-xmage/runs/2026-10-03/registry.json": {
+      "bytes": 669,
+      "sha256": "eef8409e08c4639bf954bbda682831fdf43531896b2d022568834e4aab8f3788"
+    },
+    "source/docs/design/2026-09-26-benchmark-site-plan.md": {
+      "bytes": 137963,
+      "sha256": "f2f937ba05d662648cf86eadf13d6111b8c6ca7f0ff26c024c22ea20aaa1ff6a"
+    },
+    "source/docs/design/2026-09-26-benchmark-site.md": {
+      "bytes": 9046,
+      "sha256": "e7a77074c1e640a159029b54d108f736be46ed84b3c54fc47899014fc26df58c"
+    },
+    "source/docs/design/2026-09-27-everyone-on-the-board.md": {
+      "bytes": 7705,
+      "sha256": "891c0bcc9807e28e5d4a15f25b57e06df36d455af7aaa28e4b4508ee64256634"
+    },
+    "source/docs/design/2026-09-27-gorge-adapter-plan.md": {
+      "bytes": 579333,
+      "sha256": "54b1eace156a85b628e6dac9939a98976ab882d07ef369b3741347ab6fa6e0cb"
+    },
+    "source/docs/design/2026-09-27-kernel-models-plan.md": {
+      "bytes": 161627,
+      "sha256": "ff1de6cdecb08d4e5db76d3476a7eb428c8e2fd7ac0548f7f44e5858d5e3f12f"
+    },
+    "source/docs/design/2026-09-27-protocol-v2-plan.md": {
+      "bytes": 593743,
+      "sha256": "5d102cec6c751556233d619de4b49a6bf4de57efc0a972c26f2fdfda996b9d9f"
+    },
+    "source/docs/design/2026-09-30-llm-agents.md": {
+      "bytes": 6869,
+      "sha256": "a40997633dbff0c40abb6a1641c4d4006aac29859a05a6e566f19df141c6fc0e"
+    },
+    "source/docs/design/2026-10-02-incremental-panel.md": {
+      "bytes": 2101,
+      "sha256": "ca14f1f5f6b8560b97cb584b25a3609252b29297058ba77ff4e8e1aa8d42985a"
+    },
+    "source/docs/gorge-actor-london-draws-repair-20261004.json": {
+      "bytes": 8219,
+      "sha256": "9e63d8883fb2484c0d65f81a958ebfa3f50a49c8f4d01bd247a1fae096a24985"
+    },
+    "source/docs/gorge-basic-search-repair-20261003.json": {
+      "bytes": 4068,
+      "sha256": "4ecd2b11e5a8315a6ef30c99685b49023d8cb33e6476930e67385cfbbcd16575"
+    },
+    "source/docs/gorge-billing-owner-confirmation-20261004.json": {
+      "bytes": 4187,
+      "sha256": "d42592545c4e236b1b4e1c46e35fbae8ab1a556da2948e6578969dab8f849c12"
+    },
+    "source/docs/gorge-budget-reconciliation-20261004.json": {
+      "bytes": 5788,
+      "sha256": "21695cb6438f491ecaa19a63fbc252c70e300fb758717dc52cbbbec2cae0999d"
+    },
+    "source/docs/gorge-card-pool-census-20261003.json": {
+      "bytes": 13698,
+      "sha256": "81cbbc4059570304b9071b789f5b78def5d0e44f0cd2df6e1a145e219e81381c"
+    },
+    "source/docs/gorge-caw-budget-prefix-20261004.json": {
+      "bytes": 2732,
+      "sha256": "2ffd26bdc256ca2911451213073c6982ad205d86332e15cdd225a9500f531799"
+    },
+    "source/docs/gorge-caw-opening-draws-repair-20261004.json": {
+      "bytes": 9004,
+      "sha256": "030a7192a37526366e10c7c9804fd874a09f2283217b26f0531eba443c48359f"
+    },
+    "source/docs/gorge-cloud-final-status-20261003.json": {
+      "bytes": 9927,
+      "sha256": "c13976520d7b684152ae778af3d2b1377aee94b1bf66df1bd3be54d8fc0febb7"
+    },
+    "source/docs/gorge-cloud-projection-preflight-20261003.json": {
+      "bytes": 1788,
+      "sha256": "8d3d82b4b58a67c9e8f3e68db40272d4b1a013e09bcc2409833518e4d975c7bb"
+    },
+    "source/docs/gorge-cloud-qualification-20261003.json": {
+      "bytes": 4541,
+      "sha256": "3dc7ebd327f3da47bcb9d7a9185ec9a013f517236ad88115b5ecb4fea10018ee"
+    },
+    "source/docs/gorge-copy-target-repair-20261004.json": {
+      "bytes": 11799,
+      "sha256": "dd9df85a313aaafff3d515e3902ba028ca20b6e1f1d88000eef23c6f112afcde"
+    },
+    "source/docs/gorge-explore-fixture-attempts-20261004.json": {
+      "bytes": 6723,
+      "sha256": "56472b9b3674e3af6d652fce0b58b725a5dbec6f10707d52e39ecf60becb7899"
+    },
+    "source/docs/gorge-game-start-checks-20261003.json": {
+      "bytes": 22043,
+      "sha256": "67b04a2a2130e2964ab98249c28aa0f73d1d68b0a836a87975ca9bf786b257b3"
+    },
+    "source/docs/gorge-known-hand-repair-20261003.json": {
+      "bytes": 5936,
+      "sha256": "d61581db0621d445b56e1dd9be535148db15182b7d0ef87b3a86719bdcd4a0fe"
+    },
+    "source/docs/gorge-known-projection-diagnostic-20261003.json": {
+      "bytes": 1505,
+      "sha256": "fcc19f35ce951f29e2ab2b2aa36317402767801880b4bfa210f52e7d29948624"
+    },
+    "source/docs/gorge-library-owner-repair-20261003.json": {
+      "bytes": 5028,
+      "sha256": "0a87c0dd0208504cb875b769db16d4ef840ba8b2cc9d325eb89e7402803524a2"
+    },
+    "source/docs/gorge-mana-diagnosis-20261004.json": {
+      "bytes": 27299,
+      "sha256": "d87ae67320fe6452835d0bc9c064c6b1e0515428521d274878c4971202f22588"
+    },
+    "source/docs/gorge-mana-history-repair-20261003.json": {
+      "bytes": 3922,
+      "sha256": "9bd045404fb1aa06cf557aa3838df1453bfac54a18ac9bc15b8a9de042c9860e"
+    },
+    "source/docs/gorge-native-audit-20261003.json": {
+      "bytes": 20924,
+      "sha256": "40bdb3845916d3716412f17e79bdb9f8f1fd51965016410bec1199aece6e8fa5"
+    },
+    "source/docs/gorge-native-identity-audit-20261003.md": {
+      "bytes": 26448,
+      "sha256": "4037bbd78e2ae7ce2f551ad11b1837b456bedb122e5a3189c6900ce05576e3b6"
+    },
+    "source/docs/gorge-payment-replay-check-20261003.json": {
+      "bytes": 7161,
+      "sha256": "06ad8ce22b88eecfaabdb56d5cd5fa062ec6bdd624db7f2a87890353baad6652"
+    },
+    "source/docs/gorge-prefix-cloud-rejections-20261004.json": {
+      "bytes": 4885,
+      "sha256": "3cc2c721bedfb4be7adca03bf3c7e8c3e955fda97db2b33449a0eb63c4e5809a"
+    },
+    "source/docs/gorge-private-search-outcome-20261003.json": {
+      "bytes": 1177,
+      "sha256": "acb22de3a32262a0d152f7cb0396ddf55bff405489d799362e52dceb984739fe"
+    },
+    "source/docs/gorge-public-ability-repair-20261004.json": {
+      "bytes": 26521,
+      "sha256": "bd95aeabaa446a248208441edc7a2ae37cf4dd72e80e120a0d154f3b79c3e37b"
+    },
+    "source/docs/gorge-public-arrange-diagnosis-20261004.json": {
+      "bytes": 3663,
+      "sha256": "283e3f5d3b0151ad06dfd325e0a53b20de40e5c9d5353782ad583519083d7127"
+    },
+    "source/docs/gorge-public-arrange-repair-20261004.json": {
+      "bytes": 25896,
+      "sha256": "b60a33349139192a30759985aaecb4814f2a2a88cd53c562eab7ae4f8dea92c6"
+    },
+    "source/docs/gorge-public-dig-repair-20261004.json": {
+      "bytes": 16772,
+      "sha256": "2e94b9968c6896835e3b3e96f1ed719b2052dc647a8de6009e2b5c6b41da20dd"
+    },
+    "source/docs/gorge-public-explore-repair-20261004.json": {
+      "bytes": 7307,
+      "sha256": "5e7e9ec9687f9ece37eabd7ff43149ed1193f3dd0117442b0e568d0196f7f90b"
+    },
+    "source/docs/gorge-public-history-checks-20261003.json": {
+      "bytes": 9172,
+      "sha256": "c88cdbd64feeb75b85fcfee2394cbc8c905ac7b5f3e570d70f64b664a52d6bc3"
+    },
+    "source/docs/gorge-public-london-search-repair-20261004.json": {
+      "bytes": 18776,
+      "sha256": "d6a3168cfeebb5a4f31dc9d46146b032ba63f40eec1879078873e6237b91fb4c"
+    },
+    "source/docs/gorge-public-london-token-repair-20261004.json": {
+      "bytes": 7909,
+      "sha256": "3d054921d8cf9cce094355e182d7acd7f266a187d10131821f6935756d9a52a6"
+    },
+    "source/docs/gorge-public-model-search-20261002.json": {
+      "bytes": 4281,
+      "sha256": "260a5415e7ddc108f35589635bcfa1b94bf07bd57dd52d765fff523f2831aa86"
+    },
+    "source/docs/gorge-public-reconstruction-diagnostic-20261003.json": {
+      "bytes": 3101,
+      "sha256": "3748def09d134f2579f912a0a18270ea5e2a6b971c77ae9311569705b2f2ad70"
+    },
+    "source/docs/gorge-public-removal-repair-20261003.json": {
+      "bytes": 3823,
+      "sha256": "4b7be5888a337ebbb16a302abd1f09cbe216ec6cecd96581788324cad070fd19"
+    },
+    "source/docs/gorge-reconstruction-budget-diagnostic-20261004-002.json": {
+      "bytes": 2655,
+      "sha256": "fb22943ea77659cc485d0b7f7cfad6519f4744ce643486e6f0b2797625a4fc08"
+    },
+    "source/docs/gorge-reconstruction-budget-diagnostic-20261004.json": {
+      "bytes": 2829,
+      "sha256": "d5af3818bf0e3cdfd943d4629ab603ebf60a5ae97c0f15b4c5c88fb2ccc07ef2"
+    },
+    "source/docs/gorge-reference-coverage-repair-20261004.json": {
+      "bytes": 4982,
+      "sha256": "33ddd9487950a68b8c2bf3a3ca1fc62698dbd7597e222496e44d74b876161cb9"
+    },
+    "source/docs/gorge-reference-host-checks-20261003.json": {
+      "bytes": 6196,
+      "sha256": "009c08fa02b501f9f15e71a7cb74137fe9e42e9e0830efdd6ae518af1838bc98"
+    },
+    "source/docs/gorge-reference-payment-check-20261003.json": {
+      "bytes": 4174,
+      "sha256": "8510602567e7151c830cf103a40a8371815bb6c893cf5440b6cadeda5e3349bf"
+    },
+    "source/docs/gorge-reference-placement-repair-20261004.json": {
+      "bytes": 2059,
+      "sha256": "87fe2c1db8458277a447cfcc0ebc4ae1fca7b056633910211db7fca29e128a9f"
+    },
+    "source/docs/gorge-reference-runtime025-preparation-20261004.json": {
+      "bytes": 1566,
+      "sha256": "5aa7a80464b2a9fbeb65855e5ee11151c9ee1ec100d29a6785eed66dbc4144db"
+    },
+    "source/docs/gorge-reference-runtime026-preparation-20261004.json": {
+      "bytes": 1033,
+      "sha256": "9c728139ea5f5f8e52d8a7b0854d65edce68495df7c0ce3eb0ff2ae7a5a270cb"
+    },
+    "source/docs/gorge-reference-runtime026-preparation002-20261004.json": {
+      "bytes": 1022,
+      "sha256": "b22ac1bb9c795a0e0014ff4442046ae62147c5372ca8af12d55add972944dcc3"
+    },
+    "source/docs/gorge-reference-scaling-repair-20261004.json": {
+      "bytes": 3686,
+      "sha256": "589724f0099f3b48d418948000f6e6ca743439c11deb8343376b06cfe5f22b87"
+    },
+    "source/docs/gorge-reference-windows-runtime025-20261004.json": {
+      "bytes": 2745,
+      "sha256": "689c52f101900e342bdb7911cad40ff8d4e2bd2fc46c1b220727df8447f79994"
+    },
+    "source/docs/gorge-resource-handback-20261004.json": {
+      "bytes": 1686,
+      "sha256": "dbc4bbc8fc9b36ddecab88da098b402dd0de42e44e1d1fb6ec5b56132b4c3432"
+    },
+    "source/docs/gorge-roster-20261002.json": {
+      "bytes": 20872,
+      "sha256": "ba3b233f885c5274a76213e67dc7d11b68e43aa948868ee72aab86156b465c7c"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-002.json": {
+      "bytes": 9864,
+      "sha256": "2ca0289b8957f7f4e02f8e26ae49872bed41cd0e75151417ba468f671be81256"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-003.json": {
+      "bytes": 11014,
+      "sha256": "06e17835c972e85916a45a4c9d52dc242ca1dbe0b11b39b35ac1af30a9c7a583"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-004.json": {
+      "bytes": 12030,
+      "sha256": "231bafa18a30ac5e72c7902a55f5564304f2e34f67a3df3b9492420d970f6d92"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-005.json": {
+      "bytes": 12258,
+      "sha256": "12bb2db056661014feeab92d9fe9c62d1cb02a357b12da98111048340059dfbc"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-006.json": {
+      "bytes": 12100,
+      "sha256": "8539c834936405e23380966e2952eb861f3fe0fe574c58335b6f18c42e97f54a"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-007.json": {
+      "bytes": 13294,
+      "sha256": "c1cbeb0e527cd46db6a2db9d71a70fbed341833bd70c5421b10867dd7fddc387"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-008.json": {
+      "bytes": 14179,
+      "sha256": "961f9e86af561bbd73c0d3f66d9326fe7ae167a762279881d25216359d7e0ddb"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-012.json": {
+      "bytes": 3802,
+      "sha256": "4c5914375e14714b3c2cb422434f836eabc3c5e57c8787456e78b734b63134e3"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-013.json": {
+      "bytes": 3752,
+      "sha256": "1d8bbf8be23f7d00e942d645242de601a036f271ff66cbb645f4f1b9568161e9"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-014.json": {
+      "bytes": 3735,
+      "sha256": "a3159554aaa8ec29fc8f650c7fe9eeb11e471316f0c446833f65b2aa2b00a37a"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-015.json": {
+      "bytes": 3723,
+      "sha256": "2aec814bbe7410fc6c14a0e0d221c1d364c4910b2a73254f2eb1ceab5a712b23"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-016.json": {
+      "bytes": 3790,
+      "sha256": "05fc7ee235cf41c0aa356af2346fbcb480adbc172e972cd6fbe5413777aaee69"
+    },
+    "source/docs/gorge-runtime-preparation-20261003-017.json": {
+      "bytes": 7572,
+      "sha256": "8af8a1c3ab4cae4c960af165834f18123e518102e556c9dc177519e5a2570470"
+    },
+    "source/docs/gorge-runtime-preparation-20261003.json": {
+      "bytes": 7818,
+      "sha256": "35989790928ed085338af036f506194fca622f86fc6a13a8f6a2886d1fb38f58"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-018.json": {
+      "bytes": 7767,
+      "sha256": "bbbc4aaabcb1562b1231c51d46c8ec89cd7e05e59f95add13dd51879edbe1af6"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-019.json": {
+      "bytes": 7945,
+      "sha256": "03e082c989d288e488a9001385be1c6e5b34afeb90c2749b50bb6e9d8c86e376"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-020.json": {
+      "bytes": 8469,
+      "sha256": "d9bc977c2e4862dd2b9a3d501e073ac21641255e56418cb95c261bd7b19ecd90"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-021.json": {
+      "bytes": 8469,
+      "sha256": "add82f48f942621c9cdb81c184ce0d2ba1484563a5f788c9bad8a8c87638e3eb"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-022.json": {
+      "bytes": 8466,
+      "sha256": "4100fc9646ab5e1480f5fe83e21e5da53aac919265b85ef9c19cd9f3528a4431"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-023.json": {
+      "bytes": 8471,
+      "sha256": "3496a06fbf348f6324e29bcfd1449df5ee8ca5be8a07a09bbfc4f0f85fac145d"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-024.json": {
+      "bytes": 8466,
+      "sha256": "25f0e14bea9f96ef8a74f3bdd33ddccbb49e926c518114f5b1903a719a5a6aff"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-025.json": {
+      "bytes": 8394,
+      "sha256": "a33cd721fd927776d1d89cb08adace7363fef910af7f4bb5a8538f500e9b7e51"
+    },
+    "source/docs/gorge-runtime-preparation-20261004-026.json": {
+      "bytes": 8495,
+      "sha256": "0843d43bd6c050e2659d2ecb5aef4943d5f62989ddb863715f02802aa21a444b"
+    },
+    "source/docs/gorge-runtime008-delivery-20261003.json": {
+      "bytes": 5839,
+      "sha256": "50db525f61d11d03ccda04dd4fe5334b7275a3ef7941bc01f3c899235dddea35"
+    },
+    "source/docs/gorge-runtime016-ci-20261003.json": {
+      "bytes": 18325,
+      "sha256": "519062b0da9735510174a25e7c1c39432b89c0e193484bc810a5e697cd006e0e"
+    },
+    "source/docs/gorge-runtime016-native-audit-20261003.json": {
+      "bytes": 11250,
+      "sha256": "6d1af080b257f1ab891d73563c6ebf97246944b6e323ac7196ec7c2d03657370"
+    },
+    "source/docs/gorge-runtime018-cloud-preparation-20261004.json": {
+      "bytes": 1338,
+      "sha256": "66109dc48c3903c3df70999ce6f80f75c9c65810c6eb9ea59e09ba37b65a12b7"
+    },
+    "source/docs/gorge-runtime018-native-audit-20261004.json": {
+      "bytes": 7698,
+      "sha256": "7f11e60044870c2bc0b081fe0c606c5802a537cb6ee0cecedaa161cd2d153e34"
+    },
+    "source/docs/gorge-runtime019-ci-20261004.json": {
+      "bytes": 4140,
+      "sha256": "a3f4efdafe7b0794fc4706c83ac8f0241dc87f851bc172bf8dc1197279d1179e"
+    },
+    "source/docs/gorge-runtime019-cloud-20261004.json": {
+      "bytes": 7304,
+      "sha256": "48ed1b75f4d40e42a947a99b5de5e8957bb03f7ce93fa5ff6dcd3c3202c3da5a"
+    },
+    "source/docs/gorge-runtime019-unallocated-cloud-20261004.json": {
+      "bytes": 4025,
+      "sha256": "5cec4e264d3e105edcba72de76d1f7cb24c0511e7f280a7dda9c4df4c8b6ea92"
+    },
+    "source/docs/gorge-runtime020-ci-20261004.json": {
+      "bytes": 1426,
+      "sha256": "6548f254a96caf307b5396562d04e3a0f51c13154373675e30b09c7a90b0aab7"
+    },
+    "source/docs/gorge-runtime020-cloud-20261004.json": {
+      "bytes": 4770,
+      "sha256": "7a377cb4e2e6e50c3dedfe7c7c9f5d393ed0bcc672afc9a4a8887194dfb76a48"
+    },
+    "source/docs/gorge-runtime021-ci-20261004.json": {
+      "bytes": 2451,
+      "sha256": "9387f7f2162b5fbaac4ef605ebae5dcb2085adf747ea07438da4747f143ab756"
+    },
+    "source/docs/gorge-runtime021-cloud-20261004.json": {
+      "bytes": 7156,
+      "sha256": "12110c730194dbe14d7e57935a237a07b5b7209a8d5e97a4c65d2f97db6b87af"
+    },
+    "source/docs/gorge-runtime021-cloud-progress-20261004.json": {
+      "bytes": 3156,
+      "sha256": "4ca0c86f9dda5ffaf40cc792c7e69d16088673381d3fdf50fa612bbc17e5586f"
+    },
+    "source/docs/gorge-runtime022-ci-20261004.json": {
+      "bytes": 2940,
+      "sha256": "de9156eecce8b0077613c546c35cbdefef1fc939fa053d7d8f01c224148261bc"
+    },
+    "source/docs/gorge-runtime022-cloud-20261004.json": {
+      "bytes": 5626,
+      "sha256": "51c5d3d0a4fc064274da0c532579985082b56e853c2d8b678b119cd17ba55ee7"
+    },
+    "source/docs/gorge-runtime022-cloud-progress-20261004.json": {
+      "bytes": 5329,
+      "sha256": "dd3d978ab73e14a6c666902e8f1ac6c5fc8ff1ac60cbf35ea31ae313e0c4d23b"
+    },
+    "source/docs/gorge-runtime023-ci-20261004.json": {
+      "bytes": 3069,
+      "sha256": "a9036101968b3e243ab1024ee1079f5a4785d462eb61c85d2d5a751e623c5375"
+    },
+    "source/docs/gorge-runtime023-cloud-20261004.json": {
+      "bytes": 7920,
+      "sha256": "3101452c66f9968f6da5e073b2bcd148081994e1326d6a6e2b53426830f07489"
+    },
+    "source/docs/gorge-runtime023-cloud-progress-20261004.json": {
+      "bytes": 5165,
+      "sha256": "57547f46ee30c5ffc57768cb73fdb41a50b936bacc7dafd532492e3b59e727ac"
+    },
+    "source/docs/gorge-runtime024-ci-20261004.json": {
+      "bytes": 2767,
+      "sha256": "bf7e364c4f99fdad0baaa9946686c345b7f05a5671c9ffddc7cf3a863e2a3008"
+    },
+    "source/docs/gorge-runtime024-cloud-preflight017-20261004.json": {
+      "bytes": 2450,
+      "sha256": "826d3fbdfb2eb2b5555387545f6ef4c09ce78c4a2245756f4e2a1848faf3003a"
+    },
+    "source/docs/gorge-runtime024-cloud-preflight018-20261004.json": {
+      "bytes": 2527,
+      "sha256": "d692ec87a3f44c49f2013fcb27adefa42aa20de4e340f39804c79cc771a511bc"
+    },
+    "source/docs/gorge-runtime024-cloud019-20261004.json": {
+      "bytes": 9460,
+      "sha256": "b31297aa8a70e87939946a223ff3ddcf5e55318dc41f3163c32e5fac81831f44"
+    },
+    "source/docs/gorge-runtime025-local-native-20261004.json": {
+      "bytes": 7164,
+      "sha256": "93a7ec0adab3aecb8496f0f67366318bbe8b131ab32e468601c4b0ef0a928011"
+    },
+    "source/docs/gorge-runtime026-ci-20261004.json": {
+      "bytes": 1924,
+      "sha256": "db6988925ef6a18744f9bbde576bc7cee22517d0eb7fe2366c8d96f469006285"
+    },
+    "source/docs/gorge-runtime026-cloud020-20261004.json": {
+      "bytes": 11582,
+      "sha256": "871f81a1eeeb50bed7ccfcc4a63a5c4ff7c7cfacfba34c0ce3d80aab738b5e90"
+    },
+    "source/docs/gorge-runtime026-native011-20261004.json": {
+      "bytes": 7862,
+      "sha256": "997c35fe6706a71d059307c96cb53c87ab3ed30346c930a0b3f61abc2c1817c6"
+    },
+    "source/docs/gorge-runtime026-performance-diagnostic-20261004.json": {
+      "bytes": 6396,
+      "sha256": "0d5ee19757dc77d4aeec6905df48e8b1532373aa6e585cb586ab2f5b9bb11600"
+    },
+    "source/docs/gorge-scaling-qualification-20261003-003.json": {
+      "bytes": 7294,
+      "sha256": "d3c6e3ef820489311596d9782d665576569c933333e802866441dfd795274cd1"
+    },
+    "source/docs/gorge-search-bridge-20261002.md": {
+      "bytes": 25586,
+      "sha256": "4936870f6615250f1e18ebccb2afec30a4cef70728b38726c79b94c0974d2aba"
+    },
+    "source/docs/gorge-search-transport-check-20261003.json": {
+      "bytes": 10287,
+      "sha256": "7628477ad988c587f720339265c84c0803678f0dd782b82f34c321c76a54d4fd"
+    },
+    "source/docs/gorge-spy-london-bottom-candidates-20261004.json": {
+      "bytes": 4462,
+      "sha256": "15273744214e728c5a9977b1a76137def7c7fefdfabe4391a20f9a1e30d00222"
+    },
+    "source/docs/gorge-spy-london-bottom-repair-20261004.json": {
+      "bytes": 8350,
+      "sha256": "a81cdde5568d1a9392592a7bed25b9f79f0ddcd42dac47d2f77ab49297f25941"
+    },
+    "source/docs/gorge-stock-sampler-diagnostics-20261004.json": {
+      "bytes": 8594,
+      "sha256": "c0170197b35bd09d9c29517233846ac3974fe8adce727de0e01d3203c065dcb7"
+    },
+    "source/docs/llm-agents.md": {
+      "bytes": 12836,
+      "sha256": "152475e5b664c8a54a84f23e2e68f2b543c47109dcafdf7c2597d9dfceb49f8d"
+    },
+    "source/docs/llm-broker.md": {
+      "bytes": 5307,
+      "sha256": "4c9d98baa6f9db336817708263287a3181b30eec63f64a1f26e0d90e5a48265d"
+    },
+    "source/docs/llm-container.md": {
+      "bytes": 4434,
+      "sha256": "d95afe2f4686f41d0b9957cbaec444d9e3e4492760a8fa6100ba5e7d4f17d44c"
+    },
+    "source/docs/llm-engine-verification-20261002.json": {
+      "bytes": 3489,
+      "sha256": "e534c3e6de392a043bf14b8d7e8ed28c3ab39ab9a65af807b39688b3d763b54f"
+    },
+    "source/docs/llm-formal-failure-20261002.md": {
+      "bytes": 1381,
+      "sha256": "a165c320db24b06f930afb126a9c92e36171a7e7952c0637d394ad29944d9e1f"
+    },
+    "source/docs/llm-idle-budget-amendment.md": {
+      "bytes": 1603,
+      "sha256": "176e09b475c78572fe10cc009d9c0d416c5cd7799d81cfa9bbd242c65ad3d8c5"
+    },
+    "source/docs/llm-magic-pilot.md": {
+      "bytes": 4756,
+      "sha256": "013bbda7d72b5d2db62436a8c5534a04daa8b7f2443e2ad9920944d12aacc979"
+    },
+    "source/docs/llm-pilot-prune.json": {
+      "bytes": 4929,
+      "sha256": "1f53371fa1c25589f54cfc78e37620e01e2f6c5e083d6ba308c28e930256fe67"
+    },
+    "source/docs/llm-qualification-recovery-20261002.json": {
+      "bytes": 7890,
+      "sha256": "e35ee685bcee8b0b9496e3419b933abd1ea04a3531dfc7db38cb29b088da0a33"
+    },
+    "source/docs/llm-rated-entry.md": {
+      "bytes": 21947,
+      "sha256": "db406212f1393c028fa6ffd8f5409945da6729d6a3b7ff2f497c0cd1ca5ce069"
+    },
+    "source/docs/llm-review-20261001.md": {
+      "bytes": 2979,
+      "sha256": "0302d9c5a4a78803d4805251a773633eab78273ef788045583b51b2e70e35fe8"
+    },
+    "source/docs/llm-service-forfeits.md": {
+      "bytes": 2022,
+      "sha256": "67cc8bef3aa9a63b93ee6b38db600f9f465974c6cf37af3ea52aff08dc115cc7"
+    },
+    "source/docs/llm-shared-record-prompts.md": {
+      "bytes": 1943,
+      "sha256": "aa7d6cf81ab906e69c9c6631f564d2d3fe750be2fe5fcc3539b2d6de24b99f0d"
+    },
+    "source/docs/llm-subscription-pilot.md": {
+      "bytes": 4541,
+      "sha256": "b024e01688361aa20052cb3a8d3f20b6af21f43858de8418cbd6ad77b4c6c845"
+    },
+    "source/docs/llm-trusted-runpod.md": {
+      "bytes": 1554,
+      "sha256": "fc36fe496b880cf1e52cebce46ed500a4ad8305e815300687e9d4e6f8f75fee2"
+    },
+    "source/docs/luna-approved-rerun-20261003.md": {
+      "bytes": 2450,
+      "sha256": "312c2c08828aef128c948b6aa81fa02cfd851c68645e912aa76168580976c4b5"
+    },
+    "source/docs/luna-panel-20261002-3.md": {
+      "bytes": 4204,
+      "sha256": "fa64847464fa529d54f664c5037c19525982fa3ff76a3a5fcf0b44496d17bf98"
+    },
+    "source/docs/luna-rated-result-20261003.md": {
+      "bytes": 4055,
+      "sha256": "4d089421863036ba1ac4fc54cd3e488534348e3335cba265d2f1a006f2b9e459"
+    },
+    "source/docs/pages-local-runner.md": {
+      "bytes": 1467,
+      "sha256": "852cbfb843f18824394a5ccdcfa937f8526c0df9a0d4b9a02c4429ac45bf60ab"
+    },
+    "source/docs/pauper-luna-panel-20261003.md": {
+      "bytes": 10918,
+      "sha256": "806db914db5a6ff934d053d5b09d8c684c563993155b5463313d0cd240e6b4be"
+    },
+    "source/docs/reference-panels.md": {
+      "bytes": 4538,
+      "sha256": "e70a7270c099579f677ad8d073cc8eefb0dbb0858e3d654bfd508679373c89cb"
+    },
+    "source/engines/gorge/.gitignore": {
+      "bytes": 63,
+      "sha256": "36a1f9888eab75e328e2c01eec96ea2d904e29ccb6b8e2fa59ccce59036e6ec6"
+    },
+    "source/engines/gorge/cmd/gorgequal/main.go": {
+      "bytes": 17915,
+      "sha256": "eb566df16675d81df55a2cbaac9dd6538fcc51a8cab783ebe462b367ebf13465"
+    },
+    "source/engines/gorge/cmd/gorgequal/main_test.go": {
+      "bytes": 4812,
+      "sha256": "3628521c78a2360dd6c5ba2e891b8ecb39cb7487aadbb5a4ec422ab8e8a2340b"
+    },
+    "source/engines/gorge/cmd/spellbench-gorge-agent/main.go": {
+      "bytes": 2192,
+      "sha256": "2ce3990b12bdba401740bc5d37cfc09e08e2f610be2196aa2dfe22685cfd39cc"
+    },
+    "source/engines/gorge/cmd/spellbench-gorge-audit/main.go": {
+      "bytes": 3651,
+      "sha256": "6e41880946ba6bc94c8127ff21137229c07906cce1d9efbae763776dbe2f0ae7"
+    },
+    "source/engines/gorge/cmd/spellbench-gorge-corpus/main.go": {
+      "bytes": 813,
+      "sha256": "3dfdc4147abcc726067f4c15df0655321c5af12ced6395d275f5972e678d606c"
+    },
+    "source/engines/gorge/cmd/spellbench-gorge-env/main.go": {
+      "bytes": 1807,
+      "sha256": "a75e68b790977e4a4c0c7ae5e3f04d3a1d136793c95b0c2119f102c272404c1d"
+    },
+    "source/engines/gorge/go.mod": {
+      "bytes": 307,
+      "sha256": "1324a0f290cf0db8fd11ba0c6b9ed9504fcef2ae04ba18d680562cd56ebe562b"
+    },
+    "source/engines/gorge/go.sum": {
+      "bytes": 274,
+      "sha256": "d8a8840b34122b696229ed55b5e3eba58ad8ed71d56f275dd53ec31b1571d9ce"
+    },
+    "source/engines/gorge/internal/agent/agent.go": {
+      "bytes": 10170,
+      "sha256": "98e2079936ae1ea231f7347e3b538c8cbf80eaf7af7d22df6025a9f7366a4248"
+    },
+    "source/engines/gorge/internal/agent/agent_test.go": {
+      "bytes": 6099,
+      "sha256": "bc7c9eeb21b04d26983841932b20fbc62e46ddc8f565e549191d28589e63846c"
+    },
+    "source/engines/gorge/internal/agent/audit.go": {
+      "bytes": 3389,
+      "sha256": "088c9a7556585d5fea4f0bd9dfffa11a87060e8fc472596e048b135f2d5ad26f"
+    },
+    "source/engines/gorge/internal/agent/inventory_test.go": {
+      "bytes": 1634,
+      "sha256": "de28a59d50eefe701b5cca69aaa6f6acf9e4f0b4cac844692c301599b80886ab"
+    },
+    "source/engines/gorge/internal/agent/pick.go": {
+      "bytes": 4232,
+      "sha256": "0df3d4ed4163a6106c48281d48bee2f7100f2469d24d763653ebf497e1d7d53d"
+    },
+    "source/engines/gorge/internal/agent/pick_test.go": {
+      "bytes": 5069,
+      "sha256": "94f7571c4e8a49d09f992a20c84ebab19dc731ff521e7bc94960588307d8dffe"
+    },
+    "source/engines/gorge/internal/agent/policies.go": {
+      "bytes": 2861,
+      "sha256": "85fe579f14471c032ea284cf9770ee9ec61062d21a62b4b5a78e5b3b4c66890a"
+    },
+    "source/engines/gorge/internal/agent/policies_test.go": {
+      "bytes": 5277,
+      "sha256": "8e0e096b138c681fb51b39fd05910f70b79898a3a9edb926cc07eb0e864b4ff9"
+    },
+    "source/engines/gorge/internal/agent/search.go": {
+      "bytes": 2699,
+      "sha256": "f05a904c686647be1fbd1c3a9266229185265e3528c279d327a2aa442a85aa6a"
+    },
+    "source/engines/gorge/internal/catalog/catalog.go": {
+      "bytes": 7205,
+      "sha256": "d090c4af373c3a4986eb8b961154a25f9066100d972b706b77fa41a5a4f8d5bd"
+    },
+    "source/engines/gorge/internal/catalog/catalog_test.go": {
+      "bytes": 5590,
+      "sha256": "736fb322b9572032c929cf2ddb6d64c1deae74ba378a587148676e5bcb5bff12"
+    },
+    "source/engines/gorge/internal/gamecfg/game.go": {
+      "bytes": 3298,
+      "sha256": "6972afc737d7bb242bca71e5959fae164bee72028504c085e4d2481a77f3ccb2"
+    },
+    "source/engines/gorge/internal/gamecfg/game_test.go": {
+      "bytes": 9250,
+      "sha256": "16b85f1f6350b9b1b013ab6cee0e40ea353ec5e2b9aa133fe6af358523300c4d"
+    },
+    "source/engines/gorge/internal/gorgepin/frozen.go": {
+      "bytes": 5030,
+      "sha256": "610aeec374df42dc6f1f6d666153b9ecbcb90746ff36a18bc2bdac94fc894b81"
+    },
+    "source/engines/gorge/internal/gorgepin/frozen_test.go": {
+      "bytes": 1799,
+      "sha256": "c89ec162c6ae6afb492a62d4263d2eafb1bb9a1884a6291adc3ec488f42c219d"
+    },
+    "source/engines/gorge/internal/gorgepin/pin.go": {
+      "bytes": 1402,
+      "sha256": "d8339022a3e0b382429ae60bd432e8489b36ab2acdaff5cf28034d20fe29ba70"
+    },
+    "source/engines/gorge/internal/gorgepin/pin_test.go": {
+      "bytes": 2183,
+      "sha256": "b85fb1797f1a94c2c99bf006b53e29f81e8da7411a832ede342e639bc872996a"
+    },
+    "source/engines/gorge/internal/identity/clone.go": {
+      "bytes": 977,
+      "sha256": "52fb3572804616a051279caeeb49998e09716568530ef4e4170fdcb2e497bc8d"
+    },
+    "source/engines/gorge/internal/identity/tracker.go": {
+      "bytes": 9714,
+      "sha256": "995dbd5ba6110f6fe0e93e722d1c7e2d489e5af93a0b1c04ecbbda6a590116d6"
+    },
+    "source/engines/gorge/internal/identity/tracker_test.go": {
+      "bytes": 15267,
+      "sha256": "4089cb1bdc6025b7d9f7a8634cc768beb5bfc0f33ace495d1dd77a316e9f10dc"
+    },
+    "source/engines/gorge/internal/mapping/arrange.go": {
+      "bytes": 15373,
+      "sha256": "2d09b823401082ea8876fd910356fbb6249b4ac509b71742c60ecf355f406da0"
+    },
+    "source/engines/gorge/internal/mapping/arrange_test.go": {
+      "bytes": 12734,
+      "sha256": "96bc8fe9fb2a8e6c62b948b726c6c7c720dc7ee4a03b2e8209703ceee59f34e0"
+    },
+    "source/engines/gorge/internal/mapping/autopay.go": {
+      "bytes": 2173,
+      "sha256": "01db046e2e7e5a03d1a9f7616c44a134aec4bfa72be782797acec4f62615c178"
+    },
+    "source/engines/gorge/internal/mapping/autopay_test.go": {
+      "bytes": 2877,
+      "sha256": "dec855dbcc9b8c954655188992ac2eae5078eae10fffffbad03a5e839b1f43ea"
+    },
+    "source/engines/gorge/internal/mapping/combat.go": {
+      "bytes": 7602,
+      "sha256": "2c603a6f290de7a026274fed911400fc43cb8e8819265a8b77882c028d5f38e5"
+    },
+    "source/engines/gorge/internal/mapping/combat_test.go": {
+      "bytes": 2837,
+      "sha256": "3c3a2f13c2a44a709f75b70c73b6a86d2e05c877a6f0a873ef1f33eac967cbe2"
+    },
+    "source/engines/gorge/internal/mapping/copy_targets_test.go": {
+      "bytes": 5928,
+      "sha256": "d713feb6c68113188a428f5e83fbe2d69016d9cca4402eda98bc30a8515dca3f"
+    },
+    "source/engines/gorge/internal/mapping/envtest_test.go": {
+      "bytes": 2092,
+      "sha256": "b8b918602fb8c96985ba50938f33ccf5f2267068d97bb0124f08e9135dda367d"
+    },
+    "source/engines/gorge/internal/mapping/finalize.go": {
+      "bytes": 1254,
+      "sha256": "c5b50a9b692ab4f8310687c39595c17a16e6d1f223fd262f3e9020a234ac7ba2"
+    },
+    "source/engines/gorge/internal/mapping/framework_live_test.go": {
+      "bytes": 17807,
+      "sha256": "6a324caafc9532ee754388dd89776081a2f0896eec3e8527bb89ba5ee62b7fe5"
+    },
+    "source/engines/gorge/internal/mapping/framework_test.go": {
+      "bytes": 8037,
+      "sha256": "b2a1b553c83767a7c32b788fb563df0ef0c28a697ba027785e8f6ce0c00b6837"
+    },
+    "source/engines/gorge/internal/mapping/mana.go": {
+      "bytes": 4377,
+      "sha256": "03859b401338c0179bd45ebf884dc2dca504f3c54a3f418386cc7e423227b327"
+    },
+    "source/engines/gorge/internal/mapping/mana_cost_test.go": {
+      "bytes": 12630,
+      "sha256": "ffbee6f9463ace6d4b4a7a283b3fb7395527e42e1f456cfd34b9c258ab52195c"
+    },
+    "source/engines/gorge/internal/mapping/mana_test.go": {
+      "bytes": 9453,
+      "sha256": "a8871a18deb3d3048990cb282e5a2d5cea64cd9002346bd56605cf5eff4c118d"
+    },
+    "source/engines/gorge/internal/mapping/oracle.go": {
+      "bytes": 418,
+      "sha256": "d3417f23a13d2d90fe78429a03897a0d668163eef3e062ab1f8ab89ce255eaf7"
+    },
+    "source/engines/gorge/internal/mapping/order.go": {
+      "bytes": 5421,
+      "sha256": "865f48321ada33206c6aa5577f0603439246c309a81717e5aa6fc68de5e5dd88"
+    },
+    "source/engines/gorge/internal/mapping/order_handmove_test.go": {
+      "bytes": 5504,
+      "sha256": "5b53da41ef63fec32ee48b84bbf9ba93abc3e158671b4eddf2c340918e6711d0"
+    },
+    "source/engines/gorge/internal/mapping/order_test.go": {
+      "bytes": 1244,
+      "sha256": "0bb8a111c033182fc3deb905de8d629570828bc4dfbe78edf5a7561109ef7cbb"
+    },
+    "source/engines/gorge/internal/mapping/payment.go": {
+      "bytes": 4297,
+      "sha256": "5dbcf8541292a83366663a0cc5daf8d6118dc12561e5e7cbff7be10a338ef1af"
+    },
+    "source/engines/gorge/internal/mapping/payment_test.go": {
+      "bytes": 5469,
+      "sha256": "2f94aa297ea81609a2b9e1bd2c7081f6357066b48902e5af831bb85c1123b963"
+    },
+    "source/engines/gorge/internal/mapping/pick.go": {
+      "bytes": 3255,
+      "sha256": "32c5e0abfd2757dce8e6a3e1c60ff967fa3ff9f59521bf4f7202870d4ed32608"
+    },
+    "source/engines/gorge/internal/mapping/priority.go": {
+      "bytes": 12990,
+      "sha256": "a2a2ba65ec46e4fb3ac663d85c842668c8b52ff4a6d58fa8fe86ccf3347c03f7"
+    },
+    "source/engines/gorge/internal/mapping/priority_test.go": {
+      "bytes": 39084,
+      "sha256": "a7a894db501f5f8f0cc6bc1773d3a2bad42fc9f9f1511f74ea26d63d297cb44a"
+    },
+    "source/engines/gorge/internal/mapping/route.go": {
+      "bytes": 2367,
+      "sha256": "554dc0318ca32c9f2595df42e5e140c00b8d7261c27423c0f015fdafc8ce855b"
+    },
+    "source/engines/gorge/internal/mapping/select.go": {
+      "bytes": 5463,
+      "sha256": "b67c1a12808f7a5c530f7e7f795a4c83b99579e69edd7c944d02e354aeaa3dd5"
+    },
+    "source/engines/gorge/internal/mapping/select_test.go": {
+      "bytes": 2420,
+      "sha256": "d88a3403a4b0f824d0c6f8db7fcbd5a93d7728e67d58df0073518a9ef8146181"
+    },
+    "source/engines/gorge/internal/mapping/simple.go": {
+      "bytes": 5691,
+      "sha256": "299e5de0dd91f028f57d3946e7d752bd7df670ee7cee6d830d7668cc3d20ce77"
+    },
+    "source/engines/gorge/internal/mapping/simple_test.go": {
+      "bytes": 2267,
+      "sha256": "4335a7ad10b05523f8450a897fe5099103f5e1b1299fb9a41c5dd31ba59b2aa1"
+    },
+    "source/engines/gorge/internal/mapping/single.go": {
+      "bytes": 1366,
+      "sha256": "0feadd652e4584753af7f9520080bfd029d0cb7bf06f22178caaf04457392432"
+    },
+    "source/engines/gorge/internal/mapping/source.go": {
+      "bytes": 2428,
+      "sha256": "b567d7f749e78c53d3f9c033c96bc5487acf645ac29190dd5b8086970ebf37f7"
+    },
+    "source/engines/gorge/internal/mapping/targets.go": {
+      "bytes": 4243,
+      "sha256": "fb4c8b6b6c3122c8987cb5e173915011320e85ff6b1ba30da7c79d8c0b0dab89"
+    },
+    "source/engines/gorge/internal/mapping/targets_test.go": {
+      "bytes": 1764,
+      "sha256": "db0a6a9e510e969dffcc60f51e05a08fa6c91509b03b1425c47be975bf898d76"
+    },
+    "source/engines/gorge/internal/mapping/tx.go": {
+      "bytes": 5473,
+      "sha256": "062d27be91c5b33e4c089b9ac1e9b3189898f8cafe8e76c1e4a489c3385c83a4"
+    },
+    "source/engines/gorge/internal/minihost/agents.go": {
+      "bytes": 1724,
+      "sha256": "ae817f0f6f42f0fb9875048999f067683ebc093e302a7f7ca83eb16c6a4c4022"
+    },
+    "source/engines/gorge/internal/minihost/error_test.go": {
+      "bytes": 915,
+      "sha256": "f94e2daa91dbd5b09a5cdb804a4c0c35455db47dd082e8b37661cffb4b646f24"
+    },
+    "source/engines/gorge/internal/minihost/host.go": {
+      "bytes": 7374,
+      "sha256": "49b2660c430c4826b9804290c44dc3369df5e2e1fd9206b0226fbf975a8d5f84"
+    },
+    "source/engines/gorge/internal/minihost/host_test.go": {
+      "bytes": 1576,
+      "sha256": "1c711a5201f8d353751f872663f699ebc919d74e927ecccd87eae6ac8eda3f54"
+    },
+    "source/engines/gorge/internal/minihost/search_test.go": {
+      "bytes": 7244,
+      "sha256": "b0bfbd6033a6d3fde92bb42a211f464427b07745c3a51a05823ccf8d607f938d"
+    },
+    "source/engines/gorge/internal/observe/combat_stack.go": {
+      "bytes": 8385,
+      "sha256": "dd6126da74e59dafc5c5d024ebac3029c9b45b533c2ecba340b8076891ff69da"
+    },
+    "source/engines/gorge/internal/observe/combat_stack_test.go": {
+      "bytes": 19360,
+      "sha256": "44f3d1822c190bbea24276f2e0d5fa0a680a4a65725219cfeac930b30307a9bc"
+    },
+    "source/engines/gorge/internal/observe/known.go": {
+      "bytes": 1916,
+      "sha256": "9bd9cf6bdd7daa3197563a3802464cb9b90f725da170cae5462072d215e23ada"
+    },
+    "source/engines/gorge/internal/observe/manavalue_test.go": {
+      "bytes": 1086,
+      "sha256": "4fb768cd80e63c4bb25fb8109086ed3e56c286d2b773e1b92088d38dc563b7cc"
+    },
+    "source/engines/gorge/internal/observe/project.go": {
+      "bytes": 7991,
+      "sha256": "9a7cd11b021243c5da10275affe19d987cf51d19005e0de06ce19c88a41f8cd4"
+    },
+    "source/engines/gorge/internal/observe/project_test.go": {
+      "bytes": 9067,
+      "sha256": "948a6a699e20ac237ca06cc63c0d3ff742c61017f0d1b2293aa689bc23bb8f85"
+    },
+    "source/engines/gorge/internal/observe/vocab.go": {
+      "bytes": 3810,
+      "sha256": "5ad1a2117c56b7cb8f712bcc681fa893f5480b2312f74533691926d522b423c2"
+    },
+    "source/engines/gorge/internal/observe/vocab_test.go": {
+      "bytes": 1038,
+      "sha256": "733a91814ed2eb86262c82a6623d26186d5f870b869ce8fa37c4277813f95881"
+    },
+    "source/engines/gorge/internal/protocol/errors.go": {
+      "bytes": 1094,
+      "sha256": "41bf8a6646f7f2fea6d66e6a8fb89cb58a098a7faa2048caefa801ed720d4afc"
+    },
+    "source/engines/gorge/internal/protocol/kinds.go": {
+      "bytes": 23218,
+      "sha256": "6161fff43b05bcc092c6f1d1de04c720f904ef00071ccbeb879af97aec74eb82"
+    },
+    "source/engines/gorge/internal/protocol/kinds_test.go": {
+      "bytes": 36426,
+      "sha256": "4097e689e2c6e11152d1ec2156856e9ec7cfbb5d777a57d80d7b61454c4ff252"
+    },
+    "source/engines/gorge/internal/protocol/messages.go": {
+      "bytes": 4361,
+      "sha256": "fd056a041470e87f64e72adeff5371e9d79416da01f52200e97bfed1f9842bbd"
+    },
+    "source/engines/gorge/internal/protocol/observation.go": {
+      "bytes": 4733,
+      "sha256": "00b8d73752e98c66fbafc405ac2d7e715d3bf94656e36c6f8a21cfe7f4391914"
+    },
+    "source/engines/gorge/internal/protocol/refs.go": {
+      "bytes": 2654,
+      "sha256": "cc2642c9e22d334f70256d4242ea89de5c3ccb5d7c6a8b95ffa315631b882832"
+    },
+    "source/engines/gorge/internal/protocol/requests.go": {
+      "bytes": 14080,
+      "sha256": "41cca3a0d53c047316f348af24b141525ae19023b0cdcc3807b8adc0aefc406e"
+    },
+    "source/engines/gorge/internal/protocol/requests_test.go": {
+      "bytes": 28808,
+      "sha256": "f83d9b7688eb0fcbf4dcc6c68620eee2a1548647c236b413aa5a4d2b1032d092"
+    },
+    "source/engines/gorge/internal/secrets/secrets.go": {
+      "bytes": 2223,
+      "sha256": "9fb352e5da4e75b2cbdcab61d56275f91e8a0c0412fa027ee3a933e64ebbe67a"
+    },
+    "source/engines/gorge/internal/secrets/secrets_test.go": {
+      "bytes": 4234,
+      "sha256": "74aac74782d38d0e329d1500d00484fc3e0ee78425c07408a14c246746f098ba"
+    },
+    "source/engines/gorge/internal/server/audit.go": {
+      "bytes": 752,
+      "sha256": "8cfcb38d8a36459f629f6e42a976863367add01ad48ecf4dd91c7dc86c88fa4d"
+    },
+    "source/engines/gorge/internal/server/benchmark_test.go": {
+      "bytes": 5142,
+      "sha256": "5fc70bdf226664c1999801c015d454cc99039eec04b30944e2574ecb260903e5"
+    },
+    "source/engines/gorge/internal/server/golden_test.go": {
+      "bytes": 11838,
+      "sha256": "ec1f030f92ff674dfebf597fbb1fb7777125baa35f546894891889a90f4ab39e"
+    },
+    "source/engines/gorge/internal/server/identity.go": {
+      "bytes": 3033,
+      "sha256": "cbf6b21591796d95a0fe85b03d9ffa116e50c269bf358d95843839201d4cc63f"
+    },
+    "source/engines/gorge/internal/server/server.go": {
+      "bytes": 8401,
+      "sha256": "8e905e577e6d1ed07d0a4a5f95dec24f78162f8ecbf0267498d5654c233f01b7"
+    },
+    "source/engines/gorge/internal/server/server_internal_test.go": {
+      "bytes": 2861,
+      "sha256": "3ac153ba82f3f9197663a173ba611f9d8d7789b92da1f32580ac8fe7ad250112"
+    },
+    "source/engines/gorge/internal/server/server_test.go": {
+      "bytes": 11249,
+      "sha256": "d1c7024310ff61339b985cc603e6a3213b8616277588fe3af40c8ca6e705a1d9"
+    },
+    "source/engines/gorge/internal/session/audit.go": {
+      "bytes": 10611,
+      "sha256": "f46cc3107e55bc2f1fb39ffc3abd075413ed2583db308705d3c0d6f117c54fe3"
+    },
+    "source/engines/gorge/internal/session/audit_test.go": {
+      "bytes": 2570,
+      "sha256": "6af6ab6d635fa86e5f3d0872c358633d827b0dfbf474b75f59ee7753cb62e754"
+    },
+    "source/engines/gorge/internal/session/pool_privacy_test.go": {
+      "bytes": 4161,
+      "sha256": "d21129f7c230875cd9a0d77a0fe753dd8863e046aacdf32d14abf7e897d36fa9"
+    },
+    "source/engines/gorge/internal/session/resample.go": {
+      "bytes": 3665,
+      "sha256": "0e34da982be9c99423d434545f89508511a3db543575de95c0abbf4d5a272f29"
+    },
+    "source/engines/gorge/internal/session/resample_test.go": {
+      "bytes": 3891,
+      "sha256": "8db859e063f4b3b2a668431a80dcb320e3381f570aeda874d564ce3e3bd4b3f0"
+    },
+    "source/engines/gorge/internal/session/session.go": {
+      "bytes": 10443,
+      "sha256": "ef7ba0bf4037ef3acf195c646dc76ba92b31d055309b3823922443d54f232f92"
+    },
+    "source/engines/gorge/internal/session/session_test.go": {
+      "bytes": 6993,
+      "sha256": "017aab953b7d939ad9fd5c81b5e2f7f4f8330a2e25acaa5b5c6f9767d41b22c6"
+    },
+    "source/engines/gorge/internal/session/terminal.go": {
+      "bytes": 2443,
+      "sha256": "1c15d409b79e5848bf65868add1f93b02be4b53e9c7ff618f24ca8b6093ab92c"
+    },
+    "source/engines/gorge/internal/session/witness_test.go": {
+      "bytes": 6220,
+      "sha256": "a9c14c4cd829b90e0bbb47285697423ab0f09956412d96578570019d4e611597"
+    },
+    "source/engines/gorge/internal/testcorpus/corpus.go": {
+      "bytes": 748,
+      "sha256": "74a931f08696e2462aad7e8339545b7e7fe246b3d959571d8fee309a0c2b3b8f"
+    },
+    "source/engines/gorge/internal/testgame/testgame.go": {
+      "bytes": 1732,
+      "sha256": "51c5e16af366b2010ad9932e6bbc5265c401e0494b07eac8904accbf31300ac7"
+    },
+    "source/engines/gorge/internal/validate/validate.go": {
+      "bytes": 20352,
+      "sha256": "a7013f2720bcff840b39dd88a326cd4413b364b208edb42b52eebf9633161912"
+    },
+    "source/engines/gorge/internal/validate/validate_test.go": {
+      "bytes": 46066,
+      "sha256": "90529ce0497ec1d22edd73c3a8e2be348070814131f5b88af1c053cc8d330973"
+    },
+    "source/engines/gorge/internal/wire/canonical.go": {
+      "bytes": 3798,
+      "sha256": "5a55e83d84d45950d0c6b1090c0c9232c34bce12ec7b84f7b7779b5717f72ef1"
+    },
+    "source/engines/gorge/internal/wire/canonical_test.go": {
+      "bytes": 3814,
+      "sha256": "7dfc7b5fe0b800b6d81601c31410ea76e823ab25334e4f1bd026777bca50960a"
+    },
+    "source/engines/gorge/internal/wire/digest.go": {
+      "bytes": 1080,
+      "sha256": "fcb1b78af5be2ddffc2331cbc4dd644cfa43fb61c8b251cbe85dd2bb63a51d37"
+    },
+    "source/engines/gorge/internal/wire/frame.go": {
+      "bytes": 1618,
+      "sha256": "d010acd432f04393190f8079a7c1de8fb597a2a6ed65d9f4385e42acb6cf03dc"
+    },
+    "source/engines/gorge/internal/wire/frame_test.go": {
+      "bytes": 1691,
+      "sha256": "e6d58798fa09aa2a13b28f86d4ce985224c2994ce68ab8430ef30d9a33602089"
+    },
+    "source/engines/gorge/internal/wire/strict.go": {
+      "bytes": 5689,
+      "sha256": "c63ab2a552c76d1c02b56b7220850e8b6b55c47bfeaa6ce306dfab0acf639c17"
+    },
+    "source/engines/gorge/internal/wire/strict_test.go": {
+      "bytes": 1788,
+      "sha256": "dc8cc719af2a53a19505adccb749600321444f62832cce7e0dc907536df15cac"
+    },
+    "source/engines/gorge/internal/xview/clone.go": {
+      "bytes": 976,
+      "sha256": "cc0c11bf3b3d4998ed519a4be254942a8c7b912fb79f8fe8bb7211fd47ca3445"
+    },
+    "source/engines/gorge/internal/xview/key_test.go": {
+      "bytes": 1766,
+      "sha256": "a9f12a0020de89c6657225f1341db5175b222d954bd48541ec9278c2703c6db1"
+    },
+    "source/engines/gorge/internal/xview/payments.go": {
+      "bytes": 2069,
+      "sha256": "17578aa2f09fb0cfc4d07a1b50579ae0bbf62c8b62893ca738ad331b9237319f"
+    },
+    "source/engines/gorge/internal/xview/payments_test.go": {
+      "bytes": 2211,
+      "sha256": "f29fb8a577931901bcde329204152d5e20d6d5170c47f8bc74a873413a9c7c56"
+    },
+    "source/engines/gorge/internal/xview/rekey.go": {
+      "bytes": 1867,
+      "sha256": "2825999858214d73c2be0d697a3ec6c6575b3dafa7e3b1be5d6992f2d6f2fdc4"
+    },
+    "source/engines/gorge/internal/xview/search.go": {
+      "bytes": 1001,
+      "sha256": "200fc82171a1982a10ce7637b7f7dae81fb464086e38eddaf0f4e51c94d5f340"
+    },
+    "source/engines/gorge/internal/xview/xview.go": {
+      "bytes": 11147,
+      "sha256": "4cda5ca3dd77a049de14d94db2c82d4cf220d0ee1f6a8676fb242a23542ddd0f"
+    },
+    "source/engines/gorge/internal/xview/xview_test.go": {
+      "bytes": 11759,
+      "sha256": "409c4b6ada407610cdb523ebaa0e2e8336866cb1393c4b6735c7ec607fc6ca97"
+    },
+    "source/engines/gorge/native-overlay/public_basic_search.go.txt": {
+      "bytes": 30878,
+      "sha256": "b03316d278b032cc8daacffc72b3c656f39751f0d8361df0bea942c2b0bc5db8"
+    },
+    "source/engines/gorge/native-overlay/public_collector.go.txt": {
+      "bytes": 5813,
+      "sha256": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef"
+    },
+    "source/engines/gorge/native-overlay/public_compare.go.txt": {
+      "bytes": 1214,
+      "sha256": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a"
+    },
+    "source/engines/gorge/native-overlay/public_history.go.txt": {
+      "bytes": 3129,
+      "sha256": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1"
+    },
+    "source/engines/gorge/native-overlay/public_known.go.txt": {
+      "bytes": 8252,
+      "sha256": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e"
+    },
+    "source/engines/gorge/native-overlay/public_payment.go.txt": {
+      "bytes": 2520,
+      "sha256": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f"
+    },
+    "source/engines/gorge/native-overlay/public_redeal.go.txt": {
+      "bytes": 18539,
+      "sha256": "aa2e6c25c36bff07ed0cb6d535692163eda3ae2023fa105b533c54a1b5941af1"
+    },
+    "source/engines/gorge/native-overlay/public_replay_clone.go.txt": {
+      "bytes": 747,
+      "sha256": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225"
+    },
+    "source/engines/gorge/native-overlay/public_top_exile.go.txt": {
+      "bytes": 9547,
+      "sha256": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
+    },
+    "source/engines/gorge/NOTICE": {
+      "bytes": 831,
+      "sha256": "641b8f4b7ce38ee424455307e25c22c808b9947eaf1a791621f87c006323d490"
+    },
+    "source/engines/gorge/README.md": {
+      "bytes": 17539,
+      "sha256": "fe209cd83898c97a0cdc1dcc61df4a70a515c8ff3970e539ba9c4ce8b6712a3a"
+    },
+    "source/engines/gorge/scripts/env.sh": {
+      "bytes": 392,
+      "sha256": "a655fc1634f4a49af3e2b026897c457773e39a37cf867f3f003a5c117ceb0dbe"
+    },
+    "source/engines/gorge/scripts/qualify_native.py": {
+      "bytes": 9908,
+      "sha256": "7ac894a46ff64f5ddaeed1e2c50bd7e6bcc35e884e80f7716215931101945ef6"
+    },
+    "source/engines/gorge/scripts/reference_matrix.py": {
+      "bytes": 16049,
+      "sha256": "1f76f15c6c99c0513f1c3d13ee530597f6d47cec4e7e0d6b28d52a57d3cc08eb"
+    },
+    "source/engines/gorge/scripts/setup-dev.py": {
+      "bytes": 17890,
+      "sha256": "d94688ae687650a43d0381a9371d56e47b6df9d4366a297b7bd973c1ce86d347"
+    },
+    "source/engines/gorge/scripts/setup-dev.sh": {
+      "bytes": 125,
+      "sha256": "74d7e6b4bf6984992aad22abfeb4964e822369cf44837e1dd7665eb27ce0d1b0"
+    },
+    "source/engines/gorge/strategies/ability_history_test.go": {
+      "bytes": 6485,
+      "sha256": "59061af4bbac8266c2c1c888e77ecf72a54da45296b21ed9d11b0d9ead9802a7"
+    },
+    "source/engines/gorge/strategies/actor_london_draws_test.go": {
+      "bytes": 13957,
+      "sha256": "d2701b18e27271349a3b46d8ca32e357f58678685b333bf1e3f293315d3affb1"
+    },
+    "source/engines/gorge/strategies/arrange_history_test.go": {
+      "bytes": 8453,
+      "sha256": "f2ac7f2e2652a50cd76e11c481bdc42c23d37e7c3148120b55ca6269a1edd5a6"
+    },
+    "source/engines/gorge/strategies/explore_history_test.go": {
+      "bytes": 7556,
+      "sha256": "96f6d21692079e114b3d1a312ea278c7b698bd76541bdfe03a0d857afad4c1b4"
+    },
+    "source/engines/gorge/strategies/go.mod": {
+      "bytes": 142,
+      "sha256": "c545addb4811227f0d2254b95eb580855f9812f279cf6bb3e5359d6b946febaf"
+    },
+    "source/engines/gorge/strategies/history.go": {
+      "bytes": 4937,
+      "sha256": "249e6385befa3c9236be11483d54138feb18c6629af201ba30c97e817ecd21a0"
+    },
+    "source/engines/gorge/strategies/knowledge_test.go": {
+      "bytes": 9905,
+      "sha256": "27d0f2dd114be322300a206b5e03fa461a09d5e68845822ad4ea4ef872fa1fb3"
+    },
+    "source/engines/gorge/strategies/known_hand_test.go": {
+      "bytes": 5244,
+      "sha256": "a0b07e5e20bd2719bc85cbc7a9fb54eeae30e4163b95e4f28860de8e89b94e40"
+    },
+    "source/engines/gorge/strategies/london_deadlines_test.go": {
+      "bytes": 11514,
+      "sha256": "0f0be4bace414f03ebb395bde652d5f3f682d43e6f5a29bed427d4bfff9d07b8"
+    },
+    "source/engines/gorge/strategies/london_token_history_test.go": {
+      "bytes": 7327,
+      "sha256": "ce7680b9af38c410e8e3bdefa74e312daed8c1f22ece43741e67c1246f89b27b"
+    },
+    "source/engines/gorge/strategies/mana_history_test.go": {
+      "bytes": 2346,
+      "sha256": "e172c4de2eadb1156b18ece1f82d80af3bac43592bc2a48b9519601fa8074137"
+    },
+    "source/engines/gorge/strategies/mulligan_constraints_test.go": {
+      "bytes": 3262,
+      "sha256": "689066537b8ed413e21df26eff31d1b57d191d7cb35c3d517ce5adc4e6bad143"
+    },
+    "source/engines/gorge/strategies/payment_history_test.go": {
+      "bytes": 5790,
+      "sha256": "c23120e084d8a6faef9c1927cd0bc98d658b2377a874f5bdcb9897de09c7c828"
+    },
+    "source/engines/gorge/strategies/private_library_search_test.go": {
+      "bytes": 7113,
+      "sha256": "5e49569f864efdd5939c7861ca778cc64f748b58d47415427fb96bb6296985e1"
+    },
+    "source/engines/gorge/strategies/redeal_test.go": {
+      "bytes": 7958,
+      "sha256": "ff6453592314ac68be2993d9a75c4474ff73ba909f64d727a3e611ebe1353c3e"
+    },
+    "source/engines/gorge/strategies/search.go": {
+      "bytes": 3445,
+      "sha256": "d1e9f02153571e9fe8871f83c0fdb02b0e4413f1f97e8e26362166dbfdf922dc"
+    },
+    "source/engines/gorge/strategies/search_test.go": {
+      "bytes": 17439,
+      "sha256": "5e0c2eec8106e4ec935a7cbe8bec32e89b553b4b1e8bdc65d02e743febb39602"
+    },
+    "source/engines/gorge/strategies/shuffle_redeal_test.go": {
+      "bytes": 7473,
+      "sha256": "34fe6615f26d9d71ce88c652f802e2e4d186cb66a279eae7eb7c0e4c63dd57e6"
+    },
+    "source/engines/gorge/strategies/top_exile_history_test.go": {
+      "bytes": 7866,
+      "sha256": "42b13b36926a5c1478eaf02d6d7982a4e7fb6cd52dbcd7a5a25a78606c50f7a5"
+    },
+    "source/engines/gorge/testdata/goldens/arrangement.transcript.jsonl": {
+      "bytes": 4848791,
+      "sha256": "a78b90e201bd9075d0be8bafe120a5d8d7846af2c997892c04a59fa042b63d8d"
+    },
+    "source/engines/gorge/testdata/goldens/attack_declaration.transcript.jsonl": {
+      "bytes": 1610248,
+      "sha256": "b67a137246063c5f7738a1605a91794ca1e7bfdbc2690076c2822b3d0a8a8280"
+    },
+    "source/engines/gorge/testdata/goldens/candidate_id_out_of_range.transcript.jsonl": {
+      "bytes": 6879,
+      "sha256": "9147d16022a8344de3be9658d3b14d49b14c7d69e433de1765eb0ff7776a56c0"
+    },
+    "source/engines/gorge/testdata/goldens/deck_id_mismatch.transcript.jsonl": {
+      "bytes": 2454,
+      "sha256": "a1d7547c0e5c72c43838a9d5dce9ac17f6df6d837d8bde6b89e5bfe40ce3a8e7"
+    },
+    "source/engines/gorge/testdata/goldens/digests.json": {
+      "bytes": 476,
+      "sha256": "47140413f89e2afb36fb8548d9995219b30cfb5daa2478f437f715d9513a9bee"
+    },
+    "source/engines/gorge/testdata/goldens/expected_step_mismatch.transcript.jsonl": {
+      "bytes": 6873,
+      "sha256": "61a3da4f775765d0cd36bd079f5d7ef043a80c53d3cd4421b8aebcd7d85e1af8"
+    },
+    "source/engines/gorge/testdata/goldens/game_already_active.transcript.jsonl": {
+      "bytes": 8938,
+      "sha256": "90a9a57d0399a3af1c1416e159a4576c90d8435ba3ccadaf499db2cc7716e810"
+    },
+    "source/engines/gorge/testdata/goldens/game_already_terminal.transcript.jsonl": {
+      "bytes": 3161,
+      "sha256": "43f3c8a05fd2a56683301a123a2e3f1027833c2c5ed131fc8eeb2d3009a3d648"
+    },
+    "source/engines/gorge/testdata/goldens/game_id_mismatch.transcript.jsonl": {
+      "bytes": 6872,
+      "sha256": "260d5ce54ffd90e8b904708a178ff6069d1f560fde45f2e5d599c703646d8bfb"
+    },
+    "source/engines/gorge/testdata/goldens/hello.transcript.jsonl": {
+      "bytes": 5127,
+      "sha256": "8779cb17b872b41eee320f3f9325fa8e8dfa9492943dc2602478c777ceb16a2c"
+    },
+    "source/engines/gorge/testdata/goldens/malformed_json.transcript.jsonl": {
+      "bytes": 242,
+      "sha256": "085767e98da5e695ac425ac2bcdb7cbd4bc364ad6536c3c1ab37bedf5b73cf14"
+    },
+    "source/engines/gorge/testdata/goldens/malformed_request.transcript.jsonl": {
+      "bytes": 324,
+      "sha256": "4f1092e679d4a7ebaae49bbc4cd51ffe11d240dc250dd14cfd434130e3a5ce08"
+    },
+    "source/engines/gorge/testdata/goldens/mana_payment.transcript.jsonl": {
+      "bytes": 1676748,
+      "sha256": "53da018e585f976b89778fbf3e8bbba15577d698221bd2ee8cb1fd74f08b7195"
+    },
+    "source/engines/gorge/testdata/goldens/order_pick.transcript.jsonl": {
+      "bytes": 173447,
+      "sha256": "898b86258b50ccb0e5b4fae0b74215dcd165468e8858d928eeb55861ba1c21ce"
+    },
+    "source/engines/gorge/testdata/goldens/protocol_mismatch.transcript.jsonl": {
+      "bytes": 304,
+      "sha256": "fb807cb82aa838de294d6eb02fb9db74fab49bc719ac5450fe3e4cf6c2ade62e"
+    },
+    "source/engines/gorge/testdata/goldens/request_id_reuse_mismatch.transcript.jsonl": {
+      "bytes": 5459,
+      "sha256": "3f9199481bf6a87ddb78d54749922967b169e23bcb468c1cc573baa33771f9f1"
+    },
+    "source/engines/gorge/testdata/goldens/reset_first_decision_burn.transcript.jsonl": {
+      "bytes": 6492,
+      "sha256": "45b7e6c027fffe78b0e580a0b0318660890d820c8ba69899da4ceb852d3eba49"
+    },
+    "source/engines/gorge/testdata/goldens/reset_first_decision_cawgates.transcript.jsonl": {
+      "bytes": 6432,
+      "sha256": "c9a8cc3b36e768ec68e1dff3b9b0e23d0993ffa16918ebaf2177a484fe46d76a"
+    },
+    "source/engines/gorge/testdata/goldens/reset_first_decision_rally.transcript.jsonl": {
+      "bytes": 6521,
+      "sha256": "5e18121d8d9f9158fb775eccae3ce81060b8956776d72e32df7cbe745ccb8504"
+    },
+    "source/engines/gorge/testdata/goldens/reset_first_decision_spy.transcript.jsonl": {
+      "bytes": 6514,
+      "sha256": "ba1195434a70828596bd5d1319b0a864b32586842399e9b389fa2942173713a4"
+    },
+    "source/engines/gorge/testdata/goldens/reset_first_decision_wildfire.transcript.jsonl": {
+      "bytes": 6472,
+      "sha256": "760be44e7257408e331333d2d7e4c161860b5c826359bf8f16711ab82196555d"
+    },
+    "source/engines/gorge/testdata/goldens/semantic_echo_mismatch.transcript.jsonl": {
+      "bytes": 6900,
+      "sha256": "359628aac83ad357adec0c2bcf9d5b61c7299f052bc2ddc6316a8020f929e61a"
+    },
+    "source/engines/gorge/testdata/goldens/step_before_reset.transcript.jsonl": {
+      "bytes": 366,
+      "sha256": "1a84f4095078226bbf767182876fc4b9168f8b921b4bec39b593b1cb46049891"
+    },
+    "source/engines/gorge/testdata/goldens/uniform_game_burn.transcript.jsonl": {
+      "bytes": 5373343,
+      "sha256": "e26dd4cb0b741762708e753295bb15af81527503a39c9ce01229f05a16ce7ad6"
+    },
+    "source/engines/gorge/testdata/goldens/unsupported_deck.transcript.jsonl": {
+      "bytes": 2471,
+      "sha256": "cbe3b9689a7cb5e3c038487d1051462f8278824d9ca38bbb039640f72c708e2f"
+    },
+    "source/engines/gorge/testdata/goldens/unsupported_format.transcript.jsonl": {
+      "bytes": 2439,
+      "sha256": "21a848f48708d94f5dbe4a56ee00f9911b3ac0c86d4b2aeeaad3187aeb1b10e9"
+    },
+    "source/engines/gorge/testdata/goldens/unsupported_request.transcript.jsonl": {
+      "bytes": 335,
+      "sha256": "fe4d0b28b4212f08ad10f5f54c4a32eba01f2490f2d9d251fb0aa960f07a351f"
+    },
+    "source/engines/gorge/testdata/goldens/unsupported_rule.transcript.jsonl": {
+      "bytes": 2431,
+      "sha256": "c224bcbdb606eff28a48457390824613498167924991b51bc376e10ef9ae65cf"
+    },
+    "source/engines/xmage/.gitattributes": {
+      "bytes": 61,
+      "sha256": "fd77e168275dc257d5fcd930c463ac2f6f6d66e81c3fbfa2839ddf1e4bfe14c5"
+    },
+    "source/engines/xmage/NOTICE": {
+      "bytes": 2165,
+      "sha256": "529ce0f5281992d881f800ffc585847560cfa5465bdf3f09c9cdb2d708b7d484"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/AutoPayPlayer.java": {
+      "bytes": 20462,
+      "sha256": "65f2c50752aec80aaf97f688aebe08ad82cca00a09659377b084b1ed4ee46f65"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/CallbackAudit.java": {
+      "bytes": 7552,
+      "sha256": "79d897bc683139428cfc21612ed734dfcddd26d65a5afd98595fa3156b5b102a"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/CallSite.java": {
+      "bytes": 3336,
+      "sha256": "6ab827d514e2dc8a6f2903ca244383eef700935d4a9e27422ab140414f96907f"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/CombatOracle.java": {
+      "bytes": 16002,
+      "sha256": "8fcc2b2c32d5869c2d795f1ac96179c9c6bf36dd2f1bd5c19ddfb0343e349fe3"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Display.java": {
+      "bytes": 3940,
+      "sha256": "e4f84970af53b0d5caabf1235db64981f1021edff9e9929fa068e3fc018e0b49"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Duel.java": {
+      "bytes": 2248,
+      "sha256": "10656362a59c4defc6904d906c14154b0ab86fe4a229757b3c4b623c6c67cbd3"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Exchange.java": {
+      "bytes": 24062,
+      "sha256": "6ac22bd6d9f0bc19848fa84504d95763052e1c5c0a5a0816b9e5be925b6678f7"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/HiddenOrder.java": {
+      "bytes": 3622,
+      "sha256": "90688d8ca8284194691a68bf83f1ea6d9b15ba4b1f8dfdc22a83a286a5d5293d"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/LondonAfterKeep.java": {
+      "bytes": 3582,
+      "sha256": "6d69dcb84ad9d7514f58abd77903fab62e34faef0ee3bec8d24da3cc89caae3f"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/PayChoice.java": {
+      "bytes": 7479,
+      "sha256": "13fc9cd805131d011fb8db81f71acddb063040ca5121bd1b608de37f56566f18"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Pose.java": {
+      "bytes": 2402,
+      "sha256": "429ff8e72bd79c3559b8b9446d45eea0febc58ad2d14f3a0403821592b2f3b93"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/SeatPlayer.java": {
+      "bytes": 120316,
+      "sha256": "695c994c39bdb98efae95dbefe575dff1ad805b2f09211fc16e0925e13ffb5b4"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Seats.java": {
+      "bytes": 2435,
+      "sha256": "89c20b88f5d7ec3d535c6fdfc9a989e0d758fa0b647539531b372e4989710f56"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/SeatState.java": {
+      "bytes": 1854,
+      "sha256": "3bab7d9a0b0e90aa9e777e462f5427d579b1aa2cb7da14da78b3c402e1c1492b"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/decide/Unrepresentable.java": {
+      "bytes": 507,
+      "sha256": "6b6b63d4fc73e7f4b24062257d902f8934341337f43f7f6739817639e3eed59c"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/ids/ObjectIds.java": {
+      "bytes": 1503,
+      "sha256": "17f529c6d3109badc582b676b95f845a93705602a7d577f461fd4726d322950b"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/ManaCostCache.java": {
+      "bytes": 1901,
+      "sha256": "e4025a8f2703c279a56815fc753fdd0af8fbfb1562b89886901b61103d3a8c7a"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/Look.java": {
+      "bytes": 1531,
+      "sha256": "ecae0baff68a93277bddc826c359a448020a6f35942932df07667ed113cfb782"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/Looks.java": {
+      "bytes": 4183,
+      "sha256": "9051d703acf2dfb42b11a8f54a384e296a8e0f304674bd531632219f2c2eeb82"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/Observation.java": {
+      "bytes": 2333,
+      "sha256": "883e875a8c25efc795548c174a4738f097555ec981985d06e0834ef6f3221252"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/ObservationBuilder.java": {
+      "bytes": 46981,
+      "sha256": "4ba85f5d7c76caaa1883e0ad68c7c124e4a7152856c4f3073479a3e4f5b8e4e8"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/ObservationException.java": {
+      "bytes": 732,
+      "sha256": "7d2b69bc81b1e69c9fe20197b348a15ab1f23ed8372c16af6685fb79d02e3768"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/PriorityHolder.java": {
+      "bytes": 1075,
+      "sha256": "16197854ca72346197272e6f37396c86ec58a4723ed007d31c60bbe2f1febc1b"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/SelfTest.java": {
+      "bytes": 2468,
+      "sha256": "40ed71296dd51aca99d27f970ae3a199c9c07f16fb6ac2b7b36626f211b4f65b"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/ViewerIds.java": {
+      "bytes": 4341,
+      "sha256": "45540ca1eeb994dcd9f1d9bc86cd4569ea7e08e3956e05481847f2941a5611a7"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/Vocabulary.java": {
+      "bytes": 10947,
+      "sha256": "03c9ca7f61b7031d49690febb3eaf4948b7d3baddbb7421c52f443f11bcc14fe"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/rng/GameRandom.java": {
+      "bytes": 7520,
+      "sha256": "df651d5c73ea1fe9b986535ba09303d898e4cd651a2c3aec42bfa9d055ee0ba3"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/rng/HmacStream.java": {
+      "bytes": 1986,
+      "sha256": "3d772460e8e84587f07bb13caa8c554a915819576ad8b95258a03fa98f015e4c"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/Secrets.java": {
+      "bytes": 2672,
+      "sha256": "f5cd96f499f500cb9fccca37e84ea1b0d70164a29aaae0d2afb75b213e2fd680"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/Digests.java": {
+      "bytes": 1876,
+      "sha256": "ca195be0049cb9668228257bd4d3caa7b31ab2bde839d6301e956122f616b4c3"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/EngineProfile.java": {
+      "bytes": 8885,
+      "sha256": "1256c262f3b1ac97856cf7441f0f7dadd1c248d182714d7ac4b2d05c0378f8c0"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/EngineServer.java": {
+      "bytes": 16056,
+      "sha256": "6b11f91931208ab3d00fd63aa167b864847b1063ebb544d183674546ed03c9b3"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/GameSession.java": {
+      "bytes": 8136,
+      "sha256": "8f26733550112ceb8fac2196324421e1755e06288af769a92605fbf1582d169c"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/Requests.java": {
+      "bytes": 17130,
+      "sha256": "a3d799c13ff5531205fe5a353c888dbfcfa35e32d42a41e46ae7aed5c35f3066"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/server/StrictJson.java": {
+      "bytes": 13512,
+      "sha256": "af029157534672261473cdff0fb8d3688f0f6781f79876a1fc41595d6b86b79a"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/Warmup.java": {
+      "bytes": 3448,
+      "sha256": "64f1118486562d4e29171b3f644609fb3a62eb57780e34eb55cd6c9ae8ad10cc"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/x1/DeterminismCheck.java": {
+      "bytes": 16323,
+      "sha256": "1cdf435d6ebc0ae6e75bc64b13f9b0ac1f5ddf3f27442610eb6032d827efff45"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/x1/RandomPolicy.java": {
+      "bytes": 3166,
+      "sha256": "53c18879f63c542dbea0cc5f3d9ba068c437958340a2056386d8a8d4deec0715"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/x1/RouterBridge.java": {
+      "bytes": 1663,
+      "sha256": "22143ebf424cd324c5f74648ef311e4d79c63898359694bddbb6cc035bcde5db"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/x1/SelfTest.java": {
+      "bytes": 2194,
+      "sha256": "53123d1b631f15765cf5fa69e77b4eef2b2e8c1b644053846c7a1d99ba7d90bf"
+    },
+    "source/engines/xmage/overlay/src/main/java/mage/player/spellbench/x3/ObservationSoak.java": {
+      "bytes": 23412,
+      "sha256": "da9ced122ff37554ef8146b667dc2baeb5202f9188249f06a21ade68e5969a76"
+    },
+    "source/engines/xmage/overlay/src/main/resources/mage/player/spellbench/catalog.json": {
+      "bytes": 42747,
+      "sha256": "1daeae5d981222651ac1d62a2ca3064f680d6919657c08ec09faaabc367707e0"
+    },
+    "source/engines/xmage/patches/build-only/0001-reproducible-manifest.patch": {
+      "bytes": 723,
+      "sha256": "7d5343cc0d7138e791847a177b8b06d36e78abf6f0bdd35f46523185872aa25f"
+    },
+    "source/engines/xmage/patches/xmage/0001-rng-router.patch": {
+      "bytes": 3759,
+      "sha256": "5c3a4c3c94036dbb7aaa947dd911d13de1da061c78e10cd017caa89c65c9a88f"
+    },
+    "source/engines/xmage/patches/xmage/0002-rng-call-sites.patch": {
+      "bytes": 10362,
+      "sha256": "dd1a7028a8b940ea5cefdcd0a7c4efc18f456fe9365169a978180172e1dcc0f7"
+    },
+    "source/engines/xmage/patches/xmage/0003-deterministic-ids.patch": {
+      "bytes": 47417,
+      "sha256": "c571b7336214cf0122f7ca26842ddf5359ce195f50b8106134012b98568e627f"
+    },
+    "source/engines/xmage/patches/xmage/0004-hash-order.patch": {
+      "bytes": 2158,
+      "sha256": "5a3140d9f07e9dfdd6684af16fb4ae722fd2617826a3ef0acc873d95c59b690e"
+    },
+    "source/engines/xmage/pins.env": {
+      "bytes": 427,
+      "sha256": "f6d02ecd6da2e3d5e9ede9b2970f82dafe7226a66401a1abd9224c9dfcd2dbdf"
+    },
+    "source/engines/xmage/README.md": {
+      "bytes": 15450,
+      "sha256": "74f08744d046ea1c8fc58fa6360e7ad4259fb230eab6eb13d3479112df94cea3"
+    },
+    "source/engines/xmage/scripts/build.sh": {
+      "bytes": 6407,
+      "sha256": "f92a88c8b01613c0554de87196a34d237d8a8d318e4fd5304457d856426a56b2"
+    },
+    "source/engines/xmage/scripts/engine.sh": {
+      "bytes": 1346,
+      "sha256": "99251e8d72c0645038defa879d5252fb948d54eff30f5a656178cc115d89c46b"
+    },
+    "source/engines/xmage/scripts/x1-determinism.sh": {
+      "bytes": 5513,
+      "sha256": "ceee6a21da8b961eacc0294ae33eb6448f94393554943b59f0aa1b46331a826b"
+    },
+    "source/engines/xmage/scripts/x3-observe.sh": {
+      "bytes": 4991,
+      "sha256": "6e3b817ef471f2df1102278de3708dd9d3bde3ae604072dd027e6066766b713d"
+    },
+    "source/engines/xmage/tests/x1/decks/Standard16-RG.dck": {
+      "bytes": 689,
+      "sha256": "5eeae760a2f7c85117717e8153dd54104a400e2537f18f25b343d1af6b174edd"
+    },
+    "source/engines/xmage/tests/x1/decks/Standard16-UB.dck": {
+      "bytes": 622,
+      "sha256": "246accf8e03e0e1d07fbadef6631118d5b7b06f548216a8e90c07c6e3bb73c00"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-17d93aca04922227c07d61db5c203acdc90a889c751f4b8d95d991e2980b5e52.txt": {
+      "bytes": 1850,
+      "sha256": "7a489078bf0528ca82f9eb2a9c129ada6f3c09c806adca1bc04e3f5cfa37de13"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-61d80bc8e83cfbadfcebe7d7333a58adca5855e91a958b50bfb2d0fac8de6736.txt": {
+      "bytes": 1540,
+      "sha256": "395802e56eaf75a26a338626dc63af11098aecc5371f7413b7be05de1f8a4ade"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-c887c54935e811a529c7646e4be95be54e3f8ec3acda935d26122ca533657de5.txt": {
+      "bytes": 1354,
+      "sha256": "0162f10e97a21e257c7c5904bf19af9aaed8921a6861b842590ad2b8376529d2"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-cca9db8b8f0f6f6a9ba99e520702c052eb50fcdf43bb200643787b73d47561b1.txt": {
+      "bytes": 1528,
+      "sha256": "3053cb057ccf303a14c4d52e9a9e1879d1541e683aba3a0b6c690231c895be2b"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-S.txt": {
+      "bytes": 1583,
+      "sha256": "41f9784b9117f06713b335de012fb75056650bbc072d1492beb0afdd332d17b4"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/patched-S2.txt": {
+      "bytes": 1129,
+      "sha256": "65d971a83ae0c56d4ecd680d73fdcb09a1952f2fd3132256a2c7991e33ef1dcb"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/stock-S.txt": {
+      "bytes": 1273,
+      "sha256": "39bd566ce99e4baffc1b0c8ddf18f98c9eb9bc15323d3ff914ad2cd4c005fc19"
+    },
+    "source/engines/xmage/tests/x1/evidence/answers/stock-S2.txt": {
+      "bytes": 1417,
+      "sha256": "8e8d96bb6af52abce27816bb3ad72d592fcc829415f952645ba8ff18902d2ed8"
+    },
+    "source/engines/xmage/tests/x1/evidence/BUILD-MANIFEST-windows-a.json": {
+      "bytes": 4785,
+      "sha256": "8ca995a24f08987af67b04af4e17d5b7180e739a4f78d71937674debe1538cc0"
+    },
+    "source/engines/xmage/tests/x1/evidence/BUILD-MANIFEST-windows-b.json": {
+      "bytes": 4785,
+      "sha256": "8ca995a24f08987af67b04af4e17d5b7180e739a4f78d71937674debe1538cc0"
+    },
+    "source/engines/xmage/tests/x1/evidence/BUILD-MANIFEST-windows-stock.json": {
+      "bytes": 4662,
+      "sha256": "a994fc67068e363a142d088dc3d9070552820ffe61f29ee95f0170ade3dd1df1"
+    },
+    "source/engines/xmage/tests/x1/evidence/results-windows.jsonl": {
+      "bytes": 9027,
+      "sha256": "52f8fab1fe4bcd78f40108edd77771f34b1755e985cbc0b13a847f4444812bd9"
+    },
+    "source/engines/xmage/tests/x1/evidence/x1-windows.log": {
+      "bytes": 3141,
+      "sha256": "ff4e22aa0e5678955c5746823cd9fa4fb97cbf4a73447079338775abded6a71d"
+    },
+    "source/engines/xmage/tests/x2/conformance-2026-10-01-haleyspc.txt": {
+      "bytes": 1440,
+      "sha256": "ad6b8d11349207c34010020736351cdec0e2911b66a3063c2df0a882402a0179"
+    },
+    "source/engines/xmage/tests/x3/check_observations.py": {
+      "bytes": 13855,
+      "sha256": "1cf413cc92f49f6af4040966336b7b6a776737444e2d98614139928e1c23e751"
+    },
+    "source/engines/xmage/tests/x3/decks/BGRoots.dck": {
+      "bytes": 619,
+      "sha256": "c31d24f3b5736b42479ab36aeff140c4d4b281195646ee6b899d5c26dbf1d3d2"
+    },
+    "source/engines/xmage/tests/x3/decks/Standard-MonoG.dck": {
+      "bytes": 375,
+      "sha256": "ef1df9ba203337c2b403dbd348d9e70a3951a125de3ad664c423ba41530ca056"
+    },
+    "source/engines/xmage/tests/x3/decks/X3-FaceDown-UG.dck": {
+      "bytes": 211,
+      "sha256": "601065ee29f085183c25f78cb14bf5cfd175c76ec27b6c11c6867ab8b765414e"
+    },
+    "source/engines/xmage/tests/x3/evidence/BUILD-MANIFEST-haleyspc.json": {
+      "bytes": 4785,
+      "sha256": "e89c63370306433f54ad36a4028b47baa7f2f19ad3f42b5086edfd9494ee0db5"
+    },
+    "source/engines/xmage/tests/x3/evidence/check-haleyspc.json": {
+      "bytes": 846,
+      "sha256": "bae85cb7f5dab698d46276bc0945937384b582fbfebffae862bb5de4438882cc"
+    },
+    "source/engines/xmage/tests/x3/evidence/games-haleyspc.jsonl": {
+      "bytes": 101647,
+      "sha256": "91a8ecca4bf220f7bd0273535c6718e16d8d2c153e185ced3c4478503588f725"
+    },
+    "source/engines/xmage/tests/x3/evidence/mutation-haleyspc.txt": {
+      "bytes": 382,
+      "sha256": "df6e1f2b75f8d55e6ae27d49cb095b3c1d979777c8b4f6daa4ae0010cc1b3e31"
+    },
+    "source/engines/xmage/tests/x3/evidence/x3-haleyspc.log": {
+      "bytes": 1710,
+      "sha256": "c02b7eda0d09b14109a296068cc5a5f1209710a901f606f6d1b1ecdbb6c1a6ef"
+    },
+    "source/engines/xmage/tests/x3/mutation_test.py": {
+      "bytes": 4232,
+      "sha256": "887f2b25800d1da489cd620906b1b085a320c40b1c9406dd501ad83437996601"
+    },
+    "source/engines/xmage/tests/x3/README.md": {
+      "bytes": 3316,
+      "sha256": "909e7687cfa706a594db8b2eb0115a5d6ce1f177b752225d49246367e4d20520"
+    },
+    "source/engines/xmage/tests/x4/agg.py": {
+      "bytes": 1298,
+      "sha256": "5e85430d4cd44b5e1ab5845aa639e22283ce35eae89bf27a929412784cb057a9"
+    },
+    "source/engines/xmage/tests/x4/caps.py": {
+      "bytes": 3955,
+      "sha256": "7049acc95b255df7e35f7aa56cba1f139fa3f8e6862dd979d0da98ce8d9c6d2e"
+    },
+    "source/engines/xmage/tests/x4/evidence/BUILD-MANIFEST-haleyspc.json": {
+      "bytes": 4785,
+      "sha256": "6a7a1ed592f5634bf5362c45624b7b36a9b867f7458eda0ccd3e5622ebc2178b"
+    },
+    "source/engines/xmage/tests/x4/evidence/caps.json": {
+      "bytes": 1278,
+      "sha256": "2ab08da25bc197f98b0580e326d767c388c9b9e0a161325655fc97d496981d93"
+    },
+    "source/engines/xmage/tests/x4/evidence/conformance.txt": {
+      "bytes": 522,
+      "sha256": "8f5f0e27eafccfa7e24ac97aef98883c0e7e5b5a59c5aeeb4351b7cdd368aba7"
+    },
+    "source/engines/xmage/tests/x4/evidence/counters-facedown.json": {
+      "bytes": 9004,
+      "sha256": "736ac0f5ee369405053e5e9e578ac52bf1903dc8948c3dc845414229f3342809"
+    },
+    "source/engines/xmage/tests/x4/evidence/counters-heuristic.json": {
+      "bytes": 5431,
+      "sha256": "ecf821f65e6ead9dc92ab75cdbc3505ce4cc70b5cfbca9a90da8b007061da477"
+    },
+    "source/engines/xmage/tests/x4/evidence/counters-rerun.json": {
+      "bytes": 4204,
+      "sha256": "10a33c1cca59b1a5ebb0253b9d1c0b4f114f1312ee385101eb88c33cf19e2e5c"
+    },
+    "source/engines/xmage/tests/x4/evidence/counters-soak.json": {
+      "bytes": 4204,
+      "sha256": "10a33c1cca59b1a5ebb0253b9d1c0b4f114f1312ee385101eb88c33cf19e2e5c"
+    },
+    "source/engines/xmage/tests/x4/evidence/counters-uniform.json": {
+      "bytes": 5336,
+      "sha256": "62ef2d0d3ffdfb9b40ed5060d55157c4f38d421504318742c25eaf098a30628e"
+    },
+    "source/engines/xmage/tests/x4/evidence/determinism.json": {
+      "bytes": 56,
+      "sha256": "ed7827cce3782c83a592be16563a24c16e5ba870ee371fb5470cb01c7e1f81bb"
+    },
+    "source/engines/xmage/tests/x4/evidence/facedown-summary.json": {
+      "bytes": 781,
+      "sha256": "449205af7ce8505e688db75500f615ae145f52975f2e1ac37685482b8a6c653a"
+    },
+    "source/engines/xmage/tests/x4/evidence/facedown.jsonl": {
+      "bytes": 25308,
+      "sha256": "668dfd435eb8579b0ba445f46dc509748cc8b2d365440d7c2f59fdc1996bdfc5"
+    },
+    "source/engines/xmage/tests/x4/evidence/heuristic-summary.json": {
+      "bytes": 763,
+      "sha256": "94b15fe5f7367fd7f8c9adaa0119d3f80a54b57bd4a6870d656574a55da4c041"
+    },
+    "source/engines/xmage/tests/x4/evidence/heuristic.jsonl": {
+      "bytes": 42507,
+      "sha256": "8c268281534679a95085f74d0331d329a3ed14f904dbd1a1f872a9c8cf744108"
+    },
+    "source/engines/xmage/tests/x4/evidence/replay.json": {
+      "bytes": 498,
+      "sha256": "3a56204d858a550f9fe9bc808e9ebf03d04beaf032f3bdac05bb6628ec3cf05c"
+    },
+    "source/engines/xmage/tests/x4/evidence/rerun-summary.json": {
+      "bytes": 746,
+      "sha256": "aa14287e6092812fe21f90ef4c0698f581ce891a4e2061a183a6110b437efc6e"
+    },
+    "source/engines/xmage/tests/x4/evidence/rerun.jsonl": {
+      "bytes": 84290,
+      "sha256": "59faac321a8b5d30560ecce8faa663196a2841a5ac95572792f4148930e82e13"
+    },
+    "source/engines/xmage/tests/x4/evidence/soak-summary.json": {
+      "bytes": 746,
+      "sha256": "a5b640f167fe522aa1bfdc28e541ca0ee78fc28a8ef846688645180265d18226"
+    },
+    "source/engines/xmage/tests/x4/evidence/soak.jsonl": {
+      "bytes": 84311,
+      "sha256": "ba889ea2160dc5508328c5251de979954aabbe45ce8073ba4971d843e740bbbe"
+    },
+    "source/engines/xmage/tests/x4/evidence/uniform-determinism.json": {
+      "bytes": 56,
+      "sha256": "eef097c341f9783a8385cce275613bc072ced4cd685f1bfaa9c88b24178ac56c"
+    },
+    "source/engines/xmage/tests/x4/evidence/uniform-rerun-summary.json": {
+      "bytes": 730,
+      "sha256": "dcf9326ad33d06bc3a4f0238d471b1296e3ec734f9c5b2eddfee2fd97885244a"
+    },
+    "source/engines/xmage/tests/x4/evidence/uniform-summary.json": {
+      "bytes": 745,
+      "sha256": "b125718130420cc4987d500c87c44b0af9fcff62e0dafd697c65dd2c0d7cb6bf"
+    },
+    "source/engines/xmage/tests/x4/evidence/uniform.jsonl": {
+      "bytes": 42356,
+      "sha256": "c5dde8fdb1c787d04b93690dc4f46f153d40fcba58fb285ed7e75961208c2615"
+    },
+    "source/engines/xmage/tests/x4/README.md": {
+      "bytes": 15200,
+      "sha256": "226fbe38cde5e8fb19c80cba3b8527a4022d553d285e1015c5c68fbc3480b3fb"
+    },
+    "source/engines/xmage/tests/x4/run-evidence.sh": {
+      "bytes": 6235,
+      "sha256": "7df49c99ba56050afe98e5b499cdc4b6d0ea6d17c5701607df20912e37d3b626"
+    },
+    "source/engines/xmage/tests/x4/soak.py": {
+      "bytes": 11897,
+      "sha256": "ee79fc886777a6611a6cd5cdca6ae7887e6c70fdd41f38d68dfb71e59c8d5059"
+    },
+    "source/engines/xmage/tests/x4/transcript.py": {
+      "bytes": 3064,
+      "sha256": "e482c29f108b27821a6dc3b178ab036b1cd0860319e0084d612e5e74317986d5"
+    },
+    "source/engines/xmage/tests/x4s2/decks/X4d-Lure-G.dck": {
+      "bytes": 112,
+      "sha256": "81ab108b5c1e33a470b7b2d7bff2519912bd16b8a2a645647f9b964db186bb36"
+    },
+    "source/engines/xmage/tests/x4s2/decks/X4d-Menace-R.dck": {
+      "bytes": 110,
+      "sha256": "27f2ab7d0b3b0aa3c4079a12bf8e1d0a4349ffe4504adce0fcc77979b22246cc"
+    },
+    "source/engines/xmage/tests/x4s2/decks/X4d-Raptor-RW.dck": {
+      "bytes": 116,
+      "sha256": "2a65b62b28b8cbf71354489fc2dcee7bdb3fbfc9391a0279bc3bee0865d87440"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/addr-summary.json": {
+      "bytes": 783,
+      "sha256": "2710cd358a5b13fbce6b3a74715de9af502201031752a8d24b3045b7541a6e77"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/addr.jsonl": {
+      "bytes": 42227,
+      "sha256": "691ae69f137c04ecf41a0f173af5459b01f27e54408a6c24f6b20153548cc78d"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/base-summary.json": {
+      "bytes": 784,
+      "sha256": "4ceafb5897c9e31607beb32846ab25680fe3de3065f5f1ccdb00747ac40015e9"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/base.jsonl": {
+      "bytes": 42234,
+      "sha256": "1ec88d26b94689e115e037c7e92df0db581452c00fd858d34b600b4474844086"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/BUILD-MANIFEST-haleyspc.json": {
+      "bytes": 4785,
+      "sha256": "0b527753c64541df3c4df6eb3116111008bb7471af618044d026278954cf08d7"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/callback-audit.txt": {
+      "bytes": 16059,
+      "sha256": "d5f4d7078f2514672f2de80d0dafb423bb08ec59360f0205f558dcf4886a93cb"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/combat-summary.json": {
+      "bytes": 791,
+      "sha256": "0e7bd9cd33830780c68ea88367f7b1a75c00cd1e6fe672b15bf399f089ee3785"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/combat.jsonl": {
+      "bytes": 421685,
+      "sha256": "c691d96247f9554705a7449f7181a0d82938bb1dddcff312226a283537bc172f"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/conformance.txt": {
+      "bytes": 478,
+      "sha256": "432a06e9003dc7e3cb46e6f94fad111e7088cc5e4ac42a23fae2066301549f20"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-addr.json": {
+      "bytes": 5722,
+      "sha256": "f43bc064727f7e854814c29c52ac0899c4534bdf4c58e1a9afeb67fe70840ab8"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-base.json": {
+      "bytes": 5722,
+      "sha256": "f43bc064727f7e854814c29c52ac0899c4534bdf4c58e1a9afeb67fe70840ab8"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-combat.json": {
+      "bytes": 3839,
+      "sha256": "e56c063ce2c57ab36ebda5f89934a2db65dde9b7c86bf91f4db94e05cd124404"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-facedown.json": {
+      "bytes": 14166,
+      "sha256": "2c605bbd4e5e5fa66ae045b29de5c0743f95a4cf9bf9c1cbcff37a83fc1c04bb"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-fixtures.json": {
+      "bytes": 759,
+      "sha256": "acef8104688fe46369c00f58f6fcc1f252b91e3540138188d12df1de7e632abc"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-heuristic.json": {
+      "bytes": 3174,
+      "sha256": "51dbd95892b886cdfce2e6366ddb416f3bdc54bffb79989a426b3d85f1a93b7b"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-seq.json": {
+      "bytes": 5722,
+      "sha256": "f43bc064727f7e854814c29c52ac0899c4534bdf4c58e1a9afeb67fe70840ab8"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/counters-soak.json": {
+      "bytes": 4361,
+      "sha256": "97be46a5e782771e5968cae084692d7c2b5a690f54640745c879032e89b760eb"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/facedown-summary.json": {
+      "bytes": 791,
+      "sha256": "dc7d60cbb6367b4b4191b3763d9684229180b5fb18fa866857bc38cc788946fe"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/facedown.jsonl": {
+      "bytes": 253475,
+      "sha256": "02b656c01440aad971f76e09f8774ea82e1bac50e99122b1c5341d4219ac5ebb"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/fixtures.jsonl": {
+      "bytes": 616,
+      "sha256": "d82742e0fd849806ae57f7782183e0cd4fccaecad2f77bfcb24d1860aa0bf445"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/goldens-check.txt": {
+      "bytes": 1222,
+      "sha256": "bf37b1086ce2e707ef3e72a19870c1e6537ff693632b6b1b02ee4802351cb158"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/hash-determinism.json": {
+      "bytes": 68,
+      "sha256": "2cf7a14297bf9d8103743f014c611e34aea23a45c07ac498a3d945585fcdcd3d"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/heuristic-summary.json": {
+      "bytes": 769,
+      "sha256": "69b879f9d175ce12ee4abd1b1e1f66e77d1c27ad7a2da56112a9eb4067037bc4"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/heuristic.jsonl": {
+      "bytes": 169231,
+      "sha256": "fff459cd0ddc9c1684fd9fe1acbbcc4a2352a024a022099b508012417fd80c6a"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/seq-summary.json": {
+      "bytes": 784,
+      "sha256": "4ffdaef0ac05e13afeadb90bbc413f2bcff374c9c442a3a452334ba32f316fb6"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/seq.jsonl": {
+      "bytes": 42243,
+      "sha256": "1e2857405bd91b7a522d6fd840b9909ca10ba871d78dcaf0838645a727ca1581"
+    },
+    "source/engines/xmage/tests/x4s2/evidence/soak-summary.json": {
+      "bytes": 747,
+      "sha256": "343b63a85ea85f0b02d09ffaba5976be54588602621f2461c3f848092642599e"
+    },
+    "source/engines/xmage/tests/x4s2/fixtures.py": {
+      "bytes": 5004,
+      "sha256": "0cacba39ed9cc5481d747b62dd416f4af6ddac57c64cc4fdd30f8107526c52da"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/index.json": {
+      "bytes": 2954,
+      "sha256": "0323ba758084af146120e8ba4575964482524e95434098b3b3a0270d716aab44"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/xmage_library_bottom.transcript.jsonl": {
+      "bytes": 2021620,
+      "sha256": "91aaa01e6f7dc63d464c27c5c83efbe2eb538de7474e822eaddc3a73934d2068"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/xmage_library_top.transcript.jsonl": {
+      "bytes": 1109378,
+      "sha256": "71882fe8be80204a0506762cccde2c8208f6b16f64fd807640ae2ff79eb56e0c"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/xmage_london_bottom.transcript.jsonl": {
+      "bytes": 2595607,
+      "sha256": "d05702e0f2891662a9213ac11c204e321f760e2ff62549848e5b41bd629531b3"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/xmage_scry.transcript.jsonl": {
+      "bytes": 1112822,
+      "sha256": "239d3db50ab0737ea67e7f2695bbcac0ec32fb6331e957f66c401b5ffca284a2"
+    },
+    "source/engines/xmage/tests/x4s2/goldens/xmage_surveil.transcript.jsonl": {
+      "bytes": 1141616,
+      "sha256": "a226c6cb6bfef02b246a653867ca2f677d723f94c08a5ccbe90c4d3bc33c1b53"
+    },
+    "source/engines/xmage/tests/x4s2/goldens.py": {
+      "bytes": 21766,
+      "sha256": "4ec2b83d6467b4f896302936bac00a5c6c3789fbe8b73fc4e1c7537bd421985a"
+    },
+    "source/engines/xmage/tests/x4s2/README.md": {
+      "bytes": 15249,
+      "sha256": "05e75976cfe49feb3fb8cac0ec65fb38a1c926375c73380297f3f472ff6a144d"
+    },
+    "source/engines/xmage/tests/x4s2/run-evidence.sh": {
+      "bytes": 7889,
+      "sha256": "12d2ddd2097396e55a46bac45927ea5096f67593f915d66010dda000a9152a35"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/23-checks.log": {
+      "bytes": 3511,
+      "sha256": "e0702941bd3345fbb746665ac621cbee8045aa0ddc4e7b454d7115be84a8dd13"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/conformance-fdn.txt": {
+      "bytes": 478,
+      "sha256": "432a06e9003dc7e3cb46e6f94fad111e7088cc5e4ac42a23fae2066301549f20"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/conformance-standard.txt": {
+      "bytes": 478,
+      "sha256": "432a06e9003dc7e3cb46e6f94fad111e7088cc5e4ac42a23fae2066301549f20"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/goldens-check.txt": {
+      "bytes": 1222,
+      "sha256": "bf37b1086ce2e707ef3e72a19870c1e6537ff693632b6b1b02ee4802351cb158"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/goldens-generate.txt": {
+      "bytes": 1531,
+      "sha256": "fa76133037eab0b0798fb5a2cea8d6fa73a485117eb342c9711f415c854d1026"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/cantrip-pairs.jsonl": {
+      "bytes": 36082,
+      "sha256": "98c89b7a51c397e85e90192a19fb323f53b533a054efcee7d82c8fad5ddb2f56"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/cantrip-summary.json": {
+      "bytes": 282,
+      "sha256": "41bf64eabb87c537860ca6a3ec3e910e6bede434085c4e8e72cd0694154c6d32"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/counterspell-pairs.jsonl": {
+      "bytes": 30602,
+      "sha256": "2aaca0f0c943ededeb8e5c1ca0ab700a9e13681159b202b9f0acdd6d89d58bfe"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/counterspell-summary.json": {
+      "bytes": 245,
+      "sha256": "9ed4f35a004069099b885cb6740921306a706cae6189df10b020b9a2cc0fa367"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/random-pairs.jsonl": {
+      "bytes": 90850,
+      "sha256": "cabdbeb629b6d41ebdc27a68f9095dffef8cfa987f426b3acf0db9feb8963b99"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/random-summary.json": {
+      "bytes": 290,
+      "sha256": "4f5dbf5c3c09c57bd7a6e8882d655333993ba771d07ae83b5cb1248b64393e15"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/selftest-counterspell.json": {
+      "bytes": 269,
+      "sha256": "f3e6e005009313dc78632e43646aeae5a1a24131f4df62a3b1329ce294c99f88"
+    },
+    "source/engines/xmage/tests/x5/evidence/004913a-checks/leak/selftest-random.json": {
+      "bytes": 273,
+      "sha256": "3fbd4a9a91a579fc7de93cc37c813b89e0a22d496ef289063ce796068b4f621d"
+    },
+    "source/engines/xmage/tests/x5/evidence/ability-order-verify.json": {
+      "bytes": 1033,
+      "sha256": "e60941aaa094a3eea4e89563a55f7c93fce0a690227feb1b562f092da0ca47b7"
+    },
+    "source/engines/xmage/tests/x5/evidence/ability-order-verify.tsv": {
+      "bytes": 28443,
+      "sha256": "95414ce66e0b830e0ad9d4f8716a467ede9daa33f833d4f85fa98e4736fbc372"
+    },
+    "source/engines/xmage/tests/x5/evidence/allocation-final.json": {
+      "bytes": 4022,
+      "sha256": "a2fe8e6bc07805d3670296815293e6b95d17b997a23d99020b7646e53c877f6a"
+    },
+    "source/engines/xmage/tests/x5/evidence/allocation-haleyspc.json": {
+      "bytes": 3147,
+      "sha256": "835f7237c8fcaf58da52e8328e2ce884677617b6d03d4e6487238db93793b2c4"
+    },
+    "source/engines/xmage/tests/x5/evidence/allocation-main-pc.json": {
+      "bytes": 3979,
+      "sha256": "c84da9afe6ec6fe30a775c34ba30a193a820c88d2f3a2b0448a34ae24a3049e5"
+    },
+    "source/engines/xmage/tests/x5/evidence/final-games.tsv.gz": {
+      "bytes": 489554,
+      "sha256": "ef8ac5842736454204a0938da51fb66b33477618846e29452a92ed3da02e3869"
+    },
+    "source/engines/xmage/tests/x5/evidence/final-hash-games.tsv.gz": {
+      "bytes": 49432,
+      "sha256": "27680673cf7cccbc2dc10f14e4dbe4bb7ddf246fe4367dc1ac364bd7bd88792d"
+    },
+    "source/engines/xmage/tests/x5/evidence/final-summary.json": {
+      "bytes": 36824,
+      "sha256": "4c1069b65371ebffa7416bfbfa3f4d9c3ad999d0793b55d6d6b9ee7e4abdef84"
+    },
+    "source/engines/xmage/tests/x5/evidence/fixcheck.jsonl": {
+      "bytes": 10493,
+      "sha256": "254b2ad819569056dca6a5ccc928b226d9e5e20b4d339bdb0c3f119b59852f01"
+    },
+    "source/engines/xmage/tests/x5/evidence/haleyspc-partial-summary.json": {
+      "bytes": 32782,
+      "sha256": "3fa4c4136689461fcd40abc7f6e0239e7f8a80773532ff1d995b45cbd41496d1"
+    },
+    "source/engines/xmage/tests/x5/evidence/hash-determinism.json": {
+      "bytes": 1943,
+      "sha256": "acf7c4918e082d28326781244cbf7c3cbec598cbe763d8e389a17f99b620d8a9"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/cantrip-pairs.jsonl": {
+      "bytes": 36082,
+      "sha256": "98c89b7a51c397e85e90192a19fb323f53b533a054efcee7d82c8fad5ddb2f56"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/cantrip-summary.json": {
+      "bytes": 282,
+      "sha256": "41bf64eabb87c537860ca6a3ec3e910e6bede434085c4e8e72cd0694154c6d32"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/counterspell-pairs.jsonl": {
+      "bytes": 30602,
+      "sha256": "2aaca0f0c943ededeb8e5c1ca0ab700a9e13681159b202b9f0acdd6d89d58bfe"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/counterspell-summary.json": {
+      "bytes": 245,
+      "sha256": "9ed4f35a004069099b885cb6740921306a706cae6189df10b020b9a2cc0fa367"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/haleyspc-cantrip-summary.json": {
+      "bytes": 282,
+      "sha256": "41bf64eabb87c537860ca6a3ec3e910e6bede434085c4e8e72cd0694154c6d32"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/haleyspc-counterspell-summary.json": {
+      "bytes": 245,
+      "sha256": "9ed4f35a004069099b885cb6740921306a706cae6189df10b020b9a2cc0fa367"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/haleyspc-random-summary.json": {
+      "bytes": 264,
+      "sha256": "4bb63bc5903eef3830904c9681a8fb5e5ef0e18451b95da49ff2a437eb5a8fc7"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/random-pairs.jsonl": {
+      "bytes": 90864,
+      "sha256": "5bc2af1584644a9b635dfcf85587cf06e8076a520e7d6ee3be5ef821f29af57c"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/random-summary.json": {
+      "bytes": 290,
+      "sha256": "4f5dbf5c3c09c57bd7a6e8882d655333993ba771d07ae83b5cb1248b64393e15"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/selftest-counterspell.json": {
+      "bytes": 269,
+      "sha256": "f3e6e005009313dc78632e43646aeae5a1a24131f4df62a3b1329ce294c99f88"
+    },
+    "source/engines/xmage/tests/x5/evidence/leak/selftest-random.json": {
+      "bytes": 273,
+      "sha256": "3fbd4a9a91a579fc7de93cc37c813b89e0a22d496ef289063ce796068b4f621d"
+    },
+    "source/engines/xmage/tests/x5/evidence/qualify-haleyspc-refused-reserve.log": {
+      "bytes": 938,
+      "sha256": "7e530d97ad3dad8eb36e0bf7582e9253dd208e46a5b6cd60c89363194e997ce6"
+    },
+    "source/engines/xmage/tests/x5/evidence/qualify-main-pc-refused-digest.log": {
+      "bytes": 1540,
+      "sha256": "810118ddf8851c537eb1f7a010f712a53f5b0fcc28956fc143a9b421d3fe669d"
+    },
+    "source/engines/xmage/tests/x5/evidence/run1-games.tsv.gz": {
+      "bytes": 107946,
+      "sha256": "dc9ebe17ad2148337ff16d57230ea42e762f864190de4c04400a1af184140cef"
+    },
+    "source/engines/xmage/tests/x5/evidence/run1-summary.json": {
+      "bytes": 45666,
+      "sha256": "6fe1b59f77bc652ec7b479bdf21434b8d7dc4ee777d6bf4690532257c207a064"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/allocation-final2-main-pc.json": {
+      "bytes": 3940,
+      "sha256": "2bfd4a971e50c9de45434639fab68e84e4ec7f53306efd163cb4220707c89510"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/final2-games.tsv.gz": {
+      "bytes": 491940,
+      "sha256": "42a3eda10207a0749b8649985fb0c393fe4f82a367edac31d1576d67ad22f466"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/final2-hash-determinism-partial.json": {
+      "bytes": 126,
+      "sha256": "ec432e40ef46c0999689c7c641f828d758ad2f2559be29a9b014b817a6ba2331"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/final2-hash-games.tsv.gz": {
+      "bytes": 35294,
+      "sha256": "309771851e94787c04bc2e98a387eaf373ef439701a31ebf97454b48cf5a273a"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/final2-summary.json": {
+      "bytes": 36911,
+      "sha256": "89455702e02442251423feebd166a59266b5187a698ad52c5ad86bcfb5ffc846"
+    },
+    "source/engines/xmage/tests/x5/evidence/superseded-d74803d5/README.md": {
+      "bytes": 1097,
+      "sha256": "c8177f3a7cc68cac3a9e8d0e4b15499171bb6056b0ba1d8707a459cb55cebb71"
+    },
+    "source/engines/xmage/tests/x5/evidence/validate-decks.json": {
+      "bytes": 4262,
+      "sha256": "e3fa8e534db583a399302bf179e0e549d80cd9f6a5063dc4e5169dacd989419d"
+    },
+    "source/engines/xmage/tests/x5/evidence/warmup-verify.json": {
+      "bytes": 1289,
+      "sha256": "e691a7ea24dec78b43fb159ea4f5210daf436b42b7090905200aa219e6ddc035"
+    },
+    "source/engines/xmage/tests/x5/evidence/warmup-verify.tsv": {
+      "bytes": 54637,
+      "sha256": "43c2349a6a9291b5f696d2a552325f43b09d7a79104157a0bf911093c7761153"
+    },
+    "source/engines/xmage/tests/x5/lastdec.py": {
+      "bytes": 2706,
+      "sha256": "8c31218ef5333f352af655468acb9e5f4e244184693dc85b43ea11566ad1126d"
+    },
+    "source/engines/xmage/tests/x5/leak.py": {
+      "bytes": 24864,
+      "sha256": "15666396301b61a54589feced1a1df060d2189076a02868046d70c638ac468ac"
+    },
+    "source/engines/xmage/tests/x5/make_catalog.py": {
+      "bytes": 5914,
+      "sha256": "1c772c598351dbb42902e2e7bfe581d0142b79fe331fb2d72e105d54faa063f8"
+    },
+    "source/engines/xmage/tests/x5/plan.json": {
+      "bytes": 1327,
+      "sha256": "07491c2ff545a5bca14375bb36610710accf39a35e6287fe8ba419152cb1a31d"
+    },
+    "source/engines/xmage/tests/x5/README.md": {
+      "bytes": 25708,
+      "sha256": "e4e76f07bbc8465d2dde37f1e796d4361848f903f98e4b9fb7aaee596b49692a"
+    },
+    "source/engines/xmage/tests/x5/reporting-repair-20261002.md": {
+      "bytes": 2007,
+      "sha256": "6b320ef34ec47d3b4885c68ceb23049d4144504332c01520387898edb2fe2d62"
+    },
+    "source/engines/xmage/tests/x5/review-20261001.md": {
+      "bytes": 4674,
+      "sha256": "300e58346ccdffa2c242751e0dbe05611c929d7f012b74e0a23538f18c9ff917"
+    },
+    "source/engines/xmage/tests/x5/run-23-checks.sh": {
+      "bytes": 5079,
+      "sha256": "f526f8d71fc8fb609caf2ab733f8116809ac90fd95bf8ec0a52ef2e33ff7002f"
+    },
+    "source/engines/xmage/tests/x5/run-final.sh": {
+      "bytes": 5067,
+      "sha256": "1bec9799c20c690aa3f0d708d487dbcba7041689249960e89a604ca54964b04a"
+    },
+    "source/engines/xmage/tests/x5/seq.py": {
+      "bytes": 1789,
+      "sha256": "d4b52aac027b66ae44af5c076e23d971652280e5e26b5e7f5e81e08b2f17bec7"
+    },
+    "source/engines/xmage/tests/x5/STATUS.md": {
+      "bytes": 8471,
+      "sha256": "0a34491964ec77d5185f824d35a01dc5430f6b6b747f92a2087bb5aef326f933"
+    },
+    "source/engines/xmage/tests/x5/streams.py": {
+      "bytes": 1927,
+      "sha256": "bf278fb946e46a4b695327d0a886bc12777ce1601cb6f0712ccc5a70f886c235"
+    },
+    "source/engines/xmage/tests/x5/validate_decks.py": {
+      "bytes": 3373,
+      "sha256": "a4b30fa7d424f890008e8bd464aec0adb80d8958c5612fe3e8b144f769d02dc2"
+    },
+    "source/engines/xmage/tests/x5/verify-gids.txt": {
+      "bytes": 1081,
+      "sha256": "031dfd18fdd04dccbe908a909a8c87a1e8ec17eae7e643a5babc805f20c3a8e3"
+    },
+    "source/engines/xmage/tests/x5/verify2-gids.txt": {
+      "bytes": 489,
+      "sha256": "bafaaf720d5360425d7022e78bc0e43af0998d364dff0aa671986b605e54e268"
+    },
+    "source/engines/xmage/tests/x5/x5run.py": {
+      "bytes": 36056,
+      "sha256": "696d7bb7b7225662cfbf47f9811ed1d0193854bfb0a73365009569c245871f4b"
+    },
+    "source/engines/xmage/tests/x5m/README.md": {
+      "bytes": 8442,
+      "sha256": "797aaf1454569bc0749c7db662adf7015e7102b8a2397106f40bc07c5b94f2c7"
+    },
+    "source/engines/xmage/tests/x5m/run_rated.sh": {
+      "bytes": 10012,
+      "sha256": "1c622fb2c53a3d28623a3209be37809b1b6d8b2fbad47e00cba9cc47b25ec901"
+    },
+    "source/engines/xmage/TRACKER.md": {
+      "bytes": 23640,
+      "sha256": "7296230c8a9c19dcc96816b0b62a935664eafb981732876b5569981f4603ae90"
+    },
+    "source/engines/xmage/vendor/cabt/LICENSE": {
+      "bytes": 1069,
+      "sha256": "f03da20cf077777719ba91a1e8228bd83c12056add069fea4a80b7bd7e652064"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/docs/cabt-decision-surface.md": {
+      "bytes": 4295,
+      "sha256": "c88239a133506201afa9bf3a18c5a8814d616c5fa10b5b17b2d5dd81e8574ce2"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/docs/cabt-verification.md": {
+      "bytes": 11575,
+      "sha256": "c72468faa19bdde9aa69cb43dade99d5c2c08664566fc4c3c296690bda50b712"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtAttackersPromptBuilder.java": {
+      "bytes": 2336,
+      "sha256": "c76a195a69ee28e931b9f879ac80bcdc4a0de1abdb2c29b532ea8a07114d3cae"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtAttackersSelectionApplier.java": {
+      "bytes": 882,
+      "sha256": "5d6f33247c55a71ff2e41a6fbfd59734d3bcb1c334a4000bc18b63e8d076856e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtBlockersPromptBuilder.java": {
+      "bytes": 2486,
+      "sha256": "093c061be8c23754056020983bca034537a8e42a0877dd634009b5cbb459c1ec"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtBlockersSelectionApplier.java": {
+      "bytes": 1089,
+      "sha256": "ce3c2f506925d016195065961a827ff60a13d337b2f58c19e987097d9d675e2e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtBlockingBridgeController.java": {
+      "bytes": 2471,
+      "sha256": "778097163d2758845c9222609d132127b042485ba8bf6b456d854b60c6adb0e5"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtBridgeController.java": {
+      "bytes": 437,
+      "sha256": "07e06f627335195909dd445a75b90c23db024db741fbdba81ddcb97a869c52f9"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtBridgePlayer.java": {
+      "bytes": 21471,
+      "sha256": "81a03de05261bb12fd6db552a52fe6425ea04b29b2971d180bebfbaf27cbcdb6"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtChoicePromptBuilder.java": {
+      "bytes": 1437,
+      "sha256": "438ccecb8bdf254933d6fe720ddbaff0a893eb41e0a96fe5b76a26c7c56ccda4"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtChoiceSelectionApplier.java": {
+      "bytes": 881,
+      "sha256": "3d7ca4911d0ccaf74940a4bcef9375926bfbbe3c9a7aef89f440316c48ed96ce"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtCombatAttackOption.java": {
+      "bytes": 1181,
+      "sha256": "0363a563118f35f4d071abad4d845912a0b71cabbabc9ef815bf2b93dcca1716"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtCombatBlockOption.java": {
+      "bytes": 1110,
+      "sha256": "6917b4d6f7fd48ebf1ba4ff189601e57009374f1ff2170f767702354694560c0"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtCombatOptionFactory.java": {
+      "bytes": 2918,
+      "sha256": "70001d02ff765c1c8fc489710e7b711e3beb608d620bdbc5af31e4ecf64b46f7"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDatasetMetadata.java": {
+      "bytes": 896,
+      "sha256": "33190f30d9d430d29be9e4b474b691ff1f8caacb9bc26fe5e0875bac1fda76e8"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDatasetRecord.java": {
+      "bytes": 2957,
+      "sha256": "96e5ec16351398d801a255038853bb86c8bd95d6269ed50041f8b4c4c34e2d83"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDatasetWriter.java": {
+      "bytes": 3133,
+      "sha256": "7dcbdc5f40fb803ae35501d094491168d2534066842ed62f3ef92383af55693c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionSurface.java": {
+      "bytes": 2680,
+      "sha256": "0fb342c8fa1d4a354e88c993c8b2537997fa33182de8574f0c1de35db5b53f73"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionSurfaceAudit.java": {
+      "bytes": 23697,
+      "sha256": "d30a56db26d2c554fba0e09ecaf4435f6caba7711aebdbaa7af5e9f0089ed301"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionSurfaceSource.java": {
+      "bytes": 902,
+      "sha256": "46fa304e99fdeed2b8cd897349a42372434969a4545c0f2c70b8f653682d82b5"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionSurfaceStatus.java": {
+      "bytes": 1116,
+      "sha256": "f0ec1caa1de76515a48581fd0928d3815024cae4d4971e2636ac5b3d1416e163"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionTrace.java": {
+      "bytes": 4695,
+      "sha256": "c5d33011b34c89c2455095909df9ee190e73bea541d814d05c201b9179933f69"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDecisionTraceRecorder.java": {
+      "bytes": 2990,
+      "sha256": "098dd6ec588d0bbbd75f4689e3d7d20a5e21d4576bfad3a11b3cc9653d6dd057"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtDeckFactory.java": {
+      "bytes": 5651,
+      "sha256": "212ad289541c9181b9f546b8c24d9c067773c4959e8f1b047539dbec5620e7fd"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtGameSession.java": {
+      "bytes": 12516,
+      "sha256": "416539cc33850eb94d8aa02082518116912eba6a0cce116a55f13f134656be71"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtLiveDuel.java": {
+      "bytes": 2057,
+      "sha256": "4050687584316ec82667dabf147d4d0b0cee0575db87e849b03a058b1d3c8f32"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtManaOptionFactory.java": {
+      "bytes": 3320,
+      "sha256": "a3f08c98a9f871b41cf43f1bdec4b12759e647d78c00c156d24a24fb0c3a0bc6"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtManaOptionKind.java": {
+      "bytes": 211,
+      "sha256": "55bdeecb0cb3a7d0b4bbdbe17cfa0eb134126df63164ac3254531cc2e15f4e44"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtManaPromptBuilder.java": {
+      "bytes": 2028,
+      "sha256": "fb487343d1620efbdf397a6b45d7fdc995959c3dd8b06fb673a4db8fe2a4c6ba"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtManaSelectionApplier.java": {
+      "bytes": 2666,
+      "sha256": "aacdacfd87a14713111283d7bf7f2a3da80fa698720a19ae4ced15ccfbd20b0b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtModeOptionFactory.java": {
+      "bytes": 2280,
+      "sha256": "3d1c4f18b4b951c72820866bb0232a494ef9fa4c6783321a8cda55261e74a845"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtModePromptBuilder.java": {
+      "bytes": 1351,
+      "sha256": "ae4e41379b658e6df2cbac3150846088dd68cbb9fbc3ad9afacc48cc0f460c55"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtModeSelectionApplier.java": {
+      "bytes": 1003,
+      "sha256": "e991c57afc29cfe8f3f9cd12a4117c523dc39985799609f284f5e4c03bbcd70e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtMulliganPromptBuilder.java": {
+      "bytes": 1159,
+      "sha256": "50b346e89b6baa739cacf8b602dfa69bc69e550d21f13e807c8533e396143be7"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtMulliganSelectionApplier.java": {
+      "bytes": 762,
+      "sha256": "6c1f2e3ba9f1f3e13350714f3d7fd32adb0927b71dfda5b24f360a40d8cb307e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtMultiAmountPromptBuilder.java": {
+      "bytes": 2825,
+      "sha256": "00b85b0ac29d3fca58461440feb975106c0d0aa5b03334701719a0214b21cd3d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtMultiAmountSelectionApplier.java": {
+      "bytes": 790,
+      "sha256": "95edfc458d7562b00f889a01552aa3570d84775015ee2b7f19d404ee199fd082"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtNumberPromptBuilder.java": {
+      "bytes": 1823,
+      "sha256": "d00269f4fc3957ba3eb76788c46366bc837091badfe0b40818c5d88cf081ffc3"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtNumberSelectionApplier.java": {
+      "bytes": 550,
+      "sha256": "daf4cbebfeeced28a823e1c4fb2cd758e268ddb886a10ec752205654b5674298"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPilePromptBuilder.java": {
+      "bytes": 1842,
+      "sha256": "7a5c0f89f6ed4f6ed716507dd08cd7f64fd0772d2e5e1caacc832e5832315de6"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPriorityOptionFactory.java": {
+      "bytes": 3799,
+      "sha256": "91e3891c8155b75cd11b28c9918f607048262c9e3c1d49c5aa2e62b0affe3020"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPriorityPrompt.java": {
+      "bytes": 1448,
+      "sha256": "37cd1855471caaad37133ec42efa6c478a1b455538d54d2ce7e5837e29a1659f"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPriorityPromptBuilder.java": {
+      "bytes": 1138,
+      "sha256": "b894e49a069872aa4bec3e677132b280057b138f5fb56584865b06839d5ca0ee"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPrioritySelectionApplier.java": {
+      "bytes": 2030,
+      "sha256": "c5a6edad9972403cf63f1f991d30f4d743a00e3e8b86285c4a5236f58edf4522"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtPromptAudit.java": {
+      "bytes": 2161,
+      "sha256": "1b58cc420f57beb9537ec556adfccb06f9d31d0590f4984ee6735e76fa5afc16"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtProtocolServer.java": {
+      "bytes": 28977,
+      "sha256": "ce79fe6f38930d18a7057c2bf1d8b5f9881d207ee42be54f51bc87f8fcea48d7"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtReplacementEffectOptionFactory.java": {
+      "bytes": 1424,
+      "sha256": "f3ff1a8330cd915bf24c57bc387db58a6783c5a19bbaa5219c13759fb4fb52f7"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtReplacementEffectPromptBuilder.java": {
+      "bytes": 1176,
+      "sha256": "53537ec44ed9e32c3bffc735499a5e58ed731bb0cf97f0c46cb66c9177438989"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtReplacementEffectSelectionApplier.java": {
+      "bytes": 669,
+      "sha256": "6be3a73110bbf49a7d8cea7debdb5b75d91a0d5501f4e6a904ab881ffa22f194"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtRunRecorder.java": {
+      "bytes": 1867,
+      "sha256": "e93348813adf2945a5cfa30adb64c92cb3b94848d4cd56aca00845d3acc277b3"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtRunStep.java": {
+      "bytes": 1848,
+      "sha256": "893e513e0d5f1f89bc57c4a985f34007732e38cd2a6046256ae75b1b092fc27c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtSessionClosedException.java": {
+      "bytes": 433,
+      "sha256": "19931c5f1fbae4990f41aaaf5d1393599c2ac07ef21d868d9455c700b708da37"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtSmokeRunBundleWriter.java": {
+      "bytes": 31633,
+      "sha256": "c23d7d7b257717bf16f120b9bf617f7ba504aebeec7049ef30008a7babdd6143"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtSourceNames.java": {
+      "bytes": 766,
+      "sha256": "55467ca3f56148cd0372b1447ca7fde3ea3bd2d9ab0ad5c42b5dad2e2878509b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTargetOptionFactory.java": {
+      "bytes": 3673,
+      "sha256": "b60f6d0a6866008b97ac8d02285972e7011e34bd751852cc6e9f22eb98ee5354"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTargetPromptBuilder.java": {
+      "bytes": 3506,
+      "sha256": "f84276168fd373713718cf7e743290c139ee0518aa195c9af375247837116431"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTargetPromptContext.java": {
+      "bytes": 1637,
+      "sha256": "0b6a37860767dc575d73fa9e09f1631dd5836652500e5d4d274ab0ced2ae782e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTargetSelectionApplier.java": {
+      "bytes": 1877,
+      "sha256": "e05a04cd19458a86daeb481d2e2a35d8019a4e247452a87ebd09372e888b4ed3"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTriggeredAbilityOptionFactory.java": {
+      "bytes": 1625,
+      "sha256": "da82e4b5885fe65038e4782471df2bb8f93554fa021f5facfe2a30635aae5b81"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTriggeredAbilityPromptBuilder.java": {
+      "bytes": 876,
+      "sha256": "86a6da1d9efbec26879beb015cc2272c44d589fa6eac2a8782dbfeffe4e04c74"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtTriggeredAbilitySelectionApplier.java": {
+      "bytes": 914,
+      "sha256": "798e7dc8ef212969d409fe7af8699bbcb789d78cdaafc9bda7c96058b0766b65"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtUnhandledDecisionException.java": {
+      "bytes": 727,
+      "sha256": "67b80361985986649aa399c793e15e0dc734a42ed12fa3c8c77b6f794b60f66d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CabtYesNoPromptBuilder.java": {
+      "bytes": 2440,
+      "sha256": "f213b74222f512d44969896a9a126853a2a511ba847f83273cc2c4dff0a3d627"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CardNameNormalizer.java": {
+      "bytes": 2986,
+      "sha256": "83c9f61da8088da21fd80df81ad1d62038bddb4ea55d867af88d327a8230ff29"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CardResolution.java": {
+      "bytes": 4558,
+      "sha256": "f9b321a39f91183f789841072cada37b6bd6ed2913d38ce10eae11477f43f674"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/CardResolver.java": {
+      "bytes": 9143,
+      "sha256": "2344c2e21d7209bf7279bcb4d794974ed394244fb4a5a56267331a8ebbf9d730"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/DeckValidation.java": {
+      "bytes": 2127,
+      "sha256": "5e3839512dffbe16a8cbcb7ebb330c8905bf4c75e6456e65996dac3b4248c439"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/InvalidSelectionException.java": {
+      "bytes": 327,
+      "sha256": "1d1f7b7c02759e6b145cc1c45f7662ffd71896d43b5cf7cfd83d7110aae4ff60"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicAbilityData.java": {
+      "bytes": 2210,
+      "sha256": "2ced7444cfb4a6b6e3e2bb6feee4c7479f41ae183568f243a383e59454c73090"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicCardData.java": {
+      "bytes": 4458,
+      "sha256": "8e35b6f84ecd7b3d1569f75779596d63d6478a37f65c416cfc9d255856617e12"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicCardDataExporter.java": {
+      "bytes": 5835,
+      "sha256": "1888924aa6ffd519799760acc7e2157c10fabdc1560f62982e8d1fcab94d49c6"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicCardDataProtocolCommand.java": {
+      "bytes": 2824,
+      "sha256": "09806235ae9c3de2a6068bd2c66d92019c660ed9460f8139e8de94b6d483d42d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicCurrent.java": {
+      "bytes": 3630,
+      "sha256": "c3855e1dc600a1f955ef8d7a20769e50c1cc69e7f421a078e67ff20e9772b9e7"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicObjectReference.java": {
+      "bytes": 1437,
+      "sha256": "e6c1be4a74ba04b18acd7c110c4f25060e379072c73cd4f1509eae0de30d2540"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicObjectView.java": {
+      "bytes": 1198,
+      "sha256": "dbb0d3c0a7de37bf301fe9e697c949d3452054dfad2d8c5fe53e9de5cc8d413d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicObjectViewFactory.java": {
+      "bytes": 5708,
+      "sha256": "5aba7eba63f4a769d79f357320d2e1ee48570c2b37340df7a95e8bc389280b37"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicObservation.java": {
+      "bytes": 1199,
+      "sha256": "ccf46d5eb5041953e71a0da9775b03019be95f586f14d38f54f59b1c32690e67"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicObservationSerializer.java": {
+      "bytes": 9531,
+      "sha256": "fa14d73b99ecb86c3eed8a5e5f75714566355d3bb443a233f7e783b591a828d2"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicOption.java": {
+      "bytes": 1048,
+      "sha256": "bc9e4e769ad6459484c3ecb2b76e61b91a8a116636cd71a020036555007796ae"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicOptionFactory.java": {
+      "bytes": 1244,
+      "sha256": "e4383710ee624cc728addc61671c5719fadc590cb06bf40ec870cab277742307"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicOptionType.java": {
+      "bytes": 1016,
+      "sha256": "3ffa593ac20f353109bb641851ad349b4378585f08a7d420808f332126748d88"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicOptionView.java": {
+      "bytes": 1070,
+      "sha256": "f898db9c4edbc0232a6c3799b9e52c87181e66e104dba02a423fed865fc00da8"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicPermanentView.java": {
+      "bytes": 2647,
+      "sha256": "e1fad5ead8016826fab5e9b8c56d02f889e69d78dc7d5a45248fd93550ffd947"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicPlayerView.java": {
+      "bytes": 3245,
+      "sha256": "acdd693edf9226aeeffd44c93cffa62d5136e2a820997add78fb07b40562b6b1"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicSelectType.java": {
+      "bytes": 369,
+      "sha256": "97aa94d2ab4b4782664aacd51819e1393b1846177507c48a1e258e99a9b3b5d9"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicSelectView.java": {
+      "bytes": 1363,
+      "sha256": "db09b78c2c9a31bce74d9cd1c2bd81b70b96ea91ea077a701df89a2ec300ffbf"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicStackObjectView.java": {
+      "bytes": 1645,
+      "sha256": "258389e4efac2af8dff6fb934cf16cfda57f377cb9a433717db3153dab477ff0"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/MagicZoneView.java": {
+      "bytes": 866,
+      "sha256": "ea069f6af03b93b9d889ebfef05ef7f737da9c9c7841236bf3fd906d9745cdae"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/PendingDecision.java": {
+      "bytes": 1915,
+      "sha256": "47ead83d89dd222a569edda8ff5321bceaa26b78046cc4a63891c8cef8d16582"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/RecordingBridgeController.java": {
+      "bytes": 1429,
+      "sha256": "65ebd54d60c9d433d020da16aabd24d07125158709371cdb2bf34b279e19697c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/ScriptedBridgeController.java": {
+      "bytes": 789,
+      "sha256": "82cf7f325d31371a5748d652e4796776257e293d6ce2298a3f156c16d0646947"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/Selection.java": {
+      "bytes": 856,
+      "sha256": "091acdaa660b42901a498e1ad47c6000353cd8c4537c87123a5e115fd5fdd122"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/main/java/mage/player/cabt/SelectionValidator.java": {
+      "bytes": 1167,
+      "sha256": "330eca43dc9a9aec00c57356e0e6c94ad6487bbb13b5e0b1184e775e07e8253d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtAttackersPromptBuilderTest.java": {
+      "bytes": 2889,
+      "sha256": "c57e86afc17948b5bd73fe98efc36c8b2ad436b321ec424975c488bb9aecb1f1"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtAttackersSelectionApplierTest.java": {
+      "bytes": 2434,
+      "sha256": "664c7cb4d2f2251a4f123cfc5903162897f820d21cdc74e80b4c9d50f2857abb"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBlockersPromptBuilderTest.java": {
+      "bytes": 3175,
+      "sha256": "3627ce7317ede62a06f148f4843917a16c8cbbbd04a43305eeba101e3259981c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBlockersSelectionApplierTest.java": {
+      "bytes": 1688,
+      "sha256": "2cc493c1e571222f11f601181e11b9d883f0794dcd02f22b260a4392a629527e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerAttackersTest.java": {
+      "bytes": 3020,
+      "sha256": "38265d081e709a2cce4b87bd56e3e1d7a71bff1de54d7d634ec29388606d1115"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerBlockersTest.java": {
+      "bytes": 3070,
+      "sha256": "e8562a0064dd36c821f24b8df06ec9a9e4648eb3ec04732f0a1bef6ef8d492e4"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerCopyAndSimulationTest.java": {
+      "bytes": 4354,
+      "sha256": "1fe64db4cd2f69e708dc5f70c349f5f367a7b39002a5dcc2a0232e42e12756a9"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerManaPromptTest.java": {
+      "bytes": 3981,
+      "sha256": "02182e64915efc0ee4030032ae6338f725459086ab59a6fa20a54cca395cb6a0"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerModePromptTest.java": {
+      "bytes": 2701,
+      "sha256": "baeb8b0586e86430576d956bf92b5a070b7dc3b8ec3771b20147dd1f541666ef"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerMulliganTest.java": {
+      "bytes": 2026,
+      "sha256": "55acbba001f76c822c45c2c0d00d6553f4bd445acab01c026e302fdac6ee41e9"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerOverrideAuditTest.java": {
+      "bytes": 9799,
+      "sha256": "29896a36e8ef15ee05637a76141a5e7ad39ae0fdceb0985b1c1038a0b8eeaa29"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerPriorityTest.java": {
+      "bytes": 5161,
+      "sha256": "c57398161bee63d561b9eee7c0037961437f9713920cf6268ef13b8ab71f3b6a"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerReplacementEffectTest.java": {
+      "bytes": 3037,
+      "sha256": "d8eb969508136489a6f26099951a965d713ff4904f2fb5169a1525c2937eb10b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerTargetPromptTest.java": {
+      "bytes": 8799,
+      "sha256": "c0466ee94885a6506b2dd2dbc4762578eed951009d5980d1ceb97af465ea9f7b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtBridgePlayerTriggeredAbilityTest.java": {
+      "bytes": 3590,
+      "sha256": "9182609d894a9c0a02178197a5399d46d1336b0457155d60fa0973d05071a0fa"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtChoicePromptTest.java": {
+      "bytes": 3755,
+      "sha256": "46864bed1a3982aa313cbca43ae6c2858364201cef6dd9e714c5a087364ba7c6"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtDatasetWriterTest.java": {
+      "bytes": 5314,
+      "sha256": "0a336b304531d5414197aee803df79d448f44775c6ff01300cf75efa7e21b627"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtDecisionSurfaceAuditTest.java": {
+      "bytes": 7526,
+      "sha256": "3f4c3dd358900e0f1ff461db0139be620e085b871c868980ffd3905bf7ab4db3"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtDecisionTraceRecorderTest.java": {
+      "bytes": 4930,
+      "sha256": "f770ee8a7a907aee770e09c1e7e3bf21d60611da2db175f5abe62c7344a63958"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtEventPolicy.java": {
+      "bytes": 4240,
+      "sha256": "14d41299f393b9e2d1751640b2be241fa1dcba35134a6269d483d89a06689259"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtGameSessionTest.java": {
+      "bytes": 5579,
+      "sha256": "36bb389fd983a882d85fc4c08a99c1a2297a024a05f13e00f1d5dd730c255d35"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtInitialLibraryOrderTest.java": {
+      "bytes": 1521,
+      "sha256": "65615cfe0d50fc206a8a567449d638bd1ac146957365e6a255fb5dc1a2db69df"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtManaPromptBuilderTest.java": {
+      "bytes": 4034,
+      "sha256": "a37bd62d6005f52f833554f60470c335ccc4e4f9a11f5b35f1facb8f228e2f15"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtManaSelectionApplierTest.java": {
+      "bytes": 3858,
+      "sha256": "c2fb8f38eb5071eea829de7dafc67685f375e3942603dd10f8d1025aa45935c2"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtModePromptBuilderTest.java": {
+      "bytes": 3354,
+      "sha256": "3f63a5792697f5ed58011f5af18797cd315a7b8eb89ba6d9246b254a37193a1c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtModeSelectionApplierTest.java": {
+      "bytes": 2102,
+      "sha256": "1fc59d3acb576267f387d4b6ab74f9183b40fc1fd5d7640d764166e6fe92a642"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtMulliganPromptTest.java": {
+      "bytes": 2362,
+      "sha256": "708bcf5e4634dded00901fc1560233e7b98ec030b00d2e48305204bddfb86a67"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtMultiAmountPromptTest.java": {
+      "bytes": 3769,
+      "sha256": "6f973056c55cbd80f3acd697380b8841fdfe566a2377cbd0df01103bfde02eca"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtNumberPromptTest.java": {
+      "bytes": 4033,
+      "sha256": "04beed3b2a5a5594ad629d7157063aab30865099a90627874f816acca4be3f1c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtPilePromptTest.java": {
+      "bytes": 3150,
+      "sha256": "110693fe06ccecdce00562d7a7c3f94218b71230bda8bc27fb88b8d25e726fa1"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtPriorityPromptBuilderTest.java": {
+      "bytes": 6540,
+      "sha256": "d37780df5c75c68c1982c029cde3a8949f26d729c29907eb0d2fb689ccda9e4c"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtPrioritySelectionApplierTest.java": {
+      "bytes": 4307,
+      "sha256": "8a64a98aa60af19b5c182b67f8c888079c73c112d7364b69aaf57544db66281d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtPromptAuditTest.java": {
+      "bytes": 5100,
+      "sha256": "0ca446276d57c4d1384582f5372fdda9ebd31e8890b0311096162c0d159ae643"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtProtocolServerTest.java": {
+      "bytes": 22490,
+      "sha256": "e6d767db12550ec6964210ec6fa7501476515daeab4e0dbe3df4cf12248b9f09"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtRealGameSmokeTest.java": {
+      "bytes": 13354,
+      "sha256": "408a6bc211ec61e1e84c82439e76a057fa7f72c083694451f4740c4dedad896d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtReplacementEffectPromptTest.java": {
+      "bytes": 3334,
+      "sha256": "4520570cedf6db0c42769c540fd7062d900efceb574705e94892f5ce1774f37f"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtSmokeDuel.java": {
+      "bytes": 2022,
+      "sha256": "f5a98c028a120692a3d0a33f801b7e0528bcf5bb831bc644ba2e3200595b0d58"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtTargetPromptBuilderTest.java": {
+      "bytes": 5585,
+      "sha256": "eb0c4d91addcfc28a23560581c9c9d2d970aa4267e57e4ae106ca8335e09ef10"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtTargetSelectionApplierTest.java": {
+      "bytes": 4091,
+      "sha256": "b0996c6df48f57bcdded015a14edbdd03e45f42bfceb79c1475e967fdd5698a0"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtTriggeredAbilityPromptBuilderTest.java": {
+      "bytes": 3480,
+      "sha256": "41a9d6fceebd6392bf5d7095ce2076717a9329c319fefeeb88a1f5a8e503f33f"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CabtYesNoPromptTest.java": {
+      "bytes": 3272,
+      "sha256": "e4c231543d1d57bae594313c0dad0cba3ce6e2fa3096b8b52241ff1594c96406"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CardIdentityRepositoryTest.java": {
+      "bytes": 11141,
+      "sha256": "3689616e8d00a1972a1505186639d2d19e97ff380b8eeaafb88a7ff8cd2470ed"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CardNameNormalizerTest.java": {
+      "bytes": 2253,
+      "sha256": "946bceb238c8e81934fd912a3b956dfa9266f5d569e9aa2db094d52a3471f46f"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CardResolverProductionScanTest.java": {
+      "bytes": 2494,
+      "sha256": "d1adf5ad0d4ca91b95d12b919d5460fb78ca451bf1d923d2a916d46618170b5b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/CardResolverTest.java": {
+      "bytes": 5560,
+      "sha256": "eae01af3ffe38482972e10d9e94d73ade795441ad34213d6e89ff6ffaa9a397e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/GreedyPolicyBridgeController.java": {
+      "bytes": 4991,
+      "sha256": "0d6207571c2ecc5591089cc8e0e5f67bced0025e7e141dc68c370bc78276c60d"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/MagicCardDataExporterTest.java": {
+      "bytes": 5412,
+      "sha256": "f971ceb1ac6fcae8c684a81dd924df463e740d04dc7a3b729e7cea4505930e7f"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/MagicObjectViewFactoryTest.java": {
+      "bytes": 3615,
+      "sha256": "9eb5e228737f0d6a00aaf441e75f000ba31ee44ed6e458dd8149710afc5309a8"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/MagicObservationPublicStateTest.java": {
+      "bytes": 4676,
+      "sha256": "7d0a5e063660b81143ebd1d7e81187bc01520db6381caf5ffa5131ae2dde67fa"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/MagicObservationSerializerTest.java": {
+      "bytes": 5531,
+      "sha256": "fd22c056665fe7d57a5f5ad6521161a4e5eaf5b8e1000e3390f521d3b0a34d51"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/MagicObservationVisibilityTest.java": {
+      "bytes": 3431,
+      "sha256": "3ee73155309ebcdce3ac486e148b19fb36d6e829d1c62c04909c8205252d5586"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/RecordingBridgeControllerTest.java": {
+      "bytes": 4058,
+      "sha256": "3247b10bbb9c534df8b17335aca988dad9801fc7a5902359e71b4daf5964b98e"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/SelectionValidatorTest.java": {
+      "bytes": 2607,
+      "sha256": "ea164b97c65ab4c054a96ef5cd57dc0d45a6ec477238527f1f25703b0b69cb29"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/StubGames.java": {
+      "bytes": 15934,
+      "sha256": "d9148a6ba18e5a785dfabeec9df41a1068da25fcf3c933840f2ac2a966b442f1"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/StubTarget.java": {
+      "bytes": 1811,
+      "sha256": "ce12cf482b52a012bd1c870f7ef242013445e1b3da8966a1e724a0b5cf3a124b"
+    },
+    "source/engines/xmage/vendor/cabt/Mage.Server.Plugins/Mage.Player.AI/src/test/java/mage/player/cabt/StubTargetCard.java": {
+      "bytes": 1462,
+      "sha256": "1d89b765adcad213a8d1445b604d198a9d5739c80072c89d723b64a66762d504"
+    },
+    "source/engines/xmage/vendor/cabt/services/engine/prepare_reference.py": {
+      "bytes": 2368,
+      "sha256": "9ae43d76b711c0ca4e262ce5cc610b591fcbc3320dff219cf8116e767229dd32"
+    },
+    "source/examples/minimal_bot.py": {
+      "bytes": 832,
+      "sha256": "c0252408ad3206fd0b7f26a4a835ac28bd17643d2af2be50ce7a749d90129338"
+    },
+    "source/examples/mtg-kernel.json": {
+      "bytes": 653,
+      "sha256": "aacc73d584c27d6dd20183b3bc9d5cbf651cf8d378c93f848ac82011cdac44ee"
+    },
+    "source/examples/quickstart.json": {
+      "bytes": 643,
+      "sha256": "29fb50a353a21403d84491e7144add74f36f134467955a6f0fadcacfb1671ea5"
+    },
+    "source/goldens/protocol_v2/agent_error_decision_pending.transcript.jsonl": {
+      "bytes": 7650,
+      "sha256": "ea54c44f55f1200c52a48a9397a07fcb579f776c55b3f28661a7462b32c4795b"
+    },
+    "source/goldens/protocol_v2/agent_error_game_already_active.transcript.jsonl": {
+      "bytes": 5616,
+      "sha256": "291a55d03145512370dbd0513f00f69f2408e32fb85348c7370957c40491dc6a"
+    },
+    "source/goldens/protocol_v2/agent_error_internal_error.transcript.jsonl": {
+      "bytes": 5345,
+      "sha256": "edc02793355df0dbbf3c128f8a716b0d21384092f28c999c6300ffe2bf51b64d"
+    },
+    "source/goldens/protocol_v2/agent_error_malformed_json.transcript.jsonl": {
+      "bytes": 648,
+      "sha256": "b43d62eef4c4983dd66cd7fd06a8c1936751fa7b7a81c3485f520f9837fa2710"
+    },
+    "source/goldens/protocol_v2/agent_error_malformed_request.transcript.jsonl": {
+      "bytes": 2990,
+      "sha256": "6f1181259ab11ad3e7d829bf8f8ac22fb3a55c943a27248e7d68e56956847b0d"
+    },
+    "source/goldens/protocol_v2/agent_error_protocol_mismatch.transcript.jsonl": {
+      "bytes": 314,
+      "sha256": "4768e7f54d989df5d6f75ea8d49c8331925b4c8acb84a92f2fd35a02a851907f"
+    },
+    "source/goldens/protocol_v2/agent_error_unknown_game.transcript.jsonl": {
+      "bytes": 5316,
+      "sha256": "65353bd31ff96adff64e581a7913e162b0144b06be9c3b2b819df5897bc18888"
+    },
+    "source/goldens/protocol_v2/engine_error_candidate_id_out_of_range.transcript.jsonl": {
+      "bytes": 8796,
+      "sha256": "af8eeddbc06fc59eaa55acb213b95cad756368d51019a5d15985bfbe9e2ffa48"
+    },
+    "source/goldens/protocol_v2/engine_error_deck_id_mismatch.transcript.jsonl": {
+      "bytes": 6358,
+      "sha256": "88af8d447398e77f7bb849aadc1886d20258e83ca9fd55baf06cd23842f93a16"
+    },
+    "source/goldens/protocol_v2/engine_error_expected_step_mismatch.transcript.jsonl": {
+      "bytes": 8783,
+      "sha256": "ac1bdd6faa5c3aa851556e6994b9831d2bc064050a8bff6334b161d2cfd4ce8d"
+    },
+    "source/goldens/protocol_v2/engine_error_game_already_active.transcript.jsonl": {
+      "bytes": 9416,
+      "sha256": "36c144ac5751cf93d37e1c2b0b73988a44fc522b79e5533aa64e9e85ebe68f16"
+    },
+    "source/goldens/protocol_v2/engine_error_game_already_terminal.transcript.jsonl": {
+      "bytes": 16941,
+      "sha256": "e508055babfc21e02f8bb5c72f72b53c546333efb4c7b1411d22a52adf47d58a"
+    },
+    "source/goldens/protocol_v2/engine_error_game_id_mismatch.transcript.jsonl": {
+      "bytes": 8787,
+      "sha256": "277e89e9d03dcf048171560dc9050b8d49b072b9bc11aad845a64beb3d4bce2e"
+    },
+    "source/goldens/protocol_v2/engine_error_malformed_json.transcript.jsonl": {
+      "bytes": 5539,
+      "sha256": "cb91c08e8162ddd0655cdf3da4c9fe39b1bde4c04a5c1725455961fefefa98b1"
+    },
+    "source/goldens/protocol_v2/engine_error_malformed_request.transcript.jsonl": {
+      "bytes": 6303,
+      "sha256": "340cbd1df36029becde66ce39745319b3bf75a6c7c68b9c5439da3286bc3c5cb"
+    },
+    "source/goldens/protocol_v2/engine_error_malformed_request_non_object.transcript.jsonl": {
+      "bytes": 5475,
+      "sha256": "c13969fbf68829fde2d7890742fd5491a99aa197dfc755f28f168d3b26b10d72"
+    },
+    "source/goldens/protocol_v2/engine_error_probe_refused.transcript.jsonl": {
+      "bytes": 8738,
+      "sha256": "1a9898a2b2e79fe3682b8415b4eabfe5eb67d9e905bbe98f86c61154bab99f65"
+    },
+    "source/goldens/protocol_v2/engine_error_protocol_mismatch.transcript.jsonl": {
+      "bytes": 337,
+      "sha256": "660825b048f352ef1d9c52634a330929779fe8cf4b068a6108741340697edf33"
+    },
+    "source/goldens/protocol_v2/engine_error_request_id_reuse_mismatch.transcript.jsonl": {
+      "bytes": 13982,
+      "sha256": "decada70c9aad2d7320089d24d1ef47f3ba5f0c2e5ee1cd639692fa9e40b1ea8"
+    },
+    "source/goldens/protocol_v2/engine_error_semantic_echo_mismatch.transcript.jsonl": {
+      "bytes": 8789,
+      "sha256": "9b71c29db89f956ec768051b520974552b5571d193ed9a11b441107a551a7761"
+    },
+    "source/goldens/protocol_v2/engine_error_step_before_reset.transcript.jsonl": {
+      "bytes": 5637,
+      "sha256": "8d6e5d0245ee1823547008b9e3d6b26c41fe592cc2be0209a1c5643e73902b0e"
+    },
+    "source/goldens/protocol_v2/engine_error_unsupported_deck.transcript.jsonl": {
+      "bytes": 6354,
+      "sha256": "2d69828ad8e6523a3c3b40b702d119bf4297111021a4ce3203e1815285cf209a"
+    },
+    "source/goldens/protocol_v2/engine_error_unsupported_format.transcript.jsonl": {
+      "bytes": 6280,
+      "sha256": "7c301bf3f53a84fb3813466c49f492db4e3e2d87140a8634e123878d4aa32789"
+    },
+    "source/goldens/protocol_v2/engine_error_unsupported_request.transcript.jsonl": {
+      "bytes": 8724,
+      "sha256": "3d66fe0fe292befed8cbed5891dc6e9857cddb62b3d5fcbebacd1e127fbe2c25"
+    },
+    "source/goldens/protocol_v2/engine_error_unsupported_rule.transcript.jsonl": {
+      "bytes": 6297,
+      "sha256": "487e030412e6c73d6a4019f87611c44007922714f40eb6fcc6dc4dad86d31f91"
+    },
+    "source/goldens/protocol_v2/engine_validate_deck.transcript.jsonl": {
+      "bytes": 6328,
+      "sha256": "11a2274b09fc4b25f7b3f3dd478d24a8b01b55c0762232bfda3d17c4d47996eb"
+    },
+    "source/goldens/protocol_v2/game_board_tour.transcript.jsonl": {
+      "bytes": 157013,
+      "sha256": "0df281b8a0aa0370a07c1213ea2cf0e1e73eb2438f2815acf9f523cc7837e138"
+    },
+    "source/goldens/protocol_v2/game_forfeit_invalid_selection.transcript.jsonl": {
+      "bytes": 17339,
+      "sha256": "ce49ff7b9c2eb7659828ff7c0d159a74d6e93e2e6a0150f1d178c9b5a2ce8e83"
+    },
+    "source/goldens/protocol_v2/game_halt_host_validator_v4.transcript.jsonl": {
+      "bytes": 20568,
+      "sha256": "5e6d62a0e59138064d2dfbf1e7e0b8d36779879dae843fb72b9b3423b0ffbc28"
+    },
+    "source/goldens/protocol_v2/game_kinds_tour.transcript.jsonl": {
+      "bytes": 2247822,
+      "sha256": "a13fb32cececd2157447868ad3789ac76476e657aae9021490d3c8328f07f844"
+    },
+    "source/goldens/protocol_v2/game_knowledge_tour.transcript.jsonl": {
+      "bytes": 75030,
+      "sha256": "c5f7323d0edef96098ebdded0984e2d5479b5c95d1265d5f2712736a469c0dc0"
+    },
+    "source/goldens/protocol_v2/game_mandatory_loop.transcript.jsonl": {
+      "bytes": 34670,
+      "sha256": "28af32389887cb9f2714d33c90ae55da9b1240993bb3586daa00aaad88e267f3"
+    },
+    "source/goldens/protocol_v2/game_scoring.transcript.jsonl": {
+      "bytes": 36770,
+      "sha256": "48f5847081ba82c6117defab7187356729eb9b8fdc5e78ab9d8d83eb74c092bb"
+    },
+    "source/goldens/protocol_v2/game_stalling_forfeit.transcript.jsonl": {
+      "bytes": 42399,
+      "sha256": "64e85dc0cce8ea03e4896e8ec2c99c9ea76f0cb26d8301beac546c05cd9254bf"
+    },
+    "source/goldens/protocol_v2/index.json": {
+      "bytes": 8334,
+      "sha256": "ddadd5d86f2c8baa80fead19223dd6c9158926df4e56f4f52f3e693db532344d"
+    },
+    "source/goldens/protocol_v2/test_vectors.json": {
+      "bytes": 3275,
+      "sha256": "9573b55cdd79438486846acb2c43cab705b99cfd926955f5bd8d456eac09a55b"
+    },
+    "source/integrations/llm-sandbox/Dockerfile": {
+      "bytes": 280,
+      "sha256": "b2c71149881c3779259fa25c43f5790da0454eaa5f00dcd5a5d60e10863517a9"
+    },
+    "source/integrations/mtg_kernel/check_engine_v2.py": {
+      "bytes": 8342,
+      "sha256": "a6fdb3d84714904b2069f36feab9d1842dc0316f60c5a3ec59e2b5e8115d3d62"
+    },
+    "source/integrations/mtg_kernel/check_policy_v2.py": {
+      "bytes": 6292,
+      "sha256": "3e8d7ab959d3cfc7ba66c74564949d6b21908e18085394e9d37e5fc2789d78e4"
+    },
+    "source/integrations/mtg_kernel/check_private_preview_v2.py": {
+      "bytes": 8412,
+      "sha256": "53f44263729ae408378b22b6011441bf33e655a3231536ee1428dfa5644bd51e"
+    },
+    "source/integrations/mtg_kernel/kernel_arrangement_v2.py": {
+      "bytes": 11740,
+      "sha256": "d6ce5bb3f681e99042c5991162575e63486767f0b849c79162e59829a005120d"
+    },
+    "source/integrations/mtg_kernel/kernel_combat_v2.py": {
+      "bytes": 10291,
+      "sha256": "9b4f9f66a1d798d8ab07dd68ee2b20d4a5c5c7cdf8b609b9002dfb4384e6c60e"
+    },
+    "source/integrations/mtg_kernel/kernel_engine_v2.py": {
+      "bytes": 24732,
+      "sha256": "e48b772aff31360296745e653fa1b667cfcf5d901dbf9a215025d64b6ce083c0"
+    },
+    "source/integrations/mtg_kernel/kernel_flat_bot.py": {
+      "bytes": 14930,
+      "sha256": "3c275c5d6fbdc955c251ba62d4017788f9660a23993da61a8079297cc60d12c8"
+    },
+    "source/integrations/mtg_kernel/kernel_observation_v2.py": {
+      "bytes": 26207,
+      "sha256": "70e8f53110ec63b3ea04d090b38399ea62dc84c3c4ef30b23218dbf233723152"
+    },
+    "source/integrations/mtg_kernel/kernel_order_v2.py": {
+      "bytes": 2159,
+      "sha256": "aaa22d362d42ba4f251923deb6c494fa60b69b7fb34fdd191add37271ccf309b"
+    },
+    "source/integrations/mtg_kernel/kernel_selection_order_v2.py": {
+      "bytes": 5289,
+      "sha256": "acb9e01fb2c2d585578359e2f8b46418eb9453a82bdc2897d651f6b2b069e947"
+    },
+    "source/integrations/mtg_kernel/kernel_semantics_v2.py": {
+      "bytes": 10533,
+      "sha256": "b700c296e1a6d3717cd13f4d91f0efc78175f0a3121a49c115d06be3525dd52f"
+    },
+    "source/integrations/mtg_kernel/README.md": {
+      "bytes": 1186,
+      "sha256": "311e1f78bfafc3a187721ff419367f51f0d461387f926ecce9408ee592e260fe"
+    },
+    "source/integrations/mtg_kernel/tests/fake_scorer.py": {
+      "bytes": 4690,
+      "sha256": "0919c2fc3a6b2b8c6f4a9f630dd75cae3e2598fdc4eb9b95b84eb551a49a9e96"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_arrangement_v2.py": {
+      "bytes": 4505,
+      "sha256": "c50a2242f7f6cf45fb5557e0dd6b5fa15af2c68723d48862b442a7f41a933e37"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_combat_v2.py": {
+      "bytes": 4378,
+      "sha256": "e2ea9d71e59d9cd5b32909887fbe94ce2dd034e2be5997679c0f7609a1feb598"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_flat_bot.py": {
+      "bytes": 14717,
+      "sha256": "a1af67b2d472c6afba3791481cf803957df3e6c40f42c1721e63de899ab5049e"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_flat_bot_v2.py": {
+      "bytes": 10842,
+      "sha256": "db393b666e9488bb7098648769bb76f8a856c48203b26118be0d0bc8e0a2ee3d"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_observation_v2.py": {
+      "bytes": 17198,
+      "sha256": "2357f9a85f19d866d300983a990e5301d9109aed350727621d12020d51f30206"
+    },
+    "source/integrations/mtg_kernel/tests/test_kernel_selection_order_v2.py": {
+      "bytes": 2166,
+      "sha256": "a99779560227bc840ab9709555f3c2270a66766cff82e2f46000601dfb3b1392"
+    },
+    "source/LICENSE.txt": {
+      "bytes": 1070,
+      "sha256": "092792344b6b8ad17b1e79922af8bb8c1e1039559563818da9c63504cab81415"
+    },
+    "source/pyproject.toml": {
+      "bytes": 622,
+      "sha256": "30c20b08d15aac32c581b29c78989e41e11a8c19f017eceed38b6332c7824f55"
+    },
+    "source/python/spellbench/__init__.py": {
+      "bytes": 1657,
+      "sha256": "8fed6ed2f6719af311138f9c14e9655455ba17282232824e03cd2d423f76aa50"
+    },
+    "source/python/spellbench/_schema.py": {
+      "bytes": 8737,
+      "sha256": "25cc995d46215349b053112e6689d3446195cf8103431e9c8caef0a19f1d5658"
+    },
+    "source/python/spellbench/agent_messages.py": {
+      "bytes": 14461,
+      "sha256": "e09c7f8b1c99b36db1e3ad2290692d71abaa605be2cf515c8c88ab3052807f50"
+    },
+    "source/python/spellbench/arena/__init__.py": {
+      "bytes": 384,
+      "sha256": "3b58e50ea9c99dd9aea0f6735b981d1c0850488828ed52c3890276edddb54ba1"
+    },
+    "source/python/spellbench/arena/allocation.py": {
+      "bytes": 32659,
+      "sha256": "4c6f62a88d4d1e052bad04d1011789b81e4b9acacf90e721b7bcb2c522df0692"
+    },
+    "source/python/spellbench/arena/cli.py": {
+      "bytes": 22351,
+      "sha256": "7f248bcbc6ca979dbf5a07fad73793b6081c9b36b0328668723276be9ce7aa19"
+    },
+    "source/python/spellbench/arena/config.py": {
+      "bytes": 29167,
+      "sha256": "4872ecd44e1b3f6af07b395887c24432dac0dd908ee6f7e428451566e98e7a14"
+    },
+    "source/python/spellbench/arena/drivers.py": {
+      "bytes": 10637,
+      "sha256": "237cd12020e7de11bb6b1c5917f0e4d53ffa0b70d2f76479c3091d9ca49c42ce"
+    },
+    "source/python/spellbench/arena/executor.py": {
+      "bytes": 6676,
+      "sha256": "01feea725d2a940ebe3af0a4336b30f43436fb2aa44cb846f74f29e52fdaed44"
+    },
+    "source/python/spellbench/arena/job_storage.py": {
+      "bytes": 4838,
+      "sha256": "61cf7bbec821b1957b72ce1ee82fbb87999362956ac97d04ef1379414796aa86"
+    },
+    "source/python/spellbench/arena/leaderboard.py": {
+      "bytes": 34778,
+      "sha256": "f134cdf4254e5c0721cf8a712d8f8fa0a8dbcfe27a16a479388aeaffeacc1f00"
+    },
+    "source/python/spellbench/arena/ledger.py": {
+      "bytes": 19422,
+      "sha256": "c8b59441dfe51d6cf5b118454457928a3102c7a060d075cc63e7ae3f9eb097a5"
+    },
+    "source/python/spellbench/arena/legacy_v1.py": {
+      "bytes": 51116,
+      "sha256": "8bc2976b3a4ee2bc7d641eef14c2c4a99cc5693dd9b1ac185733044cd349ed43"
+    },
+    "source/python/spellbench/arena/machine.py": {
+      "bytes": 8924,
+      "sha256": "ed5fec92f6ea0e16515b91ad7bf85cb7eb8737c78cee84d7a788fa53e6450d67"
+    },
+    "source/python/spellbench/arena/manifest.py": {
+      "bytes": 13388,
+      "sha256": "b1a72236099f648f572052816a04388b0002b92a4b9f866f294a003a373d8c2d"
+    },
+    "source/python/spellbench/arena/monitor.py": {
+      "bytes": 6677,
+      "sha256": "d68cc1311ba0e4105a8662f07323161cbff51395e43600843d376511868f3c48"
+    },
+    "source/python/spellbench/arena/qualification.py": {
+      "bytes": 22466,
+      "sha256": "5aab2f199de18d76109d65065a12b1d6018f732575ef04c5920343bd323f4328"
+    },
+    "source/python/spellbench/arena/ratings.py": {
+      "bytes": 19376,
+      "sha256": "d79b33ca911d164b895b160d59cd7c295dc98683ac73d7de9962fc9c2f1e1441"
+    },
+    "source/python/spellbench/arena/registry.py": {
+      "bytes": 6936,
+      "sha256": "586dcf192bfb42a0815c18ee6937b21fe88dd407db92f35fc6b895ae9813aaee"
+    },
+    "source/python/spellbench/arena/runner.py": {
+      "bytes": 34176,
+      "sha256": "5c5f812b5b4ba403f150172ffaf503f50ee1108cb60850c5f21f2aeeb10b1f4a"
+    },
+    "source/python/spellbench/arena/schedule.py": {
+      "bytes": 19481,
+      "sha256": "c72d3718c1fba04d7ae7b8dd80d3205f7b6a12db93eccb80ffdb6a859f858021"
+    },
+    "source/python/spellbench/arena/snapshot.py": {
+      "bytes": 15179,
+      "sha256": "15bccf249b0a9d7307f73a4859756c3511ab936e49b2233cb98b0afc48cf91ef"
+    },
+    "source/python/spellbench/arena/store.py": {
+      "bytes": 9144,
+      "sha256": "464eb93835f5746540ef098a293147ec0e7f9c268c03d9b0f15dfaecedc91cfa"
+    },
+    "source/python/spellbench/arena/throughput.py": {
+      "bytes": 2634,
+      "sha256": "3141707b8c7671deb7488227c37865cf62e1ba8fde7539a6d5b5be6b774b9771"
+    },
+    "source/python/spellbench/arena/validate.py": {
+      "bytes": 45261,
+      "sha256": "e2d9bfca26416b5aabb199adcb5a76414965f66a69e69750783e217d1d2302cc"
+    },
+    "source/python/spellbench/bench/__init__.py": {
+      "bytes": 69,
+      "sha256": "45a59c78a8775592316f9c997be58a36de0f7dd04dc0e20702cba27948c79623"
+    },
+    "source/python/spellbench/bench/commit.py": {
+      "bytes": 47141,
+      "sha256": "27766579deeebb0f7916b7a9bcfb18a7d085cf9803e741193d71b664e3462515"
+    },
+    "source/python/spellbench/bench/definition.py": {
+      "bytes": 34617,
+      "sha256": "125a1da120a9321190e15c2926a1927490b8ae00609c4e6211bf4f63b84c13f7"
+    },
+    "source/python/spellbench/bench/panel.py": {
+      "bytes": 6373,
+      "sha256": "54c0f38fad09c865b850d2ad98d9cbd3aa7c5832a83182a73ab8e41c9f384dfd"
+    },
+    "source/python/spellbench/bench/pinning.py": {
+      "bytes": 15329,
+      "sha256": "a4f8b5b49da9a961561d93d4f1cc8dd2cdd119dc258c3db6a7e16c8a76e6027e"
+    },
+    "source/python/spellbench/bench/run.py": {
+      "bytes": 40581,
+      "sha256": "22f7dbbcac9c774c055d98fe99a2b46aef5943c8b25d88843b78ceb491dcbbdb"
+    },
+    "source/python/spellbench/bot.py": {
+      "bytes": 14774,
+      "sha256": "7e7d4823ee36d26bbe58ae9a54ce422be3d07c5fc4705344835a6b1f9c35096b"
+    },
+    "source/python/spellbench/builtins/__init__.py": {
+      "bytes": 2155,
+      "sha256": "1180ee18bea396a2169fc00b7cf13369c621ebcf806d313f358a14cc4fcea4ec"
+    },
+    "source/python/spellbench/builtins/first.py": {
+      "bytes": 1102,
+      "sha256": "8cb010809fa9fd30b1bc32463e240a1da8c01dc05f744447fb4a93b738d8c2a6"
+    },
+    "source/python/spellbench/builtins/heuristic.py": {
+      "bytes": 2789,
+      "sha256": "4c273363bf554521455ef88a705cdd7b1275aedbadde42cca3ec8cc52ad69dca"
+    },
+    "source/python/spellbench/builtins/uniform.py": {
+      "bytes": 3512,
+      "sha256": "71d86f09958aaf00d7d36652f6059fbb84f5de26f08d858cdaa5c65715419386"
+    },
+    "source/python/spellbench/candidates.py": {
+      "bytes": 14880,
+      "sha256": "26cc5f4b48429ae8c050637f91ce8a732cf7eddbec67855dd1d89a793af62455"
+    },
+    "source/python/spellbench/conformance.py": {
+      "bytes": 77953,
+      "sha256": "271a25df85a0c9508059ec331ca5ffe016763f3c03acd4025df56dfaf798425a"
+    },
+    "source/python/spellbench/digests.py": {
+      "bytes": 6578,
+      "sha256": "be57c9a08f1e9e88744552006a56f05d12152d2e754a729d1149c0bc3dc39ce0"
+    },
+    "source/python/spellbench/errors.py": {
+      "bytes": 1653,
+      "sha256": "04cd2808c21009ac9d4489c6dfb138d36e5231247a65f55b6229a5e0472c794c"
+    },
+    "source/python/spellbench/file_pins.py": {
+      "bytes": 1188,
+      "sha256": "168e42a9136ac42ab3d9dab88ac7d9a1ecab492ba2167bdff6f0a26a65563be0"
+    },
+    "source/python/spellbench/host/__init__.py": {
+      "bytes": 94,
+      "sha256": "ae1a4ad5e7be4b3f096852abb0090fe5786855a766dd462cfc787c4047309069"
+    },
+    "source/python/spellbench/host/agent_process.py": {
+      "bytes": 6865,
+      "sha256": "caa2620f89e83d385f82679a1e4c0cf6a8c6a46b52adf73aa31efcae7c13b019"
+    },
+    "source/python/spellbench/host/clock.py": {
+      "bytes": 3195,
+      "sha256": "154782a7ed2353361f4cea9431f685f3095b8dc456dd93afef6b6b05766d98f5"
+    },
+    "source/python/spellbench/host/declarations.py": {
+      "bytes": 11734,
+      "sha256": "030c3e9805ba9db926d928adab280ab819ff7c4e7ec449f44871c17784edbe16"
+    },
+    "source/python/spellbench/host/engine_process.py": {
+      "bytes": 16384,
+      "sha256": "9b2799b1c0d775479d8b00a61be7aa94fef42c06a36fcf221e867f6df2547ce0"
+    },
+    "source/python/spellbench/host/game.py": {
+      "bytes": 27476,
+      "sha256": "41f7eccb3f1b6e63acd8d324453d49e44e519563e5cdf3d2b6f776fccd0d62b9"
+    },
+    "source/python/spellbench/host/hidden.py": {
+      "bytes": 7583,
+      "sha256": "1edcc8c5645984bfcab2feb67616cef44c88b614107d6d86b457ed27dab0800d"
+    },
+    "source/python/spellbench/host/refs.py": {
+      "bytes": 7682,
+      "sha256": "f0b96b7de02ac7a0e665cfc0ed57068e235866121f09f97320cc8641e7321d2d"
+    },
+    "source/python/spellbench/host/seat.py": {
+      "bytes": 2018,
+      "sha256": "8b0bcc9c220789ac57ac015e323decd2ec3154dd86cf7c40d97a8276ee5f68eb"
+    },
+    "source/python/spellbench/host/setup.py": {
+      "bytes": 1105,
+      "sha256": "8a56fee6f6f9ced5330501f4c06b6965885a80e039558993a0e8bb13b3f335f9"
+    },
+    "source/python/spellbench/host/tracking.py": {
+      "bytes": 6131,
+      "sha256": "41008fefd83afea078c55dc919d946858a4ceb61fcccca1f7e567ba9ccfab773"
+    },
+    "source/python/spellbench/host/validator.py": {
+      "bytes": 19171,
+      "sha256": "bc3544c1a361e6c82fb3efa87f4496bc6ab1d5cfe72633db0587b227afa9507d"
+    },
+    "source/python/spellbench/host/violation.py": {
+      "bytes": 807,
+      "sha256": "b53b2488f67b1dfb18d616796121825d7f95e595cb73a97247a9b1a846166cfb"
+    },
+    "source/python/spellbench/llm/__init__.py": {
+      "bytes": 151,
+      "sha256": "2262e01d5a67affaf7993f1419f18a3974f1a091855838e3202db9f42817badc"
+    },
+    "source/python/spellbench/llm/__main__.py": {
+      "bytes": 5527,
+      "sha256": "d02a28e67ade1844cffe4925a6686eee91c53f2a53dc3c886dc56cbe48c7dcd9"
+    },
+    "source/python/spellbench/llm/agent.py": {
+      "bytes": 8898,
+      "sha256": "d2de045d3b6facb3cd4441611ab6059888543c83a879f2d162ce6389d00e86d3"
+    },
+    "source/python/spellbench/llm/broker.py": {
+      "bytes": 14681,
+      "sha256": "94aa2501894f3b6a2cc6889599240727cd30416dc59b29e8eab0055f020c790d"
+    },
+    "source/python/spellbench/llm/budget_transfer.py": {
+      "bytes": 36590,
+      "sha256": "7b3576f788b3b3b5f12432ffe2d91ceedac3f558527c400bd07cb9f4f1df84b0"
+    },
+    "source/python/spellbench/llm/chatgpt.py": {
+      "bytes": 10669,
+      "sha256": "fc62afffe822134e1ffb39fc2c829a65f9a018a2e4d08a08d13775c6e10c84b7"
+    },
+    "source/python/spellbench/llm/compact.py": {
+      "bytes": 4143,
+      "sha256": "37cfc2693e91f8a41119220b18a2d618ef55027c3eef052f668e94db23171fee"
+    },
+    "source/python/spellbench/llm/container_supervisor.py": {
+      "bytes": 3515,
+      "sha256": "70d8b31abbd4455b11675f2c1af08b594b29034291a1db8a7195d0d359d0e9d0"
+    },
+    "source/python/spellbench/llm/docker_peer.py": {
+      "bytes": 3761,
+      "sha256": "37bddccce16c5a37c69703916a750a96801598e6f15516da780ab069a92ca6c5"
+    },
+    "source/python/spellbench/llm/hosted.py": {
+      "bytes": 11509,
+      "sha256": "0cb0f8e3cd6939be833d45ffa17b9147d3b403a8512fdd16589b1d9b203d5080"
+    },
+    "source/python/spellbench/llm/login.py": {
+      "bytes": 20922,
+      "sha256": "4591466d9c3cd025e67806a7fd200e14a2c84ec649f5d98e5935448b024ff881"
+    },
+    "source/python/spellbench/llm/prompt.py": {
+      "bytes": 6033,
+      "sha256": "4975f13b08dabd9a097803c2bd1a711a076d2334ed6ed14e7a49d5245115dc95"
+    },
+    "source/python/spellbench/llm/prompt_json.py": {
+      "bytes": 272,
+      "sha256": "8096b3f53c6daa611ec312277b5d58ddc984cf1d3c84c3d2109a2b5df18b41b9"
+    },
+    "source/python/spellbench/llm/provider.py": {
+      "bytes": 7548,
+      "sha256": "468f3296c2bfe59986db3ff10f510460f924c18b2ed5de37a68858cb6d5b25cd"
+    },
+    "source/python/spellbench/llm/renewal.py": {
+      "bytes": 2738,
+      "sha256": "89802883fa44bc0e2f8a05a7cb43b93f7abcaa5150a002541711f3c9a9cffa1c"
+    },
+    "source/python/spellbench/llm/run_budget.py": {
+      "bytes": 64121,
+      "sha256": "950a0138e34fae95198fd35789827e00d61abc55ba90b858d93c4d3e7eef8828"
+    },
+    "source/python/spellbench/llm/tls.py": {
+      "bytes": 766,
+      "sha256": "bb679c8cb58379a8d4e570038d9327d416dd30d7baaff4ce33d6317ed183894a"
+    },
+    "source/python/spellbench/messages.py": {
+      "bytes": 47396,
+      "sha256": "37c6564dc14b2f5c33bd53f6f14becfe1b2155849a77dcc87655e7f00a1d9325"
+    },
+    "source/python/spellbench/observation.py": {
+      "bytes": 25395,
+      "sha256": "f2183e0534f7846cf99c07ded3fc74432303daf9473c17515a1e42eb988d4b75"
+    },
+    "source/python/spellbench/run_secret.py": {
+      "bytes": 3438,
+      "sha256": "f73aa1ec1bb7f7d6c3cd83adaadbb954885e37d84d7696ab623047d00cd3a8f6"
+    },
+    "source/python/spellbench/site/__init__.py": {
+      "bytes": 76,
+      "sha256": "a51a6f8fcfcef1e245fbfa420fae6d2f7fbc59ebda5d31a3aedd7d688d5b7df1"
+    },
+    "source/python/spellbench/site/build.py": {
+      "bytes": 45340,
+      "sha256": "3624059975bf5bc13734b2ca0d5b8a45e9a5ffa99844c3609a45d99021bd82b0"
+    },
+    "source/python/spellbench/site/hero.py": {
+      "bytes": 6127,
+      "sha256": "666d4131b94cb5e7b48fd612a983bb6f0feaa2867cde4a18416004e7ff2a69f0"
+    },
+    "source/python/spellbench/site/render.py": {
+      "bytes": 61995,
+      "sha256": "bf81a7c2653379227c16a8aa9d175e79a51166d9ef3858b91be7ec837e40128c"
+    },
+    "source/python/spellbench/wire.py": {
+      "bytes": 21218,
+      "sha256": "5ff9e16a0946f6819c9f141c741e388289070d2c4639727044e95b5996bd8d7e"
+    },
+    "source/python/tests/arena_helpers.py": {
+      "bytes": 6733,
+      "sha256": "c039c922f9a5a95f35798ebe202da641f2e0e6c6cdbdf069799ef42950ccbb5c"
+    },
+    "source/python/tests/bot_one_land.py": {
+      "bytes": 1139,
+      "sha256": "acfd6ddbbdf711b058d8571bc3d359b79eebdc5bd1dba322c58dc33d510b16ff"
+    },
+    "source/python/tests/bot_slow_start.py": {
+      "bytes": 510,
+      "sha256": "d7e535b8e591ad9ea965d807830214ea6edb1c04beca831733f09c70b5504e0f"
+    },
+    "source/python/tests/bot_v2_hostile.py": {
+      "bytes": 10858,
+      "sha256": "7716c23190332184bc739ea32e2babe3721983d0459c947ba8e3b47142c64397"
+    },
+    "source/python/tests/conftest.py": {
+      "bytes": 1301,
+      "sha256": "354dc385b0eb7498b1944987b69d5ce64ec5d02193ec7142dbdba858c9b7aa49"
+    },
+    "source/python/tests/fake_v2_engine.py": {
+      "bytes": 36936,
+      "sha256": "ddbced472c15a7e88f7b954a4f2ca7956c9af192311dac6ad187f12f211994f7"
+    },
+    "source/python/tests/fake_v2_knowledge.py": {
+      "bytes": 9740,
+      "sha256": "083e628ee043fd649d9bbc3162adcea62a97e31e2d083f88da84107e0e30e1c5"
+    },
+    "source/python/tests/fake_v2_scenario_board.py": {
+      "bytes": 11660,
+      "sha256": "ff0474d18f811383b8078d89da7d1f98fd7e67640070bfd8a6de18059e9c693a"
+    },
+    "source/python/tests/fake_v2_scenario_kinds.py": {
+      "bytes": 39447,
+      "sha256": "3c609567659f59e77c9bf1e9eeb1c3aff07f97fc4a40f8416a4a5d933f4f9fec"
+    },
+    "source/python/tests/fake_v2_scenario_knowledge.py": {
+      "bytes": 7353,
+      "sha256": "b69c2b0b811c38c1c55d38f48f9d5b468728a63a9ac43d4bea8a4eff734a9dba"
+    },
+    "source/python/tests/fake_v2_scenario_pregame.py": {
+      "bytes": 1139,
+      "sha256": "20eb315f3269b80db7bffde949ea55b147a327238d664cacc711d278c733aa79"
+    },
+    "source/python/tests/fake_v2_scenario_smoke.py": {
+      "bytes": 3033,
+      "sha256": "1ec0e1688c9479bba94309d15974b981647191044200df887bf6aa8c1c819c5d"
+    },
+    "source/python/tests/fake_v2_world.py": {
+      "bytes": 37209,
+      "sha256": "9b85fb3bd13d3cb0d7bd646ff4c2de135a1d17ee681317ed3f73b6dd18b5348f"
+    },
+    "source/python/tests/golden_helpers.py": {
+      "bytes": 4281,
+      "sha256": "2d54b7902de17b391d50ba479c991349385291f5d0eed9dc22089f5112758dd8"
+    },
+    "source/python/tests/hostile_v2_engine.py": {
+      "bytes": 25626,
+      "sha256": "d759f6d2bdd6fd42aec8ed5378c1a8062fb94e7237eb0a640d14da60f3199440"
+    },
+    "source/python/tests/panel_bot.py": {
+      "bytes": 632,
+      "sha256": "3e7ea658a35b29653f30f6a20bf13887b42fb7f2d23294bf209c48643b4f16cc"
+    },
+    "source/python/tests/test_arena_adjudication.py": {
+      "bytes": 15643,
+      "sha256": "36fc3f4fabb5acc2430a04f419069d91c8a03ece09e66e844fba08ee28ef7d2c"
+    },
+    "source/python/tests/test_arena_commands.py": {
+      "bytes": 2606,
+      "sha256": "b7b7e024d5ca5e4f849b0af62608f536ceb1453d21cd9817589d2c2ef3ad856e"
+    },
+    "source/python/tests/test_arena_config.py": {
+      "bytes": 3542,
+      "sha256": "20a4330827e2d36599cb000c292c103de20ddb09db05ba21215d2f9390677453"
+    },
+    "source/python/tests/test_arena_drivers.py": {
+      "bytes": 21691,
+      "sha256": "9f66550cb233d23319c63b9968dfca5bb46b4937bef5b0c816a4f82eab60f234"
+    },
+    "source/python/tests/test_arena_e2e.py": {
+      "bytes": 16632,
+      "sha256": "33def4ab7a2b1c9a268f1e1ea6b2a503c464913ef8088f9fe3942937c1ad1a22"
+    },
+    "source/python/tests/test_arena_executor.py": {
+      "bytes": 3171,
+      "sha256": "159046d9146cf536c1c71e55a2b6ebab83f9ae474de1f59681c316aac76ff34a"
+    },
+    "source/python/tests/test_arena_manifest.py": {
+      "bytes": 9238,
+      "sha256": "00695a130b5c6e7539156eadeca3e520b27be29b6bf52adaa442869966eb2766"
+    },
+    "source/python/tests/test_arena_parallel.py": {
+      "bytes": 3755,
+      "sha256": "3e51aa820db8102b213266ee85e66120cf9009d348673a3e52c300b23bc972e0"
+    },
+    "source/python/tests/test_arena_ratings.py": {
+      "bytes": 9432,
+      "sha256": "7826e21d195600f732af666eb9764b374ecf26e8afaf6cc458cc9ce09d93d225"
+    },
+    "source/python/tests/test_arena_resolve.py": {
+      "bytes": 4882,
+      "sha256": "d9eca9a4fd7cd46f5c459c5e2812096d986b27385a3a62167714b70f9af5de86"
+    },
+    "source/python/tests/test_arena_schedule.py": {
+      "bytes": 6113,
+      "sha256": "32c9819badec9f320674661ae78513a4151788614022159bba49034250708122"
+    },
+    "source/python/tests/test_arena_schedule_v2.py": {
+      "bytes": 28151,
+      "sha256": "fbf6f6ec79a6cc96dd6c5ba60e1efdd01c24604d99054b7e57e8e4b46ab912ce"
+    },
+    "source/python/tests/test_arena_slices.py": {
+      "bytes": 9346,
+      "sha256": "0afa9fffed5be7b504708eff92a1c102750fa155f2210435825dea0c17a15335"
+    },
+    "source/python/tests/test_arena_tournament.py": {
+      "bytes": 46234,
+      "sha256": "c1db6f3afc8eef31a678f7750c57e8a289fefa6e29a8cee6256e7227da03bf5a"
+    },
+    "source/python/tests/test_bench_commit.py": {
+      "bytes": 50144,
+      "sha256": "be2a2f965bf73b823357790df8be282b7009c535da9a4c30b8ad40dd44d18892"
+    },
+    "source/python/tests/test_bench_definition.py": {
+      "bytes": 37323,
+      "sha256": "44a66c35a4204867939e78fea5fc85c3c2102cc705ca4e93c0213644f9d91517"
+    },
+    "source/python/tests/test_bench_guards.py": {
+      "bytes": 17393,
+      "sha256": "6e5cb9434695ce0641b542bc693f0fba5add504b2e1d4a6ec24b4d86750743ff"
+    },
+    "source/python/tests/test_bench_run.py": {
+      "bytes": 12776,
+      "sha256": "3dd3a7a2cc2d054665b87ad9629b99d18313500f41ea1ef330c462bec1ad69f8"
+    },
+    "source/python/tests/test_bot_server.py": {
+      "bytes": 9856,
+      "sha256": "c0cd8b5d266467b7e2d8e0329217ca4d8db10678c2ba71c977f9c239bacd634b"
+    },
+    "source/python/tests/test_builtins.py": {
+      "bytes": 12278,
+      "sha256": "3b166f4e90ea24b1b9d1ce38cd8d4b0ce3a84ef5211c14ee3c735d4059152771"
+    },
+    "source/python/tests/test_candidates.py": {
+      "bytes": 12915,
+      "sha256": "11791d460a3842c83b346c234dc805ecf65c0f5bb914a7744edc23d13141ffb2"
+    },
+    "source/python/tests/test_conformance.py": {
+      "bytes": 92892,
+      "sha256": "745dd392132bb4f20a5139e4520606c3aa51eb74cf6a4978a98c5c9cf8028dcb"
+    },
+    "source/python/tests/test_digests.py": {
+      "bytes": 11392,
+      "sha256": "fa3472ddde3031c84d092e98cbc23a8831c52dfca6a417992f6e90c109ca98c0"
+    },
+    "source/python/tests/test_engine_conformance.py": {
+      "bytes": 1033,
+      "sha256": "21eb56c7a2c3b797f4124b0d50e43921cce0189c45b6b314daecb1b49dd5f0bf"
+    },
+    "source/python/tests/test_fake_v2_engine.py": {
+      "bytes": 23077,
+      "sha256": "17e80b1b9307a4073636c6f5d98125f57220088973cb198c01ae97fe637d3001"
+    },
+    "source/python/tests/test_fake_v2_knowledge.py": {
+      "bytes": 6538,
+      "sha256": "8b530c4b52b22d51e3de17369cbd08d4ccd13a8801fd32577f22b34009dddc1e"
+    },
+    "source/python/tests/test_fake_v2_tours.py": {
+      "bytes": 19704,
+      "sha256": "60ff6ffab1aab7ea644c7ecd3f21dd5cd8a607ef94c28cbc11962d0b59a86ff8"
+    },
+    "source/python/tests/test_fake_v2_world.py": {
+      "bytes": 26114,
+      "sha256": "07b84cf9c7ad6931536440bc322cf5b31c4c10708160a6b823b47ba96119c539"
+    },
+    "source/python/tests/test_golden_replay_v2.py": {
+      "bytes": 26163,
+      "sha256": "ceaf67119999d5f411710da7193ed2b51fff1554c7880f1e564b817332308f83"
+    },
+    "source/python/tests/test_goldens_v2.py": {
+      "bytes": 28438,
+      "sha256": "ac0ec3ec11b2abe9ba77cfe6a2ebcd2a6ea8eeb2f652ac52705f4b749d33b384"
+    },
+    "source/python/tests/test_gorge_reference_matrix.py": {
+      "bytes": 3458,
+      "sha256": "3f282be88192342bfbb5fc5e2c148286c599f5b1e9aa0f72637dad312bd67220"
+    },
+    "source/python/tests/test_host_agent_process.py": {
+      "bytes": 13230,
+      "sha256": "c898f3fd8813133cf85b4d33ef0ed84ca06b509cb510d9964343e8109d9ffc14"
+    },
+    "source/python/tests/test_host_clock.py": {
+      "bytes": 4540,
+      "sha256": "c7999f44cc6e539ef1c510f013f9e36a95d2ef695e3787ad5b1728d7249ec16d"
+    },
+    "source/python/tests/test_host_declarations.py": {
+      "bytes": 10036,
+      "sha256": "bda374c40463ce533d2e9b46c932099ec5130ed67bd1eec99193239d5a8d85df"
+    },
+    "source/python/tests/test_host_engine_process.py": {
+      "bytes": 16908,
+      "sha256": "357615e9353e6c63e989c79c43bf06707a2eeaf7690eee7f4047cb88ca8e27e0"
+    },
+    "source/python/tests/test_host_game.py": {
+      "bytes": 37759,
+      "sha256": "360586898b0b93a3eb081da63829977d254b3e15b51ac437cc712bc6d6314608"
+    },
+    "source/python/tests/test_host_game_adjudication.py": {
+      "bytes": 23035,
+      "sha256": "59ea2944f0b48f82dbcc01fdf1a1abc0c2e5957f02e4cfdfa36bde8632ebec31"
+    },
+    "source/python/tests/test_host_hidden.py": {
+      "bytes": 11521,
+      "sha256": "1d4f8167a88c7af8fbee38c730763bf6bbf9da94ea4f61bd4afd55aa222e3058"
+    },
+    "source/python/tests/test_host_refs.py": {
+      "bytes": 7798,
+      "sha256": "118afdc03fec9352967b42af71d7cb8c533d037ac6e99ec7550c0aee07881c59"
+    },
+    "source/python/tests/test_host_tracking.py": {
+      "bytes": 8750,
+      "sha256": "34eb1605fc1c1285d438ff4a49934fef7b3ea52b436b4a5569d457790e2a92cb"
+    },
+    "source/python/tests/test_host_validator.py": {
+      "bytes": 35300,
+      "sha256": "0c353b5de0440653bdd8a7d2291913329ce3f73987137ffcf4e7cc8f26e29e84"
+    },
+    "source/python/tests/test_hostile_v2.py": {
+      "bytes": 10006,
+      "sha256": "6cab184b16f884fd6c58ab8e15aaede1b3e49fa90cd784beb07e89b482249bee"
+    },
+    "source/python/tests/test_launch_files.py": {
+      "bytes": 2468,
+      "sha256": "df81a02c4e6f8684b3c7e85a65c326c50886fccc52545fd41d0da71829c851f2"
+    },
+    "source/python/tests/test_leaderboard_v2.py": {
+      "bytes": 3377,
+      "sha256": "d27f9efa9fbcc25a8c83f4a2b6152dab184ad8e748c58170bf45bb30cf54f5bd"
+    },
+    "source/python/tests/test_ledger.py": {
+      "bytes": 21540,
+      "sha256": "20e508e58b1f36f8251d862155c30f651febd9f4ae452c86c7d8c993f37c4043"
+    },
+    "source/python/tests/test_legacy_v1.py": {
+      "bytes": 8621,
+      "sha256": "e00017f8d820c4101bdd23c1d1112b981f560427101a038bef8cbafa7e9b0b59"
+    },
+    "source/python/tests/test_llm_agent.py": {
+      "bytes": 8080,
+      "sha256": "03ec051991426851dafcf364ad42f45ba389d149f68836b6b612f4359873a247"
+    },
+    "source/python/tests/test_llm_broker.py": {
+      "bytes": 11207,
+      "sha256": "387ba8f75fadea9adf4721ffa077d96c0aad93c363375b7ed1859f7b6288aec0"
+    },
+    "source/python/tests/test_llm_budget_transfer.py": {
+      "bytes": 36876,
+      "sha256": "c65d831ec0efe31892995f6903f8a3ca29850f17ff385687de680e64fd618fe7"
+    },
+    "source/python/tests/test_llm_chatgpt.py": {
+      "bytes": 13475,
+      "sha256": "8917795ea0d7cd3530b4f58cf35f8d7971f7300a56dd034f05ab36212d0f3294"
+    },
+    "source/python/tests/test_llm_compact.py": {
+      "bytes": 7480,
+      "sha256": "09952a7f13268e503119120416897d3188b0394435bcb97f7cb2f96c857592f2"
+    },
+    "source/python/tests/test_llm_docker.py": {
+      "bytes": 9137,
+      "sha256": "72fb79aaad5cff2167d4619a6460282d0cdb21edb112155a7a2783979093128b"
+    },
+    "source/python/tests/test_llm_hosted.py": {
+      "bytes": 20509,
+      "sha256": "a497bf7e62aa9ae3d192eb92b688273b492907a9f6582edbed8e59764ba5af8d"
+    },
+    "source/python/tests/test_llm_http.py": {
+      "bytes": 9082,
+      "sha256": "f1d365fc29c53e6ae2e0bcdce942b40be26d16cad5b3109598400aa89769715f"
+    },
+    "source/python/tests/test_llm_login.py": {
+      "bytes": 12269,
+      "sha256": "be269d4be481931d7408bd5f087e4241e7dced03ebb57a7cff49976ff7d89781"
+    },
+    "source/python/tests/test_llm_pilot.py": {
+      "bytes": 5696,
+      "sha256": "500608bc8e098cb0c3fc51382a45e5aea5c57d7373054bfaed19dacdb488251f"
+    },
+    "source/python/tests/test_llm_qualification.py": {
+      "bytes": 8861,
+      "sha256": "47b6b3391f38e187130320957bf311cabf53659e0a4c24fb851ad79412c48ba6"
+    },
+    "source/python/tests/test_llm_refresh.py": {
+      "bytes": 9919,
+      "sha256": "06dd4c9cb28d04ea12f3a9d34be653f88d4036ffeb4503cbce603d5df3f1b687"
+    },
+    "source/python/tests/test_llm_renewal.py": {
+      "bytes": 3317,
+      "sha256": "1d237fbb30ee7220ba048dcaa85ef782e1901c0824c067c2e71d14d7ec7696b7"
+    },
+    "source/python/tests/test_llm_run_budget.py": {
+      "bytes": 64693,
+      "sha256": "29bd4e4b90590fd5044e572385674d532204f6c034a458bc7e2263bdbaacc677"
+    },
+    "source/python/tests/test_llm_service_recovery.py": {
+      "bytes": 11068,
+      "sha256": "c734b746566e2ef44ffbb9a87db056c0335fb8ad09d19d5942ea57ccfe5f8066"
+    },
+    "source/python/tests/test_llm_timeout_replay.py": {
+      "bytes": 3320,
+      "sha256": "6c4f2eff10bc2e4628c07d0d2be4583ed330312d810e8ce4e77d8c9a586caa62"
+    },
+    "source/python/tests/test_llm_tls.py": {
+      "bytes": 6528,
+      "sha256": "52af4d31a7e670799ee3404d1c0efb8a03fdf7e6deff9290c3c5c64a54ecfd8c"
+    },
+    "source/python/tests/test_llm_xmage_entry.py": {
+      "bytes": 5762,
+      "sha256": "042971c722d2432b034b864729d4735cd56ba63a7a90a9f0696e2e4a650fa67a"
+    },
+    "source/python/tests/test_machine_container.py": {
+      "bytes": 1507,
+      "sha256": "d6a80bc865bd5bd3d6be3cb98197f11d9f52f2d010bcd5afa1cee392c3369b5b"
+    },
+    "source/python/tests/test_machine_limits.py": {
+      "bytes": 2242,
+      "sha256": "f9f02d4959ca1cb8615e9680e06bd537d7930c3cf51cea8f1f7feb91a6c61f10"
+    },
+    "source/python/tests/test_messages.py": {
+      "bytes": 12904,
+      "sha256": "6c1d36c6d90ef19fb96fc3878159882b95860424026afbf3237090a8cee148c5"
+    },
+    "source/python/tests/test_minimal_bot.py": {
+      "bytes": 2019,
+      "sha256": "240c434cf3fbb30de05959a905785a416ddad0e81f78459a324d7576ddd488c3"
+    },
+    "source/python/tests/test_observation.py": {
+      "bytes": 23218,
+      "sha256": "dcdaa4ff2834cfd1d58e655becffe095fcafb7b933b3a3857d4cdec56ff8c4a3"
+    },
+    "source/python/tests/test_panel.py": {
+      "bytes": 18277,
+      "sha256": "e60ec5f5cab77357a296239838ec9796f7319202545d6ae73d9c4d796510ffed"
+    },
+    "source/python/tests/test_pauper_launch_guard.py": {
+      "bytes": 7380,
+      "sha256": "adbaecea7f4401a1b7243877ba44d40dabb36754ce15ba59e425ece708e45601"
+    },
+    "source/python/tests/test_pinning.py": {
+      "bytes": 19326,
+      "sha256": "5e2e386cb5ab244abde1c079823f3803fe56e9b53fb6a70b84d945e457e9264e"
+    },
+    "source/python/tests/test_repository_hygiene.py": {
+      "bytes": 2596,
+      "sha256": "6393bb615c80fa9738a289c589fcf45bc0fa3e62cc3aaca2dc5f5ddf6caceeff"
+    },
+    "source/python/tests/test_run_history.py": {
+      "bytes": 4315,
+      "sha256": "7f883d96018e86d0152ebb415f5476164a6ab08ce644e2bbaf451134620d2066"
+    },
+    "source/python/tests/test_run_secret.py": {
+      "bytes": 5932,
+      "sha256": "3dc94dab62816b4d3b1035c5e4f26a0e05a0656a1ba890939d6402929088f2ca"
+    },
+    "source/python/tests/test_schema.py": {
+      "bytes": 7393,
+      "sha256": "6375cfde97e066ed56651a930601a7c79e1486f320a7d54206dbb83ecbbbc7bc"
+    },
+    "source/python/tests/test_site_build.py": {
+      "bytes": 71350,
+      "sha256": "1a23db72074ee93983ace14bb076c726610cadbf9246c602111f4e5f7c30cee7"
+    },
+    "source/python/tests/test_site_hero.py": {
+      "bytes": 8843,
+      "sha256": "1f5aefd4c303c08a7c18f5c2d3b3e76fd8912627c12f4a259e931fa6c3d27ebd"
+    },
+    "source/python/tests/test_site_render.py": {
+      "bytes": 47718,
+      "sha256": "a78caab05f267ecfa989fbf57d027c2b4e0b129387c8c8167dcac04a550a8c70"
+    },
+    "source/python/tests/test_throughput.py": {
+      "bytes": 38588,
+      "sha256": "5fc141f3b73963a34289283409df797149cfca03e267e8c4cd0f0eaa938d2897"
+    },
+    "source/python/tests/test_validate_v2.py": {
+      "bytes": 52538,
+      "sha256": "547518a5e1bc7327cd85b0a1d747c693f4e04ac61d2c7cc9a3866ef421342f51"
+    },
+    "source/python/tests/test_wire.py": {
+      "bytes": 13956,
+      "sha256": "98aed58434a1ac4ee38d6dcc3f5dfc07086e09f8316518088629ff14a2bea28d"
+    },
+    "source/python/tests/test_xmage_x5_guards.py": {
+      "bytes": 8653,
+      "sha256": "8d7e15f2dd668bf9d2cb5faf8967b245ae6c83d23b60a1f3600f82b4bc58f8e4"
+    },
+    "source/python/tests/tour_helpers.py": {
+      "bytes": 2769,
+      "sha256": "1bbd0f5c62a85e65090c47b1bfd39e7dcf911a6f8d8e781860d7695a15ecca78"
+    },
+    "source/python/tests/v2_sample_observation.py": {
+      "bytes": 4799,
+      "sha256": "d6adfecb9fb1d67bf18f47c96060bedd4dec7af2e09d28df6acd83bd5e622ed3"
+    },
+    "source/python/tests/v2_sample_semantics.py": {
+      "bytes": 5751,
+      "sha256": "f3ccfafbf48d4810e7c835c2ce8e09d44f95b5629907c519b768f2bd2b168022"
+    },
+    "source/python/tools/check_run_history.py": {
+      "bytes": 14452,
+      "sha256": "93a45397e109f6fa5dfdc34ceedf3e212680890925d144e445cba67c44089092"
+    },
+    "source/python/tools/generate_goldens_v2.py": {
+      "bytes": 37585,
+      "sha256": "05ceb959811bde57e01202a1f50929a3475a8596ae0733b92ddf4651543619e8"
+    },
+    "source/python/tools/llm_container_image.py": {
+      "bytes": 2289,
+      "sha256": "3cc2434252cc2b36feb8e059ab2cfdb5e14138266a9bdae59d991435098e5681"
+    },
+    "source/python/tools/llm_hosted_bot.py": {
+      "bytes": 168,
+      "sha256": "39ada2e90ce72b7446b5c4ef742fb453ea78d6a38d749d2e1a6c82a6ee2bec04"
+    },
+    "source/python/tools/llm_pilot_replay.py": {
+      "bytes": 5986,
+      "sha256": "ce88b274db0df99a55e9802e145775e535d852a85d4143a0095318a62115c254"
+    },
+    "source/python/tools/llm_plan_fixture_smoke.py": {
+      "bytes": 5172,
+      "sha256": "20672d201a9215556200174468a451a32f57b0e27449c9ca7fd2232514e7736c"
+    },
+    "source/python/tools/llm_plan_magic_pilot.py": {
+      "bytes": 18391,
+      "sha256": "9d8079f4ddfc6a54ca4351249d057f1c7aba2f6b8674b07bd3226b26162be79d"
+    },
+    "source/python/tools/llm_qualification_trace.py": {
+      "bytes": 7359,
+      "sha256": "5fb58834ae06155b7c01c9e73a5dbef647f523b3b8be1fe2ae8bd653718ccb0b"
+    },
+    "source/python/tools/llm_transcript_preflight.py": {
+      "bytes": 6766,
+      "sha256": "a3ea2c44dd8b1578a71616b18b303a62ccb6d536d2bdca695b13eb8e5dde8250"
+    },
+    "source/python/tools/xmage_verified_entry.py": {
+      "bytes": 4819,
+      "sha256": "bb1175781c58f52741f5195b0ce993aaa827c930fe4de2b600aec2f66b7b6f21"
+    },
+    "source/README.md": {
+      "bytes": 7776,
+      "sha256": "69e9076b32aaa501e53a59411312e87c110c9fdb6f310c2f37bbf015f42d9620"
+    },
+    "source/spec/SPELLBENCH_PROTOCOL_V1.md": {
+      "bytes": 18712,
+      "sha256": "f361360cf062d64912f8a242bd0baa54e3427e71162c805f0d53cff117295956"
+    },
+    "source/spec/SPELLBENCH_PROTOCOL_V2.md": {
+      "bytes": 119309,
+      "sha256": "2a906d4b1c9964b87dcd879e8510228f760fb484b672e9af1f81a11fecb54a0c"
+    },
+    "source/uv.lock": {
+      "bytes": 54605,
+      "sha256": "8cd37b6720638636aa3f558e06d265ac6706e7ac30f9ece091c8f6211c6c0d40"
+    }
+  },
+  "source_archive_verified": true,
+  "bundle_verified": true,
+  "bundle_sha256": "ee26bf9ef27d36fac69edfe6f0c8ee60376a0fac2bfc8019eb698aeaf8ce49c0",
+  "preparation_sha256": "83622a92c43fca2d7eb99a5935f314bea5dffbce2740aee67e59ac847db1977c",
+  "prepared_launch_helpers": {
+    "gorge-cloud-create-capture021-20261004.ps1": "0dce058c96f3f80bb97a27dfbe2b9f58fba8e84b11d60e75815d0183f54f0b18",
+    "gorge-cloud-native-guard-20261004-021.ps1": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592",
+    "gorge-cloud-native-scheduled-guard-20261004-021.ps1": "3e3997405f076382a3b3b804f0fe2fe12c049b9a4073d68c7240a339d7727a75"
+  },
+  "guardian_armed_before_create_required": true,
+  "guarded_path": "Owned remote process group, stage timeout, actual CPU/memory check,60GiB storage reserve,4GiB artifact cap, independent45-minute cloud release guardian",
+  "phase": "prepared_not_launched",
+  "new_cloud_spend_usd": 0,
+  "missing_root": "Later seed52 first budget exhaustion; earlier182-frame prefix passed",
+  "reference_qualification_complete": false
+}
