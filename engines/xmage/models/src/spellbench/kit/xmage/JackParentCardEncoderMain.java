@@ -19,14 +19,14 @@ import java.util.Map;
 public final class JackParentCardEncoderMain {
     private JackParentCardEncoderMain() { }
     public static void main(String[] args) throws Exception {
-        if (args.length != 14) throw new IllegalArgumentException("usage: EMBEDDINGS EMBEDDINGS_SHA ENCODER_SHA CANDIDATE_SHA TARGET_RULES_SHA MODE_RULES_SHA DIALOG_RULES_SHA PAYMENT_RULES_SHA CARD_SET_RULES_SHA PARENT_RULES_SHA PARENT_SELECTOR_SHA PARENT_COMPARATOR_SHA PARENT_PERMANENT_SHA PARENT_SCORING_SHA");
+        if (args.length != 15) throw new IllegalArgumentException("usage: EMBEDDINGS EMBEDDINGS_SHA ENCODER_SHA CANDIDATE_SHA TARGET_RULES_SHA MODE_RULES_SHA DIALOG_RULES_SHA PAYMENT_RULES_SHA CARD_SET_RULES_SHA PARENT_RULES_SHA PARENT_SELECTOR_SHA PARENT_COMPARATOR_SHA PARENT_PERMANENT_SHA PARENT_SCORING_SHA PARENT_MAGIC_ABILITY_SHA");
         System.setProperty("spellbench.jack.embeddingFile", args[0]);
         String[] names = {"embeddingSha256", "encoderSourceSha256", "candidateSourceSha256", "targetRulesSourceSha256",
                 "modeRulesSourceSha256", "dialogRulesSourceSha256", "manaPaymentRulesSourceSha256", "cardSetRulesSourceSha256",
-                "parentCardRulesSourceSha256", "parentSelectorSourceSha256", "parentComparatorSourceSha256", "parentPermanentSourceSha256", "parentScoringSourceSha256"};
+                "parentCardRulesSourceSha256", "parentSelectorSourceSha256", "parentComparatorSourceSha256", "parentPermanentSourceSha256", "parentScoringSourceSha256", "parentMagicAbilitySourceSha256"};
         String[] fields = {"embedding_cache_sha256", "encoder_source_sha256", "candidate_source_sha256", "target_rules_source_sha256",
                 "mode_rules_source_sha256", "dialog_rules_source_sha256", "mana_payment_rules_source_sha256", "card_set_rules_source_sha256",
-                "parent_card_rules_source_sha256", "parent_selector_source_sha256", "parent_comparator_source_sha256", "parent_permanent_source_sha256", "parent_scoring_source_sha256"};
+                "parent_card_rules_source_sha256", "parent_selector_source_sha256", "parent_comparator_source_sha256", "parent_permanent_source_sha256", "parent_scoring_source_sha256", "parent_magic_ability_source_sha256"};
         for (int i = 0; i < names.length; i++) {
             if (!args[i+1].matches("[a-f0-9]{64}")) throw new IllegalArgumentException("parent sources must be SHA-256");
             System.setProperty("spellbench.jack." + names[i], args[i+1]);

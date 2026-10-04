@@ -24,6 +24,7 @@ PARENT_SOURCE_PINS = {
     "parent_comparator_source": "cf32e14a3e4ef75307d877b578c9bca816ecca0f4f88895f4234e9464694e05c",
     "parent_permanent_source": "25c5f984c70602772a6e2df7f38ac2814c115677fd7760cfca595928acc1e5c7",
     "parent_scoring_source": "d210d4a977e5de4c9fdeff22e4a049887864bcdd603656501e592ac452bc8952",
+    "parent_magic_ability_source": "9d1eebb0ccd233f24b0fd12b9903942be6537b19203bf99d5716aa3b04c0e6c5",
     "parent6_source": "b271d46971c0273dc01a1bd76d085e16e62fbb48a8c93b2700315ea696e46cf4",
     "parent7_source": "d198011baada4145a94016371a6f067483a4b6c2d7acd2286f532c2286cc7fc2",
 }
@@ -713,13 +714,15 @@ public final class ParentCardRules {
     result = {"ParentCardRules.java": rules.encode()}
     for key, old, new in (("parent_selector_source", "PossibleTargetsSelector", "ParentTargetsSelector"),
                           ("parent_comparator_source", "PossibleTargetsComparator", "ParentTargetsComparator"),
-                          ("parent_scoring_source", "ArtificialScoringSystem", "ParentArtificialScoring")):
+                          ("parent_scoring_source", "ArtificialScoringSystem", "ParentArtificialScoring"),
+                          ("parent_magic_ability_source", "MagicAbility", "ParentMagicAbility")):
         body = sources[key]
-        package = "mage.player.ai.score" if key == "parent_scoring_source" else "mage.player.ai"
+        package = "mage.player.ai.score" if key in ("parent_scoring_source", "parent_magic_ability_source") else "mage.player.ai"
         body = replace_once(body, "package " + package + ";", "package spellbench.models.jack;")
         body = body.replace(old, new).replace("PossibleTargetsSelector", "ParentTargetsSelector").replace("PossibleTargetsComparator", "ParentTargetsComparator")
         body = body.replace("import mage.player.ai.score.GameStateEvaluator2;", "import spellbench.models.jack.ParentPermanentScore;").replace("GameStateEvaluator2", "ParentPermanentScore")
-        declaration = "public final class " + new + " {" if key == "parent_scoring_source" else "public class " + new + " {"
+        if key == "parent_scoring_source": body = body.replace("MagicAbility", "ParentMagicAbility")
+        declaration = "public final class " + new + " {" if key in ("parent_scoring_source", "parent_magic_ability_source") else "public class " + new + " {"
         body = replace_once(body, declaration, declaration + '\n    public static final String SOURCE_SHA256 = "' + PARENT_SOURCE_PINS[key] + '";')
         result[new + ".java"] = body.encode()
     permanent = extract(sources["parent_permanent_source"], "    public static int evaluatePermanent(", "    public static class PlayerEvaluateScore {")

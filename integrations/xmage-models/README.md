@@ -272,16 +272,17 @@ inherited `choose(Cards)` callback remains separate from this neural callback.
 Private native execution, other callbacks, incompatible public/original ranges,
 exact deck associations and complete games remain unqualified.
 
-The optional `parent_card_callback: true` flag adds five private bodies for the
+The optional `parent_card_callback: true` flag adds six private bodies for the
 separate inherited `choose(Cards)` callback. It requires the original neural
-card and prefix rules and all seven pinned April parent sources, including the
+card and prefix rules and all eight pinned April parent sources, including the
 ComputerPlayer6/7 inheritance. The original base loop, selector, comparator
 and permanent scoring are retained. This path assumes empty planning queues,
 preserves score/name ordering and UUID ties, and applies the original
 `target.add`. It does not substitute the current pinned engine's parent policy.
 
 `JackParentCardEncoderMain` takes the nine card-set arguments followed by hashes
-for the parent rules, selector, comparator, permanent scorer and scoring helper.
+for the parent rules, selector, comparator, permanent scorer, scoring helper and
+original ability scoring table.
 `xmage_jack_parent_cards.ParentCardSession` binds the determined choice to the
 complete offered public card set without model, chooser or physical-copy RNG.
 Recorded parent prefix choices must match the original policy. An original

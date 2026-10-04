@@ -22,15 +22,16 @@ final class JackParentCardEncoder extends JackCardSetEncoder implements ModelRep
             + "permitted callback replay; implicit completion bound to offered STOP; "
             + "no model or neural chooser/copy RNG; divided and opponent callbacks unqualified";
     static final String VARIANT = RULE_VARIANT + "; " + JackManaReplay.VARIANT;
-    static final String[] HELPERS = {"ParentCardRules", "ParentTargetsSelector", "ParentTargetsComparator", "ParentPermanentScore", "ParentArtificialScoring"};
-    static final String[] PINS = {"parentCardRulesSourceSha256", "parentSelectorSourceSha256", "parentComparatorSourceSha256", "parentPermanentSourceSha256", "parentScoringSourceSha256"};
-    static final String[] FIELDS = {"parent_card_rules_source_sha256", "parent_selector_source_sha256", "parent_comparator_source_sha256", "parent_permanent_source_sha256", "parent_scoring_source_sha256"};
+    static final String[] HELPERS = {"ParentCardRules", "ParentTargetsSelector", "ParentTargetsComparator", "ParentPermanentScore", "ParentArtificialScoring", "ParentMagicAbility"};
+    static final String[] PINS = {"parentCardRulesSourceSha256", "parentSelectorSourceSha256", "parentComparatorSourceSha256", "parentPermanentSourceSha256", "parentScoringSourceSha256", "parentMagicAbilitySourceSha256"};
+    static final String[] FIELDS = {"parent_card_rules_source_sha256", "parent_selector_source_sha256", "parent_comparator_source_sha256", "parent_permanent_source_sha256", "parent_scoring_source_sha256", "parent_magic_ability_source_sha256"};
     static final String[] ORIGINALS = {
             "7c5ecab1cf4796886cb0c505560b239556a91582bef721f651b07760603d78f4",
             "d50b426cc9fba71c7c6c1a2c6fd392d89cb96d209b5bb41e38d74d2343b13f70",
             "cf32e14a3e4ef75307d877b578c9bca816ecca0f4f88895f4234e9464694e05c",
             "25c5f984c70602772a6e2df7f38ac2814c115677fd7760cfca595928acc1e5c7",
-            "d210d4a977e5de4c9fdeff22e4a049887864bcdd603656501e592ac452bc8952"};
+            "d210d4a977e5de4c9fdeff22e4a049887864bcdd603656501e592ac452bc8952",
+            "9d1eebb0ccd233f24b0fd12b9903942be6537b19203bf99d5716aa3b04c0e6c5"};
     private final Map<String, Object> start;
 
     JackParentCardEncoder(Map<String, Object> start, ModelReplay.ManaCapture payments) {

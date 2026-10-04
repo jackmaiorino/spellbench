@@ -10,7 +10,7 @@ from xmage_jack_sources import CALLBACK_SHA256, MANA_PAYMENT_VARIANT, PARENT_CAR
 from xmage_neural_decisions import decision_hash
 
 PARENT_KEYS = ("parent_card_rules_source_sha256", "parent_selector_source_sha256", "parent_comparator_source_sha256",
-               "parent_permanent_source_sha256", "parent_scoring_source_sha256")
+               "parent_permanent_source_sha256", "parent_scoring_source_sha256", "parent_magic_ability_source_sha256")
 SOURCE_KEYS = (*CARD_SOURCE_KEYS, *PARENT_KEYS)
 VARIANT = PARENT_CARD_VARIANT + "; " + MANA_PAYMENT_VARIANT
 FRAME_KEYS = {"schema", "kind", "decision_sha256", "game_start_sha256", "request_sha256", "original_callback_sha256",
