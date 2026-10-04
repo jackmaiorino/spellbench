@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-04T22:27:12.269600+00:00",
+  "at_utc": "2026-10-04T22:35:12.320977+00:00",
   "spellbench_commit": "7b703fed33a1533158b69a28ab6ea3e2b5034d53",
   "runtime_source_commit": "7b703fed33a1533158b69a28ab6ea3e2b5034d53",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -67,7 +67,7 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "76e2a30dd25512657726a6493487457914cbd3f51353e35ff00ce9c95b2c6488",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_remote_build_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261004-027\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261004-027\\CATALOG.json",
   "prepared_launch_helpers": {
@@ -77,5 +77,24 @@
   },
   "guard_path": "Independent four-hour release guardian; bounded remote build; durable binary acknowledgement; qualify_native.py -> plan_allocation -> fixed audit callback",
   "actual_launch_helpers": "E:\\spellbench-gorge-runpod-20261004-027\\LAUNCH-HELPERS-UPDATE.json",
-  "actual_launch_helpers_sha256": "1b3ee508f48113e0d3426927546f3e90fe2edd2eed02796d63c0d74350828020"
+  "actual_launch_helpers_sha256": "1b3ee508f48113e0d3426927546f3e90fe2edd2eed02796d63c0d74350828020",
+  "pod_id": "cwyob8qtley1y4",
+  "owned_lease_name": "spellbench-gorge-native-24f428eb52fc4180",
+  "lease_deadline_utc": "2026-10-05T02:31:41.0487049+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.13,
+  "observed_cpu_model": "AMD EPYC7663",
+  "observed_effective_cpu_quota": 18.7,
+  "observed_memory_limit_bytes": 17999998976,
+  "runtime_build_complete": false,
+  "reference_qualification_complete": false,
+  "owner_supervisor_record": "E:\\spellbench-gorge-runpod-20261004-027\\SUPERVISION.json",
+  "independent_lease_guard_record": "E:\\spellbench-gorge-runpod-20261004-027\\lease.json.guard.jsonl",
+  "source_compatible_go_ci": {
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37238845969",
+    "head_commit": "c6413f277e68a2068b8b5eb9e46167198f98c1e0",
+    "passed": true,
+    "source_equivalence": "No engines/gorge diff between production repaira206ed1 and current branch",
+    "full_record": "E:\\spellbench-gorge-runpod-20261004-027\\SOURCE-COMPATIBLE-GO-CI.json"
+  },
+  "billing_disposition": "Prior closed conservative ceilingUSD5.50823747 plus maxUSD1.55 active reservation; cumulative ceilingUSD7.05823747. Provider final settlement unverified."
 }
