@@ -26,6 +26,7 @@ from .budget_transfer import BudgetPaths
 SCHEMA = "spellbench-llm-run-budget/v1"
 CONTINUATION_SCHEMA = "spellbench-llm-run-budget/v2"
 TIMEOUT_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v3"
+SERVICE_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v4"
 DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
 LIMIT_INCREASE_SCHEMA = "spellbench-llm-budget-increase/v1"
 IDLE_AMENDMENT_SCHEMA = "spellbench-llm-idle-budget-amendment/v1"
@@ -105,8 +106,19 @@ def _timeout_forfeit(policy, row) -> bool:
             and row["status"] == "failed" and row["error"] == "timeout")
 
 
+def _http503_forfeit(policy, row) -> bool:
+    return (policy.get("allow_http503_forfeits", False) is True
+            and row["status"] == "failed" and row["error"] == "http_503")
+
+
+def _continuation_schema(policy: dict) -> str:
+    if policy.get("allow_http503_forfeits", False):
+        return SERVICE_FORFEIT_SCHEMA
+    return TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA
+
+
 def _terminal_request(policy, row) -> bool:
-    if _timeout_forfeit(policy, row):
+    if _timeout_forfeit(policy, row) or _http503_forfeit(policy, row):
         return False
     return (row["status"] not in {"pending", "completed"} or (row["status"] != "pending"
             and (row["input_tokens"] is None or row["output_tokens"] is None)))
@@ -125,15 +137,16 @@ class RunBudget:
 
     @staticmethod
     def create(path: Path, *, model: str, requests: int, tokens: int,
-               wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False) -> None:
+               wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False,
+               allow_http503_forfeits: bool = False) -> None:
         if not isinstance(model, str) or not model.strip():
             raise ValueError("an explicit model is required")
         for name, value in (("requests", requests), ("tokens", tokens),
                             ("wall_seconds", wall_seconds), ("max_inflight", max_inflight)):
             if type(value) is not int or value < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        if type(allow_timeout_forfeits) is not bool:
-            raise ValueError("allow_timeout_forfeits must be boolean")
+        if type(allow_timeout_forfeits) is not bool or type(allow_http503_forfeits) is not bool:
+            raise ValueError("availability policy must be boolean")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = time.time()
@@ -144,6 +157,8 @@ class RunBudget:
                   "terminal_error": None}
         if allow_timeout_forfeits:
             policy.update(schema=TIMEOUT_FORFEIT_SCHEMA, allow_timeout_forfeits=True)
+        if allow_http503_forfeits:
+            policy.update(schema=SERVICE_FORFEIT_SCHEMA, allow_http503_forfeits=True)
         RunBudget._initialize(path, policy)
 
     @staticmethod
@@ -264,6 +279,58 @@ class RunBudget:
             raise ProviderError("run_budget_limit_increase_changed") from None
 
     @staticmethod
+    def _stopped_qualification_receipt(continuation: dict, parent: Path, prior: dict, rows,
+                                       child: dict, paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> None:
+        """Bind a real stopped precommit phase, never a fabricated formal abort."""
+        try:
+            proof = continuation["qualification_recovery"]
+            if set(proof) != {"receipt", "receipt_sha256"}:
+                raise ValueError("invalid recovery proof")
+            resolve = paths.resolve if paths else lambda value: Path(value).resolve(strict=True)
+            logical = parent_logical or (paths.key(parent) if paths else str(parent))
+            receipt = resolve(proof["receipt"])
+            if _digest(receipt) != proof["receipt_sha256"]:
+                raise ValueError("changed recovery proof")
+            record = json.loads(receipt.read_bytes())
+            names = {"schema", "phase", "source", "model", "parent", "parent_sha256",
+                     "parent_map", "parent_map_sha256", "completion", "completion_sha256",
+                     "failed_row", "limits", "effective_deadline", "owned_processes_absent",
+                     "formal_started", "public_commitment", "allow_http503_forfeits", "user_authority"}
+            failed = [row for row in rows if _terminal_request(prior, row)]
+            fields = ("id", "status", "error", "reserved_tokens", "input_tokens", "output_tokens")
+            completion_path = resolve(record["completion"])
+            completion = json.loads(completion_path.read_bytes())
+            totals = _totals(prior, rows)
+            if (set(record) != names or record["schema"] != "spellbench-llm-stopped-qualification/v1"
+                    or record["phase"] != "precommit-qualification"
+                    or not isinstance(record["source"], str) or len(record["source"]) != 40
+                    or any(c not in "0123456789abcdef" for c in record["source"])
+                    or record["model"] != child["model"]
+                    or record["parent"] != logical
+                    or record["parent_sha256"] != continuation["parent_sha256"]
+                    or _digest(resolve(record["parent_map"])) != record["parent_map_sha256"]
+                    or _digest(completion_path) != record["completion_sha256"]
+                    or record["limits"] != {name: prior[name] for name in LIMIT_NAMES}
+                    or any(child[name] != prior[name] for name in LIMIT_NAMES)
+                    or record["effective_deadline"] != RunBudget._effective_deadline_for(parent, prior, logical=logical)
+                    or continuation.get("no_cutoff", False) != (record["effective_deadline"] is None)
+                    or prior.get("terminal_error") != "hosted_broker_failed"
+                    or len(failed) != 1 or failed[0]["status"] != "failed" or failed[0]["error"] != "http_503"
+                    or record["failed_row"] != {name: failed[0][name] for name in fields}
+                    or any(row["status"] == "pending" for row in rows)
+                    or type(completion["exit_code"]) is not int or completion["exit_code"] == 0
+                    or completion["formal_dispatches"] != 0
+                    or completion["budget_after"].get("pending") != 0
+                    or any(completion["budget_after"].get(name) != value for name, value in totals.items())
+                    or record["owned_processes_absent"] is not True
+                    or record["formal_started"] is not False or record["public_commitment"] is not None
+                    or record["allow_http503_forfeits"] is not True or child.get("allow_http503_forfeits") is not True
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()):
+                raise ValueError("invalid stopped qualification")
+        except (OSError, ValueError, KeyError, TypeError):
+            raise ProviderError("run_budget_qualification_recovery_changed") from None
+
+    @staticmethod
     def _idle_amendment(continuation: dict, parent: Path, prior: dict, child: dict,
                         paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict:
         """Bind prospective caps to explicit authority and the unchanged idle parent."""
@@ -363,7 +430,7 @@ class RunBudget:
             if (inherited["reported_input_tokens"] + inherited["reported_output_tokens"]
                     + inherited["uncertain_reserved_tokens"] >= policy["max_reported_tokens"]):
                 raise ProviderError("run_budget_tokens_exhausted")
-            successor = {**policy, "schema": TIMEOUT_FORFEIT_SCHEMA if allow_timeout_forfeits else CONTINUATION_SCHEMA,
+            successor = {**policy, "schema": _continuation_schema({**policy, "allow_timeout_forfeits": allow_timeout_forfeits}),
                          "terminal_error": None,
                          "continuation": {"kind": "precommit-qualification", "parent": str(parent),
                                           "parent_sha256": parent_sha256, "inherited": inherited,
@@ -436,10 +503,10 @@ class RunBudget:
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
-            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"}:
+            if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"}:
                 raise ValueError("invalid continuation kind")
             no_cutoff = continuation.get("no_cutoff", False)
-            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"}):
+            if type(no_cutoff) is not bool or (no_cutoff and continuation["kind"] not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"}):
                 raise ProviderError("run_budget_continuation_changed")
             if (type(continuation.get("allow_timeout_forfeits", False)) is not bool
                     or continuation.get("allow_timeout_forfeits", False) != child.get("allow_timeout_forfeits", False)):
@@ -503,6 +570,12 @@ class RunBudget:
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
+                if continuation["kind"] == "stopped-qualification-recovery":
+                    if extension is not None or recovery is not None or increase is not None:
+                        raise ProviderError("run_budget_qualification_recovery_changed")
+                    self._stopped_qualification_receipt(continuation, parent, prior, rows, child, self.paths)
+                elif child.get("allow_http503_forfeits", False) != prior.get("allow_http503_forfeits", False):
+                    raise ProviderError("run_budget_continuation_changed")
                 if idle_amendment:
                     if (extension is not None or recovery is not None
                             or any(_terminal_request(prior, row) for row in rows)
@@ -572,7 +645,7 @@ class RunBudget:
         if type(no_cutoff) is not bool:
             raise ProviderError("run_budget_continuation_changed")
         if no_cutoff:
-            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment"} or marker.exists():
+            if continuation.get("kind") not in {"failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"} or marker.exists():
                 raise ProviderError("run_budget_deadline_extension_conflict")
             return None
         if not marker.exists():
@@ -632,9 +705,11 @@ class RunBudget:
     @staticmethod
     def _validate_policy(value, model, expected_limits):
         allow_timeouts = value.get("allow_timeout_forfeits", False)
-        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA, TIMEOUT_FORFEIT_SCHEMA)
-                or type(allow_timeouts) is not bool
-                or (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts
+        allow_503 = value.get("allow_http503_forfeits", False)
+        if (value["schema"] not in (SCHEMA, CONTINUATION_SCHEMA, TIMEOUT_FORFEIT_SCHEMA, SERVICE_FORFEIT_SCHEMA)
+                or type(allow_timeouts) is not bool or type(allow_503) is not bool
+                or (value["schema"] == SERVICE_FORFEIT_SCHEMA) != allow_503
+                or (not allow_503 and (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts)
                 or (value["schema"] == SCHEMA and "continuation" in value)
                 or (value["schema"] == CONTINUATION_SCHEMA and "continuation" not in value)
                 or ("continuation" in value and not isinstance(value["continuation"], dict))):
@@ -644,7 +719,7 @@ class RunBudget:
         for name in LIMIT_NAMES:
             if type(value[name]) is not int or value[name] < 1:
                 raise ValueError("invalid budget limits")
-        if any(value.get(name, False if name == "allow_timeout_forfeits" else None) != limit
+        if any(value.get(name, False if name in {"allow_timeout_forfeits", "allow_http503_forfeits"} else None) != limit
                for name, limit in expected_limits.items()):
             raise ProviderError("run_budget_limits_mismatch")
         if (any(type(value[name]) not in (float, int) or not math.isfinite(value[name])
@@ -747,6 +822,7 @@ class RunBudget:
                     "active_failed": sum(row["status"] == "failed" for row in rows),
                     "active_terminal_failures": sum(_terminal_request(policy, row) for row in rows),
                     "active_timeout_forfeits": sum(_timeout_forfeit(policy, row) for row in rows),
+                    "active_http503_forfeits": sum(_http503_forfeit(policy, row) for row in rows),
                     "active_unknown_usage": sum(row["input_tokens"] is None or row["output_tokens"] is None for row in rows),
                     "inherited": policy.get("continuation", {}).get("inherited", dict.fromkeys(INHERITED_NAMES, 0)),
                     "pending": sum(row["status"] == "pending" for row in rows),
@@ -839,6 +915,10 @@ def _hosted_budgets(config):
                          or part.startswith("--allow-timeout-forfeits=")]
         if len(timeout_flags) > 1 or any(part != "--allow-timeout-forfeits" for part in timeout_flags):
             raise ProviderError("run_budget_ambiguous_command")
+        service_flags = [part for part in command if part == "--allow-http503-forfeits"
+                         or part.startswith("--allow-http503-forfeits=")]
+        if len(service_flags) > 1 or any(part != "--allow-http503-forfeits" for part in service_flags):
+            raise ProviderError("run_budget_ambiguous_command")
 
         map_option = option("--run-budget-map")
         budget = RunBudget(Path(option("--run-budget")), model=option("--model"),
@@ -849,6 +929,7 @@ def _hosted_budgets(config):
             "max_wall_seconds": int(option("--max-run-wall-seconds", 7200)),
             "max_inflight": int(option("--max-inflight", 4)),
             "allow_timeout_forfeits": bool(timeout_flags),
+            "allow_http503_forfeits": bool(service_flags),
         })
         yield index, budget
 
@@ -892,6 +973,7 @@ def main() -> int:
     create.add_argument("--max-wall-seconds", type=int, required=True)
     create.add_argument("--max-inflight", type=int, default=4)
     create.add_argument("--allow-timeout-forfeits", action="store_true")
+    create.add_argument("--allow-http503-forfeits", action="store_true")
     summary = commands.add_parser("summary")
     summary.add_argument("path", type=Path)
     summary.add_argument("--model", required=True)
@@ -919,7 +1001,8 @@ def main() -> int:
     if args.command == "create":
         RunBudget.create(args.path, model=args.model, requests=args.max_requests, tokens=args.max_tokens,
                          wall_seconds=args.max_wall_seconds, max_inflight=args.max_inflight,
-                         allow_timeout_forfeits=args.allow_timeout_forfeits)
+                         allow_timeout_forfeits=args.allow_timeout_forfeits,
+                         allow_http503_forfeits=args.allow_http503_forfeits)
     elif args.command == "continue-qualification":
         RunBudget.continue_qualification(args.parent, args.path, model=args.model, parent_sha256=args.parent_sha256,
                                          allow_timeout_forfeits=args.allow_timeout_forfeits,

@@ -24,12 +24,12 @@ from spellbench.errors import TransportError
 from test_llm_agent import decision
 
 
-@pytest.mark.parametrize("result", ["forced", "legal", "illegal", "timeout"])
+@pytest.mark.parametrize("result", ["forced", "legal", "illegal", "timeout", "http_503"])
 def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, monkeypatch, result):
     path = tmp_path / "budget.sqlite3"
     RunBudget.create(path, model="luna", requests=8, tokens=80000, wall_seconds=60,
-                     allow_timeout_forfeits=True)
-    provider = Provider(ProviderError("timeout") if result == "timeout" else
+                     allow_timeout_forfeits=True, allow_http503_forfeits=result == "http_503")
+    provider = Provider(ProviderError(result) if result in {"timeout", "http_503"} else
                         Completion('{"candidate_id":' + ("999" if result == "illegal" else "1") + '}',
                                    "luna", 100, 20))
     monkeypatch.setattr(hosted, "PlanProvider", lambda *args, **kwargs: provider)
@@ -59,11 +59,12 @@ def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, m
     monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--trusted-agent-process",
                                     "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
                                     "--max-run-requests", "8", "--max-run-tokens", "80000",
-                                    "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"])
-    assert hosted.main() == (1 if result in {"illegal", "timeout"} else 0)
+                                    "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"]
+                        + (["--allow-http503-forfeits"] if result == "http_503" else []))
+    assert hosted.main() == (1 if result in {"illegal", "timeout", "http_503"} else 0)
     responses = [wire.strict_json_loads(line) for line in output.getvalue().splitlines()]
     assert responses[0]["response_type"] == "hello_ok"
-    assert responses[-1]["response_type"] == ("error" if result in {"illegal", "timeout"} else "choice")
+    assert responses[-1]["response_type"] == ("error" if result in {"illegal", "timeout", "http_503"} else "choice")
     assert provider.calls == (0 if result == "forced" else 1)
     assert children[0]._proc.poll() is not None
     assert not any(key in environments[0] for key in ("OPENAI_API_KEY", "RUNPOD_API_KEY", "SPELLBENCH_PRIVATE"))
@@ -71,7 +72,7 @@ def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, m
     assert summary["requests"] == provider.calls
     assert summary["pending"] == 0
     assert summary["policy"]["terminal_error"] == ("hosted_broker_failed" if result == "illegal" else None)
-    assert summary["unknown_usage"] == (1 if result == "timeout" else 0)
+    assert summary["unknown_usage"] == (1 if result in {"timeout", "http_503"} else 0)
     events = [json.loads(line) for line in next((tmp_path / "logs").glob("broker-*.jsonl")).read_text().splitlines()]
     assert events[0]["provider"]["transport"] == "trusted-chatgpt-plan"
     assert events[0]["provider"]["image_id"] is None
@@ -234,17 +235,18 @@ def test_definition_has_complete_seat_swapped_schedule_and_fixed_settings():
 
 
 @pytest.mark.parametrize("policy_flag,command_flag", [(True, False), (False, True)])
-def test_hosted_refuses_timeout_policy_mismatch_before_creating_child(tmp_path, monkeypatch, policy_flag, command_flag):
+@pytest.mark.parametrize("availability", ["timeout", "http503"])
+def test_hosted_refuses_timeout_policy_mismatch_before_creating_child(tmp_path, monkeypatch, policy_flag, command_flag, availability):
     path = tmp_path / "budget.sqlite3"
     RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60,
-                     allow_timeout_forfeits=policy_flag)
+                     **{"allow_" + availability + "_forfeits": policy_flag})
     monkeypatch.setattr(hosted, "DockerPeer", lambda *args: pytest.fail("mismatched policy created child"))
     monkeypatch.setattr(hosted, "load_credentials", lambda *args: pytest.fail("mismatched policy read credentials"))
     monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--image", "sha256:" + "a" * 64,
                                     "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
                                     "--max-run-requests", "8", "--max-run-tokens", "8000",
                                     "--max-run-wall-seconds", "60"] +
-                        (["--allow-timeout-forfeits"] if command_flag else []))
+                        (["--allow-" + availability + "-forfeits"] if command_flag else []))
     assert hosted.main() == 2
     assert RunBudget(path, model="luna").summary()["requests"] == 0
 
@@ -293,15 +295,17 @@ def test_plan_provider_cannot_renew_or_infer_again_after_timeout(tmp_path, monke
     assert provider.calls == 1 and state.summary()["requests"] == 1
 
 
-@pytest.mark.parametrize("failure", ["candidate", "timeout", "old_timeout_then_transport", "timeout_log_cap", "docker"])
-def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp_path, monkeypatch, failure):
+@pytest.mark.parametrize("failure", ["candidate", "timeout", "old_timeout_then_transport", "timeout_log_cap", "timeout_cleanup", "docker"])
+@pytest.mark.parametrize("availability_error", ["timeout", "http_503"])
+def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp_path, monkeypatch, failure, availability_error):
     path = tmp_path / "budget.sqlite3"
-    RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60, allow_timeout_forfeits=True)
+    RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60, allow_timeout_forfeits=True,
+                     allow_http503_forfeits=availability_error == "http_503")
     state = RunBudget(path, model="luna")
     if failure == "old_timeout_then_transport":
-        with pytest.raises(ProviderError, match="timeout"):
-            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
-    result = (ProviderError("timeout") if failure in {"timeout", "timeout_log_cap"}
+        with pytest.raises(ProviderError, match=availability_error):
+            BudgetedProvider(Provider(ProviderError(availability_error)), state).complete(PROMPT, timeout_s=2)
+    result = (ProviderError(availability_error) if failure in {"timeout", "timeout_log_cap", "timeout_cleanup"}
               else Completion('{"candidate_id":999}', "luna", 100, 20))
     provider = Provider(result)
     children = []
@@ -314,6 +318,11 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
                 return wire.canonical_json_line({"broker": RPC, "request_id": "i-1",
                                                  "messages": list(PROMPT.messages), "timeout_ms": 1000})
             return super().read_line()
+
+        def close(self):
+            super().close()
+            if failure == "timeout_cleanup":
+                raise OSError("cleanup failed after availability error")
 
     def child(image, command):
         if failure == "docker":
@@ -340,8 +349,13 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
     monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--image", "sha256:" + "a" * 64,
                                     "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
                                     "--max-run-requests", "8", "--max-run-tokens", "8000",
-                                    "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"])
-    assert hosted.main() == (2 if failure in {"timeout_log_cap", "docker"} else 1)
+                                    "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"]
+                        + (["--allow-http503-forfeits"] if availability_error == "http_503" else []))
+    if failure == "timeout_cleanup":
+        with pytest.raises(OSError, match="cleanup failed"):
+            hosted.main()
+    else:
+        assert hosted.main() == (2 if failure in {"timeout_log_cap", "docker"} else 1)
     assert all(value.closed for value in children)
     summary = state.summary()
     if failure == "timeout":
@@ -353,5 +367,5 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
             state.check()
     assert summary["requests"] == (0 if failure == "docker" else 1)
     assert summary["completed"] == int(failure == "candidate")
-    assert summary["unknown_usage"] == int(failure in {"timeout", "old_timeout_then_transport", "timeout_log_cap"})
-    assert provider.calls == int(failure in {"candidate", "timeout", "timeout_log_cap"})
+    assert summary["unknown_usage"] == int(failure in {"timeout", "old_timeout_then_transport", "timeout_log_cap", "timeout_cleanup"})
+    assert provider.calls == int(failure in {"candidate", "timeout", "timeout_log_cap", "timeout_cleanup"})

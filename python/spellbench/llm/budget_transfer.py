@@ -16,6 +16,11 @@ SCHEMA = "spellbench-llm-budget-transfer/v1"
 MAP_SCHEMA = "spellbench-llm-budget-map/v1"
 
 
+def _policy_schema(policy: dict) -> str:
+    from .run_budget import _continuation_schema
+    return _continuation_schema(policy)
+
+
 def digest(path: Path) -> str:
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -185,7 +190,7 @@ def continue_host_preflight(budget, successor: Path, manifest: Path) -> Path:
             raise ProviderError("run_budget_exhausted")
         parent_sha = digest(budget.path)
         child = {**policy, "terminal_error": None,
-                 "schema": TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA,
+                 "schema": _policy_schema(policy),
                  "continuation": {"kind": "host-preflight-recovery", "parent": budget.paths.key(budget.path),
                                   "parent_sha256": parent_sha, "inherited": inherited,
                                   "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False)}}
@@ -261,7 +266,7 @@ def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
             raise ValueError("retained aborted manifest must be inside bundle")
         inherited = _totals(policy, rows)
         child = {**policy, **approved_limits, "terminal_error": None,
-                 "schema": TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA,
+                 "schema": _policy_schema(policy),
                  "continuation": {"kind": "failed-run-recovery", "parent": budget.paths.key(budget.path),
                                   "parent_sha256": parent_sha, "inherited": inherited,
                                   "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False),
@@ -342,7 +347,7 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
             raise ProviderError("run_budget_deadline_exhausted")
         inherited, parent_sha = _totals(policy, rows), digest(budget.path)
         child = {**policy, **approved_limits,
-                 "schema": TIMEOUT_FORFEIT_SCHEMA if policy.get("allow_timeout_forfeits", False) else CONTINUATION_SCHEMA,
+                 "schema": _policy_schema(policy),
                  "continuation": {"kind": "healthy-idle-amendment", "parent": budget.paths.key(budget.path),
                                   "parent_sha256": parent_sha, "inherited": inherited,
                                   "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False),
@@ -375,6 +380,80 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
         for path in (budget.path, _origin(successor), snapshot, authority):
             value["immutable"][path.resolve().relative_to(root).as_posix()] = digest(path)
         # Publish activation only after the durable retirement of the old writer.
+        _write_marker(_successor_claim(budget.path), claim)
+        value["immutable"][_successor_claim(budget.path).resolve().relative_to(root).as_posix()] = digest(_successor_claim(budget.path))
+        _write_marker(manifest, value)
+    return manifest
+
+
+def continue_stopped_qualification(budget, successor: Path, manifest: Path, *,
+                                  receipt: Path, receipt_sha256: str) -> Path:
+    """Recover one stopped precommit HTTP503 attempt with unchanged cumulative caps.
+
+    The operator must stop and preserve the old job first. This creates only a
+    fresh qualification budget, never resumes its game or resets any charge.
+    """
+    from .run_budget import (RunBudget, _origin, _successor_claim, _retained_file,
+                             _totals, _write_marker, SERVICE_FORFEIT_SCHEMA, _deadline_extension)
+    if budget.paths.manifest is None:
+        raise ProviderError("run_budget_transfer_required")
+    root = budget.paths.manifest.parent
+    successor, manifest, receipt = successor.resolve(), manifest.resolve(), receipt.resolve(strict=True)
+    snapshot = successor.with_name(successor.name + ".initial.sqlite3")
+    outputs = (successor, manifest, _origin(successor), snapshot)
+    record = json.loads(receipt.read_bytes())
+    retained = (receipt, Path(record["completion"]).resolve(strict=True), budget.paths.manifest)
+    if (len(set(outputs)) != len(outputs) or any(not path.is_relative_to(root) or path.exists() for path in outputs)
+            or any(not path.is_relative_to(root) for path in retained)):
+        raise ValueError("fresh distinct outputs and retained actual qualification evidence required")
+    if (record["parent_map"] != str(budget.paths.manifest)
+            or record["parent_map_sha256"] != budget.paths.sha256):
+        raise ProviderError("run_budget_qualification_recovery_changed")
+    with budget._transaction() as database:
+        policy = budget._policy(database)
+        rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
+        _retained_file(budget.path)
+        if database.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
+            raise ProviderError("run_budget_parent_unsealed")
+        if _deadline_extension(budget.path).exists():
+            raise ProviderError("run_budget_deadline_extension_present")
+        inherited, parent_sha = _totals(policy, rows), digest(budget.path)
+        cutoff = budget._effective_deadline(policy)
+        import time
+        if cutoff is not None and cutoff <= time.time():
+            raise ProviderError("run_budget_deadline_exhausted")
+        child = {**policy, "schema": SERVICE_FORFEIT_SCHEMA, "terminal_error": None,
+                 "allow_http503_forfeits": True,
+                 "continuation": {"kind": "stopped-qualification-recovery", "parent": budget.paths.key(budget.path),
+                                  "parent_sha256": parent_sha, "inherited": inherited,
+                                  "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False),
+                                  "no_cutoff": cutoff is None,
+                                  "qualification_recovery": {"receipt": str(receipt), "receipt_sha256": receipt_sha256}}}
+        RunBudget._stopped_qualification_receipt(child["continuation"], budget.path.resolve(), policy, rows, child,
+                                               parent_logical=budget.paths.key(budget.path))
+        if (inherited["requests"] >= child["max_requests"] or inherited["reported_input_tokens"]
+                + inherited["reported_output_tokens"] + inherited["uncertain_reserved_tokens"] >= child["max_reported_tokens"]):
+            raise ProviderError("run_budget_exhausted")
+        RunBudget._initialize(successor, child)
+        claim = {"successor": str(successor), "parent_sha256": parent_sha,
+                 "policy": {key: item for key, item in child.items() if key != "terminal_error"}}
+        _write_marker(_origin(successor), claim)
+        with successor.open("rb") as source, snapshot.open("xb") as target:
+            shutil.copyfileobj(source, target)
+            target.flush()
+            import os
+            os.fsync(target.fileno())
+        snapshot.chmod(0o600)
+        value = dict(budget.paths.value)
+        value["files"], value["immutable"] = list(value["files"]), dict(value["immutable"])
+        for path in (successor, *retained):
+            if str(path) not in budget.paths.files:
+                value["files"].append({"logical": str(path), "file": path.relative_to(root).as_posix()})
+        value.update(active=str(successor), destination=str(successor),
+                     transfer_snapshot=value.get("transfer_snapshot", value["snapshot"]),
+                     snapshot=snapshot.relative_to(root).as_posix())
+        for path in (budget.path, _origin(successor), snapshot, *retained):
+            value["immutable"][path.resolve().relative_to(root).as_posix()] = digest(path)
         _write_marker(_successor_claim(budget.path), claim)
         value["immutable"][_successor_claim(budget.path).resolve().relative_to(root).as_posix()] = digest(_successor_claim(budget.path))
         _write_marker(manifest, value)
@@ -457,6 +536,13 @@ def export_budget(budget, bundle: Path, *, destination: str, host_identity_file:
                 publication = json.loads(receipt.read_bytes())
                 copy(budget.paths.resolve(publication["retained_run_manifest"]),
                      f"retained/{index}/aborted-manifest.json")
+            qualification = continuation.get("qualification_recovery")
+            if qualification is not None:
+                receipt = budget.paths.resolve(qualification["receipt"])
+                copy(receipt, f"retained/{index}/qualification-recovery.json")
+                stopped = json.loads(receipt.read_bytes())
+                copy(budget.paths.resolve(stopped["completion"]), f"retained/{index}/qualification-completion.json")
+                copy(budget.paths.resolve(stopped["parent_map"]), f"retained/{index}/qualification-parent-map.json")
             increase = continuation.get("limit_increase")
             if increase is not None:
                 copy(budget.paths.resolve(increase["authority"]), f"retained/{index}/authority.json")

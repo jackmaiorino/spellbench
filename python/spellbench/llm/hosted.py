@@ -122,6 +122,8 @@ def main() -> int:
     parser.add_argument("--max-inflight", type=int, default=4)
     parser.add_argument("--allow-timeout-forfeits", action="store_true",
                         help="require the matching budget policy; settled timeouts forfeit only their game")
+    parser.add_argument("--allow-http503-forfeits", action="store_true",
+                        help="require the matching policy; a settled HTTP503 forfeits its game without retry")
     args = parser.parse_args()
     child = None
     budget = None
@@ -138,7 +140,8 @@ def main() -> int:
                                             "max_reported_tokens": args.max_run_tokens,
                                             "max_wall_seconds": args.max_run_wall_seconds,
                                             "max_inflight": args.max_inflight,
-                                            "allow_timeout_forfeits": args.allow_timeout_forfeits})
+                                            "allow_timeout_forfeits": args.allow_timeout_forfeits,
+                                            "allow_http503_forfeits": args.allow_http503_forfeits})
         plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort,
                             budget=budget)
         provider = BudgetedProvider(plan, budget,
@@ -167,14 +170,16 @@ def main() -> int:
                                               "container_name": None if args.trusted_agent_process else child.name,
                                               "renew_before_game": args.renew_profile_before_game,
                                               "allow_timeout_forfeits": args.allow_timeout_forfeits,
+                                              "allow_http503_forfeits": args.allow_http503_forfeits,
                                               "aggregate_budget": True, "provider_output_cap": False},
                                     max_completion_tokens=args.max_completion_tokens, log=BoundedLog(stream),
                                     config=config, limits=BrokerLimits(max_calls_total=config.max_calls_per_game,
                                                                       max_tokens_total=config.max_tokens_per_game))
             status = serve_broker(session, before_game_start=plan.renew_before_game
                                   if args.renew_profile_before_game else None)
-            if status != 0 and not (args.allow_timeout_forfeits and session._failed
-                                    and provider.settled_error == "timeout"):
+            availability_error = ((args.allow_timeout_forfeits and provider.settled_error == "timeout")
+                                  or (args.allow_http503_forfeits and provider.settled_error == "http_503"))
+            if status != 0 and not (session._failed and availability_error):
                 # Choice validation and child transport happen after provider
                 # accounting. Their failure cannot masquerade as a completed call.
                 budget.fail("hosted_broker_failed")
