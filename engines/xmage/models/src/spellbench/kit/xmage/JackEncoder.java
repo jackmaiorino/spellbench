@@ -35,6 +35,15 @@ public final class JackEncoder {
                 || !"priority".equals(Json.str(Json.obj(decision, "context"), "kind"))) {
             throw new IllegalArgumentException("Jack base encoder currently requires the acting viewer's priority");
         }
+        for (Object value : Json.arr(decision, "candidates")) {
+            if ("activate_mana_ability".equals(Json.obj(Json.obj(value), "semantic").get("kind"))) {
+                Object rawProfile = start.get("engine_profile");
+                Object kinds = rawProfile instanceof Map ? Json.obj(rawProfile).get("decision_kinds") : null;
+                if (!(kinds instanceof List) || !((List<?>) kinds).contains("activate_mana_ability")) {
+                    throw new IllegalArgumentException("Jack priority mana requires the declared opt-in engine profile");
+                }
+            }
+        }
         String source = System.getProperty("spellbench.jack.encoderSourceSha256");
         String candidatesSource = System.getProperty("spellbench.jack.candidateSourceSha256");
         if (source == null || !source.matches("[a-f0-9]{64}") || candidatesSource == null
@@ -132,7 +141,8 @@ public final class JackEncoder {
                 if ("pass".equals(kind)) {
                     ability = new PassAbility();
                 } else if ("play_land".equals(kind) || "cast_spell".equals(kind)
-                        || "activate_ability".equals(kind) || "special_action".equals(kind)) {
+                        || "activate_ability".equals(kind) || "special_action".equals(kind)
+                        || "activate_mana_ability".equals(kind)) {
                     ability = Mapping.findPlayable(world, world.viewerPlayer(), semantic, index);
                     if (ability == null || !permitted.containsKey(ability.getSourceId())) {
                         throw new IllegalArgumentException("offered Jack priority action lacks a named permitted source");

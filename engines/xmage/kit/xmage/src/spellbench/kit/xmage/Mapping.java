@@ -87,6 +87,23 @@ public final class Mapping {
         return semantic == null ? null : Json.canonical(semantic);
     }
 
+    /** Ordinary priority mana activation for an explicitly offered opt-in candidate. */
+    public static Map<String, Object> priorityManaSemantic(World w, Game game, Ability a, ObsIndex obs) {
+        if (a == null || a.getAbilityType() != mage.constants.AbilityType.ACTIVATED_MANA) {
+            return null;
+        }
+        Map<String, Object> ref = obs.ref(w.uuidToId.get(a.getSourceId()));
+        if (ref == null) {
+            return null;
+        }
+        long index = KitBridge.abilityIndex(game, a);
+        if (index < 0) {
+            throw new IllegalArgumentException("unmatched priority mana ability index");
+        }
+        return Json.map("kind", "activate_mana_ability", "source", ref, "ability_index", index,
+                "mana_choice", null, "cost_target", null);
+    }
+
     static boolean isBackFace(Game game, UUID sourceId) {
         Card card = game.getCard(sourceId);
         if (card == null) {
@@ -261,7 +278,20 @@ public final class Mapping {
     /** The world's playable non-mana action whose v2 semantic is {@code semantic} (the mapping, inverted). */
     public static ActivatedAbility findPlayable(World w, mage.players.Player p, Map<String, Object> semantic, ObsIndex idx) {
         String want = Json.canonical(semantic);
-        for (ActivatedAbility a : p.getPlayable(w.game, true)) {
+        boolean mana = "activate_mana_ability".equals(semantic.get("kind"));
+        if (mana && !(p instanceof mage.players.PlayerImpl)) {
+            throw new IllegalArgumentException("priority mana lookup requires an XMage PlayerImpl");
+        }
+        // The default overload hides equal ability text, which can drop a different offered Forest.
+        List<ActivatedAbility> playables = mana
+                ? ((mage.players.PlayerImpl) p).getPlayable(w.game, true, mage.constants.Zone.ALL, false)
+                : p.getPlayable(w.game, true);
+        for (ActivatedAbility a : playables) {
+            if (mana) {
+                Map<String, Object> s = priorityManaSemantic(w, w.game, a, idx);
+                if (s != null && want.equals(Json.canonical(s))) return a;
+                continue;
+            }
             if (a.getAbilityType() == mage.constants.AbilityType.ACTIVATED_MANA) {
                 continue;
             }
