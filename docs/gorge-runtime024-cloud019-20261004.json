@@ -1,7 +1,8 @@
 {
   "schema": "spellbench-gorge-live-cloud-progress/v1",
-  "observed_at_utc": "2026-10-04T11:42:05.961735+00:00",
-  "status": "provisioning_guarded",
+  "observed_at_utc": "2026-10-04T11:47:43.622056+00:00",
+  "recorded_at_utc": "2026-10-04T11:48:36.703361+00:00",
+  "status": "native_qualification_guarded",
   "immutable_runtime": "E:/spellbench-gorge-runtime-20261004-024",
   "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
   "prepared_adapter_commit": "1ce38af9e05b5f3aaf1f890096598a0055ba0e83",
@@ -38,8 +39,22 @@
     "memory/memory.limit_in_bytes": null,
     "cpu_model": "AMD Ryzen Threadripper PRO 3995WX 64-Cores"
   },
-  "input_verification": null,
-  "dispatch": null,
+  "input_verification": {
+    "phase": "inputs_verified",
+    "pod_id": "pr52w650htj23w",
+    "at_utc": "2026-10-04T11:42:26.818260+00:00",
+    "usable_cpus": 28,
+    "memory_bytes": 53999996928,
+    "bundle_sha256": "bc32832b3a03f89352bf2e21f6c4db1bb26fe94e2e4089f81bf302ad6786f561",
+    "remote_files_verified": 973
+  },
+  "dispatch": {
+    "at_utc": "2026-10-04T11:42:27.513744+00:00",
+    "pod_id": "pr52w650htj23w",
+    "driver_pid": 3180,
+    "guarded_launch": "driver.py -> qualify_native.py -> arena.throughput.plan_allocation -> bounded native callback",
+    "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d"
+  },
   "bundle_sha256": "bc32832b3a03f89352bf2e21f6c4db1bb26fe94e2e4089f81bf302ad6786f561",
   "bundle_bytes": 50971502,
   "retained_transfer_failure": {
@@ -58,12 +73,58 @@
   "public_ip_required": true,
   "persistent_volume_gb": 0,
   "provider_schema_sha256": "d3ef9cc0ad5b9d7ef782ed28381bdbf0ff271b7cf85c844050228b6dd4cc6ee1",
-  "current_observation_path": null,
-  "current_trials": [],
+  "current_observation_path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\OBSERVATIONS\\20261004T114743655242Z.json",
+  "current_trials": [
+    {
+      "stage": "qualification-1-workers-1",
+      "natural_blocks": 4,
+      "emitted_rows": 4,
+      "last_game": 45
+    }
+  ],
   "current_allocation": null,
   "current_failure": null,
   "current_closure": null,
-  "latest_guardian_recovery": null,
+  "latest_guardian_recovery": {
+    "pod_id": "pr52w650htj23w",
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\recovery-20261004T114710Z.tar.gz",
+    "at_utc": "2026-10-04T11:47:12.0268264+00:00",
+    "event": "recovered",
+    "sha256": "24a4a22630e9f37637c97732890b875a4e371c0a7ba5f1bdc622a57bcddd77fe",
+    "bytes": 67094
+  },
+  "latest_operator_recovery": {
+    "path": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019\\recovery-operator-20261004T114401Z.tar.gz",
+    "bytes": 66240,
+    "sha256": "666d7632d0fbb772e591f41a99dfcda7416ec0f4d83ef8b3060b10e5f2af5ef0"
+  },
+  "capacity_diagnosis": {
+    "stage": "isolated serial completed-work timing baseline",
+    "measured_consecutive_windows": [
+      {
+        "start_utc": "2026-10-04T11:45:28.103110+00:00",
+        "end_utc": "2026-10-04T11:46:28.178109+00:00",
+        "elapsed_seconds": 60.07466104719788,
+        "effective_cores": 1.0028662659064667,
+        "natural_blocks_before": 3,
+        "natural_blocks_after": 4,
+        "throttle_period_delta": 0
+      },
+      {
+        "start_utc": "2026-10-04T11:46:28.178109+00:00",
+        "end_utc": "2026-10-04T11:47:28.257347+00:00",
+        "elapsed_seconds": 60.07877885270864,
+        "effective_cores": 1.0049705761833723,
+        "natural_blocks_before": 4,
+        "natural_blocks_after": 4,
+        "throttle_period_delta": 0
+      }
+    ],
+    "measured_usable_cpus": 28,
+    "largest_feasible_ladder_bound": 16,
+    "idle_capacity_reason": "One worker is the required isolated timing baseline before matched parallel trials. Concurrent evaluation would contaminate this measurement. No substantial native audit is running.",
+    "correction": "Retain the healthy baseline and then compare matched8/16-worker trials. The supported guard selects the fastest valid allocation before substantial evaluation."
+  },
   "guard_path": "bounded owned Linux process group -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
   "driver_sha256": "4049cad71fe698b068f28a47bff85ff0e72d87932b9db517a0dee8e9abd8984d",
   "native_script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
