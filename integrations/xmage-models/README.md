@@ -328,3 +328,32 @@ ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the
 launcher's uniquely named container. Large evaluated workloads must still
 pass the existing useful-throughput guard.
+### Jack's original priority rules
+
+The private Jack input manifest can opt into `priority_callback: true`. The
+source stager then emits `PriorityRules.java` and records both the original
+callback identity and the staged rule hash. Altered private source and
+nonboolean flags refuse staging. The private source remains outside public Git.
+
+This component preserves the April default settings: base-state, playable and
+alternative-cost caches enabled, a 256-entry alternative-cost cache, activation
+fast path enabled, simulation validation enabled, and no-clone lookup disabled.
+It calls the original two-argument playable API. That engine API may already
+collapse equal-text abilities before Jack's source-specific mana deduplication;
+the separate offered-mana feature lookup does not change this policy behavior.
+
+The extracted rules retain activation tests, validated alternative-cost keys,
+the first-64 selection bound, pass-only selection without a chooser call, and
+the original turn-step dispatch. Simulation copies must implement the staged
+`PriorityRules.OriginalCallbacks` contract with the pinned callback source
+identity. Missing copied callbacks refuse instead of using a substitute bot.
+The caller still owns the permitted reconstructed world, the game-owned neural
+chooser and application of actual original callbacks.
+
+`engines/xmage/tests/priority-rules/JackPriorityRulesCheck.java` runs the actual
+staged rules on isolated metadata fixtures. It checks option order and
+deduplication, fast-path rejection, cache reuse and state changes, the 64-slot
+bound, twelve turn steps, alternative-cost enumeration and actual validated
+choice application, and refusal of unported simulation callbacks. It starts no
+native game, card database or network. These checks do not qualify complete
+priority play, native hidden-world invariance, paired weights or full games.

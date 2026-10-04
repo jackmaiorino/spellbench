@@ -897,6 +897,8 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if manifest.get("schema") != "spellbench-xmage-release-inputs/v1":
         raise ValueError("unknown release input manifest")
     config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    if "priority_callback" in config and type(config["priority_callback"]) is not bool:
+        raise ValueError("Jack priority staging needs an explicit boolean flag")
     if "london_callback" in config and type(config["london_callback"]) is not bool:
         raise ValueError("Jack London staging needs an explicit boolean flag")
     if "combat_callback" in config and type(config["combat_callback"]) is not bool:
@@ -947,6 +949,10 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     verify(root / callback["filename"], callback)
     candidates = candidate_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     choices = choice_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
+    priority = None
+    if config.get("priority_callback") is True:
+        from xmage_jack_priority_sources import priority_source
+        priority = priority_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
     combat = (combat_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
               if config.get("combat_callback") is True else None)
     london = (london_source((root / callback["filename"]).read_bytes().decode("utf-8")).encode("utf-8")
@@ -995,6 +1001,9 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
         stream.write(candidates)
     with (output / "PolicySelector.java").open("xb") as stream:
         stream.write(choices)
+    if priority is not None:
+        with (output / "PriorityRules.java").open("xb") as stream:
+            stream.write(priority)
     if mulligan is not None:
         with (output / "MulliganEncoder.java").open("xb") as stream:
             stream.write(mulligan)
@@ -1066,6 +1075,11 @@ def stage(manifest: dict, root: Path, output: Path) -> dict:
     if london is not None:
         result.update(original_london_callback_sha256=CALLBACK_SHA256,
                       staged_london_rules_sha256=hashlib.sha256(london).hexdigest(), london_variant=LONDON_VARIANT)
+    if priority is not None:
+        from xmage_jack_priority_sources import PRIORITY_VARIANT
+        result.update(original_priority_callback_sha256=CALLBACK_SHA256,
+                      staged_priority_rules_sha256=hashlib.sha256(priority).hexdigest(), priority_variant=PRIORITY_VARIANT,
+                      original_priority_player_qualified=False)
     with (output / "STAGE.json").open("x", encoding="utf-8") as stream:
         json.dump(result, stream, indent=2)
         stream.write("\n")
