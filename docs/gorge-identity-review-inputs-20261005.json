@@ -1,14 +1,14 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T18:54:22.369036+00:00",
-  "status": "Seven saved prefixes and whole original game164 pass; native098 matched qualification running",
-  "adapter_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
-  "engine_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
+  "at_utc": "2026-10-05T22:59:38.666415+00:00",
+  "status": "Native098 failed; current top-exile repair passes Go suite and production build104; captured replay105 pending",
+  "adapter_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+  "engine_source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-096",
-  "runtime_seal_sha256": "d736deb111c115f40c89d8a2e78016f849e6d9f4683e77807e5be1471141337e",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-104",
+  "runtime_seal_sha256": "fac8a4a6392f6c65e0d08863e74d21aafa2f50535d1ca8aa2a424dae8fa3b230",
   "production_overlay_sha256": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
@@ -60,7 +60,7 @@
     "637": 8
   },
   "native_diagnostic_baseline": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
-  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37339973909",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37382437437",
   "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/e347083eb77a6ae74e9ee536a8e4ab4e1af25869/docs/gorge-native-identity-audit-20261003.md",
   "benchmark_audit_url_current": false,
   "remaining": [
@@ -75,9 +75,9 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
-  "current_native_qualification": "native098 matched scaling running; full audit not yet admitted",
-  "current_native_failure_record": "docs/gorge-local-native077-20261005.json",
-  "current_native_attempt_seal_sha256": null,
+  "current_native_qualification": "Failed098; fresh qualification unlaunched under research hold",
+  "current_native_failure_record": "docs/gorge-local-native098-20261005.json",
+  "current_native_attempt_seal_sha256": "feaa8768d5f43f9e268b9c1397d63b4819d9936bf0df92df8d9f4d5c765f2b85",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
   "component_cases": {
     "364": {
@@ -551,7 +551,7 @@
   "local_native_receipts_exist": true,
   "local_gate_structural_checks_passed": 62,
   "affected_reference_and_history_checks_passed": 127,
-  "full_go_ci_engine_byte_compatibility_checked": false,
+  "full_go_ci_engine_byte_compatibility_checked": true,
   "current_head_required_ci_complete": false,
   "local_native_recovery_tool": {
     "path": "tools/gorge_recover_local_native.py",
@@ -569,14 +569,14 @@
   "historical_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
   "current_reference_preparation_record": null,
   "current_reference_preparation_seal_sha256": null,
-  "current_local_native_job_state": "matched_throughput_running",
+  "current_local_native_job_state": "no_live_job_research_priority_hold",
   "current_local_native_job_record": "docs/gorge-local-native098-20261005.json",
   "current_dig_repair_record": "docs/gorge-local-dig-repair082-20261005.json",
   "affected_python_checks_passed": 196,
   "current_reference_runner_cleanup_preserved": true,
   "current_public_repair_record": "docs/gorge-local-public-repair084-20261005.json",
-  "runtime_source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
-  "current_production_build_record": "docs/gorge-ci-runtime096-20261005.json",
+  "runtime_source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
+  "current_production_build_record": "docs/gorge-ci-runtime104-20261005.json",
   "conservative_reserved_total_usd": 9.99736347,
   "billing_source_of_record": "E:/spellbench-gorge-billing-20261005-042",
   "billing_seal_sha256": "6b540954b94c707e3606f5e190a8a71f418dd0d50d5eb1b983e5032b22f31036",
@@ -617,8 +617,10 @@
     "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
     "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
   },
-  "candidate_go_checks": "pending; current_ci_checks describes ancestor8799 only",
+  "candidate_go_checks": "Full Go suite passed at29c3544; current engine source identical",
   "candidate_native_launcher": "engines/gorge/scripts/qualify_native.py records wall-time worker selection through existing QualificationRules; frozen schedule/gate helpers unchanged; fresh qualification required",
-  "candidate_engineering_checks": "89 Python qualification tests and20 public-projection/archive tests passed; full Go suite passed at29c3544, identical current engine source. Current-head Python and hosted saved-prefix checks remain pending.",
-  "candidate_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json"
+  "candidate_engineering_checks": "89 Python qualification tests and20 public-projection/archive tests passed; full Go suite passed at29c3544. Production104 built.103 replay preflight failed without executing prefixes; fixed105 and current-head Python CI pending.",
+  "candidate_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json",
+  "hosted_public_replay_record": "docs/gorge-hosted-public-replay105-20261005.json",
+  "historical_production096_source_of_record": "E:/spellbench-gorge-runtime-20261005-096"
 }

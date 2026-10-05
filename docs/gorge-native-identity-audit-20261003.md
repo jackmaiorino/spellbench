@@ -16,9 +16,11 @@ attempts reaching the same frame88 identity mismatch after Experimental
 Synthesizer's owned top exile. A [prepared source repair](gorge-owned-top-exile-repair-20261005.json)
 uses the existing actor-library position fold through observed London bottoming.
 The [full Go suite and all public boundary checks pass](gorge-ci-top-exile-repair-20261005.json)
-at29c3544, byte-identical to the current engine source. Positive captured replays
-and the new production build are running in hosted job37384031753. No component
-pass or complete qualification is claimed before terminal recovery.
+at29c3544, byte-identical to the current engine source. Seven production binaries
+built in hosted job37384031753 and are recovered as104. The replay preflight
+failed because the copied Linux test binary lost execute permission; no captured
+prefix ran. Fixed hosted run37385784937 is pending. No component pass or complete
+qualification is claimed before terminal recovery.
 The next native launcher explicitly records wall-time worker selection;89
 synthetic Python qualification tests pass. The fixed native schedule and
 top-level validity helpers remain AST-identical. No new native run is qualified.

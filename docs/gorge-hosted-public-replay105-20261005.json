@@ -1,0 +1,60 @@
+{
+  "at_utc": "2026-10-05T22:58:35.994964+00:00",
+  "phase": "hosted_component_dispatched",
+  "source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+  "release_id": 404154970,
+  "release_tag": "gorge-reference-public-replay105-20261005",
+  "input_asset_id": 613827100,
+  "input_archive_sha256": "923855f830720292e1b45cd593a9495bd8ec5b2515c54cde630ed1579378e4bd",
+  "source_of_record": "E:\\spellbench-gorge-hosted-public-replay-20261005-105",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-hosted-public-replay-20261005-105",
+  "captured_input_seal_sha256": "cc7f4bed8abdc66a43dd0641c9108ae61a4c16b097c3441e110ea8d049f3cf1b",
+  "input_files": {
+    "registry.gob.gz": {
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329
+    },
+    "case-001.json": {
+      "sha256": "d722bb33bf2ab583f3bb3837f7e3e332efbdbebaf30a9fcfa7214d5524214955",
+      "bytes": 487962
+    },
+    "case-002.json": {
+      "sha256": "c18f35eae6bd5269ffce77211c82ed739a0cc46423c6795d13e233248a536c64",
+      "bytes": 636484
+    },
+    "case-003.json": {
+      "sha256": "3585338514ed1a6f9c825851829352b7d8ce86dec57b3d04eb98784456dc3989",
+      "bytes": 712666
+    }
+  },
+  "scope": "Bounded pinned production build plus three public-prefix replay and native pool checks; no full native/reference qualification or rated games",
+  "public_repository": true,
+  "runner": "standard GitHub-hosted ubuntu-24.04",
+  "wall_cap_seconds": 2400,
+  "workflow_wall_cap_minutes": 45,
+  "scratch_cap_bytes": 4294967296,
+  "input_archive_cap_bytes": 16777216,
+  "result_archive_cap_bytes": 268435456,
+  "reserve_bytes": 64424509440,
+  "actions_artifact_upload": false,
+  "actions_cache_upload": false,
+  "private_draft_exchange": true,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347,
+  "qualified": false,
+  "rated_games": 0,
+  "local_PC_dispatch_suspended": true,
+  "preflight": "Fix copy to preserve Linux executable permissions and assert pinned hash/executability before replay; exact sealed103 input archive reused",
+  "prior_attempt_run_id": 37384031753,
+  "prior_attempt_seal_sha256": "e29cd64fd668bc4da9f1dee5fd8e9d1dd657f42c78ee1b0d9526fc8a69d436e0",
+  "dispatch": {
+    "run_id": 37385784937,
+    "run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37385784937",
+    "status": "queued",
+    "conclusion": null,
+    "source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+    "at_utc": "2026-10-05T22:58:38.616914+00:00",
+    "new_cloud_spend_usd": 0
+  },
+  "next_wake": "Exact run37385784937 terminal result; recover E/D outputs before owned draft cleanup; no local PC launch"
+}
