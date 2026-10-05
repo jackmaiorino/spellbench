@@ -108,6 +108,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	basicSearches := spellbenchBasicSearches(setup, h)
 	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
+	heldEpochs := spellbenchCarryEpochs(h, spellbenchScryHeldEpochs(h, epochs))
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
 		return nil, work, err
@@ -146,6 +147,9 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		witnessEpochs := epochs
 		if attempt%2 == 0 {
 			witnessEpochs = carryEpochs
+		}
+		if attempt%4 == 2 {
+			witnessEpochs = heldEpochs
 		}
 		proposal := &proposalState{epochs: witnessEpochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
 		e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))
@@ -371,6 +375,46 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 				epoch := result[key]
 				epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...),
 					deadlineConstraint{Through: min(owner.prefix.Through(), len(setup.Decks[identity.Owner])), Name: identity.Name, Count: owner.counts[identity.Name]})
+				result[key] = epoch
+			}
+		}
+	}
+	return result
+}
+
+// A post-scry public exit can name either an earlier hand card or a later
+// draw. One optional witness proposal puts those names in the drawn prefix
+// before the first reorder, so that a scry cannot bottom its required copy.
+// The original and carry-only proposals remain available. These are witness
+// hypotheses; native sampler constraints and weights never use this fold.
+func spellbenchScryHeldEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	result := make(map[epochKey]epochConstraints, len(original))
+	for key, epoch := range original {
+		epoch.Deadlines = append([]deadlineConstraint(nil), epoch.Deadlines...)
+		result[key] = epoch
+	}
+	ordinals, draws := map[state.PlayerID]int{}, map[state.PlayerID]int{}
+	ordered := map[epochKey]bool{}
+	for _, frame := range h.Frames {
+		for _, ev := range frame.Events {
+			switch ev.Kind {
+			case events.Shuffle:
+				ordinals[ev.Player]++
+				draws[ev.Player] = 0
+			case events.Draw:
+				draws[ev.Player]++
+			case events.LibraryOrder:
+				key := epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}
+				if ev.Player == h.Actor || key.Ordinal < 0 || ordered[key] {
+					continue
+				}
+				ordered[key] = true
+				epoch := result[key]
+				for _, bound := range original[key].Deadlines {
+					if bound.Through > draws[ev.Player] {
+						epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: draws[ev.Player], Name: bound.Name, Count: bound.Count})
+					}
+				}
 				result[key] = epoch
 			}
 		}

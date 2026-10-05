@@ -283,5 +283,72 @@
     "interpretation": "Guided branches that fail at355 have the unique Vault of Whispers at library index37, after the hypothetical scry bottomed it. This supports trying a general public scry partition preference. It does not prove the complete504 root, native audit or playing strength is repaired.",
     "proposed_repair": "Prefer a legal hypothetical arrange partition matching immediate public LibraryOrder/Scry bottom count; put a subsequently public hand exit first when that name exists in the hypothetical look window. Preserve every legal alternative and all budgets/weights.",
     "repair_validation_pending": true
+  },
+  "component056": {
+    "source_commit": "295fdbc3c64e9dbc827d9424fd0e0eae06d3cb20",
+    "attempt056_seal_sha256": "373330f303f461f81ac1817c66696a8d973f7eebdb73ad39b67bbad47a387d12",
+    "cases": {
+      "364": {
+        "worlds": 8,
+        "refused": "",
+        "work": {
+          "Attempts": 1,
+          "Submits": 729,
+          "Nodes": 11,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": true
+      },
+      "410": {
+        "worlds": 8,
+        "refused": "",
+        "work": {
+          "Attempts": 1,
+          "Submits": 831,
+          "Nodes": 19,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "478": {
+        "worlds": 8,
+        "refused": "",
+        "work": {
+          "Attempts": 2,
+          "Submits": 2412,
+          "Nodes": 1330,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "504": {
+        "worlds": 0,
+        "refused": "public reconstruction submit budget exhausted",
+        "work": {
+          "Attempts": 4,
+          "Submits": 5000,
+          "Nodes": 4200,
+          "BudgetExhausted": 1
+        },
+        "native_diagnostics_identical": false
+      },
+      "596": {
+        "worlds": 8,
+        "refused": "",
+        "work": {
+          "Attempts": 1,
+          "Submits": 1220,
+          "Nodes": 31,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      }
+    },
+    "candidate_did_not_repair504": true,
+    "next_candidate": "Keep existing original and carry-only proposals; offer a separate hypothetical held-before-reorder proposal on attempt2 modulo4. Names come only from current public deadlines; native weights and budgets unchanged.",
+    "interpretation": "The observed Lembas bottoms its one-card look window, so keeping the hypothetical looked-at Vault would contradict the public bottom count. A matching witness must have held the later public card before this reorder or draw it from the remaining tail. Current weak prefix deadlines allow proposals to place its only copy in the bottomed window. The failed partition preference is not proof of a repaired root.",
+    "validation_pending": true,
+    "native_qualification_complete": false,
+    "rated_games": 0
   }
 }

@@ -67,6 +67,40 @@ func TestSpellbenchPublicScryRequiresMatchingPublicMarker(t *testing.T) {
 	}
 }
 
+func TestSpellbenchPublicScryHeldProposalPreservesOriginalConstraints(t *testing.T) {
+	key := epochKey{Player: 1}
+	original := map[epochKey]epochConstraints{key: {Deadlines: []deadlineConstraint{
+		{Through: 1, Name: "Already consumed", Count: 1},
+		{Through: 4, Name: "Later public card", Count: 1},
+	}}}
+	for _, player := range []state.PlayerID{0, 1} {
+		h := History{Actor: 0, Frames: []Frame{{Events: []ObservedEvent{
+			{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1},
+			{Kind: events.LibraryOrder, Player: player}, {Kind: events.Draw, Player: 1},
+			{Kind: events.LibraryOrder, Player: player},
+		}}}}
+		guided := spellbenchScryHeldEpochs(h, original)
+		if len(original[key].Deadlines) != 2 {
+			t.Fatal("optional held proposal changed original native constraints")
+		}
+		if player == 0 {
+			if !reflect.DeepEqual(guided[key], original[key]) {
+				t.Fatal("actor reorder constrained the opponent")
+			}
+			continue
+		}
+		bounds := guided[key].Deadlines
+		if len(bounds) != 3 || bounds[2].Name != "Later public card" || bounds[2].Through != 2 || bounds[2].Count != 1 {
+			t.Fatalf("held proposal did not precede the first reorder: %+v", bounds)
+		}
+		// The copied prefix must have independent storage as well as values.
+		bounds[0].Count = 9
+		if original[key].Deadlines[0].Count != 1 {
+			t.Fatal("held witness aliased original deadline storage")
+		}
+	}
+}
+
 func TestSpellbenchPublicPassBeforeLaterAction(t *testing.T) {
 	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1", "p2"})}
 	e.G.Players[2].Lost = true
