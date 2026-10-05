@@ -63,7 +63,7 @@
   },
   "cloud_host_alias": "RunPod-gorge042",
   "placement": "main-pc=unavailable: verified human research priority; haleyspc=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host for one first-failure correctness capture, no substantial allocation selected",
-  "runtime_seal_sha256": "fad0d1108536b76e253f89717542e322955d01b8cc732e95d28723ccda46f183",
+  "runtime_seal_sha256": "5ca30b47a3eef868eeb5a213973e91247492bcf1210ce78df08ad424111ff77a",
   "native_qualifier_sha256": "2ee674d41a841730a73f620a6612e6367e4c7fa99690e359e2e7a25ccbbbab3c",
   "runtime_binaries": [
     "gorgequal-linux-amd64"
@@ -88,7 +88,7 @@
   "parent_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\DRIVER-ACTUAL.py",
   "parent_sha256": "a5bd724dc9649a4ebfc212b01068680cc063741e6200f93863ef9496a68bd399",
   "owner_supervision_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\SUPERVISION.json",
-  "runtime_pins_complete": false,
+  "runtime_pins_complete": true,
   "diagnostic_capture_complete": false,
   "next_wake_condition": "Durable diagnostic binary pins, first exact actor-public refusal, parent failure, or one-hour lease deadline; one owner watcher and independent release guardian.",
   "initial_connect_path_failure": {
@@ -96,5 +96,14 @@
     "remedy": "Corrected generated known-hosts root to exact owned diagnostic root; strict authenticated fingerprint verification passed before transfer.",
     "source_transferred_before_verified_connection": false
   },
-  "reference_qualification_complete": false
+  "reference_qualification_complete": false,
+  "diagnostic_binary_sha256": "7bf3b5f01589c05cdf81a34fad13200781f2a3b7d94dfc6c99313320a4519dfe",
+  "logging_overlay_sha256": "29d0f1883963604381762d06016f3071ee552d16d313764ce45bf84442940a9e",
+  "runtime_build_record": "E:\\spellbench-gorge-diagnostic-runtime-20261005-042\\BUILD.json",
+  "source_fingerprint_passed": true,
+  "linked_compiler_test_passed": true,
+  "observed_cpu_model": "AMD Ryzen 7 7700 8-Core Processor",
+  "observed_effective_cpu_quota": 6.8,
+  "observed_memory_limit_bytes": 29999996928,
+  "remote_facts_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\REMOTE-FACTS.json"
 }
