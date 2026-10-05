@@ -491,8 +491,11 @@ the other residual channels listed in protocol section 13 remain as declared
 by the protocol. No playing-strength result is claimed by these checks.
 
 The zero-game rated handoff now resolves production068, all12 native modes, two
-anchors, five decks and3,640 scheduled games. It admits no launch. The current
-Placement schema requires exactlymain-pc/haleyspc/runpod, with one markedused,
-so a new standardGitHub host needs truthful supported placement before any
-substantial evaluation. It must qualify matched serial/parallel completed work.
-No raw-executable or falseRunPod placement is used.
+anchors, five decks and3,640 scheduled games. It admits no launch. The supported placement now permits an additional `github-actions` host,
+while retaining all three mandatory policy checks and legacy serialization.
+Native069 uses the exact production068 inputs transferred through an unpublished
+draft asset. Its supported guard must observe matching serial/parallel outputs
+and actual runner resources before the full audit. The result remains pending.
+Ledger038 retains the prior $9.95136347 bound and reserves another $0.01 for
+one capped result artifact, bringing the reserved total to $9.96136347.
+No new RunPod lease or rated launch is admitted.

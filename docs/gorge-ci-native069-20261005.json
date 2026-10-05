@@ -48,5 +48,29 @@
   "ci_run_id": null,
   "remote_result_recovery": "E/D recovery and verification before hosted artifact and draft input deletion",
   "release_id": 403724120,
-  "remote_asset_digest": "sha256:d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a"
+  "remote_asset_digest": "sha256:d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a",
+  "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
+  "input_stage_anonymous_status": 404,
+  "phase": "inputs_prepared_guarded_dispatch_ready",
+  "native_qualification_passed": false,
+  "checks": {
+    "throughput_tests_passed": 79,
+    "affected_benchmark_arena_tests_passed": 248,
+    "affected_tests_skipped": 2,
+    "native_workflow_yaml_valid": true,
+    "python_compile_passed": true,
+    "diff_check_passed": true,
+    "zero_game_handoff_native_policies": 12,
+    "zero_game_handoff_scheduled_games": 3640
+  },
+  "saved_six_case_component_gate_reused": true,
+  "engine_source_unchanged": true,
+  "source_engine_ci": {
+    "source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+    "status": "passed",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390"
+  },
+  "next_wake": "GitHub native069 terminal state or fault; recover exact result and logs to E/D before deleting temporary hosted inputs/results",
+  "raw_native_launch_used": false,
+  "new_runpod_lease": false
 }

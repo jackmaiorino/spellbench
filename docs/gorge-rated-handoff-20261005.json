@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-rated-handoff/v1",
-  "source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
+  "source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
   "runtime_source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
   "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-068",
   "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
@@ -85,5 +85,10 @@
     "Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp",
     "Supported bench run once, result validation/review, compact publication PR and verified Pages entries"
   ],
-  "recipe_sha256": "fcc0482a1bd12dc21a762f9ed96b2dd7c8eeb1ceadb0fe7fcb004d4bd560bf86"
+  "recipe_sha256": "d70779de9f63da06a00b641e30959075969bafb592662a72ab0e0e3ff24c6a7e",
+  "launcher_source_changes": [
+    "python/spellbench/arena/allocation.py"
+  ],
+  "launcher_allocation_sha256": "a0673614a805e6fe04a4e4cfe6ebf019772fa942337dd5dc44713ec09e8ba56a",
+  "launcher_throughput_requalification_required": true
 }
