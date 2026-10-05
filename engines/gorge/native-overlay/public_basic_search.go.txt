@@ -598,6 +598,12 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 		for _, identity := range frame.Identities {
 			identities[identity.ID] = identity
 		}
+		explored := map[uint32]bool{}
+		for _, ev := range frame.Events {
+			if ev.Kind == events.Explore && ev.Player == h.Actor && len(ev.IDs) == 1 {
+				explored[ev.IDs[0]] = true
+			}
+		}
 		for _, ev := range frame.Events {
 			cursor := cursors[ev.Player]
 			switch ev.Kind {
@@ -616,6 +622,16 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 					continue
 				}
 				identity, known := identities[ev.Obj]
+				if known && identity.Owner == h.Actor && explored[ev.Obj] && ev.From == state.ZLibrary && (ev.To == state.ZHand || ev.To == state.ZGraveyard) {
+					// A completed owned explore consumes the observed top card.
+					// It preserves the remaining filtered order and advances the
+					// original shuffle prefix by one, just like a draw. Unobserved
+					// removals and every other library mutation stay unguided.
+					owned := cursors[h.Actor]
+					owned.draws++
+					cursors[h.Actor] = owned
+					continue
+				}
 				if h.ActorBoundaries && !known && ev.Obj == 0 && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
 					identity.Owner, known = ev.Player, true
 				}

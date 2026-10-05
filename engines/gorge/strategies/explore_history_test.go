@@ -76,12 +76,43 @@ func TestPublicActorExploreAfterLondonAndToken(t *testing.T) {
 }
 
 func actorExploreHistory(t *testing.T, outcome string, swapTail bool) (PublicGame, History) {
+	return actorExploreHistoryWithSearch(t, outcome, swapTail, false)
+}
+
+func TestPublicBasicSearchAfterExploreRemoval(t *testing.T) {
+	for _, swap := range []bool{false, true} {
+		setup, history := actorExploreHistoryWithSearch(t, "graveyard", swap, true)
+		last := history.Frames[len(history.Frames)-1]
+		if last.Decision == nil || len(last.Decision.Options) != 2 || last.Decision.Options[0].Action.Kind != "search" {
+			t.Fatal("fixture must reach the actor's two ordered basic-land offers after explore")
+		}
+		opts := searchprobe.SampleOptions{Seed: 54321, Attempts: 64, Worlds: 8, MaxSubmits: 5000, KnownCards: true}
+		root, work, err := searchprobe.SpellbenchReconstructRedeal(setup, history, opts)
+		if err != nil || root == nil || work.BudgetExhausted != 0 {
+			t.Fatalf("search after observed explore removal: %v work=%+v", err, work)
+		}
+		known, err := searchprobe.ProjectKnownCards(history)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := known.Holds(searchprobe.World{Engine: root.Engine, Observer: root.Observer}); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("swapped=%v frames=%d reconstruction=%+v", swap, len(history.Frames), work)
+	}
+}
+
+func actorExploreHistoryWithSearch(t *testing.T, outcome string, swapTail, stopAtSearch bool) (PublicGame, History) {
 	t.Helper()
 	registry, err := testutil.OpenCorpusRegistry(os.Getenv("GORGE_CARDS"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	scout := fixtureCard(t, "Name:Public Explore Scout\nManaCost:0\nTypes:Creature Scout\nPT:1/1\nA:AB$ Token | Cost$ 0 | TokenScript$ c_a_map_sac_explore\nA:AB$ Explore | Cost$ 0 | Defined$ Self\nOracle:Fixture.\n")
+	scoutText := "Name:Public Explore Scout\nManaCost:0\nTypes:Creature Scout\nPT:1/1\nA:AB$ Token | Cost$ 0 | TokenScript$ c_a_map_sac_explore\nA:AB$ Explore | Cost$ 0 | Defined$ Self\n"
+	if stopAtSearch {
+		scoutText += "A:AB$ ChangeZone | Cost$ 0 | Origin$ Library | Destination$ Battlefield | ChangeType$ Land.Basic | ChangeNum$ 1 | DefinedPlayer$ You\n"
+	}
+	scout := fixtureCard(t, scoutText+"Oracle:Fixture.\n")
 	quiet := fixtureCard(t, "Name:Quiet Explore Artifact\nManaCost:99\nTypes:Artifact\nOracle:Fixture.\n")
 	forest, ok := registry.Lookup("Forest")
 	if !ok {
@@ -92,6 +123,13 @@ func actorExploreHistory(t *testing.T, outcome string, swapTail bool) (PublicGam
 		actor[i], opponent[i] = quiet, quiet
 	}
 	actor[0], actor[22] = scout, forest
+	if stopAtSearch {
+		swamp, ok := registry.Lookup("Swamp")
+		if !ok {
+			t.Fatal("Swamp")
+		}
+		actor[23] = swamp
+	}
 	if outcome == "land" {
 		actor[7] = forest
 	}
@@ -127,14 +165,19 @@ func actorExploreHistory(t *testing.T, outcome string, swapTail bool) (PublicGam
 	for step := 0; step < 350 && !engine.G.Over; step++ {
 		d := engine.Pending()
 		driver.Observe(engine)
+		finishedExplore := false
 		for _, event := range engine.L.Events {
 			token = token || event.Kind == events.TokenCreate
+			finishedExplore = finishedExplore || event.Kind == events.Explore
 		}
 		if activated && d.Player == 0 {
+			if stopAtSearch && finishedExplore && d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Kind == "search" {
+				return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
+			}
 			if outcome == "pending" && d.Kind == decision.KChoose && len(d.Options) == 2 && d.Options[0].Kind == "graveyard" && d.Options[1].Kind == "top" {
 				return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
 			}
-			if d.Kind == decision.KPriority && engine.G.Turn >= 3 {
+			if !stopAtSearch && d.Kind == decision.KPriority && engine.G.Turn >= 3 {
 				if !mulligan || !token {
 					t.Fatal("fixture skipped London or token")
 				}
@@ -153,7 +196,7 @@ func actorExploreHistory(t *testing.T, outcome string, swapTail bool) (PublicGam
 			if d.Kind == decision.KMulligan && option.Kind == "keep" {
 				choice = i
 			}
-			if d.Kind == decision.KMulligan && option.Kind == "mulligan" && d.Player == 0 && !mulligan {
+			if d.Kind == decision.KMulligan && option.Kind == "mulligan" && d.Player == 0 && !mulligan && !stopAtSearch {
 				choice, mulligan = i, true
 			}
 			if option.Kind == "bottom" && engine.G.Obj(option.Obj).Card.Faces[0].Name == quiet.Faces[0].Name {
@@ -176,6 +219,10 @@ func actorExploreHistory(t *testing.T, outcome string, swapTail bool) (PublicGam
 					}
 					if token && !activated && api == "Explore" {
 						choice, activated = i, true
+						break
+					}
+					if stopAtSearch && finishedExplore && api == "ChangeZone" {
+						choice = i
 						break
 					}
 				}
