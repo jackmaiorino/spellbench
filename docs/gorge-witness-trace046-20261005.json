@@ -97,8 +97,30 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "f17cd43ad7d12f6125bb25df11a8bc647166da218c377ac8337ab2256704d47a",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_exact_baseline_diagnostic_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-046\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-046\\CATALOG.json",
-  "guard_path": "Independent half-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay"
+  "guard_path": "Independent half-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
+  "pod_id": "a7738odlay383o",
+  "owned_lease_name": "spellbench-gorge-witness-9aab10c5abab462e",
+  "lease_deadline_utc": "2026-10-05T06:54:50.9370663+00:00",
+  "parent_pid": 3186,
+  "parent_start_tick": "4001383431",
+  "owner_watcher_session_id": 66128,
+  "parent_source_of_record": "E:\\spellbench-gorge-runpod-20261005-046\\DRIVER-ACTUAL.py",
+  "parent_sha256": "d243630e5ebb45f58f56de4bb56c06dfb1a8fd523d1cdd9f040c1c08a7a5cfda",
+  "parent_matches_prepared_bundle": true,
+  "observed_cpu_model": "Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz",
+  "observed_effective_cpu_quota": 8.5,
+  "observed_memory_limit_bytes": 61999996928,
+  "quoted_compute_rate_usd_per_hour": 0.23,
+  "runtime_pins_complete": false,
+  "component_roots_passed": false,
+  "reference_qualification_complete": false,
+  "affected_go_checks": {
+    "source_commit": "78ed700911c4b27361f8d63ecb2fc04aafd04c87",
+    "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37270082693",
+    "full_suite": "passed"
+  },
+  "next_wake_condition": "Exact baseline diagnostic completion, parent failure, or owned half-hour deadline. One owner watcher and guardian."
 }
