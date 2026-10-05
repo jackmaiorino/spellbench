@@ -873,3 +873,22 @@ activation or scoring. All fourteen existing Java replay checks pass. Initial
 fixture failures are retained under
 `E:/spellbench-xmage-all-20261002/jack-library-position-001`. This guard does not
 implement position transport or qualify native library reconstruction.
+
+Empty-stack priority passes can now resume to a later priority phase in the same
+turn with the same active player. The frontend retains the selected pass, complete
+original priority state, exact public opponent-pass sequence and reconstruction
+seeds. `JackDialogReplay` applies the original pass and resumes the reconstructed
+engine. Its actual projected observation must match the requested decision before
+the next original priority dispatch scores anything. Both serving and frontend
+require the phase-advance receipt; unrecorded intervening choices or priority calls
+refuse. Turn changes, repeated/backward phase sequences and nested combat callbacks
+remain unsupported by this path.
+
+All 267 affected Python checks pass, including 34 new transport/refusal checks.
+Two fresh metadata JVM outputs match across upkeep/draw, main/beginning-of-combat,
+end-of-combat/main and main/end-step transitions with both public pass orders.
+They compare real projections and reject a reached phase that differs before
+scoring. All fifteen existing Java replay checks pass. Resume itself is scripted
+metadata, so native automatic actions, draws, phase legality and event-loop
+qualification remain open. Evidence lives under
+`E:/spellbench-xmage-all-20261002/jack-phase-advance-001`.

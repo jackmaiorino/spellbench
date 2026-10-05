@@ -137,12 +137,26 @@ def cleanup_discard(root, current, seat):
             and type(group.get("substep_index")) is int and group["substep_index"] == selected)
 
 
+def phase_advance(root, current, seat):
+    """Empty-stack forward phase resume, with actual engine projection before scoring."""
+    before, now = root.get("observation", {}), current.get("observation", {})
+    phases = ("upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
+              "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step")
+    return (root.get("context", {}).get("kind") == current.get("context", {}).get("kind") == "priority"
+            and root.get("acting_seat") == current.get("acting_seat") == before.get("viewer") == now.get("viewer") == seat
+            and before.get("priority_seat") == now.get("priority_seat") == seat
+            and before.get("active_seat") in ("p0", "p1") and now.get("active_seat") == before["active_seat"]
+            and type(before.get("turn")) is int and type(now.get("turn")) is int and now["turn"] == before["turn"] > 0
+            and before.get("stack") == [] and before.get("phase_step") in phases and now.get("phase_step") in phases
+            and phases.index(now["phase_step"]) > phases.index(before["phase_step"]))
+
+
 def resolution_passes(root, current, seat):
     passed = root["observation"].get("passed_seats")
     other = "p1" if seat == "p0" else "p0"
     if (not isinstance(passed, list) or any(p not in ("p0", "p1") for p in passed)
             or len(set(passed)) != len(passed) or seat in passed
-            or not (root["observation"].get("stack") or cleanup_discard(root, current, seat))):
+            or not (root["observation"].get("stack") or cleanup_discard(root, current, seat) or phase_advance(root, current, seat))):
         raise ValueError("original resolution has no exact public stack or cleanup pass anchor")
     return [] if other in passed else [other]
 
@@ -175,6 +189,9 @@ def bound_replay(record, seat):
             raise ValueError("malformed original serving replay prefix")
     previous = root
     cleanup = action == "pass" and cleanup_discard(root, record["decision"], seat)
+    phase = action == "pass" and phase_advance(root, record["decision"], seat)
+    if phase and replay["earlier"]:
+        raise ValueError("original phase advance has unrecorded intervening callbacks")
     entries = [*replay["earlier"], {"decision": record["decision"]}]
     for index, entry in enumerate(entries):
         current = entry["decision"]
@@ -184,7 +201,7 @@ def bound_replay(record, seat):
                 or current["seat_step"] != previous["seat_step"] + 1
                 or current.get("context", {}).get("kind") not in (
                     ("choice", "priority") if index == len(entries) - 1 else ("choice",))
-                or (not cleanup and any(current["observation"].get(key) != root["observation"].get(key)
+                or (not cleanup and not phase and any(current["observation"].get(key) != root["observation"].get(key)
                        for key in ("turn", "phase_step")))
                 or cleanup and (not cleanup_discard(root, current, seat)
                     or current["candidates"][0]["semantic"]["selected_count"] != index
@@ -328,6 +345,8 @@ class JackNativeSession:
                         raise ValueError("original serving resolution lost its recorded pass order")
                     if resolution and cleanup_discard(record["anchor"]["decision"], record["decision"], self.start["seat"]) and result.get("original_cleanup_path") is not True:
                         raise ValueError("original serving cleanup lost its actual end-step transition")
+                    if resolution and phase_advance(record["anchor"]["decision"], record["decision"], self.start["seat"]) and result.get("original_phase_advance_path") is not True:
+                        raise ValueError("original serving phase advance lost its actual engine resume")
                     if record["decision"].get("context", {}).get("kind") == "priority":
                         deferred = result.get("original_activation_pass_deferred")
                         if (result.get("original_priority_continuation") is not True or type(deferred) is not bool

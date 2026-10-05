@@ -47,6 +47,7 @@ class Session:
                           original_priority_passes_replayed=len(record["replay"]["priority_passes"]),
                           original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
             result["original_cleanup_path"] = agent.cleanup_discard(record["anchor"]["decision"], record["decision"], "p0")
+            result["original_phase_advance_path"] = agent.phase_advance(record["anchor"]["decision"], record["decision"], "p0")
         self.results.append(result)
         return result
 
@@ -67,6 +68,37 @@ def ready(indices=(0,), **options):
 
 def priority(step=0):
     return decision({"kind": "pass"}, {"kind": "cast_spell", "source": {"object_id": "spell"}}, step=step)
+
+
+@pytest.mark.parametrize("before,after", [("upkeep", "draw"), ("precombat_main", "beginning_of_combat"),
+                                       ("end_of_combat", "postcombat_main"), ("postcombat_main", "end_step")])
+@pytest.mark.parametrize("already", [False, True])
+def test_empty_stack_phase_resume_preserves_original_anchor_state_and_seeds(before, after, already):
+    bot, session = ready([0, 1]); root, current = priority(), priority(1)
+    for value, phase in ((root, before), (current, after)):
+        value["observation"].update(phase_step=phase, priority_seat="p0", active_seat="p0")
+    root["observation"]["passed_seats"] = ["p1"] if already else []
+    bot.choose(view(root)); bot.choose(view(current))
+    first, last = [r for r, _ in session.requests]
+    assert last["anchor"]["decision"] == first["decision"]
+    assert last["anchor"]["original_priority_state"] == session.results[0]["original_priority_state"]
+    assert last["replay"] == {"priority_passes": [] if already else ["p1"], "earlier": []}
+    assert (first["world_seed"], first["id_seed"]) == (last["world_seed"], last["id_seed"])
+    assert session.results[-1]["original_phase_advance_path"] and not session.closed
+    bot.close()
+
+
+@pytest.mark.parametrize("value", [False, 1, None])
+def test_phase_resume_requires_original_engine_path_receipt(value):
+    bot, session = ready([0, 0]); root, current = priority(), priority(1)
+    for d, phase in ((root, "precombat_main"), (current, "beginning_of_combat")):
+        d["observation"].update(phase_step=phase, priority_seat="p0", active_seat="p0")
+    bot.choose(view(root)); choose = session.choose
+    def corrupted(record, **options):
+        result = choose(record, **options); result["original_phase_advance_path"] = value; return result
+    session.choose = corrupted
+    with pytest.raises(ValueError, match="phase advance"): bot.choose(view(current))
+    assert session.closed and bot.failed
 
 
 def binary(step=1):

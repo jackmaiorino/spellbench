@@ -51,11 +51,57 @@ def result(session, record, *, calls=0, rid="1"):
             message["result"].update(original_resolution_path=True, original_activation_path=False,
                                      original_priority_passes_replayed=len(record["replay"]["priority_passes"]))
             message["result"]["original_cleanup_path"] = serving.cleanup_discard(record["anchor"]["decision"], record["decision"], "p0")
+            message["result"]["original_phase_advance_path"] = serving.phase_advance(record["anchor"]["decision"], record["decision"], "p0")
     return message
 
 
 def rows(peer, *messages):
     peer.rows.extend(json.dumps(message).encode() if isinstance(message, dict) else message for message in messages)
+
+
+def phase_record(record, before="precombat_main", after="beginning_of_combat", already=False):
+    resolution_record(record, already=already, priority=True)
+    for d, phase in ((record["anchor"]["decision"], before), (record["decision"], after)):
+        d["observation"].update(phase_step=phase, priority_seat="p0", active_seat="p0", stack=[])
+
+
+@pytest.mark.parametrize("before,after", [("upkeep", "draw"), ("precombat_main", "beginning_of_combat"),
+                                       ("end_of_combat", "postcombat_main"), ("postcombat_main", "end_step")])
+@pytest.mark.parametrize("already", [False, True])
+def test_phase_resume_transports_empty_stack_original_root(tmp_path, monkeypatch, before, after, already):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch);phase_record(record, before, after, already)
+    rows(peer, result(session, record));chosen=session.choose(record, timeout_s=2)
+    assert chosen["original_phase_advance_path"] and peer.writes[0]["anchor"] == record["anchor"]
+    assert peer.writes[0]["replay"]["priority_passes"] == ([] if already else ["p1"])
+    session.close();assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["reverse", "turn", "active", "priority", "viewer", "context", "same", "pregame", "prefix", "missing-pass", "extra-pass", "own-passed"])
+def test_invalid_empty_stack_phase_record_refuses_before_jvm_write(tmp_path, monkeypatch, fault):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch);phase_record(record)
+    obs=record["decision"]["observation"]
+    if fault == "reverse": obs["phase_step"]="upkeep"
+    if fault == "turn": obs["turn"] += 1
+    if fault == "active": obs["active_seat"]="p1"
+    if fault == "priority": obs["priority_seat"]="p1"
+    if fault == "viewer": obs["viewer"]="p1"
+    if fault == "context": record["decision"]["context"]["kind"]="choice"
+    if fault == "same": obs["phase_step"]="precombat_main"
+    if fault == "pregame": obs["phase_step"]="pregame"
+    if fault == "prefix": record["replay"]["earlier"]=[{"decision":copy.deepcopy(record["decision"]),"selection":record["anchor"]["selection"]}]
+    if fault == "missing-pass": record["replay"]["priority_passes"]=[]
+    if fault == "extra-pass": record["replay"]["priority_passes"].append("p1")
+    if fault == "own-passed": record["anchor"]["decision"]["observation"]["passed_seats"]=["p0"]
+    with pytest.raises(ValueError):session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("value", [False, 1, None])
+def test_phase_resume_receipt_cannot_omit_actual_engine_path(tmp_path, monkeypatch, value):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch);phase_record(record)
+    message=result(session, record);message["result"]["original_phase_advance_path"]=value;rows(peer,message)
+    with pytest.raises(ValueError, match="phase advance"):session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed
 
 
 def test_shared_original_owner_and_increasing_decisions(tmp_path, monkeypatch):

@@ -283,3 +283,9 @@ reconstructed owner's UUID order before projection, alias admission and scoring.
 Stale positions and wrong-library references refuse without fetching hidden names.
 Two repeat metadata JVMs and fourteen Java replay regressions pass. Native library
 reconstruction and position transport remain unqualified.
+
+Empty-stack forward phase resumes retain the original pass/state/seeds and verify
+the actual reached observation before the next priority scores. Serving and
+frontend require the phase receipt. 267 affected Python checks, two repeat metadata
+JVMs and fifteen Java regressions pass. Native phase transitions, turn changes,
+repeated phases and intervening combat callbacks remain unqualified.

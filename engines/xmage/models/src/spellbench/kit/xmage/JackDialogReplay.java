@@ -27,10 +27,25 @@ public final class JackDialogReplay {
     private final boolean continuation;
     private final boolean resolution;
     private final boolean cleanup;
+    private final boolean phaseAdvance;
     private final ArrayDeque<String> passes=new ArrayDeque<>();
     private int passesReplayed;
     private boolean applyingAnchorPass;
     private boolean deferredPass;
+
+    static boolean phaseAdvance(Map<String,Object> root,Map<String,Object> current,String viewer) {
+        Map<String,Object> before=Json.obj(root,"observation"),now=Json.obj(current,"observation");
+        List<String> phases=Arrays.asList("upkeep","draw","precombat_main","beginning_of_combat","declare_attackers",
+                "declare_blockers","combat_damage","end_of_combat","postcombat_main","end_step");
+        int first=phases.indexOf(Json.str(before,"phase_step")),last=phases.indexOf(Json.str(now,"phase_step"));
+        return "priority".equals(Json.str(Json.obj(root,"context"),"kind")) && "priority".equals(Json.str(Json.obj(current,"context"),"kind"))
+                && viewer.equals(Json.str(root,"acting_seat")) && viewer.equals(Json.str(current,"acting_seat"))
+                && viewer.equals(Json.str(before,"viewer")) && viewer.equals(Json.str(now,"viewer"))
+                && viewer.equals(Json.str(before,"priority_seat")) && viewer.equals(Json.str(now,"priority_seat"))
+                && Arrays.asList("p0","p1").contains(Json.str(before,"active_seat")) && Objects.equals(before.get("active_seat"),now.get("active_seat"))
+                && before.get("turn") instanceof Long && (Long)before.get("turn")>0 && Objects.equals(before.get("turn"),now.get("turn"))
+                && Json.arr(before,"stack").isEmpty() && first>=0 && last>first;
+    }
 
     private static void project(World world,Map<String,Object> decision) throws Exception {
         JackReplayKnowledge.verifyPositions(world,decision);
@@ -53,12 +68,14 @@ public final class JackDialogReplay {
             continuation="priority".equals(Json.str(Json.obj(decision,"context"),"kind"));
             resolution="pass".equals(Json.str(ModelReplay.selectedSemantic(Json.obj(anchor,"decision"),Json.obj(anchor,"selection")),"kind"));
             cleanup=resolution && JackGeneralTargetEncoder.cleanupTransition(Json.obj(anchor,"decision"),decision);
+            phaseAdvance=resolution && phaseAdvance(Json.obj(anchor,"decision"),decision,world.viewer);
+            if(phaseAdvance && !earlier.isEmpty())throw new IllegalArgumentException("phase advance has unrecorded intervening callbacks");
             if(earlier.size()>4096) throw new IllegalArgumentException("original dialog replay prefix exceeds its bound");
             check(decision);check(Json.obj(anchor,"decision"));
             if(continuation || resolution) {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation"),now=Json.obj(decision,"observation");
                 for(String key:Arrays.asList("turn","phase_step"))if(!Objects.equals(before.get(key),now.get(key)))
-                    if(!cleanup)throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
+                    if(!cleanup && !phaseAdvance)throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
             }
             for(Object item:earlier) {
                 Map<String,Object> entry=Json.obj(item);check(Json.obj(entry,"decision"));
@@ -83,7 +100,7 @@ public final class JackDialogReplay {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation");
                 String other="p0".equals(world.viewer)?"p1":"p0";
                 List<Object> passed=Json.arr(before,"passed_seats");
-                if(Json.arr(before,"stack").isEmpty() && !cleanup || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"))
+                if(Json.arr(before,"stack").isEmpty() && !cleanup && !phaseAdvance || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"))
                         || passed==null || passed.contains(world.viewer) || new HashSet<>(passed).size()!=passed.size()
                         || !Arrays.asList("p0","p1").containsAll(passed))
                     throw new IllegalArgumentException("resolution replay needs a public nonempty stack and passed-seat facts");
@@ -267,6 +284,7 @@ public final class JackDialogReplay {
     private Map<String,Object> resolutionReceipt(Map<String,Object> result) {
         result.put("original_activation_path",false);result.put("original_resolution_path",true);
         result.put("original_cleanup_path",cleanup);
+        result.put("original_phase_advance_path",phaseAdvance);
         result.put("original_dialog_prefix_replayed",(long)replayed);
         result.put("original_priority_passes_replayed",(long)passesReplayed);return result;
     }

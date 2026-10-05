@@ -12,7 +12,7 @@ import time
 from spellbench import wire
 from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_jack_native_inference import PROFILES
-from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, cleanup_discard, digest, priority_state, resolution_passes
+from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, cleanup_discard, digest, phase_advance, priority_state, resolution_passes
 from xmage_jack_london import bound_view as london_view
 from xmage_neural_combat import CombatPlan, battlefield, combat_kind, select_candidate, target
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
@@ -270,7 +270,8 @@ class JackNativeAgent:
                          and self.history.anchor["selection"]["semantic_echo"].get("kind") == "pass")
             continuing = (kind == "priority" and self.history.anchor is not None
                           and (self.history.anchor["selection"]["semantic_echo"].get("kind") in _ACTIVATIONS
-                               or resolving and self.history.anchor["decision"]["observation"].get("stack")))
+                               or resolving and (self.history.anchor["decision"]["observation"].get("stack")
+                                    or phase_advance(self.history.anchor["decision"], current, self.game.seat))))
             if kind in ("binary", "x", "mode", "named", "target") or continuing:
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
                         not in _ACTIVATIONS | {"pass"}):
@@ -337,6 +338,8 @@ class JackNativeAgent:
                     raise ValueError("original resolution lost its actual path or recorded pass order")
                 if cleanup_discard(record["anchor"]["decision"], current, self.game.seat) and result.get("original_cleanup_path") is not True:
                     raise ValueError("original cleanup lost its actual end-step transition")
+                if phase_advance(record["anchor"]["decision"], current, self.game.seat) and result.get("original_phase_advance_path") is not True:
+                    raise ValueError("original phase advance lost its actual engine resume")
             if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":
