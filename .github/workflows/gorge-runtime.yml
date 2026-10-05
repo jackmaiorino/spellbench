@@ -1,0 +1,45 @@
+name: gorge production runtime
+
+on:
+  push:
+    paths:
+      - 'engines/gorge/**'
+      - 'tools/gorge-build-runtime.py'
+      - '.github/workflows/gorge-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Recover space from unused hosted-runner SDKs
+        shell: bash
+        run: |
+          # This fresh ephemeral build job uses its hash-pinned Go SDK only.
+          # Remove fixed unused SDK paths before enforcing the 60GiB reserve.
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+          df -B1 "$RUNNER_TEMP"
+      - name: Build seven production binaries with pinned Go and gorge
+        shell: bash
+        run: python3 tools/gorge-build-runtime.py --job "$RUNNER_TEMP/gorge-production"
+      - name: Enforce the artifact byte budget
+        id: artifact-budget
+        if: always()
+        shell: bash
+        run: |
+          python3 -c 'import os; from pathlib import Path; p=Path(os.environ["RUNNER_TEMP"])/"gorge-production/runtime"; assert p.is_dir(); size=sum(f.stat().st_size for f in p.rglob("*") if f.is_file()); assert size<=256*2**20; print("Artifact bytes:",size)'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && steps.artifact-budget.outcome == 'success'
+        with:
+          name: gorge-production-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gorge-production/runtime/
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 1
