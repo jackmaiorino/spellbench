@@ -616,7 +616,7 @@ It shares one bounded input reader between serial commands and private inference
 keeps the game-owned session across reconstructed decisions, and retires each
 decision's root and copies. It must be launched through the guarded runtime. Its
 source compiles; the entrypoint has not been run under the current native hold.
-The guarded runtime command, live visibility/replay,
+Live visibility/replay,
 pretrained inference and complete-game qualification remain unfinished.
 
 The staged original player now accepts one root-owned replay hook. Actual binary
@@ -636,7 +636,7 @@ Validated alternative-cost keys bind through permitted named source references,
 then restore into the actual original priority rules without repeating their
 simulations or model draws. Missing or foreign state closes the session.
 Encoder-only builds omit the optional replay/search layer; complete callback
-launches must supply it. The guarded Python runtime command, priority-pass
+launches must supply it. Priority-pass
 continuation and remaining callback families still require integration before
 complete-player qualification. The production entrypoint remains unexecuted
 under the native hold. Affected native preparations must be refreshed to the new
