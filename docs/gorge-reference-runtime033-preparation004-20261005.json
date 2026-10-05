@@ -196,5 +196,39 @@
     "native_admission_proved": false,
     "evaluation_launched": false,
     "new_cloud_spend_usd": 0
+  },
+  "dispatch_current_census_preparation": {
+    "at_utc": "2026-10-05T02:14:50.399829+00:00",
+    "phase": "current_scope_census_and_reference_recipes_prepared",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS",
+    "pins": {
+      "gorge-resources-current-20261005.py": {
+        "bytes": 1310,
+        "sha256": "aa89678d63ca01797e997309f8541b04c211b11a74762fe8ca2223450907ebaa"
+      },
+      "gorge-pack-reference034-20261005.py": {
+        "bytes": 10434,
+        "sha256": "c4fb444466de31b7500cda82105ae7b86f3835eee61a240a6549da9b0ec7d0f2"
+      },
+      "gorge-reference034-precreate-check-20261005.py": {
+        "bytes": 2777,
+        "sha256": "c2452721e190ca52f7566b43c80cf74dba9f9b5a7bd41d36679a54f8dbbeae9e"
+      }
+    },
+    "python_syntax_checked": 3,
+    "observed_census": "E:\\spellbench-gorge-runpod-20261005-033\\HOSTS-REFRESH-20261005T0214Z.json",
+    "observed_census_sha256": "2b7144782331259bac52432e233ac15977a6b58bf1459240d606bca2a0c03ccc",
+    "change": "Replace stale proposed-regression026/all-prior-pods-deleted prose in future pack/precreate census with truthful read-only current-scope text; inventory and reservation checks unchanged",
+    "actual_new_pack_refusal": {
+      "preparation_refused": "Native attempt is not sealed and closed",
+      "new_cloud_spend_usd": 0
+    },
+    "current_pack_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-pack-reference034-20261005.py",
+    "current_precreate_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-reference034-precreate-check-20261005.py",
+    "current_census_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-resources-current-20261005.py",
+    "controls_execution_validated": false,
+    "native_admission_proved": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0
   }
 }
