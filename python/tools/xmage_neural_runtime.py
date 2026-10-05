@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -67,7 +68,7 @@ def checked_tree(root, declared, *, suffix=None):
 
 
 def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *, architecture="draftzero-exp1",
-                       play_profile="minimum-visits-diagnostic"):
+                       play_profile="minimum-visits-diagnostic", jack_manifest=None):
     if sha(build / "BUILD.json") != digest:
         raise ValueError("model build manifest changed")
     metadata = json.loads((build / "BUILD.json").read_bytes())
@@ -80,6 +81,20 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
         required_stages = ("search_stage",)
     elif architecture == "magezero-v02":
         required_stages = ("magezero_stage", "magezero_search_stage")
+    elif architecture == "jack-rl-april":
+        required_stages = ("search_stage", "jack_stage")
+        from xmage_jack_sources import CALLBACK_SHA256, ENCODER_SHA256, MULLIGAN_JAVA_SHA256
+        stage = metadata.get("jack_stage")
+        if (jack_manifest is None or metadata.get("jack_inputs_manifest_sha256") != sha(jack_manifest)
+                or not isinstance(stage, dict) or stage.get("original_source_sha256") != ENCODER_SHA256
+                or stage.get("original_callback_sha256") != CALLBACK_SHA256
+                or stage.get("original_mulligan_encoder_sha256") != MULLIGAN_JAVA_SHA256
+                or any(not isinstance(stage.get(key), str) or re.fullmatch("[a-f0-9]{64}", stage[key]) is None for key in (
+                    "staged_callback_player_sha256", "staged_priority_choice_player_sha256",
+                    "staged_neural_selection_sha256", "staged_priority_rules_sha256",
+                    "staged_activation_player_sha256", "staged_parent_mana_player_sha256",
+                    "staged_parent_dialog_player_sha256"))):
+            raise ValueError("Jack runtime needs its complete original player and private manifest pins")
     else:
         raise ValueError("unsupported model runtime architecture")
     if any(not metadata.get(stage) for stage in required_stages):
@@ -98,6 +113,17 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
             "model/spellbench/kit/xmage/MageZeroSearchCombatMain.class",
             "model/spellbench/kit/xmage/MageZeroSearchBridgeMain.class"}.issubset(classes):
         raise ValueError("MageZero runtime lacks its mixed search and combat entrypoints")
+    if architecture == "jack-rl-april":
+        required = {"model/spellbench/models/jack/" + name + ".class" for name in (
+            "OriginalCallbackPlayer", "OriginalPriorityChoicePlayer", "OriginalNeuralSelection",
+            "OriginalActivationPlayer", "OriginalParentManaPlayer", "OriginalParentDialogsPlayer",
+            "StateSequenceBuilder", "CandidateEncoder", "MulliganEncoder", "PriorityRules",
+            "DialogRules", "ModeRules", "TargetRules", "CardSetRules", "CombatRules", "LondonRules")}
+        required |= {"model/spellbench/kit/xmage/" + name + ".class" for name in (
+            "JackOriginalBridgeMain", "JackRootDecision", "JackPriorityState", "JackDialogReplay",
+            "JackDialogEncoder", "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "ModelReplay")}
+        if not required.issubset(classes):
+            raise ValueError("Jack runtime lacks its complete original callback and serving classes")
     checked_tree(build, classes, suffix=".class")
     resources = relative_files(metadata.get("resource_files_sha256"))
     checked_tree(build / "kit", resources)

@@ -660,5 +660,32 @@ refuse instead of discarding recorded original state. Tests cover the public
 lifecycle, one actual Python inference owner across the callback chain, identity,
 clock and cleanup failures, and a byte-identical two-process frontend replay.
 They use synthetic private receipts, no JVM startup or pretrained inference.
-The guarded runtime command and live complete-player qualification remain
-unfinished.
+Live complete-player qualification remains unfinished.
+
+`xmage_jack_native_runtime.py` now constructs the production bridge command and
+connects this frontend to one original inference owner and private JVM per game.
+It validates opaque checkpoint pairs, exact deck evidence, the embedding cache,
+Java, database and complete model build before launch. Jack builds must include
+the private original callback/player stage and the optional replay/search layer;
+reduced encoder builds cannot serve this player. Public identity binds the pair,
+deck, original greedy or no-training sampled profile, build, image and source
+hashes. The JVM receives the same game seed and canonical start digest as its
+Python inference owner.
+
+The runtime requires `--host-guard`, `--host-work-id` and `--priority-hold` from
+the existing job configuration. It rejects an active research hold before any
+host query, and checks the pinned reservation helper, current reservation and
+process containment before copying a database or starting each game's resources.
+It does not acquire or release a reservation. The supported arena `run`/`bench
+run` launcher still owns completed-work throughput, placement and storage
+qualification. Its manifest must include both agent and engine database copies.
+This runtime check is not a replacement for that substantial-work launch guard.
+
+Startup and terminal cleanup retain durable owned-container records. Uncertain
+cleanup keeps the private work directory; cleanup errors preserve the original
+failure. `--print-identity` verifies inputs without copying a database, querying
+host state or starting either resource. Synthetic tests cover partial builds,
+manifest changes, resource guards, two game lifecycles, startup failures and
+retained uncertain cleanup. The real production runtime remains unexecuted
+under the research hold; further callbacks, priority continuation and live
+qualification remain unfinished.
