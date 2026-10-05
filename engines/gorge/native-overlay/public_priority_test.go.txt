@@ -11,6 +11,46 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
+	search := &cards.Card{Faces: []*cards.Face{{Name: "Public Search", Abilities: []*cards.SA{{API: "ChangeZone", Params: map[string]string{"Origin": "Library", "ChangeType": "Land.Basic"}}}}}}
+	spell := &cards.Card{Faces: []*cards.Face{{Name: "Public Spell", Types: []string{"Sorcery"}}}}
+	forest := &cards.Card{Faces: []*cards.Face{{Name: "Forest", Types: []string{"Basic", "Land", "Forest"}}}}
+	swamp := &cards.Card{Faces: []*cards.Face{{Name: "Swamp", Types: []string{"Basic", "Land", "Swamp"}}}}
+	setup := PublicGame{Names: []string{"actor", "opponent"}, Decks: [][]*cards.Card{{search, spell, forest, swamp}, {spell}}}
+	for _, test := range []struct {
+		name, bottomName string
+		owner state.PlayerID
+		anonymous, afterStart bool
+		want bool
+	}{
+		{"owned known nonbasic", "Public Spell", 0, false, false, true},
+		{"owned basic", "Forest", 0, false, false, false},
+		{"owned undeclared", "Unknown", 0, false, false, false},
+		{"opaque owned", "Public Spell", 0, true, false, false},
+		{"opaque opponent", "Public Spell", 1, true, false, true},
+		{"after play began", "Public Spell", 0, false, true, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			bottom := ObservedEvent{Kind: events.MoveZone, Player: test.owner, Obj: 2, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}
+			identities := []Identity{{ID: 1, Name: "Public Search", Owner: 0}, {ID: 2, Name: test.bottomName, Owner: test.owner}, {ID: 3, Name: "Swamp", Owner: 0}, {ID: 4, Name: "Forest", Owner: 0}}
+			if test.anonymous {bottom.Obj = 0}
+			events := []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Draw, Player: 0}}
+			if test.afterStart {events = append(events, ObservedEvent{Kind: events.TurnChange})}
+			events = append(events, bottom)
+			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+				{Identities: identities, Events: events},
+				{Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 1, Options: []ObservedOption{
+					{Action: Action{Kind: "search", Player: 0, Obj: 3}}, {Action: Action{Kind: "search", Player: 0, Obj: 4}},
+				}}},
+			}}
+			window, ok := spellbenchBasicSearches(setup, h)[epochKey{Player: 0, Ordinal: 0}]
+			if ok != test.want || (ok && (window.through != 1 || !reflect.DeepEqual(window.names, []string{"Swamp", "Forest"}))) {
+				t.Fatalf("filtered search guidance: admitted=%v through=%d names=%v", ok, window.through, window.names)
+			}
+		})
+	}
+}
+
 func TestSpellbenchPublicScryPrefersVisibleExitAndKeepsAlternatives(t *testing.T) {
 	for wanted := 0; wanted < 2; wanted++ {
 		e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
