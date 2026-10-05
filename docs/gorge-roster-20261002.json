@@ -569,10 +569,10 @@
       },
       "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
     },
-    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-033",
-    "billing_seal_sha256": "844baef10dc5be054c367b8cd9cfc8ed59045b89fc56b077af699ae86bd35369",
-    "conservative_closed_ceiling_usd": 9.23089247,
-    "active_owned_lease": true,
+    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-034",
+    "billing_seal_sha256": "006e75dff099cf9bb18d5ff84d2c9ce3a50b03f879895e05e91db00a59304916",
+    "conservative_closed_ceiling_usd": 9.54925747,
+    "active_owned_lease": false,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
       "returncode": 1,
@@ -609,7 +609,7 @@
     ],
     "witness046_seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
     "witness046_baseline_refusal_reproduced": true,
-    "cumulative_reservation_ceiling_usd": 9.23089247,
+    "cumulative_reservation_ceiling_usd": 9.54925747,
     "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
     "prior040_first_remaining_refusal": {
       "frames": 596,
@@ -622,7 +622,53 @@
       },
       "first_failure_order_verified": true
     },
-    "current_first_remaining_refusal": "Not captured by production060; capture its first remaining actor-public root under original source/options before proposing another repair",
+    "current_first_remaining_refusal": {
+      "schema": "spellbench-gorge-prefix-refusal/v1",
+      "at_utc": "2026-10-05T11:34:44.395604+00:00",
+      "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+      "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+      "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+      "capsule_sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
+      "closed_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
+      "closed_diagnostic_seal_sha256": "612e27472fc75567b4d346ccaa9720b6be68707e9d5ff4cf6e89eaf4d0c845bb",
+      "public_frames": 637,
+      "actor": 0,
+      "work": {
+        "Attempts": 3,
+        "Submits": 5000,
+        "Nodes": 3907,
+        "BudgetExhausted": 1
+      },
+      "original_options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      },
+      "production_teacher_default": true,
+      "first_failure_order_preserved": true,
+      "historical504_frames_identical": true,
+      "historical504_actor_answer_prefix_equal": true,
+      "exact_reconstruction_replay_complete": false,
+      "deepest_divergence_not_yet_observed": true,
+      "interpretation": "The repaired 504-frame public prefix occurs unchanged within this new 637-frame failure. Additional actor-public scry and shuffle events are visible, but the exhausted reconstruction branch has not yet been traced. No particular root cause or repair is claimed.",
+      "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
+      "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
+      "native_qualification_complete": false,
+      "reference_qualification_complete": false,
+      "rated_games": 0,
+      "published_entries": 0
+    },
     "diagnostic050_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
     "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
     "diagnostic054_seal_sha256": "11deef8f576c4c13658a57a270a164f8f00a99df6600408c5a0a6dfbd62ae6e4",
@@ -719,10 +765,8 @@
     "current_native_result_status": "Failed unchanged zero-refusal gate in serial game52; full parallel/native audit not admitted",
     "saved504_refusal_repaired": true,
     "saved504_component_verification": "docs/gorge-component-verification059-20261005.json",
-    "active_lease_scope": "Diagnostic062 first remaining public-state failure capture; closed production060 remains failed",
-    "active_lease_maximum_usd": 0.4125,
-    "cumulative_ceiling_with_active_lease_usd": 9.64339247,
-    "active_job_record": "docs/gorge-diagnostic062-20261005.json"
+    "current_diagnostic_capture_complete": true,
+    "current_diagnostic_record": "docs/gorge-diagnostic062-20261005.json"
   },
   "current_source_component_status": {
     "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",

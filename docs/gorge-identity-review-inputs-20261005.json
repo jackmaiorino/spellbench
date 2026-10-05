@@ -167,5 +167,52 @@
       }
     },
     "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+  },
+  "current_first_remaining_refusal": {
+    "schema": "spellbench-gorge-prefix-refusal/v1",
+    "at_utc": "2026-10-05T11:34:44.395604+00:00",
+    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+    "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+    "capsule_sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
+    "closed_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
+    "closed_diagnostic_seal_sha256": "612e27472fc75567b4d346ccaa9720b6be68707e9d5ff4cf6e89eaf4d0c845bb",
+    "public_frames": 637,
+    "actor": 0,
+    "work": {
+      "Attempts": 3,
+      "Submits": 5000,
+      "Nodes": 3907,
+      "BudgetExhausted": 1
+    },
+    "original_options": {
+      "Seed": 54321,
+      "Attempts": 64,
+      "Worlds": 8,
+      "MaxSubmits": 5000,
+      "MinESS": 0,
+      "NoLandExclusion": false,
+      "ComparePotentialActions": false,
+      "Parallelism": 0,
+      "KnownCards": false,
+      "Redeal": {
+        "SpellbenchPublic": true,
+        "Engine": null,
+        "Observer": null
+      }
+    },
+    "production_teacher_default": true,
+    "first_failure_order_preserved": true,
+    "historical504_frames_identical": true,
+    "historical504_actor_answer_prefix_equal": true,
+    "exact_reconstruction_replay_complete": false,
+    "deepest_divergence_not_yet_observed": true,
+    "interpretation": "The repaired 504-frame public prefix occurs unchanged within this new 637-frame failure. Additional actor-public scry and shuffle events are visible, but the exhausted reconstruction branch has not yet been traced. No particular root cause or repair is claimed.",
+    "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
+    "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
+    "native_qualification_complete": false,
+    "reference_qualification_complete": false,
+    "rated_games": 0,
+    "published_entries": 0
   }
 }
