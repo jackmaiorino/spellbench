@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-local-public-repair/v1",
-  "observed_at_utc": "2026-10-05T18:54:22.369036+00:00",
+  "observed_at_utc": "2026-10-05T19:25:54.811735+00:00",
   "implementation_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
   "failed_native_record": "docs/gorge-local-native077-20261005.json",
   "previous_Dig_record": "docs/gorge-local-dig-repair082-20261005.json",
@@ -522,6 +522,239 @@
           "redealt_worlds": 0
         }
       ]
+    },
+    "95": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-095",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-095",
+      "seal_sha256": "1336a2f6444ca0bbf013c4561414cf3c172c3dc123bcdd3eb26837bdf82f7ce9",
+      "closure": {
+        "at_utc": "2026-10-05T19:13:35.783774+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 27.543619300005957,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 216,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "passed": true,
+        "public_prefixes": 7,
+        "cases": [
+          {
+            "name": "case-001",
+            "frames": 238,
+            "sha256": "03b0546b8a39a6df7567f77090e27cba83777f47895bd5fb134d7785c5e6928a",
+            "expected_work": {
+              "Attempts": 5,
+              "Submits": 5000,
+              "Nodes": 4248,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 429,
+              "Nodes": 25,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-002",
+            "frames": 240,
+            "sha256": "fedc9c17c71937c4bdab74203fd1a973925db33883b283d1f9d62c380b203afd",
+            "expected_work": {
+              "Attempts": 5,
+              "Submits": 5000,
+              "Nodes": 4015,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 431,
+              "Nodes": 25,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-003",
+            "frames": 245,
+            "sha256": "4ad16008d6d349640dde6f5cb027c31e6c1ea26a864b9eec4172ac6e25f530a6",
+            "expected_work": {
+              "Attempts": 5,
+              "Submits": 5000,
+              "Nodes": 4280,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 438,
+              "Nodes": 25,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-004",
+            "frames": 252,
+            "sha256": "a52faabffb9a025adb1ae1f511fc156e79038d8b0abeeb9548f009db14303a33",
+            "expected_work": {
+              "Attempts": 5,
+              "Submits": 5000,
+              "Nodes": 4078,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 448,
+              "Nodes": 27,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-005",
+            "frames": 253,
+            "sha256": "75d03725463e9eafbd1e245d31df8f11b1a0b07cbfb8a1bddad12d3e8d7d69d8",
+            "expected_work": {
+              "Attempts": 4,
+              "Submits": 5000,
+              "Nodes": 4093,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 448,
+              "Nodes": 25,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-006",
+            "frames": 254,
+            "sha256": "c04d50facc643c5d4b87664c95db4926933d512341899a09c7683fbda6951d56",
+            "expected_work": {
+              "Attempts": 4,
+              "Submits": 5000,
+              "Nodes": 3967,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 450,
+              "Nodes": 27,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          },
+          {
+            "name": "case-007",
+            "frames": 267,
+            "sha256": "945f1be79c14e0797dd9ea5ed12706d92e92b2cc76a967e9ff2a09ddca378983",
+            "expected_work": {
+              "Attempts": 5,
+              "Submits": 5000,
+              "Nodes": 4122,
+              "BudgetExhausted": 1
+            },
+            "work": {
+              "Attempts": 1,
+              "Submits": 469,
+              "Nodes": 25,
+              "BudgetExhausted": 0
+            },
+            "native_diagnostics_identical": true,
+            "known_card_checks_passed": true,
+            "redealt_worlds": 8
+          }
+        ],
+        "native_qualification_complete": false,
+        "rated_games": 0
+      }
+    },
+    "97": {
+      "source_of_record": "E:\\spellbench-gorge-local-regression-20261005-097",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-regression-20261005-097",
+      "seal_sha256": "38ad706b6ebdb5b010b83bb5f6426947891d6212a91fa4290acc77adccbabb7c",
+      "closure": {
+        "targeted_regression_passed": true,
+        "error": null,
+        "at_utc": "2026-10-05T19:17:11.555119+00:00",
+        "elapsed_seconds": 155.45595589996083,
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "canonical_generation": 217,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "one_original_game164_passed": true,
+        "totals": {
+          "CompletedGames": 2,
+          "Games": 1,
+          "Halts": 0,
+          "Truncations": 0,
+          "Violations": 0,
+          "DigestMismatch": 0,
+          "ResampleChecks": 67,
+          "ResampleFailures": 0,
+          "LeakHits": 0,
+          "Inconsistent": 0,
+          "ParityCompared": 268,
+          "ParityMismatch": 0,
+          "Fallbacks": 0,
+          "Forced": 0,
+          "GamesPerSecond": 0.012924536766604868,
+          "GoMemoryMB": 705
+        },
+        "search_coverage": {
+          "Natives": 268,
+          "Eligible": 81,
+          "Attempted": 40,
+          "Covered": 40,
+          "Attempts": 2560,
+          "Accepted": 0,
+          "Worlds": 320,
+          "Rollouts": 1120,
+          "Submits": 164185,
+          "Terminal": 1120,
+          "Capped": 0,
+          "Redealt": 320,
+          "ReconstructionAttempts": 40,
+          "ReconstructionSubmits": 11841,
+          "ReconstructionNodes": 566,
+          "ReconstructionBudgetExhausted": 0,
+          "RedealRefusals": {},
+          "Reasons": {
+            "fewer_than_two_candidates": 41
+          },
+          "Kinds": {
+            "attackers": 5,
+            "cast": 18,
+            "mana": 17
+          }
+        },
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "scope": "One targeted correctness regression; no full native coverage claim"
+      }
     }
   },
   "public_inputs": [
@@ -531,7 +764,7 @@
     "Balustrade Spy public target and ordered reveal until a land, with declared trigger and visible library sizes"
   ],
   "behavior": "Only public replay witness guidance changes. Native proposal weights, seed coordinates,64 attempts,8 worlds,5000 submits, complete public replay and known-card checks remain unchanged.",
-  "current_component_status": "Six of seven captured prefixes pass in093; the seventh reaches a later public DigUntil reveal at257. New DigUntil guidance is committed;095 replay awaits the canonical host reservation.",
+  "current_component_status": "All seven captured prefixes pass in095 with8 known-card-valid worlds each and unchanged native diagnostics. The whole original game164 and deterministic replay pass in097:40/40 reconstructed searches,320 redealt worlds,0 refusals or numerical/technical faults.",
   "prior_full_game_status": "083 complete selected game164 paired replay has7 refusals; declared scheduled_games320,selected_games[164],Games1,CompletedGames2. Parent also retained a wrong scheduled/completed count assertion. Neither is a qualification pass.",
   "native_qualification_passed": false,
   "reference_qualification_passed": false,
@@ -541,7 +774,7 @@
   "conservative_reserved_total_usd": 9.99736347,
   "new_cloud_spend_usd": 0,
   "provider_final_settlement_pending": true,
-  "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. Production096 already recovered at identical engine bytes. On component pass replay the whole original164, then refresh placement and run supported full native qualification.",
+  "next_action": "Native098 runs supported matched1/8/16-worker qualification on Jack under canonical generation218. Full320-block/640-game audit remains unadmitted until measured allocation passes; monitor existing parent only.",
   "billing_ledger": "E:/spellbench-gorge-billing-20261005-041",
   "current_runtime_record": "docs/gorge-ci-runtime096-20261005.json"
 }

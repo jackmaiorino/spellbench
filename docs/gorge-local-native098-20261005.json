@@ -1,0 +1,47 @@
+{
+  "schema": "spellbench-gorge-local-native/v1",
+  "observed_at_utc": "2026-10-05T19:25:54.811735+00:00",
+  "phase": "matched_throughput_running",
+  "source_commit": "88b55a13513a614d26adafa7a33142df4b6f551d",
+  "runtime_source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
+  "source_of_record": "E:\\spellbench-gorge-native-20261005-098",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-20261005-098",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-096",
+  "runtime_seal_sha256": "d736deb111c115f40c89d8a2e78016f849e6d9f4683e77807e5be1471141337e",
+  "canonical_generation": 218,
+  "supervisor_pid": 36344,
+  "worker_cap": 16,
+  "worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "placement": "main-pc=used: current public repair verified, canonical host free, exact local build already recovered, compare all fitting serial/parallel rungs before audit; haleyspc=unavailable: preserve Jack-approved next XMage bounded stage and actual current claims; runpod=not_authorized: remaining all-in USD10 headroom cannot cover retained ancillary lease floor; github-actions=slower: local prepared runtime avoids staging and recovery, current runner offers4cores against local24logical cores",
+  "guard_path": "host_reservation_v1.dispatch -> this bounded parent -> qualify_native.py -> arena.throughput.plan_allocation -> qualified gorgequal callback",
+  "wall_cap_seconds": 21600,
+  "parent_manifest_sha256": "8f84a170a2e126fb59c34ebd84f4fe6dba8e1345defefffed514a99ccf86bea8",
+  "source_recipe_sha256": "ca6b601f67f9bf879f12def7ccc64ae06878abfba49577d5d64a68eeab1c731e",
+  "source_launcher_sha256": "7ac894a46ff64f5ddaeed1e2c50bd7e6bcc35e884e80f7716215931101945ef6",
+  "last_monitor": {
+    "at_utc": "2026-10-05T19:25:04.311303+00:00",
+    "elapsed_seconds": 301.56051540002227,
+    "streamed_native_rows": 4,
+    "stop_reason": null
+  },
+  "runtime_builder_toolchain": {
+    "go_version": "go version go1.27.1 linux/amd64",
+    "go_driver_sha256": "30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624",
+    "compiler_sha256": "3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4",
+    "linker_sha256": "a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9",
+    "linux_sdk_sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445"
+  },
+  "whole_original_game_record": "docs/gorge-local-public-repair084-20261005.json",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "conservative_reserved_total_usd": 9.99736347,
+  "new_cloud_spend_usd": 0,
+  "provider_final_settlement_pending": true,
+  "next_wake": "Existing native098 parent emits a new allocation, native audit result, numerical failure or terminal closure; independently recover only after actual terminal release. No duplicate watcher or rated launch."
+}
