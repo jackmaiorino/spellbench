@@ -26,6 +26,8 @@ def summarize(capture: Path, gorge_source: Path, recent_count: int) -> dict:
     redeal = options["Redeal"]
     if redeal.get("Engine") is not None or redeal.get("Observer") is not None:
         raise ValueError("Capture contains a live Engine or Observer")
+    if history.get("Engine") is not None or history.get("Observer") is not None:
+        raise ValueError("History contains a live Engine or Observer")
     if not history["ActorBoundaries"] or not history["Frames"]:
         raise ValueError("Capture lacks actor-boundary public history")
     source = subprocess.check_output(
