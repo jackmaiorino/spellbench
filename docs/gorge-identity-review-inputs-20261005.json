@@ -1,7 +1,7 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T23:06:22.668336+00:00",
-  "status": "Current repair passes Go and three captured public replays; whole game105 regression106 pending; full qualification incomplete",
+  "at_utc": "2026-10-05T23:25:05.756737+00:00",
+  "status": "Go, captured prefixes and complete game105 report validate; original106 wrapper failure preserved; full native107 prepared",
   "adapter_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "engine_source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
@@ -75,7 +75,7 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
-  "current_native_qualification": "Failed098; fresh qualification unlaunched under research hold",
+  "current_native_qualification": "Failed098 retained; current full native107 prepared through unchanged matched throughput guard",
   "current_native_failure_record": "docs/gorge-local-native098-20261005.json",
   "current_native_attempt_seal_sha256": "feaa8768d5f43f9e268b9c1397d63b4819d9936bf0df92df8d9f4d5c765f2b85",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
@@ -619,11 +619,12 @@
   },
   "candidate_go_checks": "Full Go suite passed at29c3544; current engine source identical",
   "candidate_native_launcher": "engines/gorge/scripts/qualify_native.py records wall-time worker selection through existing QualificationRules; frozen schedule/gate helpers unchanged; fresh qualification required",
-  "candidate_engineering_checks": "89 Python qualification tests and20 public-projection/archive tests pass; full Go at29c3544, engine-identical. Captured93/113/123 replay and8-world native checks pass sealed105. Complete game105/replay106 pending; no full qualification.",
+  "candidate_engineering_checks": "109 affected tests pass; Go engine identical to passed29c3544; captured93/113/123 and actual full105/replay report validate.106 job retains failed wrapper status because selected subsets fail Report.Clean by definition; original full qualification gate unchanged.",
   "candidate_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json",
   "hosted_public_replay_record": "docs/gorge-hosted-public-replay105-20261005.json",
   "historical_production096_source_of_record": "E:/spellbench-gorge-runtime-20261005-096",
   "hosted_public_replay_status": "passed_recovered",
   "hosted_public_replay_seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
-  "whole_game105_regression_record": "docs/gorge-hosted-regression106-20261005.json"
+  "whole_game105_regression_record": "docs/gorge-hosted-regression106-20261005.json",
+  "whole_game105_report_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json"
 }

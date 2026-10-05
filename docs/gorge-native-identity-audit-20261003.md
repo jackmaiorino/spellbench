@@ -22,7 +22,11 @@ failed because the copied Linux test binary lost execute permission; no captured
 prefix ran. Fixed hosted105 passes all three captured replays:1 attempt each,
 165/207/221 submits, zero exhaustion, known-card assertions and8 redealt worlds
 with identical native diagnostics. Results are recovered and sealed on E/D.
-Complete original game105/replay106 is pending; no full qualification is claimed.
+Complete original game105/replay106 has zero primary faults and zero refusals,
+34 resample checks and128 parity comparisons. Its original wrapper job failed
+on the expected selected-subset exit1; the failure is preserved alongside a
+separate validated complete-game report. Full native107 is prepared through the
+unchanged matched serial/parallel guard; no full qualification is claimed.
 The next native launcher explicitly records wall-time worker selection;89
 synthetic Python qualification tests pass. The fixed native schedule and
 top-level validity helpers remain AST-identical. No new native run is qualified.

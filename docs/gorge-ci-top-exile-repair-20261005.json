@@ -1,5 +1,5 @@
 {
-  "observed_at_utc": "2026-10-05T23:06:22.668336+00:00",
+  "observed_at_utc": "2026-10-05T23:25:05.756737+00:00",
   "source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
   "run_id": 37382437437,
   "run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37382437437",
@@ -34,5 +34,7 @@
   "production_runtime_record": "docs/gorge-ci-runtime104-20261005.json",
   "hosted_public_prefix_replay_seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
   "whole_game105_replay_run": 37386473245,
-  "whole_game105_replay_status": "dispatched_pending"
+  "whole_game105_replay_status": "complete_game_targeted_report_validated_original_ci_wrapper_failure_preserved",
+  "whole_game105_report_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json",
+  "full_native107_record": "docs/gorge-ci-native107-20261005.json"
 }

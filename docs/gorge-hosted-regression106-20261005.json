@@ -1,6 +1,6 @@
 {
   "at_utc": "2026-10-05T23:05:31.864703+00:00",
-  "phase": "hosted_whole_game105_dispatched",
+  "phase": "original_wrapper_failed_targeted_complete_game_report_validated",
   "source_commit": "e249691082ece3b27bd3e453c1d6173ca00f801c",
   "release_id": 404158423,
   "release_tag": "gorge-reference-regression106-20261005",
@@ -55,14 +55,48 @@
   "workers": 1,
   "resample_every": 7,
   "whole_game_wall_cap_seconds": 900,
-  "dispatch": {
-    "run_id": 37386473245,
-    "run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37386473245",
-    "status": "queued",
-    "conclusion": null,
+  "terminal": {
+    "id": 37386473245,
+    "status": "completed",
+    "conclusion": "failure",
+    "head_sha": "e249691082ece3b27bd3e453c1d6173ca00f801c",
+    "run_attempt": 1,
+    "html_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37386473245",
+    "created_at": "2026-10-05T23:05:34Z",
+    "updated_at": "2026-10-05T23:11:03Z"
+  },
+  "closure": {
+    "component_passed": false,
+    "error": "RuntimeError: whole-game105 failed",
     "source_commit": "e249691082ece3b27bd3e453c1d6173ca00f801c",
-    "at_utc": "2026-10-05T23:05:34.740705+00:00",
+    "elapsed_seconds": 182.08017275299997,
+    "whole_game105_requested": true,
+    "native_qualification_complete": false,
+    "rated_games": 0,
     "new_cloud_spend_usd": 0
   },
-  "next_wake": "Exact run37386473245 terminal; E/D recover and validate full game105 report before owned draft cleanup; no local PC dispatch"
+  "recovery": {
+    "component_passed": false,
+    "production_build_passed": true,
+    "private_output_recovered": true,
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "seal_sha256": "5ae975427de48a268ea920ca1741f0af8d077ecbba350b35bcc67ccf0912c7bb",
+  "cleanup": {
+    "run_id": 37386473245,
+    "job_terminal": true,
+    "owned_asset_ids": [
+      613839751,
+      613848682
+    ],
+    "owned_draft_release_id": 404158423,
+    "deleted_after_verified_recovery": true,
+    "new_cloud_spend_usd": 0
+  },
+  "targeted_report_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json",
+  "original_ci_failure_preserved": true,
+  "full_native_qualification_passed": false,
+  "next_wake": "Original failed wrapper sealed; separate actual complete-game report validation passes; full native107 prepared through unchanged supported guard"
 }

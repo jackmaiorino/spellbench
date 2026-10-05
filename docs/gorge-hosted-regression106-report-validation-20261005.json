@@ -1,0 +1,68 @@
+{
+  "at_utc": "2026-10-05T23:18:14.041580+00:00",
+  "phase": "whole_game105_targeted_report_validated_original_wrapper_failure_preserved",
+  "source_of_record": "E:\\spellbench-gorge-hosted-regression-20261005-106",
+  "recovery_root": "D:/e-scratch/spellbench-gorge-hosted-regression-20261005-106",
+  "seal_sha256": "5ae975427de48a268ea920ca1741f0af8d077ecbba350b35bcc67ccf0912c7bb",
+  "source_commit": "e249691082ece3b27bd3e453c1d6173ca00f801c",
+  "report_sha256": "083228da6338f12c4209c2d50c7a5e4cbe57ec6830a32d4b78a0e3d5305a2cae",
+  "targeted_checks": {
+    "one_original_game105_passed": true,
+    "totals": {
+      "CompletedGames": 2,
+      "Games": 1,
+      "Halts": 0,
+      "Truncations": 0,
+      "Violations": 0,
+      "DigestMismatch": 0,
+      "ResampleChecks": 34,
+      "ResampleFailures": 0,
+      "LeakHits": 0,
+      "Inconsistent": 0,
+      "ParityCompared": 128,
+      "ParityMismatch": 0,
+      "Fallbacks": 0,
+      "Forced": 0,
+      "GamesPerSecond": 0.028877519212933127,
+      "GoMemoryMB": 447
+    },
+    "search_coverage": {
+      "Natives": 128,
+      "Eligible": 16,
+      "Attempted": 11,
+      "Covered": 11,
+      "Attempts": 704,
+      "Accepted": 79,
+      "Worlds": 88,
+      "Rollouts": 368,
+      "Submits": 112458,
+      "Terminal": 368,
+      "Capped": 0,
+      "Redealt": 72,
+      "ReconstructionAttempts": 9,
+      "ReconstructionSubmits": 1152,
+      "ReconstructionNodes": 22,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 5
+      },
+      "Kinds": {
+        "attackers": 5,
+        "cast": 6
+      }
+    },
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "scope": "One complete failing schedule block and replay; no full native qualification"
+  },
+  "qualifier_exit_code": 1,
+  "original_job_conclusion": "failure",
+  "original_wrapper_component_passed": false,
+  "original_failed_closure_unchanged": true,
+  "exit_explanation": "Report.Clean immediately rejects selected subsets at engines/gorge/cmd/gorgequal/main.go:126; complete report105 numerical game/replay checks pass. Full320-block Report.Clean gate is unchanged.",
+  "full_native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0
+}
