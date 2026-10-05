@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T05:32:45.373528+00:00",
+  "at_utc": "2026-10-05T05:40:32.675154+00:00",
   "spellbench_commit": "6115ba95432402bf979f9f2dd574fd9aa43c72a1",
   "runtime_source_commit": "6115ba95432402bf979f9f2dd574fd9aa43c72a1",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -17,7 +17,7 @@
   "ancillary_allowance_usd": 0.15,
   "cumulative_conservative_ceiling_usd": 9.78587247,
   "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261005-022",
-  "billing_seal_sha256": "bf868d112c1bfed14946006b38aadc3d87a296b2e768208de6ebe1038ac70886",
+  "billing_seal_sha256": "8a688580d4c6795dc66bacaf232b25a244511b082ba16a433d07b9ff7d679a88",
   "provider_reported_spend_usd_so_far": 2.7662702432571677,
   "final_invoice_verified": false,
   "scope": "Four exact sealed public roots364,410,478 and596 with immediate public pass ordering and unchanged native options. One component-test binary independently pinned before execution. No full-game or qualification claim.",
@@ -94,7 +94,7 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "acacb89165f60258893e334fb88e3e3db0cc2006bca7a7eb42742fb21b967e16",
-  "phase": "guarded_four_public_roots_running",
+  "phase": "released_public_roots_incomplete",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-044\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-044\\CATALOG.json",
   "guard_path": "Independent one-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
@@ -110,7 +110,7 @@
   "observed_effective_cpu_quota": 6.8,
   "observed_memory_limit_bytes": 29999996928,
   "quoted_compute_rate_usd_per_hour": 0.19,
-  "runtime_pins_complete": false,
+  "runtime_pins_complete": true,
   "component_roots_passed": false,
   "reference_qualification_complete": false,
   "preflight_repair": {
@@ -131,5 +131,143 @@
     "public_priority_replay_ordering": "passed",
     "full_suite": "pending"
   },
-  "next_wake_condition": "Independent component pins, four exact roots yielding eight valid worlds each or preserved failure, parent failure, or owned one-hour deadline. One owner watcher and guardian."
+  "next_wake_condition": "Full source6115ba9 CI completion, refreshed university credential, or concrete source diagnosis. No active gorge lease.",
+  "release": {
+    "at_utc": "2026-10-05T05:40:31.8042220+00:00",
+    "name": "spellbench-gorge-witness-8781915fa3254dc8",
+    "pod_id": "vwawvdkakfm9mm",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "443e8054e726d226d24cec69b8ac025ac82d7e80c261b115feb95c6b2b3ee7c1",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 9.28587247,
+    "maximum_lease_usd": 0.5,
+    "conservative_cumulative_lease_ceiling_usd": 9.78587247,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T05:39:21.281424+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 136.80024909600616,
+    "native_qualification_passed": false,
+    "component_roots_passed": false,
+    "rated_games": 0
+  },
+  "runtime_seal_sha256": "8fcf6b4f2d8d1d2d59310ad14eb6819a2d2c2921a83f6560a94059916d56acbe",
+  "native_audit": null,
+  "diagnostic_checks": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T05:39:21.280830+00:00",
+      "phase": "exact_public_roots_replay",
+      "error_type": "RuntimeError",
+      "error": "public-roots exit 1",
+      "rated_games": 0
+    },
+    "PRE-FIX-3150-capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T05:35:58.363860+00:00",
+      "phase": "public_overlay",
+      "error_type": "FileNotFoundError",
+      "error": "[Errno 2] No such file or directory: '/workspace/gorge/helpers/trace-capsule.json'",
+      "rated_games": 0
+    }
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-05T05:40:32.675154+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-022",
+    "prior_closed_ledger_seal_sha256": "bf868d112c1bfed14946006b38aadc3d87a296b2e768208de6ebe1038ac70886",
+    "provider_reported_prior_closed_spend_usd": 2.7662702432571677,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7662702432571677,
+    "current_closed_lease_maximum_billable_seconds": 413.442222,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.190196,
+    "conservative_cumulative_lease_ceiling_usd": 9.47606847,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-023",
+  "seal_sha256": "2a4f0d5831c498cef4e226330888910317ef6dcc70ec469b304f53f2748a1ffd",
+  "component_results": {
+    "364": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-044\\terminal-recovery\\root-364\\RESULT.json",
+      "sha256": "15c412407732f9406dc8b09adc827e43f913716ad4db405c54f1dfd7914e53dc",
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 729,
+        "Nodes": 11,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": true,
+      "native_diagnostics_identical": true
+    },
+    "410": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-044\\terminal-recovery\\root-410\\RESULT.json",
+      "sha256": "594fc5c247fad8473d4dcbd2ad6e1fdf66f0de2cc25122702d819c148e242537",
+      "worlds": 8,
+      "work": {
+        "Attempts": 2,
+        "Submits": 2080,
+        "Nodes": 1106,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    },
+    "478": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-044\\terminal-recovery\\root-478\\RESULT.json",
+      "sha256": "ad1ded22e75b10e3928fa2839ee002f6d70d6275d9a1230b8f12fc3a7aaa2e5a",
+      "worlds": 8,
+      "work": {
+        "Attempts": 2,
+        "Submits": 2412,
+        "Nodes": 1377,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    },
+    "596": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-044\\terminal-recovery\\root-596\\RESULT.json",
+      "sha256": "94fb8068f5c4b5c338c77077dd1bfc7a7df7dd9246e6b874cdf87e0a457186ee",
+      "worlds": 0,
+      "work": {
+        "Attempts": 3,
+        "Submits": 5000,
+        "Nodes": 4492,
+        "BudgetExhausted": 1
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    }
+  },
+  "first_remaining_divergence": {
+    "frame": 390,
+    "public_frame_matched_exactly": true,
+    "reason": "actor_submit:hypothetical shuffle planner: incompatible hypothetical proposal",
+    "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-044\\terminal-recovery\\root-596\\TRACE.json",
+    "trace_sha256": "d8868ad05c8330004d29f43cba5dfffce077f2cefd4ef32b0a8e8ba9980c36a9",
+    "interpretation": "Immediate public pass now matches. Submitting the captured actor answer triggers the next opponent Lembas shuffle; the hypothetical planner rejects that proposal. Exact incompatible constraint remains unisolated."
+  },
+  "next_diagnostic_scope": "Inspect rejected opponent shuffle proposals and public carry constraints. Preserve budgets, weights and legal alternatives; no runtime or reference admission from these component outcomes.",
+  "zaratan_access": {
+    "scope": "Read-only access and queue discovery attempted; zero jobs submitted",
+    "saved_credential_present": true,
+    "outcome": "AuthenticationException: Authentication failed before Duo",
+    "user_action": "Refresh encrypted credential locally with the umd-hpc save_hpc_password.py tool; never send password in chat."
+  }
 }
