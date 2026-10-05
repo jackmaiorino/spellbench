@@ -63,7 +63,7 @@
   },
   "cloud_host_alias": "RunPod-gorge050",
   "placement": "main-pc=unavailable: verified human research priority; haleyspc=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host for one first-failure correctness capture, no substantial allocation selected",
-  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "runtime_seal_sha256": "b01ea63ae6ddca685bf8e2814bc8086f95671bd385e37475fc40aab1ae1bcf7c",
   "native_qualifier_sha256": "a6f2fc6bd3b6dd31daefd8357051fcfb9eaa586378aaeb415d0c0d9a3eb5156d",
   "runtime_binaries": [
     "gorgequal-linux-amd64"
@@ -90,8 +90,13 @@
   "parent_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-050\\DRIVER-ACTUAL.py",
   "parent_sha256": "e37980c037a5acfe4bb513fb76af919067f654a634ea1a0fd34a3f36719c83f7",
   "owner_supervision_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-050\\SUPERVISION.json",
-  "runtime_pins_complete": false,
+  "runtime_pins_complete": true,
   "diagnostic_capture_complete": false,
   "next_wake_condition": "Durable logging-only diagnostic binary pin, first actor-public failure capsule, parent failure or one-hour deadline; exact owner and independent guardian retained",
-  "reference_qualification_complete": false
+  "reference_qualification_complete": false,
+  "basis_production_runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "diagnostic_native_sha256": "0c097bf669b3273b8ccdc5171d5a0bd7f463543918a3884a66d66dd2bf1716a9",
+  "diagnostic_runtime_source_of_record": "E:\\spellbench-gorge-diagnostic-runtime-20261005-050",
+  "diagnostic_logging_overlay_sha256": "91f2d829d26d92c1eed022a6ff735c07ff7788a1a0ef44b589698e824d007cb8",
+  "logging_only_binary": true
 }
