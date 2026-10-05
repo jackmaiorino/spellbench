@@ -1,20 +1,29 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
+Production076 contains the saved London basic-search repair. The exact
+281-frame root supplies eight known-card-valid worlds in 564 submits with
+all 23 native diagnostic fields matching. Native077 is active locally through
+the canonical reservation and supported matched throughput guard; the full
+audit is not yet admitted. Reference/rated games and published entries remain
+zero. Ledger040 retains the conservative $9.98136347 bound under the all-in
+$10 cap, with settlement pending and no new cloud spend. Preserve XMage's
+next bounded Haley stage. The merged aborted FDN reveal passes run-history
+validation on the reconciled integration branch.
+
 Native069 completed with failure on execution `e06161e`. Game49,
 Wildfire/search-redeal, finished naturally but recorded four public reconstruction
 budget exhaustions and refusals. The serial/parallel comparison passed with four
 workers and identical outputs. This does not establish a full native pass.
-[The current record](gorge-ci-native069-20261005.json) binds independently recovered
+[The retained failure record](gorge-ci-native069-20261005.json) binds independently recovered
 E/D evidence and verified hosted cleanup. Reference bundling refuses this attempt
 before creating an output or private seed. Reference/rated games remain zero.
-Ledger038 retains a conservative bound of $9.96136347 with settlement pending.
-Current placement preserves XMage's next bounded Haley stage and Luna's Jack
-diagnostic under Jack-approved decision665dece. Earlier placement and budget text
-below describes prior observations. Next work is a bounded game49 public-root
-capture and evidenced repair before another compatible full audit.
+Earlier source, placement and budget text below retains historical observations.
+[Current review inputs](gorge-identity-review-inputs-20261005.json) and
+[local terminal admission](gorge-local-native-recovery.md) bind the current
+work and its remaining checks. Saved-root repair does not qualify a full audit.
 
-Engine source `5ffac138a1e8327882e02aceb97812406821e40b` prioritizes a distinct public held-card witness
+Historical engine source `5ffac138a1e8327882e02aceb97812406821e40b` prioritizes a distinct public held-card witness
 before weaker guidance while retaining each original proposal's seed coordinates
 and all alternatives. The native sampler and shared 64/8/5000 limits are unchanged.
 [Six-case replay066](gorge-component-replay066-20261005.json) passes all saved
@@ -37,7 +46,7 @@ unchanged. Both owned CPU pods are deleted, cleanup is verified, and binary/evid
 copies are sealed on independent E/D storage. The diagnostic binary includes logging;
 it does not replace the seven production binaries.
 
-Current-source [Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37307395390)
+Historical [Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37307395390)
 passed for the byte-compatible engine source5ffac13. Public CI job068 passed. Its seven production binaries are independently
 recovered, hash-verified and pinned on E/D under seal
 `4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473`.
