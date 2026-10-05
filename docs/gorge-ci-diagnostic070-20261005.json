@@ -1,0 +1,50 @@
+{
+  "schema": "spellbench-gorge-ci-diagnostic/v1",
+  "launch_authorized": true,
+  "scope": "one game49 first public failure diagnostic only",
+  "prepared_at_utc": "2026-10-05T15:20:20.854181+00:00",
+  "game_indices": [
+    49
+  ],
+  "production_changes": false,
+  "rated_games": 0,
+  "repository_private": false,
+  "conservative_reserved_total_usd": 9.97136347,
+  "diagnostic_storage_reservation_usd": 0.01,
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-039",
+  "billing_seal_sha256": "fa5652e6cc1e77b5936028af1fe2b3964c8fe656ef880da293c173c16e236660",
+  "archive_sha256": "34a67f98aa78f9c820f5048b9d4e5255d2289bbbbf2734ee821434f2a7257313",
+  "archive_bytes": 9076338,
+  "files": {
+    "BUILD.json": {
+      "bytes": 8223,
+      "sha256": "8929540f4acc6393e17fe918ec34438dccb0a47ecbbe523a0b80a377c36116fb"
+    },
+    "REGISTRY.json": {
+      "bytes": 658,
+      "sha256": "cac8c4a8ca2b30cd91b3c788af106ab8f4259d72a7686282d73268185d9565fb"
+    },
+    "registry.gob.gz": {
+      "bytes": 9070329,
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+    }
+  },
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "runtime_source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
+  "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "failed_native_seal_sha256": "4b5e0bb92dfdd83d8d7c2d06c23e4ccb0abe8bd67b0543e83dafb90d32ca8447",
+  "release_id": 403859684,
+  "release_asset_id": 612924892,
+  "input_stage_private_draft": true,
+  "placement": "main-pc=unavailable: preserve Luna guarded Spy diagnostic and actual canonical claim; haleyspc=unavailable: preserve XMage next bounded runtime stage and actual canonical claim; runpod=not_authorized: retained all-in cap cannot cover another lease floor; github-actions=used: standard public runner for one bounded correctness diagnostic only",
+  "resource_census_source": "E:\\spellbench-gorge-ci-diagnostic-20261005-070\\HOSTS.json",
+  "resource_census_sha256": "a486454f7943d02b9c66d0ddaa0302e4b2e64039a0569e915ab2793343c188fd",
+  "source_of_record": "E:\\spellbench-gorge-ci-diagnostic-20261005-070",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-ci-diagnostic-20261005-070",
+  "result_cap_bytes": 134217728,
+  "retention_days": 1,
+  "native_qualification_passed": false,
+  "published_entries": 0,
+  "final_invoice_pending": true,
+  "bounded_recovery": "One owner watcher recovers exact head/attempt artifacts and logs to E/D, seals then deletes owned hosting"
+}
