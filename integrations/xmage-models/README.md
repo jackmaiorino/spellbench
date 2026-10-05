@@ -504,6 +504,30 @@ refuse unavailable mulligan or physical-copy inference.
 worlds and synthetic predictions, including target removal and pick indices,
 mode/card application, mulligan ties and caching, alias refresh, admitted copies
 and failure closure. These checks do not load pretrained weights or play games.
-The isolated persistent backend, real permitted-world registry, hidden-world and
+The real permitted-world registry, native backend qualification, hidden-world and
 ordering/RNG replay, checkpoint/deck associations and complete-game qualification
 remain required before rating or publication.
+
+`JackInferenceChannel` implements the staged original model interface by reflection
+and sends private candidate, mulligan and physical-copy requests to one
+`JackNativeInferenceOwner`. That owner uses the existing confined
+`JackInferenceSession`, preserving checkpoint/deck/encoder readiness checks and
+paired policy/value inference. Copies share the channel, pair and declared
+physical-copy stream. Requests carry increasing IDs, profile, seed, game-start
+digest and the remaining callback clock; masks, original pick bounds and indices
+are retained. Floating-point tensors use the private inference protocol.
+
+Deadline or response failure closes the original session. Input cleanup is
+scheduled off the decision thread because a blocked Windows stdin read can delay
+synchronous close. The launcher that owns the borrowed JVM peer must release that
+peer on failure or completion and retain its process/container cleanup evidence.
+The owner also closes its confined checkpoint pair on identity, inference or
+response-write failure. Neither component grants a reservation or launches an
+evaluation campaign.
+
+`JackInferenceChannelCheck.java` runs actual original callbacks across a real
+JVM/Python pipe with synthetic paired predictions, including a copied callback,
+mulligan Q tie, stale response and withheld pipe response. Metadata checks do not
+load pretrained weights or build a live match. The full adapter still needs its
+permitted-world registry and guarded launcher integration before native
+qualification, rating or publication.
