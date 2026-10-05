@@ -129,9 +129,10 @@
     "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37268092503",
     "public_search_bridge": "passed",
     "public_priority_replay_ordering": "passed",
-    "full_suite": "pending"
+    "full_suite": "passed",
+    "ci_conclusion": "success"
   },
-  "next_wake_condition": "Full source6115ba9 CI completion, refreshed university credential, or concrete source diagnosis. No active gorge lease.",
+  "next_wake_condition": "Refreshed university credential or concrete source diagnosis. No active gorge lease.",
   "release": {
     "at_utc": "2026-10-05T05:40:31.8042220+00:00",
     "name": "spellbench-gorge-witness-8781915fa3254dc8",
