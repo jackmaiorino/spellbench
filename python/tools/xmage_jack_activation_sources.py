@@ -79,6 +79,8 @@ public abstract class OriginalActivationPlayer extends ComputerPlayer {
     private Set<UUID> tapTargetCostReservations = new HashSet<>();
     private boolean lastActivationHadStateLeak;
     protected OriginalActivationPlayer(String name, RangeOfInfluence range) { super(name, range); }
+    /** Copy initialized engine state, leaving activation/payment planning empty. */
+    protected OriginalActivationPlayer(ComputerPlayer bootstrap) { super(bootstrap); }
     protected OriginalActivationPlayer(OriginalActivationPlayer player) {
         super(player);
         currentAbility = player.currentAbility;

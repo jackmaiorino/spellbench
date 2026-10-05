@@ -45,6 +45,16 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private int lastMulliganHandSize = -1;
     private Boolean lastMulliganDecisionShouldMulligan;
     public OriginalCallbackPlayer(String name, RangeOfInfluence range) { super(name,range); }
+    /** Called after permitted-world reconstruction, before binding or any policy callback. */
+    public OriginalCallbackPlayer(mage.player.ai.ComputerPlayer bootstrap, int observedMulligans) {
+        super(requireBootstrap(bootstrap, observedMulligans));
+        mulligansTaken=observedMulligans;
+    }
+    private static mage.player.ai.ComputerPlayer requireBootstrap(mage.player.ai.ComputerPlayer player, int mulligans) {
+        if (player==null || player instanceof OriginalActivationPlayer || mulligans<0 || mulligans>7)
+            throw new IllegalArgumentException("initialized bootstrap and observed London mulligan count required");
+        return player;
+    }
     protected OriginalCallbackPlayer(OriginalCallbackPlayer player) {
         super(player); mulligansTaken=player.mulligansTaken;
         lastMulliganHandFingerprint=player.lastMulliganHandFingerprint;

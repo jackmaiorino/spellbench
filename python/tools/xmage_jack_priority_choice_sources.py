@@ -51,6 +51,7 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
     private OriginalNeuralSelection.Session originalSession;
     private OriginalNeuralSelection.Admission originalAdmission;
     protected OriginalPriorityChoicePlayer(String name, RangeOfInfluence range) { super(name, range); }
+    protected OriginalPriorityChoicePlayer(mage.player.ai.ComputerPlayer bootstrap) { super(bootstrap); }
     protected OriginalPriorityChoicePlayer(OriginalPriorityChoicePlayer player) {
         super(player);
         // Original policy/model sharing, with explicit admission of the copied world.

@@ -531,3 +531,20 @@ mulligan Q tie, stale response and withheld pipe response. Metadata checks do no
 load pretrained weights or build a live match. The full adapter still needs its
 permitted-world registry and guarded launcher integration before native
 qualification, rating or publication.
+
+`JackPlayerBootstrap.build` rebuilds permitted inputs with the kit's setup players,
+then replaces the viewer with the actual staged `OriginalCallbackPlayer`. The
+base engine copy constructor preserves the initialized player identity and state.
+The conversion leaves original planning/payment queues, caches and world binding
+empty, and initializes the original London mulligan counter from the observation.
+The caller's reconstruction spec is preserved. Custom setup factories, already
+attached viewers, simulations, duplicate/missing/invalid mulligan records and
+unavailable private classes are refused. The setup player never answers the
+observed decision after conversion.
+
+`JackPlayerBootstrapCheck.java` verifies actual state transfer, independence from
+later setup-player mutations, pre-admission refusal, the original mulligan encoder
+count and normal copied-player refusal. It uses metadata engine hooks and
+synthetic predictions. This is a reconstruction entrypoint; the actual root/copy
+admission registry and guarded launcher remain unfinished, and live reconstruction
+and complete-game qualification still require the guarded native checks.

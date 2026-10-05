@@ -80,6 +80,7 @@ public abstract class OriginalParentManaPlayer extends OriginalActivationPlayer 
     private transient boolean alreadyTryingToPayPhyrexian;
     protected List<String> choices = new ArrayList<>();
     protected OriginalParentManaPlayer(String name, RangeOfInfluence range) { super(name, range); }
+    protected OriginalParentManaPlayer(mage.player.ai.ComputerPlayer bootstrap) { super(bootstrap); }
     protected OriginalParentManaPlayer(OriginalParentManaPlayer player) { super(player); choices.addAll(player.choices); }
     @Override public abstract OriginalParentManaPlayer copy();
     protected abstract boolean originalParentCreatureType(Outcome outcome, Choice choice, Game game);

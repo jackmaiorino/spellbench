@@ -113,6 +113,7 @@ public abstract class OriginalParentDialogsPlayer extends OriginalParentManaPlay
     public static final String VARIANT = "%s";
     protected List<UUID> targets = new ArrayList<>();
     protected OriginalParentDialogsPlayer(String name, RangeOfInfluence range) { super(name, range); }
+    protected OriginalParentDialogsPlayer(mage.player.ai.ComputerPlayer bootstrap) { super(bootstrap); }
     protected OriginalParentDialogsPlayer(OriginalParentDialogsPlayer player) { super(player); targets.addAll(player.targets); }
     @Override public abstract OriginalParentDialogsPlayer copy();
     /** The runtime must reject real hidden state and admit only its reconstructed world/copies. */
