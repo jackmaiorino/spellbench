@@ -81,6 +81,8 @@ def main() -> int:
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--manifest-sha256", required=True)
+    parser.add_argument("--stack-text", action="store_true",
+                        help="Declare public stack ability rules text in the engine profile")
     args = parser.parse_args()
     try:
         java, build, source = args.java.resolve(strict=True), args.build.resolve(strict=True), args.db.resolve(strict=True)
@@ -93,7 +95,8 @@ def main() -> int:
             directory = Path(temporary)
             shutil.copytree(source, directory / "db")
             verify_database(directory / "db", database)
-            return subprocess.run([str(java), "-Xmx2g", "-cp", str(build / "lib" / "*"),
+            settings = ["-Dspellbench.stackText=true"] if args.stack_text else []
+            return subprocess.run([str(java), "-Xmx2g", *settings, "-cp", str(build / "lib" / "*"),
                                    "mage.player.spellbench.server.EngineServer"],
                                   cwd=directory, check=False).returncode
     except (ValueError, OSError, KeyError, TypeError):

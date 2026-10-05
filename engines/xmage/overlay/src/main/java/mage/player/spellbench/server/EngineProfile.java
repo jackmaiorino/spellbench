@@ -43,6 +43,7 @@ public final class EngineProfile {
     public final List<CatalogDeck> catalog;
     /** Frozen when the profile is loaded; cost payment still uses engine_autopay. */
     public final boolean priorityMana;
+    public final boolean stackText;
     private final List<String> decisionKinds;
 
     /** A catalog deck, its rows in file order, and the formats it is offered for. */
@@ -61,12 +62,13 @@ public final class EngineProfile {
     }
 
     private EngineProfile(String rulesSnapshotId, String cardPoolIdentity, String sourceRevision,
-                          List<CatalogDeck> catalog, boolean priorityMana) {
+                          List<CatalogDeck> catalog, boolean priorityMana, boolean stackText) {
         this.rulesSnapshotId = rulesSnapshotId;
         this.cardPoolIdentity = cardPoolIdentity;
         this.sourceRevision = sourceRevision;
         this.catalog = catalog;
         this.priorityMana = priorityMana;
+        this.stackText = stackText;
         List<String> kinds = new ArrayList<>(DECISION_KINDS);
         if (priorityMana) {
             kinds.add(kinds.indexOf("activate_ability"), "activate_mana_ability");
@@ -81,6 +83,10 @@ public final class EngineProfile {
             throw new IOException("spellbench.priorityMana must be true or false");
         }
         boolean priorityMana = "true".equals(setting);
+        String textSetting = System.getProperty("spellbench.stackText", "false");
+        if (!"true".equals(textSetting) && !"false".equals(textSetting)) {
+            throw new IOException("spellbench.stackText must be true or false");
+        }
         Properties identity = new Properties();
         try (InputStream in = resource("engine-identity.properties")) {
             identity.load(in);
@@ -106,7 +112,7 @@ public final class EngineProfile {
         }
         return new EngineProfile(identity.getProperty("rules_snapshot_id"),
                 identity.getProperty("card_pool_identity"), identity.getProperty("source_revision"), catalog,
-                priorityMana);
+                priorityMana, "true".equals(textSetting));
     }
 
     public CatalogDeck deck(String catalogId) {
@@ -163,7 +169,7 @@ public final class EngineProfile {
         rules.put("mulligan", Arrays.<Object>asList("london", "none"));
         rules.put("starting_player", Arrays.<Object>asList("host_assigned"));
         m.put("rules_supported", rules);
-        m.put("observation", observationFlags());
+        m.put("observation", observationFlags(stackText));
         m.put("decision_kinds", new ArrayList<Object>(decisionKinds));
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("trigger_order", null);
@@ -181,6 +187,10 @@ public final class EngineProfile {
 
     /** Section 6.9 flags, conservative (design draft Section 3.7); one flips on only with a faithfulness audit. */
     static Map<String, Object> observationFlags() {
+        return observationFlags(false);
+    }
+
+    static Map<String, Object> observationFlags(boolean stackText) {
         Map<String, Object> f = new LinkedHashMap<>();
         f.put("poison", true);
         f.put("player_counters", false);
@@ -192,7 +202,7 @@ public final class EngineProfile {
         f.put("keywords", true);
         f.put("full_name", true);
         f.put("exiled_by", false);
-        f.put("stack_text", false);
+        f.put("stack_text", stackText);
         f.put("permanent_details", false);
         f.put("known_cards", false);
         return f;

@@ -614,6 +614,12 @@ public final class ObservationBuilder {
             e.put("targets", targets);
             e.put("divided", divided.isEmpty() ? null : divided);
             Ability main = abilities.get(0);
+            if (flag("stack_text")) {
+                // Only an ability's printed rule identifies a reconstructed
+                // trigger. Face-down spells hidden from the viewer returned
+                // above; no game state is consulted by this renderer.
+                e.put("text", StackAbilityText.of(main));
+            }
             Modes modes = main.getModes();
             if (modes.size() > 1) {
                 List<Object> chosen = new ArrayList<>();

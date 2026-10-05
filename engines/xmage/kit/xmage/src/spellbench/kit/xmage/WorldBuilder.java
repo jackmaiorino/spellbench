@@ -1150,6 +1150,7 @@ public final class WorldBuilder {
                 ofKind.add(a);
             }
         }
+        ofKind = stackAbilitiesWithText(ofKind, Json.str(e, "text"));
         if (ofKind.size() != 1) {
             flag("approximate:stack_ability_identity");
             if (ofKind.isEmpty()) {
@@ -1169,6 +1170,19 @@ public final class WorldBuilder {
             horizonNext = true;
         }
         return ofKind.get(0);
+    }
+
+    static List<Ability> stackAbilitiesWithText(List<Ability> candidates, String publicText) {
+        if (publicText == null) return candidates;
+        List<Ability> matching = new ArrayList<>();
+        for (Ability candidate : candidates) {
+            if (publicText.equals(mage.player.spellbench.observe.StackAbilityText.of(candidate))) {
+                matching.add(candidate);
+            }
+        }
+        // Text is a permitted discriminator, never a guess. Missing,
+        // unmatched or duplicate identities retain the existing horizon.
+        return matching;
     }
 
     private boolean horizonNext;

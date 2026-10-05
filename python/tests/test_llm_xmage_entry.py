@@ -31,6 +31,34 @@ def inputs(tmp_path):
     return build, jar, manifest, hashlib.sha256(manifest.read_bytes()).hexdigest()
 
 
+@pytest.mark.parametrize("stack_text", [False, True])
+def test_launch_declares_stack_text_only_when_explicitly_requested(tmp_path, monkeypatch, stack_text):
+    build, _, manifest, digest = inputs(tmp_path)
+    java = tmp_path / "java"
+    java.write_text("synthetic executable")
+    database = tmp_path / "db"
+    database.mkdir()
+    source = database / "cards.h2.mv.db"
+    source.write_bytes(b"synthetic database")
+    argv = ["xmage_verified_entry", "--java", str(java), "--build", str(build),
+            "--db", str(database), "--db-file", str(source), hashlib.sha256(source.read_bytes()).hexdigest(),
+            "--work", str(tmp_path / "work"), "--manifest", str(manifest), "--manifest-sha256", digest]
+    if stack_text:
+        argv.append("--stack-text")
+    launched = []
+
+    def run(command, **kwargs):
+        launched.append(command)
+        assert (Path(kwargs["cwd"]) / "db/cards.h2.mv.db").read_bytes() == source.read_bytes()
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(sys, "argv", argv)
+    monkeypatch.setattr(entry.subprocess, "run", run)
+    assert entry.main() == 0
+    assert len(launched) == 1
+    assert ("-Dspellbench.stackText=true" in launched[0]) == stack_text
+
+
 def test_all_declared_jars_match_the_fixed_manifest(tmp_path):
     build, jar, manifest, digest = inputs(tmp_path)
     assert entry.verify_build(build, manifest, digest) == [jar]

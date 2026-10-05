@@ -26,7 +26,9 @@ public final class EngineProfileCheck {
 
     public static void main(String[] args) throws Exception {
         String saved = System.getProperty("spellbench.priorityMana");
+        String savedText = System.getProperty("spellbench.stackText");
         try {
+            System.clearProperty("spellbench.stackText");
             System.clearProperty("spellbench.priorityMana");
             EngineProfile defaultProfile = EngineProfile.load();
             check(defaultProfile, false);
@@ -37,6 +39,27 @@ public final class EngineProfileCheck {
             System.setProperty("spellbench.priorityMana", "false");
             check(enabledProfile, true);
             check(EngineProfile.load(), false);
+            EngineProfile noText = EngineProfile.load();
+            System.setProperty("spellbench.stackText", "true");
+            EngineProfile text = EngineProfile.load();
+            System.setProperty("spellbench.stackText", "false");
+            require(!noText.stackText && text.stackText, "stack text setting not frozen");
+            require(Boolean.FALSE.equals(((Map<?, ?>) noText.helloOk("no-text", 0).get("observation")).get("stack_text")),
+                    "default profile changed");
+            require(Boolean.TRUE.equals(((Map<?, ?>) text.helloOk("text", 0).get("observation")).get("stack_text")),
+                    "enabled profile lost its frozen text setting");
+            require(Boolean.TRUE.equals(EngineProfile.observationFlags(text.stackText).get("stack_text")),
+                    "game observations differ from their hello declaration");
+            for (String invalid : new String[]{"", "TRUE", "yes", "1"}) {
+                System.setProperty("spellbench.stackText", invalid);
+                try {
+                    EngineProfile.load();
+                    throw new AssertionError("invalid text setting accepted: " + invalid);
+                } catch (IOException expected) {
+                    require(expected.getMessage().contains("spellbench.stackText"), "unexpected text failure");
+                }
+            }
+            System.setProperty("spellbench.stackText", "false");
             for (String invalid : new String[]{"", "TRUE", "yes", "1"}) {
                 System.setProperty("spellbench.priorityMana", invalid);
                 try {
@@ -50,6 +73,8 @@ public final class EngineProfileCheck {
         } finally {
             if (saved == null) System.clearProperty("spellbench.priorityMana");
             else System.setProperty("spellbench.priorityMana", saved);
+            if (savedText == null) System.clearProperty("spellbench.stackText");
+            else System.setProperty("spellbench.stackText", savedText);
         }
     }
 }
