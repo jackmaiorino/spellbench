@@ -38,6 +38,9 @@ def family(decision):
         if kind == "choose_number" and all(c["semantic"].get("purpose") == "x_value"
                                             for c in decision["candidates"]):
             return "x"
+        if kind == "choose_number" and all(c["semantic"].get("purpose") == "amount"
+                                            for c in decision["candidates"]):
+            return "amount"
         if kind in ("choose_option", "choose_color", "choose_name"):
             return "named"
     if (decision.get("context", {}).get("kind") == "choice" and kinds
@@ -272,7 +275,7 @@ class JackNativeAgent:
                           and (self.history.anchor["selection"]["semantic_echo"].get("kind") in _ACTIVATIONS
                                or resolving and (self.history.anchor["decision"]["observation"].get("stack")
                                     or phase_advance(self.history.anchor["decision"], current, self.game.seat))))
-            if kind in ("binary", "x", "mode", "named", "target") or continuing:
+            if kind in ("binary", "x", "amount", "mode", "named", "target") or continuing:
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
                         not in _ACTIVATIONS | {"pass"}):
                     raise ValueError("original callback has no recorded activation anchor")

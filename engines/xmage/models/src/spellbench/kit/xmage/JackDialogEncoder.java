@@ -87,9 +87,12 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
         final Map<Object, Long> ids = new HashMap<>();
         final Map<Object, Map<String, Object>> semantics = new HashMap<>();
         final boolean numeric;
-        int minimum, maximum;
+        int minimum, maximum, offeredMaximum;
 
         Binding(World world, Map<String, Object> decision, Ability source, Game game, boolean numeric) throws Exception {
+            this(world,decision,source,game,numeric,"x_value");
+        }
+        Binding(World world, Map<String, Object> decision, Ability source, Game game, boolean numeric,String purpose) throws Exception {
             this.numeric = numeric;
             Map<String, Object> obs = Json.obj(decision, "observation"), context = Json.obj(decision, "context");
             if (!world.viewer.equals(Json.str(decision, "acting_seat")) || !world.viewer.equals(Json.str(obs, "viewer"))
@@ -129,16 +132,18 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
                 String kind = Json.str(semantic, "kind");
                 Object value;
                 if (numeric) {
-                    if (!"choose_number".equals(kind) || !"x_value".equals(Json.str(semantic, "purpose"))
+                    if (!"choose_number".equals(kind) || !purpose.equals(Json.str(semantic, "purpose"))
                             || !(semantic.get("value") instanceof Long) || !(semantic.get("minimum") instanceof Long)
                             || !(semantic.get("maximum") instanceof Long)) {
                         throw new IllegalArgumentException("X root has a different numeric callback");
                     }
                     long lo = (Long) semantic.get("minimum"), hi = (Long) semantic.get("maximum"), x = (Long) semantic.get("value");
-                    if (lo < 0 || hi < lo || hi > Integer.MAX_VALUE || hi - lo + 1 > 4096 || x < lo || x > hi) {
+                    long effective="amount".equals(purpose) && hi==Integer.MAX_VALUE?Math.max(lo,10):hi;
+                    if (lo < ("amount".equals(purpose)?Integer.MIN_VALUE:0) || hi < lo || hi > Integer.MAX_VALUE
+                            || effective - lo + 1 > 4096 || x < lo || x > effective) {
                         throw new IllegalArgumentException("X root has an invalid offered range");
                     }
-                    minimum = (int) lo; maximum = (int) hi; value = (int) x;
+                    minimum = (int) lo; maximum = (int) hi; offeredMaximum=(int)effective;value = (int) x;
                 } else {
                     value = binaryValue(semantic);
                     if (!(value instanceof Boolean)) throw new IllegalArgumentException("dialog root is not binary");
@@ -152,7 +157,7 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
                 if (ids.put(value, (Long) id) != null) throw new IllegalArgumentException("dialog has repeated semantic values");
                 semantics.put(value, semantic);
             }
-            if (numeric && (long) maximum - minimum + 1 != ids.size()) {
+            if (numeric && (long) offeredMaximum - minimum + 1 != ids.size()) {
                 throw new IllegalArgumentException("X root omits part of its offered range");
             }
         }
@@ -186,13 +191,20 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
     /** Validate actual callback choices before the original player's inference, without encoding again. */
     static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,String kind,Object[] args,Game game) {
         try {
-            boolean numeric="x".equals(kind);
+            boolean amount="amount".equals(kind),numeric="x".equals(kind) || amount;
             if (!numeric && !"use".equals(kind)) throw new IllegalArgumentException("unconnected original dialog callback");
-            Ability source=(Ability)args[numeric?3:2];
-            Binding bound=new Binding(world,decision,source,game,numeric);
+            if(amount && (args.length!=3 || !(args[0] instanceof Integer) || !(args[1] instanceof Integer)))
+                throw new IllegalArgumentException("original amount callback lacks exact integer bounds");
+            Ability source=(Ability)args[amount?2:numeric?3:2];
+            Binding bound=new Binding(world,decision,source,game,numeric,amount?"amount":"x_value");
             List<Object> values=new ArrayList<>();
             if (numeric) {
-                int[] limits=range(world,bound,(Integer)args[0],(Integer)args[1],(Boolean)args[2],source,game);
+                int[] limits;
+                if(amount) {
+                    if(bound.minimum!=(Integer)args[0] || bound.maximum!=(Integer)args[1])
+                        throw new IllegalArgumentException("offered amount bounds differ from actual inherited callback");
+                    limits=new int[]{bound.minimum,bound.offeredMaximum};
+                } else limits=range(world,bound,(Integer)args[0],(Integer)args[1],(Boolean)args[2],source,game);
                 for(long x=limits[0];x<=limits[1];x++) values.add((int)x);
             } else {
                 Boolean fixed=forced(world,(Outcome)args[0],(String)args[1],source,game);

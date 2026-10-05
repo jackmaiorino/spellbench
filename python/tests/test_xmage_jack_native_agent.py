@@ -111,6 +111,28 @@ def amount(step=2):
                     {"kind": "choose_number", "purpose": "x_value", "value": 1}, step=step)
 
 
+@pytest.mark.parametrize("prefix", [False, True])
+def test_inherited_amount_callback_retains_original_anchor_and_seeds(prefix):
+    bot, session = ready([1, 0, 0] if prefix else [1, 0]); bot.choose(view(priority()))
+    values = [binary()] if prefix else []
+    current=decision(*[{"kind":"choose_number","purpose":"amount","source":None,
+        "minimum":0,"maximum":3,"value":i} for i in range(4)],step=2 if prefix else 1)
+    for received in [*values,current]:bot.choose(view(received))
+    root,last=session.requests[0][0],session.requests[-1][0]
+    assert agent.family(last["decision"]) == "amount" and len(last["replay"]["earlier"]) == int(prefix)
+    assert last["anchor"]["decision"] == root["decision"]
+    assert (root["world_seed"],root["id_seed"]) == (last["world_seed"],last["id_seed"])
+    bot.close()
+
+
+def test_mixed_x_and_amount_menu_refuses_before_original_session():
+    bot,session=ready([1]);bot.choose(view(priority()))
+    current=decision({"kind":"choose_number","purpose":"amount","value":0},
+                     {"kind":"choose_number","purpose":"x_value","value":1},step=1)
+    with pytest.raises(ValueError,match="family is not connected"):bot.choose(view(current))
+    assert len(session.requests)==1 and session.closed
+
+
 def cleanup_menu(count, selected=0):
     refs = [{"object_id": "hand" + str(i), "card_name": "Forest" if i % 2 else "Island",
              "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in range(7 + count)]

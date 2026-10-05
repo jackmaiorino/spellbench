@@ -6,7 +6,7 @@ import hashlib
 from xmage_jack_sources import CALLBACK_SHA256, extract
 
 CALLBACK_PLAYER_VARIANT = (
-    "original priority, target, card, mode, use, X, combat and London callbacks; "
+    "original priority, target, card, mode, use, X, inherited amount, combat and London callbacks; "
     "declared checkpoint mulligan format; shared original chooser and copy session; "
     "explicit world/copy admission and dynamic permitted aliases; "
     "native backend, deck associations and full-game qualification unfinished")
@@ -283,6 +283,10 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
                     originalNeuralSelection().capture(game),null,0,1,1,1,false,false,false).get(0);
             return xValues.get(pick);
         });
+    }
+    @Override public final int getAmount(int min,int max,String message,Ability source,Game game) {
+        return callback(game,"amount",new Object[]{min,max,source},
+                () -> super.getAmount(min,max,message,source,game));
     }
     private CombatRules.Picker combatPicker(Game game,Ability source,StateSequenceBuilder.SequenceOutput state) {
         return (type,candidates,picks,sequential) -> {

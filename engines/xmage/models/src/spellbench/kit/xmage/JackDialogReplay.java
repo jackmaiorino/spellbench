@@ -216,7 +216,13 @@ public final class JackDialogReplay {
                 if(past!=null) {
                     Map<String,Object> selected=Json.obj(past,"selection");ModelReplay.selectedSemantic(current,selected);
                     for(Map.Entry<Object,Map<String,Object>> entry:choices.entrySet())
-                        if(Json.canonical(selected).equals(Json.canonical(entry.getValue()))) {replayed++;return entry.getKey();}
+                        if(Json.canonical(selected).equals(Json.canonical(entry.getValue()))) {
+                            // The inherited amount body draws from the reconstructed engine RNG, not the persistent neural session.
+                            // Re-execute this primitive to restore that stream and verify the historical answer.
+                            if("amount".equals(kind) && !Objects.equals(entry.getKey(),((Supplier<?>)args[4]).get()))
+                                throw new IllegalArgumentException("recorded inherited amount differs from the reconstructed engine RNG");
+                            replayed++;return entry.getKey();
+                        }
                     throw new IllegalArgumentException("recorded dialog choice differs from the actual original callback");
                 }
                 Object value=((Supplier<?>)args[4]).get();Map<String,Object> selection=choices.get(value);

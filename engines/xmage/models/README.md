@@ -892,3 +892,26 @@ scoring. All fifteen existing Java replay checks pass. Resume itself is scripted
 metadata, so native automatic actions, draws, phase legality and event-loop
 qualification remain open. Evidence lives under
 `E:/spellbench-xmage-all-20261002/jack-phase-advance-001`.
+
+Ordinary `choose_number` amount prompts now bind the inherited `getAmount` callback
+through the original replay and frontend. They use the unchanged parent chooser,
+including its random draw, lower/upper clamps, fixed-value shortcut and cap of
+`max(min, 10)` when the actual maximum is `Integer.MAX_VALUE`. They make no neural
+X-head or physical-copy calls. The wire menu must bind the actual source and bounds
+and contain every value in the effective inherited range, within the 4096-action
+envelope. Native prompt generation retains its own candidate-limit guard.
+
+An earlier amount is re-executed and checked against its recorded answer to restore
+the reconstructed engine RNG before the next amount. This differs from replaying
+neural choices, whose persistent model/RNG session must not draw again. A historical
+amount disagreement refuses before the new choice; malformed source/range/value
+records refuse before any amount draw. All 284 affected Python checks pass, including
+three new frontend checks. Two fresh metadata JVM outputs match for 288 cases across
+eight seeds, signed/fixed/high/capped bounds, visible sources and both prefix modes.
+Answers and engine RNG consumption match a separate player running the unchanged
+inherited parent body. All sixteen existing Java replay checks pass. Initial oracle
+fixture compile failures, the superseded current-only oracle check and storage
+refusals remain retained under
+`E:/spellbench-xmage-all-20261002/jack-amount-replay-001`. Verified compression of
+inactive duplicates retained both evidence copies and the native reserve. Actual
+native amount prompts, larger-range wire behavior and complete games remain open.

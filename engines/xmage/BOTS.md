@@ -289,3 +289,9 @@ the actual reached observation before the next priority scores. Serving and
 frontend require the phase receipt. 267 affected Python checks, two repeat metadata
 JVMs and fifteen Java regressions pass. Native phase transitions, turn changes,
 repeated phases and intervening combat callbacks remain unqualified.
+
+Ordinary amount prompts use the unchanged inherited chooser through source/range
+binding. Earlier amounts restore and validate the reconstructed engine RNG; no
+neural X or physical-copy calls are added. 284 Python checks, two repeat JVMs with
+288 parent-oracle cases and sixteen Java regressions pass. Native amount prompts,
+the wire candidate-limit envelope and complete trained-weight games remain open.
