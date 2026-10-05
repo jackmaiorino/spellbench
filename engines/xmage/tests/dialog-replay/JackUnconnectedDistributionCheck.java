@@ -44,8 +44,8 @@ public final class JackUnconnectedDistributionCheck {
     }
     public static void main(String[] args) {
         int cases=0;
-        for(boolean divided:new boolean[]{false,true})for(boolean prefix:new boolean[]{false,true}) {
-            unsupported(divided,prefix);cases++;
+        for(boolean prefix:new boolean[]{false,true}) {
+            unsupported(false,prefix);cases++;
         }
         JackDialogReplayCheck.Case c=new JackDialogReplayCheck.Case();
         Amount target=new Amount();

@@ -327,3 +327,12 @@ Recorded prefixes must match that original order and consume no policy or copy
 draws. 204 affected Python checks, 60 matching metadata JVM cases and twenty Java
 regressions pass. These fixtures script card movement; native replacements,
 zone changes, scry/surveil arrangements and complete games remain unqualified.
+
+Divided-target choices now expose the complete unchanged inherited allocation as
+target picks followed by a bound amount group. Stack observations retain the
+wire's partially selected targets and partially assigned amounts. Historical
+choices must match the original policy; hidden identities and changed public
+state refuse. 120 metadata cases, two identical fresh JVM outputs, 22 existing
+Java regressions and 222 affected Python checks pass against a complete runtime.
+Multi-amount/combat distributions, native targeting/replacement events and full
+trained-weight games remain unqualified. This adds no rated or published entry.

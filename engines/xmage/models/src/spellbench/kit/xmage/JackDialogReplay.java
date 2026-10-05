@@ -182,8 +182,43 @@ public final class JackDialogReplay {
                     result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",false);
                     throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,result);
                 }
-                if("target-amount".equals(kind) || "multi-amount".equals(kind))
-                    throw new IllegalArgumentException("original divided-target or multi-amount replay is not connected");
+                if("multi-amount".equals(kind))
+                    throw new IllegalArgumentException("original multi-amount replay is not connected");
+                if("target-amount".equals(kind)) {
+                    if(resolution && !passes.isEmpty())throw new IllegalArgumentException("divided targets preceded recorded public passes");
+                    projection.compare(world,current);
+                    JackTargetAmount allocation=new JackTargetAmount(world,current,callback);
+                    @SuppressWarnings("unchecked") Supplier<Boolean> parent=(Supplier<Boolean>)args[4];
+                    java.util.function.Consumer<mage.target.TargetAmount> prepared=allocation::prepared;
+                    boolean result=(Boolean)call(original.getMethod("runOriginalTargetAmount",Game.class,mage.target.TargetAmount.class,
+                            Supplier.class,java.util.function.Consumer.class),player,world.game,allocation.target,parent,prepared);
+                    allocation.completed(result);
+                    if(allocation.implicit)return result;
+                    for(int position=0;allocation.targetPosed(position);position++) {
+                        past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
+                        current=past==null?decision:Json.obj(past,"decision");check(current);
+                        UUID picked=position<allocation.order.size()?allocation.order.get(position):null;
+                        Map<String,Object> selected=allocation.targetMenu(current,position).get(picked);
+                        if(selected==null)throw new IllegalArgumentException("original allocation cannot finish this target menu");
+                        if(past==null)throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selected);
+                        ModelReplay.selectedSemantic(current,Json.obj(past,"selection"));
+                        if(!Json.canonical(selected).equals(Json.canonical(past.get("selection"))))
+                            throw new IllegalArgumentException("recorded divided target differs from its unchanged original allocation");
+                        replayed++;if(picked==null)break;
+                    }
+                    for(int position=0;position<allocation.order.size();position++) {
+                        past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
+                        current=past==null?decision:Json.obj(past,"decision");check(current);
+                        Map<String,Object> selected=allocation.amountMenu(current,position).get(allocation.amounts.get(position));
+                        if(selected==null)throw new IllegalArgumentException("original allocation is outside this amount menu");
+                        if(past==null)throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selected);
+                        ModelReplay.selectedSemantic(current,Json.obj(past,"selection"));
+                        if(!Json.canonical(selected).equals(Json.canonical(past.get("selection"))))
+                            throw new IllegalArgumentException("recorded divided amount differs from its unchanged original allocation");
+                        replayed++;
+                    }
+                    return result;
+                }
                 if("library-order".equals(kind)) {
                     if(resolution && !passes.isEmpty())throw new IllegalArgumentException("library order preceded its recorded public passes");
                     projection.compare(world,current);

@@ -97,7 +97,7 @@ def main() -> int:
                                 and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java",
                                                    "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java",
                                                    "JackModeEncoder.java", "JackModeEncoderMain.java",
-                                                   "JackDialogEncoder.java", "JackDialogEncoderMain.java", "JackDialogReplay.java", "JackInheritedChoices.java", "JackTriggerOrder.java", "JackLibraryOrder.java", "JackNamedChoices.java", "JackManaReplay.java", "JackManaReplayCheck.java",
+                                                   "JackDialogEncoder.java", "JackDialogEncoderMain.java", "JackDialogReplay.java", "JackInheritedChoices.java", "JackTriggerOrder.java", "JackLibraryOrder.java", "JackTargetAmount.java", "JackNamedChoices.java", "JackManaReplay.java", "JackManaReplayCheck.java",
                                                    "JackTargetEncoder.java", "JackTargetEncoderMain.java",
                                                    "JackGeneralTargetEncoder.java", "JackGeneralTargetEncoderMain.java",
                                                    "JackGeneralTargetNormalizationCheck.java",

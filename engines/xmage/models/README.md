@@ -1020,19 +1020,26 @@ pinned original ordering loop and inherited selector but script physical card
 placement. Native zone changes, replacement events, source/knowledge lifecycle,
 scry/surveil arrangements and complete trained-weight games remain unqualified.
 
-Divided-target and multi-amount callbacks now enter the owned replay hook before
-the inherited policy runs. Their wire groups remain unconnected and refuse
-explicitly. This closes a gap where the parent could allocate a complete group
-without entering the normal target callback. Unbound players and admitted
-simulation copies retain the original inherited behavior. Even implicit empty
-groups refuse during replay until their group lifecycle is connected.
+Divided targets now run the unchanged inherited allocation once per reconstruction.
+An owned preparation hook binds its actual amount and complete public target menu
+before the allocation starts. Replay then exposes the wire's target picks, optional
+finish and every amount pick, including the final singleton. Earlier answers must
+match the original complete result. Stack targets and divided amounts follow the
+wire's staged observation lifecycle; other public state must remain unchanged.
+Implicit zero amounts retain the original false return without posing a group.
+Full runtime builds require `JackTargetAmount`; reduced builds exclude it.
 
-Ten metadata cases verify refusal before target preparation, message access or
-neural/copy draws, historical-prefix handling, foreign-copy rejection and unchanged
-unbound/simulation policies. Eight existing Java replay checks and 157 affected
-Python checks pass. Evidence:
-`E:/spellbench-xmage-all-20261002/jack-unconnected-distribution-001`.
-The guard was checked as a metadata overlay on the consolidated runtime. That
-runtime's existing build receipt still describes its prior source revision;
-the next native build must include the guard. Native distribution groups and
-complete games remain unfinished.
+120 metadata cases match a separate unchanged parent oracle across damage,
+counters and other purposes, optional/required targets, stack/nonstack sources,
+every prefix and consecutive groups. Both fresh JVM outputs match exactly, with
+no extra engine, neural or copy draws. Invalid public menus, hidden identities,
+observations and historical choices refuse. All 22 existing Java regressions and
+222 affected Python checks pass. The complete runtime has 247 sources and 411
+classes, with all three architecture verifier paths passing. Evidence:
+`E:/spellbench-xmage-all-20261002/jack-target-amount-001`.
+
+These fixtures script target mutations and do not qualify native targeting events,
+replacement effects or changing legal-target sets. Multi-amount/combat distributions
+remain explicitly unconnected. Unbound players and admitted simulation copies
+retain their inherited policy. Native divided-target prompts, scry/surveil,
+turn changes/repeated phases and complete trained-weight games remain unfinished.

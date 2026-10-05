@@ -37,6 +37,7 @@ import mage.target.*;
 import mage.util.MultiAmountMessage;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /** Original no-training callbacks. Binding requires the actual permitted world. */
 public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer implements PriorityRules.OriginalCallbacks {
@@ -66,6 +67,28 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private transient int replayDepth;
     private transient int originalCombatDepth;
     private transient int originalLibraryDepth;
+    private transient Consumer<TargetAmount> targetAmountPreparation;
+    @Override protected final void originalTargetAmountPrepared(TargetAmount target,Ability source,Game game) {
+        if(targetAmountPreparation!=null)targetAmountPreparation.accept(target);
+    }
+    /** One original body, with its prepared bounds checked before any allocation. */
+    public final boolean runOriginalTargetAmount(Game game,TargetAmount target,Supplier<Boolean> work,
+            Consumer<TargetAmount> prepared) {
+        requireOriginalPermittedWorld(game);
+        if(replay==null || replayDepth!=1 || game!=replayGame || game.isSimulation()
+                || targetAmountPreparation!=null || target==null || work==null || prepared==null)
+            throw new IllegalArgumentException("target allocation needs its active owned replay");
+        final boolean[] seen={false};
+        targetAmountPreparation=actual->{
+            if(actual!=target || seen[0])throw new IllegalArgumentException("original target allocation preparation changed");
+            seen[0]=true;prepared.accept(actual);
+        };
+        try {
+            boolean result=work.get();
+            if(!seen[0])throw new IllegalArgumentException("original target allocation skipped preparation");
+            return result;
+        } finally {targetAmountPreparation=null;}
+    }
     public final List<UUID> queuedOriginalTargets(Game game) {
         requireOriginalPermittedWorld(game);
         return new ArrayList<>(targets);

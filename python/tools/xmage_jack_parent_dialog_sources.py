@@ -53,6 +53,8 @@ def parent_dialog_source(sources: dict[str, str], callback: str) -> str:
                            "private int makeChoiceAmount(int min, int max, Game game, Ability source, boolean isManaPay) {\n        requireOriginalParentWorld(game);")
     targets = replace_once(targets, "public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {",
                            "public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {\n        requireOriginalParentWorld(game);")
+    targets = replace_once(targets, "        target.prepareAmount(source, game);",
+                           "        target.prepareAmount(source, game);\n        originalTargetAmountPrepared(target, source, game);")
     creature = extract(base, "    protected boolean chooseCreatureType(Outcome outcome, Choice choice, Game game) {",
                        "    @Override\n    public boolean chooseTarget(Outcome outcome, Cards cards,")
     creature = replace_once(creature,
@@ -140,6 +142,7 @@ public abstract class OriginalParentDialogsPlayer extends OriginalParentManaPlay
         requireOriginalPermittedWorld(game);
     }
     protected boolean originalParentCardReplayActive(Game game) { return false; }
+    protected void originalTargetAmountPrepared(TargetAmount target,Ability source,Game game) { }
     protected void replayOriginalParentCard(Game game,TargetCard target,Ability source,List<UUID> possible,
             UUID selected,int count,int minimum,int maximum,String rule) { }
     private void originalParentCardPick(UUID selected,ParentTargetsSelector selector,Target target,Ability source,

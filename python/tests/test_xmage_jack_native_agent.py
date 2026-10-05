@@ -207,6 +207,37 @@ def test_mixed_trigger_purposes_refuse_before_original_session():
     assert len(session.requests) == 1 and session.closed
 
 
+@pytest.mark.parametrize("count", [1, 2])
+@pytest.mark.parametrize("purpose", ["damage", "counters", "other"])
+def test_divided_target_and_amount_group_preserves_one_root(count, purpose):
+    bot, session = ready([1] + [0] * (2 * count + 1)); bot.choose(view(priority()))
+    for position in range(count):
+        current = decision(*[{"kind": "select_object", "source": None, "purpose": "other",
+            "choice": {"player": seat}, "selected_count": position, "minimum": count, "maximum": count}
+            for seat in ("p0", "p1")[position:]], step=position + 1)
+        bot.choose(view(current))
+    for position in range(count):
+        current = decision({"kind": "distribute", "source": None, "purpose": purpose,
+            "recipient": {"player": ("p0", "p1")[position]}, "amount": 1,
+            "remaining": count - position}, step=count + position + 1)
+        current["group"] = {"group_id": 700, "substep_index": position, "substep_count": count}
+        bot.choose(view(current))
+    bot.choose(view(binary(2 * count + 1))); records = [r for r, _ in session.requests]
+    assert all(agent.family(r["decision"]) == "distribution" for r in records[count + 1:-1])
+    assert [len(r["replay"]["earlier"]) for r in records[1:]] == list(range(2 * count + 1))
+    assert all(r["anchor"]["decision"] == records[0]["decision"] for r in records[1:])
+    assert all((r["world_seed"], r["id_seed"]) == (records[0]["world_seed"], records[0]["id_seed"]) for r in records)
+    bot.close()
+
+
+def test_mixed_damage_and_combat_distribution_refuses_before_session():
+    bot, session = ready([1]); bot.choose(view(priority()))
+    current = decision({"kind": "distribute", "purpose": "damage"},
+                       {"kind": "distribute", "purpose": "combat_damage"}, step=1)
+    with pytest.raises(ValueError, match="family is not connected"): bot.choose(view(current))
+    assert len(session.requests) == 1 and session.closed
+
+
 @pytest.mark.parametrize("count", [2, 3, 4, 6])
 @pytest.mark.parametrize("purpose", ["library_top", "library_bottom"])
 def test_library_order_group_keeps_original_root_and_all_picks(count,purpose):
