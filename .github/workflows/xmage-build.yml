@@ -70,7 +70,7 @@ jobs:
           python python/tools/xmage_model_build.py --compile-only \
             --inputs "$RUNNER_TEMP/model-inputs" \
             --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-slices-build"
-          python python/tools/xmage_model_build.py --compile-only \
+          python python/tools/xmage_model_build.py --compile-only --current-overlay \
             --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \
@@ -81,6 +81,7 @@ jobs:
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackManaReplayCheck
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackGeneralTargetNormalizationCheck
           mana_cp="$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*"
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" mage.player.spellbench.server.EngineProfileCheck
           javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
             engines/xmage/tests/priority-mana/ManaMappingCheck.java \
             engines/xmage/tests/priority-mana/JackManaProfileCheck.java
