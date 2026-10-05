@@ -569,9 +569,9 @@
       },
       "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
     },
-    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-034",
-    "billing_seal_sha256": "006e75dff099cf9bb18d5ff84d2c9ce3a50b03f879895e05e91db00a59304916",
-    "conservative_closed_ceiling_usd": 9.54925747,
+    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-035",
+    "billing_seal_sha256": "e81ab1b48adc76a19e940c6d20a937336430d4701898309a379c27fb89003282",
+    "conservative_closed_ceiling_usd": 9.75719347,
     "active_owned_lease": false,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
@@ -624,7 +624,7 @@
     },
     "current_first_remaining_refusal": {
       "schema": "spellbench-gorge-prefix-refusal/v1",
-      "at_utc": "2026-10-05T11:34:44.395604+00:00",
+      "at_utc": "2026-10-05T12:05:10.865015+00:00",
       "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
       "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
       "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
@@ -659,15 +659,41 @@
       "first_failure_order_preserved": true,
       "historical504_frames_identical": true,
       "historical504_actor_answer_prefix_equal": true,
-      "exact_reconstruction_replay_complete": false,
-      "deepest_divergence_not_yet_observed": true,
-      "interpretation": "The repaired 504-frame public prefix occurs unchanged within this new 637-frame failure. Additional actor-public scry and shuffle events are visible, but the exhausted reconstruction branch has not yet been traced. No particular root cause or repair is claimed.",
+      "exact_reconstruction_replay_complete": true,
+      "deepest_divergence_not_yet_observed": false,
+      "interpretation": "Witness064 exactly reproduces captured work. The first two proposals reach frame355; the held-before-reorder proposal reaches573 before the shared5000-submit limit. Its farthest recorded event mismatch is491, and no hypothetical shuffle-planner rejection occurs in that proposal. The trace does not identify a deeper shuffle defect or establish that a repair passes. Full native qualification remains failed.",
       "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
       "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
       "native_qualification_complete": false,
       "reference_qualification_complete": false,
       "rated_games": 0,
-      "published_entries": 0
+      "published_entries": 0,
+      "exact_trace_record": "docs/gorge-witness-trace064-20261005.json",
+      "exact_trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\terminal-recovery\\trace-public-root\\TRACE.json",
+      "exact_trace_sha256": "e21ebeb9d26f9dc7c79615fc0f68bf4f7cd8166eccc96f74acb7c45af1b2dc25",
+      "trace_attempts": [
+        {
+          "Reached": 355,
+          "Failed": 355,
+          "Reason": "prefix:frame 355 identities",
+          "ShuffleFailures": 1
+        },
+        {
+          "Reached": 355,
+          "Failed": 355,
+          "Reason": "prefix:frame 355 identities",
+          "ShuffleFailures": 0
+        },
+        {
+          "Reached": 573,
+          "Failed": 491,
+          "Reason": "prefix:frame 491 events",
+          "ShuffleFailures": 0
+        }
+      ],
+      "farthest_reached": 573,
+      "farthest_recorded_rejection": 491,
+      "witness_constructed": false
     },
     "diagnostic050_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
     "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
@@ -766,7 +792,8 @@
     "saved504_refusal_repaired": true,
     "saved504_component_verification": "docs/gorge-component-verification059-20261005.json",
     "current_diagnostic_capture_complete": true,
-    "current_diagnostic_record": "docs/gorge-diagnostic062-20261005.json"
+    "current_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
+    "current_witness_trace_record": "docs/gorge-witness-trace064-20261005.json"
   },
   "current_source_component_status": {
     "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
@@ -795,7 +822,7 @@
     "published_entries": 0
   },
   "current_diagnostic": "docs/gorge-diagnostic062-20261005.json",
-  "current_witness_diagnostic": "docs/gorge-witness-trace058-20261005.json",
+  "current_witness_diagnostic": "docs/gorge-witness-trace064-20261005.json",
   "current_component_validation": "docs/gorge-component-verification059-20261005.json",
   "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json",
   "prior048_source_component_status": {

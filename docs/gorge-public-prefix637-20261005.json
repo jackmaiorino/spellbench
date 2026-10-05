@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-prefix-refusal/v1",
-  "at_utc": "2026-10-05T11:34:44.395604+00:00",
+  "at_utc": "2026-10-05T12:05:10.865015+00:00",
   "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
   "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
   "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
@@ -35,13 +35,39 @@
   "first_failure_order_preserved": true,
   "historical504_frames_identical": true,
   "historical504_actor_answer_prefix_equal": true,
-  "exact_reconstruction_replay_complete": false,
-  "deepest_divergence_not_yet_observed": true,
-  "interpretation": "The repaired 504-frame public prefix occurs unchanged within this new 637-frame failure. Additional actor-public scry and shuffle events are visible, but the exhausted reconstruction branch has not yet been traced. No particular root cause or repair is claimed.",
+  "exact_reconstruction_replay_complete": true,
+  "deepest_divergence_not_yet_observed": false,
+  "interpretation": "Witness064 exactly reproduces captured work. The first two proposals reach frame355; the held-before-reorder proposal reaches573 before the shared5000-submit limit. Its farthest recorded event mismatch is491, and no hypothetical shuffle-planner rejection occurs in that proposal. The trace does not identify a deeper shuffle defect or establish that a repair passes. Full native qualification remains failed.",
   "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
   "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "rated_games": 0,
-  "published_entries": 0
+  "published_entries": 0,
+  "exact_trace_record": "docs/gorge-witness-trace064-20261005.json",
+  "exact_trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\terminal-recovery\\trace-public-root\\TRACE.json",
+  "exact_trace_sha256": "e21ebeb9d26f9dc7c79615fc0f68bf4f7cd8166eccc96f74acb7c45af1b2dc25",
+  "trace_attempts": [
+    {
+      "Reached": 355,
+      "Failed": 355,
+      "Reason": "prefix:frame 355 identities",
+      "ShuffleFailures": 1
+    },
+    {
+      "Reached": 355,
+      "Failed": 355,
+      "Reason": "prefix:frame 355 identities",
+      "ShuffleFailures": 0
+    },
+    {
+      "Reached": 573,
+      "Failed": 491,
+      "Reason": "prefix:frame 491 events",
+      "ShuffleFailures": 0
+    }
+  ],
+  "farthest_reached": 573,
+  "farthest_recorded_rejection": 491,
+  "witness_constructed": false
 }
