@@ -15,6 +15,18 @@ from test_xmage_jack_inference import Peer, fixture
 from test_xmage_jack_native_inference import packet
 
 
+def test_priority_queue_binds_public_targets_with_null_opponent_hand():
+    target = {"object_id": "public-creature", "card_name": "Llanowar Elves", "zone": "battlefield",
+              "owner_seat": "p1", "controller_seat": "p1"}
+    decision = {"observation": {"viewer": "p0", "players": [
+        {"seat": "p0", "hand": [], "battlefield": []},
+        {"seat": "p1", "hand": None, "hand_count": 3, "battlefield": [target]}], "stack": [], "known": []}}
+    serving.priority_state({"alternatives": [], "targets": [target]}, decision)
+    hidden = {**target, "object_id": "hidden-card", "zone": "hand"}
+    with pytest.raises(ValueError, match="foreign or hidden reference"):
+        serving.priority_state({"alternatives": [], "targets": [hidden]}, decision)
+
+
 def setup(tmp_path, monkeypatch, *, scores=None):
     manifest, game, ready, cleanup = fixture(tmp_path, monkeypatch)
     game.update(seat="p0", agent_seed=31)

@@ -70,6 +70,19 @@ def priority(step=0):
     return decision({"kind": "pass"}, {"kind": "cast_spell", "source": {"object_id": "spell"}}, step=step)
 
 
+def test_original_priority_lifecycle_accepts_protocol_null_opponent_hand():
+    bot, session = ready([0])
+    current = priority()
+    current["observation"]["players"] = [
+        {"seat": "p0", "hand": [], "battlefield": []},
+        {"seat": "p1", "hand": None, "hand_count": 3, "battlefield": []}]
+    assert bot.choose(view(current)) == 10
+    assert session.requests[0][0]["decision"]["observation"]["players"][1]["hand"] is None
+    assert not bot.failed and not session.closed and bot.step == 0
+    bot.close()
+    assert session.closed
+
+
 @pytest.mark.parametrize("before,after", [("upkeep", "draw"), ("precombat_main", "beginning_of_combat"),
                                        ("end_of_combat", "postcombat_main"), ("postcombat_main", "end_step")])
 @pytest.mark.parametrize("already", [False, True])

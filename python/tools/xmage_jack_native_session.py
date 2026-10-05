@@ -78,7 +78,7 @@ def priority_state(value, decision=None):
         observation = decision["observation"]
         records = [card for player in observation.get("players", [])
                    for zone in ("hand", "battlefield", "graveyard", "exile", "command")
-                   for card in player.get(zone, [])]
+                   for card in (player.get(zone) or [])]
         records += observation.get("stack", [])
         for card in records:
             if isinstance(card.get("object_id"), str):
