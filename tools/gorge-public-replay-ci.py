@@ -96,8 +96,8 @@ def main():
     try:
         asset=next(a for a in exchange.assets().values() if a["id"]==args.asset_id)
         assert asset["digest"]=="sha256:"+args.archive_sha256
-        archive=exchange.download(asset,job/"inputs.zip",cap_bytes=8*2**20)
-        inputs=job/"inputs";extract_pinned(archive,inputs,cap_bytes=8*2**20)
+        archive=exchange.download(asset,job/"inputs.zip",cap_bytes=16*2**20)
+        inputs=job/"inputs";extract_pinned(archive,inputs,cap_bytes=16*2**20)
         expected={"registry.gob.gz":REGISTRY,**{f"case-{i:03}.json":h for i,(_,h) in enumerate(CASES,1)}}
         assert {p.name for p in inputs.iterdir()}==set(expected)
         assert all(p.is_file() and sha(p)==expected[p.name] for p in inputs.iterdir())
