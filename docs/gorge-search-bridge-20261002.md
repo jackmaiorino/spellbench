@@ -378,19 +378,19 @@ affected strategy cases, Go vet and diff checks pass. The
 [released cloud attempt](gorge-runtime021-cloud-20261004.json) are sealed with
 independent recovery copies. Current full qualification remains unfinished.
 
-The later seed52 capture extends the failing actor-public history to410 frames.
-An exact logging-only replay reproduced frame355's Forest/Vault of Whispers
-identity mismatch. A tighter scry prefix bound alone preserved the364-frame
-repair but still exhausted the410-frame case. Both results remain retained.
+The later seed52 capture extends the failing actor-public history to 410 frames.
+An exact logging-only replay reproduced frame 355's Forest/Vault of Whispers
+identity mismatch. A tighter scry prefix bound alone preserved the 364-frame
+repair but still exhausted the 410-frame case. Both results remain retained.
 
-The witness search now shares its existing5,000-submit total among fixed-shuffle
+The witness search now shares its existing 5,000-submit total among fixed-shuffle
 proposals, giving each a bounded allowance based on history length. Native
-sampler weights, policies, rollout settings and64/8/5000 options remain unchanged.
+sampler weights, policies, rollout settings and 64/8/5000 options remain unchanged.
 The public scry bound uses only draw counts, bottom counts and declared look
-limits;81,400 enumerated hidden-order paths satisfy it. Both exact saved roots
-now yield eight known-card-valid worlds:364 frames use783 submits in one proposal,
-and410 frames use2,107 submits in two proposals, with zero budget exhaustion.
-The364-frame capture also verifies unchanged native sampler diagnostics; the410
+limits; 81,400 enumerated hidden-order paths satisfy it. Both exact saved roots
+now yield eight known-card-valid worlds: 364 frames use 783 submits in one proposal,
+and 410 frames use 2,107 submits in two proposals, with zero budget exhaustion.
+The 364-frame capture also verifies unchanged native sampler diagnostics; the 410
 capture has no full native diagnostics baseline. The
 [sealed component regression](gorge-public-roots032-20261005.json) retains all
 inputs, runtime pins, traces, release and billing evidence with independent
