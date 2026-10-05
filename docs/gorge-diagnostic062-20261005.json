@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T10:56:29.503202+00:00",
+  "at_utc": "2026-10-05T11:06:08.529275+00:00",
   "spellbench_commit": "9551e07bbbf333899eedbac580c8dfad1bf624a3",
   "runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -73,8 +73,21 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "58c0bfee24f6d70addbf4ad2bea9b2b236d9fa7d33141b15f7459045a68c359b",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_first_remaining_failure_capture_running",
   "host_facts_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\CATALOG.json",
-  "guard_path": "Independent45-minute release guardian; diagnostic capture parent; independent durable binary pins before execution; one exact seed52 first-failure capture"
+  "guard_path": "Independent45-minute release guardian; diagnostic capture parent; independent durable binary pins before execution; one exact seed52 first-failure capture",
+  "observed_driver_phase": "linked_compiler_preflight",
+  "pod_id": "tlob6bxwjqdser",
+  "owned_lease_name": "spellbench-gorge-diagnostic-8131db375f434608",
+  "lease_deadline_utc": "2026-10-05T11:48:33.5388336+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.23,
+  "observed_effective_cpu_quota": 8.5,
+  "observed_memory_limit_bytes": 61999996928,
+  "observed_cpu_model": "Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz",
+  "owner_watcher_session_id": 79369,
+  "owner_watcher_pid": 45084,
+  "owner_supervision_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\SUPERVISION.json",
+  "independent_lease_guard_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\LIVE-GUARD-ARMED.json",
+  "next_wake_condition": "Durable diagnostic binary pin, first public failure capture, terminal result or lease deadline. Existing owner and independent guardian supervise."
 }

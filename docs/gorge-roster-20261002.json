@@ -572,7 +572,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-033",
     "billing_seal_sha256": "844baef10dc5be054c367b8cd9cfc8ed59045b89fc56b077af699ae86bd35369",
     "conservative_closed_ceiling_usd": 9.23089247,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
       "returncode": 1,
@@ -718,7 +718,11 @@
     "current_remaining_refusals_unknown": true,
     "current_native_result_status": "Failed unchanged zero-refusal gate in serial game52; full parallel/native audit not admitted",
     "saved504_refusal_repaired": true,
-    "saved504_component_verification": "docs/gorge-component-verification059-20261005.json"
+    "saved504_component_verification": "docs/gorge-component-verification059-20261005.json",
+    "active_lease_scope": "Diagnostic062 first remaining public-state failure capture; closed production060 remains failed",
+    "active_lease_maximum_usd": 0.4125,
+    "cumulative_ceiling_with_active_lease_usd": 9.64339247,
+    "active_job_record": "docs/gorge-diagnostic062-20261005.json"
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
