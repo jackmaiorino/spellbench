@@ -571,7 +571,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-029",
     "billing_seal_sha256": "875d480d34da7882a65533fd0339b58d90e64d2fc58d8aadb6396c75c7ddfee3",
     "conservative_closed_ceiling_usd": 8.35203347,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
       "returncode": 1,
@@ -608,7 +608,7 @@
     ],
     "witness046_seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
     "witness046_baseline_refusal_reproduced": true,
-    "cumulative_reservation_ceiling_usd": 8.35203347,
+    "cumulative_reservation_ceiling_usd": 8.67703347,
     "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
     "prior040_first_remaining_refusal": {
       "frames": 596,
@@ -640,7 +640,10 @@
       "trace_sha256": "175311aeca9b6c3301096bc6e03c1ed4c6e8be3c8a0b6342e8fbcee3812e0623"
     },
     "diagnostic050_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
-    "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde"
+    "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
+    "active_lease_scope": "One exact504-prefix replay with hypothetical-state logging; no formal or rated games",
+    "active_lease_maximum_usd": 0.325,
+    "cumulative_ceiling_with_active_lease_usd": 8.67703347
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
@@ -664,7 +667,7 @@
     "current_native_qualification": "failed_existing_redeal_gate_game52",
     "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json"
   },
-  "current_diagnostic": "docs/gorge-witness-trace052-20261005.json",
+  "current_diagnostic": "docs/gorge-witness-trace054-20261005.json",
   "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",
   "current_component_validation": "docs/gorge-runtime048-native-20261005.json",
   "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json"
