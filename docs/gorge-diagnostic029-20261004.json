@@ -113,5 +113,15 @@
   "source_fingerprint_passed": true,
   "linked_compiler_test_passed": true,
   "watcher_recovery_record": "E:\\spellbench-gorge-runpod-20261004-029\\PIN-WATCHER-RECOVERY-001.json",
-  "diagnostic_capture_passed": false
+  "diagnostic_capture_passed": false,
+  "followup_trace_preparation": {
+    "source": "python/tools/gorge_public_trace.py",
+    "sha256": "62e0c01b8fff90a4335e8a033a929bcac4791c515023c3c4befcfd6e8de27da9",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261004-029\\TRACE-TOOL-PREPARATION-002.json",
+    "historical_projection_parser_checked_frames": 364,
+    "changed_sha_refused": true,
+    "python_guard_tests_passed": 10,
+    "generated_go_execution_verified": false,
+    "scope": "Reusable logging-only witness capsule; future actual case still required; no launch, native qualification or rated games"
+  }
 }
