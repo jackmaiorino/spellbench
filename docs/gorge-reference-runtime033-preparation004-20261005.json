@@ -165,5 +165,36 @@
     "evaluation_launched": false,
     "new_cloud_spend_usd": 0,
     "next_wake_condition": "Existing native033 full result, failure or lease deadline; existing watcher session28212 and independent guardian remain responsible"
+  },
+  "dispatch_close_preparation": {
+    "at_utc": "2026-10-05T02:02:54.707915+00:00",
+    "phase": "reference_close_and_deadline_aware_watcher_prepared_not_executed",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CLOSE-CONTROLS",
+    "pins": {
+      "gorge-prepare-reference-close034-20261005.py": {
+        "bytes": 6940,
+        "sha256": "7b4168caeb83689b5d30d3b52237dc33baa17bc4c963030341bcfb4dd3eca782"
+      },
+      "gorge-close-reference034-20261005.py": {
+        "bytes": 10007,
+        "sha256": "12e4f7268f2f5956ac71821a551949e7b704b60f887968ac08edf2a4b88b0546"
+      },
+      "gorge-supervise-reference034-20261005.py": {
+        "bytes": 7001,
+        "sha256": "48b4348eb28f68ae619d0a814c0c70cd667c02acfa4c3ec004b384ad0ccd9778"
+      }
+    },
+    "python_syntax_checked": 3,
+    "close_result_source": "reference-001/CLOSURE.json and MATRIX.json",
+    "pass_requirements": "Passed parent, unchanged140 natural unique games,60 cells and160 native participations, guarded matched allocation, matching ledger hash and identical preselected replay, admitted sealed native033 and runtime033 pins",
+    "recovery_requirements": "Exact-owned pod absence and guardian/task/credential cleanup; zero owned processes and verified terminal recovery archive; E/D SHA-256 equality before sealing",
+    "billing_basis": "Closed native033 ledger015; one actual reference034 lease reconciled into ledger016; original USD10 all-in cap and ancillary allowance retained; final settlement remains pending",
+    "updated_watcher": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CLOSE-CONTROLS\\gorge-supervise-reference034-20261005.py",
+    "watcher_change": "Retain300/900-second normal cadence and shorten waits near the independent deadline for terminal recovery",
+    "replaced_watcher_snapshot": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CONTROLS\\gorge-supervise-reference034-20261005.py",
+    "controls_execution_validated": false,
+    "native_admission_proved": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0
   }
 }
