@@ -28,6 +28,25 @@ Capture this evidence from the canonical host module after the existing
 supervisor releases; a missing lock alone does not prove this attempt released.
 Keep reservation tokens out of portable receipts and Git.
 
+`tools/gorge_recover_local_native.py` captures these observations through the
+canonical host module, compares the existing E/D outputs and exact production
+runtime recoveries, and writes identical receipts and seals. It refuses a held
+reservation before writing. It retains terminal native or parent failures
+without admission and is safe to repeat against identical sealed evidence.
+It never starts, stops, reclaims or releases a process. For native077, after
+its supervisor releases, use the existing roots:
+
+```powershell
+uv run --no-sync python tools/gorge_recover_local_native.py `
+  --hot D:/e-scratch/spellbench-gorge-native-20261005-077 `
+  --cold E:/spellbench-gorge-native-20261005-077 `
+  --runtime E:/spellbench-gorge-runtime-20261005-076 `
+  --runtime-recovery D:/e-scratch/spellbench-gorge-runtime-20261005-076 `
+  --runtime-seal-sha256 d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74 `
+  --host-tools D:/mtg-kernel-codex-lead-20261002/python/tools `
+  --lane spellbench-gorge --work-id gorge-guarded-native077
+```
+
 `RECOVERY.json` binds the execution identity and `launcher_source_commit`,
 declares the actual `native_qualification_passed`,
 `independent_recovery_verified` and `rated_games: 0`. After the sealed E/D
