@@ -57,5 +57,8 @@
   "reference_qualification_complete": false,
   "rated_games": 0,
   "published_entries": 0,
-  "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7"
+  "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
+  "current_native_qualification": "failed_existing_redeal_gate_game52",
+  "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json",
+  "current_native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6"
 }

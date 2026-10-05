@@ -7,9 +7,11 @@ Production runtime048 uses Spellbench source
 engine source. All seven production binaries are pinned on independent E/D
 copies under runtime seal
 `b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef`.
-[The current job](gorge-runtime048-native-20261005.json) is running its
-supported matched serial/parallel qualification. No full qualification or
-playing-strength result is claimed.
+[Job048](gorge-runtime048-native-20261005.json) failed its existing redeal
+gate in serial game52 after35 reconstruction budget failures. Its pod is deleted,
+all cleanup is verified, and recovered evidence is independently sealed on E/D.
+Matched parallel allocation and the full320-block/640-game audit were not admitted.
+No full qualification or playing-strength result is claimed.
 
 The current public carry, hand-return and pass-ordering repair passed all four
 unchanged saved actor-public inputs under the original 64-attempt/eight-world/
