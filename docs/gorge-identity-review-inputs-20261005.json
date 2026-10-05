@@ -1,21 +1,22 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T16:44:10.364098+00:00",
-  "status": "current_repaired_runtime_prepared_for_review; native077_scaling_active, qualification_and_current_identity_review_pending",
-  "adapter_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
-  "engine_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
+  "at_utc": "2026-10-05T18:09:18.027754+00:00",
+  "status": "owned_Dig_component_repair_verified; rebuilt082; whole_game_still_has7refusals",
+  "adapter_source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
+  "engine_source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-076",
-  "runtime_seal_sha256": "d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-082",
+  "runtime_seal_sha256": "0e9b4f3f1806027e08c886ebe036ee41a59865f259b77a794fa27c9d6f846b3e",
   "production_overlay_sha256": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
     "engines/gorge/native-overlay/public_priority_test.go.txt",
     "engines/gorge/native-overlay/public_redeal.go.txt",
     "engines/gorge/scripts/setup-dev.py",
-    "engines/gorge/native-overlay/public_basic_search.go.txt"
+    "engines/gorge/native-overlay/public_basic_search.go.txt",
+    "engines/gorge/scripts/reference_matrix.py"
   ],
   "unchanged_emitter_and_history_file_pins": {
     "engines/gorge/native-overlay/public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
@@ -31,7 +32,9 @@
     "spellbenchScryEpochs",
     "spellbenchScryHeldEpochs",
     "SpellbenchReconstructRedeal",
-    "spellbenchBasicSearches"
+    "spellbenchBasicSearches",
+    "spellbenchActorLibraryPositions",
+    "spellbenchActorDigOrder"
   ],
   "inputs": [
     "Actor-public History identities/events and projected hand sizes",
@@ -451,10 +454,10 @@
     "xmage_remaining_issue": "https://github.com/jackmaiorino/spellbench/issues/35"
   },
   "local_native_recovery_format": "docs/gorge-local-native-recovery.md",
-  "local_native_receipts_exist": false,
+  "local_native_receipts_exist": true,
   "local_gate_structural_checks_passed": 62,
   "affected_reference_and_history_checks_passed": 127,
-  "full_go_ci_engine_byte_compatibility_checked": true,
+  "full_go_ci_engine_byte_compatibility_checked": false,
   "current_head_required_ci_complete": false,
   "local_native_recovery_tool": {
     "path": "tools/gorge_recover_local_native.py",
@@ -462,7 +465,7 @@
     "implementation_commit": "70a13c415525faae2a17911546fcf348b5816f03",
     "focused_tests_passed": 14,
     "actual_active_native077_refused_before_terminal_writes": true,
-    "actual_terminal_recovery_complete": false,
+    "actual_terminal_recovery_complete": true,
     "creates_launches": false,
     "terminates_processes": false,
     "new_cloud_spend_usd": 0
@@ -471,5 +474,10 @@
   "historical_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
   "historical_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
   "current_reference_preparation_record": null,
-  "current_reference_preparation_seal_sha256": null
+  "current_reference_preparation_seal_sha256": null,
+  "current_local_native_job_state": "native077 numerical failure retained, recovered and sealed",
+  "current_local_native_job_record": "docs/gorge-local-native077-20261005.json",
+  "current_dig_repair_record": "docs/gorge-local-dig-repair082-20261005.json",
+  "affected_python_checks_passed": 196,
+  "current_reference_runner_cleanup_preserved": true
 }
