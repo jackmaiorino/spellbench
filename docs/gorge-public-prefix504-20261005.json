@@ -16,9 +16,243 @@
   "actor_answer_prefix_equal": true,
   "original_options_unchanged": true,
   "production_first_failure_order_preserved": true,
-  "exact_replay_complete": false,
-  "deepest_divergence_not_yet_observed": true,
+  "exact_replay_complete": true,
+  "deepest_divergence_not_yet_observed": false,
   "interpretation": "Current source passes saved596-frame history but its identical504-frame prefix exhausts the shared5000-submit reconstruction budget. Later public history supplies constraints unavailable at the earlier decision; this does not yet identify a particular reconstruction bug.",
   "native_qualification_complete": false,
-  "rated_games": 0
+  "rated_games": 0,
+  "witness052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
+  "trace_diagnosis": {
+    "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-052\\terminal-recovery\\trace-public-root\\TRACE.json",
+    "trace_sha256": "175311aeca9b6c3301096bc6e03c1ed4c6e8be3c8a0b6342e8fbcee3812e0623",
+    "exact_replay_complete": true,
+    "deepest_reached": 390,
+    "deepest_failure": 390,
+    "deepest_reason": "actor_submit:hypothetical shuffle planner: incompatible hypothetical proposal",
+    "captured_work": {
+      "Attempts": 4,
+      "Submits": 5000,
+      "Nodes": 4200,
+      "BudgetExhausted": 1
+    },
+    "attempts": [
+      {
+        "attempt": 0,
+        "reached": 355,
+        "failed": 355,
+        "reason": "prefix:frame 355 identities",
+        "got_identities": null,
+        "want_identities": [
+          {
+            "ID": 90,
+            "Name": "Vault of Whispers",
+            "Owner": 1
+          }
+        ],
+        "shuffle_failures": 1,
+        "best_shuffle": {
+          "Frame": 1,
+          "Player": 1,
+          "Ordinal": 2,
+          "Hand": {},
+          "Library": {
+            "Blood Fountain": 1,
+            "Cast Down": 4,
+            "Cleansing Wildfire": 4,
+            "Drossforge Bridge": 4,
+            "Eviscerator's Insight": 1,
+            "Fanatical Offering": 4,
+            "Forest": 2,
+            "Ichor Wellspring": 3,
+            "Krark-Clan Shaman": 3,
+            "Lembas": 3,
+            "Makeshift Munitions": 1,
+            "Mountain": 2,
+            "Nihil Spellbomb": 4,
+            "Nyxborn Hydra": 1,
+            "Pulse of Murasa": 1,
+            "Refurbished Familiar": 4,
+            "Slagwoods Bridge": 4,
+            "Swamp": 3,
+            "Toxin Analysis": 2,
+            "Twisted Landscape": 4,
+            "Vault of Whispers": 1,
+            "Writhing Chrysalis": 4
+          },
+          "Epoch": {
+            "Positions": null,
+            "Deadlines": [
+              {
+                "Through": 1,
+                "Name": "Swamp",
+                "Count": 1
+              },
+              {
+                "Through": 2,
+                "Name": "Twisted Landscape",
+                "Count": 1
+              },
+              {
+                "Through": 2,
+                "Name": "Ichor Wellspring",
+                "Count": 1
+              },
+              {
+                "Through": 2,
+                "Name": "Slagwoods Bridge",
+                "Count": 1
+              }
+            ],
+            "ArrangeWindows": 0,
+            "Unguided": null
+          },
+          "Error": "incompatible hypothetical proposal",
+          "ContextSource": "hypothetical_shuffle_proposal"
+        }
+      },
+      {
+        "attempt": 1,
+        "reached": 390,
+        "failed": 390,
+        "reason": "actor_submit:hypothetical shuffle planner: incompatible hypothetical proposal",
+        "got_identities": [
+          {
+            "ID": 99,
+            "Name": "",
+            "Owner": 1
+          },
+          {
+            "ID": 100,
+            "Name": "",
+            "Owner": 1
+          }
+        ],
+        "want_identities": [
+          {
+            "ID": 99,
+            "Name": "",
+            "Owner": 1
+          },
+          {
+            "ID": 100,
+            "Name": "",
+            "Owner": 1
+          }
+        ],
+        "shuffle_failures": 2,
+        "best_shuffle": {
+          "Frame": 390,
+          "Player": 1,
+          "Ordinal": 4,
+          "Hand": {
+            "Fanatical Offering": 2,
+            "Forest": 1,
+            "Toxin Analysis": 2,
+            "Twisted Landscape": 1,
+            "Writhing Chrysalis": 1
+          },
+          "Library": {
+            "Blood Fountain": 1,
+            "Cast Down": 3,
+            "Cleansing Wildfire": 4,
+            "Drossforge Bridge": 1,
+            "Eviscerator's Insight": 1,
+            "Fanatical Offering": 2,
+            "Forest": 1,
+            "Ichor Wellspring": 2,
+            "Krark-Clan Shaman": 1,
+            "Lembas": 3,
+            "Makeshift Munitions": 1,
+            "Mountain": 1,
+            "Nihil Spellbomb": 4,
+            "Nyxborn Hydra": 1,
+            "Pulse of Murasa": 1,
+            "Refurbished Familiar": 4,
+            "Slagwoods Bridge": 2,
+            "Swamp": 1,
+            "Twisted Landscape": 2,
+            "Writhing Chrysalis": 3
+          },
+          "Epoch": {
+            "Positions": null,
+            "Deadlines": [
+              {
+                "Through": 1,
+                "Name": "Twisted Landscape",
+                "Count": 1
+              },
+              {
+                "Through": 1,
+                "Name": "Refurbished Familiar",
+                "Count": 1
+              },
+              {
+                "Through": 1,
+                "Name": "Nihil Spellbomb",
+                "Count": 1
+              },
+              {
+                "Through": 2,
+                "Name": "Refurbished Familiar",
+                "Count": 2
+              }
+            ],
+            "ArrangeWindows": 0,
+            "Unguided": [
+              "library_mutation"
+            ]
+          },
+          "Error": "incompatible hypothetical proposal",
+          "ContextSource": "hypothetical_shuffle_proposal"
+        }
+      },
+      {
+        "attempt": 2,
+        "reached": 355,
+        "failed": 355,
+        "reason": "prefix:frame 355 identities",
+        "got_identities": [
+          {
+            "ID": 90,
+            "Name": "Mountain",
+            "Owner": 1
+          }
+        ],
+        "want_identities": [
+          {
+            "ID": 90,
+            "Name": "Vault of Whispers",
+            "Owner": 1
+          }
+        ],
+        "shuffle_failures": 0,
+        "best_shuffle": null
+      },
+      {
+        "attempt": 3,
+        "reached": 230,
+        "failed": 217,
+        "reason": "prefix:frame 217 identities",
+        "got_identities": [
+          {
+            "ID": 66,
+            "Name": "Fanatical Offering",
+            "Owner": 1
+          }
+        ],
+        "want_identities": [
+          {
+            "ID": 66,
+            "Name": "Krark-Clan Shaman",
+            "Owner": 1
+          }
+        ],
+        "shuffle_failures": 0,
+        "best_shuffle": null
+      }
+    ],
+    "interpretation": "Exact current504-prefix refusal reproduced. Carry-guided proposals0/2 stop at public Vault of Whispers identity after opponent scry355; unguided proposal1 reaches390 then rejects hypothetical opponent shuffle4 with three different names required through one draw and a second Familiar through two. The sampled hidden hand lacks Familiar and Spellbomb. No production repair established yet.",
+    "native_qualification_complete": false,
+    "rated_games": 0
+  }
 }
