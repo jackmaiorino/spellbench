@@ -104,3 +104,33 @@ def test_private_response_write_uses_remaining_clock_and_closes_on_pipe_failure(
     with pytest.raises(OSError):
         owner.service(peer, packet(owner, "physical_copy", count=2))
     assert owner.closed and pair.closed
+
+
+@pytest.mark.parametrize("cause", ["pipe", "deadline"])
+def test_response_failure_survives_owned_pair_cleanup_error(tmp_path, monkeypatch, cause):
+    owner, pair, _ = owner_fixture(tmp_path, monkeypatch)
+    peer = Peer([])
+    original_close = owner.session.close
+
+    def broken_cleanup():
+        original_close()
+        raise RuntimeError("owned pair cleanup failed")
+
+    monkeypatch.setattr(owner.session, "close", broken_cleanup)
+    failure = OSError("private JVM response pipe closed")
+    if cause == "pipe":
+        def broken_write(_):
+            raise failure
+        peer.write_line = broken_write
+        expected = OSError
+    else:
+        times = iter((0, 3))
+        monkeypatch.setattr(native.time, "monotonic", lambda: next(times))
+        expected = TimeoutError
+
+    with pytest.raises(expected) as caught:
+        owner.service(peer, packet(owner, "physical_copy", count=2))
+    if cause == "pipe":
+        assert caught.value is failure
+    assert any("owned pair cleanup failed" in note for note in caught.value.__notes__)
+    assert owner.closed and pair.closed

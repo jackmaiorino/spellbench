@@ -105,8 +105,12 @@ class JackNativeInferenceOwner:
                     raise TimeoutError("native Jack callback exhausted its response-write clock")
                 peer.set_timeout(remaining)
                 peer.write_line(json.dumps(response,allow_nan=False,separators=(",", ":")).encode("utf-8"))
-            except BaseException:
-                self.close()
+            except BaseException as failure:
+                try:
+                    self.close()
+                except BaseException as cleanup:
+                    if hasattr(failure, "add_note"):
+                        failure.add_note("Native Jack cleanup also failed: " + str(cleanup))
                 raise
         return response
 
