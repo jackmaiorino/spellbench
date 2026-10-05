@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T07:35:37.135984+00:00",
+  "at_utc": "2026-10-05T08:17:02.764006+00:00",
   "status": "prepared_for_review; qualification_and_current_identity_review_pending",
   "adapter_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
   "engine_source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
@@ -44,17 +44,18 @@
   },
   "native_diagnostic_baseline": "Only364 has a captured baseline; all23 emitted native fields remain identical. No equality claim for410/478/596.",
   "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
-  "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/b01aaffc8b11f702306afc4f6d94dfcf95110b6d/docs/gorge-native-identity-audit-20261003.md",
-  "benchmark_audit_url_current": false,
+  "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/960ff223a0ff9e7b89433796c8d7ddc816f2e21e/docs/gorge-native-identity-audit-20261003.md",
+  "benchmark_audit_url_current": true,
   "remaining": [
     "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
     "Compatible140-game reference matrix and replay",
-    "Current identity and fair-play review; refresh benchmark audit URL to the reviewed audit commit before rated commitment",
+    "Current identity and fair-play review; bind reviewed current audit before rated commitment",
     "Review and merge benchmark definition; commitment and third-party timestamp before any rated game"
   ],
   "current_identity_review_complete": false,
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "rated_games": 0,
-  "published_entries": 0
+  "published_entries": 0,
+  "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7"
 }

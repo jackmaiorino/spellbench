@@ -640,7 +640,7 @@
     "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
     "component_result_record": "E:\\spellbench-gorge-runpod-20261005-048\\COMPONENT-CHECKS-OBSERVED.json",
     "current_identity_review_complete": false,
-    "benchmark_audit_url_current": false
+    "benchmark_audit_url_current": true
   },
   "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
   "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",

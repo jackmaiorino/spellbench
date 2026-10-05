@@ -45,8 +45,9 @@ replay every actor-public frame and pass the unchanged native known-card checks.
 
 Runtime033 and040 failed their unchanged redeal gates; those historical receipts
 remain failed. Component success above cannot qualify either old runtime or the
-current complete12-mode panel. The benchmark still names the old `b01aaff` audit
-URL. Before rated commitment, that URL must name a reviewed current audit;
+current complete12-mode panel. The draft benchmark now pins current-source
+audit evidence at `960ff223`; independent identity review remains pending.
+Before rated commitment, that URL must name a reviewed current audit;
 qualification and benchmark review remain required. The rest of this document
 retains earlier source checks and their stated limits.
 
