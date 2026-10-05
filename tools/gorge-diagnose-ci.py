@@ -139,7 +139,11 @@ def main():
                         load_average=os.getloadavg(),free_bytes=machine.free_bytes(job))
                     for label,path in [('stat','stat'),('memory','status'),('io','io')]:
                         try:metrics[label]=Path(f'/proc/{process.pid}/{path}').read_text()
-                        except FileNotFoundError:pass
+                        except OSError as exc:
+                            # Proc files can disappear or reject access when a
+                            # short setup process exits between poll and read.
+                            # Record unavailable metrics without inventing zeros.
+                            metrics[label+'_unavailable_errno']=exc.errno
                     with (output/'METRICS.jsonl').open('a') as stream:stream.write(json.dumps(metrics)+'\n')
                     time.sleep(5)
             finally:

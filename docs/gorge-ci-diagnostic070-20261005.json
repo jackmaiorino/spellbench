@@ -46,5 +46,32 @@
   "native_qualification_passed": false,
   "published_entries": 0,
   "final_invoice_pending": true,
-  "bounded_recovery": "One owner watcher recovers exact head/attempt artifacts and logs to E/D, seals then deletes owned hosting"
+  "bounded_recovery": "One owner watcher recovers exact head/attempt artifacts and logs to E/D, seals then deletes owned hosting",
+  "phase": "setup_failed_recovered_before_any_native_game",
+  "ci_run_id": 37332327807,
+  "ci_run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37332327807",
+  "execution_source_commit": "42b72a48405aea4993d1b3a3a4a0f1c28ee95970",
+  "observed_status": "completed",
+  "observed_conclusion": "failure",
+  "observed_at_utc": "2026-10-05T15:30:17.764481+00:00",
+  "result_source_of_record": "E:\\spellbench-gorge-ci-diagnostic-results-20261005-070",
+  "result_recovery_root": "D:\\e-scratch\\spellbench-gorge-ci-diagnostic-results-20261005-070",
+  "recovery_seal_sha256": "965864e6523c0bba849ba66c11065bf25273702e3dbf9fb85fe492ebc03e9f85",
+  "cleanup_sha256": "65bb2c6afb0e785b7b75b86f444d6bcfb0702e512538d25c696652857e8071f6",
+  "independent_recovery_verified": true,
+  "hosted_artifact_deletion_verified": true,
+  "draft_inputs_deletion_verified": true,
+  "watcher_terminal": true,
+  "diagnostic_passed": false,
+  "native_games_started": 0,
+  "failure": {
+    "phase": "build",
+    "error_type": "PermissionError",
+    "error": "[Errno 13] Permission denied: '/proc/2256/io'",
+    "rated_games": 0
+  },
+  "remedy": "Record optional proc metrics OSError with errno instead of failing short-process setup; corrected bounded diagnostic071",
+  "superseded_pr54_head_contained": true,
+  "canonical_integration_pr": "https://github.com/jackmaiorino/spellbench/pull/64",
+  "required_ci_history_dependency": "XMage issue24/13 owner: main fdn-mirror-v0 October2 commitment is still unrevealed under spec11.6"
 }
