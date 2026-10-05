@@ -97,6 +97,26 @@ class KernelProjection:
     def spell_characteristics(self, metadata, x_value, cast_method):
         if x_value is not None and (type(x_value) is not int or x_value < 0):
             raise ProjectionError("invalid public chosen X")
+        if cast_method == "omen":
+            forms = metadata.get("spell_forms")
+            form = forms.get("omen") if type(forms) is dict else None
+            if type(form) is not dict or type(form.get("x_count")) is not int or not 0 <= form["x_count"] <= 255:
+                raise ProjectionError("Omen spell metadata absent or invalid in compiled catalog")
+            characteristics = form.get("characteristics")
+            keys = {"supertypes", "types", "subtypes", "colors", "mana_value", "power", "toughness", "keywords"}
+            if (type(characteristics) is not dict or set(characteristics) != keys
+                    or any(type(characteristics[key]) is not list
+                           or any(type(value) is not str for value in characteristics[key])
+                           for key in ("supertypes", "types", "subtypes", "colors", "keywords"))
+                    or not set(characteristics["types"]) & {"instant", "sorcery"}
+                    or any(kind not in {"land", "creature", "instant", "sorcery", "artifact", "enchantment", "planeswalker"}
+                           for kind in characteristics["types"])
+                    or any(color not in COLORS for color in characteristics["colors"])
+                    or type(characteristics["mana_value"]) is not int or characteristics["mana_value"] < 0
+                    or any(characteristics[key] is not None and type(characteristics[key]) is not int
+                           for key in ("power", "toughness"))):
+                raise ProjectionError("Omen spell characteristics absent or invalid in compiled catalog")
+            metadata = form
         result = deepcopy(metadata["characteristics"])
         result["colors"] = sorted(result["colors"], key=COLORS.index)
         result["mana_value"] += metadata["x_count"] * (x_value or 0)
