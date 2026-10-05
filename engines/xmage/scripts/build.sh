@@ -116,7 +116,8 @@ for f in "$SRC"/Mage.Server.Plugins/Mage.Player.AI/target/mage-player-ai-*.jar $
 done
 
 # 8. the build manifest
-JAVA_V=$(java -version 2>&1 | head -1)
+# JVM option diagnostics can precede the actual version line.
+JAVA_V=$(java -version 2>&1 | awk '/^(openjdk|java) version /{print; exit}')
 MVN_V=$(mvn -B -v 2>/dev/null | head -1 | tr -d '\r' | sed 's/\x1b\[[0-9;]*m//g')
 {
   echo "{"
