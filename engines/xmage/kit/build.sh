@@ -49,7 +49,7 @@ fi
 
 # The Windows PATH can contain JDK 23 java/javac and a JDK 8 jar. Resolve
 # the archiver from the running pinned JDK rather than accepting that mix.
-[ "$(javac -version 2>&1)" = "javac 23.0.1" ] || { echo "JDK 23.0.1 required" >&2; exit 2; }
+[ "$(javac -version 2>&1 | sed -n '/^javac /p')" = "javac 23.0.1" ] || { echo "JDK 23.0.1 required" >&2; exit 2; }
 KIT_JDK_DIR=$(java -XshowSettings:properties -version 2>&1 | sed -n 's/^ *java.home = //p' | tr -d '\r')
 if command -v cygpath >/dev/null 2>&1; then KIT_JDK_DIR=$(cygpath -u "$KIT_JDK_DIR"); fi
 JAR="$KIT_JDK_DIR/bin/jar"
@@ -68,7 +68,7 @@ SRC_DIGEST=$(cd "$HERE" && find core/src xmage/src xmage/resources -type f | LC_
   echo "  \"engine_lib_digest\": \"$ENGINE_DIGEST\","
   echo "  \"engine_rules_snapshot_id\": \"$RULES_ID\","
   echo "  \"kit_source_digest\": \"$SRC_DIGEST\","
-  echo "  \"jdk\": \"$(java -version 2>&1 | head -1 | sed 's/"/\\"/g')\","
+  echo "  \"jdk\": \"$(java -version 2>&1 | awk '/^(openjdk|java) version /{print; exit}' | sed 's/"/\\"/g')\","
   echo "  \"jars\": {"
   echo "    \"kit-core.jar\": \"$(sha256 < "$OUT/lib/kit-core.jar")\","
   echo "    \"kit-xmage.jar\": \"$(sha256 < "$OUT/lib/kit-xmage.jar")\""
