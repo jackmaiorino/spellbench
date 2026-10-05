@@ -96,7 +96,7 @@ func TestSpellbenchRevealedHandGuidesOnlyCompletePublicWindows(t *testing.T) {
 				d.Options = append(d.Options, ObservedOption{Action: Action{Kind: "hand_move", Obj: ref, Player: 1}})
 			}
 			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
-				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.TurnChange, Player: 0}}},
 				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}, Board: json.RawMessage(`{"players":[{"seat":1,"hand_size":3}]}`)},
 				{Identities: []Identity{{ID: 1, Owner: 1, Name: "Spy"}, {ID: 2, Owner: 1, Name: "Spy"}, {ID: 3, Owner: 1, Name: "Giant"}}, Decision: d, Board: json.RawMessage(`{"players":[{"seat":1,"hand_size":3}]}`)},
 			}}
