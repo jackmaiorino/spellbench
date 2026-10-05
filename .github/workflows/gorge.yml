@@ -58,6 +58,9 @@ jobs:
       - name: Check native public search bridge
         working-directory: engines/gorge/strategies
         run: go test -timeout 5m ./... -count=1
+      - name: Check public priority replay ordering
+        working-directory: engines/gorge/strategies
+        run: go test github.com/adams-shaun/gorge/internal/searchprobe -run '^TestSpellbenchPublicPass' -count=1
       - name: Test
         working-directory: engines/gorge
         run: go test -timeout 60m ./...

@@ -525,6 +525,22 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 // This orders witness search only. It neither submits an extra intent nor
 // removes any alternative from the existing exhaustive, shared-budget walk.
 func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Decision, fallback decision.Intent, remaining []ObservedEvent, introduced []Identity) decision.Intent {
+	// A pass emits the next alive player's priority marker with a positive
+	// pass count. Match the immediate marker before looking ahead for a later
+	// cast or activation, which belongs to a different priority window.
+	if d.Kind == decision.KPriority && len(remaining) > 0 {
+		next := remaining[0]
+		if next.Kind == events.Priority && next.Amount > 0 && next.Player == e.G.NextAlive(d.Player) {
+			for i, option := range d.Options {
+				if option.Kind == "pass" {
+					in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+					if d.Validate(in) == nil {
+						return in
+					}
+				}
+			}
+		}
+	}
 	match := func(id state.ObjID, ref uint32) bool {
 		if id == 0 || ref == 0 {
 			return false

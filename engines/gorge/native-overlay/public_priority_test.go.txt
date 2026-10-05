@@ -1,0 +1,62 @@
+package searchprobe
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+func TestSpellbenchPublicPassBeforeLaterAction(t *testing.T) {
+	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1", "p2"})}
+	e.G.Players[2].Lost = true
+	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options: []decision.Option{{Kind: "concede"}, {Kind: "pass"}}}
+	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
+	want := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{1}}
+	// The saved failure's public burst starts with the opponent's pass, then
+	// includes later actions. Those later actions cannot precede the marker.
+	remaining := []ObservedEvent{{Kind: events.Priority, Player: 0, Amount: 1},
+		{Kind: events.PutOnStack, Player: 1, Obj: 101, From: state.ZHand}}
+	got := spellbenchObservedPreferred(e, NewCollector(0), d, fallback, remaining, nil)
+	if !reflect.DeepEqual(got, want) || d.Validate(got) != nil {
+		t.Fatalf("public pass was not preferred: got=%+v want=%+v", got, want)
+	}
+	// Ordering must retain the alternative when the preferred branch fails.
+	var visited []decision.Intent
+	spellbenchEachIntent(d, got, func() bool { return true }, func(in decision.Intent) bool {
+		visited = append(visited, in)
+		return true
+	})
+	if len(visited) != 2 || !reflect.DeepEqual(visited[0], want) || !reflect.DeepEqual(visited[1], fallback) {
+		t.Fatalf("legal alternatives changed: %+v", visited)
+	}
+}
+
+func TestSpellbenchPublicPassRequiresImmediateMatchingMarker(t *testing.T) {
+	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1"})}
+	d := &decision.Decision{Seq: 9, Player: 1, Kind: decision.KPriority, Min: 1, Max: 1,
+		Options: []decision.Option{{Kind: "concede"}, {Kind: "pass"}}}
+	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
+	for _, remaining := range [][]ObservedEvent{
+		nil,
+		{{Kind: events.Priority, Player: 0, Amount: 0}},
+		{{Kind: events.Priority, Player: 1, Amount: 1}},
+		{{Kind: events.ManaClear, Player: 1}, {Kind: events.Priority, Player: 0, Amount: 1}},
+	} {
+		got := spellbenchObservedPreferred(e, NewCollector(0), d, fallback, remaining, nil)
+		if !reflect.DeepEqual(got, fallback) {
+			t.Fatalf("unmatched marker changed preference: events=%+v got=%+v", remaining, got)
+		}
+	}
+	// A non-priority question must keep its own legal answer.
+	d.Kind = decision.KChoose
+	got := spellbenchObservedPreferred(e, NewCollector(0), d, fallback,
+		[]ObservedEvent{{Kind: events.Priority, Player: 0, Amount: 1}}, nil)
+	if !reflect.DeepEqual(got, fallback) {
+		t.Fatalf("priority marker changed another question: %+v", got)
+	}
+}

@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T05:15:22.238303+00:00",
+  "at_utc": "2026-10-05T05:24:51.061331+00:00",
   "spellbench_commit": "26d7abafab5fcd359ce7c05d95ea3567bd48f089",
   "runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -17,7 +17,7 @@
   "ancillary_allowance_usd": 0.15,
   "cumulative_conservative_ceiling_usd": 9.60691147,
   "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261005-021",
-  "billing_seal_sha256": "6a39765b989b8a0fd552fdd5de4f0263d1b5d88a23ced15e8edda721101d97f2",
+  "billing_seal_sha256": "bf868d112c1bfed14946006b38aadc3d87a296b2e768208de6ebe1038ac70886",
   "provider_reported_spend_usd_so_far": 2.7662702432571677,
   "final_invoice_verified": false,
   "scope": "One exact sealed596-frame public reconstruction failure replay with logging-only diagnostics and unchanged captured budgets. Diagnostic binary independently pinned before execution. No sampled-world, full-game or qualification claim.",
@@ -63,7 +63,7 @@
   },
   "cloud_host_alias": "RunPod-gorge043",
   "placement": "main-pc=unavailable: verified human research priority; haleyspc=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host, bounded exact component replay, no substantial allocation claimed",
-  "runtime_seal_sha256": "fad0d1108536b76e253f89717542e322955d01b8cc732e95d28723ccda46f183",
+  "runtime_seal_sha256": "f82e9937ea93386c808ba14d3d6452432d0fb5118472ffc0ae79e399bb6c7282",
   "native_qualifier_sha256": "2ee674d41a841730a73f620a6612e6367e4c7fa99690e359e2e7a25ccbbbab3c",
   "runtime_binaries": [
     "public-witness-tests-linux-amd64"
@@ -84,7 +84,7 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "84f9998f5f0a9bdeb641b32f19675bada15ed5757271339c5ec0523c60f0035f",
-  "phase": "guarded_exact_public_witness_replay_running",
+  "phase": "released_public_witness_replay_passed",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-043\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-043\\CATALOG.json",
   "guard_path": "Independent one-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
@@ -100,8 +100,79 @@
   "observed_effective_cpu_quota": 6.8,
   "observed_memory_limit_bytes": 29999996928,
   "quoted_compute_rate_usd_per_hour": 0.19,
-  "runtime_pins_complete": false,
-  "exact_refusal_reproduction_complete": false,
+  "runtime_pins_complete": true,
+  "exact_refusal_reproduction_complete": true,
   "reference_qualification_complete": false,
-  "next_wake_condition": "Independent diagnostic pins, exact refusal reproduction and mismatch trace, parent failure, or one-hour lease deadline; one owner watcher and independent guardian."
+  "next_wake_condition": "Independent diagnostic pins, exact refusal reproduction and mismatch trace, parent failure, or one-hour lease deadline; one owner watcher and independent guardian.",
+  "release": {
+    "at_utc": "2026-10-05T05:21:18.8831053+00:00",
+    "name": "spellbench-gorge-witness-1e18668814ba4210",
+    "pod_id": "hu60i49ua024ft",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "c4a414013d5a2ac69a076befa1fe570953a5631d9dc2d1b244338cd73635b1f9",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 9.10691147,
+    "maximum_lease_usd": 0.5,
+    "conservative_cumulative_lease_ceiling_usd": 9.60691147,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T05:19:35.485139+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 105.51221922412515,
+    "native_qualification_passed": false,
+    "diagnostic_passed": true,
+    "rated_games": 0
+  },
+  "native_audit": null,
+  "diagnostic_capture_complete": true,
+  "diagnostic_checks": {
+    "passed": true,
+    "scope": "Exact witness refusal reproduced with logging only; no sampled worlds or full games",
+    "captured_work_identical": true,
+    "captured_frames": 596,
+    "work": {
+      "Attempts": 3,
+      "Submits": 5000,
+      "Nodes": 4570,
+      "BudgetExhausted": 1
+    },
+    "farthest_reached": 390,
+    "farthest_failed": 390,
+    "farthest_reason": "prefix:frame 390 events",
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "failures": {},
+  "billing": {
+    "observed_at_utc": "2026-10-05T05:24:51.061331+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-021",
+    "prior_closed_ledger_seal_sha256": "6a39765b989b8a0fd552fdd5de4f0263d1b5d88a23ced15e8edda721101d97f2",
+    "provider_reported_prior_closed_spend_usd": 2.7662702432571677,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7662702432571677,
+    "current_closed_lease_maximum_billable_seconds": 297.879205,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.178961,
+    "conservative_cumulative_lease_ceiling_usd": 9.28587247,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-022",
+  "seal_sha256": "896a29cceefc77ce50af29a8b9c4c482c6e3ba325ef9e825c0b674ad62ff232b",
+  "local_document_correction": "Closed043 recipe used legacy037 document basename. Restored037 from its committed receipt and recorded043 from the sealed closure; no sealed input or billing modification."
 }
