@@ -90,8 +90,56 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "dd0aa7139c9ae4fdcb0e22f093480a2392d0f4df2888993749ec9578a5f77b6d",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_three_public_roots_replay_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-039\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-039\\CATALOG.json",
-  "guard_path": "Independent one-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay"
+  "guard_path": "Independent one-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
+  "owned_lease": {
+    "schema": "spellbench-gorge-cloud-lease/v1",
+    "name": "spellbench-gorge-roots-42d446dc47f34b5d",
+    "pod_id": "rr1lviibio8tms",
+    "status": "guarded_public_witness_replay_running",
+    "created_utc": "2026-10-05T03:54:03.0695910+00:00",
+    "deadline_utc": "2026-10-05T04:54:03.0695910+00:00",
+    "spend_cap_usd": 10,
+    "all_in_rate_cap_usd_per_hour": 0.35,
+    "conservative_maximum_lease_usd": 0.5,
+    "prior_spend_estimate_usd": 8.27733347,
+    "user_authority": "Jack: Sure. 10$ cap go; separate gorge RunPod total",
+    "charge_scope": "all gorge compute, disk, provisioning and failed attempts; no inference or unrelated pods",
+    "gpu_type": "eligible community CPU host",
+    "gpu_types": [
+      "NVIDIA GeForce RTX 3080 Ti",
+      "NVIDIA GeForce RTX 4070 Ti",
+      "NVIDIA RTX A2000",
+      "Tesla V100-SXM2-16GB"
+    ],
+    "gpu_count": 1,
+    "minimum_vcpu_count": 4,
+    "minimum_memory_gb": 8,
+    "container_disk_gb": 100,
+    "network_volumes": [],
+    "guard_task": "Spellbench-Gorge-20261003-spellbench-gorge-roots-42d446dc47f34b5d",
+    "guard_sha256": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592",
+    "artifact_recovery": "every five minutes and before stop, plus stage boundary recovery",
+    "formal_launch": "Three exact actor-public saved roots364,410 and478 under original64-attempt,8-world,5000-submit options. Repaired public guidance; native policies and sampler unchanged. Component binary pinned independently before execution. No full-game or qualification claim.",
+    "pod_api_key_transferred": false,
+    "remote_evidence_started": true
+  },
+  "actual_dispatch": {
+    "pod_id": "rr1lviibio8tms",
+    "driver_pid": 3188,
+    "guarded_launch": "Bounded three-root public reconstruction check with durable diagnostic binary pins",
+    "rated_games": 0
+  },
+  "supervision": {
+    "at_utc": "2026-10-05T03:55:31.496897+00:00",
+    "pod_id": "rr1lviibio8tms",
+    "driver_pid": 3188,
+    "driver_start_tick": "938068141",
+    "confirmed_live": true,
+    "cadence": "30 then60 seconds for build,300 then900seconds for native qualification; no model polling",
+    "lease_deadline_utc": "2026-10-05T04:54:03.0695910+00:00"
+  },
+  "prior_public_capture": "docs/gorge-diagnostic036-20261005.json"
 }
