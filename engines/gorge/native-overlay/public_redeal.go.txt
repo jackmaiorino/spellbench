@@ -608,7 +608,7 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 			}
 		}
 		json.Unmarshal(frame.Board, &board)
-		for _, ev := range frame.Events {
+		for eventIndex, ev := range frame.Events {
 			identity, known := identities[ev.Obj]
 			// A publicly returned card can remain in hand through a shuffle.
 			// Its later public exit need not come from this epoch's draw prefix.
@@ -644,6 +644,10 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 				if started && ev.Player != h.Actor && ordinals[ev.Player] > 0 {
 					for _, player := range board.Players {
 						if player.Seat == ev.Player && player.Hand != nil {
+							hand, observed := spellbenchShuffleHandSize(frame, eventIndex, ev.Player, identities)
+							if !observed {
+								continue
+							}
 							key := epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player]}
 							held := map[string]int{}
 							for name, count := range returned[ev.Player] {
@@ -653,7 +657,7 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 							if limit, limited := carryLimits[ev.Player]; limited {
 								prefix = min(prefix, limit)
 							}
-							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], prefix: prefix, hand: *player.Hand, returned: held}
+							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], prefix: prefix, hand: hand, returned: held}
 						}
 					}
 				}
@@ -729,6 +733,58 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 		guided[prior.previous] = epoch
 	}
 	return guided
+}
+
+// The visible boundary can follow a hand exit after the shuffle. Undo only
+// named hand moves and recorded draws to recover the size at that shuffle.
+// Movement ownership comes from the observed identity, not its controller.
+func spellbenchShuffleHandSize(frame Frame, shuffle int, owner state.PlayerID, identities map[uint32]Identity) (int, bool) {
+	var board struct {
+		Players []struct {
+			Seat state.PlayerID `json:"seat"`
+			Hand *int           `json:"hand_size"`
+		}
+	}
+	if json.Unmarshal(frame.Board, &board) != nil {
+		return 0, false
+	}
+	size, matches := -1, 0
+	for _, player := range board.Players {
+		if player.Seat == owner && player.Hand != nil {
+			size = *player.Hand
+			matches++
+		}
+	}
+	if matches != 1 || size < 0 {
+		return 0, false
+	}
+	for _, ev := range frame.Events[shuffle+1:] {
+		switch ev.Kind {
+		case events.Draw:
+			if ev.Player == owner {
+				size--
+			}
+		case events.MoveZone, events.PutOnStack:
+			if ev.From != state.ZHand && ev.To != state.ZHand {
+				continue
+			}
+			identity, known := identities[ev.Obj]
+			if !known {
+				return 0, false
+			}
+			if identity.Owner == owner {
+				if ev.From == state.ZHand {
+					size++
+				}
+				if ev.To == state.ZHand {
+					size--
+				}
+			}
+		case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+			return 0, false
+		}
+	}
+	return max(0, size), size >= 0
 }
 
 // Prioritize a legal hypothetical answer suggested by the next public action.

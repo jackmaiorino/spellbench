@@ -121,6 +121,32 @@ func TestSpellbenchRevealedHandGuidesOnlyCompletePublicWindows(t *testing.T) {
 	}
 }
 
+func TestSpellbenchCarryUsesHandSizeAtShuffle(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		identity bool
+		owner    state.PlayerID
+		want     int
+		valid    bool
+	}{
+		{"known owned exit", true, 1, 7, true},
+		{"other owned exit", true, 0, 6, true},
+		{"opaque exit", false, 1, 0, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			frame := Frame{Board: json.RawMessage(`{"players":[{"seat":1,"hand_size":6}]}`), Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.MoveZone, Player: 0, Obj: 9, From: state.ZHand, To: state.ZBattlefield}}}
+			identities := map[uint32]Identity{}
+			if test.identity {
+				identities[9] = Identity{ID: 9, Owner: test.owner, Name: "Forest"}
+			}
+			got, valid := spellbenchShuffleHandSize(frame, 0, 1, identities)
+			if valid != test.valid || got != test.want {
+				t.Fatalf("size=%d observed=%v", got, valid)
+			}
+		})
+	}
+}
+
 func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 	search := &cards.Card{Faces: []*cards.Face{{Name: "Public Search", Abilities: []*cards.SA{{API: "ChangeZone", Params: map[string]string{"Origin": "Library", "ChangeType": "Land.Basic"}}}}}}
 	spell := &cards.Card{Faces: []*cards.Face{{Name: "Public Spell", Types: []string{"Sorcery"}}}}
