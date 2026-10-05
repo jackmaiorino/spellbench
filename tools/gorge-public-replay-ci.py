@@ -100,7 +100,7 @@ def main():
         if shutil.disk_usage(job).free < RESERVE or sum(p.stat().st_size for p in job.rglob("*") if p.is_file()) > CAP:
             raise RuntimeError("Replay storage cap or reserve reached")
     env = {k:v for k,v in os.environ.items() if k not in ("GH_TOKEN","GITHUB_TOKEN","RUNPOD_API_KEY","GH_DEBUG")}
-    def run(name, command, cwd, timeout=180):
+    def run(name, command, cwd, timeout=180, allowed=(0,)):
         guard(); begin=time.monotonic()
         put(name+"-COMMAND.json", dict(command=command,cwd=str(cwd),timeout=timeout))
         with (result/(name+".stdout")).open("xb") as out, (result/(name+".stderr")).open("xb") as err:
@@ -113,7 +113,7 @@ def main():
             finally:
                 if process.poll() is None: os.killpg(process.pid,signal.SIGKILL);process.wait(timeout=20)
         put(name+"-RECEIPT.json",dict(exit_code=process.returncode,seconds=time.monotonic()-begin))
-        if process.returncode: raise RuntimeError(name+" failed")
+        if process.returncode not in allowed: raise RuntimeError(name+" failed")
     try:
         asset=next(a for a in exchange.assets().values() if a["id"]==args.asset_id)
         assert asset["digest"]=="sha256:"+args.archive_sha256
@@ -167,7 +167,9 @@ def main():
             report_path = result / "UNQUALIFIED-GAME105.json"
             run("whole-game105", [str(native), "-games", "4", "-workers", "1", "-resample", "7", "-audit=true",
                 "-game-indices", "105", "-registry", str(runtime/"registry.gob.gz"), "-registry-sha256", REGISTRY,
-                "-out", str(report_path)], repo, 900)
+                "-out", str(report_path)], repo, 900, allowed=(0, 1))
+            # Report.Clean deliberately rejects every selected subset. The
+            # targeted report must pass all game/replay/refusal assertions.
             put("WHOLE-GAME105-CHECKS.json", validate_game105(json.loads(report_path.read_bytes())))
     except BaseException as exc:
         failure=type(exc).__name__+": "+str(exc)
