@@ -1,14 +1,14 @@
 {
   "schema": "spellbench-gorge-rated-handoff/v1",
-  "source_commit": "7148333bff5b7194bdf95e9e6e874e52b067468e",
-  "runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
-  "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
-  "benchmark_sha256": "a1d6dee124d1a9ea06c0bedabc0cf204eefde58c27a39ce88b6b0147e98abe36",
+  "source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
+  "runtime_source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-068",
+  "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
   "resolved_runtime_values": {
-    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-060\\spellbench-gorge-env-windows-amd64.exe",
-    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-060\\spellbench-gorge-agent-windows-amd64.exe",
-    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-060\\registry.gob.gz",
+    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-068\\spellbench-gorge-env-windows-amd64.exe",
+    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-068\\spellbench-gorge-agent-windows-amd64.exe",
+    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-068\\registry.gob.gz",
     "GORGE_REGISTRY_SHA256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
   },
   "planned_local_values": {
@@ -21,11 +21,11 @@
   "matched_E_D_input_pins": {
     "spellbench-gorge-env-windows-amd64.exe": {
       "bytes": 17488384,
-      "sha256": "ece402b7a23d813ae7bd3c01924aa10871511b08f1ee9dc62bcb3e2af64a5e46"
+      "sha256": "c17ba9983b446551b45579e3c2cadbb99bf2e4776482cae037959ff70ba7fe6b"
     },
     "spellbench-gorge-agent-windows-amd64.exe": {
-      "bytes": 18219008,
-      "sha256": "90352c9c1e5fc1faed7df4d2acf2f462fea3b01aafdd2827966054fa2030f844"
+      "bytes": 18219520,
+      "sha256": "704bc1d3e902a835522da7a87d0c0e60b6cf1cc1ee2d0b7a4361aee64cc6e074"
     },
     "registry.gob.gz": {
       "bytes": 9070329,

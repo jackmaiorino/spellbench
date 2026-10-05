@@ -1,38 +1,55 @@
 {
-  "at_utc": "2026-10-05T12:34:40.313325+00:00",
-  "phase": "prepared_not_launched",
-  "source_of_record": "E:\\spellbench-gorge-ci-build-20261005-068",
-  "recovery_root": "D:\\e-scratch\\spellbench-gorge-ci-build-20261005-068",
-  "scope": "One public-repository standard-runner build of seven production binaries, pinnedGo1.27.1 and gorge; linked-compiler preflight only, no native or rated games",
+  "at_utc": "2026-10-05T12:43:25.083624+00:00",
+  "phase": "production_binaries_recovered_and_pinned",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-068",
+  "runtime_recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261005-068",
+  "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
   "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
-  "component_verification": "docs/gorge-component-replay066-20261005.json",
-  "repository_public_verified": true,
-  "runner": "ubuntu-24.04",
-  "runner_minutes_charge_usd": 0,
-  "larger_runner_allowed": false,
-  "billing_source": "https://docs.github.com/en/billing/concepts/product-billing/github-actions",
-  "prior_closed_billing_ledger": "E:\\spellbench-gorge-billing-20261005-036",
-  "prior_closed_billing_seal_sha256": "39c2e42f31339d167a1cb6e72bfc4a096952db5319f20b05f428c35156bee190",
-  "prior_conservative_bound_usd": 9.93136347,
-  "artifact_storage_allowance_usd": 0.02,
+  "github_run_id": 37310606954,
+  "ci_artifact_id": 11345711252,
+  "artifact_zip_sha256": "0d28695b2d5fab8bd73f0ae2e20b8a2f7d9e3ed009fc049919df750e3b32dd98",
+  "binaries": 7,
+  "independent_recovery_verified": true,
+  "pins": {
+    "spellbench-gorge-corpus-windows-amd64.exe": {
+      "sha256": "6c0c4fbddb02bd8f5929b9b083a6cb96db4dde54506e99cfa7d9c678efa18aed",
+      "path": "E:\\pinned-binaries\\6c0c4fbddb02bd8f5929b9b083a6cb96db4dde54506e99cfa7d9c678efa18aed\\spellbench-gorge-corpus-windows-amd64.exe"
+    },
+    "spellbench-gorge-env-windows-amd64.exe": {
+      "sha256": "c17ba9983b446551b45579e3c2cadbb99bf2e4776482cae037959ff70ba7fe6b",
+      "path": "E:\\pinned-binaries\\c17ba9983b446551b45579e3c2cadbb99bf2e4776482cae037959ff70ba7fe6b\\spellbench-gorge-env-windows-amd64.exe"
+    },
+    "spellbench-gorge-agent-windows-amd64.exe": {
+      "sha256": "704bc1d3e902a835522da7a87d0c0e60b6cf1cc1ee2d0b7a4361aee64cc6e074",
+      "path": "E:\\pinned-binaries\\704bc1d3e902a835522da7a87d0c0e60b6cf1cc1ee2d0b7a4361aee64cc6e074\\spellbench-gorge-agent-windows-amd64.exe"
+    },
+    "gorgequal-windows-amd64.exe": {
+      "sha256": "9febe33e66c0c7e227c49325026e9d2154ab4c77bdb03979d7fc8ef3b64c73b9",
+      "path": "E:\\pinned-binaries\\9febe33e66c0c7e227c49325026e9d2154ab4c77bdb03979d7fc8ef3b64c73b9\\gorgequal-windows-amd64.exe"
+    },
+    "spellbench-gorge-env-linux-amd64": {
+      "sha256": "cbe2bf3df49cd9449d4da4c8f8e61603713a8ddd9d9f0ce0873b435767b0430a",
+      "path": "E:\\pinned-binaries\\cbe2bf3df49cd9449d4da4c8f8e61603713a8ddd9d9f0ce0873b435767b0430a\\spellbench-gorge-env-linux-amd64"
+    },
+    "spellbench-gorge-agent-linux-amd64": {
+      "sha256": "5ec78a41f775e3438d85d25d3ca103b00d7e1bc1341bd8a3a1e057b3897b390c",
+      "path": "E:\\pinned-binaries\\5ec78a41f775e3438d85d25d3ca103b00d7e1bc1341bd8a3a1e057b3897b390c\\spellbench-gorge-agent-linux-amd64"
+    },
+    "gorgequal-linux-amd64": {
+      "sha256": "d316d68494e7989e6d4c14da7d7ff522a7ad2dcd19a420b280aca86692d3721c",
+      "path": "E:\\pinned-binaries\\d316d68494e7989e6d4c14da7d7ff522a7ad2dcd19a420b280aca86692d3721c\\gorgequal-linux-amd64"
+    }
+  },
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "cumulative_conservative_reserved_bound_usd": 9.95136347,
-  "user_cap_usd": 10,
-  "artifact_retention_days": 1,
-  "upload_cap_bytes": 268435456,
-  "remote_build_cap_bytes": 4294967296,
-  "remote_storage_reserve_bytes": 64424509440,
-  "projected_local_bytes": 201326592,
-  "local_cap_bytes": 268435456,
-  "local_storage_reserve_bytes": 64424509440,
-  "artifact_charge_bound": "At most256MiB; one-day expiry and deletion after verified E/D recovery; retainUSD0.02 allowance until settlement, including a storage-delay margin. No other artifact or cache upload.",
-  "workflow_sha256": "7ddf31e0d8935a089584d4152b43a497a05fa78bdbe1745c479bb31ac6b83b31",
-  "build_script_sha256": "0f9317644005060ffc37d79a7291c5ff4e6c3800f8d06e3e8164e6f6450cf481",
-  "workflow_source": "C:\\Users\\Jack\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\.github\\workflows\\gorge-runtime.yml",
-  "build_script_source": "C:\\Users\\Jack\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\tools\\gorge-build-runtime.py",
-  "next_wake_condition": "Owned build job completion or guarded preflight failure; recover exact artifact and preserve independently before any execution",
-  "runtime_build_passed": false,
+  "artifact_storage_allowance_usd": 0.02,
+  "new_runpod_spend_usd": 0,
+  "artifact_deletion_after_recovery_requested": true,
+  "artifact_deletion_verified": true,
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "rated_games": 0,
-  "published_entries": 0
+  "published_entries": 0,
+  "job_seal_sha256": "1869914bda1eecf92ed66d9a91962200eed2b0b45ec3b0362b75902f3acf9521"
 }

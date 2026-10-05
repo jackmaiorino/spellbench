@@ -104,12 +104,13 @@
   },
   "unchanged_captured_options": "64 attempts/eight worlds/5000 submits; teacher default; nil live Engine/Observer",
   "interpretation": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
-  "full_go_ci_status": "pending",
+  "full_go_ci_status": "passed",
   "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
   "production_runtime_rebuilt": false,
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "current_identity_review_complete": false,
   "rated_games": 0,
-  "published_entries": 0
+  "published_entries": 0,
+  "full_go_ci_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b"
 }

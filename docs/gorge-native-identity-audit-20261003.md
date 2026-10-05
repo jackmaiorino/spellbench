@@ -25,16 +25,21 @@ copies are sealed on independent E/D storage. The diagnostic binary includes log
 it does not replace the seven production binaries.
 
 Current-source [Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37307395390)
-remains pending. Production060 is a previous source: it failed the unchanged
+passed for the byte-compatible engine source5ffac13. Public CI job068 passed. Its seven production binaries are independently
+recovered, hash-verified and pinned on E/D under seal
+`4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473`.
+The existing registry bytes are unchanged. The exact hosted artifact is deleted
+after verified recovery; no games ran. Production060 is a previous source: it failed the unchanged
 zero-refusal gate in game52. Its binaries and prepared reference008 are incompatible
-with the changed engine source. A fresh production build, matched serial/parallel
+with the changed engine source. Production068 supplies the fresh build. Matched serial/parallel
 qualification, full320-block/640-game audit, reference matrix and current review
 remain required. The real rated handoff rejects production060 at its source check,
 before a secret, commitment or engine process is created. No playing-strength result
 or rating is claimed.
 
-Ledger036 bounds closed charges conservatively at $9.93136347, leaving $0.06863653
-under Jack's $10 cap. Provider settlement is pending. No new RunPod lease fits that
+Ledger037 bounds closed charges conservatively at $9.95136347, leaving $0.04863653
+under Jack's $10 cap. The bound retainsUSD0.02 for the deletedCI artifact. Provider settlement is pending.
+No new RunPod lease fits that
 remainder with the retained $0.15 ancillary allowance. Both PCs retain their current
 resource priorities; no current-source substantial run is admitted.
 
@@ -484,3 +489,10 @@ qualification, compatible guarded throughput evidence, rated games and public ra
 remain separate delivery work. Timing, public canonical-envelope limits and
 the other residual channels listed in protocol section 13 remain as declared
 by the protocol. No playing-strength result is claimed by these checks.
+
+The zero-game rated handoff now resolves production068, all12 native modes, two
+anchors, five decks and3,640 scheduled games. It admits no launch. The current
+Placement schema requires exactlymain-pc/haleyspc/runpod, with one markedused,
+so a new standardGitHub host needs truthful supported placement before any
+substantial evaluation. It must qualify matched serial/parallel completed work.
+No raw-executable or falseRunPod placement is used.
