@@ -1,10 +1,10 @@
 {
   "schema": "spellbench-gorge-rated-handoff/v1",
-  "source_commit": "197c9d3174849931dc7375e8665e74ec18e9247c",
+  "source_commit": "ad64af08ccd5730dbb94ffd760ee58fe662e4f48",
   "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-108",
   "runtime_seal_sha256": "411fa9f41914bfca0f04a72c4ed5899b8cbf14c5bb0a5a32af31b25b2f6c06a7",
-  "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
+  "benchmark_sha256": "21359cfc5c288c797797f50449003c3a39e7aac1605502d365e7e3a11bbf1817",
   "resolved_runtime_values": {
     "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-108\\spellbench-gorge-env-windows-amd64.exe",
     "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-108\\spellbench-gorge-agent-windows-amd64.exe",
