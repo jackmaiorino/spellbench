@@ -1,9 +1,9 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T10:29:14.416348+00:00",
+  "at_utc": "2026-10-05T12:19:27.432969+00:00",
   "status": "prepared_for_review; qualification_and_current_identity_review_pending",
-  "adapter_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
-  "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+  "adapter_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
@@ -28,27 +28,29 @@
     "spellbenchCarryEpochs",
     "spellbenchObservedPreferred",
     "spellbenchScryEpochs",
-    "spellbenchScryHeldEpochs"
+    "spellbenchScryHeldEpochs",
+    "SpellbenchReconstructRedeal"
   ],
   "inputs": [
     "Actor-public History identities/events and projected hand sizes",
     "Existing epoch constraints compiled from that History",
     "Hypothetical engine and decision created by NewHypotheticalPlanned; no access to the live engine"
   ],
-  "reconstruction_policy": "Observed public markers prioritize existing legal pass/scry alternatives. Public returns reduce known carry demand. A separate hypothetical held-before-reorder proposal copies original deadlines and tightens selected public-name prefixes on attempts2 modulo4. Original proposals remain on attempt0 modulo4 and all odd attempts. Every accepted world replays current actor-public history and passes unchanged native known-card checks. No future596-frame facts are used at504.",
-  "component_result_record": "E:\\spellbench-gorge-component-verification-20261005-059/VERIFICATION.json",
-  "component_runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
+  "reconstruction_policy": "If public-derived held constraints differ from carry-only constraints and at least three witness proposals are allowed, visit original proposal indices2,0,1 before the unchanged remainder. Retain original seed coordinates for engine, planner and opponent choices. Native proposals, weights,64/8/5000 limits, public replay and known-card checks remain unchanged.",
+  "component_result_record": "E:\\spellbench-gorge-runpod-20261005-066\\terminal-recovery\\capture-001\\CHECKS.json",
+  "component_runtime_seal_sha256": "b8941a7623620754c67eb7863b0e08ac11900962fdfaeb40c72f5f212ed320f5",
   "component_worlds": {
     "364": 8,
     "410": 8,
     "478": 8,
     "504": 8,
-    "596": 8
+    "596": 8,
+    "637": 8
   },
-  "native_diagnostic_baseline": "Only364 has a captured native baseline, and its emitted fields remain identical. No native diagnostic equality claim for410/478/504/596.",
-  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
+  "native_diagnostic_baseline": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
   "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/e473c052a55d38296d3da423bd1a8fc562164cc7/docs/gorge-native-identity-audit-20261003.md",
-  "benchmark_audit_url_current": true,
+  "benchmark_audit_url_current": false,
   "remaining": [
     "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
     "Compatible140-game reference matrix and replay",
@@ -61,75 +63,75 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
-  "current_native_qualification": "failed_existing_redeal_gate_game52",
+  "current_native_qualification": "unrun_current_source; prior060_failed_existing_gate",
   "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json",
   "current_native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
   "component_cases": {
     "364": {
       "worlds": 8,
-      "public_input_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
       "work": {
         "Attempts": 1,
-        "Submits": 729,
-        "Nodes": 11,
+        "Submits": 737,
+        "Nodes": 23,
         "BudgetExhausted": 0
       },
-      "refused": "",
       "native_diagnostics_identical": true
     },
     "410": {
       "worlds": 8,
-      "public_input_sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
       "work": {
         "Attempts": 1,
-        "Submits": 831,
-        "Nodes": 19,
+        "Submits": 828,
+        "Nodes": 16,
         "BudgetExhausted": 0
       },
-      "refused": "",
       "native_diagnostics_identical": false
     },
     "478": {
       "worlds": 8,
-      "public_input_sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
       "work": {
-        "Attempts": 2,
-        "Submits": 2412,
-        "Nodes": 1330,
+        "Attempts": 1,
+        "Submits": 975,
+        "Nodes": 23,
         "BudgetExhausted": 0
       },
-      "refused": "",
       "native_diagnostics_identical": false
     },
     "504": {
       "worlds": 8,
-      "public_input_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
       "work": {
-        "Attempts": 3,
-        "Submits": 4072,
-        "Nodes": 2785,
+        "Attempts": 1,
+        "Submits": 1048,
+        "Nodes": 36,
         "BudgetExhausted": 0
       },
-      "refused": "",
       "native_diagnostics_identical": false
     },
     "596": {
       "worlds": 8,
-      "public_input_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
       "work": {
         "Attempts": 1,
-        "Submits": 1220,
-        "Nodes": 31,
+        "Submits": 1217,
+        "Nodes": 30,
         "BudgetExhausted": 0
       },
-      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "637": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 1300,
+        "Nodes": 40,
+        "BudgetExhausted": 0
+      },
       "native_diagnostics_identical": false
     }
   },
   "original_component_parent_diagnostic_passed": false,
   "corrected_component_verification_passed": true,
-  "full_go_ci_passed": true,
+  "full_go_ci_passed": false,
   "native_job_record": "docs/gorge-runtime060-native-20261005.json",
   "benchmark_audit_url_reviewed": false,
   "current_native_failure": {
@@ -239,7 +241,33 @@
     ],
     "farthest_reached": 573,
     "farthest_recorded_rejection": 491,
-    "witness_constructed": false
+    "witness_constructed": false,
+    "saved_failure_repair_verified": true,
+    "repair_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+    "repair_verification_record": "docs/gorge-component-replay066-20261005.json",
+    "repair_work": {
+      "Attempts": 1,
+      "Submits": 1300,
+      "Nodes": 40,
+      "BudgetExhausted": 0
+    },
+    "repair_worlds": 8
   },
-  "current_witness_trace_record": "docs/gorge-witness-trace064-20261005.json"
+  "current_witness_trace_record": "docs/gorge-witness-trace066-20261005.json",
+  "previous_source_inputs_060": {
+    "adapter_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+    "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+    "production_overlay_sha256": "37800460cd8ba782fdcd61f1f3952bc619a2f51037ee656e0965ea39124d3c26",
+    "component_result_record": "E:\\spellbench-gorge-component-verification-20261005-059/VERIFICATION.json",
+    "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
+    "full_go_ci_passed": true,
+    "reconstruction_policy": "Observed public markers prioritize existing legal pass/scry alternatives. Public returns reduce known carry demand. A separate hypothetical held-before-reorder proposal copies original deadlines and tightens selected public-name prefixes on attempts2 modulo4. Original proposals remain on attempt0 modulo4 and all odd attempts. Every accepted world replays current actor-public history and passes unchanged native known-card checks. No future596-frame facts are used at504."
+  },
+  "production_runtime_compatible_with_current_engine": false,
+  "production_runtime_rebuilt": false,
+  "current_component_record": "docs/gorge-component-replay066-20261005.json",
+  "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
+  "full_go_ci_status": "pending"
 }

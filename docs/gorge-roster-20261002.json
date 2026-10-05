@@ -529,7 +529,7 @@
     "native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
     "current_phase": "released_native_qualification_incomplete",
     "prior_failed_native_record": "docs/gorge-runtime048-native-20261005.json",
-    "current_reference_preparation_compatible": true,
+    "current_reference_preparation_compatible": false,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json",
     "current_reference_admission_proved": false,
     "current_reference_budget_admission_proved": false,
@@ -569,10 +569,10 @@
       },
       "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
     },
-    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-035",
-    "billing_seal_sha256": "e81ab1b48adc76a19e940c6d20a937336430d4701898309a379c27fb89003282",
-    "conservative_closed_ceiling_usd": 9.75719347,
-    "active_owned_lease": true,
+    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-036",
+    "billing_seal_sha256": "39c2e42f31339d167a1cb6e72bfc4a096952db5319f20b05f428c35156bee190",
+    "conservative_closed_ceiling_usd": 9.93136347,
+    "active_owned_lease": false,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
       "returncode": 1,
@@ -693,7 +693,17 @@
       ],
       "farthest_reached": 573,
       "farthest_recorded_rejection": 491,
-      "witness_constructed": false
+      "witness_constructed": false,
+      "saved_failure_repair_verified": true,
+      "repair_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+      "repair_verification_record": "docs/gorge-component-replay066-20261005.json",
+      "repair_work": {
+        "Attempts": 1,
+        "Submits": 1300,
+        "Nodes": 40,
+        "BudgetExhausted": 0
+      },
+      "repair_worlds": 8
     },
     "diagnostic050_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
     "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
@@ -786,48 +796,153 @@
         "trace_sha256": "175311aeca9b6c3301096bc6e03c1ed4c6e8be3c8a0b6342e8fbcee3812e0623"
       }
     },
-    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
     "current_remaining_refusals_unknown": true,
-    "current_native_result_status": "Failed unchanged zero-refusal gate in serial game52; full parallel/native audit not admitted",
+    "current_native_result_status": "Current source production build and native audit unrun; historical source060 failed the existing gate",
     "saved504_refusal_repaired": true,
     "saved504_component_verification": "docs/gorge-component-verification059-20261005.json",
     "current_diagnostic_capture_complete": true,
     "current_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
     "current_witness_trace_record": "docs/gorge-witness-trace064-20261005.json",
-    "active_lease_scope": "Six exact saved public input correctness replays; no full or rated games",
+    "active_lease_scope": null,
     "active_job_record": "docs/gorge-witness-trace066-20261005.json",
-    "active_lease_maximum_usd": 0.2375,
-    "cumulative_ceiling_with_active_lease_usd": 9.99469347
+    "active_lease_maximum_usd": 0,
+    "cumulative_ceiling_with_active_lease_usd": null,
+    "remaining_cloud_authority_usd": 0.06863653,
+    "next_lease_admission": "No new lease fits the remainingUSD0.06863653 with the retainedUSD0.15 ancillary allowance. Both local host priorities remain binding.",
+    "production_runtime_compatible_with_current_source": false,
+    "saved637_refusal_repaired": true
   },
   "current_source_component_status": {
-    "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "at_utc": "2026-10-05T12:19:27.432969+00:00",
+    "phase": "six_saved_components_verified_full_qualification_pending",
+    "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-066",
+    "artifact_seal_sha256": "ab60a64ab30c22a83fd856deaaa20072dd5fb0878242c2d49eaa6a74a408eba0",
+    "runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
+    "runtime_seal_sha256": "b8941a7623620754c67eb7863b0e08ac11900962fdfaeb40c72f5f212ed320f5",
+    "checks_source_of_record": "E:\\spellbench-gorge-runpod-20261005-066\\terminal-recovery\\capture-001\\CHECKS.json",
+    "checks_sha256": "e67f37b65af9f89031f057d42d808b324f3645d3e36291dee2424abb17d15e65",
+    "cases": {
+      "364": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 737,
+          "Nodes": 23,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": true
+      },
+      "410": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 828,
+          "Nodes": 16,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "478": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 975,
+          "Nodes": 23,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "504": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 1048,
+          "Nodes": 36,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "596": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 1217,
+          "Nodes": 30,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      },
+      "637": {
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 1300,
+          "Nodes": 40,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_identical": false
+      }
+    },
+    "public_input_pins": {
+      "364": {
+        "sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+        "frames": 364,
+        "original_native_diagnostics_required": true
+      },
+      "410": {
+        "sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+        "frames": 410,
+        "original_native_diagnostics_required": false
+      },
+      "478": {
+        "sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+        "frames": 478,
+        "original_native_diagnostics_required": false
+      },
+      "504": {
+        "sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+        "frames": 504,
+        "original_native_diagnostics_required": false
+      },
+      "596": {
+        "sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+        "frames": 596,
+        "original_native_diagnostics_required": false
+      },
+      "637": {
+        "sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
+        "frames": 637,
+        "original_native_diagnostics_required": false
+      }
+    },
+    "unchanged_captured_options": "64 attempts/eight worlds/5000 submits; teacher default; nil live Engine/Observer",
+    "interpretation": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
+    "full_go_ci_status": "pending",
+    "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
+    "production_runtime_rebuilt": false,
+    "native_qualification_complete": false,
+    "reference_qualification_complete": false,
+    "current_identity_review_complete": false,
+    "rated_games": 0,
+    "published_entries": 0,
     "component_roots_passed": true,
     "component_frames": [
       364,
       410,
       478,
       504,
-      596
+      596,
+      637
     ],
-    "component_result_record": "docs/gorge-component-verification059-20261005.json",
-    "component_runtime_source_of_record": "E:/spellbench-gorge-public-witness-runtime-20261005-058",
-    "component_runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
-    "full_go_ci": "passed",
-    "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
-    "original_parent_diagnostic_passed": false,
-    "original_parent_failure_retained": true,
-    "production_runtime_rebuilt": true,
-    "current_native_qualification": "failed_existing_redeal_gate_game52",
-    "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json",
-    "native_qualification_complete": false,
-    "reference_qualification_complete": false,
-    "current_identity_review_complete": false,
-    "rated_games": 0,
-    "published_entries": 0
+    "component_result_record": "docs/gorge-component-replay066-20261005.json",
+    "current_native_qualification": "unrun_current_source; prior060_failed_existing_gate",
+    "previous_component_verification": "docs/gorge-component-verification059-20261005.json"
   },
   "current_diagnostic": "docs/gorge-diagnostic062-20261005.json",
-  "current_witness_diagnostic": "docs/gorge-witness-trace064-20261005.json",
-  "current_component_validation": "docs/gorge-component-verification059-20261005.json",
+  "current_witness_diagnostic": "docs/gorge-witness-trace066-20261005.json",
+  "current_component_validation": "docs/gorge-component-replay066-20261005.json",
   "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json",
   "prior048_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",

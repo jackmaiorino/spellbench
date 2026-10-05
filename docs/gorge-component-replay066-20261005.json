@@ -1,0 +1,115 @@
+{
+  "at_utc": "2026-10-05T12:19:27.432969+00:00",
+  "phase": "six_saved_components_verified_full_qualification_pending",
+  "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-066",
+  "artifact_seal_sha256": "ab60a64ab30c22a83fd856deaaa20072dd5fb0878242c2d49eaa6a74a408eba0",
+  "runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
+  "runtime_seal_sha256": "b8941a7623620754c67eb7863b0e08ac11900962fdfaeb40c72f5f212ed320f5",
+  "checks_source_of_record": "E:\\spellbench-gorge-runpod-20261005-066\\terminal-recovery\\capture-001\\CHECKS.json",
+  "checks_sha256": "e67f37b65af9f89031f057d42d808b324f3645d3e36291dee2424abb17d15e65",
+  "cases": {
+    "364": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 737,
+        "Nodes": 23,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": true
+    },
+    "410": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 828,
+        "Nodes": 16,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false
+    },
+    "478": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 975,
+        "Nodes": 23,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false
+    },
+    "504": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 1048,
+        "Nodes": 36,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false
+    },
+    "596": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 1217,
+        "Nodes": 30,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false
+    },
+    "637": {
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 1300,
+        "Nodes": 40,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false
+    }
+  },
+  "public_input_pins": {
+    "364": {
+      "sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+      "frames": 364,
+      "original_native_diagnostics_required": true
+    },
+    "410": {
+      "sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+      "frames": 410,
+      "original_native_diagnostics_required": false
+    },
+    "478": {
+      "sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+      "frames": 478,
+      "original_native_diagnostics_required": false
+    },
+    "504": {
+      "sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+      "frames": 504,
+      "original_native_diagnostics_required": false
+    },
+    "596": {
+      "sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+      "frames": 596,
+      "original_native_diagnostics_required": false
+    },
+    "637": {
+      "sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
+      "frames": 637,
+      "original_native_diagnostics_required": false
+    }
+  },
+  "unchanged_captured_options": "64 attempts/eight worlds/5000 submits; teacher default; nil live Engine/Observer",
+  "interpretation": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
+  "full_go_ci_status": "pending",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
+  "production_runtime_rebuilt": false,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "current_identity_review_complete": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

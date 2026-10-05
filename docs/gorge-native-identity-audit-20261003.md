@@ -1,35 +1,42 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
-Production runtime060 uses Spellbench source `14fe319`, whose gorge/arena code
-matches engine source `1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a`.
-[Full source-compatible Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37293808685)
-passed. Seven production binaries are durably pinned on independent E/D copies
-under seal `ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2`.
-[Job060](gorge-runtime060-native-20261005.json) failed the unchanged zero-refusal
-gate in serial game52, recording two reconstruction exhaustions. The parallel
-comparison and full 320-block/640-game audit were not admitted. Its pod is deleted,
-cleanup is verified and full evidence is sealed on independent E/D copies.
-No full qualification or playing-strength result is claimed.
-
-All five unchanged saved actor-public inputs pass the native Go tests under
-the original 64-attempt/eight-world/5,000-submit limits:
+Engine source `5ffac138a1e8327882e02aceb97812406821e40b` prioritizes a distinct public held-card witness
+before weaker guidance while retaining each original proposal's seed coordinates
+and all alternatives. The native sampler and shared 64/8/5000 limits are unchanged.
+[Six-case replay066](gorge-component-replay066-20261005.json) passes all saved
+actor-public inputs with eight valid worlds per input:
 
 | Public frames | Worlds | Proposals | Submits | Nodes | Exhaustions |
 | --- | --- | --- | --- | --- | --- |
-| 364 | 8 | 1 | 729 | 11 | 0 |
-| 410 | 8 | 1 | 831 | 19 | 0 |
-| 478 | 8 | 2 | 2412 | 1330 | 0 |
-| 504 | 8 | 3 | 4072 | 2785 | 0 |
-| 596 | 8 | 1 | 1220 | 31 | 0 |
+| 364 | 8 | 1 | 737 | 23 | 0 |
+| 410 | 8 | 1 | 828 | 16 | 0 |
+| 478 | 8 | 1 | 975 | 23 | 0 |
+| 504 | 8 | 1 | 1048 | 36 | 0 |
+| 596 | 8 | 1 | 1217 | 30 | 0 |
+| 637 | 8 | 1 | 1300 | 40 | 0 |
 
-Only364 has a captured native diagnostic baseline, and its fields remain
-identical. The other four cases have no native baseline. The original058 Python
-parent report failed because it indexed an empty refusal field that the pinned
-Go schema omits on success. [Verification059](gorge-component-verification059-20261005.json)
-checks the saved hashes, zero Go test exit, all five native assertions and results;
-it preserves the original parent failure and performs no new computation.
-Production binaries exclude the component logger.
+Only364 has a captured native diagnostic baseline, and it remains identical.
+Other cases make no native diagnostic equality claim. The new637 case completes
+in one proposal and1,300 submits. [Trace064](gorge-witness-trace064-20261005.json)
+retains the exact earlier failure; frozen prior failures and verification059 are
+unchanged. Both owned CPU pods are deleted, cleanup is verified, and binary/evidence
+copies are sealed on independent E/D storage. The diagnostic binary includes logging;
+it does not replace the seven production binaries.
+
+Current-source [Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37307395390)
+remains pending. Production060 is a previous source: it failed the unchanged
+zero-refusal gate in game52. Its binaries and prepared reference008 are incompatible
+with the changed engine source. A fresh production build, matched serial/parallel
+qualification, full320-block/640-game audit, reference matrix and current review
+remain required. The real rated handoff rejects production060 at its source check,
+before a secret, commitment or engine process is created. No playing-strength result
+or rating is claimed.
+
+Ledger036 bounds closed charges conservatively at $9.93136347, leaving $0.06863653
+under Jack's $10 cap. Provider settlement is pending. No new RunPod lease fits that
+remainder with the retained $0.15 ancillary allowance. Both PCs retain their current
+resource priorities; no current-source substantial run is admitted.
 
 [Current source review inputs](gorge-identity-review-inputs-20261005.json)
 record exact source/runtime hashes, unchanged emitters and remaining gates.

@@ -1,0 +1,13 @@
+{
+  "at_utc": "2026-10-05T12:19:27.432969+00:00",
+  "attempted_command": "python tools/gorge-rated-handoff-20261005.py --runtime E:/spellbench-gorge-runtime-20261005-060 --runtime-seal-sha256 ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+  "refused_at": "tools/gorge-rated-handoff-20261005.py:18",
+  "reason": "The production060 engine source differs from current held-priority source; source compatibility assertion rejected the handoff before creating any secret, commitment or engine process",
+  "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+  "run_secret_created": false,
+  "commitment_created": false,
+  "engine_processes_started": 0,
+  "rated_games": 0,
+  "launch_admitted": false
+}

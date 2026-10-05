@@ -69,5 +69,15 @@
   ],
   "farthest_reached": 573,
   "farthest_recorded_rejection": 491,
-  "witness_constructed": false
+  "witness_constructed": false,
+  "saved_failure_repair_verified": true,
+  "repair_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "repair_verification_record": "docs/gorge-component-replay066-20261005.json",
+  "repair_work": {
+    "Attempts": 1,
+    "Submits": 1300,
+    "Nodes": 40,
+    "BudgetExhausted": 0
+  },
+  "repair_worlds": 8
 }
