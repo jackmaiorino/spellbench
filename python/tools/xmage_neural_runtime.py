@@ -123,7 +123,7 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
             "JackOriginalBridgeMain", "JackRootDecision", "JackPriorityState", "JackDialogReplay",
             "JackDialogEncoder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder",
             "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan",
-            "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "JackReplayOpponent", "ModelReplay")}
+            "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "JackReplayOpponent", "JackReplayKnowledge", "ModelReplay")}
         if not required.issubset(classes):
             raise ValueError("Jack runtime lacks its complete original callback and serving classes")
     checked_tree(build, classes, suffix=".class")

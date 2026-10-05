@@ -20,7 +20,7 @@ from test_xmage_neural_runtime import fixture as build_fixture
 IMAGE = "sha256:" + "a" * 64
 
 
-@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class", "mode-class", "named-class", "target-class", "general-target-class", "card-set-class", "parent-card-class", "london-plan-class", "combat-plan-class", "replay-opponent-class"])
+@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class", "mode-class", "named-class", "target-class", "general-target-class", "card-set-class", "parent-card-class", "london-plan-class", "combat-plan-class", "replay-opponent-class", "replay-knowledge-class"])
 def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tmp_path, monkeypatch, fault):
     build, engine, releases, metadata = build_fixture(tmp_path)
     private = tmp_path / "private.json"; private.write_bytes(b'{"private":true}')
@@ -34,7 +34,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
             "OriginalActivationPlayer", "OriginalParentManaPlayer", "OriginalParentDialogsPlayer", "StateSequenceBuilder",
             "CandidateEncoder", "MulliganEncoder", "PriorityRules", "DialogRules", "ModeRules", "TargetRules",
             "CardSetRules", "CombatRules", "LondonRules")), ("kit/xmage", ("JackOriginalBridgeMain", "JackRootDecision",
-            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder", "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan", "JackInferenceChannel", "JackPermittedWorlds",
+            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder", "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan", "JackInferenceChannel", "JackPermittedWorlds", "JackReplayKnowledge",
             "JackPlayerBootstrap", "JackReplayOpponent", "ModelReplay"))):
         for name in names:
             path = build / ("model/spellbench/" + package + "/" + name + ".class")
@@ -54,6 +54,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
     if fault == "london-plan-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackLondonPlan.class"]
     if fault == "combat-plan-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackCombatPlan.class"]
     if fault == "replay-opponent-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackReplayOpponent.class"]
+    if fault == "replay-knowledge-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackReplayKnowledge.class"]
     if fault == "parent-card-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackParentCardEncoder.class"]
     (build / "BUILD.json").write_text(json.dumps(metadata), encoding="utf-8")
     monkeypatch.setattr(common, "verify_build", lambda *a: None)

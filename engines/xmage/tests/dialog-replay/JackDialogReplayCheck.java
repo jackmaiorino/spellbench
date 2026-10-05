@@ -25,11 +25,12 @@ public final class JackDialogReplayCheck {
     static final class Backend implements OriginalNeuralSelection.Model {
         int calls,copies;boolean closed,chooseFirst,wholeRank;final List<String> heads=new ArrayList<>();
         final List<Integer> ranks=new ArrayList<>();
+        OriginalNeuralSelection.Request lastRequest;
         public String callbackSourceSha256() {return OriginalCallbackPlayer.SOURCE_SHA256;}
         public String profile() {return OriginalNeuralSelection.GREEDY;}
         public long seed() {return 27;}
         public OriginalNeuralSelection.Prediction score(OriginalNeuralSelection.Request r,double seconds) {
-            calls++;heads.add(r.head);float[] probabilities=new float[64];probabilities[chooseFirst?0:r.count-1]=1;
+            calls++;heads.add(r.head);lastRequest=r;float[] probabilities=new float[64];probabilities[chooseFirst?0:r.count-1]=1;
             if(wholeRank) {
                 require("card_select".equals(r.head) && r.minimum==r.count && r.maximum==r.count,"London lost full-hand ranking bounds");
                 ranks.add(r.count);
@@ -47,6 +48,7 @@ public final class JackDialogReplayCheck {
         mage.target.Target target;boolean targetResult;
         mage.cards.Cards cards;mage.target.TargetCard cardTarget;boolean parentCards,cardResult;
         Outcome cardOutcome=Outcome.Benefit;
+        Runnable activationWork;
         boolean londonMetadata;final List<UUID> bottomed=new ArrayList<>();
         @Override public boolean putCardsOnBottomOfLibrary(mage.cards.Cards cards,Game game,Ability source,boolean anyOrder) {
             if(!londonMetadata)return super.putCardsOnBottomOfLibrary(cards,game,source,anyOrder);
@@ -61,6 +63,7 @@ public final class JackDialogReplayCheck {
         @Override protected List<MageObject> engineParentManaProducers(Game game) {return Collections.emptyList();}
         @Override protected boolean activateOriginalAbility(ActivatedAbility ability,Game game) {
             entered++;
+            if(activationWork!=null)activationWork.run();
             if(cost) {
                 mage.choices.ChoiceImpl choice=new mage.choices.ChoiceImpl(true);
                 choice.getKeyChoices().put("0","normal cost");choice.getKeyChoices().put("1","alternative cost");
@@ -97,6 +100,9 @@ public final class JackDialogReplayCheck {
             this(0,false);
         }
         Case(int handSize,boolean sameName) {
+            this(handSize,sameName,false);
+        }
+        Case(int handSize,boolean sameName,boolean futureAlias) {
             root.state.getPlayers().put(player.getId(),player);
             if(handSize>0)player.getHand().clear();
             for(int i=0;i<handSize;i++) {
@@ -132,6 +138,7 @@ public final class JackDialogReplayCheck {
                 }
             });
             world=new World(game,"p0",0,null);world.seatPlayer.put("p0",player.getId());world.seatPlayer.put("p1",root.other.getId());
+            if(futureAlias)world.bind("future-library",player.getLibrary().getCardList().get(0));
             Map<UUID,String> aliases=new LinkedHashMap<>();
             try {
                 mage.player.spellbench.observe.Observation visible=mage.player.spellbench.observe.ObservationBuilder
@@ -143,11 +150,17 @@ public final class JackDialogReplayCheck {
                 }
             } catch(Exception failure) {throw new AssertionError(failure);}
             registry=new JackPermittedWorlds(new OriginalNeuralSelection.Session(backend,backend.profile(),backend.seed(),()->10));
-            registry.register(world,aliases,g->{
+            JackPermittedWorlds.Projection projection=g->{
                 Map<UUID,Map<String,Object>> rows=new LinkedHashMap<>();
                 for(Map.Entry<UUID,String> e:aliases.entrySet()) rows.put(e.getKey(),Json.map("object_id",e.getValue(),"card_name",root.cards.get(e.getKey()).getName()));
                 return rows;
-            });
+            };
+            if(futureAlias)try {
+                Class<?> type=Class.forName("spellbench.kit.xmage.JackPermittedWorlds$VisibleProjection");
+                Constructor<?> constructor=type.getDeclaredConstructor(World.class,Map.class,Map.class);constructor.setAccessible(true);
+                projection=(JackPermittedWorlds.Projection)constructor.newInstance(world,flags(),aliases);
+            } catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+            registry.register(world,aliases,projection);
             ability=JackRootDecisionCheck.land(player.getHand().iterator().next(),0);
             player.playable=ability;
         }

@@ -60,6 +60,14 @@ public final class JackPermittedWorlds implements AutoCloseable {
     /** Sampling and bootstrap are owned here; no public API admits an externally supplied Game. */
     public synchronized World build(Map<String,Object> start,Map<String,Object> decision,
             KitRandom random,WorldBuilder.Mode mode,int index) {
+        return build(start,decision,null,random,mode,index);
+    }
+    public synchronized World buildReplay(Map<String,Object> start,Map<String,Object> decision,Map<String,Object> record,
+            KitRandom random,WorldBuilder.Mode mode,int index) {
+        return build(start,decision,record,random,mode,index);
+    }
+    private World build(Map<String,Object> start,Map<String,Object> decision,Map<String,Object> record,
+            KitRandom random,WorldBuilder.Mode mode,int index) {
         requireOpen();
         try {
             if (start==null || decision==null || random==null || mode==null) throw new IllegalArgumentException("permitted reconstruction inputs required");
@@ -67,8 +75,12 @@ public final class JackPermittedWorlds implements AutoCloseable {
             WorldBuilder.Spec spec=new WorldBuilder.Spec();
             spec.gameStart=start; spec.observation=obs; spec.random=random; spec.mode=mode; spec.index=index;
             spec.history=Json.obj(copy,"x_history");
+            Map<String,Object> sampling=record==null?obs:JackReplayKnowledge.samplingObservation(copy,record);
             List<String> repairs=WorldBuilder.restoreVisibleNames(obs,spec.history);
-            spec.sample=Sampler.sample(start,obs,random.stream("sampler"));
+            if(sampling!=obs)WorldBuilder.restoreVisibleNames(sampling,spec.history);
+            spec.sample=Sampler.sample(start,sampling,random.stream("sampler"));
+            if(record!=null)for(String flag:spec.sample.flags)if(flag.startsWith("approximate:public_exceeds_list:"+Json.str(obs,"viewer"))
+                    || flag.startsWith("approximate:known_library_exceeds_count"))throw new IllegalArgumentException("conditioned library facts conflict with the permitted pool: "+flag);
             World world=JackPlayerBootstrap.build(spec);
             world.flags.addAll(repairs);
             Map<UUID,String> initial=JackWorldAliases.namedAliases(world,copy);
@@ -92,8 +104,9 @@ public final class JackPermittedWorlds implements AutoCloseable {
                 throw new IllegalArgumentException("fresh unbound reconstruction required");
             KnowledgeWatcher knowledge=KnowledgeWatcher.install(world.game,player.getId());
             for (Map.Entry<String,UUID> object:world.idToUuid.entrySet()) {
-                UUID id=object.getValue(); Card card=world.game.getCard(id);
-                if (card!=null && world.game.getState().getZone(id)==Zone.LIBRARY && initial.containsKey(id))
+                UUID id=object.getValue();if(!initial.containsKey(id))continue;
+                Card card=world.game.getCard(id);
+                if (card!=null && world.game.getState().getZone(id)==Zone.LIBRARY)
                     knowledge.pinLibrary(card.getOwnerId(),id);
             }
             UUID other=world.player("p0".equals(world.viewer)?"p1":"p0");

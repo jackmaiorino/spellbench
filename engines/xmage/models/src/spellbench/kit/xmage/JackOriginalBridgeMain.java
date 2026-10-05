@@ -86,7 +86,7 @@ public final class JackOriginalBridgeMain {
                     long before=channel.requestCount(); KitContext.reset();KitRandom.installBoot();
                     KitRandom random=KitRandom.install(Seeds.unhex(Json.str(request,"world_seed")),Seeds.unhex(Json.str(request,"id_seed")));
                     Map<String,Object> root=reconstructionDecision(request);
-                    world=registry.build(start,root,random,JackRootDecision.mode(root),0);
+                    world=registry.buildReplay(start,root,request,random,JackRootDecision.mode(root),0);
                     Map<String,Object> result=choose(world,request);
                     result.put("inference_requests",channel.requestCount()-before);
                     registry.retire(world);world=null;

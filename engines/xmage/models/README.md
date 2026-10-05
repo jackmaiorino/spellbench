@@ -807,8 +807,8 @@ previous callback, bootstrap, queue, combat and London regressions remain passin
 Evidence retains the initial runtime-fixture failure under
 `E:/spellbench-xmage-all-20261002/jack-resolution-replay-001`.
 The fixture scripts resume and stack contents, so this does not qualify the native
-event loop or stack legality. Other phase transitions, newly visible library
-conditioning, nested combat replay, refreshed full builds, trained weights and
+event loop or stack legality. Other phase transitions, library-position transport,
+nested combat replay, refreshed full builds, trained weights and
 complete games remain unfinished under the research hold.
 
 End-step pass replay now admits the engine's fixed cleanup discard group. The
@@ -831,3 +831,32 @@ callback regressions pass. Evidence is retained under
 `E:/spellbench-xmage-all-20261002/jack-cleanup-replay-001`, including initial fixture
 failures. Resume and target legality are scripted metadata; native cleanup and
 complete trained-weight games remain unqualified.
+
+Original callback reconstruction now supplies the full replay record to
+`JackPermittedWorlds.buildReplay`. `JackReplayKnowledge` conditions a separate
+sampling observation on permitted named own-library facts from earlier and current
+callbacks. Root visibility remains unchanged: new IDs can bind reconstructed
+objects without entering the root's named alias map, knowledge watcher or feature
+tokens. Initial admission filters for permitted aliases before fetching a card.
+Current aliases become available through the actual own look or public reveal.
+
+First visibility determines a newly shown card's reconstruction constraint;
+later positions for that identity are handled by actual replay. A root-visible
+card moved into the library retains its existing physical binding. Conflicting
+names, positions, capacities and own-deck composition refuse before bootstrap or
+inference. New positional facts first shown after a library-size change refuse
+until root-position transport is implemented. Opponent-library facts from later
+callbacks do not condition the root. Shared DraftZero sampling/replay is unchanged.
+
+All 366 affected Python checks pass, including a new missing-helper runtime check.
+Two fresh metadata JVM outputs match. Tests use the real sampler across eight seeds
+for search/look/reveal and top/bottom constraints, check first-visibility precedence,
+and exercise original forced and neural `target` choices. Hidden-read traps and
+feature token checks prove future cards are excluded at the root; current original
+request tokens match the original encoder after the actual own look. Invalid pools
+refuse before native bootstrap. Prior registry, cleanup, resolution, activation,
+queue, combat, London and callback checks pass. Initial fixture failures and a
+post-check storage-reserve failure are retained under
+`E:/spellbench-xmage-all-20261002/jack-library-replay-001`; archive-verified duplicate
+recovery restored the reserve without changing tested sources. Native reconstruction,
+position transport, shuffle/movement history and trained-weight games remain open.

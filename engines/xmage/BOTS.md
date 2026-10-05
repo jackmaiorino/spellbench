@@ -196,8 +196,8 @@ inference. `JackReplayOpponent` is a non-playing reconstruction helper, with no
 leaderboard entry. All 329 affected Python checks pass, and two normalized JVM
 outputs match for resolving X, binary prefixes, opponent passes and fresh priority.
 These fixtures script resume and stack contents; the native event loop and stack
-legality still require qualification. Newly visible library conditioning, nested
-combat callbacks, other phase transitions and complete games remain unfinished.
+legality still require qualification. Library-position transport, nested combat
+callbacks, other phase transitions and complete games remain unfinished.
 
 End-step passes also connect to fixed cleanup discard groups from the active
 player's named hand. The bridge requires the same turn, an empty stack, both
@@ -208,6 +208,17 @@ the actual target without extra draws. This uses the original `target` head and
 same-name direct returns. All 365 affected Python checks pass; two metadata JVM
 outputs match across one to three discards and every prefix. Native cleanup remains
 unqualified under the research resource hold.
+
+Callback reconstruction now conditions a separate sampling observation on named
+own-library search, look and reveal facts. The root observation and admitted root
+aliases retain their earlier visibility. A card's first shown position constrains
+sampling; subsequent positions are replayed by the engine. Conflicting identities,
+positions, capacity or permitted deck composition refuse before inference. New
+positional facts after a library-size change still require position transport.
+All 366 affected Python checks pass. Two fresh metadata JVM checks cover the real
+sampler, hidden-read traps, root feature exclusion, actual current-look admission,
+and original forced/neural target choices with current permitted features. Native
+reconstruction, shuffle/movement histories and complete games remain unqualified.
 
 Jack's original attack and block loops now have a separate private staged port
 and connect to the original frontend's game-owned session through `JackCombatPlan`.
