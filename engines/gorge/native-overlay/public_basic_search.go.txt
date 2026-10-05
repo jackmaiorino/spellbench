@@ -379,7 +379,7 @@ func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size in
 	var window []uint32
 	chosen := false
 	for _, ev := range after.Events {
-		if ev.Kind == events.TypeChosen && ev.Player == h.Actor && ev.Obj == d.Source && ev.Text == answer[0].Value {
+		if ev.Kind == events.Choose && ev.Counter == "type" && ev.Player == h.Actor && ev.Obj == d.Source && ev.Text == answer[0].Value {
 			chosen = true
 		}
 		if ev.Kind == events.Note && ev.Player == h.Actor && !ev.Secret && ev.Text == "" && len(ev.IDs) > 0 {

@@ -24,7 +24,7 @@ func TestSpellbenchActorRevealedDigPreservesGroupedMoveOrder(t *testing.T) {
 			{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}}},
 			{Identities: []Identity{{ID: 90, Owner: 0, Name: "Public Dig"}}, Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 90, Min: 1, Max: 1, Options: []ObservedOption{{Action: a}}}},
 			{Identities: []Identity{{ID: 1, Owner: 0, Name: "Spy"}, {ID: 2, Owner: 0, Name: "Grant"}, {ID: 3, Owner: 0, Name: "Return"}, {ID: 4, Owner: 0, Name: "Vine"}}, Board: json.RawMessage(`{"players":[{"seat":0,"library_size":5}]}`), Events: []ObservedEvent{
-				{Kind: events.TypeChosen, Player: 0, Obj: 90, Text: "Creature"}, {Kind: events.Note, Player: 0, IDs: []uint32{1, 2, 3, 4}},
+				{Kind: events.Choose, Player: 0, Obj: 90, Counter: "type", Text: "Creature"}, {Kind: events.Note, Player: 0, IDs: []uint32{1, 2, 3, 4}},
 				{Kind: events.MoveZone, Obj: 1, From: state.ZLibrary, To: state.ZHand}, {Kind: events.MoveZone, Obj: 4, From: state.ZLibrary, To: state.ZHand},
 				{Kind: events.MoveZone, Obj: 2, From: state.ZLibrary, To: state.ZGraveyard}, {Kind: events.MoveZone, Obj: 3, From: state.ZLibrary, To: state.ZGraveyard}}},
 			{Identities: []Identity{{ID: 5, Owner: 0, Name: "Tail"}}, Events: []ObservedEvent{{Kind: events.Draw, Player: 0, Obj: 5}}},
