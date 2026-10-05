@@ -1,20 +1,21 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T12:19:27.432969+00:00",
-  "status": "prepared_for_review; qualification_and_current_identity_review_pending",
-  "adapter_source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
-  "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "at_utc": "2026-10-05T16:17:42.938615+00:00",
+  "status": "current_repaired_runtime_prepared_for_review; native077_scaling_active, qualification_and_current_identity_review_pending",
+  "adapter_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
+  "engine_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-068",
-  "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-076",
+  "runtime_seal_sha256": "d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74",
   "production_overlay_sha256": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
     "engines/gorge/native-overlay/public_priority_test.go.txt",
     "engines/gorge/native-overlay/public_redeal.go.txt",
-    "engines/gorge/scripts/setup-dev.py"
+    "engines/gorge/scripts/setup-dev.py",
+    "engines/gorge/native-overlay/public_basic_search.go.txt"
   ],
   "unchanged_emitter_and_history_file_pins": {
     "engines/gorge/native-overlay/public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
@@ -284,12 +285,160 @@
   "reference_pool_actual_qualification_passed": false,
   "reference_dispatch_admitted": false,
   "current_native_attempt": {
-    "record": "docs/gorge-ci-native069-20261005.json",
-    "passed": false,
-    "game": 49,
-    "refused_reconstructions": 4,
-    "independent_recovery_verified": true,
-    "hosted_cleanup_verified": true
+    "phase": "guarded_local_matched_scaling_active_before_full_native_audit",
+    "observed_at_utc": "2026-10-05T16:17:42.938615+00:00",
+    "execution_source_commit": "ea4b2d37704f55c4d00b7eebcb5613b637bb8799",
+    "runtime_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
+    "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-076",
+    "runtime_seal_sha256": "d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74",
+    "source_of_record": "E:\\spellbench-gorge-native-20261005-077",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-20261005-077",
+    "supervisor_pid": 31532,
+    "canonical_generation": 193,
+    "canonical_lane": "spellbench-gorge",
+    "worker_cap": 16,
+    "worker_ladder": [
+      1,
+      8,
+      16
+    ],
+    "placement": "main-pc=used: released Luna window, canonical host free, exact local build already recovered, compare all fitting serial/parallel rungs before audit; haleyspc=unavailable: preserve Jack-approved next XMage bounded stage and actual current claims; runpod=not_authorized: remaining all-in USD10 headroom cannot cover retained ancillary lease floor; github-actions=slower: local prepared runtime avoids staging and recovery, current runner offers4cores against local24logical cores",
+    "guard_path": "host_reservation_v1.dispatch -> this bounded parent -> qualify_native.py -> arena.throughput.plan_allocation -> qualified gorgequal callback",
+    "wall_cap_seconds": 21600,
+    "release_condition": "All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games",
+    "owner": "Existing canonical supervisor and bounded local parent own progress, E/D final recovery and release; no duplicate watcher",
+    "next_wake": "Serial/parallel comparison closes or existing gate/parent emits failure; inspect CURRENT.json and new receipts, then recover terminal bytes before qualification handoff",
+    "new_cloud_spend_usd": 0,
+    "conservative_reserved_total_usd": 9.98136347,
+    "provider_final_settlement_pending": true,
+    "raw_native_launch_used": false,
+    "native_qualification_passed": false,
+    "reference_qualification_passed": false,
+    "rated_games": 0,
+    "published_entries": 0,
+    "previous_numerical_failure_remains_failed": true,
+    "qualification_admission": "Full native audit starts only after supported matched completed-work comparison admits identical outputs"
   },
-  "current_reference_phase": "bundle/recovery implemented and structurally tested; actual reference held after failed native069"
+  "current_reference_phase": "bundle/recovery implemented and structurally tested; actual reference held after failed native069",
+  "current_overlay_files": {
+    "public_basic_search.go.txt": "26bf5943018843e889c87303807c5ef5ca02832136fbb5782ad23046af3e91ef",
+    "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
+    "public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
+    "public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
+    "public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
+    "public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
+    "public_priority_test.go.txt": "3255e9083ccf63e85516e76b65cc222e7d9a4e9e6e36a52c88a811b9474547ab",
+    "public_redeal.go.txt": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
+    "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
+    "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
+  },
+  "new_changed_runtime_functions": [
+    "spellbenchBasicSearches"
+  ],
+  "current_saved_root": {
+    "phase": "exact_saved_root_repair_verified_and_recovered",
+    "at_utc": "2026-10-05T16:07:46.741897+00:00",
+    "source_commit": "333e230ab8b68e4489b1d6a7578503027057e418",
+    "input_sha256": "c3ea5e0550c9d1b6e0862a32ab8b9bed4d284688426cc19366a9f0093035124d",
+    "frames": 281,
+    "failure_work": {
+      "Attempts": 4,
+      "Submits": 5000,
+      "Nodes": 4234,
+      "BudgetExhausted": 1
+    },
+    "repaired_work": {
+      "Attempts": 1,
+      "Submits": 564,
+      "Nodes": 25,
+      "BudgetExhausted": 0
+    },
+    "native_diagnostic_fields_compared": 23,
+    "native_diagnostics_identical": true,
+    "native_diagnostic_baseline": "Existing native sampler with empty redeal base, retaining its known-card diagnostic; only PublicReconstruction/Redealt/RedealRefused excluded",
+    "native_redealt_worlds": 8,
+    "known_card_checks_passed": true,
+    "boundary_cases_passed": 6,
+    "repair": "Keep actor-visible filtered basic-land order through known nonbasic London bottoms before play; basic, undeclared, opaque owned and in-play mutations remain unguided",
+    "preserved_failed_attempts": [
+      {
+        "number": 73,
+        "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-073",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-073",
+        "seal_sha256": "f96e17264dd8bdd503e6f531f2ac5f54fb7510459be2b5755d78ad83e521848a",
+        "closure": {
+          "at_utc": "2026-10-05T16:02:15.729751+00:00",
+          "diagnostic_passed": false,
+          "error": "RuntimeError: london-basic-boundaries exit 1",
+          "elapsed_seconds": 4.030525099951774,
+          "new_cloud_spend_usd": 0,
+          "native_qualification_complete": false,
+          "rated_games": 0
+        },
+        "host_release": {
+          "generation": 189,
+          "token_fate": "released",
+          "canonical_state_after": "free",
+          "automatic_release": true
+        }
+      },
+      {
+        "number": 74,
+        "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-074",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-074",
+        "seal_sha256": "66ad9356301922d091701e307571ab7e704340af4c4d2ca2be665252ba83fcda",
+        "closure": {
+          "at_utc": "2026-10-05T16:03:46.401254+00:00",
+          "diagnostic_passed": false,
+          "error": "RuntimeError: witness-replay exit 1",
+          "elapsed_seconds": 9.298538799979724,
+          "new_cloud_spend_usd": 0,
+          "native_qualification_complete": false,
+          "rated_games": 0
+        },
+        "host_release": {
+          "generation": 190,
+          "token_fate": "released",
+          "canonical_state_after": "free",
+          "automatic_release": true
+        }
+      }
+    ],
+    "successful_attempt": {
+      "number": 75,
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-075",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-075",
+      "seal_sha256": "cc2a668d30ddeff2ddc771e0fd9aac09f4e46a37b8109c5b011b997c1c8bbac5",
+      "closure": {
+        "at_utc": "2026-10-05T16:05:20.079758+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 9.32721339998534,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "host_release": {
+        "generation": 191,
+        "token_fate": "released",
+        "canonical_state_after": "free",
+        "automatic_release": true
+      }
+    },
+    "new_cloud_spend_usd": 0,
+    "conservative_reserved_total_usd": 9.98136347,
+    "provider_final_settlement_pending": true,
+    "scope": "One saved public root and eight native pool checks; no completed games or playing-strength claim",
+    "reconstruction_repaired_for_saved_root": true,
+    "native_qualification_passed": false,
+    "reference_qualification_passed": false,
+    "rated_games": 0,
+    "published_entries": 0,
+    "next_action": "Build exact repaired production runtime locally, then compatible serial/parallel qualification and the unchanged full native audit through supported launcher",
+    "remaining": "Full native/reference qualification, current identity/fair-play review, required CI unblocked by truthful XMage reveal, frozen rated games, result review and publication"
+  },
+  "historical_six_case_evidence": "Six earlier saved roots passed on pre-repair production068; retained as historical evidence, no unchanged-current-runtime claim",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "current_reconstruction_extension": "Actor-visible full basic search relative order survives known nonbasic London bottoms before play. Owned basic, undeclared, opaque and in-play mutations remain unguided; full replay and native known-card checks still apply."
 }
