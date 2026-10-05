@@ -253,10 +253,12 @@ def executed_config(config: TournamentConfig, resolve: Callable[[str], str]) -> 
             spec,
             command=tuple(resolve(part) for part in spec.command),
             checkpoint=None if spec.checkpoint is None else resolve(spec.checkpoint),
+            evaluation_inputs=tuple(resolve(path) for path in spec.evaluation_inputs),
         )
         for spec in config.bots
     )
-    return dataclasses.replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots)
+    return dataclasses.replace(config, engine_command=tuple(resolve(part) for part in config.engine_command), bots=bots,
+                               evaluation_engine_inputs=tuple(resolve(path) for path in config.evaluation_engine_inputs))
 
 
 def registry_entries(config: TournamentConfig, executed: TournamentConfig) -> list[RegistryEntry]:
@@ -306,6 +308,11 @@ def play_one(
             stack.callback(driver.close)
             seats[seat] = driver
         result = play_game(game, engine=engine, seats=seats)
+    if result.classification == "halted" and result.reason.startswith("engine_contract_failure:"):
+        # Read only after cleanup drains the bounded stderr reader. Peer text stays outside the hashed row.
+        diagnostic = engine.stderr_text()
+        if diagnostic:
+            result = dataclasses.replace(result, diagnostics=(*result.diagnostics, diagnostic))
     verify_files(launch_files)
     return _outcome(config, setup, context, entries, result, hello.engine)
 
@@ -430,6 +437,7 @@ def play_games(
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
     timed: bool = False,
+    guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
 ) -> ExecutionResult:
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
@@ -441,7 +449,7 @@ def play_games(
     if timed:
         play = functools.partial(_timed, play)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
-                   monitor=monitor, on_warning=on_warning)
+                   monitor=monitor, on_warning=on_warning, guard=guard)
 
 
 # ---------------------------------------------------------------------------
@@ -552,6 +560,7 @@ def run_tournament(
     resolve: Callable[[str], str] | None = None,
     output_dir: str | Path | None = None,
     on_game: Callable[[LedgerRow], None] | None = None,
+    guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
 ) -> TournamentSummary:
     """Run the full schedule and publish the tournament (the module docstring gives the order).
@@ -626,7 +635,7 @@ def run_tournament(
                 with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
                     result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
                                         workers=allocation.workers, on_outcome=record, monitor=monitor,
-                                        on_warning=on_warning, launch_files=launch_files)
+                                        on_warning=on_warning, launch_files=launch_files, guard=guard)
                 error = result.error
                 game = None if error is not None else _spot_check_game(
                     allocation, scheduled=len(contexts), recorded=len(rows), violations=len(violations),

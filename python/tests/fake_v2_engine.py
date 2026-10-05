@@ -270,6 +270,7 @@ class _Game:
             _rendezvous(self.game_id)
         self._record(candidate_id)
         if first and self._hook == "Halt":
+            print("fixture contract halt diagnostic", file=sys.stderr, flush=True)
             return self._end("halted", None, "engine_contract_failure:test_hook")
         if first and self._hook == "Truncate":
             return self._end("truncated", None, "engine_cap")
