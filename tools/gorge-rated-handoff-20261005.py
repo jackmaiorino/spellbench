@@ -7,6 +7,7 @@ from spellbench.bench.definition import load_benchmark,substitute,placeholder_na
 from spellbench.arena.config import TournamentConfig
 from spellbench.arena.schedule import schedule
 from spellbench.run_secret import RunSecret
+from gorge_runtime_source import verify_runtime_source
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--runtime',type=Path,default=Path('E:/spellbench-gorge-runtime-20261005-048'))
 parser.add_argument('--runtime-seal-sha256',default='b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef')
@@ -16,7 +17,7 @@ runtime=args.runtime
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 seal=json.loads((runtime/'SEAL.json').read_bytes());build=json.loads((runtime/'BUILD.json').read_bytes())
 assert sha(runtime/'SEAL.json')==args.runtime_seal_sha256
-assert not subprocess.check_output(['git','diff',build['source_commit'],'HEAD','--','engines/gorge'])
+source_binding=verify_runtime_source(repo,build['source_commit'])
 # Runtime identity covers compiled Go. This zero-game plan records current
 # Python source differences; actual reference and throughput qualification
 # must bind the current launcher before any rated admission.
@@ -51,6 +52,7 @@ for name in ['SPELLBENCH_SECRETS_DIR','SPELLBENCH_PIN_ROOT']:
     assert subprocess.run(['git','-C',str(nearest),'rev-parse','--git-dir'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
 record=dict(schema='spellbench-gorge-rated-handoff/v1',source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),runtime_source_commit=build['source_commit'],runtime_source_of_record=str(runtime),runtime_seal_sha256=sha(runtime/'SEAL.json'),benchmark_sha256=sha(repo/'benchmarks/pauper-gorge/benchmark.json'),resolved_runtime_values=values,planned_local_values=planned,planned_paths_created=False,matched_E_D_input_pins={name:seal['files'][name] for name in names},roster=[b['name'] for b in config.to_json()['bots']],policies=policies,deck_pool=[d.name for d in benchmark.deck_pool],scheduled_games=3640,full_round_robin=True,validation_seed_is_public_placeholder=True,run_secret_created=False,commitment_created=False,engine_processes_started=0,rated_games=0,launch_admitted=False,remaining=['Current320-block/640-game native qualification and matched serial/parallel hashes','Current140-game reference matrix,60cells,160native participant receipts and identical replay','Current identity/fair-play review and benchmark definition review/merge','Fresh reservations and useful-compute selection within the remaining all-in USD10 scope','Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp','Supported bench run once, result validation/review, compact publication PR and verified Pages entries'],recipe_sha256=sha(Path(__file__)))
 record.update(launcher_source_changes=launcher_changes,
+    runtime_source_binding=source_binding,
     launcher_changed_source_sha256={name:sha(repo/name) for name in launcher_changes if (repo/name).is_file()},
     launcher_allocation_sha256=sha(repo/'python/spellbench/arena/allocation.py'),
     launcher_throughput_requalification_required=True)

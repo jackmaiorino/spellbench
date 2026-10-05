@@ -7,8 +7,38 @@ from spellbench.arena.config import TournamentConfig
 from spellbench.arena.schedule import schedule
 from spellbench.bench.definition import load_benchmark
 from spellbench.run_secret import RunSecret
+from spellbench.bench.run import QualificationPlay
+import pytest
 
 REPO = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize('failed', [False, True])
+def test_reference_measurement_preserves_required_finalizer_and_audit_directory(monkeypatch, tmp_path, failed):
+    monkeypatch.setenv('GORGE_CLOUD_STAGE', str(tmp_path/'unstarted'))
+    spec = importlib.util.spec_from_file_location('gorge_reference_cleanup',
+        REPO/'engines/gorge/scripts/reference_matrix.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    calls = []
+    def play(workers, positions):
+        calls.append((workers, positions, module.os.environ['GORGE_AGENT_AUDIT_DIR']))
+        if failed:
+            raise RuntimeError('fixture game failure')
+        return 1.0, ()
+    measured = module.audited_qualification(QualificationPlay(play, lambda: calls.append('finished')),
+        {'trial': 0, 'directory': None}, tmp_path)
+    try:
+        if failed:
+            with pytest.raises(RuntimeError, match='fixture game failure'):
+                measured(2, (0, 1))
+        else:
+            assert measured(2, (0, 1)) == (1.0, ())
+    finally:
+        measured.finish()
+    assert calls[-1] == 'finished'
+    assert Path(calls[0][2]) == tmp_path/'guard-native-audits/trial-1-workers-2'
+    assert not (tmp_path/'PRIVATE-GUARD-SECRET.json').exists()
 
 
 def test_reference_probes_preserve_original_seeds_seats_and_replay(monkeypatch, tmp_path):

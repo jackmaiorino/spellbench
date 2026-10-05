@@ -24,6 +24,7 @@ from gorge_reference_coordinator import coordinate
 from gorge_reference_pool import PoolNode, portable_native_verdict
 from gorge_reference_transport import snapshot_worker
 from gorge_reference_worker import ReferenceWorker, write_new
+from gorge_runtime_source import verify_runtime_source
 
 REPOSITORY = 'jackmaiorino/spellbench'
 BENCHMARK = '988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258'
@@ -109,8 +110,8 @@ def prepare(job, inputs, client):
     if verdict['runtime_source_commit']!=inputs['runtime_source_commit'] or sha(runtime/'registry.gob.gz')!=REGISTRY:
         raise RuntimeError('Compiled source or registry differs from the native pass')
     subprocess.run(['git','fetch','--depth=1','origin',inputs['runtime_source_commit']],cwd=SOURCE,check=True,timeout=90)
-    if subprocess.check_output(['git','diff',inputs['runtime_source_commit'],'HEAD','--','engines/gorge'],cwd=SOURCE):
-        raise RuntimeError('Current engine source differs from the qualified production runtime')
+    source_binding = verify_runtime_source(SOURCE, inputs['runtime_source_commit'])
+    write_new(job/'RUNTIME-SOURCE.json', source_binding)
     benchmark_path = SOURCE/'benchmarks/pauper-gorge/benchmark.json'
     if sha(benchmark_path)!=BENCHMARK:
         raise RuntimeError('The frozen original benchmark changed')

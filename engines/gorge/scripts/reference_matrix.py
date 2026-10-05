@@ -82,6 +82,18 @@ def select_matrix(contexts):
         raise RuntimeError('Matrix omits a policy/deck cell')
     return chosen, expected
 
+
+def audited_qualification(play, state, stage):
+    """Retain per-trial native receipts and the required measurement cleanup."""
+    def measured(workers, positions):
+        state['trial'] += 1
+        directory = stage/'guard-native-audits'/f"trial-{state['trial']}-workers-{workers}"
+        directory.mkdir(parents=True)
+        state['directory'] = directory
+        os.environ['GORGE_AGENT_AUDIT_DIR'] = str(directory)
+        return play(workers, positions)
+    return bench_run.QualificationPlay(measured, play.finish)
+
 def main():
     started = time.perf_counter()
     placement = os.environ['GORGE_PLACEMENT']
@@ -141,17 +153,10 @@ def main():
     state = {'trial':0, 'directory':None}
     def preserve(*args, **kwargs):
         play = original_qualification(*args, **kwargs)
-        cells = dict(zip(play.__code__.co_freevars, play.__closure__ or ()))
-        guard_secret = cells['secret'].cell_contents
-        private_secret(STAGE/'PRIVATE-GUARD-SECRET.json', guard_secret)
-        def measured(workers, positions):
-            state['trial'] += 1
-            directory = STAGE/'guard-native-audits'/f"trial-{state['trial']}-workers-{workers}"
-            directory.mkdir(parents=True)
-            state['directory'] = directory
-            os.environ['GORGE_AGENT_AUDIT_DIR'] = str(directory)
-            return play(workers, positions)
-        return measured
+        # The supported measurement reveals its replay secret after confirmed
+        # cleanup. Keep that finalizer instead of inspecting function closures
+        # or writing a second secret before any measured games have exited.
+        return audited_qualification(play, state, STAGE)
     bench_run.qualification_play = preserve
     original_append = store.append_ledger_row
     def journal(path, value):
