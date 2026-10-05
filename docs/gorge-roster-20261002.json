@@ -532,7 +532,7 @@
     "published_entries": 0,
     "active_owned_lease": false,
     "active_ci_runtime_build_record": null,
-    "current_reference_preparation_compatible": false,
+    "current_reference_preparation_compatible": true,
     "current_native_result_status": "New production068 remains unqualified; previous060 failed the existing zero-refusal gate",
     "current_remaining_refusals_unknown": true,
     "saved637_refusal_repaired": true,
@@ -549,7 +549,14 @@
     "supported_optional_host": "github-actions",
     "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
     "active_ci_native_run": "https://github.com/jackmaiorino/spellbench/actions/runs/37314990816",
-    "active_ci_native_execution_source": "e06161ee1334da3b875bdba08d19d623af783ed5"
+    "active_ci_native_execution_source": "e06161ee1334da3b875bdba08d19d623af783ed5",
+    "current_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
+    "current_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
+    "current_reference_preparation_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
+    "current_reference_pool_transport_implemented": false,
+    "current_reference_pool_guard_qualified": false,
+    "current_reference_parallel_resource_requirement": "Two independent standard GitHub runners; one declared3-core game slot per runner",
+    "current_reference_native_admission_proved": false
   },
   "current_source_component_status": {
     "at_utc": "2026-10-05T12:19:27.432969+00:00",
