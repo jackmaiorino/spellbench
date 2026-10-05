@@ -1,6 +1,6 @@
 {
   "at_utc": "2026-10-05T22:58:35.994964+00:00",
-  "phase": "hosted_component_dispatched",
+  "phase": "captured_prefix_checks_passed_recovered",
   "source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "release_id": 404154970,
   "release_tag": "gorge-reference-public-replay105-20261005",
@@ -47,14 +47,83 @@
   "preflight": "Fix copy to preserve Linux executable permissions and assert pinned hash/executability before replay; exact sealed103 input archive reused",
   "prior_attempt_run_id": 37384031753,
   "prior_attempt_seal_sha256": "e29cd64fd668bc4da9f1dee5fd8e9d1dd657f42c78ee1b0d9526fc8a69d436e0",
-  "dispatch": {
-    "run_id": 37385784937,
-    "run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37385784937",
-    "status": "queued",
-    "conclusion": null,
+  "terminal": {
+    "id": 37385784937,
+    "status": "completed",
+    "conclusion": "success",
+    "head_sha": "05c12d694e9e51100c252e7f29419d2002cccf99",
+    "run_attempt": 1,
+    "html_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37385784937",
+    "created_at": "2026-10-05T22:58:38Z",
+    "updated_at": "2026-10-05T23:03:24Z"
+  },
+  "closure": {
+    "component_passed": true,
+    "error": null,
     "source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
-    "at_utc": "2026-10-05T22:58:38.616914+00:00",
+    "elapsed_seconds": 118.49496455699997,
+    "native_qualification_complete": false,
+    "rated_games": 0,
     "new_cloud_spend_usd": 0
   },
-  "next_wake": "Exact run37385784937 terminal result; recover E/D outputs before owned draft cleanup; no local PC launch"
+  "recovery": {
+    "component_passed": true,
+    "production_build_passed": true,
+    "private_output_recovered": true,
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
+  "cleanup": {
+    "run_id": 37385784937,
+    "job_terminal": true,
+    "owned_asset_ids": [
+      613827100,
+      613835591
+    ],
+    "owned_draft_release_id": 404154970,
+    "deleted_after_verified_recovery": true,
+    "new_cloud_spend_usd": 0
+  },
+  "prefix_checks": [
+    {
+      "frames": 93,
+      "work": {
+        "Attempts": 1,
+        "Submits": 165,
+        "Nodes": 4,
+        "BudgetExhausted": 0
+      },
+      "known_card_checks_passed": true,
+      "native_diagnostics_identical": true,
+      "redealt_worlds": 8
+    },
+    {
+      "frames": 113,
+      "work": {
+        "Attempts": 1,
+        "Submits": 207,
+        "Nodes": 4,
+        "BudgetExhausted": 0
+      },
+      "known_card_checks_passed": true,
+      "native_diagnostics_identical": true,
+      "redealt_worlds": 8
+    },
+    {
+      "frames": 123,
+      "work": {
+        "Attempts": 1,
+        "Submits": 221,
+        "Nodes": 2,
+        "BudgetExhausted": 0
+      },
+      "known_card_checks_passed": true,
+      "native_diagnostics_identical": true,
+      "redealt_worlds": 8
+    }
+  ],
+  "qualification_passed": false,
+  "next_wake": "Sealed successful captured checks; full game105 is dispatched separately as106"
 }

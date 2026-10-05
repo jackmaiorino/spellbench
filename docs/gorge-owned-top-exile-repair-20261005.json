@@ -1,6 +1,6 @@
 {
-  "observed_at_utc": "2026-10-05T22:59:38.666415+00:00",
-  "phase": "go_validated_production_built_captured_replay_pending",
+  "observed_at_utc": "2026-10-05T23:06:22.668336+00:00",
+  "phase": "go_and_captured_replays_pass_whole_game_pending",
   "base_source_commit": "8799a283c64de9597705737ab548c2b737826ccf",
   "source_files": {
     "engines/gorge/native-overlay/public_basic_search.go.txt": "629cc8bc0132a78aa3fa2dfdd400ccdb8a2687edf4701b983a8232a91ec4b746",
@@ -16,17 +16,18 @@
     "diff_check": "passed",
     "gofmt": "passed",
     "go_tests": "Full gorge suite, vet, policy/payment mapping, public bridge and all TestSpellbench boundaries passed at29c3544; current engine source is byte-identical",
-    "saved_93_113_123_frame_positive_checks": "103 executed no prefixes after Linux execute permission loss; recovered and sealed. Fixed105 run37385784937 pending, source05c12d6",
-    "whole_game105_and_replay": "unlaunched",
+    "saved_93_113_123_frame_positive_checks": "Sealed105 passes all three:1 attempt and165/207/221 submits, zero exhaustion; known cards and8 native redealt worlds hold; native diagnostics identical",
+    "whole_game105_and_replay": "Dispatched106/run37386473245 pending; original fixed game105 with production binary and unchanged settings",
     "full_native_qualification": "unlaunched",
     "reference_qualification": "unlaunched",
     "independent_fairplay_review": "pending_authorization",
     "affected_python_qualification_tests": "89 passed; synthetic engineering unit tests, zero actual games/builds/qualifications",
     "gorge_bridge_and_public_boundary_tests": "Passed with full Go suite at29c3544, current engine source byte-identical",
     "current_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json",
-    "current_production_build": "Seven production binaries built at8fe6fdd and recovered as104; build only, no qualification"
+    "current_production_build": "Seven production binaries built at8fe6fdd and recovered as104; build only, no qualification",
+    "hosted_regression_preparation": "20 affected tests passed, YAML and diff check pass; actual retained failed game105 report rejected at zero-refusal assertion"
   },
-  "resource_state": "No gorge claim or live job. New Jack/Haley game/build/qualification dispatches suspended for research priority. No queued automatic dispatch.",
+  "resource_state": "No gorge local job or claim. New Jack/Haley game/build/qualification dispatches suspended for research priority. No queued automatic local dispatch. Hosted regression106 is running separately.",
   "native_sampling_settings_unchanged": {
     "attempts": 64,
     "worlds": 8,

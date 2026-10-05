@@ -19,14 +19,16 @@ The [full Go suite and all public boundary checks pass](gorge-ci-top-exile-repai
 at29c3544, byte-identical to the current engine source. Seven production binaries
 built in hosted job37384031753 and are recovered as104. The replay preflight
 failed because the copied Linux test binary lost execute permission; no captured
-prefix ran. Fixed hosted run37385784937 is pending. No component pass or complete
-qualification is claimed before terminal recovery.
+prefix ran. Fixed hosted105 passes all three captured replays:1 attempt each,
+165/207/221 submits, zero exhaustion, known-card assertions and8 redealt worlds
+with identical native diagnostics. Results are recovered and sealed on E/D.
+Complete original game105/replay106 is pending; no full qualification is claimed.
 The next native launcher explicitly records wall-time worker selection;89
 synthetic Python qualification tests pass. The fixed native schedule and
 top-level validity helpers remain AST-identical. No new native run is qualified.
 
-Jack/Haley launches are suspended for research priority. No gorge job or claim
-is held, and no automatic dispatch is queued. Reference/rated games and published
+Jack/Haley launches are suspended for research priority. No gorge local job or claim
+is held, and no automatic local dispatch is queued. Reference/rated games and published
 entries remain zero. Ledger042 retains the conservativeUSD9.99736347 all-in
 reservation underUSD10; provider settlement remains pending. No new cloud spend.
 Later sections retain historical observations; current review inputs govern readiness.
