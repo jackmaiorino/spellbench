@@ -63,6 +63,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private transient Replay replay;
     private transient Game replayGame;
     private transient int replayDepth;
+    private transient int originalCombatDepth;
     public final void bindOriginalReplay(Game game, Replay replay) {
         requireOriginalPermittedWorld(game);
         if (game.isSimulation() || replay==null || this.replay!=null)
@@ -118,6 +119,8 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private <T> T callback(Game game,String kind,Object[] arguments,Supplier<T> work) {
         requireOriginalPermittedWorld(game);
         try {
+            if (originalCombatDepth!=0 && !"simulation-copy".equals(kind))
+                throw new IllegalArgumentException("unrecorded nested original combat callback");
             T result;
             if (replay!=null && game==replayGame && !game.isSimulation()
                     && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)
@@ -266,8 +269,14 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
                     state,null,0,1,picks,picks,sequential,false,false);
         };
     }
-    @Override public final void selectAttackers(Game game,UUID attackingPlayerId) {
+    private void originalCombat(Game game,Supplier<Void> work) {
         callback(game, () -> {
+            originalCombatDepth++;
+            try {return work.get();} finally {originalCombatDepth--;}
+        });
+    }
+    @Override public final void selectAttackers(Game game,UUID attackingPlayerId) {
+        originalCombat(game, () -> {
             if (!game.isSimulation()) {
                 final StateSequenceBuilder.SequenceOutput[] state={null};
                 new CombatRules(this,(type,candidates,picks,sequential) -> {
@@ -279,7 +288,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         });
     }
     @Override public final void selectBlockers(Ability source,Game game,UUID defendingPlayerId) {
-        callback(game, () -> {
+        originalCombat(game, () -> {
             if (!game.isSimulation()) {
                 final StateSequenceBuilder.SequenceOutput[] state={null};
                 new CombatRules(this,(type,candidates,picks,sequential) -> {

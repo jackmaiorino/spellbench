@@ -149,7 +149,8 @@ copy selection and the card_select head. Inherited picks enter the original sort
 queued-target and target.add paths without neural draws. Recorded card prefixes
 add neither model nor physical-copy draws; sequential groups and STOP checks pass.
 All 93 affected Python checks and two identical normalized card metadata JVM runs
-pass. Combat and priority/resolution continuation remain open. The guarded
+pass. Original combat now connects through the whole-group path described below.
+Priority/resolution continuation and complete queue restoration remain open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
@@ -167,6 +168,18 @@ The earlier component evidence remains in
 [the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
 
 Jack's original attack and block loops now have a separate private staged port
+and connect to the original frontend's game-owned session through `JackCombatPlan`.
+Root callbacks retain DONE-last full sequential selection, separate defender
+choices, descending attacker-power block order and blocker removal. Subsequent
+public declaration substeps reuse the resulting plan, checking its group and
+public state without another model call. Unrecorded nested combat callbacks
+refuse before additional inference. All 250 affected Python checks pass; two
+normalized combat metadata JVM outputs match, with prior callbacks also passing.
+Fixtures supply metadata legality and declarations. Native legality, multi-block
+groups, nested callbacks, actual trained weights and complete games remain
+unqualified.
+
+The earlier separate combat component retains its private staged port
 and paired-policy transport. It retains DONE-last sequential selection, the
 separate defender round, descending-power attacker order, blocker filtering and
 removal, and one cached base state per callback. The game-owned original chooser

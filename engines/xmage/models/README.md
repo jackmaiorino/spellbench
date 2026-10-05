@@ -711,3 +711,28 @@ and Python fixture failure remain retained. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-london-plan-001`. Fixtures use synthetic
 scores and metadata card movement; native movement, actual checkpoints and full
 games remain unqualified under the research resource hold.
+
+`JackCombatPlan` now connects root attack and block groups to the actual original
+player callbacks and existing game-owned model/chooser stream. It binds the first
+public creature and targets to the named current battlefield before inference,
+then collects the original declarations. The original loops retain DONE-last
+full sequential draws, separate defender choices, cached base state, descending
+attacker-power block order and removal of declared blockers. An unoffered result
+refuses instead of substituting a declaration. Nested root combat callbacks
+refuse before additional inference; supported simulation admission remains owned.
+
+The frontend retains that whole combat plan across declaration substeps through
+the existing public state/group checks, without another session or model call.
+Full runtime builds require `JackCombatPlan`; reduced encoder builds exclude it.
+All 250 affected Python checks pass. Two normalized combat metadata JVM outputs
+match for attacks, multiple defenders, blocks, DONE, original draw counts,
+first wire binding and nested failure closure. Hidden-card reads are denied in
+the fixture. London, card, target, named, binary/X/mode and original root checks
+also pass. JDK23.0.1 target8 compiled the generated original callback/CombatRules
+and public components. Fixture API and player-reference failures remain retained
+under `E:/spellbench-xmage-all-20261002/jack-combat-plan-001`.
+
+Combat legality and declarations in these fixtures are explicit metadata
+overrides, with synthetic policy scores. Native declaration legality,
+multi-block groups, nested callback replay, actual pretrained inference and
+complete games remain unqualified under the research resource hold.

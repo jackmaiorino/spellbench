@@ -41,6 +41,14 @@ public final class JackRootDecision {
         if ("priority".equals(Json.str(context,"kind")) && !"pregame".equals(Json.str(observation,"phase_step")))
             return WorldBuilder.Mode.PRIORITY;
         List<Object> candidates=Json.arr(decision,"candidates");
+        if(candidates!=null && !candidates.isEmpty()) {
+            String kind=Json.str(Json.obj(Json.obj(candidates.get(0)),"semantic"),"kind");
+            if("declare_attack".equals(kind) || "declare_block".equals(kind)) {
+                for(Object item:candidates)if(!kind.equals(Json.str(Json.obj(Json.obj(item),"semantic"),"kind")))
+                    throw new IllegalArgumentException("original combat needs one declaration family");
+                return "declare_attack".equals(kind)?WorldBuilder.Mode.ATTACK:WorldBuilder.Mode.BLOCK;
+            }
+        }
         if ("pregame".equals(Json.str(observation,"phase_step")) && candidates!=null && !candidates.isEmpty()) {
             String kind=Json.str(Json.obj(Json.obj(candidates.get(0)),"semantic"),"kind");
             for(Object item:candidates) {
@@ -81,12 +89,16 @@ public final class JackRootDecision {
         for(String flag:world.flags) if(flag.startsWith("unsupported:") || flag.startsWith("horizon:"))
             throw new IllegalArgumentException("original root world is unsupported: "+flag);
         WorldBuilder.Mode mode=mode(decision);
-        Map<String,Object> selection; Map<String,Object> london=null; boolean dispatched=false,passAfter=false;
-        if(mode==WorldBuilder.Mode.PREGAME && "order_pick".equals(Json.str(Json.obj(Json.obj(Json.arr(decision,"candidates").get(0)),"semantic"),"kind"))) {
+        Map<String,Object> selection; Map<String,Object> componentResult=null; boolean dispatched=false,passAfter=false;
+        if(mode==WorldBuilder.Mode.ATTACK || mode==WorldBuilder.Mode.BLOCK) {
+            Class<?> component=Class.forName("spellbench.kit.xmage.JackCombatPlan");
+            componentResult=(Map<String,Object>)call(component.getMethod("choose",World.class,Map.class,boolean.class),null,world,decision,mode==WorldBuilder.Mode.ATTACK);
+            selection=Json.obj(componentResult,"selection");
+        } else if(mode==WorldBuilder.Mode.PREGAME && "order_pick".equals(Json.str(Json.obj(Json.obj(Json.arr(decision,"candidates").get(0)),"semantic"),"kind"))) {
             // Reduced feature-only builds omit this optional original callback component.
             Class<?> component=Class.forName("spellbench.kit.xmage.JackLondonPlan");
-            london=(Map<String,Object>)call(component.getMethod("choose",World.class,Map.class),null,world,decision);
-            selection=Json.obj(london,"selection");
+            componentResult=(Map<String,Object>)call(component.getMethod("choose",World.class,Map.class),null,world,decision);
+            selection=Json.obj(componentResult,"selection");
         } else if(mode==WorldBuilder.Mode.PREGAME) {
             List<Object> offered=Json.arr(decision,"candidates");
             Map<Boolean,Map<String,Object>> choices=new HashMap<>(); Set<Long> ids=new HashSet<>();
@@ -143,7 +155,7 @@ public final class JackRootDecision {
                 "world_flags",new ArrayList<>(world.flags),"priority_dispatch_result",dispatched,
                 "priority_pass_after_activation",passAfter,"original_priority_state",JackPriorityState.capture(world,decision,rules),
                 "full_original_player_qualified",false);
-        if(london!=null) result.putAll(london);
+        if(componentResult!=null) result.putAll(componentResult);
         return result;
     }
     private static Map<String,Object> selection(Map<String,Object> candidate) {

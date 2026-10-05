@@ -14,6 +14,7 @@ from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_jack_native_inference import PROFILES
 from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, digest, priority_state
 from xmage_jack_london import bound_view as london_view
+from xmage_neural_combat import CombatPlan, battlefield, combat_kind, target
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
 
 
@@ -24,6 +25,8 @@ def family(decision):
     if (decision["observation"].get("phase_step") == "pregame" and kinds == {"order_pick"}
             and all(c["semantic"].get("purpose") == "mulligan_bottom" for c in decision["candidates"])):
         return "london"
+    if kinds in ({"declare_attack"}, {"declare_block"}):
+        return combat_kind(decision)
     if decision.get("context", {}).get("kind") == "priority":
         return "priority"
     if decision.get("context", {}).get("kind") == "choice" and len(kinds) == 1:
@@ -91,6 +94,38 @@ class _LondonPlan:
         return {"candidate_id": cid, "semantic_echo": copy.deepcopy(semantic)}
 
 
+class _CombatPlan(CombatPlan):
+    def __init__(self, decision, result):
+        viewer, objects = battlefield(decision)
+        family = combat_kind(decision)
+        if result.get("original_combat_path") is not True or result.get("combat") != family or not isinstance(result.get("pairs"), list):
+            raise ValueError("original combat result lost its callback path or complete plan")
+        name, reference = ("attacker", "defender") if family == "attack" else ("blocker", "attacker")
+        seen = set()
+        for pair in result["pairs"]:
+            if not isinstance(pair, dict) or set(pair) != {name, reference}:
+                raise ValueError("original combat pair has another schema")
+            oid = pair[name]
+            if (not isinstance(oid, str) or oid not in objects or oid in seen
+                    or objects[oid].get("controller_seat") != viewer):
+                raise ValueError("original combat pair repeats or changes its own creature")
+            seen.add(oid)
+            if family == "attack":
+                defender = target(pair[reference])
+                if (defender is None or defender.get("player") == viewer
+                        or "object_id" in defender and (defender["object_id"] not in objects
+                            or objects[defender["object_id"]].get("controller_seat") == viewer)):
+                    raise ValueError("original combat plan has an unbound defender")
+            else:
+                opposing = pair[reference]
+                if (not isinstance(opposing, str) or opposing not in objects
+                        or objects[opposing].get("controller_seat") == viewer
+                        or objects[opposing].get("permanent", {}).get("attacking") is not True):
+                    raise ValueError("original combat plan has an unbound attacker")
+        self._initialize(decision, result)
+        self.world_flags = copy.deepcopy(result.get("world_flags", []))
+
+
 class JackNativeAgent:
     """Always enter the actual original callback, including forced choices."""
     def __init__(self, factory, *, checkpoint, profile, audit=None):
@@ -101,6 +136,7 @@ class JackNativeAgent:
         self.session = self.game = self.history = self.key = self.start = self.step = None
         self.anchor_seeds = None
         self.london = None
+        self.combat = None
         self.failed = False
 
     def on_game_start(self, game: GameStart):
@@ -167,6 +203,12 @@ class JackNativeAgent:
             current, kind = record["decision"], family(record["decision"])
             if self.london is not None and kind != "london":
                 raise ValueError("original London group ended before its bottom sequence completed")
+            if self.combat is not None and kind not in ("attack", "block"):
+                raise ValueError("original combat group ended before its declarations completed")
+            if kind in ("attack", "block"):
+                group = CombatPlan._group(current)
+                if self.combat is None and group["substep_index"] != 0:
+                    raise ValueError("original combat needs its initial declaration group")
             if kind == "london":
                 objects, _ = london_view(self.start, current)
                 own = next(p for p in current["observation"]["players"] if p["seat"] == self.game.seat)
@@ -187,13 +229,22 @@ class JackNativeAgent:
                 record.update(self.anchor_seeds)
                 bound_replay(record, self.game.seat)
             wire.canonical_json_dumps(record)
-            if kind == "london" and self.london is not None:
+            if kind in ("attack", "block") and self.combat is not None:
+                selection = self.combat.select(current)
+                result = {"selection": selection, "decision_sha256": digest(current), "game_start_sha256": digest(self.start),
+                          "profile": self.profile, "seed": self.game.agent_seed, "full_original_player_qualified": False,
+                          "inference_requests": 0, "world_flags": copy.deepcopy(self.combat.world_flags), "original_combat_path": True}
+            elif kind == "london" and self.london is not None:
                 selection = self.london.select(current)
                 result = {"selection": selection, "decision_sha256": digest(current), "game_start_sha256": digest(self.start),
                           "profile": self.profile, "seed": self.game.agent_seed, "full_original_player_qualified": False,
                           "inference_requests": 0, "world_flags": copy.deepcopy(self.london.world_flags), "original_london_path": True}
             else:
                 result = self.session.choose(record, timeout_s=remaining())
+                if kind in ("attack", "block"):
+                    self.combat = _CombatPlan(current, result)
+                    if digest(self.combat.select(current)) != digest(result["selection"]):
+                        raise ValueError("original combat first bound choice changed")
                 if kind == "london":
                     self.london = _LondonPlan(self.start, current, result)
                     selection = self.london.select(current)
@@ -212,7 +263,7 @@ class JackNativeAgent:
                 if type(result.get("priority_pass_after_activation")) is not bool:
                     raise ValueError("original frontend lost its priority continuation")
                 priority_state(result.get("original_priority_state"))
-            if kind not in ("mulligan", "london"):
+            if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":
                 self.history.anchor.update({key: copy.deepcopy(result[key]) for key in (
@@ -221,6 +272,8 @@ class JackNativeAgent:
             self.step = decision.seat_step
             if self.london is not None and self.london.next_index == len(self.london.bottomed):
                 self.london = None
+            if self.combat is not None and self.combat.complete:
+                self.combat = None
             self.audit({"event": "jack_original_choice", "seat_step": self.step, "family": kind,
                         "selection": copy.deepcopy(selection), "inference_requests": result.get("inference_requests"),
                         "world_flags": copy.deepcopy(result.get("world_flags", []))})
@@ -243,7 +296,7 @@ class JackNativeAgent:
             if self.game is None or game.game_id != self.game.game_id:
                 raise ValueError("original terminal belongs to another game")
             self.close()
-            self.game = self.history = self.key = self.start = self.step = self.anchor_seeds = self.london = None
+            self.game = self.history = self.key = self.start = self.step = self.anchor_seeds = self.london = self.combat = None
         except BaseException as failure:
             self._fail(failure)
             raise
