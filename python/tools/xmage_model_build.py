@@ -46,6 +46,8 @@ def main() -> int:
     parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
     parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
     parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
+    parser.add_argument("--current-overlay", action="store_true",
+                        help="compile the current public observation/decision overlay into the pinned kit classpath")
     args = parser.parse_args()
     if bool(args.jack_inputs) != bool(args.jack_manifest):
         raise ValueError("Jack build needs both its private inputs and manifest")
@@ -86,6 +88,8 @@ def main() -> int:
                    "kit": sorted((repo / "engines/xmage/kit/xmage/src").rglob("*.java")),
                    "model": sorted((repo / "engines/xmage/models/src").rglob("*.java"))
                             + sorted((args.out / "sources").rglob("*.java"))}
+    if args.current_overlay:
+        source_sets["kit"] += sorted((repo / "engines/xmage/overlay/src/main/java").rglob("*.java"))
     if search:
         source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
     else:
@@ -121,13 +125,20 @@ def main() -> int:
             hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
     resources = repo / "engines/xmage/kit/xmage/resources"
     shutil.copytree(resources, paths["kit"], dirs_exist_ok=True)
+    resource_roots = [resources]
+    if args.current_overlay:
+        overlay_resources = repo / "engines/xmage/overlay/src/main/resources"
+        # These classpath resources must travel with the newly compiled overlay.
+        shutil.copytree(overlay_resources, paths["kit"], dirs_exist_ok=True)
+        resource_roots.append(overlay_resources)
     resource_hashes = {}
-    for source in sorted(p for p in resources.rglob("*") if p.is_file()):
-        relative = source.relative_to(resources)
-        digest = hashlib.sha256(source.read_bytes()).hexdigest()
-        if hashlib.sha256((paths["kit"] / relative).read_bytes()).hexdigest() != digest:
-            raise ValueError("model build resource copy differs")
-        resource_hashes[relative.as_posix()] = digest
+    for directory in resource_roots:
+        for source in sorted(p for p in directory.rglob("*") if p.is_file()):
+            relative = source.relative_to(directory)
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            if hashlib.sha256((paths["kit"] / relative).read_bytes()).hexdigest() != digest:
+                raise ValueError("model build resource copy differs")
+            resource_hashes[relative.as_posix()] = digest
     result = {"schema": "spellbench-draftzero-encoder-build/v1", "jdk": version,
               "engine_manifest_sha256": engine_manifest_sha,
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
@@ -137,6 +148,7 @@ def main() -> int:
               "magezero_search_stage": magezero_search,
               "jack_stage": jack,
               "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,
+              "current_overlay_compiled": args.current_overlay,
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
               "class_files_sha256": {str(p.relative_to(args.out)): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for d in paths.values() for p in sorted(d.rglob("*.class"))},

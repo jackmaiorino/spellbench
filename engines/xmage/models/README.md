@@ -1,5 +1,22 @@
 # DraftZero neural adapters
 
+Use `xmage_model_build.py --current-overlay` when building the current kit against
+the older reviewed engine. It compiles the current public observation/decision
+overlay into `kit`, copies its resources and pins both in `BUILD.json`. This
+resolves the current priority-mana `Seats.connect` API without changing the
+reviewed engine tree. The usual runtime verifier checks every class and resource.
+The combined build can include DraftZero, MageZero and the complete staged Jack
+player together; Jack's manifest must include its pinned parent choice source.
+
+The consolidated runtime at
+`E:/spellbench-xmage-all-20261002/runtime-consolidation-001` compiled 246 source
+files and 410 class files with JDK23.0.1 target8. All three architecture verifier
+paths pass. Two fresh 60-case library-order JVM outputs match each other and the
+previous primary exactly; twenty other metadata Java regressions and 21 affected
+Python checks pass with the consolidated classpath. No legacy partial classpath
+is used. Native games, checkpoints and full qualification remain deferred under
+the research resource hold.
+
 Jack's original general target component uses `JackTargetEncoderMain` and
 `xmage_jack_targets.TargetSession`. Set `target_callback: true` in the private
 input manifest with the mode, dialog, filtered-mana and automatic payment flags.
