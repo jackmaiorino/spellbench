@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T16:17:42.938615+00:00",
+  "at_utc": "2026-10-05T16:44:10.364098+00:00",
   "status": "current_repaired_runtime_prepared_for_review; native077_scaling_active, qualification_and_current_identity_review_pending",
   "adapter_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
   "engine_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
@@ -30,7 +30,8 @@
     "spellbenchObservedPreferred",
     "spellbenchScryEpochs",
     "spellbenchScryHeldEpochs",
-    "SpellbenchReconstructRedeal"
+    "SpellbenchReconstructRedeal",
+    "spellbenchBasicSearches"
   ],
   "inputs": [
     "Actor-public History identities/events and projected hand sizes",
@@ -51,7 +52,7 @@
   "native_diagnostic_baseline": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
   "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
   "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/e347083eb77a6ae74e9ee536a8e4ab4e1af25869/docs/gorge-native-identity-audit-20261003.md",
-  "benchmark_audit_url_current": true,
+  "benchmark_audit_url_current": false,
   "remaining": [
     "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
     "Compatible140-game reference matrix and replay",
@@ -64,9 +65,9 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
-  "current_native_qualification": "native069_supported_guard_running; result_pending",
-  "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json",
-  "current_native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
+  "current_native_qualification": "native077_supported_local_matched_scaling_active; full_audit_not_yet_admitted",
+  "current_native_failure_record": "docs/gorge-ci-native069-20261005.json",
+  "current_native_attempt_seal_sha256": null,
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
   "component_cases": {
     "364": {
@@ -133,127 +134,7 @@
   "original_component_parent_diagnostic_passed": false,
   "corrected_component_verification_passed": true,
   "full_go_ci_passed": true,
-  "native_job_record": "docs/gorge-runtime060-native-20261005.json",
   "benchmark_audit_url_reviewed": false,
-  "current_native_failure": {
-    "at_utc": "2026-10-05T10:48:51.812870+00:00",
-    "game": 52,
-    "cell": "Wildfire/search-mana-redeal",
-    "coverage": {
-      "Natives": 632,
-      "Eligible": 194,
-      "Attempted": 97,
-      "Covered": 95,
-      "Attempts": 6208,
-      "Accepted": 4,
-      "Worlds": 760,
-      "Rollouts": 3160,
-      "Submits": 2448675,
-      "Terminal": 3160,
-      "Capped": 0,
-      "Redealt": 760,
-      "ReconstructionAttempts": 121,
-      "ReconstructionSubmits": 112672,
-      "ReconstructionNodes": 37162,
-      "ReconstructionBudgetExhausted": 2,
-      "RedealRefusals": {
-        "public reconstruction submit budget exhausted": 2
-      },
-      "Reasons": {
-        "fewer_than_two_candidates": 97,
-        "insufficient worlds/ESS": 2
-      },
-      "Kinds": {
-        "attackers": 3,
-        "cast": 28,
-        "mana": 64
-      }
-    },
-    "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
-  },
-  "current_first_remaining_refusal": {
-    "schema": "spellbench-gorge-prefix-refusal/v1",
-    "at_utc": "2026-10-05T12:05:10.865015+00:00",
-    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
-    "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
-    "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
-    "capsule_sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
-    "closed_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
-    "closed_diagnostic_seal_sha256": "612e27472fc75567b4d346ccaa9720b6be68707e9d5ff4cf6e89eaf4d0c845bb",
-    "public_frames": 637,
-    "actor": 0,
-    "work": {
-      "Attempts": 3,
-      "Submits": 5000,
-      "Nodes": 3907,
-      "BudgetExhausted": 1
-    },
-    "original_options": {
-      "Seed": 54321,
-      "Attempts": 64,
-      "Worlds": 8,
-      "MaxSubmits": 5000,
-      "MinESS": 0,
-      "NoLandExclusion": false,
-      "ComparePotentialActions": false,
-      "Parallelism": 0,
-      "KnownCards": false,
-      "Redeal": {
-        "SpellbenchPublic": true,
-        "Engine": null,
-        "Observer": null
-      }
-    },
-    "production_teacher_default": true,
-    "first_failure_order_preserved": true,
-    "historical504_frames_identical": true,
-    "historical504_actor_answer_prefix_equal": true,
-    "exact_reconstruction_replay_complete": true,
-    "deepest_divergence_not_yet_observed": false,
-    "interpretation": "Witness064 exactly reproduces captured work. The first two proposals reach frame355; the held-before-reorder proposal reaches573 before the shared5000-submit limit. Its farthest recorded event mismatch is491, and no hypothetical shuffle-planner rejection occurs in that proposal. The trace does not identify a deeper shuffle defect or establish that a repair passes. Full native qualification remains failed.",
-    "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
-    "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
-    "native_qualification_complete": false,
-    "reference_qualification_complete": false,
-    "rated_games": 0,
-    "published_entries": 0,
-    "exact_trace_record": "docs/gorge-witness-trace064-20261005.json",
-    "exact_trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\terminal-recovery\\trace-public-root\\TRACE.json",
-    "exact_trace_sha256": "e21ebeb9d26f9dc7c79615fc0f68bf4f7cd8166eccc96f74acb7c45af1b2dc25",
-    "trace_attempts": [
-      {
-        "Reached": 355,
-        "Failed": 355,
-        "Reason": "prefix:frame 355 identities",
-        "ShuffleFailures": 1
-      },
-      {
-        "Reached": 355,
-        "Failed": 355,
-        "Reason": "prefix:frame 355 identities",
-        "ShuffleFailures": 0
-      },
-      {
-        "Reached": 573,
-        "Failed": 491,
-        "Reason": "prefix:frame 491 events",
-        "ShuffleFailures": 0
-      }
-    ],
-    "farthest_reached": 573,
-    "farthest_recorded_rejection": 491,
-    "witness_constructed": false,
-    "saved_failure_repair_verified": true,
-    "repair_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
-    "repair_verification_record": "docs/gorge-component-replay066-20261005.json",
-    "repair_work": {
-      "Attempts": 1,
-      "Submits": 1300,
-      "Nodes": 40,
-      "BudgetExhausted": 0
-    },
-    "repair_worlds": 8
-  },
   "current_witness_trace_record": "docs/gorge-witness-trace066-20261005.json",
   "previous_source_inputs_060": {
     "adapter_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
@@ -273,7 +154,7 @@
   "full_go_ci_status": "passed",
   "full_go_ci_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
   "production_ci_build_record": "docs/gorge-ci-runtime068-20261005.json",
-  "current_native_result_record": "docs/gorge-ci-native069-20261005.json",
+  "current_native_result_record": null,
   "current_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
   "current_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
   "hosted_native_admission_gate_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
@@ -319,7 +200,7 @@
     "previous_numerical_failure_remains_failed": true,
     "qualification_admission": "Full native audit starts only after supported matched completed-work comparison admits identical outputs"
   },
-  "current_reference_phase": "bundle/recovery implemented and structurally tested; actual reference held after failed native069",
+  "current_reference_phase": "Local/hosted admission and portable bundle implemented; actual reference waits for native077 full pass and verified terminal recovery",
   "current_overlay_files": {
     "public_basic_search.go.txt": "26bf5943018843e889c87303807c5ef5ca02832136fbb5782ad23046af3e91ef",
     "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
@@ -434,11 +315,146 @@
     "reference_qualification_passed": false,
     "rated_games": 0,
     "published_entries": 0,
-    "next_action": "Build exact repaired production runtime locally, then compatible serial/parallel qualification and the unchanged full native audit through supported launcher",
-    "remaining": "Full native/reference qualification, current identity/fair-play review, required CI unblocked by truthful XMage reveal, frozen rated games, result review and publication"
+    "next_action": "Complete native077 matched scaling and full audit, then independently recover and verify canonical release before reference admission",
+    "remaining": "Full native/reference qualification, current identity/fair-play review, current required CI, frozen rated games, result review and publication"
   },
   "historical_six_case_evidence": "Six earlier saved roots passed on pre-repair production068; retained as historical evidence, no unchanged-current-runtime claim",
   "native_qualification_passed": false,
   "reference_qualification_passed": false,
-  "current_reconstruction_extension": "Actor-visible full basic search relative order survives known nonbasic London bottoms before play. Owned basic, undeclared, opaque and in-play mutations remain unguided; full replay and native known-card checks still apply."
+  "current_reconstruction_extension": "Actor-visible full basic search relative order survives known nonbasic London bottoms before play. Owned basic, undeclared, opaque and in-play mutations remain unguided; full replay and native known-card checks still apply.",
+  "current_native_attempt_record": "docs/gorge-local-native077-20261005.json",
+  "prior_failed_native_result_record": "docs/gorge-ci-native069-20261005.json",
+  "prior_failed_native_result_seal_sha256": "4b5e0bb92dfdd83d8d7c2d06c23e4ccb0abe8bd67b0543e83dafb90d32ca8447",
+  "historical_runtime060_native_failure": {
+    "at_utc": "2026-10-05T10:48:51.812870+00:00",
+    "game": 52,
+    "cell": "Wildfire/search-mana-redeal",
+    "coverage": {
+      "Natives": 632,
+      "Eligible": 194,
+      "Attempted": 97,
+      "Covered": 95,
+      "Attempts": 6208,
+      "Accepted": 4,
+      "Worlds": 760,
+      "Rollouts": 3160,
+      "Submits": 2448675,
+      "Terminal": 3160,
+      "Capped": 0,
+      "Redealt": 760,
+      "ReconstructionAttempts": 121,
+      "ReconstructionSubmits": 112672,
+      "ReconstructionNodes": 37162,
+      "ReconstructionBudgetExhausted": 2,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 2
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 97,
+        "insufficient worlds/ESS": 2
+      },
+      "Kinds": {
+        "attackers": 3,
+        "cast": 28,
+        "mana": 64
+      }
+    },
+    "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+  },
+  "historical_runtime062_first_refusal": {
+    "schema": "spellbench-gorge-prefix-refusal/v1",
+    "at_utc": "2026-10-05T12:05:10.865015+00:00",
+    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "production_runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+    "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+    "capsule_sha256": "5f4cd8bfed81b7baba23da14ada30b31c5dd8fb0cf194bb157f59cb1ea731506",
+    "closed_diagnostic_record": "docs/gorge-diagnostic062-20261005.json",
+    "closed_diagnostic_seal_sha256": "612e27472fc75567b4d346ccaa9720b6be68707e9d5ff4cf6e89eaf4d0c845bb",
+    "public_frames": 637,
+    "actor": 0,
+    "work": {
+      "Attempts": 3,
+      "Submits": 5000,
+      "Nodes": 3907,
+      "BudgetExhausted": 1
+    },
+    "original_options": {
+      "Seed": 54321,
+      "Attempts": 64,
+      "Worlds": 8,
+      "MaxSubmits": 5000,
+      "MinESS": 0,
+      "NoLandExclusion": false,
+      "ComparePotentialActions": false,
+      "Parallelism": 0,
+      "KnownCards": false,
+      "Redeal": {
+        "SpellbenchPublic": true,
+        "Engine": null,
+        "Observer": null
+      }
+    },
+    "production_teacher_default": true,
+    "first_failure_order_preserved": true,
+    "historical504_frames_identical": true,
+    "historical504_actor_answer_prefix_equal": true,
+    "exact_reconstruction_replay_complete": true,
+    "deepest_divergence_not_yet_observed": false,
+    "interpretation": "Witness064 exactly reproduces captured work. The first two proposals reach frame355; the held-before-reorder proposal reaches573 before the shared5000-submit limit. Its farthest recorded event mismatch is491, and no hypothetical shuffle-planner rejection occurs in that proposal. The trace does not identify a deeper shuffle defect or establish that a repair passes. Full native qualification remains failed.",
+    "inspection_command": "python tools/gorge-inspect-public-capture.py \"E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json\" --gorge-source D:/community/gorge",
+    "inspector_source_commit": "f7cc5082db8386284bb4f44b78b31e242254b2d5",
+    "native_qualification_complete": false,
+    "reference_qualification_complete": false,
+    "rated_games": 0,
+    "published_entries": 0,
+    "exact_trace_record": "docs/gorge-witness-trace064-20261005.json",
+    "exact_trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\terminal-recovery\\trace-public-root\\TRACE.json",
+    "exact_trace_sha256": "e21ebeb9d26f9dc7c79615fc0f68bf4f7cd8166eccc96f74acb7c45af1b2dc25",
+    "trace_attempts": [
+      {
+        "Reached": 355,
+        "Failed": 355,
+        "Reason": "prefix:frame 355 identities",
+        "ShuffleFailures": 1
+      },
+      {
+        "Reached": 355,
+        "Failed": 355,
+        "Reason": "prefix:frame 355 identities",
+        "ShuffleFailures": 0
+      },
+      {
+        "Reached": 573,
+        "Failed": 491,
+        "Reason": "prefix:frame 491 events",
+        "ShuffleFailures": 0
+      }
+    ],
+    "farthest_reached": 573,
+    "farthest_recorded_rejection": 491,
+    "witness_constructed": false,
+    "saved_failure_repair_verified": true,
+    "repair_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+    "repair_verification_record": "docs/gorge-component-replay066-20261005.json",
+    "repair_work": {
+      "Attempts": 1,
+      "Submits": 1300,
+      "Nodes": 40,
+      "BudgetExhausted": 0
+    },
+    "repair_worlds": 8
+  },
+  "historical_native_job_record": "docs/gorge-runtime060-native-20261005.json",
+  "fdn_disclosure_dependency": {
+    "status": "resolved_on_default_branch_and_reconciled_here",
+    "merged_pr": "https://github.com/jackmaiorino/spellbench/pull/122",
+    "merge_commit": "5da4918f3120c47b07cd77202338260a415e9d5f",
+    "aborted_reveal_commitment_verified": true,
+    "run_history_check_passed": true,
+    "xmage_remaining_issue": "https://github.com/jackmaiorino/spellbench/issues/35"
+  },
+  "local_native_recovery_format": "docs/gorge-local-native-recovery.md",
+  "local_native_receipts_exist": false,
+  "local_gate_structural_checks_passed": 48,
+  "affected_reference_and_history_checks_passed": 127
 }

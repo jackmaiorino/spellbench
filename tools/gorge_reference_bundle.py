@@ -9,7 +9,7 @@ import shutil
 import zipfile
 
 from gorge_ci_exchange import extract_pinned, sha
-from gorge_native_gate import NativeAuditGateError, verify_native_audit
+from gorge_native_gate import NativeAuditGateError, evidence_layout, verify_native_audit
 from gorge_reference_pool import portable_native_verdict
 from gorge_reference_worker import write_new
 
@@ -34,19 +34,25 @@ def selected_inputs(native, runtime):
     native, runtime = Path(native).resolve(), Path(runtime).resolve()
     native_seal=json.loads((native/'SEAL.json').read_bytes())
     runtime_seal=json.loads((runtime/'SEAL.json').read_bytes())
-    audit=json.loads((native/'artifact/NATIVE-AUDIT.json').read_bytes())
-    prefix='artifact/'+Path(audit['full_report_path']).parent.name+'/'
-    native_names=['RECOVERY.json','CI-TERMINAL.json','artifact/NATIVE-AUDIT.json',
-        'artifact/MANIFEST.json','artifact/CLOSURE.json','artifact/ALLOCATION.json',
-        prefix+'report.json',prefix+'RECEIPT.json',prefix+'primary.jsonl']
-    runtime_names=['BUILD.json','REGISTRY.json','registry.gob.gz','gorgequal-linux-amd64',
+    layout=evidence_layout(native)
+    prefix=layout['prefix']
+    audit=json.loads((native/(prefix+'NATIVE-AUDIT.json')).read_bytes())
+    callback=prefix+audit['full_report_path'].replace('\\','/').split('/')[-2]+'/'
+    native_names=['RECOVERY.json',layout['terminal'],prefix+'NATIVE-AUDIT.json',
+        prefix+'MANIFEST.json',layout['parent'],prefix+'ALLOCATION.json',
+        callback+'report.json',callback+'RECEIPT.json',callback+'primary.jsonl']
+    if layout['kind']=='local-windows-amd64':
+        native_names.extend(['HOST-RELEASE.json','CLOSURE.json'])
+    # Preserve the tested qualifier. Linux reference engine/agent binaries
+    # still need their own actual reference qualification on the target host.
+    runtime_names=['BUILD.json','REGISTRY.json','registry.gob.gz',layout['qualifier'],
         'spellbench-gorge-env-linux-amd64','spellbench-gorge-agent-linux-amd64']
     sources={'native/'+name:_pin(native,native_seal,name) for name in native_names}
     sources.update({'runtime/'+name:_pin(runtime,runtime_seal,name) for name in runtime_names})
     # The seal files and separately pinned cleanup receipt are not entries in
     # their own seals. verify_native_audit checks their declared external hashes.
     sources.update({'native/SEAL.json':native/'SEAL.json',
-        'native/HOSTED-CLEANUP.json':native/'HOSTED-CLEANUP.json','runtime/SEAL.json':runtime/'SEAL.json'})
+        'native/'+layout['cleanup']:native/layout['cleanup'],'runtime/SEAL.json':runtime/'SEAL.json'})
     return sources
 
 

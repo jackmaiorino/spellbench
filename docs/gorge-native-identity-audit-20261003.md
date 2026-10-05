@@ -503,12 +503,22 @@ remain separate delivery work. Timing, public canonical-envelope limits and
 the other residual channels listed in protocol section 13 remain as declared
 by the protocol. No playing-strength result is claimed by these checks.
 
-The zero-game rated handoff now resolves production068, all12 native modes, two
-anchors, five decks and3,640 scheduled games. It admits no launch. The supported placement now permits an additional `github-actions` host,
-while retaining all three mandatory policy checks and legacy serialization.
-Native069 uses the exact production068 inputs transferred through an unpublished
-draft asset. Its supported guard must observe matching serial/parallel outputs
-and actual runner resources before the full audit. The result remains pending.
-Ledger038 retains the prior $9.95136347 bound and reserves another $0.01 for
-one capped result artifact, bringing the reserved total to $9.96136347.
-No new RunPod lease or rated launch is admitted.
+Production076 contains the London basic-search repair and seven pinned
+Windows/Linux binaries. Its saved 281-frame root reconstructs in 564 submits,
+with eight known-card-valid worlds and all 23 native diagnostic fields matching.
+Native069 remains failed and sealed. Native077 is active on Jack's local host
+through the canonical reservation and supported throughput launcher. It must
+finish the matched 1/8/16-worker comparison before the unchanged full native
+audit. No complete native pass, reference qualification or rated result exists.
+
+[Local recovery admission](gorge-local-native-recovery.md) preserves the actual
+Windows executable and canonical release evidence without declaring a hosted
+CI success. Portable Linux reference inputs require their own actual reference
+matrix and replay. Structural tests alone do not qualify any entrant.
+
+Main's truthful aborted FDN reveal merged in PR122 and passes the run-history
+check on the reconciled integration branch. The remaining XMage work belongs
+to issue35. Required gorge CI and the current independent identity/fair-play
+review remain separate checks. Ledger040 retains the conservative $9.98136347
+bound under the all-in $10 cap, with provider settlement pending. Current
+native077 adds no cloud spend; no new RunPod lease or rated launch is admitted.

@@ -21,6 +21,7 @@ def module(name,path):
 
 watch=module('gorge_reference_watcher',ROOT/'tools/gorge-watch-reference.py')
 fixtures=module('reference_recovery_bundle_fixture',ROOT/'python/tests/test_gorge_reference_bundle.py')
+qualified_bundle_storage=fixtures.qualified_bundle_storage
 api_fixture=module('reference_recovery_api_fixture',ROOT/'python/tests/test_gorge_ci_exchange.py')
 
 

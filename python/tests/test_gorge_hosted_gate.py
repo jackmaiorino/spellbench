@@ -75,6 +75,91 @@ def test_complete_structural_fixture_and_byte_tampering(evidence):
         gate.verify_native_audit(native, runtime, **pins)
 
 
+def local_evidence(tmp_path):
+    native, runtime, pins = evidence.__wrapped__(tmp_path)
+    (native / 'artifact').rename(native / 'native')
+    (native / 'native/CLOSURE.json').rename(native / 'native/RECEIPT.json')
+    (native / 'CI-TERMINAL.json').unlink()
+    (native / 'HOSTED-CLEANUP.json').unlink()
+    (runtime / 'gorgequal-windows-amd64.exe').write_bytes(b'fixture-only-windows-binary')
+    (runtime / 'SEAL.json').unlink()
+    pins['runtime_seal_sha256'] = seal(runtime)
+    identity = dict(host='fixture-pc', lane='spellbench-gorge', work_id='fixture-native', generation=193)
+    write(native / 'LOCAL-TERMINAL.json', dict(status='completed', exit_code=0, stop_reason=None,
+        head_sha='launcher-source', execution_kind='local-windows-amd64', execution_id=identity))
+    write(native / 'HOST-RELEASE.json', dict(execution_id=identity, token_fate='released', outcome='success',
+        processes={'supervisor': dict(pid=123, creation_time=456, state='absent')},
+        live_descendants=[], observation_errors=[]))
+    write(native / 'CLOSURE.json', dict(native_passed=True, error=None, stop_reason=None, rated_games=0))
+    write(native / 'RECOVERY.json', dict(native_qualification_passed=True, independent_recovery_verified=True,
+        launcher_source_commit='launcher-source', execution_id=identity, rated_games=0))
+    manifest_path = native / 'native/MANIFEST.json'
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest['native_qualifier_sha256'] = gate.sha(runtime / 'gorgequal-windows-amd64.exe')
+    manifest['runtime_seal_sha256'] = pins['runtime_seal_sha256']
+    write(manifest_path, manifest)
+    audit_path = native / 'native/NATIVE-AUDIT.json'
+    audit = json.loads(audit_path.read_bytes())
+    audit['full_report_path'] = r'D:\fixture\native\full-native-audit-3-workers-2\report.json'
+    write(audit_path, audit)
+    pins['seal_sha256'] = seal(native)
+    write(native / 'LOCAL-CLEANUP.json', dict(recovery_seal_sha256=pins['seal_sha256'], execution_id=identity,
+        host_release_verified=True, independent_recovery_verified=True))
+    pins['cleanup_sha256'] = gate.sha(native / 'LOCAL-CLEANUP.json')
+    return native, runtime, pins
+
+
+def test_local_native_pass_keeps_actual_windows_qualifier_identity(tmp_path):
+    native, runtime, pins = local_evidence(tmp_path)
+    verdict = gate.verify_native_audit(native, runtime, **pins)
+    assert verdict['execution_kind'] == 'local-windows-amd64'
+    assert verdict['native_sha256'] == gate.sha(runtime / 'gorgequal-windows-amd64.exe')
+    assert verdict['native_sha256'] != gate.sha(runtime / 'gorgequal-linux-amd64')
+
+
+@pytest.mark.parametrize('mutation', ['failed_parent', 'live_process', 'unknown_process', 'no_processes',
+    'unreleased', 'reclaimed', 'different_generation', 'descendants', 'observation_error', 'no_recovery',
+    'fake_ci', 'linux_hash', 'runtime_seal', 'failed_closure', 'missing_release', 'missing_cleanup',
+    'native_fault', 'native_refusal'])
+def test_local_resealed_invalid_execution_or_native_proof_is_refused(tmp_path, mutation):
+    native, runtime, pins = local_evidence(tmp_path)
+    cleanup_path = native / 'LOCAL-CLEANUP.json'
+    cleanup = json.loads(cleanup_path.read_bytes())
+    cleanup_path.unlink()  # External seal binding, never self-seal the cleanup receipt.
+    if mutation == 'missing_release':
+        (native / 'HOST-RELEASE.json').unlink()
+    elif mutation == 'fake_ci':
+        write(native / 'CI-TERMINAL.json', dict(status='completed', conclusion='success'))
+    else:
+        path = {'failed_parent': 'native/RECEIPT.json', 'no_recovery': 'RECOVERY.json',
+            'linux_hash': 'native/MANIFEST.json', 'runtime_seal': 'native/MANIFEST.json',
+            'failed_closure': 'CLOSURE.json', 'native_fault': 'native/full-native-audit-3-workers-2/report.json',
+            'native_refusal': 'native/full-native-audit-3-workers-2/report.json'}.get(mutation, 'HOST-RELEASE.json')
+        value = json.loads((native / path).read_bytes())
+        if mutation == 'failed_parent': value['exit_code'] = 1
+        elif mutation == 'live_process': value['processes']['supervisor']['state'] = 'alive'
+        elif mutation == 'unknown_process': value['processes']['supervisor']['state'] = 'unknown'
+        elif mutation == 'no_processes': value['processes'] = {}
+        elif mutation in ('unreleased', 'reclaimed'): value['token_fate'] = mutation
+        elif mutation == 'different_generation': value['execution_id']['generation'] += 1
+        elif mutation == 'descendants': value['live_descendants'] = [dict(pid=789)]
+        elif mutation == 'observation_error': value['observation_errors'] = ['access denied']
+        elif mutation == 'no_recovery': value['independent_recovery_verified'] = False
+        elif mutation == 'linux_hash': value['native_qualifier_sha256'] = gate.sha(runtime / 'gorgequal-linux-amd64')
+        elif mutation == 'runtime_seal': value['runtime_seal_sha256'] = 'another-runtime-seal'
+        elif mutation == 'failed_closure': value['error'] = 'recovery failed'
+        elif mutation == 'native_fault': value['totals']['LeakHits'] = 1
+        elif mutation == 'native_refusal': value['search_coverage']['Burn/search-redeal']['RedealRefusals'] = {'fixture': 1}
+        write(native / path, value)
+    pins['seal_sha256'] = seal(native)
+    if mutation != 'missing_cleanup':
+        cleanup['recovery_seal_sha256'] = pins['seal_sha256']
+        write(cleanup_path, cleanup)
+        pins['cleanup_sha256'] = gate.sha(cleanup_path)
+    with pytest.raises(gate.NativeAuditGateError):
+        gate.verify_native_audit(native, runtime, **pins)
+
+
 @pytest.mark.parametrize('mutation', ['failed_ci', 'missing_cleanup', 'incomplete_audit', 'different_source',
     'no_parallel', 'callback_failed', 'fault', 'missing_seed', 'mapping', 'zero_mapping_bad',
     'missing_search', 'refusal', 'no_redealt', 'changed_primary'])
