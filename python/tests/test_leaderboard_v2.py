@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from fractions import Fraction
 from pathlib import Path
 
 from spellbench.arena import leaderboard, legacy_v1, registry, store
@@ -54,3 +55,27 @@ def test_v1_documents_are_unchanged() -> None:
                                                        schema=leaderboard.LEADERBOARD_SCHEMA_V1)
     assert store.canonical_bytes(document) + b"\n" == (run / "leaderboard.json").read_bytes()
     assert markdown.encode("utf-8") == (run / "LEADERBOARD.md").read_bytes()
+
+
+def test_large_exact_sign_test_publishes_canonical_json(tmp_path: Path) -> None:
+    """A complete 64-pair matchup must publish its exact tail probability."""
+    swapped = [{"seat": "p0", "bot_id": B, "name": "b", "version": "1"},
+               {"seat": "p1", "bot_id": A, "name": "a", "version": "1"}]
+    rows = [
+        row(game_index=index, game_id=f"g-{index:016x}",
+            pair_index=index // 2, pair_slot=index % 2,
+            seats=swapped if index % 2 else row()["seats"],
+            winner="p1" if index % 2 else "p0", winner_bot_id=A,
+            outcome="p1_win" if index % 2 else "p0_win")
+        for index in range(128)
+    ]
+    document, markdown = _build(rows)
+    path = tmp_path / "leaderboard.json"
+    store.write_json_atomic(path, document)
+    published = store.read_json(path)
+    probability = published["matchups"][0]["sign_test"]["p_value"]
+    assert probability == {"num": "1", "den": str(1 << 63)}
+    assert Fraction(int(probability["num"]), int(probability["den"])) == Fraction(1, 1 << 63)
+    assert published["matchups"][0]["complete_pairs"] == 64
+    assert sum(entry["games"] for entry in published["rows"]) == 256
+    assert "0.0000" in markdown
