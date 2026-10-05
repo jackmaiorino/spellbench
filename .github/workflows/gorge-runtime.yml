@@ -4,13 +4,26 @@ on:
   # Explicit builds avoid uploading another runtime on each backup branch push.
   # Request a build only when its binaries are needed for qualification.
   workflow_dispatch:
+    inputs:
+      replay_release_id:
+        description: Unpublished exchange release for three sealed public replay checks
+        required: false
+        type: string
+      replay_asset_id:
+        description: Hash-pinned input archive asset
+        required: false
+        type: string
+      replay_archive_sha256:
+        description: Input archive SHA-256
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   build:
-    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false && inputs.replay_asset_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -40,3 +53,25 @@ jobs:
           retention-days: 1
           if-no-files-found: error
           compression-level: 1
+
+  replay:
+    permissions:
+      contents: write
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false && inputs.replay_asset_id != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover unused hosted SDK space
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+      - name: Build pinned production and check three exact actor-public prefixes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPLAY_RELEASE_ID: ${{ inputs.replay_release_id }}
+          REPLAY_ASSET_ID: ${{ inputs.replay_asset_id }}
+          REPLAY_ARCHIVE_SHA256: ${{ inputs.replay_archive_sha256 }}
+        run: python3 tools/gorge-public-replay-ci.py --job "$RUNNER_TEMP/gorge-public-replay" --release-id "$REPLAY_RELEASE_ID" --asset-id "$REPLAY_ASSET_ID" --archive-sha256 "$REPLAY_ARCHIVE_SHA256"
