@@ -34,6 +34,7 @@ import mage.choices.Choice;
 import mage.game.Game;
 import mage.players.Player;
 import mage.target.*;
+import mage.util.MultiAmountMessage;
 import java.util.*;
 import java.util.function.Supplier;
 
@@ -302,6 +303,16 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     @Override public final int getAmount(int min,int max,String message,Ability source,Game game) {
         return callback(game,"amount",new Object[]{min,max,source},
                 () -> super.getAmount(min,max,message,source,game));
+    }
+    @Override public final boolean chooseTargetAmount(Outcome outcome,TargetAmount target,Ability source,Game game) {
+        // The parent selects and allocates a complete group without calling chooseTarget.
+        return callback(game,"target-amount",new Object[]{outcome,target,source},
+                () -> super.chooseTargetAmount(outcome,target,source,game));
+    }
+    @Override public final List<Integer> getMultiAmountWithIndividualConstraints(Outcome outcome,
+            List<MultiAmountMessage> messages,int totalMin,int totalMax,MultiAmountType type,Game game) {
+        return callback(game,"multi-amount",new Object[]{outcome,messages,totalMin,totalMax,type},
+                () -> super.getMultiAmountWithIndividualConstraints(outcome,messages,totalMin,totalMax,type,game));
     }
     @Override public final boolean choosePile(Outcome outcome,String message,List<? extends mage.cards.Card> left,
             List<? extends mage.cards.Card> right,Game game) {

@@ -182,6 +182,8 @@ public final class JackDialogReplay {
                     result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",false);
                     throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,result);
                 }
+                if("target-amount".equals(kind) || "multi-amount".equals(kind))
+                    throw new IllegalArgumentException("original divided-target or multi-amount replay is not connected");
                 if("library-order".equals(kind)) {
                     if(resolution && !passes.isEmpty())throw new IllegalArgumentException("library order preceded its recorded public passes");
                     projection.compare(world,current);

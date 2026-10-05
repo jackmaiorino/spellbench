@@ -1019,3 +1019,20 @@ disagreement close the session before scoring. Evidence:
 pinned original ordering loop and inherited selector but script physical card
 placement. Native zone changes, replacement events, source/knowledge lifecycle,
 scry/surveil arrangements and complete trained-weight games remain unqualified.
+
+Divided-target and multi-amount callbacks now enter the owned replay hook before
+the inherited policy runs. Their wire groups remain unconnected and refuse
+explicitly. This closes a gap where the parent could allocate a complete group
+without entering the normal target callback. Unbound players and admitted
+simulation copies retain the original inherited behavior. Even implicit empty
+groups refuse during replay until their group lifecycle is connected.
+
+Ten metadata cases verify refusal before target preparation, message access or
+neural/copy draws, historical-prefix handling, foreign-copy rejection and unchanged
+unbound/simulation policies. Eight existing Java replay checks and 157 affected
+Python checks pass. Evidence:
+`E:/spellbench-xmage-all-20261002/jack-unconnected-distribution-001`.
+The guard was checked as a metadata overlay on the consolidated runtime. That
+runtime's existing build receipt still describes its prior source revision;
+the next native build must include the guard. Native distribution groups and
+complete games remain unfinished.

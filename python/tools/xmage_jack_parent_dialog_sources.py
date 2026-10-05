@@ -52,7 +52,7 @@ def parent_dialog_source(sources: dict[str, str], callback: str) -> str:
     targets = replace_once(targets, "private int makeChoiceAmount(int min, int max, Game game, Ability source, boolean isManaPay) {",
                            "private int makeChoiceAmount(int min, int max, Game game, Ability source, boolean isManaPay) {\n        requireOriginalParentWorld(game);")
     targets = replace_once(targets, "public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {",
-                           "public final boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {\n        requireOriginalParentWorld(game);")
+                           "public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {\n        requireOriginalParentWorld(game);")
     creature = extract(base, "    protected boolean chooseCreatureType(Outcome outcome, Choice choice, Game game) {",
                        "    @Override\n    public boolean chooseTarget(Outcome outcome, Cards cards,")
     creature = replace_once(creature,
