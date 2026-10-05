@@ -1,0 +1,96 @@
+{
+  "schema": "spellbench-gorge-reference-controls/v1",
+  "at_utc": "2026-10-05T10:39:59.959061+00:00",
+  "phase": "prepared_unlaunched",
+  "source_of_record": "E:\\spellbench-gorge-reference-controls-20261005-063",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-controls-20261005-063",
+  "files": {
+    "gorge-reference063-precreate-check-20261005.py": {
+      "bytes": 2815,
+      "sha256": "f3380d64e63195f5a7fd3c5e81784782e4388337ed665dd7d25d35fd3dcdddee"
+    },
+    "gorge-cloud-create-reference063-20261005.ps1": {
+      "bytes": 10418,
+      "sha256": "baf8eb75dadc09bfba26cca682ded340c37fe9e7afe88d26f0bb65d1a04bf36d"
+    },
+    "gorge-cloud-observe063-20261005.py": {
+      "bytes": 2151,
+      "sha256": "fb94f40f33ac1a307ab9bf3c6d5fa2f3b730a981ef9552f4779aa9d198fa3840"
+    },
+    "gorge-connect-reference063-20261005.py": {
+      "bytes": 1343,
+      "sha256": "e056433b970a49fc3a093d233f1085dff379ac116fc8f9958e56451cab2430b8"
+    },
+    "gorge-dispatch-reference063-20261005.py": {
+      "bytes": 5243,
+      "sha256": "9736b1be6f6bbbffddbb1bc6d1473db89cf85397da2519e20c82c0c07b090fa7"
+    },
+    "gorge-supervise-reference063-20261005.py": {
+      "bytes": 7743,
+      "sha256": "6d89368618c4a8a5ba0a4802711a993bb364b5648f214ddfd08bdae281cf97f9"
+    },
+    "gorge-close-reference063-20261005.py": {
+      "bytes": 10508,
+      "sha256": "910b6822ea7e9b89df1c3ba62cad3d84c5af62a5007bce4be0e0dc166f63e1db"
+    },
+    "gorge-reconcile-released-reference063-20261005.ps1": {
+      "bytes": 4573,
+      "sha256": "3446c84dce96f5036ccedc4c104929464a4329638b8717bdb809dac0ee56de50"
+    },
+    "gorge-cloud-reference-guard-20261005-063.ps1": {
+      "bytes": 9608,
+      "sha256": "9dccc8b4f05911feced41f5814ab2619daefb12b5b87f8c0a3938ab678f5b1d6"
+    },
+    "gorge-cloud-reference-scheduled-guard-20261005-063.ps1": {
+      "bytes": 785,
+      "sha256": "45a2ae7f8fedf3eb471788cf5fa2987b4572c9708b415595f48d803e09e86ec5"
+    },
+    "gorge-pack-reference063-20261005.py": {
+      "bytes": 10586,
+      "sha256": "57d9bf81210081ab49c9ee6ba47e3c88e0febbe97a91301f3fe9db5016d10660"
+    },
+    "gorge-prepare-reference-controls063-20261005.py": {
+      "bytes": 7049,
+      "sha256": "ba735eb9234c3fa28e73e41dcd240a30b9c09050ecccf590fc90dba38dd480e8"
+    }
+  },
+  "python_ast_passed": true,
+  "powershell_parser_checks": [
+    {
+      "name": "gorge-cloud-create-reference063-20261005.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-reconcile-released-reference063-20261005.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-cloud-reference-guard-20261005-063.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-cloud-reference-scheduled-guard-20261005-063.ps1",
+      "errors": 0
+    }
+  ],
+  "required_native_root": "E:/spellbench-gorge-runpod-20261005-060",
+  "required_runtime": "E:/spellbench-gorge-runtime-20261005-060",
+  "required_billing_ledger": "E:/spellbench-gorge-billing-20261005-033",
+  "output_billing_ledger": "E:/spellbench-gorge-billing-20261005-034",
+  "frozen_reference_inputs": "E:\\spellbench-gorge-reference-matrix-runtime060-20261005-008",
+  "frozen_reference_seal_sha256": "3bea2dae9d5c591dfd2668112933754367c208d5e2abf2777c2d45335ffe57f8",
+  "prospective_lease_seconds": 3600,
+  "prospective_lease_cap_usd": 0.5,
+  "all_in_campaign_cap_usd": 10,
+  "native_admission_proved": false,
+  "budget_admission_proved": false,
+  "allocation_created": false,
+  "reference_reserved_usd": 0,
+  "new_cloud_spend_usd": 0,
+  "guard_path": "Sealed passing native060 -> fresh ledger033 and resource census -> independent guardian before POST -> authenticated verified bundle -> transported native gate -> reference_matrix.py -> plan_allocation -> play_games",
+  "bounded_recovery": "Owner copy at most240 seconds and remaining lease minus15 seconds; independent guardian copy at most120 seconds and remaining lease; snapshot alarm60 seconds",
+  "qualification_requires": "All140 unique natural games,60cells,160 native receipts, matched serial/parallel hashes and identical original replay. Frozen seeds,seats,clocks and policies unchanged.",
+  "controls_execution_validated": false,
+  "next_wake_condition": "Passing sealed native060, confirmed lease release and fresh closed ledger033 proving room for a one-hour reference lease; no current admission.",
+  "seal_sha256": "a569b3a7f5f70b8fc2107d993b26b49605f01536a335ec0c201df443ed9372b3"
+}
