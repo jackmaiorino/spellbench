@@ -1,15 +1,15 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T18:09:18.027754+00:00",
-  "status": "owned_Dig_component_repair_verified; rebuilt082; whole_game_still_has7refusals",
-  "adapter_source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
-  "engine_source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
+  "at_utc": "2026-10-05T18:54:22.369036+00:00",
+  "status": "Six of seven captured prefixes pass in093; the seventh reaches a later public DigUntil reveal at257. New DigUntil guidance is committed;095 replay awaits the canonical host reservation.",
+  "adapter_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
+  "engine_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
   "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-082",
   "runtime_seal_sha256": "0e9b4f3f1806027e08c886ebe036ee41a59865f259b77a794fa27c9d6f846b3e",
-  "production_overlay_sha256": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
+  "production_overlay_sha256": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
     "engines/gorge/native-overlay/public_priority_test.go.txt",
@@ -27,14 +27,21 @@
     "engines/gorge/strategies/history.go": "249e6385befa3c9236be11483d54138feb18c6629af201ba30c97e817ecd21a0"
   },
   "changed_runtime_functions": [
+    "SpellbenchReconstructRedeal",
+    "spellbenchActorDigOrder",
+    "spellbenchActorLibraryPositions",
+    "spellbenchActorRevealedDig",
+    "spellbenchBasicSearches",
     "spellbenchCarryEpochs",
+    "spellbenchCarryEpochsOrdered",
     "spellbenchObservedPreferred",
+    "spellbenchRevealedHandEpochs",
+    "spellbenchRevealedHandPositions",
+    "spellbenchRevealedUntilPositions",
+    "spellbenchRevealedUntilWindow",
     "spellbenchScryEpochs",
     "spellbenchScryHeldEpochs",
-    "SpellbenchReconstructRedeal",
-    "spellbenchBasicSearches",
-    "spellbenchActorLibraryPositions",
-    "spellbenchActorDigOrder"
+    "spellbenchShuffleHandSize"
   ],
   "inputs": [
     "Actor-public History identities/events and projected hand sizes",
@@ -68,9 +75,9 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
-  "current_native_qualification": "native077_supported_local_matched_scaling_active; full_audit_not_yet_admitted",
-  "current_native_failure_record": "docs/gorge-ci-native069-20261005.json",
-  "current_native_attempt_seal_sha256": null,
+  "current_native_qualification": "native077 failed; no current full native qualification",
+  "current_native_failure_record": "docs/gorge-local-native077-20261005.json",
+  "current_native_attempt_seal_sha256": "62704545a8ab05d67dff06999b8612f4122d06679e92520ce9ee100d565056eb",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
   "component_cases": {
     "364": {
@@ -150,13 +157,13 @@
     "full_go_ci_passed": true,
     "reconstruction_policy": "Observed public markers prioritize existing legal pass/scry alternatives. Public returns reduce known carry demand. A separate hypothetical held-before-reorder proposal copies original deadlines and tightens selected public-name prefixes on attempts2 modulo4. Original proposals remain on attempt0 modulo4 and all odd attempts. Every accepted world replays current actor-public history and passes unchanged native known-card checks. No future596-frame facts are used at504."
   },
-  "production_runtime_compatible_with_current_engine": true,
-  "production_runtime_rebuilt": true,
-  "current_component_record": "docs/gorge-component-replay066-20261005.json",
+  "production_runtime_compatible_with_current_engine": false,
+  "production_runtime_rebuilt": false,
+  "current_component_record": "docs/gorge-local-public-repair084-20261005.json",
   "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
   "full_go_ci_status": "passed",
   "full_go_ci_source_commit": "ca9d665811d102d571656fd5fbfe9615b13a8982",
-  "current_native_result_record": null,
+  "current_native_result_record": "docs/gorge-local-native077-20261005.json",
   "hosted_native_admission_gate_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
   "hosted_native_admission_gate_tests_passed": 15,
   "actual_positive_hosted_native_gate_unverified": true,
@@ -188,7 +195,7 @@
     "wall_cap_seconds": 21600,
     "release_condition": "All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games",
     "owner": "Existing canonical supervisor and bounded local parent own progress, E/D final recovery and release; no duplicate watcher",
-    "next_wake": "Serial/parallel comparison closes or existing gate/parent emits failure; inspect CURRENT.json and new receipts, then recover terminal bytes before qualification handoff",
+    "next_wake": "Retained failed077 is terminal; do not rerun unchanged. Continue the public repair recorded ingorge-local-public-repair084-20261005.json",
     "new_cloud_spend_usd": 0,
     "conservative_reserved_total_usd": 9.98136347,
     "provider_final_settlement_pending": true,
@@ -198,18 +205,19 @@
     "rated_games": 0,
     "published_entries": 0,
     "previous_numerical_failure_remains_failed": true,
-    "qualification_admission": "Full native audit starts only after supported matched completed-work comparison admits identical outputs"
+    "qualification_admission": "Full native audit starts only after supported matched completed-work comparison admits identical outputs",
+    "state": "terminal_numerical_failure"
   },
-  "current_reference_phase": "Local/hosted admission and portable bundle implemented; actual reference waits for native077 full pass and verified terminal recovery",
+  "current_reference_phase": "Reference waits for a fresh current-source native pass;077 failed and was recovered",
   "current_overlay_files": {
-    "public_basic_search.go.txt": "26bf5943018843e889c87303807c5ef5ca02832136fbb5782ad23046af3e91ef",
+    "public_basic_search.go.txt": "e5f69c54ae56a3b87b5c95b7e347cf63f5584fdfbf0dd585c20e653309129c51",
     "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
     "public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
     "public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
     "public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
     "public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
-    "public_priority_test.go.txt": "3255e9083ccf63e85516e76b65cc222e7d9a4e9e6e36a52c88a811b9474547ab",
-    "public_redeal.go.txt": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
+    "public_priority_test.go.txt": "73a8b9c957d227a202183a13f9ada6b606fbff4c4df2d44e1837fa3a62a13f23",
+    "public_redeal.go.txt": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
     "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
     "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
   },
@@ -315,7 +323,7 @@
     "reference_qualification_passed": false,
     "rated_games": 0,
     "published_entries": 0,
-    "next_action": "Complete native077 matched scaling and full audit, then independently recover and verify canonical release before reference admission",
+    "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. On pass rebuild production, replay the whole original164, then refresh placement and run supported full native qualification.",
     "remaining": "Full native/reference qualification, current identity/fair-play review, current required CI, frozen rated games, result review and publication"
   },
   "historical_six_case_evidence": "Six earlier saved roots passed on pre-repair production068; retained as historical evidence, no unchanged-current-runtime claim",
@@ -479,5 +487,6 @@
   "current_local_native_job_record": "docs/gorge-local-native077-20261005.json",
   "current_dig_repair_record": "docs/gorge-local-dig-repair082-20261005.json",
   "affected_python_checks_passed": 196,
-  "current_reference_runner_cleanup_preserved": true
+  "current_reference_runner_cleanup_preserved": true,
+  "current_public_repair_record": "docs/gorge-local-public-repair084-20261005.json"
 }

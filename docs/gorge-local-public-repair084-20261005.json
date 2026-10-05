@@ -1,0 +1,545 @@
+{
+  "schema": "spellbench-gorge-local-public-repair/v1",
+  "observed_at_utc": "2026-10-05T18:54:22.369036+00:00",
+  "implementation_source_commit": "be05f23bfccf8fd0ccec72b4a190ac28b4cab9e3",
+  "failed_native_record": "docs/gorge-local-native077-20261005.json",
+  "previous_Dig_record": "docs/gorge-local-dig-repair082-20261005.json",
+  "captured_game": 164,
+  "public_capture_source": "E:/spellbench-gorge-local-diagnostic-20261005-084/CAPTURE-VALIDATION.json",
+  "attempts": {
+    "83": {
+      "source_of_record": "E:\\spellbench-gorge-local-regression-20261005-083",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-regression-20261005-083",
+      "seal_sha256": "3f27ea511ebfed923093800ccfcd4422aae5159cffea65a3abf7f2536c9a5521",
+      "closure": {
+        "targeted_regression_passed": false,
+        "error": "AssertionError: ",
+        "at_utc": "2026-10-05T17:57:05.111847+00:00",
+        "elapsed_seconds": 203.5650428000372,
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "canonical_generation": 199,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "84": {
+      "source_of_record": "E:\\spellbench-gorge-local-diagnostic-20261005-084",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-diagnostic-20261005-084",
+      "seal_sha256": "a146f76f17051c6e85b4abe857d6a07e3e2ed153351a84218334d16a8113068a",
+      "closure": {
+        "capture_completed": false,
+        "error": "AssertionError: ",
+        "at_utc": "2026-10-05T18:12:57.030124+00:00",
+        "elapsed_seconds": 216.91759779996937,
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "canonical_generation": 200,
+      "released": true,
+      "owned_processes_absent": true,
+      "capture-validation": {
+        "captured_projections_validated": true,
+        "unique_public_roots": 7,
+        "paired_audit_replay_duplicates": 7,
+        "native_rows_identical_to_production083": true,
+        "native_search_diagnostics_identical": true,
+        "original_parent_passed": false,
+        "parent_validation_error": "Capture count14 includes seven exact paired-audit replay duplicates; coverage counts only seven original failures. Retain the original assertion failure.",
+        "full_native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0,
+        "distinct_captures": 7,
+        "paired_replay_duplicates": 7
+      }
+    },
+    "85": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-085",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-085",
+      "seal_sha256": "629be0cbd1968eea7601c74cf4403cf3832383ccc2bc0034ccebf180bc27eb2f",
+      "closure": {
+        "at_utc": "2026-10-05T18:16:14.410617+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 8.334561399999075,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 201,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "passed": true,
+        "captured_frames": 238,
+        "captured_work_identical": true,
+        "work": {
+          "Attempts": 5,
+          "Submits": 5000,
+          "Nodes": 4248,
+          "BudgetExhausted": 1
+        },
+        "farthest_reached": 236,
+        "farthest_failed": 236,
+        "farthest_reason": "prefix:frame 236 identities",
+        "native_qualification_complete": false,
+        "rated_games": 0
+      }
+    },
+    "86": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-086",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-086",
+      "seal_sha256": "594a74a9f717db3278f9186c7b3f40c97ad7b659d57ea063d71075363fa2edc4",
+      "closure": {
+        "at_utc": "2026-10-05T18:22:44.932930+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: public-boundaries exit 1",
+        "elapsed_seconds": 6.039825399988331,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 202,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "87": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-087",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-087",
+      "seal_sha256": "9e3456907112d5f6033703e757b84535be742cf49ab6f17acc9f502f2a539685",
+      "closure": {
+        "at_utc": "2026-10-05T18:23:32.535194+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 11.427832400018815,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 203,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "88": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-088",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-088",
+      "seal_sha256": "4556e488774b284fcea94df271fff0060196f073f1db7531a5db64c59331ac69",
+      "closure": {
+        "at_utc": "2026-10-05T18:27:47.293097+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 11.42454799998086,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 205,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "89": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-089",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-089",
+      "seal_sha256": "6745d88374122fe34c724ba1290660c6cb5b98ba3141e60c1722202a19ad5908",
+      "closure": {
+        "at_utc": "2026-10-05T18:36:14.487827+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 10.406980899977498,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 210,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "passed": true,
+        "captured_frames": 238,
+        "captured_work_identical": false,
+        "saved_root_repaired": true,
+        "native_diagnostics_identical": true,
+        "redealt_worlds": 8,
+        "known_card_checks_passed": true,
+        "work": {
+          "Attempts": 1,
+          "Submits": 429,
+          "Nodes": 25,
+          "BudgetExhausted": 0
+        },
+        "farthest_reached": 237,
+        "farthest_failed": 217,
+        "farthest_reason": "prefix:frame 217 events",
+        "native_qualification_complete": false,
+        "rated_games": 0
+      }
+    },
+    "90": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-090",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-090",
+      "seal_sha256": "edbdf7876b7f0ca5c2d012dc07e7d6da77ba1b5d83fc0b9fda93dc6c4b484d66",
+      "closure": {
+        "at_utc": "2026-10-05T18:38:44.184712+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 34.916486700007226,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 211,
+      "released": true,
+      "owned_processes_absent": true,
+      "cases": [
+        {
+          "case": "case-001",
+          "work": {
+            "Attempts": 1,
+            "Submits": 429,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-002",
+          "work": {
+            "Attempts": 1,
+            "Submits": 431,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-003",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4270,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-004",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4070,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-005",
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4017,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-006",
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 3963,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-007",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4130,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        }
+      ]
+    },
+    "91": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-091",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-091",
+      "seal_sha256": "4c7b9724cd3fdb10ad3a45f05229b31930a3f7c8095b82216e96dab4d11272ec",
+      "closure": {
+        "at_utc": "2026-10-05T18:46:36.878044+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: london-basic-boundaries exit 1",
+        "elapsed_seconds": 4.044886299991049,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 212,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "92": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-092",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-092",
+      "seal_sha256": "b47110ffdeb29a0f60a6aa7ad73b001af46795febe35140efc41f698074aa53e",
+      "closure": {
+        "at_utc": "2026-10-05T18:47:55.528887+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 34.641738199978136,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 213,
+      "released": true,
+      "owned_processes_absent": true,
+      "cases": [
+        {
+          "case": "case-001",
+          "work": {
+            "Attempts": 1,
+            "Submits": 429,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-002",
+          "work": {
+            "Attempts": 1,
+            "Submits": 431,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-003",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4270,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-004",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4070,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-005",
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4017,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-006",
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 3963,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        },
+        {
+          "case": "case-007",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4130,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        }
+      ]
+    },
+    "93": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-093",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-local-witness-20261005-093",
+      "seal_sha256": "edfa062294f31ef2d0caa0959eb444d7e6f09ff2e7f619d18c58974ffa1b0d6f",
+      "closure": {
+        "at_utc": "2026-10-05T18:48:57.823261+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 29.622260199976154,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 214,
+      "released": true,
+      "owned_processes_absent": true,
+      "cases": [
+        {
+          "case": "case-001",
+          "work": {
+            "Attempts": 1,
+            "Submits": 429,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-002",
+          "work": {
+            "Attempts": 1,
+            "Submits": 431,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-003",
+          "work": {
+            "Attempts": 1,
+            "Submits": 438,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-004",
+          "work": {
+            "Attempts": 1,
+            "Submits": 448,
+            "Nodes": 27,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-005",
+          "work": {
+            "Attempts": 1,
+            "Submits": 448,
+            "Nodes": 25,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-006",
+          "work": {
+            "Attempts": 1,
+            "Submits": 450,
+            "Nodes": 27,
+            "BudgetExhausted": 0
+          },
+          "witness_constructed": true,
+          "native_diagnostics_identical": true,
+          "known_card_checks_passed": true,
+          "redealt_worlds": 8
+        },
+        {
+          "case": "case-007",
+          "work": {
+            "Attempts": 5,
+            "Submits": 5000,
+            "Nodes": 4057,
+            "BudgetExhausted": 1
+          },
+          "witness_constructed": false,
+          "native_diagnostics_identical": false,
+          "known_card_checks_passed": false,
+          "redealt_worlds": 0
+        }
+      ]
+    }
+  },
+  "public_inputs": [
+    "Complete opponent hand exposed by semantic hand_move options",
+    "Observed hand exits used to recover shuffle-time hand size",
+    "Owned Winding Way ordered top-four reveal and exact moves",
+    "Balustrade Spy public target and ordered reveal until a land, with declared trigger and visible library sizes"
+  ],
+  "behavior": "Only public replay witness guidance changes. Native proposal weights, seed coordinates,64 attempts,8 worlds,5000 submits, complete public replay and known-card checks remain unchanged.",
+  "current_component_status": "Six of seven captured prefixes pass in093; the seventh reaches a later public DigUntil reveal at257. New DigUntil guidance is committed;095 replay awaits the canonical host reservation.",
+  "prior_full_game_status": "083 complete selected game164 paired replay has7 refusals; declared scheduled_games320,selected_games[164],Games1,CompletedGames2. Parent also retained a wrong scheduled/completed count assertion. Neither is a qualification pass.",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "current_identity_review_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "new_cloud_spend_usd": 0,
+  "provider_final_settlement_pending": true,
+  "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. On pass rebuild production, replay the whole original164, then refresh placement and run supported full native qualification."
+}
