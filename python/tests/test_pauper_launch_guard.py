@@ -46,7 +46,7 @@ def test_unusable_qualification_terminals_retain_elapsed_and_rows(tmp_path, monk
     monkeypatch.setattr(run, "preflight", lambda *args: object())
     def play(*args, **kwargs):
         kwargs["on_outcome"](outcome)
-        return SimpleNamespace(outcomes=[outcome], error=None)
+        return SimpleNamespace(outcomes=[outcome], error=None, stopped=None)
     monkeypatch.setattr(runner, "play_games", play)
     with pytest.raises(ThroughputError, match="halted or truncated"):
         run.qualification_play(config, storage_dir=tmp_path, files=())(1, (0,))
@@ -58,6 +58,89 @@ def test_unusable_qualification_terminals_retain_elapsed_and_rows(tmp_path, monk
     retained = list(tmp_path.rglob("trial-1-workers-*.jsonl"))
     assert len(retained) == 1
     assert json.loads(retained[0].read_text().splitlines()[0])["classification"] == row.classification
+
+
+def test_failed_qualification_retains_replay_only_after_cleanup(tmp_path, monkeypatch):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")],
+        decks=("Halt", "Halt"), pairs=1, include_self_play=False))
+
+    def allocation(**kwargs):
+        try:
+            kwargs["play"](1, (0,))
+        finally:
+            assert not list(tmp_path.rglob("REPLAY.json"))
+
+    monkeypatch.setattr(run, "plan_allocation", allocation)
+    monkeypatch.setattr(run, "_machine_facts", lambda roles: None)
+    with pytest.raises(ThroughputError, match="halted or truncated"):
+        run.plan_for(config, placement=None, evidence=tmp_path / "evidence", volumes={"run_dir": tmp_path})
+    (replay_path,) = list(tmp_path.rglob("REPLAY.json"))
+    replay = json.loads(replay_path.read_bytes())
+    restored_config = TournamentConfig.from_json(replay["config"])
+    secret = RunSecret.from_hex(replay["run_secret"])
+    (trial,) = replay_path.parent.glob("trial-1-workers-*.jsonl")
+    (row,) = parse_ledger([json.loads(trial.read_text())])
+    assert schedule(restored_config, secret)[0].game_id == row.game_id
+    (diagnostic_path,) = replay_path.parent.glob("trial-1-diagnostics.jsonl")
+    assert "fixture contract halt diagnostic" in diagnostic_path.read_text()
+    assert "diagnostic" not in trial.read_text()
+    # Replaying with the saved config and secret consumes no hosted inference and preserves the entire row.
+    from spellbench.arena.schedule import preflight
+    setup = preflight(restored_config, secret)
+    entries = {entry.name: entry for entry in runner.registry_entries(config, config)}
+    actual = runner.play_one(restored_config, setup, schedule(restored_config, secret)[0], secret.hex(), entries)
+    assert actual.row.to_json() == row.to_json()
+    assert runner.row_digest(actual.row) == runner.row_digest(row)
+    assert replay["trials"] == [{"workers": 1, "schedule_indices": [0]}]
+    assert replay["harness_files"] and replay["files"] == []  # This controlled fixture has no pinned inputs.
+
+
+def test_unused_qualification_reveal_creates_no_artifacts(tmp_path):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    measured = run.qualification_play(config, storage_dir=tmp_path, files=())
+    measured.finish()
+    assert not list(tmp_path.rglob("REPLAY.json"))
+    with pytest.raises(ThroughputError, match="already revealed"):
+        measured(1, (0,))
+
+
+def test_aborted_pool_does_not_disclose_replay_secret(tmp_path, monkeypatch):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    failure = RuntimeError("worker aborted before descendant cleanup")
+    monkeypatch.setattr(run, "preflight", lambda *args: object())
+    monkeypatch.setattr(runner, "play_games", lambda *args, **kwargs:
+        SimpleNamespace(outcomes=[], error=failure, stopped="aborted"))
+    measured = run.qualification_play(config, storage_dir=tmp_path, files=())
+    with pytest.raises(RuntimeError) as caught:
+        measured(2, (0,))
+    assert caught.value is failure
+    with pytest.raises(ThroughputError, match="cleanup unconfirmed"):
+        measured(2, (0,))
+    measured.finish()
+    assert not list(tmp_path.rglob("REPLAY.json"))
+    (path,) = list(tmp_path.rglob("FINALIZATION.json"))
+    assert json.loads(path.read_bytes())["secret_disclosed"] is False
+
+
+@pytest.mark.parametrize("earlier_failure", [False, True])
+def test_finalization_error_preserves_original_failure(tmp_path, monkeypatch, earlier_failure):
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    primary = ThroughputError("original qualification failure")
+    secondary = OSError("metadata cannot be written")
+    def plan(**kwargs):
+        if earlier_failure:
+            raise primary
+        return None
+    def finish():
+        raise secondary
+    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: run.QualificationPlay(object(), finish))
+    monkeypatch.setattr(run, "plan_allocation", plan)
+    monkeypatch.setattr(run, "_machine_facts", lambda roles: None)
+    with pytest.raises((ThroughputError, OSError)) as caught:
+        run.plan_for(config, placement=None, evidence=tmp_path / "evidence", volumes={"run_dir": tmp_path})
+    assert caught.value is (primary if earlier_failure else secondary)
+    if earlier_failure:
+        assert "OSError: metadata cannot be written" in primary.__notes__[0]
 
 
 def _roomy_storage(monkeypatch):
@@ -109,7 +192,7 @@ def test_sample_order_binds_qualification_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr(run, "_hosted_budget_guard", lambda *args, **kwargs: None)
     monkeypatch.setattr(run, "_machine_facts", lambda roles: MACHINE)
     monkeypatch.setattr(run, "_free_space", lambda roles: MACHINE)
-    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: object())
+    monkeypatch.setattr(run, "qualification_play", lambda *args, **kwargs: run.QualificationPlay(object(), lambda: None))
     captured = []
     def plan(**kwargs):
         captured.append(kwargs)

@@ -308,6 +308,11 @@ def play_one(
             stack.callback(driver.close)
             seats[seat] = driver
         result = play_game(game, engine=engine, seats=seats)
+    if result.classification == "halted" and result.reason.startswith("engine_contract_failure:"):
+        # Read only after cleanup drains the bounded stderr reader. Peer text stays outside the hashed row.
+        diagnostic = engine.stderr_text()
+        if diagnostic:
+            result = dataclasses.replace(result, diagnostics=(*result.diagnostics, diagnostic))
     verify_files(launch_files)
     return _outcome(config, setup, context, entries, result, hello.engine)
 
