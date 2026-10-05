@@ -915,3 +915,19 @@ refusals remain retained under
 `E:/spellbench-xmage-all-20261002/jack-amount-replay-001`. Verified compression of
 inactive duplicates retained both evidence copies and the native reserve. Actual
 native amount prompts, larger-range wire behavior and complete games remain open.
+
+Pile and replacement prompts now enter the unchanged inherited parent methods:
+left pile and first replacement, respectively. Binding checks both complete piles
+in physical-card order against permitted references, and all replacement indices
+and sources against the actual map iterator order. Equal card names or effect
+labels do not merge choices. Null/single replacement menus remain implicit.
+Earlier answers are checked against the original fixed policy; disagreement closes
+the session before the current choice. Full runtime builds require
+`JackInheritedChoices`; reduced builds exclude it.
+
+310 affected Python checks pass, including five new frontend checks. Two fresh
+metadata JVMs match across 96 parent-oracle cases, and all seventeen existing Java
+checks pass. No neural or physical-copy draws occur in these inherited choices.
+Evidence: `E:/spellbench-xmage-all-20261002/jack-inherited-replay-001`.
+Trigger ordering, nested combat, native callback qualification and complete games
+remain unfinished under the research resource hold.

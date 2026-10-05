@@ -6,7 +6,7 @@ import hashlib
 from xmage_jack_sources import CALLBACK_SHA256, extract
 
 CALLBACK_PLAYER_VARIANT = (
-    "original priority, target, card, mode, use, X, inherited amount, combat and London callbacks; "
+    "original priority, target, card, mode, use, X, inherited amount/pile/replacement, combat and London callbacks; "
     "declared checkpoint mulligan format; shared original chooser and copy session; "
     "explicit world/copy admission and dynamic permitted aliases; "
     "native backend, deck associations and full-game qualification unfinished")
@@ -149,7 +149,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             if (replay!=null && game==replayGame && !game.isSimulation()
                     && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)
                     && !"target-loop".equals(kind) && !"card-set-loop".equals(kind)
-                    && !"parent-card-loop".equals(kind)) {
+                    && !"parent-card-loop".equals(kind) && !"implicit-replacement".equals(kind)) {
                 if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
                 replayDepth++;
                 try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
@@ -287,6 +287,15 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     @Override public final int getAmount(int min,int max,String message,Ability source,Game game) {
         return callback(game,"amount",new Object[]{min,max,source},
                 () -> super.getAmount(min,max,message,source,game));
+    }
+    @Override public final boolean choosePile(Outcome outcome,String message,List<? extends mage.cards.Card> left,
+            List<? extends mage.cards.Card> right,Game game) {
+        return callback(game,"pile",new Object[]{left,right},
+                () -> super.choosePile(outcome,message,left,right,game));
+    }
+    @Override public final int chooseReplacementEffect(Map<String,String> effects,Map<String,mage.MageObject> objects,Game game) {
+        return callback(game,effects==null || effects.size()<=1?"implicit-replacement":"replacement",
+                new Object[]{effects,objects}, () -> super.chooseReplacementEffect(effects,objects,game));
     }
     private CombatRules.Picker combatPicker(Game game,Ability source,StateSequenceBuilder.SequenceOutput state) {
         return (type,candidates,picks,sequential) -> {

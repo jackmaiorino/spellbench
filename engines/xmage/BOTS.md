@@ -295,3 +295,10 @@ binding. Earlier amounts restore and validate the reconstructed engine RNG; no
 neural X or physical-copy calls are added. 284 Python checks, two repeat JVMs with
 288 parent-oracle cases and sixteen Java regressions pass. Native amount prompts,
 the wire candidate-limit envelope and complete trained-weight games remain open.
+
+Inherited pile/replacement replay now preserves the original left-pile/first-effect
+policies, exact physical piles and actual replacement iterator order. Implicit
+replacement menus remain implicit; historical policy disagreement refuses.
+310 affected Python checks, two matching metadata JVM outputs with 96 parent-oracle
+cases and seventeen Java regressions pass. Trigger ordering, native qualification
+and full games remain open; no ratings or public entries have been added.

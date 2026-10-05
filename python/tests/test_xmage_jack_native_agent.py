@@ -133,6 +133,32 @@ def test_mixed_x_and_amount_menu_refuses_before_original_session():
     assert len(session.requests)==1 and session.closed
 
 
+@pytest.mark.parametrize("kind", ["choose_pile", "choose_replacement"])
+@pytest.mark.parametrize("prefix", [False, True])
+def test_inherited_menu_retains_original_anchor_prefix_and_seeds(kind, prefix):
+    bot, session = ready([1, 0, 0] if prefix else [1, 0]); bot.choose(view(priority()))
+    if prefix: bot.choose(view(binary()))
+    semantics = ([{"kind": kind, "source": None, "purpose": "effect", "pile_index": i, "piles": [[], []]}
+                  for i in range(2)] if kind == "choose_pile" else
+                 [{"kind": kind, "affected": {"player": "p0"}, "event": "other", "replacement_source": None,
+                   "replacement_index": i, "replacement_count": 2} for i in range(2)])
+    bot.choose(view(decision(*semantics, step=2 if prefix else 1)))
+    root, last = session.requests[0][0], session.requests[-1][0]
+    assert agent.family(last["decision"]) == "inherited" and len(last["replay"]["earlier"]) == int(prefix)
+    assert last["anchor"]["decision"] == root["decision"]
+    assert (root["world_seed"], root["id_seed"]) == (last["world_seed"], last["id_seed"])
+    bot.close()
+
+
+def test_mixed_inherited_menu_refuses_before_original_session():
+    bot, session = ready([1]); bot.choose(view(priority()))
+    current = decision({"kind": "choose_pile", "source": None, "purpose": "effect", "pile_index": 0, "piles": [[], []]},
+                       {"kind": "choose_replacement", "affected": {"player": "p0"}, "event": "other",
+                        "replacement_source": None, "replacement_index": 0, "replacement_count": 2}, step=1)
+    with pytest.raises(ValueError, match="family is not connected"): bot.choose(view(current))
+    assert len(session.requests) == 1 and session.closed
+
+
 def cleanup_menu(count, selected=0):
     refs = [{"object_id": "hand" + str(i), "card_name": "Forest" if i % 2 else "Island",
              "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in range(7 + count)]

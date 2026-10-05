@@ -202,6 +202,8 @@ public final class JackDialogReplay {
                 Map<Object,Map<String,Object>> choices;
                 if("card-set".equals(kind)) {
                     choices=JackCardSetEncoder.replayChoices(world,current,callback,world.game);
+                } else if("pile".equals(kind) || "replacement".equals(kind)) {
+                    choices=JackInheritedChoices.replayChoices(world,current,kind,callback);
                 } else if("parent-card".equals(kind)) {
                     choices=JackParentCardEncoder.replayChoices(world,current,callback,world.game);
                 } else if("target".equals(kind)) {
@@ -217,10 +219,10 @@ public final class JackDialogReplay {
                     Map<String,Object> selected=Json.obj(past,"selection");ModelReplay.selectedSemantic(current,selected);
                     for(Map.Entry<Object,Map<String,Object>> entry:choices.entrySet())
                         if(Json.canonical(selected).equals(Json.canonical(entry.getValue()))) {
-                            // The inherited amount body draws from the reconstructed engine RNG, not the persistent neural session.
-                            // Re-execute this primitive to restore that stream and verify the historical answer.
-                            if("amount".equals(kind) && !Objects.equals(entry.getKey(),((Supplier<?>)args[4]).get()))
-                                throw new IllegalArgumentException("recorded inherited amount differs from the reconstructed engine RNG");
+                            // Restore the engine RNG for amounts; verify the fixed inherited pile/replacement answer.
+                            if(Arrays.asList("amount","pile","replacement").contains(kind)
+                                    && !Objects.equals(entry.getKey(),((Supplier<?>)args[4]).get()))
+                                throw new IllegalArgumentException("recorded inherited choice differs from its original body");
                             replayed++;return entry.getKey();
                         }
                     throw new IllegalArgumentException("recorded dialog choice differs from the actual original callback");
