@@ -571,7 +571,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-032",
     "billing_seal_sha256": "167a941b41c27cdd031fde498c73f340b71c1e6a9ac7d99b4c7382cc8017a9a9",
     "conservative_closed_ceiling_usd": 8.91288647,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
       "returncode": 1,
@@ -651,7 +651,15 @@
     "component058_native_go_tests_passed": true,
     "component058_original_parent_passed": false,
     "component059_corrected_verification_passed": true,
-    "component059_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748"
+    "component059_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
+    "active_lease_scope": "Production060 build and original guarded native qualification; compatible component058/059 reused",
+    "active_lease_maximum_usd": 0.966667,
+    "cumulative_ceiling_with_active_lease_usd": 9.87955347,
+    "active_job_record": "docs/gorge-runtime060-native-20261005.json",
+    "production_runtime_source_of_record": "E:/spellbench-gorge-runtime-20261005-060",
+    "production_runtime_pins_pending": true,
+    "full_go_ci_passed": true,
+    "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685"
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
