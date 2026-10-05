@@ -83,3 +83,49 @@ def test_public_identity_changes_with_checkpoint_visits_build_and_confined_image
         runtime.identity(**{**params, "checkpoint": "invented"})
     assert original["identity"]["profile"]["full_game_qualified"] is False
     assert len(original["identity"]["source_sha256"]) == 8
+
+
+@pytest.mark.parametrize("fault", [None, "close", "container", "receipt", "primary-error"])
+def test_cleanup_attempts_every_owned_container_after_shutdown_failure(tmp_path, monkeypatch, fault):
+    work = tmp_path / "work"
+    directory, sibling = work / "exp1-agent-owned", work / "sibling"
+    directory.mkdir(parents=True)
+    sibling.mkdir()
+    (directory / "db.bin").write_bytes(b"keep for failure inspection")
+    (sibling / "keep.bin").write_bytes(b"foreign work")
+    previous = Path.cwd()
+    monkeypatch.chdir(directory)
+    names = ["spellbench-xmage-" + digit * 32 for digit in ("1", "2")]
+    cleanup_calls = []
+    failure = ValueError("original serving failure") if fault == "primary-error" else None
+
+    class Agent:
+        closed = False
+
+        def close(self):
+            self.closed = True
+            if fault in ("close", "primary-error"):
+                raise RuntimeError("agent shutdown failed")
+
+    agent = Agent()
+
+    def cleanup(name):
+        cleanup_calls.append(name)
+        return {"confirmed_absent": not (fault == "container" and name == names[0])}
+
+    monkeypatch.setattr(runtime, "cleanup_container", cleanup)
+    if fault == "receipt":
+        (work / (names[0] + ".cleanup.json")).write_bytes(b"existing receipt")
+    if fault in ("close", "container", "receipt"):
+        with pytest.raises((RuntimeError, FileExistsError)):
+            runtime.close_owned_runtime(agent, previous, work, directory, names)
+    else:
+        runtime.close_owned_runtime(agent, previous, work, directory, names, failure=failure)
+    assert agent.closed and Path.cwd() == previous
+    assert cleanup_calls == names
+    assert json.loads((work / (names[1] + ".cleanup.json")).read_bytes())["confirmed_absent"] is True
+    assert sibling.is_dir() and (sibling / "keep.bin").read_bytes() == b"foreign work"
+    assert directory.exists() is (fault is not None)
+    if failure is not None:
+        assert failure.args == ("original serving failure",)
+        assert "agent shutdown failed" in failure.__notes__[0]

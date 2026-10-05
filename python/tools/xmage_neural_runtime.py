@@ -183,6 +183,45 @@ def identity(*, checkpoint, visits, build_sha256, image, manifest, play_profile=
             "version": ("exp1-published-fair-v1-" if published else "exp1-visible-v1-") + digest[:24], "identity": bound}
 
 
+def close_owned_runtime(agent, previous, work, directory, owned, *, failure=None, remove_container=None):
+    remove_container = cleanup_container if remove_container is None else remove_container
+    errors = []
+    try:
+        if agent is not None:
+            agent.close()
+    except BaseException as error:
+        errors.append(error)
+    finally:
+        os.chdir(previous)
+    for container in owned:
+        try:
+            cleanup = remove_container(container)
+            with (work / (container + ".cleanup.json")).open("x", encoding="utf-8") as record:
+                json.dump({"container": container, **cleanup}, record)
+                record.write("\n")
+            if cleanup.get("confirmed_absent") is not True:
+                raise RuntimeError("owned model container remains; work directory retained")
+        except BaseException as error:
+            errors.append(error)
+    if not errors:
+        try:
+            if directory.parent != work or is_link(directory):
+                raise ValueError("owned model work directory changed; retained for inspection")
+            if any(is_link(path) for path in directory.rglob("*")):
+                raise ValueError("owned model directory contains a link; retained for inspection")
+            shutil.rmtree(directory)
+        except BaseException as error:
+            errors.append(error)
+    if errors:
+        if failure is not None:
+            for error in errors:
+                failure.add_note("Model runtime cleanup failed: " + str(error))
+        else:
+            for error in errors[1:]:
+                errors[0].add_note(str(error))
+            raise errors[0]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--java", type=Path, required=True)
@@ -268,23 +307,7 @@ def main():
         return serve(agent, name=descriptor["name"], version=descriptor["version"],
                      requires_observation=("passed_seats", "keywords"))
     finally:
-        try:
-            if agent is not None:
-                agent.close()
-        finally:
-            os.chdir(previous)
-        for container in owned:
-            cleanup = cleanup_container(container)
-            with (work / (container + ".cleanup.json")).open("x", encoding="utf-8") as record:
-                json.dump({"container": container, **cleanup}, record)
-                record.write("\n")
-            if cleanup.get("confirmed_absent") is not True:
-                raise RuntimeError("owned model container remains; work directory retained")
-        if directory.parent != work or is_link(directory):
-            raise ValueError("owned model work directory changed; retained for inspection")
-        if any(is_link(p) for p in directory.rglob("*")):
-            raise ValueError("owned model directory contains a link; retained for inspection")
-        shutil.rmtree(directory)
+        close_owned_runtime(agent, previous, work, directory, owned, failure=sys.exception())
 
 
 if __name__ == "__main__":

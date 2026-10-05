@@ -23,8 +23,8 @@ from xmage_magezero_agent import MageZeroAgent, profile
 from xmage_magezero_bridge import BridgeSession
 from xmage_magezero_search import validate_settings
 from xmage_neural_decisions import InferenceSession
-from xmage_neural_runtime import sha, verify_model_build
-from xmage_release_assets import is_link, prepare_root, validate_asset
+from xmage_neural_runtime import close_owned_runtime, sha, verify_model_build
+from xmage_release_assets import prepare_root, validate_asset
 
 
 def validate_inputs(manifest: dict, public: dict, checkpoint: str) -> dict:
@@ -185,31 +185,8 @@ def main(argv=None):
         return serve(agent, name=descriptor["name"], version=descriptor["version"],
                      requires_observation=("passed_seats", "keywords"))
     finally:
-        close_error = None
-        try:
-            if agent is not None:
-                agent.close()
-        except BaseException as exc:
-            close_error = exc
-        finally:
-            os.chdir(previous)
-        all_absent = True
-        for container in owned:
-            cleanup = cleanup_container(container)
-            with (work / (container + ".cleanup.json")).open("x", encoding="utf-8") as record:
-                json.dump({"container": container, **cleanup}, record)
-                record.write("\n")
-            if cleanup.get("confirmed_absent") is not True:
-                all_absent = False
-        if not all_absent:
-            raise RuntimeError("owned MageZero container remains; work directory retained")
-        if close_error is not None:
-            raise close_error
-        if directory.parent != work or is_link(directory):
-            raise ValueError("owned MageZero work directory changed; retained for inspection")
-        if any(is_link(path) for path in directory.rglob("*")):
-            raise ValueError("owned MageZero directory contains a link; retained for inspection")
-        shutil.rmtree(directory)
+        close_owned_runtime(agent, previous, work, directory, owned, failure=sys.exception(),
+                            remove_container=cleanup_container)
 
 
 if __name__ == "__main__":
