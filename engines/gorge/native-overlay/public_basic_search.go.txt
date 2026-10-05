@@ -447,6 +447,207 @@ func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size in
 	return window, moved
 }
 
+// A public DigUntil reveal constrains an opponent's top prefix after a shuffle
+// and only recorded draws. Verify the declared trigger, public target, whole
+// reveal, printed stop condition, exits and size change before using its order.
+func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey][]epochPosition {
+	result := map[epochKey][]epochPosition{}
+	cursors := map[state.PlayerID]epochCursor{}
+	identities := map[uint32]Identity{}
+	for frameIndex, frame := range h.Frames {
+		for _, id := range frame.Identities {
+			identities[id.ID] = id
+		}
+		if frameIndex > 0 {
+			before := h.Frames[frameIndex-1]
+			owner, window, valid := spellbenchRevealedUntilWindow(setup, before, frame, identities)
+			current := cursors[owner]
+			if valid && owner != h.Actor && current.reliable && current.ordinal > 0 {
+				key := epochKey{Player: owner, Ordinal: current.ordinal - 1}
+				for offset, ref := range window {
+					result[key] = append(result[key], epochPosition{Index: current.draws + offset, Name: identities[ref].Name})
+				}
+			}
+		}
+		var inferred map[int]state.PlayerID
+		if frameIndex > 0 {
+			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+		}
+		for index, ev := range frame.Events {
+			current := cursors[ev.Player]
+			switch ev.Kind {
+			case events.Shuffle:
+				current.ordinal++
+				current.draws = 0
+				current.reliable = true
+				cursors[ev.Player] = current
+			case events.Draw:
+				current.draws++
+				cursors[ev.Player] = current
+			case events.LibraryOrder:
+				current.reliable = false
+				cursors[ev.Player] = current
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+				for player, c := range cursors {
+					c.reliable = false
+					cursors[player] = c
+				}
+			case events.MoveZone:
+				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				id, known := identities[ev.Obj]
+				if owner, certain := inferred[index]; !known && certain {
+					id.Owner = owner
+					known = true
+				}
+				for player, c := range cursors {
+					if !known || player == id.Owner {
+						c.reliable = false
+						cursors[player] = c
+					}
+				}
+			}
+		}
+	}
+	return result
+}
+
+func spellbenchRevealedUntilWindow(setup PublicGame, before, after Frame, identities map[uint32]Identity) (state.PlayerID, []uint32, bool) {
+	var board struct {
+		Stack []struct {
+			ID     uint32 `json:"id"`
+			Source uint32 `json:"source"`
+			Kind   string `json:"kind"`
+			Card   struct {
+				Name string `json:"name"`
+			} `json:"card"`
+			Targets []struct {
+				IsPlayer bool           `json:"is_player"`
+				Player   state.PlayerID `json:"player"`
+			} `json:"targets"`
+		} `json:"stack"`
+		Players []struct {
+			Seat state.PlayerID `json:"seat"`
+			Size *int           `json:"library_size"`
+		} `json:"players"`
+	}
+	if json.Unmarshal(before.Board, &board) != nil || len(board.Stack) != 1 {
+		return 0, nil, false
+	}
+	top := board.Stack[0]
+	if top.Kind != "trigger" || top.Source == 0 || len(top.Targets) != 1 || !top.Targets[0].IsPlayer {
+		return 0, nil, false
+	}
+	owner := top.Targets[0].Player
+	if int(owner) >= len(setup.Decks) {
+		return 0, nil, false
+	}
+	source, known := identities[top.Source]
+	if !known || source.Name != top.Card.Name {
+		return 0, nil, false
+	}
+	printed := false
+	land := map[string]bool{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			if card == nil {
+				continue
+			}
+			for _, face := range card.Faces {
+				land[face.Name] = slices.Contains(face.Types, "Land")
+				if face.Name != source.Name {
+					continue
+				}
+				for _, trigger := range face.Triggers {
+					sa := trigger.Effect
+					if sa == nil || sa.API != "DigUntil" || sa.Sub != nil {
+						continue
+					}
+					allowed := map[string]bool{"ValidTgts": true, "IsCurse": true, "Amount": true, "Valid": true, "ValidDescription": true, "RevealedDestination": true}
+					plain := true
+					for key := range sa.Params {
+						plain = plain && allowed[key]
+					}
+					if plain && sa.Params["ValidTgts"] == "Player" && sa.Params["Amount"] == "1" && sa.Params["Valid"] == "Land" && sa.Params["RevealedDestination"] == "Graveyard" {
+						printed = true
+					}
+				}
+			}
+		}
+	}
+	if !printed {
+		return 0, nil, false
+	}
+	var window []uint32
+	resolved := false
+	hand, grave := 0, 0
+	for _, ev := range after.Events {
+		if ev.Kind == events.Resolve && ev.Obj == top.ID {
+			resolved = true
+		}
+		if ev.Kind == events.Note && !ev.Secret && ev.Player == owner && ev.Text == "" && len(ev.IDs) > 0 {
+			if window != nil || !resolved {
+				return 0, nil, false
+			}
+			window = ev.IDs
+		}
+		if ev.Kind == events.Draw || ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder || ev.Kind == events.CardToken || ev.Kind == events.CopyToken || ev.Kind == events.MyriadCopy || ev.Kind == events.StackCopy {
+			return 0, nil, false
+		}
+		if ev.Kind == events.MoveZone && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) {
+			if window == nil || ev.From != state.ZLibrary || ev.Obj != 0 || ev.Player != owner || ev.Text != "" {
+				return 0, nil, false
+			}
+			switch ev.To {
+			case state.ZHand:
+				hand++
+			case state.ZGraveyard:
+				grave++
+			default:
+				return 0, nil, false
+			}
+		}
+	}
+	if len(window) == 0 || hand != 1 || grave != len(window)-1 {
+		return 0, nil, false
+	}
+	seen := map[uint32]bool{}
+	for i, ref := range window {
+		id, ok := identities[ref]
+		isLand, printed := land[id.Name]
+		if ref == 0 || seen[ref] || !ok || id.Owner != owner || !printed || isLand != (i == len(window)-1) {
+			return 0, nil, false
+		}
+		seen[ref] = true
+	}
+	previous := -1
+	for _, p := range board.Players {
+		if p.Seat == owner {
+			if previous >= 0 || p.Size == nil {
+				return 0, nil, false
+			}
+			previous = *p.Size
+		}
+	}
+	if json.Unmarshal(after.Board, &board) != nil {
+		return 0, nil, false
+	}
+	current := -1
+	for _, p := range board.Players {
+		if p.Seat == owner {
+			if current >= 0 || p.Size == nil {
+				return 0, nil, false
+			}
+			current = *p.Size
+		}
+	}
+	if previous < 0 || current < 0 || previous-current != len(window) {
+		return 0, nil, false
+	}
+	return owner, window, true
+}
+
 // An owned Dig look exposes the whole ordered window. Its semantic answer,
 // recorded hand moves and all-to-bottom arrangement can preserve the untouched
 // tail without guessing any hidden complement. Other shapes remain unguided.

@@ -12,6 +12,63 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+func TestSpellbenchRevealedUntilRequiresCompletePublicProof(t *testing.T) {
+	fixture := func() (PublicGame, History) {
+		spy := &cards.Card{Faces: []*cards.Face{{Name: "Spy", Triggers: []*cards.Trigger{{Effect: &cards.SA{API: "DigUntil", Params: map[string]string{"ValidTgts": "Player", "Amount": "1", "Valid": "Land", "RevealedDestination": "Graveyard"}}}}}}}
+		creature := &cards.Card{Faces: []*cards.Face{{Name: "Caretaker", Types: []string{"Creature"}}}}
+		forest := &cards.Card{Faces: []*cards.Face{{Name: "Forest", Types: []string{"Land"}}}}
+		s := PublicGame{Decks: [][]*cards.Card{{spy}, {creature, creature, creature, creature, forest}}}
+		h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+			{Identities: []Identity{{ID: 48, Name: "Spy", Owner: 0}}, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}}},
+			{Board: json.RawMessage(`{"players":[{"seat":1,"library_size":9}],"stack":[{"id":54,"source":48,"kind":"trigger","card":{"name":"Spy"},"targets":[{"is_player":true,"player":1}]}]}`)},
+			{Identities: []Identity{{ID: 55, Name: "Caretaker", Owner: 1}, {ID: 56, Name: "Caretaker", Owner: 1}, {ID: 57, Name: "Caretaker", Owner: 1}, {ID: 58, Name: "Caretaker", Owner: 1}, {ID: 59, Name: "Forest", Owner: 1}}, Board: json.RawMessage(`{"players":[{"seat":1,"library_size":4}],"stack":[]}`), Events: []ObservedEvent{
+				{Kind: events.Resolve, Obj: 54}, {Kind: events.Note, Player: 1, IDs: []uint32{55, 56, 57, 58, 59}},
+				{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZHand},
+				{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZGraveyard}, {Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZGraveyard}, {Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZGraveyard}, {Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZGraveyard}}},
+		}}
+		return s, h
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*PublicGame, *History)
+		want bool
+	}{
+		{"complete reveal after a draw", func(*PublicGame, *History) {}, true},
+		{"unknown earlier mutation", func(_ *PublicGame, h *History) {
+			h.Frames[1].Events = []ObservedEvent{{Kind: events.MoveZone, From: state.ZLibrary, To: state.ZHand}}
+		}, false},
+		{"wrong target", func(_ *PublicGame, h *History) {
+			h.Frames[1].Board = json.RawMessage(`{"players":[{"seat":1,"library_size":9}],"stack":[{"id":54,"source":48,"kind":"trigger","card":{"name":"Spy"},"targets":[{"is_player":true,"player":0}]}]}`)
+		}, false},
+		{"opaque name", func(_ *PublicGame, h *History) { h.Frames[2].Identities[0].Name = "" }, false},
+		{"wrong owner", func(_ *PublicGame, h *History) { h.Frames[2].Identities[0].Owner = 0 }, false},
+		{"duplicate reveal", func(_ *PublicGame, h *History) { h.Frames[2].Events[1].IDs[1] = 55 }, false},
+		{"missing exit", func(_ *PublicGame, h *History) { h.Frames[2].Events = h.Frames[2].Events[:6] }, false},
+		{"wrong size", func(_ *PublicGame, h *History) {
+			h.Frames[2].Board = json.RawMessage(`{"players":[{"seat":1,"library_size":5}],"stack":[]}`)
+		}, false},
+		{"wrong printed stop", func(s *PublicGame, _ *History) {
+			s.Decks[0][0].Faces[0].Triggers[0].Effect.Params["Valid"] = "Creature"
+		}, false},
+		{"additional printed effect", func(s *PublicGame, _ *History) {
+			s.Decks[0][0].Faces[0].Triggers[0].Effect.Sub = &cards.SA{API: "Shuffle"}
+		}, false},
+		{"land before the end", func(_ *PublicGame, h *History) { h.Frames[2].Identities[0].Name = "Forest" }, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, h := fixture()
+			test.edit(&s, &h)
+			positions := spellbenchRevealedUntilPositions(s, h)[epochKey{Player: 1, Ordinal: 0}]
+			if (len(positions) == 5) != test.want {
+				t.Fatalf("positions=%+v want=%v", positions, test.want)
+			}
+			if test.want && (positions[0].Index != 1 || positions[4].Index != 5 || positions[4].Name != "Forest") {
+				t.Fatalf("wrong ordered prefix: %+v", positions)
+			}
+		})
+	}
+}
+
 func TestSpellbenchActorRevealedDigPreservesGroupedMoveOrder(t *testing.T) {
 	fixture := func() (PublicGame, History) {
 		dig := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "4", "Reveal": "True", "ChangeNum": "All", "ChangeValid": "Card.ChosenType", "DestinationZone2": "Graveyard"}}
