@@ -29,6 +29,11 @@ def family(decision):
         if kind == "choose_number" and all(c["semantic"].get("purpose") == "x_value"
                                             for c in decision["candidates"]):
             return "x"
+    if (decision.get("context", {}).get("kind") == "choice" and kinds
+            and kinds <= {"choose_spell_mode", "finish_selection"}
+            and all(c["semantic"].get("kind") != "finish_selection"
+                    or c["semantic"].get("purpose") == "modes" for c in decision["candidates"])):
+        return "mode"
     raise ValueError("original player callback family is not connected")
 
 
@@ -108,7 +113,7 @@ class JackNativeAgent:
             if kind == "priority" and self.history.anchor is not None:
                 if self.history.anchor["priority_pass_after_activation"]:
                     raise ValueError("original pass-after-activation continuation is not connected")
-            if kind in ("binary", "x"):
+            if kind in ("binary", "x", "mode"):
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
                         not in ("cast_spell", "activate_ability")):
                     raise ValueError("original callback has no recorded activation anchor")

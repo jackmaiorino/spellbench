@@ -92,10 +92,12 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
         final List<Object> order = new ArrayList<>();
         final Map<UUID, String> permitted;
         Long finish;
+        Map<String,Object> finishSemantic;
 
         Binding(World world, Map<String, Object> decision, Modes modes, Ability source, Game game) throws Exception {
             String viewer = Json.str(Json.obj(decision, "observation"), "viewer");
             if (!world.viewer.equals(viewer) || !viewer.equals(Json.str(decision, "acting_seat"))
+                    || !"choice".equals(Json.str(Json.obj(decision,"context"),"kind")) || modes == null
                     || source == null || !world.player(viewer).equals(source.getControllerId())) {
                 throw new IllegalArgumentException("mode callback needs the acting viewer's actual source");
             }
@@ -127,7 +129,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
             Set<Long> publicIds = new HashSet<>();
             Set<Integer> publicModes = new HashSet<>();
             List<Object> candidates = Json.arr(decision, "candidates");
-            if (candidates.isEmpty()) throw new IllegalArgumentException("mode root has no offered actions");
+            if (candidates.isEmpty() || candidates.size()>4096) throw new IllegalArgumentException("mode root has an invalid offered action count");
             for (Object item : candidates) {
                 Map<String, Object> candidate = Json.obj(item), semantic = Json.obj(candidate, "semantic");
                 Object cid = candidate.get("candidate_id");
@@ -158,6 +160,7 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                         throw new IllegalArgumentException("mode finish is unavailable at the actual callback");
                     }
                     finish = (Long) cid;
+                    finishSemantic = semantic;
                 } else throw new IllegalArgumentException("mode root mixes unrelated actions");
             }
             if (count == 0 && finish == null) {
@@ -184,6 +187,28 @@ final class JackModeEncoder implements ModelReplay.ModeCapture {
                 throw new IllegalArgumentException("original mode requires an unavailable action or heuristic fallback");
             }
         }
+    }
+
+    /** Bind actual mode objects without repeating the current policy's legality or inference work. */
+    static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,
+            Modes modes,Ability source,Game game,boolean recorded) {
+        try {
+            Binding bound=new Binding(world,decision,modes,source,game);
+            // A recorded choice has already consumed its original draw. Validate its
+            // feasibility without invoking the original chooser a second time.
+            if(recorded) bound.applyMask(world,source,game,true);
+            Map<Object,Map<String,Object>> choices=new LinkedHashMap<>();
+            if(bound.available.isEmpty()) choices.put(null,Json.map("candidate_id",bound.finish,
+                    "semantic_echo",Json.copy(bound.finishSemantic)));
+            for(int i=0;i<bound.mask.length;i++) {
+                if(!bound.ids.containsKey(i) || recorded && !bound.mask[i]) continue;
+                choices.put(bound.available.get(i),Json.map("candidate_id",bound.ids.get(i),
+                        "semantic_echo",Json.copy(bound.offered.get(i))));
+            }
+            if(choices.isEmpty()) throw new IllegalArgumentException("original mode has no bound offered value");
+            return choices;
+        } catch(RuntimeException failure) {throw failure;}
+        catch(Exception failure) {throw new IllegalArgumentException("original mode replay binding failed",failure);}
     }
 
     @Override public Mode earlier(World world, Map<String, Object> decision, Modes modes, Ability source,

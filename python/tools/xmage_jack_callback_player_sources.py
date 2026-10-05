@@ -183,7 +183,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         }));
     }
     @Override public final Mode chooseMode(Modes modes, Ability source, Game game) {
-        return callback(game, () -> {
+        return callback(game,"mode",new Object[]{modes,source}, () -> {
             if (modes==null) return originalParentMode(modes,source,game);
             List<Mode> available=modes.getAvailableModes(source,game);
             if (available.isEmpty()) return null;

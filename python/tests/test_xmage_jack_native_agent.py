@@ -111,6 +111,43 @@ def test_callback_chain_retains_actual_priority_state_seeds_and_exact_prefix():
     bot.close()
 
 
+@pytest.mark.parametrize("shape", ["multiple", "singleton", "exhausted", "optional-finish"])
+def test_modes_use_original_session_and_join_binary_x_replay_prefix(shape):
+    bot, session = ready([1, 0, 1, 0])
+    bot.choose(view(priority()))
+    source = {"object_id": "spell"}
+    option = {"kind": "choose_spell_mode", "source": source, "mode_index": 0,
+              "mode_count": 2, "selected_count": 0, "minimum": 1, "maximum": 1}
+    finish = {"kind": "finish_selection", "source": source, "purpose": "modes", "selected_count": 0}
+    semantics = [option]
+    if shape == "multiple": semantics.append({**option, "mode_index": 1})
+    if shape == "exhausted": semantics = [finish]
+    if shape == "optional-finish": semantics.append(finish)
+    received = decision(*semantics, step=1)
+    bot.choose(view(received))
+    bot.choose(view(binary(2)))
+    bot.choose(view(amount(3)))
+    root, mode, binary_record, x = [row[0] for row in session.requests]
+    assert agent.family(mode["decision"]) == "mode"
+    assert mode["replay"]["earlier"] == []
+    assert binary_record["replay"]["earlier"][0]["selection"]["semantic_echo"] == semantics[0]
+    assert len(x["replay"]["earlier"]) == 2
+    assert all((r["world_seed"], r["id_seed"]) == (root["world_seed"], root["id_seed"])
+               for r in (mode, binary_record, x))
+    bot.close()
+
+
+@pytest.mark.parametrize("semantic", [{"kind": "finish_selection", "purpose": "cards"},
+                                     {"kind": "choose_boolean", "value": True}])
+def test_mixed_mode_families_refuse_before_original_session(semantic):
+    bot, session = ready([1])
+    bot.choose(view(priority()))
+    received = decision({"kind": "choose_spell_mode", "mode_index": 0}, semantic, step=1)
+    with pytest.raises(ValueError, match="family is not connected"):
+        bot.choose(view(received))
+    assert session.closed and len(session.requests) == 1
+
+
 def test_caller_result_and_audit_mutations_cannot_change_saved_priority_state():
     bot, session = ready([1, 0])
     bot.audit = lambda event: event.update(selection={"candidate_id": 999})

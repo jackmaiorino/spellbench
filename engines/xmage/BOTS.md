@@ -138,8 +138,11 @@ checkpoint to its actual training deck version.
 Jack's permitted priority feature pipe follows the received public action list.
 The original priority player separately constructs, deduplicates and validates
 its options, includes individual mana abilities, and dispatches by phase with
-different action/pass behavior. Those policy steps remain unwired. Existing
-paired-network feature checks retain their tested scope; see
+different action/pass behavior. The production bridge now enters those original
+policy steps and retains their activation state. Binary, X and spell-mode
+callbacks replay that saved activation through the original player. The guarded
+runtime is connected; the full player remains unqualified. Existing paired-network
+feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
 
 Jack's London bottoming loop is staged separately. It ranks the shrinking

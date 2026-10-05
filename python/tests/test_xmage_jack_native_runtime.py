@@ -20,7 +20,7 @@ from test_xmage_neural_runtime import fixture as build_fixture
 IMAGE = "sha256:" + "a" * 64
 
 
-@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class"])
+@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class", "mode-class"])
 def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tmp_path, monkeypatch, fault):
     build, engine, releases, metadata = build_fixture(tmp_path)
     private = tmp_path / "private.json"; private.write_bytes(b'{"private":true}')
@@ -34,7 +34,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
             "OriginalActivationPlayer", "OriginalParentManaPlayer", "OriginalParentDialogsPlayer", "StateSequenceBuilder",
             "CandidateEncoder", "MulliganEncoder", "PriorityRules", "DialogRules", "ModeRules", "TargetRules",
             "CardSetRules", "CombatRules", "LondonRules")), ("kit/xmage", ("JackOriginalBridgeMain", "JackRootDecision",
-            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackInferenceChannel", "JackPermittedWorlds",
+            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackModeEncoder", "JackInferenceChannel", "JackPermittedWorlds",
             "JackPlayerBootstrap", "ModelReplay"))):
         for name in names:
             path = build / ("model/spellbench/" + package + "/" + name + ".class")
@@ -46,6 +46,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
     if fault == "mulligan": stage["original_mulligan_encoder_sha256"] = "0" * 64
     if fault == "stage": del stage["staged_neural_selection_sha256"]
     if fault == "class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackDialogReplay.class"]
+    if fault == "mode-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackModeEncoder.class"]
     (build / "BUILD.json").write_text(json.dumps(metadata), encoding="utf-8")
     monkeypatch.setattr(common, "verify_build", lambda *a: None)
     if fault is None:

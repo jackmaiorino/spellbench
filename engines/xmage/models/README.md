@@ -597,3 +597,33 @@ copy selection and remains unfinished. Divided targets, opponent sources,
 incompatible public/original ranges, private native execution, exact decks,
 complete games, ratings and publication remain unqualified. Public normalization
 checks and transport tests do not qualify the full agent.
+
+## Original Jack activation replay
+
+`xmage_jack_native_runtime.py` connects the public frontend to the original
+priority, mulligan and activation player in one game-owned session. It requires
+the complete private player build, including `JackModeEncoder`, and the existing
+reservation and containment guards. The active research hold prevents native
+startup. Arena run/bench run still owns substantial-work throughput and storage
+qualification.
+
+Binary, X and spell-mode callbacks retain the saved priority state, reconstruction
+seeds and exact earlier selections. The current spell-mode callback runs the
+original chooser, legality mask and 64-slot prefix once. An earlier mode uses its
+recorded selection and original feasibility checks without a second policy draw.
+Empty and singleton callbacks retain their original direct returns. Candidate
+IDs and source references bind to actual modes on the permitted world.
+
+Metadata verification compiled the private generated callback and public replay
+with JDK 23.0.1 targeting Java 8. Two JVM runs were identical for 0, 1, 2 and 70
+available modes, earlier mode prefixes, binary/X regression, copy ownership and
+hidden-card read denials. All 56 affected Python checks passed. The first fixture
+retained XMage's default selected mode; its failure is preserved before the
+fixture clears that default. The working-space projection also failed after two
+compile attempts. Both attempts and synthetic files were losslessly packed and
+verified in D/E copies, restoring the 335 MiB native reserve.
+
+Evidence is retained under `E:/spellbench-xmage-all-20261002/jack-mode-replay-001`.
+Named Choice callbacks, resolution passes, priority continuation, refreshed full
+build/native preparations, trained-weight complete games and deck associations
+remain unfinished. These metadata results do not qualify or rate a bot.

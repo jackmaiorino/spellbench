@@ -2,6 +2,9 @@ package spellbench.kit.xmage;
 
 import mage.MageObject;
 import mage.abilities.ActivatedAbility;
+import mage.abilities.Ability;
+import mage.abilities.Mode;
+import mage.abilities.Modes;
 import mage.constants.Outcome;
 import mage.game.Game;
 import spellbench.kit.core.Json;
@@ -31,7 +34,8 @@ public final class JackDialogReplayCheck {
         public void close() {closed=true;}
     }
     static final class Viewer extends OriginalCallbackPlayer {
-        boolean prefix,cost;int entered;boolean earlier;ActivatedAbility playable;
+        boolean prefix,cost,mode,modePrefix;int entered;boolean earlier;ActivatedAbility playable;
+        Modes modes;Ability modeSource;Mode earlierMode;
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
         @Override public Viewer copy() {return new Viewer(this);}
@@ -46,6 +50,7 @@ public final class JackDialogReplayCheck {
                         "original activation lost its recorded validated alternative cost or selected source");
             }
             if(prefix) earlier=chooseUse(Outcome.Benefit,"earlier",null,game);
+            if(mode || modePrefix) earlierMode=chooseMode(modes,modeSource,game);
             announceX(0,3,"current",game,null,false);return true;
         }
     }
@@ -142,6 +147,41 @@ public final class JackDialogReplayCheck {
         JackDialogReplay control(Map<String,Object> record) {
             return new JackDialogReplay(world,record,(w,d)->{require(w==world,"projection used another world");compares++;});
         }
+        Map<String,Object> modeDecision(int count) {
+            List<Mode> available=new ArrayList<>();
+            for(int i=0;i<count;i++) available.add(new Mode(new mage.abilities.effects.common.InfoEffect("mode "+i)));
+            player.modes=new Modes() {
+                @Override public List<Mode> getAvailableModes(Ability source,Game game) {return new ArrayList<>(available);}
+            };
+            player.modes.clear();
+            player.modes.setMinModes(count==0?0:1);player.modes.setMaxModes(1);
+            for(Mode mode:available) player.modes.addMode(mode);
+            player.modes.clearSelectedModes();
+            player.modeSource=(Ability)Proxy.newProxyInstance(Ability.class.getClassLoader(),new Class<?>[]{Ability.class},(o,m,a)->{
+                if("getControllerId".equals(m.getName())) return player.getId();
+                try{return m.invoke(ability,a);} catch(InvocationTargetException failure) {throw failure.getCause();}
+            });
+            Map<String,Object> decision=decision("use");
+            Object source=new spellbench.kit.core.ObsIndex(Json.obj(decision,"observation")).ref(world.uuidToId.get(ability.getSourceId()));
+            Json.obj(decision,"context").put("source",source);
+            List<Object> offered=new ArrayList<>();
+            for(int i=count-1;i>=0;i--) offered.add(Json.map("candidate_id",100L+i,"semantic",Json.map(
+                    "kind","choose_spell_mode","source",source,"mode_index",(long)i,"mode_count",(long)count,
+                    "selected_count",0L,"minimum",1L,"maximum",1L)));
+            if(count==0) offered.add(Json.map("candidate_id",900L,"semantic",Json.map(
+                    "kind","finish_selection","source",source,"purpose","modes","selected_count",0L)));
+            decision.put("candidates",offered);return decision;
+        }
+        Map<String,Object> modeRecord(int count,boolean prefix) {
+            Map<String,Object> record=record(false),modeDecision=modeDecision(count);
+            if(prefix) {
+                Map<String,Object> chosen=Json.obj(Json.arr(modeDecision,"candidates").get(count==0?0:Math.max(0,count-64)));
+                Json.obj(record,"replay").put("earlier",Arrays.asList(Json.map("decision",modeDecision,"selection",Json.map(
+                        "candidate_id",chosen.get("candidate_id"),"semantic_echo",Json.copy(chosen.get("semantic"))))));
+                player.modePrefix=true;
+            } else {record.put("decision",modeDecision);player.mode=true;}
+            return record;
+        }
     }
     public static void main(String[] args) throws Exception {
         Case known=new Case();UUID library=known.player.getLibrary().getCardList().get(0);known.hidden.remove(library);
@@ -189,6 +229,25 @@ public final class JackDialogReplayCheck {
         Field bridge=OriginalCallbackPlayer.class.getDeclaredField("replay");bridge.setAccessible(true);
         require(bridge.get(copied)==null && bridge.get(prefix.player)!=null,"simulation copy retained root replay bridge");
         prefix.registry.close();
+        for(int count:new int[]{0,1,2,70}) {
+            Case modes=new Case();Map<String,Object> modeRecord=modes.modeRecord(count,false);
+            Map<String,Object> modeResult=JackOriginalBridgeMain.choose(modes.world,modeRecord);
+            require(Long.valueOf(count==0?900:100+Math.min(count,64)-1).equals(Json.obj(modeResult,"selection").get("candidate_id"))
+                    && modes.backend.calls==(count<2?0:1) && !modes.backend.closed,
+                    "original mode replay changed forced handling, order, 64-slot cap or draw count");
+            modes.registry.close();
+            Case recordedMode=new Case();modeRecord=recordedMode.modeRecord(count,true);
+            modeResult=JackOriginalBridgeMain.choose(recordedMode.world,modeRecord);
+            require(recordedMode.backend.calls==1 && Long.valueOf(1).equals(modeResult.get("original_dialog_prefix_replayed"))
+                    && (count==0?recordedMode.player.earlierMode==null:
+                        recordedMode.player.earlierMode==new ArrayList<>(recordedMode.player.modes.values()).get(Math.min(count,64)-1))
+                    && !recordedMode.backend.closed,"recorded mode prefix consumed another draw or applied a different mode");
+            recordedMode.registry.close();
+        }
+        Case wrongMode=new Case();Map<String,Object> wrongModeRecord=wrongMode.modeRecord(2,false);
+        Json.obj(Json.obj(Json.arr(Json.obj(wrongModeRecord,"decision"),"candidates").get(0)),"semantic").put("mode_index",99L);
+        refused(()->{try {JackOriginalBridgeMain.choose(wrongMode.world,wrongModeRecord);} catch(Exception failure) {throw new IllegalArgumentException(failure);}});
+        require(wrongMode.backend.calls==0 && wrongMode.backend.closed,"invalid mode entered original inference or retained its model");
         Case wrong=new Case();Map<String,Object> record=wrong.record(false);
         Json.obj(Json.obj(Json.arr(Json.obj(record,"decision"),"candidates").get(0)),"semantic").put("source",Json.map("object_id","foreign"));
         replay=wrong.control(record);replay.bind();JackDialogReplay bad=replay;
@@ -197,6 +256,6 @@ public final class JackDialogReplayCheck {
         refused(()->unsupported.player.chooseMulligan(unsupported.world.game));require(unsupported.backend.closed,"unconnected replay family ran its policy");
         Case foreign=new Case();Map<String,Object> badSeed=foreign.record(false);Json.obj(badSeed,"game_start").put("agent_seed",1L);
         refused(()->foreign.control(badSeed));require(foreign.backend.closed,"foreign constructor seed left the game-owned model open");
-        System.out.println("JackDialogReplayCheck PASS: production dispatch, recorded alternative-cost state, original activation, current X, recorded binary prefix, copy isolation and failure closure");
+        System.out.println("JackDialogReplayCheck PASS: production dispatch, original activation, X, binary and mode prefixes, forced modes, 64-slot cap, copy isolation and failure closure");
     }
 }

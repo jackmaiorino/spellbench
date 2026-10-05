@@ -11,7 +11,7 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** Actual original activation to an exact binary/X wire callback. Other families refuse. */
+/** Actual original activation to an exact binary, X or spell-mode wire callback. */
 public final class JackDialogReplay {
     interface Projection {void compare(World world,Map<String,Object> decision) throws Exception;}
     private final World world;
@@ -96,7 +96,15 @@ public final class JackDialogReplay {
                 String kind=(String)args[0];Map<String,Object> past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
                 Map<String,Object> current=past==null?decision:Json.obj(past,"decision");
                 check(current);projection.compare(world,current);
-                Map<Object,Map<String,Object>> choices=JackDialogEncoder.replayChoices(world,current,kind,(Object[])args[3],world.game);
+                Object[] callback=(Object[])args[3];
+                Map<Object,Map<String,Object>> choices;
+                if("mode".equals(kind)) {
+                    if(callback.length!=2 || !(callback[0] instanceof mage.abilities.Modes)
+                            || !(callback[1] instanceof mage.abilities.Ability))
+                        throw new IllegalArgumentException("original spell-mode callback lacks its modes or source");
+                    choices=JackModeEncoder.replayChoices(world,current,(mage.abilities.Modes)callback[0],
+                            (mage.abilities.Ability)callback[1],world.game,past!=null);
+                } else choices=JackDialogEncoder.replayChoices(world,current,kind,callback,world.game);
                 if(past!=null) {
                     Map<String,Object> selected=Json.obj(past,"selection");ModelReplay.selectedSemantic(current,selected);
                     for(Map.Entry<Object,Map<String,Object>> entry:choices.entrySet())
