@@ -114,3 +114,71 @@ func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 		})
 	}
 }
+
+func TestSpellbenchPublicCarrySurvivesScryBottom(t *testing.T) {
+	previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
+	for _, test := range []struct {
+		name string
+		reorderPlayer state.PlayerID
+		reorders bool
+		wantPrefix int
+	}{
+		{"before opponent reorder", 1, true, 2},
+		{"actor reorder does not constrain opponent", 0, true, 4},
+		{"no reorder", 1, false, 4},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+			}}
+			if test.reorders {
+				h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.LibraryOrder, Player: test.reorderPlayer}}})
+			}
+			h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 1}}})
+			if test.reorders {
+				h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.LibraryOrder, Player: test.reorderPlayer}}})
+			}
+			h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 1}}},
+				Frame{Board: []byte(`{"players":[{"seat":1,"hand_size":2}]}`),
+					Events: []ObservedEvent{{Kind: events.TurnChange, Player: 1}, {Kind: events.Shuffle, Player: 1}}})
+			// One copy is consumed after the first reorder. Another must still
+			// be held at the next shuffle, so both must precede the reorder.
+			original := map[epochKey]epochConstraints{
+				previous: {Deadlines: []deadlineConstraint{{Through: 3, Name: "Refurbished Familiar", Count: 1}}},
+				next: {Deadlines: []deadlineConstraint{{Through: 0, Name: "Refurbished Familiar", Count: 1}}},
+			}
+			guided := spellbenchCarryEpochs(h, original)
+			bounds := guided[previous].Deadlines
+			if len(bounds) != 2 || bounds[1].Through != test.wantPrefix || bounds[1].Count != 2 {
+				t.Fatalf("carry card could remain in the reordered tail: %+v", bounds)
+			}
+			if !reflect.DeepEqual(guided[next], original[next]) || len(original[previous].Deadlines) != 1 {
+				t.Fatal("optional carry changed native constraints")
+			}
+			if !test.reorders || test.reorderPlayer != 1 {
+				return
+			}
+			library := []rules.ShuffleCard{{ID: 1, Name: "Refurbished Familiar"}, {ID: 2, Name: "Refurbished Familiar"},
+				{ID: 3, Name: "Other"}, {ID: 4, Name: "Other"}, {ID: 5, Name: "Other"}, {ID: 6, Name: "Other"}}
+			for attempt := 0; attempt < 8; attempt++ {
+				p := &proposalState{epochs: guided, base: 27, attempt: attempt, observer: NewCollector(0),
+					result: &SampleResult{}, plans: newConstraintPlanCache(), exclusions: newExclusionStore()}
+				order, err := p.plan(rules.ShuffleContext{Player: 1, Ordinal: 0, Library: library})
+				if err != nil || len(order) != len(library) {
+					t.Fatalf("carry shuffle failed: order=%v err=%v", order, err)
+				}
+				// Draw two, bottom the next card, then draw its successor. The
+				// required copies must already be held before the scry.
+				copies := 0
+				for _, id := range order[:2] {
+					if id == 1 || id == 2 {
+						copies++
+					}
+				}
+				if copies != 2 {
+					t.Fatalf("scry can bottom a required carry copy: order=%v", order)
+				}
+			}
+		})
+	}
+}

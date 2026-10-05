@@ -422,12 +422,15 @@ func spellbenchPrintedScryBound(face *cards.Face) int {
 // every completion still replays the whole public history and is redealt.
 func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
 	type link struct {
-		previous    epochKey
-		draws, hand int
-		returned    map[string]int
+		previous            epochKey
+		draws, prefix, hand int
+		returned            map[string]int
 	}
 	links := map[epochKey]link{}
 	ordinals, draws := map[state.PlayerID]int{}, map[state.PlayerID]int{}
+	// After a reorder, a prefix can contain a card that was bottomed rather
+	// than drawn. Optional carry names must already be drawn before it.
+	carryLimits := map[state.PlayerID]int{}
 	identities := map[uint32]Identity{}
 	returned := map[state.PlayerID]map[string]int{}
 	started := false
@@ -470,6 +473,10 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 				started = true
 			case events.Draw:
 				draws[ev.Player]++
+			case events.LibraryOrder:
+				if _, limited := carryLimits[ev.Player]; !limited {
+					carryLimits[ev.Player] = draws[ev.Player]
+				}
 			case events.Shuffle:
 				if started && ev.Player != h.Actor && ordinals[ev.Player] > 0 {
 					for _, player := range board.Players {
@@ -479,12 +486,17 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 							for name, count := range returned[ev.Player] {
 								held[name] = count
 							}
-							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], hand: *player.Hand, returned: held}
+							prefix := draws[ev.Player]
+							if limit, limited := carryLimits[ev.Player]; limited {
+								prefix = min(prefix, limit)
+							}
+							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], prefix: prefix, hand: *player.Hand, returned: held}
 						}
 					}
 				}
 				ordinals[ev.Player]++
 				draws[ev.Player] = 0
+				delete(carryLimits, ev.Player)
 			}
 		}
 	}
@@ -549,7 +561,7 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 					consumed = max(consumed, bound.Count)
 				}
 			}
-			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: prior.draws, Name: name, Count: consumed + carry[name] - prior.returned[name]})
+			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: prior.prefix, Name: name, Count: consumed + carry[name] - prior.returned[name]})
 		}
 		guided[prior.previous] = epoch
 	}
