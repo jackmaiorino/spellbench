@@ -105,3 +105,35 @@ def test_storage_refuses_projected_cap_or_reserve_before_dispatch(tmp_path, monk
         job.storage(record)
     monkeypatch.setattr(job.shutil, "disk_usage", lambda path: SimpleNamespace(free=106))
     assert job.storage(record) == 10
+
+
+def test_storage_scan_tolerates_worker_file_removed_after_listing(tmp_path, monkeypatch):
+    transient = tmp_path / "cards.h2.trace.db"
+    transient.write_bytes(b"temporary database trace")
+    (tmp_path / "retained").write_bytes(b"12345")
+    walk = job.os.walk
+
+    def racing_walk(*args, **kwargs):
+        for directory, dirs, files in walk(*args, **kwargs):
+            if transient.name in files:
+                transient.unlink()
+            yield directory, dirs, files
+
+    monkeypatch.setattr(job.os, "walk", racing_walk)
+    assert job.tree_bytes(tmp_path) == 5
+    assert not transient.exists()
+
+
+def test_storage_scan_keeps_unreadable_file_failures(tmp_path, monkeypatch):
+    blocked = tmp_path / "unreadable"
+    blocked.write_bytes(b"cannot silently omit storage")
+    stat = Path.stat
+
+    def unreadable_stat(path, *args, **kwargs):
+        if path == blocked:
+            raise PermissionError("storage metadata unavailable")
+        return stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", unreadable_stat)
+    with pytest.raises(PermissionError, match="storage metadata unavailable"):
+        job.tree_bytes(tmp_path)

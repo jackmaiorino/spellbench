@@ -38,7 +38,15 @@ def tree_bytes(root: Path) -> int:
     for directory, dirs, files in os.walk(root, followlinks=False):
         here = Path(directory)
         dirs[:] = [d for d in dirs if not (here/d).is_symlink() and not (here/d).is_junction()]
-        total += sum((here/f).stat().st_size for f in files if not (here/f).is_symlink())
+        for name in files:
+            path = here / name
+            try:
+                if not path.is_symlink():
+                    total += path.stat().st_size
+            except FileNotFoundError:
+                # Workers remove temporary databases while this scan runs.
+                # A file gone before stat no longer occupies the job's storage.
+                continue
     return total
 
 
