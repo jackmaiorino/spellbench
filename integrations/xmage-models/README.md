@@ -580,3 +580,21 @@ These checks use synthetic predictions and no native match or database. Guarded
 launcher/serving integration, live reconstruction, visibility-window lifetime,
 hidden-world and ordering/RNG replay, pretrained inference and complete-game
 qualification remain unfinished.
+
+`JackNativeSession` owns a borrowed original-player JVM peer and the existing
+`JackNativeInferenceOwner` for one declared game. It verifies exact readiness,
+the game seed, permitted acting viewer and reconstruction seeds. Serial decision
+requests retain one deadline across inference, physical-copy draws, response
+writes and result validation. Results must echo the exact offered candidate and
+its game/decision identities. A failure closes both resources; cleanup retains
+errors and checks process absence when the peer exposes its owned process.
+This component does not start a JVM, load a checkpoint or authorize native work.
+
+`JackNativeSessionCheck.java` connects this supervisor to actual original root
+and admitted-copy mulligan callbacks through a real JVM pipe, using the completed
+bootstrap and registry with metadata engine hooks and synthetic paired scores.
+Two JVM primary results match, including the shared physical-copy draw. A stalled
+JVM is terminated and its process absence is checked. These are transport and
+ownership checks. The production original-player decision-to-wire dispatcher and
+guarded runtime command remain unfinished, along with live visibility/replay,
+pretrained inference and complete-game qualification.

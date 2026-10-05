@@ -1,0 +1,196 @@
+"""Check game binding, shared clocks and ownership of the original-player peer."""
+import copy
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
+import xmage_jack_native_session as serving
+from spellbench.errors import ValidationError
+from xmage_jack_native_inference import JackNativeInferenceOwner, PROFILES
+from test_xmage_jack_backend import IMAGE
+from test_xmage_jack_inference import Peer, fixture
+from test_xmage_jack_native_inference import packet
+
+
+def setup(tmp_path, monkeypatch, *, scores=None):
+    manifest, game, ready, cleanup = fixture(tmp_path, monkeypatch)
+    game.update(seat="p0", agent_seed=31)
+    pair = Peer([ready, *(scores or [])])
+    owner = JackNativeInferenceOwner(manifest, tmp_path, "policy", IMAGE, game_start=game,
+        profile=PROFILES[0], seed=31, peer_factory=lambda *a, **k: pair)
+    peer = Peer([])
+    ready = {"schema": serving.SCHEMA, "ready": True, "callback_sha256": serving.CALLBACK_SHA256,
+             "profile": owner.profile, "seed": owner.seed, "game_start_sha256": owner.start_sha256,
+             "operations": ["decide"]}
+    peer.rows = [json.dumps(ready).encode()]
+    session = serving.JackNativeSession(peer, owner, startup_s=2)
+    record = {"game_start": copy.deepcopy(game), "decision": {"acting_seat": "p0",
+        "observation": {"viewer": "p0"}, "candidates": [
+            {"candidate_id": 7, "semantic": {"kind": "mulligan", "keep": True}},
+            {"candidate_id": 8, "semantic": {"kind": "mulligan", "keep": False}}]},
+        "world_seed": "a" * 64, "id_seed": "b" * 64}
+    return session, record, peer, pair, cleanup
+
+
+def result(session, record, *, calls=0, rid="1"):
+    return {"schema": serving.SCHEMA, "id": rid, "operation": "decide", "event": "result", "ok": True,
+            "result": {"decision_sha256": serving.digest(record["decision"]),
+                "game_start_sha256": session.start_sha256, "profile": session.profile, "seed": session.seed,
+                "inference_requests": calls, "full_original_player_qualified": False, "world_flags": [],
+                "selection": {"candidate_id": 7, "semantic_echo": record["decision"]["candidates"][0]["semantic"]}}}
+
+
+def rows(peer, *messages):
+    peer.rows.extend(json.dumps(message).encode() if isinstance(message, dict) else message for message in messages)
+
+
+def test_shared_original_owner_and_increasing_decisions(tmp_path, monkeypatch):
+    scores = {"id": "1", "probabilities": [0.25, 0.75] + [0] * 62, "value": 0}
+    session, record, peer, pair, cleanup = setup(tmp_path, monkeypatch, scores=[scores])
+    score = packet(session.owner)
+    physical = packet(session.owner, "physical_copy", id=2, count=3)
+    expected = result(session, record, calls=2)
+    rows(peer, score, physical, expected)
+    assert session.choose(record, timeout_s=2) == expected["result"]
+    assert peer.writes[0]["id"] == "1" and peer.writes[0]["operation"] == "decide"
+    assert peer.writes[1]["id"] == 1 and peer.writes[2]["id"] == 2
+    assert session.owner.copy_draws == 1 and len(pair.writes) == 1
+    rows(peer, result(session, record, rid="2"))
+    assert session.choose(record, timeout_s=2)["selection"]["candidate_id"] == 7
+    assert peer.writes[-1]["id"] == "2" and session.owner.sequence == 2
+    session.close(); session.close()
+    assert peer.closed and pair.closed and len(cleanup) == 1
+    assert session.cleanup == {"close_called": True, "jvm_close_succeeded": True,
+                               "inference_close_succeeded": True, "jvm_process_absent": None}
+    with pytest.raises(ValueError, match="closed"):
+        session.choose(record, timeout_s=2)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("id", "2"), ("operation", "train"), ("event", "infer"), ("schema", "foreign"), ("ok", False),
+])
+def test_wrong_result_envelope_releases_peer_and_pair(tmp_path, monkeypatch, field, value):
+    session, record, peer, pair, cleanup = setup(tmp_path, monkeypatch)
+    message = result(session, record); message[field] = value; rows(peer, message)
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed and len(cleanup) == 1 and session.failed
+
+
+@pytest.mark.parametrize("field,value", [
+    ("decision_sha256", "0" * 64), ("game_start_sha256", "0" * 64), ("seed", True),
+    ("seed", 32), ("profile", PROFILES[1]), ("inference_requests", 1), ("inference_requests", False),
+    ("full_original_player_qualified", True), ("world_flags", ["unsupported:hidden"]),
+    ("selection", {"candidate_id": 99, "semantic_echo": {}}),
+    ("selection", {"candidate_id": True, "semantic_echo": {}}),
+    ("selection", {"candidate_id": 7, "semantic_echo": {"kind": "mulligan", "keep": False}}),
+])
+def test_wrong_identity_or_choice_cannot_escape_to_wire(tmp_path, monkeypatch, field, value):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    message = result(session, record); message["result"][field] = value; rows(peer, message)
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("change", ["game", "viewer", "seed", "candidate", "reserved", "float"])
+def test_invalid_public_request_refuses_before_jvm_write(tmp_path, monkeypatch, change):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    if change == "game": record["game_start"]["agent_seed"] += 1
+    if change == "viewer": record["decision"]["observation"]["viewer"] = "p1"
+    if change == "seed": record["world_seed"] = "0"
+    if change == "candidate": record["decision"]["candidates"][1]["candidate_id"] = 7
+    if change == "reserved": record["id"] = "foreign"
+    if change == "float": record["decision"]["candidates"][0]["semantic"]["fraction"] = 0.5
+    with pytest.raises((ValueError, TypeError, ValidationError)): session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+def test_remaining_outer_clock_caps_every_native_request(tmp_path, monkeypatch):
+    scores = {"id": "1", "probabilities": [0.25, 0.75] + [0] * 62, "value": 0}
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch, scores=[scores])
+    clock = [0.0]; monkeypatch.setattr(serving.time, "monotonic", lambda: clock[0])
+    read = peer.read_line
+    def delayed_read():
+        clock[0] += 0.4
+        return read()
+    peer.read_line = delayed_read
+    captured = []; score = session.owner.session.score
+    def delayed_score(features, *, timeout_s):
+        captured.append(timeout_s); clock[0] += 0.5
+        return score(features, timeout_s=timeout_s)
+    session.owner.session.score = delayed_score
+    rows(peer, packet(session.owner, remaining_s=100), result(session, record, calls=1))
+    assert session.choose(record, timeout_s=2)["inference_requests"] == 1
+    assert captured == [pytest.approx(1.6)] and peer.timeouts[-1] <= 1.1 + 1e-9
+    session.close()
+
+
+@pytest.mark.parametrize("problem", ["elapsed", "eof", "duplicate", "close", "stale-inference"])
+def test_timeout_and_broken_stream_close_both_owners(tmp_path, monkeypatch, problem):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    if problem == "elapsed":
+        clock = [0.0]; monkeypatch.setattr(serving.time, "monotonic", lambda: clock[0])
+        message = result(session, record)
+        def too_late():
+            clock[0] = 3
+            return json.dumps(message).encode()
+        peer.read_line = too_late
+    elif problem == "duplicate": rows(peer, b'{"schema":1,"schema":2}')
+    elif problem == "close": rows(peer, packet(session.owner, "close"))
+    elif problem == "stale-inference": rows(peer, packet(session.owner, "physical_copy", id=2, count=1))
+    with pytest.raises((ValueError, TimeoutError, IndexError)): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed and session.owner.closed
+
+
+def test_cleanup_keeps_original_error_and_attempts_both_closes(tmp_path, monkeypatch):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    message = result(session, record); message["id"] = "stale"; rows(peer, message)
+    called = []
+    def bad_jvm(): called.append("jvm"); raise RuntimeError("JVM close failed")
+    close_owner = session.owner.close
+    def bad_model():
+        called.append("inference"); close_owner(); raise RuntimeError("model close failed")
+    peer.close, session.owner.close = bad_jvm, bad_model
+    with pytest.raises(ValueError, match="stale") as caught: session.choose(record, timeout_s=2)
+    assert called == ["jvm", "inference"] and pair.closed
+    assert "cleanup also failed" in caught.value.__notes__[0]
+    assert session.cleanup["jvm_close_succeeded"] is False and session.cleanup["inference_close_succeeded"] is False
+
+
+def test_readiness_requires_exact_boolean_and_closes_owned_resources(tmp_path, monkeypatch):
+    manifest, game, ready, cleanup = fixture(tmp_path, monkeypatch)
+    game.update(seat="p0", agent_seed=31)
+    pair = Peer([ready])
+    owner = JackNativeInferenceOwner(manifest, tmp_path, "policy", IMAGE, game_start=game,
+        profile=PROFILES[0], seed=31, peer_factory=lambda *a, **k: pair)
+    ready = {"schema": serving.SCHEMA, "ready": 1, "callback_sha256": serving.CALLBACK_SHA256,
+        "profile": owner.profile, "seed": owner.seed, "game_start_sha256": owner.start_sha256,
+        "operations": ["decide"]}
+    peer = Peer([ready])
+    with pytest.raises(ValueError, match="readiness"):
+        serving.JackNativeSession(peer, owner, startup_s=2)
+    assert peer.closed and pair.closed and owner.closed and len(cleanup) == 1
+
+
+def test_unconfirmed_jvm_exit_is_a_cleanup_failure(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    session, _, peer, pair, _ = setup(tmp_path, monkeypatch)
+    peer._proc = SimpleNamespace(poll=lambda: None)
+    with pytest.raises(RuntimeError, match="remains running"):
+        session.close()
+    assert pair.closed and session.owner.closed
+    assert session.cleanup["jvm_process_absent"] is False and session.cleanup["jvm_close_succeeded"] is False
+
+
+def test_owner_cannot_change_the_declared_chooser_seed(tmp_path, monkeypatch):
+    manifest, game, ready, cleanup = fixture(tmp_path, monkeypatch)
+    game.update(seat="p0", agent_seed=31)
+    pair = Peer([ready])
+    owner = JackNativeInferenceOwner(manifest, tmp_path, "policy", IMAGE, game_start=game,
+        profile=PROFILES[0], seed=32, peer_factory=lambda *a, **k: pair)
+    peer = Peer([])
+    with pytest.raises(ValueError, match="declared game seed"):
+        serving.JackNativeSession(peer, owner, startup_s=2)
+    assert peer.closed and pair.closed and owner.closed and len(cleanup) == 1
