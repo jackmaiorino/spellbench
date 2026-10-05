@@ -1,14 +1,14 @@
 {
   "schema": "spellbench-gorge-rated-handoff/v1",
-  "source_commit": "d0fd211a6fd9e84dcbcdf218f5a497c1361487c1",
-  "runtime_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
-  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "source_commit": "6de62d95824cd6140b5f5e4d104c45724ba3744e",
+  "runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+  "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
   "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
   "resolved_runtime_values": {
-    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-048\\spellbench-gorge-env-windows-amd64.exe",
-    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-048\\spellbench-gorge-agent-windows-amd64.exe",
-    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-048\\registry.gob.gz",
+    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-060\\spellbench-gorge-env-windows-amd64.exe",
+    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-060\\spellbench-gorge-agent-windows-amd64.exe",
+    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-060\\registry.gob.gz",
     "GORGE_REGISTRY_SHA256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
   },
   "planned_local_values": {
@@ -21,11 +21,11 @@
   "matched_E_D_input_pins": {
     "spellbench-gorge-env-windows-amd64.exe": {
       "bytes": 17488384,
-      "sha256": "492860f5408bebca76ca7dc852241a73066ad3d0efa5a599bc4c741f621fb9dd"
+      "sha256": "ece402b7a23d813ae7bd3c01924aa10871511b08f1ee9dc62bcb3e2af64a5e46"
     },
     "spellbench-gorge-agent-windows-amd64.exe": {
-      "bytes": 18209280,
-      "sha256": "b2a923e9fb07cf81f176706e21a09274563ae51752ab727f56ac66096c784bbf"
+      "bytes": 18219008,
+      "sha256": "90352c9c1e5fc1faed7df4d2acf2f462fea3b01aafdd2827966054fa2030f844"
     },
     "registry.gob.gz": {
       "bytes": 9070329,
@@ -85,5 +85,5 @@
     "Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp",
     "Supported bench run once, result validation/review, compact publication PR and verified Pages entries"
   ],
-  "recipe_sha256": "7f63dbe90794fc482fbd4a7d95bf6fbb45c27d6a180258a1b7008b77cd77221d"
+  "recipe_sha256": "fcc0482a1bd12dc21a762f9ed96b2dd7c8eeb1ceadb0fe7fcb004d4bd560bf86"
 }

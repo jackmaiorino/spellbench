@@ -645,7 +645,7 @@
     "source_changed_unqualified": true,
     "proposed_source_change": "Source1a21bf passes all five saved roots; new production/native qualification remains required",
     "candidate_engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
-    "current_source_audit_evidence_current": false,
+    "current_source_audit_evidence_current": true,
     "component056_seal_sha256": "373330f303f461f81ac1817c66696a8d973f7eebdb73ad39b67bbad47a387d12",
     "component056_passed": false,
     "component058_native_go_tests_passed": true,
@@ -656,10 +656,13 @@
     "active_lease_maximum_usd": 0.966667,
     "cumulative_ceiling_with_active_lease_usd": 9.87955347,
     "active_job_record": "docs/gorge-runtime060-native-20261005.json",
-    "production_runtime_source_of_record": "E:/spellbench-gorge-runtime-20261005-060",
-    "production_runtime_pins_pending": true,
+    "production_runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+    "production_runtime_pins_pending": false,
     "full_go_ci_passed": true,
-    "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685"
+    "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
+    "production_runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+    "current_identity_review_complete": false,
+    "reference_preparation_compatible": false
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",

@@ -1,57 +1,54 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
-Production runtime048 uses Spellbench source
-`aee0564`, whose gorge/arena code matches engine source
-`e3c84a133aa826a59be3c07f1644c2401d477e95`. The full Go suite passed for that
-engine source. All seven production binaries are pinned on independent E/D
-copies under runtime seal
-`b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef`.
-[Job048](gorge-runtime048-native-20261005.json) failed its existing redeal
-gate in serial game52 after35 reconstruction budget failures. Its pod is deleted,
-all cleanup is verified, and recovered evidence is independently sealed on E/D.
-Matched parallel allocation and the full320-block/640-game audit were not admitted.
+Production runtime060 uses Spellbench source `14fe319`, whose gorge/arena code
+matches engine source `1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a`.
+[Full source-compatible Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37293808685)
+passed. Seven production binaries are durably pinned on independent E/D copies
+under seal `ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2`.
+[Job060](gorge-runtime060-native-20261005.json) uses the supported matched
+serial/parallel throughput guard before its conditional 320-block/640-game audit.
 No full qualification or playing-strength result is claimed.
 
-The current public carry, hand-return and pass-ordering repair passed all four
-unchanged saved actor-public inputs under the original 64-attempt/eight-world/
-5000-submit limits:
+All five unchanged saved actor-public inputs pass the native Go tests under
+the original 64-attempt/eight-world/5,000-submit limits:
 
 | Public frames | Worlds | Proposals | Submits | Nodes | Exhaustions |
 | --- | --- | --- | --- | --- | --- |
 | 364 | 8 | 1 | 729 | 11 | 0 |
 | 410 | 8 | 1 | 831 | 19 | 0 |
 | 478 | 8 | 2 | 2412 | 1330 | 0 |
+| 504 | 8 | 3 | 4072 | 2785 | 0 |
 | 596 | 8 | 1 | 1220 | 31 | 0 |
 
-Only364 has a captured native diagnostic baseline; all23 fields remain
-identical. The other three rows have no native baseline. The pinned component
-binary includes logging of hypothetical shuffle failures. The seven production
-binaries use the original production overlay without that component logger.
+Only364 has a captured native diagnostic baseline, and its fields remain
+identical. The other four cases have no native baseline. The original058 Python
+parent report failed because it indexed an empty refusal field that the pinned
+Go schema omits on success. [Verification059](gorge-component-verification059-20261005.json)
+checks the saved hashes, zero Go test exit, all five native assertions and results;
+it preserves the original parent failure and performs no new computation.
+Production binaries exclude the component logger.
+
 [Current source review inputs](gorge-identity-review-inputs-20261005.json)
-record exact hashes, unchanged emitters, affected functions and remaining gates.
+record exact source/runtime hashes, unchanged emitters and remaining gates.
+The public collector, event projection, payment witness, known-card projection,
+comparison and strategy history files are byte-compatible with prior audit pin
+`b01aaff`. Reconstruction uses only current actor-public history, its projected
+hand sizes and a hypothetical engine. Public pass/scry markers prioritize
+existing legal alternatives. Public returns supply known hand credit; opaque
+exits clear uncertain credit. A separate optional held-before-reorder proposal
+copies the original public deadlines and adds earlier hypothetical prefixes on
+attempts2 modulo4. Original proposals remain available. Every accepted world
+must replay the full current public history and pass native known-card checks.
+Later596-frame constraints cannot be used at504.
 
-Relative to the benchmark's prior audit pin `b01aaff`, only the reconstruction
-implementation, its added regression overlay and the two-line test overlay
-registration changed. The public collector, event projection, payment witness,
-known-card projection, comparison and strategy history files are byte-compatible
-with that pin. The new runtime logic reads actor-public identities/events,
-projected hand sizes and constraints compiled from that history. Pass preference
-uses the decision of an engine created by `NewHypotheticalPlanned`, rather than
-a live game engine. It orders an already legal pass without removing alternatives.
-Carry guidance tracks public names returned from visible zones, removes credit
-on observed exits, and clears uncertain credit after an opaque exit. Its optional
-prefix ends before the first public reorder; it still counts later consumption.
-Alternate proposals retain the original constraints. Accepted completions still
-replay every actor-public frame and pass the unchanged native known-card checks.
-
-Runtime033 and040 failed their unchanged redeal gates; those historical receipts
-remain failed. Component success above cannot qualify either old runtime or the
-current complete12-mode panel. The draft benchmark now pins current-source
-audit evidence at `960ff223`; independent identity review remains pending.
-Before rated commitment, that URL must name a reviewed current audit;
-qualification and benchmark review remain required. The rest of this document
-retains earlier source checks and their stated limits.
+Historical runtimes033/040/048 failed their unchanged redeal gates. In048,
+serial game52 recorded35 reconstruction exhaustions before parallel/full audit
+admission. Those results remain failed. Saved component passes cannot qualify
+the complete12-mode panel. The draft benchmark still pins prior audit evidence
+at `960ff223`; it must point to a reviewed current audit before rated commitment.
+Current identity/fair-play review and full native/reference qualification remain
+pending. The rest of this document retains historical checks and their limits.
 
 The earlier inspection verified observer identities and
 private-event filtering, but missed incorrect native choice ownership. Its

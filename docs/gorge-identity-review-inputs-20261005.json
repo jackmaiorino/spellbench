@@ -1,15 +1,15 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T08:17:02.764006+00:00",
+  "at_utc": "2026-10-05T10:29:14.416348+00:00",
   "status": "prepared_for_review; qualification_and_current_identity_review_pending",
-  "adapter_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
-  "engine_source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "adapter_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+  "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
-  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
-  "production_overlay_sha256": "349836a1a60393bb0c4fdc0517ae08d14c3e484d598871c33ccd1bac9de977fd",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+  "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+  "production_overlay_sha256": "37800460cd8ba782fdcd61f1f3952bc619a2f51037ee656e0965ea39124d3c26",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
     "engines/gorge/native-overlay/public_priority_test.go.txt",
@@ -26,26 +26,29 @@
   },
   "changed_runtime_functions": [
     "spellbenchCarryEpochs",
-    "spellbenchObservedPreferred"
+    "spellbenchObservedPreferred",
+    "spellbenchScryEpochs",
+    "spellbenchScryHeldEpochs"
   ],
   "inputs": [
     "Actor-public History identities/events and projected hand sizes",
     "Existing epoch constraints compiled from that History",
     "Hypothetical engine and decision created by NewHypotheticalPlanned; no access to the live engine"
   ],
-  "reconstruction_policy": "Public immediate pass marker orders an existing legal pass first. Public known hand returns reduce carry demand by name; opaque exits remove credit. Optional carry names must occur before first reorder, while all consumed copies remain counted. Original constraint proposals remain available on alternate attempts.",
-  "component_result_record": "E:\\spellbench-gorge-runpod-20261005-048\\COMPONENT-CHECKS-OBSERVED.json",
-  "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "reconstruction_policy": "Observed public markers prioritize existing legal pass/scry alternatives. Public returns reduce known carry demand. A separate hypothetical held-before-reorder proposal copies original deadlines and tightens selected public-name prefixes on attempts2 modulo4. Original proposals remain on attempt0 modulo4 and all odd attempts. Every accepted world replays current actor-public history and passes unchanged native known-card checks. No future596-frame facts are used at504.",
+  "component_result_record": "E:\\spellbench-gorge-component-verification-20261005-059/VERIFICATION.json",
+  "component_runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
   "component_worlds": {
     "364": 8,
     "410": 8,
     "478": 8,
+    "504": 8,
     "596": 8
   },
-  "native_diagnostic_baseline": "Only364 has a captured baseline; all23 emitted native fields remain identical. No equality claim for410/478/596.",
-  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+  "native_diagnostic_baseline": "Only364 has a captured native baseline, and its emitted fields remain identical. No native diagnostic equality claim for410/478/504/596.",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
   "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/960ff223a0ff9e7b89433796c8d7ddc816f2e21e/docs/gorge-native-identity-audit-20261003.md",
-  "benchmark_audit_url_current": true,
+  "benchmark_audit_url_current": false,
   "remaining": [
     "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
     "Compatible140-game reference matrix and replay",
@@ -60,5 +63,72 @@
   "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
   "current_native_qualification": "failed_existing_redeal_gate_game52",
   "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json",
-  "current_native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6"
+  "current_native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
+  "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
+  "component_cases": {
+    "364": {
+      "worlds": 8,
+      "public_input_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+      "work": {
+        "Attempts": 1,
+        "Submits": 729,
+        "Nodes": 11,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": true
+    },
+    "410": {
+      "worlds": 8,
+      "public_input_sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+      "work": {
+        "Attempts": 1,
+        "Submits": 831,
+        "Nodes": 19,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "478": {
+      "worlds": 8,
+      "public_input_sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+      "work": {
+        "Attempts": 2,
+        "Submits": 2412,
+        "Nodes": 1330,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "504": {
+      "worlds": 8,
+      "public_input_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+      "work": {
+        "Attempts": 3,
+        "Submits": 4072,
+        "Nodes": 2785,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "596": {
+      "worlds": 8,
+      "public_input_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+      "work": {
+        "Attempts": 1,
+        "Submits": 1220,
+        "Nodes": 31,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    }
+  },
+  "original_component_parent_diagnostic_passed": false,
+  "corrected_component_verification_passed": true,
+  "full_go_ci_passed": true,
+  "native_job_record": "docs/gorge-runtime060-native-20261005.json"
 }
