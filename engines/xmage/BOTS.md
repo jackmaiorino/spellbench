@@ -149,17 +149,22 @@ copy selection and the card_select head. Inherited picks enter the original sort
 queued-target and target.add paths without neural draws. Recorded card prefixes
 add neither model nor physical-copy draws; sequential groups and STOP checks pass.
 All 93 affected Python checks and two identical normalized card metadata JVM runs
-pass. Combat, London and priority/resolution continuation remain open. The guarded
+pass. Combat and priority/resolution continuation remain open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
 
-Jack's London bottoming loop is staged separately. It ranks the shrinking
-whole hand on each engine one-card callback, retains each complete sequential
-draw and the original base-cache signature, then binds the final ranked card
-to the next public bottoming substep. Local compilation and 580 affected
-checks pass. Native execution, actual trained-weight bottoming and complete
-games remain unqualified; see [the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
+Jack's original frontend now connects London bottoming through the actual
+player callback. It ranks the shrinking whole hand on each engine one-card
+callback, retains each complete sequential draw and the original base-cache
+signature, and moves each selected card to the bottom before the next ranking.
+The complete sequence binds to Spellbench's upfront public group. Later substeps
+bind unchanged observations and remaining menus without another session or model
+call. All 150 affected Python checks and two identical normalized JVM runs pass
+for 1/2/7-card hands. Card movement in these checks is a metadata fixture;
+native movement, trained-weight bottoming and complete games remain unqualified.
+The earlier component evidence remains in
+[the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
 
 Jack's original attack and block loops now have a separate private staged port
 and paired-policy transport. It retains DONE-last sequential selection, the

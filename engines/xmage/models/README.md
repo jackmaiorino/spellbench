@@ -655,7 +655,7 @@ the original order, same-name direct return, STOP gates and 64-slot limit.
 Binding requires the acting viewer's actual named source and the complete
 permitted menu. Invalid sources, counts, ranges, slots, IDs, hidden references,
 forced prefixes and prefixes outside the first 64 slots refuse before inference.
-London remains guarded separately. Provided-card activation replay is described below.
+London uses its separate pregame group path described below. Provided-card activation replay is described below.
 
 Two metadata JVM runs are byte-identical for 1/2/70 targets, target/cost/object
 wire forms, earlier target mutation and forced/STOP returns. The unchanged
@@ -686,3 +686,28 @@ expectation and its failed log remain retained. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-card-replay-001`. Metadata checks use synthetic
 scores. Native callbacks, actual pretrained inference, general source contexts,
 complete priority queue restoration and complete games remain unqualified.
+
+`JackLondonPlan` now connects the original player's pregame bottoming callback
+to the production root dispatcher and game-owned model/chooser session. Each
+one-card callback ranks the entire remaining hand with the original `card_select`
+head, complete sequential draw and cache signature. It applies the original last
+ranked card and moves it to the library bottom before reranking. The single-card
+shortcut bypasses policy and chooser draws. Bindings require the first public
+bottom group, its observed mulligan count and the complete named own hand.
+
+Spellbench collects all public bottom picks before moving cards in the engine.
+The frontend therefore binds the generated sequence to subsequent public substeps
+with unchanged observation, group, step and remaining-menu checks. These substeps
+do not make another session or model call. The ordinary session, clock and
+failure cleanup remain shared; an interrupted or changed group refuses. Full
+private runtime builds require `JackLondonPlan`; reduced encoder builds exclude it.
+
+All 150 affected Python checks pass. Two normalized metadata JVM outputs match
+for 1/2/7-card hands, complete shrinking-hand ranks, singleton shortcuts, bottom
+order, first wire selection and malformed-menu refusal. Card, target, named,
+binary/X/mode and original root regressions pass. JDK23.0.1 target8 compiled the
+production classes. The checked-exception compile repair, pregame fixture repairs
+and Python fixture failure remain retained. Evidence is under
+`E:/spellbench-xmage-all-20261002/jack-london-plan-001`. Fixtures use synthetic
+scores and metadata card movement; native movement, actual checkpoints and full
+games remain unqualified under the research resource hold.

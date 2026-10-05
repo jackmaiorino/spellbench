@@ -42,8 +42,13 @@ public final class JackRootDecision {
             return WorldBuilder.Mode.PRIORITY;
         List<Object> candidates=Json.arr(decision,"candidates");
         if ("pregame".equals(Json.str(observation,"phase_step")) && candidates!=null && !candidates.isEmpty()) {
-            for(Object item:candidates) if (!"mulligan".equals(Json.str(Json.obj(Json.obj(item),"semantic"),"kind")))
-                throw new IllegalArgumentException("original callback replay is not connected for this pregame choice");
+            String kind=Json.str(Json.obj(Json.obj(candidates.get(0)),"semantic"),"kind");
+            for(Object item:candidates) {
+                Map<String,Object> semantic=Json.obj(Json.obj(item),"semantic");
+                if(!kind.equals(Json.str(semantic,"kind")) || !("mulligan".equals(kind)
+                        || "order_pick".equals(kind) && "mulligan_bottom".equals(Json.str(semantic,"purpose"))))
+                    throw new IllegalArgumentException("original callback replay is not connected for this pregame choice");
+            }
             return WorldBuilder.Mode.PREGAME;
         }
         throw new IllegalArgumentException("original callback replay is not connected for this decision family");
@@ -76,8 +81,13 @@ public final class JackRootDecision {
         for(String flag:world.flags) if(flag.startsWith("unsupported:") || flag.startsWith("horizon:"))
             throw new IllegalArgumentException("original root world is unsupported: "+flag);
         WorldBuilder.Mode mode=mode(decision);
-        Map<String,Object> selection; boolean dispatched=false,passAfter=false;
-        if(mode==WorldBuilder.Mode.PREGAME) {
+        Map<String,Object> selection; Map<String,Object> london=null; boolean dispatched=false,passAfter=false;
+        if(mode==WorldBuilder.Mode.PREGAME && "order_pick".equals(Json.str(Json.obj(Json.obj(Json.arr(decision,"candidates").get(0)),"semantic"),"kind"))) {
+            // Reduced feature-only builds omit this optional original callback component.
+            Class<?> component=Class.forName("spellbench.kit.xmage.JackLondonPlan");
+            london=(Map<String,Object>)call(component.getMethod("choose",World.class,Map.class),null,world,decision);
+            selection=Json.obj(london,"selection");
+        } else if(mode==WorldBuilder.Mode.PREGAME) {
             List<Object> offered=Json.arr(decision,"candidates");
             Map<Boolean,Map<String,Object>> choices=new HashMap<>(); Set<Long> ids=new HashSet<>();
             int count=JackPlayerBootstrap.observedMulligans(observation,world.viewer),size=player.getHand().size();
@@ -128,11 +138,13 @@ public final class JackRootDecision {
             selection=selected[0]; passAfter=passedAfter[0] && !"pass".equals(Json.str(Json.obj(selection,"semantic_echo"),"kind"));
         }
         call(require,player,world.game);
-        return Json.map("selection",selection,"decision_sha256",JackPriorityBinding.hash(decision),
+        Map<String,Object> result=Json.map("selection",selection,"decision_sha256",JackPriorityBinding.hash(decision),
                 "game_start_sha256",JackPriorityBinding.hash(start),"profile",profile,"seed",seed,
                 "world_flags",new ArrayList<>(world.flags),"priority_dispatch_result",dispatched,
                 "priority_pass_after_activation",passAfter,"original_priority_state",JackPriorityState.capture(world,decision,rules),
                 "full_original_player_qualified",false);
+        if(london!=null) result.putAll(london);
+        return result;
     }
     private static Map<String,Object> selection(Map<String,Object> candidate) {
         return Json.map("candidate_id",candidate.get("candidate_id"),"semantic_echo",Json.copy(candidate.get("semantic")));

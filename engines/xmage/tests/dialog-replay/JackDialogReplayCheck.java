@@ -23,12 +23,18 @@ public final class JackDialogReplayCheck {
         return flags;
     }
     static final class Backend implements OriginalNeuralSelection.Model {
-        int calls,copies;boolean closed,chooseFirst;final List<String> heads=new ArrayList<>();
+        int calls,copies;boolean closed,chooseFirst,wholeRank;final List<String> heads=new ArrayList<>();
+        final List<Integer> ranks=new ArrayList<>();
         public String callbackSourceSha256() {return OriginalCallbackPlayer.SOURCE_SHA256;}
         public String profile() {return OriginalNeuralSelection.GREEDY;}
         public long seed() {return 27;}
         public OriginalNeuralSelection.Prediction score(OriginalNeuralSelection.Request r,double seconds) {
             calls++;heads.add(r.head);float[] probabilities=new float[64];probabilities[chooseFirst?0:r.count-1]=1;
+            if(wholeRank) {
+                require("card_select".equals(r.head) && r.minimum==r.count && r.maximum==r.count,"London lost full-hand ranking bounds");
+                ranks.add(r.count);
+                for(int i=0;i<r.count;i++)probabilities[i]=(r.count-i)/(float)(r.count*(r.count+1)/2);
+            }
             return new OriginalNeuralSelection.Prediction(probabilities,0);
         }
         public void close() {closed=true;}
@@ -41,6 +47,12 @@ public final class JackDialogReplayCheck {
         mage.target.Target target;boolean targetResult;
         mage.cards.Cards cards;mage.target.TargetCard cardTarget;boolean parentCards,cardResult;
         Outcome cardOutcome=Outcome.Benefit;
+        boolean londonMetadata;final List<UUID> bottomed=new ArrayList<>();
+        @Override public boolean putCardsOnBottomOfLibrary(mage.cards.Cards cards,Game game,Ability source,boolean anyOrder) {
+            if(!londonMetadata)return super.putCardsOnBottomOfLibrary(cards,game,source,anyOrder);
+            for(UUID id:cards) {require(getHand().contains(id),"metadata London moved an absent card");getHand().remove(id);bottomed.add(id);}
+            return true;
+        }
         void queueCard(UUID id) {targets.add(id);}
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
@@ -78,7 +90,8 @@ public final class JackDialogReplayCheck {
         final Root root=new Root();final Viewer player=new Viewer(root.old);final Backend backend=new Backend();
         final World world;final JackPermittedWorlds registry;final ActivatedAbility ability;
         final Set<UUID> hidden=new HashSet<>();
-        int compares;
+        final mage.game.mulligan.LondonMulligan mulligan=new mage.game.mulligan.LondonMulligan(0);
+        int compares;boolean pregame;
         Case() {
             this(0,false);
         }
@@ -94,7 +107,7 @@ public final class JackDialogReplayCheck {
             root.cards.put(secret.getId(),secret);root.other.getHand().add(secret);hidden.add(secret.getId());
             Game game=(Game)Proxy.newProxyInstance(Game.class.getClassLoader(),new Class<?>[]{Game.class},(o,m,a)->{
                 switch(m.getName()) {
-                    case "getTurnStepType":return mage.constants.PhaseStep.PRECOMBAT_MAIN;
+                    case "getTurnStepType":return pregame?null:mage.constants.PhaseStep.PRECOMBAT_MAIN;
                     case "getTurnNum":return 1;
                     case "getPhase":return null;
                     case "getStartingLife":return 20;
@@ -103,8 +116,9 @@ public final class JackDialogReplayCheck {
                     case "getExile":return root.state.getExile();
                     case "getOpponents":return Collections.singleton(root.other.getId());
                     case "getActivePlayerId":return player.getId();
+                    case "getStartingPlayerId":return player.getId();
                     case "getRangeOfInfluence":return mage.constants.RangeOfInfluence.ALL;
-                    case "getMulligan":return new mage.game.mulligan.LondonMulligan(0);
+                    case "getMulligan":return mulligan;
                     case "createSimulationForPlayableCalc":return simulation((Game)o);
                     case "getCard":case "getObject":
                         if(hidden.contains(a[0])) throw new AssertionError("dialog projection/encoder read a hidden card");

@@ -13,6 +13,7 @@ from spellbench import wire
 from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_jack_native_inference import PROFILES
 from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, digest, priority_state
+from xmage_jack_london import bound_view as london_view
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
 
 
@@ -20,6 +21,9 @@ def family(decision):
     kinds = {c["semantic"].get("kind") for c in decision["candidates"]}
     if decision["observation"].get("phase_step") == "pregame" and kinds == {"mulligan"}:
         return "mulligan"
+    if (decision["observation"].get("phase_step") == "pregame" and kinds == {"order_pick"}
+            and all(c["semantic"].get("purpose") == "mulligan_bottom" for c in decision["candidates"])):
+        return "london"
     if decision.get("context", {}).get("kind") == "priority":
         return "priority"
     if decision.get("context", {}).get("kind") == "choice" and len(kinds) == 1:
@@ -46,6 +50,47 @@ def family(decision):
     raise ValueError("original player callback family is not connected")
 
 
+class _LondonPlan:
+    def __init__(self, start, decision, result):
+        objects, offered = london_view(start, decision)
+        group = decision["group"]
+        own = next(p for p in decision["observation"]["players"] if p["seat"] == start["seat"])
+        plan = result.get("london_plan")
+        if (group["substep_index"] != 0 or len(objects) > 7
+                or type(own.get("mulligans_taken")) is not int or own["mulligans_taken"] != group["substep_count"]
+                or result.get("original_london_path") is not True or not isinstance(plan, dict)
+                or set(plan) != {"group_id", "count", "bottomed"}
+                or type(plan.get("group_id")) is not int or plan["group_id"] != group["group_id"]
+                or type(plan.get("count")) is not int or plan["count"] != group["substep_count"]
+                or not isinstance(plan.get("bottomed"), list) or len(plan["bottomed"]) != plan["count"]
+                or any(not isinstance(ref, str) or ref not in objects for ref in plan["bottomed"])
+                or len(set(plan["bottomed"])) != plan["count"]):
+            raise ValueError("original London result lost its complete bound bottom sequence")
+        bound_selection(result["selection"], offered)
+        if result["selection"]["semantic_echo"]["item"]["object"]["object_id"] != plan["bottomed"][0]:
+            raise ValueError("original London first selection differs from its bottom sequence")
+        self.start, self.initial = copy.deepcopy(start), copy.deepcopy(decision)
+        self.bottomed, self.next_index = list(plan["bottomed"]), 0
+        self.world_flags = copy.deepcopy(result.get("world_flags", []))
+
+    def select(self, decision):
+        objects, offered = london_view(self.start, decision)
+        group, initial = decision["group"], self.initial["group"]
+        if (group["group_id"] != initial["group_id"] or group["substep_count"] != len(self.bottomed)
+                or group["substep_index"] != self.next_index or self.next_index >= len(self.bottomed)
+                or decision["seat_step"] != self.initial["seat_step"] + self.next_index
+                or wire.canonical_json_dumps(decision["observation"]) != wire.canonical_json_dumps(self.initial["observation"])
+                or {s["item"]["object"]["object_id"] for s in offered.values()} != set(objects)-set(self.bottomed[:self.next_index])):
+            raise ValueError("original London substep changed its observation, group or remaining hand")
+        selected = [(cid, semantic) for cid, semantic in offered.items()
+                    if semantic["item"]["object"]["object_id"] == self.bottomed[self.next_index]]
+        if len(selected) != 1:
+            raise ValueError("original London bottom card is not offered")
+        self.next_index += 1
+        cid, semantic = selected[0]
+        return {"candidate_id": cid, "semantic_echo": copy.deepcopy(semantic)}
+
+
 class JackNativeAgent:
     """Always enter the actual original callback, including forced choices."""
     def __init__(self, factory, *, checkpoint, profile, audit=None):
@@ -55,6 +100,7 @@ class JackNativeAgent:
         self.audit = audit or (lambda event: None)
         self.session = self.game = self.history = self.key = self.start = self.step = None
         self.anchor_seeds = None
+        self.london = None
         self.failed = False
 
     def on_game_start(self, game: GameStart):
@@ -119,6 +165,15 @@ class JackNativeAgent:
             self.history.observe(decision.observation)
             record = self._record(decision)
             current, kind = record["decision"], family(record["decision"])
+            if self.london is not None and kind != "london":
+                raise ValueError("original London group ended before its bottom sequence completed")
+            if kind == "london":
+                objects, _ = london_view(self.start, current)
+                own = next(p for p in current["observation"]["players"] if p["seat"] == self.game.seat)
+                if (len(objects) > 7 or type(own.get("mulligans_taken")) is not int
+                        or own["mulligans_taken"] != current["group"]["substep_count"]
+                        or self.london is None and current["group"]["substep_index"] != 0):
+                    raise ValueError("original London needs its initial observed bottom group")
             if kind == "priority" and self.history.anchor is not None:
                 if self.history.anchor["priority_pass_after_activation"]:
                     raise ValueError("original pass-after-activation continuation is not connected")
@@ -132,7 +187,18 @@ class JackNativeAgent:
                 record.update(self.anchor_seeds)
                 bound_replay(record, self.game.seat)
             wire.canonical_json_dumps(record)
-            result = self.session.choose(record, timeout_s=remaining())
+            if kind == "london" and self.london is not None:
+                selection = self.london.select(current)
+                result = {"selection": selection, "decision_sha256": digest(current), "game_start_sha256": digest(self.start),
+                          "profile": self.profile, "seed": self.game.agent_seed, "full_original_player_qualified": False,
+                          "inference_requests": 0, "world_flags": copy.deepcopy(self.london.world_flags), "original_london_path": True}
+            else:
+                result = self.session.choose(record, timeout_s=remaining())
+                if kind == "london":
+                    self.london = _LondonPlan(self.start, current, result)
+                    selection = self.london.select(current)
+                    if digest(selection) != digest(result["selection"]):
+                        raise ValueError("original London first bound choice changed")
             remaining()
             if (not isinstance(result, dict) or result.get("decision_sha256") != digest(current)
                     or result.get("game_start_sha256") != digest(self.start)
@@ -146,13 +212,15 @@ class JackNativeAgent:
                 if type(result.get("priority_pass_after_activation")) is not bool:
                     raise ValueError("original frontend lost its priority continuation")
                 priority_state(result.get("original_priority_state"))
-            if kind != "mulligan":
+            if kind not in ("mulligan", "london"):
                 self.history.selected(current, selection)
             if kind == "priority":
                 self.history.anchor.update({key: copy.deepcopy(result[key]) for key in (
                     "priority_pass_after_activation", "original_priority_state")})
                 self.anchor_seeds = {key: record[key] for key in ("world_seed", "id_seed")}
             self.step = decision.seat_step
+            if self.london is not None and self.london.next_index == len(self.london.bottomed):
+                self.london = None
             self.audit({"event": "jack_original_choice", "seat_step": self.step, "family": kind,
                         "selection": copy.deepcopy(selection), "inference_requests": result.get("inference_requests"),
                         "world_flags": copy.deepcopy(result.get("world_flags", []))})
@@ -175,7 +243,7 @@ class JackNativeAgent:
             if self.game is None or game.game_id != self.game.game_id:
                 raise ValueError("original terminal belongs to another game")
             self.close()
-            self.game = self.history = self.key = self.start = self.step = self.anchor_seeds = None
+            self.game = self.history = self.key = self.start = self.step = self.anchor_seeds = self.london = None
         except BaseException as failure:
             self._fail(failure)
             raise
