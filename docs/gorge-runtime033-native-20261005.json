@@ -107,5 +107,24 @@
   "native_qualifier_sha256": "2a3a043b07ca75f54a8b6644bf4351ae307529a6b2259b5cc70abc9afe12c679",
   "independent_binary_pins_verified_before_execution": true,
   "source_fingerprint_passed": true,
-  "linked_compiler_test_passed": true
+  "linked_compiler_test_passed": true,
+  "source_compatible_ci_result": {
+    "observed_at_utc": "2026-10-05T01:36:36.673072+00:00",
+    "ci": {
+      "conclusion": "success",
+      "headSha": "65b15e0ba2ce8b2f6a658e8a11b37b97e02470b8",
+      "status": "completed",
+      "updatedAt": "2026-10-05T01:26:34Z",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37250007216"
+    },
+    "compatible_paths": [
+      "engines/gorge",
+      "python/spellbench/arena"
+    ],
+    "production_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+    "production_source_unchanged": true,
+    "native_qualification_complete": false
+  },
+  "source_compatible_ci_record": "E:\\spellbench-gorge-runpod-20261005-033\\SOURCE-CI-RESULT.json",
+  "source_compatible_ci_record_sha256": "205ff1bca02856ff7d7cf0083774440c07f79c2f3a2d00eec1fab3e6c7c3b727"
 }
