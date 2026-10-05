@@ -21,7 +21,7 @@ from xmage_checkpoint_backend import cleanup_container
 from xmage_neural_agent import NeuralAgent, PROFILE
 from xmage_neural_bridge import BridgeSession
 from xmage_exp1_play import PROFILE_NAME, PublishedAgent, PublishedSession, profile as published_profile
-from xmage_neural_decisions import InferenceSession
+from xmage_neural_decisions import InferenceSession, close_resources
 from xmage_release_assets import is_link, prepare_root, verify
 from xmage_verified_entry import verify_build
 
@@ -290,13 +290,8 @@ def main():
                 model = InferenceSession(manifest, args.root, args.checkpoint, args.image, on_owned=record_owned)
                 peer = wire.SubprocessPeer(command, timeout_s=90)
                 return (PublishedSession(peer, model) if args.play_profile == PROFILE_NAME else BridgeSession(peer, model))
-            except BaseException:
-                try:
-                    if peer is not None:
-                        peer.close()
-                finally:
-                    if model is not None:
-                        model.close()
+            except BaseException as failure:
+                close_resources(peer, model, failure=failure)
                 raise
 
         def audit(event):

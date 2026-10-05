@@ -330,3 +330,37 @@ def test_game_over_rejects_other_game_without_closing_live_session():
     bot.on_game_over(GameOver.from_request({"game_id": "opaque"}))
     bot.close()
     assert session.closed
+
+
+@pytest.mark.parametrize("phase", ["start", "choose", "choose-audit"])
+def test_policy_failure_survives_shutdown_and_failure_audit_errors(phase):
+    failure = ValueError("original policy failure")
+
+    class FailingSession(Session):
+        def choose(self, *args, **kwargs):
+            raise failure
+
+        def close(self):
+            self.closed = True
+            raise RuntimeError("session shutdown failed")
+
+    def audit(event):
+        if event["event"] == "neural_game_start" and phase == "start":
+            raise failure
+        if event["event"] == "neural_failure" and phase == "choose-audit":
+            raise OSError("failure audit unavailable")
+
+    session = FailingSession()
+    bot = agent.NeuralAgent(lambda: session, checkpoint=CHECKPOINT, visits=2, audit=audit)
+    if phase == "start":
+        operation = lambda: bot.on_game_start(GameStart.from_request(game()))
+    else:
+        bot.on_game_start(GameStart.from_request(game()))
+        operation = lambda: bot.choose(view(decision({"kind": "pass"}, {"kind": "play_land"})))
+    with pytest.raises(ValueError) as caught:
+        operation()
+    assert caught.value is failure
+    assert session.closed and bot.failed and bot.session is None
+    assert any("session shutdown failed" in note for note in failure.__notes__)
+    if phase == "choose-audit":
+        assert any("failure audit unavailable" in note for note in failure.__notes__)

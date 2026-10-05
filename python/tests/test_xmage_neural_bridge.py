@@ -105,6 +105,39 @@ def test_a_different_private_protocol_is_refused_and_cleaned_up(session_type, re
     assert peer.closed and model.closed
 
 
+@pytest.mark.parametrize("phase", ["readiness", "exchange", "close"])
+def test_pipe_failure_preserves_primary_error_and_closes_both_resources(phase):
+    failure = EOFError("original pipe failure")
+
+    class FailingPeer(Peer):
+        def close(self):
+            self.closed = True
+            raise OSError("pipe shutdown failed")
+
+    class FailingModel(Model):
+        def close(self):
+            self.closed = True
+            raise RuntimeError("model shutdown failed")
+
+    peer, model = FailingPeer([failure]), FailingModel()
+    if phase == "readiness":
+        peer.messages = iter([failure])
+        operation = lambda: bridge.BridgeSession(peer, model)
+    else:
+        session = bridge.BridgeSession(peer, model)
+        record, _ = search_fixture()
+        operation = session.close if phase == "close" else lambda: session.choose(record, visits=2, timeout_s=3)
+    with pytest.raises(EOFError if phase != "close" else OSError) as caught:
+        operation()
+    assert peer.closed and model.closed
+    if phase != "close":
+        assert caught.value is failure
+        assert any("pipe shutdown failed" in note for note in failure.__notes__)
+        assert any("model shutdown failed" in note for note in failure.__notes__)
+    else:
+        assert any("model shutdown failed" in note for note in caught.value.__notes__)
+
+
 @pytest.mark.parametrize("operation", ["search", "combat"])
 def test_slow_checkpoint_cannot_get_a_new_clock_after_inference(monkeypatch, operation):
     record, result = search_fixture() if operation == "search" else combat_fixture()

@@ -10,6 +10,7 @@ import copy
 from xmage_neural_agent import NeuralAgent
 from xmage_magezero_combat import CombatPlan
 from xmage_magezero_search import budget, validate_settings
+from xmage_neural_decisions import close_resources
 
 
 def profile(settings: dict) -> dict:
@@ -37,8 +38,9 @@ class SettingsSession:
         self.session, self.model = session, session.model
         self.settings = validate_settings(settings)
         if getattr(self.model, "architecture", None) != "magezero-v02":
-            session.close()
-            raise ValueError("MageZero frontend requires its own 128-slot architecture")
+            failure = ValueError("MageZero frontend requires its own 128-slot architecture")
+            close_resources(session, failure=failure)
+            raise failure
 
     def _run(self, operation, record, visits, timeout_s):
         if visits != self.settings["searchBudget"] or type(visits) is not int:

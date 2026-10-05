@@ -699,3 +699,11 @@ cover shutdown failures, an unremoved first container, an existing receipt,
 preservation of the primary error and sibling-directory protection; 152 affected
 runtime/frontend checks pass. These are lifecycle checks without a native JVM,
 checkpoint inference or complete game.
+
+Startup, inference and decision failures also preserve their original exception
+when a private pipe, checkpoint session or failure audit raises during cleanup.
+Every owned resource still gets a close attempt; cleanup errors remain attached
+as notes. Eight additional cases cover frontend start/choose failures, private
+bridge readiness/exchange/close failures and inference transport failures. The
+current affected lifecycle suite passes 202 checks. The frozen native benchmark
+and its throughput evidence are unchanged by these learned-runtime repairs.

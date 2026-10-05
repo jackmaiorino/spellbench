@@ -13,6 +13,7 @@ from spellbench import wire
 from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_neural_combat import CombatPlan, combat_kind
 from xmage_neural_search import root_family
+from xmage_neural_decisions import close_resources
 
 PROFILE = {
     "name": "exp1-permitted-worlds-minimum-visits-v1",
@@ -201,9 +202,9 @@ class NeuralAgent:
                 raise ValueError("neural session checkpoint differs from its public bot identity")
             self.audit({"event": "neural_game_start", "checkpoint": self.checkpoint,
                         "visits": self.visits, "profile": copy.deepcopy(self.profile)})
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def _record(self, decision):
@@ -291,8 +292,9 @@ class NeuralAgent:
             try:
                 self.audit({"event": "neural_failure", "seat_step": decision.seat_step,
                             "error": f"{type(exc).__name__}: {exc}"})
-            finally:
-                self.close()
+            except BaseException as audit_error:
+                exc.add_note("Neural failure audit failed: " + str(audit_error))
+            close_resources(self, failure=exc)
             raise
 
     def on_game_over(self, game: GameOver):

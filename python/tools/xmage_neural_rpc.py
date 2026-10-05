@@ -6,7 +6,7 @@ import math
 import time
 
 from spellbench import wire
-from xmage_neural_decisions import load_response
+from xmage_neural_decisions import close_resources, load_response
 
 
 class NeuralSession:
@@ -17,9 +17,9 @@ class NeuralSession:
         try:
             if load_response(peer.read_line()) != ready:
                 raise ValueError("neural readiness differs from the supported original Exp1 bridge")
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def exchange(self, request: dict, *, timeout_s: float, validate) -> dict:
@@ -65,16 +65,13 @@ class NeuralSession:
                 # frames retain their integer-only canonical JSON contract.
                 self.peer.write_line(json.dumps({"id": rid, "call": calls, "ok": True, "scores": scores},
                                                 separators=(",", ":"), allow_nan=False).encode())
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def close(self):
         if self.closed:
             return
         self.closed = True
-        try:
-            self.peer.close()
-        finally:
-            self.model.close()
+        close_resources(self.peer, self.model)

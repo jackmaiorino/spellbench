@@ -12,6 +12,7 @@ from xmage_neural_bridge import READY
 from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as checked_combat_request,
                                  validate_result as validate_combat, select_candidate)
 from xmage_neural_rpc import NeuralSession
+from xmage_neural_decisions import close_resources
 from xmage_neural_search import search_request as checked_search_request, search_result as checked_search_result
 
 PROFILE_NAME = "published-exp1-final-eval-fair-v1"
@@ -118,8 +119,9 @@ class PublishedSession(NeuralSession):
         super().__init__(peer, model, ready=READY)
         if getattr(model, "architecture", None) != "draftzero-exp1":
             self.failed = True
-            self.close()
-            raise ValueError("Exp1 published play needs its own 1024-slot checkpoint")
+            failure = ValueError("Exp1 published play needs its own 1024-slot checkpoint")
+            close_resources(self, failure=failure)
+            raise failure
 
     def _run(self, record, visits, timeout_s, operation, request, validate):
         try:
@@ -127,9 +129,9 @@ class PublishedSession(NeuralSession):
                 raise ValueError("Exp1 published play changed its declared visit budget")
             return self.exchange({**request(record), "operation": operation}, timeout_s=timeout_s,
                                  validate=lambda result, calls: validate(record, result, calls))
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def choose(self, record, *, visits, timeout_s):

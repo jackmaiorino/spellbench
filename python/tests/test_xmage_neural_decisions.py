@@ -209,3 +209,29 @@ def test_candidate_selection_uses_the_remaining_inference_clock(tmp_path, monkey
     with pytest.raises(TimeoutError, match="selection-validation clock"):
         session.choose(offered, encoded, timeout_s=1)
     assert session.failed and session.closed and peer.closed
+
+
+@pytest.mark.parametrize("operation", ["choose", "score"])
+def test_inference_error_survives_transport_shutdown_failure_with_container_receipt(tmp_path, monkeypatch, operation):
+    manifest = inputs(tmp_path)
+    failure = EOFError("original inference failure")
+    peer = Peer([readiness(manifest), failure])
+
+    def failed_close():
+        peer.closed = True
+        raise OSError("inference transport shutdown failed")
+
+    peer.close = failed_close
+    removed = []
+    monkeypatch.setattr(adapter, "cleanup_container", lambda name: removed.append(name) or {"confirmed_absent": False})
+    session = adapter.InferenceSession(manifest, tmp_path, "policy", IMAGE, peer_factory=lambda *a, **k: peer)
+    offered, encoded = decision()
+    with pytest.raises(EOFError) as caught:
+        if operation == "choose":
+            session.choose(offered, encoded, timeout_s=2)
+        else:
+            session.score(encoded["features"], timeout_s=2)
+    assert caught.value is failure
+    assert session.failed and session.closed and peer.closed
+    assert removed == [session.container] and session.cleanup == {"confirmed_absent": False}
+    assert any("inference transport shutdown failed" in note for note in failure.__notes__)

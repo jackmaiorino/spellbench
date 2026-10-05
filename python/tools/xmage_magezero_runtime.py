@@ -22,7 +22,7 @@ from xmage_checkpoint_backend import cleanup_container, pinned_command
 from xmage_magezero_agent import MageZeroAgent, profile
 from xmage_magezero_bridge import BridgeSession
 from xmage_magezero_search import validate_settings
-from xmage_neural_decisions import InferenceSession
+from xmage_neural_decisions import InferenceSession, close_resources
 from xmage_neural_runtime import close_owned_runtime, sha, verify_model_build
 from xmage_release_assets import prepare_root, validate_asset
 
@@ -169,13 +169,8 @@ def main(argv=None):
                                          architecture="magezero-v02", game_start=context)
                 peer = wire.SubprocessPeer(command, timeout_s=90)
                 return BridgeSession(peer, model)
-            except BaseException:
-                try:
-                    if peer is not None:
-                        peer.close()
-                finally:
-                    if model is not None:
-                        model.close()
+            except BaseException as failure:
+                close_resources(peer, model, failure=failure)
                 raise
 
         def audit(event):

@@ -110,6 +110,27 @@ def load_response(payload: bytes) -> dict:
     return result
 
 
+def close_resources(*resources, failure=None):
+    """Attempt every owned close, retaining an active failure as the primary error."""
+    errors = []
+    for resource in resources:
+        if resource is not None:
+            try:
+                resource.close()
+            except BaseException as error:
+                errors.append(error)
+    if failure is not None:
+        for error in errors:
+            notes = tuple(getattr(error, "__notes__", []))
+            failure.add_note("Neural cleanup failed: " + str(error))
+            for note in notes:
+                failure.add_note(note)
+    elif errors:
+        for error in errors[1:]:
+            errors[0].add_note("Neural cleanup also failed: " + str(error))
+        raise errors[0]
+
+
 class InferenceSession:
     """One owned confined checkpoint process, with a shared request deadline."""
     def __init__(self, manifest: dict, root: Path, checkpoint: str, image: str, *, startup_s: float = 90,
@@ -171,9 +192,9 @@ class InferenceSession:
             if time.monotonic() > deadline:
                 raise TimeoutError("neural decision exhausted its selection-validation clock")
             return result
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def score(self, features: list[int], *, timeout_s: float) -> dict:
@@ -204,9 +225,9 @@ class InferenceSession:
             if time.monotonic() > deadline:
                 raise TimeoutError("neural decision exhausted its shared inference/validation clock")
             return {k: scores[k] for k in ("priority", "opponent_priority", "target", "binary", "value")}
-        except BaseException:
+        except BaseException as failure:
             self.failed = True
-            self.close()
+            close_resources(self, failure=failure)
             raise
 
     def close(self):
