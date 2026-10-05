@@ -62,8 +62,8 @@
   "published_entries": 0,
   "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
   "current_native_qualification": "failed_existing_redeal_gate_game52",
-  "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json",
-  "current_native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
+  "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json",
+  "current_native_attempt_seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
   "component_cases": {
     "364": {
@@ -131,5 +131,41 @@
   "corrected_component_verification_passed": true,
   "full_go_ci_passed": true,
   "native_job_record": "docs/gorge-runtime060-native-20261005.json",
-  "benchmark_audit_url_reviewed": false
+  "benchmark_audit_url_reviewed": false,
+  "current_native_failure": {
+    "at_utc": "2026-10-05T10:48:51.812870+00:00",
+    "game": 52,
+    "cell": "Wildfire/search-mana-redeal",
+    "coverage": {
+      "Natives": 632,
+      "Eligible": 194,
+      "Attempted": 97,
+      "Covered": 95,
+      "Attempts": 6208,
+      "Accepted": 4,
+      "Worlds": 760,
+      "Rollouts": 3160,
+      "Submits": 2448675,
+      "Terminal": 3160,
+      "Capped": 0,
+      "Redealt": 760,
+      "ReconstructionAttempts": 121,
+      "ReconstructionSubmits": 112672,
+      "ReconstructionNodes": 37162,
+      "ReconstructionBudgetExhausted": 2,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 2
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 97,
+        "insufficient worlds/ESS": 2
+      },
+      "Kinds": {
+        "attackers": 3,
+        "cast": 28,
+        "mana": 64
+      }
+    },
+    "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+  }
 }

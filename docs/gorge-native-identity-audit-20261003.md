@@ -6,8 +6,10 @@ matches engine source `1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a`.
 [Full source-compatible Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37293808685)
 passed. Seven production binaries are durably pinned on independent E/D copies
 under seal `ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2`.
-[Job060](gorge-runtime060-native-20261005.json) uses the supported matched
-serial/parallel throughput guard before its conditional 320-block/640-game audit.
+[Job060](gorge-runtime060-native-20261005.json) failed the unchanged zero-refusal
+gate in serial game52, recording two reconstruction exhaustions. The parallel
+comparison and full 320-block/640-game audit were not admitted. Its pod is deleted,
+cleanup is verified and full evidence is sealed on independent E/D copies.
 No full qualification or playing-strength result is claimed.
 
 All five unchanged saved actor-public inputs pass the native Go tests under
