@@ -140,11 +140,16 @@ The original priority player separately constructs, deduplicates and validates
 its options, includes individual mana abilities, and dispatches by phase with
 different action/pass behavior. The production bridge now enters those original
 policy steps and retains their activation state. Binary, X, spell-mode, named Choice
-and general target picks replay that saved activation through the original player.
+and general target and provided-card picks replay that saved activation through the original player.
 Targets retain sequential mutation, same-name direct returns, STOP and 64-slot
 limits; recorded prefixes add no policy draw. Metadata checks pass for visible
 spell, cost and object wire forms with the acting viewer's actual named source.
-Provided-card, combat, London and priority/resolution continuation remain open. The guarded
+Provided-card replay retains original name groups, representative features, physical
+copy selection and the card_select head. Inherited picks enter the original sorting,
+queued-target and target.add paths without neural draws. Recorded card prefixes
+add neither model nor physical-copy draws; sequential groups and STOP checks pass.
+All 93 affected Python checks and two identical normalized card metadata JVM runs
+pass. Combat, London and priority/resolution continuation remain open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).

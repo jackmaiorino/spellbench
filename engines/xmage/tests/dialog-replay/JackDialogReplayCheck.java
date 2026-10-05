@@ -23,21 +23,25 @@ public final class JackDialogReplayCheck {
         return flags;
     }
     static final class Backend implements OriginalNeuralSelection.Model {
-        int calls;boolean closed;
+        int calls,copies;boolean closed,chooseFirst;final List<String> heads=new ArrayList<>();
         public String callbackSourceSha256() {return OriginalCallbackPlayer.SOURCE_SHA256;}
         public String profile() {return OriginalNeuralSelection.GREEDY;}
         public long seed() {return 27;}
         public OriginalNeuralSelection.Prediction score(OriginalNeuralSelection.Request r,double seconds) {
-            calls++;float[] probabilities=new float[64];probabilities[r.count-1]=1;
+            calls++;heads.add(r.head);float[] probabilities=new float[64];probabilities[chooseFirst?0:r.count-1]=1;
             return new OriginalNeuralSelection.Prediction(probabilities,0);
         }
         public void close() {closed=true;}
+        public int physicalCopy(int count,double seconds) {copies++;return count-1;}
     }
     static final class Viewer extends OriginalCallbackPlayer {
         boolean prefix,cost,mode,modePrefix;int entered;boolean earlier;ActivatedAbility playable;
         Modes modes;Ability modeSource;Mode earlierMode;
         mage.choices.Choice named;boolean namedResult;
         mage.target.Target target;boolean targetResult;
+        mage.cards.Cards cards;mage.target.TargetCard cardTarget;boolean parentCards,cardResult;
+        Outcome cardOutcome=Outcome.Benefit;
+        void queueCard(UUID id) {targets.add(id);}
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
         @Override public Viewer copy() {return new Viewer(this);}
@@ -55,8 +59,20 @@ public final class JackDialogReplayCheck {
             if(mode || modePrefix) earlierMode=chooseMode(modes,modeSource,game);
             if(named!=null) namedResult=choose(Outcome.Benefit,named,game);
             if(target!=null) targetResult=chooseTarget(Outcome.Benefit,target,playable,game);
+            if(cards!=null) cardResult=parentCards?choose(cardOutcome,cards,cardTarget,playable,game)
+                    :chooseTarget(cardOutcome,cards,cardTarget,playable,game);
             announceX(0,3,"current",game,null,false);return true;
         }
+    }
+    static final class StableCard extends mage.cards.CardImpl {
+        StableCard(UUID owner,String name,int index) {
+            super(owner,new mage.cards.CardSetInfo(name,"META","1",mage.constants.Rarity.COMMON),
+                    new mage.constants.CardType[]{mage.constants.CardType.LAND},"");
+            objectId=new UUID(0,900+index);
+            for(Ability ability:getAbilities())ability.setSourceId(objectId);
+        }
+        StableCard(StableCard old) {super(old);}
+        @Override public StableCard copy() {return new StableCard(this);}
     }
     static final class Case {
         final Root root=new Root();final Viewer player=new Viewer(root.old);final Backend backend=new Backend();
@@ -68,8 +84,9 @@ public final class JackDialogReplayCheck {
         }
         Case(int handSize,boolean sameName) {
             root.state.getPlayers().put(player.getId(),player);
-            for(int i=1;i<handSize;i++) {
-                mage.cards.Card card=new MetadataCard(player.getId(),sameName || i%2==0?"Forest":"Island");
+            if(handSize>0)player.getHand().clear();
+            for(int i=0;i<handSize;i++) {
+                mage.cards.Card card=new StableCard(player.getId(),sameName || i%2==0?"Forest":"Island",i);
                 root.cards.put(card.getId(),card);player.getHand().add(card);
             }
             hidden.addAll(player.getLibrary().getCardList());

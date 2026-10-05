@@ -36,6 +36,19 @@ def parent_dialog_source(sources: dict[str, str], callback: str) -> str:
     targets = replace_once(targets,
                            "private boolean makeChoice(Outcome outcome, Target target, Ability source, Game game, Cards fromCards) {",
                            "private boolean makeChoice(Outcome outcome, Target target, Ability source, Game game, Cards fromCards) {\n        requireOriginalParentWorld(game);")
+    # Notify only an active root replay, immediately before the original target mutation.
+    begin = targets.index("private boolean makeChoice(Outcome outcome, Target target, Ability source, Game game, Cards fromCards)")
+    end = targets.index("    /**\n     * Default choice logic for X or amount values", begin)
+    walk = targets[begin:end]
+    walk = replace_once(walk, "            target.add(item.getId(), game);\n            if (target.isChoiceCompleted",
+        "            originalParentCardPick(item.getId(), possibleTargetsSelector, target, source, game, fromCards, \"good_target\");\n"
+        "            target.add(item.getId(), game);\n            if (target.isChoiceCompleted")
+    walk = replace_once(walk, "            target.add(item.getId(), game);\n        }\n\n        return target.isChosen",
+        "            originalParentCardPick(item.getId(), possibleTargetsSelector, target, source, game, fromCards, \"bad_target\");\n"
+        "            target.add(item.getId(), game);\n        }\n\n"
+        "        originalParentCardFinish(possibleTargetsSelector, target, source, game, fromCards);\n        return target.isChosen")
+    walk = walk.replace("            return false;", "            originalParentCardFinish(null, target, source, game, fromCards);\n            return false;")
+    targets = targets[:begin] + walk + targets[end:]
     targets = replace_once(targets, "private int makeChoiceAmount(int min, int max, Game game, Ability source, boolean isManaPay) {",
                            "private int makeChoiceAmount(int min, int max, Game game, Ability source, boolean isManaPay) {\n        requireOriginalParentWorld(game);")
     targets = replace_once(targets, "public boolean chooseTargetAmount(Outcome outcome, TargetAmount target, Ability source, Game game) {",
@@ -63,6 +76,9 @@ def parent_dialog_source(sources: dict[str, str], callback: str) -> str:
                           "originalBaseTargetCards(outcome, cards, target, source, game)")
     queued = replace_once(queued, "super.choose(outcome, cards, target, source, game)",
                           "originalBaseCards(outcome, cards, target, source, game)")
+    queued = replace_once(queued, "                target.add(targetId, game);",
+        "                originalParentCardPick(targetId, null, target, source, game, cards, \"queued_target\");\n"
+        "                target.add(targetId, game);")
     mode = extract(base, "    @Override\n    public Mode chooseMode(",
                    "    @Override\n    public TriggeredAbility chooseTriggeredAbility(")
     mode = replace_once(mode, "    @Override\n    public Mode chooseMode(Modes modes, Ability source, Game game) {",
@@ -122,6 +138,27 @@ public abstract class OriginalParentDialogsPlayer extends OriginalParentManaPlay
         if (game == null || game.getPlayer(getId()) != this)
             throw new IllegalArgumentException("original parent dialog needs its owned permitted player");
         requireOriginalPermittedWorld(game);
+    }
+    protected boolean originalParentCardReplayActive(Game game) { return false; }
+    protected void replayOriginalParentCard(Game game,TargetCard target,Ability source,List<UUID> possible,
+            UUID selected,int count,int minimum,int maximum,String rule) { }
+    private void originalParentCardPick(UUID selected,ParentTargetsSelector selector,Target target,Ability source,
+            Game game,Cards cards,String rule) {
+        if (cards==null || !originalParentCardReplayActive(game)) return;
+        if (!(target instanceof TargetCard)) throw new IllegalArgumentException("actual inherited card target required");
+        List<UUID> possible=new ArrayList<>();
+        if (selector==null) {
+            for(UUID id:target.possibleTargets(target.getAffectedAbilityControllerId(getId()),source,game,cards))
+                if (!target.contains(id)) possible.add(id);
+        } else for(MageItem item:selector.getAny()) if (!target.contains(item.getId())) possible.add(item.getId());
+        if (target.isChosen(game)) possible.add(0,null);
+        replayOriginalParentCard(game,(TargetCard)target,source,possible,selected,target.getTargets().size(),
+                target.getMinNumberOfTargets(),target.getMaxNumberOfTargets(),rule);
+    }
+    private void originalParentCardFinish(ParentTargetsSelector selector,Target target,Ability source,Game game,Cards cards) {
+        if (cards==null || !originalParentCardReplayActive(game)
+                || target.getTargets().size()>=target.getMaxNumberOfTargets() || !target.isChosen(game)) return;
+        originalParentCardPick(null,selector,target,source,game,cards,"implicit_finish");
     }
     @Override public final boolean choose(Outcome outcome, Target target, Ability source, Game game, Map<String, Serializable> options) {
         return originalParentTargetChoice(outcome, target, source, game, options);

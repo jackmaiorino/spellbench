@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.UUID;
 
@@ -115,6 +116,31 @@ class JackCardSetEncoder extends JackGeneralTargetEncoder implements ModelReplay
             else for (UUID id : group) result.add(bound.ids.get(id));
             return result;
         }
+    }
+
+    /** One original group pick, with each eligible physical copy retaining its own wire ID. */
+    @SuppressWarnings("unchecked")
+    static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,
+                                                       Object[] arguments,Game game) throws Exception {
+        if(arguments.length!=8 || !(arguments[0] instanceof TargetCard) || !(arguments[1] instanceof Ability)
+                || !(arguments[2] instanceof List) || !(arguments[3] instanceof Integer)
+                || !(arguments[4] instanceof Integer) || !(arguments[5] instanceof Integer)
+                || !(arguments[6] instanceof Boolean) || !(arguments[7] instanceof Boolean))
+            throw new IllegalArgumentException("original provided-card callback lacks its actual group state");
+        List<List<UUID>> groups=(List<List<UUID>>)arguments[2];
+        Groups binding=new Groups(world,decision,(TargetCard)arguments[0],(Ability)arguments[1],game,
+                groups,(Integer)arguments[3],(Integer)arguments[4],(Integer)arguments[5],(Boolean)arguments[6],(Boolean)arguments[7]);
+        Map<Long,Map<String,Object>> wire=new LinkedHashMap<>();
+        for(Object item:Json.arr(decision,"candidates")) {
+            Map<String,Object> c=Json.obj(item);Long id=(Long)c.get("candidate_id");
+            wire.put(id,Json.map("candidate_id",id,"semantic_echo",Json.copy(c.get("semantic"))));
+        }
+        Map<Object,Map<String,Object>> result=new LinkedHashMap<>();
+        for(List<UUID> group:groups.subList(0,Math.min(64,groups.size()))) {
+            if(group.isEmpty())result.put(null,wire.get(binding.bound.ids.get(null)));
+            else for(UUID id:group)result.put(id,wire.get(binding.bound.ids.get(id)));
+        }
+        return result;
     }
 
     @Override public UUID earlierCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,

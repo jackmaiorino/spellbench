@@ -13,6 +13,7 @@ import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 /** Original April inherited card policy, distinct from the neural card callback. */
@@ -74,7 +75,7 @@ final class JackParentCardEncoder extends JackCardSetEncoder implements ModelRep
     private static JackTargetEncoder.Binding bind(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
                                                   List<UUID> possible, UUID chosen, int selected, int min, int max, String rule) throws Exception {
         if (possible == null || !possible.contains(chosen) || selected >= max
-                || !("good_target".equals(rule) || "bad_target".equals(rule) || "implicit_finish".equals(rule))
+                || !("good_target".equals(rule) || "bad_target".equals(rule) || "queued_target".equals(rule) || "implicit_finish".equals(rule))
                 || (chosen == null) != "implicit_finish".equals(rule)) throw new IllegalArgumentException("original parent selection or completion changed");
         for (Object value : Json.arr(decision, "candidates")) {
             String kind = Json.str(Json.obj(Json.obj(value), "semantic"), "kind");
@@ -86,6 +87,27 @@ final class JackParentCardEncoder extends JackCardSetEncoder implements ModelRep
         }
         return new JackTargetEncoder.Binding(world, JackGeneralTargetEncoder.normalizeDecision(decision, JackTargetEncoder.slot(source, target)),
                 target, source, game, possible, selected, min, max);
+    }
+    /** The inherited policy already determined its pick; prefixes must agree with that exact result. */
+    @SuppressWarnings("unchecked")
+    static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,
+                                                       Object[] arguments,Game game) throws Exception {
+        if(arguments.length!=8 || !(arguments[0] instanceof TargetCard) || !(arguments[1] instanceof Ability)
+                || !(arguments[2] instanceof List) || arguments[3]!=null && !(arguments[3] instanceof UUID)
+                || !(arguments[4] instanceof Integer) || !(arguments[5] instanceof Integer)
+                || !(arguments[6] instanceof Integer) || !(arguments[7] instanceof String))
+            throw new IllegalArgumentException("original inherited-card callback lacks its determined choice");
+        UUID chosen=(UUID)arguments[3];
+        JackTargetEncoder.Binding binding=bind(world,decision,(TargetCard)arguments[0],(Ability)arguments[1],game,
+                (List<UUID>)arguments[2],chosen,(Integer)arguments[4],(Integer)arguments[5],(Integer)arguments[6],(String)arguments[7]);
+        Map<Object,Map<String,Object>> result=new LinkedHashMap<>();
+        for(Object item:Json.arr(decision,"candidates")) {
+            Map<String,Object> candidate=Json.obj(item);
+            if(binding.ids.get(chosen).equals(candidate.get("candidate_id"))) result.put(chosen,
+                    Json.map("candidate_id",candidate.get("candidate_id"),"semantic_echo",Json.copy(candidate.get("semantic"))));
+        }
+        if(result.isEmpty())throw new IllegalArgumentException("original inherited card is not a bound wire value");
+        return result;
     }
     @Override public void earlierParentCards(World world, Map<String, Object> decision, TargetCard target, Ability source, Game game,
                                             List<UUID> possible, UUID chosen, int selected, int min, int max, String rule, Map<String, Object> semantic) {

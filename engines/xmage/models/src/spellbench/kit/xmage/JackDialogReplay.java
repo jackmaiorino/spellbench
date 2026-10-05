@@ -11,7 +11,7 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** Actual original activation to an exact binary, X, mode, named Choice or target callback. */
+/** Actual original activation to an exact dialog, target or provided-card callback. */
 public final class JackDialogReplay {
     interface Projection {void compare(World world,Map<String,Object> decision) throws Exception;}
     private final World world;
@@ -126,7 +126,11 @@ public final class JackDialogReplay {
                 }
                 projection.compare(world,current);
                 Map<Object,Map<String,Object>> choices;
-                if("target".equals(kind)) {
+                if("card-set".equals(kind)) {
+                    choices=JackCardSetEncoder.replayChoices(world,current,callback,world.game);
+                } else if("parent-card".equals(kind)) {
+                    choices=JackParentCardEncoder.replayChoices(world,current,callback,world.game);
+                } else if("target".equals(kind)) {
                     choices=JackGeneralTargetEncoder.replayChoices(world,current,callback,world.game);
                 } else if("mode".equals(kind)) {
                     if(callback.length!=2 || !(callback[0] instanceof mage.abilities.Modes)

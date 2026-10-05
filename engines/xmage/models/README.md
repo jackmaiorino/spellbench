@@ -655,7 +655,7 @@ the original order, same-name direct return, STOP gates and 64-slot limit.
 Binding requires the acting viewer's actual named source and the complete
 permitted menu. Invalid sources, counts, ranges, slots, IDs, hidden references,
 forced prefixes and prefixes outside the first 64 slots refuse before inference.
-London remains guarded separately, and provided-card callbacks remain unfinished.
+London remains guarded separately. Provided-card activation replay is described below.
 
 Two metadata JVM runs are byte-identical for 1/2/70 targets, target/cost/object
 wire forms, earlier target mutation and forced/STOP returns. The unchanged
@@ -665,3 +665,24 @@ target8; subsequent fixture repairs reuse those exact production classes.
 Failed fixture sources/logs remain retained. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-target-replay-001`. This does not qualify
 native callbacks or complete trained-weight games.
+
+Provided-card replay now enters both the actual neural group loop and inherited
+original `makeChoice` body. Neural picks retain first-64 group order, original
+representative features and `card_select` scores, then select a physical copy
+through the owned copy stream. Recorded picks mutate the original groups without
+another model or copy draw. Inherited picks retain good/bad sorting, UUID ties,
+queued targets, `target.add` and implicit completion without neural draws.
+Bindings require the acting viewer's actual named Ability source and the complete
+permitted menu. Invalid sources, ranges, IDs and recorded picks refuse before
+inference. Full private builds require both card encoder classes.
+
+All 93 affected Python checks pass. Two fresh metadata JVM runs have identical
+normalized numeric results for 1/2/70 cards, grouped physical copies, sequential
+picks, neural STOP, inherited sorting/queue/completion and recorded prefixes.
+Target, named-choice, binary/X/mode and original priority/choice regressions pass.
+JDK23.0.1 target8 compiled the production classes; the later multi-pick fixture
+compile reuses those classes. The first fixture's incorrect following-X head
+expectation and its failed log remain retained. Evidence is under
+`E:/spellbench-xmage-all-20261002/jack-card-replay-001`. Metadata checks use synthetic
+scores. Native callbacks, actual pretrained inference, general source contexts,
+complete priority queue restoration and complete games remain unqualified.

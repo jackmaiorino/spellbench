@@ -121,7 +121,8 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             T result;
             if (replay!=null && game==replayGame && !game.isSimulation()
                     && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)
-                    && !"target-loop".equals(kind)) {
+                    && !"target-loop".equals(kind) && !"card-set-loop".equals(kind)
+                    && !"parent-card-loop".equals(kind)) {
                 if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
                 replayDepth++;
                 try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
@@ -161,7 +162,15 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         return chooseTarget(outcome,target,source,game);
     }
     @Override public final boolean choose(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
-        return callback(game, () -> originalParentCards(outcome,cards,target,source,game));
+        return callback(game,"parent-card-loop",new Object[]{cards,target,source}, () -> originalParentCards(outcome,cards,target,source,game));
+    }
+    @Override protected final boolean originalParentCardReplayActive(Game game) {
+        return replay!=null && game==replayGame && !game.isSimulation();
+    }
+    @Override protected final void replayOriginalParentCard(Game game,TargetCard target,Ability source,List<UUID> possible,
+            UUID selected,int count,int minimum,int maximum,String rule) {
+        UUID result=callback(game,"parent-card",new Object[]{target,source,possible,selected,count,minimum,maximum,rule}, () -> selected);
+        if (!Objects.equals(result,selected)) throw new IllegalArgumentException("replay changed original determined parent card");
     }
     @Override public final boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
         // Each target pick is a posed callback; the enclosing original loop adds earlier picks.
@@ -193,16 +202,18 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         });
     }
     @Override public final boolean chooseTarget(Outcome outcome, Cards cards, TargetCard target, Ability source, Game game) {
-        return callback(game, () -> new CardSetRules(this).select(outcome,cards,target,source,game,(groups,chosen,min,max,forced,dedup) -> {
-            int selected=0;
-            if (!forced) {
-                List<UUID> representatives=new ArrayList<>();
-                for (List<UUID> group:groups) representatives.add(group.isEmpty()?null:group.get(0));
-                selected=originalNeuralSelection().select(representatives,StateSequenceBuilder.ActionType.SELECT_CARD,source,
-                        game,originalNeuralSelection().capture(game),null,chosen,min,max,1,false,false,false).get(0);
-            }
-            List<UUID> group=groups.get(selected);
-            return group.isEmpty()?null:group.get(originalNeuralSession().physicalCopy(group.size()));
+        return callback(game,"card-set-loop",new Object[]{cards,target,source}, () -> new CardSetRules(this).select(outcome,cards,target,source,game,(groups,chosen,min,max,forced,dedup) -> {
+            return callback(game,"card-set",new Object[]{target,source,groups,chosen,min,max,forced,dedup}, () -> {
+                int selected=0;
+                if (!forced) {
+                    List<UUID> representatives=new ArrayList<>();
+                    for (List<UUID> group:groups) representatives.add(group.isEmpty()?null:group.get(0));
+                    selected=originalNeuralSelection().select(representatives,StateSequenceBuilder.ActionType.SELECT_CARD,source,
+                            game,originalNeuralSelection().capture(game),null,chosen,min,max,1,false,false,false).get(0);
+                }
+                List<UUID> group=groups.get(selected);
+                return group.isEmpty()?null:group.get(originalNeuralSession().physicalCopy(group.size()));
+            });
         }));
     }
     @Override public final Mode chooseMode(Modes modes, Ability source, Game game) {
