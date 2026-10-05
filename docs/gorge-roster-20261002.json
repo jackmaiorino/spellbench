@@ -453,7 +453,7 @@
       "prior_current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
       "prior_current_reference_preparation": "docs/gorge-reference-runtime026-preparation002-20261004.json",
       "current_runtime_native_attempt": "docs/gorge-runtime040-native-20261005.json",
-      "current_reference_preparation": "docs/gorge-reference-runtime048-preparation006-20261005.json",
+      "current_reference_preparation": "docs/gorge-reference-runtime048-preparation007-20261005.json",
       "previous_failed_runtime_native_attempt": "docs/gorge-runtime033-native-20261005.json",
       "previous_denied_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
     }
@@ -461,7 +461,7 @@
   "publication": null,
   "runtime_preparation": "docs/gorge-runtime040-native-20261005.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA256; production runtime048 is independently frozen on E/D. Native serial/parallel qualification is pending. Prior runtime033 remains failed. Compatible reference006 inputs are frozen with zero allocation or reservation; native admission, fresh billing, complete audits, identity review and rated launch remain required.",
+    "rated_registry_input": "Explicit registry and SHA256; production runtime048 is independently frozen on E/D. Native serial/parallel qualification is pending. Prior runtime033 remains failed. Compatible reference007 inputs are frozen with zero allocation or reservation; native admission, fresh billing, complete audits, identity review and rated launch remain required.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
@@ -494,7 +494,7 @@
     }
   },
   "current_native_qualification": "docs/gorge-runtime048-native-20261005.json",
-  "current_reference_preparation": "docs/gorge-reference-runtime048-preparation006-20261005.json",
+  "current_reference_preparation": "docs/gorge-reference-runtime048-preparation007-20261005.json",
   "prior_runtime_and_qualification_references": {
     "runtime_preparation": "docs/gorge-runtime-preparation-20261004-027.json",
     "current_native_qualification": "docs/gorge-native028-20261004.json",
