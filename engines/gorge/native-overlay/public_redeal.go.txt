@@ -424,11 +424,17 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 	type link struct {
 		previous    epochKey
 		draws, hand int
+		returned    map[string]int
 	}
 	links := map[epochKey]link{}
 	ordinals, draws := map[state.PlayerID]int{}, map[state.PlayerID]int{}
+	identities := map[uint32]Identity{}
+	returned := map[state.PlayerID]map[string]int{}
 	started := false
 	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
 		var board struct {
 			Players []struct {
 				Seat state.PlayerID `json:"seat"`
@@ -437,6 +443,28 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 		}
 		json.Unmarshal(frame.Board, &board)
 		for _, ev := range frame.Events {
+			identity, known := identities[ev.Obj]
+			// A publicly returned card can remain in hand through a shuffle.
+			// Its later public exit need not come from this epoch's draw prefix.
+			// Count names only: observer references may change after hidden mixing.
+			if ev.From == state.ZHand && ev.To != state.ZHand {
+				if known && identity.Name != "" {
+					if held := returned[identity.Owner]; held != nil {
+						held[identity.Name] = max(0, held[identity.Name]-1)
+					}
+				} else if ev.Kind == events.MoveZone && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
+					delete(returned, ev.Player)
+				} else {
+					// An opaque exit might remove any remembered name. Keep no
+					// credit when its card or owner cannot be established.
+					clear(returned)
+				}
+			} else if ev.Kind == events.MoveZone && ev.To == state.ZHand && !ev.From.Hidden() && known && identity.Name != "" {
+				if returned[identity.Owner] == nil {
+					returned[identity.Owner] = map[string]int{}
+				}
+				returned[identity.Owner][identity.Name]++
+			}
 			switch ev.Kind {
 			case events.TurnChange:
 				started = true
@@ -447,7 +475,11 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 					for _, player := range board.Players {
 						if player.Seat == ev.Player && player.Hand != nil {
 							key := epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player]}
-							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], hand: *player.Hand}
+							held := map[string]int{}
+							for name, count := range returned[ev.Player] {
+								held[name] = count
+							}
+							links[key] = link{previous: epochKey{Player: ev.Player, Ordinal: ordinals[ev.Player] - 1}, draws: draws[ev.Player], hand: *player.Hand, returned: held}
 						}
 					}
 				}
@@ -476,6 +508,9 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 		deadlines := append([]deadlineConstraint(nil), guided[key].Deadlines...)
 		sort.SliceStable(deadlines, func(i, j int) bool { return deadlines[i].Through < deadlines[j].Through })
 		needed, carry := map[string]int{}, map[string]int{}
+		for name, count := range prior.returned {
+			carry[name] = count
+		}
 		for _, bound := range deadlines {
 			needed[bound.Name] = max(needed[bound.Name], bound.Count)
 			demand := 0
@@ -487,14 +522,14 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 				if deficit <= 0 || earlier.Through > bound.Through {
 					break
 				}
-				added := min(deficit, needed[earlier.Name]-carry[earlier.Name])
+				added := min(deficit, max(0, needed[earlier.Name]-carry[earlier.Name]))
 				carry[earlier.Name] += added
 				deficit -= added
 			}
 		}
 		count := 0
-		for _, n := range carry {
-			count += n
+		for name, n := range carry {
+			count += min(n, needed[name])
 		}
 		if count == 0 || count > prior.hand {
 			continue
@@ -502,7 +537,7 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 		epoch := guided[prior.previous]
 		var names []string
 		for name, n := range carry {
-			if n > 0 {
+			if n > prior.returned[name] {
 				names = append(names, name)
 			}
 		}
@@ -514,7 +549,7 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 					consumed = max(consumed, bound.Count)
 				}
 			}
-			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: prior.draws, Name: name, Count: consumed + carry[name]})
+			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: prior.draws, Name: name, Count: consumed + carry[name] - prior.returned[name]})
 		}
 		guided[prior.previous] = epoch
 	}

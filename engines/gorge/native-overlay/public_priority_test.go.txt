@@ -60,3 +60,57 @@ func TestSpellbenchPublicPassRequiresImmediateMatchingMarker(t *testing.T) {
 		t.Fatalf("priority marker changed another question: %+v", got)
 	}
 }
+
+func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		from state.Zone
+		exit bool
+		blind bool
+		wantLandscape int
+	}{
+		{"graveyard return remains held", state.ZGraveyard, false, false, 1},
+		{"public exile return remains held", state.ZExile, false, false, 1},
+		{"library draw supplies no return credit", state.ZLibrary, false, false, 2},
+		{"renamed public exit spends credit", state.ZGraveyard, true, false, 2},
+		{"opaque exit clears credit", state.ZGraveyard, true, true, 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+				{Identities: []Identity{{ID: 14, Name: "Twisted Landscape", Owner: 1}},
+					Events: []ObservedEvent{{Kind: events.MoveZone, Obj: 14, From: test.from, To: state.ZHand}}},
+			}}
+			if test.exit {
+				frame := Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Obj: 101, From: state.ZHand, To: state.ZBattlefield}}}
+				if !test.blind {
+					frame.Identities = []Identity{{ID: 101, Name: "Twisted Landscape", Owner: 1}}
+				}
+				h.Frames = append(h.Frames, frame)
+			}
+			h.Frames = append(h.Frames, Frame{Board: []byte(`{"players":[{"seat":1,"hand_size":2}]}`),
+				Events: []ObservedEvent{{Kind: events.TurnChange, Player: 1}, {Kind: events.Shuffle, Player: 1}}})
+			previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
+			original := map[epochKey]epochConstraints{
+				previous: {Deadlines: []deadlineConstraint{{Through: 1, Name: "Twisted Landscape", Count: 1}}},
+				next: {Deadlines: []deadlineConstraint{{Through: 0, Name: "Twisted Landscape", Count: 1}, {Through: 0, Name: "Refurbished Familiar", Count: 1}}},
+			}
+			got := spellbenchCarryEpochs(h, original)
+			landscape, familiar := 0, 0
+			for _, bound := range got[previous].Deadlines {
+				if bound.Name == "Twisted Landscape" {
+					landscape = max(landscape, bound.Count)
+				}
+				if bound.Name == "Refurbished Familiar" {
+					familiar = max(familiar, bound.Count)
+				}
+			}
+			if landscape != test.wantLandscape || familiar != 1 {
+				t.Fatalf("return carry requested an extra drawn copy: landscape=%d familiar=%d deadlines=%+v", landscape, familiar, got[previous].Deadlines)
+			}
+			if len(original[previous].Deadlines) != 1 || !reflect.DeepEqual(got[next], original[next]) {
+				t.Fatal("witness carry changed original or later native constraints")
+			}
+		})
+	}
+}
