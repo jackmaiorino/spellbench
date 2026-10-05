@@ -347,7 +347,79 @@
     "candidate_did_not_repair504": true,
     "next_candidate": "Keep existing original and carry-only proposals; offer a separate hypothetical held-before-reorder proposal on attempt2 modulo4. Names come only from current public deadlines; native weights and budgets unchanged.",
     "interpretation": "The observed Lembas bottoms its one-card look window, so keeping the hypothetical looked-at Vault would contradict the public bottom count. A matching witness must have held the later public card before this reorder or draw it from the remaining tail. Current weak prefix deadlines allow proposals to place its only copy in the bottomed window. The failed partition preference is not proof of a repaired root.",
-    "validation_pending": true,
+    "validation_pending": false,
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "component058": {
+    "record": "docs/gorge-component-verification059-20261005.json",
+    "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "cases": {
+      "364": {
+        "worlds": 8,
+        "public_input_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+        "work": {
+          "Attempts": 1,
+          "Submits": 729,
+          "Nodes": 11,
+          "BudgetExhausted": 0
+        },
+        "refused": "",
+        "native_diagnostics_identical": true
+      },
+      "410": {
+        "worlds": 8,
+        "public_input_sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+        "work": {
+          "Attempts": 1,
+          "Submits": 831,
+          "Nodes": 19,
+          "BudgetExhausted": 0
+        },
+        "refused": "",
+        "native_diagnostics_identical": false
+      },
+      "478": {
+        "worlds": 8,
+        "public_input_sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+        "work": {
+          "Attempts": 2,
+          "Submits": 2412,
+          "Nodes": 1330,
+          "BudgetExhausted": 0
+        },
+        "refused": "",
+        "native_diagnostics_identical": false
+      },
+      "504": {
+        "worlds": 8,
+        "public_input_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+        "work": {
+          "Attempts": 3,
+          "Submits": 4072,
+          "Nodes": 2785,
+          "BudgetExhausted": 0
+        },
+        "refused": "",
+        "native_diagnostics_identical": false
+      },
+      "596": {
+        "worlds": 8,
+        "public_input_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+        "work": {
+          "Attempts": 1,
+          "Submits": 1220,
+          "Nodes": 31,
+          "BudgetExhausted": 0
+        },
+        "refused": "",
+        "native_diagnostics_identical": false
+      }
+    },
+    "native_go_tests_passed": true,
+    "original_parent_diagnostic_passed": false,
+    "corrected_saved_result_verification_passed": true,
+    "seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
     "native_qualification_complete": false,
     "rated_games": 0
   }

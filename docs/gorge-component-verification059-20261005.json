@@ -1,0 +1,96 @@
+{
+  "schema": "spellbench-gorge-saved-component-verification/v1",
+  "at_utc": "2026-10-05T10:16:34.532583+00:00",
+  "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+  "source_of_record": "E:\\spellbench-gorge-component-verification-20261005-059",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-component-verification-20261005-059",
+  "original_job": "E:\\spellbench-gorge-runpod-20261005-058",
+  "original_job_seal_sha256": "103a89d3e3d20c47b757a585018b435e93d8037a05a19faffac893305c63fb0c",
+  "runtime_source_of_record": "E:/spellbench-gorge-public-witness-runtime-20261005-058",
+  "runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
+  "original_parent_diagnostic_passed": false,
+  "original_parent_failure": {
+    "at_utc": "2026-10-05T10:06:13.709969+00:00",
+    "phase": "saved_public_roots_correctness",
+    "error_type": "KeyError",
+    "error": "'RedealRefused'",
+    "rated_games": 0
+  },
+  "native_go_tests_passed": true,
+  "corrected_saved_result_verification_passed": true,
+  "cases": {
+    "364": {
+      "worlds": 8,
+      "public_input_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+      "work": {
+        "Attempts": 1,
+        "Submits": 729,
+        "Nodes": 11,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": true
+    },
+    "410": {
+      "worlds": 8,
+      "public_input_sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+      "work": {
+        "Attempts": 1,
+        "Submits": 831,
+        "Nodes": 19,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "478": {
+      "worlds": 8,
+      "public_input_sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+      "work": {
+        "Attempts": 2,
+        "Submits": 2412,
+        "Nodes": 1330,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "504": {
+      "worlds": 8,
+      "public_input_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+      "work": {
+        "Attempts": 3,
+        "Submits": 4072,
+        "Nodes": 2785,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    },
+    "596": {
+      "worlds": 8,
+      "public_input_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+      "work": {
+        "Attempts": 1,
+        "Submits": 1220,
+        "Nodes": 31,
+        "BudgetExhausted": 0
+      },
+      "refused": "",
+      "native_diagnostics_identical": false
+    }
+  },
+  "native_known_card_assertions_passed": true,
+  "native_go_receipt": {
+    "exit_code": 0,
+    "elapsed_seconds": 15.735170882195234,
+    "at_utc": "2026-10-05T10:06:13.709677+00:00"
+  },
+  "correction": "Pinned native RedealRefused uses json omitempty. Read an absent value as the empty string. Frozen parent failure and all original files are preserved.",
+  "new_compute": false,
+  "new_cloud_spend_usd": 0,
+  "native_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748"
+}
