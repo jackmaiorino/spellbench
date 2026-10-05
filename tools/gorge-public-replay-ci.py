@@ -129,7 +129,8 @@ def main():
         env.update(GOTOOLCHAIN="local",CGO_ENABLED="0",GOMAXPROCS="2",GOMEMLIMIT="2GiB",GORGE_SRC=str(build/"upstream"),GOCACHE=str(build/"go-cache"),GOMODCACHE=str(build/"go-mod-cache"),GOFLAGS="-overlay="+str(result/"overlay.json"))
         go=build/"go/bin/go";binary=result/"public-witness-tests-linux-amd64"
         run("build-component",[str(go),"test","-c","-p","2","-trimpath","-buildvcs=false","-o",str(binary),"./strategies"],module,600)
-        pin=result/"pinned-binaries"/sha(binary);pin.mkdir(parents=True);shutil.copyfile(binary,pin/binary.name)
+        pin=result/"pinned-binaries"/sha(binary);pin.mkdir(parents=True);shutil.copy2(binary,pin/binary.name)
+        assert sha(pin/binary.name)==sha(binary) and os.access(pin/binary.name,os.X_OK)
         put("PINNED-BINARY.json",dict(sha256=sha(binary),path=str(pin/binary.name)))
         run("public-replays",[str(pin/binary.name),"-test.run=^TestSavedPublicWitness","-test.v","-test.timeout=5m"],module,330)
         checks=[json.loads((result/f"case-{i:03}/trace-public-root/RESULT.json").read_bytes()) for i in range(1,4)]
