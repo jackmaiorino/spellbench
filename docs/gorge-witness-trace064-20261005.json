@@ -22,8 +22,8 @@
   "final_invoice_verified": false,
   "scope": "One exact sealed637-frame public reconstruction failure replay with logging-only diagnostics and unchanged captured budgets. Diagnostic binary independently pinned before execution. No sampled-world, full-game or qualification claim.",
   "teacher_parallelism": "Unchanged production default; no diagnostic teacher override",
-  "minimum_vcpu_count": 8,
-  "minimum_memory_gb": 16,
+  "minimum_vcpu_count": 4,
+  "minimum_memory_gb": 8,
   "actual_build_cpu_minimum": 4,
   "actual_build_memory_minimum_bytes": 8000000000,
   "process_memory_guard_bytes": 21474836480,
@@ -84,12 +84,26 @@
   "source_archive_verified": true,
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
-  "bundle_sha256": "97119c11a535a326f3b60b2586ea8bbff3832a839c83ee56fe80567cf8f1c68b",
+  "bundle_sha256": "bcc4173cfc48b39f4a4a0ee984272be4f98c20e1ea58e307fd72ef796af35fc1",
   "phase": "prepared_not_launched",
   "control_update_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\CONTROL-UPDATE.json",
-  "control_update_sha256": "16d1b1d74edfff7437a6c77896b047cbcb5f31e17a8b7722297cf5bf1eedee75",
+  "control_update_sha256": "3df8c1d33e782e15606f2f01dc3550da9ce29f9a89e80d63dc0567e52e90551a",
   "controls_syntax_validated": true,
   "controls_execution_validated": false,
   "preparation_reporting_error_retained": "Output assertion preserved historical witness-trace052 instead of overwriting it; no paid allocation occurred",
-  "guard_path": "Independent30-minute guardian; exact637 public replay; one diagnostic binary pinned in E/D before execution"
+  "guard_path": "Independent30-minute guardian; exact637 public replay; one diagnostic binary pinned in E/D before execution",
+  "unallocated_attempts": [
+    {
+      "at_utc": "2026-10-05T11:45:02.1945427+00:00",
+      "name": "spellbench-gorge-diagnostic-a1727f0afc8c4bab",
+      "pod_id": null,
+      "owned_absence_confirmed_twice": true,
+      "guardian_pid_absent": true,
+      "task_removed": true,
+      "credential_removed": true,
+      "maximum_charge_usd": 0,
+      "basis": "Definite no-capacity provider response, two exact-name absence inventories and unused guardian terminal confirmation"
+    }
+  ],
+  "requested_vcpu_reason": "Initial8-vCPU16GB host request returned definite no capacity. Two exact-name absence inventories and unused guardian cleanup are verified. Retry4-vCPU8GB meets unchanged actual build minimums. Source, public history, sampler budgets, trace test and lease cap are unchanged."
 }
