@@ -1,0 +1,52 @@
+{
+  "schema": "spellbench-gorge-ci-native-inputs/v1",
+  "at_utc": "2026-10-05T13:07:44.095600+00:00",
+  "scope": "native qualification only",
+  "source_of_record": "E:\\spellbench-gorge-ci-native-20261005-069",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-068",
+  "runtime_source_commit": "f07d2a8f626c441c4042c3493e343d884c754a37",
+  "runtime_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "archive_sha256": "d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a",
+  "archive_bytes": 44481650,
+  "files": {
+    "gorgequal-linux-amd64": {
+      "sha256": "d316d68494e7989e6d4c14da7d7ff522a7ad2dcd19a420b280aca86692d3721c",
+      "bytes": 18974160
+    },
+    "spellbench-gorge-agent-linux-amd64": {
+      "sha256": "5ec78a41f775e3438d85d25d3ca103b00d7e1bc1341bd8a3a1e057b3897b390c",
+      "bytes": 18124931
+    },
+    "spellbench-gorge-env-linux-amd64": {
+      "sha256": "cbe2bf3df49cd9449d4da4c8f8e61603713a8ddd9d9f0ce0873b435767b0430a",
+      "bytes": 17400308
+    },
+    "registry.gob.gz": {
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329
+    },
+    "REGISTRY.json": {
+      "sha256": "cac8c4a8ca2b30cd91b3c788af106ab8f4259d72a7686282d73268185d9565fb",
+      "bytes": 658
+    },
+    "BUILD.json": {
+      "sha256": "8929540f4acc6393e17fe918ec34438dccb0a47ecbbe523a0b80a377c36116fb",
+      "bytes": 8223
+    }
+  },
+  "placement": "main-pc=unavailable: observed research generation184 London pilot002 retains priority; haleyspc=unavailable: observed queued training-performance window retains priority per CODEX811; runpod=not_authorized: remaining all-in cap cannot cover retained ancillary floor; github-actions=used: standard public runner, actual cores memory disk and matched throughput checked before substantial work",
+  "repository_private": false,
+  "conservative_reserved_total_usd": 9.96136347,
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-038",
+  "billing_seal_sha256": "ce61ed4848461b9b7fd90259a293cdd67ef94d385a3fcee4274ab46fd7fc7606",
+  "input_stage_private_draft": true,
+  "result_artifact_cap_bytes": 268435456,
+  "result_retention_days": 1,
+  "planned_wall_cap_seconds": 18000,
+  "rated_games": 0,
+  "release_asset_id": 612612290,
+  "ci_run_id": null,
+  "remote_result_recovery": "E/D recovery and verification before hosted artifact and draft input deletion",
+  "release_id": 403724120,
+  "remote_asset_digest": "sha256:d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a"
+}

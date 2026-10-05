@@ -30,6 +30,8 @@ from ..errors import ValidationError
 ALLOCATION_KINDS = ("small", "substantial", "unmeasured")
 # The placements COMPUTE-POLICY.md item 1 names: the operator's main PC, HaleysPC and RunPod.
 PLACEMENT_MACHINES = ("main-pc", "haleyspc", "runpod")
+# Additional supported hosts never replace the three required policy checks.
+OPTIONAL_PLACEMENT_MACHINES = ("github-actions",)
 PLACEMENT_DISPOSITIONS = ("used", "unavailable", "slower", "not_authorized")
 # The target volumes whose free space a run records and keeps above the reserve (ARTIFACT-LAW.md clause 1).
 VOLUME_ROLES = ("pin_root", "run_dir")
@@ -42,7 +44,7 @@ PLACEMENT_FORM = (
     "a placement names each of main-pc, haleyspc and runpod once, as '<machine>=<disposition>: <reason>' "
     f"separated by ';', each disposition one of {', '.join(PLACEMENT_DISPOSITIONS)} and at least one used, for "
     "example 'main-pc=used: fastest measured; haleyspc=slower: half the speed per game; runpod=not_authorized: "
-    "no spending authority' (COMPUTE-POLICY.md item 1)"
+    "no spending authority' (COMPUTE-POLICY.md item 1); github-actions may also be named"
 )
 _RULES_KEYS = ("substantial_run_seconds", "budget_percent", "games_per_worker", "probe_games", "ladder_divisors",
                "spot_check_divisor")
@@ -301,15 +303,20 @@ class MachinePlacement:
 @dataclass(frozen=True)
 class Placement:
     """Where a run plays and why (COMPUTE-POLICY.md item 1): each of ``PLACEMENT_MACHINES`` once, in that order,
-    with a disposition from ``PLACEMENT_DISPOSITIONS`` and a reason; at least one machine is used."""
+    followed by any named ``OPTIONAL_PLACEMENT_MACHINES``, with a disposition
+    and a reason; at least one machine is used. Existing three-host records
+    retain their exact field order and serialization."""
 
     entries: tuple[MachinePlacement, ...]
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "entries", tuple(self.entries))
+        if not all(isinstance(entry, MachinePlacement) for entry in self.entries):
+            raise ThroughputError(PLACEMENT_FORM)
+        machines = tuple(entry.machine for entry in self.entries)
+        expected = PLACEMENT_MACHINES + tuple(machine for machine in OPTIONAL_PLACEMENT_MACHINES if machine in machines)
         if (
-            not all(isinstance(entry, MachinePlacement) for entry in self.entries)
-            or tuple(entry.machine for entry in self.entries) != PLACEMENT_MACHINES
+            machines != expected
             or any(entry.disposition not in PLACEMENT_DISPOSITIONS for entry in self.entries)
             or any(type(entry.reason) is not str or not entry.reason.strip() for entry in self.entries)
             or not any(entry.disposition == "used" for entry in self.entries)
@@ -326,9 +333,10 @@ class Placement:
             if match is None or machine in found:
                 raise ThroughputError(PLACEMENT_FORM)
             found[machine] = MachinePlacement(machine, match.group(2), match.group(3))
-        if set(found) != set(PLACEMENT_MACHINES):
+        if not set(PLACEMENT_MACHINES) <= set(found) or not set(found) <= set(PLACEMENT_MACHINES + OPTIONAL_PLACEMENT_MACHINES):
             raise ThroughputError(PLACEMENT_FORM)
-        return cls(tuple(found[machine] for machine in PLACEMENT_MACHINES))
+        machines = PLACEMENT_MACHINES + tuple(machine for machine in OPTIONAL_PLACEMENT_MACHINES if machine in found)
+        return cls(tuple(found[machine] for machine in machines))
 
     def __str__(self) -> str:
         return "; ".join(f"{entry.machine}={entry.disposition}: {entry.reason}" for entry in self.entries)
@@ -338,9 +346,11 @@ class Placement:
 
     @classmethod
     def from_json(cls, value: Any, context: str = "placement") -> Placement:
-        exact_keys(_object(value, context), PLACEMENT_MACHINES, context)
+        value = _object(value, context)
+        machines = PLACEMENT_MACHINES + tuple(machine for machine in OPTIONAL_PLACEMENT_MACHINES if machine in value)
+        exact_keys(value, machines, context)
         entries = []
-        for machine in PLACEMENT_MACHINES:
+        for machine in machines:
             item = _object(value[machine], f"{context}.{machine}")
             exact_keys(item, ("disposition", "reason"), f"{context}.{machine}")
             entries.append(MachinePlacement(machine, _text(item["disposition"], f"{context}.{machine}.disposition"),

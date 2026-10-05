@@ -15,7 +15,11 @@ runtime=args.runtime
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 seal=json.loads((runtime/'SEAL.json').read_bytes());build=json.loads((runtime/'BUILD.json').read_bytes())
 assert sha(runtime/'SEAL.json')==args.runtime_seal_sha256
-assert not subprocess.check_output(['git','diff',build['source_commit'],'HEAD','--','engines/gorge','python/spellbench/arena'])
+assert not subprocess.check_output(['git','diff',build['source_commit'],'HEAD','--','engines/gorge'])
+# Runtime identity covers compiled Go. The current Python launcher must qualify
+# again even when its only change is optional hosted-runner placement metadata.
+arena_changes=subprocess.check_output(['git','diff','--name-only',build['source_commit'],'HEAD','--','python/spellbench/arena'],text=True).splitlines()
+assert set(arena_changes)<= {'python/spellbench/arena/allocation.py'}, arena_changes
 names=['spellbench-gorge-env-windows-amd64.exe','spellbench-gorge-agent-windows-amd64.exe','registry.gob.gz']
 for name in names:
     pin=seal['files'][name]
@@ -45,6 +49,8 @@ for name in ['SPELLBENCH_SECRETS_DIR','SPELLBENCH_PIN_ROOT']:
     while not nearest.exists():nearest=nearest.parent
     assert subprocess.run(['git','-C',str(nearest),'rev-parse','--git-dir'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode!=0
 record=dict(schema='spellbench-gorge-rated-handoff/v1',source_commit=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),runtime_source_commit=build['source_commit'],runtime_source_of_record=str(runtime),runtime_seal_sha256=sha(runtime/'SEAL.json'),benchmark_sha256=sha(repo/'benchmarks/pauper-gorge/benchmark.json'),resolved_runtime_values=values,planned_local_values=planned,planned_paths_created=False,matched_E_D_input_pins={name:seal['files'][name] for name in names},roster=[b['name'] for b in config.to_json()['bots']],policies=policies,deck_pool=[d.name for d in benchmark.deck_pool],scheduled_games=3640,full_round_robin=True,validation_seed_is_public_placeholder=True,run_secret_created=False,commitment_created=False,engine_processes_started=0,rated_games=0,launch_admitted=False,remaining=['Current320-block/640-game native qualification and matched serial/parallel hashes','Current140-game reference matrix,60cells,160native participant receipts and identical replay','Current identity/fair-play review and benchmark definition review/merge','Fresh reservations and useful-compute selection within the remaining all-in USD10 scope','Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp','Supported bench run once, result validation/review, compact publication PR and verified Pages entries'],recipe_sha256=sha(Path(__file__)))
+record.update(launcher_source_changes=arena_changes,launcher_allocation_sha256=sha(repo/'python/spellbench/arena/allocation.py'),
+    launcher_throughput_requalification_required=True)
 for p in [repo/'docs/gorge-rated-handoff-20261005.json',collab/'ARTIFACTS/spellbench-gorge-rated-handoff-20261005.json']:
     p.write_text(json.dumps(record,indent=2)+'\n',encoding='utf-8',newline='\n')
 print(json.dumps(dict(runtime_inputs_verified=True,resolved_entrants=14,distinct_native_policies=12,scheduled_games=len(contexts),rated_games=0,launch_admitted=False)))
