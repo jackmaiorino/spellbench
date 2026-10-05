@@ -46,6 +46,7 @@ class Session:
             result.update(original_resolution_path=True, original_activation_path=False,
                           original_priority_passes_replayed=len(record["replay"]["priority_passes"]),
                           original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
+            result["original_cleanup_path"] = agent.cleanup_discard(record["anchor"]["decision"], record["decision"], "p0")
         self.results.append(result)
         return result
 
@@ -76,6 +77,62 @@ def binary(step=1):
 def amount(step=2):
     return decision({"kind": "choose_number", "purpose": "x_value", "value": 0},
                     {"kind": "choose_number", "purpose": "x_value", "value": 1}, step=step)
+
+
+def cleanup_menu(count, selected=0):
+    refs = [{"object_id": "hand" + str(i), "card_name": "Forest" if i % 2 else "Island",
+             "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in range(7 + count)]
+    current = decision(*[{"kind": "select_object", "source": None, "purpose": "discard",
+        "choice": {"object": copy.deepcopy(ref)}, "selected_count": selected, "minimum": count, "maximum": count}
+        for ref in refs[selected:]], step=selected + 1, phase="cleanup")
+    current["context"].update(source=None, purpose="discard")
+    current["observation"].update(active_seat="p0", priority_seat=None, passed_seats=["p0", "p1"],
+                                  players=[{"seat": "p0", "hand": refs}])
+    if count > 1: current["group"] = {"group_id": 41, "substep_index": selected, "substep_count": count}
+    return current
+
+
+@pytest.mark.parametrize("count", [1, 2, 3])
+@pytest.mark.parametrize("already", [False, True])
+def test_cleanup_replays_one_original_group_from_end_step_pass(count, already):
+    bot, session = ready([0] * (count + 1)); root = priority()
+    root["observation"].update(active_seat="p0", phase_step="end_step", passed_seats=["p1"] if already else [])
+    bot.choose(view(root))
+    for selected in range(count): bot.choose(view(cleanup_menu(count, selected)))
+    records = [r for r, _ in session.requests]
+    assert all(r["anchor"]["decision"] == records[0]["decision"] for r in records[1:])
+    assert [len(r["replay"]["earlier"]) for r in records[1:]] == list(range(count))
+    assert all(r["replay"]["priority_passes"] == ([] if already else ["p1"]) for r in records[1:])
+    assert all((r["world_seed"], r["id_seed"]) == (records[0]["world_seed"], records[0]["id_seed"]) for r in records)
+    assert session.results[-1]["original_cleanup_path"] and not session.closed
+    bot.close()
+
+
+@pytest.mark.parametrize("fault", ["root-phase", "active", "passed", "stack", "source", "owner", "group", "turn-type", "range-type"])
+def test_invalid_cleanup_refuses_before_request(fault):
+    bot, session = ready([0]); root = priority(); root["observation"].update(active_seat="p0", phase_step="end_step")
+    if fault == "root-phase": root["observation"]["phase_step"] = "postcombat_main"
+    bot.choose(view(root)); current = cleanup_menu(2)
+    if fault == "active": current["observation"]["active_seat"] = "p1"
+    if fault == "passed": current["observation"]["passed_seats"] = ["p0"]
+    if fault == "stack": current["observation"]["stack"] = [{"card_name": "Visible spell"}]
+    if fault == "source": current["context"]["source"] = {"object_id": "foreign"}
+    if fault == "owner": current["candidates"][0]["semantic"]["choice"]["object"]["owner_seat"] = "p1"
+    if fault == "group": current["group"]["substep_index"] = 1
+    if fault == "turn-type": current["observation"]["turn"] = True
+    if fault == "range-type": current["candidates"][0]["semantic"]["maximum"] = True
+    with pytest.raises((ValueError, TypeError)): bot.choose(view(current))
+    assert session.closed and len(session.requests) == 1
+
+
+def test_cleanup_requires_original_cleanup_receipt():
+    bot, session = ready([0, 0]); root = priority(); root["observation"].update(active_seat="p0", phase_step="end_step")
+    bot.choose(view(root)); choose = session.choose
+    def corrupted(record, **options):
+        result = choose(record, **options); result.pop("original_cleanup_path"); return result
+    session.choose = corrupted
+    with pytest.raises(ValueError): bot.choose(view(cleanup_menu(1)))
+    assert session.closed
 
 
 @pytest.mark.parametrize("already", [False, True])

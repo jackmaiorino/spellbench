@@ -26,6 +26,7 @@ public final class JackDialogReplay {
     private final long seed;
     private final boolean continuation;
     private final boolean resolution;
+    private final boolean cleanup;
     private final ArrayDeque<String> passes=new ArrayDeque<>();
     private int passesReplayed;
     private boolean applyingAnchorPass;
@@ -50,16 +51,27 @@ public final class JackDialogReplay {
             earlier=new ArrayList<>(Json.arr(history,"earlier"));
             continuation="priority".equals(Json.str(Json.obj(decision,"context"),"kind"));
             resolution="pass".equals(Json.str(ModelReplay.selectedSemantic(Json.obj(anchor,"decision"),Json.obj(anchor,"selection")),"kind"));
+            cleanup=resolution && JackGeneralTargetEncoder.cleanupTransition(Json.obj(anchor,"decision"),decision);
             if(earlier.size()>4096) throw new IllegalArgumentException("original dialog replay prefix exceeds its bound");
             check(decision);check(Json.obj(anchor,"decision"));
             if(continuation || resolution) {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation"),now=Json.obj(decision,"observation");
                 for(String key:Arrays.asList("turn","phase_step"))if(!Objects.equals(before.get(key),now.get(key)))
-                    throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
+                    if(!cleanup)throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
             }
             for(Object item:earlier) {
                 Map<String,Object> entry=Json.obj(item);check(Json.obj(entry,"decision"));
                 ModelReplay.selectedSemantic(Json.obj(entry,"decision"),Json.obj(entry,"selection"));
+            }
+            if(cleanup) {
+                List<Object> prefix=new ArrayList<>(earlier);prefix.add(Json.map("decision",decision));int selected=0;
+                for(Object item:prefix) {
+                    Map<String,Object> received=Json.obj(Json.obj(item),"decision"),group=Json.obj(received,"group"),finalGroup=Json.obj(decision,"group");
+                    Map<String,Object> first=Json.obj(Json.obj(Json.arr(received,"candidates").get(0)),"semantic"),last=Json.obj(Json.obj(Json.arr(decision,"candidates").get(0)),"semantic");
+                    if(!JackGeneralTargetEncoder.cleanupTransition(Json.obj(anchor,"decision"),received) || !Long.valueOf(selected++).equals(first.get("selected_count"))
+                            || !first.get("minimum").equals(last.get("minimum")) || !Objects.equals(group==null?null:group.get("group_id"),finalGroup==null?null:finalGroup.get("group_id")))
+                        throw new IllegalArgumentException("cleanup replay crossed an unrecorded discard group or pick");
+                }
             }
             if(!"priority".equals(Json.str(Json.obj(Json.obj(anchor,"decision"),"context"),"kind"))
                     || !(anchor.get("priority_pass_after_activation") instanceof Boolean))
@@ -70,7 +82,7 @@ public final class JackDialogReplay {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation");
                 String other="p0".equals(world.viewer)?"p1":"p0";
                 List<Object> passed=Json.arr(before,"passed_seats");
-                if(Json.arr(before,"stack").isEmpty() || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"))
+                if(Json.arr(before,"stack").isEmpty() && !cleanup || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"))
                         || passed==null || passed.contains(world.viewer) || new HashSet<>(passed).size()!=passed.size()
                         || !Arrays.asList("p0","p1").containsAll(passed))
                     throw new IllegalArgumentException("resolution replay needs a public nonempty stack and passed-seat facts");
@@ -253,6 +265,7 @@ public final class JackDialogReplay {
     }
     private Map<String,Object> resolutionReceipt(Map<String,Object> result) {
         result.put("original_activation_path",false);result.put("original_resolution_path",true);
+        result.put("original_cleanup_path",cleanup);
         result.put("original_dialog_prefix_replayed",(long)replayed);
         result.put("original_priority_passes_replayed",(long)passesReplayed);return result;
     }

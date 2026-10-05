@@ -56,6 +56,41 @@ class JackGeneralTargetEncoder implements ModelReplay.TargetCapture {
     }
 
     private static Set<String> fields(String... names) { return new HashSet<>(Arrays.asList(names)); }
+    static boolean cleanupMenu(Map<String,Object> decision,String seat,boolean normalized) {
+        Map<String,Object> obs=Json.obj(decision,"observation"),context=Json.obj(decision,"context");
+        List<Object> passed=Json.arr(obs,"passed_seats"),stack=Json.arr(obs,"stack"),candidates=Json.arr(decision,"candidates");
+        if(!seat.equals(Json.str(decision,"acting_seat")) || !seat.equals(Json.str(obs,"viewer")) || !seat.equals(Json.str(obs,"active_seat"))
+                || !"cleanup".equals(Json.str(obs,"phase_step")) || stack==null || !stack.isEmpty() || obs.get("priority_seat")!=null
+                || passed==null || passed.size()!=2 || !new java.util.HashSet<>(passed).equals(fields("p0","p1"))
+                || !"choice".equals(Json.str(context,"kind")) || !"discard".equals(Json.str(context,"purpose"))
+                || !Boolean.FALSE.equals(context.get("rewind")) || !context.containsKey("source") || context.get("source")!=null
+                || candidates==null || candidates.isEmpty())return false;
+        spellbench.kit.core.ObsIndex index=new spellbench.kit.core.ObsIndex(obs);Long selected=null,count=null;
+        for(Object item:candidates) {
+            Map<String,Object> semantic=Json.obj(Json.obj(item),"semantic"),choice=Json.obj(semantic,normalized?"target":"choice"),ref=Json.obj(choice,"object");
+            if(!semantic.keySet().equals(normalized?TARGET:OBJECT) || !((normalized?"choose_target":"select_object").equals(Json.str(semantic,"kind")))
+                    || semantic.get("source")!=null || !(normalized?Long.valueOf(0).equals(semantic.get("slot")):"discard".equals(Json.str(semantic,"purpose")))
+                    || choice.size()!=1 || !ref.keySet().equals(fields("object_id","card_name","owner_seat","controller_seat","zone"))
+                    || !"hand".equals(Json.str(ref,"zone")) || !seat.equals(Json.str(ref,"owner_seat")) || !seat.equals(Json.str(ref,"controller_seat"))
+                    || Json.str(ref,"card_name")==null || Json.str(ref,"card_name").isEmpty()
+                    || !Json.canonical(ref).equals(Json.canonical(index.ref(Json.str(ref,"object_id"))))
+                    || !(semantic.get("selected_count") instanceof Long) || !(semantic.get("minimum") instanceof Long)
+                    || !semantic.get("minimum").equals(semantic.get("maximum")))return false;
+            long s=(Long)semantic.get("selected_count"),n=(Long)semantic.get("minimum");
+            if(s<0 || s>=n || n>4096 || selected!=null && (selected!=s || count!=n))return false;
+            selected=s;count=n;
+        }
+        Map<String,Object> group=Json.obj(decision,"group");
+        return group==null?count==1 && selected==0:Json.num(group,"group_id",-1L)>=0 && Json.num(group,"group_id",-1L)<=9007199254740991L
+                && count.equals(group.get("substep_count")) && selected.equals(group.get("substep_index"));
+    }
+    static boolean cleanupTransition(Map<String,Object> root,Map<String,Object> current) {
+        Map<String,Object> before=Json.obj(root,"observation"),now=Json.obj(current,"observation");String seat=Json.str(current,"acting_seat");
+        List<Object> stack=Json.arr(before,"stack");
+        return seat!=null && "end_step".equals(Json.str(before,"phase_step")) && seat.equals(Json.str(before,"active_seat"))
+                && before.get("turn") instanceof Long && before.get("turn").equals(now.get("turn"))
+                && stack!=null && stack.isEmpty() && cleanupMenu(current,seat,false);
+    }
     private static final Set<String> TARGET = fields("kind", "source", "slot", "target", "selected_count", "minimum", "maximum");
     private static final Set<String> TARGET_FINISH = fields("kind", "source", "slot", "selected_count");
     private static final Set<String> COST = fields("kind", "source", "cost_kind", "candidate", "selected_count", "minimum", "maximum");
@@ -116,12 +151,13 @@ class JackGeneralTargetEncoder implements ModelReplay.TargetCapture {
     @SuppressWarnings("unchecked")
     static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,
                                                        Object[] arguments,Game game) throws Exception {
-        if(arguments.length!=9 || !(arguments[0] instanceof Target) || !(arguments[1] instanceof Ability)
+        if(arguments.length!=9 || !(arguments[0] instanceof Target) || arguments[1]!=null && !(arguments[1] instanceof Ability)
                 || !(arguments[2] instanceof List) || !(arguments[3] instanceof Integer)
                 || !(arguments[4] instanceof Integer) || !(arguments[5] instanceof Integer)
                 || !(arguments[6] instanceof Boolean) || arguments[7]!=null && !(arguments[7] instanceof UUID))
             throw new IllegalArgumentException("original target callback lacks its actual loop state");
         Target target=(Target)arguments[0];Ability source=(Ability)arguments[1];
+        if(source==null && !cleanupMenu(decision,world.viewer,false))throw new IllegalArgumentException("source-free target is outside the exact public cleanup group");
         List<UUID> possible=(List<UUID>)arguments[2];boolean forced=(Boolean)arguments[6];UUID direct=(UUID)arguments[7];
         Map<String,Object> normalized=normalizeDecision(decision,JackTargetEncoder.slot(source,target));
         JackTargetEncoder.Binding binding=new JackTargetEncoder.Binding(world,normalized,target,source,game,

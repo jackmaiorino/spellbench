@@ -92,7 +92,7 @@ public final class JackDialogReplayCheck {
         final Set<UUID> hidden=new HashSet<>();
         final mage.game.mulligan.LondonMulligan mulligan=new mage.game.mulligan.LondonMulligan(0);
         int compares;boolean pregame;
-        Runnable resumeWork;int resumes;
+        Runnable resumeWork;int resumes;mage.constants.PhaseStep step=mage.constants.PhaseStep.PRECOMBAT_MAIN;
         Case() {
             this(0,false);
         }
@@ -108,7 +108,7 @@ public final class JackDialogReplayCheck {
             root.cards.put(secret.getId(),secret);root.other.getHand().add(secret);hidden.add(secret.getId());
             Game game=(Game)Proxy.newProxyInstance(Game.class.getClassLoader(),new Class<?>[]{Game.class},(o,m,a)->{
                 switch(m.getName()) {
-                    case "getTurnStepType":return pregame?null:mage.constants.PhaseStep.PRECOMBAT_MAIN;
+                    case "getTurnStepType":return pregame?null:step;
                     case "getTurnNum":return 1;
                     case "getPhase":return null;
                     case "getStartingLife":return 20;

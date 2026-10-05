@@ -196,8 +196,18 @@ inference. `JackReplayOpponent` is a non-playing reconstruction helper, with no
 leaderboard entry. All 329 affected Python checks pass, and two normalized JVM
 outputs match for resolving X, binary prefixes, opponent passes and fresh priority.
 These fixtures script resume and stack contents; the native event loop and stack
-legality still require qualification. Cleanup/phase transitions, newly visible
-library conditioning, nested combat callbacks and complete games remain unfinished.
+legality still require qualification. Newly visible library conditioning, nested
+combat callbacks, other phase transitions and complete games remain unfinished.
+
+End-step passes also connect to fixed cleanup discard groups from the active
+player's named hand. The bridge requires the same turn, an empty stack, both
+players passed, no priority seat, a source-free discard context and an exact
+consecutive group prefix. The actual `TargetDiscard`, cleanup phase, own hand and
+range must match before the original target chooser runs. Earlier picks mutate
+the actual target without extra draws. This uses the original `target` head and
+same-name direct returns. All 365 affected Python checks pass; two metadata JVM
+outputs match across one to three discards and every prefix. Native cleanup remains
+unqualified under the research resource hold.
 
 Jack's original attack and block loops now have a separate private staged port
 and connect to the original frontend's game-owned session through `JackCombatPlan`.

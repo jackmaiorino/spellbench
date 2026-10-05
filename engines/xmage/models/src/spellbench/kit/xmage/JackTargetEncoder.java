@@ -101,6 +101,7 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
     }
 
     static long slot(Ability source, Target target) {
+        if(source==null)return 0;
         long index = 0;
         for (UUID id : source.getModes().getSelectedModes()) {
             Mode mode = source.getModes().get(id); if (mode == null) continue;
@@ -119,21 +120,30 @@ final class JackTargetEncoder implements ModelReplay.TargetCapture {
                 List<UUID> possible, int selected, int minimum, int maximum) throws Exception {
             Map<String, Object> obs = Json.obj(decision, "observation"), context = Json.obj(decision, "context");
             if (!world.viewer.equals(Json.str(obs, "viewer")) || !world.viewer.equals(Json.str(decision, "acting_seat"))
-                    || !"choice".equals(Json.str(context, "kind")) || source == null
-                    || !world.player(world.viewer).equals(source.getControllerId()) || possible.isEmpty() || possible.size() > 4097
+                    || !"choice".equals(Json.str(context, "kind"))
+                    || source!=null && !world.player(world.viewer).equals(source.getControllerId()) || possible.isEmpty() || possible.size() > 4097
                     || selected < 0 || minimum < 0 || maximum < minimum || maximum > 4096 || selected > maximum) {
                 throw new IllegalArgumentException("general target callback exceeds its acting-player scope or envelope");
             }
             ObsIndex visible = new ObsIndex(obs);
             Map<String, Object> reference = Json.obj(context, "source");
-            if (reference == null || !Json.canonical(reference).equals(Json.canonical(visible.ref(Json.str(reference, "object_id"))))) {
+            if(source==null) {
+                if(!(target instanceof mage.target.common.TargetDiscard) || game.getTurnStepType()!=mage.constants.PhaseStep.CLEANUP
+                        || !world.player(world.viewer).equals(game.getActivePlayerId()) || !JackGeneralTargetEncoder.cleanupMenu(decision,world.viewer,true)
+                        || target.getTargets().size()!=selected || target.getMinNumberOfTargets()!=minimum || target.getMaxNumberOfTargets()!=maximum)
+                    throw new IllegalArgumentException("source-free target lacks its actual cleanup discard callback");
+                for(UUID id:possible)if(id==null || !world.viewerPlayer().getHand().contains(id) || game.getCard(id)==null
+                        || !world.player(world.viewer).equals(game.getCard(id).getOwnerId()))
+                    throw new IllegalArgumentException("cleanup target escaped the actual named own hand");
+            } else if (reference == null || !Json.canonical(reference).equals(Json.canonical(visible.ref(Json.str(reference, "object_id"))))) {
                 throw new IllegalArgumentException("target source differs from its visible reference");
             }
             permitted = JackModeEncoder.namedAliases(world, decision);
             UUID sourceId = null;
-            for (Map.Entry<UUID, String> entry : permitted.entrySet()) if (entry.getValue().equals(Json.str(reference, "object_id"))) sourceId = entry.getKey();
-            if (sourceId == null || !(sourceId.equals(source.getSourceId()) || game.getStack().getStackObject(sourceId) != null
-                    && source.getSourceId().equals(game.getStack().getStackObject(sourceId).getSourceId()))) {
+            if (source != null) for (Map.Entry<UUID, String> entry : permitted.entrySet())
+                if (entry.getValue().equals(Json.str(reference, "object_id"))) sourceId = entry.getKey();
+            if (source!=null && (sourceId == null || !(sourceId.equals(source.getSourceId()) || game.getStack().getStackObject(sourceId) != null
+                    && source.getSourceId().equals(game.getStack().getStackObject(sourceId).getSourceId())))) {
                 throw new IllegalArgumentException("target callback has another actual source");
             }
             Set<UUID> unique = new HashSet<>();

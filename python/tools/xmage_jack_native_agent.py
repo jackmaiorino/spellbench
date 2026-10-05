@@ -12,7 +12,7 @@ import time
 from spellbench import wire
 from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_jack_native_inference import PROFILES
-from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, digest, priority_state
+from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, cleanup_discard, digest, priority_state, resolution_passes
 from xmage_jack_london import bound_view as london_view
 from xmage_neural_combat import CombatPlan, battlefield, combat_kind, select_candidate, target
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
@@ -276,7 +276,9 @@ class JackNativeAgent:
                         not in _ACTIVATIONS | {"pass"}):
                     raise ValueError("original callback has no recorded activation anchor")
                 if resolving:
-                    record.update(self.history.callback(current))
+                    record.update(anchor=copy.deepcopy(self.history.anchor), replay={
+                        "priority_passes": resolution_passes(self.history.anchor["decision"], current, self.game.seat),
+                        "earlier": copy.deepcopy(self.history.earlier)})
                 else:
                     record.update(anchor=copy.deepcopy(self.history.anchor),
                                   replay={"priority_passes": [], "earlier": copy.deepcopy(self.history.earlier)})
@@ -333,6 +335,8 @@ class JackNativeAgent:
                         or type(result.get("original_priority_passes_replayed")) is not int
                         or result["original_priority_passes_replayed"] != len(record["replay"]["priority_passes"])):
                     raise ValueError("original resolution lost its actual path or recorded pass order")
+                if cleanup_discard(record["anchor"]["decision"], current, self.game.seat) and result.get("original_cleanup_path") is not True:
+                    raise ValueError("original cleanup lost its actual end-step transition")
             if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":

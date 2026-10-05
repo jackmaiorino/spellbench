@@ -50,6 +50,7 @@ def result(session, record, *, calls=0, rid="1"):
         if record["anchor"]["selection"]["semantic_echo"].get("kind") == "pass":
             message["result"].update(original_resolution_path=True, original_activation_path=False,
                                      original_priority_passes_replayed=len(record["replay"]["priority_passes"]))
+            message["result"]["original_cleanup_path"] = serving.cleanup_discard(record["anchor"]["decision"], record["decision"], "p0")
     return message
 
 
@@ -244,6 +245,51 @@ def resolution_record(record, *, already=False, priority=False):
     root["observation"].update(stack=[{"card_name": "Visible spell"}], passed_seats=["p1"] if already else [])
     record["replay"]["priority_passes"] = [] if already else ["p1"]
     return record
+
+
+def cleanup_record(record, *, count=2, prefix=0, already=False):
+    from test_xmage_jack_native_agent import cleanup_menu
+    resolution_record(record, already=already)
+    record["anchor"]["decision"]["observation"].update(stack=[], phase_step="end_step", active_seat="p0")
+    record["decision"] = cleanup_menu(count, prefix)
+    for i in range(prefix):
+        current = cleanup_menu(count, i); offered = current["candidates"][0]
+        record["replay"]["earlier"].append({"decision": current, "selection": {
+            "candidate_id": offered["candidate_id"], "semantic_echo": offered["semantic"]}})
+    # Private synthetic result chooses candidate 7.
+    record["decision"]["candidates"][0]["candidate_id"] = 7
+    return record
+
+
+@pytest.mark.parametrize("count,prefix", [(1, 0), (2, 0), (2, 1), (3, 0), (3, 1), (3, 2)])
+@pytest.mark.parametrize("already", [False, True])
+def test_private_cleanup_preserves_group_prefix_and_passes(tmp_path, monkeypatch, count, prefix, already):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); cleanup_record(record, count=count, prefix=prefix, already=already)
+    rows(peer, result(session, record)); chosen = session.choose(record, timeout_s=2)
+    assert chosen["original_cleanup_path"] and chosen["original_dialog_prefix_replayed"] == prefix
+    assert chosen["original_priority_passes_replayed"] == (0 if already else 1)
+    session.close(); assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["missing-prefix", "prefix-group", "prefix-count", "prefix-hand", "prefix-seat-step"])
+def test_private_cleanup_refuses_incomplete_prefix_before_write(tmp_path, monkeypatch, fault):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); cleanup_record(record, count=3, prefix=1)
+    earlier = record["replay"]["earlier"][0]["decision"]
+    if fault == "missing-prefix": record["replay"]["earlier"] = []
+    if fault == "prefix-group": earlier["group"]["group_id"] += 1
+    if fault == "prefix-count": earlier["group"]["substep_count"] = 2
+    if fault == "prefix-hand": earlier["observation"]["players"][0]["hand"] = []
+    if fault == "prefix-seat-step": earlier["seat_step"] = 2
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("value", [False, None, 1])
+def test_private_cleanup_requires_exact_path_receipt(tmp_path, monkeypatch, value):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); cleanup_record(record)
+    message = result(session, record);message["result"]["original_cleanup_path"] = value;rows(peer, message)
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed
 
 
 @pytest.mark.parametrize("already", [False, True])

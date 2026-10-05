@@ -807,6 +807,27 @@ previous callback, bootstrap, queue, combat and London regressions remain passin
 Evidence retains the initial runtime-fixture failure under
 `E:/spellbench-xmage-all-20261002/jack-resolution-replay-001`.
 The fixture scripts resume and stack contents, so this does not qualify the native
-event loop or stack legality. Cleanup/phase transitions, newly visible library
+event loop or stack legality. Other phase transitions, newly visible library
 conditioning, nested combat replay, refreshed full builds, trained weights and
 complete games remain unfinished under the research hold.
+
+End-step pass replay now admits the engine's fixed cleanup discard group. The
+public root must be the same active player's end step with an empty stack. Each
+current and recorded prefix menu must show cleanup in the same turn, both seats
+passed, no priority seat and source-free discard choices from the complete named
+own-hand references. Counts, group identity, consecutive steps and prefix indices
+must agree. The JVM additionally binds the actual `TargetDiscard`, cleanup phase,
+active player, actual hand and target range before entering the chooser. Other
+source-free general targets remain unsupported.
+
+The original sequential general-target loop retains its `target` head, same-name
+direct returns, first-64 cap and target mutations. Prefix picks add no policy or
+physical-copy draws; frontend and serving require the actual cleanup-path receipt.
+All 365 affected Python checks pass, including 36 new cleanup checks. Two fresh
+metadata JVM outputs match for one, two and three discards, every prefix, both
+opponent-pass states and same-name direct choices. Changed phase, hand, source,
+group or actual target range refuses before inference. Previous resolution and
+callback regressions pass. Evidence is retained under
+`E:/spellbench-xmage-all-20261002/jack-cleanup-replay-001`, including initial fixture
+failures. Resume and target legality are scripted metadata; native cleanup and
+complete trained-weight games remain unqualified.

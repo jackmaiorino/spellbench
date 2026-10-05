@@ -97,6 +97,56 @@ def priority_state(value, decision=None):
     wire.canonical_json_dumps(value)
 
 
+def cleanup_discard(root, current, seat):
+    """Admit only the engine's fixed own-hand cleanup group after end-step pass."""
+    before, now, context = root.get("observation", {}), current.get("observation", {}), current.get("context", {})
+    passed = now.get("passed_seats")
+    if (before.get("phase_step") != "end_step" or now.get("phase_step") != "cleanup"
+            or type(before.get("turn")) is not int or type(now.get("turn")) is not int or now.get("turn") != before["turn"]
+            or before.get("active_seat") != seat or now.get("active_seat") != seat
+            or now.get("viewer") != current.get("acting_seat") or current.get("acting_seat") != seat
+            or before.get("stack") != [] or now.get("stack") != [] or now.get("priority_seat") is not None
+            or not isinstance(passed, list) or len(passed) != 2 or any(p not in ("p0", "p1") for p in passed) or sorted(passed) != ["p0", "p1"]
+            or context.get("kind") != "choice" or context.get("purpose") != "discard"
+            or context.get("rewind") is not False or "source" not in context or context["source"] is not None):
+        return False
+    own = [p for p in now.get("players", []) if p.get("seat") == seat]
+    fields = {"object_id", "card_name", "owner_seat", "controller_seat", "zone"}
+    if len(own) != 1 or not isinstance(own[0].get("hand"), list): return False
+    refs = {c.get("object_id"): {f: c.get(f) for f in fields} for c in own[0]["hand"]}
+    if len(refs) != len(own[0]["hand"]): return False
+    selected, count = None, None
+    choices = current.get("candidates")
+    if not isinstance(choices, list) or not choices: return False
+    for candidate in choices:
+        sem = candidate.get("semantic", {}); choice = sem.get("choice", {}); ref = choice.get("object", {})
+        if (set(sem) != {"kind", "source", "purpose", "choice", "selected_count", "minimum", "maximum"}
+                or sem.get("kind") != "select_object" or sem.get("source") is not None or sem.get("purpose") != "discard"
+                or set(choice) != {"object"} or set(ref) != fields or not isinstance(ref.get("card_name"), str) or not ref["card_name"]
+                or ref.get("zone") != "hand" or ref.get("owner_seat") != seat or ref.get("controller_seat") != seat
+                or digest(ref) != digest(refs.get(ref.get("object_id")))
+                or type(sem.get("selected_count")) is not int or type(sem.get("minimum")) is not int
+                or type(sem.get("maximum")) is not int or sem.get("minimum") != sem.get("maximum") or not 0 <= sem["selected_count"] < sem["minimum"] <= 4096
+                or selected is not None and (selected, count) != (sem["selected_count"], sem["minimum"])):
+            return False
+        selected, count = sem["selected_count"], sem["minimum"]
+    group = current.get("group")
+    if group is None: return count == 1 and selected == 0
+    return (isinstance(group, dict) and type(group.get("group_id")) is int and 0 <= group["group_id"] <= wire.MAX_JSON_INT
+            and type(group.get("substep_count")) is int and group["substep_count"] == count
+            and type(group.get("substep_index")) is int and group["substep_index"] == selected)
+
+
+def resolution_passes(root, current, seat):
+    passed = root["observation"].get("passed_seats")
+    other = "p1" if seat == "p0" else "p0"
+    if (not isinstance(passed, list) or any(p not in ("p0", "p1") for p in passed)
+            or len(set(passed)) != len(passed) or seat in passed
+            or not (root["observation"].get("stack") or cleanup_discard(root, current, seat))):
+        raise ValueError("original resolution has no exact public stack or cleanup pass anchor")
+    return [] if other in passed else [other]
+
+
 def bound_replay(record, seat):
     anchor, replay = record["anchor"], record["replay"]
     if (not isinstance(anchor, dict) or set(anchor) != {
@@ -115,12 +165,8 @@ def bound_replay(record, seat):
             or action not in ("pass", "cast_spell", "activate_ability", "play_land", "activate_mana_ability")):
         raise ValueError("original serving replay has no selected priority action")
     if action == "pass":
-        passed = root["observation"].get("passed_seats")
-        other = "p1" if seat == "p0" else "p0"
-        if (not isinstance(root["observation"].get("stack"), list) or not root["observation"]["stack"]
-                or anchor["priority_pass_after_activation"] or not isinstance(passed, list)
-                or any(p not in ("p0", "p1") for p in passed) or len(set(passed)) != len(passed)
-                or seat in passed or replay["priority_passes"] != ([] if other in passed else [other])):
+        if (anchor["priority_pass_after_activation"] or not isinstance(root["observation"].get("stack"), list)
+                or replay["priority_passes"] != resolution_passes(root, record["decision"], seat)):
             raise ValueError("original resolution replay has no exact public stack/pass anchor")
     elif replay["priority_passes"]:
         raise ValueError("original activation replay has unrecorded priority passes")
@@ -128,6 +174,7 @@ def bound_replay(record, seat):
         if not isinstance(entry, dict) or set(entry) != {"decision", "selection"}:
             raise ValueError("malformed original serving replay prefix")
     previous = root
+    cleanup = action == "pass" and cleanup_discard(root, record["decision"], seat)
     entries = [*replay["earlier"], {"decision": record["decision"]}]
     for index, entry in enumerate(entries):
         current = entry["decision"]
@@ -137,8 +184,12 @@ def bound_replay(record, seat):
                 or current["seat_step"] != previous["seat_step"] + 1
                 or current.get("context", {}).get("kind") not in (
                     ("choice", "priority") if index == len(entries) - 1 else ("choice",))
-                or any(current["observation"].get(key) != root["observation"].get(key)
-                       for key in ("turn", "phase_step"))):
+                or (not cleanup and any(current["observation"].get(key) != root["observation"].get(key)
+                       for key in ("turn", "phase_step")))
+                or cleanup and (not cleanup_discard(root, current, seat)
+                    or current["candidates"][0]["semantic"]["selected_count"] != index
+                    or (current.get("group") or {}).get("group_id") != (record["decision"].get("group") or {}).get("group_id")
+                    or current["candidates"][0]["semantic"]["minimum"] != record["decision"]["candidates"][0]["semantic"]["minimum"])):
             raise ValueError("original serving replay crossed an unrecorded step, turn or phase")
         if "selection" in entry:
             bound_selection(entry["selection"], choices)
@@ -275,6 +326,8 @@ class JackNativeSession:
                                        or type(result.get("original_priority_passes_replayed")) is not int
                                        or result["original_priority_passes_replayed"] != len(record["replay"]["priority_passes"])):
                         raise ValueError("original serving resolution lost its recorded pass order")
+                    if resolution and cleanup_discard(record["anchor"]["decision"], record["decision"], self.start["seat"]) and result.get("original_cleanup_path") is not True:
+                        raise ValueError("original serving cleanup lost its actual end-step transition")
                     if record["decision"].get("context", {}).get("kind") == "priority":
                         deferred = result.get("original_activation_pass_deferred")
                         if (result.get("original_priority_continuation") is not True or type(deferred) is not bool
