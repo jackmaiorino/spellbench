@@ -178,12 +178,14 @@ public final class JackDialogReplayCheck {
             root.put("candidates",Arrays.asList(Json.map("candidate_id",1L,"semantic",Json.map("kind","play_land","source",
                     new spellbench.kit.core.ObsIndex(Json.obj(root,"observation")).ref(world.uuidToId.get(ability.getSourceId())),"face",0L))));
             Map<String,Object> selected=Json.map("candidate_id",1L,"semantic_echo",Json.copy(Json.obj(Json.obj(Json.arr(root,"candidates").get(0)),"semantic")));
+            List<Object> targets=new ArrayList<>();spellbench.kit.core.ObsIndex index=new spellbench.kit.core.ObsIndex(Json.obj(root,"observation"));
+            for(UUID id:player.queuedOriginalTargets(world.game))targets.add(index.ref(world.uuidToId.get(id)));
             List<Object> earlier=new ArrayList<>();
             if(prefix) earlier.add(Json.map("decision",decision("use"),"selection",Json.map("candidate_id",7L,"semantic_echo",
                     Json.copy(Json.obj(Json.obj(Json.arr(decision("use"),"candidates").get(1)),"semantic")))));
             return Json.map("game_start",Json.map("seat","p0","agent_seed",27L),"decision",decision("x"),
                     "anchor",Json.map("decision",root,"selection",selected,"priority_pass_after_activation",false,
-                            "original_priority_state",Json.map("alternatives",Collections.emptyList())),
+                            "original_priority_state",Json.map("alternatives",Collections.emptyList(),"targets",targets)),
                     "replay",Json.map("earlier",earlier,"priority_passes",Collections.emptyList()));
         }
         JackDialogReplay control(Map<String,Object> record) {

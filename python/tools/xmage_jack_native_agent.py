@@ -310,7 +310,7 @@ class JackNativeAgent:
             if kind == "priority":
                 if type(result.get("priority_pass_after_activation")) is not bool:
                     raise ValueError("original frontend lost its priority continuation")
-                priority_state(result.get("original_priority_state"))
+                priority_state(result.get("original_priority_state"), current)
             if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":

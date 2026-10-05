@@ -33,7 +33,7 @@ class Session:
                   "priority_pass_after_activation": self.pass_after,
                   "original_priority_state": {"alternatives": [{"source": {
                       "object_id": "spell", "card_name": "Test spell", "zone": "hand"},
-                      "choices": ["alternate"]}]}}
+                      "choices": ["alternate"]}], "targets": []}}
         self.results.append(result)
         return result
 
@@ -108,6 +108,25 @@ def test_callback_chain_retains_actual_priority_state_seeds_and_exact_prefix():
     fresh = session.requests[-1][0]
     assert "anchor" not in fresh and fresh["world_seed"] != root["world_seed"]
     assert bot.history.anchor["decision"]["seat_step"] == 3 and bot.history.earlier == []
+    bot.close()
+
+
+def test_frontend_freezes_complete_visible_target_queue_with_its_activation_anchor():
+    bot, session = ready([1, 0])
+    d = priority()
+    ref = {"object_id": "queued", "card_name": "Forest", "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"}
+    d["observation"]["players"] = [{"seat": "p0", "hand": [copy.deepcopy(ref)]}]
+    original = session.choose
+    def choose(record, *, timeout_s):
+        result = original(record, timeout_s=timeout_s)
+        result["original_priority_state"]["targets"] = [copy.deepcopy(ref), copy.deepcopy(ref)]
+        return result
+    session.choose = choose
+    bot.choose(view(d))
+    session.results[0]["original_priority_state"]["targets"][0]["object_id"] = "mutated exported receipt"
+    bot.choose(view(binary()))
+    saved = session.requests[-1][0]["anchor"]["original_priority_state"]["targets"]
+    assert saved == [ref, ref] and len(session.requests) == 2
     bot.close()
 
 
@@ -351,7 +370,7 @@ def test_frontend_and_native_supervisor_share_one_actual_owner_through_callback_
                       "seed": owner.seed, "inference_requests": 1, "full_original_player_qualified": False,
                       "world_flags": [], "selection": {"candidate_id": candidate["candidate_id"],
                                                          "semantic_echo": candidate["semantic"]},
-                      "priority_pass_after_activation": False, "original_priority_state": {"alternatives": []}}
+                      "priority_pass_after_activation": False, "original_priority_state": {"alternatives": [], "targets": []}}
             if "anchor" in record:
                 result.update(original_activation_path=True,
                               original_dialog_prefix_replayed=len(record["replay"]["earlier"]))

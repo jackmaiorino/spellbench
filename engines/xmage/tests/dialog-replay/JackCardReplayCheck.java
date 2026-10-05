@@ -112,8 +112,8 @@ public final class JackCardReplayCheck {
         }
         for(boolean queued:new boolean[]{false,true}) {
             JackDialogReplayCheck.Case c=new JackDialogReplayCheck.Case(2,false);List<UUID> options=new ArrayList<>(c.player.getHand());
-            HandTarget target=new HandTarget(options,queued?1:0,2);Map<String,Object> record=request(c,target,options,true,Outcome.Detriment);
             if(queued)c.player.queueCard(options.get(1));
+            HandTarget target=new HandTarget(options,queued?1:0,2);Map<String,Object> record=request(c,target,options,true,Outcome.Detriment);
             Map<String,Object> result=JackOriginalBridgeMain.choose(c.world,record);
             require(c.backend.calls==0 && c.backend.copies==0 && !c.backend.closed,"parent completion/queue changed draw ownership");
             require(Json.canonical(Json.obj(result,"selection")).equals(Json.canonical(selected(Json.obj(record,"decision"),queued?options.get(1):null,c))),

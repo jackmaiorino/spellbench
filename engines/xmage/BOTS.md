@@ -150,7 +150,7 @@ queued-target and target.add paths without neural draws. Recorded card prefixes
 add neither model nor physical-copy draws; sequential groups and STOP checks pass.
 All 93 affected Python checks and two identical normalized card metadata JVM runs
 pass. Original combat now connects through the whole-group path described below.
-Priority/resolution continuation and complete queue restoration remain open. The guarded
+Priority/resolution continuation remains open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
@@ -166,6 +166,15 @@ for 1/2/7-card hands. Card movement in these checks is a metadata fixture;
 native movement, trained-weight bottoming and complete games remain unqualified.
 The earlier component evidence remains in
 [the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
+
+Original priority state now carries the complete inherited target queue through
+root receipts, the public frontend, private serving and activation replay.
+Entries retain their order and duplicates as complete named visible references.
+Restoration replaces the inherited queue before activation, with no model or
+chooser draw. Missing, changed or hidden entries refuse. All 276 affected Python
+checks and two fresh metadata JVM outputs pass, including actual inherited card
+queue consumption. Priority/resolution continuation and activation-body automatic
+passes remain unfinished; this does not qualify complete games.
 
 Jack's original attack and block loops now have a separate private staged port
 and connect to the original frontend's game-owned session through `JackCombatPlan`.

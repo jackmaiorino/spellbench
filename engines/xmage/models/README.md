@@ -685,7 +685,7 @@ compile reuses those classes. The first fixture's incorrect following-X head
 expectation and its failed log remain retained. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-card-replay-001`. Metadata checks use synthetic
 scores. Native callbacks, actual pretrained inference, general source contexts,
-complete priority queue restoration and complete games remain unqualified.
+priority/resolution continuation and complete games remain unqualified.
 
 `JackLondonPlan` now connects the original player's pregame bottoming callback
 to the production root dispatcher and game-owned model/chooser session. Each
@@ -748,3 +748,22 @@ Combat legality and declarations in these fixtures are explicit metadata
 overrides, with synthetic policy scores. Native declaration legality and
 multi-block games, nested callback replay, actual pretrained inference and
 complete games remain unqualified under the research resource hold.
+
+`JackPriorityState` now captures and restores the original inherited target
+queue alongside alternative-cost state. Capture reads the admitted original
+player's actual queue and exports independent complete visible references.
+Restoration verifies every reference against the saved root observation and
+world alias bindings, then replaces the actual queue before activation. Ordered
+duplicates are preserved; no model or physical-copy draw is added. Python serving
+and the public frontend bind the same complete queue to the activation anchor.
+Old receipts that omit the queue refuse.
+
+All 276 affected Python checks and two fresh metadata JVM outputs pass for
+0/1/2/64 entries, duplicate/order preservation, replacement, independent copies,
+hidden-reference denial and pre-activation refusal. Actual inherited card queue
+consumption and prior callback/combat/London regressions pass. The initial fixture
+checked-exception compile failure is retained under
+`E:/spellbench-xmage-all-20261002/jack-priority-queue-001`.
+Priority/resolution continuation remains unfinished, including passes emitted
+inside the original activation body for stack-using abilities. Native startup,
+trained weights and complete games remain unqualified under the research hold.

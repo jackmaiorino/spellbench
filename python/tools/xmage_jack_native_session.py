@@ -52,8 +52,8 @@ def bound_selection(selection, offered):
         raise ValueError("original serving result is not an exact supported offered choice")
 
 
-def priority_state(value):
-    if (not isinstance(value, dict) or set(value) != {"alternatives"}
+def priority_state(value, decision=None):
+    if (not isinstance(value, dict) or set(value) != {"alternatives", "targets"}
             or not isinstance(value["alternatives"], list) or len(value["alternatives"]) > 4096):
         raise ValueError("original serving needs its recorded priority state")
     sources = set()
@@ -69,6 +69,29 @@ def priority_state(value):
                 or len(set(choices)) != len(choices)):
             raise ValueError("original alternative-cost state has invalid or aliased sources or keys")
         sources.add(source["object_id"])
+    queue = value["targets"]
+    if not isinstance(queue, list) or len(queue) > 4096:
+        raise ValueError("original serving needs its bounded target queue")
+    refs = {}
+    fields = ("object_id", "card_name", "owner_seat", "controller_seat", "zone")
+    if decision is not None:
+        observation = decision["observation"]
+        records = [card for player in observation.get("players", [])
+                   for zone in ("hand", "battlefield", "graveyard", "exile", "command")
+                   for card in player.get(zone, [])]
+        records += observation.get("stack", [])
+        for card in records:
+            if isinstance(card.get("object_id"), str):
+                refs[card["object_id"]] = {f: card.get(f) for f in fields}
+        for card in observation.get("known", []):
+            if isinstance(card.get("object_id"), str):
+                refs[card["object_id"]] = {**{f: card.get(f) for f in fields}, "controller_seat": card.get("owner_seat")}
+    for ref in queue:
+        if (not isinstance(ref, dict) or set(ref) != set(fields)
+                or not isinstance(ref.get("object_id"), str) or not ref["object_id"]
+                or not isinstance(ref.get("card_name"), str) or not ref["card_name"]
+                or wire.canonical_json_dumps(ref) != wire.canonical_json_dumps(refs.get(ref["object_id"]))):
+            raise ValueError("original serving target queue has a foreign or hidden reference")
     # The JVM also compares every complete source against the actual permitted
     # observation and UUID binding before restoring the original rules.
     wire.canonical_json_dumps(value)
@@ -86,7 +109,7 @@ def bound_replay(record, seat):
     root = anchor["decision"]
     offered = bound_decision(root, seat)
     bound_selection(anchor["selection"], offered)
-    priority_state(anchor["original_priority_state"])
+    priority_state(anchor["original_priority_state"], root)
     if (root.get("context", {}).get("kind") != "priority"
             or anchor["selection"]["semantic_echo"].get("kind") not in ("cast_spell", "activate_ability")):
         raise ValueError("original serving replay has no selected priority activation")
@@ -228,7 +251,7 @@ class JackNativeSession:
                 if record["decision"].get("context", {}).get("kind") == "priority":
                     if type(result.get("priority_pass_after_activation")) is not bool:
                         raise ValueError("original serving lost its priority continuation")
-                    priority_state(result.get("original_priority_state"))
+                    priority_state(result.get("original_priority_state"), record["decision"])
                 if "anchor" in record:
                     if (result.get("original_activation_path") is not True
                             or type(result.get("original_dialog_prefix_replayed")) is not int

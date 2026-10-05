@@ -64,6 +64,16 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private transient Game replayGame;
     private transient int replayDepth;
     private transient int originalCombatDepth;
+    public final List<UUID> queuedOriginalTargets(Game game) {
+        requireOriginalPermittedWorld(game);
+        return new ArrayList<>(targets);
+    }
+    public final void restoreOriginalTargets(Game game,List<UUID> recorded) {
+        requireOriginalPermittedWorld(game);
+        if(game.isSimulation() || recorded==null || recorded.size()>4096 || recorded.contains(null))
+            throw new IllegalArgumentException("original target queue needs its admitted root and bounded entries");
+        targets.clear();targets.addAll(recorded);
+    }
     public final void bindOriginalReplay(Game game, Replay replay) {
         requireOriginalPermittedWorld(game);
         if (game.isSimulation() || replay==null || this.replay!=null)

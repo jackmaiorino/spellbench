@@ -206,13 +206,58 @@ def callback_record(record):
             "candidates": [{"candidate_id": 1, "semantic": {"kind": "cast_spell"}}]}
     record["anchor"] = {"decision": root, "selection": {"candidate_id": 1,
         "semantic_echo": {"kind": "cast_spell"}}, "priority_pass_after_activation": True,
-        "original_priority_state": {"alternatives": []}}
+        "original_priority_state": {"alternatives": [], "targets": []}}
     record["replay"] = {"priority_passes": [], "earlier": []}
     record["decision"].update(seat_step=1, context={"kind": "choice"})
     record["decision"]["observation"].update(turn=1, phase_step="precombat_main")
     for candidate, value in zip(record["decision"]["candidates"], (False, True)):
         candidate["semantic"] = {"kind": "choose_boolean", "value": value}
     return record
+
+
+def queued_record(record):
+    callback_record(record)
+    refs = [{"object_id": "q" + str(i), "card_name": "Forest" if i == 1 else "Island",
+             "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in (1, 2)]
+    record["anchor"]["decision"]["observation"]["players"] = [{"seat": "p0", "hand": copy.deepcopy(refs)}]
+    record["anchor"]["original_priority_state"]["targets"] = [copy.deepcopy(refs[i]) for i in (1, 0, 1)]
+    return record
+
+
+def test_complete_target_queue_preserves_order_and_duplicate_refs_in_transport(tmp_path, monkeypatch):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    queued_record(record)
+    rows(peer, result(session, record))
+    session.choose(record, timeout_s=2)
+    assert [ref["object_id"] for ref in peer.writes[0]["anchor"]["original_priority_state"]["targets"]] == ["q2", "q1", "q2"]
+    session.close(); assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["missing", "shape", "hidden", "name", "owner", "oversized"])
+def test_unbound_target_queue_refuses_before_any_jvm_write(tmp_path, monkeypatch, fault):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    queued_record(record)
+    state = record["anchor"]["original_priority_state"]
+    if fault == "missing": state.pop("targets")
+    if fault == "shape": state["targets"] = {}
+    if fault == "hidden": state["targets"][0]["object_id"] = "private"
+    if fault == "name": state["targets"][0]["card_name"] = "different name"
+    if fault == "owner": state["targets"][0]["controller_seat"] = "p1"
+    if fault == "oversized": state["targets"] *= 1366
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("queue", [None, [{"object_id": "hidden"}], [None] * 4097])
+def test_priority_result_cannot_supply_an_unbound_target_queue(tmp_path, monkeypatch, queue):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    record["decision"]["context"] = {"kind": "priority"}
+    message = result(session, record)
+    message["result"].update(priority_pass_after_activation=False,
+                             original_priority_state={"alternatives": [], "targets": queue})
+    rows(peer, message)
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed
 
 
 def test_native_session_transports_callback_anchor_state_and_earlier_selection(tmp_path, monkeypatch):
