@@ -73,8 +73,28 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "bb19b8b27e9f8d36f90218016fa4b5b5235eca2374c936a95aa1d89077b17bdf",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_diagnostic_running",
   "host_facts_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\CATALOG.json",
-  "guard_path": "Independent one-hour release guardian; diagnostic capture parent; independent durable binary pins before execution; one exact seed52 first-failure capture"
+  "guard_path": "Independent one-hour release guardian; diagnostic capture parent; independent durable binary pins before execution; one exact seed52 first-failure capture",
+  "pod_id": "rx7sztharhaq2u",
+  "owned_lease_name": "spellbench-gorge-diagnostic-3983cad70cc94213",
+  "lease_deadline_utc": "2026-10-05T05:56:32.2769968+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.19,
+  "authenticated_host_fingerprint": "SHA256:Ae61NrEntIMrGQ6RUuAwRlqOt3DC+4ZBwyKwkRh7YyY",
+  "parent_pid": 3167,
+  "parent_start_tick": "1925016417",
+  "owner_watcher_session_id": 19043,
+  "parent_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\DRIVER-ACTUAL.py",
+  "parent_sha256": "a5bd724dc9649a4ebfc212b01068680cc063741e6200f93863ef9496a68bd399",
+  "owner_supervision_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\SUPERVISION.json",
+  "runtime_pins_complete": false,
+  "diagnostic_capture_complete": false,
+  "next_wake_condition": "Durable diagnostic binary pins, first exact actor-public refusal, parent failure, or one-hour lease deadline; one owner watcher and independent release guardian.",
+  "initial_connect_path_failure": {
+    "recipe": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\FAILED-CONNECT-RECIPE.py",
+    "remedy": "Corrected generated known-hosts root to exact owned diagnostic root; strict authenticated fingerprint verification passed before transfer.",
+    "source_transferred_before_verified_connection": false
+  },
+  "reference_qualification_complete": false
 }
