@@ -931,3 +931,8 @@ checks pass. No neural or physical-copy draws occur in these inherited choices.
 Evidence: `E:/spellbench-xmage-all-20261002/jack-inherited-replay-001`.
 Trigger ordering, nested combat, native callback qualification and complete games
 remain unfinished under the research resource hold.
+
+The full CI runtime fixture initially omitted the newly required helper class.
+Its complete-build fixture now includes it, and a missing-helper case verifies
+startup refusal. All 34 runtime checks pass locally in addition to the 310 affected
+checks above. Production sources and the seventeen Java results are unchanged.
