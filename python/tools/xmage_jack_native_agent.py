@@ -14,7 +14,7 @@ from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_jack_native_inference import PROFILES
 from xmage_jack_native_session import bound_decision, bound_replay, bound_selection, digest, priority_state
 from xmage_jack_london import bound_view as london_view
-from xmage_neural_combat import CombatPlan, battlefield, combat_kind, target
+from xmage_neural_combat import CombatPlan, battlefield, combat_kind, select_candidate, target
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
 
 
@@ -123,7 +123,55 @@ class _CombatPlan(CombatPlan):
                         or objects[opposing].get("permanent", {}).get("attacking") is not True):
                     raise ValueError("original combat plan has an unbound attacker")
         self._initialize(decision, result)
+        slots = result.get("combat_slots")
+        if (not isinstance(slots, list) or not 1 <= len(slots) <= 4096
+                or len(slots) != self.group["substep_count"]
+                or any(not isinstance(oid, str) or oid not in objects
+                       or objects[oid].get("controller_seat") != viewer for oid in slots)
+                or not seen <= set(slots)):
+            raise ValueError("original combat result lost its complete engine slot schedule")
+        runs = [oid for i, oid in enumerate(slots) if i == 0 or oid != slots[i - 1]]
+        if len(set(runs)) != len(runs) or family == "attack" and len(runs) != len(slots):
+            raise ValueError("original combat slot schedule revisits a creature")
+        self.slots = list(slots)
         self.world_flags = copy.deepcopy(result.get("world_flags", []))
+
+    def select(self, decision):
+        if self.failed or self.complete:
+            raise ValueError("original combat plan is complete or failed")
+        try:
+            group = self._group(decision)
+            if (combat_kind(decision) != self.family or group["group_id"] != self.group["group_id"]
+                    or group["substep_count"] != len(self.slots) or group["substep_index"] != self.next_index
+                    or type(decision.get("seat_step")) is not int
+                    or decision["seat_step"] != self.first_step + self.next_index
+                    or decision.get("acting_seat") != self.viewer
+                    or decision.get("context", {}).get("rewind") is not False):
+                raise ValueError("original combat declaration group is stale, skipped or rewound")
+            self._state(decision)
+            candidates = decision["candidates"]
+            ids = [candidate.get("candidate_id") for candidate in candidates]
+            if (any(type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT for cid in ids)
+                    or len(set(ids)) != len(ids)):
+                raise ValueError("original combat candidate ids are invalid or aliased")
+            name, reference = ("attacker", "defender") if self.family == "attack" else ("blocker", "attacker")
+            oid = self.slots[self.next_index]
+            if any(candidate.get("semantic", {}).get(name, {}).get("object_id") != oid for candidate in candidates):
+                raise ValueError("original combat declaration changed its scheduled creature")
+            # The original blocker pool removes a creature after assigning it once.
+            # Extra engine slots for that blocker therefore decline, preserving
+            # both its original assignment and the observation bound to it.
+            pairs = self.result["pairs"] if oid not in self.picks else [
+                pair for pair in self.result["pairs"] if pair[name] != oid]
+            selection = select_candidate(decision, {**self.result, "pairs": pairs, "decision_sha256": digest(decision)})
+            chosen = selection["semantic_echo"][reference]
+            if oid not in self.picks:
+                self.picks[oid] = target(chosen) if self.family == "attack" else None if chosen is None else chosen["object_id"]
+            self.next_index += 1
+            return selection
+        except BaseException:
+            self.failed = True
+            raise
 
 
 class JackNativeAgent:

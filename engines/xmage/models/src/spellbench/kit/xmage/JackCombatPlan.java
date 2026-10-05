@@ -1,6 +1,11 @@
 package spellbench.kit.xmage;
 
 import mage.game.permanent.Permanent;
+import mage.game.combat.CombatGroup;
+import mage.filter.common.FilterCreatureForCombat;
+import mage.filter.common.FilterCreatureForCombatBlock;
+import mage.filter.common.FilterCreatureForCombatBase;
+import mage.filter.predicate.permanent.ControllerIdPredicate;
 import mage.players.Player;
 import spellbench.kit.core.Json;
 import spellbench.kit.core.ObsIndex;
@@ -54,6 +59,9 @@ public final class JackCombatPlan {
             choices.put(target,candidate);
         }
         if(creatureId==null)throw new IllegalArgumentException("original combat menu has no creature");
+        List<Object> slots=slots(world,attack,named);
+        if(slots.size()!=count || !world.uuidToId.get(creatureId).equals(slots.get(0)))
+            throw new IllegalArgumentException("original combat group differs from the engine declaration slots");
         if(attack)player.selectAttackers(world.game,player.getId());else player.selectBlockers(null,world.game,player.getId());
         List<Object> pairs=Runner.combatPairs(world,world.game,attack);UUID wanted=null;boolean assigned=false;
         for(Object item:pairs) {
@@ -71,6 +79,31 @@ public final class JackCombatPlan {
         Map<String,Object> chosen=choices.get(wanted);
         if(chosen==null)throw new IllegalArgumentException("original combat assignment is not offered by the engine");
         return Json.map("selection",Json.map("candidate_id",chosen.get("candidate_id"),"semantic_echo",Json.copy(chosen.get("semantic"))),
-                "combat",family,"pairs",pairs,"original_combat_path",true);
+                "combat",family,"pairs",pairs,"combat_slots",slots,"original_combat_path",true);
+    }
+
+    /** Mirror the engine's public declaration schedule without changing the original policy. */
+    private static List<Object> slots(World world,boolean attack,Map<UUID,String> named) {
+        Player player=world.viewerPlayer();List<Object> slots=new ArrayList<>();
+        FilterCreatureForCombatBase filter=attack?new FilterCreatureForCombat():new FilterCreatureForCombatBlock();
+        filter.add(new ControllerIdPredicate(player.getId()));
+        List<UUID> attackers=new ArrayList<>();
+        if(!attack)for(CombatGroup group:world.game.getCombat().getGroups())attackers.addAll(group.getAttackers());
+        for(Permanent permanent:world.game.getBattlefield().getActivePermanents(filter,player.getId(),world.game)) {
+            int count=attack?(permanent.canAttack(null,world.game)?1:0):0;
+            if(!attack) {
+                for(UUID attacker:attackers) {
+                    CombatGroup group=world.game.getCombat().findGroup(attacker);
+                    if(group!=null && group.canBlock(permanent,world.game))count++;
+                }
+                if(permanent.getMaxBlocks()!=0)count=Math.min(count,permanent.getMaxBlocks());
+            }
+            if(count==0)continue;
+            String alias=named.get(permanent.getId());
+            if(alias==null || !alias.equals(world.uuidToId.get(permanent.getId())) || count<0 || slots.size()+count>4096)
+                throw new IllegalArgumentException("original combat slots are unbound or exceed the serving limit");
+            for(int i=0;i<count;i++)slots.add(alias);
+        }
+        return slots;
     }
 }

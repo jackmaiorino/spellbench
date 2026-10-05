@@ -132,8 +132,10 @@ public final class JackCombatPlanCheck {
                 menu.add(Json.map("candidate_id",11L,"semantic",Json.map("kind",kind,name,creature,ref,Json.map("player","p1"))));
                 if(!other.isEmpty())menu.add(Json.map("candidate_id",12L,"semantic",Json.map("kind",kind,name,creature,ref,Json.map("object",index.ref(aliases.get(other.get(0).getId()))))));
             } else for(int i=0;i<other.size();i++)menu.add(Json.map("candidate_id",11L+i,"semantic",Json.map("kind",kind,name,creature,ref,index.ref(aliases.get(other.get(i).getId())))));
+            long slots=0;
+            for(Creature p:own)slots+=attack?1:p.getMaxBlocks()==0?other.size():Math.min(other.size(),p.getMaxBlocks());
             return Json.map("acting_seat","p0","seat_step",0L,"context",Json.map("kind","choice","rewind",false),"observation",obs,
-                    "group",Json.map("group_id",88L,"substep_index",0L,"substep_count",(long)own.size()),"x_observation_flags",JackDialogReplayCheck.flags(),"candidates",menu);
+                    "group",Json.map("group_id",88L,"substep_index",0L,"substep_count",slots),"x_observation_flags",JackDialogReplayCheck.flags(),"candidates",menu);
         }
     }
     public static void main(String[] args) throws Exception {
@@ -142,22 +144,35 @@ public final class JackCombatPlanCheck {
             Case c=new Case(attack,2,attack);c.backend.doneFirst=done;Map<String,Object> d=c.decision();
             Map<String,Object> result=JackOriginalBridgeMain.choose(c.world,Json.map("game_start",Json.map("seat","p0","agent_seed",27L),"decision",d));
             require(Boolean.TRUE.equals(result.get("original_combat_path")),"original combat callback was not reached");
+            require(Json.arr(result,"combat_slots").equals(Arrays.asList(c.aliases.get(c.own.get(0).getId()),c.aliases.get(c.own.get(1).getId()))),"engine slot order changed");
             require(Json.arr(result,"pairs").size()==(done?0:2),"DONE or original creature declarations changed");
             require(c.backend.calls==(attack&&!done?3:attack?1:done?2:1),"original defender or shrinking blocker draw count changed");
             require(Long.valueOf(done?10:attack?11:12).equals(Json.obj(result,"selection").get("candidate_id")),"original first combat assignment mapped to another wire choice");
             if(!attack&&!done)require(c.player.declared.equals(Arrays.asList(c.other.get(1).getId(),c.other.get(1).getId())),"blockers did not follow descending attacker power/removal");
             rows.add(Json.map("attack",attack,"done_first",done,"candidate_id",Json.obj(result,"selection").get("candidate_id"),"pairs",(long)Json.arr(result,"pairs").size(),"rounds",c.backend.rounds));c.registry.close();
         }
-        for(String fault:new String[]{"source","hidden","duplicate","group","nested"}) {
+        for(int max:new int[]{2,0})for(boolean done:new boolean[]{false,true}) {
+            Case c=new Case(false,2,false);c.own.get(0).setMaxBlocks(max);c.backend.doneFirst=done;
+            Map<String,Object> result=JackRootDecision.choose(c.world,Json.map("seat","p0","agent_seed",27L),c.decision());
+            require(Json.arr(result,"combat_slots").equals(Arrays.asList(c.aliases.get(c.own.get(0).getId()),c.aliases.get(c.own.get(0).getId()),c.aliases.get(c.own.get(1).getId()))),"additional/unlimited block slot schedule changed");
+            require(Json.arr(result,"pairs").size()==(done?0:2) && c.backend.calls==(done?2:1),"extra engine slots changed the original policy or draw count");
+            rows.add(Json.map("block_max",(long)max,"done_first",done,"slots",(long)Json.arr(result,"combat_slots").size(),"pairs",(long)Json.arr(result,"pairs").size(),"rounds",c.backend.rounds));c.registry.close();
+        }
+        for(String fault:new String[]{"source","hidden","duplicate","group","slot-count","first-slot","nested"}) {
             Case c=new Case(true,2,false);Map<String,Object> d=c.decision();
             if("source".equals(fault))Json.obj(Json.obj(Json.arr(d,"candidates").get(0)),"semantic").put("attacker",Json.map("object_id","unknown"));
             if("hidden".equals(fault))Json.obj(Json.obj(Json.arr(d,"candidates").get(1)),"semantic").put("defender",Json.map("object",Json.map("object_id","hidden")));
             if("duplicate".equals(fault))Json.arr(d,"candidates").add(Json.copy(Json.arr(d,"candidates").get(0)));
             if("group".equals(fault))Json.obj(d,"group").put("substep_index",1L);
+            if("slot-count".equals(fault))Json.obj(d,"group").put("substep_count",3L);
+            if("first-slot".equals(fault)) {
+                Map<String,Object> ref=new ObsIndex(Json.obj(d,"observation")).ref(c.aliases.get(c.own.get(1).getId()));
+                for(Object item:Json.arr(d,"candidates"))Json.obj(Json.obj(item),"semantic").put("attacker",ref);
+            }
             c.player.nested="nested".equals(fault);
             refused(()->JackRootDecision.choose(c.world,Json.map("seat","p0","agent_seed",27L),d));
             require(c.backend.closed && c.backend.calls==("nested".equals(fault)?1:0),"malformed/nested combat advanced the model or left it open");
         }
-        System.out.println(Json.canonical(rows));System.out.println("JackCombatPlanCheck PASS: actual original attack/defender/block loops, DONE, descending threats, blocker removal, wire binding and failure closure; metadata legality/declarations only");
+        System.out.println(Json.canonical(rows));System.out.println("JackCombatPlanCheck PASS: actual original attack/defender/block loops, DONE, descending threats, blocker removal, exact engine slots including additional/unlimited blocks, wire binding and failure closure; metadata legality/declarations only");
     }
 }

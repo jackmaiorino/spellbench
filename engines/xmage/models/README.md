@@ -732,7 +732,19 @@ also pass. JDK23.0.1 target8 compiled the generated original callback/CombatRule
 and public components. Fixture API and player-reference failures remain retained
 under `E:/spellbench-xmage-all-20261002/jack-combat-plan-001`.
 
+The root binding also mirrors the engine's full declaration slot schedule before
+inference: active creature order, group block eligibility and limited/unlimited
+maximum block counts. It records the public aliases for every slot and checks
+the first creature and total count. Later substeps bind that exact schedule.
+The original policy still assigns a blocker once and removes it from its pool;
+its extra engine slots decline without changing that assignment or drawing from
+the model. Unexpected repeats, changed slots and unoffered declines refuse.
+All 265 affected Python checks and two fresh JVM outputs pass, including
+additional/unlimited block capacity, unchanged original draw counts and both
+held and rendered observations. The shared DraftZero combat binder is unchanged.
+Evidence is under `E:/spellbench-xmage-all-20261002/jack-combat-slots-001`.
+
 Combat legality and declarations in these fixtures are explicit metadata
-overrides, with synthetic policy scores. Native declaration legality,
-multi-block groups, nested callback replay, actual pretrained inference and
+overrides, with synthetic policy scores. Native declaration legality and
+multi-block games, nested callback replay, actual pretrained inference and
 complete games remain unqualified under the research resource hold.

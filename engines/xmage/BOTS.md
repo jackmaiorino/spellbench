@@ -175,9 +175,16 @@ public declaration substeps reuse the resulting plan, checking its group and
 public state without another model call. Unrecorded nested combat callbacks
 refuse before additional inference. All 250 affected Python checks pass; two
 normalized combat metadata JVM outputs match, with prior callbacks also passing.
-Fixtures supply metadata legality and declarations. Native legality, multi-block
-groups, nested callbacks, actual trained weights and complete games remain
-unqualified.
+The root binding now records the engine's complete creature slot schedule before
+inference, including each extra block slot. The frontend verifies that schedule
+on every substep. Jack's original policy assigns a blocker once and removes it
+from its pool, so any remaining slots decline without changing the assignment
+or making another model call. All 265 affected Python checks and two fresh JVM
+outputs pass for limited/unlimited block capacity, unchanged draw counts,
+held/rendered block observations and rejection of unexpected slots.
+Fixtures supply metadata legality and declarations. Native legality and
+multi-block games, nested callbacks, actual trained weights and complete games
+remain unqualified.
 
 The earlier separate combat component retains its private staged port
 and paired-policy transport. It retains DONE-last sequential selection, the
