@@ -90,6 +90,11 @@ def main() -> int:
                             + sorted((args.out / "sources").rglob("*.java"))}
     if args.current_overlay:
         source_sets["kit"] += sorted((repo / "engines/xmage/overlay/src/main/java").rglob("*.java"))
+    else:
+        # WorldBuilder uses this public-rule renderer. The reviewed engine
+        # predates it, so default builds need the helper without replacing
+        # the engine's observation/server classes or enabling their flags.
+        source_sets["kit"].append(repo / "engines/xmage/overlay/src/main/java/mage/player/spellbench/observe/StackAbilityText.java")
     if search:
         source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
     else:

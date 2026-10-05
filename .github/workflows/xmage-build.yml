@@ -30,7 +30,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check uv==0.11.29
           uv sync --locked --extra test
-          uv run --no-sync pytest python/tests/test_xmage_x5_guards.py -q
+          uv run --no-sync pytest python/tests/test_xmage_x5_guards.py python/tests/test_llm_xmage_entry.py -q
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
           distribution: temurin
@@ -70,7 +70,11 @@ jobs:
           python python/tools/xmage_model_build.py --compile-only \
             --inputs "$RUNNER_TEMP/model-inputs" \
             --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-slices-build"
-          python python/tools/xmage_model_build.py --compile-only \
+          slice_cp="$RUNNER_TEMP/model-slices-build/core:$RUNNER_TEMP/model-slices-build/kit:$RUNNER_TEMP/xmage-build/lib/*"
+          javac --release 8 -cp "$slice_cp" -d "$RUNNER_TEMP/priority-mana-check" \
+            engines/xmage/tests/stack-text/StackAbilityTextCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$slice_cp" spellbench.kit.xmage.StackAbilityTextCheck
+          python python/tools/xmage_model_build.py --compile-only --current-overlay \
             --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \
@@ -81,6 +85,7 @@ jobs:
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackManaReplayCheck
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackGeneralTargetNormalizationCheck
           mana_cp="$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*"
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" mage.player.spellbench.server.EngineProfileCheck
           javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
             engines/xmage/tests/priority-mana/ManaMappingCheck.java \
             engines/xmage/tests/priority-mana/JackManaProfileCheck.java
@@ -89,6 +94,11 @@ jobs:
           javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
             engines/xmage/tests/priority-binding/JackPriorityBindingCheck.java
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.JackPriorityBindingCheck
+          javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
+            engines/xmage/tests/stack-text/StackAbilityTextCheck.java \
+            engines/xmage/tests/stack-text/VisibleReplayDrawsCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.StackAbilityTextCheck
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.VisibleReplayDrawsCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}

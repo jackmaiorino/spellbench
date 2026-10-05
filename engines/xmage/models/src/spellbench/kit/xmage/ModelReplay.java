@@ -711,6 +711,8 @@ final class ModelReplay {
         WorldBuilder.Spec spec = new WorldBuilder.Spec();
         spec.gameStart = Json.obj(record, "game_start"); spec.observation = observation; spec.random = random;
         spec.sample = Sampler.sample(spec.gameStart, observation, random.stream("sampler"));
+        VisibleReplayDraws.condition(spec.sample, observation, result.decision, result.earlier,
+                random.stream("replay-visible-draws"));
         spec.mode = WorldBuilder.Mode.PRIORITY; spec.history = Json.obj(a, "x_history");
         ReplayPlayer[] other = new ReplayPlayer[1];
         spec.viewerFactory = seat -> result.player = new ReplayPlayer(seat);

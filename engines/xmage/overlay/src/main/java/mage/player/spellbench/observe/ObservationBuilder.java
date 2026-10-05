@@ -74,7 +74,7 @@ public final class ObservationBuilder {
 
     /** Flags whose fields this builder can fill; the others are declared false and always null. */
     static final List<String> IMPLEMENTED = Collections.unmodifiableList(Arrays.asList(
-            "poison", "player_progress", "day_night", "passed_seats", "pending_triggers", "keywords", "full_name"));
+            "poison", "player_progress", "day_night", "passed_seats", "pending_triggers", "keywords", "full_name", "stack_text"));
 
     private static final Field TARGET_ZCC = field(TargetImpl.class, "zoneChangeCounters");
     private static final Field LONDON_STARTING = field(LondonMulligan.class, "startingHandSizes");
@@ -614,6 +614,12 @@ public final class ObservationBuilder {
             e.put("targets", targets);
             e.put("divided", divided.isEmpty() ? null : divided);
             Ability main = abilities.get(0);
+            if (flag("stack_text")) {
+                // Only an ability's printed rule identifies a reconstructed
+                // trigger. Face-down spells hidden from the viewer returned
+                // above; no game state is consulted by this renderer.
+                e.put("text", StackAbilityText.of(main));
+            }
             Modes modes = main.getModes();
             if (modes.size() > 1) {
                 List<Object> chosen = new ArrayList<>();
