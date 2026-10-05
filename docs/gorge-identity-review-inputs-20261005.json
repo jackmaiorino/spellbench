@@ -617,5 +617,7 @@
     "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
     "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
   },
-  "candidate_go_checks": "pending; current_ci_checks describes ancestor8799 only"
+  "candidate_go_checks": "pending; current_ci_checks describes ancestor8799 only",
+  "candidate_native_launcher": "engines/gorge/scripts/qualify_native.py records wall-time worker selection through existing QualificationRules; frozen schedule/gate helpers unchanged; fresh qualification required",
+  "candidate_engineering_checks": "89 synthetic Python qualification tests passed. Hosted cc9e05f bridge and TestSpellbench boundary steps passed; full/new-head checks pending."
 }

@@ -4,6 +4,7 @@ Each block contains an audited game and its deterministic replay. This is
 unrated adapter qualification. The full gorgequal gates remain authoritative.
 """
 import datetime
+from dataclasses import replace
 import hashlib
 import json
 import os
@@ -16,7 +17,7 @@ JOB = Path(os.environ.get('GORGE_JOB_ROOT','/workspace/gorge'))
 SOURCE = Path(os.environ.get('GORGE_SOURCE_ROOT',str(JOB/'source')))
 sys.path.insert(0,str(SOURCE/'python'))
 from spellbench.arena import machine, store
-from spellbench.arena.throughput import PlayedGame, plan_allocation, workload_id, check_reserve
+from spellbench.arena.throughput import PlayedGame, plan_allocation, workload_id, check_reserve, current_rules
 
 STAGE = Path(os.environ['GORGE_CLOUD_STAGE'])
 NATIVE = Path(os.environ['GORGE_NATIVE_QUALIFIER'])
@@ -73,7 +74,8 @@ def main():
         extra_coverage_pairings=['search/bot','search-mana/bot'], original_seed_blocks=280,
         native_run_secret='gorge-qualification-run-secret!!',
         guard_path='engines/gorge/scripts/qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback',
-        scope='native validator, determinism, leak, consistency, resample, intent parity, mapping and search gates; unrated')
+        scope='native validator, determinism, leak, consistency, resample, intent parity, mapping and search gates; unrated',
+        worker_selection='wall')
     write(STAGE/'MANIFEST.json',manifest)
     callback_wall_seconds=int(os.environ.get('GORGE_NATIVE_CALLBACK_WALL_SECONDS','2700'))
     if not 60 <= callback_wall_seconds <= 21600:
@@ -140,7 +142,8 @@ def main():
         'policies':POLICIES,'decks':DECKS,'games_per_pairing':4,'resample_every':7,'fixed_seed_indices':list(range(len(GAMES)))})
     allocation=plan_allocation(games_total=len(GAMES),cap=cap,per_game_cores=1,play=play,placement=placement,
         host=os.environ['SPELLBENCH_HOST_ALIAS'],sample=order,workload=workload,
-        evidence=STAGE/'throughput-evidence.json',machine=facts,cap_bytes=2*2**30)
+        evidence=STAGE/'throughput-evidence.json',machine=facts,cap_bytes=2*2**30,
+        rules=replace(current_rules(),worker_selection='wall'))
     write(STAGE/'ALLOCATION.json',allocation.to_json())
     if allocation.kind!='substantial' or allocation.outputs_identical is not True:
         raise RuntimeError('Native audit needs observed matched parallel scaling with identical primary rows')

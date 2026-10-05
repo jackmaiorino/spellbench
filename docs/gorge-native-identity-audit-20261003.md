@@ -15,7 +15,11 @@ sealed [negative trace101](gorge-public105-trace-20261005.json) reproduces all13
 attempts reaching the same frame88 identity mismatch after Experimental
 Synthesizer's owned top exile. A [prepared source repair](gorge-owned-top-exile-repair-20261005.json)
 uses the existing actor-library position fold through observed London bottoming.
-It has not passed Go tests or positive captured replay and is not qualified.
+Its legal owned-London regression and all public boundary tests pass in hosted
+CI atcc9e05f. The full suite and positive captured replays remain pending.
+The next native launcher explicitly records wall-time worker selection;89
+synthetic Python qualification tests pass. The fixed native schedule and
+top-level validity helpers remain AST-identical. No new native run is qualified.
 
 Jack/Haley launches are suspended for research priority. No gorge job or claim
 is held, and no automatic dispatch is queued. Reference/rated games and published
