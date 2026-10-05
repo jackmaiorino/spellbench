@@ -108,7 +108,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	basicSearches := spellbenchBasicSearches(setup, h)
 	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
-	heldEpochs := spellbenchCarryEpochs(h, spellbenchScryHeldEpochs(h, epochs))
+	heldEpochs := spellbenchCarryEpochs(h, spellbenchScryHeldEpochs(h, spellbenchRevealedHandEpochs(setup, h, epochs)))
 	prioritizeHeld := opts.Attempts >= 3 && !reflect.DeepEqual(carryEpochs, heldEpochs)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
@@ -285,10 +285,10 @@ func (p SpellbenchScryPrefix) Through() int {
 
 func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
 	type cursor struct {
-		ordinal              int
-		prefix               SpellbenchScryPrefix
-		reliable, guided     bool
-		counts               map[string]int
+		ordinal          int
+		prefix           SpellbenchScryPrefix
+		reliable, guided bool
+		counts           map[string]int
 	}
 	result := make(map[epochKey]epochConstraints, len(original))
 	for key, epoch := range original {
@@ -392,11 +392,120 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 	return result
 }
 
-// A post-scry public exit can name either an earlier hand card or a later
-// draw. One optional witness proposal puts those names in the drawn prefix
-// before the first reorder, so that a scry cannot bottom its required copy.
-// The original and carry-only proposals remain available. These are witness
-// hypotheses; native sampler constraints and weights never use this fold.
+// A complete actor-visible hand-move window names every card in that hand.
+// For one optional witness proposal, combine those distinct copies with public
+// hand exits from this shuffle. Carry guidance transports held names into
+// earlier draw prefixes. Partial or contradictory windows stay unguided;
+// native sampler constraints and weights never use these hypotheses.
+func spellbenchRevealedHandEpochs(setup PublicGame, h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	result := make(map[epochKey]epochConstraints, len(original))
+	for key, epoch := range original {
+		epoch.Deadlines = append([]deadlineConstraint(nil), epoch.Deadlines...)
+		result[key] = epoch
+	}
+	identities := map[uint32]Identity{}
+	ordinals, draws := map[state.PlayerID]int{}, map[state.PlayerID]int{}
+	exits := map[epochKey]map[uint32]Identity{}
+	declared := map[state.PlayerID]map[string]int{}
+	for player, deck := range setup.Decks {
+		declared[state.PlayerID(player)] = map[string]int{}
+		for _, card := range deck {
+			if card != nil && len(card.Faces) > 0 {
+				declared[state.PlayerID(player)][card.Faces[0].Name]++
+			}
+		}
+	}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			switch ev.Kind {
+			case events.Shuffle:
+				ordinals[ev.Player]++
+				draws[ev.Player] = 0
+			case events.Draw:
+				draws[ev.Player]++
+			case events.MoveZone, events.PutOnStack:
+				identity, known := identities[ev.Obj]
+				if known && identity.Owner != h.Actor && identity.Name != "" && ev.From == state.ZHand && !ev.To.Hidden() {
+					key := epochKey{Player: identity.Owner, Ordinal: ordinals[identity.Owner] - 1}
+					if exits[key] == nil {
+						exits[key] = map[uint32]Identity{}
+					}
+					exits[key][ev.Obj] = identity
+				}
+			}
+		}
+		d := frame.Decision
+		if d == nil || d.Player != h.Actor || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Action.Kind != "hand_move" {
+			continue
+		}
+		owner := d.Options[0].Action.Player
+		if owner == h.Actor || ordinals[owner] == 0 {
+			continue
+		}
+		var board struct {
+			Players []struct {
+				Seat state.PlayerID `json:"seat"`
+				Hand *int           `json:"hand_size"`
+			}
+		}
+		if json.Unmarshal(frame.Board, &board) != nil {
+			continue
+		}
+		size, matches := -1, 0
+		for _, player := range board.Players {
+			if player.Seat == owner && player.Hand != nil {
+				size = *player.Hand
+				matches++
+			}
+		}
+		if matches != 1 || size != len(d.Options) {
+			continue
+		}
+		key := epochKey{Player: owner, Ordinal: ordinals[owner] - 1}
+		seen := map[uint32]Identity{}
+		for ref, identity := range exits[key] {
+			seen[ref] = identity
+		}
+		window, valid := map[uint32]bool{}, true
+		for _, option := range d.Options {
+			a := option.Action
+			identity, known := identities[a.Obj]
+			if a.Kind != "hand_move" || a.Player != owner || a.Obj == 0 || window[a.Obj] || !known || identity.Owner != owner || identity.Name == "" {
+				valid = false
+				break
+			}
+			window[a.Obj], seen[a.Obj] = true, identity
+		}
+		counts := map[string]int{}
+		for _, identity := range seen {
+			counts[identity.Name]++
+		}
+		for name, count := range counts {
+			valid = valid && count <= declared[owner][name]
+		}
+		if !valid {
+			continue
+		}
+		var names []string
+		for name := range counts {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		epoch := result[key]
+		for _, name := range names {
+			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: draws[owner], Name: name, Count: counts[name]})
+		}
+		result[key] = epoch
+	}
+	return result
+}
+
+// A post-scry public exit can name either an earlier hand card or a later draw.
+// An optional witness puts those names before the first reorder; original and
+// carry-only proposals remain available with unchanged native sampler weights.
 func spellbenchScryHeldEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
 	result := make(map[epochKey]epochConstraints, len(original))
 	for key, epoch := range original {

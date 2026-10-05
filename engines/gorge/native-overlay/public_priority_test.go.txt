@@ -70,6 +70,57 @@ func TestSpellbenchActorDigRetainsUntouchedTail(t *testing.T) {
 	}
 }
 
+func TestSpellbenchRevealedHandGuidesOnlyCompletePublicWindows(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		edit func(*History)
+		want bool
+	}{
+		{"complete opponent hand", func(*History) {}, true},
+		{"partial eligible window", func(h *History) { h.Frames[2].Decision.Options = h.Frames[2].Decision.Options[:2] }, false},
+		{"opaque name", func(h *History) { h.Frames[2].Identities[0].Name = "" }, false},
+		{"wrong identity owner", func(h *History) { h.Frames[2].Identities[0].Owner = 0 }, false},
+		{"mixed owners", func(h *History) { h.Frames[2].Decision.Options[0].Action.Player = 0 }, false},
+		{"duplicate option", func(h *History) { h.Frames[2].Decision.Options[1] = h.Frames[2].Decision.Options[0] }, false},
+		{"different action", func(h *History) { h.Frames[2].Decision.Options[1].Action.Kind = "dig" }, false},
+		{"undeclared card", func(h *History) { h.Frames[2].Identities[0].Name = "Other" }, false},
+		{"missing size", func(h *History) { h.Frames[2].Board = json.RawMessage(`{"players":[{"seat":1}]}`) }, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			spy := &cards.Card{Faces: []*cards.Face{{Name: "Spy"}}}
+			giant := &cards.Card{Faces: []*cards.Face{{Name: "Giant"}}}
+			forest := &cards.Card{Faces: []*cards.Face{{Name: "Forest"}}}
+			setup := PublicGame{Decks: [][]*cards.Card{nil, {spy, spy, giant, forest}}}
+			d := &ObservedDecision{Player: 0, Kind: decision.KChoose, Min: 1, Max: 1}
+			for _, ref := range []uint32{1, 2, 3} {
+				d.Options = append(d.Options, ObservedOption{Action: Action{Kind: "hand_move", Obj: ref, Player: 1}})
+			}
+			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}, Board: json.RawMessage(`{"players":[{"seat":1,"hand_size":3}]}`)},
+				{Identities: []Identity{{ID: 1, Owner: 1, Name: "Spy"}, {ID: 2, Owner: 1, Name: "Spy"}, {ID: 3, Owner: 1, Name: "Giant"}}, Decision: d, Board: json.RawMessage(`{"players":[{"seat":1,"hand_size":3}]}`)},
+			}}
+			test.edit(&h)
+			original := map[epochKey]epochConstraints{{Player: 1, Ordinal: 0}: {Deadlines: []deadlineConstraint{{Through: 4, Name: "Forest", Count: 1}}}}
+			guided := spellbenchRevealedHandEpochs(setup, h, original)
+			bounds := guided[epochKey{Player: 1, Ordinal: 1}].Deadlines
+			if (len(bounds) == 2) != test.want {
+				t.Fatalf("bounds=%+v", bounds)
+			}
+			if test.want {
+				want := []deadlineConstraint{{Through: 0, Name: "Giant", Count: 1}, {Through: 0, Name: "Spy", Count: 2}}
+				if !reflect.DeepEqual(bounds, want) {
+					t.Fatalf("bounds=%+v", bounds)
+				}
+				carried := spellbenchCarryEpochs(h, guided)[epochKey{Player: 1, Ordinal: 0}].Deadlines
+				if len(carried) != 3 || len(original[epochKey{Player: 1, Ordinal: 0}].Deadlines) != 1 {
+					t.Fatalf("carry=%+v; original changed", carried)
+				}
+			}
+		})
+	}
+}
+
 func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 	search := &cards.Card{Faces: []*cards.Face{{Name: "Public Search", Abilities: []*cards.SA{{API: "ChangeZone", Params: map[string]string{"Origin": "Library", "ChangeType": "Land.Basic"}}}}}}
 	spell := &cards.Card{Faces: []*cards.Face{{Name: "Public Spell", Types: []string{"Sorcery"}}}}
