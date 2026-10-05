@@ -35,5 +35,20 @@
   "published_entries": 0,
   "new_runpod_spend_usd": 0,
   "constraints": "Ledger025 conservative cumulative boundUSD9.84147447; no active gorge pod. Further guarded cloud build does not fit. Jack generation184 and Haley queued research priority remain excluded. Zaratan saved credentials rejected before Duo; refresh remains pending.",
-  "next_wake_condition": "Current affected CI completion; then compatible exact-root replay and guarded full qualification on an eligible allocation when resources or access change."
+  "next_wake_condition": "Full CI conclusion for sourcee3c84a1 or current PRheadf6d4f74, then eligible host admission for prepared047 exact-root replay. Existing GitHub checks and active Goal provide continuation; no new paid lease or recurring automation.",
+  "exact_replay_preparation": {
+    "record": "docs/gorge-portable-roots047-20261005.json",
+    "source_of_record": "E:/spellbench-gorge-public-root-preparation-20261005-047",
+    "seal_sha256": "2d8d224603daa760bcb4b97cd3d4b4fb2aa32be2c9e610c169b134d7f219dfd3",
+    "public_frames": [
+      364,
+      410,
+      478,
+      596
+    ],
+    "independent_recovery_verified": true,
+    "runtime_built": false,
+    "new_allocation": false,
+    "new_cloud_spend_usd": 0
+  }
 }
