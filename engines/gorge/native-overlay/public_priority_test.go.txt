@@ -14,7 +14,7 @@ import (
 
 func TestSpellbenchActorRevealedDigPreservesGroupedMoveOrder(t *testing.T) {
 	fixture := func() (PublicGame, History) {
-		dig := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "4", "Reveal": "True", "DestinationZone": "Hand", "DestinationZone2": "Graveyard"}}
+		dig := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "4", "Reveal": "True", "ChangeNum": "All", "ChangeValid": "Card.ChosenType", "DestinationZone2": "Graveyard"}}
 		card := &cards.Card{Faces: []*cards.Face{{Name: "Public Dig", Abilities: []*cards.SA{{API: "ChooseType", Sub: dig}}}}}
 		setup := PublicGame{Decks: [][]*cards.Card{make([]*cards.Card, 9)}}
 		setup.Decks[0][0] = card

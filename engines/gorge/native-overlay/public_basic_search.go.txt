@@ -367,7 +367,12 @@ func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size in
 					continue
 				}
 				dig := sa.Sub
-				if dig.API == "Dig" && dig.Sub == nil && dig.Params["DigNum"] == "4" && dig.Params["Reveal"] == "True" && dig.Params["NoReveal"] != "True" && dig.Params["FromBottom"] != "True" && dig.Params["DestinationZone"] == "Hand" && dig.Params["DestinationZone2"] == "Graveyard" && (dig.Params["Defined"] == "" || dig.Params["Defined"] == "You") {
+				allowed := map[string]bool{"DigNum": true, "Reveal": true, "ChangeNum": true, "ChangeValid": true, "DestinationZone": true, "DestinationZone2": true, "StackDescription": true, "SpellDescription": true}
+				plain := true
+				for key := range dig.Params {
+					plain = plain && allowed[key]
+				}
+				if plain && dig.API == "Dig" && dig.Sub == nil && dig.Params["DigNum"] == "4" && dig.Params["Reveal"] == "True" && dig.Params["ChangeNum"] == "All" && dig.Params["ChangeValid"] == "Card.ChosenType" && (dig.Params["DestinationZone"] == "" || dig.Params["DestinationZone"] == "Hand") && dig.Params["DestinationZone2"] == "Graveyard" {
 					printed = true
 				}
 			}
@@ -387,6 +392,9 @@ func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size in
 				return nil, nil
 			}
 			window = ev.IDs
+		}
+		if ev.Kind == events.MoveZone && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) && window == nil {
+			return nil, nil
 		}
 		if ev.Kind == events.Draw || ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder || ev.Kind == events.CardToken || ev.Kind == events.CopyToken || ev.Kind == events.MyriadCopy || ev.Kind == events.StackCopy {
 			return nil, nil
