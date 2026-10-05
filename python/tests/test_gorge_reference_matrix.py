@@ -16,6 +16,7 @@ REPO = Path(__file__).resolve().parents[2]
 @pytest.mark.parametrize('failed', [False, True])
 def test_reference_measurement_preserves_required_finalizer_and_audit_directory(monkeypatch, tmp_path, failed):
     monkeypatch.setenv('GORGE_CLOUD_STAGE', str(tmp_path/'unstarted'))
+    monkeypatch.setenv('GORGE_AGENT_AUDIT_DIR', str(tmp_path/'unused'))
     spec = importlib.util.spec_from_file_location('gorge_reference_cleanup',
         REPO/'engines/gorge/scripts/reference_matrix.py')
     module = importlib.util.module_from_spec(spec)

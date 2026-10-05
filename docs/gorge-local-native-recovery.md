@@ -62,6 +62,13 @@ not relabel the audit as Linux evidence. The Linux reference processes still
 require the actual 140-game reference matrix, 60 cells, 160 native participant
 receipts, clocks, cleanup and preselected replay before rated admission.
 
-Native077 is currently active, unsealed and unqualified. Its existing bounded
-parent owns completion, recovery and canonical release. This receipt format
-adds no launch, rerun, paid allocation or admission for that unfinished job.
+Native077 failed the existing reconstruction gate on Spy game 164 and is now
+recovered and sealed. Canonical generation 193 released with every recorded
+process absent. The sealed failure remains ineligible for reference admission.
+The next native attempt requires an evidenced repair and a new full pass.
+
+The current reference launcher preserves the qualification measurement's
+required finalizer. Runtime076 still binds the same compiled Go source;
+`gorge_runtime_source.py` verifies that the only engine change is the Python
+reference wrapper and that the frozen matrix and receipt helpers are identical.
+The changed wrapper requires actual reference qualification before admission.
