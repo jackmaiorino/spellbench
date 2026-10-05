@@ -92,6 +92,7 @@ public final class JackDialogReplayCheck {
         final Set<UUID> hidden=new HashSet<>();
         final mage.game.mulligan.LondonMulligan mulligan=new mage.game.mulligan.LondonMulligan(0);
         int compares;boolean pregame;
+        Runnable resumeWork;int resumes;
         Case() {
             this(0,false);
         }
@@ -120,6 +121,8 @@ public final class JackDialogReplayCheck {
                     case "getRangeOfInfluence":return mage.constants.RangeOfInfluence.ALL;
                     case "getMulligan":return mulligan;
                     case "firePriorityEvent":return null;
+                    case "resumeTimer":case "pauseTimer":case "pause":return null;
+                    case "resume":resumes++;if(resumeWork!=null)resumeWork.run();return null;
                     case "createSimulationForPlayableCalc":return simulation((Game)o);
                     case "getCard":case "getObject":
                         if(hidden.contains(a[0])) throw new AssertionError("dialog projection/encoder read a hidden card");

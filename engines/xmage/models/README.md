@@ -624,7 +624,7 @@ compile attempts. Both attempts and synthetic files were losslessly packed and
 verified in D/E copies, restoring the 335 MiB native reserve.
 
 Evidence is retained under `E:/spellbench-xmage-all-20261002/jack-mode-replay-001`.
-Resolution passes, priority continuation, remaining callback families, refreshed full
+Native resolution passes and priority continuation, remaining callback families, refreshed full
 build/native preparations, trained-weight complete games and deck associations
 remain unfinished. These metadata results do not qualify or rate a bot.
 
@@ -685,7 +685,7 @@ compile reuses those classes. The first fixture's incorrect following-X head
 expectation and its failed log remain retained. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-card-replay-001`. Metadata checks use synthetic
 scores. Native callbacks, actual pretrained inference, general source contexts,
-priority/resolution continuation and complete games remain unqualified.
+native priority/resolution execution and complete games remain unqualified.
 
 `JackLondonPlan` now connects the original player's pregame bottoming callback
 to the production root dispatcher and game-owned model/chooser session. Each
@@ -782,6 +782,31 @@ combat and London regressions pass. Evidence, including both initial fixture
 failures, is retained under
 `E:/spellbench-xmage-all-20261002/jack-priority-continuation-001`.
 The activation fixture overrides legality and stack use, so native ability
-legality, later priority-pass/stack-resolution replay, nested combat callbacks,
+legality, native priority-pass/stack-resolution execution, nested combat callbacks,
 refreshed full builds, trained weights and complete games remain unqualified
 under the research hold.
+
+Saved public passes on a visible nonempty stack now connect to actual game resume
+and the original resolving callback or next priority dispatch. The frontend retains
+the pass anchor and sampling seeds. Serving validates exact public passed-seat
+facts and the resulting opponent-pass order before entering the JVM. The admitted
+original player applies its saved pass; `JackReplayOpponent`, a non-playing helper,
+permits only recorded opponent priority passes while replay is bound. Opponent
+menus, targets, triggered-ability choices and other unrecorded decisions refuse.
+The bridge consumes recorded callback prefixes without another model/copy draw
+and preserves the owned pause when it reaches the requested callback. A next
+priority dispatch uses the original policy on the resumed world. Both frontend
+and private serving require actual resolution and consumed-pass receipts.
+
+All 329 affected Python checks pass, including 27 new resolution/required-build
+checks and nine existing priority-source checks newly included in this scope.
+Two fresh normalized metadata JVM outputs match across callback/priority endpoints,
+recorded binary prefixes and opponent-already-passed cases. Saved/public pass bodies,
+resolving X, next original priority, owned pause and pre-inference refusals pass;
+previous callback, bootstrap, queue, combat and London regressions remain passing.
+Evidence retains the initial runtime-fixture failure under
+`E:/spellbench-xmage-all-20261002/jack-resolution-replay-001`.
+The fixture scripts resume and stack contents, so this does not qualify the native
+event loop or stack legality. Cleanup/phase transitions, newly visible library
+conditioning, nested combat replay, refreshed full builds, trained weights and
+complete games remain unfinished under the research hold.

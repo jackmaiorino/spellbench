@@ -103,16 +103,27 @@ def bound_replay(record, seat):
             "decision", "selection", "priority_pass_after_activation", "original_priority_state"}
             or type(anchor["priority_pass_after_activation"]) is not bool
             or not isinstance(replay, dict) or set(replay) != {"priority_passes", "earlier"}
-            or replay["priority_passes"] != [] or not isinstance(replay["earlier"], list)
+            or not isinstance(replay["priority_passes"], list) or not isinstance(replay["earlier"], list)
             or len(replay["earlier"]) > 4096):
-        raise ValueError("original serving needs a recorded activation without unresolved priority passes")
+        raise ValueError("original serving needs bounded recorded priority replay")
     root = anchor["decision"]
     offered = bound_decision(root, seat)
     bound_selection(anchor["selection"], offered)
     priority_state(anchor["original_priority_state"], root)
+    action = anchor["selection"]["semantic_echo"].get("kind")
     if (root.get("context", {}).get("kind") != "priority"
-            or anchor["selection"]["semantic_echo"].get("kind") not in ("cast_spell", "activate_ability", "play_land", "activate_mana_ability")):
-        raise ValueError("original serving replay has no selected priority activation")
+            or action not in ("pass", "cast_spell", "activate_ability", "play_land", "activate_mana_ability")):
+        raise ValueError("original serving replay has no selected priority action")
+    if action == "pass":
+        passed = root["observation"].get("passed_seats")
+        other = "p1" if seat == "p0" else "p0"
+        if (not isinstance(root["observation"].get("stack"), list) or not root["observation"]["stack"]
+                or anchor["priority_pass_after_activation"] or not isinstance(passed, list)
+                or any(p not in ("p0", "p1") for p in passed) or len(set(passed)) != len(passed)
+                or seat in passed or replay["priority_passes"] != ([] if other in passed else [other])):
+            raise ValueError("original resolution replay has no exact public stack/pass anchor")
+    elif replay["priority_passes"]:
+        raise ValueError("original activation replay has unrecorded priority passes")
     for entry in replay["earlier"]:
         if not isinstance(entry, dict) or set(entry) != {"decision", "selection"}:
             raise ValueError("malformed original serving replay prefix")
@@ -255,10 +266,15 @@ class JackNativeSession:
                         raise ValueError("original serving lost its priority continuation")
                     priority_state(result.get("original_priority_state"), record["decision"])
                 if "anchor" in record:
-                    if (result.get("original_activation_path") is not True
+                    resolution = record["anchor"]["selection"]["semantic_echo"].get("kind") == "pass"
+                    if ((result.get("original_resolution_path") is not True if resolution else result.get("original_activation_path") is not True)
                             or type(result.get("original_dialog_prefix_replayed")) is not int
                             or result["original_dialog_prefix_replayed"] != len(record["replay"]["earlier"])):
                         raise ValueError("original serving callback lost its actual activation or replay prefix")
+                    if resolution and (result.get("original_activation_path") is not False
+                                       or type(result.get("original_priority_passes_replayed")) is not int
+                                       or result["original_priority_passes_replayed"] != len(record["replay"]["priority_passes"])):
+                        raise ValueError("original serving resolution lost its recorded pass order")
                     if record["decision"].get("context", {}).get("kind") == "priority":
                         deferred = result.get("original_activation_pass_deferred")
                         if (result.get("original_priority_continuation") is not True or type(deferred) is not bool

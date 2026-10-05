@@ -266,14 +266,20 @@ class JackNativeAgent:
                         or own["mulligans_taken"] != current["group"]["substep_count"]
                         or self.london is None and current["group"]["substep_index"] != 0):
                     raise ValueError("original London needs its initial observed bottom group")
+            resolving = (self.history.anchor is not None
+                         and self.history.anchor["selection"]["semantic_echo"].get("kind") == "pass")
             continuing = (kind == "priority" and self.history.anchor is not None
-                          and self.history.anchor["selection"]["semantic_echo"].get("kind") in _ACTIVATIONS)
+                          and (self.history.anchor["selection"]["semantic_echo"].get("kind") in _ACTIVATIONS
+                               or resolving and self.history.anchor["decision"]["observation"].get("stack")))
             if kind in ("binary", "x", "mode", "named", "target") or continuing:
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
-                        not in _ACTIVATIONS):
+                        not in _ACTIVATIONS | {"pass"}):
                     raise ValueError("original callback has no recorded activation anchor")
-                record.update(anchor=copy.deepcopy(self.history.anchor),
-                              replay={"priority_passes": [], "earlier": copy.deepcopy(self.history.earlier)})
+                if resolving:
+                    record.update(self.history.callback(current))
+                else:
+                    record.update(anchor=copy.deepcopy(self.history.anchor),
+                                  replay={"priority_passes": [], "earlier": copy.deepcopy(self.history.earlier)})
                 # Reconstruct the saved priority world throughout this activation.
                 # Replaying prior choices must not resample its hidden world.
                 record.update(self.anchor_seeds)
@@ -316,12 +322,17 @@ class JackNativeAgent:
                 if continuing:
                     deferred = result.get("original_activation_pass_deferred")
                     if (result.get("original_priority_continuation") is not True or type(deferred) is not bool
-                            or result.get("original_activation_path") is not True
+                            or (result.get("original_resolution_path") is not True if resolving else result.get("original_activation_path") is not True)
                             or type(result.get("original_dialog_prefix_replayed")) is not int
                             or result["original_dialog_prefix_replayed"] != len(record["replay"]["earlier"])
                             or (deferred or record["anchor"]["priority_pass_after_activation"])
                             and (selection["semantic_echo"].get("kind") != "pass" or result.get("inference_requests") != 0)):
                         raise ValueError("original priority continuation lost its completed activation or automatic pass")
+            if resolving and "anchor" in record:
+                if (result.get("original_resolution_path") is not True or result.get("original_activation_path") is not False
+                        or type(result.get("original_priority_passes_replayed")) is not int
+                        or result["original_priority_passes_replayed"] != len(record["replay"]["priority_passes"])):
+                    raise ValueError("original resolution lost its actual path or recorded pass order")
             if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":

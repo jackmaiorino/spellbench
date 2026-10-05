@@ -28,7 +28,7 @@ public final class JackPlayerBootstrap {
         spec.sample = input.sample; spec.random = input.random; spec.mode = input.mode;
         spec.index = input.index; spec.combatDamageStep = input.combatDamageStep; spec.history = input.history;
         spec.viewerFactory = seat -> new KitMad(seat, 10);
-        spec.otherFactory = Puppet::new;
+        spec.otherFactory = JackReplayOpponent::new;
         World world = WorldBuilder.build(spec);
         replaceViewer(world, mulligans);
         return world;

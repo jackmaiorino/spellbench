@@ -47,6 +47,9 @@ def result(session, record, *, calls=0, rid="1"):
         if record["decision"].get("context", {}).get("kind") == "priority":
             message["result"].update(original_priority_continuation=True,original_activation_pass_deferred=False,
                 priority_pass_after_activation=False,original_priority_state={"alternatives": [], "targets": []})
+        if record["anchor"]["selection"]["semantic_echo"].get("kind") == "pass":
+            message["result"].update(original_resolution_path=True, original_activation_path=False,
+                                     original_priority_passes_replayed=len(record["replay"]["priority_passes"]))
     return message
 
 
@@ -232,6 +235,49 @@ def priority_record(record):
     record["decision"]["candidates"][0]["semantic"] = {"kind": "pass"}
     record["decision"]["candidates"][1]["semantic"] = {"kind": "cast_spell"}
     return record
+
+
+def resolution_record(record, *, already=False, priority=False):
+    (priority_record if priority else callback_record)(record)
+    root = record["anchor"]["decision"]; root["candidates"][0]["semantic"] = {"kind": "pass"}
+    record["anchor"].update(selection={"candidate_id": 1, "semantic_echo": {"kind": "pass"}}, priority_pass_after_activation=False)
+    root["observation"].update(stack=[{"card_name": "Visible spell"}], passed_seats=["p1"] if already else [])
+    record["replay"]["priority_passes"] = [] if already else ["p1"]
+    return record
+
+
+@pytest.mark.parametrize("already", [False, True])
+@pytest.mark.parametrize("priority", [False, True])
+def test_private_serving_resolution_preserves_recorded_passes(tmp_path, monkeypatch, already, priority):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); resolution_record(record, already=already, priority=priority)
+    rows(peer, result(session, record)); chosen = session.choose(record, timeout_s=2)
+    assert chosen["original_resolution_path"] and not chosen["original_activation_path"]
+    assert chosen["original_priority_passes_replayed"] == (0 if already else 1)
+    assert peer.writes[0]["replay"]["priority_passes"] == ([] if already else ["p1"])
+    session.close(); assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["missing-pass", "extra-pass", "empty-stack", "own-passed", "duplicate-passed", "phase"])
+def test_private_serving_resolution_refuses_unrecorded_transition_before_write(tmp_path, monkeypatch, fault):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); resolution_record(record)
+    obs = record["anchor"]["decision"]["observation"]
+    if fault == "missing-pass": record["replay"]["priority_passes"] = []
+    if fault == "extra-pass": record["replay"]["priority_passes"].append("p1")
+    if fault == "empty-stack": obs["stack"] = []
+    if fault == "own-passed": obs["passed_seats"] = ["p0"]
+    if fault == "duplicate-passed": obs["passed_seats"] = ["p1", "p1"]
+    if fault == "phase": record["decision"]["observation"]["phase_step"] = "postcombat_main"
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("field,value", [("original_resolution_path", False), ("original_activation_path", True),
+                                        ("original_priority_passes_replayed", 0), ("original_priority_passes_replayed", True)])
+def test_private_serving_resolution_rejects_missing_path_or_wrong_pass_count(tmp_path, monkeypatch, field, value):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch); resolution_record(record)
+    message = result(session, record); message["result"][field] = value;rows(peer, message)
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed
 
 
 def test_private_serving_accepts_original_zero_draw_priority_continuation(tmp_path, monkeypatch):

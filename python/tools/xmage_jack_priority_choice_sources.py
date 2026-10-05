@@ -125,13 +125,17 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
         requireOriginalPermittedWorld(game);
         game.resumeTimer(getTurnControlledBy());
         try {
-            boolean result = dispatchOriginalPriority(originalPriority, game, options -> originalNeural.genericChoose(
-                    options, 1, 1, StateSequenceBuilder.ActionType.ACTIVATE_ABILITY_OR_SPELL, game, null).get(0));
+            boolean result = replayOriginalPriority(game, () -> dispatchOriginalPriority(originalPriority, game, options -> originalNeural.genericChoose(
+                    options, 1, 1, StateSequenceBuilder.ActionType.ACTIVATE_ABILITY_OR_SPELL, game, null).get(0)));
             requireOriginalPermittedWorld(game); return result;
-        } catch (RuntimeException | Error failure) { closeOriginalSession(failure); throw failure; }
+        } catch (RuntimeException | Error failure) {
+            if (!ownsOriginalReplayPause(game,failure)) closeOriginalSession(failure);
+            throw failure;
+        }
         finally { game.pauseTimer(getTurnControlledBy()); }
     }
     private static void trace(String ignored) { }
+    protected boolean replayOriginalPriority(Game game, Supplier<Boolean> work) { return work.get(); }
     protected boolean replayOriginalChoice(Outcome outcome, Choice choice, Game game, Supplier<Boolean> work) {
         return work.get();
     }

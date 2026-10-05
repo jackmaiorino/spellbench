@@ -25,6 +25,10 @@ public final class JackDialogReplay {
     private final String profile;
     private final long seed;
     private final boolean continuation;
+    private final boolean resolution;
+    private final ArrayDeque<String> passes=new ArrayDeque<>();
+    private int passesReplayed;
+    private boolean applyingAnchorPass;
     private boolean deferredPass;
 
     private static void project(World world,Map<String,Object> decision) throws Exception {
@@ -41,13 +45,14 @@ public final class JackDialogReplay {
             Map<String,Object> copy=Json.obj(Json.copy(record));start=Json.obj(copy,"game_start");decision=Json.obj(copy,"decision");
             anchor=Json.obj(copy,"anchor");Map<String,Object> history=Json.obj(copy,"replay");
             if(start==null || decision==null || anchor==null || history==null
-                    || !world.viewer.equals(Json.str(start,"seat")) || !Json.arr(history,"priority_passes").isEmpty())
-                throw new IllegalArgumentException("direct original activation needs a same-viewer anchor and no unresolved priority passes");
+                    || !world.viewer.equals(Json.str(start,"seat")))
+                throw new IllegalArgumentException("original replay needs a same-viewer priority anchor");
             earlier=new ArrayList<>(Json.arr(history,"earlier"));
             continuation="priority".equals(Json.str(Json.obj(decision,"context"),"kind"));
+            resolution="pass".equals(Json.str(ModelReplay.selectedSemantic(Json.obj(anchor,"decision"),Json.obj(anchor,"selection")),"kind"));
             if(earlier.size()>4096) throw new IllegalArgumentException("original dialog replay prefix exceeds its bound");
             check(decision);check(Json.obj(anchor,"decision"));
-            if(continuation) {
+            if(continuation || resolution) {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation"),now=Json.obj(decision,"observation");
                 for(String key:Arrays.asList("turn","phase_step"))if(!Objects.equals(before.get(key),now.get(key)))
                     throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
@@ -60,6 +65,19 @@ public final class JackDialogReplay {
                     || !(anchor.get("priority_pass_after_activation") instanceof Boolean))
                 throw new IllegalArgumentException("original activation needs its recorded root priority dispatch");
             ModelReplay.selectedSemantic(Json.obj(anchor,"decision"),Json.obj(anchor,"selection"));
+            List<Object> recordedPasses=Json.arr(history,"priority_passes");
+            if(resolution) {
+                Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation");
+                String other="p0".equals(world.viewer)?"p1":"p0";
+                List<Object> passed=Json.arr(before,"passed_seats");
+                if(Json.arr(before,"stack").isEmpty() || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"))
+                        || passed==null || passed.contains(world.viewer) || new HashSet<>(passed).size()!=passed.size()
+                        || !Arrays.asList("p0","p1").containsAll(passed))
+                    throw new IllegalArgumentException("resolution replay needs a public nonempty stack and passed-seat facts");
+                List<Object> expected=passed.contains(other)?Collections.emptyList():Collections.singletonList(other);
+                if(!expected.equals(recordedPasses))throw new IllegalArgumentException("resolution pass order differs from public anchor facts");
+                for(Object seat:recordedPasses)passes.add((String)seat);
+            } else if(!recordedPasses.isEmpty())throw new IllegalArgumentException("activation replay has unrecorded priority passes");
             Class<?> original=Class.forName("spellbench.models.jack.OriginalCallbackPlayer");
             if(!original.isInstance(player)) throw new IllegalArgumentException("actual original callback player required");
             Method getter=original.getSuperclass().getDeclaredMethod("originalNeuralSession");getter.setAccessible(true);
@@ -99,6 +117,7 @@ public final class JackDialogReplay {
                     if("hashCode".equals(method.getName())) return System.identityHashCode(proxy);
                     return "owned original dialog replay";
                 }
+                try {
                 if(!"invoke".equals(method.getName()) || args[1]!=player || args[2]!=world.game)
                     throw new IllegalArgumentException("original replay hook belongs to another root");
                 String kind=(String)args[0];Map<String,Object> past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
@@ -106,10 +125,20 @@ public final class JackDialogReplay {
                 Object[] callback=(Object[])args[3];
                 check(current);
                 if("priority-pass".equals(kind)) {
+                    if(resolution && applyingAnchorPass && callback.length==0)return ((Supplier<?>)args[4]).get();
                     if(!continuation || past!=null || callback.length!=0)
                         throw new IllegalArgumentException("original pass occurred before its activation prefix completed");
                     deferredPass=true;return null;
                 }
+                if("priority".equals(kind) && resolution) {
+                    if(!continuation || past!=null || !passes.isEmpty() || callback.length!=0)
+                        throw new IllegalArgumentException("unrecorded viewer priority during original resolution replay");
+                    projection.compare(world,decision);
+                    Map<String,Object> result=resolutionReceipt(JackRootDecision.choose(world,start,decision));
+                    result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",false);
+                    throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,result);
+                }
+                if(resolution && !passes.isEmpty())throw new IllegalArgumentException("resolution callback occurred before recorded public passes");
                 if(continuation && past==null)
                     throw new IllegalArgumentException("unrecorded original callback before priority continuation");
                 if("choice".equals(kind)) {
@@ -164,6 +193,10 @@ public final class JackDialogReplay {
                 if(selection==null) throw new IllegalArgumentException("original dialog chose an unbound wire value");
                 Error stop=(Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selection);
                 throw stop;
+                } catch(RuntimeException failure) {
+                    if(resolution)throw new JackReplayOpponent.Refusal(failure);
+                    throw failure;
+                }
             });
             call(original.getMethod("bindOriginalReplay",Game.class,api),player,world.game,bridge);
         } catch(Throwable failure) {throw failed(failure);}
@@ -196,13 +229,13 @@ public final class JackDialogReplay {
         try {
             Map<String,Object> root=Json.obj(anchor,"decision");projection.compare(world,root);
             Map<String,Object> semantic=ModelReplay.selectedSemantic(root,Json.obj(anchor,"selection"));
-            if("pass".equals(Json.str(semantic,"kind"))) throw new IllegalArgumentException("direct dialog replay requires an activation anchor");
-            ActivatedAbility ability=Mapping.findPlayable(world,player,semantic,new ObsIndex(Json.obj(root,"observation")));
+            ActivatedAbility ability=resolution?new mage.abilities.common.PassAbility():Mapping.findPlayable(world,player,semantic,new ObsIndex(Json.obj(root,"observation")));
             if(ability==null) throw new IllegalArgumentException("original activation anchor is not playable");
             Class<?> original=Class.forName("spellbench.models.jack.OriginalCallbackPlayer");
             Method getter=original.getSuperclass().getDeclaredMethod("originalPriorityRules");getter.setAccessible(true);
             JackPriorityState.restore(world,root,anchor.get("original_priority_state"),ability,call(getter,player));
             bind();
+            if(resolution)return resolve();
             if(!continuation)return activate(ability);
             Class<?> activation=Class.forName("spellbench.models.jack.OriginalActivationPlayer");
             Method act=activation.getDeclaredMethod("act",Game.class,ActivatedAbility.class);act.setAccessible(true);
@@ -218,7 +251,51 @@ public final class JackDialogReplay {
             return result;
         } catch(Throwable failure) {throw failed(failure);}
     }
+    private Map<String,Object> resolutionReceipt(Map<String,Object> result) {
+        result.put("original_activation_path",false);result.put("original_resolution_path",true);
+        result.put("original_dialog_prefix_replayed",(long)replayed);
+        result.put("original_priority_passes_replayed",(long)passesReplayed);return result;
+    }
+    /** Resume only the reconstructed game, with every intervening opponent priority bound. */
+    private Map<String,Object> resolve() {
+        JackReplayOpponent other=null;
+        boolean otherBound=false;
+        try {
+            Player opponent=world.game.getPlayer(world.player("p0".equals(world.viewer)?"p1":"p0"));
+            if(!(opponent instanceof JackReplayOpponent))throw new IllegalArgumentException("resolution replay needs its owned non-playing opponent");
+            other=(JackReplayOpponent)opponent;
+            other.bind(world.game,(p,g)->{
+                if(passes.isEmpty() || !p.getId().equals(world.player(passes.removeFirst())))
+                    throw new JackReplayOpponent.Refusal(new IllegalArgumentException("unrecorded or reordered opponent priority during original resolution replay"));
+                p.recordedPass(g);passesReplayed++;
+            });
+            otherBound=true;
+            world.game.getState().resume();
+            applyingAnchorPass=true;
+            try {player.pass(world.game);} finally {applyingAnchorPass=false;}
+            world.game.pause();world.game.resume();
+            throw new IllegalArgumentException("original resolution ended without its requested callback");
+        } catch(Throwable failure) {
+            try {
+                Class<?> stop=Class.forName("spellbench.models.jack.OriginalCallbackPlayer$ReplayStop");
+                if(stop.isInstance(failure) && stop.getField("player").get(failure)==player
+                        && stop.getField("game").get(failure)==world.game && replayed==earlier.size() && passes.isEmpty()) {
+                    Map<String,Object> value=Json.obj(stop.getField("result").get(failure));
+                    if(continuation) {
+                        if(!Boolean.TRUE.equals(value.get("original_resolution_path")))throw new IllegalArgumentException("resolution priority receipt was lost");
+                        ModelReplay.selectedSemantic(decision,Json.obj(value,"selection"));return value;
+                    }
+                    ModelReplay.selectedSemantic(decision,value);
+                    return resolutionReceipt(Json.map("selection",Json.copy(value),"decision_sha256",JackPriorityBinding.hash(decision),
+                            "game_start_sha256",JackPriorityBinding.hash(start),"profile",profile,"seed",seed,
+                            "world_flags",new ArrayList<>(world.flags),"full_original_player_qualified",false));
+                }
+            } catch(Throwable binding) {failure.addSuppressed(binding);}
+            throw failed(failure);
+        } finally {if(otherBound)other.release(world.game);}
+    }
     private RuntimeException failed(Throwable failure) {
+        if(failure instanceof JackReplayOpponent.Refusal)failure=((JackReplayOpponent.Refusal)failure).failure;
         try {call(session.getClass().getMethod("close"),session);} catch(Throwable closing) {failure.addSuppressed(closing);}
         if(failure instanceof Error) throw (Error)failure;
         return failure instanceof RuntimeException?(RuntimeException)failure:new IllegalArgumentException("original dialog activation replay failed",failure);

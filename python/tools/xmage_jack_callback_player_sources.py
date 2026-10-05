@@ -116,6 +116,9 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     }
     @Override public OriginalCallbackPlayer copy() { return new OriginalCallbackPlayer(this); }
     @Override public final String priorityCallbackSourceSha256() { return SOURCE_SHA256; }
+    @Override protected final boolean replayOriginalPriority(Game game,Supplier<Boolean> work) {
+        return callback(game,"priority",new Object[0],work);
+    }
     @Override protected final void requireOriginalManaSimulation(Game source,Game copied) {
         admitOriginalSimulation(source,copied);
     }

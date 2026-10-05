@@ -42,6 +42,10 @@ class Session:
                 result["inference_requests"] = 0
             if candidate["semantic"].get("kind") == "pass":
                 result["priority_pass_after_activation"] = False
+        if "anchor" in record and record["anchor"]["selection"]["semantic_echo"].get("kind") == "pass":
+            result.update(original_resolution_path=True, original_activation_path=False,
+                          original_priority_passes_replayed=len(record["replay"]["priority_passes"]),
+                          original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
         self.results.append(result)
         return result
 
@@ -72,6 +76,44 @@ def binary(step=1):
 def amount(step=2):
     return decision({"kind": "choose_number", "purpose": "x_value", "value": 0},
                     {"kind": "choose_number", "purpose": "x_value", "value": 1}, step=step)
+
+
+@pytest.mark.parametrize("already", [False, True])
+@pytest.mark.parametrize("next_priority", [False, True])
+def test_pass_anchor_reaches_resolution_or_priority_with_public_pass_order(already, next_priority):
+    bot, session = ready([0, 1, 0])
+    root = priority(); root["observation"].update(stack=[{"card_name": "Visible spell"}], passed_seats=["p1"] if already else [])
+    assert bot.choose(view(root)) == 10
+    assert bot.choose(view(binary())) == 11
+    current = priority(2) if next_priority else amount()
+    bot.choose(view(current))
+    first, last = session.requests[0][0], session.requests[-1][0]
+    assert last["anchor"]["selection"]["semantic_echo"] == {"kind": "pass"}
+    assert last["replay"]["priority_passes"] == ([] if already else ["p1"])
+    assert len(last["replay"]["earlier"]) == 1
+    assert (first["world_seed"], first["id_seed"]) == (last["world_seed"], last["id_seed"])
+    assert session.results[-1]["original_resolution_path"] and not session.closed
+    bot.close()
+
+
+@pytest.mark.parametrize("field,value", [("original_resolution_path", False), ("original_activation_path", True),
+                                        ("original_priority_passes_replayed", 0), ("original_priority_passes_replayed", True)])
+def test_resolution_receipt_must_preserve_actual_path_and_pass_order(field, value):
+    bot, session = ready([0, 0]); root = priority();root["observation"]["stack"] = [{"card_name": "Visible spell"}]
+    bot.choose(view(root)); choose = session.choose
+    def corrupted(record, *, timeout_s):
+        result = choose(record, timeout_s=timeout_s); result[field] = value; return result
+    session.choose = corrupted
+    with pytest.raises(ValueError): bot.choose(view(binary()))
+    assert session.closed and len(session.requests) == 2
+
+
+@pytest.mark.parametrize("passed", [["p0"], ["p1", "p1"], ["foreign"], None])
+def test_invalid_public_pass_facts_refuse_before_resolution_request(passed):
+    bot, session = ready([0]); root = priority();root["observation"].update(stack=[{"card_name": "Visible spell"}], passed_seats=passed)
+    bot.choose(view(root))
+    with pytest.raises(ValueError): bot.choose(view(binary()))
+    assert session.closed and len(session.requests) == 1
 
 
 def test_public_protocol_always_enters_original_mulligan_and_forced_callback_then_closes():

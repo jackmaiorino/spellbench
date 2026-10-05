@@ -150,7 +150,7 @@ queued-target and target.add paths without neural draws. Recorded card prefixes
 add neither model nor physical-copy draws; sequential groups and STOP checks pass.
 All 93 affected Python checks and two identical normalized card metadata JVM runs
 pass. Original combat now connects through the whole-group path described below.
-Priority/resolution continuation remains open. The guarded
+Native priority/resolution qualification remains open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
 [the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
@@ -174,7 +174,7 @@ Restoration replaces the inherited queue before activation, with no model or
 chooser draw. Missing, changed or hidden entries refuse. All 276 affected Python
 checks and two fresh metadata JVM outputs pass, including actual inherited card
 queue consumption. Immediate activation continuation is now connected as described
-below; resolution replay remains unfinished and complete games are unqualified.
+below; unrecorded resolution transitions and complete games remain unqualified.
 
 Immediate next-priority requests reconstruct the saved activation world, replay
 the complete recorded callback prefix without policy or copy draws, and finish
@@ -185,7 +185,19 @@ unrecorded callbacks and turn or phase transitions refuse. All 293 affected Pyth
 checks pass, and two normalized metadata JVM outputs match across 0/1/2 callback
 prefixes, stack and phase passes, cleanup, fresh dispatch and failure closure.
 The metadata activation fixture does not qualify native ability legality,
-resolution replay, nested combat callbacks or complete games.
+native resolution execution, nested combat callbacks or complete games.
+
+Saved passes on a visible nonempty stack now resume the reconstructed game toward
+the original resolving callback or next priority dispatch. Public passed-seat
+facts determine the one permitted opponent pass. Recorded callback prefixes replay
+without policy or physical-copy draws. An extra or reordered priority, opponent
+choice, unrecorded phase transition or incomplete resume refuses before further
+inference. `JackReplayOpponent` is a non-playing reconstruction helper, with no
+leaderboard entry. All 329 affected Python checks pass, and two normalized JVM
+outputs match for resolving X, binary prefixes, opponent passes and fresh priority.
+These fixtures script resume and stack contents; the native event loop and stack
+legality still require qualification. Cleanup/phase transitions, newly visible
+library conditioning, nested combat callbacks and complete games remain unfinished.
 
 Jack's original attack and block loops now have a separate private staged port
 and connect to the original frontend's game-owned session through `JackCombatPlan`.
