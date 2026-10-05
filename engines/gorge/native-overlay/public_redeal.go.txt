@@ -127,12 +127,18 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			}
 		}
 	}
+	proposalLimit := opts.MaxSubmits
 	budget := func() bool {
 		work.Nodes++
-		return work.Submits < opts.MaxSubmits && work.Nodes <= opts.MaxSubmits*32
+		return work.Submits < proposalLimit && work.Nodes <= opts.MaxSubmits*32
 	}
 	for attempt := 0; attempt < opts.Attempts && work.Submits < opts.MaxSubmits && work.Nodes <= opts.MaxSubmits*32; attempt++ {
 		work.Attempts++
+		// A fixed shuffle can be incompatible with a later public identity.
+		// Give several witness proposals a share of the same total budget,
+		// while allowing three submits per actor boundary on long histories.
+		// This does not change native sampler proposals, weights or limits.
+		proposalLimit = min(opts.MaxSubmits, work.Submits+max(opts.MaxSubmits/4, 3*len(h.Frames)))
 		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife, Mulligans: setup.Mulligans}
 		observer := NewCollector(h.Actor)
@@ -184,7 +190,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 				if err != nil {
 					return nil, nil
 				}
-				if work.Submits >= opts.MaxSubmits {
+				if work.Submits >= proposalLimit {
 					return nil, nil
 				}
 				work.Submits++
@@ -204,7 +210,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			var root *RedealBase
 			var branchError error
 			spellbenchEachIntent(d, preferred, budget, func(in decision.Intent) bool {
-				if work.Submits >= opts.MaxSubmits {
+				if work.Submits >= proposalLimit {
 					return false
 				}
 				work.Submits++
