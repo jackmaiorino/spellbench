@@ -111,19 +111,21 @@ def bound_replay(record, seat):
     bound_selection(anchor["selection"], offered)
     priority_state(anchor["original_priority_state"], root)
     if (root.get("context", {}).get("kind") != "priority"
-            or anchor["selection"]["semantic_echo"].get("kind") not in ("cast_spell", "activate_ability")):
+            or anchor["selection"]["semantic_echo"].get("kind") not in ("cast_spell", "activate_ability", "play_land", "activate_mana_ability")):
         raise ValueError("original serving replay has no selected priority activation")
     for entry in replay["earlier"]:
         if not isinstance(entry, dict) or set(entry) != {"decision", "selection"}:
             raise ValueError("malformed original serving replay prefix")
     previous = root
-    for entry in [*replay["earlier"], {"decision": record["decision"]}]:
+    entries = [*replay["earlier"], {"decision": record["decision"]}]
+    for index, entry in enumerate(entries):
         current = entry["decision"]
         choices = bound_decision(current, seat)
         if (type(previous.get("seat_step")) is not int or type(current.get("seat_step")) is not int
                 or not 0 <= previous["seat_step"] < current["seat_step"] <= wire.MAX_JSON_INT
                 or current["seat_step"] != previous["seat_step"] + 1
-                or current.get("context", {}).get("kind") != "choice"
+                or current.get("context", {}).get("kind") not in (
+                    ("choice", "priority") if index == len(entries) - 1 else ("choice",))
                 or any(current["observation"].get(key) != root["observation"].get(key)
                        for key in ("turn", "phase_step"))):
             raise ValueError("original serving replay crossed an unrecorded step, turn or phase")
@@ -257,6 +259,12 @@ class JackNativeSession:
                             or type(result.get("original_dialog_prefix_replayed")) is not int
                             or result["original_dialog_prefix_replayed"] != len(record["replay"]["earlier"])):
                         raise ValueError("original serving callback lost its actual activation or replay prefix")
+                    if record["decision"].get("context", {}).get("kind") == "priority":
+                        deferred = result.get("original_activation_pass_deferred")
+                        if (result.get("original_priority_continuation") is not True or type(deferred) is not bool
+                                or (deferred or record["anchor"]["priority_pass_after_activation"])
+                                and (selection["semantic_echo"].get("kind") != "pass" or calls != 0)):
+                            raise ValueError("original serving continuation lost its automatic pass or added inference")
                 self._remaining(deadline)
                 return copy.deepcopy(result)
         except BaseException as failure:

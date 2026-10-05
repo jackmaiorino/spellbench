@@ -41,7 +41,7 @@ public final class JackDialogReplayCheck {
         public int physicalCopy(int count,double seconds) {copies++;return count-1;}
     }
     static final class Viewer extends OriginalCallbackPlayer {
-        boolean prefix,cost,mode,modePrefix;int entered;boolean earlier;ActivatedAbility playable;
+        boolean prefix,cost,mode,modePrefix,completeActivation,completionX;int entered;boolean earlier;ActivatedAbility playable;
         Modes modes;Ability modeSource;Mode earlierMode;
         mage.choices.Choice named;boolean namedResult;
         mage.target.Target target;boolean targetResult;
@@ -73,7 +73,7 @@ public final class JackDialogReplayCheck {
             if(target!=null) targetResult=chooseTarget(Outcome.Benefit,target,playable,game);
             if(cards!=null) cardResult=parentCards?choose(cardOutcome,cards,cardTarget,playable,game)
                     :chooseTarget(cardOutcome,cards,cardTarget,playable,game);
-            announceX(0,3,"current",game,null,false);return true;
+            if(!completeActivation || completionX)announceX(0,3,"current",game,null,false);return true;
         }
     }
     static final class StableCard extends mage.cards.CardImpl {
@@ -119,6 +119,7 @@ public final class JackDialogReplayCheck {
                     case "getStartingPlayerId":return player.getId();
                     case "getRangeOfInfluence":return mage.constants.RangeOfInfluence.ALL;
                     case "getMulligan":return mulligan;
+                    case "firePriorityEvent":return null;
                     case "createSimulationForPlayableCalc":return simulation((Game)o);
                     case "getCard":case "getObject":
                         if(hidden.contains(a[0])) throw new AssertionError("dialog projection/encoder read a hidden card");

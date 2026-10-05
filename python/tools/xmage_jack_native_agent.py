@@ -17,6 +17,8 @@ from xmage_jack_london import bound_view as london_view
 from xmage_neural_combat import CombatPlan, battlefield, combat_kind, select_candidate, target
 from xmage_neural_agent import PublicHistory, _DECISION_FIELDS, _START_FIELDS, game_key
 
+_ACTIVATIONS = {"cast_spell", "activate_ability", "play_land", "activate_mana_ability"}
+
 
 def family(decision):
     kinds = {c["semantic"].get("kind") for c in decision["candidates"]}
@@ -264,14 +266,14 @@ class JackNativeAgent:
                         or own["mulligans_taken"] != current["group"]["substep_count"]
                         or self.london is None and current["group"]["substep_index"] != 0):
                     raise ValueError("original London needs its initial observed bottom group")
-            if kind == "priority" and self.history.anchor is not None:
-                if self.history.anchor["priority_pass_after_activation"]:
-                    raise ValueError("original pass-after-activation continuation is not connected")
-            if kind in ("binary", "x", "mode", "named", "target"):
+            continuing = (kind == "priority" and self.history.anchor is not None
+                          and self.history.anchor["selection"]["semantic_echo"].get("kind") in _ACTIVATIONS)
+            if kind in ("binary", "x", "mode", "named", "target") or continuing:
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
-                        not in ("cast_spell", "activate_ability")):
+                        not in _ACTIVATIONS):
                     raise ValueError("original callback has no recorded activation anchor")
-                record.update(self.history.callback(current))
+                record.update(anchor=copy.deepcopy(self.history.anchor),
+                              replay={"priority_passes": [], "earlier": copy.deepcopy(self.history.earlier)})
                 # Reconstruct the saved priority world throughout this activation.
                 # Replaying prior choices must not resample its hidden world.
                 record.update(self.anchor_seeds)
@@ -311,6 +313,15 @@ class JackNativeAgent:
                 if type(result.get("priority_pass_after_activation")) is not bool:
                     raise ValueError("original frontend lost its priority continuation")
                 priority_state(result.get("original_priority_state"), current)
+                if continuing:
+                    deferred = result.get("original_activation_pass_deferred")
+                    if (result.get("original_priority_continuation") is not True or type(deferred) is not bool
+                            or result.get("original_activation_path") is not True
+                            or type(result.get("original_dialog_prefix_replayed")) is not int
+                            or result["original_dialog_prefix_replayed"] != len(record["replay"]["earlier"])
+                            or (deferred or record["anchor"]["priority_pass_after_activation"])
+                            and (selection["semantic_echo"].get("kind") != "pass" or result.get("inference_requests") != 0)):
+                        raise ValueError("original priority continuation lost its completed activation or automatic pass")
             if kind not in ("mulligan", "london", "attack", "block"):
                 self.history.selected(current, selection)
             if kind == "priority":

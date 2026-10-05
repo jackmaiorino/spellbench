@@ -80,6 +80,17 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             throw new IllegalArgumentException("one root-only original replay binding required");
         this.replay=replay;this.replayGame=game;
     }
+    public final void finishOriginalReplay(Game game,Replay owner) {
+        requireOriginalPermittedWorld(game);
+        if(game.isSimulation() || replay==null || replay!=owner || game!=replayGame || replayDepth!=0)
+            throw new IllegalArgumentException("original replay release needs its exact completed root owner");
+        replay=null;replayGame=null;
+    }
+    @Override public void pass(Game game) {
+        if(replay!=null && game==replayGame && !game.isSimulation()) {
+            callback(game,"priority-pass",new Object[0],()->{super.pass(game);return null;});
+        } else {requireOriginalPermittedWorld(game);super.pass(game);}
+    }
     public final ReplayStop pauseOriginalReplay(Game game, Object result) {
         requireOriginalPermittedWorld(game);
         if (replay==null || replayDepth!=1 || game!=replayGame || game.isSimulation() || result==null)

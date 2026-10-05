@@ -24,6 +24,8 @@ public final class JackDialogReplay {
     private final Object session;
     private final String profile;
     private final long seed;
+    private final boolean continuation;
+    private boolean deferredPass;
 
     private static void project(World world,Map<String,Object> decision) throws Exception {
         Map<String,Object> current=Json.obj(decision,"observation");
@@ -42,8 +44,14 @@ public final class JackDialogReplay {
                     || !world.viewer.equals(Json.str(start,"seat")) || !Json.arr(history,"priority_passes").isEmpty())
                 throw new IllegalArgumentException("direct original activation needs a same-viewer anchor and no unresolved priority passes");
             earlier=new ArrayList<>(Json.arr(history,"earlier"));
+            continuation="priority".equals(Json.str(Json.obj(decision,"context"),"kind"));
             if(earlier.size()>4096) throw new IllegalArgumentException("original dialog replay prefix exceeds its bound");
             check(decision);check(Json.obj(anchor,"decision"));
+            if(continuation) {
+                Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation"),now=Json.obj(decision,"observation");
+                for(String key:Arrays.asList("turn","phase_step"))if(!Objects.equals(before.get(key),now.get(key)))
+                    throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
+            }
             for(Object item:earlier) {
                 Map<String,Object> entry=Json.obj(item);check(Json.obj(entry,"decision"));
                 ModelReplay.selectedSemantic(Json.obj(entry,"decision"),Json.obj(entry,"selection"));
@@ -97,6 +105,13 @@ public final class JackDialogReplay {
                 Map<String,Object> current=past==null?decision:Json.obj(past,"decision");
                 Object[] callback=(Object[])args[3];
                 check(current);
+                if("priority-pass".equals(kind)) {
+                    if(!continuation || past!=null || callback.length!=0)
+                        throw new IllegalArgumentException("original pass occurred before its activation prefix completed");
+                    deferredPass=true;return null;
+                }
+                if(continuation && past==null)
+                    throw new IllegalArgumentException("unrecorded original callback before priority continuation");
                 if("choice".equals(kind)) {
                     if(callback.length!=4 || !(callback[1] instanceof mage.choices.Choice))
                         throw new IllegalArgumentException("original named callback lacks its actual Choice");
@@ -187,7 +202,20 @@ public final class JackDialogReplay {
             Class<?> original=Class.forName("spellbench.models.jack.OriginalCallbackPlayer");
             Method getter=original.getSuperclass().getDeclaredMethod("originalPriorityRules");getter.setAccessible(true);
             JackPriorityState.restore(world,root,anchor.get("original_priority_state"),ability,call(getter,player));
-            bind();return activate(ability);
+            bind();
+            if(!continuation)return activate(ability);
+            Class<?> activation=Class.forName("spellbench.models.jack.OriginalActivationPlayer");
+            Method act=activation.getDeclaredMethod("act",Game.class,ActivatedAbility.class);act.setAccessible(true);
+            call(act,player,world.game,ability);
+            if(replayed!=earlier.size())throw new IllegalArgumentException("original activation did not consume its complete prefix");
+            projection.compare(world,decision);
+            Class<?> api=Class.forName(original.getName()+"$Replay");
+            call(original.getMethod("finishOriginalReplay",Game.class,api),player,world.game,bridge);bridge=null;
+            boolean pass=deferredPass || Boolean.TRUE.equals(anchor.get("priority_pass_after_activation"));
+            Map<String,Object> result=pass?JackRootDecision.continuationPass(world,start,decision):JackRootDecision.choose(world,start,decision);
+            result.put("original_activation_path",true);result.put("original_dialog_prefix_replayed",(long)replayed);
+            result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",deferredPass);
+            return result;
         } catch(Throwable failure) {throw failed(failure);}
     }
     private RuntimeException failed(Throwable failure) {

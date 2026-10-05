@@ -173,8 +173,19 @@ Entries retain their order and duplicates as complete named visible references.
 Restoration replaces the inherited queue before activation, with no model or
 chooser draw. Missing, changed or hidden entries refuse. All 276 affected Python
 checks and two fresh metadata JVM outputs pass, including actual inherited card
-queue consumption. Priority/resolution continuation and activation-body automatic
-passes remain unfinished; this does not qualify complete games.
+queue consumption. Immediate activation continuation is now connected as described
+below; resolution replay remains unfinished and complete games are unqualified.
+
+Immediate next-priority requests reconstruct the saved activation world, replay
+the complete recorded callback prefix without policy or copy draws, and finish
+the actual original activation body. Passes from that body and the original phase
+dispatch become the exact offered public pass; otherwise the original policy
+dispatch chooses the next action on the completed world. Changed observations,
+unrecorded callbacks and turn or phase transitions refuse. All 293 affected Python
+checks pass, and two normalized metadata JVM outputs match across 0/1/2 callback
+prefixes, stack and phase passes, cleanup, fresh dispatch and failure closure.
+The metadata activation fixture does not qualify native ability legality,
+resolution replay, nested combat callbacks or complete games.
 
 Jack's original attack and block loops now have a separate private staged port
 and connect to the original frontend's game-owned session through `JackCombatPlan`.

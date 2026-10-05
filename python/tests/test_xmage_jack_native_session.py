@@ -44,6 +44,9 @@ def result(session, record, *, calls=0, rid="1"):
     if "anchor" in record:
         message["result"].update(original_activation_path=True,
                                  original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
+        if record["decision"].get("context", {}).get("kind") == "priority":
+            message["result"].update(original_priority_continuation=True,original_activation_pass_deferred=False,
+                priority_pass_after_activation=False,original_priority_state={"alternatives": [], "targets": []})
     return message
 
 
@@ -222,6 +225,33 @@ def queued_record(record):
     record["anchor"]["decision"]["observation"]["players"] = [{"seat": "p0", "hand": copy.deepcopy(refs)}]
     record["anchor"]["original_priority_state"]["targets"] = [copy.deepcopy(refs[i]) for i in (1, 0, 1)]
     return record
+
+
+def priority_record(record):
+    callback_record(record);record["decision"]["context"]["kind"] = "priority"
+    record["decision"]["candidates"][0]["semantic"] = {"kind": "pass"}
+    record["decision"]["candidates"][1]["semantic"] = {"kind": "cast_spell"}
+    return record
+
+
+def test_private_serving_accepts_original_zero_draw_priority_continuation(tmp_path, monkeypatch):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch);priority_record(record)
+    rows(peer,result(session,record));chosen=session.choose(record,timeout_s=2)
+    assert chosen["original_priority_continuation"] and chosen["inference_requests"] == 0
+    assert peer.writes[0]["anchor"] == record["anchor"]
+    session.close();assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["continuation", "deferred", "choice", "prefix"])
+def test_private_serving_refuses_missing_completion_or_substituted_pass(tmp_path,monkeypatch,fault):
+    session,record,peer,pair,_=setup(tmp_path,monkeypatch);priority_record(record);message=result(session,record)
+    if fault=="continuation":message["result"]["original_priority_continuation"]=False
+    if fault=="deferred":message["result"]["original_activation_pass_deferred"]=1
+    if fault=="prefix":message["result"]["original_dialog_prefix_replayed"]=1
+    if fault=="choice":message["result"]["selection"]={"candidate_id":8,"semantic_echo":{"kind":"cast_spell"}}
+    rows(peer,message)
+    with pytest.raises(ValueError):session.choose(record,timeout_s=2)
+    assert peer.closed and pair.closed
 
 
 def test_complete_target_queue_preserves_order_and_duplicate_refs_in_transport(tmp_path, monkeypatch):

@@ -15,6 +15,13 @@ public final class JackOriginalBridgeMain {
     /** Callback worlds start at their saved priority, before activation mutates the engine. */
     static Map<String,Object> reconstructionDecision(Map<String,Object> request) {
         Map<String,Object> current=Json.obj(request,"decision");
+        if(request.get("anchor")!=null && "priority".equals(Json.str(Json.obj(current,"context"),"kind"))) {
+            Map<String,Object> root=Json.obj(Json.obj(request,"anchor"),"decision");
+            if(root==null || JackRootDecision.mode(root)!=WorldBuilder.Mode.PRIORITY
+                    || !Json.str(current,"acting_seat").equals(Json.str(root,"acting_seat")))
+                throw new IllegalArgumentException("original continuation needs its own saved priority root");
+            return root;
+        }
         try {JackRootDecision.mode(current);return current;}
         catch(IllegalArgumentException unsupported) {
             Map<String,Object> anchor=Json.obj(request,"anchor"),root=Json.obj(anchor,"decision");

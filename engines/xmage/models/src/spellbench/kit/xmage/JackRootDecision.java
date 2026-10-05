@@ -62,8 +62,14 @@ public final class JackRootDecision {
         throw new IllegalArgumentException("original callback replay is not connected for this decision family");
     }
     public static Map<String,Object> choose(World world,Map<String,Object> start,Map<String,Object> decision) {
+        return choose(world,start,decision,false);
+    }
+    static Map<String,Object> continuationPass(World world,Map<String,Object> start,Map<String,Object> decision) {
+        return choose(world,start,decision,true);
+    }
+    private static Map<String,Object> choose(World world,Map<String,Object> start,Map<String,Object> decision,boolean continuationPass) {
         JackRootDecision root=null;
-        try { root=new JackRootDecision(world,start,decision); return root.choose(); }
+        try { root=new JackRootDecision(world,start,decision); return root.choose(continuationPass); }
         catch(Throwable failure) {
             if(root!=null) try {call(root.close,root.session);} catch(Throwable cleanup) {failure.addSuppressed(cleanup);}
             else if(world!=null) try {
@@ -78,7 +84,7 @@ public final class JackRootDecision {
         }
     }
     @SuppressWarnings({"unchecked","rawtypes"})
-    private Map<String,Object> choose() throws Exception {
+    private Map<String,Object> choose(boolean continuationPass) throws Exception {
         call(require,player,world.game);
         if(start==null || decision==null) throw new IllegalArgumentException("original root inputs required");
         Map<String,Object> observation=Json.obj(decision,"observation");
@@ -90,7 +96,11 @@ public final class JackRootDecision {
             throw new IllegalArgumentException("original root world is unsupported: "+flag);
         WorldBuilder.Mode mode=mode(decision);
         Map<String,Object> selection; Map<String,Object> componentResult=null; boolean dispatched=false,passAfter=false;
-        if(mode==WorldBuilder.Mode.ATTACK || mode==WorldBuilder.Mode.BLOCK) {
+        if(continuationPass) {
+            if(mode!=WorldBuilder.Mode.PRIORITY)throw new IllegalArgumentException("completed original pass needs a priority boundary");
+            selection=JackPriorityBinding.bind(start,decision,world,Collections.singletonList(new PassAbility())).select(0,decision);
+            player.pass(world.game);
+        } else if(mode==WorldBuilder.Mode.ATTACK || mode==WorldBuilder.Mode.BLOCK) {
             Class<?> component=Class.forName("spellbench.kit.xmage.JackCombatPlan");
             componentResult=(Map<String,Object>)call(component.getMethod("choose",World.class,Map.class,boolean.class),null,world,decision,mode==WorldBuilder.Mode.ATTACK);
             selection=Json.obj(componentResult,"selection");

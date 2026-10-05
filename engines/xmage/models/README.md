@@ -764,6 +764,24 @@ hidden-reference denial and pre-activation refusal. Actual inherited card queue
 consumption and prior callback/combat/London regressions pass. The initial fixture
 checked-exception compile failure is retained under
 `E:/spellbench-xmage-all-20261002/jack-priority-queue-001`.
-Priority/resolution continuation remains unfinished, including passes emitted
-inside the original activation body for stack-using abilities. Native startup,
-trained weights and complete games remain unqualified under the research hold.
+Immediate activation-to-priority continuation now reconstructs the saved anchor
+world and restores its queue and alternative costs. The actual original activation
+body consumes every recorded callback, with no model or physical-copy draws.
+Its automatic pass is deferred until the completed world matches the public
+priority observation, then bound to the exact offered pass. A recorded phase
+pass follows the same path; otherwise the original next-priority dispatch runs
+on that completed world. The frontend preserves anchor sampling seeds and requires
+complete continuation receipts. Changed observations, unrecorded callbacks,
+unoffered passes and unrecorded turn or phase transitions refuse and close the
+owned session before further inference.
+
+All 293 affected Python checks pass. Two normalized fresh metadata JVM outputs
+match for 0/1/2 callback prefixes, stack and phase passes, original activation
+cleanup, zero replay draws and fresh original dispatch. Prior callback, queue,
+combat and London regressions pass. Evidence, including both initial fixture
+failures, is retained under
+`E:/spellbench-xmage-all-20261002/jack-priority-continuation-001`.
+The activation fixture overrides legality and stack use, so native ability
+legality, later priority-pass/stack-resolution replay, nested combat callbacks,
+refreshed full builds, trained weights and complete games remain unqualified
+under the research hold.

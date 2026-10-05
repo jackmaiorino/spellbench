@@ -34,6 +34,14 @@ class Session:
                   "original_priority_state": {"alternatives": [{"source": {
                       "object_id": "spell", "card_name": "Test spell", "zone": "hand"},
                       "choices": ["alternate"]}], "targets": []}}
+        if "anchor" in record and record["decision"].get("context", {}).get("kind") == "priority":
+            result.update(original_activation_path=True, original_priority_continuation=True,
+                          original_activation_pass_deferred=False,
+                          original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
+            if record["anchor"]["priority_pass_after_activation"]:
+                result["inference_requests"] = 0
+            if candidate["semantic"].get("kind") == "pass":
+                result["priority_pass_after_activation"] = False
         self.results.append(result)
         return result
 
@@ -106,7 +114,8 @@ def test_callback_chain_retains_actual_priority_state_seeds_and_exact_prefix():
     assert root["decision"]["seat_step"] == 0 and second["decision"]["seat_step"] == 2
     bot.choose(view(priority(3)))
     fresh = session.requests[-1][0]
-    assert "anchor" not in fresh and fresh["world_seed"] != root["world_seed"]
+    assert fresh["anchor"]["decision"]["seat_step"] == 0 and len(fresh["replay"]["earlier"]) == 2
+    assert (fresh["world_seed"], fresh["id_seed"]) == (root["world_seed"], root["id_seed"])
     assert bot.history.anchor["decision"]["seat_step"] == 3 and bot.history.earlier == []
     bot.close()
 
@@ -257,13 +266,56 @@ def test_changed_callback_cannot_replay_another_activation(change):
     assert session.closed and len(session.requests) == 1
 
 
-def test_pass_after_activation_is_retained_and_unconnected_continuation_refuses():
-    bot, session = ready([1, 0], pass_after=True)
+def test_pass_after_activation_is_replayed_to_the_exact_next_priority_boundary():
+    bot, session = ready([1, 0, 0], pass_after=True)
     bot.choose(view(priority()))
     bot.choose(view(binary()))
     assert session.requests[-1][0]["anchor"]["priority_pass_after_activation"] is True
-    with pytest.raises(ValueError, match="continuation is not connected"):
-        bot.choose(view(priority(2)))
+    assert bot.choose(view(priority(2))) == 10
+    continuation = session.requests[-1][0]
+    assert len(continuation["replay"]["earlier"]) == 1
+    assert continuation["anchor"]["priority_pass_after_activation"] is True
+    assert continuation["world_seed"] == session.requests[0][0]["world_seed"]
+    assert len(session.requests) == 3 and not session.closed
+    bot.close()
+
+
+@pytest.mark.parametrize("kind", ["cast_spell", "activate_ability", "play_land", "activate_mana_ability"])
+def test_every_original_activation_kind_reuses_its_saved_world_at_next_priority(kind):
+    bot, session = ready([1, 0])
+    d = priority();d["candidates"][1]["semantic"]["kind"] = kind
+    bot.choose(view(d));bot.choose(view(priority(1)))
+    root, following = [row[0] for row in session.requests]
+    assert following["anchor"]["selection"]["semantic_echo"]["kind"] == kind
+    assert following["world_seed"] == root["world_seed"] and following["replay"]["earlier"] == []
+    bot.close()
+
+
+@pytest.mark.parametrize("field", ["turn", "phase_step"])
+def test_priority_continuation_refuses_an_unrecorded_transition_before_session_work(field):
+    bot, session = ready([1]);bot.choose(view(priority()))
+    later = priority(1);later["observation"][field] = 2 if field == "turn" else "postcombat_main"
+    with pytest.raises(ValueError):bot.choose(view(later))
+    assert session.closed and len(session.requests) == 1
+
+
+@pytest.mark.parametrize("fault", ["continuation", "activation", "prefix", "deferred", "choice", "inference"])
+def test_priority_continuation_requires_the_actual_completed_activation_and_zero_draw_pass(fault):
+    bot, session = ready([1, 0], pass_after=True);bot.choose(view(priority()))
+    original = session.choose
+    def bad(record, *, timeout_s):
+        result = original(record, timeout_s=timeout_s)
+        if fault == "continuation": result["original_priority_continuation"] = False
+        if fault == "activation": result["original_activation_path"] = False
+        if fault == "prefix": result["original_dialog_prefix_replayed"] = 1
+        if fault == "deferred": result["original_activation_pass_deferred"] = 1
+        if fault == "choice":
+            candidate = record["decision"]["candidates"][1]
+            result["selection"] = {"candidate_id": candidate["candidate_id"], "semantic_echo": candidate["semantic"]}
+        if fault == "inference": result["inference_requests"] = 1
+        return result
+    session.choose = bad
+    with pytest.raises(ValueError):bot.choose(view(priority(1)))
     assert session.closed and len(session.requests) == 2
 
 
