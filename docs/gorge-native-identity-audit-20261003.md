@@ -1,15 +1,20 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
-Production076 contains the saved London basic-search repair. The exact
-281-frame root supplies eight known-card-valid worlds in 564 submits with
-all 23 native diagnostic fields matching. Native077 is active locally through
-the canonical reservation and supported matched throughput guard; the full
-audit is not yet admitted. Reference/rated games and published entries remain
-zero. Ledger040 retains the conservative $9.98136347 bound under the all-in
-$10 cap, with settlement pending and no new cloud spend. Preserve XMage's
-next bounded Haley stage. The merged aborted FDN reveal passes run-history
-validation on the reconciled integration branch.
+Native077 failed its existing reconstruction gate and is recovered and sealed.
+Production082 contains the owned Dig repair. The whole original game164
+regression083 still has seven refusals. [Public repair084](gorge-local-public-repair084-20261005.json)
+retains all captured prefixes and terminal attempts, including failures.
+In093, six of seven prefixes replay with eight known-card-valid worlds and
+identical native diagnostics. The seventh reaches a later public Balustrade Spy
+reveal; its new guidance awaits component verification, a production rebuild
+and the whole-game regression. No current-source full native qualification is
+admitted. Reference/rated games and published entries remain zero. Ledger040
+retains the conservative $9.98136347 bound under the all-in $10 cap, with
+settlement pending and no new cloud spend. Preserve XMage's next bounded Haley
+stage. The merged aborted FDN reveal passes run-history validation on the
+reconciled integration branch. Later sections retain historical observations;
+the current review inputs and public repair record govern present readiness.
 
 Native069 completed with failure on execution `e06161e`. Game49,
 Wildfire/search-redeal, finished naturally but recorded four public reconstruction
