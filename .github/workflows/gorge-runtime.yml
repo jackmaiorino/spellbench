@@ -1,11 +1,8 @@
 name: gorge production runtime
 
 on:
-  push:
-    paths:
-      - 'engines/gorge/**'
-      - 'tools/gorge-build-runtime.py'
-      - '.github/workflows/gorge-runtime.yml'
+  # Explicit builds avoid uploading another runtime on each backup branch push.
+  # Request a build only when its binaries are needed for qualification.
   workflow_dispatch:
 
 permissions:
