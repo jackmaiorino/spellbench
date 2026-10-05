@@ -163,7 +163,7 @@
   "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
   "full_go_ci_status": "passed",
   "full_go_ci_source_commit": "ca9d665811d102d571656fd5fbfe9615b13a8982",
-  "current_native_result_record": null,
+  "current_native_result_record": "docs/gorge-local-native098-20261005.json",
   "hosted_native_admission_gate_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
   "hosted_native_admission_gate_tests_passed": 15,
   "actual_positive_hosted_native_gate_unverified": true,
@@ -174,8 +174,8 @@
   "reference_dispatch_admitted": false,
   "current_native_attempt": {
     "schema": "spellbench-gorge-local-native/v1",
-    "observed_at_utc": "2026-10-05T19:25:54.811735+00:00",
-    "phase": "matched_throughput_running",
+    "observed_at_utc": "2026-10-05T22:06:22.491507+00:00",
+    "phase": "closed_native_redeal_gate_failed",
     "source_commit": "88b55a13513a614d26adafa7a33142df4b6f551d",
     "runtime_source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
     "source_of_record": "E:\\spellbench-gorge-native-20261005-098",
@@ -196,12 +196,6 @@
     "parent_manifest_sha256": "8f84a170a2e126fb59c34ebd84f4fe6dba8e1345defefffed514a99ccf86bea8",
     "source_recipe_sha256": "ca6b601f67f9bf879f12def7ccc64ae06878abfba49577d5d64a68eeab1c731e",
     "source_launcher_sha256": "7ac894a46ff64f5ddaeed1e2c50bd7e6bcc35e884e80f7716215931101945ef6",
-    "last_monitor": {
-      "at_utc": "2026-10-05T19:25:04.311303+00:00",
-      "elapsed_seconds": 301.56051540002227,
-      "streamed_native_rows": 4,
-      "stop_reason": null
-    },
     "runtime_builder_toolchain": {
       "go_version": "go version go1.27.1 linux/amd64",
       "go_driver_sha256": "30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624",
@@ -217,21 +211,101 @@
     "conservative_reserved_total_usd": 9.99736347,
     "new_cloud_spend_usd": 0,
     "provider_final_settlement_pending": true,
-    "next_wake": "Existing native098 parent emits a new allocation, native audit result, numerical failure or terminal closure; independently recover only after actual terminal release. No duplicate watcher or rated launch."
+    "next_wake": "Trace101 has reproduced and sealed the frame88 public identity mismatch. Repair the owned post-London top-exile replay, then run a new complete guarded native qualification; reference099 remains unlaunched.",
+    "initial_observation": {
+      "at_utc": "2026-10-05T19:25:54.811735+00:00",
+      "phase": "matched_throughput_running",
+      "monitor": {
+        "at_utc": "2026-10-05T19:25:04.311303+00:00",
+        "elapsed_seconds": 301.56051540002227,
+        "streamed_native_rows": 4,
+        "stop_reason": null
+      }
+    },
+    "seal_sha256": "feaa8768d5f43f9e268b9c1397d63b4819d9936bf0df92df8d9f4d5c765f2b85",
+    "cleanup_sha256": "0ca724ceda0d9737c2cad5fc456c344353835714255908f52cf3f9a230edf4fa",
+    "terminal": {
+      "at_utc": "2026-10-05T21:42:50.134382+00:00",
+      "native_passed": false,
+      "error": null,
+      "stop_reason": "existing_native_redeal_gate_failed",
+      "elapsed_seconds": 8567.552190600021,
+      "new_cloud_spend_usd": 0,
+      "rated_games": 0
+    },
+    "canonical_token_fate": "released",
+    "supervisor_alive": false,
+    "full_native_report_present": false,
+    "full_native_streamed_rows": 100,
+    "failure": {
+      "at_utc": "2026-10-05T21:42:49.431243+00:00",
+      "game": 105,
+      "cell": "Rally/search-redeal",
+      "coverage": {
+        "Natives": 128,
+        "Eligible": 16,
+        "Attempted": 11,
+        "Covered": 8,
+        "Attempts": 704,
+        "Accepted": 79,
+        "Worlds": 64,
+        "Rollouts": 248,
+        "Submits": 96439,
+        "Terminal": 248,
+        "Capped": 0,
+        "Redealt": 48,
+        "ReconstructionAttempts": 41,
+        "ReconstructionSubmits": 15559,
+        "ReconstructionNodes": 13747,
+        "ReconstructionBudgetExhausted": 3,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 3
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 5,
+          "insufficient worlds/ESS": 3
+        },
+        "Kinds": {
+          "attackers": 3,
+          "cast": 5
+        }
+      },
+      "gate": "Unchanged Report.Clean zero-refusal gate"
+    },
+    "completed_scaling": {
+      "trials": [
+        {
+          "workers": 1,
+          "blocks": 32,
+          "completed_games": 64,
+          "wall_seconds": 4324.755245800014,
+          "primary_sha256": "e14287722bd597e0cab2cd2021aadf72346a96de4b1f962ec2a27302bc5f8a71",
+          "full_native_gate_passed": false
+        },
+        {
+          "workers": 8,
+          "blocks": 32,
+          "completed_games": 64,
+          "wall_seconds": 1762.690939799999,
+          "primary_sha256": "e14287722bd597e0cab2cd2021aadf72346a96de4b1f962ec2a27302bc5f8a71",
+          "full_native_gate_passed": false
+        },
+        {
+          "workers": 16,
+          "blocks": 32,
+          "completed_games": 64,
+          "wall_seconds": 1854.6807935999823,
+          "primary_sha256": "e14287722bd597e0cab2cd2021aadf72346a96de4b1f962ec2a27302bc5f8a71",
+          "full_native_gate_passed": false
+        }
+      ],
+      "primary_bytes_identical": true,
+      "allocation_workers": 16,
+      "recorded_selection_metric": "busy",
+      "interpretation": "The existing guard selected16 by normalized busy-time throughput. Eight had shorter matched sample wall time (1762.69s versus1854.68s); the failed frozen run is retained unchanged."
+    }
   },
-  "current_reference_phase": "Reference waits for complete current-source native098 pass and independent E/D terminal recovery",
-  "current_overlay_files": {
-    "public_basic_search.go.txt": "e5f69c54ae56a3b87b5c95b7e347cf63f5584fdfbf0dd585c20e653309129c51",
-    "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
-    "public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
-    "public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
-    "public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
-    "public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
-    "public_priority_test.go.txt": "73a8b9c957d227a202183a13f9ada6b606fbff4c4df2d44e1837fa3a62a13f23",
-    "public_redeal.go.txt": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
-    "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
-    "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
-  },
+  "current_reference_phase": "Native098 failed at unchanged game105 zero-refusal gate. Negative93-frame trace101 is reproduced, recovered and released; Experimental Synthesizer top-exile identity mismatch atframe88 needs repair. Reference099 remains unlaunched until repaired complete native qualification.",
   "new_changed_runtime_functions": [
     "spellbenchBasicSearches"
   ],
@@ -504,6 +578,44 @@
   "runtime_source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
   "current_production_build_record": "docs/gorge-ci-runtime096-20261005.json",
   "conservative_reserved_total_usd": 9.99736347,
-  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-041",
-  "billing_seal_sha256": "f755ce0e1e5efa3738966f4030bf2de79ee9721fe3b758846e1756385672512d"
+  "billing_source_of_record": "E:/spellbench-gorge-billing-20261005-042",
+  "billing_seal_sha256": "6b540954b94c707e3606f5e190a8a71f418dd0d50d5eb1b983e5032b22f31036",
+  "current_public_capture_record": "docs/gorge-public105-capture-20261005.json",
+  "current_ci_checks": {
+    "source_commit": "8799a283c64de9597705737ab548c2b737826ccf",
+    "go": "passed",
+    "windows_python": "passed",
+    "windows_passed": 4652,
+    "windows_skipped": 16,
+    "ubuntu_python": "runner_acquisition_cancelled",
+    "isolation": "runner_acquisition_cancelled",
+    "all_current_checks_passed": false
+  },
+  "current_public_trace_record": "docs/gorge-public105-trace-20261005.json",
+  "candidate_owned_top_exile_repair": "docs/gorge-owned-top-exile-repair-20261005.json",
+  "production096_overlay_files": {
+    "public_basic_search.go.txt": "e5f69c54ae56a3b87b5c95b7e347cf63f5584fdfbf0dd585c20e653309129c51",
+    "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
+    "public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
+    "public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
+    "public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
+    "public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
+    "public_priority_test.go.txt": "73a8b9c957d227a202183a13f9ada6b606fbff4c4df2d44e1837fa3a62a13f23",
+    "public_redeal.go.txt": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
+    "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
+    "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
+  },
+  "candidate_overlay_files": {
+    "public_basic_search.go.txt": "629cc8bc0132a78aa3fa2dfdd400ccdb8a2687edf4701b983a8232a91ec4b746",
+    "public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
+    "public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
+    "public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
+    "public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
+    "public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
+    "public_priority_test.go.txt": "73a8b9c957d227a202183a13f9ada6b606fbff4c4df2d44e1837fa3a62a13f23",
+    "public_redeal.go.txt": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
+    "public_replay_clone.go.txt": "6174d85486a6b71fcb5e98c53e07ad23bbdeac19bca067f458c94a6c10b62225",
+    "public_top_exile.go.txt": "0442d918d45c283ae21bd948c6122b04c65c9e4762d9ed4af277720e7b8b3768"
+  },
+  "candidate_go_checks": "pending; current_ci_checks describes ancestor8799 only"
 }

@@ -101,8 +101,8 @@ func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fall
 	return fallback
 }
 
-// Actor draws, explore reveals and owned arrangement windows identify positions
-// in each owned shuffle. London bottoms append observed positions behind
+// Actor draws, recognized top exiles, explore reveals and owned arrangement
+// windows identify positions in each owned shuffle. London bottoms append observed positions behind
 // the undrawn library. An unambiguous actor arrangement can reorder those
 // positions; unknown mutations and unobserved complement orders stop the fold.
 // Anonymous moves in another library need not invalidate this one when public
@@ -163,8 +163,10 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 			introduced[identity.ID] = true
 		}
 		var inferred map[int]state.PlayerID
+		var exiles map[int]Identity
 		if frameIndex > 0 {
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+			exiles = spellbenchTopExiles(setup, h.Frames[frameIndex-1], frame, identities)
 		}
 		digOrder, digMoves, digObserved := spellbenchActorDigOrder(h, frameIndex, order, origins, identities)
 		digObserved = digObserved && reliable
@@ -238,6 +240,17 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 				}
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				// The declared unfiltered Dig and public exile membership
+				// identify this top card. Keep its original shuffle position
+				// through already observed London bottoms and arrangements.
+				// Only the replay witness uses this constraint.
+				if identity, recognized := exiles[eventIndex]; recognized {
+					if identity.Owner == h.Actor {
+						add(0, identity.ID, false)
+						consume()
+					}
 					continue
 				}
 				identity, known := identities[ev.Obj]

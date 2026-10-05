@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -18,6 +19,12 @@ import (
 func TestPublicTopExilesPreserveLaterDrawsAndCasts(t *testing.T) {
 	setup, history := publicDigHistory(t, "exile", false, false)
 	_, other := publicDigHistory(t, "exile", false, true)
+	checkPublicDigReplay(t, setup, history, other, true)
+}
+
+func TestPublicOwnedTopExilesAfterLondonBottom(t *testing.T) {
+	setup, history := publicDigHistory(t, "owned-exile", false, false)
+	_, other := publicDigHistory(t, "owned-exile", false, true)
 	checkPublicDigReplay(t, setup, history, other, true)
 }
 
@@ -106,12 +113,16 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 		}
 		decks[p][22] = lookup("Island")
 	}
-	if mode == "exile" {
+	if mode == "exile" || mode == "owned-exile" {
 		decks[0][7], decks[0][8] = lookup("Forest"), lookup("Mountain")
 		for i, name := range []string{"Mountain", "Mountain", "Experimental Synthesizer", "Reckless Impulse"} {
 			decks[1][i] = lookup(name)
 		}
 		decks[1][8], decks[1][10], decks[1][11] = lookup("Goblin Bushwhacker"), lookup("Clockwork Percussionist"), lookup("Mountain")
+		if mode == "owned-exile" {
+			decks[0], decks[1] = decks[1], decks[0]
+			decks[0][7], decks[0][8] = lookup("Mountain"), lookup("Goblin Tomb Raider")
+		}
 	} else {
 		for i := 0; i < 3; i++ {
 			decks[0][i] = lookup("Forest")
@@ -125,6 +136,9 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 			var order []state.ObjID
 			for _, card := range ctx.Library {
 				order = append(order, card.ID)
+			}
+			if mode == "owned-exile" {
+				sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
 			}
 			if swap {
 				order[22], order[23] = order[23], order[22]
@@ -140,6 +154,7 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 	driver := NewDriver()
 	casted := map[string]bool{}
 	looked, exiled := false, 0
+	mulligan, bottomed := false, false
 	for step := 0; step < 700 && !e.G.Over; step++ {
 		d := e.Pending()
 		driver.Observe(e)
@@ -152,7 +167,10 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 				looked = true
 			}
 		}
-		if mode == "exile" && exiled == 3 && e.G.Turn >= 5 && d.Player == 0 && d.Kind == decision.KPriority {
+		if (mode == "exile" || mode == "owned-exile") && exiled == 3 && e.G.Turn >= 5 && d.Player == 0 && d.Kind == decision.KPriority {
+			if mode == "owned-exile" && (!mulligan || !bottomed || !casted["Goblin Tomb Raider"]) {
+				t.Fatal("fixture skipped owned London bottoming or exiled-card cast")
+			}
 			return setup, canonicalJSONHistory(t, PublicHistory(driver.seats[0].h))
 		}
 		if mode == "look" && looked && d.Player == 0 && ((pending && d.Kind == decision.KChoose) || (!pending && d.Kind == decision.KPriority)) {
@@ -176,13 +194,30 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 				}
 			}
 		}
+		if mode == "owned-exile" && d.Player == 0 && d.Kind == decision.KMulligan {
+			for i, option := range d.Options {
+				if option.Kind == "mulligan" && !mulligan {
+					in.Choices = []int{i}
+					mulligan = true
+					break
+				}
+				if option.Kind == "bottom" && e.G.Obj(option.Obj).Card.Faces[0].Name == quiet.Faces[0].Name {
+					in.Choices = []int{i}
+					bottomed = true
+					break
+				}
+			}
+		}
 		if d.Kind == decision.KPriority && e.G.Step == state.StepMain1 && e.G.Active == d.Player {
-			playing := (mode == "exile" && d.Player == 1) || (mode == "look" && d.Player == 0)
+			playing := (mode == "exile" && d.Player == 1) || ((mode == "look" || mode == "owned-exile") && d.Player == 0)
 			wanted := "Lead the Stampede"
-			if mode == "exile" {
+			if mode == "exile" || mode == "owned-exile" {
 				wanted = "Experimental Synthesizer"
 				if casted[wanted] {
 					wanted = "Reckless Impulse"
+					if mode == "owned-exile" && !casted["Goblin Tomb Raider"] {
+						wanted = "Goblin Tomb Raider"
+					}
 				}
 			}
 			if playing && !casted[wanted] {
@@ -199,7 +234,7 @@ func publicDigHistory(t *testing.T, mode string, pending, swap bool) (PublicGame
 				}
 				for i, option := range d.Options {
 					object := e.G.Obj(option.Obj)
-					if option.Kind == "cast" && object != nil && object.Card.Faces[0].Name == wanted {
+					if option.Kind == "cast" && object != nil && object.Card.Faces[0].Name == wanted && !(mode == "owned-exile" && wanted == "Experimental Synthesizer" && e.G.Turn < 3) {
 						choice = i
 						casted[wanted] = true
 						break

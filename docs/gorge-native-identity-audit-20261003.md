@@ -1,23 +1,27 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
-Native077 failed its existing reconstruction gate and is recovered and sealed.
-Production096 contains the current Dig and reveal repairs, recovered from
-[CI build37359642777](gorge-ci-runtime096-20261005.json). The whole original game164
-regression083 still has seven refusals. [Public repair084](gorge-local-public-repair084-20261005.json)
-retains all captured prefixes and terminal attempts, including failures.
-In095, all seven prefixes replay with eight known-card-valid worlds and
-identical native diagnostics. Whole original game164 and its replay pass in097:
-all40 attempted reconstructions succeed, with no refusals, leaks, resample
-failures or parity mismatches. [Native098](gorge-local-native098-20261005.json)
-runs supported matched1/8/16-worker scaling on Jack. Its full320-block/640-game
-audit remains unadmitted until that measured comparison passes. Reference/rated games and published entries remain zero. Ledger041
-retains the conservative $9.99736347 bound, including an additional $0.016
-for seven one-day CI uploads, under the all-in $10 cap, with
-settlement pending and no new cloud spend. Preserve XMage's next bounded Haley
-stage. The merged aborted FDN reveal passes run-history validation on the
-reconciled integration branch. Later sections retain historical observations;
-the current review inputs and public repair record govern present readiness.
+Production096 passes the whole original game164 and its replay in097, with
+no refusals, leaks, resample failures or parity mismatches. Its subsequent
+[full native098 attempt](gorge-local-native098-20261005.json) stopped after100
+streamed natural blocks at the unchanged game105 zero-refusal gate. The
+matched1/8/16-worker samples have identical outputs;8 workers had the shortest
+sample wall time. The failed qualification is recovered, sealed and released.
+
+[Capture100](gorge-public105-capture-20261005.json) retains six paired,
+byte-identical actor-public inputs. Its original post-capture counter assertion
+remains failed; separate validation confirms those inputs. The released and
+sealed [negative trace101](gorge-public105-trace-20261005.json) reproduces all13
+attempts reaching the same frame88 identity mismatch after Experimental
+Synthesizer's owned top exile. A [prepared source repair](gorge-owned-top-exile-repair-20261005.json)
+uses the existing actor-library position fold through observed London bottoming.
+It has not passed Go tests or positive captured replay and is not qualified.
+
+Jack/Haley launches are suspended for research priority. No gorge job or claim
+is held, and no automatic dispatch is queued. Reference/rated games and published
+entries remain zero. Ledger042 retains the conservativeUSD9.99736347 all-in
+reservation underUSD10; provider settlement remains pending. No new cloud spend.
+Later sections retain historical observations; current review inputs govern readiness.
 
 Native069 completed with failure on execution `e06161e`. Game49,
 Wildfire/search-redeal, finished naturally but recorded four public reconstruction
