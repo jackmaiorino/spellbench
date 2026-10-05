@@ -108,13 +108,23 @@ func TestSpellbenchRevealedHandGuidesOnlyCompletePublicWindows(t *testing.T) {
 				t.Fatalf("bounds=%+v", bounds)
 			}
 			if test.want {
-				want := []deadlineConstraint{{Through: 0, Name: "Giant", Count: 1}, {Through: 0, Name: "Spy", Count: 2}}
+				want := []deadlineConstraint{{Through: 0, Name: "Spy", Count: 2}, {Through: 0, Name: "Giant", Count: 1}}
 				if !reflect.DeepEqual(bounds, want) {
 					t.Fatalf("bounds=%+v", bounds)
 				}
 				carried := spellbenchCarryEpochs(h, guided)[epochKey{Player: 1, Ordinal: 0}].Deadlines
 				if len(carried) != 3 || len(original[epochKey{Player: 1, Ordinal: 0}].Deadlines) != 1 {
 					t.Fatalf("carry=%+v; original changed", carried)
+				}
+				ordered := spellbenchCarryEpochsOrdered(h, guided, true)
+				positions := spellbenchRevealedHandPositions(h, ordered)[epochKey{Player: 1, Ordinal: 0}].Positions
+				wantPositions := []epochPosition{{Index: 1, Name: "Spy"}, {Index: 2, Name: "Spy"}, {Index: 3, Name: "Giant"}}
+				if !reflect.DeepEqual(positions, wantPositions) {
+					t.Fatalf("ordered witness positions=%+v", positions)
+				}
+				h.Frames[0].Identities = []Identity{{ID: 99, Owner: 1, Name: "Spy"}}
+				if len(spellbenchRevealedHandPositions(h, ordered)[epochKey{Player: 1, Ordinal: 0}].Positions) != 0 {
+					t.Fatal("earlier exposed name received optional ordered positions")
 				}
 			}
 		})

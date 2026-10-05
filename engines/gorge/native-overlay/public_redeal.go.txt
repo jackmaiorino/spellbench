@@ -108,7 +108,12 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	basicSearches := spellbenchBasicSearches(setup, h)
 	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
-	heldEpochs := spellbenchCarryEpochs(h, spellbenchScryHeldEpochs(h, spellbenchRevealedHandEpochs(setup, h, epochs)))
+	revealedEpochs := spellbenchRevealedHandEpochs(setup, h, epochs)
+	revealed := !reflect.DeepEqual(revealedEpochs, epochs)
+	heldEpochs := spellbenchCarryEpochsOrdered(h, spellbenchScryHeldEpochs(h, revealedEpochs), revealed)
+	if revealed {
+		heldEpochs = spellbenchRevealedHandPositions(h, heldEpochs)
+	}
 	prioritizeHeld := opts.Attempts >= 3 && !reflect.DeepEqual(carryEpochs, heldEpochs)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
@@ -490,10 +495,22 @@ func spellbenchRevealedHandEpochs(setup PublicGame, h History, original map[epoc
 			continue
 		}
 		var names []string
-		for name := range counts {
-			names = append(names, name)
+		ordered := map[string]bool{}
+		for _, option := range d.Options {
+			name := identities[option.Action.Obj].Name
+			if !ordered[name] {
+				names = append(names, name)
+				ordered[name] = true
+			}
 		}
-		sort.Strings(names)
+		var others []string
+		for name := range counts {
+			if !ordered[name] {
+				others = append(others, name)
+			}
+		}
+		sort.Strings(others)
+		names = append(names, others...)
 		epoch := result[key]
 		for _, name := range names {
 			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: draws[owner], Name: name, Count: counts[name]})
@@ -506,6 +523,119 @@ func spellbenchRevealedHandEpochs(setup PublicGame, h History, original map[epoc
 // A post-scry public exit can name either an earlier hand card or a later draw.
 // An optional witness puts those names before the first reorder; original and
 // carry-only proposals remain available with unchanged native sampler weights.
+// First-seen full hand windows also expose their order. When none of those
+// names appeared earlier, an optional witness can place their carried copies
+// at the end of the required draw prefix in that order. This is a hypothesis,
+// not a claim about their original positions. Complete replay still decides
+// acceptance; the original and carry-only proposals remain available.
+func spellbenchRevealedHandPositions(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	result := make(map[epochKey]epochConstraints, len(original))
+	for key, epoch := range original {
+		epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
+		result[key] = epoch
+	}
+	ordinals := map[state.PlayerID]int{}
+	previous := map[state.PlayerID]map[string]bool{}
+	used := map[state.PlayerID]bool{}
+	for _, frame := range h.Frames {
+		for _, ev := range frame.Events {
+			if ev.Kind == events.Shuffle {
+				ordinals[ev.Player]++
+			}
+		}
+		fresh := map[uint32]Identity{}
+		for _, identity := range frame.Identities {
+			fresh[identity.ID] = identity
+		}
+		d := frame.Decision
+		if d != nil && d.Player == h.Actor && d.Kind == decision.KChoose && len(d.Options) > 0 && d.Options[0].Action.Kind == "hand_move" {
+			owner := d.Options[0].Action.Player
+			valid := owner != h.Actor && !used[owner]
+			seen := map[uint32]bool{}
+			var names []string
+			for _, option := range d.Options {
+				a := option.Action
+				identity, known := fresh[a.Obj]
+				if !known || a.Kind != "hand_move" || a.Player != owner || identity.Owner != owner || identity.Name == "" || previous[owner][identity.Name] || seen[a.Obj] {
+					valid = false
+					break
+				}
+				seen[a.Obj] = true
+				names = append(names, identity.Name)
+			}
+			var board struct {
+				Players []struct {
+					Seat state.PlayerID `json:"seat"`
+					Hand *int           `json:"hand_size"`
+				}
+			}
+			matches := 0
+			if json.Unmarshal(frame.Board, &board) != nil {
+				valid = false
+			}
+			for _, player := range board.Players {
+				if player.Seat == owner && player.Hand != nil && *player.Hand == len(names) {
+					matches++
+				}
+			}
+			valid = valid && matches == 1
+			if valid {
+				used[owner] = true
+				for key, epoch := range result {
+					if key.Player != owner || key.Ordinal >= ordinals[owner] {
+						continue
+					}
+					through := 0
+					counts := map[string]int{}
+					for _, name := range names {
+						for _, bound := range epoch.Deadlines {
+							if bound.Name == name && bound.Through > 0 {
+								through = max(through, bound.Through)
+								counts[name] = max(counts[name], bound.Count)
+							}
+						}
+					}
+					var proposed []string
+					for _, name := range names {
+						if counts[name] > 0 {
+							proposed = append(proposed, name)
+							counts[name]--
+						}
+					}
+					if len(proposed) == 0 || through < len(proposed) {
+						continue
+					}
+					candidate := epoch
+					candidate.Positions = append([]epochPosition(nil), epoch.Positions...)
+					compatible := true
+					for i, name := range proposed {
+						position := epochPosition{Index: through - len(proposed) + i, Name: name}
+						for _, existing := range candidate.Positions {
+							if existing.Index == position.Index && existing.Name == name {
+								position.Ref = existing.Ref
+							}
+						}
+						if addEpochPosition(&candidate, position) != nil {
+							compatible = false
+							break
+						}
+					}
+					if compatible {
+						result[key] = candidate
+					}
+				}
+			}
+		}
+		for _, identity := range frame.Identities {
+			if previous[identity.Owner] == nil {
+				previous[identity.Owner] = map[string]bool{}
+			}
+			previous[identity.Owner][identity.Name] = true
+		}
+	}
+	return result
+}
+
 func spellbenchScryHeldEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
 	result := make(map[epochKey]epochConstraints, len(original))
 	for key, epoch := range original {
@@ -584,6 +714,10 @@ func spellbenchPrintedScryBound(face *cards.Face) int {
 // not claims about the hidden hand. Odd proposals retain the original fold;
 // every completion still replays the whole public history and is redealt.
 func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
+	return spellbenchCarryEpochsOrdered(h, original, false)
+}
+
+func spellbenchCarryEpochsOrdered(h History, original map[epochKey]epochConstraints, preserveOrder bool) map[epochKey]epochConstraints {
 	type link struct {
 		previous            epochKey
 		draws, prefix, hand int
@@ -721,6 +855,16 @@ func spellbenchCarryEpochs(h History, original map[epochKey]epochConstraints) ma
 			}
 		}
 		sort.Strings(names)
+		if preserveOrder {
+			names = nil
+			seen := map[string]bool{}
+			for _, bound := range deadlines {
+				if !seen[bound.Name] && carry[bound.Name] > prior.returned[bound.Name] {
+					names = append(names, bound.Name)
+					seen[bound.Name] = true
+				}
+			}
+		}
 		for _, name := range names {
 			consumed := 0
 			for _, bound := range epoch.Deadlines {
