@@ -22,7 +22,7 @@
   "final_invoice_verified": false,
   "scope": "First independently pin one component binary and require all four saved roots to yield eight valid worlds. Only on success build and pin seven production binaries, then invoke unchanged supported serial/parallel matched qualification and conditional320-block native audit. One lease, no training or rated games.",
   "teacher_parallelism": "Unchanged production default; no diagnostic teacher override",
-  "minimum_vcpu_count": 16,
+  "minimum_vcpu_count": 8,
   "minimum_memory_gb": 16,
   "actual_build_cpu_minimum": 4,
   "actual_build_memory_minimum_bytes": 8000000000,
@@ -94,7 +94,7 @@
   "component_gate_required_before_production_build": true,
   "component_gate_required_before_native_launch": true,
   "source_compatible_ci_run": 37273275687,
-  "requested_vcpu_reason": "Prefer a16-vCPU host within unchanged rate cap; actual quota determines the supported measured worker ladder",
+  "requested_vcpu_reason": "Initial16-vCPU request returned definite no capacity; exact absence and unused guardian closure verified twice. Retry8-vCPU request under identical budget, actual quota and supported measured parallel ladder remain binding.",
   "affected_public_search_ci_passed": true,
   "full_go_ci_status": "completed",
   "full_go_ci_conclusion": "success",
@@ -102,10 +102,25 @@
   "source_archive_verified": true,
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
-  "bundle_sha256": "fd8c1f78b07e5939d4680138cd5b9b6e36624179ee37ecd312fb6688caf92184",
+  "bundle_sha256": "95a323794e49c3521ce93150299544b7a2b743adb0f49691f0c71cb50b453f02",
   "phase": "prepared_not_launched",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-048\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-048\\CATALOG.json",
   "guard_path": "Independent three-hour release guardian; bounded remote build; durable binary acknowledgement; qualify_native.py -> plan_allocation -> fixed audit callback",
-  "prelaunch_revision": "Remove unmatched test alias; clear component-only env before production; truthful production-source dispatcher metadata. Prior unlaunched bundle retained."
+  "prelaunch_revision": "Remove unmatched test alias; clear component-only env before production; truthful production-source dispatcher metadata. Prior unlaunched bundle retained.",
+  "unallocated_attempts": [
+    {
+      "at_utc": "2026-10-05T07:19:33.8816431+00:00",
+      "name": "spellbench-gorge-native-5e24aa232b7f4949",
+      "pod_id": null,
+      "provider_no_instances_available": true,
+      "owned_absence_confirmed_twice": true,
+      "owned_matches": 0,
+      "guardian_pid_absent": true,
+      "task_removed": true,
+      "credential_removed": true,
+      "new_allocation": false,
+      "maximum_charge_usd": 0
+    }
+  ]
 }
