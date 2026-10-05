@@ -36,11 +36,15 @@ def setup(tmp_path, monkeypatch, *, scores=None):
 
 
 def result(session, record, *, calls=0, rid="1"):
-    return {"schema": serving.SCHEMA, "id": rid, "operation": "decide", "event": "result", "ok": True,
+    message = {"schema": serving.SCHEMA, "id": rid, "operation": "decide", "event": "result", "ok": True,
             "result": {"decision_sha256": serving.digest(record["decision"]),
                 "game_start_sha256": session.start_sha256, "profile": session.profile, "seed": session.seed,
                 "inference_requests": calls, "full_original_player_qualified": False, "world_flags": [],
                 "selection": {"candidate_id": 7, "semantic_echo": record["decision"]["candidates"][0]["semantic"]}}}
+    if "anchor" in record:
+        message["result"].update(original_activation_path=True,
+                                 original_dialog_prefix_replayed=len(record["replay"]["earlier"]))
+    return message
 
 
 def rows(peer, *messages):
@@ -194,3 +198,58 @@ def test_owner_cannot_change_the_declared_chooser_seed(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="declared game seed"):
         serving.JackNativeSession(peer, owner, startup_s=2)
     assert peer.closed and pair.closed and owner.closed and len(cleanup) == 1
+
+
+def callback_record(record):
+    root = {"acting_seat": "p0", "seat_step": 0, "context": {"kind": "priority"},
+            "observation": {"viewer": "p0", "turn": 1, "phase_step": "precombat_main"},
+            "candidates": [{"candidate_id": 1, "semantic": {"kind": "cast_spell"}}]}
+    record["anchor"] = {"decision": root, "selection": {"candidate_id": 1,
+        "semantic_echo": {"kind": "cast_spell"}}, "priority_pass_after_activation": True,
+        "original_priority_state": {"alternatives": []}}
+    record["replay"] = {"priority_passes": [], "earlier": []}
+    record["decision"].update(seat_step=1, context={"kind": "choice"})
+    record["decision"]["observation"].update(turn=1, phase_step="precombat_main")
+    for candidate, value in zip(record["decision"]["candidates"], (False, True)):
+        candidate["semantic"] = {"kind": "choose_boolean", "value": value}
+    return record
+
+
+def test_native_session_transports_callback_anchor_state_and_earlier_selection(tmp_path, monkeypatch):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    callback_record(record)
+    previous = copy.deepcopy(record["decision"])
+    record["replay"]["earlier"].append({"decision": previous,
+        "selection": {"candidate_id": 8, "semantic_echo": {"kind": "choose_boolean", "value": True}}})
+    record["decision"]["seat_step"] = 2
+    rows(peer, result(session, record))
+    assert session.choose(record, timeout_s=2)["selection"]["candidate_id"] == 7
+    assert peer.writes[0]["anchor"] == record["anchor"] and peer.writes[0]["replay"] == record["replay"]
+    session.close(); assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("change", ["state", "pass", "viewer", "selection", "step", "missing", "foreign", "prefix"])
+def test_invalid_native_callback_replay_refuses_before_jvm_write(tmp_path, monkeypatch, change):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    callback_record(record)
+    if change == "state": record["anchor"]["original_priority_state"] = {"alternatives": "bad"}
+    if change == "pass": record["replay"]["priority_passes"] = ["p1"]
+    if change == "viewer": record["anchor"]["decision"]["observation"]["viewer"] = "p1"
+    if change == "selection": record["anchor"]["selection"]["semantic_echo"] = {"kind": "pass"}
+    if change == "step": record["decision"]["seat_step"] = 2
+    if change == "missing": del record["anchor"]["priority_pass_after_activation"]
+    if change == "foreign": record["anchor"]["private"] = True
+    if change == "prefix": record["replay"]["earlier"] = [{"decision": copy.deepcopy(record["decision"])}]
+    with pytest.raises(ValueError): session.choose(record, timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("field,value", [("original_activation_path", 1),
+    ("original_dialog_prefix_replayed", True), ("original_dialog_prefix_replayed", 1)])
+def test_callback_receipt_cannot_hide_a_missing_original_activation_or_prefix(tmp_path, monkeypatch, field, value):
+    session, record, peer, pair, _ = setup(tmp_path, monkeypatch)
+    callback_record(record)
+    message = result(session, record); message["result"][field] = value; rows(peer, message)
+    with pytest.raises(ValueError, match="activation or replay prefix"):
+        session.choose(record, timeout_s=2)
+    assert peer.closed and pair.closed

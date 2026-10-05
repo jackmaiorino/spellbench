@@ -616,7 +616,7 @@ It shares one bounded input reader between serial commands and private inference
 keeps the game-owned session across reconstructed decisions, and retires each
 decision's root and copies. It must be launched through the guarded runtime. Its
 source compiles; the entrypoint has not been run under the current native hold.
-Activation/callback replay, the guarded runtime command, live visibility/replay,
+The guarded runtime command, live visibility/replay,
 pretrained inference and complete-game qualification remain unfinished.
 
 The staged original player now accepts one root-owned replay hook. Actual binary
@@ -636,8 +636,29 @@ Validated alternative-cost keys bind through permitted named source references,
 then restore into the actual original priority rules without repeating their
 simulations or model draws. Missing or foreign state closes the session.
 Encoder-only builds omit the optional replay/search layer; complete callback
-launches must supply it. The guarded Python runtime/frontend, priority-pass
+launches must supply it. The guarded Python runtime command, priority-pass
 continuation and remaining callback families still require integration before
 complete-player qualification. The production entrypoint remains unexecuted
 under the native hold. Affected native preparations must be refreshed to the new
 encoder, replay-hook and priority-rule sources.
+
+`JackNativeAgent` connects the public game lifecycle to the original serving
+supervisor. A game factory receives the filtered, permitted start record and
+returns one session bound to its checkpoint, profile and seed. Every decision,
+including mulligan and forced choices, enters that original session. The frontend
+preserves the saved priority selection, alternative-cost state and continuation
+flag across binary/X callbacks. It reuses the anchor's reconstruction seeds and
+records exact earlier selections without resampling the activation's world.
+
+The supervisor accepts only complete typed callback records and validates the
+recorded viewer, selections, steps and priority state before writing to the JVM.
+Callback receipts must confirm the actual original activation and the complete
+replayed prefix. The JVM still validates full source references and observations
+before original inference. Failure and terminal paths close the owned session.
+Unconnected callbacks, resolution passes and pass-after-activation continuation
+refuse instead of discarding recorded original state. Tests cover the public
+lifecycle, one actual Python inference owner across the callback chain, identity,
+clock and cleanup failures, and a byte-identical two-process frontend replay.
+They use synthetic private receipts, no JVM startup or pretrained inference.
+The guarded runtime command and live complete-player qualification remain
+unfinished.

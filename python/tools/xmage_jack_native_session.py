@@ -24,6 +24,91 @@ def digest(value):
     return hashlib.sha256(wire.canonical_json_dumps(value)).hexdigest()
 
 
+def bound_decision(decision, seat):
+    if (not isinstance(decision, dict) or not isinstance(decision.get("observation"), dict)
+            or seat not in ("p0", "p1") or decision.get("acting_seat") != seat
+            or decision["observation"].get("viewer") != seat):
+        raise ValueError("original serving requires its acting permitted viewer")
+    offered = decision.get("candidates")
+    if not isinstance(offered, list) or not 1 <= len(offered) <= 4096:
+        raise ValueError("original serving needs the offered choices")
+    bound = {}
+    for candidate in offered:
+        if not isinstance(candidate, dict):
+            raise ValueError("malformed original serving candidate")
+        cid, semantic = candidate.get("candidate_id"), candidate.get("semantic")
+        if (type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT or cid in bound
+                or not isinstance(semantic, dict)):
+            raise ValueError("original serving choices are invalid or aliased")
+        bound[cid] = semantic
+    return bound
+
+
+def bound_selection(selection, offered):
+    if (not isinstance(selection, dict) or set(selection) != {"candidate_id", "semantic_echo"}
+            or type(selection.get("candidate_id")) is not int or selection["candidate_id"] not in offered
+            or wire.canonical_json_dumps(selection.get("semantic_echo"))
+                != wire.canonical_json_dumps(offered[selection["candidate_id"]])):
+        raise ValueError("original serving result is not an exact supported offered choice")
+
+
+def priority_state(value):
+    if (not isinstance(value, dict) or set(value) != {"alternatives"}
+            or not isinstance(value["alternatives"], list) or len(value["alternatives"]) > 4096):
+        raise ValueError("original serving needs its recorded priority state")
+    sources = set()
+    for row in value["alternatives"]:
+        if not isinstance(row, dict) or set(row) != {"source", "choices"}:
+            raise ValueError("malformed original alternative-cost state")
+        source, choices = row["source"], row["choices"]
+        if (not isinstance(source, dict) or not isinstance(source.get("object_id"), str)
+                or not source["object_id"] or source["object_id"] in sources
+                or not isinstance(source.get("card_name"), str) or not source["card_name"]
+                or not isinstance(choices, list) or not 1 <= len(choices) <= 4096
+                or any(not isinstance(key, str) or not 1 <= len(key) <= 1024 for key in choices)
+                or len(set(choices)) != len(choices)):
+            raise ValueError("original alternative-cost state has invalid or aliased sources or keys")
+        sources.add(source["object_id"])
+    # The JVM also compares every complete source against the actual permitted
+    # observation and UUID binding before restoring the original rules.
+    wire.canonical_json_dumps(value)
+
+
+def bound_replay(record, seat):
+    anchor, replay = record["anchor"], record["replay"]
+    if (not isinstance(anchor, dict) or set(anchor) != {
+            "decision", "selection", "priority_pass_after_activation", "original_priority_state"}
+            or type(anchor["priority_pass_after_activation"]) is not bool
+            or not isinstance(replay, dict) or set(replay) != {"priority_passes", "earlier"}
+            or replay["priority_passes"] != [] or not isinstance(replay["earlier"], list)
+            or len(replay["earlier"]) > 4096):
+        raise ValueError("original serving needs a recorded activation without unresolved priority passes")
+    root = anchor["decision"]
+    offered = bound_decision(root, seat)
+    bound_selection(anchor["selection"], offered)
+    priority_state(anchor["original_priority_state"])
+    if (root.get("context", {}).get("kind") != "priority"
+            or anchor["selection"]["semantic_echo"].get("kind") not in ("cast_spell", "activate_ability")):
+        raise ValueError("original serving replay has no selected priority activation")
+    for entry in replay["earlier"]:
+        if not isinstance(entry, dict) or set(entry) != {"decision", "selection"}:
+            raise ValueError("malformed original serving replay prefix")
+    previous = root
+    for entry in [*replay["earlier"], {"decision": record["decision"]}]:
+        current = entry["decision"]
+        choices = bound_decision(current, seat)
+        if (type(previous.get("seat_step")) is not int or type(current.get("seat_step")) is not int
+                or not 0 <= previous["seat_step"] < current["seat_step"] <= wire.MAX_JSON_INT
+                or current["seat_step"] != previous["seat_step"] + 1
+                or current.get("context", {}).get("kind") != "choice"
+                or any(current["observation"].get(key) != root["observation"].get(key)
+                       for key in ("turn", "phase_step"))):
+            raise ValueError("original serving replay crossed an unrecorded step, turn or phase")
+        if "selection" in entry:
+            bound_selection(entry["selection"], choices)
+        previous = current
+
+
 class JackNativeSession:
     """One game, serial decision requests, original inference stream and JVM owner."""
     def __init__(self, peer, owner, *, startup_s=90):
@@ -37,6 +122,7 @@ class JackNativeSession:
             self.start = copy.deepcopy(owner.start)
             self.start_sha256 = digest(self.start)
             self.profile, self.seed = owner.profile, owner.seed
+            self.checkpoint = owner.session.checkpoint
             if (type(self.start.get("agent_seed")) is not int or self.start["agent_seed"] != self.seed
                     or not 0 <= self.seed <= wire.MAX_JSON_INT):
                 raise ValueError("original serving chooser seed differs from the declared game seed")
@@ -72,7 +158,8 @@ class JackNativeSession:
         return load_response(row)
 
     def _request(self, record):
-        if not isinstance(record, dict) or set(record) != {"game_start", "decision", "world_seed", "id_seed"}:
+        required = {"game_start", "decision", "world_seed", "id_seed"}
+        if not isinstance(record, dict) or set(record) not in (required, required | {"anchor", "replay"}):
             raise ValueError("original serving needs a bound decision and declared reconstruction seeds")
         record = copy.deepcopy(record)
         if digest(record["game_start"]) != self.start_sha256:
@@ -80,24 +167,9 @@ class JackNativeSession:
         for key in ("world_seed", "id_seed"):
             if not isinstance(record[key], str) or not re.fullmatch("[a-f0-9]{64}", record[key]):
                 raise ValueError("original serving reconstruction seed differs from its declared shape")
-        decision = record["decision"]
-        if (not isinstance(decision, dict) or not isinstance(decision.get("observation"), dict)
-                or self.start.get("seat") not in ("p0", "p1")
-                or decision.get("acting_seat") != self.start["seat"]
-                or decision["observation"].get("viewer") != self.start["seat"]):
-            raise ValueError("original serving requires its acting permitted viewer")
-        offered = decision.get("candidates")
-        if not isinstance(offered, list) or not 1 <= len(offered) <= 4096:
-            raise ValueError("original serving needs the offered choices")
-        bound = {}
-        for candidate in offered:
-            if not isinstance(candidate, dict):
-                raise ValueError("malformed original serving candidate")
-            cid, semantic = candidate.get("candidate_id"), candidate.get("semantic")
-            if (type(cid) is not int or not 0 <= cid <= wire.MAX_JSON_INT or cid in bound
-                    or not isinstance(semantic, dict)):
-                raise ValueError("original serving choices are invalid or aliased")
-            bound[cid] = semantic
+        bound = bound_decision(record["decision"], self.start["seat"])
+        if "anchor" in record:
+            bound_replay(record, self.start["seat"])
         # Public inputs keep the integer-only wire contract, including nested semantics.
         wire.canonical_json_dumps(record)
         return record, bound
@@ -149,13 +221,19 @@ class JackNativeSession:
                         or result["inference_requests"] != calls or result.get("full_original_player_qualified") is not False):
                     raise ValueError("original serving result lost its game, decision or callback identity")
                 selection, flags = result.get("selection"), result.get("world_flags")
-                if (not isinstance(selection, dict) or set(selection) != {"candidate_id", "semantic_echo"}
-                        or type(selection.get("candidate_id")) is not int or selection["candidate_id"] not in offered
-                        or wire.canonical_json_dumps(selection["semantic_echo"])
-                            != wire.canonical_json_dumps(offered[selection["candidate_id"]])
-                        or not isinstance(flags, list) or any(not isinstance(flag, str)
+                bound_selection(selection, offered)
+                if (not isinstance(flags, list) or any(not isinstance(flag, str)
                             or flag.startswith(("unsupported:", "horizon:")) for flag in flags)):
                     raise ValueError("original serving result is not an exact supported offered choice")
+                if record["decision"].get("context", {}).get("kind") == "priority":
+                    if type(result.get("priority_pass_after_activation")) is not bool:
+                        raise ValueError("original serving lost its priority continuation")
+                    priority_state(result.get("original_priority_state"))
+                if "anchor" in record:
+                    if (result.get("original_activation_path") is not True
+                            or type(result.get("original_dialog_prefix_replayed")) is not int
+                            or result["original_dialog_prefix_replayed"] != len(record["replay"]["earlier"])):
+                        raise ValueError("original serving callback lost its actual activation or replay prefix")
                 self._remaining(deadline)
                 return copy.deepcopy(result)
         except BaseException as failure:
