@@ -166,6 +166,8 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 		if frameIndex > 0 {
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
 		}
+		digOrder, digMoves, digObserved := spellbenchActorDigOrder(h, frameIndex, order, origins, identities)
+		digObserved = digObserved && reliable
 		explored, moved := map[uint32]bool{}, map[uint32]bool{}
 		for _, ev := range frame.Events {
 			if ev.Kind == events.Explore && ev.Player == h.Actor && len(ev.IDs) == 1 {
@@ -243,6 +245,11 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 				if known && identity.Owner != h.Actor {
 					continue
 				}
+				if digObserved && digMoves[ev.Obj] && ev.From == state.ZLibrary && ev.To == state.ZHand {
+					index := slices.Index(order, origins[ev.Obj])
+					order = slices.Delete(order, index, index+1)
+					continue
+				}
 				if known && london && ev.Text == "bottomed" {
 					if reliable {
 						index, observed := origins[ev.Obj]
@@ -263,6 +270,9 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 				reliable = false
 				arranged = nil
 			}
+		}
+		if digObserved && reliable {
+			arranged = &epochArrange{frame: frameIndex + 1, order: digOrder}
 		}
 		// The pinned engine's nonland explore election uniquely offers these
 		// two destinations for the same publicly revealed top card. It can
@@ -297,6 +307,118 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 		}
 	}
 	return result
+}
+
+// An owned Dig look exposes the whole ordered window. Its semantic answer,
+// recorded hand moves and all-to-bottom arrangement can preserve the untouched
+// tail without guessing any hidden complement. Other shapes remain unguided.
+func spellbenchActorDigOrder(h History, frameIndex int, order []int, origins map[uint32]int, identities map[uint32]Identity) ([]int, map[uint32]bool, bool) {
+	if frameIndex < 1 {
+		return nil, nil, false
+	}
+	before, after := h.Frames[frameIndex-1], h.Frames[frameIndex]
+	choose, arrange := before.Decision, after.Decision
+	if choose == nil || arrange == nil || choose.Player != h.Actor || arrange.Player != h.Actor || choose.Kind != decision.KChoose || arrange.Kind != decision.KArrange || choose.Source == 0 || choose.Source != arrange.Source {
+		return nil, nil, false
+	}
+	chosen, chose := h.Answers[frameIndex-1]
+	bottom, answered := h.Answers[frameIndex]
+	if !chose || !answered || len(chosen) < choose.Min || len(chosen) > choose.Max || len(bottom) != len(arrange.Options) || arrange.Min != len(bottom) || arrange.Max != len(bottom) {
+		return nil, nil, false
+	}
+	var window []uint32
+	for _, ev := range before.Events {
+		if ev.Kind == events.Note && ev.Secret && ev.Player == h.Actor && ev.Text == "looks at the top of the library" {
+			if window != nil || len(ev.IDs) == 0 {
+				return nil, nil, false
+			}
+			window = ev.IDs
+		}
+	}
+	if len(window) == 0 || len(window) > len(order) {
+		return nil, nil, false
+	}
+	looked := map[uint32]bool{}
+	for offset, ref := range window {
+		identity, known := identities[ref]
+		index, observed := origins[ref]
+		if ref == 0 || looked[ref] || !known || identity.Owner != h.Actor || identity.Name == "" || !observed || index != order[offset] {
+			return nil, nil, false
+		}
+		looked[ref] = true
+	}
+	options := map[uint32]Action{}
+	for _, option := range choose.Options {
+		a := option.Action
+		if a.Kind != "dig" || a.Player != h.Actor || !looked[a.Obj] {
+			return nil, nil, false
+		}
+		if _, duplicate := options[a.Obj]; duplicate {
+			return nil, nil, false
+		}
+		options[a.Obj] = a
+	}
+	selected := map[uint32]bool{}
+	for _, a := range chosen {
+		if expected, exists := options[a.Obj]; !exists || a != expected || selected[a.Obj] {
+			return nil, nil, false
+		}
+		selected[a.Obj] = true
+	}
+	moved := map[uint32]bool{}
+	for _, ev := range after.Events {
+		if ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder || ev.Kind == events.Draw || ev.Kind == events.CardToken || ev.Kind == events.CopyToken || ev.Kind == events.MyriadCopy || ev.Kind == events.StackCopy {
+			return nil, nil, false
+		}
+		if ev.Kind == events.MoveZone && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) {
+			if ev.From != state.ZLibrary || ev.To != state.ZHand || !selected[ev.Obj] || moved[ev.Obj] || ev.Text != "" {
+				return nil, nil, false
+			}
+			moved[ev.Obj] = true
+		}
+	}
+	if len(moved) != len(selected) || len(bottom)+len(selected) != len(window) {
+		return nil, nil, false
+	}
+	options = map[uint32]Action{}
+	for _, option := range arrange.Options {
+		a := option.Action
+		if a.Kind != "dig_bottom" || a.Player != h.Actor || !looked[a.Obj] || selected[a.Obj] {
+			return nil, nil, false
+		}
+		if _, duplicate := options[a.Obj]; duplicate {
+			return nil, nil, false
+		}
+		options[a.Obj] = a
+	}
+	next := append([]int(nil), order[len(window):]...)
+	seen := map[uint32]bool{}
+	for _, a := range bottom {
+		if expected, exists := options[a.Obj]; !exists || a != expected || seen[a.Obj] {
+			return nil, nil, false
+		}
+		seen[a.Obj] = true
+		next = append(next, origins[a.Obj])
+	}
+	var board struct {
+		Players []struct {
+			Seat state.PlayerID `json:"seat"`
+			Size *int           `json:"library_size"`
+		}
+	}
+	if json.Unmarshal(after.Board, &board) != nil {
+		return nil, nil, false
+	}
+	found := false
+	for _, player := range board.Players {
+		if player.Seat == h.Actor {
+			if found || player.Size == nil || *player.Size != len(next) {
+				return nil, nil, false
+			}
+			found = true
+		}
+	}
+	return next, selected, found
 }
 
 // Recover an owned shuffle's size from the visible boundary after its events.

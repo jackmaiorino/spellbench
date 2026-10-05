@@ -1,6 +1,7 @@
 package searchprobe
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -11,6 +12,64 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+func TestSpellbenchActorDigRetainsUntouchedTail(t *testing.T) {
+	fixture := func() (PublicGame, History) {
+		choose := &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 90, Max: 3}
+		arrange := &ObservedDecision{Player: 0, Kind: decision.KArrange, Source: 90, Min: 2, Max: 2}
+		identities := []Identity{}
+		for i, name := range []string{"Petal", "Vandal", "Grant", "Caretaker", "Battlement"} {
+			identities = append(identities, Identity{ID: uint32(i + 1), Owner: 0, Name: name})
+		}
+		for _, ref := range []uint32{2, 4, 5} {
+			choose.Options = append(choose.Options, ObservedOption{Action: Action{Decision: decision.KChoose, Source: 90, Kind: "dig", Obj: ref, Player: 0}})
+		}
+		for _, ref := range []uint32{1, 3} {
+			arrange.Options = append(arrange.Options, ObservedOption{Action: Action{Decision: decision.KArrange, Source: 90, Kind: "dig_bottom", Obj: ref, Player: 0}})
+		}
+		h := History{Actor: 0, ActorBoundaries: true, Answers: map[int][]Action{0: {choose.Options[0].Action, choose.Options[2].Action, choose.Options[1].Action}, 1: {arrange.Options[1].Action, arrange.Options[0].Action}}}
+		h.Frames = []Frame{
+			{Identities: identities, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Note, Player: 0, Secret: true, Text: "looks at the top of the library", IDs: []uint32{1, 2, 3, 4, 5}}}, Decision: choose},
+			{Events: []ObservedEvent{{Kind: events.MoveZone, Obj: 2, From: state.ZLibrary, To: state.ZHand}, {Kind: events.MoveZone, Obj: 5, From: state.ZLibrary, To: state.ZHand}, {Kind: events.MoveZone, Obj: 4, From: state.ZLibrary, To: state.ZHand}}, Board: json.RawMessage(`{"players":[{"seat":0,"library_size":6}]}`), Decision: arrange},
+			{Identities: []Identity{{ID: 6, Owner: 0, Name: "Elves"}}, Events: []ObservedEvent{{Kind: events.LibraryOrder, Player: 0}, {Kind: events.Draw, Player: 0, Obj: 6}}, Decision: &ObservedDecision{Player: 0, Kind: decision.KPriority}},
+		}
+		return PublicGame{Decks: [][]*cards.Card{make([]*cards.Card, 9)}}, h
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*History)
+		want bool
+	}{
+		{"complete owned transition", func(*History) {}, true},
+		{"missing chosen answer", func(h *History) { delete(h.Answers, 0) }, false},
+		{"missing bottom answer", func(h *History) { delete(h.Answers, 1) }, false},
+		{"opaque look", func(h *History) { h.Frames[0].Identities[0].Name = "" }, false},
+		{"other owner", func(h *History) { h.Frames[0].Identities[1].Owner = 1 }, false},
+		{"duplicate bottom", func(h *History) { h.Answers[1][1] = h.Answers[1][0] }, false},
+		{"missing move", func(h *History) { h.Frames[1].Events = h.Frames[1].Events[:2] }, false},
+		{"unknown mutation", func(h *History) {
+			h.Frames[1].Events = append(h.Frames[1].Events, ObservedEvent{Kind: events.MoveZone, From: state.ZLibrary, To: state.ZGraveyard})
+		}, false},
+		{"incorrect size", func(h *History) { h.Frames[1].Board = json.RawMessage(`{"players":[{"seat":0,"library_size":7}]}`) }, false},
+		{"partial arrangement", func(h *History) { h.Frames[1].Decision.Min = 0 }, false},
+		{"different source", func(h *History) { h.Frames[1].Decision.Source = 91 }, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			setup, h := fixture()
+			test.edit(&h)
+			positions := spellbenchActorLibraryPositions(setup, h)[epochKey{Player: 0, Ordinal: 0}]
+			found := false
+			for _, p := range positions {
+				if p.Index == 5 && p.Name == "Elves" {
+					found = true
+				}
+			}
+			if found != test.want {
+				t.Fatalf("tail guided=%v, want %v: %+v", found, test.want, positions)
+			}
+		})
+	}
+}
+
 func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 	search := &cards.Card{Faces: []*cards.Face{{Name: "Public Search", Abilities: []*cards.SA{{API: "ChangeZone", Params: map[string]string{"Origin": "Library", "ChangeType": "Land.Basic"}}}}}}
 	spell := &cards.Card{Faces: []*cards.Face{{Name: "Public Spell", Types: []string{"Sorcery"}}}}
@@ -18,10 +77,10 @@ func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 	swamp := &cards.Card{Faces: []*cards.Face{{Name: "Swamp", Types: []string{"Basic", "Land", "Swamp"}}}}
 	setup := PublicGame{Names: []string{"actor", "opponent"}, Decks: [][]*cards.Card{{search, spell, forest, swamp}, {spell}}}
 	for _, test := range []struct {
-		name, bottomName string
-		owner state.PlayerID
+		name, bottomName      string
+		owner                 state.PlayerID
 		anonymous, afterStart bool
-		want bool
+		want                  bool
 	}{
 		{"owned known nonbasic", "Public Spell", 0, false, false, true},
 		{"owned basic", "Forest", 0, false, false, false},
@@ -33,9 +92,13 @@ func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			bottom := ObservedEvent{Kind: events.MoveZone, Player: test.owner, Obj: 2, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}
 			identities := []Identity{{ID: 1, Name: "Public Search", Owner: 0}, {ID: 2, Name: test.bottomName, Owner: test.owner}, {ID: 3, Name: "Swamp", Owner: 0}, {ID: 4, Name: "Forest", Owner: 0}}
-			if test.anonymous {bottom.Obj = 0}
+			if test.anonymous {
+				bottom.Obj = 0
+			}
 			observed := []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Draw, Player: 0}}
-			if test.afterStart {observed = append(observed, ObservedEvent{Kind: events.TurnChange})}
+			if test.afterStart {
+				observed = append(observed, ObservedEvent{Kind: events.TurnChange})
+			}
 			observed = append(observed, bottom)
 			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
 				{Identities: identities, Events: observed},
@@ -194,10 +257,10 @@ func TestSpellbenchPublicPassRequiresImmediateMatchingMarker(t *testing.T) {
 
 func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 	for _, test := range []struct {
-		name string
-		from state.Zone
-		exit bool
-		blind bool
+		name          string
+		from          state.Zone
+		exit          bool
+		blind         bool
 		wantLandscape int
 	}{
 		{"graveyard return remains held", state.ZGraveyard, false, false, 1},
@@ -224,7 +287,7 @@ func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 			previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
 			original := map[epochKey]epochConstraints{
 				previous: {Deadlines: []deadlineConstraint{{Through: 1, Name: "Twisted Landscape", Count: 1}}},
-				next: {Deadlines: []deadlineConstraint{{Through: 0, Name: "Twisted Landscape", Count: 1}, {Through: 0, Name: "Refurbished Familiar", Count: 1}}},
+				next:     {Deadlines: []deadlineConstraint{{Through: 0, Name: "Twisted Landscape", Count: 1}, {Through: 0, Name: "Refurbished Familiar", Count: 1}}},
 			}
 			got := spellbenchCarryEpochs(h, original)
 			landscape, familiar := 0, 0
@@ -249,10 +312,10 @@ func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 func TestSpellbenchPublicCarrySurvivesScryBottom(t *testing.T) {
 	previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
 	for _, test := range []struct {
-		name string
+		name          string
 		reorderPlayer state.PlayerID
-		reorders bool
-		wantPrefix int
+		reorders      bool
+		wantPrefix    int
 	}{
 		{"before opponent reorder", 1, true, 2},
 		{"actor reorder does not constrain opponent", 0, true, 4},
@@ -276,7 +339,7 @@ func TestSpellbenchPublicCarrySurvivesScryBottom(t *testing.T) {
 			// be held at the next shuffle, so both must precede the reorder.
 			original := map[epochKey]epochConstraints{
 				previous: {Deadlines: []deadlineConstraint{{Through: 3, Name: "Refurbished Familiar", Count: 1}}},
-				next: {Deadlines: []deadlineConstraint{{Through: 0, Name: "Refurbished Familiar", Count: 1}}},
+				next:     {Deadlines: []deadlineConstraint{{Through: 0, Name: "Refurbished Familiar", Count: 1}}},
 			}
 			guided := spellbenchCarryEpochs(h, original)
 			bounds := guided[previous].Deadlines
