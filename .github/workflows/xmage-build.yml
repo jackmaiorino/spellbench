@@ -90,8 +90,10 @@ jobs:
             engines/xmage/tests/priority-binding/JackPriorityBindingCheck.java
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.JackPriorityBindingCheck
           javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
-            engines/xmage/tests/stack-text/StackAbilityTextCheck.java
+            engines/xmage/tests/stack-text/StackAbilityTextCheck.java \
+            engines/xmage/tests/stack-text/VisibleReplayDrawsCheck.java
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.StackAbilityTextCheck
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.VisibleReplayDrawsCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}
