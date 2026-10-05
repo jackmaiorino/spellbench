@@ -23,7 +23,7 @@
       "--manifest",
       "${XMAGE_BUILD_MANIFEST}",
       "--manifest-sha256",
-      "3b54f3f66cbb135b55dcc19cac5d310447ca78017d1309db05a4d530030c9d93"
+      "35aea0fd4a097f2d8733f6757a54cd560000407247303940a273ed52aeee26aa"
     ]
   },
   "deck_pool": [
