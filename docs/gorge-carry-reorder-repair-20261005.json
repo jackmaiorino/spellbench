@@ -18,7 +18,7 @@
     "draw_count": 10
   },
   "repair": "Optional carry deadline uses the drawn prefix before the first public reorder in the previous epoch. It counts all prior consumed copies while retaining known return credit. Native constraints and odd proposal alternatives remain unchanged.",
-  "interpretation": "The previous ten-card prefix can include the bottomed tenth card, although only nine original prefix cards were drawn before the reorder. A needed carry copy can therefore be missing at the next shuffle. This explains a feasible failure mode, not a proved resolution of the saved596-frame refusal.",
+  "interpretation": "The repaired source now yields eight valid worlds for the unchanged saved596-frame input, with one proposal,1220submits,31nodes and zero exhaustion. This validates the exact component repair; production qualification and playing strength remain unproved.",
   "regression": "TestSpellbenchPublicCarrySurvivesScryBottom checks opponent/actor/no reorder, repeated reorder, consumption after reorder, unchanged native constraints, and eight real constrained shuffle plans retaining required copies before scry.",
   "ci": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
@@ -27,7 +27,7 @@
     "affected_checks": "passed",
     "full_suite": "passed"
   },
-  "exact596_replay_with_repair_complete": false,
+  "exact596_replay_with_repair_complete": true,
   "production_runtime_rebuilt": false,
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
@@ -35,7 +35,7 @@
   "published_entries": 0,
   "new_runpod_spend_usd": 0,
   "constraints": "Ledger026 verifies22 closed exact leases, actual quotes, zero persistent volumes, full lifetime bounds, fresh bills and provider contract. Conservative boundUSD7.33314247 includes legacy allowances, extra300 seconds per lease and one projectUSD0.15 reserve. Jack generation184 and Haley queued research priority remain excluded; Zaratan credential refresh remains pending.",
-  "next_wake_condition": "Fresh cloud preparation and independent bounded guardian for exact roots, then full qualification through supported throughput guards. No allocation from ledger reconciliation alone.",
+  "next_wake_condition": "Compatible production048 durable pins, supported matched serial/parallel allocation and full native audit; exact roots now passed.",
   "exact_replay_preparation": {
     "record": "docs/gorge-portable-roots047-20261005.json",
     "source_of_record": "E:/spellbench-gorge-public-root-preparation-20261005-047",
@@ -57,5 +57,14 @@
     "conservative_cumulative_ceiling_usd": 7.33314247,
     "final_invoice_verified": false,
     "new_allocation": false
-  }
+  },
+  "exact_replay_result_record": "docs/gorge-runtime048-native-20261005.json",
+  "exact_replay_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "exact596_reconstruction": {
+    "Attempts": 1,
+    "Submits": 1220,
+    "Nodes": 31,
+    "BudgetExhausted": 0
+  },
+  "exact596_worlds": 8
 }

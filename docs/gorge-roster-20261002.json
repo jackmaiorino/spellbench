@@ -493,7 +493,7 @@
       "public_basic_search_after_explore_removal": "docs/gorge-public-roots039-20261005.json"
     }
   },
-  "current_native_qualification": "docs/gorge-runtime040-native-20261005.json",
+  "current_native_qualification": "docs/gorge-runtime048-native-20261005.json",
   "current_reference_preparation": "docs/gorge-reference-runtime040-preparation005-20261005.json",
   "prior_runtime_and_qualification_references": {
     "runtime_preparation": "docs/gorge-runtime-preparation-20261004-027.json",
@@ -527,7 +527,7 @@
     "published_entries": 0,
     "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-040",
     "native_attempt_seal_sha256": "a5756a3d2a432138f6241289b1849b6a64f909cb60e216b4eece680b4c3076d9",
-    "current_phase": "released_native_qualification_incomplete",
+    "current_phase": "guarded_component_first_native_job_running",
     "prior_failed_native_record": "docs/gorge-runtime033-native-20261005.json",
     "current_reference_preparation_compatible": true,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json",
@@ -572,7 +572,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-026",
     "billing_seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
     "conservative_closed_ceiling_usd": 7.33314247,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "a5756a3d2a432138f6241289b1849b6a64f909cb60e216b4eece680b4c3076d9",
       "returncode": 1,
@@ -617,14 +617,16 @@
       596
     ],
     "witness046_seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
-    "witness046_baseline_refusal_reproduced": true
+    "witness046_baseline_refusal_reproduced": true,
+    "active_owned_lease_record": "docs/gorge-runtime048-native-20261005.json",
+    "cumulative_reservation_ceiling_usd": 8.53314247
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
     "source_repair_record": "docs/gorge-carry-reorder-repair-20261005.json",
     "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
-    "component_roots_passed": false,
-    "latest_compatible_exact596_replay_complete": false,
+    "component_roots_passed": true,
+    "latest_compatible_exact596_replay_complete": true,
     "production_runtime_rebuilt": false,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
@@ -632,9 +634,12 @@
     "published_entries": 0,
     "previous_production_runtime_record": "docs/gorge-runtime040-native-20261005.json",
     "previous_production_qualification": "failed; historical040 receipt retained",
-    "full_go_ci": "passed"
+    "full_go_ci": "passed",
+    "component_runtime_source_of_record": "E:\\spellbench-gorge-public-root-runtime-20261005-048",
+    "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+    "component_result_record": "E:\\spellbench-gorge-runpod-20261005-048\\COMPONENT-CHECKS-OBSERVED.json"
   },
   "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
   "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",
-  "current_component_validation": "docs/gorge-witness-trace046-20261005.json"
+  "current_component_validation": "docs/gorge-runtime048-native-20261005.json"
 }

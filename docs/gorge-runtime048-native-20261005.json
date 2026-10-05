@@ -123,7 +123,7 @@
       "maximum_charge_usd": 0
     }
   ],
-  "observed_driver_phase": "component_durable_runtime_pins",
+  "observed_driver_phase": "supported_native_qualification",
   "pod_id": "qtd35q03d1uo05",
   "owned_lease_name": "spellbench-gorge-native-c9ae47e442ba470e",
   "lease_deadline_utc": "2026-10-05T10:20:34.2958986+00:00",
@@ -138,5 +138,38 @@
   "owner_watcher_session_id": 27682,
   "owner_watcher_pid": 53116,
   "reference_qualification_complete": false,
-  "next_wake_condition": "Four exact-root pass or failure; conditional production pin gate, supported serial/parallel allocation/native result, or deadline. Same owner watcher and independent release guardian retained."
+  "next_wake_condition": "Four exact-root pass or failure; conditional production pin gate, supported serial/parallel allocation/native result, or deadline. Same owner watcher and independent release guardian retained.",
+  "component_roots_passed": true,
+  "component_result_record": "E:\\spellbench-gorge-runpod-20261005-048\\COMPONENT-CHECKS-OBSERVED.json",
+  "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "component_results": {
+    "364": {
+      "worlds": 8,
+      "Attempts": 1,
+      "Submits": 729,
+      "Nodes": 11,
+      "BudgetExhausted": 0
+    },
+    "410": {
+      "worlds": 8,
+      "Attempts": 1,
+      "Submits": 831,
+      "Nodes": 19,
+      "BudgetExhausted": 0
+    },
+    "478": {
+      "worlds": 8,
+      "Attempts": 2,
+      "Submits": 2412,
+      "Nodes": 1330,
+      "BudgetExhausted": 0
+    },
+    "596": {
+      "worlds": 8,
+      "Attempts": 1,
+      "Submits": 1220,
+      "Nodes": 31,
+      "BudgetExhausted": 0
+    }
+  }
 }
