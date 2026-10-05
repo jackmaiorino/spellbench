@@ -28,7 +28,7 @@
     "full_suite": "passed"
   },
   "exact596_replay_with_repair_complete": true,
-  "production_runtime_rebuilt": false,
+  "production_runtime_rebuilt": true,
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "rated_games": 0,
@@ -66,5 +66,6 @@
     "Nodes": 31,
     "BudgetExhausted": 0
   },
-  "exact596_worlds": 8
+  "exact596_worlds": 8,
+  "production_runtime_record": "docs/gorge-runtime048-native-20261005.json"
 }

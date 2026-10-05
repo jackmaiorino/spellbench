@@ -171,5 +171,8 @@
       "Nodes": 31,
       "BudgetExhausted": 0
     }
-  }
+  },
+  "production_runtime_rebuilt": true,
+  "production_runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "production_binaries_durably_pinned": 7
 }
