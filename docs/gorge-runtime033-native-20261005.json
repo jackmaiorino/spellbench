@@ -126,5 +126,20 @@
     "native_qualification_complete": false
   },
   "source_compatible_ci_record": "E:\\spellbench-gorge-runpod-20261005-033\\SOURCE-CI-RESULT.json",
-  "source_compatible_ci_record_sha256": "205ff1bca02856ff7d7cf0083774440c07f79c2f3a2d00eec1fab3e6c7c3b727"
+  "source_compatible_ci_record_sha256": "205ff1bca02856ff7d7cf0083774440c07f79c2f3a2d00eec1fab3e6c7c3b727",
+  "native_serial_runtime_diagnosis": {
+    "observed_at_utc": "2026-10-05T02:05:06.452730+00:00",
+    "record": "E:\\spellbench-gorge-runpod-20261005-033\\NATIVE-CPU-SAMPLE-20261005T020506Z.json",
+    "record_sha256": "d6ce41320160cdc63f632d239f28affaf485343f945ed738c5e1fda93688873d",
+    "qualification_workers": 1,
+    "completed_natural_blocks": 5,
+    "latest_completed_game": 48,
+    "active_native_pid": 6884,
+    "sample_seconds": 3.0024322599638253,
+    "native_cpu_seconds": 3.01,
+    "diagnosis": "Observed owned native worker is CPU-bound in the supported one-worker timing trial; no measured parallel allocation yet",
+    "limitation": "Three-second utilization sample does not establish completed-work throughput or formal allocation qualification",
+    "decision": "Preserve the existing healthy frozen measurement and armed lease limit; no restart or raw parallel launch",
+    "completion_within_current_lease_unproven": true
+  }
 }
