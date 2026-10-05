@@ -91,7 +91,12 @@ def audited_qualification(play, state, stage):
         directory.mkdir(parents=True)
         state['directory'] = directory
         os.environ['GORGE_AGENT_AUDIT_DIR'] = str(directory)
-        return play(workers, positions)
+        wall, games = play(workers, positions)
+        write(directory/'MEASUREMENT.json', {
+            'workers':workers, 'positions':list(positions), 'wall_seconds':wall,
+            'games':[{'index':game.index, 'seconds':game.seconds, 'digest':game.digest,
+                      'row_bytes':game.row_bytes} for game in games]})
+        return wall, games
     return bench_run.QualificationPlay(measured, play.finish)
 
 def main():
@@ -180,6 +185,11 @@ def main():
         raise RuntimeError('The reference-host matrix requires completed serial/parallel scaling with identical primary rows')
     setup = preflight(cfg, secret)
     entries = {e.name:e for e in runner.registry_entries(cfg,cfg)}
+    write(STAGE/'PREFLIGHT.json', {
+        'engine':setup.engine.to_json(),
+        'registry':[entry.to_json() for entry in entries.values()],
+        'decks':[{'catalog_id':spec.catalog_id, 'ledger':resolved.ledger().to_json()}
+                 for spec,resolved in setup.decks.items()]})
     directory = STAGE/'matrix-native-audits'
     directory.mkdir()
     os.environ['GORGE_AGENT_AUDIT_DIR'] = str(directory)
@@ -263,6 +273,7 @@ def main():
     if not replay_identical: failures.append('search/Burn seed replay differs')
     report = {'schema':'spellbench-gorge-reference-host-matrix/v1', 'at_utc':stamp(),
         'passed':not failures, 'failures':failures, 'completed_games':len(seconds), 'cells':aggregates,
+        'native_participant_receipts':sum(cell['games'] for cell in aggregates.values()),
         'allocation':allocation.to_json(), 'game_seconds':seconds, 'wall_seconds':time.perf_counter()-started,
         'ledger_sha256':hashlib.sha256(ledger.read_bytes()).hexdigest(),
         'replay_identical':replay_identical, 'replay_game_index':replay_context.game_index,
