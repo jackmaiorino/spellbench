@@ -21,6 +21,9 @@ public final class StackAbilityTextCheck {
     }
 
     public static void main(String[] args) {
+        require(StackAbilityText.class.getProtectionDomain().getCodeSource().getLocation().equals(
+                WorldBuilder.class.getProtectionDomain().getCodeSource().getLocation()),
+                "model kit must carry its renderer instead of requiring a newer engine jar");
         KitRandom.installBoot();
         UUID owner = UUID.nameUUIDFromBytes(new byte[]{4});
         KioraTheRisingTide card = new KioraTheRisingTide(owner,
