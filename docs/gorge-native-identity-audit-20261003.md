@@ -5,6 +5,11 @@ Status: incomplete. Production runtime033 uses Spellbench source
 `65b15e0ba2ce8b2f6a658e8a11b37b97e02470b8`, which passed complete Go CI.
 This source includes the public scry and witness proposal changes below.
 Native and reference qualification and review remain incomplete.
+Runtime033 failed the unchanged redeal gate at Wildfire seed52, with 17 public
+reconstruction-budget exhaustions and refusals. Its guarded serial trial stopped
+before parallel allocation or the full audit. The
+[sealed failure](gorge-runtime033-native-20261005.json) cannot admit reference
+evaluation or rated play; a corrected runtime requires compatible qualification.
 
 The earlier inspection verified observer identities and
 private-event filtering, but missed incorrect native choice ownership. Its

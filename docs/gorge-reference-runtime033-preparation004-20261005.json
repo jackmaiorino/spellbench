@@ -230,5 +230,21 @@
     "native_admission_proved": false,
     "evaluation_launched": false,
     "new_cloud_spend_usd": 0
+  },
+  "closed_native_prerequisite_outcome": {
+    "observed_at_utc": "2026-10-05T02:24:58.784541+00:00",
+    "native_source_of_record": "E:\\spellbench-gorge-runpod-20261005-033",
+    "native_seal_sha256": "6f46be26bae6931221d3a63b84296c4e5e833322f6d9424388f60c4851290642",
+    "native_qualification_complete": false,
+    "stopped_game": 52,
+    "stopped_cell": "Wildfire/search-mana-redeal",
+    "reconstruction_budget_exhausted": 17,
+    "actual_pack_refusal": {
+      "preparation_refused": "The sealed native attempt did not pass full qualification",
+      "new_cloud_spend_usd": 0
+    },
+    "reference_dispatch_root_created": false,
+    "next_action": "Capture and repair the remaining public reconstruction failure; freeze a corrected runtime and compatible reference inputs, then pass complete native qualification before reference dispatch",
+    "rating_or_publication_admission": false
   }
 }
