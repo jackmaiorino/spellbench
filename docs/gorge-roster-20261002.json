@@ -572,7 +572,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-021",
     "billing_seal_sha256": "6a39765b989b8a0fd552fdd5de4f0263d1b5d88a23ced15e8edda721101d97f2",
     "conservative_closed_ceiling_usd": 9.10691147,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "a5756a3d2a432138f6241289b1849b6a64f909cb60e216b4eece680b4c3076d9",
       "returncode": 1,
@@ -592,7 +592,10 @@
         "BudgetExhausted": 1
       },
       "first_failure_order_verified": true
-    }
+    },
+    "active_lease_scope": "Exact logging-only witness043 replay; production040 remains failed.",
+    "active_lease_maximum_usd": 0.5,
+    "cumulative_ceiling_with_active_lease_usd": 9.60691147
   },
   "current_source_component_status": {
     "source_commit": "98558dd6caaf513a7f60a9469212ba3f8dd695d1",
@@ -609,5 +612,6 @@
     "published_entries": 0,
     "production_runtime_record": "docs/gorge-runtime040-native-20261005.json"
   },
-  "current_diagnostic": "docs/gorge-diagnostic042-20261005.json"
+  "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
+  "current_witness_diagnostic": "docs/gorge-witness-trace043-20261005.json"
 }
