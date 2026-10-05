@@ -31,7 +31,7 @@
     "x_gorge_search_v1"
   ],
   "native_id_audits": {
-    "x_gorge_search_v1": "https://github.com/jackmaiorino/spellbench/blob/e347083eb77a6ae74e9ee536a8e4ab4e1af25869/docs/gorge-native-identity-audit-20261003.md"
+    "x_gorge_search_v1": "https://github.com/jackmaiorino/spellbench/blob/197c9d3174849931dc7375e8665e74ec18e9247c/docs/gorge-native-identity-audit-20261003.md"
   },
   "workers": 8,
   "time_control": {

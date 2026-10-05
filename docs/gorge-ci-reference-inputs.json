@@ -5,7 +5,7 @@
   "phase": "native107_live_positive_recovery_and_actual_reference_dispatch_inputs_pending",
   "repository_private": false,
   "pool_slots": 4,
-  "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
+  "benchmark_sha256": "21359cfc5c288c797797f50449003c3a39e7aac1605502d365e7e3a11bbf1817",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261005-108",

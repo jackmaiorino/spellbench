@@ -162,7 +162,7 @@ def test_coordinator_runs_real_guard_then_full_synthetic_matrix_and_identical_re
         all_calls.append(calls)
     inputs=dict(pool_slots=2,placement=
         'main-pc=unavailable: reserved; haleyspc=unavailable: priority; runpod=not_authorized: cap; github-actions=used: synthetic',
-        native_seal_sha256='native-fixture',benchmark_sha256='988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258',
+        native_seal_sha256='native-fixture',benchmark_sha256=hashlib.sha256((ROOT/'benchmarks/pauper-gorge/benchmark.json').read_bytes()).hexdigest(),
         registry_sha256=cfg.engine_command[cfg.engine_command.index('-registry-sha256')+1],runtime_seal_sha256='runtime-fixture')
     with ThreadPoolExecutor(max_workers=2) as executor:
         running=[executor.submit(transport.serve_node,value,fixture.client(api,tmp_path/f'node-exchange-{index}'),

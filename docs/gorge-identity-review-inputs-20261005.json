@@ -5,6 +5,18 @@
   "current_maintainer_review": "docs/gorge-current-maintainer-review-20261005.md",
   "separate_reviewer_required_by_current_spellbench_rules": false,
   "final_published_audit_binding_complete": false,
+  "candidate_benchmark_audit_binding": {
+    "source_commit": "197c9d3174849931dc7375e8665e74ec18e9247c",
+    "published_audit_git_blob": "8cf55e2709ea076057968ee4855686205e7637d2",
+    "published_blob_verified_by_github_api": true,
+    "previous_benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
+    "current_benchmark_sha256": "21359cfc5c288c797797f50449003c3a39e7aac1605502d365e7e3a11bbf1817",
+    "only_changed_definition_field": "native_id_audits",
+    "affected_reference_and_definition_tests_passed": 210,
+    "applied_before_reference_evaluation": true,
+    "native107_qualification_inputs_changed": false,
+    "definition_merge_and_complete_qualification_pending": true
+  },
   "adapter_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "engine_source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",

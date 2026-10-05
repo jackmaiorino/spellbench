@@ -27,7 +27,7 @@ from gorge_reference_worker import ReferenceWorker, write_new
 from gorge_runtime_source import verify_runtime_source
 
 REPOSITORY = 'jackmaiorino/spellbench'
-BENCHMARK = '988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258'
+BENCHMARK = '21359cfc5c288c797797f50449003c3a39e7aac1605502d365e7e3a11bbf1817'
 REGISTRY = '42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937'
 CAP = 2*2**30
 RESERVE = 60*2**30
