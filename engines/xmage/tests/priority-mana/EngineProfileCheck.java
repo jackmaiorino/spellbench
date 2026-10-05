@@ -3,6 +3,9 @@ package mage.player.spellbench.server;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import mage.player.spellbench.observe.ObservationBuilder;
+import mage.player.spellbench.ids.ObjectIds;
 
 /** Profile declarations stay bound to the engine's startup setting. Does not start XMage or use a database. */
 public final class EngineProfileCheck {
@@ -50,6 +53,10 @@ public final class EngineProfileCheck {
                     "enabled profile lost its frozen text setting");
             require(Boolean.TRUE.equals(EngineProfile.observationFlags(text.stackText).get("stack_text")),
                     "game observations differ from their hello declaration");
+            // Valid declarations must also be accepted by the actual builder's
+            // implemented-field contract. No game is used by its constructor.
+            new ObservationBuilder(null, new ObjectIds(new byte[32]), EngineProfile.observationFlags(text.stackText),
+                    UUID.nameUUIDFromBytes(new byte[]{0}), UUID.nameUUIDFromBytes(new byte[]{1}));
             for (String invalid : new String[]{"", "TRUE", "yes", "1"}) {
                 System.setProperty("spellbench.stackText", invalid);
                 try {

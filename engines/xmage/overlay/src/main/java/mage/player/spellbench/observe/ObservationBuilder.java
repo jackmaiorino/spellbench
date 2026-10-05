@@ -74,7 +74,7 @@ public final class ObservationBuilder {
 
     /** Flags whose fields this builder can fill; the others are declared false and always null. */
     static final List<String> IMPLEMENTED = Collections.unmodifiableList(Arrays.asList(
-            "poison", "player_progress", "day_night", "passed_seats", "pending_triggers", "keywords", "full_name"));
+            "poison", "player_progress", "day_night", "passed_seats", "pending_triggers", "keywords", "full_name", "stack_text"));
 
     private static final Field TARGET_ZCC = field(TargetImpl.class, "zoneChangeCounters");
     private static final Field LONDON_STARTING = field(LondonMulligan.class, "startingHandSizes");
