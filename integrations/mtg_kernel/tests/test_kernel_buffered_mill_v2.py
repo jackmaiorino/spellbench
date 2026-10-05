@@ -46,8 +46,9 @@ class MillPeer:
             "legal_targets": [{"target_kind": "object", "object": item["stable"]}
                               for i, item in enumerate(self.cards) if i not in prefix]}}
         value["projection"]["engine_context"]["pending_effect"] = effect
-        # Native support links the pending effect to its detached resolving item.
+        # Normal pending-effect choices retain their resolving item on the stack.
         item = stack(self.source["stable"])
+        value["projection"]["stack"] = [item]
         remaining = [i for i in range(self.count) if i not in prefix]
         candidates = [{"candidate_id": index, "semantic": {
             "kind": "choose_effect_target", "target": {"object": {
@@ -60,8 +61,8 @@ class MillPeer:
         return {"game_id": "synthetic-mill", "response_type": "decision", "step": len(prefix),
                 "candidates": candidates, "extensions": {
                     "x_kernel_v5": {"observation_json": json.dumps(value)},
-                    "x_kernel_v2_support": {"stack_instances": [], "effect_instance": "91:1",
-                        "resolving_stack_instance": "91", "detached_resolution": {"instance": "91", "item": item},
+                    "x_kernel_v2_support": {"stack_instances": ["91"], "effect_instance": "91:1",
+                        "resolving_stack_instance": "91",
                         "choice": {"purpose": "mill", "stage": "graveyard_order"}},
                     FLAT: {"card_db_hash": "000000000000007b", "feature_contract_digest": "a" * 64,
                            "feature_encoding_digest": "b" * 64,
