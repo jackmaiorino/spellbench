@@ -51,6 +51,25 @@ def storage(record: dict) -> int:
     return actual
 
 
+def progress_counts(prepared: dict, output: Path) -> dict[Path, int]:
+    if prepared.get("qualification_kind") == "benchmark":
+        directory = Path(prepared["benchmark"]["path"]).parent / ".qualification-records"
+        paths = directory.glob("qualification-*/trial-*.jsonl")
+    else:
+        progress = output / "completed-games.jsonl"
+        paths = (progress,) if progress.exists() else ()
+    counts = {}
+    for path in paths:
+        with path.open("rb") as stream:
+            counts[path] = sum(1 for _ in stream)
+    return counts
+
+
+def completed_since(prepared: dict, output: Path, baseline: dict[Path, int]) -> int:
+    return sum(max(0, count - baseline.get(path, 0))
+               for path, count in progress_counts(prepared, output).items())
+
+
 def load(manifest: Path, digest: str):
     if sha(manifest) != digest:
         raise ValueError("native job manifest differs")
@@ -128,6 +147,7 @@ def work(record: dict, prepared: dict, helper) -> int:
     child = None
     try:
         with (attempt/"QUALIFY.log").open("xb") as log, (attempt/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
+            baseline = progress_counts(prepared, qualifier_output)
             child = subprocess.Popen(prepared["command"], cwd=hot, env=env, stdout=log, stderr=subprocess.STDOUT)
             terminal["child_pid"] = child.pid
             while child.poll() is None:
@@ -136,13 +156,7 @@ def work(record: dict, prepared: dict, helper) -> int:
                 if time.monotonic()-start > record["window_seconds"]:
                     raise RuntimeError("native qualification window expired")
                 used = storage(record)
-                progress = qualifier_output/"completed-games.jsonl"
-                if prepared.get("qualification_kind") == "benchmark":
-                    ledgers = Path(prepared["benchmark"]["path"]).parent / ".qualification-records"
-                    completed = sum(sum(1 for _ in path.open("rb"))
-                                    for path in ledgers.glob("qualification-*/trial-*.jsonl"))
-                else:
-                    completed = sum(1 for _ in progress.open("rb")) if progress.exists() else 0
+                completed = completed_since(prepared, qualifier_output, baseline)
                 monitor.write(json.dumps({"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "elapsed_s": round(time.monotonic()-start, 3), "completed_game_rows": completed,
                     "aggregate_bytes": used, "owned_processes": helper.job_members(None)})+"\n")
