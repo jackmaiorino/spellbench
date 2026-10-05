@@ -569,9 +569,9 @@
       },
       "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
     },
-    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-025",
-    "billing_seal_sha256": "e50050c6adf17ced2af66ca2d55635816ac942eb01a9630fe541356e27a163e9",
-    "conservative_closed_ceiling_usd": 9.84147447,
+    "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-026",
+    "billing_seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
+    "conservative_closed_ceiling_usd": 7.33314247,
     "active_owned_lease": false,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "a5756a3d2a432138f6241289b1849b6a64f909cb60e216b4eece680b4c3076d9",
@@ -631,7 +631,8 @@
     "rated_games": 0,
     "published_entries": 0,
     "previous_production_runtime_record": "docs/gorge-runtime040-native-20261005.json",
-    "previous_production_qualification": "failed; historical040 receipt retained"
+    "previous_production_qualification": "failed; historical040 receipt retained",
+    "full_go_ci": "passed"
   },
   "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
   "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",

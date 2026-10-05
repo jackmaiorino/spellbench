@@ -25,7 +25,7 @@
     "run_id": 37273275687,
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
     "affected_checks": "passed",
-    "full_suite": "pending"
+    "full_suite": "passed"
   },
   "exact596_replay_with_repair_complete": false,
   "production_runtime_rebuilt": false,
@@ -34,8 +34,8 @@
   "rated_games": 0,
   "published_entries": 0,
   "new_runpod_spend_usd": 0,
-  "constraints": "Ledger025 conservative cumulative boundUSD9.84147447; no active gorge pod. Further guarded cloud build does not fit. Jack generation184 and Haley queued research priority remain excluded. Zaratan saved credentials rejected before Duo; refresh remains pending.",
-  "next_wake_condition": "Full CI conclusion for sourcee3c84a1 or current PRheadf6d4f74, then eligible host admission for prepared047 exact-root replay. Existing GitHub checks and active Goal provide continuation; no new paid lease or recurring automation.",
+  "constraints": "Ledger026 verifies22 closed exact leases, actual quotes, zero persistent volumes, full lifetime bounds, fresh bills and provider contract. Conservative boundUSD7.33314247 includes legacy allowances, extra300 seconds per lease and one projectUSD0.15 reserve. Jack generation184 and Haley queued research priority remain excluded; Zaratan credential refresh remains pending.",
+  "next_wake_condition": "Fresh cloud preparation and independent bounded guardian for exact roots, then full qualification through supported throughput guards. No allocation from ledger reconciliation alone.",
   "exact_replay_preparation": {
     "record": "docs/gorge-portable-roots047-20261005.json",
     "source_of_record": "E:/spellbench-gorge-public-root-preparation-20261005-047",
@@ -50,5 +50,12 @@
     "runtime_built": false,
     "new_allocation": false,
     "new_cloud_spend_usd": 0
+  },
+  "current_billing": {
+    "source_of_record": "E:\\spellbench-gorge-billing-20261005-026",
+    "seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
+    "conservative_cumulative_ceiling_usd": 7.33314247,
+    "final_invoice_verified": false,
+    "new_allocation": false
   }
 }
