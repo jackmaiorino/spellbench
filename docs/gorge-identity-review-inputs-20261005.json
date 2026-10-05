@@ -619,5 +619,6 @@
   },
   "candidate_go_checks": "pending; current_ci_checks describes ancestor8799 only",
   "candidate_native_launcher": "engines/gorge/scripts/qualify_native.py records wall-time worker selection through existing QualificationRules; frozen schedule/gate helpers unchanged; fresh qualification required",
-  "candidate_engineering_checks": "89 synthetic Python qualification tests passed. Hosted cc9e05f bridge and TestSpellbench boundary steps passed; full/new-head checks pending."
+  "candidate_engineering_checks": "89 Python qualification tests and20 public-projection/archive tests passed; full Go suite passed at29c3544, identical current engine source. Current-head Python and hosted saved-prefix checks remain pending.",
+  "candidate_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json"
 }

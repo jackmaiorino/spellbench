@@ -15,14 +15,15 @@
   "checks": {
     "diff_check": "passed",
     "gofmt": "passed",
-    "go_tests": "pending_resource_handoff_or_hosted_CI",
-    "saved_93_113_123_frame_positive_checks": "unlaunched",
+    "go_tests": "Full gorge suite, vet, policy/payment mapping, public bridge and all TestSpellbench boundaries passed at29c3544; current engine source is byte-identical",
+    "saved_93_113_123_frame_positive_checks": "running in hosted run37384031753, source8fe6fdd; not yet passed",
     "whole_game105_and_replay": "unlaunched",
     "full_native_qualification": "unlaunched",
     "reference_qualification": "unlaunched",
     "independent_fairplay_review": "pending_authorization",
     "affected_python_qualification_tests": "89 passed; synthetic engineering unit tests, zero actual games/builds/qualifications",
-    "gorge_bridge_and_public_boundary_tests": "passed in hosted cc9e05f job112005584229; whole Go suite pending"
+    "gorge_bridge_and_public_boundary_tests": "passed in hosted cc9e05f job112005584229; whole Go suite pending",
+    "current_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json"
   },
   "resource_state": "No gorge claim or live job. New Jack/Haley game/build/qualification dispatches suspended for research priority. No queued automatic dispatch.",
   "native_sampling_settings_unchanged": {

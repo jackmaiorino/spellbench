@@ -15,8 +15,10 @@ sealed [negative trace101](gorge-public105-trace-20261005.json) reproduces all13
 attempts reaching the same frame88 identity mismatch after Experimental
 Synthesizer's owned top exile. A [prepared source repair](gorge-owned-top-exile-repair-20261005.json)
 uses the existing actor-library position fold through observed London bottoming.
-Its legal owned-London regression and all public boundary tests pass in hosted
-CI atcc9e05f. The full suite and positive captured replays remain pending.
+The [full Go suite and all public boundary checks pass](gorge-ci-top-exile-repair-20261005.json)
+at29c3544, byte-identical to the current engine source. Positive captured replays
+and the new production build are running in hosted job37384031753. No component
+pass or complete qualification is claimed before terminal recovery.
 The next native launcher explicitly records wall-time worker selection;89
 synthetic Python qualification tests pass. The fixed native schedule and
 top-level validity helpers remain AST-identical. No new native run is qualified.

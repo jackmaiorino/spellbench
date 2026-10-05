@@ -1,0 +1,33 @@
+{
+  "observed_at_utc": "2026-10-05T22:44:59.500779+00:00",
+  "source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
+  "run_id": 37382437437,
+  "run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37382437437",
+  "job_id": 112007492420,
+  "job_started_at": "2026-10-05T22:26:07Z",
+  "job_completed_at": "2026-10-05T22:39:49Z",
+  "status": "passed",
+  "checks": [
+    "Set up job",
+    "Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+    "Clone gorge at the pin",
+    "Fetch the Forge card corpus (GPL-3.0 build input, never committed)",
+    "Resolve gorge through go.work",
+    "Vet",
+    "Check native policy identities and inventory",
+    "Check payment mapping and agent failure handling",
+    "Check native public search bridge",
+    "Check every public reconstruction boundary",
+    "Test",
+    "Post Run actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+    "Complete job"
+  ],
+  "current_engine_source_identical": true,
+  "engine_tree_oid": "45c5d91730b6101b5bdcfb1aabec3131772bd253",
+  "hosted_public_prefix_replay_run": 37384031753,
+  "hosted_public_prefix_replay_status": "running",
+  "full_native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0
+}
