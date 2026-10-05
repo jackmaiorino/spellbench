@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -180,6 +181,30 @@ final class JackDialogEncoder implements ModelReplay.DialogCapture {
             throw new IllegalArgumentException("original X range is absent from the offered callback");
         }
         return range;
+    }
+
+    /** Validate actual callback choices before the original player's inference, without encoding again. */
+    static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,String kind,Object[] args,Game game) {
+        try {
+            boolean numeric="x".equals(kind);
+            if (!numeric && !"use".equals(kind)) throw new IllegalArgumentException("unconnected original dialog callback");
+            Ability source=(Ability)args[numeric?3:2];
+            Binding bound=new Binding(world,decision,source,game,numeric);
+            List<Object> values=new ArrayList<>();
+            if (numeric) {
+                int[] limits=range(world,bound,(Integer)args[0],(Integer)args[1],(Boolean)args[2],source,game);
+                for(long x=limits[0];x<=limits[1];x++) values.add((int)x);
+            } else {
+                Boolean fixed=forced(world,(Outcome)args[0],(String)args[1],source,game);
+                if (fixed!=null) values.add(fixed);
+                else {values.add(Boolean.TRUE);values.add(Boolean.FALSE);}
+            }
+            Map<Object,Map<String,Object>> choices=new LinkedHashMap<>();
+            for(Object value:values) choices.put(value,Json.map("candidate_id",bound.id(value),
+                    "semantic_echo",Json.copy(bound.semantics.get(value))));
+            return choices;
+        } catch(RuntimeException failure) {throw failure;}
+        catch(Exception failure) {throw failed("original replay choice binding failed",failure);}
     }
 
     @Override public boolean earlierUse(World world, Map<String, Object> decision, Outcome outcome, String message,

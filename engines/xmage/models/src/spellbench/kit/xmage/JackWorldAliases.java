@@ -59,12 +59,17 @@ final class JackWorldAliases {
         for (CommandObject object : world.game.getState().getCommand()) objects.add(object.getId());
         for (Player player : world.game.getPlayers().values()) {
             for (Permanent object : world.game.getBattlefield().getAllActivePermanents(player.getId())) objects.add(object.getId());
-            for (Card card : player.getHand().getCards(world.game)) objects.add(card.getId());
-            for (Card card : player.getGraveyard().getCards(world.game)) objects.add(card.getId());
-            for (Card card : player.getLibrary().getCards(world.game)) objects.add(card.getId());
+            if (player.getId().equals(world.player(world.viewer))) objects.addAll(player.getHand());
+            objects.addAll(player.getGraveyard());
+        }
+        // Named own-library and opponent-hand knowledge comes only from permitted
+        // references. Never fetch hidden cards merely to filter them afterwards.
+        for (String alias : index.ids()) {
+            Map<String,Object> ref=index.ref(alias);UUID id=world.idToUuid.get(alias);
+            if(id!=null && Json.str(ref,"card_name")!=null && !Json.str(ref,"card_name").isEmpty()) objects.add(id);
         }
         for (ExileZone zone : world.game.getExile().getExileZones()) {
-            for (Card card : zone.getCards(world.game)) objects.add(card.getId());
+            objects.addAll(zone);
         }
         Map<UUID, String> result = new LinkedHashMap<>();
         Set<String> used = new HashSet<>();

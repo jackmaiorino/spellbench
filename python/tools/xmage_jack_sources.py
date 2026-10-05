@@ -48,10 +48,12 @@ CONTEXT = """
     private static final ThreadLocal<Map<UUID, String>> FAIR_ALIASES = new ThreadLocal<>();
 
     private static java.util.Collection<? extends Card> visibleLibrary(
-            java.util.Collection<? extends Card> cards) {
+            Player player, Game game) {
         List<Card> known = new ArrayList<>();
-        for (Card card : cards) {
-            if (FAIR_ALIASES.get().containsKey(card.getId())) known.add(card);
+        for (UUID id : FAIR_ALIASES.get().keySet()) {
+            if (game.getState().getZone(id) != Zone.LIBRARY) continue;
+            Card card = game.getCard(id);
+            if (card != null && player.getId().equals(card.getOwnerId())) known.add(card);
         }
         known.sort(java.util.Comparator.comparing(card -> FAIR_ALIASES.get().get(card.getId())));
         return known;
@@ -99,7 +101,7 @@ def fair_source(source: str) -> str:
             FAIR_VIEWER.remove();
         }""")
     source = replace_once(source, "player.getLibrary().getCards(game)",
-                          "visibleLibrary(player.getLibrary().getCards(game))")
+                          "visibleLibrary(player, game)")
     source = replace_once(source, "for (Permanent p : perms) {",
                           "for (Permanent p : perms) {\n            if (!FAIR_ALIASES.get().containsKey(p.getId())) continue;")
     source = replace_once(source, "for (StackObject so : game.getStack()) {",

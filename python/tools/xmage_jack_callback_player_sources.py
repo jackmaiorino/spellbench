@@ -44,6 +44,36 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private int lastMulliganHandFingerprint = Integer.MIN_VALUE;
     private int lastMulliganHandSize = -1;
     private Boolean lastMulliganDecisionShouldMulligan;
+    /** Root-only wire replay. Simulation copies always execute the original policy. */
+    public interface Replay {
+        Object invoke(String kind, OriginalCallbackPlayer player, Game game, Object[] arguments, Supplier<?> original);
+    }
+    public static final class ReplayStop extends Error {
+        private static final long serialVersionUID = 1L;
+        public final OriginalCallbackPlayer player;
+        public final Game game;
+        public final Object result;
+        private final Replay owner;
+        private ReplayStop(OriginalCallbackPlayer player, Game game, Replay owner, Object result) {
+            super("original wire callback reached", null, false, false);
+            this.player=player;this.game=game;this.owner=owner;this.result=result;
+        }
+    }
+    private transient Replay replay;
+    private transient Game replayGame;
+    private transient int replayDepth;
+    public final void bindOriginalReplay(Game game, Replay replay) {
+        requireOriginalPermittedWorld(game);
+        if (game.isSimulation() || replay==null || this.replay!=null)
+            throw new IllegalArgumentException("one root-only original replay binding required");
+        this.replay=replay;this.replayGame=game;
+    }
+    public final ReplayStop pauseOriginalReplay(Game game, Object result) {
+        requireOriginalPermittedWorld(game);
+        if (replay==null || replayDepth!=1 || game!=replayGame || game.isSimulation() || result==null)
+            throw new IllegalArgumentException("active owned root callback required for replay pause");
+        return new ReplayStop(this,game,replay,result);
+    }
     public OriginalCallbackPlayer(String name, RangeOfInfluence range) { super(name,range); }
     /** Called after permitted-world reconstruction, before binding or any policy callback. */
     public OriginalCallbackPlayer(mage.player.ai.ComputerPlayer bootstrap, int observedMulligans) {
@@ -67,15 +97,33 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         admitOriginalSimulation(source,copied);
     }
     private <T> T callback(Game game, Supplier<T> work) {
+        return callback(game,"unconnected",new Object[0],work);
+    }
+    @SuppressWarnings("unchecked")
+    private <T> T callback(Game game,String kind,Object[] arguments,Supplier<T> work) {
         requireOriginalPermittedWorld(game);
-        try { T result=work.get(); requireOriginalPermittedWorld(game); return result; }
+        try {
+            T result;
+            if (replay!=null && game==replayGame && !game.isSimulation() && !"simulation-copy".equals(kind)) {
+                if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
+                replayDepth++;
+                try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
+                    T picked=work.get();requireOriginalPermittedWorld(game);return picked;
+                }); } finally {replayDepth--;}
+            } else result=work.get();
+            requireOriginalPermittedWorld(game);return result;
+        } catch (ReplayStop stop) {
+            if (stop.player==this && stop.game==game && stop.owner==replay && game==replayGame && !game.isSimulation()) throw stop;
+            try {originalNeuralSession().close();} catch(RuntimeException | Error closing) {stop.addSuppressed(closing);}
+            throw stop;
+        }
         catch (RuntimeException | Error failure) {
             try { originalNeuralSession().close(); } catch (RuntimeException | Error closing) { failure.addSuppressed(closing); }
             throw failure;
         }
     }
     @Override public final void admitOriginalSimulation(Game source, Game copied) {
-        callback(source, () -> {
+        callback(source,"simulation-copy",new Object[0], () -> {
             if (copied==null || copied==source || !copied.isSimulation())
                 throw new IllegalArgumentException("original simulation must be a distinct permitted copy");
             Player player=copied.getPlayer(getId());
@@ -158,7 +206,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         return chooseUse(outcome,message,null,"Yes","No",source,game);
     }
     @Override public final boolean chooseUse(Outcome outcome,String message,String secondMessage,String trueText,String falseText,Ability source,Game game) {
-        return callback(game, () -> {
+        return callback(game,"use",new Object[]{outcome,message,source}, () -> {
             Boolean forced=forcedOriginalUse(outcome,message,source,game);
             if (forced!=null) return forced;
             List<Boolean> candidates=Arrays.asList(Boolean.TRUE,Boolean.FALSE);
@@ -168,7 +216,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         });
     }
     @Override public final int announceX(int min,int max,String message,Game game,Ability source,boolean isManaPay) {
-        return callback(game, () -> {
+        return callback(game,"x",new Object[]{min,max,isManaPay,source}, () -> {
 ''' + x_bounds + '''
             int pick=originalNeuralSelection().select(xValues,StateSequenceBuilder.ActionType.ANNOUNCE_X,source,game,
                     originalNeuralSelection().capture(game),null,0,1,1,1,false,false,false).get(0);

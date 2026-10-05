@@ -560,8 +560,11 @@ that session, and the original clock is checked before reconstruction.
 Engine bookmark restoration preserves the bound player and validates the saved
 lineage token, allowing restored watcher copies with restored branch knowledge.
 
-The existing verified root alias projection is shared with the mode codec through
-`JackWorldAliases`. The method body is unchanged. Live alias refresh uses the
+The root alias projection is shared with the mode codec through
+`JackWorldAliases`. Entity enumeration uses the viewer's hand, public zones and
+explicitly named permitted references. It fetches no hidden hand or library cards
+while filtering references. The state encoder also fetches only explicitly
+permitted library IDs and retains their public-alias ordering. Live alias refresh uses the
 viewer observation builder, named visible objects, branch-known libraries, the
 viewer's current engine look windows and public reveals. It excludes the other
 player's private look windows and expires unnamed or absent references. Returning
@@ -615,3 +618,18 @@ decision's root and copies. It must be launched through the guarded runtime. Its
 source compiles; the entrypoint has not been run under the current native hold.
 Activation/callback replay, the guarded runtime command, live visibility/replay,
 pretrained inference and complete-game qualification remain unfinished.
+
+The staged original player now accepts one root-owned replay hook. Actual binary
+and X callbacks can replay an earlier offered choice without inference and pause
+at the current original choice while keeping the game-owned session open. Hooks
+do not survive player copies; copied simulations execute the original policy.
+Unconnected root replay callbacks and invalid bindings close the session.
+`JackDialogReplay` connects these hooks to the actual original activation path,
+compares the observed state and binds the complete original binary/X value range
+before inference. Metadata checks cover the actual activation path, earlier
+binary choice, current X choice, copy isolation, exact binding and failure closure.
+Hidden-card reads are denied; explicitly named library tokens retain alias order.
+This helper is not yet connected to the production bridge/runtime. Recorded
+alternative-cost state, priority-pass continuation and the remaining callback
+families still require integration before complete-player qualification. Affected
+native preparations must be refreshed to the new encoder and replay-hook sources.
