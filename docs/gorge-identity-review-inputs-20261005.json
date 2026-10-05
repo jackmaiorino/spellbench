@@ -47,8 +47,8 @@
   },
   "native_diagnostic_baseline": "Only364 has a captured native baseline, and its emitted fields remain identical. No native diagnostic equality claim for410/478/504/596.",
   "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
-  "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/960ff223a0ff9e7b89433796c8d7ddc816f2e21e/docs/gorge-native-identity-audit-20261003.md",
-  "benchmark_audit_url_current": false,
+  "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/e473c052a55d38296d3da423bd1a8fc562164cc7/docs/gorge-native-identity-audit-20261003.md",
+  "benchmark_audit_url_current": true,
   "remaining": [
     "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
     "Compatible140-game reference matrix and replay",
@@ -130,5 +130,6 @@
   "original_component_parent_diagnostic_passed": false,
   "corrected_component_verification_passed": true,
   "full_go_ci_passed": true,
-  "native_job_record": "docs/gorge-runtime060-native-20261005.json"
+  "native_job_record": "docs/gorge-runtime060-native-20261005.json",
+  "benchmark_audit_url_reviewed": false
 }

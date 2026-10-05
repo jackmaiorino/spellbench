@@ -453,7 +453,7 @@
       "prior_current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
       "prior_current_reference_preparation": "docs/gorge-reference-runtime026-preparation002-20261004.json",
       "current_runtime_native_attempt": "docs/gorge-runtime040-native-20261005.json",
-      "current_reference_preparation": "docs/gorge-reference-runtime048-preparation007-20261005.json",
+      "current_reference_preparation": "docs/gorge-reference-runtime060-preparation008-20261005.json",
       "previous_failed_runtime_native_attempt": "docs/gorge-runtime033-native-20261005.json",
       "previous_denied_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
     }
@@ -461,7 +461,7 @@
   "publication": null,
   "runtime_preparation": "docs/gorge-runtime040-native-20261005.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA256; production runtime048 is frozen on E/D. All four saved component roots passed, but native serial game52 failed35 reconstruction budget decisions. Full native/reference qualification and playing strength remain unproved. Reference007 inputs remain unlaunched; its real packer rejects the sealed failed native result before job creation. Identity review, rated commitment and publication remain required.",
+    "rated_registry_input": "Explicit registry and SHA256; production runtime060 is independently frozen on E/D. Native serial/parallel qualification is running. Prior runtime033 remains failed. Compatible reference008 inputs are frozen with zero allocation or reservation; native admission, fresh billing, complete audits, identity review and rated launch remain required.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
@@ -493,8 +493,8 @@
       "public_basic_search_after_explore_removal": "docs/gorge-public-roots039-20261005.json"
     }
   },
-  "current_native_qualification": "docs/gorge-runtime048-native-20261005.json",
-  "current_reference_preparation": "docs/gorge-reference-runtime048-preparation007-20261005.json",
+  "current_native_qualification": "docs/gorge-runtime060-native-20261005.json",
+  "current_reference_preparation": "docs/gorge-reference-runtime060-preparation008-20261005.json",
   "prior_runtime_and_qualification_references": {
     "runtime_preparation": "docs/gorge-runtime-preparation-20261004-027.json",
     "current_native_qualification": "docs/gorge-native028-20261004.json",
@@ -529,7 +529,7 @@
     "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
     "current_phase": "released_native_qualification_incomplete",
     "prior_failed_native_record": "docs/gorge-runtime033-native-20261005.json",
-    "current_reference_preparation_compatible": false,
+    "current_reference_preparation_compatible": true,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json",
     "current_reference_admission_proved": false,
     "current_reference_budget_admission_proved": false,
@@ -662,7 +662,7 @@
     "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
     "production_runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
     "current_identity_review_complete": false,
-    "reference_preparation_compatible": false
+    "reference_preparation_compatible": true
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",

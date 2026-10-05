@@ -45,8 +45,8 @@ Later596-frame constraints cannot be used at504.
 Historical runtimes033/040/048 failed their unchanged redeal gates. In048,
 serial game52 recorded35 reconstruction exhaustions before parallel/full audit
 admission. Those results remain failed. Saved component passes cannot qualify
-the complete12-mode panel. The draft benchmark still pins prior audit evidence
-at `960ff223`; it must point to a reviewed current audit before rated commitment.
+the complete12-mode panel. The draft benchmark now pins current source evidence
+at `e473c05`. Independent audit review remains required before rated commitment.
 Current identity/fair-play review and full native/reference qualification remain
 pending. The rest of this document retains historical checks and their limits.
 
