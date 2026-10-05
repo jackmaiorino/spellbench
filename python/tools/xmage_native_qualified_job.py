@@ -1,10 +1,11 @@
-"""Run the supported native qualifier under an owned Windows host reservation.
+"""Run a supported native qualification or rated benchmark in an owned job.
 
 The job manifest supplies a frozen runtime, individually pinned inputs, storage
 budget and window. The existing trusted host helper is supplied by hash; it is
 not a checkpoint or a downloaded community Python module. No paid compute is
-created. The child uses either kitrun.py qualify or the full benchmark's
-plan_for guard. Their measurements have distinct workload identities.
+created. Qualification uses kitrun.py qualify or the benchmark's plan_for
+guard. Rated execution requires the pinned committed-benchmark entrypoint,
+which retains the benchmark runner's throughput, commitment and result checks.
 """
 from __future__ import annotations
 
@@ -44,15 +45,20 @@ def tree_bytes(root: Path) -> int:
 def storage(record: dict) -> int:
     roots = [Path(record[k]) for k in ("hot_root", "cold_root")]
     actual = sum(tree_bytes(root) for root in roots)
-    if actual > record["storage_cap_bytes"]:
+    projected = max(actual, record.get("projected_peak_physical_bytes", actual))
+    if projected > record["storage_cap_bytes"]:
         raise RuntimeError("native job exceeded its declared aggregate storage cap")
-    if any(shutil.disk_usage(root.anchor).free < record["reserve_bytes"] for root in roots):
+    growth = projected - actual
+    if any(shutil.disk_usage(root.anchor).free - growth < record["reserve_bytes"] for root in roots):
         raise RuntimeError("native job volume crossed the declared reserve")
     return actual
 
 
 def progress_counts(prepared: dict, output: Path) -> dict[Path, int]:
-    if prepared.get("qualification_kind") == "benchmark":
+    if prepared.get("execution_kind") == "rated_benchmark":
+        progress = output / "matches.jsonl"
+        paths = (progress,) if progress.exists() else ()
+    elif prepared.get("qualification_kind") == "benchmark":
         directory = Path(prepared["benchmark"]["path"]).parent / ".qualification-records"
         paths = directory.glob("qualification-*/trial-*.jsonl")
     else:
@@ -63,6 +69,33 @@ def progress_counts(prepared: dict, output: Path) -> dict[Path, int]:
         with path.open("rb") as stream:
             counts[path] = sum(1 for _ in stream)
     return counts
+
+
+def execution_kind(record: dict, prepared: dict) -> str:
+    kind = record.get("execution_kind", "qualification")
+    if kind not in ("qualification", "rated_benchmark"):
+        raise ValueError("unknown native job execution kind")
+    if prepared.get("execution_kind", "qualification") != kind:
+        raise ValueError("native preparation and job execution kinds differ")
+    if kind == "qualification" and record.get("qualification_only", True) is not True:
+        raise ValueError("a qualification job must retain its qualification-only scope")
+    if kind == "rated_benchmark":
+        if record.get("qualification_only") is not False:
+            raise ValueError("a rated benchmark cannot be labelled qualification-only")
+        if prepared.get("qualification_kind") != "benchmark":
+            raise ValueError("rated execution requires a pinned benchmark")
+        entry = prepared.get("execution_entrypoint", {})
+        path = Path(entry.get("path", ""))
+        if (path.name != "xmage_native_benchmark_rated.py"
+                or not path.resolve().is_relative_to(Path(record["hot_root"]).resolve())
+                or not path.is_file() or sha(path) != entry.get("sha256")):
+            raise ValueError("rated benchmark entrypoint differs from its owned pin")
+        command = prepared.get("command", [])
+        if len(command) < 2 or Path(command[1]).resolve() != path.resolve():
+            raise ValueError("rated job does not launch its pinned benchmark entrypoint")
+        if Path(command[0]).resolve() != Path(record["launcher_python"]["path"]).resolve():
+            raise ValueError("rated job does not use its pinned base Python interpreter")
+    return kind
 
 
 def completed_since(prepared: dict, output: Path, baseline: dict[Path, int]) -> int:
@@ -87,6 +120,7 @@ def load(manifest: Path, digest: str):
     if sha(preparation) != record["preparation_sha256"]:
         raise ValueError("frozen runtime preparation differs")
     prepared = json.loads(preparation.read_bytes())
+    execution_kind(record, prepared)
     helper = Path(record["reservation_helper"])
     if helper.name != "host_reservation_v1.py" or sha(helper) != record["reservation_helper_sha256"]:
         raise ValueError("trusted reservation helper differs")
@@ -141,9 +175,12 @@ def work(record: dict, prepared: dict, helper) -> int:
     env["PATH"] = prepared["environment"]["PATH_PREFIX"] + os.pathsep + env["PATH"]
     qualifier_output = Path(prepared["command"][prepared["command"].index("--out") + 1])
     start = time.monotonic()
+    kind = execution_kind(record, prepared)
+    scope = ("rated benchmark execution; completion and ratings require a validated published result"
+             if kind == "rated_benchmark" else "completed-game throughput qualification; no rated games")
     terminal = {"schema": "spellbench-native-job-terminal/v1", "started_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "source_revision": prepared["source_revision"], "manifest_sha256": record["manifest_sha256"],
-                "scope": "completed-game throughput qualification; no rated games", "exit_code": 2}
+                "execution_kind": kind, "scope": scope, "exit_code": 2}
     child = None
     try:
         with (attempt/"QUALIFY.log").open("xb") as log, (attempt/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
@@ -154,7 +191,7 @@ def work(record: dict, prepared: dict, helper) -> int:
                 if (hot/"STOP").exists():
                     raise RuntimeError("native job STOP file")
                 if time.monotonic()-start > record["window_seconds"]:
-                    raise RuntimeError("native qualification window expired")
+                    raise RuntimeError("native job window expired")
                 used = storage(record)
                 completed = completed_since(prepared, qualifier_output, baseline)
                 monitor.write(json.dumps({"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
