@@ -6,11 +6,40 @@ import spellbench.kit.core.Json;
 import spellbench.kit.core.Seeds;
 
 import java.io.*;
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 
 /** Borrowed original-player pipe. Launch only inside the caller's guarded native job. */
 public final class JackOriginalBridgeMain {
     static final String SCHEMA="spellbench-jack-original-serving/v1";
+    /** Callback worlds start at their saved priority, before activation mutates the engine. */
+    static Map<String,Object> reconstructionDecision(Map<String,Object> request) {
+        Map<String,Object> current=Json.obj(request,"decision");
+        try {JackRootDecision.mode(current);return current;}
+        catch(IllegalArgumentException unsupported) {
+            Map<String,Object> anchor=Json.obj(request,"anchor"),root=Json.obj(anchor,"decision");
+            if(root==null || JackRootDecision.mode(root)!=WorldBuilder.Mode.PRIORITY)
+                throw new IllegalArgumentException("original callback needs its saved priority decision",unsupported);
+            if(!Json.str(current,"acting_seat").equals(Json.str(root,"acting_seat")))
+                throw new IllegalArgumentException("original callback anchor belongs to another actor");
+            return root;
+        }
+    }
+    static Map<String,Object> choose(World world,Map<String,Object> request) throws Exception {
+        Map<String,Object> current=Json.obj(request,"decision");
+        if(reconstructionDecision(request)==current) return JackRootDecision.choose(world,Json.obj(request,"game_start"),current);
+        // Reduced encoder-only builds omit the optional callback/search layer.
+        // A guarded complete-player launch must supply it; absence never substitutes a policy.
+        try {
+            Class<?> replay=Class.forName("spellbench.kit.xmage.JackDialogReplay");
+            Object controller=replay.getConstructor(World.class,Map.class).newInstance(world,request);
+            @SuppressWarnings("unchecked") Map<String,Object> result=(Map<String,Object>)replay.getMethod("choose").invoke(controller);
+            return result;
+        } catch(InvocationTargetException failure) {
+            Throwable cause=failure.getCause();if(cause instanceof Error) throw (Error)cause;
+            if(cause instanceof RuntimeException) throw (RuntimeException)cause;throw failure;
+        }
+    }
     public static void main(String[] args) throws Exception {
         if(args.length!=4) throw new IllegalArgumentException("profile, game seed, game-start digest and idle seconds required");
         String profile=args[0],digest=args[2]; long seed=Long.parseLong(args[1]); double idle=Double.parseDouble(args[3]);
@@ -49,8 +78,9 @@ public final class JackOriginalBridgeMain {
                     }
                     long before=channel.requestCount(); KitContext.reset();KitRandom.installBoot();
                     KitRandom random=KitRandom.install(Seeds.unhex(Json.str(request,"world_seed")),Seeds.unhex(Json.str(request,"id_seed")));
-                    world=registry.build(start,decision,random,JackRootDecision.mode(decision),0);
-                    Map<String,Object> result=JackRootDecision.choose(world,start,decision);
+                    Map<String,Object> root=reconstructionDecision(request);
+                    world=registry.build(start,root,random,JackRootDecision.mode(root),0);
+                    Map<String,Object> result=choose(world,request);
                     result.put("inference_requests",channel.requestCount()-before);
                     registry.retire(world);world=null;
                     out.println(Json.canonical(Json.map("schema",SCHEMA,"id",id,"operation","decide",

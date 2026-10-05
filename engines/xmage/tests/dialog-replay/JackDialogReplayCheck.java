@@ -13,6 +13,12 @@ import static spellbench.kit.xmage.JackPlayerBootstrapCheck.*;
 
 /** Actual original act/callback path and replay ownership on metadata worlds. */
 public final class JackDialogReplayCheck {
+    static Map<String,Object> flags() {
+        Map<String,Object> flags=new LinkedHashMap<>();
+        for(String flag:Arrays.asList("poison","player_counters","designations","player_progress","day_night",
+                "passed_seats","pending_triggers","keywords","full_name","exiled_by","stack_text","permanent_details","known_cards")) flags.put(flag,false);
+        return flags;
+    }
     static final class Backend implements OriginalNeuralSelection.Model {
         int calls;boolean closed;
         public String callbackSourceSha256() {return OriginalCallbackPlayer.SOURCE_SHA256;}
@@ -25,13 +31,20 @@ public final class JackDialogReplayCheck {
         public void close() {closed=true;}
     }
     static final class Viewer extends OriginalCallbackPlayer {
-        boolean prefix;int entered;boolean earlier;
+        boolean prefix,cost;int entered;boolean earlier;ActivatedAbility playable;
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
         @Override public Viewer copy() {return new Viewer(this);}
+        @Override public List<ActivatedAbility> getPlayable(Game game,boolean hidden) {return Collections.singletonList(playable);}
         @Override protected List<MageObject> engineParentManaProducers(Game game) {return Collections.emptyList();}
         @Override protected boolean activateOriginalAbility(ActivatedAbility ability,Game game) {
             entered++;
+            if(cost) {
+                mage.choices.ChoiceImpl choice=new mage.choices.ChoiceImpl(true);
+                choice.getKeyChoices().put("0","normal cost");choice.getKeyChoices().put("1","alternative cost");
+                require(choose(Outcome.Benefit,choice,game) && "1".equals(choice.getChoiceKey()),
+                        "original activation lost its recorded validated alternative cost or selected source");
+            }
             if(prefix) earlier=chooseUse(Outcome.Benefit,"earlier",null,game);
             announceX(0,3,"current",game,null,false);return true;
         }
@@ -69,8 +82,15 @@ public final class JackDialogReplayCheck {
             });
             world=new World(game,"p0",0,null);world.seatPlayer.put("p0",player.getId());world.seatPlayer.put("p1",root.other.getId());
             Map<UUID,String> aliases=new LinkedHashMap<>();
-            for(UUID id:player.getHand()) {aliases.put(id,"hand");world.bind("hand",id);}
-            for(UUID id:player.getGraveyard()) {aliases.put(id,"grave");world.bind("grave",id);}
+            try {
+                mage.player.spellbench.observe.Observation visible=mage.player.spellbench.observe.ObservationBuilder
+                        .forSession(game,new byte[32],flags()).build("p0","p0",Collections.emptyList());
+                Set<UUID> publicIds=new LinkedHashSet<>(player.getHand());publicIds.addAll(player.getGraveyard());
+                for(UUID id:publicIds) {
+                    String alias=Json.str(Json.obj(visible.reference(id)),"object_id");
+                    aliases.put(id,alias);world.bind(alias,id);
+                }
+            } catch(Exception failure) {throw new AssertionError(failure);}
             registry=new JackPermittedWorlds(new OriginalNeuralSelection.Session(backend,backend.profile(),backend.seed(),()->10));
             registry.register(world,aliases,g->{
                 Map<UUID,Map<String,Object>> rows=new LinkedHashMap<>();
@@ -78,6 +98,7 @@ public final class JackDialogReplayCheck {
                 return rows;
             });
             ability=JackRootDecisionCheck.land(player.getHand().iterator().next(),0);
+            player.playable=ability;
         }
         Game simulation(Game parent) {
             mage.game.GameState state=parent.getState().copy();
@@ -99,9 +120,7 @@ public final class JackDialogReplayCheck {
                     "semantic",Json.map("kind","choose_number","source",null,"purpose","x_value","minimum",0L,"maximum",3L,"value",x)));
             else for(boolean value:new boolean[]{false,true}) offered.add(Json.map("candidate_id",value?7L:8L,
                     "semantic",Json.map("kind","choose_boolean","source",null,"value",value)));
-            Map<String,Object> flags=new LinkedHashMap<>();
-            for(String flag:Arrays.asList("poison","player_counters","designations","player_progress","day_night",
-                    "passed_seats","pending_triggers","keywords","full_name","exiled_by","stack_text","permanent_details","known_cards")) flags.put(flag,false);
+            Map<String,Object> flags=flags();
             try {
                 return Json.map("acting_seat","p0","context",Json.map("kind","choice","source",null),
                         "observation",RoundTrip.project(world,flags,"p0",Collections.emptyList()),"x_observation_flags",flags,"candidates",offered);
@@ -109,13 +128,15 @@ public final class JackDialogReplayCheck {
         }
         Map<String,Object> record(boolean prefix) {
             Map<String,Object> root=decision("use");Json.obj(root,"context").put("kind","priority");
-            root.put("candidates",Arrays.asList(Json.map("candidate_id",1L,"semantic",Json.map("kind","play_land","source",Json.map("object_id","hand"),"face","primary"))));
+            root.put("candidates",Arrays.asList(Json.map("candidate_id",1L,"semantic",Json.map("kind","play_land","source",
+                    new spellbench.kit.core.ObsIndex(Json.obj(root,"observation")).ref(world.uuidToId.get(ability.getSourceId())),"face",0L))));
             Map<String,Object> selected=Json.map("candidate_id",1L,"semantic_echo",Json.copy(Json.obj(Json.obj(Json.arr(root,"candidates").get(0)),"semantic")));
             List<Object> earlier=new ArrayList<>();
             if(prefix) earlier.add(Json.map("decision",decision("use"),"selection",Json.map("candidate_id",7L,"semantic_echo",
                     Json.copy(Json.obj(Json.obj(Json.arr(decision("use"),"candidates").get(1)),"semantic")))));
             return Json.map("game_start",Json.map("seat","p0","agent_seed",27L),"decision",decision("x"),
-                    "anchor",Json.map("decision",root,"selection",selected,"priority_pass_after_activation",false),
+                    "anchor",Json.map("decision",root,"selection",selected,"priority_pass_after_activation",false,
+                            "original_priority_state",Json.map("alternatives",Collections.emptyList())),
                     "replay",Json.map("earlier",earlier,"priority_passes",Collections.emptyList()));
         }
         JackDialogReplay control(Map<String,Object> record) {
@@ -134,6 +155,27 @@ public final class JackDialogReplayCheck {
         require(tokens.containsKey(library) && tokens.containsKey(named.getId()) && tokens.get(named.getId())<tokens.get(library),
                 "explicitly named library tokens were dropped or reordered by hidden library order");
         known.registry.close();
+        Case production=new Case();production.player.cost=true;Map<String,Object> nativeRecord=production.record(false);
+        Map<String,Object> anchor=Json.obj(nativeRecord,"anchor"),rootDecision=Json.obj(anchor,"decision");
+        Method getter=OriginalCallbackPlayer.class.getSuperclass().getDeclaredMethod("originalPriorityRules");getter.setAccessible(true);
+        Object rules=getter.invoke(production.player);Field alternatives=rules.getClass().getDeclaredField("validAlternativeCosts");alternatives.setAccessible(true);
+        @SuppressWarnings("unchecked") Map<UUID,Set<String>> validated=(Map<UUID,Set<String>>)alternatives.get(rules);
+        validated.put(production.ability.getSourceId(),Collections.singleton("1"));
+        Map<String,Object> recorded=JackPriorityState.capture(production.world,rootDecision,rules);validated.clear();
+        anchor.put("original_priority_state",recorded);
+        require(JackOriginalBridgeMain.reconstructionDecision(nativeRecord)==rootDecision,"production callback reconstructed the current callback instead of its anchor");
+        Map<String,Object> bridged=JackOriginalBridgeMain.choose(production.world,nativeRecord);
+        require(Long.valueOf(23).equals(Json.obj(bridged,"selection").get("candidate_id")) && production.backend.calls==1
+                && production.player.entered==1 && !production.backend.closed,"production bridge changed the original activation or inference stream");
+        production.registry.close();
+        Case missing=new Case();Map<String,Object> missingRecord=missing.record(false);Json.obj(missingRecord,"anchor").remove("original_priority_state");
+        refused(()->{try {JackOriginalBridgeMain.choose(missing.world,missingRecord);} catch(Exception failure) {throw new IllegalArgumentException(failure);}});
+        require(missing.backend.closed && missing.backend.calls==0,"missing original priority state inferred or retained the model");
+        Case aliased=new Case();Map<String,Object> aliasedRecord=aliased.record(false);
+        Map<String,Object> badState=Json.obj(Json.obj(aliasedRecord,"anchor"),"original_priority_state");
+        badState.put("alternatives",Arrays.asList(Json.map("source",Json.map("object_id","foreign"),"choices",Arrays.asList("1"))));
+        refused(()->{try {JackOriginalBridgeMain.choose(aliased.world,aliasedRecord);} catch(Exception failure) {throw new IllegalArgumentException(failure);}});
+        require(aliased.backend.closed && aliased.backend.calls==0,"foreign original priority state inferred or retained the model");
         Case live=new Case();JackDialogReplay replay=live.control(live.record(false));replay.bind();
         Map<String,Object> result=replay.activate(live.ability);
         require(Long.valueOf(23).equals(Json.obj(result,"selection").get("candidate_id")) && live.backend.calls==1
@@ -155,6 +197,6 @@ public final class JackDialogReplayCheck {
         refused(()->unsupported.player.chooseMulligan(unsupported.world.game));require(unsupported.backend.closed,"unconnected replay family ran its policy");
         Case foreign=new Case();Map<String,Object> badSeed=foreign.record(false);Json.obj(badSeed,"game_start").put("agent_seed",1L);
         refused(()->foreign.control(badSeed));require(foreign.backend.closed,"foreign constructor seed left the game-owned model open");
-        System.out.println("JackDialogReplayCheck PASS: original activation, current X, recorded binary prefix, no repeated inference, copy isolation and failure closure");
+        System.out.println("JackDialogReplayCheck PASS: production dispatch, recorded alternative-cost state, original activation, current X, recorded binary prefix, copy isolation and failure closure");
     }
 }

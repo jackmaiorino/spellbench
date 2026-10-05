@@ -629,7 +629,15 @@ compares the observed state and binds the complete original binary/X value range
 before inference. Metadata checks cover the actual activation path, earlier
 binary choice, current X choice, copy isolation, exact binding and failure closure.
 Hidden-card reads are denied; explicitly named library tokens retain alias order.
-This helper is not yet connected to the production bridge/runtime. Recorded
-alternative-cost state, priority-pass continuation and the remaining callback
-families still require integration before complete-player qualification. Affected
-native preparations must be refreshed to the new encoder and replay-hook sources.
+The production bridge now reconstructs these callbacks at their saved priority
+anchor and invokes this helper. Root results retain `original_priority_state`;
+callback anchors must carry it along with `priority_pass_after_activation`.
+Validated alternative-cost keys bind through permitted named source references,
+then restore into the actual original priority rules without repeating their
+simulations or model draws. Missing or foreign state closes the session.
+Encoder-only builds omit the optional replay/search layer; complete callback
+launches must supply it. The guarded Python runtime/frontend, priority-pass
+continuation and remaining callback families still require integration before
+complete-player qualification. The production entrypoint remains unexecuted
+under the native hold. Affected native preparations must be refreshed to the new
+encoder, replay-hook and priority-rule sources.

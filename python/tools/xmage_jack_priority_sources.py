@@ -141,6 +141,14 @@ public final class PriorityRules {
         for (Map.Entry<UUID, Set<String>> entry : validAlternativeCosts.entrySet()) copy.put(entry.getKey(), new HashSet<>(entry.getValue()));
         return copy;
     }
+    /** Restore the prior original dispatch's validated state without repeating its simulations or model draws. */
+    public void restoreActivation(Game game, ActivatedAbility selected, Map<UUID, Set<String>> alternatives) {
+        if (game==null || game.getPlayer(getId())!=viewer || game.isSimulation() || selected==null || alternatives==null)
+            throw new IllegalArgumentException("original replay activation needs its admitted root and recorded state");
+        currentAbility=selected;validAlternativeCosts.clear();
+        for(Map.Entry<UUID,Set<String>> entry:alternatives.entrySet())
+            validAlternativeCosts.put(entry.getKey(),new HashSet<>(entry.getValue()));
+    }
     public ActivatedAbility select(Game game, ToIntFunction<List<ActivatedAbility>> chooser) {
         List<ActivatedAbility> all = options(game);
         if (all.size() == 1) return all.get(0);

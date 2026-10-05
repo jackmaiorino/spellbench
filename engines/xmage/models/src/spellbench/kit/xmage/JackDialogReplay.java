@@ -142,6 +142,9 @@ public final class JackDialogReplay {
             if("pass".equals(Json.str(semantic,"kind"))) throw new IllegalArgumentException("direct dialog replay requires an activation anchor");
             ActivatedAbility ability=Mapping.findPlayable(world,player,semantic,new ObsIndex(Json.obj(root,"observation")));
             if(ability==null) throw new IllegalArgumentException("original activation anchor is not playable");
+            Class<?> original=Class.forName("spellbench.models.jack.OriginalCallbackPlayer");
+            Method getter=original.getSuperclass().getDeclaredMethod("originalPriorityRules");getter.setAccessible(true);
+            JackPriorityState.restore(world,root,anchor.get("original_priority_state"),ability,call(getter,player));
             bind();return activate(ability);
         } catch(Throwable failure) {throw failed(failure);}
     }

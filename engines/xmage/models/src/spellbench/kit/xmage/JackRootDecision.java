@@ -131,7 +131,8 @@ public final class JackRootDecision {
         return Json.map("selection",selection,"decision_sha256",JackPriorityBinding.hash(decision),
                 "game_start_sha256",JackPriorityBinding.hash(start),"profile",profile,"seed",seed,
                 "world_flags",new ArrayList<>(world.flags),"priority_dispatch_result",dispatched,
-                "priority_pass_after_activation",passAfter,"full_original_player_qualified",false);
+                "priority_pass_after_activation",passAfter,"original_priority_state",JackPriorityState.capture(world,decision,rules),
+                "full_original_player_qualified",false);
     }
     private static Map<String,Object> selection(Map<String,Object> candidate) {
         return Json.map("candidate_id",candidate.get("candidate_id"),"semantic_echo",Json.copy(candidate.get("semantic")));
