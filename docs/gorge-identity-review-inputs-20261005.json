@@ -1,14 +1,14 @@
 {
   "schema": "spellbench-gorge-identity-review-inputs/v1",
-  "at_utc": "2026-10-05T23:25:05.756737+00:00",
-  "status": "Go, captured prefixes and complete game105 report validate; original106 wrapper failure preserved; full native107 prepared",
+  "at_utc": "2026-10-05T23:33:15.859785+00:00",
+  "status": "Current source passes Go, captured prefixes and actual game105 report; full native107 live through supported matched throughput guard",
   "adapter_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
   "engine_source_commit": "29c35446fbae9aacae050fbd75204f4ccc940524",
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-104",
-  "runtime_seal_sha256": "fac8a4a6392f6c65e0d08863e74d21aafa2f50535d1ca8aa2a424dae8fa3b230",
+  "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261005-108",
+  "runtime_seal_sha256": "411fa9f41914bfca0f04a72c4ed5899b8cbf14c5bb0a5a32af31b25b2f6c06a7",
   "production_overlay_sha256": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
@@ -75,7 +75,7 @@
   "rated_games": 0,
   "published_entries": 0,
   "benchmark_sha256": "988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258",
-  "current_native_qualification": "Failed098 retained; current full native107 prepared through unchanged matched throughput guard",
+  "current_native_qualification": "Guarded hosted native107 live; no full pass yet",
   "current_native_failure_record": "docs/gorge-local-native098-20261005.json",
   "current_native_attempt_seal_sha256": "feaa8768d5f43f9e268b9c1397d63b4819d9936bf0df92df8d9f4d5c765f2b85",
   "component_verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
@@ -575,8 +575,8 @@
   "affected_python_checks_passed": 196,
   "current_reference_runner_cleanup_preserved": true,
   "current_public_repair_record": "docs/gorge-local-public-repair084-20261005.json",
-  "runtime_source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
-  "current_production_build_record": "docs/gorge-ci-runtime104-20261005.json",
+  "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+  "current_production_build_record": "docs/gorge-ci-runtime108-20261005.json",
   "conservative_reserved_total_usd": 9.99736347,
   "billing_source_of_record": "E:/spellbench-gorge-billing-20261005-042",
   "billing_seal_sha256": "6b540954b94c707e3606f5e190a8a71f418dd0d50d5eb1b983e5032b22f31036",
@@ -626,5 +626,6 @@
   "hosted_public_replay_status": "passed_recovered",
   "hosted_public_replay_seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
   "whole_game105_regression_record": "docs/gorge-hosted-regression106-20261005.json",
-  "whole_game105_report_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json"
+  "whole_game105_report_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json",
+  "current_native_qualification_record": "docs/gorge-hosted-native107-dispatch-20261005.json"
 }

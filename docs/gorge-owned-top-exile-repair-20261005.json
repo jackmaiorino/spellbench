@@ -18,7 +18,7 @@
     "go_tests": "Full gorge suite, vet, policy/payment mapping, public bridge and all TestSpellbench boundaries passed at29c3544; current engine source is byte-identical",
     "saved_93_113_123_frame_positive_checks": "Sealed105 passes all three:1 attempt and165/207/221 submits, zero exhaustion; known cards and8 native redealt worlds hold; native diagnostics identical",
     "whole_game105_and_replay": "Both complete,34 resamples and128 parity comparisons, all primary faults/refusals zero. Original106 wrapper failed on expected selected-subset qualifier exit1; separate validated report retained without modifying failed closure.",
-    "full_native_qualification": "Prepared native107 through supported serial/parallel identical-output guard, unlaunched",
+    "full_native_qualification": "Guarded native107/run37388600601 live, serial/parallel allocation must pass before full320/640; no pass yet",
     "reference_qualification": "unlaunched",
     "independent_fairplay_review": "pending_authorization",
     "affected_python_qualification_tests": "89 passed; synthetic engineering unit tests, zero actual games/builds/qualifications",
@@ -27,7 +27,7 @@
     "current_production_build": "Seven production binaries built at8fe6fdd and recovered as104; build only, no qualification",
     "hosted_regression_preparation": "20 affected tests passed, YAML and diff check pass; actual retained failed game105 report rejected at zero-refusal assertion"
   },
-  "resource_state": "No gorge local job/claim; both PCs remain yielded for research. Hosted106 terminal and recovered, native107 prepared; no new paid compute.",
+  "resource_state": "No gorge local job/claim; both PCs remain yielded for research. Hosted native107 live on standard public runner, no Actions artifacts/cache or new paid compute.",
   "native_sampling_settings_unchanged": {
     "attempts": 64,
     "worlds": 8,

@@ -25,7 +25,7 @@ with identical native diagnostics. Results are recovered and sealed on E/D.
 Complete original game105/replay106 has zero primary faults and zero refusals,
 34 resample checks and128 parity comparisons. Its original wrapper job failed
 on the expected selected-subset exit1; the failure is preserved alongside a
-separate validated complete-game report. Full native107 is prepared through the
+separate validated complete-game report. Full native107 is live through the
 unchanged matched serial/parallel guard; no full qualification is claimed.
 The next native launcher explicitly records wall-time worker selection;89
 synthetic Python qualification tests pass. The fixed native schedule and
