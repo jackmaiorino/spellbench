@@ -44,8 +44,13 @@ public final class Seats {
      */
     public void connect(byte[] gameSecret, Map<String, ?> flags, long maxSteps, long maxDecisions,
                         List<String> cardNameDomain, boolean mulliganNone) {
+        connect(gameSecret, flags, maxSteps, maxDecisions, cardNameDomain, mulliganNone, false);
+    }
+
+    public void connect(byte[] gameSecret, Map<String, ?> flags, long maxSteps, long maxDecisions,
+                        List<String> cardNameDomain, boolean mulliganNone, boolean priorityMana) {
         ObservationBuilder builder = ObservationBuilder.forSession(game, gameSecret, flags);
-        exchange = new Exchange(game, builder, maxSteps, maxDecisions, cardNameDomain, mulliganNone);
+        exchange = new Exchange(game, builder, maxSteps, maxDecisions, cardNameDomain, mulliganNone, priorityMana);
         for (SeatState s : states) {
             s.exchange = exchange;
         }

@@ -1,0 +1,43 @@
+{
+ "entry": "h1",
+ "games": 4,
+ "equal": 4,
+ "rows": [
+  {
+   "game": 0,
+   "digest_a": "sha256:9cc1c9cc8153aae816b8289b2d2750edb7240daa1776d22c67d611f666868ad5",
+   "digest_b": "sha256:9cc1c9cc8153aae816b8289b2d2750edb7240daa1776d22c67d611f666868ad5",
+   "equal": true,
+   "outcome": "p0_win",
+   "steps": 219,
+   "violation": null
+  },
+  {
+   "game": 1,
+   "digest_a": "sha256:cae48acfdf3d59c1d2bb6e9d341ec4cbd40e14394d07d040d5ec4d6ccead8048",
+   "digest_b": "sha256:cae48acfdf3d59c1d2bb6e9d341ec4cbd40e14394d07d040d5ec4d6ccead8048",
+   "equal": true,
+   "outcome": "p1_win",
+   "steps": 274,
+   "violation": null
+  },
+  {
+   "game": 2,
+   "digest_a": "sha256:124cd73e655ac7bf941cf3c6c19b142d4e92f68caccf5e9c73f0109838019919",
+   "digest_b": "sha256:124cd73e655ac7bf941cf3c6c19b142d4e92f68caccf5e9c73f0109838019919",
+   "equal": true,
+   "outcome": "p0_win",
+   "steps": 484,
+   "violation": null
+  },
+  {
+   "game": 3,
+   "digest_a": "sha256:4a2301bb271b80ef58e3dec01fd1c5b1bef3a218a966ebdf2ff51c1b8a28821a",
+   "digest_b": "sha256:4a2301bb271b80ef58e3dec01fd1c5b1bef3a218a966ebdf2ff51c1b8a28821a",
+   "equal": true,
+   "outcome": "p1_win",
+   "steps": 308,
+   "violation": null
+  }
+ ]
+}

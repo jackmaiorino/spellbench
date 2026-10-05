@@ -1,0 +1,13 @@
+{"check":"S8.keys.mana_choice","detail":{"full_semantic_keys_distinct":true,"old_keys_collide":true},"pass":true}
+{"check":"S8.keys.trigger_instances","detail":{"full_item_keys_distinct":true,"old_keys_collide":true},"pass":true}
+{"check":"S8.aggregation.vote","detail":{"exact_sum_A":90,"plan_world":0,"votes":"[2, 1, 1]","winner_candidate":1},"pass":true}
+{"check":"S8.aggregation.tie_by_exact_sum","detail":{"plan_world":1,"winner_candidate":2},"pass":true}
+{"check":"S8.aggregation.mcts_visits","detail":{"plan_world":1,"winner_candidate":1},"pass":true}
+{"check":"addendum7.sampler.face_down_disjoint","detail":{"deficit":0,"flags":[],"physical_total":20,"pool":18,"public_cards":2,"surplus":0,"unknown_slots":18},"pass":true}
+{"check":"addendum7.sampler.multiset_exact","detail":{"Ainok Survivalist":2,"Island":10,"Mountain":8},"pass":true}
+{"check":"K1.sampler.pins_honored_20_seeds","detail":null,"pass":true}
+{"check":"addendum5.logical_dialogs.fixed_groups","detail":{"answers":[1,1,0],"bound":"o-s"},"pass":true}
+{"check":"addendum5.logical_dialogs.second_occurrence","detail":{"answer":-1},"pass":true}
+{"check":"S2.rebinding.departed_source","detail":{"outcome":"bound"},"pass":true}
+{"check":"S2.rebinding.ambiguous_binds_nothing","detail":{"plan_ended_foreign_source":1,"plans_opened":1,"rebind_ambiguous":1},"pass":true}
+{"checks":12,"verdict":"PASS"}

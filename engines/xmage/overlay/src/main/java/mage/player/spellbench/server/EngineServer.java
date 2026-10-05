@@ -216,7 +216,7 @@ public final class EngineServer {
         }
         usedGameIds.add(r.gameId);
         try {
-            game = GameSession.create(r, entries(rows.get(0)), entries(rows.get(1)), resolver);
+            game = GameSession.create(r, entries(rows.get(0)), entries(rows.get(1)), resolver, profile.priorityMana);
             game.start();
         } catch (RuntimeException e) {
             // an engine fault never emits a partial decision: the game ends halted (Section 9.5)

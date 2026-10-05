@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +26,8 @@ public final class EngineProfile {
 
     /**
      * The kinds the decision mapper ({@code decide.SeatPlayer}) can emit (task X4). Not declared: the reserved kinds;
-     * {@code choose_starting_player} (starts are host-assigned); {@code activate_mana_ability} (mana abilities are
-     * the engine's under {@code engine_autopay}, never offered); {@code choose_cost_option} and {@code optional_cast}
+     * {@code choose_starting_player} (starts are host-assigned); {@code activate_mana_ability} unless explicitly
+     * enabled for ordinary priority; {@code choose_cost_option} and {@code optional_cast}
      * (XMage reaches them through yes/no and card choices the mapper poses as other kinds).
      */
     static final List<String> DECISION_KINDS = Arrays.asList(
@@ -40,6 +41,9 @@ public final class EngineProfile {
     public final String cardPoolIdentity;
     public final String sourceRevision;
     public final List<CatalogDeck> catalog;
+    /** Frozen when the profile is loaded; cost payment still uses engine_autopay. */
+    public final boolean priorityMana;
+    private final List<String> decisionKinds;
 
     /** A catalog deck, its rows in file order, and the formats it is offered for. */
     public static final class CatalogDeck {
@@ -57,15 +61,26 @@ public final class EngineProfile {
     }
 
     private EngineProfile(String rulesSnapshotId, String cardPoolIdentity, String sourceRevision,
-                          List<CatalogDeck> catalog) {
+                          List<CatalogDeck> catalog, boolean priorityMana) {
         this.rulesSnapshotId = rulesSnapshotId;
         this.cardPoolIdentity = cardPoolIdentity;
         this.sourceRevision = sourceRevision;
         this.catalog = catalog;
+        this.priorityMana = priorityMana;
+        List<String> kinds = new ArrayList<>(DECISION_KINDS);
+        if (priorityMana) {
+            kinds.add(kinds.indexOf("activate_ability"), "activate_mana_ability");
+        }
+        this.decisionKinds = Collections.unmodifiableList(kinds);
     }
 
     @SuppressWarnings("unchecked")
     public static EngineProfile load() throws IOException {
+        String setting = System.getProperty("spellbench.priorityMana", "false");
+        if (!"true".equals(setting) && !"false".equals(setting)) {
+            throw new IOException("spellbench.priorityMana must be true or false");
+        }
+        boolean priorityMana = "true".equals(setting);
         Properties identity = new Properties();
         try (InputStream in = resource("engine-identity.properties")) {
             identity.load(in);
@@ -90,7 +105,8 @@ public final class EngineProfile {
             throw new IOException("catalog.json: " + e.getMessage(), e);
         }
         return new EngineProfile(identity.getProperty("rules_snapshot_id"),
-                identity.getProperty("card_pool_identity"), identity.getProperty("source_revision"), catalog);
+                identity.getProperty("card_pool_identity"), identity.getProperty("source_revision"), catalog,
+                priorityMana);
     }
 
     public CatalogDeck deck(String catalogId) {
@@ -148,7 +164,7 @@ public final class EngineProfile {
         rules.put("starting_player", Arrays.<Object>asList("host_assigned"));
         m.put("rules_supported", rules);
         m.put("observation", observationFlags());
-        m.put("decision_kinds", new ArrayList<Object>(DECISION_KINDS));
+        m.put("decision_kinds", new ArrayList<Object>(decisionKinds));
         Map<String, Object> defaults = new LinkedHashMap<>();
         defaults.put("trigger_order", null);
         defaults.put("replacement_order", null);

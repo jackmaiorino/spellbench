@@ -1,0 +1,43 @@
+// Vendored from XMage fd40ad5c (MIT, see engines/xmage/NOTICE). Kit changes are marked KIT; the diff is published in kit/diffs/.
+
+
+package mage.player.ai;
+
+import java.util.List;
+import mage.abilities.Ability;
+import mage.game.Game;
+
+/**
+ *
+ * @author BetaSteward_at_googlemail.com
+ */
+public class SimulatedAction2 {
+
+    private Game game;
+    private List<Ability> abilities;
+
+    public SimulatedAction2(Game game, List<Ability> abilities) {
+        this.game = game;
+        this.abilities = abilities;
+    }
+
+    public Game getGame() {
+        return this.game;
+    }
+
+    public List<Ability> getAbilities() {
+        return this.abilities;
+    }
+
+    @Override
+    public String toString() {
+        return this.abilities.toString();
+    }
+
+    public boolean usesStack() {
+        if (abilities != null && !abilities.isEmpty()) {
+            return abilities.get(abilities.size() -1).isUsesStack();
+        }
+        return true;
+    }
+}

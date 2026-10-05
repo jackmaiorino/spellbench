@@ -1,0 +1,72 @@
+{
+  "schema": "spellbench-magezero-historical-export-inventory/v1",
+  "observed_at": "2026-10-04T02:08:31.330704+00:00",
+  "source_repository": "toastblademaster-arch/mtg-rl",
+  "source_revision": "8765721c47c67e4527d3644f083d4f42eb3ced19",
+  "candidate_exports": [
+    {
+      "source_path": "exports/UWTempo/ver1/UWTempo2.onnx",
+      "url": "https://raw.githubusercontent.com/toastblademaster-arch/mtg-rl/8765721c47c67e4527d3644f083d4f42eb3ced19/exports/UWTempo/ver1/UWTempo2.onnx",
+      "git_blob_sha1": "c5020186a9d364be027048cb98a5118b4d47cb99",
+      "sha256": "f9c227cb2bc9f51381b6107ca2f8f1b215f469f822eba02686365930f960fccc",
+      "bytes": 8853386,
+      "deck_label_from_path": "UWTempo",
+      "exact_decklist": null,
+      "trained_checkpoint_provenance": "unknown",
+      "encoding_revision": null,
+      "play_settings": null,
+      "runtime_qualified": false,
+      "rated": false,
+      "published": false,
+      "weight_bytes_retained_locally": false,
+      "inspection": "Opaque streaming length, Git blob identity and SHA256 only; no model deserialization or execution"
+    },
+    {
+      "source_path": "exports/UWTempo/ver2/Model.onnx",
+      "url": "https://raw.githubusercontent.com/toastblademaster-arch/mtg-rl/8765721c47c67e4527d3644f083d4f42eb3ced19/exports/UWTempo/ver2/Model.onnx",
+      "git_blob_sha1": "b072d81ad18fc401ebd8434be1d5ec6bf38c89f3",
+      "sha256": "710ffb72181333430d1000cee1cbf2c6dc2afcb077e59f8aaf2b22c643232ee8",
+      "bytes": 8853386,
+      "deck_label_from_path": "UWTempo",
+      "exact_decklist": null,
+      "trained_checkpoint_provenance": "unknown",
+      "encoding_revision": null,
+      "play_settings": null,
+      "runtime_qualified": false,
+      "rated": false,
+      "published": false,
+      "weight_bytes_retained_locally": false,
+      "inspection": "Opaque streaming length, Git blob identity and SHA256 only; no model deserialization or execution"
+    }
+  ],
+  "source_files": [
+    {
+      "source_path": "export.py",
+      "url": "https://raw.githubusercontent.com/toastblademaster-arch/mtg-rl/8765721c47c67e4527d3644f083d4f42eb3ced19/export.py",
+      "sha256": "e8d5d35425eb1287b11caceb06a4bb800d06dd3fd5eaadefb203764002c9ee41",
+      "bytes": 3954
+    },
+    {
+      "source_path": "train.py",
+      "url": "https://raw.githubusercontent.com/toastblademaster-arch/mtg-rl/8765721c47c67e4527d3644f083d4f42eb3ced19/train.py",
+      "sha256": "b05b577860359dab8c74b72bd5a460a49ddd1a9970981014ec2ef5e9186f5d27",
+      "bytes": 13883
+    },
+    {
+      "source_path": "README.md",
+      "url": "https://raw.githubusercontent.com/toastblademaster-arch/mtg-rl/8765721c47c67e4527d3644f083d4f42eb3ced19/README.md",
+      "sha256": "94885b905981b6fc353000eed7f8bcd1ae4c4940100e1108241e2ac28a78c3e0",
+      "bytes": 14183
+    }
+  ],
+  "source_exporter_observations": [
+    "Exporter is explicitly described as unsupported.",
+    "A missing or failed checkpoint load still exports an uninitialized model."
+  ],
+  "duplicate_bot_status": "Unknown; different exported bytes alone do not establish distinct trained policies.",
+  "magezero_v02_compatibility": "Unqualified; current confined v0.2 loader supports pinned raw/.mz weights, not these ONNX graphs.",
+  "next_input": "Exact decklists, training provenance, matching Java encoder/search revision, feature vocabulary and play configuration; preferably modern raw/.mz trained exports.",
+  "actual_model_execution_performed": false,
+  "rated_games": 0,
+  "scope": "Two public historical candidate exports; no trained-agent, strength or v0.2 compatibility claim"
+}

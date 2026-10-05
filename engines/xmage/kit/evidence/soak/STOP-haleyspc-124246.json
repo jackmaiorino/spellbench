@@ -1,0 +1,18 @@
+{
+ "time": "2026-10-02 12:42:46",
+ "why": "rebalanced tail: stopped to hand the last games to main-pc",
+ "rows_kept": 792,
+ "partial_rows_dropped": 0,
+ "killed_agent_dirs": [
+  "kit-agent-2Hrg8i",
+  "kit-agent-4Cobcf",
+  "kit-agent-c9q5Pc",
+  "kit-agent-nS5gtw"
+ ],
+ "unfinished_kitlogs_moved_aside": [
+  "g-021df742f35c0129-p1.jsonl",
+  "g-0323a158370c951d-p1.jsonl",
+  "g-6734ff37b0acf24e-p0.jsonl",
+  "g-6e6b1b55a2969eb1-p0.jsonl"
+ ]
+}
