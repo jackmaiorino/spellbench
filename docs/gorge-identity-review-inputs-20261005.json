@@ -1,0 +1,60 @@
+{
+  "schema": "spellbench-gorge-identity-review-inputs/v1",
+  "at_utc": "2026-10-05T07:35:37.135984+00:00",
+  "status": "prepared_for_review; qualification_and_current_identity_review_pending",
+  "adapter_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
+  "engine_source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
+  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "production_overlay_sha256": "349836a1a60393bb0c4fdc0517ae08d14c3e484d598871c33ccd1bac9de977fd",
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "changed_files": [
+    "engines/gorge/native-overlay/public_priority_test.go.txt",
+    "engines/gorge/native-overlay/public_redeal.go.txt",
+    "engines/gorge/scripts/setup-dev.py"
+  ],
+  "unchanged_emitter_and_history_file_pins": {
+    "engines/gorge/native-overlay/public_collector.go.txt": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef",
+    "engines/gorge/native-overlay/public_history.go.txt": "80243145ba393951d542d2a05ba908d9807ad5ad7a524cd06e40c32b6a1d0db1",
+    "engines/gorge/native-overlay/public_compare.go.txt": "4a93e46877d577308621ec4eb1c6031d0129a579810631c348fff7f1a0b36c2a",
+    "engines/gorge/native-overlay/public_payment.go.txt": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f",
+    "engines/gorge/native-overlay/public_known.go.txt": "176bdf2ff69f9db77f70ee7043e63e1d533147a5bdbdacba5701aeaa84863c5e",
+    "engines/gorge/strategies/history.go": "249e6385befa3c9236be11483d54138feb18c6629af201ba30c97e817ecd21a0"
+  },
+  "changed_runtime_functions": [
+    "spellbenchCarryEpochs",
+    "spellbenchObservedPreferred"
+  ],
+  "inputs": [
+    "Actor-public History identities/events and projected hand sizes",
+    "Existing epoch constraints compiled from that History",
+    "Hypothetical engine and decision created by NewHypotheticalPlanned; no access to the live engine"
+  ],
+  "reconstruction_policy": "Public immediate pass marker orders an existing legal pass first. Public known hand returns reduce carry demand by name; opaque exits remove credit. Optional carry names must occur before first reorder, while all consumed copies remain counted. Original constraint proposals remain available on alternate attempts.",
+  "component_result_record": "E:\\spellbench-gorge-runpod-20261005-048\\COMPONENT-CHECKS-OBSERVED.json",
+  "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "component_worlds": {
+    "364": 8,
+    "410": 8,
+    "478": 8,
+    "596": 8
+  },
+  "native_diagnostic_baseline": "Only364 has a captured baseline; all23 emitted native fields remain identical. No equality claim for410/478/596.",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+  "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/b01aaffc8b11f702306afc4f6d94dfcf95110b6d/docs/gorge-native-identity-audit-20261003.md",
+  "benchmark_audit_url_current": false,
+  "remaining": [
+    "Full current-source320-block/640-game native qualification with supported matched throughput evidence",
+    "Compatible140-game reference matrix and replay",
+    "Current identity and fair-play review; refresh benchmark audit URL to the reviewed audit commit before rated commitment",
+    "Review and merge benchmark definition; commitment and third-party timestamp before any rated game"
+  ],
+  "current_identity_review_complete": false,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

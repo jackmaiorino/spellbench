@@ -1,15 +1,54 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
-Status: incomplete. Production runtime033 uses Spellbench source
-`1d9617c4e9c16924b335b0f7495b915b062e8b38`; its gorge and arena code matches
-`65b15e0ba2ce8b2f6a658e8a11b37b97e02470b8`, which passed complete Go CI.
-This source includes the public scry and witness proposal changes below.
-Native and reference qualification and review remain incomplete.
-Runtime033 failed the unchanged redeal gate at Wildfire seed52, with 17 public
-reconstruction-budget exhaustions and refusals. Its guarded serial trial stopped
-before parallel allocation or the full audit. The
-[sealed failure](gorge-runtime033-native-20261005.json) cannot admit reference
-evaluation or rated play; a corrected runtime requires compatible qualification.
+Status: current identity review and full qualification remain incomplete.
+Production runtime048 uses Spellbench source
+`aee0564`, whose gorge/arena code matches engine source
+`e3c84a133aa826a59be3c07f1644c2401d477e95`. The full Go suite passed for that
+engine source. All seven production binaries are pinned on independent E/D
+copies under runtime seal
+`b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef`.
+[The current job](gorge-runtime048-native-20261005.json) is running its
+supported matched serial/parallel qualification. No full qualification or
+playing-strength result is claimed.
+
+The current public carry, hand-return and pass-ordering repair passed all four
+unchanged saved actor-public inputs under the original 64-attempt/eight-world/
+5000-submit limits:
+
+| Public frames | Worlds | Proposals | Submits | Nodes | Exhaustions |
+| --- | --- | --- | --- | --- | --- |
+| 364 | 8 | 1 | 729 | 11 | 0 |
+| 410 | 8 | 1 | 831 | 19 | 0 |
+| 478 | 8 | 2 | 2412 | 1330 | 0 |
+| 596 | 8 | 1 | 1220 | 31 | 0 |
+
+Only364 has a captured native diagnostic baseline; all23 fields remain
+identical. The other three rows have no native baseline. The pinned component
+binary includes logging of hypothetical shuffle failures. The seven production
+binaries use the original production overlay without that component logger.
+[Current source review inputs](gorge-identity-review-inputs-20261005.json)
+record exact hashes, unchanged emitters, affected functions and remaining gates.
+
+Relative to the benchmark's prior audit pin `b01aaff`, only the reconstruction
+implementation, its added regression overlay and the two-line test overlay
+registration changed. The public collector, event projection, payment witness,
+known-card projection, comparison and strategy history files are byte-compatible
+with that pin. The new runtime logic reads actor-public identities/events,
+projected hand sizes and constraints compiled from that history. Pass preference
+uses the decision of an engine created by `NewHypotheticalPlanned`, rather than
+a live game engine. It orders an already legal pass without removing alternatives.
+Carry guidance tracks public names returned from visible zones, removes credit
+on observed exits, and clears uncertain credit after an opaque exit. Its optional
+prefix ends before the first public reorder; it still counts later consumption.
+Alternate proposals retain the original constraints. Accepted completions still
+replay every actor-public frame and pass the unchanged native known-card checks.
+
+Runtime033 and040 failed their unchanged redeal gates; those historical receipts
+remain failed. Component success above cannot qualify either old runtime or the
+current complete12-mode panel. The benchmark still names the old `b01aaff` audit
+URL. Before rated commitment, that URL must name a reviewed current audit;
+qualification and benchmark review remain required. The rest of this document
+retains earlier source checks and their stated limits.
 
 The earlier inspection verified observer identities and
 private-event filtering, but missed incorrect native choice ownership. Its
@@ -181,8 +220,7 @@ known-card-valid worlds for that input in two proposals and 2,493 submits, with
 zero exhaustion. The earlier 364- and 410-frame inputs still pass in 783 and
 2,107 submits. All 23 captured native diagnostics remain identical for364;
 neither410 nor478 has a captured native diagnostic baseline. The explore-then-
-search regression and public-search suite pass on source98558dd, while broader
-CI remains pending. These are component results from a pinned test binary,
+search regression and public-search suite pass on source98558dd, and complete Go CI later passed for engine sourcee3c84a1. These are component results from a pinned test binary,
 not a production qualification or a playing-strength result. A rebuilt
 production runtime, complete native/reference audits and identity review remain
 required before rating.
