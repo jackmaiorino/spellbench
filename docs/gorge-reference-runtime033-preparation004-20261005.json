@@ -74,5 +74,22 @@
   "preparation_sha256": "b58cb40c93656f5d502ca924bbe42f9f0abe5624e2ceca2b59a55841580fe095",
   "source_files": 195,
   "inputs_verified_on_E_and_D": true,
-  "native_gate_check_record": "E:\\spellbench-gorge-reference-matrix-runtime033-20261005-004\\NATIVE-GATE-CHECKS.json"
+  "native_gate_check_record": "E:\\spellbench-gorge-reference-matrix-runtime033-20261005-004\\NATIVE-GATE-CHECKS.json",
+  "dispatch_packing_preparation": {
+    "at_utc": "2026-10-05T01:51:46.519988+00:00",
+    "phase": "packing_recipe_prepared_actual_unsealed_native_refused",
+    "recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-PACK-RECIPE.py",
+    "recipe_sha256": "bef9c9e261e377b1b47e95569a99873461f585eec320a5ff98235313208357b2",
+    "command": "python out/gorge-pack-reference034-20261005.py",
+    "actual_exit_code": 1,
+    "actual_refusal": {
+      "preparation_refused": "Native attempt is not sealed and closed",
+      "new_cloud_spend_usd": 0
+    },
+    "proposed_dispatch_root_created": false,
+    "evaluation_launched": false,
+    "native_admission_proved": false,
+    "fresh_closed_billing_census_and_guardian_still_required": true,
+    "new_cloud_spend_usd": 0
+  }
 }
