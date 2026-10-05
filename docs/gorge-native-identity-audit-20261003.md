@@ -164,6 +164,29 @@ traces. Those component results and
 do not replace a complete current-runtime native audit, reference matrix or
 identity review. The earlier failed panels remain failed.
 
+The next source preserves basic-search guidance through an actor's completed
+explore when its revealed top card moves to hand or graveyard. That observed
+removal consumes one original-shuffle position and preserves the remaining
+filtered relative order. It does not restore guidance already disabled by
+another library mutation. The change uses only the actor-public explore marker,
+known ownership and recorded zone move; native policies and sampler settings
+remain unchanged.
+
+The sealed 478-frame public failure exhausted 5,000 submits after its actor's
+Nyxborn Hydra explore sent a revealed card to the graveyard. Logging-only
+[reproduction](gorge-witness-trace037-20261005.json) showed a later Twisted
+Landscape search reversing the actor's observed Mountain/Swamp offers.
+[Component039](gorge-public-roots039-20261005.json) now supplies eight
+known-card-valid worlds for that input in two proposals and 2,493 submits, with
+zero exhaustion. The earlier 364- and 410-frame inputs still pass in 783 and
+2,107 submits. All 23 captured native diagnostics remain identical for364;
+neither410 nor478 has a captured native diagnostic baseline. The explore-then-
+search regression and public-search suite pass on source98558dd, while broader
+CI remains pending. These are component results from a pinned test binary,
+not a production qualification or a playing-strength result. A rebuilt
+production runtime, complete native/reference audits and identity review remain
+required before rating.
+
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
 `95f04e8a04c8925fa97cb226fc3341cabcc90a53`, and the public-history implementation
