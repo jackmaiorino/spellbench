@@ -1,0 +1,24 @@
+{
+  "schema": "spellbench-gorge-prefix-refusal/v1",
+  "current_source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "capsule_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-050\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+  "capsule_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+  "closed_diagnostic_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
+  "public_frames": 504,
+  "actor": 0,
+  "work": {
+    "Attempts": 4,
+    "Submits": 5000,
+    "Nodes": 4200,
+    "BudgetExhausted": 1
+  },
+  "exact_prefix_of_historical596": true,
+  "actor_answer_prefix_equal": true,
+  "original_options_unchanged": true,
+  "production_first_failure_order_preserved": true,
+  "exact_replay_complete": false,
+  "deepest_divergence_not_yet_observed": true,
+  "interpretation": "Current source passes saved596-frame history but its identical504-frame prefix exhausts the shared5000-submit reconstruction budget. Later public history supplies constraints unavailable at the earlier decision; this does not yet identify a particular reconstruction bug.",
+  "native_qualification_complete": false,
+  "rated_games": 0
+}
