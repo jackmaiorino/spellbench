@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T01:21:56.886853+00:00",
+  "at_utc": "2026-10-05T01:26:01.218905+00:00",
   "spellbench_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
   "runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -76,7 +76,7 @@
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-033\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-033\\CATALOG.json",
   "guard_path": "Independent four-hour release guardian; bounded remote build; durable binary acknowledgement; qualify_native.py -> plan_allocation -> fixed audit callback",
-  "observed_driver_phase": "runtime_build",
+  "observed_driver_phase": "supported_native_qualification",
   "pod_id": "0vnelx3sj13mcr",
   "owned_lease_name": "spellbench-gorge-native-7d50fd7fdb394021",
   "lease_deadline_utc": "2026-10-05T05:18:59.5556337+00:00",
@@ -88,8 +88,24 @@
   "parent_sha256": "ce8424bb46be5be9f52cec4df386e847d0e02c740b4883216387fd7a49809250",
   "owner_supervision_record": "E:\\spellbench-gorge-runpod-20261005-033\\SUPERVISION.json",
   "independent_lease_guard_record": "E:\\spellbench-gorge-runpod-20261005-033\\LIVE-GUARD-ARMED.json",
-  "observed_live_record": "E:\\spellbench-gorge-runpod-20261005-033\\LIVE-OBSERVATION-001.json",
+  "observed_live_record": "E:\\spellbench-gorge-runpod-20261005-033\\LIVE-OBSERVATION-002.json",
   "owner_watcher_session_id": 28212,
   "reference_qualification_complete": false,
-  "next_wake_condition": "Durable seven-binary pin gate, supported serial/parallel allocation result, full native result, parent failure or four-hour lease deadline; one owner watcher and independent release guardian remain active"
+  "next_wake_condition": "Supported serial/parallel allocation result, full native result, parent failure or four-hour lease deadline; one owner watcher and independent release guardian remain active",
+  "runtime_build_complete": true,
+  "runtime_seal_sha256": "5762eb56f54c7a4ce6a557fddaf8ea11110737027a61c27c1d5a3855a741b497",
+  "runtime_build_record": "E:\\spellbench-gorge-runtime-20261005-033\\BUILD.json",
+  "runtime_binaries": [
+    "spellbench-gorge-corpus-windows-amd64.exe",
+    "spellbench-gorge-env-windows-amd64.exe",
+    "spellbench-gorge-agent-windows-amd64.exe",
+    "gorgequal-windows-amd64.exe",
+    "spellbench-gorge-env-linux-amd64",
+    "spellbench-gorge-agent-linux-amd64",
+    "gorgequal-linux-amd64"
+  ],
+  "native_qualifier_sha256": "2a3a043b07ca75f54a8b6644bf4351ae307529a6b2259b5cc70abc9afe12c679",
+  "independent_binary_pins_verified_before_execution": true,
+  "source_fingerprint_passed": true,
+  "linked_compiler_test_passed": true
 }
