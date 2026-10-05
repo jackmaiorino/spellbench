@@ -30,6 +30,7 @@ import mage.abilities.costs.mana.*;
 import mage.abilities.mana.ManaOptions;
 import mage.cards.*;
 import mage.constants.*;
+import mage.choices.Choice;
 import mage.game.Game;
 import mage.players.Player;
 import mage.target.*;
@@ -99,12 +100,27 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private <T> T callback(Game game, Supplier<T> work) {
         return callback(game,"unconnected",new Object[0],work);
     }
+    @Override protected final boolean ownsOriginalReplayPause(Game game,Throwable failure) {
+        if (!(failure instanceof ReplayStop)) return false;
+        ReplayStop stop=(ReplayStop)failure;
+        return replay!=null && stop.player==this && stop.game==game && stop.owner==replay
+                && game==replayGame && !game.isSimulation();
+    }
+    @Override protected final boolean replayOriginalChoice(Outcome outcome,Choice choice,Game game,Supplier<Boolean> work) {
+        // The engine's automatic mana chooser is not a posed public decision.
+        if (outcome==Outcome.PutManaInPool && choice!=null && choice.isManaColorChoice())
+            return callback(game,"automatic-mana-choice",new Object[]{outcome,choice},work);
+        Ability source=activationAbility();
+        Set<String> validated=source==null?null:originalPriorityRules().alternatives().get(source.getSourceId());
+        return callback(game,"choice",new Object[]{outcome,choice,source,validated},work);
+    }
     @SuppressWarnings("unchecked")
     private <T> T callback(Game game,String kind,Object[] arguments,Supplier<T> work) {
         requireOriginalPermittedWorld(game);
         try {
             T result;
-            if (replay!=null && game==replayGame && !game.isSimulation() && !"simulation-copy".equals(kind)) {
+            if (replay!=null && game==replayGame && !game.isSimulation()
+                    && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)) {
                 if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
                 replayDepth++;
                 try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
@@ -113,7 +129,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             } else result=work.get();
             requireOriginalPermittedWorld(game);return result;
         } catch (ReplayStop stop) {
-            if (stop.player==this && stop.game==game && stop.owner==replay && game==replayGame && !game.isSimulation()) throw stop;
+            if (ownsOriginalReplayPause(game,stop)) throw stop;
             try {originalNeuralSession().close();} catch(RuntimeException | Error closing) {stop.addSuppressed(closing);}
             throw stop;
         }

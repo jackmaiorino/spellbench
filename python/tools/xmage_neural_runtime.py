@@ -121,7 +121,7 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
             "DialogRules", "ModeRules", "TargetRules", "CardSetRules", "CombatRules", "LondonRules")}
         required |= {"model/spellbench/kit/xmage/" + name + ".class" for name in (
             "JackOriginalBridgeMain", "JackRootDecision", "JackPriorityState", "JackDialogReplay",
-            "JackDialogEncoder", "JackModeEncoder", "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "ModelReplay")}
+            "JackDialogEncoder", "JackModeEncoder", "JackNamedChoices", "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "ModelReplay")}
         if not required.issubset(classes):
             raise ValueError("Jack runtime lacks its complete original callback and serving classes")
     checked_tree(build, classes, suffix=".class")

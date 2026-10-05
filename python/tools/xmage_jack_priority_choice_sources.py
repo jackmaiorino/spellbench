@@ -39,6 +39,7 @@ import mage.choices.Choice;
 import mage.constants.*;
 import mage.game.Game;
 import java.util.*;
+import java.util.function.Supplier;
 
 /** Actual original priority/choice dispatch. Remaining strategic callbacks are required. */
 public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogsPlayer {
@@ -131,12 +132,19 @@ public abstract class OriginalPriorityChoicePlayer extends OriginalParentDialogs
         finally { game.pauseTimer(getTurnControlledBy()); }
     }
     private static void trace(String ignored) { }
+    protected boolean replayOriginalChoice(Outcome outcome, Choice choice, Game game, Supplier<Boolean> work) {
+        return work.get();
+    }
+    protected boolean ownsOriginalReplayPause(Game game, Throwable failure) { return false; }
     @Override public final boolean choose(Outcome outcome, Choice choice, Game game) {
         requireOriginalPermittedWorld(game);
         try {
-            boolean result = chooseOriginalBody(outcome, choice, game);
+            boolean result = replayOriginalChoice(outcome, choice, game, () -> chooseOriginalBody(outcome, choice, game));
             requireOriginalPermittedWorld(game); return result;
-        } catch (RuntimeException | Error failure) { closeOriginalSession(failure); throw failure; }
+        } catch (RuntimeException | Error failure) {
+            if (!ownsOriginalReplayPause(game,failure)) closeOriginalSession(failure);
+            throw failure;
+        }
     }
     private boolean chooseOriginalBody(Outcome outcome, Choice choice, Game game) {
 ''' % (CALLBACK_SHA256, PRIORITY_CHOICE_VARIANT) + mana + '''

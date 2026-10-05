@@ -11,7 +11,7 @@ import java.lang.reflect.*;
 import java.util.*;
 import java.util.function.Supplier;
 
-/** Actual original activation to an exact binary, X or spell-mode wire callback. */
+/** Actual original activation to an exact binary, X, spell-mode or named Choice callback. */
 public final class JackDialogReplay {
     interface Projection {void compare(World world,Map<String,Object> decision) throws Exception;}
     private final World world;
@@ -95,8 +95,36 @@ public final class JackDialogReplay {
                     throw new IllegalArgumentException("original replay hook belongs to another root");
                 String kind=(String)args[0];Map<String,Object> past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
                 Map<String,Object> current=past==null?decision:Json.obj(past,"decision");
-                check(current);projection.compare(world,current);
                 Object[] callback=(Object[])args[3];
+                check(current);
+                if("choice".equals(kind)) {
+                    if(callback.length!=4 || !(callback[1] instanceof mage.choices.Choice))
+                        throw new IllegalArgumentException("original named callback lacks its actual Choice");
+                    mage.choices.Choice choice=(mage.choices.Choice)callback[1];
+                    @SuppressWarnings("unchecked") Set<String> validated=(Set<String>)callback[3];
+                    String forced=JackNamedChoices.implicitAlternative(choice,validated);
+                    JackNamedChoices named=null;
+                    if(forced!=null && JackNamedChoices.accepts(current)) {
+                        try {named=new JackNamedChoices(world,current,choice,(mage.abilities.Ability)callback[2],world.game);}
+                        catch(IllegalArgumentException unmatched) { /* A recorded cost can precede a different posed menu. */ }
+                    }
+                    if(forced!=null && named==null) {
+                        Object result=((Supplier<?>)args[4]).get();
+                        if(!Boolean.TRUE.equals(result) || !choice.isChosen() || !forced.equals(choice.getChoiceKey()))
+                            throw new IllegalArgumentException("implicit original alternative Choice changed its recorded dispatch");
+                        return Boolean.TRUE;
+                    }
+                    if(!JackNamedChoices.accepts(current)) throw new IllegalArgumentException("unrecorded original named callback");
+                    projection.compare(world,current);
+                    if(named==null) named=new JackNamedChoices(world,current,choice,(mage.abilities.Ability)callback[2],world.game);
+                    if(past!=null) {
+                        Map<String,Object> selected=Json.obj(past,"selection");ModelReplay.selectedSemantic(current,selected);
+                        boolean result=named.earlier(selected);replayed++;return result;
+                    }
+                    Map<String,Object> selection=named.current(((Supplier<?>)args[4]).get());
+                    throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selection);
+                }
+                projection.compare(world,current);
                 Map<Object,Map<String,Object>> choices;
                 if("mode".equals(kind)) {
                     if(callback.length!=2 || !(callback[0] instanceof mage.abilities.Modes)

@@ -29,6 +29,8 @@ def family(decision):
         if kind == "choose_number" and all(c["semantic"].get("purpose") == "x_value"
                                             for c in decision["candidates"]):
             return "x"
+        if kind in ("choose_option", "choose_color", "choose_name"):
+            return "named"
     if (decision.get("context", {}).get("kind") == "choice" and kinds
             and kinds <= {"choose_spell_mode", "finish_selection"}
             and all(c["semantic"].get("kind") != "finish_selection"
@@ -113,7 +115,7 @@ class JackNativeAgent:
             if kind == "priority" and self.history.anchor is not None:
                 if self.history.anchor["priority_pass_after_activation"]:
                     raise ValueError("original pass-after-activation continuation is not connected")
-            if kind in ("binary", "x", "mode"):
+            if kind in ("binary", "x", "mode", "named"):
                 if (self.history.anchor is None or self.history.anchor["selection"]["semantic_echo"].get("kind")
                         not in ("cast_spell", "activate_ability")):
                     raise ValueError("original callback has no recorded activation anchor")

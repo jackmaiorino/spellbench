@@ -36,6 +36,7 @@ public final class JackDialogReplayCheck {
     static final class Viewer extends OriginalCallbackPlayer {
         boolean prefix,cost,mode,modePrefix;int entered;boolean earlier;ActivatedAbility playable;
         Modes modes;Ability modeSource;Mode earlierMode;
+        mage.choices.Choice named;boolean namedResult;
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
         @Override public Viewer copy() {return new Viewer(this);}
@@ -51,6 +52,7 @@ public final class JackDialogReplayCheck {
             }
             if(prefix) earlier=chooseUse(Outcome.Benefit,"earlier",null,game);
             if(mode || modePrefix) earlierMode=chooseMode(modes,modeSource,game);
+            if(named!=null) namedResult=choose(Outcome.Benefit,named,game);
             announceX(0,3,"current",game,null,false);return true;
         }
     }

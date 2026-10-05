@@ -148,6 +148,32 @@ def test_mixed_mode_families_refuse_before_original_session(semantic):
     assert session.closed and len(session.requests) == 1
 
 
+@pytest.mark.parametrize("kind", ["choose_option", "choose_color", "choose_name"])
+@pytest.mark.parametrize("singleton", [False, True])
+def test_named_callbacks_retain_activation_and_join_mode_binary_x_history(kind, singleton):
+    bot, session = ready([1, 0, 1, 0])
+    bot.choose(view(priority()))
+    if kind == "choose_option":
+        semantics = [{"kind": kind, "source": None, "purpose": "effect_option", "option_index": i,
+                      "option_count": 1 if singleton else 2, "option_label": str(i)} for i in range(1 if singleton else 2)]
+    elif kind == "choose_color":
+        semantics = [{"kind": kind, "source": None, "purpose": "effect", "color": color}
+                     for color in (["blue"] if singleton else ["blue", "green"])]
+    else:
+        semantics = [{"kind": kind, "source": None, "purpose": "creature_type", "value": value}
+                     for value in (["elf"] if singleton else ["elf", "human"])]
+    bot.choose(view(decision(*semantics, step=1)))
+    bot.choose(view(binary(2)))
+    bot.choose(view(amount(3)))
+    root, named, binary_record, x = [entry[0] for entry in session.requests]
+    assert agent.family(named["decision"]) == "named" and named["replay"]["earlier"] == []
+    assert binary_record["replay"]["earlier"][0]["selection"]["semantic_echo"] == semantics[0]
+    assert len(x["replay"]["earlier"]) == 2
+    assert (named["world_seed"], named["id_seed"]) == (root["world_seed"], root["id_seed"])
+    assert not session.closed
+    bot.close()
+
+
 def test_caller_result_and_audit_mutations_cannot_change_saved_priority_state():
     bot, session = ready([1, 0])
     bot.audit = lambda event: event.update(selection={"candidate_id": 999})

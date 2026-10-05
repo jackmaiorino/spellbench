@@ -624,6 +624,26 @@ compile attempts. Both attempts and synthetic files were losslessly packed and
 verified in D/E copies, restoring the 335 MiB native reserve.
 
 Evidence is retained under `E:/spellbench-xmage-all-20261002/jack-mode-replay-001`.
-Named Choice callbacks, resolution passes, priority continuation, refreshed full
+Resolution passes, priority continuation, remaining callback families, refreshed full
 build/native preparations, trained-weight complete games and deck associations
 remain unfinished. These metadata results do not qualify or rate a bot.
+
+Named Choice replay now enters the original inherited `choose(Outcome, Choice,
+Game)` body. Its keys retain their original policy order; visible labels, sorted
+wire indices and candidate IDs bind separately. Duplicate option labels remain
+distinct by visible slot. Colors, creature/type names and cast methods retain
+their typed semantics. Forced choices bypass inference through the original
+body; earlier choices apply the actual key or value without a second policy draw.
+Alternative-cost choices already fixed by the saved priority state can apply
+implicitly before a different public callback. Automatic mana-color choices
+retain their original unposed engine delegation.
+
+Only an owned root replay pause bypasses the inherited error cleanup. Foreign
+pauses still close the receiving game-owned session. JDK23 target8 compilation,
+two identical named-callback metadata JVM runs and 72 affected Python checks
+pass. The original priority/choice, binary/X and spell-mode metadata checks also
+pass with the new hook. Invalid labels, slots, counts, sources and IDs refuse
+before inference. Evidence is under
+`E:/spellbench-xmage-all-20261002/jack-named-replay-001`. Native runtime, large
+card-name domains, remaining callbacks and complete trained-weight games remain
+unqualified. Original private bodies and weights remain outside public Git.
