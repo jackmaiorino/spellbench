@@ -572,7 +572,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-022",
     "billing_seal_sha256": "bf868d112c1bfed14946006b38aadc3d87a296b2e768208de6ebe1038ac70886",
     "conservative_closed_ceiling_usd": 9.28587247,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "a5756a3d2a432138f6241289b1849b6a64f909cb60e216b4eece680b4c3076d9",
       "returncode": 1,
@@ -595,7 +595,10 @@
     },
     "witness043_seal_sha256": "896a29cceefc77ce50af29a8b9c4c482c6e3ba325ef9e825c0b674ad62ff232b",
     "witness043_exact_refusal_reproduced": true,
-    "witness043_farthest_frame": 390
+    "witness043_farthest_frame": 390,
+    "active_lease_scope": "Saved roots044 component check of immediate public pass ordering; production040 remains failed.",
+    "active_lease_maximum_usd": 0.5,
+    "cumulative_ceiling_with_active_lease_usd": 9.78587247
   },
   "current_source_component_status": {
     "source_commit": "98558dd6caaf513a7f60a9469212ba3f8dd695d1",
@@ -613,5 +616,6 @@
     "production_runtime_record": "docs/gorge-runtime040-native-20261005.json"
   },
   "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
-  "current_witness_diagnostic": "docs/gorge-witness-trace043-20261005.json"
+  "current_witness_diagnostic": "docs/gorge-witness-trace043-20261005.json",
+  "current_component_validation": "docs/gorge-public-roots044-20261005.json"
 }
