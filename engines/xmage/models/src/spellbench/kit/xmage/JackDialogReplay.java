@@ -34,15 +34,19 @@ public final class JackDialogReplay {
     private boolean applyingAnchorPass;
     private boolean deferredPass;
 
+    private static final List<String> PHASES=Arrays.asList("upkeep","draw","precombat_main","beginning_of_combat","declare_attackers",
+            "declare_blockers","combat_damage","end_of_combat","postcombat_main","end_step");
     static boolean phaseAdvance(Map<String,Object> root,Map<String,Object> current,String viewer) {
         Map<String,Object> before=Json.obj(root,"observation"),now=Json.obj(current,"observation");
-        List<String> phases=Arrays.asList("upkeep","draw","precombat_main","beginning_of_combat","declare_attackers",
-                "declare_blockers","combat_damage","end_of_combat","postcombat_main","end_step");
-        int first=phases.indexOf(Json.str(before,"phase_step")),last=phases.indexOf(Json.str(now,"phase_step"));
-        return "priority".equals(Json.str(Json.obj(root,"context"),"kind")) && "priority".equals(Json.str(Json.obj(current,"context"),"kind"))
+        String context=Json.str(Json.obj(current,"context"),"kind");
+        int first=PHASES.indexOf(Json.str(before,"phase_step")),last=PHASES.indexOf(Json.str(now,"phase_step"));
+        if("choice".equals(context))for(Object item:Json.arr(current,"candidates"))
+            if(Arrays.asList("pass","cast_spell","activate_ability","activate_mana_ability","play_land").contains(
+                    Json.str(Json.obj(Json.obj(item),"semantic"),"kind")))return false;
+        return "priority".equals(Json.str(Json.obj(root,"context"),"kind")) && Arrays.asList("priority","choice").contains(context)
                 && viewer.equals(Json.str(root,"acting_seat")) && viewer.equals(Json.str(current,"acting_seat"))
                 && viewer.equals(Json.str(before,"viewer")) && viewer.equals(Json.str(now,"viewer"))
-                && viewer.equals(Json.str(before,"priority_seat")) && viewer.equals(Json.str(now,"priority_seat"))
+                && viewer.equals(Json.str(before,"priority_seat")) && ("choice".equals(context) || viewer.equals(Json.str(now,"priority_seat")))
                 && Arrays.asList("p0","p1").contains(Json.str(before,"active_seat")) && Objects.equals(before.get("active_seat"),now.get("active_seat"))
                 && before.get("turn") instanceof Long && (Long)before.get("turn")>0 && Objects.equals(before.get("turn"),now.get("turn"))
                 && Json.arr(before,"stack").isEmpty() && first>=0 && last>first;
@@ -70,13 +74,22 @@ public final class JackDialogReplay {
             resolution="pass".equals(Json.str(ModelReplay.selectedSemantic(Json.obj(anchor,"decision"),Json.obj(anchor,"selection")),"kind"));
             cleanup=resolution && JackGeneralTargetEncoder.cleanupTransition(Json.obj(anchor,"decision"),decision);
             phaseAdvance=resolution && phaseAdvance(Json.obj(anchor,"decision"),decision,world.viewer);
-            if(phaseAdvance && !earlier.isEmpty())throw new IllegalArgumentException("phase advance has unrecorded intervening callbacks");
             if(earlier.size()>4096) throw new IllegalArgumentException("original dialog replay prefix exceeds its bound");
             check(decision);check(Json.obj(anchor,"decision"));
             if(continuation || resolution) {
                 Map<String,Object> before=Json.obj(Json.obj(anchor,"decision"),"observation"),now=Json.obj(decision,"observation");
                 for(String key:Arrays.asList("turn","phase_step"))if(!Objects.equals(before.get(key),now.get(key)))
                     if(!cleanup && !phaseAdvance)throw new IllegalArgumentException("original priority continuation crossed an unrecorded turn or phase");
+            }
+            Map<String,Object> previous=Json.obj(Json.obj(anchor,"decision"),"observation");
+            List<Object> phasePrefix=new ArrayList<>(earlier);phasePrefix.add(Json.map("decision",decision));
+            if(phaseAdvance)for(Object item:phasePrefix) {
+                Map<String,Object> now=Json.obj(Json.obj(Json.obj(item),"decision"),"observation"),root=Json.obj(Json.obj(anchor,"decision"),"observation");
+                int beforePhase=PHASES.indexOf(Json.str(previous,"phase_step")),nowPhase=PHASES.indexOf(Json.str(now,"phase_step"));
+                if(!Objects.equals(root.get("turn"),now.get("turn")) || !Objects.equals(root.get("active_seat"),now.get("active_seat"))
+                        || nowPhase<beforePhase || nowPhase>PHASES.indexOf(Json.str(Json.obj(decision,"observation"),"phase_step")))
+                    throw new IllegalArgumentException("phase callback prefix crossed an unrecorded turn or reversed phase");
+                previous=now;
             }
             for(Object item:earlier) {
                 Map<String,Object> entry=Json.obj(item);check(Json.obj(entry,"decision"));

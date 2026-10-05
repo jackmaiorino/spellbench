@@ -137,18 +137,24 @@ def cleanup_discard(root, current, seat):
             and type(group.get("substep_index")) is int and group["substep_index"] == selected)
 
 
+_PHASES = ("upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
+           "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step")
+
+
 def phase_advance(root, current, seat):
     """Empty-stack forward phase resume, with actual engine projection before scoring."""
     before, now = root.get("observation", {}), current.get("observation", {})
-    phases = ("upkeep", "draw", "precombat_main", "beginning_of_combat", "declare_attackers",
-              "declare_blockers", "combat_damage", "end_of_combat", "postcombat_main", "end_step")
-    return (root.get("context", {}).get("kind") == current.get("context", {}).get("kind") == "priority"
+    context = current.get("context", {}).get("kind")
+    if context == "choice" and any(c.get("semantic", {}).get("kind") in (
+            "pass", "cast_spell", "activate_ability", "activate_mana_ability", "play_land") for c in current.get("candidates", [])):
+        return False
+    return (root.get("context", {}).get("kind") == "priority" and context in ("priority", "choice")
             and root.get("acting_seat") == current.get("acting_seat") == before.get("viewer") == now.get("viewer") == seat
-            and before.get("priority_seat") == now.get("priority_seat") == seat
+            and before.get("priority_seat") == seat and (context == "choice" or now.get("priority_seat") == seat)
             and before.get("active_seat") in ("p0", "p1") and now.get("active_seat") == before["active_seat"]
             and type(before.get("turn")) is int and type(now.get("turn")) is int and now["turn"] == before["turn"] > 0
-            and before.get("stack") == [] and before.get("phase_step") in phases and now.get("phase_step") in phases
-            and phases.index(now["phase_step"]) > phases.index(before["phase_step"]))
+            and before.get("stack") == [] and before.get("phase_step") in _PHASES and now.get("phase_step") in _PHASES
+            and _PHASES.index(now["phase_step"]) > _PHASES.index(before["phase_step"]))
 
 
 def resolution_passes(root, current, seat):
@@ -190,8 +196,6 @@ def bound_replay(record, seat):
     previous = root
     cleanup = action == "pass" and cleanup_discard(root, record["decision"], seat)
     phase = action == "pass" and phase_advance(root, record["decision"], seat)
-    if phase and replay["earlier"]:
-        raise ValueError("original phase advance has unrecorded intervening callbacks")
     entries = [*replay["earlier"], {"decision": record["decision"]}]
     for index, entry in enumerate(entries):
         current = entry["decision"]
@@ -203,6 +207,11 @@ def bound_replay(record, seat):
                     ("choice", "priority") if index == len(entries) - 1 else ("choice",))
                 or (not cleanup and not phase and any(current["observation"].get(key) != root["observation"].get(key)
                        for key in ("turn", "phase_step")))
+                or phase and (current["observation"].get("turn") != root["observation"].get("turn")
+                    or current["observation"].get("active_seat") != root["observation"].get("active_seat")
+                    or current["observation"].get("phase_step") not in _PHASES
+                    or _PHASES.index(current["observation"]["phase_step"]) < _PHASES.index(previous["observation"]["phase_step"])
+                    or _PHASES.index(current["observation"]["phase_step"]) > _PHASES.index(record["decision"]["observation"]["phase_step"]))
                 or cleanup and (not cleanup_discard(root, current, seat)
                     or current["candidates"][0]["semantic"]["selected_count"] != index
                     or (current.get("group") or {}).get("group_id") != (record["decision"].get("group") or {}).get("group_id")

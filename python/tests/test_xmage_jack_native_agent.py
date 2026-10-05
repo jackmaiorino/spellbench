@@ -106,6 +106,27 @@ def binary(step=1):
                     {"kind": "choose_boolean", "value": True}, step=step)
 
 
+@pytest.mark.parametrize("prefix", [0, 1, 2])
+@pytest.mark.parametrize("priority_end", [False, True])
+@pytest.mark.parametrize("already", [False, True])
+def test_forward_phase_callbacks_keep_saved_root_prefix_and_seeds(prefix, priority_end, already):
+    bot, session = ready([0] * (prefix + 2)); root = priority()
+    root["observation"].update(phase_step="upkeep", priority_seat="p0", active_seat="p0",
+                               passed_seats=["p1"] if already else [])
+    bot.choose(view(root))
+    for index in range(prefix + 1):
+        current = priority(index + 1) if priority_end and index == prefix else binary(index + 1)
+        current["observation"].update(phase_step="draw" if index < prefix else "precombat_main",
+                                       priority_seat="p0" if current["context"]["kind"] == "priority" else None, active_seat="p0")
+        bot.choose(view(current))
+    first, last = session.requests[0][0], session.requests[-1][0]
+    assert last["anchor"]["decision"] == first["decision"] and len(last["replay"]["earlier"]) == prefix
+    assert last["replay"]["priority_passes"] == ([] if already else ["p1"])
+    assert all((r["world_seed"], r["id_seed"]) == (first["world_seed"], first["id_seed"]) for r, _ in session.requests)
+    assert session.results[-1]["original_phase_advance_path"] and not session.closed
+    bot.close()
+
+
 def amount(step=2):
     return decision({"kind": "choose_number", "purpose": "x_value", "value": 0},
                     {"kind": "choose_number", "purpose": "x_value", "value": 1}, step=step)

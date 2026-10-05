@@ -76,6 +76,45 @@ def test_phase_resume_transports_empty_stack_original_root(tmp_path, monkeypatch
     session.close();assert peer.closed and pair.closed
 
 
+def phase_callbacks(record, prefix, priority_end=False, already=False):
+    phase_record(record, before="upkeep", after="precombat_main", already=already)
+    def choice(step, phase):
+        current=copy.deepcopy(record["decision"]);current.update(seat_step=step, context={"kind":"choice","source":None})
+        current["observation"].update(phase_step=phase, priority_seat=None)
+        current["candidates"]=[{"candidate_id":7+i,"semantic":{"kind":"choose_boolean","source":None,"value":bool(i)}} for i in (0,1)]
+        return current
+    record["replay"]["earlier"]=[]
+    for index in range(prefix):
+        current=choice(index+1,"draw")
+        record["replay"]["earlier"].append({"decision":current,"selection":{"candidate_id":7,"semantic_echo":current["candidates"][0]["semantic"]}})
+    if not priority_end:record["decision"]=choice(prefix+1,"precombat_main")
+    record["decision"]["seat_step"]=prefix+1
+
+
+@pytest.mark.parametrize("prefix", [0, 1, 2])
+@pytest.mark.parametrize("priority_end", [False, True])
+@pytest.mark.parametrize("already", [False, True])
+def test_phase_callbacks_retain_ordered_original_replay(tmp_path, monkeypatch, prefix, priority_end, already):
+    session, record, peer, pair, _=setup(tmp_path,monkeypatch);phase_callbacks(record,prefix,priority_end,already)
+    rows(peer,result(session,record));chosen=session.choose(record,timeout_s=2)
+    assert chosen["original_phase_advance_path"] and chosen["original_dialog_prefix_replayed"]==prefix
+    assert peer.writes[0]["replay"]==record["replay"] and peer.writes[0]["anchor"]==record["anchor"]
+    session.close();assert peer.closed and pair.closed
+
+
+@pytest.mark.parametrize("fault", ["turn","active","reverse","overshoot","unknown-phase"])
+def test_phase_callback_prefix_refuses_unrecorded_transitions_before_write(tmp_path,monkeypatch,fault):
+    session,record,peer,pair,_=setup(tmp_path,monkeypatch);phase_callbacks(record,2)
+    first,last=[entry["decision"]["observation"] for entry in record["replay"]["earlier"]]
+    if fault=="turn":first["turn"]+=1
+    if fault=="active":first["active_seat"]="p1"
+    if fault=="reverse":first["phase_step"],last["phase_step"]="draw","upkeep"
+    if fault=="overshoot":first["phase_step"]="end_step"
+    if fault=="unknown-phase":first["phase_step"]="pregame"
+    with pytest.raises(ValueError,match="step, turn or phase"):session.choose(record,timeout_s=2)
+    assert not peer.writes and peer.closed and pair.closed
+
+
 @pytest.mark.parametrize("fault", ["reverse", "turn", "active", "priority", "viewer", "context", "same", "pregame", "prefix", "missing-pass", "extra-pass", "own-passed"])
 def test_invalid_empty_stack_phase_record_refuses_before_jvm_write(tmp_path, monkeypatch, fault):
     session, record, peer, pair, _ = setup(tmp_path, monkeypatch);phase_record(record)

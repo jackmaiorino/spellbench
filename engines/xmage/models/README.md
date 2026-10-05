@@ -962,3 +962,21 @@ passes, alongside all eighteen existing Java checks. Evidence:
 `E:/spellbench-xmage-all-20261002/jack-trigger-replay-001`. Fixtures use metadata
 worlds. Native event-loop execution, nested combat, library-position transport,
 turn changes/repeated phases and complete trained-weight games remain open.
+
+An empty-stack pass that advances the phase can now resume at an original dialog
+before priority returns to the viewer. Recorded callbacks remain in the same root
+and use the original reconstruction seeds. Their phases must follow the declared
+forward interval with unchanged turn and active seat. Replay consumes their
+answers without additional policy/copy draws and compares every actual observation
+before dispatching the current original callback or priority policy. An unrecorded
+viewer priority or opponent decision still refuses. The serving and frontend
+require the original phase-resume receipt for both endpoint types.
+
+259 affected Python checks pass, including 29 new frontend/serving cases. Two fresh
+metadata JVM outputs match across 48 callback/priority transition cases, and all
+nineteen existing Java regressions pass. Turn/active-seat changes, reversed or
+overshooting prefixes, actual phase mismatch, missing passes and unrecorded choices
+close the session before scoring. Evidence:
+`E:/spellbench-xmage-all-20261002/jack-phase-callbacks-001`. Resume is scripted in
+these metadata fixtures. Native phase transitions, turn changes, repeated phases,
+automatic draws, nested combat and complete games remain unqualified.

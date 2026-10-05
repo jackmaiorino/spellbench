@@ -311,3 +311,11 @@ slots, repeated instances and current or recorded public source identities bind
 the menu; unknown or hidden sources refuse. Two matching metadata JVM outputs
 cover 180 parent-oracle cases, all eighteen Java regressions pass, and 300 affected
 Python checks pass. Native trigger execution remains unqualified.
+
+Empty-stack forward phase resumes now reach original dialogs as well as priority.
+Recorded callback prefixes preserve the saved root and reconstruction seeds;
+each actual observation is compared before the current policy scores. Turn/active
+seat changes, reversed or overshooting phases, unrecorded priorities and opponent
+choices refuse. 259 affected Python checks, 48 matching metadata JVM cases and
+nineteen Java regressions pass. Native phase execution, automatic draws and full
+trained-weight games remain unqualified.
