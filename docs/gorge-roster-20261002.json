@@ -524,7 +524,7 @@
     "production_binaries_frozen": true,
     "production_runtime_compatible_with_current_source": true,
     "production_runtime_rebuilt": true,
-    "current_phase": "ci069_inputs_prepared_guarded_dispatch_ready",
+    "current_phase": "public_ci_native069_running_result_pending",
     "full_engine_source_ci_passed": true,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
@@ -547,7 +547,9 @@
     "conservative_reserved_total_usd": 9.96136347,
     "current_ci_native_record": "docs/gorge-ci-native069-20261005.json",
     "supported_optional_host": "github-actions",
-    "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26"
+    "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
+    "active_ci_native_run": "https://github.com/jackmaiorino/spellbench/actions/runs/37314990816",
+    "active_ci_native_execution_source": "e06161ee1334da3b875bdba08d19d623af783ed5"
   },
   "current_source_component_status": {
     "at_utc": "2026-10-05T12:19:27.432969+00:00",

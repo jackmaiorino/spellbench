@@ -45,13 +45,13 @@
   "planned_wall_cap_seconds": 18000,
   "rated_games": 0,
   "release_asset_id": 612612290,
-  "ci_run_id": null,
+  "ci_run_id": 37314990816,
   "remote_result_recovery": "E/D recovery and verification before hosted artifact and draft input deletion",
   "release_id": 403724120,
   "remote_asset_digest": "sha256:d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a",
   "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
   "input_stage_anonymous_status": 404,
-  "phase": "inputs_prepared_guarded_dispatch_ready",
+  "phase": "public_ci_native069_running_result_pending",
   "native_qualification_passed": false,
   "checks": {
     "throughput_tests_passed": 79,
@@ -70,7 +70,16 @@
     "status": "passed",
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390"
   },
-  "next_wake": "GitHub native069 terminal state or fault; recover exact result and logs to E/D before deleting temporary hosted inputs/results",
+  "next_wake": "Exact run terminal/fault, or watcher failure; watcher75735 recovers to E/D before removing temporary draft inputs and result artifact. Native full audit remains guarded and unqualified until observed successful result.",
   "raw_native_launch_used": false,
-  "new_runpod_lease": false
+  "new_runpod_lease": false,
+  "ci_run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37314990816",
+  "execution_source_commit": "e06161ee1334da3b875bdba08d19d623af783ed5",
+  "observed_status": "in_progress",
+  "observed_at_utc": "2026-10-05T13:15:01.138025+00:00",
+  "watcher_pid": 46624,
+  "watcher_session": 75735,
+  "watcher_source_sha256": "2e5285dc99bfb5c675c25519cf8bcdbf402de55decc82b579b2b5a4ca565a60d",
+  "result_source_of_record": "E:\\spellbench-gorge-ci-native-results-20261005-069",
+  "result_recovery_root": "D:/e-scratch/spellbench-gorge-ci-native-results-20261005-069"
 }
