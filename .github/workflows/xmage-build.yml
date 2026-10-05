@@ -5,6 +5,8 @@ on:
     paths:
       - 'engines/xmage/**'
       - 'python/tools/xmage_verified_entry.py'
+      - 'python/tools/xmage_*sources.py'
+      - 'python/tools/xmage_model_*.py'
       - 'python/tests/test_xmage_x5_guards.py'
       - '.github/workflows/xmage-build.yml'
   workflow_dispatch:
@@ -54,11 +56,46 @@ jobs:
         run: |
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x1.DeterminismCheck --selftest
           java -cp "$RUNNER_TEMP/xmage-build/lib/*" mage.player.spellbench.x3.ObservationSoak --selftest
+          mkdir -p "$RUNNER_TEMP/priority-mana-check"
+          javac --release 8 -cp "$RUNNER_TEMP/xmage-build/lib/*" \
+            -d "$RUNNER_TEMP/priority-mana-check" engines/xmage/tests/priority-mana/EngineProfileCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$RUNNER_TEMP/xmage-build/lib/*" \
+            mage.player.spellbench.server.EngineProfileCheck
+      - name: Compile both original model searches, mixed bridge and MageZero encoder
+        env:
+          SPELLBENCH_CI_GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python python/tools/xmage_model_ci_inputs.py --root "$RUNNER_TEMP/model-inputs"
+          python python/tools/xmage_model_build.py --compile-only \
+            --inputs "$RUNNER_TEMP/model-inputs" \
+            --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-slices-build"
+          python python/tools/xmage_model_build.py --compile-only \
+            --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
+            --magezero-inputs "$RUNNER_TEMP/model-inputs" \
+            --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \
+            --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-build"
+          java -cp "$RUNNER_TEMP/model-build/model" spellbench.models.magezero.v02.search.TransportCheck
+          java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.MageZeroSearchSettingsCheck
+          java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core" spellbench.models.exp1.PlaySettingsCheck
+          java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackManaReplayCheck
+          java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.JackGeneralTargetNormalizationCheck
+          mana_cp="$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*"
+          javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
+            engines/xmage/tests/priority-mana/ManaMappingCheck.java \
+            engines/xmage/tests/priority-mana/JackManaProfileCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.ManaMappingCheck
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.JackManaProfileCheck
+          javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
+            engines/xmage/tests/priority-binding/JackPriorityBindingCheck.java
+          java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.JackPriorityBindingCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: xmage-reviewed-build-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             ${{ runner.temp }}/xmage-build/BUILD-MANIFEST.json
             ${{ runner.temp }}/xmage-build/lib/
+            ${{ runner.temp }}/model-inputs/CI-INPUTS.json
+            ${{ runner.temp }}/model-build/BUILD.json
           retention-days: 30
           if-no-files-found: error

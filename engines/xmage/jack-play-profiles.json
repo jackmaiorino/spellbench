@@ -1,0 +1,235 @@
+{
+  "schema": "spellbench-jack-play-profiles/v1",
+  "source": {
+    "visibility": "private; source bytes must stay outside public Git",
+    "revision": "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+    "callback": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/ComputerPlayerRL.java",
+      "sha256": "b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6",
+      "selection_lines": [693, 896],
+      "constructor_lines": [1587, 1603],
+      "head_mapping_lines": [1990, 2008]
+    },
+    "evaluation": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/rl/RLTrainer.java",
+      "sha256": "07886c37a5f011ecfbc92cca22e7657162c2483afe3b73e355b950f8a3abbd82",
+      "greedy_constructor_lines": [2489, 2491],
+      "no_training_constructor_lines": [3576, 3578]
+    },
+    "mulligan_game_encoder": {
+      "path": "Mage.Server.Plugins/Mage.Player.AIRL/src/mage/player/ai/rl/MulliganModel.java",
+      "sha256": "69e039a69c5d983f5614d6a9c7efc77a7cf9f0ca1df64851d642d0f2ad718497",
+      "identical_at_revisions": [
+        "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+        "80f912c9e238ebd0448fc1140a617d71363d02fe"
+      ],
+      "feature_lines": [
+        201,
+        296
+      ]
+    }
+  },
+  "profiles": [
+    {
+      "id": "jack-april-eval-greedy-fair-v1",
+      "greedy": true,
+      "training": false,
+      "campaign_exploration": false,
+      "scope": "original evaluation choice component; complete game adapter unfinished"
+    },
+    {
+      "id": "jack-april-no-training-sampled-fair-v1",
+      "greedy": false,
+      "training": false,
+      "campaign_exploration": false,
+      "scope": "explicit original no-training sampled choice component; not the evaluation default"
+    }
+  ],
+  "selection": {
+    "implementation": "hash-verified original Java methods extracted to private build files",
+    "normalization": "original float32 log, maximum subtraction and softmax of candidate probabilities",
+    "nonpositive_probability_floor": "1e-20",
+    "greedy_ties": "first original candidate index",
+    "multi_pick": "original sequential selection without replacement",
+    "rng": "one java.util.Random per owned game, seeded directly from the protocol agent seed",
+    "fair_variant": "deterministic game seeding; invalid input or returned choices refuse rather than falling back",
+    "candidate_slots": 64
+  },
+  "priority": {
+    "original_dispatch_source_lines": [5199, 5254],
+    "original_option_source_lines": [6050, 6244],
+    "feature_probe": "JackEncoder/JackEncoderMain reconstruct permitted priority features in received wire candidate order; this is not the original action policy",
+    "original_order": "getPlayableForCurrentState order; first occurrence of ability text, except mana abilities keyed by source UUID plus text; pass inserted first; genericChoose keeps first 64 slots",
+    "original_validation": "activation and alternative-cost filtering before inference; selected valid alternative choices retained; default RL_SKIP_SIM_VALIDATION=false",
+    "original_forced_pass_phases": ["upkeep", "draw", "begin_combat", "first_combat_damage", "combat_damage", "end_combat", "end_step", "cleanup"],
+    "original_action_phases": ["precombat_main", "postcombat_main"],
+    "original_action_then_pass_phases": ["declare_attackers", "declare_blockers"],
+    "original_mana_options": "distinct mana abilities can be selected as priority actions; the public engine_autopay surface hides activated-mana and special-mana-payment abilities",
+    "wiring": "feature inference qualified separately; original ordered action construction, validation and phase dispatch remain unwired",
+    "limitations": "a complete adapter must preserve the original option set and action/pass lifecycle, including explicit mana, or identify a changed policy as a separate variant; no playable original priority policy or full-game qualification"
+  },
+  "mulligan": {
+    "features": 71,
+    "evaluation_episode": -1,
+    "training_exploration": false,
+    "training_overrides": false,
+    "april_keep_rule": "keep_probability >= 0.5",
+    "legacy_keep_rule": "Q_keep >= Q_mull",
+    "fair_variant": "original own-hand features and remaining-library multiset; library sorted by card name; no hidden order",
+    "wiring": "private original feature port and paired-network pregame component; guarded native execution unfinished"
+  },
+  "modes": {
+    "source_lines": [3777, 3900],
+    "candidate_order": "original Modes.getAvailableModes order, first 64 entries",
+    "head": "action",
+    "feature_overwrite": "feature 0 = original float32 ordinal / candidate count",
+    "mode_cost_feature": "feature 13 = 1.0 when Mode.getCost() is non-null, else 0.0",
+    "single_or_exhausted": "direct original return; no model or RNG use",
+    "source_staging_flag": "mode_callback: true",
+    "mana_source_staging_flag": "mode_mana_callback: true; requires mode_callback and dialog_callback",
+    "wiring": "permitted callback replay, source-bound frame, paired policy and owned original chooser; optional original filtered mana rules preserve mode costs and legality",
+    "limitations": "native execution including modes with costs pending; original automatic mana production and complete games unfinished"
+  },
+  "dialogs": {
+    "source_staging_flag": "dialog_callback: true",
+    "choose_use_source_lines": [4053, 4252],
+    "announce_x_source_lines": [3903, 4044],
+    "mana_availability_source_lines": [6330, 6442],
+    "binary_order": [true, false],
+    "binary_ids": "original CHOOSE_USE_YES and CHOOSE_USE_NO Java token IDs",
+    "x_bound": "original cap at 20, tightened by filtered mana, base cost, X instances and conditional mana applicability",
+    "head": "action",
+    "forced_returns": "original mana feasibility gates and single X value; no model or RNG use",
+    "wiring": "permitted actual callback replay, original private rules, paired model and owned original chooser",
+    "limitations": "native execution pending; automatic mana production, other numeric callbacks and complete games unfinished"
+  },
+  "mana_payment": {
+    "source_staging_flag": "mana_payment_callback: true; requires mode_mana_callback",
+    "source_lines": [6290, 6488],
+    "engine_choices": true,
+    "engine_planning_queues": "empty, as in the original RL action path",
+    "producer_order": "original usable-producer filtering, source and tap-target exclusions, stable penalty ordering during payment",
+    "context": "original nested unpaid-mana thread context; separate activation reservations per actual or copied player",
+    "callbacks": "original color preference and tap-target heuristics; original ordinary engine delegation preserves ordered pending costs",
+    "wiring": "optional source-bound replay hooks in both mode and binary/X pipes; separate payment variants and strict paired-policy consumers",
+    "limitations": "private rules, activation/payment lifecycle and engine delegation parity require guarded native qualification; full games unfinished"
+  },
+  "targets": {
+    "source_staging_flag": "target_callback: true; requires mana_payment_callback and the original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackTargetEncoderMain",
+    "owned_session": "xmage_jack_targets.TargetSession",
+    "decision_kinds": [
+      "choose_target",
+      "finish_target_selection"
+    ],
+    "original_head": "target",
+    "original_order": "actual possible-target order, filtered by original legality and earlier picks; STOP first when the original gate permits",
+    "direct_returns": "one option and same-name non-null targets bypass inference and chooser RNG, including when STOP is offered",
+    "feature_shapes": "256 by 128 state; 64 by 48 candidates; original IDs and first 64 slots",
+    "prefix_rules": "original mode legality, binary feasibility, X ranges and automatic mana payment",
+    "completion_rules": "original minimum and Crew/Saddle completion retained in the private loop; native cost adapters remain unfinished",
+    "limitations": "native private target execution, prefix/copy semantics and chooser application pending; cost, provided-card, divided-target and opponent-sourced callbacks, exact decks and complete games unfinished"
+  },
+  "general_targets": {
+    "source_staging_flag": "Uses the existing target_callback flag and eight unchanged private stage bodies",
+    "java_encoder": "spellbench.kit.xmage.JackGeneralTargetEncoderMain",
+    "owned_session": "xmage_jack_general_targets.GeneralTargetSession",
+    "decision_kinds": [
+      "choose_target",
+      "finish_target_selection",
+      "choose_cost_target",
+      "select_object",
+      "finish_selection"
+    ],
+    "original_policy": "Same original general target loop and target head; generic TargetCard callbacks are supported when no card set is provided",
+    "wire_binding": "Preserves original action echo, complete source/reference/range binding and original possible-target order; normalization never changes public observations",
+    "prefix_rules": "Original mode, binary, X, payment and earlier general target choices",
+    "limitations": "Native execution, generic card/cost callbacks and full games unqualified; provided-card, divided-target, opponent-source and incompatible public/original ranges remain unfinished"
+  },
+  "card_sets": {
+    "source_staging_flag": "card_set_callback: true; requires target_callback and the original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackCardSetEncoderMain",
+    "owned_session": "xmage_jack_card_sets.CardSetSession",
+    "private_stage_bodies": 9,
+    "source_lines": [3183, 3459],
+    "original_method_sha256": "569764ce74bd1e906aefd11606b164d27150d8162ba0a7d2a1231e15b55fd41c",
+    "decision_kinds": ["select_object", "finish_selection", "choose_target", "finish_target_selection"],
+    "original_policy": "chooseTarget(Outcome, Cards, TargetCard, Ability, Game); original provided-card filtering and sequential selection",
+    "original_head": "card_select",
+    "original_groups": "Name groups only for TargetCardInLibrary and TargetCardInHand; other TargetCard types retain separate copies; first available representative and first 64 groups",
+    "direct_returns": "One original group bypasses model and chooser RNG; a multi-copy group still chooses a physical copy",
+    "copy_variant": "Owned Python MT19937 seeded from SHA-256 of the card-copy domain and canonical game_start; singleton copies direct; original Java neural chooser stream unchanged",
+    "wire_binding": "Every physical copy, STOP, source and range bound to the original public action; recorded earlier picks consume neither model nor copy RNG",
+    "limitations": "Private native execution and full games unqualified; inherited choose(Cards), divided targets, opponent callbacks and incompatible public/original ranges remain unfinished"
+  },
+  "parent_cards": {
+    "source_staging_flag": "parent_card_callback: true; requires card_set_callback and all original prefix rules",
+    "java_encoder": "spellbench.kit.xmage.JackParentCardEncoderMain",
+    "owned_session": "xmage_jack_parent_cards.ParentCardSession",
+    "private_stage_bodies": 15,
+    "original_parent_revision": "750b3ff88c98f00a0d3218a54c16198b69b8a24c",
+    "original_base_source_sha256": "7c5ecab1cf4796886cb0c505560b239556a91582bef721f651b07760603d78f4",
+    "original_base_lines": [130, 178],
+    "decision_kinds": ["select_object", "finish_selection", "choose_target", "finish_target_selection"],
+    "original_policy": "Inherited choose(Outcome, Cards, TargetCard, Ability, Game) through original ComputerPlayer7/6 with empty planning queues",
+    "original_helpers": ["PossibleTargetsSelector", "PossibleTargetsComparator", "GameStateEvaluator2.evaluatePermanent", "ArtificialScoringSystem", "MagicAbility"],
+    "ordering": "Original good/bad target lists, score and name ordering, UUID ties and target.add; no public-ID re-ranking or current-engine scorer substitution",
+    "completion_variant": "Original implicit completion is bound to an offered legal STOP; unsupported or incomplete minima refuse",
+    "owner_streams": "No model, neural chooser or physical-copy RNG; recorded parent prefix must equal the original determined choice",
+    "prefix_rules": "Original neural provided-card, general-target, mode, binary, X and payment rules",
+    "limitations": "Private native execution, planning queues, other callbacks, exact decks and full games remain unqualified; incompatible ranges, divided targets and opponent callbacks refuse"
+  },
+  "combat": {
+    "source_staging_flag": "combat_callback: true; independent of target-prefix flags",
+    "source_lines": [
+      4280,
+      4651
+    ],
+    "java_encoder": "spellbench.kit.xmage.JackCombatMain",
+    "owned_session": "xmage_jack_combat.CombatSession",
+    "owned_plan": "xmage_jack_combat.JackCombatPlan",
+    "private_stage_bodies": 16,
+    "original_order": "First 63 attacking creatures and DONE last; separate legal defender list; blocking attackers sorted by descending power; original filtered blocker pool",
+    "selection": "Original complete sequential draw without replacement, including choices after DONE; single original pick for defender rounds",
+    "state": "One cached permitted base state per callback, shared by all rounds",
+    "application": "Original declareAttacker/declareBlocker, removal from blocker pool and resetPassed; actual declarations bound to consecutive public group substeps",
+    "limitations": "Source staging and Python component checks only; nested callbacks refuse; private native execution, actual paired-weight combat, exact decks and full games remain unqualified"
+  },
+  "london_bottom": {
+    "source_staging_flag": "london_callback: true; independent of other callback flags",
+    "source_lines": [
+      4842,
+      5015
+    ],
+    "java_encoder": "spellbench.kit.xmage.JackLondonMain",
+    "owned_session": "xmage_jack_london.LondonSession",
+    "owned_plan": "xmage_jack_london.LondonPlan",
+    "private_stage_bodies": 17,
+    "engine_lifecycle": "Actual LondonMulligan calls chooseTarget with a one-card TargetCardInHand; rank the current whole hand for every bottom card and move it to the library before the next callback",
+    "original_head": "card_select",
+    "selection": "Full sequential draw for each shrinking-hand ranking; bottom that ranking's last card; singleton direct return",
+    "base_cache": "Original default-enabled cache signature, extracted from the April source; rebuilding uses permitted named own-hand and explicit known-library aliases",
+    "application": "Original Target.addTarget loop and actual engine putCardsOnBottomOfLibrary; consecutive public order_pick:mulligan_bottom substeps bind each physical pick",
+    "fair_variant": "Only named own-hand candidates and permitted base state; moved hand aliases are not introduced as new known-library references; model or transport failures refuse instead of the original exception fallback",
+    "limitations": "Private source staging and affected component checks; native execution, actual paired weights, deck associations and complete games remain unqualified"
+  },
+  "remaining": [
+    "guarded execution of the staged chooser on source-derived numerical cases",
+    "original per-callback candidate ordering, filters, feature overwrites and application rules",
+    "guarded original mulligan feature and policy execution; duplicate-prompt handling",
+    "guarded original spell-mode execution and hidden-world replay",
+    "guarded original binary and X feature, mana gate and selection execution",
+    "guarded modes with costs and original filtered mana legality",
+    "guarded original automatic mana rules, context cleanup and engine delegation parity",
+    "guarded original sequential targets, forced returns, STOP, prefix verification and chooser application",
+    "guarded original provided-card groups, representative features, first-64 cap, STOP and seeded physical-copy application",
+    "guarded original inherited card sorting, UUID ties, target.add, legal completion and exact prefix parity",
+    "guarded original attack/block candidate frames, cached state, full chooser draws and actual wire declarations",
+    "guarded original repeated London shrinking-hand ranking and one-card bottom callbacks",
+    "exact checkpoint deck associations",
+    "full game adapter, deterministic replay, throughput qualification and rated benchmark"
+  ],
+  "full_game_qualified": false,
+  "rated": false,
+  "published": false
+}

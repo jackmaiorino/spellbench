@@ -1,0 +1,87 @@
+{
+  "schema": "spellbench-xmage-coverage/v1",
+  "checked_at": "2026-10-05",
+  "inputs": "releases.json",
+  "entries": [
+    {
+      "family": "xmage-mad7",
+      "source": "xmage",
+      "shipped_skills": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      "fair_entries": ["mad7-s1", "mad7-s2", "mad7-s3", "mad7-s4", "mad7-s5", "mad7-s6", "mad7-s7", "mad7-s8", "mad7-s9", "mad7-s10", "h2"],
+      "policy_aliases": [["mad7-s1", "mad7-s2", "mad7-s3", "mad7-s4"], ["h1", "mad7-s6"]],
+      "variant": "sampled worlds; synchronous kit budgets and reconstruction",
+      "integrated": true,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "throughput_qualified": true,
+      "qualification_status": "48 natural complete-game checks with identical 1/4/8-worker output stores; guarded allocation selects 8 workers; rated ledger and post-run validation pending",
+      "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
+      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
+    },
+    {
+      "family": "xmage-mcts",
+      "source": "xmage",
+      "fair_entries": ["h3"],
+      "variant": "one sampled world; fixed 30 iterations and declared rollout and combat caps",
+      "integrated": true,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "throughput_qualified": true,
+      "qualification_status": "included in passing 48-game native benchmark qualification, with identical complete-game output stores at 1/4/8 workers",
+      "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
+      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
+    },
+    {
+      "family": "draftzero-exp1",
+      "source": "draftzero_engine_exp1",
+      "checkpoints": ["draftzero-exp1-gen0", "draftzero-exp1-gen10", "draftzero-exp1-gen33"],
+      "format": "FDN Limited",
+      "action_vocabulary": "draftzero-exp1-actions",
+      "input_status": "all public checkpoints hash verified and isolated inference tested",
+      "wiring_status": "all three public checkpoints complete a six-visit FDN UR game and identical-seed replay; priority, dialog, original spell-mode, retained combat plans and public lifecycle are wired; a distinct released final-evaluation fair profile carries 96 visits, 12 seconds, binary prior only and source time-or-visits stopping through priority, saved-anchor dialogs and combat; profile-specific full games and broader qualification remain pending",
+      "play_profiles": ["minimum-visits-diagnostic", "published-exp1-final-eval-fair-v1"],
+      "published_play_source": "draftzero-published-play.json",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["published-profile full games, same-seed replay and clock sensitivity", "broader FDN transitions and callback coverage", "completed-work throughput qualification", "reviewed frozen benchmark and guarded evaluation", "result review and publication"]
+    },
+    {
+      "family": "magezero-v02",
+      "source": "magezero_engine_v02",
+      "format": "Standard 2022-25, deck-local",
+      "checkpoints": [],
+      "input_status": "no public weights found in either release bundle",
+      "wiring_status": "isolated raw and mz export loading, original v0.2 priority encoder, original priority/dialog search, typed combat and mixed bridge, and deck-bound public frontend/runtime are wired; native encoder and synthetic search/combat checks repeat identically; no compatible trained weights or author settings are available, and trained-policy full-game qualification remains unfinished",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["author weights with exact deck and encoder association", "full fair adapter", "qualification", "guarded evaluation", "review and publication"]
+    },
+    {
+      "family": "jack-xmage-rl",
+      "priority_policy_wiring": {"status": "original callback/priority player and game-owned frontend/runtime wired; native original serving and full games unqualified", "feature_probe_qualified_separately": true, "original_option_order_and_validation_qualified": false, "original_phase_dispatch_qualified": false, "original_manual_mana_qualified": false, "full_game_qualified": false},
+      "combat_wiring": {"source": "original private April callbacks", "status": "staged and paired-policy/chooser pipe wired; native qualification pending", "checkpoints_used": false, "full_game_qualified": false},
+      "london_bottom_wiring": {"source": "original private April loop and base-cache signature", "status": "staged and repeated shrinking-hand ranking pipe wired; native qualification pending", "checkpoints_used": false, "full_game_qualified": false},
+      "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],
+      "input_status": "43 archived snapshots located; ten current policy and mulligan files copied and size/hash verified",
+      "wiring_status": "all five pairs strictly load and repeat finite isolated inference on actual permitted Java priority features; paired inference, private chooser, mulligan, mode and original binary/X components are wired; original filtered mana availability, binary feasibility gates, YES/NO IDs and affordable integer order are retained; optional automatic mana replay adds original producer filters, tap reservations, nested payment context and engine delegation; original named-source spell targets retain sequential order, STOP gates, direct returns, target head and first 64 slots; prefix choices use original mode/dialog rules; forced returns bypass model and RNG; mode slots retain original order, legality, first-64 cap, ordinal overwrite and cost flags; legacy Standard Q keep ties are preserved; native source checks including automatic payment/reservation lifecycle and engine parity, other callbacks, duplicate prompts, exact decks and full game adapter unfinished; a separate general-target pipe maps spell, cost and object/finish wire actions to that same original loop, with explicit generic TargetCard support and original wire echoes; eight prior private stage bodies remain unchanged; an optional ninth body wires original chooseTarget(Cards), provided-card filtering and name groups, representative features, card_select head, STOP and first 64 groups; a distinct game-seeded MT19937 physical-copy stream leaves the original neural chooser stream unchanged; inherited choose(Cards) is kept separate; native qualification pending; a distinct inherited choose(Cards) pipe stages six original April parent helpers including the ability scoring table with empty planning queues, original good/bad sorting, UUID ties and target.add; recorded parent prefixes must match the original determined policy; implicit completion binds only to offered legal STOP and consumes no model, neural chooser or copy RNG; all nine prior private source bodies remain unchanged; native execution and full games remain unqualified",
+      "play_profile_source": "jack-play-profiles.json",
+      "integrated": false,
+      "qualified": false,
+      "rated": false,
+      "published": false,
+      "remaining": ["exact deck, source and encoder associations", "full fair game adapter", "qualification", "appropriate benchmark", "guarded evaluation", "review and publication"]
+    }
+  ],
+  "excluded_helpers": [
+    {"class": "ComputerPlayer", "reason": "shared dialogs and pass-only priority"},
+    {"class": "ComputerPlayer6", "reason": "CP7 search and combat support; pass-only priority inherited"},
+    {"class": "ComputerPlayerControllableProxy", "reason": "automatic play aliases CP7; human control is outside the roster"},
+    {"class": "ComputerDraftPlayer", "reason": "draft selection only; concedes ordinary matches"}
+  ]
+}

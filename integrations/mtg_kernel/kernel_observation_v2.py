@@ -22,6 +22,13 @@ COUNTERS = {"plus1_plus1": "p1p1", "minus1_minus1": "m1m1",
 KEYWORDS = ("flying", "reach", "haste", "vigilance", "trample", "first_strike", "double_strike",
             "deathtouch", "menace", "defender", "lifelink", "hexproof", "indestructible",
             "protection_from_monocolored")
+# Fixed classifications from the private bridge. Arbitrary support values are
+# never diagnostic text: they may contain facts outside the visible projection.
+PRIVATE_PROJECTION_FAILURES = (
+    "invalid detached resolving item", "invalid pending trigger announcement",
+    "invalid pending activation announcement", "foreign mana ability row",
+    "unbound mana ability row",
+)
 
 
 class ProjectionError(ValueError):
@@ -218,8 +225,12 @@ class KernelProjection:
                 "permanent": permanent, "exiled_by": self.exiled_by.get(native_key(stable))}
 
     def project(self, raw: dict, support: dict) -> dict:
-        if support.get("projection_error"):
-            raise ProjectionError("native private projection validation failed")
+        failure = support.get("projection_error")
+        if failure:
+            message = "native private projection validation failed"
+            if type(failure) is str and failure in PRIVATE_PROJECTION_FAILURES:
+                message += ": " + failure
+            raise ProjectionError(message)
         if f"{raw['card_db_hash']:016x}" != self.catalog["card_db_hash"]:
             raise ProjectionError("actor observation uses a different card database")
         raw = normalized_zones(raw)

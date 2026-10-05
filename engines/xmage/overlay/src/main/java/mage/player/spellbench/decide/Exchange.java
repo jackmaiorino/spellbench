@@ -79,6 +79,7 @@ public final class Exchange {
     final Stats stats = new Stats();
     final Set<String> cardNameDomain;
     final boolean mulliganNone;
+    final boolean priorityMana;
 
     private final BlockingQueue<Outcome> outcomes = new ArrayBlockingQueue<>(2);
     private final BlockingQueue<Integer> answers = new ArrayBlockingQueue<>(2);
@@ -99,12 +100,18 @@ public final class Exchange {
 
     public Exchange(Game game, ObservationBuilder builder, long maxSteps, long maxDecisions,
                     List<String> cardNameDomain, boolean mulliganNone) {
+        this(game, builder, maxSteps, maxDecisions, cardNameDomain, mulliganNone, false);
+    }
+
+    public Exchange(Game game, ObservationBuilder builder, long maxSteps, long maxDecisions,
+                    List<String> cardNameDomain, boolean mulliganNone, boolean priorityMana) {
         this.game = game;
         this.builder = builder;
         this.maxSteps = maxSteps;
         this.maxDecisions = maxDecisions;
         this.cardNameDomain = Collections.unmodifiableSet(new LinkedHashSet<>(cardNameDomain));
         this.mulliganNone = mulliganNone;
+        this.priorityMana = priorityMana;
     }
 
     /**

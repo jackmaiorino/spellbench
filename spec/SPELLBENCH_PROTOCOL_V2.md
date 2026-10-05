@@ -677,6 +677,8 @@ An engine may answer these decisions itself, for both seats, only under a declar
 
 Note: auto-payment is allowed because several engines pay costs through their own planners. Benchmarks show every default in force on their page, since defaults change play strength.
 
+`engine_autopay` governs paying a cost. An engine may also offer ordinary priority activations through the existing `activate_mana_ability` kind when it declares that kind in `decision_kinds`. Such a decision has `context.kind: "priority"` and `context.purpose: null`; the seat may float mana before taking another priority action. This does not expose payment choices answered by the declared default. The `mana_payment` exception in Section 7.1 applies when a mana activation appears in a **choice** decision. `activate_ability` continues to mean a non-mana ability.
+
 ### 7.7 Reserved kinds
 
 These kinds are specified for a later minor version. v2.0 engines do not emit them.

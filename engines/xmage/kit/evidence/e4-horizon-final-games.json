@@ -1,0 +1,11 @@
+{
+ "flagged_anchors": 0,
+ "over_threshold": 0,
+ "anchors": [],
+ "mcts": {
+  "iterations": 660,
+  "truncated": 215,
+  "horizon": 0,
+  "truncated_share": 0.326
+ }
+}

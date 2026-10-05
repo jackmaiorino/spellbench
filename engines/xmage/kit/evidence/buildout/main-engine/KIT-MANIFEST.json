@@ -1,0 +1,11 @@
+{
+  "kit_version": "0.2.0",
+  "engine_lib_digest": "c01c512db82e5d7117b1dbced3e7605c974ce73bb371ea9f29637ba0a341e8df",
+  "engine_rules_snapshot_id": "xmage-fd40ad5c29a92cef824cf12ba6d0e4daa25db975-xpat-6f8a902bb6681c2fe4ec79823cf05d5cc46042b2298a33f5ea73e0bbc61a2822",
+  "kit_source_digest": "db6dc00766a1dc3127405a677d37541f56be905c444d7568d1e90245bc70ed54",
+  "jdk": "java version \"23.0.2\" 2025-01-21",
+  "jars": {
+    "kit-core.jar": "7345f358c3021c4fe6487aa59f65fbc25f0160e797ca22b007853e86292bb89a",
+    "kit-xmage.jar": "3ffad93418a3389fdfa9f081be665738f02dc86b3940a4fba54b4b2f1184942d"
+  }
+}
