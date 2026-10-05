@@ -1,0 +1,39 @@
+{
+  "schema": "spellbench-gorge-source-repair/v1",
+  "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "public_projection_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+  "public_projection_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+  "event_source_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "event_source_sha256": "cf735eff33519764484a240cb48f36bcb69b4a2f4d9a175901337c4798cff80d",
+  "exact_baseline_diagnostic": "docs/gorge-witness-trace046-20261005.json",
+  "opponent_reorder": {
+    "frame": 355,
+    "event_index": 1,
+    "draws_before": 9,
+    "scry_bottom_count": 1
+  },
+  "draw_after_reorder": {
+    "frame": 355,
+    "event_index": 3,
+    "draw_count": 10
+  },
+  "repair": "Optional carry deadline uses the drawn prefix before the first public reorder in the previous epoch. It counts all prior consumed copies while retaining known return credit. Native constraints and odd proposal alternatives remain unchanged.",
+  "interpretation": "The previous ten-card prefix can include the bottomed tenth card, although only nine original prefix cards were drawn before the reorder. A needed carry copy can therefore be missing at the next shuffle. This explains a feasible failure mode, not a proved resolution of the saved596-frame refusal.",
+  "regression": "TestSpellbenchPublicCarrySurvivesScryBottom checks opponent/actor/no reorder, repeated reorder, consumption after reorder, unchanged native constraints, and eight real constrained shuffle plans retaining required copies before scry.",
+  "ci": {
+    "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+    "run_id": 37273275687,
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+    "affected_checks": "passed",
+    "full_suite": "pending"
+  },
+  "exact596_replay_with_repair_complete": false,
+  "production_runtime_rebuilt": false,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_runpod_spend_usd": 0,
+  "constraints": "Ledger025 conservative cumulative boundUSD9.84147447; no active gorge pod. Further guarded cloud build does not fit. Jack generation184 and Haley queued research priority remain excluded. Zaratan saved credentials rejected before Duo; refresh remains pending.",
+  "next_wake_condition": "Current affected CI completion; then compatible exact-root replay and guarded full qualification on an eligible allocation when resources or access change."
+}

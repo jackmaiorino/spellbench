@@ -620,21 +620,20 @@
     "witness046_baseline_refusal_reproduced": true
   },
   "current_source_component_status": {
-    "source_commit": "98558dd6caaf513a7f60a9469212ba3f8dd695d1",
-    "component_record": "docs/gorge-public-roots039-20261005.json",
-    "component_source_of_record": "E:\\spellbench-gorge-runpod-20261005-039",
-    "component_seal_sha256": "35643baff8035fa60f25ff7ddd81ffd27582bb29d3a50df77056d13f817e38cb",
-    "test_runtime_source_of_record": "E:\\spellbench-gorge-public-root-runtime-20261005-039",
-    "test_runtime_seal_sha256": "da055147e1a95cd06debb78559bc0e4b4b96119f248b179e2fbbb88d6b98cce4",
-    "component_roots_passed": true,
-    "production_runtime_rebuilt": true,
+    "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+    "source_repair_record": "docs/gorge-carry-reorder-repair-20261005.json",
+    "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+    "component_roots_passed": false,
+    "latest_compatible_exact596_replay_complete": false,
+    "production_runtime_rebuilt": false,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
     "rated_games": 0,
     "published_entries": 0,
-    "production_runtime_record": "docs/gorge-runtime040-native-20261005.json"
+    "previous_production_runtime_record": "docs/gorge-runtime040-native-20261005.json",
+    "previous_production_qualification": "failed; historical040 receipt retained"
   },
   "current_diagnostic": "docs/gorge-diagnostic042-20261005.json",
-  "current_witness_diagnostic": "docs/gorge-witness-trace043-20261005.json",
+  "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",
   "current_component_validation": "docs/gorge-witness-trace046-20261005.json"
 }
