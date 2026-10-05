@@ -84,8 +84,8 @@
   "source_archive_verified": true,
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
-  "bundle_sha256": "e88c62607a5ad2bc29bf6907a2c41ad422109c0ade85b5c0c238c6771df38a9c",
-  "phase": "prepared_not_launched",
+  "bundle_sha256": "c535f78ee8cfa3881b6d1b47e4ab40023de72b4275f0e0c82bbf49cbf931c6e9",
+  "phase": "guarded_witness_diagnostic_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-052\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-052\\CATALOG.json",
   "guard_path": "Independent half-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
@@ -106,5 +106,28 @@
       "maximum_charge_usd": 0,
       "reason": "Explicit no instances available response and exact owned name absent on two authenticated inventories"
     }
-  ]
+  ],
+  "pre_dispatch_metadata_repair": {
+    "reason": "Correct byte-count metadata for previously hashed diagnostic parent annotation; exact source/options/gates unchanged; no dispatch or execution occurred",
+    "old_bytes": 205527,
+    "parent_sha256": "c771f8fb07791d6cfbae723f7d31eed9d95222a9afa47c136b9fe1f14467a158",
+    "parent_bytes": 12053,
+    "bundle_sha256": "c535f78ee8cfa3881b6d1b47e4ab40023de72b4275f0e0c82bbf49cbf931c6e9"
+  },
+  "pod_id": "pkfy4gaki1j5wb",
+  "owned_lease_name": "spellbench-gorge-witness-6ae39b4da5194399",
+  "lease_deadline_utc": "2026-10-05T09:49:42.7534163+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.19,
+  "effective_cpu_cores": 5.1,
+  "effective_memory_bytes": 46999998464,
+  "authenticated_host_fingerprint": "SHA256:GAiw2AVk+NLGlo2lXVVoFG2nKhtQP+dZauFG/6MEHsE",
+  "parent_pid": 3155,
+  "parent_start_tick": "3315459088",
+  "owner_watcher_session_id": 91943,
+  "owner_watcher_pid": 57456,
+  "release_guardian_pid": 60192,
+  "parent_sha256": "c771f8fb07791d6cfbae723f7d31eed9d95222a9afa47c136b9fe1f14467a158",
+  "runtime_pins_complete": false,
+  "diagnostic_complete": false,
+  "next_wake_condition": "Independent diagnostic binary pin, exact captured-work replay and trace, parent failure or half-hour deadline; one owner and guardian retained"
 }
