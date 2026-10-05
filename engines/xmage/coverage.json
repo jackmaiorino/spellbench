@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-xmage-coverage/v1",
-  "checked_at": "2026-10-04",
+  "checked_at": "2026-10-05",
   "inputs": "releases.json",
   "entries": [
     {
@@ -55,7 +55,7 @@
       "format": "Standard 2022-25, deck-local",
       "checkpoints": [],
       "input_status": "no public weights found in either release bundle",
-      "wiring_status": "isolated raw and mz export loading; separately staged original v0.2 Java priority encoder and deck-bound direct decision path; 219 affected checks and all CI pass; two actual native priority fixtures repeat 468 features and three policy slots identically, preserve hidden-sample encoding invariance and detect visible life changes; actual pretrained weights, original search and complete game adapter remain unfinished",
+      "wiring_status": "isolated raw and mz export loading, original v0.2 priority encoder, original priority/dialog search, typed combat and mixed bridge, and deck-bound public frontend/runtime are wired; native encoder and synthetic search/combat checks repeat identically; no compatible trained weights or author settings are available, and trained-policy full-game qualification remains unfinished",
       "integrated": false,
       "qualified": false,
       "rated": false,
@@ -64,7 +64,7 @@
     },
     {
       "family": "jack-xmage-rl",
-      "priority_policy_wiring": {"status": "unwired", "feature_probe_qualified_separately": true, "original_option_order_and_validation_qualified": false, "original_phase_dispatch_qualified": false, "original_manual_mana_qualified": false, "full_game_qualified": false},
+      "priority_policy_wiring": {"status": "original callback/priority player and game-owned frontend/runtime wired; native original serving and full games unqualified", "feature_probe_qualified_separately": true, "original_option_order_and_validation_qualified": false, "original_phase_dispatch_qualified": false, "original_manual_mana_qualified": false, "full_game_qualified": false},
       "combat_wiring": {"source": "original private April callbacks", "status": "staged and paired-policy/chooser pipe wired; native qualification pending", "checkpoints_used": false, "full_game_qualified": false},
       "london_bottom_wiring": {"source": "original private April loop and base-cache signature", "status": "staged and repeated shrinking-hand ranking pipe wired; native qualification pending", "checkpoints_used": false, "full_game_qualified": false},
       "profiles": ["Pauper-Affinity", "Pauper-Elves", "Pauper-Rally", "Pauper-Standard", "Pauper-Wildfire"],

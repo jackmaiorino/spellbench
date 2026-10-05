@@ -1,6 +1,6 @@
 # XMage bot coverage
 
-Snapshot: 2026-10-04 UTC. This is the delivery inventory, not a leaderboard.
+Snapshot: 2026-10-05 UTC. This is the delivery inventory, not a leaderboard.
 The intended outcome remains reproducible public ratings for every distinct
 playable family. No new bot rating has been produced by this preparation slice.
 The machine-readable status and alias relationships are in [coverage.json](coverage.json).
