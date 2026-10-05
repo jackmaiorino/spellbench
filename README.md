@@ -75,6 +75,10 @@ Bradley-Terry fit over complete pairs (draws count half, plus one virtual
 draw per matchup) with paired-bootstrap 95% intervals, on an Elo scale with
 the anchor at 1000.
 
+Exact sign-test p-values use rational num and den fields. When either
+component exceeds JSON's safe integer range, both are decimal strings so the
+published value remains exact. Smaller values retain integer fields.
+
 ## Running tournaments
 
 - Before any game the arena starts the engine and every bot once; a config

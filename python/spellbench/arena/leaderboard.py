@@ -290,6 +290,13 @@ def _rational(num: int, den: int) -> dict[str, int]:
     return {"num": num, "den": den}
 
 
+def _exact_probability(num: int, den: int) -> dict[str, int | str]:
+    """Retain exact tails larger than canonical JSON's safe integer range."""
+    if max(abs(num), den) > (1 << 53) - 1:
+        return {"num": str(num), "den": str(den)}
+    return _rational(num, den)
+
+
 def _rate(num: int, den: int) -> dict[str, int] | None:
     """An attribution rate; null when the bot played no games."""
     return None if den == 0 else _rational(num, den)
@@ -433,7 +440,7 @@ def _build_document(
                 "wins": sign.wins,
                 "losses": sign.losses,
                 "ties": sign.ties,
-                "p_value": _rational(sign.p_value_numerator, sign.p_value_denominator),
+                "p_value": _exact_probability(sign.p_value_numerator, sign.p_value_denominator),
             }
             matchup_pairs_for_bootstrap.append(
                 ratings.MatchupPairs(a_id=matchup.a_id, b_id=matchup.b_id, pair_totals=totals)
@@ -706,10 +713,10 @@ def _fmt_ci(ci: list[int] | None) -> str:
     return f"[{_fmt_milli(ci[0])}, {_fmt_milli(ci[1])}]"
 
 
-def _fmt_rational(value: dict[str, int] | None, digits: int = 4) -> str:
+def _fmt_rational(value: dict[str, int | str] | None, digits: int = 4) -> str:
     if value is None:
         return "-"
-    return f"{value['num'] / value['den']:.{digits}f}"
+    return f"{int(value['num']) / int(value['den']):.{digits}f}"
 
 
 def _fmt_rate(value: dict[str, int] | None) -> str:
