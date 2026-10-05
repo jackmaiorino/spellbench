@@ -17,6 +17,11 @@ on:
         description: Input archive SHA-256
         required: false
         type: string
+      replay_whole_game105:
+        description: Also check the complete original game105 and replay after captured checks
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -74,4 +79,5 @@ jobs:
           REPLAY_RELEASE_ID: ${{ inputs.replay_release_id }}
           REPLAY_ASSET_ID: ${{ inputs.replay_asset_id }}
           REPLAY_ARCHIVE_SHA256: ${{ inputs.replay_archive_sha256 }}
-        run: python3 tools/gorge-public-replay-ci.py --job "$RUNNER_TEMP/gorge-public-replay" --release-id "$REPLAY_RELEASE_ID" --asset-id "$REPLAY_ASSET_ID" --archive-sha256 "$REPLAY_ARCHIVE_SHA256"
+          REPLAY_WHOLE_GAME105: ${{ inputs.replay_whole_game105 }}
+        run: python3 tools/gorge-public-replay-ci.py --job "$RUNNER_TEMP/gorge-public-replay" --release-id "$REPLAY_RELEASE_ID" --asset-id "$REPLAY_ASSET_ID" --archive-sha256 "$REPLAY_ARCHIVE_SHA256" --whole-game105 "$REPLAY_WHOLE_GAME105"

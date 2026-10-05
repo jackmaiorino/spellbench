@@ -25,6 +25,26 @@ CAP = 4 * 2**30
 WALL = 2400
 
 
+def validate_game105(report):
+    """Require the complete fixed schedule block and its deterministic replay."""
+    totals = report["totals"]
+    assert report["selected_games"] == [105] and report["scheduled_games"] == 320
+    assert len(report["rows"]) == 1 and report["rows"][0]["game"] == 105
+    assert report["rows"][0]["classification"] == "natural" and "error" not in report["rows"][0]
+    assert totals["Games"] == 1 and totals["CompletedGames"] == 2
+    for key in ("Halts", "Truncations", "Violations", "DigestMismatch", "ResampleFailures", "LeakHits", "Inconsistent", "ParityMismatch"):
+        assert totals[key] == 0
+    assert totals["ResampleChecks"] > 0 and totals["ParityCompared"] > 0
+    cell = report["search_coverage"]["Rally/search-redeal"]
+    assert cell["ReconstructionBudgetExhausted"] == 0 and not cell["RedealRefusals"]
+    assert cell["Covered"] > 0 and cell["Redealt"] > 0
+    for coverage in report["search_coverage"].values():
+        assert coverage["ReconstructionBudgetExhausted"] == 0 and not coverage["RedealRefusals"]
+    return dict(one_original_game105_passed=True, totals=totals, search_coverage=cell,
+                native_qualification_passed=False, rated_games=0,
+                scope="One complete failing schedule block and replay; no full native qualification")
+
+
 def positive_test(capsule):
     test = capsule["test_source"]
     old = 'if !identical||root!=nil||replayErr==nil||replayErr.Error()!="public reconstruction submit budget exhausted"||work.BudgetExhausted!=1{t.Fatal("captured witness failure did not reproduce")}'
@@ -61,6 +81,7 @@ def main():
     parser.add_argument("--release-id", type=int, required=True)
     parser.add_argument("--asset-id", type=int, required=True)
     parser.add_argument("--archive-sha256", required=True)
+    parser.add_argument("--whole-game105", choices=("true", "false"), default="false")
     args = parser.parse_args()
     assert os.environ.get("GITHUB_ACTIONS") == "true"
     assert os.environ.get("GITHUB_REPOSITORY") == "jackmaiorino/spellbench"
@@ -136,11 +157,23 @@ def main():
         checks=[json.loads((result/f"case-{i:03}/trace-public-root/RESULT.json").read_bytes()) for i in range(1,4)]
         assert all(c["witness_constructed"] and c["work"]["BudgetExhausted"]==0 and c["known_card_checks_passed"] and c["native_diagnostics_identical"] and c["redealt_worlds"]==8 for c in checks)
         put("CHECKS.json",dict(passed=True,cases=checks,native_qualification_complete=False,rated_games=0))
+        if args.whole_game105 == "true":
+            # A single original regression follows successful captured checks.
+            # Substantial evaluation still uses the supported throughput guard.
+            native = runtime / "gorgequal-linux-amd64"
+            native_pin = next(p for p in manifest["files"] if p["name"] == native.name)
+            assert sha(native) == native_pin["sha256"] and os.access(native, os.X_OK)
+            env["GOMAXPROCS"] = "1"
+            report_path = result / "UNQUALIFIED-GAME105.json"
+            run("whole-game105", [str(native), "-games", "4", "-workers", "1", "-resample", "7", "-audit=true",
+                "-game-indices", "105", "-registry", str(runtime/"registry.gob.gz"), "-registry-sha256", REGISTRY,
+                "-out", str(report_path)], repo, 900)
+            put("WHOLE-GAME105-CHECKS.json", validate_game105(json.loads(report_path.read_bytes())))
     except BaseException as exc:
         failure=type(exc).__name__+": "+str(exc)
         put("FAILED.json",dict(error=failure))
     finally:
-        put("CLOSURE.json",dict(component_passed=failure is None,error=failure,source_commit=os.environ["GITHUB_SHA"],elapsed_seconds=time.monotonic()-started,native_qualification_complete=False,rated_games=0,new_cloud_spend_usd=0))
+        put("CLOSURE.json",dict(component_passed=failure is None,error=failure,source_commit=os.environ["GITHUB_SHA"],elapsed_seconds=time.monotonic()-started,whole_game105_requested=args.whole_game105 == "true",native_qualification_complete=False,rated_games=0,new_cloud_spend_usd=0))
         # Keep binaries, capsules, failures and results private for independent E/D recovery.
         output=job/"result.zip"
         with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED) as zipped:
