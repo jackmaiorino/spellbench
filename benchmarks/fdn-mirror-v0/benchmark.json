@@ -59,6 +59,7 @@
   },
   "bootstrap_replicates": 2000,
   "workers": 12,
+  "qualification_worker_selection": "wall",
   "bots": [
     {
       "name": "uniform",
