@@ -529,7 +529,7 @@
     "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
     "current_phase": "released_native_qualification_incomplete",
     "prior_failed_native_record": "docs/gorge-runtime033-native-20261005.json",
-    "current_reference_preparation_compatible": true,
+    "current_reference_preparation_compatible": false,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json",
     "current_reference_admission_proved": false,
     "current_reference_budget_admission_proved": false,
@@ -571,7 +571,7 @@
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-030",
     "billing_seal_sha256": "fc910a89565d4b4432e4aa758ceee227d5aa4c091d86060a3dc3b025cb4afe00",
     "conservative_closed_ceiling_usd": 8.55957247,
-    "active_owned_lease": false,
+    "active_owned_lease": true,
     "current_reference_refusal": {
       "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
       "returncode": 1,
@@ -608,7 +608,7 @@
     ],
     "witness046_seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
     "witness046_baseline_refusal_reproduced": true,
-    "cumulative_reservation_ceiling_usd": 8.55957247,
+    "cumulative_reservation_ceiling_usd": 8.88457247,
     "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
     "prior040_first_remaining_refusal": {
       "frames": 596,
@@ -643,7 +643,12 @@
     "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
     "diagnostic054_seal_sha256": "11deef8f576c4c13658a57a270a164f8f00a99df6600408c5a0a6dfbd62ae6e4",
     "source_changed_unqualified": true,
-    "proposed_source_change": "General public scry partition preference, validation pending"
+    "proposed_source_change": "General public scry partition preference, validation pending",
+    "candidate_engine_source_commit": "295fdbc3c64e9dbc827d9424fd0e0eae06d3cb20",
+    "current_source_audit_evidence_current": false,
+    "active_lease_scope": "Five exact saved public-root correctness checks under unchanged64/8/5000; no native game qualification or rated games",
+    "active_lease_maximum_usd": 0.325,
+    "cumulative_ceiling_with_active_lease_usd": 8.88457247
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
@@ -667,7 +672,7 @@
     "current_native_qualification": "failed_existing_redeal_gate_game52",
     "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json"
   },
-  "current_diagnostic": "docs/gorge-witness-trace054-20261005.json",
+  "current_diagnostic": "docs/gorge-witness-trace056-20261005.json",
   "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",
   "current_component_validation": "docs/gorge-runtime048-native-20261005.json",
   "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json"
