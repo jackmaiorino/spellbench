@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import shutil
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,6 +18,7 @@ spec.loader.exec_module(fixture)
 
 @pytest.fixture
 def attempt(tmp_path, monkeypatch):
+    monkeypatch.setattr(recovery.shutil, 'disk_usage', lambda path: SimpleNamespace(free=2**40))
     native, runtime, pins = fixture.fixture.local_evidence(tmp_path)
     native_cold, runtime_cold = tmp_path/'native-cold', tmp_path/'runtime-cold'
     shutil.copytree(native, native_cold); shutil.copytree(runtime, runtime_cold)
@@ -46,12 +48,15 @@ def test_terminal_reference_recovery_is_independent_idempotent_and_token_free(at
         assert b'fixture-reservation-token' not in first.read_bytes()
 
 
-@pytest.mark.parametrize('failure', ['held', 'live', 'wrong_work', 'changed_native', 'changed_cold'])
-def test_active_or_changed_reference_attempt_cannot_create_terminal_receipts(attempt, failure):
+@pytest.mark.parametrize('failure', ['held', 'live', 'wrong_work', 'changed_native', 'changed_cold', 'storage'])
+def test_active_or_changed_reference_attempt_cannot_create_terminal_receipts(attempt, monkeypatch, failure):
     if failure == 'held': attempt['host'].fate = 'holds'
     elif failure == 'live': attempt['host'].state = 'alive'
     elif failure == 'wrong_work': attempt['work_id'] = 'another-job'
     elif failure == 'changed_native': (attempt['native_recovery']/'SEAL.json').write_text('{}')
+    elif failure == 'storage':
+        monkeypatch.setattr(recovery.shutil, 'disk_usage',
+            lambda path: SimpleNamespace(free=recovery.RESERVE+recovery.CAP-1))
     else: recovery.put(attempt['cold'], 'unexpected.json', dict(changed=True))
     with pytest.raises(RuntimeError): recovery.recover(**attempt)
     for root in (attempt['hot'], attempt['cold']):
