@@ -297,6 +297,12 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         return callback(game,effects==null || effects.size()<=1?"implicit-replacement":"replacement",
                 new Object[]{effects,objects}, () -> super.chooseReplacementEffect(effects,objects,game));
     }
+    @Override public final mage.abilities.TriggeredAbility chooseTriggeredAbility(List<mage.abilities.TriggeredAbility> abilities,Game game) {
+        java.util.function.Function<List<mage.abilities.TriggeredAbility>,mage.abilities.TriggeredAbility> parent=
+                left -> super.chooseTriggeredAbility(left,game);
+        return callback(game,"trigger-order",new Object[]{abilities,parent},
+                () -> super.chooseTriggeredAbility(abilities,game));
+    }
     private CombatRules.Picker combatPicker(Game game,Ability source,StateSequenceBuilder.SequenceOutput state) {
         return (type,candidates,picks,sequential) -> {
             List<Object> encoded=new ArrayList<>();

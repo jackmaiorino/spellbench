@@ -929,10 +929,36 @@ the session before the current choice. Full runtime builds require
 metadata JVMs match across 96 parent-oracle cases, and all seventeen existing Java
 checks pass. No neural or physical-copy draws occur in these inherited choices.
 Evidence: `E:/spellbench-xmage-all-20261002/jack-inherited-replay-001`.
-Trigger ordering, nested combat, native callback qualification and complete games
+Nested combat, native callback qualification and complete games
 remain unfinished under the research resource hold.
 
 The full CI runtime fixture initially omitted the newly required helper class.
 Its complete-build fixture now includes it, and a missing-helper case verifies
 startup refusal. All 34 runtime checks pass locally in addition to the 310 affected
 checks above. Production sources and the seventeen Java results are unchanged.
+
+Trigger ordering enters the unchanged inherited first-ability chooser through the
+original callback player. XMage's wire presents every ordering pick before applying
+the group. Replay checks and consumes all recorded picks virtually before the
+first physical return, then verifies each remaining engine list without posing
+another wire choice. The pinned engine applies its final singleton directly;
+the replay queue retires at that point so a later trigger group starts normally.
+Explicit singleton and empty callbacks still execute the unchanged parent body.
+
+Binding preserves actual unsorted abilities, SeatPlayer's ability indices, repeated
+instance counts and complete group positions. Current permitted sources bind their
+references; recorded public sources whose zone counter changed bind the matching
+null-source form. Unknown sources and movement into unobserved hidden zones refuse
+before source lookup. These checks do not qualify native last-known-information
+behavior. Earlier answers must match the original policy. No neural, physical-copy
+or engine RNG draws occur in trigger ordering. Full runtime builds require
+`JackTriggerOrder`; reduced builds exclude it.
+
+300 affected Python checks pass, including five frontend cases and one additional
+runtime missing-helper case. Two fresh metadata JVM outputs match across 180
+parent-oracle cases, including engine-skipped final singletons and consecutive
+ordering groups. The previous helper fails that regression; the repaired helper
+passes, alongside all eighteen existing Java checks. Evidence:
+`E:/spellbench-xmage-all-20261002/jack-trigger-replay-001`. Fixtures use metadata
+worlds. Native event-loop execution, nested combat, library-position transport,
+turn changes/repeated phases and complete trained-weight games remain open.

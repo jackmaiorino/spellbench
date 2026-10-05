@@ -119,6 +119,7 @@ public final class JackDialogReplayCheck {
                     case "getPhase":return null;
                     case "getStartingLife":return 20;
                     case "getBattlefield":return root.state.getBattlefield();
+                    case "getPermanentEntering":return null;
                     case "getStack":return root.state.getStack();
                     case "getExile":return root.state.getExile();
                     case "getOpponents":return Collections.singleton(root.other.getId());

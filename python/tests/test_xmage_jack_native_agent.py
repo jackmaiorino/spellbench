@@ -159,6 +159,33 @@ def test_mixed_inherited_menu_refuses_before_original_session():
     assert len(session.requests) == 1 and session.closed
 
 
+@pytest.mark.parametrize("count", [2, 3, 4, 6])
+def test_trigger_group_retains_one_anchor_and_all_earlier_ordering_picks(count):
+    bot, session = ready([1] + [0] * count); bot.choose(view(priority()))
+    for position in range(count - 1):
+        current = decision(*[{"kind": "order_pick", "source": None, "purpose": "triggers",
+            "position": position, "count": count, "item": {"trigger": {
+                "source": None, "source_name": None, "ability_index": None, "event_objects": [],
+                "instance": i, "label": None}}} for i in range(count - position)], step=position + 1)
+        current["group"] = {"group_id": 700, "substep_index": position, "substep_count": count - 1}
+        bot.choose(view(current))
+    bot.choose(view(binary(count)))
+    records = [r for r, _ in session.requests]; root = records[0]
+    assert all(agent.family(r["decision"]) == "trigger" for r in records[1:-1])
+    assert [len(r["replay"]["earlier"]) for r in records[1:]] == list(range(count))
+    assert all(r["anchor"]["decision"] == root["decision"] for r in records[1:])
+    assert all((r["world_seed"], r["id_seed"]) == (root["world_seed"], root["id_seed"]) for r in records)
+    bot.close()
+
+
+def test_mixed_trigger_purposes_refuse_before_original_session():
+    bot, session = ready([1]); bot.choose(view(priority()))
+    current = decision({"kind": "order_pick", "purpose": "triggers"},
+                       {"kind": "order_pick", "purpose": "mulligan_bottom"}, step=1)
+    with pytest.raises(ValueError, match="family is not connected"): bot.choose(view(current))
+    assert len(session.requests) == 1 and session.closed
+
+
 def cleanup_menu(count, selected=0):
     refs = [{"object_id": "hand" + str(i), "card_name": "Forest" if i % 2 else "Island",
              "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in range(7 + count)]

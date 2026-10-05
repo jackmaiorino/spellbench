@@ -300,5 +300,14 @@ Inherited pile/replacement replay now preserves the original left-pile/first-eff
 policies, exact physical piles and actual replacement iterator order. Implicit
 replacement menus remain implicit; historical policy disagreement refuses.
 310 affected Python checks, two matching metadata JVM outputs with 96 parent-oracle
-cases and seventeen Java regressions pass. Trigger ordering, native qualification
-and full games remain open; no ratings or public entries have been added.
+cases and seventeen Java regressions pass. Native qualification and full games
+remain open; no ratings or public entries have been added.
+
+Trigger ordering now preserves the inherited first-ability chooser across the
+complete wire group before XMage applies its first trigger. Physical callbacks
+check the remaining order; the final singleton can bypass the chooser as it does
+in the pinned engine, including across consecutive groups. Actual unsorted ability
+slots, repeated instances and current or recorded public source identities bind
+the menu; unknown or hidden sources refuse. Two matching metadata JVM outputs
+cover 180 parent-oracle cases, all eighteen Java regressions pass, and 300 affected
+Python checks pass. Native trigger execution remains unqualified.

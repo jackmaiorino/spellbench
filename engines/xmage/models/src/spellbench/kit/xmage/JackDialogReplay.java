@@ -20,6 +20,7 @@ public final class JackDialogReplay {
     private final List<Object> earlier;
     private final Projection projection;
     private int replayed;
+    private final JackTriggerOrder triggers=new JackTriggerOrder();
     private Object bridge;
     private final Object session;
     private final String profile;
@@ -167,6 +168,29 @@ public final class JackDialogReplay {
                     Map<String,Object> result=resolutionReceipt(JackRootDecision.choose(world,start,decision));
                     result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",false);
                     throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,result);
+                }
+                if("trigger-order".equals(kind)) {
+                    List<mage.abilities.TriggeredAbility> actual=JackTriggerOrder.abilities(callback);
+                    Supplier<?> parent=(Supplier<?>)args[4];
+                    if(triggers.scripted() || actual.size()<2)return triggers.implicit(actual,parent);
+                    if(resolution && !passes.isEmpty())throw new IllegalArgumentException("trigger group preceded its recorded public passes");
+                    @SuppressWarnings("unchecked") java.util.function.Function<List<mage.abilities.TriggeredAbility>,mage.abilities.TriggeredAbility> picker=
+                            (java.util.function.Function<List<mage.abilities.TriggeredAbility>,mage.abilities.TriggeredAbility>)callback[1];
+                    List<mage.abilities.TriggeredAbility> left=new ArrayList<>(actual),order=new ArrayList<>();
+                    Map<String,Object> first=current;
+                    for(int position=0;position<actual.size()-1;position++) {
+                        past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
+                        current=past==null?decision:Json.obj(past,"decision");check(current);projection.compare(world,current);
+                        Map<Integer,Map<String,Object>> choices=JackTriggerOrder.choices(world,current,Json.obj(anchor,"decision"),first,left,position,actual.size());
+                        mage.abilities.TriggeredAbility picked=picker.apply(Collections.unmodifiableList(left));
+                        int index=JackTriggerOrder.index(left,picked);Map<String,Object> selected=choices.get(index);
+                        if(past==null)throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selected);
+                        ModelReplay.selectedSemantic(current,Json.obj(past,"selection"));
+                        if(!Json.canonical(selected).equals(Json.canonical(past.get("selection"))))
+                            throw new IllegalArgumentException("recorded trigger order differs from its original parent chooser");
+                        order.add(picked);left.remove(index);replayed++;
+                    }
+                    order.add(left.get(0));return triggers.complete(actual,order,parent);
                 }
                 if(resolution && !passes.isEmpty())throw new IllegalArgumentException("resolution callback occurred before recorded public passes");
                 if(continuation && past==null)
