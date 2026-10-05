@@ -538,8 +538,10 @@
   "current_identity_review_complete": false,
   "rated_games": 0,
   "published_entries": 0,
-  "conservative_reserved_total_usd": 9.98136347,
+  "conservative_reserved_total_usd": 9.99736347,
   "new_cloud_spend_usd": 0,
   "provider_final_settlement_pending": true,
-  "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. On pass rebuild production, replay the whole original164, then refresh placement and run supported full native qualification."
+  "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. Production096 already recovered at identical engine bytes. On component pass replay the whole original164, then refresh placement and run supported full native qualification.",
+  "billing_ledger": "E:/spellbench-gorge-billing-20261005-041",
+  "current_runtime_record": "docs/gorge-ci-runtime096-20261005.json"
 }

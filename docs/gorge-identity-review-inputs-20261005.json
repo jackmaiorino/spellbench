@@ -7,8 +7,8 @@
   "prior_audit_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
   "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-082",
-  "runtime_seal_sha256": "0e9b4f3f1806027e08c886ebe036ee41a59865f259b77a794fa27c9d6f846b3e",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-096",
+  "runtime_seal_sha256": "d736deb111c115f40c89d8a2e78016f849e6d9f4683e77807e5be1471141337e",
   "production_overlay_sha256": "b9c2704a8e16b49a9a792294dcbd0a8e04c9e857856af1c5da4a83af6978160b",
   "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
   "changed_files": [
@@ -157,8 +157,8 @@
     "full_go_ci_passed": true,
     "reconstruction_policy": "Observed public markers prioritize existing legal pass/scry alternatives. Public returns reduce known carry demand. A separate hypothetical held-before-reorder proposal copies original deadlines and tightens selected public-name prefixes on attempts2 modulo4. Original proposals remain on attempt0 modulo4 and all odd attempts. Every accepted world replays current actor-public history and passes unchanged native known-card checks. No future596-frame facts are used at504."
   },
-  "production_runtime_compatible_with_current_engine": false,
-  "production_runtime_rebuilt": false,
+  "production_runtime_compatible_with_current_engine": true,
+  "production_runtime_rebuilt": true,
   "current_component_record": "docs/gorge-local-public-repair084-20261005.json",
   "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
   "full_go_ci_status": "passed",
@@ -197,7 +197,7 @@
     "owner": "Existing canonical supervisor and bounded local parent own progress, E/D final recovery and release; no duplicate watcher",
     "next_wake": "Retained failed077 is terminal; do not rerun unchanged. Continue the public repair recorded ingorge-local-public-repair084-20261005.json",
     "new_cloud_spend_usd": 0,
-    "conservative_reserved_total_usd": 9.98136347,
+    "conservative_reserved_total_usd": 9.99736347,
     "provider_final_settlement_pending": true,
     "raw_native_launch_used": false,
     "native_qualification_passed": false,
@@ -488,5 +488,10 @@
   "current_dig_repair_record": "docs/gorge-local-dig-repair082-20261005.json",
   "affected_python_checks_passed": 196,
   "current_reference_runner_cleanup_preserved": true,
-  "current_public_repair_record": "docs/gorge-local-public-repair084-20261005.json"
+  "current_public_repair_record": "docs/gorge-local-public-repair084-20261005.json",
+  "runtime_source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
+  "current_production_build_record": "docs/gorge-ci-runtime096-20261005.json",
+  "conservative_reserved_total_usd": 9.99736347,
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-041",
+  "billing_seal_sha256": "f755ce0e1e5efa3738966f4030bf2de79ee9721fe3b758846e1756385672512d"
 }

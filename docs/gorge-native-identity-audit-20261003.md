@@ -2,15 +2,16 @@
 
 Status: current identity review and full qualification remain incomplete.
 Native077 failed its existing reconstruction gate and is recovered and sealed.
-Production082 contains the owned Dig repair. The whole original game164
+Production096 contains the current Dig and reveal repairs, recovered from
+[CI build37359642777](gorge-ci-runtime096-20261005.json). The whole original game164
 regression083 still has seven refusals. [Public repair084](gorge-local-public-repair084-20261005.json)
 retains all captured prefixes and terminal attempts, including failures.
 In093, six of seven prefixes replay with eight known-card-valid worlds and
 identical native diagnostics. The seventh reaches a later public Balustrade Spy
-reveal; its new guidance awaits component verification, a production rebuild
-and the whole-game regression. No current-source full native qualification is
-admitted. Reference/rated games and published entries remain zero. Ledger040
-retains the conservative $9.98136347 bound under the all-in $10 cap, with
+reveal; its new guidance awaits component verification and the whole-game regression. No current-source full native qualification is
+admitted. Reference/rated games and published entries remain zero. Ledger041
+retains the conservative $9.99736347 bound, including an additional $0.016
+for seven one-day CI uploads, under the all-in $10 cap, with
 settlement pending and no new cloud spend. Preserve XMage's next bounded Haley
 stage. The merged aborted FDN reveal passes run-history validation on the
 reconciled integration branch. Later sections retain historical observations;
