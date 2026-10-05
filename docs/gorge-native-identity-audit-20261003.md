@@ -1,6 +1,10 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
-Status: current identity review and full qualification remain incomplete.
+Status: current published audit binding and full qualification remain incomplete.
+The [current maintainer source review](gorge-current-maintainer-review-20261005.md)
+records the actual engine diff and review authority. A separate reviewer is
+optional; complete qualification and binding the final published identity audit
+to reviewed source remain required. Later independent-review wording is historical.
 Production096 passes the whole original game164 and its replay in097, with
 no refusals, leaks, resample failures or parity mismatches. Its subsequent
 [full native098 attempt](gorge-local-native098-20261005.json) stopped after100
