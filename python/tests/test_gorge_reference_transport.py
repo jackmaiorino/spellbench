@@ -112,3 +112,11 @@ def test_recovery_never_archives_itself_or_exceeds_budget(tmp_path):
         transport.snapshot_worker(value,client(api,value.stage/'exchange'))
     with pytest.raises(RuntimeError,match='uncompressed budget'):
         transport.snapshot_worker(value,client(api,tmp_path/'exchange'),cap_bytes=1)
+
+
+def test_startup_failure_wakes_readiness_without_waiting_for_a_missing_ready_asset(tmp_path):
+    api=LockedAPI()
+    controller=client(api,tmp_path/'controller')
+    controller.put_json('supervised-node-0.json',dict(exit_code=1,stop_reason=None))
+    with pytest.raises(RuntimeError,match='failed before pool readiness'):
+        transport.NodeTransport(controller,poll_seconds=.002).ready('node-0')

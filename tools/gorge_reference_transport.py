@@ -39,6 +39,19 @@ class NodeTransport:
                 return read_json(self.client, response)
             self.sleep(min(self.poll_seconds, self.client.remaining()))
 
+    def ready(self, alias):
+        while True:
+            assets = self.client.assets()
+            failure = assets.get(f'supervised-{alias}.json')
+            if failure:
+                terminal = read_json(self.client, failure)
+                if terminal['exit_code'] != 0 or terminal['stop_reason'] is not None:
+                    raise RuntimeError(f'Reference worker {alias} failed before pool readiness')
+            ready = assets.get(f'ready-{alias}.json')
+            if ready:
+                return read_json(self.client, ready)
+            self.sleep(min(self.poll_seconds, self.client.remaining()))
+
     def stop(self, nodes):
         for node in nodes:
             self.client.put_json(f'stop-{node.alias}.json', dict(node_alias=node.alias,

@@ -553,10 +553,14 @@
     "current_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
     "current_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
     "current_reference_preparation_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
-    "current_reference_pool_transport_implemented": false,
+    "current_reference_pool_transport_implemented": true,
     "current_reference_pool_guard_qualified": false,
-    "current_reference_parallel_resource_requirement": "Two independent standard GitHub runners; one declared3-core game slot per runner",
-    "current_reference_native_admission_proved": false
+    "current_reference_parallel_resource_requirement": "Two or four independent standard GitHub runners, each with one original three-core game slot; actual matching throughput decides allocation",
+    "current_reference_native_admission_proved": false,
+    "current_reference_pool_ci_orchestration_implemented": true,
+    "current_reference_orchestration_record": "docs/gorge-reference-ci-orchestration-20261005.json",
+    "current_reference_dispatch_control": "docs/gorge-ci-reference-inputs.json",
+    "current_reference_dispatch_admitted": false
   },
   "current_source_component_status": {
     "at_utc": "2026-10-05T12:19:27.432969+00:00",

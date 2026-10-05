@@ -1,0 +1,106 @@
+{
+  "schema": "spellbench-gorge-reference-ci-orchestration-preparation/v1",
+  "prepared_at_utc": "2026-10-05T14:35:33Z",
+  "source_base_commit": "e013185bd469be039344fc17df5ed958e78722a8",
+  "phase": "coordinator_and_supervised_workflow_prepared_actual_inputs_and_native_pass_pending",
+  "files": {
+    "tools/gorge-reference-ci.py": {
+      "bytes": 16891,
+      "sha256": "0efc624ac8b69d65271f00a6ab455fab44743778eedb7f89f61099a8f646b431"
+    },
+    "tools/gorge_reference_coordinator.py": {
+      "bytes": 12414,
+      "sha256": "3635c38f9e3353173573f466fe2e774597b455e18a1318e13c9bf0642ba4d168"
+    },
+    "tools/gorge_reference_transport.py": {
+      "bytes": 5945,
+      "sha256": "8d37b67104d4111f09c9e98620c45daff77f5dc1e64c9b6d90d771dc09ca12e0"
+    },
+    ".github/workflows/gorge-reference.yml": {
+      "bytes": 2967,
+      "sha256": "ae588f1c7985d90fe8552f3b2c168e6c09e96a5ee5af73744e8840eb50d89cdd"
+    },
+    "docs/gorge-ci-reference-inputs.json": {
+      "bytes": 1538,
+      "sha256": "7c5290aa98b2c6de24691fbb39325af89a256ed42c22577ea90c47a5f393fe0e"
+    },
+    "python/tests/test_gorge_reference_ci.py": {
+      "bytes": 2816,
+      "sha256": "3fa2ed3e18d5041a02ca9efc9b6f75313fe83cb5f099007e54b767d50627ba51"
+    },
+    "python/tests/test_gorge_reference_coordinator.py": {
+      "bytes": 10086,
+      "sha256": "77930051230a47e0350b651023179ffd2909500e9d27c64cedb019a3d1d02010"
+    },
+    "python/tests/test_gorge_reference_transport.py": {
+      "bytes": 5951,
+      "sha256": "93e6fe610057b32b34ca2d019eeb83da09113204e41303a969a1cb89b3d3c6f2"
+    }
+  },
+  "native_run_id": 37314990816,
+  "native_execution_source": "e06161ee1334da3b875bdba08d19d623af783ed5",
+  "native_last_observed_at_utc": "2026-10-05T14:35:33Z",
+  "native_last_observed": "in_progress_supported_qualification_step",
+  "native_watcher_pid": 46624,
+  "native_watcher_tool_session": 75735,
+  "native_positive_verified": false,
+  "checks": {
+    "affected_tests_passed": 100,
+    "synthetic_only": true,
+    "native_games_played_by_tests": 0,
+    "complete_synthetic_coordinator_matrix_and_bit_identical_replay_passed": true,
+    "original_mapping_search_redeal_and_lifecycle_negative_gates_passed": true,
+    "ci_dispatch_budget_scope_pin_and_full_recovery_admission_checks_passed": true,
+    "python_compile_passed": true,
+    "workflow_yaml_parsed": true,
+    "diff_check_passed": true
+  },
+  "workflow": ".github/workflows/gorge-reference.yml",
+  "runner": "ubuntu-24.04 standard public",
+  "workflow_launch_marker": "[gorge-reference-ci]",
+  "workflow_current_dispatch_admission": false,
+  "guarded_path": "gorge-reference-ci.py supervisor -> independent native gate -> ReferencePool.qualify -> plan_allocation -> per-node RequestJournal.admit -> runner.play_games",
+  "actual_ci_orchestration_run_id": null,
+  "actual_reference_games_started": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "pool_slots_candidates": [
+    2,
+    4
+  ],
+  "per_node_game_slots": 1,
+  "per_game_cores": 3,
+  "original_reference_games": 140,
+  "original_policy_deck_cells": 60,
+  "original_native_participant_receipts": 160,
+  "original_seed_seat_clock_and_numerical_gates_preserved": true,
+  "original_replay": "first original search/Burn context selected before outcomes",
+  "qualification_selection": "explicit wall method including dispatch, transport, collection and persistence",
+  "coordinator_uses_original_matchup_sample_order": true,
+  "supervised_wall_cap_seconds": 18000,
+  "ci_timeout_minutes": 310,
+  "scratch_cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "recovery_cap_bytes_per_role": 268435456,
+  "process_group_cleanup": true,
+  "process_cpu_memory_io_metrics": true,
+  "owned_STOP_guard": true,
+  "checkout_persist_credentials": false,
+  "engine_and_bot_transport_credentials_removed": true,
+  "private_exchange_only": true,
+  "github_actions_result_artifact_storage_created": false,
+  "complete_worker_and_supervisor_recovery_including_failure": true,
+  "compiled_go_and_shared_arena_protocol_unchanged": true,
+  "frozen_reference009_unchanged": true,
+  "conservative_reserved_total_usd": 9.96136347,
+  "authorized_all_in_cap_usd": 10,
+  "provider_final_settlement_pending": true,
+  "new_paid_compute_usd": 0,
+  "outstanding": [
+    "Full native069 successful completion, exact E/D recovery and hosted cleanup",
+    "Fresh resource census, compatible pinned input bundle, actual draft assets and guarded budget admission",
+    "One owner watcher for reference terminal asset recovery and cleanup before actual dispatch",
+    "Actual CI execution, useful throughput comparison, full matrix and replay qualification",
+    "Required identity/fair-play, benchmark/commitment and result reviews; rated evaluation and live publication"
+  ]
+}

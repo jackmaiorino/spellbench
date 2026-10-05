@@ -278,5 +278,9 @@
   "hosted_native_admission_gate_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
   "hosted_native_admission_gate_tests_passed": 15,
   "actual_positive_hosted_native_gate_unverified": true,
-  "reference_pool_transport_implemented": false
+  "reference_pool_transport_implemented": true,
+  "reference_pool_ci_orchestration_implemented": true,
+  "current_reference_orchestration_record": "docs/gorge-reference-ci-orchestration-20261005.json",
+  "reference_pool_actual_qualification_passed": false,
+  "reference_dispatch_admitted": false
 }
