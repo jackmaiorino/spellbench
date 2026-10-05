@@ -168,6 +168,7 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 		}
 		digOrder, digMoves, digObserved := spellbenchActorDigOrder(h, frameIndex, order, origins, identities)
 		digObserved = digObserved && reliable
+		reveal, revealMoves := spellbenchActorRevealedDig(setup, h, frameIndex, len(order), identities)
 		explored, moved := map[uint32]bool{}, map[uint32]bool{}
 		for _, ev := range frame.Events {
 			if ev.Kind == events.Explore && ev.Player == h.Actor && len(ev.IDs) == 1 {
@@ -215,6 +216,11 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 					add(0, ev.IDs[0], false)
 				}
 			case events.Note:
+				if revealMoves != nil && !ev.Secret && slices.Equal(ev.IDs, reveal) {
+					for offset, ref := range reveal {
+						add(offset, ref, false)
+					}
+				}
 				// The pinned library look note carries its ordered window to
 				// the permitted viewer. Ownership of every named card must
 				// independently identify this actor's own library.
@@ -243,6 +249,17 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 					identity.Owner, known = ev.Player, true
 				}
 				if known && identity.Owner != h.Actor {
+					continue
+				}
+				if reliable && revealMoves[ev.Obj] && ev.From == state.ZLibrary {
+					index := slices.Index(order, origins[ev.Obj])
+					if index < 0 {
+						reliable = false
+						continue
+					}
+					order = slices.Delete(order, index, index+1)
+					draws++
+					arranged = nil
 					continue
 				}
 				if digObserved && digMoves[ev.Obj] && ev.From == state.ZLibrary && ev.To == state.ZHand {
@@ -307,6 +324,119 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 		}
 	}
 	return result
+}
+
+// A printed top-four reveal with both destinations outside the library exposes
+// its original order even when the engine moves selected cards before rejects.
+// Require the answered type choice, complete owned window, all exits and size.
+func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size int, identities map[uint32]Identity) ([]uint32, map[uint32]bool) {
+	if frameIndex < 1 || size < 1 {
+		return nil, nil
+	}
+	before, after := h.Frames[frameIndex-1], h.Frames[frameIndex]
+	d := before.Decision
+	if d == nil || d.Player != h.Actor || d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 {
+		return nil, nil
+	}
+	answer, answered := h.Answers[frameIndex-1]
+	if !answered || len(answer) != 1 || answer[0].Kind != "type" || answer[0].Player != h.Actor || answer[0].Source != d.Source {
+		return nil, nil
+	}
+	legal := false
+	for _, option := range d.Options {
+		legal = legal || option.Action == answer[0]
+	}
+	if !legal {
+		return nil, nil
+	}
+	source, known := identities[d.Source]
+	if !known || source.Owner != h.Actor {
+		return nil, nil
+	}
+	printed := false
+	for _, card := range setup.Decks[h.Actor] {
+		if card == nil {
+			continue
+		}
+		for _, face := range card.Faces {
+			if face.Name != source.Name {
+				continue
+			}
+			for _, sa := range face.Abilities {
+				if sa.API != "ChooseType" || sa.Sub == nil {
+					continue
+				}
+				dig := sa.Sub
+				if dig.API == "Dig" && dig.Sub == nil && dig.Params["DigNum"] == "4" && dig.Params["Reveal"] == "True" && dig.Params["NoReveal"] != "True" && dig.Params["FromBottom"] != "True" && dig.Params["DestinationZone"] == "Hand" && dig.Params["DestinationZone2"] == "Graveyard" && (dig.Params["Defined"] == "" || dig.Params["Defined"] == "You") {
+					printed = true
+				}
+			}
+		}
+	}
+	if !printed {
+		return nil, nil
+	}
+	var window []uint32
+	chosen := false
+	for _, ev := range after.Events {
+		if ev.Kind == events.TypeChosen && ev.Player == h.Actor && ev.Obj == d.Source && ev.Text == answer[0].Value {
+			chosen = true
+		}
+		if ev.Kind == events.Note && ev.Player == h.Actor && !ev.Secret && ev.Text == "" && len(ev.IDs) > 0 {
+			if window != nil {
+				return nil, nil
+			}
+			window = ev.IDs
+		}
+		if ev.Kind == events.Draw || ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder || ev.Kind == events.CardToken || ev.Kind == events.CopyToken || ev.Kind == events.MyriadCopy || ev.Kind == events.StackCopy {
+			return nil, nil
+		}
+	}
+	if !chosen || len(window) != min(4, size) {
+		return nil, nil
+	}
+	seen, moved := map[uint32]bool{}, map[uint32]bool{}
+	for _, ref := range window {
+		id, ok := identities[ref]
+		if ref == 0 || seen[ref] || !ok || id.Owner != h.Actor || id.Name == "" {
+			return nil, nil
+		}
+		seen[ref] = true
+	}
+	for _, ev := range after.Events {
+		if ev.Kind != events.MoveZone || (ev.From != state.ZLibrary && ev.To != state.ZLibrary) {
+			continue
+		}
+		if ev.From != state.ZLibrary || (ev.To != state.ZHand && ev.To != state.ZGraveyard) || !seen[ev.Obj] || moved[ev.Obj] || ev.Text != "" {
+			return nil, nil
+		}
+		moved[ev.Obj] = true
+	}
+	if len(moved) != len(window) {
+		return nil, nil
+	}
+	var board struct {
+		Players []struct {
+			Seat state.PlayerID `json:"seat"`
+			Size *int           `json:"library_size"`
+		} `json:"players"`
+	}
+	if json.Unmarshal(after.Board, &board) != nil {
+		return nil, nil
+	}
+	found := false
+	for _, p := range board.Players {
+		if p.Seat == h.Actor {
+			if found || p.Size == nil || *p.Size != size-len(window) {
+				return nil, nil
+			}
+			found = true
+		}
+	}
+	if !found {
+		return nil, nil
+	}
+	return window, moved
 }
 
 // An owned Dig look exposes the whole ordered window. Its semantic answer,

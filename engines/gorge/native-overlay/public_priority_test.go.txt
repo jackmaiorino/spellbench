@@ -12,6 +12,62 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+func TestSpellbenchActorRevealedDigPreservesGroupedMoveOrder(t *testing.T) {
+	fixture := func() (PublicGame, History) {
+		dig := &cards.SA{API: "Dig", Params: map[string]string{"DigNum": "4", "Reveal": "True", "DestinationZone": "Hand", "DestinationZone2": "Graveyard"}}
+		card := &cards.Card{Faces: []*cards.Face{{Name: "Public Dig", Abilities: []*cards.SA{{API: "ChooseType", Sub: dig}}}}}
+		setup := PublicGame{Decks: [][]*cards.Card{make([]*cards.Card, 9)}}
+		setup.Decks[0][0] = card
+		a := Action{Decision: decision.KChoose, Source: 90, Kind: "type", Player: 0, Value: "Creature"}
+		h := History{Actor: 0, ActorBoundaries: true, Answers: map[int][]Action{1: {a}}}
+		h.Frames = []Frame{
+			{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}}},
+			{Identities: []Identity{{ID: 90, Owner: 0, Name: "Public Dig"}}, Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 90, Min: 1, Max: 1, Options: []ObservedOption{{Action: a}}}},
+			{Identities: []Identity{{ID: 1, Owner: 0, Name: "Spy"}, {ID: 2, Owner: 0, Name: "Grant"}, {ID: 3, Owner: 0, Name: "Return"}, {ID: 4, Owner: 0, Name: "Vine"}}, Board: json.RawMessage(`{"players":[{"seat":0,"library_size":5}]}`), Events: []ObservedEvent{
+				{Kind: events.TypeChosen, Player: 0, Obj: 90, Text: "Creature"}, {Kind: events.Note, Player: 0, IDs: []uint32{1, 2, 3, 4}},
+				{Kind: events.MoveZone, Obj: 1, From: state.ZLibrary, To: state.ZHand}, {Kind: events.MoveZone, Obj: 4, From: state.ZLibrary, To: state.ZHand},
+				{Kind: events.MoveZone, Obj: 2, From: state.ZLibrary, To: state.ZGraveyard}, {Kind: events.MoveZone, Obj: 3, From: state.ZLibrary, To: state.ZGraveyard}}},
+			{Identities: []Identity{{ID: 5, Owner: 0, Name: "Tail"}}, Events: []ObservedEvent{{Kind: events.Draw, Player: 0, Obj: 5}}},
+		}
+		return setup, h
+	}
+	for _, test := range []struct {
+		name string
+		edit func(*PublicGame, *History)
+		want bool
+	}{
+		{"complete grouped exits", func(*PublicGame, *History) {}, true},
+		{"missing answer", func(_ *PublicGame, h *History) { delete(h.Answers, 1) }, false},
+		{"opaque window", func(_ *PublicGame, h *History) { h.Frames[2].Identities[0].Name = "" }, false},
+		{"other owner", func(_ *PublicGame, h *History) { h.Frames[2].Identities[0].Owner = 1 }, false},
+		{"duplicate reveal", func(_ *PublicGame, h *History) { h.Frames[2].Events[1].IDs[3] = 1 }, false},
+		{"missing move", func(_ *PublicGame, h *History) { h.Frames[2].Events = h.Frames[2].Events[:5] }, false},
+		{"incorrect size", func(_ *PublicGame, h *History) {
+			h.Frames[2].Board = json.RawMessage(`{"players":[{"seat":0,"library_size":6}]}`)
+		}, false},
+		{"bottom dig", func(s *PublicGame, _ *History) { s.Decks[0][0].Faces[0].Abilities[0].Sub.Params["FromBottom"] = "True" }, false},
+		{"unprinted source", func(s *PublicGame, _ *History) { s.Decks[0][0].Faces[0].Abilities = nil }, false},
+		{"unknown mutation", func(_ *PublicGame, h *History) {
+			h.Frames[2].Events = append(h.Frames[2].Events, ObservedEvent{Kind: events.MoveZone, From: state.ZLibrary, To: state.ZGraveyard})
+		}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			s, h := fixture()
+			test.edit(&s, &h)
+			positions := spellbenchActorLibraryPositions(s, h)[epochKey{Player: 0, Ordinal: 0}]
+			found := false
+			for _, p := range positions {
+				if p.Name == "Tail" && p.Index == 4 {
+					found = true
+				}
+			}
+			if found != test.want {
+				t.Fatalf("tail guided=%v want=%v positions=%+v", found, test.want, positions)
+			}
+		})
+	}
+}
+
 func TestSpellbenchActorDigRetainsUntouchedTail(t *testing.T) {
 	fixture := func() (PublicGame, History) {
 		choose := &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 90, Max: 3}
