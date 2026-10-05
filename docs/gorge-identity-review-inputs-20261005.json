@@ -236,6 +236,7 @@
     "spellbenchBasicSearches"
   ],
   "current_saved_root": {
+    "historical_component_evidence": true,
     "phase": "exact_saved_root_repair_verified_and_recovered",
     "at_utc": "2026-10-05T16:07:46.741897+00:00",
     "source_commit": "333e230ab8b68e4489b1d6a7578503027057e418",
@@ -334,7 +335,7 @@
     "reference_qualification_passed": false,
     "rated_games": 0,
     "published_entries": 0,
-    "next_action": "Run095 seven-prefix and eight-world checks after gameplay-factorial-current-check-001 releases the canonical host. On pass rebuild production, replay the whole original164, then refresh placement and run supported full native qualification.",
+    "next_action": "095 seven-prefix checks and097 complete original164 replay passed. Await the actual guarded native098 scaling and full audit result, then recover terminal evidence before reference qualification.",
     "remaining": "Full native/reference qualification, current identity/fair-play review, current required CI, frozen rated games, result review and publication"
   },
   "historical_six_case_evidence": "Six earlier saved roots passed on pre-repair production068; retained as historical evidence, no unchanged-current-runtime claim",
