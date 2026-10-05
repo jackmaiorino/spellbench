@@ -980,3 +980,25 @@ close the session before scoring. Evidence:
 `E:/spellbench-xmage-all-20261002/jack-phase-callbacks-001`. Resume is scripted in
 these metadata fixtures. Native phase transitions, turn changes, repeated phases,
 automatic draws, nested combat and complete games remain unqualified.
+
+Top and bottom library ordering now wraps the actual inherited `PlayerImpl`
+movement loop. The original provided-card selector chooses and moves each card;
+replay reads only the resulting owner's UUID block to expose the wire order.
+Top placement reverses the physical selection order, while bottom placement
+preserves it. The complete public card set, source, destination, group and
+positions must bind before movement. Each historical pick must match the original
+final order. Later group observations may drop known facts for selected cards,
+but cannot introduce or change facts or omit facts for remaining cards. Each
+reconstruction executes the original loop once with restored engine RNG and
+adds no policy or physical-copy draws. Other nested callbacks still refuse.
+Full runtime builds require `JackLibraryOrder`; reduced builds exclude it.
+
+204 affected Python checks pass, including ten new frontend/runtime cases. Two
+fresh metadata JVM outputs match across 60 parent-oracle cases covering top and
+bottom placement, repeated card names, optional sources and all choice prefixes.
+All twenty prior Java regressions pass. Malformed menus and historical policy
+disagreement close the session before scoring. Evidence:
+`E:/spellbench-xmage-all-20261002/jack-library-order-001`. Fixtures retain the
+pinned original ordering loop and inherited selector but script physical card
+placement. Native zone changes, replacement events, source/knowledge lifecycle,
+scry/surveil arrangements and complete trained-weight games remain unqualified.

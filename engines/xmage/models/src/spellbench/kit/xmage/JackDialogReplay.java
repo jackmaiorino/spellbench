@@ -182,6 +182,23 @@ public final class JackDialogReplay {
                     result.put("original_priority_continuation",true);result.put("original_activation_pass_deferred",false);
                     throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,result);
                 }
+                if("library-order".equals(kind)) {
+                    if(resolution && !passes.isEmpty())throw new IllegalArgumentException("library order preceded its recorded public passes");
+                    projection.compare(world,current);
+                    JackLibraryOrder ordering=new JackLibraryOrder(world,current,callback);
+                    if(!Boolean.TRUE.equals(((Supplier<?>)args[4]).get()))throw new IllegalArgumentException("inherited library movement loop failed");
+                    List<UUID> order=ordering.placed(world),left=new ArrayList<>(ordering.cards);
+                    for(int position=0;position<order.size()-1;position++) {
+                        past=replayed<earlier.size()?Json.obj(earlier.get(replayed)):null;
+                        current=past==null?decision:Json.obj(past,"decision");check(current);
+                        Map<String,Object> selected=ordering.menu(world,current,left,position).get(order.get(position));
+                        if(past==null)throw (Error)call(original.getMethod("pauseOriginalReplay",Game.class,Object.class),player,world.game,selected);
+                        ModelReplay.selectedSemantic(current,Json.obj(past,"selection"));
+                        if(!Json.canonical(selected).equals(Json.canonical(past.get("selection"))))throw new IllegalArgumentException("recorded library ordering differs from its unchanged inherited loop");
+                        left.remove(order.get(position));replayed++;
+                    }
+                    return Boolean.TRUE;
+                }
                 if("trigger-order".equals(kind)) {
                     List<mage.abilities.TriggeredAbility> actual=JackTriggerOrder.abilities(callback);
                     Supplier<?> parent=(Supplier<?>)args[4];

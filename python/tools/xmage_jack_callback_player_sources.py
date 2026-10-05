@@ -64,6 +64,7 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
     private transient Game replayGame;
     private transient int replayDepth;
     private transient int originalCombatDepth;
+    private transient int originalLibraryDepth;
     public final List<UUID> queuedOriginalTargets(Game game) {
         requireOriginalPermittedWorld(game);
         return new ArrayList<>(targets);
@@ -149,7 +150,8 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             if (replay!=null && game==replayGame && !game.isSimulation()
                     && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)
                     && !"target-loop".equals(kind) && !"card-set-loop".equals(kind)
-                    && !"parent-card-loop".equals(kind) && !"implicit-replacement".equals(kind)) {
+                    && !"parent-card-loop".equals(kind) && !"implicit-replacement".equals(kind)
+                    && !"implicit-library-order".equals(kind)) {
                 if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
                 replayDepth++;
                 try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
@@ -192,7 +194,20 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         return callback(game,"parent-card-loop",new Object[]{cards,target,source}, () -> originalParentCards(outcome,cards,target,source,game));
     }
     @Override protected final boolean originalParentCardReplayActive(Game game) {
-        return replay!=null && game==replayGame && !game.isSimulation();
+        return originalLibraryDepth==0 && replay!=null && game==replayGame && !game.isSimulation();
+    }
+    @Override public boolean putCardsOnTopOfLibrary(Cards cards,Game game,Ability source,boolean anyOrder) {
+        return originalLibrary(game,cards,source,true,anyOrder,()->super.putCardsOnTopOfLibrary(cards,game,source,anyOrder));
+    }
+    @Override public boolean putCardsOnBottomOfLibrary(Cards cards,Game game,Ability source,boolean anyOrder) {
+        return originalLibrary(game,cards,source,false,anyOrder,()->super.putCardsOnBottomOfLibrary(cards,game,source,anyOrder));
+    }
+    private boolean originalLibrary(Game game,Cards cards,Ability source,boolean top,boolean anyOrder,Supplier<Boolean> work) {
+        String kind=anyOrder && cards!=null && cards.size()>1?"library-order":"implicit-library-order";
+        return callback(game,kind,new Object[]{cards,source,top},()->{
+            originalLibraryDepth++;
+            try {return work.get();} finally {originalLibraryDepth--;}
+        });
     }
     @Override protected final void replayOriginalParentCard(Game game,TargetCard target,Ability source,List<UUID> possible,
             UUID selected,int count,int minimum,int maximum,String rule) {

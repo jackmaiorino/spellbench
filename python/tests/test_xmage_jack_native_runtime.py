@@ -20,7 +20,7 @@ from test_xmage_neural_runtime import fixture as build_fixture
 IMAGE = "sha256:" + "a" * 64
 
 
-@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class", "inherited-class", "trigger-order-class", "mode-class", "named-class", "target-class", "general-target-class", "card-set-class", "parent-card-class", "london-plan-class", "combat-plan-class", "replay-opponent-class", "replay-knowledge-class"])
+@pytest.mark.parametrize("fault", [None, "manifest", "callback", "encoder", "mulligan", "stage", "class", "inherited-class", "trigger-order-class", "library-order-class", "mode-class", "named-class", "target-class", "general-target-class", "card-set-class", "parent-card-class", "london-plan-class", "combat-plan-class", "replay-opponent-class", "replay-knowledge-class"])
 def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tmp_path, monkeypatch, fault):
     build, engine, releases, metadata = build_fixture(tmp_path)
     private = tmp_path / "private.json"; private.write_bytes(b'{"private":true}')
@@ -34,7 +34,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
             "OriginalActivationPlayer", "OriginalParentManaPlayer", "OriginalParentDialogsPlayer", "StateSequenceBuilder",
             "CandidateEncoder", "MulliganEncoder", "PriorityRules", "DialogRules", "ModeRules", "TargetRules",
             "CardSetRules", "CombatRules", "LondonRules")), ("kit/xmage", ("JackOriginalBridgeMain", "JackRootDecision",
-            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackInheritedChoices", "JackTriggerOrder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder", "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan", "JackInferenceChannel", "JackPermittedWorlds", "JackReplayKnowledge",
+            "JackPriorityState", "JackDialogReplay", "JackDialogEncoder", "JackInheritedChoices", "JackTriggerOrder", "JackLibraryOrder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder", "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan", "JackInferenceChannel", "JackPermittedWorlds", "JackReplayKnowledge",
             "JackPlayerBootstrap", "JackReplayOpponent", "ModelReplay"))):
         for name in names:
             path = build / ("model/spellbench/" + package + "/" + name + ".class")
@@ -48,6 +48,7 @@ def test_original_runtime_rejects_partial_builds_and_changed_private_manifest(tm
     if fault == "class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackDialogReplay.class"]
     if fault == "inherited-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackInheritedChoices.class"]
     if fault == "trigger-order-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackTriggerOrder.class"]
+    if fault == "library-order-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackLibraryOrder.class"]
     if fault == "mode-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackModeEncoder.class"]
     if fault == "named-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackNamedChoices.class"]
     if fault == "target-class": del metadata["class_files_sha256"]["model/spellbench/kit/xmage/JackTargetEncoder.class"]

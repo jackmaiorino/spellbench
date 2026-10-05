@@ -319,3 +319,11 @@ seat changes, reversed or overshooting phases, unrecorded priorities and opponen
 choices refuse. 259 affected Python checks, 48 matching metadata JVM cases and
 nineteen Java regressions pass. Native phase execution, automatic draws and full
 trained-weight games remain unqualified.
+
+Top and bottom library ordering now runs the unchanged inherited movement loop
+and exposes its final physical block as a complete wire ordering group. Top
+placement reverses the physical selection order; bottom placement preserves it.
+Recorded prefixes must match that original order and consume no policy or copy
+draws. 204 affected Python checks, 60 matching metadata JVM cases and twenty Java
+regressions pass. These fixtures script card movement; native replacements,
+zone changes, scry/surveil arrangements and complete games remain unqualified.

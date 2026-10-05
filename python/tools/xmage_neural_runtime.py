@@ -121,7 +121,7 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
             "DialogRules", "ModeRules", "TargetRules", "CardSetRules", "CombatRules", "LondonRules")}
         required |= {"model/spellbench/kit/xmage/" + name + ".class" for name in (
             "JackOriginalBridgeMain", "JackRootDecision", "JackPriorityState", "JackDialogReplay",
-            "JackDialogEncoder", "JackInheritedChoices", "JackTriggerOrder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder",
+            "JackDialogEncoder", "JackInheritedChoices", "JackTriggerOrder", "JackLibraryOrder", "JackModeEncoder", "JackNamedChoices", "JackTargetEncoder", "JackGeneralTargetEncoder",
             "JackCardSetEncoder", "JackParentCardEncoder", "JackLondonPlan", "JackCombatPlan",
             "JackInferenceChannel", "JackPermittedWorlds", "JackPlayerBootstrap", "JackReplayOpponent", "JackReplayKnowledge", "ModelReplay")}
         if not required.issubset(classes):

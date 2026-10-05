@@ -207,6 +207,30 @@ def test_mixed_trigger_purposes_refuse_before_original_session():
     assert len(session.requests) == 1 and session.closed
 
 
+@pytest.mark.parametrize("count", [2, 3, 4, 6])
+@pytest.mark.parametrize("purpose", ["library_top", "library_bottom"])
+def test_library_order_group_keeps_original_root_and_all_picks(count,purpose):
+    bot,session=ready([1]+[0]*count);bot.choose(view(priority()))
+    for position in range(count-1):
+        current=decision(*[{"kind":"order_pick","source":None,"purpose":purpose,"position":position,"count":count,
+                           "item":{"object":{"object_id":"card"+str(i),"card_name":"Forest","zone":"hand"}}}
+                          for i in range(position,count)],step=position+1)
+        current["group"]={"group_id":700,"substep_index":position,"substep_count":count-1};bot.choose(view(current))
+    bot.choose(view(binary(count)));records=[r for r,_ in session.requests]
+    assert all(agent.family(r["decision"])=="library-order" for r in records[1:-1])
+    assert [len(r["replay"]["earlier"]) for r in records[1:]]==list(range(count))
+    assert all(r["anchor"]["decision"]==records[0]["decision"] for r in records[1:])
+    assert all((r["world_seed"],r["id_seed"])==(records[0]["world_seed"],records[0]["id_seed"]) for r in records)
+    bot.close()
+
+
+def test_mixed_library_order_destinations_refuse_before_original_session():
+    bot,session=ready([1]);bot.choose(view(priority()))
+    current=decision({"kind":"order_pick","purpose":"library_top"},{"kind":"order_pick","purpose":"library_bottom"},step=1)
+    with pytest.raises(ValueError,match="family is not connected"):bot.choose(view(current))
+    assert len(session.requests)==1 and session.closed
+
+
 def cleanup_menu(count, selected=0):
     refs = [{"object_id": "hand" + str(i), "card_name": "Forest" if i % 2 else "Island",
              "owner_seat": "p0", "controller_seat": "p0", "zone": "hand"} for i in range(7 + count)]

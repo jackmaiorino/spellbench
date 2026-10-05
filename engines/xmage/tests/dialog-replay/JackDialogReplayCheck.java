@@ -49,6 +49,15 @@ public final class JackDialogReplayCheck {
         mage.cards.Cards cards;mage.target.TargetCard cardTarget;boolean parentCards,cardResult;
         Outcome cardOutcome=Outcome.Benefit;
         Runnable activationWork;
+        boolean libraryMetadata;
+        @Override public boolean moveCardToLibraryWithInfo(mage.cards.Card card,Ability source,Game game,mage.constants.Zone from,boolean top,boolean withName) {
+            if(!libraryMetadata)return super.moveCardToLibraryWithInfo(card,source,game,from,top,withName);
+            game.getPlayer(card.getOwnerId()).getHand().remove(card.getId());
+            game.getPlayer(card.getOwnerId()).getLibrary().remove(card.getId(),game);
+            if(top)game.getPlayer(card.getOwnerId()).getLibrary().putOnTop(card,game);
+            else game.getPlayer(card.getOwnerId()).getLibrary().putOnBottom(card,game);
+            game.getState().setZone(card.getId(),mage.constants.Zone.LIBRARY);return true;
+        }
         boolean londonMetadata;final List<UUID> bottomed=new ArrayList<>();
         @Override public boolean putCardsOnBottomOfLibrary(mage.cards.Cards cards,Game game,Ability source,boolean anyOrder) {
             if(!londonMetadata)return super.putCardsOnBottomOfLibrary(cards,game,source,anyOrder);
@@ -118,6 +127,8 @@ public final class JackDialogReplayCheck {
                     case "getTurnNum":return 1;
                     case "getPhase":return null;
                     case "getStartingLife":return 20;
+                    case "isTurnOrderReversed":return false;
+                    case "getCards":return root.cards.values();
                     case "getBattlefield":return root.state.getBattlefield();
                     case "getPermanentEntering":return null;
                     case "getStack":return root.state.getStack();
