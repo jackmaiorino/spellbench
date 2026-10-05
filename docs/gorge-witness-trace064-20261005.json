@@ -22,8 +22,8 @@
   "final_invoice_verified": false,
   "scope": "One exact sealed637-frame public reconstruction failure replay with logging-only diagnostics and unchanged captured budgets. Diagnostic binary independently pinned before execution. No sampled-world, full-game or qualification claim.",
   "teacher_parallelism": "Unchanged production default; no diagnostic teacher override",
-  "minimum_vcpu_count": 4,
-  "minimum_memory_gb": 8,
+  "minimum_vcpu_count": 8,
+  "minimum_memory_gb": 16,
   "actual_build_cpu_minimum": 4,
   "actual_build_memory_minimum_bytes": 8000000000,
   "process_memory_guard_bytes": 21474836480,
@@ -84,10 +84,10 @@
   "source_archive_verified": true,
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
-  "bundle_sha256": "bcc4173cfc48b39f4a4a0ee984272be4f98c20e1ea58e307fd72ef796af35fc1",
+  "bundle_sha256": "b7068608419a5445adde7e6d475fd3f42c0d58544cfdab389a902c1991ebd8b1",
   "phase": "prepared_not_launched",
   "control_update_source_of_record": "E:\\spellbench-gorge-runpod-20261005-064\\CONTROL-UPDATE.json",
-  "control_update_sha256": "3df8c1d33e782e15606f2f01dc3550da9ce29f9a89e80d63dc0567e52e90551a",
+  "control_update_sha256": "9ed2b3bb7f4a5266eee548579f9b48097ad61d36014a2930d980d639df46940c",
   "controls_syntax_validated": true,
   "controls_execution_validated": false,
   "preparation_reporting_error_retained": "Output assertion preserved historical witness-trace052 instead of overwriting it; no paid allocation occurred",
@@ -103,7 +103,27 @@
       "credential_removed": true,
       "maximum_charge_usd": 0,
       "basis": "Definite no-capacity provider response, two exact-name absence inventories and unused guardian terminal confirmation"
+    },
+    {
+      "at_utc": "2026-10-05T11:48:35.0987451+00:00",
+      "name": "spellbench-gorge-diagnostic-3a5f6043c4194ecc",
+      "pod_id": null,
+      "owned_absence_confirmed_twice": true,
+      "guardian_pid_absent": true,
+      "task_removed": true,
+      "credential_removed": true,
+      "maximum_charge_usd": 0,
+      "basis": "Definite no-capacity provider response, two exact-name absence inventories and unused guardian terminal confirmation"
     }
   ],
-  "requested_vcpu_reason": "Initial8-vCPU16GB host request returned definite no capacity. Two exact-name absence inventories and unused guardian cleanup are verified. Retry4-vCPU8GB meets unchanged actual build minimums. Source, public history, sampler budgets, trace test and lease cap are unchanged."
+  "requested_vcpu_reason": "Two community GPU requests returned definite no capacity, with zero-charge absence and guardian cleanup verified. Fresh authenticated CPU catalog advertises8-vCPU16GB CPU5c/CPU3c at maximum computeUSD0.28/hour plus container-storage allowanceUSD0.02/hour, within unchangedUSD0.35 all-in rate guard.",
+  "compute_type": "CPU",
+  "cloud_type": "SECURE",
+  "cpu_flavors": [
+    "cpu5c",
+    "cpu3c"
+  ],
+  "vcpu_count": 8,
+  "api_reference": "https://docs.runpod.io/api-reference/pods/POST/pods",
+  "cpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-064\\CPU-CATALOG-RETRY.json"
 }
