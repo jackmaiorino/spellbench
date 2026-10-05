@@ -81,6 +81,13 @@ def instrument(source: str, trace_root: str, *, trace_shuffle_failures: bool = F
                 '\t\t\tdefer func(){if hadPlannerFrame {plannerFrames[p]=previousPlannerFrame} else {delete(plannerFrames,p)}}()\n')
         replace('branch := e.SpellbenchClonePlannedHypothesis(spellbenchBasicSearchPlanner(&pp, basicSearches))',
                 'plannerFrames[&pp]=frame\n\t\t\t\tdefer delete(plannerFrames,&pp)\n\t\t\t\tbranch := e.SpellbenchClonePlannedHypothesis(diagnosticPlanner(&pp))')
+        if 'proposalAttempt := attempt' in source:
+            replace('plannerFrames:=map[*proposalState]int{}',
+                    'plannerFrames:=map[*proposalState]int{}\n    traceAttempts:=map[int]int{}')
+            replace('tr:=traces[p.attempt];tr.ShuffleFailures++',
+                    'tr:=traces[traceAttempts[p.attempt]];tr.ShuffleFailures++')
+            replace('\t\tproposal := &proposalState{',
+                    '\t\ttraceAttempts[proposalAttempt]=attempt\n\t\tproposal := &proposalState{')
     return source
 
 

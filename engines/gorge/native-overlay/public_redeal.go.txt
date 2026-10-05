@@ -109,6 +109,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
 	heldEpochs := spellbenchCarryEpochs(h, spellbenchScryHeldEpochs(h, epochs))
+	prioritizeHeld := opts.Attempts >= 3 && !reflect.DeepEqual(carryEpochs, heldEpochs)
 	tape, tossWeight, err := publicToss(setup, h)
 	if err != nil {
 		return nil, work, err
@@ -135,23 +136,32 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	}
 	for attempt := 0; attempt < opts.Attempts && work.Submits < opts.MaxSubmits && work.Nodes <= opts.MaxSubmits*32; attempt++ {
 		work.Attempts++
+		// When a public reorder adds a distinct held-card hypothesis, try
+		// that proposal before spending the shared budget on weaker guidance.
+		// Retain all original proposal seeds and alternatives, changing only
+		// the order of the first three witness attempts. The native sampler
+		// still uses its original proposals, weights and acceptance checks.
+		proposalAttempt := attempt
+		if prioritizeHeld && attempt < 3 {
+			proposalAttempt = [3]int{2, 0, 1}[attempt]
+		}
 		// A fixed shuffle can be incompatible with a later public identity.
 		// Give several witness proposals a share of the same total budget,
 		// while allowing three submits per actor boundary on long histories.
 		// This does not change native sampler proposals, weights or limits.
 		proposalLimit = min(opts.MaxSubmits, work.Submits+max(opts.MaxSubmits/4, 3*len(h.Frames)))
-		seed := taggedSeed(opts.Seed, digest, attempt, seedEngine)
+		seed := taggedSeed(opts.Seed, digest, proposalAttempt, seedEngine)
 		cfg := rules.Config{Seed: seed[0], Names: setup.Names, Decks: setup.Decks, Tokens: setup.Tokens, StartingLife: setup.StartingLife, Mulligans: setup.Mulligans}
 		observer := NewCollector(h.Actor)
 		var diagnostic SampleResult
 		witnessEpochs := epochs
-		if attempt%2 == 0 {
+		if proposalAttempt%2 == 0 {
 			witnessEpochs = carryEpochs
 		}
-		if attempt%4 == 2 {
+		if proposalAttempt%4 == 2 {
 			witnessEpochs = heldEpochs
 		}
-		proposal := &proposalState{epochs: witnessEpochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: attempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
+		proposal := &proposalState{epochs: witnessEpochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: proposalAttempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
 		e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))
 		if errors.Is(err, errIncompatibleProposal) {
 			continue
@@ -207,7 +217,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 				}
 				return walk(e, c, p, frame+1, pos, nil, nil)
 			}
-			seed := taggedSeed(opts.Seed, digest, attempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
+			seed := taggedSeed(opts.Seed, digest, proposalAttempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
 			preferred := botpolicy.Decide(opponentBoard(e, d.Player, newOpponentBoards(len(setup.Names))), d, rand.New(rand.NewPCG(seed[0], seed[1])))
 			preferred = spellbenchObservedPreferred(e, c, d, preferred, want.Events[len(burst):], want.Identities)
 			preferred = spellbenchLondonBottomPreferred(e, d, preferred, bottomPositions)
