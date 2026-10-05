@@ -163,7 +163,7 @@
     "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37270082693",
     "public_search_bridge": "passed",
     "public_priority_and_returned_card_guidance": "passed",
-    "full_suite": "pending"
+    "full_suite": "passed"
   },
   "next_wake_condition": "Full source78ed700 CI completion, refreshed university credential, or isolated shuffle constraint. No active gorge lease.",
   "release": {
