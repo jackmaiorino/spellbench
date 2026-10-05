@@ -860,3 +860,16 @@ post-check storage-reserve failure are retained under
 `E:/spellbench-xmage-all-20261002/jack-library-replay-001`; archive-verified duplicate
 recovery restored the reserve without changing tested sources. Native reconstruction,
 position transport, shuffle/movement history and trained-weight games remain open.
+
+Before projecting a replay decision or admitting its named aliases,
+`JackReplayKnowledge.verifyPositions` checks each permitted library fact against
+the reconstructed owner's actual UUID order. A card must belong to that library;
+any supplied top or bottom index must match. An unpositioned fact is accepted only
+for a search. The check never fetches a hidden card name. This prevents a stale or
+forged position from validating itself when the projection copies the supplied
+look. Two fresh metadata JVM outputs match, including either player's permitted
+library, one-sided positions, a real rearrangement and refusal before original
+activation or scoring. All fourteen existing Java replay checks pass. Initial
+fixture failures are retained under
+`E:/spellbench-xmage-all-20261002/jack-library-position-001`. This guard does not
+implement position transport or qualify native library reconstruction.

@@ -7,6 +7,27 @@ import java.util.*;
 /** Conditions hidden reconstruction on permitted callback facts, without changing root visibility. */
 final class JackReplayKnowledge {
     private JackReplayKnowledge() { }
+    /** Check supplied positions against this permitted reconstructed world, without fetching hidden names. */
+    static void verifyPositions(World world,Map<String,Object> decision) {
+        Map<String,Object> observation=Json.obj(decision,"observation");
+        if(!world.viewer.equals(Json.str(observation,"viewer")))throw new IllegalArgumentException("library position belongs to another viewer");
+        for(Object item:Json.arr(observation,"known")) {
+            Map<String,Object> fact=Json.obj(item);if(!"library".equals(Json.str(fact,"zone")))continue;
+            UUID owner=world.player(Json.str(fact,"owner_seat")),card=world.idToUuid.get(Json.str(fact,"object_id"));
+            if(owner==null || card==null || world.game.getPlayer(owner)==null)
+                throw new IllegalArgumentException("known library position lacks its actual owner or object");
+            List<UUID> library=world.game.getPlayer(owner).getLibrary().getCardList();int position=library.indexOf(card);
+            if(position<0)throw new IllegalArgumentException("known library object is absent from its actual library");
+            Object top=fact.get("position_from_top"),bottom=fact.get("position_from_bottom");
+            if(top==null && bottom==null && !"searching".equals(Json.str(fact,"how")))
+                throw new IllegalArgumentException("known library look lacks its actual position");
+            checkPosition(top,position);checkPosition(bottom,library.size()-1-position);
+        }
+    }
+    private static void checkPosition(Object received,int actual) {
+        if(received!=null && (!(received instanceof Long || received instanceof Integer) || ((Number)received).longValue()!=actual))
+            throw new IllegalArgumentException("recorded library position differs from the actual reconstructed library");
+    }
     static final Set<String> FIELDS=new HashSet<>(Arrays.asList("object_id","card_name","owner_seat","zone","how","position_from_top","position_from_bottom"));
     static Map<String,Object> samplingObservation(Map<String,Object> root,Map<String,Object> record) {
         Map<String,Object> observation=Json.obj(Json.copy(root.get("observation")));

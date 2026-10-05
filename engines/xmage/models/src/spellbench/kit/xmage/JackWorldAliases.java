@@ -34,6 +34,7 @@ import java.util.UUID;
 final class JackWorldAliases {
     private JackWorldAliases() { }
     static Map<UUID, String> namedAliases(World world, Map<String, Object> decision) throws Exception {
+        JackReplayKnowledge.verifyPositions(world,decision);
         Map<String, Object> obs = Json.obj(decision, "observation");
         ObsIndex index = new ObsIndex(obs);
         List<Look> looks = new ArrayList<>();

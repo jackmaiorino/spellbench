@@ -277,3 +277,9 @@ The frozen native benchmark's guarded serial/parallel qualification passed
 and its local reservation released. No rated XMage games, GPU run, new training
 or paid compute were launched by this task. Existing review and publication paths remain
 part of the outstanding delivery.
+
+Jack's original replay verifies permitted library positions against the
+reconstructed owner's UUID order before projection, alias admission and scoring.
+Stale positions and wrong-library references refuse without fetching hidden names.
+Two repeat metadata JVMs and fourteen Java replay regressions pass. Native library
+reconstruction and position transport remain unqualified.

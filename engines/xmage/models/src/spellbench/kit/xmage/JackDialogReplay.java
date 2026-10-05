@@ -33,6 +33,7 @@ public final class JackDialogReplay {
     private boolean deferredPass;
 
     private static void project(World world,Map<String,Object> decision) throws Exception {
+        JackReplayKnowledge.verifyPositions(world,decision);
         Map<String,Object> current=Json.obj(decision,"observation");
         Map<String,Object> observed=RoundTrip.project(world,RoundTrip.flagsFrom(decision),
                 Json.str(current,"priority_seat"),Json.arr(current,"known"));
