@@ -13,8 +13,11 @@ import time
 import pytest
 
 from spellbench.arena.config import TournamentConfig
+from spellbench.arena import runner
 from spellbench.arena.schedule import schedule
+from spellbench.arena.registry import RegistryEntry
 from spellbench.bench.definition import load_benchmark
+from spellbench.messages import EngineIdentity
 from spellbench.run_secret import RunSecret
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -31,14 +34,13 @@ def matrix(tmp_path):
     secret=RunSecret.from_hex('55'*32)
     helpers=worker.load_original_helpers(ROOT,tmp_path/'stage')
     chosen,expected=helpers.select_matrix(schedule(cfg,secret))
-    entries={bot.name:SimpleNamespace(name=bot.name,version=bot.version,
-        bot_id=hashlib.sha256(bot.name.encode()).hexdigest()) for bot in cfg.bots}
+    entries={entry.name:entry for entry in runner.registry_entries(cfg,cfg)}
     decks={spec:SimpleNamespace(ledger=lambda spec=spec:SimpleNamespace(to_json=lambda:dict(
         deck_id='sha256:'+hashlib.sha256(spec.catalog_id.encode()).hexdigest(),name=spec.catalog_id,catalog_id=spec.catalog_id)))
         for context in chosen for spec in context.decks}
-    full_engine={**fixture.ENGINE,'identity_fixture':'full hello'}
-    setup=SimpleNamespace(decks=decks,engine=SimpleNamespace(to_json=lambda:full_engine,
-        provenance=lambda:SimpleNamespace(to_json=lambda:fixture.ENGINE)))
+    engine=EngineIdentity(name='fake',version='1',source_revision='fixture-only',rules_snapshot_id='r',card_pool_identity='p')
+    full_engine=engine.to_json()
+    setup=SimpleNamespace(decks=decks,engine=engine)
     results=[]
     for context in chosen:
         seats=[dict(seat=seat,bot_id=entries[bot.name].bot_id,name=bot.name,version=bot.version)
@@ -118,6 +120,7 @@ def test_coordinator_runs_real_guard_then_full_synthetic_matrix_and_identical_re
     controller=fixture.client(api,tmp_path/'coordinator-exchange')
     monkeypatch.setattr(coordinator.bench_run,'run_files',lambda cfg:())
     monkeypatch.setattr(coordinator,'preflight',lambda cfg,secret:args['setup'])
+    registry_entries=runner.registry_entries
     monkeypatch.setattr(coordinator.runner,'registry_entries',lambda *unused:list(args['entries'].values()))
     class FastTransport(transport.NodeTransport):
         def __init__(self,client):
@@ -158,7 +161,9 @@ def test_coordinator_runs_real_guard_then_full_synthetic_matrix_and_identical_re
         workers.append(value)
         all_calls.append(calls)
     inputs=dict(pool_slots=2,placement=
-        'main-pc=unavailable: reserved; haleyspc=unavailable: priority; runpod=not_authorized: cap; github-actions=used: synthetic')
+        'main-pc=unavailable: reserved; haleyspc=unavailable: priority; runpod=not_authorized: cap; github-actions=used: synthetic',
+        native_seal_sha256='native-fixture',benchmark_sha256='988e9f632b0398b3f97303543161b227cfecc55220be2c72168063dd2c690258',
+        registry_sha256=cfg.engine_command[cfg.engine_command.index('-registry-sha256')+1],runtime_seal_sha256='runtime-fixture')
     with ThreadPoolExecutor(max_workers=2) as executor:
         running=[executor.submit(transport.serve_node,value,fixture.client(api,tmp_path/f'node-exchange-{index}'),
                                  poll_seconds=.002) for index,value in enumerate(workers)]
@@ -172,3 +177,13 @@ def test_coordinator_runs_real_guard_then_full_synthetic_matrix_and_identical_re
     assert [[request['phase'] for request in calls] for calls in all_calls]==[
         ['qualification','qualification','matrix','replay'],['qualification','matrix']]
     assert (tmp_path/'coordinator/replay-original.jsonl').read_bytes()==(tmp_path/'coordinator/replay.jsonl').read_bytes()
+    import gorge_reference_result as recovered
+    # Restore the real pure registry derivation for the independent consumer.
+    monkeypatch.setattr(coordinator.runner,'registry_entries',registry_entries)
+    verified=recovered.verify_reference_result(tmp_path/'coordinator',source=ROOT,inputs=inputs,
+        head_sha='source-fixture',native_verdict=verdict)
+    assert verified['passed'] and verified['completed_games']==140 and verified['rated_games']==0
+    (tmp_path/'coordinator/replay.jsonl').write_text('{}\n')
+    with pytest.raises(recovered.ThroughputError,match='replay differs'):
+        recovered.verify_reference_result(tmp_path/'coordinator',source=ROOT,inputs=inputs,
+            head_sha='source-fixture',native_verdict=verdict)

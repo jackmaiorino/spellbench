@@ -158,6 +158,10 @@ def coordinate(*, source, source_commit, cfg, stage, client, inputs, native_verd
         # it is not an additional reference game or allocation measurement.
         setup = preflight(cfg, matrix_secret)
         entries = {entry.name: entry for entry in runner.registry_entries(cfg, cfg)}
+        write_new(stage / 'PREFLIGHT.json', dict(engine=setup.engine.to_json(),
+            registry=[entry.to_json() for entry in entries.values()],
+            decks=[dict(catalog_id=spec.catalog_id, ledger=resolved.ledger().to_json())
+                   for spec, resolved in setup.decks.items()]))
         wall, results = pool.collect(allocation.workers, indices, phase='matrix', secret_hex=matrix_secret.hex())
         aggregates, joins, failures = validate_matrix(results, chosen=chosen, expected=expected,
             secret=matrix_secret, setup=setup, entries=entries, helpers=helpers, cfg=cfg)

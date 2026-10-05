@@ -1,16 +1,16 @@
 {
   "schema": "spellbench-gorge-reference-ci-orchestration-preparation/v1",
-  "prepared_at_utc": "2026-10-05T14:35:33Z",
+  "prepared_at_utc": "2026-10-05T15:13:07.629137+00:00",
   "source_base_commit": "e013185bd469be039344fc17df5ed958e78722a8",
-  "phase": "coordinator_and_supervised_workflow_prepared_actual_inputs_and_native_pass_pending",
+  "phase": "input_bundle_and_terminal_recovery_implemented_native069_failed_reference_held",
   "files": {
     "tools/gorge-reference-ci.py": {
       "bytes": 16891,
       "sha256": "0efc624ac8b69d65271f00a6ab455fab44743778eedb7f89f61099a8f646b431"
     },
     "tools/gorge_reference_coordinator.py": {
-      "bytes": 12414,
-      "sha256": "3635c38f9e3353173573f466fe2e774597b455e18a1318e13c9bf0642ba4d168"
+      "bytes": 12716,
+      "sha256": "6a1968c7cac3b59cb3ab0ed2bcf67bb6d5c2e8056f54557673c0bbc040764fe8"
     },
     "tools/gorge_reference_transport.py": {
       "bytes": 5945,
@@ -29,23 +29,43 @@
       "sha256": "3fa2ed3e18d5041a02ca9efc9b6f75313fe83cb5f099007e54b767d50627ba51"
     },
     "python/tests/test_gorge_reference_coordinator.py": {
-      "bytes": 10086,
-      "sha256": "77930051230a47e0350b651023179ffd2909500e9d27c64cedb019a3d1d02010"
+      "bytes": 11175,
+      "sha256": "c543a732fddc4c01ee889a5bb677b91c5425865337f41e555ec946aa53e09aaa"
     },
     "python/tests/test_gorge_reference_transport.py": {
       "bytes": 5951,
       "sha256": "93e6fe610057b32b34ca2d019eeb83da09113204e41303a969a1cb89b3d3c6f2"
+    },
+    "tools/gorge_reference_bundle.py": {
+      "bytes": 6870,
+      "sha256": "1d26e2d3fa00e806077b9399bcab3d89205ba4db7a6fc655a51f16b6b4bf9c35"
+    },
+    "tools/gorge_reference_result.py": {
+      "bytes": 8457,
+      "sha256": "f34716d83576db7dda7d66fc22d705b4639b2cae8a3fd594586dff22fe87c724"
+    },
+    "tools/gorge-watch-reference.py": {
+      "bytes": 12075,
+      "sha256": "dad513c80ee09f764311396c555f59cadfe5647756b949d97f5425edaf72ee0a"
+    },
+    "python/tests/test_gorge_reference_bundle.py": {
+      "bytes": 3037,
+      "sha256": "8937a052c779467e7b09637032a6d1e8dd9181fc859697d6acc86aa21bf4a696"
+    },
+    "python/tests/test_gorge_reference_recovery.py": {
+      "bytes": 4428,
+      "sha256": "a0a7da98b75e1484634ca1c729704e498423564fdb684dc2ceff639143dcabc4"
     }
   },
   "native_run_id": 37314990816,
   "native_execution_source": "e06161ee1334da3b875bdba08d19d623af783ed5",
-  "native_last_observed_at_utc": "2026-10-05T14:35:33Z",
-  "native_last_observed": "in_progress_supported_qualification_step",
+  "native_last_observed_at_utc": "2026-10-05T15:13:07.629137+00:00",
+  "native_last_observed": "completed_failure",
   "native_watcher_pid": 46624,
   "native_watcher_tool_session": 75735,
   "native_positive_verified": false,
   "checks": {
-    "affected_tests_passed": 100,
+    "affected_tests_passed": 112,
     "synthetic_only": true,
     "native_games_played_by_tests": 0,
     "complete_synthetic_coordinator_matrix_and_bit_identical_replay_passed": true,
@@ -53,7 +73,9 @@
     "ci_dispatch_budget_scope_pin_and_full_recovery_admission_checks_passed": true,
     "python_compile_passed": true,
     "workflow_yaml_parsed": true,
-    "diff_check_passed": true
+    "diff_check_passed": true,
+    "independent_recovered_result_and_cleanup_checks_passed": true,
+    "actual_native069_bundle_admission_refused": true
   },
   "workflow": ".github/workflows/gorge-reference.yml",
   "runner": "ubuntu-24.04 standard public",
@@ -97,10 +119,13 @@
   "provider_final_settlement_pending": true,
   "new_paid_compute_usd": 0,
   "outstanding": [
-    "Full native069 successful completion, exact E/D recovery and hosted cleanup",
-    "Fresh resource census, compatible pinned input bundle, actual draft assets and guarded budget admission",
-    "One owner watcher for reference terminal asset recovery and cleanup before actual dispatch",
-    "Actual CI execution, useful throughput comparison, full matrix and replay qualification",
-    "Required identity/fair-play, benchmark/commitment and result reviews; rated evaluation and live publication"
-  ]
+    "Exact game49 public-root diagnosis and evidenced repair; compatible full native success",
+    "Fresh resource census and compatible private inputs after full native pass",
+    "Actual guarded pool qualification, complete original matrix and replay",
+    "Current identity/fair-play review, benchmark/commitment integration, rated results and publication"
+  ],
+  "native_recovery_seal_sha256": "4b5e0bb92dfdd83d8d7c2d06c23e4ccb0abe8bd67b0543e83dafb90d32ca8447",
+  "native_watcher_terminal": true,
+  "actual_failed_native_bundle_rejected": true,
+  "actual_bundle_output_created": false
 }

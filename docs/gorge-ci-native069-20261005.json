@@ -51,7 +51,7 @@
   "remote_asset_digest": "sha256:d6fbfe68ace3e97968ef437a2f56b029d08838589cbaa8f5edd0d1372bf8604a",
   "launcher_source_commit": "68fa05a308881482b2a0f724e582056c22748c26",
   "input_stage_anonymous_status": 404,
-  "phase": "public_ci_native069_running_result_pending",
+  "phase": "completed_failed_native_gate_recovered_and_hosting_deleted",
   "native_qualification_passed": false,
   "checks": {
     "throughput_tests_passed": 79,
@@ -70,16 +70,63 @@
     "status": "passed",
     "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390"
   },
-  "next_wake": "Exact run terminal/fault, or watcher failure; watcher75735 recovers to E/D before removing temporary draft inputs and result artifact. Native full audit remains guarded and unqualified until observed successful result.",
+  "next_wake": "Bounded exact game49 first-public-failure diagnosis and evidenced repair, followed by compatible unchanged full audit; no unchanged rerun",
   "raw_native_launch_used": false,
   "new_runpod_lease": false,
   "ci_run_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37314990816",
   "execution_source_commit": "e06161ee1334da3b875bdba08d19d623af783ed5",
-  "observed_status": "in_progress",
-  "observed_at_utc": "2026-10-05T13:15:01.138025+00:00",
+  "observed_status": "completed",
+  "observed_at_utc": "2026-10-05T15:13:07.629137+00:00",
   "watcher_pid": 46624,
   "watcher_session": 75735,
   "watcher_source_sha256": "2e5285dc99bfb5c675c25519cf8bcdbf402de55decc82b579b2b5a4ca565a60d",
   "result_source_of_record": "E:\\spellbench-gorge-ci-native-results-20261005-069",
-  "result_recovery_root": "D:/e-scratch/spellbench-gorge-ci-native-results-20261005-069"
+  "result_recovery_root": "D:/e-scratch/spellbench-gorge-ci-native-results-20261005-069",
+  "observed_conclusion": "failure",
+  "result_seal_sha256": "4b5e0bb92dfdd83d8d7c2d06c23e4ccb0abe8bd67b0543e83dafb90d32ca8447",
+  "hosted_cleanup_sha256": "6420fce379420d8e6a08bea6f526ca1fdb7c06100a62c0fb2533b1565a9945f7",
+  "independent_recovery_verified": true,
+  "hosted_artifact_deletion_verified": true,
+  "draft_inputs_deletion_verified": true,
+  "watcher_terminal": true,
+  "matched_serial_parallel_qualification_passed": true,
+  "allocation_workers": 4,
+  "failure": {
+    "at_utc": "2026-10-05T14:54:25.592009+00:00",
+    "game": 49,
+    "cell": "Wildfire/search-redeal",
+    "coverage": {
+      "Natives": 338,
+      "Eligible": 18,
+      "Attempted": 13,
+      "Covered": 9,
+      "Attempts": 832,
+      "Accepted": 0,
+      "Worlds": 72,
+      "Rollouts": 264,
+      "Submits": 293076,
+      "Terminal": 264,
+      "Capped": 0,
+      "Redealt": 72,
+      "ReconstructionAttempts": 28,
+      "ReconstructionSubmits": 26691,
+      "ReconstructionNodes": 21299,
+      "ReconstructionBudgetExhausted": 4,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 4
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 5,
+        "insufficient worlds/ESS": 4
+      },
+      "Kinds": {
+        "attackers": 1,
+        "cast": 8
+      }
+    },
+    "gate": "Unchanged Report.Clean zero-refusal gate"
+  },
+  "reference_bundle_refusal": "The exact hosted attempt did not finish and recover a full native pass",
+  "reference_bundle_created": false,
+  "current_placement_decision": "collab placement665dece supersedes prior queued priorities; preserve XMage next bounded Haley stage and Luna Jack diagnostic plus actual canonical claims"
 }

@@ -1,6 +1,19 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
 Status: current identity review and full qualification remain incomplete.
+Native069 completed with failure on execution `e06161e`. Game49,
+Wildfire/search-redeal, finished naturally but recorded four public reconstruction
+budget exhaustions and refusals. The serial/parallel comparison passed with four
+workers and identical outputs. This does not establish a full native pass.
+[The current record](gorge-ci-native069-20261005.json) binds independently recovered
+E/D evidence and verified hosted cleanup. Reference bundling refuses this attempt
+before creating an output or private seed. Reference/rated games remain zero.
+Ledger038 retains a conservative bound of $9.96136347 with settlement pending.
+Current placement preserves XMage's next bounded Haley stage and Luna's Jack
+diagnostic under Jack-approved decision665dece. Earlier placement and budget text
+below describes prior observations. Next work is a bounded game49 public-root
+capture and evidenced repair before another compatible full audit.
+
 Engine source `5ffac138a1e8327882e02aceb97812406821e40b` prioritizes a distinct public held-card witness
 before weaker guidance while retaining each original proposal's seed coordinates
 and all alternatives. The native sampler and shared 64/8/5000 limits are unchanged.
