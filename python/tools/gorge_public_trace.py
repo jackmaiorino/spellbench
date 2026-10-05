@@ -13,7 +13,7 @@ import re
 from pathlib import Path, PurePosixPath
 
 
-def instrument(source: str, trace_root: str) -> str:
+def instrument(source: str, trace_root: str, *, trace_shuffle_failures: bool = False) -> str:
     """Add diagnostics without changing reconstruction choices or its budget."""
     def replace(before: str, after: str) -> None:
         nonlocal source
@@ -47,6 +47,40 @@ def instrument(source: str, trace_root: str) -> str:
             'if err := branch.SubmitHypothetical(in); err != nil {\n\t\t\t\t\tif errors.Is(err, errIncompatibleProposal) {\n\t\t\t\t\t\trecord(attempt,frame,"opponent_submit:"+err.Error(),got,want)\n\t\t\t\t\t\treturn true')
     replace('if err := e.SubmitHypothetical(in); err != nil {\n\t\t\t\t\tif errors.Is(err, errIncompatibleProposal) {\n\t\t\t\t\t\treturn nil, nil',
             'if err := e.SubmitHypothetical(in); err != nil {\n\t\t\t\t\tif errors.Is(err, errIncompatibleProposal) {\n\t\t\t\t\t\trecord(attempt,frame,"actor_submit:"+err.Error(),got,want)\n\t\t\t\t\t\treturn nil, nil')
+    if trace_shuffle_failures:
+        replace('type witnessAttemptTrace struct {Reached,Failed int; Counts map[string]int; Got,Want Frame; Reason string}',
+                'type witnessShuffleFailure struct {Frame int; Player state.PlayerID; Ordinal int; Hand,Library map[string]int; Epoch epochConstraints; Error string; ContextSource string}\n'
+                'type witnessAttemptTrace struct {Reached,Failed int; Counts map[string]int; Got,Want Frame; Reason string; ShuffleFailures int; BestShuffle *witnessShuffleFailure}')
+        replace('\tbasicSearches := spellbenchBasicSearches(setup, h)\n',
+                '\tbasicSearches := spellbenchBasicSearches(setup, h)\n' + r'''
+    plannerFrames:=map[*proposalState]int{}
+    diagnosticPlanner:=func(p *proposalState) rules.ShufflePlanner {
+        underlying:=spellbenchBasicSearchPlanner(p,basicSearches)
+        return func(ctx rules.ShuffleContext)([]state.ObjID,error){
+            order,err:=underlying(ctx)
+            if err!=nil && errors.Is(err,errIncompatibleProposal) {
+                tr:=traces[p.attempt];tr.ShuffleFailures++
+                frame:=plannerFrames[p]
+                if tr.BestShuffle==nil || frame>tr.BestShuffle.Frame {
+                    snapshot:=&witnessShuffleFailure{Frame:frame,Player:ctx.Player,Ordinal:ctx.Ordinal,
+                        Hand:map[string]int{},Library:map[string]int{},Epoch:p.epochs[epochKey{Player:ctx.Player,Ordinal:ctx.Ordinal}],
+                        Error:err.Error(),ContextSource:"hypothetical_shuffle_proposal"}
+                    for _,card:=range ctx.Hand {snapshot.Hand[card.Name]++}
+                    for _,card:=range ctx.Library {snapshot.Library[card.Name]++}
+                    tr.BestShuffle=snapshot
+                }
+            }
+            return order,err
+        }
+    }
+''')
+        replace('e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))',
+                'plannerFrames[proposal]=-1\n\t\te, err := rules.NewHypotheticalPlanned(cfg, tape, diagnosticPlanner(proposal))')
+        replace('traces[attempt].Reached=max(traces[attempt].Reached,frame)\n',
+                'traces[attempt].Reached=max(traces[attempt].Reached,frame)\n\t\t\tpreviousPlannerFrame,hadPlannerFrame:=plannerFrames[p]\n\t\t\tplannerFrames[p]=frame\n'
+                '\t\t\tdefer func(){if hadPlannerFrame {plannerFrames[p]=previousPlannerFrame} else {delete(plannerFrames,p)}}()\n')
+        replace('branch := e.SpellbenchClonePlannedHypothesis(spellbenchBasicSearchPlanner(&pp, basicSearches))',
+                'plannerFrames[&pp]=frame\n\t\t\t\tdefer delete(plannerFrames,&pp)\n\t\t\t\tbranch := e.SpellbenchClonePlannedHypothesis(diagnosticPlanner(&pp))')
     return source
 
 

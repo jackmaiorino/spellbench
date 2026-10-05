@@ -80,3 +80,22 @@ def test_replay_capsule_pins_its_input_and_keeps_qualification_incomplete():
     assert "captured_work_identical" in capsule["test_source"]
     assert capsule["native_qualification_complete"] is False and capsule["rated_games"] == 0
     assert hashlib.sha256(capsule["logging_source"].encode()).hexdigest() == capsule["logging_source_sha256"]
+
+
+def test_shuffle_logging_wraps_every_hypothetical_planner_without_new_sampling():
+    source = trace.instrument(SOURCE, "/workspace/gorge", trace_shuffle_failures=True)
+    assert "hypothetical_shuffle_proposal" in source
+    assert "return order,err" in source
+    assert "diagnosticPlanner(proposal)" in source and "diagnosticPlanner(&pp)" in source
+    assert "spellbenchBasicSearchPlanner(proposal, basicSearches)" not in source
+    assert "spellbenchBasicSearchPlanner(&pp, basicSearches)" not in source
+    assert "plannerFrames[p]=frame" in source
+    assert "rand.NewPCG(seed[0], seed[1])" in source
+    assert "proposalLimit = min(opts.MaxSubmits" in source
+    assert "BestShuffle" not in trace.instrument(SOURCE, "/workspace/gorge")
+
+
+def test_shuffle_logging_rejects_changed_clone_planner_context():
+    changed = SOURCE.replace("spellbenchBasicSearchPlanner(&pp, basicSearches)", "anotherPlanner(&pp)")
+    with pytest.raises(ValueError, match="patch context changed"):
+        trace.instrument(changed, "/workspace/gorge", trace_shuffle_failures=True)
