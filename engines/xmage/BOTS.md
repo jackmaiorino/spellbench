@@ -11,8 +11,8 @@ entries. It has no rated run. The historical `fdn-mirror-v0` definition is uncha
 
 | Family | Available inputs | Wiring | Qualification, rating and publication |
 |---|---|---|---|
-| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Native benchmark passes 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; rated run pending |
-| XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Included in the same passing native benchmark qualification; unrated |
+| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Historical native runtime passed 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; current mapping and engine build require fresh qualification; unrated |
+| XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Historical native qualification retained; current source requires fresh qualification; unrated |
 | DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | All three complete a six-visit FDN game and same-seed replay; a distinct released final-evaluation fair profile is wired through priority, dialogs and combat | Published-profile full games, broader FDN coverage and benchmark qualification unfinished; unrated |
 | MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Original priority and dialog search pass native synthetic checks; typed combat, mixed bridge, public frontend and deck-bound confined runtime are wired | Native synthetic combat/mixed checks pass; compatible trained weights and author settings absent; full-game qualification pending; unrated |
 | Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference on actual permitted Java priority features; paired inference, private original chooser, mulligan, mode, original binary/X, named-source spell targets, general cost/object targets and original provided-card components are wired; provided-card selection retains name groups, representative features and the card_select head with a separately labelled seeded physical-copy stream; a distinct inherited card pipe retains the original April sorting helpers, UUID ties, target.add and empty planning queues without neural or copy RNG; optional automatic mana replay adds original producer filters, tap reservations, nested payment context and engine choices; modes retain original cost flags and legality; Standard retains its legacy Q mulligan rule | Native source checks including target/card ordering, STOP, prefix and chooser/copy application, modes with costs and automatic mana payment, other callbacks, exact decks and complete game adapter unfinished; unrated |
@@ -46,17 +46,22 @@ violations. `kit/evidence/soak/findings.json` retains renamed-card reconstructio
 failures, deadline-dependent replays and a temporary-directory leak. Version
 0.3.0 has targeted passing rename and shutdown checks; see
 [the repair evidence](kit/evidence/native-repairs-20261003.md). The historical
-deadline-dependent profile is unchanged; the new 600-second profile passes
-the matched complete-game qualification described below. Rated play is pending.
+deadline-dependent profile is unchanged. The 600-second profile completed the
+historical matched qualification described below. Rated play is pending.
 The new runtime completed 24 serial games, all natural and without validator
 violations. A missing report module stopped that attempt before the parallel
 comparison. The rows and restored report are retained, and a repaired runtime
 checks report dependencies before preflight and checkpoints completed rung
 timings. Those earlier rows remain functional evidence. A later completed
-48-game 1/4/8-worker comparison passes natural outcome and output-identity
-checks for the actual frozen benchmark. The guard selects eight workers.
+48-game 1/4/8-worker comparison passed natural outcome and output-identity
+checks for its frozen source and benchmark. That guard selected eight workers.
 Its matched batch speedup is 1.354x, with a planning projection near 23 hours
-for the full round robin. This is throughput evidence; there is no rated run.
+for the full round robin. This is historical throughput evidence; there is no
+rated run. The current kit mapping, mechanics register and engine overlay have
+changed since that qualification. Its current-source build and a new supported
+serial/parallel comparison must pass before substantial native evaluation.
+The running builtin FDN baseline retains its own frozen engine and
+qualification and does not establish native-bot admission.
 
 ## Learned inputs and associations
 

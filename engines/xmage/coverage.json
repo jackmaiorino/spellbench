@@ -14,10 +14,10 @@
       "qualified": false,
       "rated": false,
       "published": false,
-      "throughput_qualified": true,
-      "qualification_status": "48 natural complete-game checks with identical 1/4/8-worker output stores; guarded allocation selects 8 workers; rated ledger and post-run validation pending",
+      "throughput_qualified": false,
+      "qualification_status": "Historical frozen runtime passed 48 natural games with identical 1/4/8-worker stores; current mapping, mechanics register and engine overlay require a current-source build and fresh supported throughput qualification",
       "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
-      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
+      "remaining": ["current-source build and compatible serial/parallel qualification", "reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
     },
     {
       "family": "xmage-mcts",
@@ -28,10 +28,10 @@
       "qualified": false,
       "rated": false,
       "published": false,
-      "throughput_qualified": true,
-      "qualification_status": "included in passing 48-game native benchmark qualification, with identical complete-game output stores at 1/4/8 workers",
+      "throughput_qualified": false,
+      "qualification_status": "Included in the historical passing 48-game native qualification; current mapping, mechanics register and engine overlay require fresh supported throughput qualification",
       "prepared_benchmark": "benchmarks/fdn-native-v1/benchmark.json",
-      "remaining": ["reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
+      "remaining": ["current-source build and compatible serial/parallel qualification", "reviewed definition and public run commitment", "guarded rated evaluation", "post-run replay and validation", "result review and publication"]
     },
     {
       "family": "draftzero-exp1",
