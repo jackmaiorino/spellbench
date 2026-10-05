@@ -162,6 +162,7 @@ func actorExploreHistoryWithSearch(t *testing.T, outcome string, swapTail, stopA
 	}
 	driver := NewDriver()
 	mulligan, tokenRequested, token, activated := false, false, false, false
+	searchRequested := false
 	for step := 0; step < 350 && !engine.G.Over; step++ {
 		d := engine.Pending()
 		driver.Observe(engine)
@@ -221,8 +222,8 @@ func actorExploreHistoryWithSearch(t *testing.T, outcome string, swapTail, stopA
 						choice, activated = i, true
 						break
 					}
-					if stopAtSearch && finishedExplore && api == "ChangeZone" {
-						choice = i
+					if stopAtSearch && finishedExplore && !searchRequested && api == "ChangeZone" {
+						choice, searchRequested = i, true
 						break
 					}
 				}
