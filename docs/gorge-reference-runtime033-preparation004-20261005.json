@@ -91,5 +91,79 @@
     "native_admission_proved": false,
     "fresh_closed_billing_census_and_guardian_still_required": true,
     "new_cloud_spend_usd": 0
+  },
+  "dispatch_controls_preparation": {
+    "at_utc": "2026-10-05T01:58:08.639655+00:00",
+    "phase": "reference_controls_prepared_not_executed",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CONTROLS",
+    "pins": {
+      "gorge-derive-reference-controls034-20261005.py": {
+        "bytes": 7314,
+        "sha256": "b55e1110395c3cb5a08fd501829646b9457d37efe56d3bb0619a4b82c49aa6ac"
+      },
+      "gorge-reference034-precreate-check-20261005.py": {
+        "bytes": 2780,
+        "sha256": "49a89e125c9f9e98fbb00a187ec9a49afe7553020be33d559d389954ca6fda2b"
+      },
+      "gorge-dispatch-reference034-20261005.py": {
+        "bytes": 5165,
+        "sha256": "26ea84ffdb515fa56faf258ac151ff1fc89c215f8811bebbaffb6cfec91bbf23"
+      },
+      "gorge-cloud-create-reference034-20261005.ps1": {
+        "bytes": 10424,
+        "sha256": "c963f626900de09a937b74bc0c4ea3fe386baa44fe842170153499d1c16ffc7c"
+      },
+      "gorge-cloud-reference-guard-20261005-034.ps1": {
+        "bytes": 9155,
+        "sha256": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592"
+      },
+      "gorge-cloud-reference-scheduled-guard-20261005-034.ps1": {
+        "bytes": 785,
+        "sha256": "cb56c5971cd7a1a7f2744a029e2adb99c50cacb310cd91a1036f3f8193a7d01a"
+      },
+      "gorge-cloud-observe034-20261005.py": {
+        "bytes": 2151,
+        "sha256": "5079f41f69a14ea9969189f466a161c2dacb32ef66059978aca7f8ea1608fa71"
+      },
+      "gorge-connect-reference034-20261005.py": {
+        "bytes": 1214,
+        "sha256": "b6698f5636b5f5c02b05ee550237f4b150639eb2d3b22130374a504fb875c940"
+      },
+      "gorge-supervise-reference034-20261005.py": {
+        "bytes": 6727,
+        "sha256": "d20e32d1300dcfe85b0d84d2b46d66747dd26ae5dbc2846fc412fde16a5d470d"
+      },
+      "gorge-reconcile-released-reference034-20261005.ps1": {
+        "bytes": 4160,
+        "sha256": "dda6a23937d772647b004aebddec91933ec39a335693a1585d7b6c8318a17d7d"
+      }
+    },
+    "python_syntax_checked": 6,
+    "powershell_parser_checks": [
+      {
+        "name": "gorge-cloud-create-reference034-20261005.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-cloud-reference-guard-20261005-034.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-cloud-reference-scheduled-guard-20261005-034.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-reconcile-released-reference034-20261005.ps1",
+        "parser_errors": 0
+      }
+    ],
+    "guard_path": "Fresh sealed native033 and billing/census checks -> owned guardian armed before paid create -> authenticated SSH and frozen bundle verification -> contained reference parent -> supported reference scaling guard -> unchanged140-game matrix and replay -> exact terminal recovery and owned release",
+    "reference_lease_seconds": 10800,
+    "reference_maximum_usd": 1.2,
+    "native_admission_proved": false,
+    "controls_execution_validated": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0,
+    "next_wake_condition": "Existing native033 full result, failure or lease deadline; existing watcher session28212 and independent guardian remain responsible"
   }
 }

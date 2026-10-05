@@ -1,6 +1,12 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
-Status: incomplete. The earlier inspection verified observer identities and
+Status: incomplete. Production runtime033 uses Spellbench source
+`1d9617c4e9c16924b335b0f7495b915b062e8b38`; its gorge and arena code matches
+`65b15e0ba2ce8b2f6a658e8a11b37b97e02470b8`, which passed complete Go CI.
+This source includes the public scry and witness proposal changes below.
+Native and reference qualification and review remain incomplete.
+
+The earlier inspection verified observer identities and
 private-event filtering, but missed incorrect native choice ownership. Its
 fairness conclusion cannot be reused for qualification or rated play.
 
@@ -125,6 +131,33 @@ Those corrected cases, vet and diff checks pass. The
 [mana diagnosis and repair record](gorge-mana-diagnosis-20261004.json) retains
 every failed attempt. Rally's separate target-mapping failure, full
 qualification, review, ratings and publication remain unfinished.
+
+Runtime033 corrects the public witness's scry prefix bound using observed draw
+counts, the printed constant maximum look count and the public bottom count.
+Keeping and reordering the same window does not advance the untouched tail;
+bottoming advances it only by the observed bottom count. The cursor stores
+counts without card identities, resets at shuffle and disables guidance after
+uncertain library mutations or unrecognized look bounds. The 81,400-case
+prefix check enumerates hidden keep/bottom orders; it does not establish
+whole-game noninterference or native qualification.
+
+Public replay proposals also share the existing 5,000-submit total so that one
+incompatible hypothetical shuffle cannot consume it all. Each proposal receives
+at most a quarter of that total or three submits per actor frame, whichever is
+larger, bounded by the remaining total. The native weighted sampler, policies,
+weights, 64 proposal attempts, eight requested worlds and total node limit are
+unchanged. This wrapper search change must accompany the source-variant
+disclosure; it changes how witnesses are found and is not a playing-strength
+result. The saved 364-frame root supplies eight known-card-valid worlds in one
+proposal and 783 submits, with all 23 recorded native diagnostics identical.
+The saved 410-frame root supplies eight worlds in two proposals and 2,107
+submits; it has no captured native diagnostic baseline, so no diagnostic
+equality is claimed for it. Neither root exhausts the total budget. The
+[sealed component results](gorge-public-roots032-20261005.json) retain the
+traces. Those component results and
+[successful Go CI](https://github.com/jackmaiorino/spellbench/actions/runs/37250007216)
+do not replace a complete current-runtime native audit, reference matrix or
+identity review. The earlier failed panels remain failed.
 
 The scope is the five catalog decks in `pauper-gorge`, gorge revision
 `26257e0eda1779d739a07e835c6500b9c4dabc62`, Forge revision
