@@ -245,9 +245,28 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 // infer neither the hidden partition nor a physical card's exact position.
 // Native proposal weights and the later redeal do not use these constraints.
 // Other library mutations end the fold until the next public shuffle.
+// SpellbenchScryPrefix bounds original shuffle ranks using public draws,
+// printed maximum look counts and public bottom counts. It stores no cards.
+// Reordering a kept window cannot advance the untouched tail. Bottoming can.
+type SpellbenchScryPrefix struct {
+	draws, bottom, touched int
+}
+
+func (p *SpellbenchScryPrefix) Draw() { p.draws++ }
+
+func (p *SpellbenchScryPrefix) Scry(look, bottom int) {
+	p.touched = max(p.touched, p.draws+p.bottom+look)
+	p.bottom += bottom
+}
+
+func (p SpellbenchScryPrefix) Through() int {
+	return max(p.draws+p.bottom, p.touched)
+}
+
 func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
 	type cursor struct {
-		ordinal, draws, look int
+		ordinal              int
+		prefix               SpellbenchScryPrefix
 		reliable, guided     bool
 		counts               map[string]int
 	}
@@ -292,17 +311,18 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 			switch ev.Kind {
 			case events.Shuffle:
 				current.ordinal++
-				current.draws, current.look = 0, 0
+				current.prefix = SpellbenchScryPrefix{}
 				current.reliable, current.guided = true, false
 				current.counts = map[string]int{}
 			case events.Draw:
-				current.draws++
+				current.prefix.Draw()
 			case events.LibraryOrder:
-				look := 0
+				look, bottom := 0, 0
 				if index+1 < len(frame.Events) {
 					next := frame.Events[index+1]
 					if next.Kind == events.Scry && next.Player == ev.Player {
 						look = spellbenchPrintedScryBound(faces[identities[next.Obj].Name])
+						bottom = int(next.Amount)
 						if next.Amount < 0 || int(next.Amount) > look {
 							look = 0
 						}
@@ -311,7 +331,7 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 				if look == 0 {
 					current.reliable = false
 				} else {
-					current.look += look
+					current.prefix.Scry(look, bottom)
 					current.guided = true
 				}
 			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
@@ -344,7 +364,7 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 				key := epochKey{Player: identity.Owner, Ordinal: owner.ordinal - 1}
 				epoch := result[key]
 				epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...),
-					deadlineConstraint{Through: min(owner.draws+owner.look, len(setup.Decks[identity.Owner])), Name: identity.Name, Count: owner.counts[identity.Name]})
+					deadlineConstraint{Through: min(owner.prefix.Through(), len(setup.Decks[identity.Owner])), Name: identity.Name, Count: owner.counts[identity.Name]})
 				result[key] = epoch
 			}
 		}
