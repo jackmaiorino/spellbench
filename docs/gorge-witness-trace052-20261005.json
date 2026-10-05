@@ -22,8 +22,8 @@
   "final_invoice_verified": false,
   "scope": "One exact sealed504-frame public reconstruction failure replay with logging-only diagnostics and unchanged captured budgets. Diagnostic binary independently pinned before execution. No sampled-world, full-game or qualification claim.",
   "teacher_parallelism": "Unchanged production default; no diagnostic teacher override",
-  "minimum_vcpu_count": 8,
-  "minimum_memory_gb": 16,
+  "minimum_vcpu_count": 4,
+  "minimum_memory_gb": 8,
   "actual_build_cpu_minimum": 4,
   "actual_build_memory_minimum_bytes": 8000000000,
   "process_memory_guard_bytes": 21474836480,
@@ -84,10 +84,27 @@
   "source_archive_verified": true,
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
-  "bundle_sha256": "4254826dac5584d12bd0ceb1b37b370c6bdab555267e92a074e44281c1764833",
+  "bundle_sha256": "e88c62607a5ad2bc29bf6907a2c41ad422109c0ade85b5c0c238c6771df38a9c",
   "phase": "prepared_not_launched",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-052\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-052\\CATALOG.json",
   "guard_path": "Independent half-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
-  "inherited_scope_annotation": "Contained parent CHECKS.scope retains the generic Sealed045 wording from its template. Actual capsule, source, options and exact4/5000/4200 work pins bind current504-frame capture050; this attempt cannot reproduce or qualify old045."
+  "inherited_scope_annotation": "Prior unallocated template annotation retained in CREATE-ATTEMPT-001; current parent scope text corrected to sealed050 captured504-prefix before allocation. Numeric gates, source and captured options unchanged.",
+  "requested_vcpu_reason": "Initial8-vCPU16GB request returned definite no capacity; two exact absence inventories and unused guardian closure verified. Retry4-vCPU8GB meets unchanged diagnostic actual minimums, under identical capped lease and captured-work gates.",
+  "unallocated_attempts": [
+    {
+      "at_utc": "2026-10-05T09:18:26.6743213+00:00",
+      "name": "spellbench-gorge-witness-7ba4658b056f4aa8",
+      "pod_id": null,
+      "owned_absence_confirmed_twice": true,
+      "first_absence_utc": "2026-10-05T09:12:06Z",
+      "second_absence_utc": "2026-10-05T09:18:26.6761397+00:00",
+      "guardian_pid_absent": true,
+      "guardian_closed": true,
+      "task_removed": true,
+      "credential_removed": true,
+      "maximum_charge_usd": 0,
+      "reason": "Explicit no instances available response and exact owned name absent on two authenticated inventories"
+    }
+  ]
 }
