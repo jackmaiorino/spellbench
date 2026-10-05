@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T07:16:05.710903+00:00",
+  "at_utc": "2026-10-05T07:24:37.173875+00:00",
   "spellbench_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
   "runtime_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -103,7 +103,7 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "95a323794e49c3521ce93150299544b7a2b743adb0f49691f0c71cb50b453f02",
-  "phase": "prepared_not_launched",
+  "phase": "guarded_component_first_native_job_running",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-048\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-048\\CATALOG.json",
   "guard_path": "Independent three-hour release guardian; bounded remote build; durable binary acknowledgement; qualify_native.py -> plan_allocation -> fixed audit callback",
@@ -122,5 +122,21 @@
       "new_allocation": false,
       "maximum_charge_usd": 0
     }
-  ]
+  ],
+  "observed_driver_phase": "component_durable_runtime_pins",
+  "pod_id": "qtd35q03d1uo05",
+  "owned_lease_name": "spellbench-gorge-native-c9ae47e442ba470e",
+  "lease_deadline_utc": "2026-10-05T10:20:34.2958986+00:00",
+  "quoted_compute_rate_usd_per_hour": 0.23,
+  "observed_effective_cpu_quota": 8.5,
+  "observed_memory_limit_bytes": 61999996928,
+  "observed_cpu_model": "Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz",
+  "parent_source_of_record": "E:\\spellbench-gorge-runpod-20261005-048\\DRIVER-ACTUAL.py",
+  "parent_sha256": "906a4ab808df04471d1ec7ef1e4848a2feb0adeeb72a2e172220566b090bb4ea",
+  "owner_supervision_record": "E:\\spellbench-gorge-runpod-20261005-048\\SUPERVISION.json",
+  "independent_lease_guard_record": "E:\\spellbench-gorge-runpod-20261005-048\\LIVE-GUARD-ARMED.json",
+  "owner_watcher_session_id": 27682,
+  "owner_watcher_pid": 53116,
+  "reference_qualification_complete": false,
+  "next_wake_condition": "Four exact-root pass or failure; conditional production pin gate, supported serial/parallel allocation/native result, or deadline. Same owner watcher and independent release guardian retained."
 }
