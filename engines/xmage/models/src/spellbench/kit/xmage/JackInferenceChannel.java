@@ -37,9 +37,12 @@ public final class JackInferenceChannel implements AutoCloseable {
                 "profile",profile,"seed",seed,"game_start_sha256",gameStartSha256);
     }
     private String readBounded() throws IOException {
+        return readBounded(2*1024*1024);
+    }
+    private String readBounded(int limit) throws IOException {
         StringBuilder row=new StringBuilder();int ch;
         while((ch=reader.read())!=-1 && ch!='\n') {
-            if(row.length()>=2*1024*1024) throw new IOException("original inference response exceeds private pipe bound");
+            if(row.length()>=limit) throw new IOException("original private frame exceeds pipe bound");
             row.append((char)ch);
         }
         if(ch==-1 || row.length()==0) throw new EOFException("original inference owner closed its response pipe");
@@ -55,7 +58,7 @@ public final class JackInferenceChannel implements AutoCloseable {
             if(output.checkError()) throw new IOException("original inference request pipe failed");
             double left=seconds-(System.nanoTime()-started)/1e9;
             if(left<=0) throw new TimeoutException("original inference exhausted request write clock");
-            pending=reads.submit(this::readBounded);
+            pending=reads.submit((Callable<String>)this::readBounded);
             Map<String,Object> response=Json.parseObject(pending.get(Math.max(1,(long)Math.ceil(left*1000)),TimeUnit.MILLISECONDS));
             if(!(response.get("id") instanceof Long) || ((Long)response.get("id"))!=sequence || response.containsKey("error"))
                 throw new IllegalArgumentException("original inference response is stale or failed");
@@ -140,6 +143,21 @@ public final class JackInferenceChannel implements AutoCloseable {
         return Class.forName("spellbench.models.jack.OriginalNeuralSelection$Session")
                 .getConstructor(api,String.class,long.class,DoubleSupplier.class).newInstance(model(),profile,seed,remainingSeconds);
     }
+    /** Commands and inference responses share this one input reader, serially. */
+    public synchronized Map<String,Object> receive(double seconds) {
+        if(closed || !Double.isFinite(seconds) || seconds<=0) throw new IllegalArgumentException("original command clock required");
+        Future<String> pending=null;long started=System.nanoTime();
+        try {
+            pending=reads.submit(() -> readBounded(8*1024*1024));
+            Map<String,Object> command=Json.parseObject(pending.get(Math.max(1,(long)Math.ceil(seconds*1000)),TimeUnit.MILLISECONDS));
+            if((System.nanoTime()-started)/1e9>=seconds) throw new TimeoutException("original command clock exceeded");
+            return command;
+        } catch(Exception failure) {
+            if(pending!=null) pending.cancel(true);closeAfterFailure(failure);
+            throw new IllegalArgumentException("original command pipe failed",failure);
+        } catch(Error failure) {closeAfterFailure(failure);throw failure;}
+    }
+    public synchronized long requestCount() { return sequence; }
     private void closeAfterFailure(Throwable failure) {
         try { close(); } catch(RuntimeException closing) { failure.addSuppressed(closing); }
     }

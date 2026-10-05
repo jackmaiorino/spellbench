@@ -595,6 +595,23 @@ and admitted-copy mulligan callbacks through a real JVM pipe, using the complete
 bootstrap and registry with metadata engine hooks and synthetic paired scores.
 Two JVM primary results match, including the shared physical-copy draw. A stalled
 JVM is terminated and its process absence is checked. These are transport and
-ownership checks. The production original-player decision-to-wire dispatcher and
-guarded runtime command remain unfinished, along with live visibility/replay,
-pretrained inference and complete-game qualification.
+ownership checks. Two successive decisions also retain one command reader and
+the increasing private inference sequence.
+
+`JackRootDecision` binds actual original mulligan and priority selections to the
+exact offered wire action. Priority uses the original rules dispatcher and neural
+chooser, preserves the original first 64 slots, and binds the complete prefix
+before inference. Pass-only phases retain their original shortcut. Combat-step
+results retain the original pass after activation for future replay. Unconnected
+callback families refuse the decision and close the game-owned session.
+`JackRootDecisionCheck.java` exercises actual original mulligan and priority
+dispatch on metadata worlds, including a nonpass choice from a 70-action list in
+main and combat steps, reversed offered order, and invalid identity/choice input.
+
+`JackOriginalBridgeMain` is the production JVM entrypoint for these root decisions.
+It shares one bounded input reader between serial commands and private inference,
+keeps the game-owned session across reconstructed decisions, and retires each
+decision's root and copies. It must be launched through the guarded runtime. Its
+source compiles; the entrypoint has not been run under the current native hold.
+Activation/callback replay, the guarded runtime command, live visibility/replay,
+pretrained inference and complete-game qualification remain unfinished.
