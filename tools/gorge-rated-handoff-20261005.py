@@ -1,5 +1,5 @@
 """Resolve the full rated definition against pinned inputs; publish no commitment."""
-import hashlib,json,subprocess,sys
+import argparse,hashlib,json,subprocess,sys
 from pathlib import Path
 repo=Path.cwd();collab=Path('C:/Users/Jack/IdeaProjects/collab-spellbench-gorge-preparation-20261003')
 sys.path.insert(0,str(repo/'python'))
@@ -7,10 +7,14 @@ from spellbench.bench.definition import load_benchmark,substitute,placeholder_na
 from spellbench.arena.config import TournamentConfig
 from spellbench.arena.schedule import schedule
 from spellbench.run_secret import RunSecret
-runtime=Path('E:/spellbench-gorge-runtime-20261005-048')
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--runtime',type=Path,default=Path('E:/spellbench-gorge-runtime-20261005-048'))
+parser.add_argument('--runtime-seal-sha256',default='b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef')
+args=parser.parse_args()
+runtime=args.runtime
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 seal=json.loads((runtime/'SEAL.json').read_bytes());build=json.loads((runtime/'BUILD.json').read_bytes())
-assert sha(runtime/'SEAL.json')=='b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef'
+assert sha(runtime/'SEAL.json')==args.runtime_seal_sha256
 assert not subprocess.check_output(['git','diff',build['source_commit'],'HEAD','--','engines/gorge','python/spellbench/arena'])
 names=['spellbench-gorge-env-windows-amd64.exe','spellbench-gorge-agent-windows-amd64.exe','registry.gob.gz']
 for name in names:
