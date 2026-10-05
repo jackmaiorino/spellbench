@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T05:58:58.887303+00:00",
+  "at_utc": "2026-10-05T06:09:59.550200+00:00",
   "spellbench_commit": "78ed700911c4b27361f8d63ecb2fc04aafd04c87",
   "runtime_source_commit": "78ed700911c4b27361f8d63ecb2fc04aafd04c87",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -17,7 +17,7 @@
   "ancillary_allowance_usd": 0.15,
   "cumulative_conservative_ceiling_usd": 9.97606847,
   "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261005-023",
-  "billing_seal_sha256": "8a688580d4c6795dc66bacaf232b25a244511b082ba16a433d07b9ff7d679a88",
+  "billing_seal_sha256": "8e297f4710b2f2a8ed1fdcfaaba0d57248c48e609e488ac4686a4b874497e212",
   "provider_reported_spend_usd_so_far": 2.7662702432571677,
   "final_invoice_verified": false,
   "scope": "Four exact sealed public roots364,410,478 and596 with public returned-card carry credit and immediate pass ordering and unchanged native options. One component-test binary independently pinned before execution. No full-game or qualification claim.",
@@ -94,7 +94,7 @@
   "bundle_verified": true,
   "guardian_armed_before_create_required": true,
   "bundle_sha256": "6a673f7744a63c876bf6ec2964c54007e75f0934e4d77eea991199a5a5c09767",
-  "phase": "guarded_four_public_roots_running",
+  "phase": "released_public_roots_incomplete",
   "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-045\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-045\\CATALOG.json",
   "guard_path": "Independent one-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
@@ -111,7 +111,7 @@
   "observed_effective_cpu_quota": 8.5,
   "observed_memory_limit_bytes": 61999996928,
   "quoted_compute_rate_usd_per_hour": 0.23,
-  "runtime_pins_complete": false,
+  "runtime_pins_complete": true,
   "component_roots_passed": false,
   "reference_qualification_complete": false,
   "public_return_credit_inspection": {
@@ -165,5 +165,130 @@
     "public_priority_and_returned_card_guidance": "passed",
     "full_suite": "pending"
   },
-  "next_wake_condition": "Independent component pins, four exact roots yielding eight valid worlds each or preserved failure, parent failure, or owned one-hour deadline. One owner watcher and guardian."
+  "next_wake_condition": "Full source78ed700 CI completion, refreshed university credential, or isolated shuffle constraint. No active gorge lease.",
+  "release": {
+    "at_utc": "2026-10-05T06:09:58.6073553+00:00",
+    "name": "spellbench-gorge-witness-d50c3b7644644c31",
+    "pod_id": "j686yucawpzpvh",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "d434b9400bfddca02aae5787b0ed091a86adf2151ade302d8f4c494fa91eafe5",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 9.47606847,
+    "maximum_lease_usd": 0.5,
+    "conservative_cumulative_lease_ceiling_usd": 9.97606847,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T06:05:44.992933+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 143.93635065853596,
+    "native_qualification_passed": false,
+    "component_roots_passed": false,
+    "rated_games": 0
+  },
+  "runtime_seal_sha256": "0d4e40617bd7cbad5cbf769e7d7de1a2c8d8844d2e1fb0e8dd26fe266c2b7f8b",
+  "native_audit": null,
+  "diagnostic_checks": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T06:05:44.992073+00:00",
+      "phase": "exact_public_roots_replay",
+      "error_type": "RuntimeError",
+      "error": "public-roots exit 1",
+      "rated_games": 0
+    }
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-05T06:09:59.550200+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-023",
+    "prior_closed_ledger_seal_sha256": "8a688580d4c6795dc66bacaf232b25a244511b082ba16a433d07b9ff7d679a88",
+    "provider_reported_prior_closed_spend_usd": 2.7662702432571677,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7662702432571677,
+    "current_closed_lease_maximum_billable_seconds": 464.155649,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.195127,
+    "conservative_cumulative_lease_ceiling_usd": 9.67119547,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-024",
+  "seal_sha256": "07347e068a93a19b2de0b6cb73b46874d72d4c19c87bbfa1d12023f2b7399e1f",
+  "component_results": {
+    "364": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-045\\terminal-recovery\\root-364\\RESULT.json",
+      "sha256": "15c412407732f9406dc8b09adc827e43f913716ad4db405c54f1dfd7914e53dc",
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 729,
+        "Nodes": 11,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": true,
+      "native_diagnostics_identical": true
+    },
+    "410": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-045\\terminal-recovery\\root-410\\RESULT.json",
+      "sha256": "183750a014903697186d964d54b7c9d3146c3e9fed0e588f05b1c001c4856a68",
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 832,
+        "Nodes": 20,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    },
+    "478": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-045\\terminal-recovery\\root-478\\RESULT.json",
+      "sha256": "cbc22c2b75b2bff45f00e4a321e4523c4eb609989da98e768767c81bb1a4dde0",
+      "worlds": 8,
+      "work": {
+        "Attempts": 1,
+        "Submits": 976,
+        "Nodes": 21,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    },
+    "596": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261005-045\\terminal-recovery\\root-596\\RESULT.json",
+      "sha256": "4fe92f48ed9a7645466e3931ef934a617fefc5f8b44abce90797bc4974a8d9f2",
+      "worlds": 0,
+      "work": {
+        "Attempts": 3,
+        "Submits": 5000,
+        "Nodes": 4326,
+        "BudgetExhausted": 1
+      },
+      "native_diagnostics_baseline_available": false,
+      "native_diagnostics_identical": null
+    }
+  },
+  "first_remaining_divergence": {
+    "frame": 390,
+    "public_frame_matched_exactly": true,
+    "reason": "actor_submit:hypothetical shuffle planner: incompatible hypothetical proposal",
+    "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-045\\terminal-recovery\\root-596\\TRACE.json",
+    "trace_sha256": "9458593e33e936222dafc85c0c952c0ef8e54f6bd96454632f6513a2c9758377",
+    "interpretation": "The matched actor answer reaches an incompatible hypothetical shuffle proposal. Returned-card credit improves earlier saved histories but does not resolve this596-frame case."
+  },
+  "next_diagnostic_scope": "Inspect the failed hypothetical shuffle hand/library name counts and epoch constraints under unchanged work counters, using logging only. No admission from component outcomes."
 }
