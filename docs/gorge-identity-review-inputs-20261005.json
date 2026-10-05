@@ -50,7 +50,7 @@
     "637": 8
   },
   "native_diagnostic_baseline": "Six saved public prefixes pass full witness replay and eight-world native known-card assertions. Only364 has a captured native diagnostic baseline. No native diagnostic equality claim for410/478/504/596/637. These component successes do not establish zero refusals in new games or playing strength.",
-  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37307395390",
+  "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37339973909",
   "current_benchmark_audit_url": "https://github.com/jackmaiorino/spellbench/blob/e347083eb77a6ae74e9ee536a8e4ab4e1af25869/docs/gorge-native-identity-audit-20261003.md",
   "benchmark_audit_url_current": false,
   "remaining": [
@@ -152,11 +152,8 @@
   "current_component_record": "docs/gorge-component-replay066-20261005.json",
   "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-066",
   "full_go_ci_status": "passed",
-  "full_go_ci_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
-  "production_ci_build_record": "docs/gorge-ci-runtime068-20261005.json",
+  "full_go_ci_source_commit": "ca9d665811d102d571656fd5fbfe9615b13a8982",
   "current_native_result_record": null,
-  "current_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
-  "current_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
   "hosted_native_admission_gate_source_commit": "c975f584618fe9b0ebefd40ffcaec787b37ab76e",
   "hosted_native_admission_gate_tests_passed": 15,
   "actual_positive_hosted_native_gate_unverified": true,
@@ -455,6 +452,24 @@
   },
   "local_native_recovery_format": "docs/gorge-local-native-recovery.md",
   "local_native_receipts_exist": false,
-  "local_gate_structural_checks_passed": 48,
-  "affected_reference_and_history_checks_passed": 127
+  "local_gate_structural_checks_passed": 62,
+  "affected_reference_and_history_checks_passed": 127,
+  "full_go_ci_engine_byte_compatibility_checked": true,
+  "current_head_required_ci_complete": false,
+  "local_native_recovery_tool": {
+    "path": "tools/gorge_recover_local_native.py",
+    "sha256": "8b73ed301bd4296be814582950bce203a440acb834729148b917ba7781fd1706",
+    "implementation_commit": "70a13c415525faae2a17911546fcf348b5816f03",
+    "focused_tests_passed": 14,
+    "actual_active_native077_refused_before_terminal_writes": true,
+    "actual_terminal_recovery_complete": false,
+    "creates_launches": false,
+    "terminates_processes": false,
+    "new_cloud_spend_usd": 0
+  },
+  "historical_production_ci_build_record": "docs/gorge-ci-runtime068-20261005.json",
+  "historical_reference_preparation_record": "docs/gorge-reference-runtime068-preparation009-20261005.json",
+  "historical_reference_preparation_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
+  "current_reference_preparation_record": null,
+  "current_reference_preparation_seal_sha256": null
 }
