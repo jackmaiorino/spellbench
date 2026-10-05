@@ -1,0 +1,89 @@
+{
+  "schema": "spellbench-gorge-rated-handoff/v1",
+  "source_commit": "d0fd211a6fd9e84dcbcdf218f5a497c1361487c1",
+  "runtime_source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
+  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",
+  "resolved_runtime_values": {
+    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-048\\spellbench-gorge-env-windows-amd64.exe",
+    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-048\\spellbench-gorge-agent-windows-amd64.exe",
+    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-048\\registry.gob.gz",
+    "GORGE_REGISTRY_SHA256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+  },
+  "planned_local_values": {
+    "SPELLBENCH_SECRETS_DIR": "E:/spellbench-gorge-rated-secrets",
+    "SPELLBENCH_PIN_ROOT": "E:/spellbench-gorge-rated-pins",
+    "SPELLBENCH_ARTIFACT_REGISTER": "C:\\Users\\Jack\\IdeaProjects\\collab-spellbench-gorge-preparation-20261003\\tools\\artifact_register.py",
+    "SPELLBENCH_ARTIFACT_OWNER": "spellbench-gorge"
+  },
+  "planned_paths_created": false,
+  "matched_E_D_input_pins": {
+    "spellbench-gorge-env-windows-amd64.exe": {
+      "bytes": 17488384,
+      "sha256": "492860f5408bebca76ca7dc852241a73066ad3d0efa5a599bc4c741f621fb9dd"
+    },
+    "spellbench-gorge-agent-windows-amd64.exe": {
+      "bytes": 18209280,
+      "sha256": "b2a923e9fb07cf81f176706e21a09274563ae51752ab727f56ac66096c784bbf"
+    },
+    "registry.gob.gz": {
+      "bytes": 9070329,
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+    }
+  },
+  "roster": [
+    "uniform",
+    "heuristic",
+    "gorge-bot",
+    "gorge-lethal-pressure",
+    "gorge-ar8",
+    "gorge-blocks",
+    "gorge-explore",
+    "gorge-legacy",
+    "gorge-bot-auto-pay",
+    "gorge-lethal-pressure-auto-pay",
+    "gorge-search",
+    "gorge-search-mana",
+    "gorge-search-redeal",
+    "gorge-search-mana-redeal"
+  ],
+  "policies": [
+    "bot",
+    "lethal-pressure",
+    "ar8",
+    "blocks",
+    "explore",
+    "legacy",
+    "bot-auto-pay",
+    "lethal-pressure-auto-pay",
+    "search",
+    "search-mana",
+    "search-redeal",
+    "search-mana-redeal"
+  ],
+  "deck_pool": [
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "scheduled_games": 3640,
+  "full_round_robin": true,
+  "validation_seed_is_public_placeholder": true,
+  "run_secret_created": false,
+  "commitment_created": false,
+  "engine_processes_started": 0,
+  "rated_games": 0,
+  "launch_admitted": false,
+  "remaining": [
+    "Current320-block/640-game native qualification and matched serial/parallel hashes",
+    "Current140-game reference matrix,60cells,160native participant receipts and identical replay",
+    "Current identity/fair-play review and benchmark definition review/merge",
+    "Fresh reservations and useful-compute selection within the remaining all-in USD10 scope",
+    "Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp",
+    "Supported bench run once, result validation/review, compact publication PR and verified Pages entries"
+  ],
+  "recipe_sha256": "7f63dbe90794fc482fbd4a7d95bf6fbb45c27d6a180258a1b7008b77cd77221d"
+}
