@@ -689,3 +689,13 @@ manifest changes, resource guards, two game lifecycles, startup failures and
 retained uncertain cleanup. The real production runtime remains unexecuted
 under the research hold; further callbacks, priority continuation and live
 qualification remain unfinished.
+
+DraftZero and MageZero share the final owned-resource cleanup path. An agent
+shutdown error or a failed cleanup receipt does not skip the remaining owned
+containers. Every container gets a cleanup attempt, and an original serving
+failure retains its identity with cleanup failures added as notes. Uncertain
+cleanup keeps the private work directory for inspection. Five regression cases
+cover shutdown failures, an unremoved first container, an existing receipt,
+preservation of the primary error and sibling-directory protection; 152 affected
+runtime/frontend checks pass. These are lifecycle checks without a native JVM,
+checkpoint inference or complete game.
