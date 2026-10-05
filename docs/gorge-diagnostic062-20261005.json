@@ -1,6 +1,6 @@
 {
   "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
-  "at_utc": "2026-10-05T11:06:08.529275+00:00",
+  "at_utc": "2026-10-05T11:08:33.515863+00:00",
   "spellbench_commit": "9551e07bbbf333899eedbac580c8dfad1bf624a3",
   "runtime_source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
@@ -77,7 +77,7 @@
   "host_facts_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\HOSTS.json",
   "gpu_catalog_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\CATALOG.json",
   "guard_path": "Independent45-minute release guardian; diagnostic capture parent; independent durable binary pins before execution; one exact seed52 first-failure capture",
-  "observed_driver_phase": "linked_compiler_preflight",
+  "observed_driver_phase": "first_public_failure_capture",
   "pod_id": "tlob6bxwjqdser",
   "owned_lease_name": "spellbench-gorge-diagnostic-8131db375f434608",
   "lease_deadline_utc": "2026-10-05T11:48:33.5388336+00:00",
@@ -89,5 +89,17 @@
   "owner_watcher_pid": 45084,
   "owner_supervision_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\SUPERVISION.json",
   "independent_lease_guard_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-062\\LIVE-GUARD-ARMED.json",
-  "next_wake_condition": "Durable diagnostic binary pin, first public failure capture, terminal result or lease deadline. Existing owner and independent guardian supervise."
+  "next_wake_condition": "Durable diagnostic binary pin, first public failure capture, terminal result or lease deadline. Existing owner and independent guardian supervise.",
+  "diagnostic_runtime_seal_sha256": "a0e7db7f294553986cf46e7b83b3d37c5051cb976ff1b502b7135704312f328b",
+  "diagnostic_binary_pins": {
+    "gorgequal-linux-amd64": {
+      "sha256": "373a6d81fc7c306dd8ed9f95119e1ec95285408b2143377f637eb13d7d822aeb",
+      "source_of_record": "E:\\pinned-binaries\\373a6d81fc7c306dd8ed9f95119e1ec95285408b2143377f637eb13d7d822aeb\\gorgequal-linux-amd64",
+      "runtime_source_of_record": "E:\\spellbench-gorge-diagnostic-runtime-20261005-062\\gorgequal-linux-amd64",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-diagnostic-runtime-20261005-062\\gorgequal-linux-amd64"
+    }
+  },
+  "diagnostic_runtime_independently_verified": true,
+  "production_runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+  "capture_complete": false
 }

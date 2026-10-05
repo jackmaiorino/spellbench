@@ -725,6 +725,36 @@
     "active_job_record": "docs/gorge-diagnostic062-20261005.json"
   },
   "current_source_component_status": {
+    "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "component_roots_passed": true,
+    "component_frames": [
+      364,
+      410,
+      478,
+      504,
+      596
+    ],
+    "component_result_record": "docs/gorge-component-verification059-20261005.json",
+    "component_runtime_source_of_record": "E:/spellbench-gorge-public-witness-runtime-20261005-058",
+    "component_runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
+    "full_go_ci": "passed",
+    "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
+    "original_parent_diagnostic_passed": false,
+    "original_parent_failure_retained": true,
+    "production_runtime_rebuilt": true,
+    "current_native_qualification": "failed_existing_redeal_gate_game52",
+    "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json",
+    "native_qualification_complete": false,
+    "reference_qualification_complete": false,
+    "current_identity_review_complete": false,
+    "rated_games": 0,
+    "published_entries": 0
+  },
+  "current_diagnostic": "docs/gorge-diagnostic062-20261005.json",
+  "current_witness_diagnostic": "docs/gorge-witness-trace058-20261005.json",
+  "current_component_validation": "docs/gorge-component-verification059-20261005.json",
+  "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json",
+  "prior048_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
     "source_repair_record": "docs/gorge-carry-reorder-repair-20261005.json",
     "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
@@ -745,9 +775,5 @@
     "benchmark_audit_url_current": true,
     "current_native_qualification": "failed_existing_redeal_gate_game52",
     "current_native_failure_record": "docs/gorge-runtime060-native-20261005.json"
-  },
-  "current_diagnostic": "docs/gorge-witness-trace058-20261005.json",
-  "current_witness_diagnostic": "docs/gorge-witness-trace046-20261005.json",
-  "current_component_validation": "docs/gorge-runtime048-native-20261005.json",
-  "current_identity_review_inputs": "docs/gorge-identity-review-inputs-20261005.json"
+  }
 }
