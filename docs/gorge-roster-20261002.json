@@ -38,8 +38,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -63,8 +63,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -88,8 +88,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -113,8 +113,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -138,8 +138,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -161,8 +161,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -186,8 +186,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -211,8 +211,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -251,8 +251,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -282,8 +282,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -310,8 +310,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -343,8 +343,8 @@
         "evidence_record": "docs/gorge-runtime016-native-audit-20261003.json",
         "evidence_runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
         "current_complete_qualification": false,
-        "current_evidence_record": "docs/gorge-runtime033-native-20261005.json",
-        "current_runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+        "current_evidence_record": "docs/gorge-runtime040-native-20261005.json",
+        "current_runtime_source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
         "historical_gate_scope": "mapping_gates_passed and native_gates_passed describe only the separately named runtime016 evidence; they are not current qualification"
       }
     },
@@ -452,14 +452,16 @@
       "prior_current_runtime_native_attempt": "docs/gorge-runtime026-native011-20261004.json",
       "prior_current_frozen_runtime_preparation": "docs/gorge-runtime-preparation-20261004-026.json",
       "prior_current_reference_preparation": "docs/gorge-reference-runtime026-preparation002-20261004.json",
-      "current_runtime_native_attempt": "docs/gorge-runtime033-native-20261005.json",
-      "current_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
+      "current_runtime_native_attempt": "docs/gorge-runtime040-native-20261005.json",
+      "current_reference_preparation": null,
+      "previous_failed_runtime_native_attempt": "docs/gorge-runtime033-native-20261005.json",
+      "previous_denied_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
     }
   ],
   "publication": null,
-  "runtime_preparation": "docs/gorge-runtime033-native-20261005.json",
+  "runtime_preparation": "docs/gorge-runtime040-native-20261005.json",
   "engine_configuration": {
-    "rated_registry_input": "Explicit registry and SHA256; production runtime033 binaries are frozen and independently recovered. Runtime033 failed the native redeal gate. Complete native/reference qualification, identity review and rated launch remain pending.",
+    "rated_registry_input": "Explicit registry and SHA256; production runtime040 is independently frozen on E/D. Native serial/parallel qualification is pending. Prior runtime033 remains failed. A compatible reference preparation, complete audits, identity review and rated launch remain required.",
     "auto_pay": true,
     "wire_mana_payment": null,
     "interactive_payment": "Atomic cast witnesses coexist with native triggered-cost mana decisions. The engine does not declare engine_autopay.",
@@ -491,25 +493,43 @@
       "public_basic_search_after_explore_removal": "docs/gorge-public-roots039-20261005.json"
     }
   },
-  "current_native_qualification": "docs/gorge-runtime033-native-20261005.json",
-  "current_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json",
+  "current_native_qualification": "docs/gorge-runtime040-native-20261005.json",
+  "current_reference_preparation": null,
   "prior_runtime_and_qualification_references": {
     "runtime_preparation": "docs/gorge-runtime-preparation-20261004-027.json",
     "current_native_qualification": "docs/gorge-native028-20261004.json",
-    "current_reference_preparation": "docs/gorge-reference-runtime027-preparation003-20261004.json"
+    "current_reference_preparation": "docs/gorge-reference-runtime027-preparation003-20261004.json",
+    "last_failed_native_qualification": "docs/gorge-runtime033-native-20261005.json",
+    "last_failed_runtime_status": {
+      "source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+      "source_of_record": "E:\\spellbench-gorge-runtime-20261005-033",
+      "runtime_seal_sha256": "5762eb56f54c7a4ce6a557fddaf8ea11110737027a61c27c1d5a3855a741b497",
+      "production_binaries_frozen": true,
+      "native_qualification_complete": false,
+      "reference_qualification_complete": false,
+      "rated_games": 0,
+      "published_entries": 0,
+      "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-033",
+      "native_attempt_seal_sha256": "6f46be26bae6931221d3a63b84296c4e5e833322f6d9424388f60c4851290642",
+      "remaining_failure": "Wildfire seed52 search-mana-redeal:17 public reconstruction-budget exhaustions and refusals",
+      "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json"
+    },
+    "last_denied_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
   },
   "current_runtime_status": {
-    "source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
-    "source_of_record": "E:\\spellbench-gorge-runtime-20261005-033",
-    "runtime_seal_sha256": "5762eb56f54c7a4ce6a557fddaf8ea11110737027a61c27c1d5a3855a741b497",
+    "source_commit": "b01aaffc8b11f702306afc4f6d94dfcf95110b6d",
+    "source_of_record": "E:\\spellbench-gorge-runtime-20261005-040",
+    "runtime_seal_sha256": "fad0d1108536b76e253f89717542e322955d01b8cc732e95d28723ccda46f183",
     "production_binaries_frozen": true,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
     "rated_games": 0,
     "published_entries": 0,
-    "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-033",
-    "native_attempt_seal_sha256": "6f46be26bae6931221d3a63b84296c4e5e833322f6d9424388f60c4851290642",
-    "remaining_failure": "Wildfire seed52 search-mana-redeal:17 public reconstruction-budget exhaustions and refusals",
+    "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-040",
+    "native_attempt_seal_sha256": null,
+    "current_phase": "supported_native_qualification",
+    "prior_failed_native_record": "docs/gorge-runtime033-native-20261005.json",
+    "current_reference_preparation_compatible": false,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json"
   },
   "current_source_component_status": {
@@ -520,10 +540,11 @@
     "test_runtime_source_of_record": "E:\\spellbench-gorge-public-root-runtime-20261005-039",
     "test_runtime_seal_sha256": "da055147e1a95cd06debb78559bc0e4b4b96119f248b179e2fbbb88d6b98cce4",
     "component_roots_passed": true,
-    "production_runtime_rebuilt": false,
+    "production_runtime_rebuilt": true,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
     "rated_games": 0,
-    "published_entries": 0
+    "published_entries": 0,
+    "production_runtime_record": "docs/gorge-runtime040-native-20261005.json"
   }
 }
