@@ -647,3 +647,21 @@ before inference. Evidence is under
 `E:/spellbench-xmage-all-20261002/jack-named-replay-001`. Native runtime, large
 card-name domains, remaining callbacks and complete trained-weight games remain
 unqualified. Original private bodies and weights remain outside public Git.
+
+General target replay now binds each pick inside the actual original target
+loop, including visible spell, cost and object-selection actions. Recorded
+targets apply to the loop without another model draw; the current pick retains
+the original order, same-name direct return, STOP gates and 64-slot limit.
+Binding requires the acting viewer's actual named source and the complete
+permitted menu. Invalid sources, counts, ranges, slots, IDs, hidden references,
+forced prefixes and prefixes outside the first 64 slots refuse before inference.
+London remains guarded separately, and provided-card callbacks remain unfinished.
+
+Two metadata JVM runs are byte-identical for 1/2/70 targets, target/cost/object
+wire forms, earlier target mutation and forced/STOP returns. The unchanged
+named-choice, binary/X/mode and original priority/choice checks also pass, along
+with 81 affected Python checks. Production components compiled with JDK23.0.1
+target8; subsequent fixture repairs reuse those exact production classes.
+Failed fixture sources/logs remain retained. Evidence is under
+`E:/spellbench-xmage-all-20261002/jack-target-replay-001`. This does not qualify
+native callbacks or complete trained-weight games.

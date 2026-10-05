@@ -13,6 +13,7 @@ import spellbench.kit.core.Json;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -109,6 +110,33 @@ class JackGeneralTargetEncoder implements ModelReplay.TargetCapture {
             family = current; label = currentLabel;
             candidate.put("semantic", normalizeSemantic(semantic, slot));
         }
+        return result;
+    }
+    /** Bind one pick inside the actual original loop, preserving its direct returns and slot cap. */
+    @SuppressWarnings("unchecked")
+    static Map<Object,Map<String,Object>> replayChoices(World world,Map<String,Object> decision,
+                                                       Object[] arguments,Game game) throws Exception {
+        if(arguments.length!=9 || !(arguments[0] instanceof Target) || !(arguments[1] instanceof Ability)
+                || !(arguments[2] instanceof List) || !(arguments[3] instanceof Integer)
+                || !(arguments[4] instanceof Integer) || !(arguments[5] instanceof Integer)
+                || !(arguments[6] instanceof Boolean) || arguments[7]!=null && !(arguments[7] instanceof UUID))
+            throw new IllegalArgumentException("original target callback lacks its actual loop state");
+        Target target=(Target)arguments[0];Ability source=(Ability)arguments[1];
+        List<UUID> possible=(List<UUID>)arguments[2];boolean forced=(Boolean)arguments[6];UUID direct=(UUID)arguments[7];
+        Map<String,Object> normalized=normalizeDecision(decision,JackTargetEncoder.slot(source,target));
+        JackTargetEncoder.Binding binding=new JackTargetEncoder.Binding(world,normalized,target,source,game,
+                possible,(Integer)arguments[3],(Integer)arguments[4],(Integer)arguments[5]);
+        Map<Long,Map<String,Object>> wire=new LinkedHashMap<>();
+        for(Object item:Json.arr(decision,"candidates")) {
+            Map<String,Object> candidate=Json.obj(item);Long id=(Long)candidate.get("candidate_id");
+            wire.put(id,Json.map("candidate_id",id,"semantic_echo",Json.copy(candidate.get("semantic"))));
+        }
+        Map<Object,Map<String,Object>> result=new LinkedHashMap<>();
+        for(int i=0;i<possible.size();i++) {
+            UUID id=possible.get(i);
+            if(forced ? java.util.Objects.equals(id,direct) : i<64) result.put(id,wire.get(binding.ids.get(id)));
+        }
+        if(result.isEmpty()) throw new IllegalArgumentException("original target has no bound direct return or policy slot");
         return result;
     }
     @Override public UUID earlier(World world, Map<String, Object> decision, Target target, Ability source, Game game,

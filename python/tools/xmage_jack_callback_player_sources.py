@@ -120,7 +120,8 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         try {
             T result;
             if (replay!=null && game==replayGame && !game.isSimulation()
-                    && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)) {
+                    && !"simulation-copy".equals(kind) && !"automatic-mana-choice".equals(kind)
+                    && !"target-loop".equals(kind)) {
                 if (replayDepth!=0) throw new IllegalArgumentException("unrecorded nested original replay callback");
                 replayDepth++;
                 try { result=(T)replay.invoke(kind,this,game,arguments,()-> {
@@ -163,7 +164,11 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
         return callback(game, () -> originalParentCards(outcome,cards,target,source,game));
     }
     @Override public final boolean chooseTarget(Outcome outcome, Target target, Ability source, Game game) {
-        return callback(game, () -> {
+        // Each target pick is a posed callback; the enclosing original loop adds earlier picks.
+        // London uses a separate policy and remains guarded until its replay is connected.
+        String kind=source==null && outcome==Outcome.Discard && target instanceof mage.target.common.TargetCardInHand
+                ? "unconnected" : "target-loop";
+        return callback(game,kind,new Object[]{outcome,target,source}, () -> {
             if (target==null) throw new IllegalArgumentException("original target required");
             if ("starting player".equalsIgnoreCase(target.getTargetName())) {
                 target.addTarget(getId(),source,game); return true;
@@ -178,10 +183,12 @@ public class OriginalCallbackPlayer extends OriginalPriorityChoicePlayer impleme
             Boolean mana=originalManaTarget(outcome,target,source,game, () -> originalParentTarget(outcome,target,source,game));
             if (mana!=null) return mana;
             return new TargetRules(this).select(outcome,target,source,game,(possible,chosen,min,max,forced,direct,reason) -> {
-                if (forced) return direct;
-                int pick=originalNeuralSelection().select(possible,StateSequenceBuilder.ActionType.SELECT_TARGETS,source,
-                        game,originalNeuralSelection().capture(game),null,chosen,min,max,1,false,false,false).get(0);
-                return possible.get(pick);
+                return callback(game,"target",new Object[]{target,source,possible,chosen,min,max,forced,direct,reason}, () -> {
+                    if (forced) return direct;
+                    int pick=originalNeuralSelection().select(possible,StateSequenceBuilder.ActionType.SELECT_TARGETS,source,
+                            game,originalNeuralSelection().capture(game),null,chosen,min,max,1,false,false,false).get(0);
+                    return possible.get(pick);
+                });
             });
         });
     }

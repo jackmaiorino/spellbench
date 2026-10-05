@@ -289,6 +289,34 @@ def test_invalid_original_receipt_cannot_be_saved(field, value):
     assert session.closed and bot.history.anchor is None
 
 
+@pytest.mark.parametrize("kind", ["choose_target", "finish_target_selection", "choose_cost_target", "select_object", "finish_selection"])
+def test_target_callbacks_retain_activation_seeds_and_join_exact_prefix(kind):
+    bot, session = ready([1, 0, 0])
+    bot.choose(view(priority()))
+    semantic = {"kind": kind, "source": {"object_id": "spell"}, "selected_count": 0}
+    if kind in ("select_object", "finish_selection"):
+        semantic["purpose"] = "cards"
+    received = decision(semantic, step=1)
+    bot.choose(view(received))
+    bot.choose(view(amount()))
+    root, target, following = [record for record, _ in session.requests]
+    assert agent.family(target["decision"]) == "target"
+    assert target["anchor"]["original_priority_state"] == session.results[0]["original_priority_state"]
+    assert (target["world_seed"], target["id_seed"]) == (root["world_seed"], root["id_seed"])
+    assert following["replay"]["earlier"][0]["selection"]["semantic_echo"] == semantic
+    assert not session.closed
+    bot.close()
+
+
+@pytest.mark.parametrize("semantic", [{"kind": "finish_selection", "purpose": "modes"}, {"kind": "choose_boolean", "value": True}])
+def test_mixed_target_families_refuse_before_original_session(semantic):
+    bot, session = ready([1])
+    bot.choose(view(priority()))
+    with pytest.raises(ValueError, match="family is not connected"):
+        bot.choose(view(decision({"kind": "choose_target"}, semantic, step=1)))
+    assert session.closed and len(session.requests) == 1
+
+
 def test_original_error_survives_failed_cleanup():
     bot, session = ready()
     def cleanup(): raise RuntimeError("close failed")

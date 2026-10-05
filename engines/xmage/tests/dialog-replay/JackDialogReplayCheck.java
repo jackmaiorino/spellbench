@@ -37,6 +37,7 @@ public final class JackDialogReplayCheck {
         boolean prefix,cost,mode,modePrefix;int entered;boolean earlier;ActivatedAbility playable;
         Modes modes;Ability modeSource;Mode earlierMode;
         mage.choices.Choice named;boolean namedResult;
+        mage.target.Target target;boolean targetResult;
         Viewer(mage.player.ai.ComputerPlayer old) {super(old,2);}
         Viewer(Viewer old) {super(old);prefix=old.prefix;}
         @Override public Viewer copy() {return new Viewer(this);}
@@ -53,6 +54,7 @@ public final class JackDialogReplayCheck {
             if(prefix) earlier=chooseUse(Outcome.Benefit,"earlier",null,game);
             if(mode || modePrefix) earlierMode=chooseMode(modes,modeSource,game);
             if(named!=null) namedResult=choose(Outcome.Benefit,named,game);
+            if(target!=null) targetResult=chooseTarget(Outcome.Benefit,target,playable,game);
             announceX(0,3,"current",game,null,false);return true;
         }
     }
@@ -62,7 +64,14 @@ public final class JackDialogReplayCheck {
         final Set<UUID> hidden=new HashSet<>();
         int compares;
         Case() {
+            this(0,false);
+        }
+        Case(int handSize,boolean sameName) {
             root.state.getPlayers().put(player.getId(),player);
+            for(int i=1;i<handSize;i++) {
+                mage.cards.Card card=new MetadataCard(player.getId(),sameName || i%2==0?"Forest":"Island");
+                root.cards.put(card.getId(),card);player.getHand().add(card);
+            }
             hidden.addAll(player.getLibrary().getCardList());
             mage.cards.Card secret=new MetadataCard(root.other.getId(),"Secret opponent card");
             root.cards.put(secret.getId(),secret);root.other.getHand().add(secret);hidden.add(secret.getId());
