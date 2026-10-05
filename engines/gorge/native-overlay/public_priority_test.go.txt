@@ -4,11 +4,68 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 )
+
+func TestSpellbenchPublicScryPrefersVisibleExitAndKeepsAlternatives(t *testing.T) {
+	for wanted := 0; wanted < 2; wanted++ {
+		e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
+		d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KArrange, Min: 0, Max: 2, Restable: true}
+		for i, name := range []string{"First land", "Second land"} {
+			obj := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: name}}}, 1)
+			d.Options = append(d.Options, decision.Option{Kind: "bottom", Obj: obj.ID, Index: i})
+		}
+		fallback := decision.Intent{Seq: d.Seq, Player: 1, Choices: []int{0, 1}}
+		remaining := []ObservedEvent{{Kind: events.LibraryOrder, Player: 1},
+			{Kind: events.Scry, Player: 1, Amount: 1},
+			{Kind: events.Draw, Player: 1},
+			{Kind: events.MoveZone, Obj: 91, From: state.ZHand, To: state.ZBattlefield}}
+		introduced := []Identity{{ID: 91, Name: e.G.Obj(d.Options[wanted].Obj).Card.Faces[0].Name, Owner: 1}}
+		got := spellbenchObservedPreferred(e, NewCollector(0), d, fallback, remaining, introduced)
+		want := decision.Intent{Seq: d.Seq, Player: 1, Choices: []int{wanted}, Rest: []int{1 - wanted}}
+		if !reflect.DeepEqual(got, want) || d.Validate(got) != nil {
+			t.Fatalf("public scry partition not preferred: got=%+v want=%+v", got, want)
+		}
+		visited, retainedFallback := 0, false
+		spellbenchEachIntent(d, got, func() bool { return true }, func(in decision.Intent) bool {
+			if d.Validate(in) != nil {
+				t.Fatal("preferred partition admitted an illegal intent")
+			}
+			if visited == 0 && !reflect.DeepEqual(in, want) {
+				t.Fatal("preferred partition was not visited first")
+			}
+			retainedFallback = retainedFallback || reflect.DeepEqual(in, fallback)
+			visited++
+			return true
+		})
+		if visited < 6 || !retainedFallback {
+			t.Fatalf("legal alternatives were pruned: count=%d fallback=%v", visited, retainedFallback)
+		}
+	}
+}
+
+func TestSpellbenchPublicScryRequiresMatchingPublicMarker(t *testing.T) {
+	e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
+	d := &decision.Decision{Seq: 8, Player: 1, Kind: decision.KArrange, Min: 0, Max: 2, Restable: true,
+		Options: []decision.Option{{Kind: "bottom", Index: 0}, {Kind: "bottom", Index: 1}}}
+	fallback := decision.Intent{Seq: d.Seq, Player: 1, Choices: []int{0, 1}}
+	for _, remaining := range [][]ObservedEvent{
+		nil,
+		{{Kind: events.Scry, Player: 1, Amount: 1}},
+		{{Kind: events.LibraryOrder, Player: 0}, {Kind: events.Scry, Player: 1, Amount: 1}},
+		{{Kind: events.LibraryOrder, Player: 1}, {Kind: events.Scry, Player: 0, Amount: 1}},
+		{{Kind: events.LibraryOrder, Player: 1}, {Kind: events.Scry, Player: 1, Amount: 3}},
+	} {
+		got := spellbenchObservedPreferred(e, NewCollector(0), d, fallback, remaining, nil)
+		if !reflect.DeepEqual(got, fallback) {
+			t.Fatalf("unmatched marker changed arrangement: events=%+v got=%+v", remaining, got)
+		}
+	}
+}
 
 func TestSpellbenchPublicPassBeforeLaterAction(t *testing.T) {
 	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1", "p2"})}

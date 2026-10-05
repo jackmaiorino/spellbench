@@ -606,6 +606,61 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 		}
 		return false
 	}
+	// A public scry marker supplies the bottom count, even though the hidden
+	// partition is absent. Prefer a matching legal partition and put a later
+	// publicly revealed hand exit first when that name occurs in this
+	// hypothetical look window. Other partitions remain in the bounded walk.
+	if d.Kind == decision.KArrange && d.Restable && len(remaining) >= 2 &&
+		remaining[0].Kind == events.LibraryOrder && remaining[0].Player == d.Player &&
+		remaining[1].Kind == events.Scry && remaining[1].Player == d.Player {
+		bottom := int(remaining[1].Amount)
+		keep := len(d.Options) - bottom
+		uniform := len(d.Options) > 0
+		for _, option := range d.Options {
+			uniform = uniform && option.Kind == "bottom"
+		}
+		if uniform && bottom >= 0 && bottom <= len(d.Options) && keep >= d.Min && keep <= d.Max {
+			var choices []int
+			if keep > 0 {
+				for _, ev := range remaining[2:] {
+					if ev.From != state.ZHand || ev.To.Hidden() {
+						continue
+					}
+					for i, option := range d.Options {
+						if match(option.Obj, ev.Obj) {
+							choices = []int{i}
+							break
+						}
+					}
+					if len(choices) > 0 {
+						break
+					}
+				}
+			}
+			for i := range d.Options {
+				if len(choices) >= keep {
+					break
+				}
+				if len(choices) == 0 || choices[0] != i {
+					choices = append(choices, i)
+				}
+			}
+			var rest []int
+			for i := range d.Options {
+				chosen := false
+				for _, choice := range choices {
+					chosen = chosen || choice == i
+				}
+				if !chosen {
+					rest = append(rest, i)
+				}
+			}
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices, Rest: rest}
+			if d.Validate(in) == nil {
+				return in
+			}
+		}
+	}
 	for at, ev := range remaining {
 		kind := ""
 		ability := -1

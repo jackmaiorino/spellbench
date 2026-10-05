@@ -254,5 +254,34 @@
     "interpretation": "Exact current504-prefix refusal reproduced. Carry-guided proposals0/2 stop at public Vault of Whispers identity after opponent scry355; unguided proposal1 reaches390 then rejects hypothetical opponent shuffle4 with three different names required through one draw and a second Familiar through two. The sampled hidden hand lacks Familiar and Spellbomb. No production repair established yet.",
     "native_qualification_complete": false,
     "rated_games": 0
+  },
+  "witness054_seal_sha256": "11deef8f576c4c13658a57a270a164f8f00a99df6600408c5a0a6dfbd62ae6e4",
+  "hypothetical_state_diagnosis": {
+    "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-054\\terminal-recovery\\trace-public-root\\TRACE.json",
+    "trace_sha256": "2b043f27aaeec167c64b7fab22556e06efb7d69c3d479beb905a04ebe5794ec6",
+    "work": {
+      "Attempts": 4,
+      "Submits": 5000,
+      "Nodes": 4200,
+      "BudgetExhausted": 1
+    },
+    "synthetic_branch_only": true,
+    "guided_scry_attempts": [
+      {
+        "attempt": 0,
+        "failed": 355,
+        "vault_library_index": 37,
+        "hypothetical_hand_has_vault": false
+      },
+      {
+        "attempt": 2,
+        "failed": 355,
+        "vault_library_index": 37,
+        "hypothetical_hand_has_vault": false
+      }
+    ],
+    "interpretation": "Guided branches that fail at355 have the unique Vault of Whispers at library index37, after the hypothetical scry bottomed it. This supports trying a general public scry partition preference. It does not prove the complete504 root, native audit or playing strength is repaired.",
+    "proposed_repair": "Prefer a legal hypothetical arrange partition matching immediate public LibraryOrder/Scry bottom count; put a subsequently public hand exit first when that name exists in the hypothetical look window. Preserve every legal alternative and all budgets/weights.",
+    "repair_validation_pending": true
   }
 }
