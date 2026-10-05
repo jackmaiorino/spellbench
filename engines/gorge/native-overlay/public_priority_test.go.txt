@@ -34,11 +34,11 @@ func TestSpellbenchBasicSearchAfterNonbasicLondonBottom(t *testing.T) {
 			bottom := ObservedEvent{Kind: events.MoveZone, Player: test.owner, Obj: 2, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}
 			identities := []Identity{{ID: 1, Name: "Public Search", Owner: 0}, {ID: 2, Name: test.bottomName, Owner: test.owner}, {ID: 3, Name: "Swamp", Owner: 0}, {ID: 4, Name: "Forest", Owner: 0}}
 			if test.anonymous {bottom.Obj = 0}
-			events := []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Draw, Player: 0}}
-			if test.afterStart {events = append(events, ObservedEvent{Kind: events.TurnChange})}
-			events = append(events, bottom)
+			observed := []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Draw, Player: 0}}
+			if test.afterStart {observed = append(observed, ObservedEvent{Kind: events.TurnChange})}
+			observed = append(observed, bottom)
 			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
-				{Identities: identities, Events: events},
+				{Identities: identities, Events: observed},
 				{Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 1, Options: []ObservedOption{
 					{Action: Action{Kind: "search", Player: 0, Obj: 3}}, {Action: Action{Kind: "search", Player: 0, Obj: 4}},
 				}}},
