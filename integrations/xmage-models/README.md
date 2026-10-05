@@ -545,6 +545,38 @@ observed decision after conversion.
 `JackPlayerBootstrapCheck.java` verifies actual state transfer, independence from
 later setup-player mutations, pre-admission refusal, the original mulligan encoder
 count and normal copied-player refusal. It uses metadata engine hooks and
-synthetic predictions. This is a reconstruction entrypoint; the actual root/copy
-admission registry and guarded launcher remain unfinished, and live reconstruction
-and complete-game qualification still require the guarded native checks.
+synthetic predictions. The root/copy registry below connects this reconstruction
+entrypoint to original-player admission. Guarded launcher integration, live
+reconstruction and complete-game qualification still require the native checks.
+
+`JackPermittedWorlds` owns reconstruction, sampling and original-player binding.
+Its public build path accepts permitted inputs, not an existing engine game. A
+private lineage watcher identifies the reconstructed root; simulation admission
+requires a copied marker, independent branch knowledge, the original copied player,
+the same game identity and the same model session. Each admission belongs to one
+exact game/player pair. Retiring a decision removes its root and copies while
+keeping the game-owned inference session. Failed admission or projection closes
+that session, and the original clock is checked before reconstruction.
+Engine bookmark restoration preserves the bound player and validates the saved
+lineage token, allowing restored watcher copies with restored branch knowledge.
+
+The existing verified root alias projection is shared with the mode codec through
+`JackWorldAliases`. The method body is unchanged. Live alias refresh uses the
+viewer observation builder, named visible objects, branch-known libraries, the
+viewer's current engine look windows and public reveals. It excludes the other
+player's private look windows and expires unnamed or absent references. Returning
+objects receive fresh aliases. New aliases sort by opaque viewer reference before
+their incarnation suffix, so library feature ordering cannot recover collection
+iteration order. Initial opponent-hand references expire when their full known
+name count no longer survives.
+
+`JackPermittedWorldsCheck.java` exercises actual root and copied-player callbacks,
+engine watcher copies, alias expiry/return and ordering, decision retirement,
+failure closure, and the actual observation builder on metadata engine hooks.
+It also exercises actual engine bookmark restoration on a root and admitted copy.
+The hidden library, opponent private-look and expired hand-knowledge checks
+refuse hidden card reads.
+These checks use synthetic predictions and no native match or database. Guarded
+launcher/serving integration, live reconstruction, visibility-window lifetime,
+hidden-world and ordering/RNG replay, pretrained inference and complete-game
+qualification remain unfinished.
