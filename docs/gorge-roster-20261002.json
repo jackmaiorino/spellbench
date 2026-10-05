@@ -517,69 +517,35 @@
     "last_denied_reference_preparation": "docs/gorge-reference-runtime033-preparation004-20261005.json"
   },
   "current_runtime_status": {
-    "source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
-    "source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
-    "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+    "source_commit": "14fe3199b7f8dc08dca4b5f99ee1a3d0121e1365",
+    "source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+    "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
     "production_binaries_frozen": true,
     "native_qualification_complete": false,
     "reference_qualification_complete": false,
     "rated_games": 0,
     "published_entries": 0,
-    "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-048",
-    "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
-    "current_phase": "released_native_qualification_incomplete",
-    "prior_failed_native_record": "docs/gorge-runtime033-native-20261005.json",
+    "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-060",
+    "native_attempt_seal_sha256": null,
+    "current_phase": "supported_native_qualification",
+    "prior_failed_native_record": "docs/gorge-runtime048-native-20261005.json",
     "current_reference_preparation_compatible": true,
     "diagnostic_capture_record": "docs/gorge-diagnostic036-20261005.json",
     "current_reference_admission_proved": false,
     "current_reference_budget_admission_proved": false,
-    "current_native_failure": {
-      "at_utc": "2026-10-05T08:30:00.849652+00:00",
-      "game": 52,
-      "cell": "Wildfire/search-mana-redeal",
-      "coverage": {
-        "Natives": 746,
-        "Eligible": 241,
-        "Attempted": 111,
-        "Covered": 76,
-        "Attempts": 7104,
-        "Accepted": 4,
-        "Worlds": 608,
-        "Rollouts": 2456,
-        "Submits": 2259672,
-        "Terminal": 2456,
-        "Capped": 0,
-        "Redealt": 608,
-        "ReconstructionAttempts": 200,
-        "ReconstructionSubmits": 245488,
-        "ReconstructionNodes": 158616,
-        "ReconstructionBudgetExhausted": 35,
-        "RedealRefusals": {
-          "public reconstruction submit budget exhausted": 35
-        },
-        "Reasons": {
-          "fewer_than_two_candidates": 130,
-          "insufficient worlds/ESS": 35
-        },
-        "Kinds": {
-          "cast": 24,
-          "mana": 52
-        }
-      },
-      "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
-    },
+    "current_native_failure": null,
     "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-032",
     "billing_seal_sha256": "167a941b41c27cdd031fde498c73f340b71c1e6a9ac7d99b4c7382cc8017a9a9",
     "conservative_closed_ceiling_usd": 8.91288647,
     "active_owned_lease": true,
     "current_reference_refusal": {
-      "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
-      "returncode": 1,
+      "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-060",
       "refusal": {
-        "preparation_refused": "The sealed native attempt did not pass full qualification",
+        "preparation_refused": "Native attempt is not sealed and closed",
         "new_cloud_spend_usd": 0
       },
       "prospective_job_created": false,
+      "secret_created": false,
       "new_cloud_spend_usd": 0
     },
     "diagnostic042_seal_sha256": "cc3688c9b6d92af68413eaab0edbb56ac65ad79ffa37c8d26c7269248ed5198c",
@@ -608,8 +574,8 @@
     ],
     "witness046_seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
     "witness046_baseline_refusal_reproduced": true,
-    "cumulative_reservation_ceiling_usd": 8.91288647,
-    "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
+    "cumulative_reservation_ceiling_usd": 9.87955347,
+    "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
     "prior040_first_remaining_refusal": {
       "frames": 596,
       "public_projection_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
@@ -621,24 +587,7 @@
       },
       "first_failure_order_verified": true
     },
-    "current_first_remaining_refusal": {
-      "frames": 504,
-      "public_projection_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-050\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
-      "public_projection_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
-      "work": {
-        "Attempts": 4,
-        "Submits": 5000,
-        "Nodes": 4200,
-        "BudgetExhausted": 1
-      },
-      "exact_prefix_of_historical596": true,
-      "actor_answer_prefix_equal": true,
-      "first_failure_order_verified": true,
-      "exact_baseline_replay_complete": true,
-      "deepest_reached": 390,
-      "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-052\\terminal-recovery\\trace-public-root\\TRACE.json",
-      "trace_sha256": "175311aeca9b6c3301096bc6e03c1ed4c6e8be3c8a0b6342e8fbcee3812e0623"
-    },
+    "current_first_remaining_refusal": null,
     "diagnostic050_seal_sha256": "dbd4ff44bdf7ed280e3fc164cdbf3acc215d82bf964d209b4086dd667035dc47",
     "diagnostic052_seal_sha256": "118d816f18eadf1083a0ea8d4f0a4ef2da6ac3ce4c66362b72f2e988de543cde",
     "diagnostic054_seal_sha256": "11deef8f576c4c13658a57a270a164f8f00a99df6600408c5a0a6dfbd62ae6e4",
@@ -662,7 +611,83 @@
     "full_go_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37293808685",
     "production_runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
     "current_identity_review_complete": false,
-    "reference_preparation_compatible": true
+    "reference_preparation_compatible": true,
+    "prior048_runtime_status": {
+      "source_commit": "aee05648781dd78d9c4e74bb12974e5dc010d791",
+      "source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
+      "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+      "native_attempt_source_of_record": "E:\\spellbench-gorge-runpod-20261005-048",
+      "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
+      "current_phase": "released_native_qualification_incomplete",
+      "current_native_failure": {
+        "at_utc": "2026-10-05T08:30:00.849652+00:00",
+        "game": 52,
+        "cell": "Wildfire/search-mana-redeal",
+        "coverage": {
+          "Natives": 746,
+          "Eligible": 241,
+          "Attempted": 111,
+          "Covered": 76,
+          "Attempts": 7104,
+          "Accepted": 4,
+          "Worlds": 608,
+          "Rollouts": 2456,
+          "Submits": 2259672,
+          "Terminal": 2456,
+          "Capped": 0,
+          "Redealt": 608,
+          "ReconstructionAttempts": 200,
+          "ReconstructionSubmits": 245488,
+          "ReconstructionNodes": 158616,
+          "ReconstructionBudgetExhausted": 35,
+          "RedealRefusals": {
+            "public reconstruction submit budget exhausted": 35
+          },
+          "Reasons": {
+            "fewer_than_two_candidates": 130,
+            "insufficient worlds/ESS": 35
+          },
+          "Kinds": {
+            "cast": 24,
+            "mana": 52
+          }
+        },
+        "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+      },
+      "current_reference_refusal": {
+        "native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6",
+        "returncode": 1,
+        "refusal": {
+          "preparation_refused": "The sealed native attempt did not pass full qualification",
+          "new_cloud_spend_usd": 0
+        },
+        "prospective_job_created": false,
+        "new_cloud_spend_usd": 0
+      },
+      "current_first_remaining_refusal": {
+        "frames": 504,
+        "public_projection_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-050\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+        "public_projection_sha256": "a03920b720480987414dc14be916a81c2bf313cc48fc7fc695d1c5c763015ae0",
+        "work": {
+          "Attempts": 4,
+          "Submits": 5000,
+          "Nodes": 4200,
+          "BudgetExhausted": 1
+        },
+        "exact_prefix_of_historical596": true,
+        "actor_answer_prefix_equal": true,
+        "first_failure_order_verified": true,
+        "exact_baseline_replay_complete": true,
+        "deepest_reached": 390,
+        "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-052\\terminal-recovery\\trace-public-root\\TRACE.json",
+        "trace_sha256": "175311aeca9b6c3301096bc6e03c1ed4c6e8be3c8a0b6342e8fbcee3812e0623"
+      }
+    },
+    "engine_source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "current_remaining_refusals_unknown": true,
+    "current_native_result_status": "Pending full native qualification; historical048 failures are not current060 results",
+    "saved504_refusal_repaired": true,
+    "saved504_component_verification": "docs/gorge-component-verification059-20261005.json"
   },
   "current_source_component_status": {
     "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
