@@ -259,6 +259,19 @@ public final class Front {
         return Json.map("response_type", "ack", "protocol", PROTOCOL, "request_id", requestId);
     }
 
+    /**
+     * The decision without its engine extensions (Section 14): the kit reads none, and an engine may send large native
+     * payloads (mtg-kernel's model inputs reach several MiB) that anchors and runner requests would otherwise copy.
+     */
+    static Map<String, Object> withoutExtensions(Map<String, Object> d) {
+        if (d == null || !d.containsKey("extensions")) {
+            return d;
+        }
+        Map<String, Object> m = new LinkedHashMap<>(d);
+        m.remove("extensions");
+        return m;
+    }
+
     static Map<String, Object> stripEnvelope(Map<String, Object> req) {
         Map<String, Object> m = new LinkedHashMap<>(req);
         m.remove("request_id");
@@ -334,7 +347,7 @@ public final class Front {
 
     Map<String, Object> choose(Map<String, Object> req, String requestId) {
         long t0 = System.nanoTime();
-        Map<String, Object> d = Json.obj(req, "decision");
+        Map<String, Object> d = withoutExtensions(Json.obj(req, "decision"));
         VisibleNames.observe(Json.obj(d, "observation"), cardOrigins);
         Map<String, Object> clockIn = Json.obj(req, "clock");
         long limit = Math.min(clockIn == null ? 60_000 : Json.num(clockIn, "max_decision_ms", 60_000),
@@ -844,6 +857,7 @@ public final class Front {
             }
             mergeCounters(detail, Json.obj(w, "counters"));
         }
+        aliasWorldKeys(Json.arr(d, "candidates"), results, candidateOf);
         Aggregate.Result agg;
         if ("mcts".equals(botKind)) {
             List<Map<String, Object>> ws = new ArrayList<>();
@@ -901,6 +915,11 @@ public final class Front {
                 }
             }
             plans.open(seatStep, sem, Json.obj(d, "observation"), agg.planPayload, answers);
+            if ("cast_spell".equals(Json.str(sem, "kind")) && sem.get("method") == null) {
+                // a method-null cast (Section 7.4): choose_cast_method then takes the world's method
+                plans.active.castMethod = Offers.worldMethod(agg.winner);
+                detail.put("cast_method", plans.active.castMethod);
+            }
             detail.put("plan_payload", agg.planPayload);
         }
         Answer a = new Answer(c, tag, forcing ? "priority_forced" : "priority_anchor");
@@ -931,6 +950,33 @@ public final class Front {
         for (Map.Entry<String, Object> e : counters.entrySet()) {
             long before = m.get(e.getKey()) instanceof Number ? ((Number) m.get(e.getKey())).longValue() : 0;
             m.put(e.getKey(), before + ((Number) e.getValue()).longValue());
+        }
+    }
+
+    /**
+     * Adds every world key that is not itself offered but answers an offered candidate (a method-null cast; see
+     * {@link Offers}) to {@code candidateOf}, so votes, visits and the ranked fallback reach that candidate.
+     */
+    static void aliasWorldKeys(List<Object> cands, List<Object> results, Map<String, Integer> candidateOf) {
+        List<Object> sems = new ArrayList<>();
+        for (Object o : results) {
+            Map<String, Object> w = Json.obj(o);
+            sems.add(w.get("semantic"));
+            for (Object so : Json.arr(w, "root_stats")) {
+                sems.add(Json.obj(so).get("semantic"));
+            }
+        }
+        for (Object s : sems) {
+            if (!(s instanceof Map)) {
+                continue;
+            }
+            String k = Aggregate.key(s);
+            if (!candidateOf.containsKey(k)) {
+                int c = Offers.candidateFor(cands, Json.obj(s));
+                if (c >= 0) {
+                    candidateOf.put(k, c);
+                }
+            }
         }
     }
 
