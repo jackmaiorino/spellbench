@@ -190,3 +190,53 @@ def test_actual_token_budget_overrun_does_not_return_a_choice():
     with pytest.raises(ProviderError, match="token_budget_exceeded"):
         bot.choose(decision())
     assert events(log)[-1]["tokens"] == 300_010
+
+
+def history_decision(events, *, step, forced=False):
+    item = decision(forced=forced, step=step)
+    item.extensions["x_public_history_v1"] = {"schema": "x_public_history_v1", "events": events}
+    return item
+
+
+def test_public_history_is_opt_in_and_never_reaches_the_default_prompt():
+    bot, provider, _ = agent()
+    bot.choose(history_decision([{"kind": "turn_began", "turn": 1, "active_seat": "p0"}], step=0))
+    body = json.loads(provider.calls[0][0].messages[1]["content"])
+    assert "public_history" not in body and "turn_began" not in json.dumps(provider.calls[0][0].messages)
+    assert body["prompt_version"] == "spellbench-llm/v1"
+
+
+def test_public_history_accumulates_deltas_including_forced_choices_and_keeps_the_latest_events():
+    bot, provider, log = agent(config=AgentConfig(public_history_events=2))
+    draw = {"kind": "draw", "seat": "p0", "card": None}
+    bot.choose(history_decision([{"kind": "turn_began", "turn": 1, "active_seat": "p0"}], step=0, forced=True))
+    bot.choose(history_decision([draw], step=1))
+    bot.choose(history_decision([draw], step=1))  # retransmission repeats its delta
+    shuffle = {"kind": "library_shuffled", "owner_seat": "p1"}
+    bot.choose(history_decision([shuffle], step=2))
+    bodies = [json.loads(prompt.messages[1]["content"]) for prompt, _ in provider.calls]
+    assert bodies[0]["public_history"] == {"events": [{"kind": "turn_began", "turn": 1, "active_seat": "p0"}, draw],
+                                           "omitted_earlier_events": 0}
+    assert bodies[1]["public_history"] == bodies[0]["public_history"]
+    assert bodies[2]["public_history"] == {"events": [draw, shuffle], "omitted_earlier_events": 1}
+    assert bodies[2]["prompt_version"] == "spellbench-llm/v1+public-history-v1"
+    assert "public_history lists" in provider.calls[0][0].messages[0]["content"]
+    assert "MUST-NOT-REACH-MODEL" not in json.dumps(provider.calls[-1][0].messages)
+    assert events(log)[0]["prompt_version"] == "spellbench-llm/v1+public-history-v1"
+    bot.on_game_over(GameOver.from_request({"game_id": "g", "terminal": {"winner": "p0"}}))
+    bot.on_game_start(game())
+    bot.choose(history_decision([], step=0))
+    assert json.loads(provider.calls[-1][0].messages[1]["content"])["public_history"]["events"] == []
+
+
+@pytest.mark.parametrize("extension", [None, {"schema": "other", "events": []}, {"schema": "x_public_history_v1"},
+                                       {"schema": "x_public_history_v1", "events": [{"card": None}]}])
+def test_accepted_public_history_must_be_present_and_well_formed(extension):
+    bot, provider, log = agent(config=AgentConfig(public_history_events=8))
+    item = decision(step=0)
+    if extension is not None:
+        item.extensions["x_public_history_v1"] = extension
+    with pytest.raises(ValueError):
+        bot.choose(item)
+    assert not provider.calls
+    assert events(log)[-1]["error"] == "invalid_observation_or_prompt"
