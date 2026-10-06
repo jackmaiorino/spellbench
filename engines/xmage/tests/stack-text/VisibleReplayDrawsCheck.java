@@ -74,6 +74,7 @@ public final class VisibleReplayDrawsCheck {
         }
         Map<String, Object> mystic = card("mystic", "Mischievous Mystic");
         mystic.put("zone", "battlefield"); mystic.put("face_down", false);
+        mystic.put("copy", false); mystic.put("token", false);
         own.put("battlefield", Arrays.asList(mystic));
         observation.put("pending_triggers", after ? Arrays.asList(Json.map("controller_seat", "p0",
                 "optional", false, "source", Json.copy(mystic))) : new ArrayList<>());
@@ -97,7 +98,7 @@ public final class VisibleReplayDrawsCheck {
         require(own.library.size() == 4 && own.unknownSlots == 3 && own.poolSize == 3 && own.pinned == 1,
                 "single-draw conditioning changed physical counts");
         require("drawn-island".equals(own.library.get(0).objectId), "single visible draw was not conditioned");
-        for (String fault : new String[]{"no-trigger", "opponent", "wrong-source", "absent-source", "face-down"}) {
+        for (String fault : new String[]{"no-trigger", "opponent", "wrong-source", "absent-source", "face-down", "copy", "token"}) {
             Map<String, Object> before = icewindObservation(false), current = icewindDecision();
             Map<String, Object> after = Json.obj(current, "observation");
             Map<String, Object> trigger = Json.obj(Json.arr(after, "pending_triggers").get(0));
@@ -106,6 +107,7 @@ public final class VisibleReplayDrawsCheck {
             if (fault.equals("wrong-source")) Json.obj(trigger, "source").put("card_name", "other card");
             if (fault.equals("absent-source")) Json.obj(Json.arr(before, "players").get(0)).put("battlefield", new ArrayList<>());
             if (fault.equals("face-down")) Json.obj(Json.arr(Json.obj(Json.arr(before, "players").get(0)), "battlefield").get(0)).put("face_down", true);
+            if (fault.equals("copy") || fault.equals("token")) Json.obj(Json.arr(Json.obj(Json.arr(before, "players").get(0)), "battlefield").get(0)).put(fault, true);
             require(VisibleReplayDraws.condition(sample(), before, current, Collections.emptyList(), new Random(3)) == 0,
                     "unproven watcher history was restored: " + fault);
         }

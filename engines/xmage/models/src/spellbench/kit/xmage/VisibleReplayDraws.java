@@ -128,6 +128,8 @@ final class VisibleReplayDraws {
             if (id.equals(Json.str(card, "object_id"))
                     && "Mischievous Mystic".equals(Json.str(card, "card_name"))
                     && Boolean.FALSE.equals(card.get("face_down"))
+                    && Boolean.FALSE.equals(card.get("copy"))
+                    && Boolean.FALSE.equals(card.get("token"))
                     && viewer.equals(Json.str(card, "owner_seat"))
                     && viewer.equals(Json.str(card, "controller_seat"))) return true;
         }
