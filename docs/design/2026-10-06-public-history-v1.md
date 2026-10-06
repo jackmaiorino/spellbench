@@ -157,6 +157,26 @@ rules behavior:
    above, and keeps each seat's queue until that seat's next decision.
 
 The journal changes the engine identity, which is intended: the board moves to
+### Two-world audit result
+
+`integrations/mtg_kernel/audit_history_two_world_v2.py` runs the audit. For
+each viewer, the second world renames every card that viewer never saw among
+the other unseen cards of the same owner. A seen card is one that:
+- was in a public zone;
+- was drawn by the viewer, or moved between its own hidden zones;
+- was looked at, revealed, scried or reordered with the viewer watching.
+
+Replaying that world must give the viewer byte-identical history and
+knowledge at every one of its decisions. Public play stays identical by
+construction, since only hidden names change.
+
+On 2026-10-06 it ran 32 complete games against the locally built bridge with
+the journal: 8 decks × 2 starting seats × seeds 7 and 11.
+- All 32 were clean, over 24,619 compared viewer outputs and 2,717 renamed
+  hidden cards.
+- Three Elves games ended in the existing `invalid minimum blockers` combat
+  halt. They were still audited up to the halt.
+
 `evaluation_version` `pauper-neutral-v2.1.0` (design C8). The existing `x_kernel_flat_v4`
 tensor and the g115, a48 and c12 policies are unchanged.
 
