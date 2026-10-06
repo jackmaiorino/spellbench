@@ -455,64 +455,41 @@ func TestSpellbenchPublicPassRequiresImmediateMatchingMarker(t *testing.T) {
 	}
 }
 
-func TestSpellbenchPublicTargetUsesBoundObjectAndPreservesAlternatives(t *testing.T) {
-	c, err := SpellbenchCollector(0, map[uint32]uint32{101: 10, 102: 20, 103: 30})
+func TestSpellbenchPublicPaymentTapPrefersObservedSourceAndKeepsAlternatives(t *testing.T) {
+	e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
+	c, err := SpellbenchCollector(0, map[uint32]uint32{101: 10, 102: 20})
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KTarget, Source: 101, Min: 1, Max: 1,
-		Options: []decision.Option{{Kind: "target", Obj: 102}, {Kind: "target", Obj: 103}}}
+	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KChoose, Min: 1, Max: 1,
+		Options: []decision.Option{{Kind: "activate", Obj: 101}, {Kind: "activate", Obj: 102}, {Kind: "done"}}}
 	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
 	want := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{1}}
-	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1"})}
-	remaining := []ObservedEvent{{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{30}}}
+	remaining := []ObservedEvent{{Kind: events.Tap, Obj: 20}, {Kind: events.ManaAdd, Player: 1, Counter: "R", Amount: 1}}
 	got := spellbenchObservedPreferred(e, c, d, fallback, remaining, nil)
 	if !reflect.DeepEqual(got, want) || d.Validate(got) != nil {
-		t.Fatalf("public target was not preferred: got=%+v want=%+v", got, want)
+		t.Fatalf("payment source was not preferred: got=%+v want=%+v", got, want)
 	}
 	var visited []decision.Intent
 	spellbenchEachIntent(d, got, func() bool { return true }, func(in decision.Intent) bool {
 		visited = append(visited, in)
 		return true
 	})
-	if len(visited) != 2 || !reflect.DeepEqual(visited[0], want) || !reflect.DeepEqual(visited[1], fallback) {
-		t.Fatalf("target alternatives changed: %+v", visited)
+	if len(visited) != 3 || !reflect.DeepEqual(visited[0], want) {
+		t.Fatalf("payment alternatives changed: %+v", visited)
 	}
-	for _, ev := range []ObservedEvent{
-		{Kind: events.TargetsChosen, Obj: 20, IDs: []uint32{30}},
-		{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{99}},
-		{Kind: events.TargetsChosen, Obj: 10},
-		{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{20, 30}},
-	} {
-		if got := spellbenchObservedPreferred(e, c, d, fallback, []ObservedEvent{ev}, nil); !reflect.DeepEqual(got, fallback) {
-			t.Fatalf("unbound or ambiguous public target changed preference: %+v", got)
+	for _, choice := range []int{0, 2} {
+		found := false
+		for _, in := range visited {
+			found = found || reflect.DeepEqual(in.Choices, []int{choice})
+		}
+		if !found {
+			t.Fatalf("payment alternative %d disappeared", choice)
 		}
 	}
-}
-
-func TestSpellbenchPublicTargetCanUseNewlyNamedCastSource(t *testing.T) {
-	e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
-	source := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "Cast Down"}}}, 1)
-	left := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "First creature"}}}, 0)
-	right := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "Second creature"}}}, 0)
-	c, err := SpellbenchCollector(0, map[uint32]uint32{uint32(left.ID): 20, uint32(right.ID): 30})
-	if err != nil {
-		t.Fatal(err)
-	}
-	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KTarget, Source: source.ID, Min: 1, Max: 1,
-		Options: []decision.Option{{Kind: "target", Obj: left.ID}, {Kind: "target", Obj: right.ID}}}
-	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
-	remaining := []ObservedEvent{{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{30}}}
-	for _, test := range []struct {
-		name  string
-		owner state.PlayerID
-		pick  int
-	}{{"Cast Down", 1, 1}, {"Another spell", 1, 0}, {"Cast Down", 0, 0}} {
-		introduced := []Identity{{ID: 10, Name: test.name, Owner: test.owner}}
-		got := spellbenchObservedPreferred(e, c, d, fallback, remaining, introduced)
-		if !reflect.DeepEqual(got.Choices, []int{test.pick}) || d.Validate(got) != nil {
-			t.Fatalf("new source preference: identity=%+v got=%+v", introduced, got)
-		}
+	got = spellbenchObservedPreferred(e, c, d, fallback, []ObservedEvent{{Kind: events.Tap, Obj: 99}}, nil)
+	if !reflect.DeepEqual(got, fallback) {
+		t.Fatalf("unobserved tap changed preference: %+v", got)
 	}
 }
 

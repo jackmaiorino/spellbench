@@ -973,32 +973,6 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 		}
 		return false
 	}
-	// A single public object target identifies a legal witness choice directly.
-	// The cast source may first be named in this same public burst. Targets
-	// need established bindings; every alternative stays in the bounded walk.
-	if d.Kind == decision.KTarget && d.Min == 1 && d.Max == 1 && d.Source != 0 {
-		for _, ev := range remaining {
-			if ev.Kind != events.TargetsChosen {
-				continue
-			}
-			if !match(d.Source, ev.Obj) || len(ev.IDs) != 1 {
-				return fallback
-			}
-			target := c.object(ev.IDs[0])
-			if target == 0 {
-				return fallback
-			}
-			for i, option := range d.Options {
-				if option.Obj == target {
-					in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
-					if d.Validate(in) == nil {
-						return in
-					}
-				}
-			}
-			return fallback
-		}
-	}
 	// A public scry marker supplies the bottom count, even though the hidden
 	// partition is absent. Prefer a matching legal partition and put a later
 	// publicly revealed hand exit first when that name occurs in this
@@ -1078,6 +1052,10 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 			}
 		case d.Kind == decision.KPriority && ev.Kind == events.AbilityPush && ev.Player == d.Player:
 			kind, ability = "ability", int(ev.Amount)
+		case d.Kind == decision.KChoose && ev.Kind == events.Tap:
+			// The cast payment window offers mana sources as activate options.
+			// Its recorded public tap orders this witness, as at priority.
+			kind = "activate"
 		case d.Kind == decision.KChoose && ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZGraveyard:
 			kind = "discard"
 		case d.Kind == decision.KChoose && ev.Kind == events.ManaAdd && ev.Player == d.Player:
