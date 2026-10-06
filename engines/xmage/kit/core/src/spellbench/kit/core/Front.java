@@ -263,6 +263,25 @@ public final class Front {
      * The decision without its engine extensions (Section 14): the kit reads none, and an engine may send large native
      * payloads (mtg-kernel's model inputs reach several MiB) that anchors and runner requests would otherwise copy.
      */
+    /**
+     * The pass candidate of a priority decision whose every other candidate is an ordinary mana activation, else -1.
+     * The kit's searches never root on a mana ability (the root filter admits only mapped non-mana actions), so such
+     * a stop is a pass however long they search; an engine that offers priority mana (the mtg-kernel v2 engine does at
+     * nearly every stop) would otherwise pay a full search for it.
+     */
+    static int manaOnlyPass(List<Object> cands) {
+        int pass = -1;
+        for (int i = 0; i < cands.size(); i++) {
+            String kind = Json.str(Json.obj(Json.obj(cands.get(i)), "semantic"), "kind");
+            if ("pass".equals(kind) && pass < 0) {
+                pass = i;
+            } else if (!"activate_mana_ability".equals(kind)) {
+                return -1;
+            }
+        }
+        return pass;
+    }
+
     static Map<String, Object> withoutExtensions(Map<String, Object> d) {
         if (d == null || !d.containsKey("extensions")) {
             return d;
@@ -663,6 +682,10 @@ public final class Front {
         if (priority) {
             if (forced != null && seatStep == forcedAt) {
                 return priorityAnchor(d, clock);
+            }
+            int manaOnlyPass = manaOnlyPass(cands);
+            if (manaOnlyPass >= 0) {
+                return new Answer(manaOnlyPass, "bot", "mana_only_pass");
             }
             String step = Json.str(obs, "phase_step");
             boolean passFirst = "pass".equals(Json.str(Json.obj(Json.obj(cands.get(0)), "semantic"), "kind"));

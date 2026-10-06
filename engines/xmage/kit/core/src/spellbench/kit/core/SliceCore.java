@@ -40,6 +40,7 @@ public final class SliceCore {
         logicalDialogs();
         rebinding();
         methodNullCasts();
+        kernelSmokeFixes();
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -334,5 +335,46 @@ public final class SliceCore {
         Map<String, Object> stripped = Front.withoutExtensions(withExt);
         check("kernel.extensions_stripped", !stripped.containsKey("extensions") && withExt.containsKey("extensions")
                 && Front.withoutExtensions(md) == md, null);
+    }
+
+    /** The two kit gaps the first pauper-kernel smoke games showed (CawGates' saga back face; priority mana stops). */
+    static void kernelSmokeFixes() {
+        // a transformed saga shows its back face; the list names its front face; nothing is surplus or negative
+        Map<String, Object> gs = Json.map("own_deck", deck("own", "The Modern Age", 4L, "Island", 16L),
+                "opponent_deck", deck("opp", "Island", 20L), "rules", Json.map("opponent_decklist", "visible"));
+        Map<String, Object> glider = rec("o-vg", "Vector Glider", "p0", "battlefield", false);
+        glider.put("full_name", "The Modern Age // Vector Glider");
+        Map<String, Object> age = rec("o-ma", "The Modern Age", "p0", "battlefield", false);
+        age.put("full_name", "The Modern Age // Vector Glider");
+        Map<String, Object> obs = Json.map("viewer", "p0", "players", Arrays.asList(
+                player("p0", 0, 18, new ArrayList<>(), new ArrayList<Object>(Arrays.asList(glider, age)), new ArrayList<>()),
+                player("p1", 0, 20, null, new ArrayList<>(), new ArrayList<>())), "stack", new ArrayList<>(),
+                "known", new ArrayList<>());
+        Sampler.Sample sm = Sampler.sample(gs, obs, new Random(3));
+        int ages = 0;
+        for (Sampler.Slot sl : sm.seats.get("p0").library) {
+            ages += "The Modern Age".equals(sl.name) ? 1 : 0;
+        }
+        java.util.TreeMap<String, Integer> list = new java.util.TreeMap<>();
+        list.put("Fire // Ice", 1);
+        check("kernel.back_face_counts_against_list", sm.flags.isEmpty() && ages == 2
+                && "Fire // Ice".equals(Sampler.listName("Fire", "Fire // Ice", list))
+                && "Vector Glider".equals(Sampler.listName("Vector Glider", null, list)),
+                Json.map("flags", new ArrayList<Object>(sm.flags), "library_ages", (long) ages));
+
+        // pass beside only mana activations needs no search; any other action does
+        Map<String, Object> land = ref("o-land", "Island", "p0", "battlefield");
+        Map<String, Object> mana = Json.map("kind", "activate_mana_ability", "source", land, "ability_index", 0L,
+                "mana_choice", null, "cost_target", null);
+        List<Object> manaOnly = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", mana, "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", Json.map("kind", "pass"), "display_text", null));
+        List<Object> withCast = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", Json.map("kind", "pass"), "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", mana, "display_text", null),
+                Json.map("candidate_id", 2L, "semantic", Json.map("kind", "cast_spell",
+                        "source", ref("o-bolt", "Lightning Bolt", "p0", "hand"), "method", null), "display_text", null));
+        check("kernel.mana_only_pass", Front.manaOnlyPass(manaOnly) == 1 && Front.manaOnlyPass(withCast) == -1
+                && Front.manaOnlyPass(Arrays.asList(manaOnly.get(0))) == -1, null);
     }
 }

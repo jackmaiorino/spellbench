@@ -505,8 +505,8 @@ public final class WorldBuilder {
                     continue;
                 }
                 spec.random.scopeObject(id + ":permanent");
-                putCardOntoBattlefield(c, controller, pm != null && Json.bool(pm, "tapped"));
-                perm = game.getPermanent(c.getId());
+                perm = putCardOntoBattlefield(c, Json.str(rec, "card_name"), controller,
+                        pm != null && Json.bool(pm, "tapped"));
                 if (perm == null) {
                     flag("unsupported:did_not_enter:" + Json.str(rec, "card_name"));
                     continue;
@@ -524,13 +524,22 @@ public final class WorldBuilder {
     /**
      * mzbridge's {@code putCardOntoBattlefield}: CardUtil.putCardOntoBattlefieldWithEffects without changing the
      * card's owner. No ENTERS_THE_BATTLEFIELD event; "enters with counters / tapped" replacements still apply (the
-     * observed counters and tapped state are set afterwards).
+     * observed counters and tapped state are set afterwards). A double-faced card enters on the face it shows: its
+     * front face (XMage's default side, whose id is the face's, not the card's), or its back face, transformed, when
+     * the observed name is the back face's (as ZonesHandler enters a card transformed). Returns the permanent, null
+     * when none entered.
      */
-    private void putCardOntoBattlefield(Card card, Player controller, boolean tapped) {
+    private Permanent putCardOntoBattlefield(Card card, String shownName, Player controller, boolean tapped) {
         Ability source = fake.copy();
         source.setControllerId(controller.getId());
         source.setSourceId(card.getId());
         Card permCard = mage.util.CardUtil.getDefaultCardSideForBattlefield(game, card);
+        if (card instanceof mage.cards.DoubleFacedCard) {
+            Card back = ((mage.cards.DoubleFacedCard) card).getRightHalfCard();
+            if (back.getName().equals(shownName) && !back.getName().equals(permCard.getName())) {
+                permCard = back;
+            }
+        }
         permCard.setZone(Zone.BATTLEFIELD, game);
         PermanentCard permanent = permCard instanceof MeldCard ? new PermanentMeld(permCard, controller.getId(), game)
                 : new PermanentCard(permCard, controller.getId(), game);
@@ -548,6 +557,7 @@ public final class WorldBuilder {
                 effect.init(ability.get(), game, controller.getId());
             }
         }
+        return game.getPermanent(permanent.getId());
     }
 
     /** A token of a decklist-creatable class, matched on name and characteristics; null when none matches. */

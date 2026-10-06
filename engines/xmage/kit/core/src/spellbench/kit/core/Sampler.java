@@ -114,6 +114,27 @@ public final class Sampler {
     }
 
     /**
+     * The decklist row a public object counts against. A multi-face card shows the name of its current face (a
+     * transformed permanent shows its back face), while the list names the card by its front face or its full name;
+     * {@code full_name} ({@code "A // B"}, Section 6) bridges the two. A name the list holds, or one no face of which
+     * it holds, is returned unchanged.
+     */
+    static String listName(String name, String fullName, Map<String, Integer> list) {
+        if (list.containsKey(name) || fullName == null) {
+            return name;
+        }
+        if (list.containsKey(fullName)) {
+            return fullName;
+        }
+        for (String face : fullName.split(" // ")) {
+            if (list.containsKey(face)) {
+                return face;
+            }
+        }
+        return name;
+    }
+
+    /**
      * Samples one world. {@code gameStart} is the {@code game_start} request, {@code observation} the current
      * decision's observation; {@code rng} the world's sampler stream.
      */
@@ -173,7 +194,9 @@ public final class Sampler {
             if (name == null) {
                 hiddenObjects.get(owner).add(Json.str(rec, "object_id"));
             } else {
-                publicCards.get(owner).merge(name, 1, Integer::sum);
+                Map<String, Object> deck = Json.obj(gameStart, owner.equals(viewer) ? "own_deck" : "opponent_deck");
+                publicCards.get(owner).merge(listName(name, Json.str(rec, "full_name"), counts(deck)), 1,
+                        Integer::sum);
             }
         }
         if (copies) {
