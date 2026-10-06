@@ -233,7 +233,11 @@ public class MCTSPlayer extends KitPayPlayer { // KIT: deterministic producer or
     @Override
     public boolean choose(mage.constants.Outcome outcome, mage.choices.Choice choice, Game game) {
         spellbench.kit.xmage.KitContext.dialog();
-        return super.choose(outcome, choice, game);
+        boolean r = super.choose(outcome, choice, game);
+        if (choice instanceof mage.choices.ChoiceColor) {
+            spellbench.kit.xmage.KitContext.color(choice.getChoice()); // KIT: a color the plan can carry
+        }
+        return r;
     }
 
     @Override

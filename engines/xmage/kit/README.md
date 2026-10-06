@@ -114,6 +114,12 @@ Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `
   most an even share of the remaining bank plus the increment, and its search is interrupted at that clock. A fixed 30
   iterations on the kernel decks took 20 to 25 s per decision and spent the 600 s bank by about decision 50. The
   pacing is part of kit-mcts's configuration, so its identity changed; kit-mad-1 and kit-mad-k are unchanged.
+- A land that asks a color as it enters (Sea Gate, Citadel Gate) is played. Such a land leaves no stack object, so
+  its dialog used to make the play unsupported and the next ranked candidate answered (47 times in 7 CawGates games
+  on the kernel). When every dialog of a non-stack action is a color choice, the world's color is the plan's
+  (kit-mcts carries it as the payload's `colors`), and the color decision binds to the played land by name, since the
+  land is a new object on the battlefield. A `choose_color` with no planned color (Prismatic Strands) is answered by
+  ComputerPlayer's color choice on the offered colors. The policy text changed, so all three identities changed.
 
 None of this is qualification. Thirty-two unrated smoke games on the kernel (2026-10-06, kit-mad-1 and kit-mcts
 against a uniform seat) ended naturally with no halts or validator violations; they showed the two gaps above.

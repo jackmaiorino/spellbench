@@ -133,6 +133,11 @@ public final class PlanBook {
     }
 
     static String sourceId(Map<String, Object> decision) {
+        Map<String, Object> src = sourceRef(decision);
+        return src == null ? null : Json.str(src, "object_id");
+    }
+
+    static Map<String, Object> sourceRef(Map<String, Object> decision) {
         Map<String, Object> ctx = Json.obj(decision, "context");
         Map<String, Object> src = ctx == null ? null : Json.obj(ctx, "source");
         if (src == null) {
@@ -145,7 +150,20 @@ public final class PlanBook {
                 }
             }
         }
-        return src == null ? null : Json.str(src, "object_id");
+        return src;
+    }
+
+    /**
+     * A land play's own dialog (a Gate's as-enters color): the land is a new object once it moves (CR 400.7), so
+     * the source is the viewer's object with the played card's name rather than the picked object id.
+     */
+    static boolean playedLand(Plan p, Map<String, Object> decision) {
+        Map<String, Object> src = sourceRef(decision);
+        Map<String, Object> obs = Json.obj(decision, "observation");
+        return "play_land".equals(p.kind) && p.pickedSource != null && src != null && obs != null
+                && Json.str(p.pickedSource, "card_name") != null
+                && Json.str(p.pickedSource, "card_name").equals(Json.str(src, "card_name"))
+                && Json.str(obs, "viewer") != null && Json.str(obs, "viewer").equals(Json.str(src, "controller_seat"));
     }
 
     /** The dialog family and slot or purpose of a choice decision (Section 6.2), or null for an unplanned kind. */
@@ -172,6 +190,8 @@ public final class PlanBook {
                     return "use";
                 case "choose_cast_method":
                     return "cast_method";
+                case "choose_color":
+                    return "color";
                 case "select_object":
                     return "select:" + Json.str(sem, "purpose");
                 default:
@@ -183,7 +203,8 @@ public final class PlanBook {
 
     /**
      * The plan's answer to a choice decision: a candidate id, {@code -1} when the plan has no value for it (the
-     * caller answers by fallback, tagged wrapper), or {@code -2} when the decision is not the plan's (the plan ends).
+     * caller answers by fallback, tagged wrapper), {@code -2} when the decision is not the plan's (the plan ends), or
+     * {@code -3} when the plan has no color for a color decision (the current-dialog path answers; the plan stays).
      */
     public int claim(Map<String, Object> decision) {
         Plan p = active;
@@ -201,7 +222,9 @@ public final class PlanBook {
         }
         String src = sourceId(decision);
         String picked = p.pickedSource == null ? null : Json.str(p.pickedSource, "object_id");
-        if (src == null || !(src.equals(p.boundStack) || src.equals(picked))) {
+        if (src != null && !(src.equals(p.boundStack) || src.equals(picked)) && playedLand(p, decision)) {
+            count("land_source_by_name");
+        } else if (src == null || !(src.equals(p.boundStack) || src.equals(picked))) {
             count("plan_ended_foreign_source");
             close();
             return -2;
@@ -225,6 +248,11 @@ public final class PlanBook {
         }
         int occurrence = p.occurrences.get(fam) - 1;
         List<Object> values = occurrence == 0 ? values(p, fam) : new ArrayList<>();
+        if ("color".equals(fam) && p.cursor >= values.size()) {
+            // no planned color (an effect the world did not reach): the current-dialog path answers, plan kept
+            count("plan_color_deferred");
+            return -3;
+        }
         int chosen = match(decision, fam, values, p.cursor);
         p.cursor++;
         if (count > 1 && sub == count - 1) {
@@ -297,6 +325,17 @@ public final class PlanBook {
             if (p.castMethod != null) {
                 out.add(p.castMethod);
             }
+        } else if (fam.equals("color")) {
+            // the search's colors (the MCTS payload) else the world's recorded color choices (MAD answers)
+            if (p.payload.get("colors") != null) {
+                out.addAll(Json.arr(p.payload, "colors"));
+            } else {
+                for (Map<String, Object> a : p.answers) {
+                    if ("choice".equals(a.get("family")) && colorName(a.get("value")) != null) {
+                        out.add(colorName(a.get("value")));
+                    }
+                }
+            }
         } else if (fam.startsWith("select:")) {
             for (Map<String, Object> a : p.answers) {
                 if ("select".equals(a.get("family"))) {
@@ -360,11 +399,27 @@ public final class PlanBook {
                         return i;
                     }
                     break;
+                case "choose_color":
+                    if (want instanceof String && want.equals(sem.get("color"))) {
+                        return i;
+                    }
+                    break;
                 default:
                     break;
             }
         }
         return -1;
+    }
+
+    static final java.util.List<String> COLORS = java.util.Arrays.asList("white", "blue", "black", "red", "green");
+
+    /** A recorded choice as a protocol color name (Section 6.10), or null when it names no color. */
+    public static String colorName(Object value) {
+        if (!(value instanceof String)) {
+            return null;
+        }
+        String c = ((String) value).toLowerCase(java.util.Locale.ROOT);
+        return COLORS.contains(c) ? c : null;
     }
 
     /** A candidate target reference against a plan value ({"player": seat} or {"object_id": id}). */
