@@ -973,6 +973,32 @@ func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Deci
 		}
 		return false
 	}
+	// A single public object target identifies a legal witness choice directly.
+	// Use only established observer bindings, and keep every other choice in
+	// the shared-budget walk. Player targets and ambiguous asks stay unguided.
+	if d.Kind == decision.KTarget && d.Min == 1 && d.Max == 1 && d.Source != 0 {
+		for _, ev := range remaining {
+			if ev.Kind != events.TargetsChosen {
+				continue
+			}
+			if c.object(ev.Obj) != d.Source || len(ev.IDs) != 1 {
+				return fallback
+			}
+			target := c.object(ev.IDs[0])
+			if target == 0 {
+				return fallback
+			}
+			for i, option := range d.Options {
+				if option.Obj == target {
+					in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+					if d.Validate(in) == nil {
+						return in
+					}
+				}
+			}
+			return fallback
+		}
+	}
 	// A public scry marker supplies the bottom count, even though the hidden
 	// partition is absent. Prefer a matching legal partition and put a later
 	// publicly revealed hand exit first when that name occurs in this

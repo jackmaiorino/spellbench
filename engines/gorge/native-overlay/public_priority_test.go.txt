@@ -455,6 +455,41 @@ func TestSpellbenchPublicPassRequiresImmediateMatchingMarker(t *testing.T) {
 	}
 }
 
+func TestSpellbenchPublicTargetUsesBoundObjectAndPreservesAlternatives(t *testing.T) {
+	c, err := SpellbenchCollector(0, map[uint32]uint32{101: 10, 102: 20, 103: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KTarget, Source: 101, Min: 1, Max: 1,
+		Options: []decision.Option{{Kind: "target", Obj: 102}, {Kind: "target", Obj: 103}}}
+	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
+	want := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{1}}
+	e := &rules.Engine{G: state.NewGame([]string{"p0", "p1"})}
+	remaining := []ObservedEvent{{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{30}}}
+	got := spellbenchObservedPreferred(e, c, d, fallback, remaining, nil)
+	if !reflect.DeepEqual(got, want) || d.Validate(got) != nil {
+		t.Fatalf("public target was not preferred: got=%+v want=%+v", got, want)
+	}
+	var visited []decision.Intent
+	spellbenchEachIntent(d, got, func() bool { return true }, func(in decision.Intent) bool {
+		visited = append(visited, in)
+		return true
+	})
+	if len(visited) != 2 || !reflect.DeepEqual(visited[0], want) || !reflect.DeepEqual(visited[1], fallback) {
+		t.Fatalf("target alternatives changed: %+v", visited)
+	}
+	for _, ev := range []ObservedEvent{
+		{Kind: events.TargetsChosen, Obj: 20, IDs: []uint32{30}},
+		{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{99}},
+		{Kind: events.TargetsChosen, Obj: 10},
+		{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{20, 30}},
+	} {
+		if got := spellbenchObservedPreferred(e, c, d, fallback, []ObservedEvent{ev}, nil); !reflect.DeepEqual(got, fallback) {
+			t.Fatalf("unbound or ambiguous public target changed preference: %+v", got)
+		}
+	}
+}
+
 func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 	for _, test := range []struct {
 		name          string
