@@ -55,6 +55,11 @@ def test_unusable_qualification_terminals_retain_elapsed_and_rows(tmp_path, monk
     summary = json.loads(summaries[0].read_bytes())
     assert summary["useful_completed"] == 0 and summary["requested_games"] == 1
     assert summary["elapsed_seconds"] >= 0
+    (timing,) = summary["game_timings"]
+    assert timing["game_index"] == row.game_index and timing["elapsed_seconds"] == 2.0
+    assert timing["bots"] == [seat.name for seat in row.seats]
+    assert timing["decks"] == [deck.catalog_id for deck in row.decks]
+    assert timing["classification"] == row.classification and timing["ledger_write_seconds"] >= 0
     retained = list(tmp_path.rglob("trial-1-workers-*.jsonl"))
     assert len(retained) == 1
     assert json.loads(retained[0].read_text().splitlines()[0])["classification"] == row.classification
