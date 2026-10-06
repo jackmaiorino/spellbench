@@ -1,0 +1,481 @@
+{
+  "schema": "spellbench-gorge-public49-payment-witness/v1",
+  "attempts": [
+    {
+      "number": 120,
+      "source_commit": "0d3b44c2e81e26d309055e6b5481bd45d504f38b",
+      "seal_sha256": "35fa88a37a4f335d207bf20ea63bb8d842bdce06e87244a34e57cf8f5d052781",
+      "source_of_record": "E:\\spellbench-gorge-public-trace-20261006-120",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-public-trace-20261006-120",
+      "closure": {
+        "saved_root_repaired": false,
+        "error": "RuntimeError: witness exited 1",
+        "at_utc": "2026-10-06T01:45:25.947697+00:00",
+        "elapsed_seconds": 12.142198199988343,
+        "native_qualification_passed": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "cases": [
+        {
+          "captured_work_identical": true,
+          "error": "public reconstruction submit budget exhausted",
+          "expected_work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4493,
+            "BudgetExhausted": 1
+          },
+          "frames": 306,
+          "input_sha256": "2f0265d5de53cc3d319cfd3d95c92b1e4fe028f0787e9cd515af62844ec792ac",
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "scope": "One exact public replay and eight native pool checks; no completed games or native qualification",
+          "witness_constructed": false,
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4493,
+            "BudgetExhausted": 1
+          }
+        },
+        {
+          "captured_work_identical": true,
+          "error": "public reconstruction submit budget exhausted",
+          "expected_work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4446,
+            "BudgetExhausted": 1
+          },
+          "frames": 350,
+          "input_sha256": "4d7c0b350b547b192ca03d59c080b37374523446eadd20b58bf5261cd8fbd5aa",
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "scope": "One exact public replay and eight native pool checks; no completed games or native qualification",
+          "witness_constructed": false,
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4446,
+            "BudgetExhausted": 1
+          }
+        }
+      ],
+      "host_released": true
+    },
+    {
+      "number": 122,
+      "source_commit": "0d3b44c2e81e26d309055e6b5481bd45d504f38b",
+      "seal_sha256": "97b8e647e7dcc927d564174d90f87f007bd1686fa884ee7e190182a9d346ca2c",
+      "source_of_record": "E:\\spellbench-gorge-public-trace-20261006-122",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-public-trace-20261006-122",
+      "closure": {
+        "saved_root_repaired": false,
+        "error": "RuntimeError: witness exited 1",
+        "at_utc": "2026-10-06T01:47:38.536162+00:00",
+        "elapsed_seconds": 8.10265860002255,
+        "native_qualification_passed": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "cases": [
+        {
+          "captured_work_identical": true,
+          "error": "public reconstruction submit budget exhausted",
+          "expected_work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4493,
+            "BudgetExhausted": 1
+          },
+          "frames": 306,
+          "input_sha256": "2f0265d5de53cc3d319cfd3d95c92b1e4fe028f0787e9cd515af62844ec792ac",
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "scope": "One exact public replay and eight native pool checks; no completed games or native qualification",
+          "witness_constructed": false,
+          "work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4493,
+            "BudgetExhausted": 1
+          }
+        }
+      ],
+      "host_released": true
+    },
+    {
+      "number": 123,
+      "source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
+      "seal_sha256": "eb93fe5858aa9b526fbdee93ebd80d65c0294bfddd72be914c5f1009af0e1dab",
+      "source_of_record": "E:\\spellbench-gorge-public-trace-20261006-123",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-public-trace-20261006-123",
+      "closure": {
+        "saved_root_repaired": true,
+        "error": null,
+        "at_utc": "2026-10-06T01:53:17.965779+00:00",
+        "elapsed_seconds": 54.470511900028214,
+        "native_qualification_passed": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "cases": [
+        {
+          "captured_work_identical": false,
+          "expected_work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4493,
+            "BudgetExhausted": 1
+          },
+          "frames": 306,
+          "input_sha256": "2f0265d5de53cc3d319cfd3d95c92b1e4fe028f0787e9cd515af62844ec792ac",
+          "known_card_checks_passed": true,
+          "native_diagnostics_after": {
+            "Accepted": 0,
+            "ArrangeWindows": 0,
+            "Attempts": 64,
+            "BudgetExhausted": 0,
+            "CompetitionExclusions": 0,
+            "CompetitionResidual": 0,
+            "CompetitionUnguided": 0,
+            "Duplicates": 0,
+            "ESS": 0,
+            "FirstRejection": "frame 1 events",
+            "GuidedGenesis": 64,
+            "GuidedLater": 95,
+            "HandToStackCauses": {
+              "HypotheticalExtraCast": 0,
+              "ObservedCastMissing": 0,
+              "ObserverReference": 0,
+              "Other": 0,
+              "PolicyCompetition": 0
+            },
+            "IncompatibleProposals": 5,
+            "KnownCardClaims": 12,
+            "LandResidual": 13,
+            "PrefixRejected": 59,
+            "Rejections": [
+              {
+                "Component": "events",
+                "Count": 46,
+                "Frame": 1,
+                "Shape": "count"
+              },
+              {
+                "Component": "identities",
+                "Count": 13,
+                "Frame": 15,
+                "Shape": "hand_to_battlefield"
+              }
+            ],
+            "StackRejectionContexts": null,
+            "Submits": 512,
+            "UnguidedConstraints": 259,
+            "WeightDiagnostics": {
+              "Accepted": 0,
+              "LogWeightMax": 0,
+              "LogWeightMedian": 0,
+              "LogWeightMin": 0,
+              "Mass50Count": 0,
+              "Mass90Count": 0,
+              "MaxNormalizedMass": 0,
+              "Top4NormalizedMass": 0
+            }
+          },
+          "native_diagnostics_before": {
+            "Accepted": 0,
+            "ArrangeWindows": 0,
+            "Attempts": 64,
+            "BudgetExhausted": 0,
+            "CompetitionExclusions": 0,
+            "CompetitionResidual": 0,
+            "CompetitionUnguided": 0,
+            "Duplicates": 0,
+            "ESS": 0,
+            "FirstRejection": "frame 1 events",
+            "GuidedGenesis": 64,
+            "GuidedLater": 95,
+            "HandToStackCauses": {
+              "HypotheticalExtraCast": 0,
+              "ObservedCastMissing": 0,
+              "ObserverReference": 0,
+              "Other": 0,
+              "PolicyCompetition": 0
+            },
+            "IncompatibleProposals": 5,
+            "KnownCardClaims": 12,
+            "LandResidual": 13,
+            "PrefixRejected": 59,
+            "Rejections": [
+              {
+                "Component": "events",
+                "Count": 46,
+                "Frame": 1,
+                "Shape": "count"
+              },
+              {
+                "Component": "identities",
+                "Count": 13,
+                "Frame": 15,
+                "Shape": "hand_to_battlefield"
+              }
+            ],
+            "StackRejectionContexts": null,
+            "Submits": 512,
+            "UnguidedConstraints": 259,
+            "WeightDiagnostics": {
+              "Accepted": 0,
+              "LogWeightMax": 0,
+              "LogWeightMedian": 0,
+              "LogWeightMin": 0,
+              "Mass50Count": 0,
+              "Mass90Count": 0,
+              "MaxNormalizedMass": 0,
+              "Top4NormalizedMass": 0
+            }
+          },
+          "native_diagnostics_identical": true,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "redeal_refused": "",
+          "redealt_worlds": 8,
+          "scope": "One exact public replay and eight native pool checks; no completed games or native qualification",
+          "witness_constructed": true,
+          "work": {
+            "Attempts": 1,
+            "Submits": 618,
+            "Nodes": 33,
+            "BudgetExhausted": 0
+          }
+        },
+        {
+          "captured_work_identical": false,
+          "expected_work": {
+            "Attempts": 4,
+            "Submits": 5000,
+            "Nodes": 4446,
+            "BudgetExhausted": 1
+          },
+          "frames": 350,
+          "input_sha256": "4d7c0b350b547b192ca03d59c080b37374523446eadd20b58bf5261cd8fbd5aa",
+          "known_card_checks_passed": true,
+          "native_diagnostics_after": {
+            "Accepted": 0,
+            "ArrangeWindows": 0,
+            "Attempts": 64,
+            "BudgetExhausted": 0,
+            "CompetitionExclusions": 0,
+            "CompetitionResidual": 0,
+            "CompetitionUnguided": 0,
+            "Duplicates": 0,
+            "ESS": 0,
+            "FirstRejection": "frame 1 events",
+            "GuidedGenesis": 64,
+            "GuidedLater": 110,
+            "HandToStackCauses": {
+              "HypotheticalExtraCast": 0,
+              "ObservedCastMissing": 0,
+              "ObserverReference": 0,
+              "Other": 0,
+              "PolicyCompetition": 0
+            },
+            "IncompatibleProposals": 8,
+            "KnownCardClaims": 11,
+            "LandResidual": 16,
+            "LandUnguided": 1,
+            "PrefixRejected": 56,
+            "Rejections": [
+              {
+                "Component": "events",
+                "Count": 37,
+                "Frame": 1,
+                "Shape": "count"
+              },
+              {
+                "Component": "identities",
+                "Count": 17,
+                "Frame": 15,
+                "Shape": "hand_to_battlefield"
+              },
+              {
+                "Component": "identities",
+                "Count": 2,
+                "Frame": 22,
+                "Shape": "other"
+              }
+            ],
+            "StackRejectionContexts": null,
+            "Submits": 711,
+            "UnguidedConstraints": 292,
+            "WeightDiagnostics": {
+              "Accepted": 0,
+              "LogWeightMax": 0,
+              "LogWeightMedian": 0,
+              "LogWeightMin": 0,
+              "Mass50Count": 0,
+              "Mass90Count": 0,
+              "MaxNormalizedMass": 0,
+              "Top4NormalizedMass": 0
+            }
+          },
+          "native_diagnostics_before": {
+            "Accepted": 0,
+            "ArrangeWindows": 0,
+            "Attempts": 64,
+            "BudgetExhausted": 0,
+            "CompetitionExclusions": 0,
+            "CompetitionResidual": 0,
+            "CompetitionUnguided": 0,
+            "Duplicates": 0,
+            "ESS": 0,
+            "FirstRejection": "frame 1 events",
+            "GuidedGenesis": 64,
+            "GuidedLater": 110,
+            "HandToStackCauses": {
+              "HypotheticalExtraCast": 0,
+              "ObservedCastMissing": 0,
+              "ObserverReference": 0,
+              "Other": 0,
+              "PolicyCompetition": 0
+            },
+            "IncompatibleProposals": 8,
+            "KnownCardClaims": 11,
+            "LandResidual": 16,
+            "LandUnguided": 1,
+            "PrefixRejected": 56,
+            "Rejections": [
+              {
+                "Component": "events",
+                "Count": 37,
+                "Frame": 1,
+                "Shape": "count"
+              },
+              {
+                "Component": "identities",
+                "Count": 17,
+                "Frame": 15,
+                "Shape": "hand_to_battlefield"
+              },
+              {
+                "Component": "identities",
+                "Count": 2,
+                "Frame": 22,
+                "Shape": "other"
+              }
+            ],
+            "StackRejectionContexts": null,
+            "Submits": 711,
+            "UnguidedConstraints": 292,
+            "WeightDiagnostics": {
+              "Accepted": 0,
+              "LogWeightMax": 0,
+              "LogWeightMedian": 0,
+              "LogWeightMin": 0,
+              "Mass50Count": 0,
+              "Mass90Count": 0,
+              "MaxNormalizedMass": 0,
+              "Top4NormalizedMass": 0
+            }
+          },
+          "native_diagnostics_identical": true,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "redeal_refused": "",
+          "redealt_worlds": 8,
+          "scope": "One exact public replay and eight native pool checks; no completed games or native qualification",
+          "witness_constructed": true,
+          "work": {
+            "Attempts": 1,
+            "Submits": 720,
+            "Nodes": 41,
+            "BudgetExhausted": 0
+          }
+        }
+      ],
+      "host_released": true
+    }
+  ],
+  "conclusion": "Manual mana-choice preference had no effect; automatic canonical payment selected another identical Mountain. A hypothetical-only public-source witness passes native validation and repairs both captured histories.",
+  "current_source": "dde39652fe974b36daa6be5de7da0729d84a586b",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_paid_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347
+}

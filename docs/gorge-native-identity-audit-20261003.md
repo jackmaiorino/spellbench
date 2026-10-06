@@ -1,45 +1,81 @@
 # Public search identity audit for the pinned gorge Pauper pool
 
-Status: current published audit binding and full qualification remain incomplete.
-The [current maintainer source review](gorge-current-maintainer-review-20261005.md)
-records the actual engine diff and review authority. A separate reviewer is
-optional; complete qualification and binding the final published identity audit
-to reviewed source remain required. Later independent-review wording is historical.
-Production096 passes the whole original game164 and its replay in097, with
-no refusals, leaks, resample failures or parity mismatches. Its subsequent
-[full native098 attempt](gorge-local-native098-20261005.json) stopped after100
-streamed natural blocks at the unchanged game105 zero-refusal gate. The
-matched1/8/16-worker samples have identical outputs;8 workers had the shortest
-sample wall time. The failed qualification is recovered, sealed and released.
+Status as of 2026-10-06: source inspection and saved-root repairs are recorded;
+complete current native and reference qualification remain pending. The
+[maintainer review](gorge-current-maintainer-review-20261005.md) is an implementing
+session review, not an independent approval. Final admission requires the
+complete qualification evidence and its source binding.
 
-[Capture100](gorge-public105-capture-20261005.json) retains six paired,
-byte-identical actor-public inputs. Its original post-capture counter assertion
-remains failed; separate validation confirms those inputs. The released and
-sealed [negative trace101](gorge-public105-trace-20261005.json) reproduces all13
-attempts reaching the same frame88 identity mismatch after Experimental
-Synthesizer's owned top exile. A [prepared source repair](gorge-owned-top-exile-repair-20261005.json)
-uses the existing actor-library position fold through observed London bottoming.
-The [full Go suite and all public boundary checks pass](gorge-ci-top-exile-repair-20261005.json)
-at29c3544, byte-identical to the current engine source. Seven production binaries
-built in hosted job37384031753 and are recovered as104. The replay preflight
-failed because the copied Linux test binary lost execute permission; no captured
-prefix ran. Fixed hosted105 passes all three captured replays:1 attempt each,
-165/207/221 submits, zero exhaustion, known-card assertions and8 redealt worlds
-with identical native diagnostics. Results are recovered and sealed on E/D.
-Complete original game105/replay106 has zero primary faults and zero refusals,
-34 resample checks and128 parity comparisons. Its original wrapper job failed
-on the expected selected-subset exit1; the failure is preserved alongside a
-separate validated complete-game report. Full native107 is live through the
-unchanged matched serial/parallel guard; no full qualification is claimed.
-The next native launcher explicitly records wall-time worker selection;89
-synthetic Python qualification tests pass. The fixed native schedule and
-top-level validity helpers remain AST-identical. No new native run is qualified.
+The roster contains all 12 distinct shipped playable modes at gorge
+`26257e0eda1779d739a07e835c6500b9c4dabc62`, with Forge
+`95f04e8a04c8925fa97cb226fc3341cabcc90a53`. The full benchmark keeps two anchors,
+Wildfire, Rally, Spy, Burn and CawGates, and 3,640 rated games. PolicyNet has no
+recovered public checkpoint; it cannot be rated from random fixture weights.
+Alias and helper exclusions are explained in the [inventory](gorge-roster-20261002.json).
 
-Jack/Haley launches are suspended for research priority. No gorge local job or claim
-is held, and no automatic local dispatch is queued. Reference/rated games and published
-entries remain zero. Ledger042 retains the conservativeUSD9.99736347 all-in
-reservation underUSD10; provider settlement remains pending. No new cloud spend.
-Later sections retain historical observations; current review inputs govern readiness.
+Full native107 failed naturally at game49 with two public reconstruction budget
+exhaustions. Its failure, captured histories and ineffective target/manual-choice
+attempts remain preserved. Detailed trace122 found that canonical automatic
+payment ranking used hypothetical object IDs to choose a different identical
+Mountain. There was no manual mana-choice ask in this captured path.
+
+The repair at `dde39652fe974b36daa6be5de7da0729d84a586b` offers the observed payment
+only inside hypothetical public-history replay. It uses public source bindings,
+requires an already offered cast and equal activation count, and invokes native
+`ValidateCastPayment` for cost, color, source incarnation and legality. Live
+engines reject the extension. Existing plans remain offered, and full chronological
+replay and native known-card checks still decide whether a world is accepted.
+The native weighted sampler, playing-policy offers and 64/8/5000 reconstruction
+limits remain unchanged.
+
+[Saved-root check123](gorge-public49-payment-witness-20261006.json) passes both
+captured histories. The 306-frame case uses one attempt, 618 submits and 33 nodes;
+the 350-frame case uses one attempt, 720 submits and 41 nodes. Both have zero
+exhaustion and eight known-card checked redealt worlds. Their native diagnostics
+are equal before and after redeal, but native `Accepted` is zero in both cases.
+This equality does not establish a successful native weighted pool, a statistical
+sampling distribution or playing strength. Public boundary, live-engine refusal,
+wrong-color refusal, legal alternate payment and deduplication checks pass.
+
+[Production121](gorge-local-runtime121-20261006.json) contains all seven binaries
+at Go1.27.1, recovered independently on E/D, with registry and compiler/linker
+pins. It is compatible with compiled source at `4971a556b1030a03bf27ddd8eef7a831f39cb603`;
+the later launcher/document commits do not change compiled Go. The runtime seal is
+`4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e`.
+
+[Native124](gorge-native124-current-20261006.json) is running on Jack under canonical
+generation268. Its supported path is host dispatch, bounded parent,
+`qualify_native.py`, matched throughput guard, then the native callback.
+Ordered 32-block serial/8/16-worker samples must complete with identical outputs;
+completed wall time selects workers before the unchanged 320-block/640-game audit.
+The mapping, replay, parity, leak and zero-refusal/exhaustion gates remain binding.
+The live attempt is unsealed and has no terminal pass. Reference/rated admission
+is refused until terminal recovery proves the complete result.
+
+[Local reference125](gorge-reference125-launcher-receipt-20261006.json) uses the
+current runtime and local native recovery format. Actual prepare and dispatch
+checks refuse live unsealed native124 without creating a job root or claim;
+57 existing affected tests pass. Positive full-native admission remains untested
+until native124 finishes. The matrix remains 140 games, 60 cells, 160 native
+participant receipts and the fixed search/Burn replay. No reference job is started.
+Fresh three-host placement must preserve any actual claim, including XMage's
+Haley preflight. No gorge Haley job is queued.
+
+Reference games, rated games and published gorge entries remain zero. The
+[zero-game handoff](gorge-rated-handoff-20261005.json) resolves all 14 entrants,
+five named decks and 3,640 games against production121, without a private secret,
+commitment or engine process. The conservative all-in reservation is
+USD9.99736347 under the original USD10 cap, with provider settlement pending.
+No new paid allocation is authorized by this audit.
+
+The current benchmark audit URL must bind this reviewed source before reference
+evaluation. Final definition integration, current required CI, complete native
+and reference evidence, rated commitment/timestamp, all rated games, result review
+and verified publication remain unfinished. [Current review inputs](gorge-identity-review-inputs-20261005.json)
+record exact pins and remaining work. Older observations below are historical;
+their source, failures and qualification status must not be read as current passes.
+
+## Historical evidence
 
 Native069 completed with failure on execution `e06161e`. Game49,
 Wildfire/search-redeal, finished naturally but recorded four public reconstruction

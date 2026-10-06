@@ -1,13 +1,47 @@
 # Current gorge maintainer review
 
-Reviewed head: `f15362432a324522a483c5a4debdcc6c81fb465a`. This is the implementing session's maintainer review, not an independent approval. It continues the recorded source review at `fbee04a52002ca84cfb9cd06c1c8ec6d864224b9` in PR64 and does not establish full qualification or rated admission.
+Reviewed compiled source and CI definition: `4971a556b1030a03bf27ddd8eef7a831f39cb603`. Reviewed local reference
+launcher: `748daa6db2b5694dd345dada84dee96af7f2bba5`, SHA-256
+`ec1cc67cc4f9c4a7cc363f7cf82c3cb3c75433985c72326e1fb799c3d15cb997`.
+This is the implementing session's maintainer review, not an independent approval.
+It records bounded source inspection and observed checks; full qualification and
+rated admission remain incomplete.
 
-The actual engine diff since that review contains one production Go change: `spellbenchActorLibraryPositions` now recognizes owned top exiles through the existing printed-effect/public-zone/library-size matcher. It adds the observed card name at the existing original shuffle position and consumes that position. The fold retains observed London bottoms and provable arrangements. Its existing reliability guard prevents unknown mutations from supplying later constraints. The matcher reads actor-public frames and declared cards, with no live engine argument. Exile ordering guides a hypothetical witness; complete chronological replay still decides acceptance.
+Since the prior owned-top-exile review, public replay adds the recorded legal
+payment to a hypothetical opponent priority decision. `SpellbenchOfferPublicPayment`
+rejects engines without healthy hypothetical chance state, requires an existing
+cast and matching activation count, clones an offered plan, binds current source
+incarnations, validates the native cast payment, derives its native ID and
+deduplicates it. Original plans remain present. `spellbenchObservedPaymentOffers`
+reads actor-public stack/tap history through the current collector; unknown source
+bindings refuse guidance. Full replay determines acceptance. Calls are confined
+to reconstruction; actual policies and the native weighted sampler do not call it.
 
-`SpellbenchReconstructRedeal` applies these positions to witness proposals. It creates `NewHypotheticalPlanned`, matches all actor boundaries and recorded answers, and clears its planner only at the matched final root. `DecideObserved` supplies a public-turn-only engine stub. The native weighted sampler, known-card checks, original proposal seed coordinates and64/8/5000 limits are unchanged by this diff. Public replay success does not prove a statistical distribution or playing strength.
+The live/wrong-color/legal-alternate/deduplication fixture passes. Actual captured
+game49 roots now replay in one attempt with618/720 submits and33/41 nodes, no
+exhaustion and eight known-card checked redealt worlds each. Native diagnostics
+are identical before/after, with zero native Accepted in both cases. This supports
+the captured replay repair only; it does not prove a weighted sampling distribution,
+new-game coverage or playing strength. Original failed attempts remain failed.
 
-The new legal fixture requires owned London bottoming, Synthesizer after a draw, casting the exiled Tomb Raider, Impulse and a later draw. It compares full public histories under unseen tail permutations, reconstructs a known-card-valid root, checks eight redealt worlds and compares native diagnostics. The full Go CI at29c3544 passed this source, whose current engine tree is `45c5d91730b6101b5bdcfb1aabec3131772bd253`. Recovered105 and the separately validated complete-game106 report provide actual saved-prefix and game evidence. Original failed closures remain failed.
+Production121 binds source `dde39652fe974b36daa6be5de7da0729d84a586b`, all seven
+binary hashes, Go1.27.1 driver/compiler/linker and independent E/D recovery. Native124
+retains its executable, inputs and gates while measuring completed serial/8/16
+work. No changes in this review alter its frozen script or native schedule.
 
-The Python changes retain measurement/preflight receipts and select native workers using matched completed-work wall time. They do not change matrix selection, seeds, mapping limits or zero-refusal gates. Native107 and reference qualification remain required before admission; no current full pass is claimed.
+Reference125 reuses the existing local terminal gate and BUILD toolchain fields.
+It requires a recovered, sealed full native pass, runtime/source compatibility,
+fresh placement and a free current host before guarded dispatch. Actual prepare
+and dispatch against live124 refuse before roots/claims;57 existing reference
+recovery/result/matrix/native-recovery tests pass. The unchanged matrix and fixed
+replay still require positive current-runtime execution.
 
-Review authority: repository `AGENTS.md:11` permits an honest maintainer review when platform author approval is unavailable and adds no independent engineering review gate. Protocol section14 requires the card-pool identity/digest audit, without specifying a separate reviewer. The standing independent research gates apply to mtg-kernel. A separate gorge review would be optional; its earlier authorization request is not a delivery dependency. The final published audit must still bind the current reviewed source and complete evidence before the benchmark definition and rated commitment are merged.
+The zero-game handoff now resolves the five DeckSpec catalog IDs instead of null
+display names. It still produces14 entrants,12 unique native policies and3,640
+scheduled games without private seed creation, commitment or process launch.
+
+No bounded source-review findings remain open. Full native/reference results and
+required current-head CI are pending, so this review does not admit or approve a
+rated launch. Repository AGENTS.md permits an honest maintainer review when author
+account approval is unavailable. Protocol section14 still requires final identity
+and digest binding; no independent engineering gate is added here.

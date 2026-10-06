@@ -1,14 +1,14 @@
 {
   "schema": "spellbench-gorge-rated-handoff/v1",
-  "source_commit": "ad64af08ccd5730dbb94ffd760ee58fe662e4f48",
-  "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
-  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-108",
-  "runtime_seal_sha256": "411fa9f41914bfca0f04a72c4ed5899b8cbf14c5bb0a5a32af31b25b2f6c06a7",
+  "source_commit": "748daa6db2b5694dd345dada84dee96af7f2bba5",
+  "runtime_source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261006-121",
+  "runtime_seal_sha256": "4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e",
   "benchmark_sha256": "21359cfc5c288c797797f50449003c3a39e7aac1605502d365e7e3a11bbf1817",
   "resolved_runtime_values": {
-    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261005-108\\spellbench-gorge-env-windows-amd64.exe",
-    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261005-108\\spellbench-gorge-agent-windows-amd64.exe",
-    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261005-108\\registry.gob.gz",
+    "GORGE_SPELLBENCH_ENV": "E:\\spellbench-gorge-runtime-20261006-121\\spellbench-gorge-env-windows-amd64.exe",
+    "GORGE_SPELLBENCH_AGENT": "E:\\spellbench-gorge-runtime-20261006-121\\spellbench-gorge-agent-windows-amd64.exe",
+    "GORGE_REGISTRY": "E:\\spellbench-gorge-runtime-20261006-121\\registry.gob.gz",
     "GORGE_REGISTRY_SHA256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
   },
   "planned_local_values": {
@@ -21,11 +21,11 @@
   "matched_E_D_input_pins": {
     "spellbench-gorge-env-windows-amd64.exe": {
       "bytes": 17488384,
-      "sha256": "366951dea1baaee7599b56c98aafb8b3c09c53c68615b0866f9f3a0a3ca7bcae"
+      "sha256": "5581fe8b202f98cdcadab772d80b03aefe98ba59290d37bfcbab377aca1bdcb4"
     },
     "spellbench-gorge-agent-windows-amd64.exe": {
-      "bytes": 18296832,
-      "sha256": "46776d5812db7e1f003996fda0338f47ed52e9653a527ab21d8e4523fc4080f9"
+      "bytes": 18306560,
+      "sha256": "694967fc80e544d8fe4727ff60571f48099784c3c12bf0c59b25401f5a11455c"
     },
     "registry.gob.gz": {
       "bytes": 9070329,
@@ -63,11 +63,11 @@
     "search-mana-redeal"
   ],
   "deck_pool": [
-    null,
-    null,
-    null,
-    null,
-    null
+    "Wildfire",
+    "Rally",
+    "Spy",
+    "Burn",
+    "CawGates"
   ],
   "scheduled_games": 3640,
   "full_round_robin": true,
@@ -85,10 +85,10 @@
     "Own author branch at reviewed default tip; bench commit with private secret outside Git; commitment PR review/merge and third-party timestamp",
     "Supported bench run once, result validation/review, compact publication PR and verified Pages entries"
   ],
-  "recipe_sha256": "e6ca33c0a6712638215c5da0e52fd26ca3b2df3f6d01172090818fb1a2c72302",
+  "recipe_sha256": "b5f03834b72d905c1814270727310a63a98c438e12acf0c6877912125cacbb14",
   "launcher_source_changes": [],
   "runtime_source_binding": {
-    "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+    "runtime_source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
     "compiled_gorge_source_identical": true,
     "reference_launcher_source_changes": [],
     "current_reference_requalification_required": true
