@@ -155,8 +155,15 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 	var order []int
 	origins := map[uint32]int{}
 	var arranged *epochArrange
+	// Owned known cards returned to the top (Brainstorm) sit above the
+	// original order until drawn again; their relative order stays open.
+	returned := map[uint32]bool{}
 	add := func(offset int, ref uint32, keepRef bool) {
 		if !reliable || ordinal < 1 {
+			return
+		}
+		if len(returned) > 0 {
+			reliable = false
 			return
 		}
 		identity, known := identities[ref]
@@ -185,6 +192,9 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 		result[key] = append(result[key], position)
 	}
 	consume := func() {
+		if len(returned) > 0 {
+			reliable = false
+		}
 		draws++
 		arranged = nil
 		if len(order) > 0 {
@@ -205,8 +215,11 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
 			exiles = spellbenchTopExiles(setup, h.Frames[frameIndex-1], frame, identities)
 		}
-		digOrder, digMoves, digObserved := spellbenchActorDigOrder(h, frameIndex, order, origins, identities)
+		digOrder, digMoves, digObserved, digNow := spellbenchActorDigOrder(setup, h, frameIndex, order, origins, identities)
 		digObserved = digObserved && reliable
+		if digObserved && digNow {
+			arranged = &epochArrange{frame: frameIndex, order: digOrder}
+		}
 		reveal, revealMoves := spellbenchActorRevealedDig(setup, h, frameIndex, len(order), identities)
 		explored, moved := map[uint32]bool{}, map[uint32]bool{}
 		for _, ev := range frame.Events {
@@ -231,15 +244,27 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 						order[i] = i
 					}
 					origins, arranged = map[uint32]int{}, nil
+					clear(returned)
 				}
 			case events.Draw:
 				if ev.Player != h.Actor {
+					continue
+				}
+				if len(returned) > 0 {
+					if !returned[ev.Obj] {
+						reliable = false
+					}
+					delete(returned, ev.Obj)
 					continue
 				}
 				add(0, ev.Obj, !introduced[ev.Obj])
 				consume()
 			case events.LibraryOrder:
 				if ev.Player == h.Actor {
+					if reliable && len(returned) > 0 && arranged == nil {
+						// Ordering only the returned cards leaves the rest intact.
+						continue
+					}
 					if reliable && arranged != nil && arranged.frame == frameIndex {
 						order = arranged.order
 					} else {
@@ -317,6 +342,10 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 					order = slices.Delete(order, index, index+1)
 					continue
 				}
+				if reliable && started && known && identity.Owner == h.Actor && identity.Name != "" && ev.Obj != 0 && ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "" {
+					returned[ev.Obj] = true
+					continue
+				}
 				if known && london && ev.Text == "bottomed" {
 					if reliable {
 						index, observed := origins[ev.Obj]
@@ -338,7 +367,7 @@ func spellbenchActorLibraryPositions(setup PublicGame, h History) map[epochKey][
 				arranged = nil
 			}
 		}
-		if digObserved && reliable {
+		if digObserved && reliable && !digNow {
 			arranged = &epochArrange{frame: frameIndex + 1, order: digOrder}
 		}
 		// The pinned engine's nonland explore election uniquely offers these
@@ -709,38 +738,53 @@ func spellbenchRevealedUntilWindow(setup PublicGame, before, after Frame, identi
 // An owned Dig look exposes the whole ordered window. Its semantic answer,
 // recorded hand moves and all-to-bottom arrangement can preserve the untouched
 // tail without guessing any hidden complement. Other shapes remain unguided.
-func spellbenchActorDigOrder(h History, frameIndex int, order []int, origins map[uint32]int, identities map[uint32]Identity) ([]int, map[uint32]bool, bool) {
+func spellbenchActorDigOrder(setup PublicGame, h History, frameIndex int, order []int, origins map[uint32]int, identities map[uint32]Identity) ([]int, map[uint32]bool, bool, bool) {
 	if frameIndex < 1 {
-		return nil, nil, false
+		return nil, nil, false, false
 	}
 	before, after := h.Frames[frameIndex-1], h.Frames[frameIndex]
 	choose, arrange := before.Decision, after.Decision
-	if choose == nil || arrange == nil || choose.Player != h.Actor || arrange.Player != h.Actor || choose.Kind != decision.KChoose || arrange.Kind != decision.KArrange || choose.Source == 0 || choose.Source != arrange.Source {
-		return nil, nil, false
+	if choose == nil || choose.Player != h.Actor || choose.Kind != decision.KChoose || choose.Source == 0 {
+		return nil, nil, false, false
 	}
 	chosen, chose := h.Answers[frameIndex-1]
-	bottom, answered := h.Answers[frameIndex]
-	if !chose || !answered || len(chosen) < choose.Min || len(chosen) > choose.Max || len(bottom) != len(arrange.Options) || arrange.Min != len(bottom) || arrange.Max != len(bottom) {
-		return nil, nil, false
+	if !chose || len(chosen) < choose.Min || len(chosen) > choose.Max {
+		return nil, nil, false, false
+	}
+	// With at most one card left, no bottom arrangement is asked: the
+	// printed Dig's default rest destination is the library bottom, and its
+	// library order completes in this frame.
+	immediate := arrange == nil || arrange.Player != h.Actor || arrange.Kind != decision.KArrange || arrange.Source != choose.Source
+	var bottom []Action
+	if immediate {
+		if !spellbenchDigRestToBottom(setup, identities[choose.Source].Name) {
+			return nil, nil, false, false
+		}
+	} else {
+		answer, answered := h.Answers[frameIndex]
+		if !answered || len(answer) != len(arrange.Options) || arrange.Min != len(answer) || arrange.Max != len(answer) {
+			return nil, nil, false, false
+		}
+		bottom = answer
 	}
 	var window []uint32
 	for _, ev := range before.Events {
 		if ev.Kind == events.Note && ev.Secret && ev.Player == h.Actor && ev.Text == "looks at the top of the library" {
 			if window != nil || len(ev.IDs) == 0 {
-				return nil, nil, false
+				return nil, nil, false, false
 			}
 			window = ev.IDs
 		}
 	}
 	if len(window) == 0 || len(window) > len(order) {
-		return nil, nil, false
+		return nil, nil, false, false
 	}
 	looked := map[uint32]bool{}
 	for offset, ref := range window {
 		identity, known := identities[ref]
 		index, observed := origins[ref]
 		if ref == 0 || looked[ref] || !known || identity.Owner != h.Actor || identity.Name == "" || !observed || index != order[offset] {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		looked[ref] = true
 	}
@@ -748,43 +792,70 @@ func spellbenchActorDigOrder(h History, frameIndex int, order []int, origins map
 	for _, option := range choose.Options {
 		a := option.Action
 		if a.Kind != "dig" || a.Player != h.Actor || !looked[a.Obj] {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		if _, duplicate := options[a.Obj]; duplicate {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		options[a.Obj] = a
 	}
 	selected := map[uint32]bool{}
 	for _, a := range chosen {
 		if expected, exists := options[a.Obj]; !exists || a != expected || selected[a.Obj] {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		selected[a.Obj] = true
 	}
 	moved := map[uint32]bool{}
+	orders := 0
 	for _, ev := range after.Events {
+		if immediate && ev.Kind == events.LibraryOrder && ev.Player == h.Actor && orders == 0 {
+			orders++
+			continue
+		}
 		if ev.Kind == events.Shuffle || ev.Kind == events.LibraryOrder || ev.Kind == events.Draw || ev.Kind == events.CardToken || ev.Kind == events.CopyToken || ev.Kind == events.MyriadCopy || ev.Kind == events.StackCopy {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		if ev.Kind == events.MoveZone && (ev.From == state.ZLibrary || ev.To == state.ZLibrary) {
 			if ev.From != state.ZLibrary || ev.To != state.ZHand || !selected[ev.Obj] || moved[ev.Obj] || ev.Text != "" {
-				return nil, nil, false
+				return nil, nil, false, false
 			}
 			moved[ev.Obj] = true
 		}
 	}
-	if len(moved) != len(selected) || len(bottom)+len(selected) != len(window) {
-		return nil, nil, false
+	if len(moved) != len(selected) {
+		return nil, nil, false, false
+	}
+	if immediate {
+		var rest []uint32
+		for _, ref := range window {
+			if !selected[ref] {
+				rest = append(rest, ref)
+			}
+		}
+		if len(rest) > 1 || len(rest) != orders {
+			return nil, nil, false, false
+		}
+		for _, ref := range rest {
+			bottom = append(bottom, Action{Kind: "dig_bottom", Player: h.Actor, Obj: ref})
+		}
+	}
+	if len(bottom)+len(selected) != len(window) {
+		return nil, nil, false, false
 	}
 	options = map[uint32]Action{}
-	for _, option := range arrange.Options {
+	for _, a := range bottom {
+		if immediate {
+			options[a.Obj] = a
+		}
+	}
+	for _, option := range arrangeOptions(arrange, immediate) {
 		a := option.Action
 		if a.Kind != "dig_bottom" || a.Player != h.Actor || !looked[a.Obj] || selected[a.Obj] {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		if _, duplicate := options[a.Obj]; duplicate {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		options[a.Obj] = a
 	}
@@ -792,7 +863,7 @@ func spellbenchActorDigOrder(h History, frameIndex int, order []int, origins map
 	seen := map[uint32]bool{}
 	for _, a := range bottom {
 		if expected, exists := options[a.Obj]; !exists || a != expected || seen[a.Obj] {
-			return nil, nil, false
+			return nil, nil, false, false
 		}
 		seen[a.Obj] = true
 		next = append(next, origins[a.Obj])
@@ -804,18 +875,51 @@ func spellbenchActorDigOrder(h History, frameIndex int, order []int, origins map
 		}
 	}
 	if json.Unmarshal(after.Board, &board) != nil {
-		return nil, nil, false
+		return nil, nil, false, false
 	}
 	found := false
 	for _, player := range board.Players {
 		if player.Seat == h.Actor {
 			if found || player.Size == nil || *player.Size != len(next) {
-				return nil, nil, false
+				return nil, nil, false, false
 			}
 			found = true
 		}
 	}
-	return next, selected, found
+	return next, selected, found, immediate
+}
+
+func arrangeOptions(d *ObservedDecision, immediate bool) []ObservedOption {
+	if immediate || d == nil {
+		return nil
+	}
+	return d.Options
+}
+
+// spellbenchDigRestToBottom reports whether the named card's only Dig keeps
+// Forge's default rest destination, the bottom of the library.
+func spellbenchDigRestToBottom(setup PublicGame, name string) bool {
+	digs := 0
+	bottom := false
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			if card == nil || len(card.Faces) == 0 || card.Faces[0].Name != name {
+				continue
+			}
+			digs = 0
+			for _, sa := range card.Faces[0].Abilities {
+				for at := sa; at != nil; at = at.Sub {
+					if at.API != "Dig" {
+						continue
+					}
+					digs++
+					zone, position := at.Params["DestinationZone2"], at.Params["LibraryPosition2"]
+					bottom = (zone == "" || zone == "Library") && (position == "" || position == "-1") && (at.Params["DestinationZone"] == "" || at.Params["DestinationZone"] == "Hand")
+				}
+			}
+		}
+	}
+	return digs == 1 && bottom
 }
 
 // Recover an owned shuffle's size from the visible boundary after its events.
