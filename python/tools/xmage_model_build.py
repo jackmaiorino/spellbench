@@ -34,6 +34,33 @@ def verify_model_engine(engine: Path, *, compile_only=False, private_inputs=Fals
     return engine_manifest_sha
 
 
+def reviewed_model_register(raw: bytes) -> bytes:
+    """Correct one audited static-scan false positive in the model's copy.
+
+    Brineborn's pinned constructor uses a constant P1P1 source counter and
+    StaticValue(0), with no event target pointer. AddCountersSourceEffect's
+    appliedEffects read is replacement-effect bookkeeping, not spellCast
+    data. No event object or hidden information is needed to resolve this
+    already public stack trigger. The native kit register stays unchanged.
+    """
+    register = json.loads(raw)
+    row = register["cards"]["Brineborn Cutthroat"]
+    expected = {
+        "class": "mage.cards.b.BrinebornCutthroat",
+        "reading_classes": ["AddCountersSourceEffect"],
+        "status": "approximate",
+        "trigger_classes": ["SpellCastControllerTriggeredAbility"],
+        "triggers": "event_data",
+        "why": ["triggers read event data or captured values"],
+    }
+    if row != expected:
+        raise ValueError("Brineborn model trigger audit no longer matches the pinned register")
+    row.update(status="supported", triggers="event_free",
+               model_resolution_audit="constant P1P1 source counter; no event target or dynamic amount")
+    del row["why"]
+    return (json.dumps(register, indent=1, sort_keys=True) + "\n").encode()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", type=Path, required=True)
@@ -144,10 +171,17 @@ def main() -> int:
             if hashlib.sha256((paths["kit"] / relative).read_bytes()).hexdigest() != digest:
                 raise ValueError("model build resource copy differs")
             resource_hashes[relative.as_posix()] = digest
+    register_name = "spellbench/kit/xmage/register.json"
+    model_register = paths["kit"] / register_name
+    register_input_sha256 = hashlib.sha256(model_register.read_bytes()).hexdigest()
+    model_register.write_bytes(reviewed_model_register(model_register.read_bytes()))
+    resource_hashes[register_name] = hashlib.sha256(model_register.read_bytes()).hexdigest()
     result = {"schema": "spellbench-draftzero-encoder-build/v1", "jdk": version,
               "engine_manifest_sha256": engine_manifest_sha,
               "inputs_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
               "source_sha256": hashes, "resource_files_sha256": resource_hashes, "encoder_stage": staged,
+              "model_register_input_sha256": register_input_sha256,
+              "reviewed_model_stack_triggers": ["Brineborn Cutthroat"],
               "search_stage": search,
               "magezero_stage": magezero,
               "magezero_search_stage": magezero_search,
