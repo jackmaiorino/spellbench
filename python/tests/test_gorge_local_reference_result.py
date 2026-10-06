@@ -106,7 +106,8 @@ def test_local_reference_checker_refuses_an_unclosed_native_audit_before_matrix_
 def matched(recovered, monkeypatch):
     """Synthetic completed ledgers exercise recovery without starting engines."""
     stage, args = recovered
-    rules = definition.load_benchmark(ROOT/'benchmarks/pauper-gorge').qualification_rules()
+    rules = replace(definition.load_benchmark(ROOT/'benchmarks/pauper-gorge').qualification_rules(),
+                    worker_selection='wall')
     bound = max(n for n in range(2, 9) if rules.ladder_fits(140, n))
     cfg = replace(args['cfg'], workers=bound)
     files = []
@@ -177,6 +178,73 @@ def test_local_recovery_checks_complete_matched_primary_ledgers(matched):
     stage, native, _ = matched
     result = local.verify_local_reference_result(stage, source=ROOT, head_sha='fixture-only', native_verdict=native)
     assert result['passed'] and result['outputs_identical'] and result['completed_games'] == 140
+
+
+def test_recovered_runtime_lookup_preserves_full_matrix_and_workload_bindings(matched):
+    stage, native, _ = matched
+    original = (stage/'MANIFEST.json').read_bytes()
+    result = local.verify_local_reference_result(stage, source=ROOT, head_sha='fixture-only',
+        native_verdict=native, recovered_runtime=native['runtime_root'])
+    assert result['passed'] and result['outputs_identical'] and result['completed_games'] == 140
+    assert (stage/'MANIFEST.json').read_bytes() == original
+
+
+def test_local_recovery_requires_wall_selection_even_for_identical_primary_rows(matched):
+    stage, native, _ = matched
+    report = local.read(stage/'MATRIX.json')
+    report['allocation']['rules']['worker_selection'] = 'busy'
+    write(stage/'MATRIX.json', report)
+    write(stage/'ALLOCATION.json', report['allocation'])
+    with pytest.raises(ThroughputError, match='matched throughput evidence'):
+        local.verify_local_reference_result(stage, source=ROOT, head_sha='fixture-only', native_verdict=native)
+
+
+@pytest.fixture
+def off_host_runtime(tmp_path):
+    runtime = tmp_path/'recovered-runtime'
+    runtime.mkdir()
+    names = ('spellbench-gorge-env-windows-amd64.exe',
+             'spellbench-gorge-agent-windows-amd64.exe', 'registry.gob.gz')
+    pins = {}
+    for number, name in enumerate(names):
+        path = runtime/name
+        path.write_bytes(('fixture-only-'+str(number)).encode())
+        pins[name] = dict(bytes=path.stat().st_size, sha256=local.sha(path))
+    write(runtime/'SEAL.json', dict(files=pins))
+    values = dict(GORGE_SPELLBENCH_ENV='Z:/absent-gorge-recovery-fixture/'+names[0],
+        GORGE_SPELLBENCH_AGENT='Z:/absent-gorge-recovery-fixture/'+names[1],
+        GORGE_REGISTRY='Z:/absent-gorge-recovery-fixture/'+names[2],
+        GORGE_REGISTRY_SHA256=pins[names[2]]['sha256'])
+    cfg = local.config.TournamentConfig.from_json(
+        definition.load_benchmark(ROOT/'benchmarks/pauper-gorge').tournament_config(str(tmp_path/'diag')))
+    cfg = local.runner.executed_config(cfg, lambda text: definition.substitute(text, values))
+    return cfg, runtime, pins
+
+
+def test_off_host_recovery_hashes_actual_files_at_original_command_indices(off_host_runtime):
+    cfg, runtime, pins = off_host_runtime
+    original = copy.deepcopy(cfg.to_json())
+    files = [value.to_json() for value in local.recovered_run_files(cfg, runtime)]
+    assert files == [dict(index=index, file_name=name, **pins[name]) for index, name in (
+        (0, 'spellbench-gorge-env-windows-amd64.exe'),
+        (2, 'registry.gob.gz'), (0, 'spellbench-gorge-agent-windows-amd64.exe'))]
+    assert cfg.to_json() == original
+
+
+@pytest.mark.parametrize('name', ['spellbench-gorge-env-windows-amd64.exe',
+    'spellbench-gorge-agent-windows-amd64.exe', 'registry.gob.gz'])
+def test_off_host_recovery_refuses_changed_runtime_bytes(off_host_runtime, name):
+    cfg, runtime, _ = off_host_runtime
+    (runtime/name).write_bytes(b'changed-fixture-only')
+    with pytest.raises(ThroughputError, match='Recovered runtime differs'):
+        local.recovered_run_files(cfg, runtime)
+
+
+def test_off_host_recovery_cannot_substitute_an_unverified_runtime_root(matched, tmp_path):
+    stage, native, _ = matched
+    with pytest.raises(ThroughputError, match='not the verified native input'):
+        local.verify_local_reference_result(stage, source=ROOT, head_sha='fixture-only',
+            native_verdict=native, recovered_runtime=tmp_path/'another-runtime')
 
 
 @pytest.mark.parametrize('change', ['changed_parallel', 'missing_trial', 'reused_secret', 'changed_runtime', 'changed_clock', 'changed_timing'])

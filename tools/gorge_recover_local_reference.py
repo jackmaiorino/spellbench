@@ -47,9 +47,9 @@ def recover(*, hot, cold, runtime, runtime_recovery, runtime_seal_sha256,
     if passed:
         try:
             first = verify_local_reference_result(hot/'reference', source=hot/'source',
-                head_sha=manifest['source_commit'], native_verdict=first_native)
+                head_sha=manifest['source_commit'], native_verdict=first_native, recovered_runtime=runtime)
             second = verify_local_reference_result(cold/'reference', source=cold/'source',
-                head_sha=manifest['source_commit'], native_verdict=second_native)
+                head_sha=manifest['source_commit'], native_verdict=second_native, recovered_runtime=runtime_recovery)
             if first != second:
                 raise RuntimeError('Independent local reference verification differs')
             verified = first

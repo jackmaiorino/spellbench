@@ -124,7 +124,7 @@ def main():
     cfg = config.TournamentConfig.from_json(benchmark.tournament_config(str(STAGE/'diagnostics')))
     cfg = runner.executed_config(cfg, lambda text: definition.substitute(text, values))
     configured_workers = cfg.workers
-    rules = benchmark.qualification_rules()
+    rules = replace(benchmark.qualification_rules(), worker_selection='wall')
     eligible_workers = min(configured_workers, resource_bound(usable_cpus(), cfg.per_game_cores()))
     # This shorter unrated matrix needs its own measured ladder. A bound that
     # cannot fit the qualification budget would select the small-run path,

@@ -89,7 +89,29 @@ def verify_local_matrix(stage, *, source, cfg, manifest, report, preflight):
                 ledger_sha256=report['ledger_sha256'], rated_games=0)
 
 
-def verify_local_reference_result(stage, *, source, head_sha, native_verdict):
+def recovered_run_files(cfg, runtime):
+    """Hash recovered bytes without rewriting the execution's configuration."""
+    runtime = Path(runtime).resolve()
+    pins = read(runtime/'SEAL.json')['files']
+    names = ('spellbench-gorge-env-windows-amd64.exe',
+             'spellbench-gorge-agent-windows-amd64.exe', 'registry.gob.gz')
+    for name in names:
+        path = runtime/name
+        if (not path.resolve().is_relative_to(runtime) or path.is_symlink() or path.is_junction() or
+                not path.is_file() or path.stat().st_size != pins[name]['bytes'] or
+                sha(path) != pins[name]['sha256']):
+            raise ThroughputError('Recovered runtime differs from its verified input: '+name)
+    registry = cfg.engine_command[cfg.engine_command.index('-registry')+1]
+    paths = {cfg.engine_command[0]: str(runtime/names[0]), registry: str(runtime/names[2])}
+    paths.update({bot.command[0]:str(runtime/names[1]) for bot in cfg.bots
+                  if bot.name.startswith('gorge-')})
+    # Only this temporary file lookup uses recovery paths. Original commands,
+    # participant identities, workload hashes and replay bindings stay intact.
+    lookup = runner.executed_config(cfg, lambda part:paths.get(part, part))
+    return bench_run.run_files(lookup)
+
+
+def verify_local_reference_result(stage, *, source, head_sha, native_verdict, recovered_runtime=None):
     stage = Path(stage)
     manifest, report = read(stage/'MANIFEST.json'), read(stage/'MATRIX.json')
     native = portable_native_verdict(native_verdict)
@@ -111,12 +133,15 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict):
     blueprint = config.TournamentConfig.from_json(benchmark.tournament_config(cfg.tournament_dir))
     blueprint = runner.executed_config(blueprint, lambda text: definition.substitute(text, values))
     allocation = Allocation.from_json(report['allocation'])
-    rules = benchmark.qualification_rules()
+    rules = replace(benchmark.qualification_rules(), worker_selection='wall')
     eligible = min(blueprint.workers, resource_bound(allocation.cpu_count, cfg.per_game_cores()))
     bounds = [n for n in range(2, eligible+1) if rules.ladder_fits(140, n)]
     if not bounds or cfg.to_json() != replace(blueprint, workers=max(bounds)).to_json():
         raise ThroughputError('Local reference changed the roster, clocks or fitting worker bound')
-    files = [value.to_json() for value in bench_run.run_files(cfg)]
+    if recovered_runtime is not None and Path(recovered_runtime).resolve() != Path(native_verdict['runtime_root']).resolve():
+        raise ThroughputError('Recovered reference runtime is not the verified native input')
+    files = [value.to_json() for value in (bench_run.run_files(cfg) if recovered_runtime is None
+             else recovered_run_files(cfg, recovered_runtime))]
     runtime = read(Path(native_verdict['runtime_root'])/'SEAL.json')['files']
     for name in ('spellbench-gorge-env-windows-amd64.exe', 'spellbench-gorge-agent-windows-amd64.exe', 'registry.gob.gz'):
         expected = runtime[name]
