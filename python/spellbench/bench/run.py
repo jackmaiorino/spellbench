@@ -172,6 +172,9 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                 qualification_completed += 1
                 job_storage.reconcile_game(len(chosen), qualification_games=max(0, 32 - qualification_completed))
 
+        cpu = machine.CpuSampler() if os.name == "nt" else None
+        if cpu is not None:
+            cpu.sample()
         started = time.perf_counter()
         # Aborted pools do not wait for descendants. Do not publish the secret unless normal cleanup returns.
         cleanup_confirmed = False
@@ -185,6 +188,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         counts = {name: sum(outcome.row.classification == name for outcome in result.outcomes)
                   for name in ("natural", "forfeit", "halted", "truncated")}
         summary = {"workers": workers, "elapsed_seconds": wall, "terminal_counts": counts,
+                   "machine_cpu_busy_share": None if cpu is None else cpu.sample(),
                    "useful_completed": counts["natural"] + counts["forfeit"],
                    "requested_games": len(positions),
                    "game_timings": [{
