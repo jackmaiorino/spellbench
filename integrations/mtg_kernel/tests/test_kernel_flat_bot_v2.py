@@ -5,6 +5,7 @@ import copy
 import base64
 import hashlib
 import json
+import random
 import sys
 import zlib
 from pathlib import Path
@@ -184,6 +185,29 @@ def test_completion_vector_table_roundtrips_repeated_bits_and_signed_metadata():
     with pytest.raises(integration.BotError, match="requires a compressed"):
         bot.choose(incoming)
     bot.close()
+
+
+def test_grouped_vector_table_restores_the_same_steps_and_compresses_long_orders():
+    rng = random.Random(5)
+    rows = [[rng.getrandbits(32) for _ in range(40)] for _ in range(48)]
+    proposals = []
+    for first in range(12):
+        remaining = rows[:first] + rows[first + 1:]
+        steps = []
+        while remaining:
+            tensor = {key: [len(remaining), first] for key in integration.TENSOR_KEYS}
+            tensor["action_features"] = [word for row in remaining for word in row]
+            tensor["object_features"] = [word for row in reversed(remaining) for word in row]
+            steps.append({"tensor": tensor, "selected_row": 0})
+            remaining = remaining[1:]
+        proposals.append(steps)
+    plain, grouped = intern_proposal_vectors(proposals), intern_proposal_vectors(proposals, grouped=True)
+    restore = lambda table: [[{"tensor": {key: table["vectors"][ref["vector"]] for key, ref in step["tensor"].items()},
+                               "selected_row": step["selected_row"]} for step in steps] for steps in table["proposals"]]
+    assert restore(plain) == restore(grouped) == proposals
+    assert sorted(map(integration._dumps, plain["vectors"])) == sorted(map(integration._dumps, grouped["vectors"]))
+    size = lambda table: len(zlib.compress(integration._dumps(table).encode(), 9))
+    assert size(grouped) * 2 < size(plain)
 
 
 @pytest.mark.parametrize("changes", [
