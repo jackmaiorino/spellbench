@@ -710,14 +710,16 @@ func spellbenchRevealedUntilWindow(setup PublicGame, before, after Frame, identi
 			}
 		}
 	}
-	if len(window) == 0 || hand != 1 || grave != len(window)-1 {
+	// Without a land, the reveal mills the whole library in order.
+	exhausted := len(window) > 0 && hand == 0 && grave == len(window)
+	if len(window) == 0 || !exhausted && (hand != 1 || grave != len(window)-1) {
 		return 0, nil, false
 	}
 	seen := map[uint32]bool{}
 	for i, ref := range window {
 		id, ok := identities[ref]
 		isLand, printed := land[id.Name]
-		if ref == 0 || seen[ref] || !ok || id.Owner != owner || !printed || isLand != (i == len(window)-1) {
+		if ref == 0 || seen[ref] || !ok || id.Owner != owner || !printed || isLand != (!exhausted && i == len(window)-1) {
 			return 0, nil, false
 		}
 		seen[ref] = true
@@ -743,7 +745,7 @@ func spellbenchRevealedUntilWindow(setup PublicGame, before, after Frame, identi
 			current = *p.Size
 		}
 	}
-	if previous < 0 || current < 0 || previous-current != len(window) {
+	if previous < 0 || current < 0 || previous-current != len(window) || exhausted && current != 0 {
 		return 0, nil, false
 	}
 	return owner, window, true

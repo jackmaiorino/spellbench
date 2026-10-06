@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -65,6 +66,24 @@ func TestSpellbenchRevealedUntilRequiresCompletePublicProof(t *testing.T) {
 			}
 			if test.want && (positions[0].Index != 1 || positions[4].Index != 5 || positions[4].Name != "Forest") {
 				t.Fatalf("wrong ordered prefix: %+v", positions)
+			}
+		})
+	}
+	// Without a land, a complete reveal must empty the library.
+	for _, test := range []struct {
+		name    string
+		library int
+		want    bool
+	}{{"whole library without a land", 0, true}, {"cards left without a land", 4, false}} {
+		t.Run(test.name, func(t *testing.T) {
+			s, h := fixture()
+			h.Frames[1].Board = json.RawMessage(strings.Replace(string(h.Frames[1].Board), `"library_size":9`, `"library_size":`+strconv.Itoa(test.library+5), 1))
+			h.Frames[2].Board = json.RawMessage(`{"players":[{"seat":1,"library_size":` + strconv.Itoa(test.library) + `}],"stack":[]}`)
+			h.Frames[2].Identities[4].Name = "Caretaker"
+			h.Frames[2].Events[2].To = state.ZGraveyard
+			positions := spellbenchRevealedUntilPositions(s, h)[epochKey{Player: 1, Ordinal: 0}]
+			if (len(positions) == 5) != test.want {
+				t.Fatalf("positions=%+v want=%v", positions, test.want)
 			}
 		})
 	}
