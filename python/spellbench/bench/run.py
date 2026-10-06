@@ -172,6 +172,9 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                 qualification_completed += 1
                 job_storage.reconcile_game(len(chosen), qualification_games=max(0, 32 - qualification_completed))
 
+        cpu = machine.CpuSampler() if os.name == "nt" else None
+        if cpu is not None:
+            cpu.sample()
         started = time.perf_counter()
         # Aborted pools do not wait for descendants. Do not publish the secret unless normal cleanup returns.
         cleanup_confirmed = False
@@ -185,8 +188,18 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         counts = {name: sum(outcome.row.classification == name for outcome in result.outcomes)
                   for name in ("natural", "forfeit", "halted", "truncated")}
         summary = {"workers": workers, "elapsed_seconds": wall, "terminal_counts": counts,
+                   "machine_cpu_busy_share": None if cpu is None else cpu.sample(),
                    "useful_completed": counts["natural"] + counts["forfeit"],
-                   "requested_games": len(positions)}
+                   "requested_games": len(positions),
+                   "game_timings": [{
+                       "game_index": outcome.row.game_index,
+                       "matchup_index": outcome.row.matchup_index,
+                       "bots": [seat.name for seat in outcome.row.seats],
+                       "decks": [deck.catalog_id for deck in outcome.row.decks],
+                       "classification": outcome.row.classification,
+                       "elapsed_seconds": outcome.seconds,
+                       "ledger_write_seconds": write_seconds[outcome.row.game_index],
+                   } for outcome in result.outcomes]}
         (stored[0] / f"trial-{trial_number}-summary.json").write_text(
             json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")
         if result.error is not None:
