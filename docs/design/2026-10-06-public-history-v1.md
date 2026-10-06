@@ -22,10 +22,10 @@ game that enables it:
  "events": [
    {"kind": "turn_began", "turn": 3, "active_seat": "p1"},
    {"kind": "draw", "seat": "p1", "card": null},
-   {"kind": "zone_move", "card": {"object_id": "o-9f2c", "card_name": "Lightning Bolt", "owner_seat": "p1"},
-    "from": {"zone": "hand"}, "to": {"zone": "stack"}, "cause": "cast"},
+   {"kind": "zone_move", "owner_seat": "p1", "card": {"object_id": "9f2c…", "card_name": "Lightning Bolt", "owner_seat": "p1"},
+    "from": {"zone": "hand"}, "to": {"zone": "stack"}},
    {"kind": "library_shuffled", "owner_seat": "p0"},
-   {"kind": "library_rearranged", "owner_seat": "p1", "top_count": 1, "bottom_count": 1, "by_seat": "p1"}
+   {"kind": "library_rearranged", "owner_seat": "p1", "top_count": 1, "bottom_count": 1}
  ]}
 ```
 
@@ -36,10 +36,11 @@ game that enables it:
 - **Retransmission.** A retransmitted decision carries the same bytes. A rewind
   (Section 8) carries an empty delta, because a rejected selection changes no
   public fact.
-- **Ids.** Every `object_id` is a viewer-local id from the same projection that
-  numbers the observation (Section 5.3). A card that enters a hidden zone loses
-  its id. When it reappears, it gets a fresh one. `null` replaces a card the
-  viewer cannot identify. The extension declares `native_ids: false`.
+- **Ids.** A `card` is `{object_id, card_name, owner_seat}`, or `null` when the
+  viewer cannot identify it. `object_id` is the id the card has in this
+  decision's observation (Section 5.3), and only when the card has not moved
+  since the event. Otherwise it is `null`, so an id never links a card across
+  a zone change. The extension declares `native_ids: false`.
 - **No counters.** Events carry no index, step number, timestamp or global
   counter. A turn number appears only in `turn_began`, which is public.
 - **Order.** Order is the engine's commit order, so it reveals nothing beyond
@@ -50,23 +51,23 @@ game that enables it:
 | Kind | Fields | Viewer sees the card when |
 |---|---|---|
 | `turn_began` | `turn`, `active_seat` | n/a |
-| `draw` | `seat`, `card` | the viewer is the drawer, or the card is revealed as drawn |
-| `zone_move` | `card`, `from`, `to`, `cause` | either zone is public, or the viewer owns the hidden zone involved |
+| `draw` | `seat`, `card` | the viewer is the drawer |
+| `zone_move` | `owner_seat`, `card`, `from`, `to` | either zone is public, or the viewer owns the card |
 | `library_shuffled` | `owner_seat` | n/a |
-| `hand_revealed` | `owner_seat`, `cards` (names, sorted) | always: it is a reveal to the viewer |
-| `card_revealed` | `card`, `zone`, `position_from_top` / `position_from_bottom` | always |
-| `looked_at` | `owner_seat`, `cards` with positions | only the viewer's own looks are sent |
-| `library_rearranged` | `owner_seat`, `top_count`, `bottom_count`, `by_seat` | counts only; never identities or order |
+| `card_revealed` | `owner_seat`, `zone` (`hand`), `card` | sent only to the seat it was revealed to |
+| `looked_at` | `owner_seat`, `cards` (each a `card` with `position_from_top` or `position_from_bottom`) | sent only to the seat that looked, or that ordered the cards |
+| `library_rearranged` | `owner_seat`, `top_count`, `bottom_count` | counts only; never identities or order |
 | `token_created` | `card`, `controller_seat` | always (battlefield) |
 
-- `from` and `to` are `{"zone", "position_from_top"?, "position_from_bottom"?}`.
-  A library position appears only when the rules make it public, such as "put on
-  top" or "put on the bottom". An ambiguous position is omitted.
-- `cause` is one of `cast`, `resolve`, `discard`, `mill`, `search`, `sacrifice`,
-  `destroy`, `exile`, `bounce`, `return`, `put`, `other`. It is the effect
-  family, never the effect's text.
+- `from` and `to` are `{"zone", "position_from_top"?}`. A library position
+  appears only when the engine records it as publicly determined (a mill or an
+  impulse from the top, "put on top"). An ambiguous position is omitted. A draw
+  is always from the top.
+- Spell casts appear as a `zone_move` to the stack. Spell copies are not cards
+  and appear only on the observation's stack.
 - Life, damage, tapping, counters and combat are left out. The observation
   already carries their results, and no hidden-zone inference needs their order.
+- A whole-hand reveal is a run of `card_revealed` events.
 
 ## Fairness
 
@@ -91,6 +92,9 @@ Gorge's `x_gorge_search_v1` audit uses the same method.
 
 ## Knowledge tracker
 
+Status: follow-up to the history extension. Until it lands, the profile keeps
+`known_cards: false`.
+
 The adapter applies the Section 6.7 update table to this same event stream, per
 viewer, to build `known`. It cross-checks the result against the kernel's own
 per-observer `library_knowledge` and `hand_knowledge` (`state.rs`). A
@@ -108,7 +112,7 @@ The private bridge (`mtg-kernel/src/agent_bridge_v1.rs` on the
 |---|---|---|
 | `zone_move`, `draw`, `token_created` | `state.engine.event_history`: `ZoneChange`, `Draw`, `CreateToken`, `SpellCast` | the bridge does not export it yet |
 | `library_shuffled` | `shuffle_library` in `state.rs` | the bridge resets in legacy randomness mode, which keeps no per-owner shuffle ordinal, so this needs a journal entry |
-| `hand_revealed`, `card_revealed`, `looked_at` | `reveal_hand_card`, `library_knowledge` insertions | no journal entry; only the resulting knowledge state |
+| `card_revealed`, `looked_at` | `reveal_hand_card`, `reveal_library_top`, `reveal_library_position` | no journal entry; only the resulting knowledge state |
 | `library_rearranged` | scry, surveil and look-and-order resolutions | no public count record |
 | `turn_began` | `UpkeepBegan` and the turn counter | none |
 
@@ -122,13 +126,15 @@ rules behavior:
    append to it with exact native identities. The library shuffle commit is
    one such call site. It is engine-internal and never
    read by rules or triggers.
-2. On each `decision` and `terminal` response, the bridge adds a private
-   `history_since` field. It is the omniscient slice of `event_history` and
-   `observation_journal` since the previous response, with a cursor. It goes to
-   the trusted Python adapter only, never to an agent.
-3. The Python adapter (`integrations/mtg_kernel/kernel_observation_v2.py`)
-   projects that slice per viewer under the rules above, assigns viewer-local
-   ids, and keeps each seat's pending delta until that seat's next decision.
+2. On each production decision, the bridge's private support gains a
+   `history` field: the omniscient slice of `event_history`, the journal and
+   newly allocated objects (owner and printed name) since the previous
+   production decision, each with its absolute offset. Private previews never
+   carry it or advance it. It goes to the trusted Python adapter only, never to
+   an agent.
+3. The Python adapter (`integrations/mtg_kernel/kernel_history_v2.py`) checks
+   that slices are contiguous, projects each one per viewer under the rules
+   above, and keeps each seat's queue until that seat's next decision.
 
 The journal changes the engine identity, which is intended: the board moves to
 `evaluation_version` `pauper-neutral-v2.1.0` (design C8). The existing `x_kernel_flat_v4`
