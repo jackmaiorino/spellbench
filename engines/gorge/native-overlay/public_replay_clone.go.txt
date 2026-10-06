@@ -8,44 +8,88 @@ import (
 // SpellbenchOfferPublicPayment binds a recorded payment to this hypothetical
 // world. Canonical plan ranking uses native object IDs, which need not retain
 // their order after a public-only reconstruction. No live engine accepts this
-// extension. The ordinary native payment validator proves the alternate plan.
+// extension. Each recorded source contributes one of its own native one-tap
+// alternatives, so a source keeps its own ability and produced mana instead of
+// inheriting those of the canonical plan's source at the same position. The
+// ordinary native payment validator proves every added plan; recorded plans
+// are listed first.
 func (e *Engine) SpellbenchOfferPublicPayment(actionID string, sources []state.ObjID) bool {
 	if e == nil || e.rng == nil || e.rng.chance == nil || e.rng.chance.failure != nil {
 		return false
 	}
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KPriority {
+	if d == nil || d.Kind != decision.KPriority || len(sources) == 0 || len(sources) > decision.MaxPaymentActivations {
 		return false
 	}
 	for i, action := range d.PaymentActions {
 		if action.ID != actionID {
 			continue
 		}
-		for _, offered := range action.Plans {
-			if len(offered.Activations) != len(sources) {
-				continue
-			}
-			plan := decision.ClonePaymentPlan(offered)
-			for j, source := range sources {
-				plan.Activations[j].Source = source
-				plan.Activations[j].SourceZoneSeq = e.paymentSourceZoneSeq(source)
-			}
-			if e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
-				continue
-			}
-			id, err := decision.PaymentPlanID(d.Seq, d.Player, action.Cast, plan)
-			if err != nil {
-				continue
-			}
-			plan.ID = id
-			for _, existing := range action.Plans {
-				if existing.ID == id {
-					return true
+		alternatives := make([][]plannedManaActivation, len(sources))
+		units := e.paymentPlanManaUnits(d.Player)
+		for j, source := range sources {
+			for _, u := range units {
+				if u.id == source {
+					alternatives[j] = e.paymentPlanUnitAlternatives(u)
 				}
 			}
-			d.PaymentActions[i].Plans = append(d.PaymentActions[i].Plans, plan)
-			return true
+			if len(alternatives[j]) == 0 {
+				return false
+			}
 		}
+		cost := e.offerCostFor(d.Player, action.Cast.Object, e.rawBaseCost(d.Player, action.Cast.Object), spellScope(""))
+		pool := e.G.Players[d.Player].Pool
+		offered := false
+		combinations := 0
+		var recorded []decision.PaymentPlan
+		var walk func(int, state.Mana, []plannedManaActivation)
+		walk = func(at int, produced state.Mana, chosen []plannedManaActivation) {
+			if combinations >= decision.MaxPaymentPlanSearchNodes {
+				return
+			}
+			if at == len(sources) {
+				combinations++
+				paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, e.G.Players[d.Player].Life, false, pipRider{}, nil)
+				if !ok {
+					return
+				}
+				plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
+				if e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
+					return
+				}
+				id, err := decision.PaymentPlanID(d.Seq, d.Player, action.Cast, plan)
+				if err != nil {
+					return
+				}
+				plan.ID = id
+				offered = true
+				for _, existing := range recorded {
+					if existing.ID == id {
+						return
+					}
+				}
+				recorded = append(recorded, plan)
+				return
+			}
+			for _, a := range alternatives[at] {
+				walk(at+1, manaAdd(produced, a.mana), append(append([]plannedManaActivation(nil), chosen...), a))
+			}
+		}
+		walk(0, state.Mana{}, nil)
+		// Recorded bindings lead, so a witness taking the first valid plan
+		// replays the public taps. Other native plans remain offered.
+		plans := recorded
+		for _, existing := range d.PaymentActions[i].Plans {
+			duplicate := false
+			for _, plan := range recorded {
+				duplicate = duplicate || plan.ID == existing.ID
+			}
+			if !duplicate {
+				plans = append(plans, existing)
+			}
+		}
+		d.PaymentActions[i].Plans = plans
+		return offered
 	}
 	return false
 }

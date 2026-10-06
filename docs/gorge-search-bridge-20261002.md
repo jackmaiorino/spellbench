@@ -396,3 +396,35 @@ capture has no full native diagnostics baseline. The
 inputs, runtime pins, traces, release and billing evidence with independent
 recovery. This test binary is not a production runtime, and full native/reference
 qualification, ratings and publication remain unfinished.
+
+## Native129 reconstruction repairs (2026-10-06)
+
+The native129 qualification halted at game 51 on a Wildfire search-redeal budget
+exhaustion. The repairs below change only the replay witness: the guidance that
+proposes opponent shuffle orders and preferred opponent intents for the public
+reconstruction. Native sampler proposals, weights, policies, rollout settings and
+the 64/8/5000 options are unchanged. Each repair has a unit fixture that also
+checks the native compiled constraints are untouched.
+
+- Split payment taps are offered as observed payment plans, shortest first.
+- Carry guidance counts fixed top positions before adding held-card deadlines.
+- Typed landcycling searches and arranged nonbasic windows keep the basic-search fold.
+- Same-direction anonymous library moves are attributed by library size change.
+- London bottoms keep revealed-until, declined-search and scry draw bounds, and
+  every anonymous bottom proposes a never-public spare.
+- A complete revealed hand proposes its entry order.
+- Brainstorm-style draw-and-put-back keeps actor positions and opponent draw bounds.
+- Verified reveal-until windows count their hidden moves as consumed top positions,
+  and a land-free reveal that empties the library is accepted.
+- An opponent's explore records the revealed top card as a position.
+
+Before the last six repairs, 102 of the 113 earlier saved captures passed, including
+every native129 capture. Eight of the eleven later first-failure captures now pass.
+A 40-game screen of the redeal modes (seed indices 48-55, 104-111, 160-167,
+216-223 and 272-279) went from 197 exhaustions in 10 games to 179 of 1,797
+reconstruction attempts in 9 games. Burn and Rally are clean. Two long Wildfire
+mana-redeal games (54 and 55) hold 150 of the 179. They need hidden-hand contents
+carried across many shuffles, which the current carry guidance cannot express.
+Excluding them, the rate is 29 of 1,177 (2.5%), still above the proposed v2
+counted-fallback cap of 1%. Qualification, the reference matrix and ratings remain
+unfinished.

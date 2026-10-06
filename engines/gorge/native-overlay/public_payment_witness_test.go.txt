@@ -43,3 +43,55 @@ func TestSpellbenchPublicPaymentRequiresHypothesisAndNativeValidation(t *testing
 		t.Fatal("repeated witness duplicated the offer")
 	}
 }
+
+func TestSpellbenchPublicPaymentKeepsEachRecordedSourceMana(t *testing.T) {
+	e, _, _ := newFixtureDeck(t, 9102, "Name:Witness Removal\nManaCost:1 B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	a := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
+	b := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
+	m := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	e.ask(&decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1})
+	d := e.Pending()
+	if len(d.PaymentActions) != 1 || len(d.PaymentActions[0].Plans) != 1 {
+		t.Fatalf("fixture offers: %+v", d.PaymentActions)
+	}
+	action := decision.ClonePaymentAction(d.PaymentActions[0])
+	e.rng.chance = &chanceState{}
+	// Every recorded order must be offered with each source's own mana,
+	// whatever positions and colours the canonical witness used.
+	for _, sources := range [][]state.ObjID{{a, b}, {b, a}, {m, a}, {a, m}, {m, b}, {b, m}} {
+		if !e.SpellbenchOfferPublicPayment(action.ID, sources) {
+			t.Fatalf("recorded sources %v were not offered", sources)
+		}
+		found := false
+		for _, plan := range d.PaymentActions[0].Plans {
+			if len(plan.Activations) != len(sources) {
+				continue
+			}
+			same := true
+			for i, activation := range plan.Activations {
+				same = same && activation.Source == sources[i]
+			}
+			if !same {
+				continue
+			}
+			found = true
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: plan}}
+			if d.Validate(in) != nil || e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
+				t.Fatalf("recorded sources %v failed native validation", sources)
+			}
+		}
+		if !found {
+			t.Fatalf("recorded sources %v have no plan in that order", sources)
+		}
+	}
+	if e.SpellbenchOfferPublicPayment(action.ID, []state.ObjID{m}) {
+		t.Fatal("an insufficient recorded payment was offered")
+	}
+	seen := map[string]bool{}
+	for _, plan := range d.PaymentActions[0].Plans {
+		if seen[plan.ID] {
+			t.Fatal("repeated witness duplicated the offer")
+		}
+		seen[plan.ID] = true
+	}
+}

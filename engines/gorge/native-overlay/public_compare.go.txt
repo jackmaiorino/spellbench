@@ -36,7 +36,37 @@ func spellbenchBoardEqual(got, want json.RawMessage, public bool) bool {
 		return false
 	}
 	b, ok := decode(want)
-	return ok && reflect.DeepEqual(a, b)
+	return ok && reflect.DeepEqual(spellbenchWithoutResidue(a), spellbenchWithoutResidue(b))
+}
+
+// Battlefield entry always sets summoning sickness, and only an untap step on
+// the battlefield clears it. Off the battlefield the bit is residue of an
+// earlier visit with no rules effect, and it distinguishes otherwise
+// identical copies returned to a hidden library. Ignore only that bit, and
+// only outside the battlefield; every other field and position still counts.
+func spellbenchWithoutResidue(board map[string]any) map[string]any {
+	var strip func(value any, battlefield bool) any
+	strip = func(value any, battlefield bool) any {
+		switch v := value.(type) {
+		case map[string]any:
+			out := make(map[string]any, len(v))
+			for key, item := range v {
+				if key == "summon_sick" && !battlefield {
+					continue
+				}
+				out[key] = strip(item, battlefield || key == "battlefield")
+			}
+			return out
+		case []any:
+			out := make([]any, len(v))
+			for i, item := range v {
+				out[i] = strip(item, battlefield)
+			}
+			return out
+		}
+		return value
+	}
+	return strip(board, false).(map[string]any)
 }
 
 func spellbenchFrameEqual(got, want Frame) bool {
