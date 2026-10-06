@@ -107,6 +107,11 @@ mtg-kernel's `data/runtime_decks_v1.json` with their source hashes, and the regi
 Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `optional_cost` for `additional` and
 `copy` costs have no world dialog yet and answer by the declining fallback; the kernel's observation omits
 `pending_triggers` and offers a shorter keyword list, so continuation and characteristic checks fall back more often.
+- kit-mcts paces its searches by the bank (`clock.pace_moves` 30, `clock.pace_floor_ms` 12000): a decision gets at
+  most an even share of the remaining bank plus the increment, and its search is interrupted at that clock. A fixed 30
+  iterations on the kernel decks took 20 to 25 s per decision and spent the 600 s bank by about decision 50. The
+  pacing is part of kit-mcts's configuration, so its identity changed; kit-mad-1 and kit-mad-k are unchanged.
+
 None of this is qualification. Thirty-two unrated smoke games on the kernel (2026-10-06, kit-mad-1 and kit-mcts
 against a uniform seat) ended naturally with no halts or validator violations; they showed the two gaps above.
 

@@ -49,6 +49,9 @@ public final class Front {
     final long overheadMs;
     /** Reserved at the end of every clock for a kill and the fallback answer. */
     final long killReserveMs;
+    /** Clock pacing (0: off): a decision gets at most remaining/paceMoves + increment, never under paceFloorMs. */
+    final long paceMoves;
+    final long paceFloorMs;
     final Map<String, Object> budgets = new LinkedHashMap<>();
     final long hangAt;
     final boolean roundtrip;
@@ -116,6 +119,8 @@ public final class Front {
         graceMs = Json.num(clockPolicy, "grace_ms", 5000);
         overheadMs = Json.num(clockPolicy, "overhead_ms", 1500);
         killReserveMs = Json.num(clockPolicy, "kill_reserve_ms", 300);
+        paceMoves = Json.num(clockPolicy, "pace_moves", 0);
+        paceFloorMs = Json.num(clockPolicy, "pace_floor_ms", 0);
         Map<String, Object> diag = Json.obj(config, "diagnostics");
         hangAt = Json.num(diag, "hang_at", -1);
         roundtrip = Json.bool(diag, "roundtrip");
@@ -282,6 +287,19 @@ public final class Front {
         return pass;
     }
 
+    /**
+     * A decision's time under clock pacing: the decision limit, cut to an even share of the remaining bank
+     * ({@code remaining / paceMoves}) plus the increment it earns back, but never under {@code floorMs} (the least a
+     * runner search can use after the overhead, grace and kill reserve). The runner's search is interrupted at the
+     * clock (RunnerLink's deadline), so a shorter clock is a shorter search, not a kill.
+     */
+    static long pacedLimit(long limit, long remaining, long increment, long paceMoves, long floorMs) {
+        if (paceMoves <= 0) {
+            return limit;
+        }
+        return Math.min(limit, Math.max(floorMs, remaining / paceMoves + increment));
+    }
+
     static Map<String, Object> withoutExtensions(Map<String, Object> d) {
         if (d == null || !d.containsKey("extensions")) {
             return d;
@@ -371,7 +389,10 @@ public final class Front {
         Map<String, Object> clockIn = Json.obj(req, "clock");
         long limit = Math.min(clockIn == null ? 60_000 : Json.num(clockIn, "max_decision_ms", 60_000),
                 clockIn == null ? 60_000 : Json.num(clockIn, "remaining_ms", 60_000));
-        Clock clock = new Clock(t0, limit, overheadMs);
+        Map<String, Object> tc = gameStart == null ? null : Json.obj(gameStart, "time_control");
+        long paced = pacedLimit(limit, clockIn == null ? limit : Json.num(clockIn, "remaining_ms", limit),
+                tc == null ? 0 : Json.num(tc, "increment_ms", 0), paceMoves, paceFloorMs);
+        Clock clock = new Clock(t0, paced, overheadMs);
         Answer a;
         try {
             a = decide(d, clock);
@@ -909,6 +930,12 @@ public final class Front {
         // pending triggers or an unsupported state is not searched; the front declines (wrapper)
         if (skipped) {
             Answer a = fallback(d, null, "wrapper", "approximate_state_without_search");
+            a.detail.putAll(detail);
+            return a;
+        }
+        if ("mcts".equals(botKind) && agg.winner != null && agg.votes.getOrDefault(agg.winner, 0) == 0) {
+            // interrupted before one completed iteration: the ranking is candidate order, not a search result
+            Answer a = fallback(d, null, "cap", "mcts_no_iterations");
             a.detail.putAll(detail);
             return a;
         }
