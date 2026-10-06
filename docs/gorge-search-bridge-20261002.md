@@ -418,12 +418,13 @@ checks the native compiled constraints are untouched.
   and a land-free reveal that empties the library is accepted.
 - An opponent's explore records the revealed top card as a position.
 
-All 113 earlier saved captures except 11 pass, including every native129 capture.
+Before the last six repairs, 102 of the 113 earlier saved captures passed, including
+every native129 capture. Eight of the eleven later first-failure captures now pass.
 A 40-game screen of the redeal modes (seed indices 48-55, 104-111, 160-167,
 216-223 and 272-279) went from 197 exhaustions in 10 games to 179 of 1,797
-reconstruction attempts in 7 games. Burn and Rally are clean. Two long Wildfire
+reconstruction attempts in 9 games. Burn and Rally are clean. Two long Wildfire
 mana-redeal games (54 and 55) hold 150 of the 179. They need hidden-hand contents
 carried across many shuffles, which the current carry guidance cannot express.
-Excluding them, the rate is 29 of 1,647 (1.8%), still above the proposed v2
+Excluding them, the rate is 29 of 1,177 (2.5%), still above the proposed v2
 counted-fallback cap of 1%. Qualification, the reference matrix and ratings remain
 unfinished.
