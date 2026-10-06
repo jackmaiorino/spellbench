@@ -24,6 +24,7 @@ from spellbench.digests import deck_id
 from spellbench.errors import MalformedJsonError, ValidationError
 from spellbench.messages import HelloRequest, ResetRequest, StepRequest, ValidateDeckRequest, EnvHelloOk
 from kernel_observation_v2 import KernelProjection, ProjectionError
+from kernel_history_v2 import SCHEMA as HISTORY, PublicHistory
 from kernel_semantics_v2 import ordinary_semantic
 from kernel_combat_v2 import native_block_plan, BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement, native_arrangement_binding, native_arrangement_pick
@@ -124,7 +125,7 @@ class KernelEngine:
             "engine_defaults": {"trigger_order": None, "replacement_order": "engine_order",
                 "combat_damage_assignment": "engine_order", "mana_payment": "engine_autopay"},
             "rewind": False, "fairness": {"noninterference_probe": False},
-            "extensions": [{"name": FLAT, "native_ids": True}]}
+            "extensions": [{"name": FLAT, "native_ids": True}, {"name": HISTORY, "native_ids": False}]}
         EnvHelloOk.from_json(self.hello)
         self.cache = None
         self.used = set()
@@ -192,7 +193,7 @@ class KernelEngine:
                 return error(rid, "deck_id_mismatch", "deck id differs from the compiled catalog")
         rules = request["rules"]
         if (rules["mulligan"] != "none" or rules["starting_player"] != "host_assigned" or rules["probe"] or
-            any(name != FLAT for name in rules["extensions"])):
+            any(name not in (FLAT, HISTORY) for name in rules["extensions"])):
             return error(rid, "unsupported_rule", "unsupported rules or extensions")
         self.used.add(request["game_id"])
         if self.game and self.current["response_type"] == "decision":
@@ -212,11 +213,13 @@ class KernelEngine:
         first = rules["starting_seat"]
         self.projection = KernelProjection(self.catalog, secret, first_seat=first, keywords=True)
         self.native_group = None
+        self.history = PublicHistory()
         seats = request["seats"] if first == "p0" else list(reversed(request["seats"]))
         self.current = self.peer.request({"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
             "seats": [{"seat": f"p{i}", "deck": {"catalog_id": entry["deck"]["catalog_id"]}} for i, entry in enumerate(seats)],
             "game_seed": int.from_bytes(hmac.new(secret, b"spellbench-kernel-v2/rng", hashlib.sha256).digest()[:8], "little"),
             "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1})
+        self.absorb_history()
         return self.respond(rid)
 
     def step(self, request):
@@ -257,6 +260,21 @@ class KernelEngine:
         self.current = self.peer.request({"request_type": "step", "game_id": self.game,
             "expected_step": self.current["step"], "selection": {"candidate_id": candidate,
             "semantic_echo": self.current["candidates"][candidate]["semantic"]}})
+        self.absorb_history()
+
+    def absorb_history(self):
+        """Queue the public events of every production native decision.
+
+        Only production responses carry the slice; a terminal has none, and
+        nothing after it reaches an agent's decision."""
+        if self.current.get("response_type") != "decision":
+            return
+        history = self.current["extensions"]["x_kernel_v2_support"].get("history")
+        if history is None:
+            if HISTORY in self.rules["extensions"]:
+                raise ProjectionError("native bridge sent no public history")
+            return
+        self.history.absorb(history)
 
     def commit_buffer(self):
         if isinstance(self.buffer, TriggerOrder):
@@ -410,6 +428,8 @@ class KernelEngine:
                 extension["acting_seat"], extension["step"] = actor, self.seat_steps[actor]
                 extension["row_candidate_ids"] = [self.native_candidates.index(i) for i in ids]
                 extensions[FLAT] = extension
+        if HISTORY in self.rules["extensions"]:
+            extensions[HISTORY] = self.history.drain(("p0", "p1").index(raw["acting_player"]), self.projection)
         kinds = {family(semantic["kind"]) for semantic in semantics}
         if len(kinds) != 1:
             raise ProjectionError("native decision mixes neutral choice and priority families")
