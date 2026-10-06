@@ -745,3 +745,34 @@ func TestSpellbenchLondonBottomSparesEachAnonymousBottom(t *testing.T) {
 		t.Fatalf("more bottoms than spare declared cards were guided: %+v", got)
 	}
 }
+
+func TestSpellbenchRevealedHandOrderFollowsHandEntries(t *testing.T) {
+	draw := ObservedEvent{Kind: events.Draw, Player: 1, To: state.ZHand, Secret: true}
+	opening := []ObservedEvent{{Kind: events.Shuffle, Player: 1}}
+	for i := 0; i < 7; i++ {
+		opening = append(opening, draw)
+	}
+	opening = append(opening, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}, ObservedEvent{Kind: events.TurnChange, Player: 1}, draw)
+	names := []string{"Second", "Third", "Fourth", "Fifth", "Sixth", "Drawn"}
+	identities := []Identity{{ID: 20, Name: "Cast", Owner: 1}}
+	var options []ObservedOption
+	for i, name := range names {
+		identities = append(identities, Identity{ID: uint32(30 + i), Name: name, Owner: 1})
+		options = append(options, ObservedOption{Action: Action{Kind: "hand_move", Player: 1, Obj: uint32(30 + i)}})
+	}
+	h := History{Actor: 0, Frames: []Frame{
+		{Events: opening},
+		{Identities: identities[:1], Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 20, From: state.ZHand, To: state.ZStack}}},
+		{Identities: identities[1:], Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Options: options}},
+	}}
+	got := spellbenchRevealedHandOrder(h)[epochKey{Player: 1, Ordinal: 0}]
+	want := []epochPosition{{Index: 1, Name: "Cast"}, {Index: 2, Name: "Second"}, {Index: 3, Name: "Third"}, {Index: 4, Name: "Fourth"}, {Index: 5, Name: "Fifth"}, {Index: 6, Name: "Sixth"}, {Index: 7, Name: "Drawn"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("revealed hand order: got=%+v want=%+v", got, want)
+	}
+	// An anonymous hand exit leaves the order unguided.
+	h.Frames[1].Events = append(h.Frames[1].Events, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZGraveyard})
+	if got := spellbenchRevealedHandOrder(h); len(got) != 0 {
+		t.Fatalf("anonymous exit was guided: %+v", got)
+	}
+}
