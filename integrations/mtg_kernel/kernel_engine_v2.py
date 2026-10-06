@@ -51,21 +51,37 @@ def pack_proposal_tensor(tensor):
     return result
 
 
-def intern_proposal_vectors(proposals):
-    """Store exact repeated arrays once, without changing any score input."""
-    vectors, indices, indexed = [], {}, []
+def intern_proposal_vectors(proposals, grouped=False):
+    """Store exact repeated arrays once, without changing any score input.
+
+    grouped lists the table by tensor key and then trajectory step instead of
+    first use. Consecutive steps of a long order differ in a few rows, and
+    grouping puts those near-copies next to each other where zlib's 32 KiB
+    window can match them. The scorer resolves indices either way."""
+    vectors, keys, indices, indexed = [], [], {}, []
     for trajectory in proposals:
         steps = []
-        for step in trajectory:
+        for position, step in enumerate(trajectory):
             tensor = {}
             for key, words in step["tensor"].items():
                 encoded = wire.canonical_json_dumps(words)
                 if encoded not in indices:
                     indices[encoded] = len(vectors)
                     vectors.append(words)
+                    keys.append((key, position))
                 tensor[key] = {"vector": indices[encoded]}
             steps.append({"tensor": tensor, "selected_row": step["selected_row"]})
         indexed.append(steps)
+    if grouped:
+        order = sorted(range(len(vectors)), key=keys.__getitem__)
+        rank = [0] * len(order)
+        for new, old in enumerate(order):
+            rank[old] = new
+        vectors = [vectors[old] for old in order]
+        for steps in indexed:
+            for step in steps:
+                for ref in step["tensor"].values():
+                    ref["vector"] = rank[ref["vector"]]
     return {"vectors": vectors, "proposals": indexed}
 
 
@@ -341,24 +357,29 @@ class KernelEngine:
                 raise ProjectionError("private completion preview exceeded its bound")
             proposals.append(steps)
         original = self.root["extensions"][FLAT]
-        payload = wire.canonical_json_dumps(intern_proposal_vectors(proposals))
-        if len(payload) > 64 * 1024 * 1024:
-            raise ProjectionError("completion proposal exceeds the decoded payload bound")
         extension = {"schema": PROPOSALS, "mapping": "deterministic-completion-logprob/v1", "tensor_encoding": PROPOSAL_ENCODING,
             **{key: original[key] for key in ("card_db_hash", "feature_contract_digest", "feature_encoding_digest")},
             "acting_seat": actor, "step": self.seat_steps[actor],
             "row_candidate_ids": list(range(candidate_count))}
         # Large graveyard orders repeat many tensor slices. The fast compressor
-        # can miss those repetitions and exceed the unchanged wire limit.
-        for level in (1, 9):
+        # can miss those repetitions and exceed the unchanged wire limit; a
+        # whole-library mill also needs the table grouped by key. Each fallback
+        # runs only when the previous encoding does not fit, so every proposal
+        # that fit before keeps its exact bytes.
+        limit = wire.MAX_LINE_BYTES - 262144
+        for grouped, level in ((False, 1), (False, 9), (True, 9)):
+            if level == 1 or grouped:
+                payload = wire.canonical_json_dumps(intern_proposal_vectors(proposals, grouped=grouped))
+                if len(payload) > 64 * 1024 * 1024:
+                    raise ProjectionError("completion proposal exceeds the decoded payload bound")
             extension["proposals_zlib"] = base64.b64encode(zlib.compress(payload, level=level)).decode("ascii")
-            if len(wire.canonical_json_dumps(extension)) <= wire.MAX_LINE_BYTES - 262144:
+            if len(wire.canonical_json_dumps(extension)) <= limit:
                 break
         extension_bytes = len(wire.canonical_json_dumps(extension))
-        if extension_bytes > wire.MAX_LINE_BYTES - 262144:
+        if extension_bytes > limit:
             raise ProjectionError(f"completion proposal exceeds the wire bound: "
                 f"decoded={len(payload)} encoded_extension={extension_bytes} "
-                f"limit={wire.MAX_LINE_BYTES - 262144} candidates={candidate_count} "
+                f"limit={limit} candidates={candidate_count} "
                 f"steps={sum(map(len, proposals))}")
         return extension
 
