@@ -136,6 +136,9 @@
       ],
       "checkpoint": "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-gen0.pt.gz",
       "evaluation_inputs": [
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-model.py",
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-vocab.py",
+        "${XMAGE_CHECKPOINT_ROOT}/FDN_SPG.tsv",
         "${XMAGE_RELEASES_MANIFEST}",
         "${XMAGE_MODEL_BUILD}/BUILD.json",
         "${XMAGE_SEARCH_MATH}",
@@ -594,6 +597,9 @@
       ],
       "checkpoint": "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-gen10.pt.gz",
       "evaluation_inputs": [
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-model.py",
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-vocab.py",
+        "${XMAGE_CHECKPOINT_ROOT}/FDN_SPG.tsv",
         "${XMAGE_RELEASES_MANIFEST}",
         "${XMAGE_MODEL_BUILD}/BUILD.json",
         "${XMAGE_SEARCH_MATH}",
@@ -1052,6 +1058,9 @@
       ],
       "checkpoint": "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-gen33.pt.gz",
       "evaluation_inputs": [
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-model.py",
+        "${XMAGE_CHECKPOINT_ROOT}/draftzero-exp1-vocab.py",
+        "${XMAGE_CHECKPOINT_ROOT}/FDN_SPG.tsv",
         "${XMAGE_RELEASES_MANIFEST}",
         "${XMAGE_MODEL_BUILD}/BUILD.json",
         "${XMAGE_SEARCH_MATH}",
