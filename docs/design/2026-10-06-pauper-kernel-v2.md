@@ -20,7 +20,7 @@ on one engine, with ratings that are directly comparable.
 | Board | Engine and wire | Roster | Status |
 |---|---|---|---|
 | `pauper-kernel` | mtg-kernel, Spellbench wire v1 | uniform, heuristic, first, g115, a48, c12 | Rated 2026-09-26 and 09-27. Not audited for hidden information; its halts come from builtin bots taking goad and menace choices the engine offers but the rules forbid |
-| `pauper-kernel-v2` | mtg-kernel, wire v2, neutral choices | panel g115, a48, c12; uniform calibration; GPT-6 Luna | No formal games. `known_cards: false`, no public history. Luna (#74) waits on PR #130, which waits on mtg-kernel #147 |
+| `pauper-kernel-v2` | mtg-kernel, wire v2, neutral choices | panel g115, a48, c12; uniform calibration; GPT-6 Luna | No formal games. Moved to `pauper-neutral-v2.1.0` on 2026-10-06: `x_public_history_v1` and `known_cards: true`. Luna (#74) waits on PR #130, which waits on mtg-kernel #147 |
 | `pauper-gorge` (PR #64) | gorge engine, wire v2 | 12 gorge strategies, uniform, heuristic | Five decks (Wildfire, Rally, Spy, Burn, CawGates), 3,640 scheduled games, 0 rated. Native107 failed at game 49 with 2 reconstruction budget exhaustions; native129 stopped at game 51 (Wildfire, search-redeal) after 11 |
 | `fdn-native-v1` | XMage engine, wire v2 | nine fair MAD and MCTS variants, uniform, heuristic | FDN Limited only, 7,040 scheduled games, 0 native rated games. All eight Pauper decks come from XMage's own `decks/Pauper/` files; the kit's card scan at pin fd40ad5c finds all 112 cards (93 supported, 19 approximate, 0 unsupported) |
 
