@@ -1,6 +1,54 @@
 package rules
 
-import "github.com/adams-shaun/gorge/state"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// SpellbenchOfferPublicPayment binds a recorded payment to this hypothetical
+// world. Canonical plan ranking uses native object IDs, which need not retain
+// their order after a public-only reconstruction. No live engine accepts this
+// extension. The ordinary native payment validator proves the alternate plan.
+func (e *Engine) SpellbenchOfferPublicPayment(actionID string, sources []state.ObjID) bool {
+	if e == nil || e.rng == nil || e.rng.chance == nil || e.rng.chance.failure != nil {
+		return false
+	}
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority {
+		return false
+	}
+	for i, action := range d.PaymentActions {
+		if action.ID != actionID {
+			continue
+		}
+		for _, offered := range action.Plans {
+			if len(offered.Activations) != len(sources) {
+				continue
+			}
+			plan := decision.ClonePaymentPlan(offered)
+			for j, source := range sources {
+				plan.Activations[j].Source = source
+				plan.Activations[j].SourceZoneSeq = e.paymentSourceZoneSeq(source)
+			}
+			if e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
+				continue
+			}
+			id, err := decision.PaymentPlanID(d.Seq, d.Player, action.Cast, plan)
+			if err != nil {
+				continue
+			}
+			plan.ID = id
+			for _, existing := range action.Plans {
+				if existing.ID == id {
+					return true
+				}
+			}
+			d.PaymentActions[i].Plans = append(d.PaymentActions[i].Plans, plan)
+			return true
+		}
+	}
+	return false
+}
 
 // SpellbenchClonePlannedHypothesis branches an already hypothetical replay.
 // Clone normally drops its planner because rollout worlds need fresh chance.

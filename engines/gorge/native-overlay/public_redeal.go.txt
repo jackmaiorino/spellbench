@@ -227,6 +227,7 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 				return walk(e, c, p, frame+1, pos, nil, nil)
 			}
 			seed := taggedSeed(opts.Seed, digest, proposalAttempt, seedOpponent, uint64(d.Player), uint64(d.Seq))
+			spellbenchObservedPaymentOffers(e, c, d, want.Events[len(burst):], want.Identities)
 			preferred := botpolicy.Decide(opponentBoard(e, d.Player, newOpponentBoards(len(setup.Names))), d, rand.New(rand.NewPCG(seed[0], seed[1])))
 			preferred = spellbenchObservedPreferred(e, c, d, preferred, want.Events[len(burst):], want.Identities)
 			preferred = spellbenchLondonBottomPreferred(e, d, preferred, bottomPositions)
@@ -938,6 +939,43 @@ func spellbenchShuffleHandSize(frame Frame, shuffle int, owner state.PlayerID, i
 // Prioritize a legal hypothetical answer suggested by the next public action.
 // This orders witness search only. It neither submits an extra intent nor
 // removes any alternative from the existing exhaustive, shared-budget walk.
+func spellbenchObservedPaymentOffers(e *rules.Engine, c *Collector, d *decision.Decision, remaining []ObservedEvent, introduced []Identity) {
+	if d.Kind != decision.KPriority {
+		return
+	}
+	for at, ev := range remaining {
+		if ev.Kind != events.PutOnStack || ev.From != state.ZHand {
+			continue
+		}
+		var sources []state.ObjID
+		for _, next := range remaining[at+1:] {
+			if next.Kind == events.Priority || next.Kind == events.ManaAdd && next.Amount < 0 {
+				break
+			}
+			if next.Kind == events.Tap {
+				source := c.object(next.Obj)
+				if source == 0 {
+					return
+				}
+				sources = append(sources, source)
+			}
+		}
+		for _, action := range d.PaymentActions {
+			object := e.G.Obj(action.Cast.Object)
+			matches := c.object(ev.Obj) == action.Cast.Object
+			for _, identity := range introduced {
+				if identity.ID == ev.Obj && object != nil && object.Face() != nil {
+					matches = matches || object.Owner == identity.Owner && object.Face().Name == identity.Name
+				}
+			}
+			if matches {
+				e.SpellbenchOfferPublicPayment(action.ID, sources)
+			}
+		}
+		return
+	}
+}
+
 func spellbenchObservedPreferred(e *rules.Engine, c *Collector, d *decision.Decision, fallback decision.Intent, remaining []ObservedEvent, introduced []Identity) decision.Intent {
 	// A pass emits the next alive player's priority marker with a positive
 	// pass count. Match the immediate marker before looking ahead for a later
