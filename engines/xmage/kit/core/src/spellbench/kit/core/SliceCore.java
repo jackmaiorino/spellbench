@@ -39,6 +39,7 @@ public final class SliceCore {
         samplerPins();
         logicalDialogs();
         rebinding();
+        methodNullCasts();
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -281,5 +282,57 @@ public final class SliceCore {
         d2.put("observation", Json.map("viewer", "p0", "stack", Arrays.asList(entry, entry2)));
         pb2.claim(d2);
         check("S2.rebinding.ambiguous_binds_nothing", pb2.counters.containsKey("rebind_ambiguous"), pb2.counters);
+    }
+
+    // ------------------------------------------------------------------ method-null casts (Section 7.4)
+
+    static void methodNullCasts() {
+        Map<String, Object> dart = ref("o-dart", "Lava Dart", "p0", "graveyard");
+        Map<String, Object> bolt = ref("o-bolt", "Lightning Bolt", "p0", "hand");
+        Map<String, Object> offeredDart = Json.map("kind", "cast_spell", "source", dart, "method", null);
+        Map<String, Object> offeredBolt = Json.map("kind", "cast_spell", "source", bolt, "method", "normal");
+        Map<String, Object> worldDart = Json.map("kind", "cast_spell", "source", dart, "method", "flashback");
+        Map<String, Object> worldBoltFlash = Json.map("kind", "cast_spell", "source", bolt, "method", "flashback");
+        List<Object> cands = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", Json.map("kind", "pass"), "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", offeredDart, "display_text", null),
+                Json.map("candidate_id", 2L, "semantic", offeredBolt, "display_text", null));
+        boolean answers = Offers.answers(offeredDart, worldDart) && !Offers.answers(offeredBolt, worldBoltFlash)
+                && !Offers.answers(offeredDart, Json.map("kind", "cast_spell", "source", bolt, "method", "normal"))
+                && Offers.candidateFor(cands, worldDart) == 1 && Offers.candidateFor(cands, offeredBolt) == 2
+                && Offers.candidateFor(cands, worldBoltFlash) == -1;
+        check("kernel.method_null.answers", answers, null);
+
+        // the world's flashback key reaches the method-null candidate through the alias, and the plan keeps the method
+        Map<String, Object> d = Json.map("candidates", cands);
+        Map<String, Integer> candidateOf = Front.candidateKeys(d);
+        List<Object> results = Arrays.asList(Json.map("index", 0L, "semantic", worldDart, "root_stats", Arrays.asList(
+                Json.map("semantic", worldDart, "bound", "exact", "adjusted", 5L),
+                Json.map("semantic", Json.map("kind", "pass"), "bound", "exact", "adjusted", 1L))));
+        Front.aliasWorldKeys(cands, results, candidateOf);
+        List<Aggregate.WorldVote> votes = Arrays.asList(Aggregate.fromRunner(Json.obj(results.get(0))));
+        Aggregate.Result r = Aggregate.vote(votes, candidateOf);
+        Integer chosen = candidateOf.get(r.winner);
+        String method = Offers.worldMethod(r.winner);
+        check("kernel.method_null.vote", chosen != null && chosen == 1 && "flashback".equals(method),
+                Json.map("candidate", chosen == null ? null : (long) chosen, "method", method));
+
+        PlanBook pb = new PlanBook();
+        pb.open(30, offeredDart, Json.map("viewer", "p0", "stack", new ArrayList<>()), Json.map("targets", new ArrayList<>()), null);
+        pb.active.castMethod = method;
+        List<Object> methods = new ArrayList<>();
+        for (String m : new String[]{"normal", "flashback"}) {
+            methods.add(Json.map("candidate_id", (long) methods.size(), "semantic",
+                    Json.map("kind", "choose_cast_method", "source", dart, "method", m), "display_text", null));
+        }
+        Map<String, Object> md = Json.map("seat_step", 31L, "context", Json.map("kind", "choice", "source", dart, "purpose", null),
+                "observation", Json.map("viewer", "p0", "stack", new ArrayList<>()), "candidates", methods);
+        int claimed = pb.claim(md);
+        check("kernel.method_null.plan_answers_method", claimed == 1, Json.map("answer", (long) claimed));
+
+        Map<String, Object> withExt = Json.map("seat_step", 1L, "extensions", Json.map("x_kernel_flat_v4", "payload"));
+        Map<String, Object> stripped = Front.withoutExtensions(withExt);
+        check("kernel.extensions_stripped", !stripped.containsKey("extensions") && withExt.containsKey("extensions")
+                && Front.withoutExtensions(md) == md, null);
     }
 }

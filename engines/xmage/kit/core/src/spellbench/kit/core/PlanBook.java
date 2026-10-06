@@ -31,6 +31,8 @@ public final class PlanBook {
         public String boundStack;
         public boolean bindingTried;
         public String bindingOutcome;
+        /** The world's cast method when the offered cast named none (Section 7.4); answers choose_cast_method. */
+        public String castMethod;
         String curKey;
         String curSource;
         boolean closeCurrent;
@@ -168,6 +170,8 @@ public final class PlanBook {
                     return "cost_target";
                 case "optional_cost":
                     return "use";
+                case "choose_cast_method":
+                    return "cast_method";
                 case "select_object":
                     return "select:" + Json.str(sem, "purpose");
                 default:
@@ -289,6 +293,10 @@ public final class PlanBook {
                     out.add(a.get("value"));
                 }
             }
+        } else if (fam.equals("cast_method")) {
+            if (p.castMethod != null) {
+                out.add(p.castMethod);
+            }
         } else if (fam.startsWith("select:")) {
             for (Map<String, Object> a : p.answers) {
                 if ("select".equals(a.get("family"))) {
@@ -344,6 +352,11 @@ public final class PlanBook {
                     break;
                 case "optional_cost":
                     if (want instanceof Boolean && want.equals(sem.get("pay"))) {
+                        return i;
+                    }
+                    break;
+                case "choose_cast_method":
+                    if (want instanceof String && want.equals(sem.get("method"))) {
                         return i;
                     }
                     break;
