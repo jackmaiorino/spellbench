@@ -85,6 +85,24 @@ from the register (one emblem class with a no-argument constructor per source); 
 that do not resolve by name are unsupported. `admission` lists the decks admitted for kit entries (a deck with a
 restricted-mana card, an emblem that cannot be rebuilt or control of another player is excluded).
 
+## Other engines (mtg-kernel)
+
+The kit reads only its seat's protocol messages, so it can sit in a seat of another v2 engine whose cards XMage
+implements. The pauper-kernel decks are XMage `.dek` lists; `register/pauper-kernel-decks.json` copies them from
+mtg-kernel's `data/runtime_decks_v1.json` with their source hashes, and the register admits all eight decks
+(112 cards, every one resolving at the XMage pin). What the kit handles for that engine:
+
+- `cast_spell` with `method: null` (Section 7.4). The world's cast of that card, whatever its method, answers the
+  candidate (`core/.../Offers.java`, the runner's root filter and the front's keys), and the action's plan answers the
+  following `choose_cast_method` with the world's method.
+- `seat_decision.extensions` are dropped on arrival: the kit reads none, and mtg-kernel's model inputs can reach
+  several MiB per decision.
+
+Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `optional_cost` for `additional` and
+`copy` costs have no world dialog yet and answer by the declining fallback; the kernel's observation omits
+`pending_triggers` and offers a shorter keyword list, so continuation and characteristic checks fall back more often.
+None of this is qualification: kernel games, fallback rates and throughput remain to be measured.
+
 ## Games through P's host
 
 ```bash

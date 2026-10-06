@@ -1,0 +1,702 @@
+[
+ {
+  "catalog_id": "Wildfire",
+  "name": "Wildfire",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Jund Wildfire.dek",
+   "xmage_deck_sha256": "cff35798ff724888a9e5a4520dd55e70b0c628a55908697aa116089d8fd980a5",
+   "runtime_deck_hash": "0x552acb5fc9631d3b"
+  },
+  "decklist": [
+   {
+    "name": "Twisted Landscape",
+    "count": 4
+   },
+   {
+    "name": "Fanatical Offering",
+    "count": 4
+   },
+   {
+    "name": "Ichor Wellspring",
+    "count": 3
+   },
+   {
+    "name": "Blood Fountain",
+    "count": 1
+   },
+   {
+    "name": "Drossforge Bridge",
+    "count": 4
+   },
+   {
+    "name": "Slagwoods Bridge",
+    "count": 4
+   },
+   {
+    "name": "Writhing Chrysalis",
+    "count": 4
+   },
+   {
+    "name": "Nyxborn Hydra",
+    "count": 1
+   },
+   {
+    "name": "Vault of Whispers",
+    "count": 1
+   },
+   {
+    "name": "Cleansing Wildfire",
+    "count": 4
+   },
+   {
+    "name": "Lembas",
+    "count": 3
+   },
+   {
+    "name": "Makeshift Munitions",
+    "count": 1
+   },
+   {
+    "name": "Cast Down",
+    "count": 4
+   },
+   {
+    "name": "Nihil Spellbomb",
+    "count": 4
+   },
+   {
+    "name": "Swamp",
+    "count": 3
+   },
+   {
+    "name": "Mountain",
+    "count": 2
+   },
+   {
+    "name": "Forest",
+    "count": 2
+   },
+   {
+    "name": "Refurbished Familiar",
+    "count": 4
+   },
+   {
+    "name": "Krark-Clan Shaman",
+    "count": 3
+   },
+   {
+    "name": "Eviscerator's Insight",
+    "count": 1
+   },
+   {
+    "name": "Toxin Analysis",
+    "count": 2
+   },
+   {
+    "name": "Pulse of Murasa",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "catalog_id": "Rally",
+  "name": "Rally",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Mono Red Rally.dek",
+   "xmage_deck_sha256": "4b5019bd08f9387aeabebdca0d90aaa10dfd75fc75ed3a87c95a2fabf4dba834",
+   "runtime_deck_hash": "0x0c9f01c2544412bf"
+  },
+  "decklist": [
+   {
+    "name": "Clockwork Percussionist",
+    "count": 4
+   },
+   {
+    "name": "Voldaren Epicure",
+    "count": 4
+   },
+   {
+    "name": "Goblin Bushwhacker",
+    "count": 4
+   },
+   {
+    "name": "Goblin Tomb Raider",
+    "count": 4
+   },
+   {
+    "name": "Burning-Tree Emissary",
+    "count": 4
+   },
+   {
+    "name": "Galvanic Blast",
+    "count": 4
+   },
+   {
+    "name": "Experimental Synthesizer",
+    "count": 3
+   },
+   {
+    "name": "Lightning Bolt",
+    "count": 4
+   },
+   {
+    "name": "Reckless Impulse",
+    "count": 4
+   },
+   {
+    "name": "Rally at the Hornburg",
+    "count": 4
+   },
+   {
+    "name": "Great Furnace",
+    "count": 4
+   },
+   {
+    "name": "Mountain",
+    "count": 14
+   },
+   {
+    "name": "Chain Lightning",
+    "count": 2
+   },
+   {
+    "name": "End the Festivities",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "catalog_id": "Affinity",
+  "name": "Affinity",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Grixis Affinity.dek",
+   "xmage_deck_sha256": "4a41135ac6d14960e75ddce8e9980c0505c0b71a9c08a2e10578a10d2fcf8801",
+   "runtime_deck_hash": "0xff4bf00deadf8821"
+  },
+  "decklist": [
+   {
+    "name": "Makeshift Munitions",
+    "count": 1
+   },
+   {
+    "name": "Refurbished Familiar",
+    "count": 4
+   },
+   {
+    "name": "Ichor Wellspring",
+    "count": 4
+   },
+   {
+    "name": "Nihil Spellbomb",
+    "count": 3
+   },
+   {
+    "name": "Fanatical Offering",
+    "count": 1
+   },
+   {
+    "name": "Drossforge Bridge",
+    "count": 4
+   },
+   {
+    "name": "Silverbluff Bridge",
+    "count": 2
+   },
+   {
+    "name": "Mistvault Bridge",
+    "count": 4
+   },
+   {
+    "name": "Galvanic Blast",
+    "count": 4
+   },
+   {
+    "name": "Vault of Whispers",
+    "count": 3
+   },
+   {
+    "name": "Swamp",
+    "count": 1
+   },
+   {
+    "name": "Blood Fountain",
+    "count": 2
+   },
+   {
+    "name": "Myr Enforcer",
+    "count": 4
+   },
+   {
+    "name": "Great Furnace",
+    "count": 3
+   },
+   {
+    "name": "Reckoner's Bargain",
+    "count": 4
+   },
+   {
+    "name": "Thoughtcast",
+    "count": 4
+   },
+   {
+    "name": "Krark-Clan Shaman",
+    "count": 3
+   },
+   {
+    "name": "Hunter's Blowgun",
+    "count": 1
+   },
+   {
+    "name": "Seat of the Synod",
+    "count": 2
+   },
+   {
+    "name": "Toxin Analysis",
+    "count": 2
+   },
+   {
+    "name": "Black Mage's Rod",
+    "count": 3
+   },
+   {
+    "name": "Cryogen Relic",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "catalog_id": "Elves",
+  "name": "Elves",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Elves.dek",
+   "xmage_deck_sha256": "6b040933c9b3506536e7dc71c94dcaf5f16c7ade43a3d0f7f9b240be6deb0d87",
+   "runtime_deck_hash": "0x6a187257d6d37346"
+  },
+  "decklist": [
+   {
+    "name": "Fyndhorn Elves",
+    "count": 3
+   },
+   {
+    "name": "Lead the Stampede",
+    "count": 4
+   },
+   {
+    "name": "Elvish Mystic",
+    "count": 4
+   },
+   {
+    "name": "Timberwatch Elf",
+    "count": 4
+   },
+   {
+    "name": "Priest of Titania",
+    "count": 4
+   },
+   {
+    "name": "Quirion Ranger",
+    "count": 4
+   },
+   {
+    "name": "Winding Way",
+    "count": 4
+   },
+   {
+    "name": "Llanowar Elves",
+    "count": 2
+   },
+   {
+    "name": "Nyxborn Hydra",
+    "count": 4
+   },
+   {
+    "name": "Snow-Covered Forest",
+    "count": 13
+   },
+   {
+    "name": "Generous Ent",
+    "count": 4
+   },
+   {
+    "name": "Avenging Hunter",
+    "count": 4
+   },
+   {
+    "name": "Masked Vandal",
+    "count": 4
+   },
+   {
+    "name": "Wellwisher",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "catalog_id": "Spy",
+  "name": "Spy",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Spy Combo.dek",
+   "xmage_deck_sha256": "f08177d5ed133b18312f59649d1155e15b5074ababeaabcdf3f31ded650308ba",
+   "runtime_deck_hash": "0xcd2afdfee3573675"
+  },
+  "decklist": [
+   {
+    "name": "Mesmeric Fiend",
+    "count": 2
+   },
+   {
+    "name": "Overgrown Battlement",
+    "count": 4
+   },
+   {
+    "name": "Saruli Caretaker",
+    "count": 4
+   },
+   {
+    "name": "Gatecreeper Vine",
+    "count": 3
+   },
+   {
+    "name": "Sagu Wildling",
+    "count": 4
+   },
+   {
+    "name": "Generous Ent",
+    "count": 4
+   },
+   {
+    "name": "Lead the Stampede",
+    "count": 4
+   },
+   {
+    "name": "Winding Way",
+    "count": 4
+   },
+   {
+    "name": "Land Grant",
+    "count": 4
+   },
+   {
+    "name": "Balustrade Spy",
+    "count": 4
+   },
+   {
+    "name": "Lotleth Giant",
+    "count": 2
+   },
+   {
+    "name": "Dread Return",
+    "count": 2
+   },
+   {
+    "name": "Swamp",
+    "count": 1
+   },
+   {
+    "name": "Forest",
+    "count": 3
+   },
+   {
+    "name": "Wall of Roots",
+    "count": 3
+   },
+   {
+    "name": "Masked Vandal",
+    "count": 3
+   },
+   {
+    "name": "Quirion Ranger",
+    "count": 2
+   },
+   {
+    "name": "Troll of Khazad-dum",
+    "count": 1
+   },
+   {
+    "name": "Lotus Petal",
+    "count": 2
+   },
+   {
+    "name": "Tinder Wall",
+    "count": 2
+   },
+   {
+    "name": "Elves of Deep Shadow",
+    "count": 2
+   }
+  ]
+ },
+ {
+  "catalog_id": "Burn",
+  "name": "Burn",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Mono-Red Burn.dek",
+   "xmage_deck_sha256": "4ebba6b42bb27a0ea55001cee133aada81f0dffd8661b46b012fc5026675aa32",
+   "runtime_deck_hash": "0x5fdb7b92986b6fc1"
+  },
+  "decklist": [
+   {
+    "name": "Sneaky Snacker",
+    "count": 4
+   },
+   {
+    "name": "Faithless Looting",
+    "count": 2
+   },
+   {
+    "name": "Highway Robbery",
+    "count": 4
+   },
+   {
+    "name": "Masked Meower",
+    "count": 4
+   },
+   {
+    "name": "Lightning Bolt",
+    "count": 4
+   },
+   {
+    "name": "Mountain",
+    "count": 18
+   },
+   {
+    "name": "Grab the Prize",
+    "count": 4
+   },
+   {
+    "name": "Fireblast",
+    "count": 4
+   },
+   {
+    "name": "Guttersnipe",
+    "count": 4
+   },
+   {
+    "name": "Fiery Temper",
+    "count": 4
+   },
+   {
+    "name": "Voldaren Epicure",
+    "count": 4
+   },
+   {
+    "name": "Lava Dart",
+    "count": 4
+   }
+  ]
+ },
+ {
+  "catalog_id": "CawGates",
+  "name": "CawGates",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Caw-Gates.dek",
+   "xmage_deck_sha256": "72c2bbf76a7fd219349a0ad81c44dc6166b4a797a1f66fe9b5a5de79aa6cdc14",
+   "runtime_deck_hash": "0x25c1916a4d20c08e"
+  },
+  "decklist": [
+   {
+    "name": "Island",
+    "count": 4
+   },
+   {
+    "name": "Citadel Gate",
+    "count": 4
+   },
+   {
+    "name": "Counterspell",
+    "count": 4
+   },
+   {
+    "name": "Heap Gate",
+    "count": 2
+   },
+   {
+    "name": "Idyllic Beachfront",
+    "count": 1
+   },
+   {
+    "name": "Brainstorm",
+    "count": 3
+   },
+   {
+    "name": "Journey to Nowhere",
+    "count": 4
+   },
+   {
+    "name": "Lorien Revealed",
+    "count": 3
+   },
+   {
+    "name": "Outlaw Medic",
+    "count": 2
+   },
+   {
+    "name": "Basilisk Gate",
+    "count": 4
+   },
+   {
+    "name": "Sacred Cat",
+    "count": 4
+   },
+   {
+    "name": "Sea Gate",
+    "count": 4
+   },
+   {
+    "name": "Azorius Guildgate",
+    "count": 2
+   },
+   {
+    "name": "The Modern Age",
+    "count": 4
+   },
+   {
+    "name": "Thraben Charm",
+    "count": 2
+   },
+   {
+    "name": "Prismatic Strands",
+    "count": 4
+   },
+   {
+    "name": "Squadron Hawk",
+    "count": 4
+   },
+   {
+    "name": "Spell Pierce",
+    "count": 2
+   },
+   {
+    "name": "Preordain",
+    "count": 2
+   },
+   {
+    "name": "Guardian of the Guildpact",
+    "count": 1
+   }
+  ]
+ },
+ {
+  "catalog_id": "Faeries",
+  "name": "Faeries",
+  "formats": [
+   "pauper-bo1"
+  ],
+  "source": {
+   "repository": "https://github.com/jackmaiorino/mtg-kernel",
+   "commit": "a4e1474b492f2f14ce1ed9ef8e40309fb70e4e8e",
+   "path": "data/runtime_decks_v1.json",
+   "sha256": "68e7602f3a4df6217119406973954630800c358a10fca9f28e6cf9f20fd3b851",
+   "xmage_deck": "oracle/xmage/decks/Pauper/Deck - Mono-Blue Faeries.dek",
+   "xmage_deck_sha256": "8cb962c4ccee6a5f8c0c70fc27c17d13323d13606c82b9b12b8985aa87e0f344",
+   "runtime_deck_hash": "0xd7a47ab2fa78dbaa"
+  },
+  "decklist": [
+   {
+    "name": "Snap",
+    "count": 3
+   },
+   {
+    "name": "Faerie Seer",
+    "count": 4
+   },
+   {
+    "name": "Island",
+    "count": 18
+   },
+   {
+    "name": "Moon-Circuit Hacker",
+    "count": 4
+   },
+   {
+    "name": "Ninja of the Deep Hours",
+    "count": 4
+   },
+   {
+    "name": "Of One Mind",
+    "count": 4
+   },
+   {
+    "name": "Counterspell",
+    "count": 4
+   },
+   {
+    "name": "Dispel",
+    "count": 2
+   },
+   {
+    "name": "Spellstutter Sprite",
+    "count": 4
+   },
+   {
+    "name": "Harrier Strix",
+    "count": 2
+   },
+   {
+    "name": "Humbling Elder",
+    "count": 4
+   },
+   {
+    "name": "Saiba Cryptomancer",
+    "count": 1
+   },
+   {
+    "name": "Faerie Miscreant",
+    "count": 4
+   },
+   {
+    "name": "Force Spike",
+    "count": 2
+   }
+  ]
+ }
+]

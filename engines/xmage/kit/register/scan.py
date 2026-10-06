@@ -18,7 +18,12 @@ pool's decklists plus the fixture cards, by a conservative static scan of the pi
 
 Each deck's admission for kit entries follows: excluded when one of its cards has an unsupported status.
 
-    python scan.py --xmage XMAGE_SRC --catalog catalog.json [--extra NAME ...] --out register.json
+    python scan.py --xmage XMAGE_SRC --catalog catalog.json [--catalog more.json ...] [--extra NAME ...]
+        [--keep-extensions register.json] --out register.json
+
+Several catalogs may be given (the XMage engine's FDN/Standard catalog and the pauper-kernel decks); their deck ids
+must be distinct. ``--keep-extensions`` carries the reviewed ``source_extensions`` rows of an existing register over
+unchanged.
 """
 
 import argparse
@@ -220,8 +225,9 @@ def qualified(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--xmage", required=True)
-    ap.add_argument("--catalog", required=True)
+    ap.add_argument("--catalog", required=True, action="append")
     ap.add_argument("--extra", nargs="*", default=[])
+    ap.add_argument("--keep-extensions")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     global main_root
@@ -233,12 +239,14 @@ def main():
             if f.endswith(".java"):
                 lib.setdefault(f[:-5], os.path.join(d, f))
     classes = card_classes(os.path.join(sets_root, "mage", "sets"))
-    catalog = json.load(open(a.catalog, encoding="utf-8"))
     names = set(a.extra)
     decks = {}
-    for d in catalog:
-        decks[d["catalog_id"]] = sorted({r["name"] for r in d["decklist"]})
-        names.update(decks[d["catalog_id"]])
+    for path in a.catalog:
+        for d in json.load(open(path, encoding="utf-8")):
+            if d["catalog_id"] in decks:
+                sys.exit("duplicate deck id %s" % d["catalog_id"])
+            decks[d["catalog_id"]] = sorted({r["name"] for r in d["decklist"]})
+            names.update(decks[d["catalog_id"]])
     cache = {}
     cards = {}
     for n in sorted(names):
@@ -265,6 +273,13 @@ def main():
                "tokens": "rebuilt by name through the token repository; a token that does not resolve is unsupported",
                "restricted mana, control of another player": "unsupported"},
            "cards": cards, "admission": admission}
+    if a.keep_extensions:
+        kept = json.load(open(a.keep_extensions, encoding="utf-8"))
+        extensions = kept.get("source_extensions", {})
+        for name in extensions:
+            cards[name] = kept["cards"][name]
+        if extensions:
+            out["source_extensions"] = extensions
     with open(a.out, "w", encoding="utf-8", newline="\n") as f:
         json.dump(out, f, indent=1, sort_keys=True)
         f.write("\n")
