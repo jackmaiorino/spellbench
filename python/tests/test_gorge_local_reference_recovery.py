@@ -48,6 +48,34 @@ def test_terminal_reference_recovery_is_independent_idempotent_and_token_free(at
         assert b'fixture-reservation-token' not in first.read_bytes()
 
 
+def test_external_release_observer_retains_the_same_terminal_recovery(attempt):
+    observed = []
+    def observe(host, dispatch, *, lane, work_id):
+        observed.append((lane, work_id, dispatch['generation']))
+        return recovery.owned_release(host, dispatch, lane=lane, work_id=work_id)
+    result = recovery.recover(**attempt, release_observer=observe)
+    assert result['reference_qualification_passed']
+    assert observed == [('spellbench-gorge', 'reference-fixture', 1)]
+
+
+@pytest.mark.parametrize('change', ['generation', 'work_id', 'live_process', 'live_descendant',
+    'missing_process_identity', 'boolean_generation'])
+def test_changed_external_release_is_refused_before_recovery_writes(attempt, change):
+    def observe(host, dispatch, *, lane, work_id):
+        result = recovery.owned_release(host, dispatch, lane=lane, work_id=work_id)
+        if change == 'generation': result['execution_id']['generation'] += 1
+        elif change == 'work_id': result['execution_id']['work_id'] = 'another-reference'
+        elif change == 'live_process': next(iter(result['processes'].values()))['state'] = 'alive'
+        elif change == 'live_descendant': result['live_descendants'] = [dict(pid=123)]
+        elif change == 'missing_process_identity': next(iter(result['processes'].values())).pop('creation_time')
+        else: result['execution_id']['generation'] = True
+        return result
+    with pytest.raises(RuntimeError, match='exact reference execution'):
+        recovery.recover(**attempt, release_observer=observe)
+    for root in (attempt['hot'], attempt['cold']):
+        assert not (root/'SEAL.json').exists() and not (root/'LOCAL-TERMINAL.json').exists()
+
+
 @pytest.mark.parametrize('failure', ['held', 'live', 'wrong_work', 'changed_native', 'changed_cold', 'storage'])
 def test_active_or_changed_reference_attempt_cannot_create_terminal_receipts(attempt, monkeypatch, failure):
     if failure == 'held': attempt['host'].fate = 'holds'

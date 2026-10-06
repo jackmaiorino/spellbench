@@ -12,7 +12,7 @@ from gorge_recover_local_native import CAP, RESERVE, inventory, mirror, owned_re
 
 def recover(*, hot, cold, runtime, runtime_recovery, runtime_seal_sha256,
             native, native_recovery, native_seal_sha256, native_cleanup_sha256,
-            host, lane, work_id):
+            host, lane, work_id, release_observer=None):
     hot, cold = Path(hot).resolve(), Path(cold).resolve()
     if hot == cold or hot.is_relative_to(cold) or cold.is_relative_to(hot):
         raise RuntimeError('Reference recovery needs two separate owned roots')
@@ -20,7 +20,20 @@ def recover(*, hot, cold, runtime, runtime_recovery, runtime_seal_sha256,
         raise RuntimeError('Reference recovery roots must already be owned ordinary directories')
     inventory(hot); inventory(cold)
     # Prove actual termination and canonical release before any write or copy.
-    release = owned_release(host, read(hot/'host-dispatch.json'), lane=lane, work_id=work_id)
+    dispatch = read(hot/'host-dispatch.json')
+    observer = owned_release if release_observer is None else release_observer
+    release = observer(host, dispatch, lane=lane, work_id=work_id)
+    identity = release.get('execution_id', {})
+    processes = release.get('processes')
+    if (identity.get('lane') != lane or identity.get('work_id') != work_id or
+            type(identity.get('generation')) is not int or identity['generation'] != dispatch['generation'] or
+            not isinstance(identity.get('host'), str) or not identity['host'] or
+            release.get('token_fate') != 'released' or not isinstance(processes, dict) or not processes or
+            any(value.get('state') != 'absent' or type(value.get('pid')) is not int or value['pid'] <= 0 or
+                type(value.get('creation_time')) is not int or value['creation_time'] <= 0
+                for value in processes.values()) or
+            release.get('live_descendants') != [] or release.get('observation_errors') != []):
+        raise RuntimeError('Observed release does not close this exact reference execution')
     if any(shutil.disk_usage(p).free < RESERVE+CAP for p in (hot, cold)):
         raise RuntimeError('Reference recovery cannot preserve its storage reserve')
     pins = dict(seal_sha256=native_seal_sha256, runtime_seal_sha256=runtime_seal_sha256,
