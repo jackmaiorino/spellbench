@@ -479,7 +479,12 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 						}
 					}
 				}
-				if look == 0 {
+				if look == 0 && spellbenchHandToTopOrder(frame.Events[:index], ev.Player, identities, faces) {
+					// Cards put back from hand came from drawn positions or an
+					// earlier hand. Later draws still advance at most one
+					// original position each, so the draw bound remains valid.
+					current.guided = true
+				} else if look == 0 {
 					current.reliable = false
 				} else {
 					current.prefix.Scry(look, bottom)
@@ -504,6 +509,11 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 					if removed := get(identity.Owner); known && identity.Name != "" && ev.From == state.ZLibrary && !ev.To.Hidden() && removed.reliable {
 						removed.prefix.Remove()
 						removed.guided = true
+						continue
+					}
+					// A card put back from hand does not consume an undrawn
+					// position; its later redraw is counted as a draw.
+					if known && ev.From == state.ZHand && ev.To == state.ZLibrary && spellbenchHandToTopOrder(frame.Events[:index], identity.Owner, identities, faces) {
 						continue
 					}
 					disable(identity.Owner, known)
@@ -974,6 +984,43 @@ func spellbenchScryHeldEpochs(h History, original map[epochKey]epochConstraints)
 
 // Dynamic counts, unknown source text and multiple ambiguous faces stay
 // unguided. A constant bound covers every declared scry on the visible face.
+// spellbenchHandToTopOrder reports a library reorder made by the owner's
+// resolving spell that only draws and puts cards from hand on top, such as
+// Brainstorm. Its hidden partition is not inferred.
+func spellbenchHandToTopOrder(before []ObservedEvent, player state.PlayerID, identities map[uint32]Identity, faces map[string]*cards.Face) bool {
+	resolving := -1
+	for i, ev := range before {
+		if ev.Kind == events.Resolve {
+			resolving = i
+		}
+	}
+	if resolving < 0 {
+		return false
+	}
+	identity, known := identities[before[resolving].Obj]
+	face := faces[identity.Name]
+	if !known || identity.Owner != player || face == nil || len(face.Abilities) != 1 || len(face.Triggers) != 0 {
+		return false
+	}
+	for _, ev := range before[resolving+1:] {
+		put := ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZLibrary
+		if !put && (ev.Kind != events.Draw || ev.Player != player) {
+			return false
+		}
+	}
+	puts := 0
+	for sa := face.Abilities[0]; sa != nil; sa = sa.Sub {
+		switch {
+		case sa.API == "Draw" && sa.Params["Defined"] == "":
+		case sa.API == "ChangeZone" && sa.Params["Origin"] == "Hand" && sa.Params["Destination"] == "Library" && (sa.Params["LibraryPosition"] == "" || sa.Params["LibraryPosition"] == "0"):
+			puts++
+		default:
+			return false
+		}
+	}
+	return puts == 1
+}
+
 func spellbenchPrintedScryBound(face *cards.Face) int {
 	if face == nil {
 		return 0

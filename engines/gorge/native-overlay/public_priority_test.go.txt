@@ -3,6 +3,7 @@ package searchprobe
 import (
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -780,5 +781,42 @@ func TestSpellbenchRevealedHandOrderFollowsHandEntries(t *testing.T) {
 	h.Frames[1].Events = append(h.Frames[1].Events, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZGraveyard})
 	if got := spellbenchRevealedHandOrder(h); len(got) != 0 {
 		t.Fatalf("anonymous exit was guided: %+v", got)
+	}
+}
+
+func TestSpellbenchScryEpochsKeepDrawBoundThroughHandToTop(t *testing.T) {
+	put := &cards.SA{API: "ChangeZone", Params: map[string]string{"Origin": "Hand", "Destination": "Library", "ChangeNum": "2"}}
+	brainstorm := &cards.Card{Faces: []*cards.Face{{Name: "Brainstorm", Abilities: []*cards.SA{{API: "Draw", Params: map[string]string{"NumCards": "3"}, Sub: put}}}}}
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{{}, {brainstorm}}}
+	for range 9 {
+		setup.Decks[1] = append(setup.Decks[1], &cards.Card{Faces: []*cards.Face{{Name: "Counterspell"}}})
+	}
+	board := func(library int) json.RawMessage {
+		return json.RawMessage(`{"players":[{"seat":0,"library_size":0},{"seat":1,"library_size":` + strconv.Itoa(library) + `}]}`)
+	}
+	h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+		{Board: board(8), Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+		{Board: board(8), Identities: []Identity{{ID: 17, Name: "Brainstorm", Owner: 1}},
+			Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 17, From: state.ZHand, To: state.ZStack}}},
+		{Board: board(7), Events: []ObservedEvent{{Kind: events.Resolve, Obj: 17},
+			{Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1},
+			{Kind: events.MoveZone, From: state.ZHand, To: state.ZLibrary}, {Kind: events.MoveZone, From: state.ZHand, To: state.ZLibrary},
+			{Kind: events.LibraryOrder, Player: 1}}},
+		{Board: board(7), Identities: []Identity{{ID: 22, Name: "Counterspell", Owner: 1}},
+			Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 22, From: state.ZHand, To: state.ZStack}}},
+	}}
+	original := mustCompileEpochs(t, h)
+	key := epochKey{Player: 1}
+	var got []deadlineConstraint
+	for _, deadline := range spellbenchScryEpochs(setup, h, original)[key].Deadlines {
+		if deadline.Name == "Counterspell" {
+			got = append(got, deadline)
+		}
+	}
+	if want := []deadlineConstraint{{Through: 5, Name: "Counterspell", Count: 1}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Counterspell deadlines %+v, want %+v", got, want)
+	}
+	if !reflect.DeepEqual(original, mustCompileEpochs(t, h)) {
+		t.Fatal("witness guidance changed native constraints")
 	}
 }
