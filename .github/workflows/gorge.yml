@@ -60,7 +60,9 @@ jobs:
         run: go test -timeout 5m ./... -count=1
       - name: Check every public reconstruction boundary
         working-directory: engines/gorge/strategies
-        run: go test -timeout 5m github.com/adams-shaun/gorge/internal/searchprobe -run '^TestSpellbench' -count=1
+        run: |
+          go test -timeout 5m github.com/adams-shaun/gorge/internal/searchprobe -run '^TestSpellbench' -count=1
+          go test -timeout 5m github.com/adams-shaun/gorge/rules -run '^TestSpellbenchPublicPaymentRequiresHypothesisAndNativeValidation$' -count=1
       - name: Test
         working-directory: engines/gorge
         run: go test -timeout 60m ./...
