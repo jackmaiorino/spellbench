@@ -217,9 +217,9 @@ class PublicHistory:
             self._emit(NATIVE_SEATS, {"kind": "library_shuffled", "owner": owner})
         elif kind == "library_looked":
             observer, owner = _seat(note["observer"]), _seat(note["owner"])
-            looked = [(position, _object(native)) for position, native in note["positions"]]
-            if type(looked) is not list or any(type(position) is not int or position < 0 for position, _ in looked):
+            if not isinstance(note["positions"], list):
                 raise ProjectionError("invalid native look positions")
+            looked = [(self._position(position), _object(native)) for position, native in note["positions"]]
             known = self.library[observer][owner]
             gone = {position for position, _ in looked}
             natives = {native for _, native in looked}
