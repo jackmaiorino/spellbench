@@ -645,16 +645,22 @@ func TestSpellbenchDeclinedSearchShuffleKeepsDrawBounds(t *testing.T) {
 		reshuffle bool
 		bound     int
 		position  []epochPosition
+		london    bool
 	}{
-		{"public named removal", state.ZBattlefield, true, false, 3, []epochPosition{{Index: 1, Name: "Mountain"}}},
-		{"hidden removal stays unguided", state.ZHand, true, false, 0, nil},
-		{"unnamed removal stays unguided", state.ZBattlefield, false, false, 0, nil},
-		{"later shuffle restores native guidance", state.ZBattlefield, true, true, 0, []epochPosition{{Index: 1, Name: "Mountain"}}},
+		{"public named removal", state.ZBattlefield, true, false, 3, []epochPosition{{Index: 1, Name: "Mountain"}}, false},
+		{"hidden removal stays unguided", state.ZHand, true, false, 0, nil, false},
+		{"unnamed removal stays unguided", state.ZBattlefield, false, false, 0, nil, false},
+		{"later shuffle restores native guidance", state.ZBattlefield, true, true, 0, []epochPosition{{Index: 1, Name: "Mountain"}}, false},
+		{"London bottom keeps the next undrawn position", state.ZBattlefield, true, false, 3, []epochPosition{{Index: 1, Name: "Mountain"}}, true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			h := History{Actor: 0, ActorBoundaries: true, Frames: removal(test.to, test.known)}
 			if test.reshuffle {
 				h.Frames = append(h.Frames[:2], append([]Frame{{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}}}, h.Frames[2:]...)...)
+			}
+			if test.london {
+				bottom := Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}, {Kind: events.TurnChange}}}
+				h.Frames = append(h.Frames[:1], append([]Frame{bottom}, h.Frames[1:]...)...)
 			}
 			original, err := compileEpochs(h)
 			if err != nil {

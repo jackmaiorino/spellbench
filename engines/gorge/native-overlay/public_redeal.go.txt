@@ -338,6 +338,7 @@ func spellbenchDeclinedShufflePositions(h History) map[epochKey][]epochPosition 
 	positions := map[epochKey][]epochPosition{}
 	cursors := map[state.PlayerID]cursor{}
 	identities := map[uint32]Identity{}
+	started := false
 	stop := func(owner state.PlayerID, known bool) {
 		for player, current := range cursors {
 			if !known || player == owner {
@@ -360,8 +361,15 @@ func spellbenchDeclinedShufflePositions(h History) map[epochKey][]epochPosition 
 				cursors[ev.Player] = current
 			case events.LibraryOrder:
 				stop(ev.Player, true)
+			case events.TurnChange:
+				started = true
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				// London bottoming puts opening cards behind the undrawn tail.
+				// The next undrawn position is unchanged.
+				if !started && ev.From == state.ZHand && ev.To == state.ZLibrary && (ev.Text == "mulligan" || ev.Text == "bottomed") {
 					continue
 				}
 				identity, known := identities[ev.Obj]
