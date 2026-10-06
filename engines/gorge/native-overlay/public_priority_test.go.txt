@@ -490,6 +490,32 @@ func TestSpellbenchPublicTargetUsesBoundObjectAndPreservesAlternatives(t *testin
 	}
 }
 
+func TestSpellbenchPublicTargetCanUseNewlyNamedCastSource(t *testing.T) {
+	e := &rules.Engine{G: state.NewGame([]string{"actor", "opponent"})}
+	source := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "Cast Down"}}}, 1)
+	left := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "First creature"}}}, 0)
+	right := e.G.AddObject(&cards.Card{Faces: []*cards.Face{{Name: "Second creature"}}}, 0)
+	c, err := SpellbenchCollector(0, map[uint32]uint32{uint32(left.ID): 20, uint32(right.ID): 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := &decision.Decision{Seq: 7, Player: 1, Kind: decision.KTarget, Source: source.ID, Min: 1, Max: 1,
+		Options: []decision.Option{{Kind: "target", Obj: left.ID}, {Kind: "target", Obj: right.ID}}}
+	fallback := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}}
+	remaining := []ObservedEvent{{Kind: events.TargetsChosen, Obj: 10, IDs: []uint32{30}}}
+	for _, test := range []struct {
+		name  string
+		owner state.PlayerID
+		pick  int
+	}{{"Cast Down", 1, 1}, {"Another spell", 1, 0}, {"Cast Down", 0, 0}} {
+		introduced := []Identity{{ID: 10, Name: test.name, Owner: test.owner}}
+		got := spellbenchObservedPreferred(e, c, d, fallback, remaining, introduced)
+		if !reflect.DeepEqual(got.Choices, []int{test.pick}) || d.Validate(got) != nil {
+			t.Fatalf("new source preference: identity=%+v got=%+v", introduced, got)
+		}
+	}
+}
+
 func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 	for _, test := range []struct {
 		name          string
