@@ -61,6 +61,58 @@ public final class VisibleReplayDrawsCheck {
         return sample;
     }
 
+    private static Map<String, Object> icewindObservation(boolean after) {
+        Map<String, Object> observation = observation(after);
+        Map<String, Object> top = Json.obj(Json.arr(observation, "stack").get(0));
+        top.put("card_name", "Icewind Elemental");
+        top.put("text", "When {this} enters, draw a card, then discard a card.");
+        Map<String, Object> own = Json.obj(Json.arr(observation, "players").get(0));
+        if (after) {
+            Json.arr(own, "hand").remove(2);
+            own.put("hand_count", 2L);
+            own.put("library_count", 3L);
+        }
+        Map<String, Object> mystic = card("mystic", "Mischievous Mystic");
+        mystic.put("zone", "battlefield"); mystic.put("face_down", false);
+        mystic.put("copy", false); mystic.put("token", false);
+        own.put("battlefield", Arrays.asList(mystic));
+        observation.put("pending_triggers", after ? Arrays.asList(Json.map("controller_seat", "p0",
+                "optional", false, "source", Json.copy(mystic))) : new ArrayList<>());
+        return observation;
+    }
+
+    private static Map<String, Object> icewindDecision() {
+        Map<String, Object> decision = decision();
+        decision.put("observation", icewindObservation(true));
+        Map<String, Object> semantic = Json.obj(Json.obj(Json.arr(decision, "candidates").get(0)), "semantic");
+        semantic.put("minimum", 1L); semantic.put("maximum", 1L);
+        return decision;
+    }
+
+    private static void icewind() {
+        Sampler.Sample sample = sample();
+        Map<String, Object> anchor = icewindObservation(false), decision = icewindDecision();
+        int prior = VisibleReplayDraws.condition(sample, anchor, decision, Collections.emptyList(), new Random(3));
+        require(prior == 1, "public second-draw trigger did not prove the earlier own draw");
+        Sampler.SeatSample own = sample.seats.get("p0");
+        require(own.library.size() == 4 && own.unknownSlots == 3 && own.poolSize == 3 && own.pinned == 1,
+                "single-draw conditioning changed physical counts");
+        require("drawn-island".equals(own.library.get(0).objectId), "single visible draw was not conditioned");
+        for (String fault : new String[]{"no-trigger", "opponent", "wrong-source", "absent-source", "face-down", "copy", "token"}) {
+            Map<String, Object> before = icewindObservation(false), current = icewindDecision();
+            Map<String, Object> after = Json.obj(current, "observation");
+            Map<String, Object> trigger = Json.obj(Json.arr(after, "pending_triggers").get(0));
+            if (fault.equals("no-trigger")) after.put("pending_triggers", new ArrayList<>());
+            if (fault.equals("opponent")) trigger.put("controller_seat", "p1");
+            if (fault.equals("wrong-source")) Json.obj(trigger, "source").put("card_name", "other card");
+            if (fault.equals("absent-source")) Json.obj(Json.arr(before, "players").get(0)).put("battlefield", new ArrayList<>());
+            if (fault.equals("face-down")) Json.obj(Json.arr(Json.obj(Json.arr(before, "players").get(0)), "battlefield").get(0)).put("face_down", true);
+            if (fault.equals("copy") || fault.equals("token")) Json.obj(Json.arr(Json.obj(Json.arr(before, "players").get(0)), "battlefield").get(0)).put(fault, true);
+            require(VisibleReplayDraws.condition(sample(), before, current, Collections.emptyList(), new Random(3)) == 0,
+                    "unproven watcher history was restored: " + fault);
+        }
+    }
+
     private static void refuse(String fault) {
         Sampler.Sample sample = sample();
         Map<String, Object> current = decision();
@@ -120,6 +172,7 @@ public final class VisibleReplayDrawsCheck {
                 && "Island".equals(lastCopy.seats.get("p0").library.get(2).name),
                 "duplicate-name removal always selected the first physical copy");
         for (String fault : new String[]{"viewer", "turn", "count", "prefix", "opponent", "duplicate", "absent", "pin"}) refuse(fault);
+        icewind();
         System.out.println("public own-draw replay conditioning: PASS");
     }
 }

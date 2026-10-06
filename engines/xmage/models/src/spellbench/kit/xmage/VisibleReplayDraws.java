@@ -14,27 +14,32 @@ import java.util.Set;
 final class VisibleReplayDraws {
     private VisibleReplayDraws() { }
 
-    static void condition(Sampler.Sample sample, Map<String, Object> anchor,
+    /** Returns an earlier own draw count only when a public second-draw trigger proves it. */
+    static int condition(Sampler.Sample sample, Map<String, Object> anchor,
                           Map<String, Object> current, List<Object> earlier, Random random) {
         List<Object> stack = Json.arr(anchor, "stack");
-        if (stack.size() != 1) return;
+        if (stack.size() != 1) return 0;
         Map<String, Object> top = Json.obj(stack.get(0));
         String text = Json.str(top, "text");
-        if (!"Kiora, the Rising Tide".equals(Json.str(top, "card_name"))
-                || !"triggered_ability".equals(Json.str(top, "stack_kind"))
-                || text == null || !text.contains("draw two cards, then discard two cards")) return;
+        int count;
+        if ("Kiora, the Rising Tide".equals(Json.str(top, "card_name"))
+                && text != null && text.contains("draw two cards, then discard two cards")) count = 2;
+        else if ("Icewind Elemental".equals(Json.str(top, "card_name"))
+                && "When {this} enters, draw a card, then discard a card.".equals(text)) count = 1;
+        else return 0;
+        if (!"triggered_ability".equals(Json.str(top, "stack_kind"))) return 0;
         String viewer = Json.str(anchor, "viewer");
-        if (!viewer.equals(Json.str(top, "controller_seat"))) return;
+        if (!viewer.equals(Json.str(top, "controller_seat"))) return 0;
         Map<String, Object> first = null;
         for (Object entry : earlier) {
             Map<String, Object> decision = Json.obj(Json.obj(entry), "decision");
-            if (firstDiscard(decision, Json.str(top, "object_id"), viewer)) {
+            if (firstDiscard(decision, Json.str(top, "object_id"), viewer, count)) {
                 first = decision;
                 break;
             }
         }
-        if (first == null && firstDiscard(current, Json.str(top, "object_id"), viewer)) first = current;
-        if (first == null) return;
+        if (first == null && firstDiscard(current, Json.str(top, "object_id"), viewer, count)) first = current;
+        if (first == null) return 0;
         Map<String, Object> after = Json.obj(first, "observation");
         if (!viewer.equals(Json.str(after, "viewer"))
                 || Json.num(anchor, "turn", -1) != Json.num(after, "turn", -2)
@@ -45,14 +50,14 @@ final class VisibleReplayDraws {
         Map<String, Object> afterPlayer = player(after, viewer);
         List<Object> before = Json.arr(beforePlayer, "hand");
         List<Object> hand = Json.arr(afterPlayer, "hand");
-        if (hand.size() != before.size() + 2
+        if (hand.size() != before.size() + count
                 || Json.num(beforePlayer, "hand_count", -1) != before.size()
                 || Json.num(afterPlayer, "hand_count", -1) != hand.size()
-                || Json.num(beforePlayer, "library_count", -1) != Json.num(afterPlayer, "library_count", -2) + 2) {
-            throw new IllegalArgumentException("visible draw replay needs exactly two observed own draws");
+                || Json.num(beforePlayer, "library_count", -1) != Json.num(afterPlayer, "library_count", -2) + count) {
+            throw new IllegalArgumentException("visible draw replay needs exactly the declared observed own draws");
         }
         // This engine emits the viewer's hand in insertion order. Preserve its
-        // already-visible prefix and the order of the two newly received cards.
+        // already-visible prefix and the order of the newly received cards.
         // Neither a hidden card nor the remaining library order is consulted.
         for (int i = 0; i < before.size(); i++) {
             Map<String, Object> old = Json.obj(before.get(i));
@@ -64,7 +69,7 @@ final class VisibleReplayDraws {
         }
         Sampler.SeatSample own = sample.seats.get(viewer);
         if (own == null || own.library.size() != Json.num(beforePlayer, "library_count", -1)
-                || own.deficit != 0 || own.surplus != 0 || own.unknownSlots < 2 || own.poolSize < 2) {
+                || own.deficit != 0 || own.surplus != 0 || own.unknownSlots < count || own.poolSize < count) {
             throw new IllegalArgumentException("visible draw replay needs an exact sampled own library");
         }
         for (Sampler.Slot slot : own.library) {
@@ -93,13 +98,42 @@ final class VisibleReplayDraws {
             remaining.remove((int) matches.get(random.nextInt(matches.size())));
             drawn.add(new Sampler.Slot(name, id, true));
         }
+        int priorOwnDraws = count == 1 && publicSecondDraw(anchor, after, viewer) ? 1 : 0;
         own.library.clear();
         own.library.addAll(drawn);
         own.library.addAll(remaining);
-        own.unknownSlots -= 2;
-        own.poolSize -= 2;
-        own.pinned += 2;
+        own.unknownSlots -= count;
+        own.poolSize -= count;
+        own.pinned += count;
         sample.flags.add("replay:visible_own_draw_conditioning");
+        return priorOwnDraws;
+    }
+
+    private static boolean publicSecondDraw(Map<String, Object> before, Map<String, Object> after, String viewer) {
+        if (!Json.arr(before, "pending_triggers").isEmpty()) return false;
+        List<Object> pending = Json.arr(after, "pending_triggers");
+        if (pending.size() != 1) return false;
+        Map<String, Object> trigger = Json.obj(pending.get(0));
+        Map<String, Object> source = Json.obj(trigger, "source");
+        if (source == null || !Boolean.FALSE.equals(trigger.get("optional"))
+                || !viewer.equals(Json.str(trigger, "controller_seat"))
+                || !"Mischievous Mystic".equals(Json.str(source, "card_name"))
+                || !viewer.equals(Json.str(source, "owner_seat"))
+                || !viewer.equals(Json.str(source, "controller_seat"))
+                || !"battlefield".equals(Json.str(source, "zone"))) return false;
+        String id = Json.str(source, "object_id");
+        if (id == null || id.isEmpty()) return false;
+        for (Object item : Json.arr(player(before, viewer), "battlefield")) {
+            Map<String, Object> card = Json.obj(item);
+            if (id.equals(Json.str(card, "object_id"))
+                    && "Mischievous Mystic".equals(Json.str(card, "card_name"))
+                    && Boolean.FALSE.equals(card.get("face_down"))
+                    && Boolean.FALSE.equals(card.get("copy"))
+                    && Boolean.FALSE.equals(card.get("token"))
+                    && viewer.equals(Json.str(card, "owner_seat"))
+                    && viewer.equals(Json.str(card, "controller_seat"))) return true;
+        }
+        return false;
     }
 
     private static Map<String, Object> player(Map<String, Object> observation, String seat) {
@@ -110,7 +144,7 @@ final class VisibleReplayDraws {
         throw new IllegalArgumentException("visible draw replay lacks its viewer player");
     }
 
-    private static boolean firstDiscard(Map<String, Object> decision, String sourceId, String viewer) {
+    private static boolean firstDiscard(Map<String, Object> decision, String sourceId, String viewer, int count) {
         if (decision == null || !viewer.equals(Json.str(decision, "acting_seat"))) return false;
         Map<String, Object> context = Json.obj(decision, "context");
         if (!"choice".equals(Json.str(context, "kind")) || !"discard".equals(Json.str(context, "purpose"))
@@ -121,7 +155,7 @@ final class VisibleReplayDraws {
             Map<String, Object> semantic = Json.obj(Json.obj(item), "semantic");
             if (!"select_object".equals(Json.str(semantic, "kind"))
                     || !"discard".equals(Json.str(semantic, "purpose"))
-                    || Json.num(semantic, "minimum", -1) != 2 || Json.num(semantic, "maximum", -1) != 2
+                    || Json.num(semantic, "minimum", -1) != count || Json.num(semantic, "maximum", -1) != count
                     || Json.num(semantic, "selected_count", -1) != 0) return false;
         }
         return true;
