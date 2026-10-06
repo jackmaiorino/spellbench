@@ -107,8 +107,12 @@ class NativePeer:
 
 
 class KernelEngine:
-    def __init__(self, peer, catalog, *, source_revision=None):
-        self.peer, self.catalog = peer, catalog
+    known_cards = False
+
+    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False):
+        # known_cards needs a bridge that exports public history: `known` then
+        # follows the Section 6.7 update table instead of the current look.
+        self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -120,7 +124,8 @@ class KernelEngine:
         self.hello = {"protocol": "spellbench/v2", "response_type": "hello_ok", "request_id": "hello", "protocol_minor": 0,
             "engine": identity, "formats": ["pauper-bo1"], "deck_sources": ["catalog"], "catalog": catalog["catalog"],
             "rules_supported": {"mulligan": ["none"], "starting_player": ["host_assigned"]},
-            "observation": {flag: flag in ("passed_seats", "keywords", "full_name", "exiled_by", "permanent_details", "designations") for flag in OBSERVATION_FLAGS},
+            "observation": {flag: flag in ("passed_seats", "keywords", "full_name", "exiled_by", "permanent_details", "designations") or
+                            flag == "known_cards" and known_cards for flag in OBSERVATION_FLAGS},
             "decision_kinds": sorted(V2_KINDS),
             "engine_defaults": {"trigger_order": None, "replacement_order": "engine_order",
                 "combat_damage_assignment": "engine_order", "mana_payment": "engine_autopay"},
@@ -271,7 +276,7 @@ class KernelEngine:
             return
         history = self.current["extensions"]["x_kernel_v2_support"].get("history")
         if history is None:
-            if HISTORY in self.rules["extensions"]:
+            if self.known_cards or HISTORY in self.rules["extensions"]:
                 raise ProjectionError("native bridge sent no public history")
             return
         self.history.absorb(history)
@@ -381,7 +386,9 @@ class KernelEngine:
     def pose(self, rid):
         raw = json.loads(self.current["extensions"]["x_kernel_v5"]["observation_json"])
         support = self.current["extensions"]["x_kernel_v2_support"]
-        observation = self.projection.project(raw, support)
+        knowledge = (self.history.knowledge(("p0", "p1").index(raw["acting_player"]))
+                     if self.known_cards else None)
+        observation = self.projection.project(raw, support, knowledge)
         actor = observation["viewer"]
         if self.buffer is None:
             if support.get("at_block_root") is True:
@@ -452,10 +459,13 @@ def main():
     parser.add_argument("--bridge", required=True)
     parser.add_argument("--catalog", required=True, type=Path)
     parser.add_argument("--source-revision")
+    parser.add_argument("--known-cards", action="store_true",
+                        help="declare known_cards and track Section 6.7 knowledge (needs a history-exporting bridge)")
     args = parser.parse_args()
     peer = NativePeer(args.bridge)
     try:
-        engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision)
+        engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
+                             known_cards=args.known_cards)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)

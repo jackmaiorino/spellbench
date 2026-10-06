@@ -128,3 +128,92 @@ def test_slices_must_be_contiguous_and_well_formed():
                                                                "controller_before": 0}}])
     with pytest.raises(ProjectionError, match="zone"):
         history.absorb(bad_zone)
+
+
+# -- knowledge tracker (spec Section 6.7) ----------------------------------------
+
+def names(history, viewer, owner):
+    return sorted((fact["name"], fact["how"]) for fact in history.knowledge(viewer)["hand"][owner])
+
+
+def test_a_known_top_card_drawn_by_its_owner_stays_known_by_name():
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=DECKS, notes=[
+        {"history_len": 0, "kind": "library_looked", "observer": 0, "owner": 1, "positions": [[0, 2]]}]))
+    assert history.knowledge(0)["library"][1] == {0: {"native": 2, "name": "Counterspell", "how": "looked_at"}}
+    history.absorb(slice_(history=history, events=[{"Draw": {"player": 1, "object": 2}}],
+                          notes=[{"history_len": 0, "kind": "library_removal", "owner": 1, "position": 0}]))
+    assert history.knowledge(0)["library"][1] == {}
+    assert names(history, 0, 1) == [("Counterspell", "tracked")]
+    assert history.knowledge(0)["hand_truth"][1] == {"Counterspell": 1}
+    # The card leaves identified, so its fact goes with it.
+    history.absorb(slice_(history=history, events=[{"SpellCast": {"spell": 2, "controller": 1}}]))
+    assert names(history, 0, 1) == []
+
+
+def test_hidden_departures_cost_every_name_one_fact_and_unbind_copies():
+    cards = objects((1, "Island"), (1, "Island"), (1, "Counterspell"), (0, "Mountain"))
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=cards, events=[
+        {"ZoneChange": {"object": index, "from": "Library", "to": "Battlefield", "controller_before": 1}}
+        for index in (0, 1, 2)]))
+    history.absorb(slice_(history=history, events=[
+        {"ZoneChange": {"object": index, "from": "Battlefield", "to": "Hand", "controller_before": 1}}
+        for index in (0, 1, 2)]))
+    assert names(history, 0, 1) == [("Counterspell", "from_public_zone"), ("Island", "from_public_zone"),
+                                    ("Island", "from_public_zone")]
+    assert 1 not in history.knowledge(1)["hand"]  # a viewer never tracks its own hand
+    history.absorb(slice_(history=history, events=[
+        {"ZoneChange": {"object": 1, "from": "Hand", "to": "Library", "controller_before": 1}}]))
+    facts = history.knowledge(0)["hand"][1]
+    assert sorted(fact["name"] for fact in facts) == ["Island"]
+    assert all(fact["native"] is None for fact in facts)
+
+
+def test_a_reveal_binds_an_existing_fact_and_waits_for_the_card_to_reach_the_hand():
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=DECKS, events=[
+        {"ZoneChange": {"object": 3, "from": "Library", "to": "Battlefield", "controller_before": 1}}]))
+    # The kernel reveals a card returned to hand before committing the move
+    # event, so the note carries the move's own history index.
+    history.absorb(slice_(history=history, events=[
+        {"ZoneChange": {"object": 3, "from": "Battlefield", "to": "Hand", "controller_before": 1}}],
+        notes=[{"history_len": 1, "kind": "hand_card_revealed", "observer": 0, "owner": 1, "object": 3}]))
+    assert history.knowledge(0)["hand"][1] == [{"name": "Island", "how": "from_public_zone", "native": 3}]
+
+
+def test_scry_mirrors_the_kernel_for_owner_and_other_viewer():
+    cards = objects(*[(1, f"Card {index}") for index in range(5)])
+    history = PublicHistory()
+    history.absorb(slice_(new_objects=cards, notes=[
+        {"history_len": 0, "kind": "library_looked", "observer": 0, "owner": 1, "positions": [[0, 0], [3, 3]]}]))
+    history.absorb(slice_(history=history, notes=[
+        {"history_len": 0, "kind": "library_scried", "owner": 1, "retained_top": [], "ordered_bottom": [0]}]))
+    # The other viewer keeps its single known scried card at the bottom and
+    # the tail fact shifts up by one.
+    assert {position: fact["native"] for position, fact in history.knowledge(0)["library"][1].items()} == {2: 3, 4: 0}
+    assert {position: fact["native"] for position, fact in history.knowledge(1)["library"][1].items()} == {4: 0}
+    history.absorb(slice_(history=history, notes=[{"history_len": 0, "kind": "library_randomized", "owner": 1}]))
+    assert history.knowledge(0)["library"][1] == {}
+
+
+def test_hand_facts_absorb_current_reveals_and_never_overclaim():
+    from collections import Counter
+    from kernel_observation_v2 import KernelProjection
+
+    projection = KernelProjection.__new__(KernelProjection)
+    projection.seat_map = {"p0": "p1", "p1": "p0"}
+    facts = [{"name": "Island", "how": "from_public_zone", "native": None},
+             {"name": "Island", "how": "tracked", "native": None}]
+    revealed = {"owner_seat": "p0", "zone": "hand", "card_name": "Island", "object_id": "now",
+                "position_from_top": None, "position_from_bottom": None, "how": "revealed"}
+    known = [dict(revealed)]
+    projection.add_hand_knowledge(known, {"hand": {1: facts}, "hand_truth": {1: Counter(Island=2)}}, [7, 2])
+    # Native p1 is wire p0 here; the current reveal stands in for one fact.
+    assert [(entry["how"], entry["object_id"]) for entry in known] == [("revealed", "now"), ("from_public_zone", None)]
+    with pytest.raises(ProjectionError, match="does not hold"):
+        projection.add_hand_knowledge([], {"hand": {1: facts}, "hand_truth": {1: Counter(Island=1)}}, [7, 2])
+    with pytest.raises(ProjectionError, match="hand count"):
+        projection.add_hand_knowledge([dict(revealed)], {"hand": {1: facts + [{"name": "Bolt", "how": "revealed",
+                                                                                 "native": 4}]},
+                                                         "hand_truth": {1: Counter(Island=2, Bolt=1)}}, [7, 2])
