@@ -950,7 +950,8 @@ public final class Front {
         }
         // an action that does not use the stack and asked a dialog while it executed: no executed copy carries its
         // choices, so the state is unsupported (review change 4); the next ranked candidate answers
-        if (agg.planWorld >= 0 && Json.num(Json.obj(results.get(agg.planWorld)), "non_stack_dialogs", 0) > 0) {
+        if (agg.planWorld >= 0 && Json.num(Json.obj(results.get(agg.planWorld)), "non_stack_dialogs", 0) > 0
+                && !colorsOnly(Json.obj(results.get(agg.planWorld)))) {
             detail.put("non_stack_winner", agg.winner);
             Answer a = rankedFallback(d, agg, candidateOf, "wrapper", "unsupported_non_stack_payload", agg.winner);
             a.detail.putAll(detail);
@@ -1238,6 +1239,21 @@ public final class Front {
         return a;
     }
 
+    /** A non-stack action whose dialogs were all color choices (a Gate's as-enters color): the plan carries them. */
+    public static boolean colorsOnly(Map<String, Object> world) {
+        List<Object> answers = Json.arr(world, "answers");
+        if (answers.isEmpty()) {
+            return false;
+        }
+        for (Object o : answers) {
+            Map<String, Object> a = Json.obj(o);
+            if (!"choice".equals(Json.str(a, "family")) || PlanBook.colorName(a.get("value")) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static boolean matchesPick(Map<String, Object> sem, Object want) {
         String kind = Json.str(sem, "kind");
         if (want instanceof Boolean) {
@@ -1249,6 +1265,8 @@ public final class Front {
                     || ("choose_spell_mode".equals(kind) && Json.num(sem, "mode_index", -1) == w);
         }
         switch (kind) {
+            case "choose_color":
+                return want instanceof String && want.equals(sem.get("color"));
             case "select_object":
                 return PlanBook.sameTarget(Json.obj(sem, "choice"), want);
             case "choose_target":

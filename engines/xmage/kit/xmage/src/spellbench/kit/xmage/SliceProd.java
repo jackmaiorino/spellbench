@@ -823,10 +823,13 @@ final class SliceProd {
         regPlaceholder();
     }
 
-    /** Second review, item 3: H3 never makes such an action a root child; a plain land play stays one (control). */
+    /**
+     * Second review, item 3: H3 never makes such an action a root child (Cavern of Souls names a creature type); a
+     * plain land play stays one (control), and so does a land whose only dialog is a color, carrying its color.
+     */
     static void regNonStackH3() {
         SeatSetup a = new SeatSetup().lib("Mountain", 8);
-        a.hand.addAll(Arrays.asList("Thriving Bluff", "Mountain"));
+        a.hand.addAll(Arrays.asList("Thriving Bluff", "Cavern of Souls", "Mountain"));
         a.battlefield.add("Mountain");
         SeatSetup b = new SeatSetup().lib("Island", 8);
         b.battlefield.add("Island");
@@ -855,21 +858,30 @@ final class SliceProd {
         Map<String, Object> res = m[0].decidePriority(w, new ObsIndex(obsOf(d)));
         List<Object> children = new ArrayList<>();
         boolean bluff = false;
+        boolean cavern = false;
         boolean mountain = false;
+        Object bluffColors = null;
         for (Object o : Json.arr(res, "root_stats")) {
             Map<String, Object> sem = Json.obj(Json.obj(o), "semantic");
             String name = sem == null || sem.get("source") == null ? (sem == null ? null : Json.str(sem, "kind"))
                     : Json.str(Json.obj(sem, "source"), "card_name");
             children.add(name);
-            bluff |= "Thriving Bluff".equals(name);
+            if ("Thriving Bluff".equals(name)) {
+                bluff = true;
+                Map<String, Object> payload = Json.obj(Json.obj(o), "payload");
+                bluffColors = payload == null ? null : payload.get("colors");
+            }
+            cavern |= "Cavern of Souls".equals(name);
             mountain |= "Mountain".equals(name) && "play_land".equals(Json.str(sem, "kind"));
         }
         long excluded = KitContext.counter("mcts:non_stack_dialog_excluded");
         KitContext.mctsIterations = 300;
         KitContext.rolloutCap = 2000;
-        check("REG.h3_non_stack_excluded_before_selection", !bluff && mountain && excluded >= 1,
-                Json.map("root_children", children, "excluded", excluded, "offered_land_plays",
-                        candidateWhere(d, "play_land", "Thriving Bluff") >= 0));
+        List<Object> colors = bluffColors instanceof List ? Json.arr(bluffColors) : new ArrayList<>();
+        boolean colorOk = colors.size() == 1 && spellbench.kit.core.PlanBook.colorName(colors.get(0)) != null && !"red".equals(colors.get(0));
+        check("REG.h3_non_stack_excluded_before_selection", !cavern && bluff && colorOk && mountain && excluded >= 1,
+                Json.map("root_children", children, "excluded", excluded, "bluff_colors", bluffColors,
+                        "offered_land_plays", candidateWhere(d, "play_land", "Cavern of Souls") >= 0));
     }
 
     /** Second review, item 2: a stack object the world cannot rebuild (a placeholder) takes the no-search policy. */
@@ -922,8 +934,27 @@ final class SliceProd {
         for (KitMad.Answer x : o.answers) {
             families.add(x.family);
         }
-        check("REG.non_stack_dialog_detected", o.activated && o.nonStack && !o.answers.isEmpty(),
-                Json.map("activated", o.activated, "non_stack", o.nonStack, "families", families));
+        List<Object> answers = new ArrayList<>();
+        for (KitMad.Answer x : o.answers) {
+            answers.add(Json.map("family", x.family, "value", x.value));
+        }
+        boolean colorsOnly = Front.colorsOnly(Json.map("answers", answers));
+        check("REG.non_stack_dialog_detected", o.activated && o.nonStack && !o.answers.isEmpty() && colorsOnly,
+                Json.map("activated", o.activated, "non_stack", o.nonStack, "families", families, "colors_only", colorsOnly));
+        // a color decision with no planned color: ComputerPlayer's color choice among the offered colors
+        Map<String, Object> src = Json.obj(Json.obj(Json.obj(Json.arr(d, "candidates").get(c)), "semantic"), "source");
+        List<Object> cands = new ArrayList<>();
+        for (String color : Arrays.asList("white", "blue", "black")) {
+            cands.add(Json.map("candidate_id", (long) cands.size(), "semantic", Json.map("kind", "choose_color",
+                    "source", src, "purpose", "effect", "color", color), "display_text", null));
+        }
+        Map<String, Object> cd = Json.map("seat_step", Json.num(d, "seat_step", 0) + 1, "acting_seat", "p0",
+                "context", Json.map("kind", "choice", "source", src, "purpose", null), "observation", obsOf(d),
+                "candidates", cands);
+        List<Object> picks = Dialogs.answer(w, dec[0], cd, new ObsIndex(obsOf(d)));
+        check("REG.choose_color_dialog", picks != null && picks.size() == 1
+                        && Arrays.asList("white", "blue", "black").contains(picks.get(0)),
+                Json.map("picks", picks));
     }
 
     // =============================================================================================

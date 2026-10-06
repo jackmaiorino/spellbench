@@ -32,7 +32,9 @@ public final class Entries {
                         + "front answers the declining candidate (wrapper)",
                 "unsupported_states", "a world with an unsupported flag is not searched; the front declines (wrapper)",
                 "non_stack_payload", "a chosen action that does not use the stack and asks a dialog while it executes is "
-                        + "unsupported; the next ranked candidate answers (wrapper)",
+                        + "unsupported; the next ranked candidate answers (wrapper), unless every dialog was a color "
+                        + "choice, which the plan carries",
+                "color_choice", "choose_color: the plan's color, else ComputerPlayer.choose on the offered colors",
                 "approximation_flags", Arrays.asList("approximate:watchers_reset (every world)",
                         "approximate:unexplained_characteristics", "approximate:activation_usage_other_seat",
                         "approximate:first_strike_step_unknown", "approximate:token_characteristics",

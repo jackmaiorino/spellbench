@@ -42,6 +42,7 @@ public final class SliceCore {
         methodNullCasts();
         kernelSmokeFixes();
         clockPacing();
+        gateColors();
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -391,5 +392,44 @@ public final class SliceCore {
                 && !Json.obj(Entries.frozen("h2"), "clock").containsKey("pace_moves");
         check("kernel.mcts_clock_pacing", math && entries, Json.map("h1", Entries.version(Entries.frozen("h1")),
                 "h3", Entries.version(Entries.frozen("h3"))));
+    }
+
+    /** A land that asks a color as it enters: the plan carries the world's color and binds to the played land. */
+    static void gateColors() {
+        Map<String, Object> obs = Json.map("viewer", "p0", "stack", new ArrayList<>());
+        Map<String, Object> play = Json.map("kind", "play_land", "source", ref("o-gate", "Sea Gate", "p0", "hand"), "face", 0L);
+        Map<String, Object> onField = ref("o-gate2", "Sea Gate", "p0", "battlefield");
+        List<Object> colors = new ArrayList<>();
+        for (String c : Arrays.asList("white", "black", "red", "green")) {
+            colors.add(Json.map("candidate_id", (long) colors.size(), "semantic",
+                    Json.map("kind", "choose_color", "source", onField, "purpose", "effect", "color", c), "display_text", null));
+        }
+        Map<String, Object> d = Json.map("seat_step", 11L, "context", Json.map("kind", "choice", "source", onField),
+                "observation", obs, "candidates", colors);
+        PlanBook pb = new PlanBook();
+        List<Map<String, Object>> none = new ArrayList<>();
+        pb.open(10, play, obs, Json.map("colors", Arrays.asList("red")), none);
+        int mcts = pb.claim(d);
+        List<Map<String, Object>> mad = new ArrayList<>();
+        mad.add(Json.map("family", "choice", "value", "Green"));
+        pb.open(10, play, obs, new LinkedHashMap<String, Object>(), mad);
+        int madPick = pb.claim(d);
+        pb.open(10, play, obs, new LinkedHashMap<String, Object>(), none);
+        int deferred = pb.claim(d);
+        boolean kept = pb.active != null;
+        Map<String, Object> other = Json.map("seat_step", 11L, "context", Json.map("kind", "choice", "source",
+                ref("o-cit", "Citadel Gate", "p0", "battlefield")), "observation", obs, "candidates", colors);
+        pb.open(10, play, obs, Json.map("colors", Arrays.asList("red")), none);
+        int foreign = pb.claim(other);
+        boolean only = Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Blue"))))
+                && !Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Blue"),
+                        Json.map("family", "use", "value", true))))
+                && !Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Option A"))))
+                && !Front.colorsOnly(Json.map("answers", new ArrayList<>()));
+        boolean pick = Front.matchesPick(Json.obj(Json.obj(colors.get(1)), "semantic"), "black")
+                && !Front.matchesPick(Json.obj(Json.obj(colors.get(1)), "semantic"), "red");
+        check("kernel.gate_color_plan", mcts == 2 && madPick == 3 && deferred == -3 && kept && foreign == -2 && only && pick,
+                Json.map("mcts", (long) mcts, "mad", (long) madPick, "deferred", (long) deferred, "kept", kept,
+                        "foreign", (long) foreign, "colors_only", only, "pick", pick));
     }
 }
