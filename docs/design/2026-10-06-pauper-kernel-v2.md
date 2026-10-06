@@ -20,7 +20,7 @@ on one engine, with ratings that are directly comparable.
 | `pauper-kernel` | mtg-kernel, Spellbench wire v1 | uniform, heuristic, first, g115, a48, c12 | Rated 2026-09-26 and 09-27. Not audited for hidden information; its halts come from builtin bots taking goad and menace choices the engine offers but the rules forbid |
 | `pauper-kernel-v2` | mtg-kernel, wire v2, neutral choices | panel g115, a48, c12; uniform calibration; GPT-6 Luna | No formal games. `known_cards: false`, no public history. Luna (#74) waits on PR #130, which waits on mtg-kernel #147 |
 | `pauper-gorge` (PR #64) | gorge engine, wire v2 | 12 gorge strategies, uniform, heuristic | Five decks (Wildfire, Rally, Spy, Burn, CawGates), 3,640 scheduled games, 0 rated. Native107 failed at game 49 with 2 reconstruction budget exhaustions; native129 stopped at game 51 (Wildfire, search-redeal) after 11 |
-| `fdn-native-v1` | XMage engine, wire v2 | nine fair MAD and MCTS variants, uniform, heuristic | FDN Limited only, 7,040 scheduled games, 0 native rated games. XMage carries Pauper profiles for Affinity, Elves, Rally and Wildfire only (`engines/xmage/coverage.json`) |
+| `fdn-native-v1` | XMage engine, wire v2 | nine fair MAD and MCTS variants, uniform, heuristic | FDN Limited only, 7,040 scheduled games, 0 native rated games. All eight Pauper decks come from XMage's own `decks/Pauper/` files; the kit's card scan at pin fd40ad5c finds all 112 cards (93 supported, 19 approximate, 0 unsupported) |
 
 Sources: the benchmark definitions under `benchmarks/`, PR #64's description and
 `docs/gorge-search-bridge-20261002.md` on its branch, `engines/xmage/BOTS.md`,
@@ -121,10 +121,17 @@ each such deck in its world model.
 - Only entrants covering all eight decks appear on the main Elo table. A partial
   entrant is published as a labelled slice ("rated on 5 of 8 decks") with its
   covered-deck results against the panel on those same decks.
-- Today gorge's pool omits Affinity, Elves and Faeries, and XMage has Pauper
-  profiles for four decks. Porting the missing cards is the path to the main
-  table; the reason gorge omitted its three decks is to be confirmed with the
-  gorge thread.
+- Today gorge's pool omits Affinity, Elves and Faeries; the reason is to be
+  confirmed with the gorge thread, and porting any missing cards is the path to
+  the main table.
+- XMage already covers all eight decks: the eight pauper-kernel decks are
+  XMage `.dek` files (mtg-kernel `data/runtime_decks_v1.json`, from XMage's
+  `decks/Pauper/`), and the kit's card scan (`engines/xmage/kit/register/scan.py`
+  at pin fd40ad5c) admits all 112 cards: 93 supported, 19 approximate, 0
+  unsupported. The four Pauper profiles in `engines/xmage/coverage.json` are RL
+  training profiles, not card coverage. The 19 approximate cards are disclosed
+  on the entrant's page. XMage's remaining gaps are candidate-shape mismatches
+  in the kit, which the XMage thread is fixing separately.
 
 ### C5. Search budget exhaustion is an agent outcome
 
@@ -195,8 +202,8 @@ the new version rather than the old one, which would otherwise need a rerun.
    `x_public_history_v1`, translate the neutral observation into a gorge view,
    declare coverage and fallback. Start with the five covered decks.
 3. XMage world-model agent: the same for the MAD and MCTS fair variants,
-   starting with Affinity, Elves, Rally and Wildfire.
-4. Card coverage ports for the missing decks.
+   on all eight decks.
+4. Card coverage ports for gorge's missing decks.
 5. Qualification under C5, then commitment and rated panel runs per family.
 
 Each step is its own PR. Steps 2 and 3 run in parallel once step 1 lands.
