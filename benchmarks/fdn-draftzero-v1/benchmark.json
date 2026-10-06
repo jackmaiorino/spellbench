@@ -57,7 +57,7 @@
       "--overlay-manifest",
       "${XMAGE_MODEL_BUILD}/BUILD.json",
       "--overlay-build-sha256",
-      "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2"
+      "876f7a9f50c859f1d503e0f24b403e60cb95672f489b1de57fbd1a5234f06ab0"
     ]
   },
   "bots": [
@@ -94,7 +94,7 @@
     },
     {
       "name": "draftzero-exp1-gen0-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-44bc6c4e44f0ed27fb1f1b96",
+      "version": "exp1-published-fair-v1-1a0441fbf21b055fb8d3f823",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -116,7 +116,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "876f7a9f50c859f1d503e0f24b403e60cb95672f489b1de57fbd1a5234f06ab0",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
@@ -555,7 +555,7 @@
     },
     {
       "name": "draftzero-exp1-gen10-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-f9ff34a9fc1d0b207e1db32e",
+      "version": "exp1-published-fair-v1-1d8eb70b7f089ab42ea77b89",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -577,7 +577,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "876f7a9f50c859f1d503e0f24b403e60cb95672f489b1de57fbd1a5234f06ab0",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
@@ -1016,7 +1016,7 @@
     },
     {
       "name": "draftzero-exp1-gen33-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-8f6191c354aec156daaabba1",
+      "version": "exp1-published-fair-v1-7dd33f6e1271d72653ca4f2e",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -1038,7 +1038,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "876f7a9f50c859f1d503e0f24b403e60cb95672f489b1de57fbd1a5234f06ab0",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
