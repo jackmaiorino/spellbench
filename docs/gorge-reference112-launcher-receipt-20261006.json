@@ -1,0 +1,47 @@
+{
+  "schema": "spellbench-gorge-reference-launcher-validation/v1",
+  "launcher": "tools/gorge-reference112-local-20261006.py",
+  "launcher_sha256": "3d9cb7fd88a4fa8ffa9503d13eb232bf0b4b77cb670d379c84bbe9f9d91c4d7b",
+  "runtime": "E:/spellbench-gorge-runtime-20261005-108",
+  "runtime_seal_sha256": "411fa9f41914bfca0f04a72c4ed5899b8cbf14c5bb0a5a32af31b25b2f6c06a7",
+  "native_run_id": 37388600601,
+  "scope": "Local Jack fallback only; choose fresh eligible allocation after native qualification, preserve any XMage claim",
+  "gate_refusal": {
+    "checks": [
+      {
+        "mode": "--prepare",
+        "refused_unsealed_live_native": true,
+        "job_roots_created": false
+      },
+      {
+        "mode": "--dispatch",
+        "refused_unsealed_live_native": true,
+        "job_roots_created": false
+      }
+    ],
+    "canonical_state_unchanged": true,
+    "evaluation_started": false,
+    "new_paid_compute_usd": 0
+  },
+  "affected_tests_passed": 43,
+  "affected_tests_seconds": 14.44,
+  "affected_test_files": [
+    "python/tests/test_gorge_local_reference_result.py",
+    "python/tests/test_gorge_local_reference_recovery.py",
+    "python/tests/test_gorge_reference_matrix.py",
+    "python/tests/test_gorge_local_recovery.py"
+  ],
+  "actual_busy_pattern_matches_windows_children": true,
+  "positive_native_gate_test_pending": true,
+  "guard_path": "host_reservation_v1.dispatch -> bounded parent -> reference_matrix.py -> bench_run.plan_for -> supported arena runner",
+  "expected_matrix_games": 140,
+  "expected_cells": 60,
+  "expected_native_participant_receipts": 160,
+  "per_game_cores": 3,
+  "wall_cap_seconds": 21600,
+  "cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "reference_started": false,
+  "rated_games": 0,
+  "new_paid_compute_usd": 0
+}
