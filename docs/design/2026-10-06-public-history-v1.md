@@ -92,15 +92,35 @@ Gorge's `x_gorge_search_v1` audit uses the same method.
 
 ## Knowledge tracker
 
-Status: follow-up to the history extension. Until it lands, the profile keeps
-`known_cards: false`.
+`kernel_engine_v2.py --known-cards` declares `known_cards: true`. It needs a
+bridge that exports public history, and it fails closed without one. The
+adapter then applies the Section 6.7 update table to the same native stream,
+per viewer, inside `kernel_history_v2.py`:
 
-The adapter applies the Section 6.7 update table to this same event stream, per
-viewer, to build `known`. It cross-checks the result against the kernel's own
-per-observer `library_knowledge` and `hand_knowledge` (`state.rs`). A
-disagreement halts the game as an engine contract failure, never silently
-picking one side. With the tracker in place the profile declares
-`known_cards: true`.
+- **Libraries.** Position facts follow the journal notes in order: looks,
+  reorders, scry, shuffles, and removal and insertion shifts. This mirrors
+  the kernel's own per-observer `library_knowledge` exactly. Every decision
+  compares the two by position, card and name, and any difference halts the
+  game as an engine contract failure.
+- **The other seat's hand.** Facts are name-level:
+  - `from_public_zone` when a card returns from a public zone;
+  - `tracked` when a known library card reaches its owner's hand;
+  - `revealed` from hand reveals.
+  A card that leaves identified takes its fact with it. One that leaves to a
+  hidden zone costs every name one fact, and no remaining fact stays tied to
+  a single copy. A card revealed in the current decision carries its id and
+  stands in for one fact of its name. Every decision checks that the facts
+  are a sub-multiset of the true hand and never exceed its count.
+- **Not cross-checked.** The kernel's object-level `hand_knowledge` is more
+  exact than the spec allows after a hidden departure, so the hand side
+  checks against the true hand instead.
+
+Evidence: 16 complete games (8 decks × 2 starting seats) ran through the
+locally built bridge with `--known-cards` and the history extension.
+- 15 ended naturally, and the Elves game with p0 starting hit the existing
+  combat halt.
+- Every decision passed the live validator, every library comparison agreed
+  with the kernel, and every replay was byte-identical.
 
 ## Native sources
 

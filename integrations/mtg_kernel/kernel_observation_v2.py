@@ -6,6 +6,8 @@ incarnations come from an opt-in private bridge sideband, not their positions.
 """
 from __future__ import annotations
 
+from collections import Counter
+
 import hashlib
 import hmac
 from copy import deepcopy
@@ -224,7 +226,30 @@ class KernelProjection:
                 "characteristics": self.characteristics(card, effective=battlefield),
                 "permanent": permanent, "exiled_by": self.exiled_by.get(native_key(stable))}
 
-    def project(self, raw: dict, support: dict) -> dict:
+    def add_hand_knowledge(self, known: list, knowledge: dict, hand_counts: list) -> None:
+        """Name-level facts about the other seat's hand. A card revealed in
+        this decision is already listed with its id; it absorbs one fact with
+        its name, so no copy is claimed twice."""
+        for owner, facts in knowledge["hand"].items():
+            seat = self.seat(SEATS[owner])
+            names = Counter(fact["name"] for fact in facts)
+            if names - knowledge["hand_truth"][owner]:
+                raise ProjectionError("knowledge tracker claims a card the hand does not hold")
+            for entry in known:
+                if entry["owner_seat"] == seat and entry["zone"] == "hand" and names[entry["card_name"]]:
+                    names[entry["card_name"]] -= 1
+            for fact in facts:
+                if names[fact["name"]]:
+                    names[fact["name"]] -= 1
+                    known.append({"owner_seat": seat, "zone": "hand", "card_name": fact["name"], "object_id": None,
+                                  "position_from_top": None, "position_from_bottom": None, "how": fact["how"]})
+            if sum(entry["owner_seat"] == seat and entry["zone"] == "hand" for entry in known) > hand_counts[owner]:
+                raise ProjectionError("known hand facts exceed the hand count")
+
+    def project(self, raw: dict, support: dict, knowledge: dict | None = None) -> dict:
+        """The viewer's observation. With `knowledge` (the history tracker's
+        view, profile known_cards:true) `known` carries every Section 6.7 fact,
+        checked against the kernel's own library knowledge and the true hands."""
         failure = support.get("projection_error")
         if failure:
             message = "native private projection validation failed"
@@ -319,20 +344,28 @@ class KernelProjection:
             self.ref(stable, name)
         known = []
         exposed_known = set()
+        if knowledge is not None:
+            for owner, entries in enumerate(raw["known_library_cards"]):
+                native = {entry["position"]: (entry["card"]["stable"]["arena_id"], entry["card"]["card_name"])
+                          for entry in entries}
+                tracked = {position: (fact["native"], fact["name"])
+                           for position, fact in knowledge["library"][owner].items()}
+                if native != tracked or len(native) != len(entries):
+                    raise ProjectionError("knowledge tracker disagrees with the kernel's library knowledge")
         for owner, entries in enumerate(raw["known_library_cards"]):
             for entry in entries:
                 card = entry["card"]
                 stable = card["stable"]
                 key = native_key(stable)
-                if key not in offered:
+                if key not in offered and knowledge is None:
                     continue  # profile known_cards:false, no historical tracker claim
                 exposed = self.ref(stable, card["card_name"], key=("look", look, *key)) if key in offered else None
                 if exposed is not None:
                     exposed_known.add(key)
+                how = "looked_at" if exposed is not None else knowledge["library"][owner][entry["position"]]["how"]
                 known.append({"owner_seat": self.seat(SEATS[owner]), "zone": "library", "card_name": card["card_name"],
                               "object_id": None if exposed is None else exposed["object_id"],
-                              "position_from_top": entry["position"], "position_from_bottom": None,
-                              "how": "looked_at" if exposed is not None else "tracked"})
+                              "position_from_top": entry["position"], "position_from_bottom": None, "how": how})
         for owner, entries in enumerate(raw["known_hand_cards"]):
             if self.seat(SEATS[owner]) == self.viewer:
                 continue  # the viewer's hand is already represented by records
@@ -365,6 +398,8 @@ class KernelProjection:
             known.append({"owner_seat": self.seat(stable["owner"]), "zone": stable["zone"], "card_name": name,
                           "object_id": exposed["object_id"], "position_from_top": None,
                           "position_from_bottom": None, "how": "searching" if stable["zone"] == "library" else "revealed"})
+        if knowledge is not None:
+            self.add_hand_knowledge(known, knowledge, projection["hand_counts"])
         known.sort(key=lambda entry: tuple((0, "") if entry[key] is None else (1, entry[key]) for key in
                    ("owner_seat", "zone", "card_name", "position_from_top", "position_from_bottom", "how", "object_id")))
         self.attached, self.exiled_by = {}, {}
