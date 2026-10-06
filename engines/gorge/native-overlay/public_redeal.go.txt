@@ -144,7 +144,34 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	revealed := !reflect.DeepEqual(revealedEpochs, epochs)
 	heldEpochs := spellbenchCarryEpochsOrdered(h, spellbenchScryHeldEpochs(h, revealedEpochs), revealed)
 	if revealed {
-		heldEpochs = spellbenchRevealedHandPositions(h, heldEpochs)
+		// Prefer the hand-entry order a complete reveal exposes; keep the
+		// earlier first-seen-window hypothesis when it does not apply.
+		ordered, applied := heldEpochs, false
+		for key, positions := range spellbenchRevealedHandOrder(h) {
+			epoch := ordered[key]
+			epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
+			compatible := true
+			for _, position := range positions {
+				if addEpochPosition(&epoch, position) != nil {
+					compatible = false
+					break
+				}
+			}
+			if compatible {
+				if !applied {
+					ordered = make(map[epochKey]epochConstraints, len(heldEpochs))
+					for k, v := range heldEpochs {
+						ordered[k] = v
+					}
+				}
+				ordered[key], applied = epoch, true
+			}
+		}
+		if applied {
+			heldEpochs = ordered
+		} else {
+			heldEpochs = spellbenchRevealedHandPositions(h, heldEpochs)
+		}
 	}
 	prioritizeHeld := opts.Attempts >= 3 && !reflect.DeepEqual(carryEpochs, heldEpochs)
 	tape, tossWeight, err := publicToss(setup, h)
@@ -615,6 +642,173 @@ func spellbenchRevealedHandEpochs(setup PublicGame, h History, original map[epoc
 			epoch.Deadlines = append(epoch.Deadlines, deadlineConstraint{Through: draws[owner], Name: name, Count: counts[name]})
 		}
 		result[key] = epoch
+	}
+	return result
+}
+
+// A complete revealed hand lists its cards in hand-entry order. Rebuild the
+// owner's entries since the opening deal: a London bottom removes the earliest
+// kept slots (where the spare guidance proposes its cards), each named hand
+// exit takes and names the earliest unassigned earlier slot, and the revealed names fill
+// the remaining slots in order. Drawn slots then become one optional witness
+// hypothesis about shuffle positions. Anonymous hand exits, unnamed non-draw
+// entries or a size mismatch leave that owner unguided. Native sampler
+// constraints and weights never use these positions.
+func spellbenchRevealedHandOrder(h History) map[epochKey][]epochPosition {
+	type slot struct {
+		key   epochKey
+		index int
+		name  string
+		seq   int
+		taken bool
+		exit  string
+	}
+	type tracker struct {
+		ordinal, draws int
+		indexed        bool
+		slots          []slot
+		broken, used   bool
+	}
+	result := map[epochKey][]epochPosition{}
+	identities := map[uint32]Identity{}
+	players := map[state.PlayerID]*tracker{}
+	get := func(player state.PlayerID) *tracker {
+		if players[player] == nil {
+			players[player] = &tracker{}
+		}
+		return players[player]
+	}
+	seq := 0
+	started := false
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			seq++
+			switch ev.Kind {
+			case events.TurnChange:
+				started = true
+			case events.Shuffle:
+				t := get(ev.Player)
+				t.ordinal++
+				t.draws, t.indexed = 0, true
+			case events.LibraryOrder:
+				get(ev.Player).indexed = false
+			case events.Draw:
+				if ev.Player == h.Actor {
+					continue
+				}
+				t := get(ev.Player)
+				index := -1
+				if t.indexed {
+					index = t.draws
+				}
+				t.slots = append(t.slots, slot{key: epochKey{Player: ev.Player, Ordinal: t.ordinal - 1}, index: index, seq: seq})
+				t.draws++
+			case events.MoveZone, events.PutOnStack:
+				identity, known := identities[ev.Obj]
+				owner := ev.Player
+				if known {
+					owner = identity.Owner
+				}
+				if owner == h.Actor {
+					continue
+				}
+				t := get(owner)
+				if ev.From == state.ZLibrary && ev.To != state.ZHand {
+					// Another library exit shifts later draw indexes.
+					if !(ev.Kind == events.MoveZone && ev.To == state.ZLibrary) {
+						t.indexed = false
+					}
+				}
+				if ev.To == state.ZLibrary && ev.From != state.ZHand {
+					t.indexed = false
+				}
+				switch {
+				case ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "mulligan" && !started:
+					t.slots = nil
+				case ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "bottomed" && !started:
+					// The spare guidance proposes the earliest kept cards.
+					kept := t.slots[:0]
+					removed := false
+					for _, s := range t.slots {
+						if !removed && !s.taken {
+							removed = true
+							continue
+						}
+						kept = append(kept, s)
+					}
+					t.slots = kept
+				case ev.From == state.ZHand && ev.To != state.ZHand:
+					if !known || identity.Name == "" {
+						t.broken = true
+						continue
+					}
+					assigned := false
+					for i := range t.slots {
+						if !t.slots[i].taken && t.slots[i].seq < seq && (t.slots[i].name == "" || t.slots[i].name == identity.Name) {
+							t.slots[i].taken, t.slots[i].exit, assigned = true, identity.Name, true
+							break
+						}
+					}
+					if !assigned {
+						t.broken = true
+					}
+				case ev.To == state.ZHand && ev.From != state.ZHand:
+					if ev.From == state.ZLibrary {
+						t.indexed = false
+					}
+					if !known || identity.Name == "" {
+						t.broken = true
+						continue
+					}
+					t.slots = append(t.slots, slot{index: -1, name: identity.Name, seq: seq})
+				}
+			}
+		}
+		d := frame.Decision
+		if d == nil || d.Player != h.Actor || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Action.Kind != "hand_move" {
+			continue
+		}
+		owner := d.Options[0].Action.Player
+		t := get(owner)
+		if owner == h.Actor || t.broken || t.used {
+			continue
+		}
+		t.used = true
+		var open []slot
+		for _, s := range t.slots {
+			if !s.taken {
+				open = append(open, s)
+			}
+		}
+		if len(open) != len(d.Options) {
+			continue
+		}
+		positions := map[epochKey][]epochPosition{}
+		// Each exit's own slot keeps its name, so a survivor is not consumed.
+		for _, s := range t.slots {
+			if s.taken && s.name == "" && s.index >= 0 {
+				positions[s.key] = append(positions[s.key], epochPosition{Index: s.index, Name: s.exit})
+			}
+		}
+		valid := true
+		for i, option := range d.Options {
+			identity, known := identities[option.Action.Obj]
+			if option.Action.Kind != "hand_move" || option.Action.Player != owner || !known || identity.Owner != owner || identity.Name == "" || open[i].name != "" && open[i].name != identity.Name {
+				valid = false
+				break
+			}
+			if open[i].name == "" && open[i].index >= 0 && open[i].key.Ordinal >= 0 {
+				positions[open[i].key] = append(positions[open[i].key], epochPosition{Index: open[i].index, Name: identity.Name})
+			}
+		}
+		if valid {
+			for key, list := range positions {
+				result[key] = list
+			}
+		}
 	}
 	return result
 }

@@ -99,7 +99,7 @@ func spellbenchLondonBottomPositions(setup PublicGame, h History, deadlines map[
 }
 
 func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fallback decision.Intent, positions map[epochKey][]epochPosition) decision.Intent {
-	if d.Kind != decision.KMulligan || d.Min != 1 || d.Max != 1 {
+	if d.Kind != decision.KMulligan || d.Min < 1 || d.Min != d.Max {
 		return fallback
 	}
 	ordinal := 0
@@ -108,25 +108,32 @@ func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fall
 			ordinal++
 		}
 	}
-	spares := map[string]bool{}
+	// One bottoming answer chooses every London bottom at once.
+	spares := map[string]int{}
 	for _, position := range positions[epochKey{Player: d.Player, Ordinal: ordinal - 1}] {
-		spares[position.Name] = true
+		spares[position.Name]++
 	}
-	if len(spares) == 0 {
-		return fallback
-	}
+	var choices []int
 	for i, option := range d.Options {
+		if len(choices) == d.Min {
+			break
+		}
 		if option.Kind != "bottom" {
 			continue
 		}
 		object := e.G.Obj(option.Obj)
-		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 || !spares[object.Card.Faces[0].Name] {
+		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 || spares[object.Card.Faces[0].Name] == 0 {
 			continue
 		}
-		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
-		if d.Validate(in) == nil {
-			return in
-		}
+		spares[object.Card.Faces[0].Name]--
+		choices = append(choices, i)
+	}
+	if len(choices) != d.Min {
+		return fallback
+	}
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
+	if d.Validate(in) == nil {
+		return in
 	}
 	return fallback
 }
