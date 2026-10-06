@@ -116,6 +116,7 @@ public final class Slice {
                     case "E7MAD": e7mad(); break;
                     case "DZ": dzPositions(); break;
                     case "DFC": dfcBattlefield(); break;
+                    case "EMBALM": embalmToken(); break;
                     case "H3COST": h3cost(); break;
                     case "S2P": SliceProd.s2p(); break;
                     case "S3P": SliceProd.s3p(); break;
@@ -1579,6 +1580,65 @@ public final class Slice {
             clean &= !fl.contains("did_not_enter") && !fl.contains("public_exceeds_list") && !fl.contains("pool_surplus");
         }
         check("DFC.both_faces_enter", ok && clean, Json.map("permanents", got, "flags", new ArrayList<Object>(w.flags)));
+    }
+
+    /**
+     * An embalmed Sacred Cat token observed on the battlefield (the pauper-kernel panel games: the token repository
+     * has no such token, so every CawGates world with one went unsearched). It enters as XMage's embalm copy.
+     */
+    static void embalmToken() {
+        SeatSetup a = new SeatSetup().lib("Plains", 8);
+        a.battlefield.addAll(Arrays.asList("Plains", "Plains"));
+        SeatSetup b = new SeatSetup().lib("Island", 8);
+        b.battlefield.addAll(Arrays.asList("Island", "Island"));
+        EnginePos e = EnginePos.start("EMBALM", a, b);
+        if (!e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50)) {
+            check("EMBALM.reach_position", false, e.trail);
+            return;
+        }
+        Map<String, Object> d0 = e.decision();
+        a.graveyard.add("Sacred Cat");
+        Map<String, Object> gs = gameStart("p0", a, b);
+        Map<String, Object> obs = obsOf(d0);
+        Map<String, Object> p0 = null;
+        for (Object o : Json.arr(obs, "players")) {
+            if ("p0".equals(Json.str(Json.obj(o), "seat"))) {
+                p0 = Json.obj(o);
+            }
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> bf = (List<Object>) p0.get("battlefield");
+        @SuppressWarnings("unchecked")
+        List<Object> gy = (List<Object>) p0.get("graveyard");
+        Map<String, Object> land = Json.obj(bf.get(0));
+        Map<String, Object> cat = new LinkedHashMap<>(land);
+        cat.put("object_id", "o-cat-gy");
+        cat.put("card_name", "Sacred Cat");
+        cat.put("zone", "graveyard");
+        cat.put("permanent", null);
+        cat.put("characteristics", null);
+        gy.add(cat);
+        Map<String, Object> tok = new LinkedHashMap<>(land);
+        tok.put("object_id", "o-cat-token");
+        tok.put("card_name", "Sacred Cat Embalmed Token");
+        tok.put("token", true);
+        tok.put("characteristics", Json.map("power", 1L, "toughness", 1L));
+        tok.put("permanent", new LinkedHashMap<>(Json.obj(land, "permanent")));
+        bf.add(tok);
+        KitMad[] dec = new KitMad[1];
+        World w = world(gs, d0, null, WorldBuilder.Mode.PRIORITY, 0, dec, null);
+        java.util.UUID id = w.idToUuid.get("o-cat-token");
+        mage.game.permanent.Permanent perm = id == null ? null : w.game.getPermanent(id);
+        boolean ok = perm != null && "Sacred Cat".equals(perm.getName()) && perm.getColor(w.game).isWhite()
+                && perm.hasSubtype(mage.constants.SubType.ZOMBIE, w.game) && perm.getManaCost().isEmpty()
+                && perm instanceof mage.game.permanent.PermanentToken;
+        boolean clean = true;
+        for (String fl : w.flags) {
+            clean &= !fl.startsWith("unsupported");
+        }
+        check("EMBALM.token_enters", ok && clean, Json.map("permanent", perm == null ? null
+                : Json.map("name", perm.getName(), "zombie", perm.hasSubtype(mage.constants.SubType.ZOMBIE, w.game)),
+                "flags", new ArrayList<Object>(w.flags)));
     }
 
     static void dzPositions() {

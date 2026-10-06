@@ -41,6 +41,7 @@ public final class SliceCore {
         rebinding();
         methodNullCasts();
         kernelSmokeFixes();
+        clockPacing();
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -376,5 +377,19 @@ public final class SliceCore {
                         "source", ref("o-bolt", "Lightning Bolt", "p0", "hand"), "method", null), "display_text", null));
         check("kernel.mana_only_pass", Front.manaOnlyPass(manaOnly) == 1 && Front.manaOnlyPass(withCast) == -1
                 && Front.manaOnlyPass(Arrays.asList(manaOnly.get(0))) == -1, null);
+    }
+
+    /** kit-mcts paces its searches by the bank; kit-mad-1 and kit-mad-k keep their frozen configuration. */
+    static void clockPacing() {
+        boolean math = Front.pacedLimit(90_000, 600_000, 2_000, 30, 12_000) == 22_000
+                && Front.pacedLimit(90_000, 120_000, 2_000, 30, 12_000) == 12_000
+                && Front.pacedLimit(9_000, 9_000, 2_000, 30, 12_000) == 9_000
+                && Front.pacedLimit(90_000, 600_000, 2_000, 0, 12_000) == 90_000;
+        Map<String, Object> h3 = Json.obj(Entries.frozen("h3"), "clock");
+        boolean entries = Json.num(h3, "pace_moves", 0) == 20 && Json.num(h3, "pace_floor_ms", 0) == 12_000
+                && !Json.obj(Entries.frozen("h1"), "clock").containsKey("pace_moves")
+                && !Json.obj(Entries.frozen("h2"), "clock").containsKey("pace_moves");
+        check("kernel.mcts_clock_pacing", math && entries, Json.map("h1", Entries.version(Entries.frozen("h1")),
+                "h3", Entries.version(Entries.frozen("h3"))));
     }
 }
