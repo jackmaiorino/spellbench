@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel-v2",
   "title": "Pauper · mtg-kernel v2",
-  "summary": "Eight Pauper decks with neutral protocol v2 choices. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -14,7 +14,8 @@
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "${MTG_KERNEL_V2_SOURCE}"
+      "${MTG_KERNEL_V2_SOURCE}",
+      "--known-cards"
     ]
   },
   "deck_pool": [
@@ -34,9 +35,10 @@
     "a48",
     "c12"
   ],
-  "evaluation_version": "pauper-neutral-v2.0.0",
+  "evaluation_version": "pauper-neutral-v2.1.0",
   "extensions": [
-    "x_kernel_flat_v4"
+    "x_kernel_flat_v4",
+    "x_public_history_v1"
   ],
   "native_id_audits": {
     "x_kernel_flat_v4": "docs/pauper-luna-panel-20261003.md#visibility-and-policy-inputs"
@@ -47,7 +49,8 @@
     "${MTG_KERNEL_V2_COMBAT}",
     "${MTG_KERNEL_V2_ARRANGEMENT}",
     "${MTG_KERNEL_V2_SELECTION_ORDER}",
-    "${MTG_KERNEL_V2_ORDER}"
+    "${MTG_KERNEL_V2_ORDER}",
+    "${MTG_KERNEL_V2_HISTORY}"
   ],
   "workers": 4,
   "qualification_budget_percent": 30,
