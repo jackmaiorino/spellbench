@@ -558,8 +558,26 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 		if frameIndex > 0 {
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
 		}
+		explored := -1
 		for index, ev := range frame.Events {
 			current := cursors[ev.Player]
+			// An explore reveals its owner's top card. A land goes to hand
+			// and consumes that position; a nonland may stay on top.
+			if ref, move, ok := spellbenchExploreReveal(frame.Events, index, identities); ok {
+				owner := identities[ref].Owner
+				if c := cursors[owner]; owner != h.Actor && c.reliable && c.ordinal > 0 {
+					key := epochKey{Player: owner, Ordinal: c.ordinal - 1}
+					result[key] = append(result[key], epochPosition{Index: c.draws, Name: identities[ref].Name})
+				}
+				explored = move
+				continue
+			}
+			if index == explored {
+				current = cursors[ev.Player]
+				current.draws++
+				cursors[ev.Player] = current
+				continue
+			}
 			switch ev.Kind {
 			case events.TurnChange:
 				started = true
@@ -612,6 +630,35 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 		}
 	}
 	return result
+}
+
+// spellbenchExploreReveal recognizes a public explore reveal at a Note: one
+// named card of the exploring player, then at most that player's single
+// anonymous move from library to hand, then the Explore event. It returns the
+// revealed reference and the move's event index, or -1 when the card stays.
+func spellbenchExploreReveal(evs []ObservedEvent, index int, identities map[uint32]Identity) (uint32, int, bool) {
+	note := evs[index]
+	if note.Kind != events.Note || note.Secret || note.Text != "" || len(note.IDs) != 1 {
+		return 0, -1, false
+	}
+	identity, known := identities[note.IDs[0]]
+	if !known || identity.Name == "" || identity.Owner != note.Player {
+		return 0, -1, false
+	}
+	move := -1
+	for i := index + 1; i < len(evs); i++ {
+		ev := evs[i]
+		switch {
+		case ev.Kind == events.Explore:
+			return note.IDs[0], move, ev.Player == note.Player
+		case ev.Kind == events.MoveZone && ev.From == state.ZLibrary && ev.To == state.ZHand && ev.Obj == 0 && ev.Player == note.Player && move < 0:
+			move = i
+		case ev.Kind == events.CounterChange:
+		default:
+			return 0, -1, false
+		}
+	}
+	return 0, -1, false
 }
 
 func spellbenchRevealedUntilWindow(setup PublicGame, before, after Frame, identities map[uint32]Identity) (state.PlayerID, []uint32, bool) {

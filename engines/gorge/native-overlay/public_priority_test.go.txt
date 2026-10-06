@@ -884,3 +884,36 @@ func TestSpellbenchRevealedUntilWindowsKeepLaterPositions(t *testing.T) {
 		t.Fatalf("Petal deadlines %+v, want %+v", got, want)
 	}
 }
+
+func TestSpellbenchExploreRevealsTopPosition(t *testing.T) {
+	s := PublicGame{Decks: [][]*cards.Card{{}, {}}}
+	explore := func(name string, land bool) Frame {
+		evs := []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{70}}}
+		if land {
+			evs = append(evs, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZHand})
+		}
+		evs = append(evs, ObservedEvent{Kind: events.Explore, Player: 1, Obj: 69})
+		return Frame{Identities: []Identity{{ID: 70, Name: name, Owner: 1}}, Events: evs}
+	}
+	draw := Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 1}}}
+	shuffle := Frame{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}}}
+	key := epochKey{Player: 1}
+	for _, test := range []struct {
+		name   string
+		frames []Frame
+		want   []epochPosition
+	}{
+		{"land goes to hand", []Frame{shuffle, explore("Mountain", true), draw, {Identities: []Identity{{ID: 71, Name: "Toxin", Owner: 1}}, Events: []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{71}}, {Kind: events.Explore, Player: 1, Obj: 69}}}},
+			[]epochPosition{{Index: 1, Name: "Mountain"}, {Index: 3, Name: "Toxin"}}},
+		{"nonland stays on top", []Frame{shuffle, explore("Toxin", false), draw}, []epochPosition{{Index: 1, Name: "Toxin"}}},
+		{"other events between", []Frame{shuffle, {Identities: []Identity{{ID: 70, Name: "Toxin", Owner: 1}}, Events: []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{70}}, {Kind: events.Draw, Player: 1}, {Kind: events.Explore, Player: 1}}}}, nil},
+		{"wrong owner", []Frame{shuffle, {Identities: []Identity{{ID: 70, Name: "Toxin", Owner: 0}}, Events: []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{70}}, {Kind: events.Explore, Player: 1}}}}, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := History{Actor: 0, ActorBoundaries: true, Frames: test.frames}
+			if got := spellbenchRevealedUntilPositions(s, h)[key]; !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("positions %+v, want %+v", got, test.want)
+			}
+		})
+	}
+}

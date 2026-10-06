@@ -464,8 +464,17 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 				untilOwner, until = owner, window
 			}
 		}
+		explored := -1
 		for index, ev := range frame.Events {
 			current := get(ev.Player)
+			if _, move, ok := spellbenchExploreReveal(frame.Events, index, identities); ok {
+				explored = move
+			}
+			// An explored land enters its owner's hand from the top.
+			if index == explored {
+				current.prefix.Draw()
+				continue
+			}
 			switch ev.Kind {
 			case events.Shuffle:
 				current.ordinal++
