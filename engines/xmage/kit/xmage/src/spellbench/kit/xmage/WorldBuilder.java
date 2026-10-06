@@ -567,6 +567,9 @@ public final class WorldBuilder {
         spec.random.scopeWorld("token-probe"); // probe instances are cached across worlds: never in an object scope
         Token token = resolveToken(name, ch);
         if (token == null) {
+            token = copyToken(name, controller.getId());
+        }
+        if (token == null) {
             return null;
         }
         spec.random.scopeObject(objectId);
@@ -584,6 +587,42 @@ public final class WorldBuilder {
         pm.setZone(Zone.BATTLEFIELD, game);
         game.getPermanentsEntering().remove(pm.getId());
         return pm;
+    }
+
+    /**
+     * A token that copies a decklist card, which the token repository does not hold: an embalmed card (mtg-kernel
+     * names it {@code "<card> Embalmed Token"}; XMage's EmbalmEffect makes a white Zombie copy without a mana cost),
+     * or a plain copy that carries the card's own name. Null when the name is neither.
+     */
+    private Token copyToken(String name, UUID owner) {
+        if (name == null) {
+            return null;
+        }
+        boolean embalmed = name.endsWith(" Embalmed Token");
+        String base = embalmed ? name.substring(0, name.length() - " Embalmed Token".length()) : name;
+        if (!decklistNames().contains(base)) {
+            return null;
+        }
+        Token token = mage.util.functions.CopyTokenFunction.createTokenCopy(newCard(base, owner), game);
+        if (embalmed) {
+            token.setColor(mage.ObjectColor.WHITE);
+            token.addSubType(mage.constants.SubType.ZOMBIE);
+            token.clearManaCost();
+        }
+        return token;
+    }
+
+    private java.util.Set<String> decklistNames() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (String side : new String[]{"own_deck", "opponent_deck"}) {
+            Map<String, Object> deck = Json.obj(spec.gameStart, side);
+            if (deck != null) {
+                for (Object r : Json.arr(deck, "decklist")) {
+                    out.add(Json.str(Json.obj(r), "name"));
+                }
+            }
+        }
+        return out;
     }
 
     private static final Map<String, List<Token>> TOKEN_CACHE = new HashMap<>();

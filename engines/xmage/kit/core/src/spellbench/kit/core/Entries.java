@@ -99,7 +99,7 @@ public final class Entries {
         if ("h3".equals(entry)) {
             // kit-mcts paces its searches by the bank (pauper-kernel panel, 2026-10-06: a fixed 30
             // iterations spent the 600 s bank by about decision 50); kit-mad-1 and kit-mad-k keep their identity
-            Json.obj(c, "clock").put("pace_moves", 30L);
+            Json.obj(c, "clock").put("pace_moves", 20L);
             Json.obj(c, "clock").put("pace_floor_ms", 12000L);
         }
         c.put("diagnostics", Json.map("roundtrip", false, "hang_at", -1L));

@@ -107,7 +107,10 @@ mtg-kernel's `data/runtime_decks_v1.json` with their source hashes, and the regi
 Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `optional_cost` for `additional` and
 `copy` costs have no world dialog yet and answer by the declining fallback; the kernel's observation omits
 `pending_triggers` and offers a shorter keyword list, so continuation and characteristic checks fall back more often.
-- kit-mcts paces its searches by the bank (`clock.pace_moves` 30, `clock.pace_floor_ms` 12000): a decision gets at
+- A token that copies a decklist card enters as XMage's copy: an embalmed card (the kernel's `"<card> Embalmed
+  Token"`, a white Zombie copy without mana cost) or a plain copy under the card's name. The token repository holds
+  neither, and CawGates' embalmed Sacred Cat left 23% of its decisions unsearched (Slice case `EMBALM`).
+- kit-mcts paces its searches by the bank (`clock.pace_moves` 20, `clock.pace_floor_ms` 12000): a decision gets at
   most an even share of the remaining bank plus the increment, and its search is interrupted at that clock. A fixed 30
   iterations on the kernel decks took 20 to 25 s per decision and spent the 600 s bank by about decision 50. The
   pacing is part of kit-mcts's configuration, so its identity changed; kit-mad-1 and kit-mad-k are unchanged.

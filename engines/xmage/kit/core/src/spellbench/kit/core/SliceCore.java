@@ -386,7 +386,7 @@ public final class SliceCore {
                 && Front.pacedLimit(9_000, 9_000, 2_000, 30, 12_000) == 9_000
                 && Front.pacedLimit(90_000, 600_000, 2_000, 0, 12_000) == 90_000;
         Map<String, Object> h3 = Json.obj(Entries.frozen("h3"), "clock");
-        boolean entries = Json.num(h3, "pace_moves", 0) == 30 && Json.num(h3, "pace_floor_ms", 0) == 12_000
+        boolean entries = Json.num(h3, "pace_moves", 0) == 20 && Json.num(h3, "pace_floor_ms", 0) == 12_000
                 && !Json.obj(Entries.frozen("h1"), "clock").containsKey("pace_moves")
                 && !Json.obj(Entries.frozen("h2"), "clock").containsKey("pace_moves");
         check("kernel.mcts_clock_pacing", math && entries, Json.map("h1", Entries.version(Entries.frozen("h1")),
