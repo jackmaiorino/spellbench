@@ -1,0 +1,34 @@
+{
+  "schema": "spellbench-gorge-current-audit-binding-validation/v1",
+  "at_utc": "2026-10-06T02:21:59.854158+00:00",
+  "audit_source_commit": "ed47f246ef53df0b0525d90b7248722ecd0b55fe",
+  "audit_git_blob": "e3d48415fd7f866ac2652be3e8af03f3816ea1b8",
+  "audit_sha256": "24dc975d2332649348e30fa05f0f9c5d5ec15159c3e98e12e9ac1c6dde9f9311",
+  "benchmark_sha256": "86b53f6de6807515e68fd0983c666627ca30e9f98efbbacbe0b65985a9a5882f",
+  "only_changed_definition_field": "native_id_audits",
+  "affected_tests_passed": 178,
+  "affected_tests_seconds": 2.48,
+  "affected_test_files": [
+    "python/tests/test_bench_definition.py",
+    "python/tests/test_gorge_runtime_source.py"
+  ],
+  "runtime_source_compatible": true,
+  "resolved_native_policies": 12,
+  "resolved_entrants": 14,
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Spy",
+    "Burn",
+    "CawGates"
+  ],
+  "scheduled_games": 3640,
+  "reference_games": 0,
+  "rated_games": 0,
+  "private_secret_created": false,
+  "commitment_created": false,
+  "engine_processes_started": 0,
+  "native124_inputs_changed": false,
+  "new_paid_allocation_usd": 0,
+  "published_verification_record": "Exact-head PR64 comment after push"
+}
