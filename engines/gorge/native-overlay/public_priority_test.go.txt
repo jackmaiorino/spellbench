@@ -688,3 +688,60 @@ func mustCompileEpochs(t *testing.T, h History) map[epochKey]epochConstraints {
 	}
 	return epochs
 }
+
+func TestSpellbenchBasicSearchThroughOwnedNonbasicArrange(t *testing.T) {
+	search := &cards.Card{Faces: []*cards.Face{{Name: "Public Search", Abilities: []*cards.SA{{API: "ChangeZone", Params: map[string]string{"Origin": "Library", "ChangeType": "Land.Basic"}}}}}}
+	spell := &cards.Card{Faces: []*cards.Face{{Name: "Public Spell", Types: []string{"Sorcery"}}}}
+	forest := &cards.Card{Faces: []*cards.Face{{Name: "Forest", Types: []string{"Basic", "Land", "Forest"}}}}
+	swamp := &cards.Card{Faces: []*cards.Face{{Name: "Swamp", Types: []string{"Basic", "Land", "Swamp"}}}}
+	setup := PublicGame{Names: []string{"actor", "opponent"}, Decks: [][]*cards.Card{{search, spell, spell, forest, swamp}, {spell}}}
+	for _, test := range []struct {
+		name, looked string
+		owner        state.PlayerID
+		kind         string
+		answer       []Action
+		want         bool
+		through      int
+	}{
+		{"bottomed nonbasic", "Public Spell", 0, "bottom", nil, true, 3},
+		{"kept nonbasic", "Public Spell", 0, "bottom", []Action{{Kind: "bottom", Player: 0, Obj: 5}}, true, 2},
+		{"bottomed basic", "Forest", 0, "bottom", nil, false, 0},
+		{"opponent card", "Public Spell", 1, "bottom", nil, false, 0},
+		{"surveil", "Public Spell", 0, "graveyard", nil, false, 0},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			identities := []Identity{{ID: 1, Name: "Public Search", Owner: 0}, {ID: 2, Name: "Public Spell", Owner: 0}, {ID: 3, Name: "Swamp", Owner: 0}, {ID: 4, Name: "Forest", Owner: 0}, {ID: 5, Name: test.looked, Owner: test.owner}}
+			h := History{Actor: 0, ActorBoundaries: true, Answers: map[int][]Action{0: test.answer}, Frames: []Frame{
+				{Identities: identities, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.TurnChange}, {Kind: events.Draw, Player: 0, Obj: 2}},
+					Decision: &ObservedDecision{Player: 0, Kind: decision.KArrange, Source: 2, Options: []ObservedOption{{Action: Action{Kind: test.kind, Player: 0, Obj: 5}}}}},
+				{Events: []ObservedEvent{{Kind: events.LibraryOrder, Player: 0}, {Kind: events.Draw, Player: 0}},
+					Decision: &ObservedDecision{Player: 0, Kind: decision.KChoose, Source: 1, Options: []ObservedOption{
+						{Action: Action{Kind: "search", Player: 0, Obj: 3}}, {Action: Action{Kind: "search", Player: 0, Obj: 4}},
+					}}},
+			}}
+			window, ok := spellbenchBasicSearches(setup, h)[epochKey{Player: 0, Ordinal: 0}]
+			if ok != test.want || ok && (window.through != test.through || !reflect.DeepEqual(window.names, []string{"Swamp", "Forest"})) {
+				t.Fatalf("arranged search guidance: admitted=%v through=%d names=%v", ok, window.through, window.names)
+			}
+		})
+	}
+}
+
+func TestSpellbenchLondonBottomSparesEachAnonymousBottom(t *testing.T) {
+	card := func(name string) *cards.Card { return &cards.Card{Faces: []*cards.Face{{Name: name}}} }
+	setup := PublicGame{Names: []string{"actor", "opponent"}, Decks: [][]*cards.Card{{card("Actor Card")}, {card("Needed"), card("Alpha Public"), card("Beta"), card("Beta"), card("Gamma")}}}
+	bottom := ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Text: "bottomed"}
+	h := History{Actor: 0, Frames: []Frame{{Identities: []Identity{{ID: 9, Name: "Alpha Public", Owner: 1}}, Events: []ObservedEvent{
+		{Kind: events.Shuffle, Player: 1}, {Kind: events.Shuffle, Player: 1}, bottom, bottom, {Kind: events.TurnChange},
+	}}}}
+	deadlines := map[epochKey][]deadlineConstraint{{Player: 1, Ordinal: 1}: {{Through: 6, Name: "Needed", Count: 1}}}
+	got := spellbenchLondonBottomPositions(setup, h, deadlines)[epochKey{Player: 1, Ordinal: 1}]
+	want := []epochPosition{{Index: 0, Name: "Beta"}, {Index: 1, Name: "Beta"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("London spares: got=%+v want=%+v", got, want)
+	}
+	h.Frames[0].Events = append([]ObservedEvent{h.Frames[0].Events[0], h.Frames[0].Events[1]}, bottom, bottom, bottom, bottom, bottom, ObservedEvent{Kind: events.TurnChange})
+	if got := spellbenchLondonBottomPositions(setup, h, deadlines); len(got) != 0 {
+		t.Fatalf("more bottoms than spare declared cards were guided: %+v", got)
+	}
+}
