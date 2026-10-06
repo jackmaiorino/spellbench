@@ -925,16 +925,25 @@ func spellbenchCarryEpochsOrdered(h History, original map[epochKey]epochConstrai
 		}
 		for _, bound := range deadlines {
 			needed[bound.Name] = max(needed[bound.Name], bound.Count)
+			// A fixed position, such as a public removal from the top,
+			// supplies only its own name within this prefix.
+			fixed, fixedNames := 0, map[string]int{}
+			for _, position := range guided[key].Positions {
+				if position.Index < bound.Through {
+					fixed++
+					fixedNames[position.Name]++
+				}
+			}
 			demand := 0
 			for name, count := range needed {
-				demand += max(0, count-carry[name])
+				demand += max(0, count-carry[name]-fixedNames[name])
 			}
-			deficit := demand - bound.Through
+			deficit := demand - (bound.Through - fixed)
 			for _, earlier := range deadlines {
 				if deficit <= 0 || earlier.Through > bound.Through {
 					break
 				}
-				added := min(deficit, max(0, needed[earlier.Name]-carry[earlier.Name]))
+				added := min(deficit, max(0, needed[earlier.Name]-carry[earlier.Name]-fixedNames[earlier.Name]))
 				carry[earlier.Name] += added
 				deficit -= added
 			}
@@ -1041,9 +1050,11 @@ func spellbenchObservedPaymentOffers(e *rules.Engine, c *Collector, d *decision.
 		if ev.Kind != events.PutOnStack || ev.From != state.ZHand {
 			continue
 		}
+		// Payment prompts can interleave owned priority markers between
+		// recorded taps. A pass, a spend or another stack push ends them.
 		var sources []state.ObjID
 		for _, next := range remaining[at+1:] {
-			if next.Kind == events.Priority || next.Kind == events.ManaAdd && next.Amount < 0 {
+			if next.Kind == events.Priority && (next.Amount > 0 || next.Player != d.Player) || next.Kind == events.ManaAdd && next.Amount < 0 || next.Kind == events.PutOnStack || next.Kind == events.AbilityPush {
 				break
 			}
 			if next.Kind == events.Tap {
@@ -1063,7 +1074,11 @@ func spellbenchObservedPaymentOffers(e *rules.Engine, c *Collector, d *decision.
 				}
 			}
 			if matches {
-				e.SpellbenchOfferPublicPayment(action.ID, sources)
+				// Later taps may float mana for another action. Offer each
+				// recorded prefix; the shortest valid one is listed first.
+				for n := len(sources); n > 0; n-- {
+					e.SpellbenchOfferPublicPayment(action.ID, sources[:n])
+				}
 			}
 		}
 		return
