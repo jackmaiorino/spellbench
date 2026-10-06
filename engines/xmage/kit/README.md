@@ -97,11 +97,18 @@ mtg-kernel's `data/runtime_decks_v1.json` with their source hashes, and the regi
   following `choose_cast_method` with the world's method.
 - `seat_decision.extensions` are dropped on arrival: the kit reads none, and mtg-kernel's model inputs can reach
   several MiB per decision.
+- A double-faced card on the battlefield enters the world on the face the observation names, the back face
+  transformed, and the sampler counts a face's name against the list row its `full_name` names (CawGates' The
+  Modern Age // Vector Glider; Slice case `DFC`).
+- A priority stop whose only actions besides pass are mana activations answers pass without a search
+  (`mana_only_pass`): the kernel offers priority mana at nearly every stop, and the kit's searches never root on a
+  mana ability.
 
 Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `optional_cost` for `additional` and
 `copy` costs have no world dialog yet and answer by the declining fallback; the kernel's observation omits
 `pending_triggers` and offers a shorter keyword list, so continuation and characteristic checks fall back more often.
-None of this is qualification: kernel games, fallback rates and throughput remain to be measured.
+None of this is qualification. Thirty-two unrated smoke games on the kernel (2026-10-06, kit-mad-1 and kit-mcts
+against a uniform seat) ended naturally with no halts or validator violations; they showed the two gaps above.
 
 ## Games through P's host
 
@@ -117,7 +124,7 @@ java -cp KIT/lib/kit-core.jar spellbench.kit.core.SliceCore
 java -cp KIT/lib/kit-core.jar spellbench.kit.core.TerminationCheck WORKDIR
 java -cp KIT/lib/kit-core.jar spellbench.kit.core.FrontCheck WORKDIR     # continuation plans and the clock
 java -cp "KIT/lib/kit-xmage.jar;KIT/lib/kit-core.jar;KIT/lib/kit-upstream.jar;ENGINE/lib/*" -Dkit.e7.dir=DUMPS \
-  spellbench.kit.xmage.Slice OUT.jsonl [S1 ... E7MAD S2P S3P S4P S10P REG POOLAUDIT A3 MCTSPOWER UNMAPPED]
+  spellbench.kit.xmage.Slice OUT.jsonl [S1 ... E7MAD DFC S2P S3P S4P S10P REG POOLAUDIT A3 MCTSPOWER UNMAPPED]
 ```
 
 Run `Slice` in a directory holding its own `./db`. The `P` cases and `A3` answer the viewer seat through a real front

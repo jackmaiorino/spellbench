@@ -115,6 +115,7 @@ public final class Slice {
                     case "E7MCTS": e7mcts(); break;
                     case "E7MAD": e7mad(); break;
                     case "DZ": dzPositions(); break;
+                    case "DFC": dfcBattlefield(); break;
                     case "H3COST": h3cost(); break;
                     case "S2P": SliceProd.s2p(); break;
                     case "S3P": SliceProd.s3p(); break;
@@ -1524,6 +1525,61 @@ public final class Slice {
     // the counterspell pair (world R: Refute in hand, world N: Island) and the cantrip pair (world E: Llanowar Elves
     // on top, world L: Plains on top). Horizon and truncation counts for E4; kit-sample versus oracle decisions for
     // the sensitivity controls.
+
+    /**
+     * A transforming double-faced card observed on the battlefield on either face (the first pauper-kernel smoke
+     * games: CawGates' The Modern Age // Vector Glider never entered a world). Each face enters as itself, the back
+     * face transformed, and the sampler counts both against the list's front-face row.
+     */
+    static void dfcBattlefield() {
+        SeatSetup a = new SeatSetup().lib("Island", 8);
+        a.battlefield.addAll(Arrays.asList("Island", "Island"));
+        SeatSetup b = new SeatSetup().lib("Island", 8);
+        b.battlefield.addAll(Arrays.asList("Island", "Island"));
+        EnginePos e = EnginePos.start("DFC", a, b);
+        if (!e.advance(d -> priorityOf(d, "p0", "precombat_main"), 50)) {
+            check("DFC.reach_position", false, e.trail);
+            return;
+        }
+        Map<String, Object> d0 = e.decision();
+        a.library.add("The Modern Age");
+        a.library.add("The Modern Age");
+        Map<String, Object> gs = gameStart("p0", a, b);
+        Map<String, Object> obs = obsOf(d0);
+        Map<String, Object> p0 = null;
+        for (Object o : Json.arr(obs, "players")) {
+            if ("p0".equals(Json.str(Json.obj(o), "seat"))) {
+                p0 = Json.obj(o);
+            }
+        }
+        @SuppressWarnings("unchecked")
+        List<Object> bf = (List<Object>) p0.get("battlefield");
+        String[][] faces = {{"o-dfc-front", "The Modern Age"}, {"o-dfc-back", "Vector Glider"}};
+        for (String[] f : faces) {
+            Map<String, Object> rec = new LinkedHashMap<>(Json.obj(bf.get(0)));
+            rec.put("object_id", f[0]);
+            rec.put("card_name", f[1]);
+            rec.put("full_name", "The Modern Age // Vector Glider");
+            rec.put("characteristics", null);
+            rec.put("permanent", new LinkedHashMap<>(Json.obj(Json.obj(bf.get(0)), "permanent")));
+            bf.add(rec);
+        }
+        KitMad[] dec = new KitMad[1];
+        World w = world(gs, d0, null, WorldBuilder.Mode.PRIORITY, 0, dec, null);
+        Map<String, Object> got = new LinkedHashMap<>();
+        boolean ok = true;
+        for (String[] f : faces) {
+            java.util.UUID id = w.idToUuid.get(f[0]);
+            mage.game.permanent.Permanent perm = id == null ? null : w.game.getPermanent(id);
+            got.put(f[0], perm == null ? null : Json.map("name", perm.getName(), "transformed", perm.isTransformed()));
+            ok &= perm != null && f[1].equals(perm.getName()) && perm.isTransformed() == f[1].equals("Vector Glider");
+        }
+        boolean clean = true;
+        for (String fl : w.flags) {
+            clean &= !fl.contains("did_not_enter") && !fl.contains("public_exceeds_list") && !fl.contains("pool_surplus");
+        }
+        check("DFC.both_faces_enter", ok && clean, Json.map("permanents", got, "flags", new ArrayList<Object>(w.flags)));
+    }
 
     static void dzPositions() {
         for (String world : new String[]{"R", "N"}) {
