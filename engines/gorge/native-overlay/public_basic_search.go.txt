@@ -3,6 +3,7 @@ package searchprobe
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -16,15 +17,17 @@ type spellbenchBasicSearch struct {
 	names     []string
 	basics    map[string]bool
 	deadlines []deadlineConstraint
+	// copies holds optional same-name copy hints; it alone guides no fold.
+	copies spellbenchCopyHint
 }
 
-// A single anonymous London bottom can consume the only hypothetical copy
-// satisfying a later public name deadline. Propose a spare declared card in
-// the opening hand and prefer bottoming it. This guides a replay witness,
-// never the native weighted sampler. The complete replay and known-card
-// checks still apply. Requirements come only from the conservative public
-// deadlines below. Later events do not erase those earlier bounds, including
-// mutations of a different library. Multiple anonymous bottoms stay unguided.
+// Anonymous London bottoms can consume the only hypothetical copy satisfying
+// a later public name deadline. Propose one spare declared card per bottom
+// at the front of the opening hand and prefer bottoming those names. This
+// guides a replay witness, never the native weighted sampler. The complete
+// replay and known-card checks still apply. Requirements come only from the
+// conservative public deadlines below. Later events do not erase those
+// earlier bounds, including mutations of a different library.
 func spellbenchLondonBottomPositions(setup PublicGame, h History, deadlines map[epochKey][]deadlineConstraint) map[epochKey][]epochPosition {
 	result := map[epochKey][]epochPosition{}
 	ordinals := map[state.PlayerID]int{}
@@ -46,27 +49,51 @@ func spellbenchLondonBottomPositions(setup PublicGame, h History, deadlines map[
 			}
 		}
 	}
+	public := map[state.PlayerID]map[string]bool{}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			if public[identity.Owner] == nil {
+				public[identity.Owner] = map[string]bool{}
+			}
+			public[identity.Owner][identity.Name] = true
+		}
+	}
 	for key, count := range bottoms {
-		if key.Player == h.Actor || count != 1 || int(key.Player) >= len(setup.Decks) || len(deadlines[key]) == 0 {
+		if key.Player == h.Actor || count < 1 || int(key.Player) >= len(setup.Decks) || len(deadlines[key]) == 0 {
 			continue
 		}
 		required := map[string]bool{}
 		for _, bound := range deadlines[key] {
 			required[bound.Name] = true
 		}
-		var spare string
+		var spares []string
 		for _, card := range setup.Decks[key.Player] {
 			if card == nil || len(card.Faces) == 0 {
 				continue
 			}
-			name := card.Faces[0].Name
-			if !required[name] && (spare == "" || name < spare) {
-				spare = name
+			if name := card.Faces[0].Name; !required[name] {
+				spares = append(spares, name)
 			}
 		}
-		if spare != "" {
-			result[key] = []epochPosition{{Index: 0, Name: spare}}
+		if len(spares) < count {
+			continue
 		}
+		// Prefer names never public for this owner: a later public card
+		// may need its hypothetical copy even without a London deadline.
+		slices.SortFunc(spares, func(a, b string) int {
+			if public[key.Player][a] != public[key.Player][b] {
+				if public[key.Player][a] {
+					return 1
+				}
+				return -1
+			}
+			return strings.Compare(a, b)
+		})
+		positions := make([]epochPosition, count)
+		for i := range positions {
+			positions[i] = epochPosition{Index: i, Name: spares[i]}
+		}
+		result[key] = positions
 	}
 	return result
 }
@@ -81,8 +108,11 @@ func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fall
 			ordinal++
 		}
 	}
-	spare := positions[epochKey{Player: d.Player, Ordinal: ordinal - 1}]
-	if len(spare) != 1 {
+	spares := map[string]bool{}
+	for _, position := range positions[epochKey{Player: d.Player, Ordinal: ordinal - 1}] {
+		spares[position.Name] = true
+	}
+	if len(spares) == 0 {
 		return fallback
 	}
 	for i, option := range d.Options {
@@ -90,7 +120,7 @@ func spellbenchLondonBottomPreferred(e *rules.Engine, d *decision.Decision, fall
 			continue
 		}
 		object := e.G.Obj(option.Obj)
-		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 || object.Card.Faces[0].Name != spare[0].Name {
+		if object == nil || object.Card == nil || len(object.Card.Faces) == 0 || !spares[object.Card.Faces[0].Name] {
 			continue
 		}
 		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
@@ -1070,7 +1100,7 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 			}
 		}
 	}
-	for _, frame := range h.Frames {
+	for frameIndex, frame := range h.Frames {
 		for _, identity := range frame.Identities {
 			identities[identity.ID] = identity
 		}
@@ -1093,7 +1123,14 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 				cursor.draws++
 				cursors[ev.Player] = cursor
 			case events.LibraryOrder:
-				cursor.reliable = false
+				// An owned arrangement of only nonbasic cards keeps the
+				// relative order of every basic below it. Each card it sends
+				// to the bottom leaves the original prefix, like a draw.
+				if bottomed, ok := spellbenchNonbasicArrange(h, frameIndex, ev.Player, identities, byName, basics); ok {
+					cursor.draws += bottomed
+				} else {
+					cursor.reliable = false
+				}
 				cursors[ev.Player] = cursor
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
@@ -1175,6 +1212,37 @@ func spellbenchBasicSearches(setup PublicGame, h History) map[epochKey]spellbenc
 		windows[key] = window
 	}
 	return windows
+}
+
+// spellbenchNonbasicArrange reports how many cards the actor's answered
+// top-or-bottom arrangement, recorded just before this library order, sent
+// to the bottom. Every arranged card must be a named, owned nonbasic.
+func spellbenchNonbasicArrange(h History, frameIndex int, player state.PlayerID, identities map[uint32]Identity, byName map[string]*cards.Face, basics map[string]bool) (int, bool) {
+	if frameIndex < 1 || player != h.Actor {
+		return 0, false
+	}
+	d := h.Frames[frameIndex-1].Decision
+	if d == nil || d.Player != h.Actor || d.Kind != decision.KArrange {
+		return 0, false
+	}
+	window, kind, ok := arrangeWindow(d)
+	if !ok || kind == "graveyard" {
+		return 0, false
+	}
+	answer, answered := h.Answers[frameIndex-1]
+	if !answered || len(answer) > len(window) {
+		return 0, false
+	}
+	for _, ref := range window {
+		identity, known := identities[ref]
+		if !known || identity.Owner != h.Actor || identity.Name == "" || byName[identity.Name] == nil || basics[identity.Name] {
+			return 0, false
+		}
+	}
+	if kind != "bottom" {
+		return 0, true
+	}
+	return len(window) - len(answer), true
 }
 
 // With only draws and removals since the initial shuffle, every drawn card
@@ -1364,10 +1432,150 @@ func spellbenchPrintedBasicSearch(face *cards.Face) ([]string, bool) {
 }
 
 func spellbenchBasicSearchPlanner(p *proposalState, windows map[epochKey]spellbenchBasicSearch) rules.ShufflePlanner {
+	planner := spellbenchBasicSearchFold(p, windows)
+	return func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
+		order, err := planner(ctx)
+		if err == nil && order != nil {
+			spellbenchPreferUnseenCopies(p, windows[epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}].copies, ctx, order)
+		}
+		return order, err
+	}
+}
+
+// A card publicly returned to the actor's library keeps its native object,
+// and later reveals give that object a fresh observer identity. A name-only
+// actor position does not say which copy is there, but the same frame can:
+// the drawn or looked-at identity may equal the identity of the resolving
+// source that was returned, or differ from it. For this replay witness,
+// prefer an observer-bound (publicly returned) copy for a name whose new
+// identities share an event with earlier public objects in their frame, and
+// otherwise a never-public copy, whose state is pristine. Swapping same-name
+// copies preserves every name constraint and leaves bound positions alone.
+// Every fourth proposal keeps the sampled copy, so no choice is excluded;
+// the native weighted sampler never uses this preference.
+func spellbenchPreferUnseenCopies(p *proposalState, copies spellbenchCopyHint, ctx rules.ShuffleContext, order []state.ObjID) {
+	if p.observer == nil || ctx.Player != p.observer.actor || p.attempt%4 == 3 {
+		return
+	}
+	key := epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}
+	positions := p.epochs[key].Positions
+	if len(positions) == 0 {
+		return
+	}
+	names := make(map[state.ObjID]string, len(ctx.Library))
+	for _, card := range ctx.Library {
+		names[card.ID] = card.Name
+	}
+	fixed := map[int]bool{}
+	for _, position := range positions {
+		fixed[position.Index] = true
+	}
+	for _, position := range positions {
+		i := position.Index
+		if i >= len(order) || p.observer.object(position.Ref) != 0 {
+			continue
+		}
+		returned, guided := copies.names[names[order[i]]]
+		// A reference observed after this shuffle cannot bind here.
+		if hint, ok := copies.refs[position.Ref]; ok {
+			returned, guided = hint, true
+		}
+		if !guided || (p.observer.ref(order[i]) != 0) == returned {
+			continue
+		}
+		for j := len(order) - 1; j >= 0; j-- {
+			if !fixed[j] && names[order[j]] == names[order[i]] && (p.observer.ref(order[j]) != 0) == returned {
+				order[i], order[j] = order[j], order[i]
+				break
+			}
+		}
+	}
+}
+
+// spellbenchCopyHints classifies the actor's draw and look identities for
+// each actor shuffle epoch. An identity observed before that draw or look,
+// such as a returned card that is the resolving source, is a public copy; one
+// first observed there is presumed never public. Identities from an earlier
+// frame keep a reference hint. First-seen identities give a name hint, which
+// a name with both kinds in one epoch does not have.
+func spellbenchCopyHints(h History) map[epochKey]spellbenchCopyHint {
+	hints := map[epochKey]spellbenchCopyHint{}
+	mixed := map[epochKey]map[string]bool{}
+	names := map[uint32]string{}
+	seen := map[uint32]bool{}
+	ordinal := 0
+	record := func(id uint32, introduced map[uint32]bool) {
+		if ordinal == 0 || names[id] == "" {
+			return
+		}
+		key := epochKey{Player: h.Actor, Ordinal: ordinal - 1}
+		hint := hints[key]
+		if hint.refs == nil {
+			hint = spellbenchCopyHint{refs: map[uint32]bool{}, names: map[string]bool{}}
+			mixed[key] = map[string]bool{}
+		}
+		if !introduced[id] {
+			hint.refs[id] = seen[id]
+		} else {
+			if previous, ok := hint.names[names[id]]; ok && previous != seen[id] {
+				mixed[key][names[id]] = true
+			}
+			hint.names[names[id]] = seen[id]
+		}
+		hints[key] = hint
+	}
+	for _, frame := range h.Frames {
+		introduced := map[uint32]bool{}
+		for _, identity := range frame.Identities {
+			introduced[identity.ID] = true
+			if identity.Owner == h.Actor {
+				names[identity.ID] = identity.Name
+			}
+		}
+		for _, ev := range frame.Events {
+			if ev.Kind == events.Shuffle && ev.Player == h.Actor {
+				ordinal++
+			}
+			if ev.Kind == events.Draw && ev.Player == h.Actor && ev.Obj != 0 {
+				record(ev.Obj, introduced)
+			}
+			seen[ev.Obj] = true
+			for _, id := range ev.IDs {
+				seen[id] = true
+			}
+		}
+		if d := frame.Decision; d != nil {
+			if d.Player == h.Actor && d.Kind == decision.KArrange {
+				seen[d.Source] = true
+				for _, option := range d.Options {
+					record(option.Action.Obj, introduced)
+				}
+			}
+			for _, option := range d.Options {
+				seen[option.Action.Obj] = true
+			}
+		}
+	}
+	for key, names := range mixed {
+		for name := range names {
+			delete(hints[key].names, name)
+		}
+	}
+	return hints
+}
+
+// spellbenchCopyHint is one actor epoch's optional copy preference: true
+// prefers a publicly returned copy, false a never-public copy.
+type spellbenchCopyHint struct {
+	refs  map[uint32]bool
+	names map[string]bool
+}
+
+func spellbenchBasicSearchFold(p *proposalState, windows map[epochKey]spellbenchBasicSearch) rules.ShufflePlanner {
 	return func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
 		key := epochKey{Player: ctx.Player, Ordinal: ctx.Ordinal}
-		window, guided := windows[key]
-		if !guided || (key.Ordinal == 0 && len(ctx.Hand) != 0) {
+		window := windows[key]
+		if window.names == nil || (key.Ordinal == 0 && len(ctx.Hand) != 0) {
 			return p.plan(ctx)
 		}
 		// The fold changes only the shuffled library's unseen tail. A later

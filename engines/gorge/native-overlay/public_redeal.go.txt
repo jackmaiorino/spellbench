@@ -56,11 +56,34 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		epoch.Deadlines = append(append([]deadlineConstraint(nil), epoch.Deadlines...), deadlines...)
 		epochs[key] = epoch
 	}
+	// A declined optional shuffle leaves an opponent's library order intact
+	// after a public removal. Place each removed name at the next undrawn
+	// position, one legal witness hypothesis. The scry fold below bounds the
+	// later draws; neither guides the native weighted sampler.
+	for key, positions := range spellbenchDeclinedShufflePositions(h) {
+		epoch := epochs[key]
+		epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
+		for _, position := range positions {
+			if addEpochPosition(&epoch, position) != nil {
+				// An optional placement must not override a public fact.
+				epoch.Positions = epochs[key].Positions
+				break
+			}
+		}
+		epochs[key] = epoch
+	}
 	bottomPositions := spellbenchLondonBottomPositions(setup, h, londonDeadlines)
 	for key, positions := range bottomPositions {
 		epoch := epochs[key]
 		epoch.Positions = append([]epochPosition(nil), epoch.Positions...)
-		if err := addEpochPosition(&epoch, positions[0]); err != nil {
+		compatible := true
+		for _, position := range positions {
+			if addEpochPosition(&epoch, position) != nil {
+				compatible = false
+				break
+			}
+		}
+		if !compatible {
 			// This optional witness proposal must not override a public fact.
 			delete(bottomPositions, key)
 			continue
@@ -110,6 +133,11 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 		}
 	}
 	basicSearches := spellbenchBasicSearches(setup, h)
+	for key, copies := range spellbenchCopyHints(h) {
+		window := basicSearches[key]
+		window.copies = copies
+		basicSearches[key] = window
+	}
 	epochs = spellbenchScryEpochs(setup, h, epochs)
 	carryEpochs := spellbenchCarryEpochs(h, epochs)
 	revealedEpochs := spellbenchRevealedHandEpochs(setup, h, epochs)
@@ -270,6 +298,61 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 	return nil, work, fmt.Errorf("no public replay completion in %d proposals", work.Attempts)
 }
 
+// spellbenchDeclinedShufflePositions places each named public removal from an
+// opponent library that was not shuffled afterward, such as a search whose
+// optional shuffle was declined, at the next undrawn position since that
+// library's shuffle. A reorder, a card put into a library or a removal into a
+// hidden zone ends the fold until that player's next shuffle.
+func spellbenchDeclinedShufflePositions(h History) map[epochKey][]epochPosition {
+	type cursor struct {
+		ordinal, draws, removed int
+		active                  bool
+	}
+	positions := map[epochKey][]epochPosition{}
+	cursors := map[state.PlayerID]cursor{}
+	identities := map[uint32]Identity{}
+	stop := func(owner state.PlayerID, known bool) {
+		for player, current := range cursors {
+			if !known || player == owner {
+				current.active = false
+				cursors[player] = current
+			}
+		}
+	}
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for _, ev := range frame.Events {
+			current := cursors[ev.Player]
+			switch ev.Kind {
+			case events.Shuffle:
+				cursors[ev.Player] = cursor{ordinal: current.ordinal + 1, active: true}
+			case events.Draw:
+				current.draws++
+				cursors[ev.Player] = current
+			case events.LibraryOrder:
+				stop(ev.Player, true)
+			case events.MoveZone:
+				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				identity, known := identities[ev.Obj]
+				owner := cursors[identity.Owner]
+				if !known || identity.Owner == h.Actor || identity.Name == "" || ev.From != state.ZLibrary || ev.To.Hidden() || !owner.active || owner.ordinal == 0 {
+					stop(identity.Owner, known)
+					continue
+				}
+				key := epochKey{Player: identity.Owner, Ordinal: owner.ordinal - 1}
+				positions[key] = append(positions[key], epochPosition{Index: owner.draws + owner.removed, Name: identity.Name})
+				owner.removed++
+				cursors[identity.Owner] = owner
+			}
+		}
+	}
+	return positions
+}
+
 // A bounded scry can bring a later draw forward by at most its printed look
 // count. Extend name-only replay-witness deadlines through that weak bound;
 // infer neither the hidden partition nor a physical card's exact position.
@@ -283,6 +366,9 @@ type SpellbenchScryPrefix struct {
 }
 
 func (p *SpellbenchScryPrefix) Draw() { p.draws++ }
+
+// Remove consumes one undrawn position without a draw.
+func (p *SpellbenchScryPrefix) Remove() { p.bottom++ }
 
 func (p *SpellbenchScryPrefix) Scry(look, bottom int) {
 	p.touched = max(p.touched, p.draws+p.bottom+look)
@@ -376,6 +462,14 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 					identity, known := identities[ev.Obj]
 					if owner, certain := inferred[index]; !known && certain {
 						identity.Owner, known = owner, true
+					}
+					// A named card leaving for a public zone came from an
+					// undrawn position, like a bottomed card. A declined
+					// optional search shuffle leaves the rest of the order.
+					if removed := get(identity.Owner); known && identity.Name != "" && ev.From == state.ZLibrary && !ev.To.Hidden() && removed.reliable {
+						removed.prefix.Remove()
+						removed.guided = true
+						continue
 					}
 					disable(identity.Owner, known)
 				}

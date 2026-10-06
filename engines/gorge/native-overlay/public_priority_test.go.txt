@@ -614,3 +614,77 @@ func TestSpellbenchPublicCarrySurvivesScryBottom(t *testing.T) {
 		})
 	}
 }
+
+// A searched card leaves an opponent library whose optional shuffle was
+// declined. Later hand exits stay bounded by draws plus that removal, and the
+// optional witness places the named removal at the next undrawn position.
+func TestSpellbenchDeclinedSearchShuffleKeepsDrawBounds(t *testing.T) {
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{{}, {}}}
+	for _, name := range []string{"Mountain", "Mountain", "Ichor Wellspring", "Swamp", "Swamp", "Swamp"} {
+		setup.Decks[1] = append(setup.Decks[1], &cards.Card{Faces: []*cards.Face{{Name: name}}})
+	}
+	removal := func(to state.Zone, known bool) []Frame {
+		frame := Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, Obj: 91, From: state.ZLibrary, To: to},
+			{Kind: events.SearchedLibrary, Player: 1, Obj: 85}}}
+		if known {
+			frame.Identities = []Identity{{ID: 91, Name: "Mountain", Owner: 1}}
+		}
+		return []Frame{
+			{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}}},
+			frame,
+			{Events: []ObservedEvent{{Kind: events.Draw, Player: 1}}},
+			{Identities: []Identity{{ID: 113, Name: "Ichor Wellspring", Owner: 1}},
+				Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 113, From: state.ZHand, To: state.ZStack}}},
+		}
+	}
+	key := epochKey{Player: 1}
+	for _, test := range []struct {
+		name      string
+		to        state.Zone
+		known     bool
+		reshuffle bool
+		bound     int
+		position  []epochPosition
+	}{
+		{"public named removal", state.ZBattlefield, true, false, 3, []epochPosition{{Index: 1, Name: "Mountain"}}},
+		{"hidden removal stays unguided", state.ZHand, true, false, 0, nil},
+		{"unnamed removal stays unguided", state.ZBattlefield, false, false, 0, nil},
+		{"later shuffle restores native guidance", state.ZBattlefield, true, true, 0, []epochPosition{{Index: 1, Name: "Mountain"}}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := History{Actor: 0, ActorBoundaries: true, Frames: removal(test.to, test.known)}
+			if test.reshuffle {
+				h.Frames = append(h.Frames[:2], append([]Frame{{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}}}, h.Frames[2:]...)...)
+			}
+			original, err := compileEpochs(h)
+			if err != nil {
+				t.Fatal(err)
+			}
+			scry := spellbenchScryEpochs(setup, h, original)
+			bound := 0
+			for _, deadline := range scry[key].Deadlines {
+				if deadline.Name == "Ichor Wellspring" {
+					bound = deadline.Through
+				}
+			}
+			if bound != test.bound {
+				t.Fatalf("hand exit bound %d, want %d: %+v", bound, test.bound, scry[key].Deadlines)
+			}
+			if positions := spellbenchDeclinedShufflePositions(h)[key]; !reflect.DeepEqual(positions, test.position) {
+				t.Fatalf("removal placement %+v, want %+v", positions, test.position)
+			}
+			if !reflect.DeepEqual(original, mustCompileEpochs(t, h)) {
+				t.Fatal("witness guidance changed native constraints")
+			}
+		})
+	}
+}
+
+func mustCompileEpochs(t *testing.T, h History) map[epochKey]epochConstraints {
+	t.Helper()
+	epochs, err := compileEpochs(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return epochs
+}
