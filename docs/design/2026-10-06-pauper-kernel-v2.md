@@ -1,6 +1,8 @@
 # Pauper-kernel v2: one Pauper board for kernel models, XMage and gorge bots
 
-Status: draft for Jack's review, 2026-10-06. Owner: the Spellbench lead (Claude),
+Status: route decided. On 2026-10-06 Jack chose the single board with world-model
+agents (C1 to C3) over separate per-engine Pauper boards. The remaining changes are
+proposals for review. Owner: the Spellbench lead (Claude),
 per Jack's 2026-10-06 assignment. This proposal changes no frozen gate,
 commitment, running qualification or existing benchmark definition. Everything
 below applies to a new evaluation version of `pauper-kernel-v2`; the v1
