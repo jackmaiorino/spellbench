@@ -538,10 +538,15 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 		for _, id := range frame.Identities {
 			identities[id.ID] = id
 		}
+		var untilOwner state.PlayerID
+		untilLeft := 0
 		if frameIndex > 0 {
 			before := h.Frames[frameIndex-1]
 			owner, window, valid := spellbenchRevealedUntilWindow(setup, before, frame, identities)
 			current := cursors[owner]
+			if valid {
+				untilOwner, untilLeft = owner, len(window)
+			}
 			if valid && owner != h.Actor && current.reliable && current.ordinal > 0 {
 				key := epochKey{Player: owner, Ordinal: current.ordinal - 1}
 				for offset, ref := range window {
@@ -587,6 +592,15 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 				if owner, certain := inferred[index]; !known && certain {
 					id.Owner = owner
 					known = true
+					// The verified window's own hidden moves take its revealed
+					// top positions, so later positions stay aligned.
+					if owner == untilOwner && untilLeft > 0 && ev.From == state.ZLibrary {
+						untilLeft--
+						c := cursors[owner]
+						c.draws++
+						cursors[owner] = c
+						continue
+					}
 				}
 				for player, c := range cursors {
 					if !known || player == id.Owner {

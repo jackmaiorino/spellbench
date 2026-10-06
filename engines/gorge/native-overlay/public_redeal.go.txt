@@ -454,8 +454,15 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 			identities[identity.ID], introduced[identity.ID] = identity, identity
 		}
 		var inferred map[int]state.PlayerID
+		var untilOwner state.PlayerID
+		var until []uint32
 		if frameIndex > 0 {
 			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
+			// A verified public reveal-until window names every card it
+			// removes from the top, even when the moves themselves are hidden.
+			if owner, window, valid := spellbenchRevealedUntilWindow(setup, h.Frames[frameIndex-1], frame, identities); valid {
+				untilOwner, until = owner, window
+			}
 		}
 		for index, ev := range frame.Events {
 			current := get(ev.Player)
@@ -502,6 +509,12 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 					identity, known := identities[ev.Obj]
 					if owner, certain := inferred[index]; !known && certain {
 						identity.Owner, known = owner, true
+						if removed := get(owner); owner == untilOwner && len(until) > 0 && ev.From == state.ZLibrary && removed.reliable {
+							until = until[1:]
+							removed.prefix.Remove()
+							removed.guided = true
+							continue
+						}
 					}
 					// A named card leaving for a public zone came from an
 					// undrawn position, like a bottomed card. A declined

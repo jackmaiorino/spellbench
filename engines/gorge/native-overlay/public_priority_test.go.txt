@@ -820,3 +820,48 @@ func TestSpellbenchScryEpochsKeepDrawBoundThroughHandToTop(t *testing.T) {
 		t.Fatal("witness guidance changed native constraints")
 	}
 }
+
+func TestSpellbenchRevealedUntilWindowsKeepLaterPositions(t *testing.T) {
+	spy := &cards.Card{Faces: []*cards.Face{{Name: "Spy", Triggers: []cards.Trigger{{Effect: &cards.SA{API: "DigUntil", Params: map[string]string{"ValidTgts": "Player", "Amount": "1", "Valid": "Land", "RevealedDestination": "Graveyard"}}}}}}}
+	creature := &cards.Card{Faces: []*cards.Face{{Name: "Caretaker", Types: []string{"Creature"}}}}
+	forest := &cards.Card{Faces: []*cards.Face{{Name: "Forest", Types: []string{"Land"}}}}
+	petal := &cards.Card{Faces: []*cards.Face{{Name: "Petal", Types: []string{"Artifact"}}}}
+	s := PublicGame{Decks: [][]*cards.Card{{spy}, {creature, creature, creature, forest, forest, petal, petal, petal}}}
+	trigger := func(library int) json.RawMessage {
+		return json.RawMessage(`{"players":[{"seat":1,"library_size":` + strconv.Itoa(library) + `}],"stack":[{"id":54,"source":48,"kind":"trigger","card":{"name":"Spy"},"targets":[{"is_player":true,"player":1}]}]}`)
+	}
+	resolved := func(library int) json.RawMessage {
+		return json.RawMessage(`{"players":[{"seat":1,"library_size":` + strconv.Itoa(library) + `}],"stack":[]}`)
+	}
+	reveal := func(ids ...uint32) []ObservedEvent {
+		out := []ObservedEvent{{Kind: events.Resolve, Obj: 54}, {Kind: events.Note, Player: 1, IDs: ids}, {Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZHand}}
+		for range ids[1:] {
+			out = append(out, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZGraveyard})
+		}
+		return out
+	}
+	h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+		{Identities: []Identity{{ID: 48, Name: "Spy", Owner: 0}}, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}}},
+		{Board: trigger(7)},
+		{Identities: []Identity{{ID: 55, Name: "Caretaker", Owner: 1}, {ID: 56, Name: "Forest", Owner: 1}}, Board: resolved(5), Events: reveal(55, 56)},
+		{Board: trigger(5)},
+		{Identities: []Identity{{ID: 57, Name: "Caretaker", Owner: 1}, {ID: 58, Name: "Forest", Owner: 1}}, Board: resolved(3), Events: reveal(57, 58)},
+		{Identities: []Identity{{ID: 59, Name: "Petal", Owner: 1}}, Board: resolved(3),
+			Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 59, From: state.ZHand, To: state.ZStack}}},
+	}}
+	key := epochKey{Player: 1}
+	want := []epochPosition{{Index: 1, Name: "Caretaker"}, {Index: 2, Name: "Forest"}, {Index: 3, Name: "Caretaker"}, {Index: 4, Name: "Forest"}}
+	if got := spellbenchRevealedUntilPositions(s, h)[key]; !reflect.DeepEqual(got, want) {
+		t.Fatalf("positions %+v, want %+v", got, want)
+	}
+	original := mustCompileEpochs(t, h)
+	var got []deadlineConstraint
+	for _, deadline := range spellbenchScryEpochs(s, h, original)[key].Deadlines {
+		if deadline.Name == "Petal" {
+			got = append(got, deadline)
+		}
+	}
+	if want := []deadlineConstraint{{Through: 5, Name: "Petal", Count: 1}}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("Petal deadlines %+v, want %+v", got, want)
+	}
+}
