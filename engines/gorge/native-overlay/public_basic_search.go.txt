@@ -491,12 +491,13 @@ func spellbenchActorRevealedDig(setup PublicGame, h History, frameIndex, size in
 }
 
 // A public DigUntil reveal constrains an opponent's top prefix after a shuffle
-// and only recorded draws. Verify the declared trigger, public target, whole
+// and only recorded draws and London bottoms. Verify the declared trigger, public target, whole
 // reveal, printed stop condition, exits and size change before using its order.
 func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey][]epochPosition {
 	result := map[epochKey][]epochPosition{}
 	cursors := map[state.PlayerID]epochCursor{}
 	identities := map[uint32]Identity{}
+	started := false
 	for frameIndex, frame := range h.Frames {
 		for _, id := range frame.Identities {
 			identities[id.ID] = id
@@ -519,6 +520,8 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 		for index, ev := range frame.Events {
 			current := cursors[ev.Player]
 			switch ev.Kind {
+			case events.TurnChange:
+				started = true
 			case events.Shuffle:
 				current.ordinal++
 				current.draws = 0
@@ -537,6 +540,11 @@ func spellbenchRevealedUntilPositions(setup PublicGame, h History) map[epochKey]
 				}
 			case events.MoveZone:
 				if ev.From != state.ZLibrary && ev.To != state.ZLibrary {
+					continue
+				}
+				// A London bottom returns an opening-hand card behind the
+				// undrawn library, so the original top prefix is unchanged.
+				if !started && ev.From == state.ZHand && ev.To == state.ZLibrary && ev.Text == "bottomed" {
 					continue
 				}
 				id, known := identities[ev.Obj]
