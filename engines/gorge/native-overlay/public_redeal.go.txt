@@ -226,6 +226,11 @@ func SpellbenchReconstructRedeal(setup PublicGame, h History, opts SampleOptions
 			witnessEpochs = heldEpochs
 		}
 		proposal := &proposalState{epochs: witnessEpochs, logWeight: tossWeight, base: opts.Seed, history: digest, attempt: proposalAttempt, observer: observer, result: &diagnostic, plans: newConstraintPlanCache(), exclusions: newExclusionStore(), noLandExclusion: true}
+		for key, list := range spellbenchLibraryRequirementExclusions(setup, h, witnessEpochs) {
+			for _, exclusion := range list {
+				proposal.exclusions.add(key, exclusion)
+			}
+		}
 		e, err := rules.NewHypotheticalPlanned(cfg, tape, spellbenchBasicSearchPlanner(proposal, basicSearches))
 		if errors.Is(err, errIncompatibleProposal) {
 			continue
@@ -1256,6 +1261,187 @@ func spellbenchCarryEpochsOrdered(h History, original map[epochKey]epochConstrai
 		guided[prior.previous] = epoch
 	}
 	return guided
+}
+
+// spellbenchLibraryRequirementExclusions caps how many copies of a name an
+// opponent's previous draw prefix may hold when a later shuffle's fixed
+// positions need those copies in the library. Copies out of the library at
+// that shuffle are public or in hand, and drawn copies either left hand
+// publicly, stayed in hand or were London-bottomed. The cap applies only when
+// the previous epoch had nothing but draws, named public hand exits, named
+// public library removals and London bottoms. It guides the replay witness only.
+func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs map[epochKey]epochConstraints) map[epochKey][]exclusionConstraint {
+	type cursor struct {
+		ordinal, bottomed, removals int
+		prefix                      SpellbenchScryPrefix
+		clean                       bool
+		exits, removed              map[string]int
+	}
+	faces := map[string]*cards.Face{}
+	for _, deck := range setup.Decks {
+		for _, card := range deck {
+			for _, face := range card.Faces {
+				faces[face.Name] = face
+			}
+		}
+	}
+	result := map[epochKey][]exclusionConstraint{}
+	cursors := map[state.PlayerID]*cursor{}
+	get := func(player state.PlayerID) *cursor {
+		if cursors[player] == nil {
+			cursors[player] = &cursor{exits: map[string]int{}, removed: map[string]int{}}
+		}
+		return cursors[player]
+	}
+	identities := map[uint32]Identity{}
+	started := false
+	for _, frame := range h.Frames {
+		for _, identity := range frame.Identities {
+			identities[identity.ID] = identity
+		}
+		for index, ev := range frame.Events {
+			switch ev.Kind {
+			case events.TurnChange:
+				started = true
+			case events.Draw:
+				get(ev.Player).prefix.Draw()
+			case events.LibraryOrder:
+				// A printed scry touches a bounded window; other reorders end it.
+				c := get(ev.Player)
+				look := 0
+				if index+1 < len(frame.Events) {
+					if next := frame.Events[index+1]; next.Kind == events.Scry && next.Player == ev.Player && next.Amount >= 0 {
+						look = spellbenchPrintedScryBound(faces[identities[next.Obj].Name])
+						if int(next.Amount) > look {
+							look = 0
+						} else if look > 0 {
+							c.prefix.Scry(look, int(next.Amount))
+						}
+					}
+				}
+				if look == 0 {
+					c.clean = false
+				}
+			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
+				for _, c := range cursors {
+					c.clean = false
+				}
+			case events.Shuffle:
+				c := get(ev.Player)
+				if ev.Player != h.Actor && started && c.ordinal > 0 && c.clean && int(ev.Player) < len(setup.Decks) {
+					previous := epochKey{Player: ev.Player, Ordinal: c.ordinal - 1}
+					next := epochKey{Player: ev.Player, Ordinal: c.ordinal}
+					required := map[string]int{}
+					for _, position := range epochs[next].Positions {
+						required[position.Name]++
+					}
+					public, ok := spellbenchPublicCopiesAtShuffle(frame, index, ev.Player, identities)
+					if ok && len(required) > 0 {
+						total := map[string]int{}
+						for _, card := range setup.Decks[ev.Player] {
+							total[card.Faces[0].Name]++
+						}
+						var names []string
+						for name := range required {
+							names = append(names, name)
+						}
+						sort.Strings(names)
+						for _, name := range names {
+							// Drawn positions lie below the prefix bound. Its other
+							// positions were removed publicly or left undrawn.
+							through := c.prefix.Through()
+							undrawn := through - c.prefix.draws - c.removals
+							limit := c.exits[name] + c.bottomed + c.removed[name] + undrawn + total[name] - public[name] - required[name]
+							if limit >= 0 && limit < through {
+								result[previous] = append(result[previous], exclusionConstraint{Through: through, Name: name, Cap: limit})
+							}
+						}
+					}
+				}
+				*c = cursor{ordinal: c.ordinal + 1, clean: true, exits: map[string]int{}, removed: map[string]int{}}
+			case events.MoveZone, events.PutOnStack:
+				identity, known := identities[ev.Obj]
+				if ev.From == state.ZHand && ev.To == state.ZLibrary && !started && (ev.Text == "mulligan" || ev.Text == "bottomed") {
+					if ev.Text == "bottomed" {
+						get(ev.Player).bottomed++
+					}
+					continue
+				}
+				if ev.From == state.ZLibrary && ev.To != state.ZLibrary && !ev.To.Hidden() && known && identity.Name != "" {
+					c := get(identity.Owner)
+					c.removed[identity.Name]++
+					c.removals++
+					c.prefix.Remove()
+					continue
+				}
+				// A public card put into the library does not change which
+				// original positions were drawn.
+				if ev.To == state.ZLibrary && ev.From != state.ZHand && !ev.From.Hidden() && known && identity.Name != "" {
+					continue
+				}
+				if ev.From == state.ZLibrary || ev.To == state.ZLibrary {
+					if known {
+						get(identity.Owner).clean = false
+					} else {
+						for _, c := range cursors {
+							c.clean = false
+						}
+					}
+					continue
+				}
+				if ev.From == state.ZHand && ev.To != state.ZHand {
+					if !known || identity.Name == "" || ev.To.Hidden() {
+						for _, c := range cursors {
+							c.clean = false
+						}
+						continue
+					}
+					get(identity.Owner).exits[identity.Name]++
+				}
+			}
+		}
+	}
+	return result
+}
+
+// Count each owner's named copies in public zones at a shuffle: the frame's
+// end board less named copies that left hand after the shuffle.
+func spellbenchPublicCopiesAtShuffle(frame Frame, shuffle int, owner state.PlayerID, identities map[uint32]Identity) (map[string]int, bool) {
+	var board knownBoard
+	if json.Unmarshal(frame.Board, &board) != nil || len(board.Players) == 0 {
+		return nil, false
+	}
+	counts := map[string]int{}
+	seen := map[uint32]bool{}
+	count := func(card knownCardID) {
+		identity, known := identities[card.ID]
+		if known && !seen[card.ID] && identity.Owner == owner && identity.Name != "" {
+			seen[card.ID] = true
+			counts[identity.Name]++
+		}
+	}
+	for _, player := range board.Players {
+		for _, zone := range [][]knownCardID{player.Battlefield, player.Graveyard, player.Exile, player.Command} {
+			for _, card := range zone {
+				count(card)
+			}
+		}
+	}
+	for _, card := range board.Stack {
+		count(card)
+	}
+	for _, ev := range frame.Events[shuffle+1:] {
+		if ev.From == state.ZHand && ev.To != state.ZHand {
+			identity, known := identities[ev.Obj]
+			if !known {
+				return nil, false
+			}
+			if identity.Owner == owner && seen[ev.Obj] {
+				counts[identity.Name]--
+			}
+		}
+	}
+	return counts, true
 }
 
 // The visible boundary can follow a hand exit after the shuffle. Undo only
