@@ -115,3 +115,8 @@ def test_restricted_matrix_keeps_original_order_for_qualified_modes(monkeypatch,
         if not any(s.name.endswith('redeal') for _, s in c.seat_specs)]
     with pytest.raises(ThroughputError):
         restrict_matrix(chosen, expected, ','.join(reversed(ALL_POLICIES[:10])))
+    nine = [name for name in ALL_POLICIES[:10] if name != 'search']
+    kept, cells = restrict_matrix(chosen, expected, ','.join(nine))
+    # Dropping the search/bot probes also drops their gorge-bot seats.
+    assert matrix_counts(kept, cells) == (100, 45, 110)
+    assert all(cells[cell] <= expected[cell] for cell in cells)

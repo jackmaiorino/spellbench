@@ -26,12 +26,15 @@ def restrict_matrix(chosen, expected, policies):
     names = {'gorge-' + name for name in declared_matrix_policies(policies)}
     kept = [context for context in chosen
             if all(spec.name in names for _, spec in context.seat_specs if spec.name.startswith('gorge-'))]
-    cells = {cell: count for cell, count in expected.items() if cell[0] in names}
-    observed = Counter((spec.name, context.decks[0].catalog_id) for context in kept
-                       for _, spec in context.seat_specs if spec.name.startswith('gorge-'))
-    if observed != Counter(cells) or len({name for name, _ in cells}) != len(names):
+    # A dropped probe also removes its qualified opponent's seat, so the kept
+    # games define each cell's count; every qualified cell must remain.
+    cells = Counter((spec.name, context.decks[0].catalog_id) for context in kept
+                    for _, spec in context.seat_specs if spec.name.startswith('gorge-'))
+    wanted = {cell for cell in expected if cell[0] in names}
+    if set(cells) != wanted or len({name for name, _ in wanted}) != len(names) or \
+            any(cells[cell] > expected[cell] for cell in cells):
         raise ThroughputError('Restricted reference matrix omits a qualified policy/deck cell')
-    return kept, cells
+    return kept, dict(cells)
 
 
 def matrix_counts(chosen, expected):
