@@ -181,7 +181,7 @@ func TestKernelBrainstorm(t *testing.T) {
 }
 
 // TestKernelLeadTheStampede: the dig partition and the bottom order. gorge
-// takes every creature and leaves the rest on the bottom in window order.
+// takes every creature and leaves the rest on the bottom.
 func TestKernelLeadTheStampede(t *testing.T) {
 	tb := newTable(t, "Lead the Stampede", "Wall of Roots", "Lotus Petal", "Masked Vandal", "Forest")
 	src := tb.spell("o-lts", "Lead the Stampede")
@@ -225,8 +225,10 @@ func TestKernelLeadTheStampede(t *testing.T) {
 			block = slices.DeleteFunc(block, func(i int) bool { return fmt.Sprintf("o-l%d", i) == got })
 		}
 	}
-	if !slices.Equal(order[:3], []string{"o-l1", "o-l3", "o-l4"}) {
-		t.Fatalf("bottom order %v, want window order o-l1 o-l3 o-l4", order[:3])
+	// gorge's agent sees library cards by name (Forest, Island, Lotus Petal)
+	// and leaves them on the bottom in that order.
+	if !slices.Equal(order[:3], []string{"o-l3", "o-l4", "o-l1"}) {
+		t.Fatalf("bottom order %v, want o-l3 o-l4 o-l1", order[:3])
 	}
 	tb.clean()
 }

@@ -1336,9 +1336,12 @@ func (s *Session) arrange(sd *protocol.SeatDecision) ([]mapping.NativeOp, *nativ
 		n := s.open("arrange", d)
 		n.arrange = &arrangement{other: other}
 		for _, c := range cards {
-			o := decision.Option{Index: len(n.d.Options), Kind: other, Label: "card", Obj: s.B.IDs.Of(c.id)}
-			n.options[c.id] = o.Index
 			n.arrange.cards = append(n.arrange.cards, c.id)
+		}
+		for _, ci := range hiddenOrder(sd, n.arrange.cards) {
+			id := n.arrange.cards[ci]
+			o := decision.Option{Index: len(n.d.Options), Kind: other, Label: knownName(sd, id), Obj: s.B.IDs.Of(id)}
+			n.options[id] = o.Index
 			n.d.Options = append(n.d.Options, o)
 		}
 		s.cur = n
@@ -1417,6 +1420,30 @@ func looked(sd *protocol.SeatDecision, count int) []string {
 	return ids
 }
 
+// knownName is the card name the observation's known list gives id.
+func knownName(sd *protocol.SeatDecision, id string) string {
+	for _, k := range sd.Observation.Known {
+		if k.ObjectID != nil && *k.ObjectID == id {
+			return k.CardName
+		}
+	}
+	return "a card"
+}
+
+// hiddenOrder lists the indices of library cards ids in the order gorge's
+// agent is shown them: by card name, then object id, so an option's place
+// never tells the library order (xview's sortHidden).
+func hiddenOrder(sd *protocol.SeatDecision, ids []string) []int {
+	order := make([]int, len(ids))
+	for i := range order {
+		order[i] = i
+	}
+	slices.SortStableFunc(order, func(a, b int) int {
+		return strings.Compare(knownName(sd, ids[a])+"\x00"+ids[a], knownName(sd, ids[b])+"\x00"+ids[b])
+	})
+	return order
+}
+
 // dig is a Dig's look: v2 partitions the window (hand or bottom) and then
 // orders it. gorge asks a KChoose of the eligible cards ("dig", in window
 // order) and, when two or more go to the bottom, their bottom order as the
@@ -1469,13 +1496,15 @@ func (s *Session) dig(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, e
 			if src != nil {
 				d.Source = s.B.IDs.Of(src.ObjectID)
 			}
-			for _, id := range ids {
-				k := -1
-				if eligible(id) {
-					k = len(d.Options)
-					d.Options = append(d.Options, decision.Option{Index: k, Kind: "dig", Label: "card", Obj: s.B.IDs.Of(id), Player: s.seat})
+			n.arrange.native = make([]int, len(ids))
+			for ci := range n.arrange.native {
+				n.arrange.native[ci] = -1
+			}
+			for _, ci := range hiddenOrder(sd, ids) {
+				if eligible(ids[ci]) {
+					n.arrange.native[ci] = len(d.Options)
+					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "dig", Label: knownName(sd, ids[ci]), Obj: s.B.IDs.Of(ids[ci]), Player: s.seat})
 				}
-				n.arrange.native = append(n.arrange.native, k)
 			}
 			changeNum, err := strconv.Atoi(param("ChangeNum"))
 			anyNum := strings.EqualFold(param("ChangeNum"), "Any")
@@ -1509,8 +1538,8 @@ func (s *Session) dig(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, e
 		return ops, n, nil
 	}
 	var bottom []int
-	for ci, dst := range a.dest {
-		if dst == "bottom" {
+	for _, ci := range hiddenOrder(sd, a.cards) {
+		if ci < len(a.dest) && a.dest[ci] == "bottom" {
 			bottom = append(bottom, ci)
 		}
 	}
@@ -1518,7 +1547,7 @@ func (s *Session) dig(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, e
 		fd := decision.Decision{Kind: decision.KArrange, Min: len(bottom), Max: len(bottom), ResumeKind: "dig_arrange",
 			ResumeSA: n.d.ResumeSA, Source: n.d.Source, Player: s.seat, Prompt: "Put the remaining cards on the bottom of your library in any order"}
 		for j, ci := range bottom {
-			fd.Options = append(fd.Options, decision.Option{Index: j, Kind: "dig_bottom", Label: "card", Obj: s.B.IDs.Of(a.cards[ci]), Player: s.seat})
+			fd.Options = append(fd.Options, decision.Option{Index: j, Kind: "dig_bottom", Label: knownName(sd, a.cards[ci]), Obj: s.B.IDs.Of(a.cards[ci]), Player: s.seat})
 		}
 		n.follow = map[string]decision.Decision{"dig_bottom": fd}
 	}
