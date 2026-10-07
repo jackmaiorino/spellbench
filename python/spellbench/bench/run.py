@@ -633,6 +633,8 @@ def _committed_run(
             pins = pinning.pin_and_register(files, catalog.pin_root, catalog.register, owner=catalog.owner,
                                             purpose=PINS_PURPOSE, doc=str(run_dir / store.MANIFEST_NAME),
                                             regen=regen, cited_by=cited_by)
+            if job_storage is not None:
+                job_storage.rebase()  # the pins are setup, not the first game's growth
             try:
                 summary = runner.run_tournament(
                     config, run_secret=secret, allocation=allocation,

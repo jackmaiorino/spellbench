@@ -82,6 +82,15 @@ class JobStorageGuard:
             raise ThroughputError("whole-job storage would breach the 60 GiB reserve")
         return actual
 
+    def rebase(self):
+        """Take the bytes now under the root as the baseline for the next game's growth.
+
+        Call it after one-time setup between games, such as pinning the launch
+        files: those bytes stay counted in ``actual`` but are not game growth.
+        """
+        self.previous = self.check()
+        return self.previous
+
     def reconcile_game(self, games_total, *, qualification_games=0):
         actual = self.check()
         self.peak_game_growth = max(self.peak_game_growth, actual - self.previous)
