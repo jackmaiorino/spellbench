@@ -3,6 +3,7 @@ package neutral
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,9 +29,10 @@ type native struct {
 	index   uint64
 	key     string
 	d       decision.Decision
-	options map[string]int   // option key -> option index
-	casts   map[string][]int // priority: cast source v2 id -> its cast options
-	arrange *arrangement     // an arrangement's partition and order so far
+	options map[string]int    // option key -> option index
+	casts   map[string][]int  // priority: cast source v2 id -> its cast options
+	names   map[string]string // priority: cast source v2 id -> its card name
+	arrange *arrangement      // an arrangement's partition and order so far
 	follow  map[string]decision.Decision
 }
 
@@ -270,7 +272,7 @@ var castModes = map[string]string{"normal": "", "flashback": "flashback", "escap
 
 func (s *Session) priority(sd *protocol.SeatDecision, v *view.View) ([]mapping.NativeOp, *native, error) {
 	n := s.open("priority", decision.Decision{Kind: decision.KPriority, Min: 1, Max: 1})
-	n.casts = map[string][]int{}
+	n.casts, n.names = map[string][]int{}, map[string]string{}
 	ops := make([]mapping.NativeOp, len(sd.Candidates))
 	add := func(o decision.Option) int {
 		o.Index = len(n.d.Options)
@@ -314,7 +316,7 @@ func (s *Session) priority(sd *protocol.SeatDecision, v *view.View) ([]mapping.N
 				o.Mode = mode
 			}
 			idx := add(o)
-			n.casts[src.ObjectID] = []int{idx}
+			n.casts[src.ObjectID], n.names[src.ObjectID] = []int{idx}, name(src)
 			ops[i] = mapping.NativeOp{Op: "choose", Option: idx}
 			if sem.Fields["method"] == nil && src.Zone == "hand" && s.altCost(sd, src) {
 				// gorge offers the alternative cost as a cast of its own,
@@ -427,7 +429,18 @@ func (s *Session) castMethod(sd *protocol.SeatDecision) ([]mapping.NativeOp, *na
 			return nil, nil, err
 		}
 		method := str(c.Semantic, "method")
-		for _, opt := range n.casts[src.ObjectID] {
+		opts, ok := n.casts[src.ObjectID]
+		if !ok {
+			// The spell moved to the stack under a new id: its cast is one
+			// of those of the same card name, whichever the plan chose.
+			for _, id := range slices.Sorted(maps.Keys(n.casts)) {
+				if n.names[id] == name(src) {
+					opts = append(opts, n.casts[id]...)
+				}
+			}
+		}
+		var covers []int
+		for _, opt := range opts {
 			o := n.d.Options[opt]
 			want := "normal"
 			switch {
@@ -441,8 +454,11 @@ func (s *Session) castMethod(sd *protocol.SeatDecision) ([]mapping.NativeOp, *na
 				}
 			}
 			if method == want {
-				ops[i] = mapping.NativeOp{Op: "cast", Option: -1, Covers: []int{opt}}
+				covers = append(covers, opt)
 			}
+		}
+		if len(covers) > 0 {
+			ops[i] = mapping.NativeOp{Op: "cast", Option: -1, Covers: covers}
 		}
 	}
 	return ops, n, nil

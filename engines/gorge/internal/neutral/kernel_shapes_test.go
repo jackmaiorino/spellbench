@@ -284,7 +284,7 @@ func TestKernelLandGrantMethod(t *testing.T) {
 		t.Fatalf("the bot passed: %v", cast)
 	}
 	tb.obs.Players[0].Hand = nil
-	src := tb.spell("o-h0", "Land Grant")
+	src := tb.spell("o-lg-stack", "Land Grant") // the kernel names the spell anew on the stack
 	var cands []string
 	for _, m := range []string{"alternative", "normal"} {
 		cands = append(cands, fmt.Sprintf(`{"kind":"choose_cast_method","source":%s,"method":%q}`, src, m))
