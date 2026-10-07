@@ -1,0 +1,90 @@
+{
+  "at_utc": "2026-10-05T22:40:41.197601+00:00",
+  "phase": "production_built_component_execution_failed",
+  "source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
+  "release_id": 404146118,
+  "release_tag": "gorge-reference-public-replay103-20261005",
+  "input_asset_id": 613790990,
+  "input_archive_sha256": "923855f830720292e1b45cd593a9495bd8ec5b2515c54cde630ed1579378e4bd",
+  "source_of_record": "E:\\spellbench-gorge-hosted-public-replay-20261005-103",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-hosted-public-replay-20261005-103",
+  "captured_input_seal_sha256": "cc7f4bed8abdc66a43dd0641c9108ae61a4c16b097c3441e110ea8d049f3cf1b",
+  "input_files": {
+    "registry.gob.gz": {
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329
+    },
+    "case-001.json": {
+      "sha256": "d722bb33bf2ab583f3bb3837f7e3e332efbdbebaf30a9fcfa7214d5524214955",
+      "bytes": 487962
+    },
+    "case-002.json": {
+      "sha256": "c18f35eae6bd5269ffce77211c82ed739a0cc46423c6795d13e233248a536c64",
+      "bytes": 636484
+    },
+    "case-003.json": {
+      "sha256": "3585338514ed1a6f9c825851829352b7d8ce86dec57b3d04eb98784456dc3989",
+      "bytes": 712666
+    }
+  },
+  "scope": "Bounded pinned production build plus three public-prefix replay and native pool checks; no full native/reference qualification or rated games",
+  "public_repository": true,
+  "runner": "standard GitHub-hosted ubuntu-24.04",
+  "wall_cap_seconds": 2400,
+  "workflow_wall_cap_minutes": 45,
+  "scratch_cap_bytes": 4294967296,
+  "input_archive_cap_bytes": 16777216,
+  "result_archive_cap_bytes": 268435456,
+  "reserve_bytes": 64424509440,
+  "actions_artifact_upload": false,
+  "actions_cache_upload": false,
+  "private_draft_exchange": true,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347,
+  "qualified": false,
+  "rated_games": 0,
+  "local_PC_dispatch_suspended": true,
+  "preflight": "Initial8MiB staging rejected the9,070,329-byte pinned registry before provider action. Exact existing archive verified;16MiB bounds archive and extracted inputs.",
+  "terminal": {
+    "id": 37384031753,
+    "status": "completed",
+    "conclusion": "failure",
+    "head_sha": "8fe6fdd942a74d46b765a73e89a444a935239470",
+    "run_attempt": 1,
+    "html_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37384031753",
+    "created_at": "2026-10-05T22:41:11Z",
+    "updated_at": "2026-10-05T22:47:55Z"
+  },
+  "closure": {
+    "component_passed": false,
+    "error": "PermissionError: [Errno 13] Permission denied: '/home/runner/work/_temp/gorge-public-replay/result/pinned-binaries/14d31ddedce834ae76e0f34637c6dffe57b814da143c804db6f3455edae5d65a/public-witness-tests-linux-amd64'",
+    "source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
+    "elapsed_seconds": 109.824937369,
+    "native_qualification_complete": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "recovery": {
+    "component_passed": false,
+    "production_build_passed": true,
+    "private_output_recovered": true,
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "seal_sha256": "e29cd64fd668bc4da9f1dee5fd8e9d1dd657f42c78ee1b0d9526fc8a69d436e0",
+  "cleanup": {
+    "run_id": 37384031753,
+    "job_terminal": true,
+    "owned_asset_ids": [
+      613790990,
+      613807650
+    ],
+    "owned_draft_release_id": 404146118,
+    "deleted_after_verified_recovery": true,
+    "new_cloud_spend_usd": 0
+  },
+  "prefixes_executed": false,
+  "qualification_passed": false,
+  "next_wake": "Historical failed attempt sealed; executable-copy repair is dispatched separately as105"
+}

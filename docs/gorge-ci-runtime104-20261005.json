@@ -1,0 +1,76 @@
+{
+  "at_utc": "2026-10-05T22:54:30.252269+00:00",
+  "phase": "production_built_component_execution_failed",
+  "source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
+  "source_of_record": "E:\\spellbench-gorge-runtime-20261005-104",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261005-104",
+  "parent_build_source_of_record": "E:\\spellbench-gorge-hosted-public-replay-20261005-103",
+  "parent_seal_sha256": "e29cd64fd668bc4da9f1dee5fd8e9d1dd657f42c78ee1b0d9526fc8a69d436e0",
+  "source_binding": {
+    "runtime_source_commit": "8fe6fdd942a74d46b765a73e89a444a935239470",
+    "compiled_gorge_source_identical": true,
+    "reference_launcher_source_changes": [],
+    "current_reference_requalification_required": true
+  },
+  "production_binaries": 7,
+  "production_build_passed": true,
+  "component_passed": false,
+  "component_execution_failure": "Linux test-binary copy lost execute permission; no public prefixes were executed",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347,
+  "seal_sha256": "fac8a4a6392f6c65e0d08863e74d21aafa2f50535d1ca8aa2a424dae8fa3b230",
+  "production_files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "sha256": "56575cf05c26b2a4e61ee1cdaff970d681f4db2b6c570fcde58ef78087035b6c",
+      "bytes": 13475840,
+      "platform": "windows",
+      "kind": "binary"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "366951dea1baaee7599b56c98aafb8b3c09c53c68615b0866f9f3a0a3ca7bcae",
+      "bytes": 17488384,
+      "platform": "windows",
+      "kind": "binary"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "46776d5812db7e1f003996fda0338f47ed52e9653a527ab21d8e4523fc4080f9",
+      "bytes": 18296832,
+      "platform": "windows",
+      "kind": "binary"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "sha256": "aaecbe15229bddf950315e223d47f2e75f1b88d90519fa96e209653a2e1a23b3",
+      "bytes": 19153920,
+      "platform": "windows",
+      "kind": "binary"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "sha256": "dc828979bc8b6f8926ac518875cd7dab5baa298b344844263ad95761e97fcd00",
+      "bytes": 17400308,
+      "platform": "linux",
+      "kind": "binary"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "sha256": "ac30ab1726ecf76655621c047fd2881f98315bcbb19f96a5bda8e01245881a66",
+      "bytes": 18197135,
+      "platform": "linux",
+      "kind": "binary"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "sha256": "f4b189a49b5c5b6e5550e9aedadc878290ad60808e4ed27ed6b2a112ee3ebe34",
+      "bytes": 19055188,
+      "platform": "linux",
+      "kind": "binary"
+    }
+  ]
+}

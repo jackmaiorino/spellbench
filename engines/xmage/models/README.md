@@ -5,8 +5,8 @@ the older reviewed engine. It compiles the current public observation/decision
 overlay into `kit`, copies its resources and pins both in `BUILD.json`. This
 resolves the current priority-mana `Seats.connect` API without changing the
 reviewed engine tree. The usual runtime verifier checks every class and resource.
-The combined build can include DraftZero, MageZero and the complete staged Jack
-player together; Jack's manifest must include its pinned parent choice source.
+The combined build can include DraftZero, MageZero and the complete staged maintainer
+player together; the maintainer's manifest must include its pinned parent choice source.
 
 The consolidated runtime at
 `E:/spellbench-xmage-all-20261002/runtime-consolidation-001` compiled 246 source
@@ -17,8 +17,8 @@ Python checks pass with the consolidated classpath. No legacy partial classpath
 is used. Native games, checkpoints and full qualification remain deferred under
 the research resource hold.
 
-Jack's original general target component uses `JackTargetEncoderMain` and
-`xmage_jack_targets.TargetSession`. Set `target_callback: true` in the private
+The maintainer's original general target component uses `MaintainerTargetEncoderMain` and
+`xmage_maintainer_targets.TargetSession`. Set `target_callback: true` in the private
 input manifest with the mode, dialog, filtered-mana and automatic payment flags.
 The pipe takes the embedding file and seven source hashes: embedding, state,
 candidate, target rules, mode rules, dialog rules and payment rules. Private
@@ -39,8 +39,8 @@ card sets, divided targets, opponent-sourced choices, complete games and deck
 qualification remain unfinished. The extracted loop retains its original
 minimum and Crew/Saddle completion rules for future callback qualification.
 
-Jack's original yes/no and X component uses `JackDialogEncoderMain` and
-`xmage_jack_dialogs.DialogSession`. Set `dialog_callback: true` in the private
+The maintainer's original yes/no and X component uses `MaintainerDialogEncoderMain` and
+`xmage_maintainer_dialogs.DialogSession`. Set `dialog_callback: true` in the private
 input manifest to stage `DialogRules.java` from the pinned April callback.
 The component requires the reviewed replay build, original offline embedding
 cache and staged source pins. It reaches the actual callback, checks its
@@ -57,8 +57,8 @@ the tested mode component. Other number callbacks, native automatic mana
 qualification and complete games remain
 unfinished. This component has no trained-checkpoint or full-game claim.
 
-Jack's original spell-mode component uses `JackModeEncoderMain` and
-`xmage_jack_modes.ModeSession`. An explicit `mode_callback: true` in the private
+The maintainer's original spell-mode component uses `MaintainerModeEncoderMain` and
+`xmage_maintainer_modes.ModeSession`. An explicit `mode_callback: true` in the private
 input manifest stages the original legality rule as `ModeRules.java`. The
 callback encoder requires the reviewed search/replay source build through
 `--search-inputs`, the pinned offline embedding file, and the staged state,
@@ -77,13 +77,13 @@ bound; failures close all three owned resources.
 
 For modes with costs, set `mode_mana_callback: true` together with
 `mode_callback: true` and `dialog_callback: true`. Pass the staged dialog-rule
-source hash as the sixth `JackModeEncoderMain` argument and use
-`xmage_jack_modes.ManaModeSession`. The replay player then uses the original
+source hash as the sixth `MaintainerModeEncoderMain` argument and use
+`xmage_maintainer_modes.ManaModeSession`. The replay player then uses the original
 filtered mana availability for the acting viewer, including copied games
 used by cost checks. The original mode legality rule and cost-presence
 feature 13 are retained. Frames bind the extra mana-rule source and the
 Boolean cost flags for all original candidate slots, including masked modes.
-The pipe advertises `jack-permitted-mode-mana`; the five-argument pipe retains
+The pipe advertises `maintainer-permitted-mode-mana`; the five-argument pipe retains
 its original restricted mode variant.
 
 The opt-in automatic payment path adds `mana_payment_callback: true` to the
@@ -96,8 +96,8 @@ The ordinary engine delegation preserves its ordered pending mana costs and
 does not call the Exp1 policy. This path pins the original default
 `RL_ENGINE_CHOICES=1` and empty parent planning queues used by the RL path.
 
-Pass the staged payment-rule hash as argument seven to `JackModeEncoderMain`
-or argument six to `JackDialogEncoderMain`, and use `PaymentModeSession` or
+Pass the staged payment-rule hash as argument seven to `MaintainerModeEncoderMain`
+or argument six to `MaintainerDialogEncoderMain`, and use `PaymentModeSession` or
 `PaymentDialogSession`. Readiness and every frame carry the additional source
 pin and a distinct payment variant. Older consumers refuse these variants.
 The paired policy, original chooser, clock and cleanup remain owned by the
@@ -112,8 +112,8 @@ original heuristic fallback. Local transport checks do not execute private
 Java or checkpoints; native callback and hidden-world replay checks, other
 callbacks, exact deck associations and complete games remain unfinished.
 
-Jack's private paired inference now also has an original mulligan feature
-component. A `mulligan_encoder` asset in the external Jack manifest stages
+The maintainer's private paired inference now also has an original mulligan feature
+component. A `mulligan_encoder` asset in the external maintainer manifest stages
 the hash-pinned private `MulliganModel.java` into `MulliganEncoder.java`.
 The Java source is identical at the declared April and legacy Q network
 revisions. The port retains the original 71 features, hand card IDs, land and
@@ -121,15 +121,15 @@ creature counts, average nonland mana value, and remaining-library composition.
 It orders the library by known card name to remove hidden order. This is a
 declared fair variant; pooled floating-point outputs still need native replay.
 
-`JackMulliganEncoderMain` reads owned pregame records through a private pipe.
-`xmage_jack_mulligan.MulliganSession` binds each encoded decision and observed
+`MaintainerMulliganEncoderMain` reads owned pregame records through a private pipe.
+`xmage_maintainer_mulligan.MulliganSession` binds each encoded decision and observed
 counts to the exact game start already verified by the paired model. Both
 networks keep ties: the April network keeps at probability 0.5 or greater,
 and the legacy Q network keeps when Q_keep is at least Q_mull. Evaluation
 disables the original training exploration, keep floor and hard overrides.
 The shared clock includes encoding, inference and validation. Changed source,
 stale responses, malformed padding and unoffered choices close both resources.
-`JackMulliganEncoderCheck` prepares actual pregame and hidden-world checks for
+`MaintainerMulliganEncoderCheck` prepares actual pregame and hidden-world checks for
 the guarded native job. These checks have not executed. Other callbacks, deck
 associations, original duplicate-prompt handling and complete games remain
 unfinished; this component is not a full agent or a rated entrant.
@@ -369,7 +369,7 @@ evaluations; changed public state is refused and owned process cleanup passes.
 Model build manifests now hash and verify copied resources, including
 this register. Existing frozen native jars and qualification inputs are unchanged.
 
-The confined `jack_feature_probe.py` helper runs all five real checkpoint
+The confined `maintainer_feature_probe.py` helper runs all five real checkpoint
 pairs on the Java priority fixtures without enabling unassociated game serving.
 Active and nonactive views repeat with finite normalized scores, legal offered
 IDs and masked padding. Elves uses its own embedding-cache fixture. This is
@@ -377,8 +377,8 @@ diagnostic feature inference; exact decks, the original full policy selection
 and other callbacks remain unfinished. See
 [the retained checks](evidence/2026-10-03-neural-inputs.md).
 
-Jack's private April encoder and callback source are staged by
-`xmage_jack_sources.py`, with both original file hashes required. The base
+The maintainer's private April encoder and callback source are staged by
+`xmage_maintainer_sources.py`, with both original file hashes required. The base
 encoder uses the acting viewer, named permitted entity references and known
 library cards in public alias order. Text embeddings come from a pinned
 read-only cache. The candidate extraction preserves the original priority
@@ -387,11 +387,11 @@ reconstructed world. Extraction failures refuse the decision; more than 64
 offered choices are refused without truncation. Other callback paths are not
 exposed by this bridge.
 
-`xmage_model_build.py --jack-inputs PRIVATE_ROOT --jack-manifest INPUTS.json`
-adds these private sources to the reviewed build. `JackEncoderMain` takes a
+`xmage_model_build.py --maintainer-inputs PRIVATE_ROOT --maintainer-manifest INPUTS.json`
+adds these private sources to the reviewed build. `MaintainerEncoderMain` takes a
 record or `--stdio`, the embedding path and hash, both staged source hashes,
 and a seed record or `--request-seeds`. It returns original priority features
-and the corresponding offered candidate IDs. `JackEncoderCheck` prepares two
+and the corresponding offered candidate IDs. `MaintainerEncoderCheck` prepares two
 real active and nonactive priority views, checks their hand/ownership and
 candidate binding, and compares features across different hidden samples.
 Build 039 compiles with JDK 23.0.1. Both real active and nonactive priority
@@ -404,7 +404,7 @@ passes in the later confined checks described above. Other callbacks and
 exact checkpoint deck associations,
 complete games and rating qualification remain unfinished.
 
-The private paired inference component `xmage_jack_inference.py` verifies the
+The private paired inference component `xmage_maintainer_inference.py` verifies the
 actual own deck against the checkpoint association before starting its owned
 container. Readiness binds both weight hashes, both network sources, the
 original Java sources, the selected embedding cache and the fixed network
@@ -415,12 +415,12 @@ This component consumes encoded features; it does not choose public actions.
 
 The stage also writes private `PolicySelector.java`, extracting the original
 float32 normalization, first-index greedy choice and sequential sampling
-without replacement. The private `JackSelectionMain` pipe and
-`xmage_jack_selection.py` preserve these original indices and an explicitly
+without replacement. The private `MaintainerSelectionMain` pipe and
+`xmage_maintainer_selection.py` preserve these original indices and an explicitly
 selected no-training profile. The original evaluation path uses greedy play.
 An optional sampled profile uses one Java RNG per game with its declared
 protocol seed. Source identities and changed fairness behavior are recorded
-in [jack-play-profiles.json](../jack-play-profiles.json).
+in [maintainer-play-profiles.json](../maintainer-play-profiles.json).
 
 Generic candidate helpers expose the original head mapping, IDs, features
 and combat candidate type in the private stage. The game bridge still exposes
@@ -598,7 +598,7 @@ uncertain container cleanup retains the work directory. No trained MageZero
 checkpoint or complete game has been qualified by these frontend tests.
 
 
-`JackGeneralTargetEncoderMain` and `xmage_jack_general_targets.GeneralTargetSession`
+`MaintainerGeneralTargetEncoderMain` and `xmage_maintainer_general_targets.GeneralTargetSession`
 extend the original general target loop to `choose_cost_target`, `select_object`
 and `finish_selection`, alongside spell targets. They preserve source, visible
 references, selected count, range and the original wire echo. Only callback
@@ -615,11 +615,11 @@ incompatible public/original ranges, private native execution, exact decks,
 complete games, ratings and publication remain unqualified. Public normalization
 checks and transport tests do not qualify the full agent.
 
-## Original Jack activation replay
+## Original maintainer activation replay
 
-`xmage_jack_native_runtime.py` connects the public frontend to the original
+`xmage_maintainer_native_runtime.py` connects the public frontend to the original
 priority, mulligan and activation player in one game-owned session. It requires
-the complete private player build, including `JackModeEncoder`, and the existing
+the complete private player build, including `MaintainerModeEncoder`, and the existing
 reservation and containment guards. The active research hold prevents native
 startup. Arena run/bench run still owns substantial-work throughput and storage
 qualification.
@@ -640,7 +640,7 @@ fixture clears that default. The working-space projection also failed after two
 compile attempts. Both attempts and synthetic files were losslessly packed and
 verified in D/E copies, restoring the 335 MiB native reserve.
 
-Evidence is retained under `E:/spellbench-xmage-all-20261002/jack-mode-replay-001`.
+Evidence is retained under `E:/spellbench-xmage-all-20261002/maintainer-mode-replay-001`.
 Native resolution passes and priority continuation, remaining callback families, refreshed full
 build/native preparations, trained-weight complete games and deck associations
 remain unfinished. These metadata results do not qualify or rate a bot.
@@ -661,7 +661,7 @@ two identical named-callback metadata JVM runs and 72 affected Python checks
 pass. The original priority/choice, binary/X and spell-mode metadata checks also
 pass with the new hook. Invalid labels, slots, counts, sources and IDs refuse
 before inference. Evidence is under
-`E:/spellbench-xmage-all-20261002/jack-named-replay-001`. Native runtime, large
+`E:/spellbench-xmage-all-20261002/maintainer-named-replay-001`. Native runtime, large
 card-name domains, remaining callbacks and complete trained-weight games remain
 unqualified. Original private bodies and weights remain outside public Git.
 
@@ -680,7 +680,7 @@ named-choice, binary/X/mode and original priority/choice checks also pass, along
 with 81 affected Python checks. Production components compiled with JDK23.0.1
 target8; subsequent fixture repairs reuse those exact production classes.
 Failed fixture sources/logs remain retained. Evidence is under
-`E:/spellbench-xmage-all-20261002/jack-target-replay-001`. This does not qualify
+`E:/spellbench-xmage-all-20261002/maintainer-target-replay-001`. This does not qualify
 native callbacks or complete trained-weight games.
 
 Provided-card replay now enters both the actual neural group loop and inherited
@@ -700,11 +700,11 @@ Target, named-choice, binary/X/mode and original priority/choice regressions pas
 JDK23.0.1 target8 compiled the production classes; the later multi-pick fixture
 compile reuses those classes. The first fixture's incorrect following-X head
 expectation and its failed log remain retained. Evidence is under
-`E:/spellbench-xmage-all-20261002/jack-card-replay-001`. Metadata checks use synthetic
+`E:/spellbench-xmage-all-20261002/maintainer-card-replay-001`. Metadata checks use synthetic
 scores. Native callbacks, actual pretrained inference, general source contexts,
 native priority/resolution execution and complete games remain unqualified.
 
-`JackLondonPlan` now connects the original player's pregame bottoming callback
+`MaintainerLondonPlan` now connects the original player's pregame bottoming callback
 to the production root dispatcher and game-owned model/chooser session. Each
 one-card callback ranks the entire remaining hand with the original `card_select`
 head, complete sequential draw and cache signature. It applies the original last
@@ -717,7 +717,7 @@ The frontend therefore binds the generated sequence to subsequent public substep
 with unchanged observation, group, step and remaining-menu checks. These substeps
 do not make another session or model call. The ordinary session, clock and
 failure cleanup remain shared; an interrupted or changed group refuses. Full
-private runtime builds require `JackLondonPlan`; reduced encoder builds exclude it.
+private runtime builds require `MaintainerLondonPlan`; reduced encoder builds exclude it.
 
 All 150 affected Python checks pass. Two normalized metadata JVM outputs match
 for 1/2/7-card hands, complete shrinking-hand ranks, singleton shortcuts, bottom
@@ -725,11 +725,11 @@ order, first wire selection and malformed-menu refusal. Card, target, named,
 binary/X/mode and original root regressions pass. JDK23.0.1 target8 compiled the
 production classes. The checked-exception compile repair, pregame fixture repairs
 and Python fixture failure remain retained. Evidence is under
-`E:/spellbench-xmage-all-20261002/jack-london-plan-001`. Fixtures use synthetic
+`E:/spellbench-xmage-all-20261002/maintainer-london-plan-001`. Fixtures use synthetic
 scores and metadata card movement; native movement, actual checkpoints and full
 games remain unqualified under the research resource hold.
 
-`JackCombatPlan` now connects root attack and block groups to the actual original
+`MaintainerCombatPlan` now connects root attack and block groups to the actual original
 player callbacks and existing game-owned model/chooser stream. It binds the first
 public creature and targets to the named current battlefield before inference,
 then collects the original declarations. The original loops retain DONE-last
@@ -740,14 +740,14 @@ refuse before additional inference; supported simulation admission remains owned
 
 The frontend retains that whole combat plan across declaration substeps through
 the existing public state/group checks, without another session or model call.
-Full runtime builds require `JackCombatPlan`; reduced encoder builds exclude it.
+Full runtime builds require `MaintainerCombatPlan`; reduced encoder builds exclude it.
 All 250 affected Python checks pass. Two normalized combat metadata JVM outputs
 match for attacks, multiple defenders, blocks, DONE, original draw counts,
 first wire binding and nested failure closure. Hidden-card reads are denied in
 the fixture. London, card, target, named, binary/X/mode and original root checks
 also pass. JDK23.0.1 target8 compiled the generated original callback/CombatRules
 and public components. Fixture API and player-reference failures remain retained
-under `E:/spellbench-xmage-all-20261002/jack-combat-plan-001`.
+under `E:/spellbench-xmage-all-20261002/maintainer-combat-plan-001`.
 
 The root binding also mirrors the engine's full declaration slot schedule before
 inference: active creature order, group block eligibility and limited/unlimited
@@ -759,14 +759,14 @@ the model. Unexpected repeats, changed slots and unoffered declines refuse.
 All 265 affected Python checks and two fresh JVM outputs pass, including
 additional/unlimited block capacity, unchanged original draw counts and both
 held and rendered observations. The shared DraftZero combat binder is unchanged.
-Evidence is under `E:/spellbench-xmage-all-20261002/jack-combat-slots-001`.
+Evidence is under `E:/spellbench-xmage-all-20261002/maintainer-combat-slots-001`.
 
 Combat legality and declarations in these fixtures are explicit metadata
 overrides, with synthetic policy scores. Native declaration legality and
 multi-block games, nested callback replay, actual pretrained inference and
 complete games remain unqualified under the research resource hold.
 
-`JackPriorityState` now captures and restores the original inherited target
+`MaintainerPriorityState` now captures and restores the original inherited target
 queue alongside alternative-cost state. Capture reads the admitted original
 player's actual queue and exports independent complete visible references.
 Restoration verifies every reference against the saved root observation and
@@ -780,7 +780,7 @@ All 276 affected Python checks and two fresh metadata JVM outputs pass for
 hidden-reference denial and pre-activation refusal. Actual inherited card queue
 consumption and prior callback/combat/London regressions pass. The initial fixture
 checked-exception compile failure is retained under
-`E:/spellbench-xmage-all-20261002/jack-priority-queue-001`.
+`E:/spellbench-xmage-all-20261002/maintainer-priority-queue-001`.
 Immediate activation-to-priority continuation now reconstructs the saved anchor
 world and restores its queue and alternative costs. The actual original activation
 body consumes every recorded callback, with no model or physical-copy draws.
@@ -797,7 +797,7 @@ match for 0/1/2 callback prefixes, stack and phase passes, original activation
 cleanup, zero replay draws and fresh original dispatch. Prior callback, queue,
 combat and London regressions pass. Evidence, including both initial fixture
 failures, is retained under
-`E:/spellbench-xmage-all-20261002/jack-priority-continuation-001`.
+`E:/spellbench-xmage-all-20261002/maintainer-priority-continuation-001`.
 The activation fixture overrides legality and stack use, so native ability
 legality, native priority-pass/stack-resolution execution, nested combat callbacks,
 refreshed full builds, trained weights and complete games remain unqualified
@@ -807,7 +807,7 @@ Saved public passes on a visible nonempty stack now connect to actual game resum
 and the original resolving callback or next priority dispatch. The frontend retains
 the pass anchor and sampling seeds. Serving validates exact public passed-seat
 facts and the resulting opponent-pass order before entering the JVM. The admitted
-original player applies its saved pass; `JackReplayOpponent`, a non-playing helper,
+original player applies its saved pass; `MaintainerReplayOpponent`, a non-playing helper,
 permits only recorded opponent priority passes while replay is bound. Opponent
 menus, targets, triggered-ability choices and other unrecorded decisions refuse.
 The bridge consumes recorded callback prefixes without another model/copy draw
@@ -822,7 +822,7 @@ recorded binary prefixes and opponent-already-passed cases. Saved/public pass bo
 resolving X, next original priority, owned pause and pre-inference refusals pass;
 previous callback, bootstrap, queue, combat and London regressions remain passing.
 Evidence retains the initial runtime-fixture failure under
-`E:/spellbench-xmage-all-20261002/jack-resolution-replay-001`.
+`E:/spellbench-xmage-all-20261002/maintainer-resolution-replay-001`.
 The fixture scripts resume and stack contents, so this does not qualify the native
 event loop or stack legality. Other phase transitions, library-position transport,
 nested combat replay, refreshed full builds, trained weights and
@@ -845,12 +845,12 @@ metadata JVM outputs match for one, two and three discards, every prefix, both
 opponent-pass states and same-name direct choices. Changed phase, hand, source,
 group or actual target range refuses before inference. Previous resolution and
 callback regressions pass. Evidence is retained under
-`E:/spellbench-xmage-all-20261002/jack-cleanup-replay-001`, including initial fixture
+`E:/spellbench-xmage-all-20261002/maintainer-cleanup-replay-001`, including initial fixture
 failures. Resume and target legality are scripted metadata; native cleanup and
 complete trained-weight games remain unqualified.
 
 Original callback reconstruction now supplies the full replay record to
-`JackPermittedWorlds.buildReplay`. `JackReplayKnowledge` conditions a separate
+`MaintainerPermittedWorlds.buildReplay`. `MaintainerReplayKnowledge` conditions a separate
 sampling observation on permitted named own-library facts from earlier and current
 callbacks. Root visibility remains unchanged: new IDs can bind reconstructed
 objects without entering the root's named alias map, knowledge watcher or feature
@@ -874,12 +874,12 @@ request tokens match the original encoder after the actual own look. Invalid poo
 refuse before native bootstrap. Prior registry, cleanup, resolution, activation,
 queue, combat, London and callback checks pass. Initial fixture failures and a
 post-check storage-reserve failure are retained under
-`E:/spellbench-xmage-all-20261002/jack-library-replay-001`; archive-verified duplicate
+`E:/spellbench-xmage-all-20261002/maintainer-library-replay-001`; archive-verified duplicate
 recovery restored the reserve without changing tested sources. Native reconstruction,
 position transport, shuffle/movement history and trained-weight games remain open.
 
 Before projecting a replay decision or admitting its named aliases,
-`JackReplayKnowledge.verifyPositions` checks each permitted library fact against
+`MaintainerReplayKnowledge.verifyPositions` checks each permitted library fact against
 the reconstructed owner's actual UUID order. A card must belong to that library;
 any supplied top or bottom index must match. An unpositioned fact is accepted only
 for a search. The check never fetches a hidden card name. This prevents a stale or
@@ -888,13 +888,13 @@ look. Two fresh metadata JVM outputs match, including either player's permitted
 library, one-sided positions, a real rearrangement and refusal before original
 activation or scoring. All fourteen existing Java replay checks pass. Initial
 fixture failures are retained under
-`E:/spellbench-xmage-all-20261002/jack-library-position-001`. This guard does not
+`E:/spellbench-xmage-all-20261002/maintainer-library-position-001`. This guard does not
 implement position transport or qualify native library reconstruction.
 
 Empty-stack priority passes can now resume to a later priority phase in the same
 turn with the same active player. The frontend retains the selected pass, complete
 original priority state, exact public opponent-pass sequence and reconstruction
-seeds. `JackDialogReplay` applies the original pass and resumes the reconstructed
+seeds. `MaintainerDialogReplay` applies the original pass and resumes the reconstructed
 engine. Its actual projected observation must match the requested decision before
 the next original priority dispatch scores anything. Both serving and frontend
 require the phase-advance receipt; unrecorded intervening choices or priority calls
@@ -908,7 +908,7 @@ They compare real projections and reject a reached phase that differs before
 scoring. All fifteen existing Java replay checks pass. Resume itself is scripted
 metadata, so native automatic actions, draws, phase legality and event-loop
 qualification remain open. Evidence lives under
-`E:/spellbench-xmage-all-20261002/jack-phase-advance-001`.
+`E:/spellbench-xmage-all-20261002/maintainer-phase-advance-001`.
 
 Ordinary `choose_number` amount prompts now bind the inherited `getAmount` callback
 through the original replay and frontend. They use the unchanged parent chooser,
@@ -929,7 +929,7 @@ Answers and engine RNG consumption match a separate player running the unchanged
 inherited parent body. All sixteen existing Java replay checks pass. Initial oracle
 fixture compile failures, the superseded current-only oracle check and storage
 refusals remain retained under
-`E:/spellbench-xmage-all-20261002/jack-amount-replay-001`. Verified compression of
+`E:/spellbench-xmage-all-20261002/maintainer-amount-replay-001`. Verified compression of
 inactive duplicates retained both evidence copies and the native reserve. Actual
 native amount prompts, larger-range wire behavior and complete games remain open.
 
@@ -940,12 +940,12 @@ and sources against the actual map iterator order. Equal card names or effect
 labels do not merge choices. Null/single replacement menus remain implicit.
 Earlier answers are checked against the original fixed policy; disagreement closes
 the session before the current choice. Full runtime builds require
-`JackInheritedChoices`; reduced builds exclude it.
+`MaintainerInheritedChoices`; reduced builds exclude it.
 
 310 affected Python checks pass, including five new frontend checks. Two fresh
 metadata JVMs match across 96 parent-oracle cases, and all seventeen existing Java
 checks pass. No neural or physical-copy draws occur in these inherited choices.
-Evidence: `E:/spellbench-xmage-all-20261002/jack-inherited-replay-001`.
+Evidence: `E:/spellbench-xmage-all-20261002/maintainer-inherited-replay-001`.
 Nested combat, native callback qualification and complete games
 remain unfinished under the research resource hold.
 
@@ -969,14 +969,14 @@ null-source form. Unknown sources and movement into unobserved hidden zones refu
 before source lookup. These checks do not qualify native last-known-information
 behavior. Earlier answers must match the original policy. No neural, physical-copy
 or engine RNG draws occur in trigger ordering. Full runtime builds require
-`JackTriggerOrder`; reduced builds exclude it.
+`MaintainerTriggerOrder`; reduced builds exclude it.
 
 300 affected Python checks pass, including five frontend cases and one additional
 runtime missing-helper case. Two fresh metadata JVM outputs match across 180
 parent-oracle cases, including engine-skipped final singletons and consecutive
 ordering groups. The previous helper fails that regression; the repaired helper
 passes, alongside all eighteen existing Java checks. Evidence:
-`E:/spellbench-xmage-all-20261002/jack-trigger-replay-001`. Fixtures use metadata
+`E:/spellbench-xmage-all-20261002/maintainer-trigger-replay-001`. Fixtures use metadata
 worlds. Native event-loop execution, nested combat, library-position transport,
 turn changes/repeated phases and complete trained-weight games remain open.
 
@@ -994,7 +994,7 @@ metadata JVM outputs match across 48 callback/priority transition cases, and all
 nineteen existing Java regressions pass. Turn/active-seat changes, reversed or
 overshooting prefixes, actual phase mismatch, missing passes and unrecorded choices
 close the session before scoring. Evidence:
-`E:/spellbench-xmage-all-20261002/jack-phase-callbacks-001`. Resume is scripted in
+`E:/spellbench-xmage-all-20261002/maintainer-phase-callbacks-001`. Resume is scripted in
 these metadata fixtures. Native phase transitions, turn changes, repeated phases,
 automatic draws, nested combat and complete games remain unqualified.
 
@@ -1008,14 +1008,14 @@ final order. Later group observations may drop known facts for selected cards,
 but cannot introduce or change facts or omit facts for remaining cards. Each
 reconstruction executes the original loop once with restored engine RNG and
 adds no policy or physical-copy draws. Other nested callbacks still refuse.
-Full runtime builds require `JackLibraryOrder`; reduced builds exclude it.
+Full runtime builds require `MaintainerLibraryOrder`; reduced builds exclude it.
 
 204 affected Python checks pass, including ten new frontend/runtime cases. Two
 fresh metadata JVM outputs match across 60 parent-oracle cases covering top and
 bottom placement, repeated card names, optional sources and all choice prefixes.
 All twenty prior Java regressions pass. Malformed menus and historical policy
 disagreement close the session before scoring. Evidence:
-`E:/spellbench-xmage-all-20261002/jack-library-order-001`. Fixtures retain the
+`E:/spellbench-xmage-all-20261002/maintainer-library-order-001`. Fixtures retain the
 pinned original ordering loop and inherited selector but script physical card
 placement. Native zone changes, replacement events, source/knowledge lifecycle,
 scry/surveil arrangements and complete trained-weight games remain unqualified.
@@ -1027,7 +1027,7 @@ finish and every amount pick, including the final singleton. Earlier answers mus
 match the original complete result. Stack targets and divided amounts follow the
 wire's staged observation lifecycle; other public state must remain unchanged.
 Implicit zero amounts retain the original false return without posing a group.
-Full runtime builds require `JackTargetAmount`; reduced builds exclude it.
+Full runtime builds require `MaintainerTargetAmount`; reduced builds exclude it.
 
 120 metadata cases match a separate unchanged parent oracle across damage,
 counters and other purposes, optional/required targets, stack/nonstack sources,
@@ -1036,7 +1036,7 @@ no extra engine, neural or copy draws. Invalid public menus, hidden identities,
 observations and historical choices refuse. All 22 existing Java regressions and
 222 affected Python checks pass. The complete runtime has 247 sources and 411
 classes, with all three architecture verifier paths passing. Evidence:
-`E:/spellbench-xmage-all-20261002/jack-target-amount-001`.
+`E:/spellbench-xmage-all-20261002/maintainer-target-amount-001`.
 
 These fixtures script target mutations and do not qualify native targeting events,
 replacement effects or changing legal-target sets. Multi-amount/combat distributions

@@ -1,0 +1,75 @@
+{
+  "schema": "spellbench-gorge-next-qualification-preparation/v1",
+  "at_utc": "2026-10-06T03:17:45.177727+00:00",
+  "source_before_commit": "90ca266ffc117d26064de2ff3310589847469b4f",
+  "native_launcher": "tools/gorge-native126-local-20261006.py",
+  "native_launcher_sha256": "994077c174f4da184595ca7197464c29e50e02351cec669eeac4b7578d307763",
+  "reference_launcher": "tools/gorge-reference127-local-20261006.py",
+  "reference_launcher_sha256": "94c6137819dbb4312a6ff4e7b6572c0622bd4ae3df552ae53a3e29049ae99f48",
+  "runtime_source_binding": {
+    "runtime_source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
+    "compiled_gorge_source_identical": true,
+    "reference_launcher_source_changes": [],
+    "current_reference_requalification_required": true
+  },
+  "reference_selection_and_gates_unchanged": true,
+  "checks": [
+    {
+      "recipe": "gorge-native126-local-20261006.py",
+      "mode": "--prepare",
+      "refused": true,
+      "expected_error": "Placement census must be refreshed",
+      "job_roots_created": false
+    },
+    {
+      "recipe": "gorge-native126-local-20261006.py",
+      "mode": "--dispatch",
+      "refused": true,
+      "expected_error": "Placement census must be refreshed",
+      "job_roots_created": false
+    },
+    {
+      "recipe": "gorge-reference127-local-20261006.py",
+      "mode": "--prepare",
+      "refused": true,
+      "expected_error": "Native attempt is not the declared sealed recovery",
+      "job_roots_created": false
+    },
+    {
+      "recipe": "gorge-reference127-local-20261006.py",
+      "mode": "--dispatch",
+      "refused": true,
+      "expected_error": "Native attempt is not the declared sealed recovery",
+      "job_roots_created": false
+    }
+  ],
+  "canonical_state_unchanged": true,
+  "original_interrupted_native124_seal_unchanged": true,
+  "native126_roots_created": false,
+  "reference127_roots_created": false,
+  "research_priority_release_required_before_heavy_work": true,
+  "heavy_dispatch_queued": false,
+  "evaluation_started": false,
+  "new_paid_compute_usd": 0,
+  "rated_games": 0,
+  "positive_native_gate_test_pending": true,
+  "positive_reference_admission_pending": true,
+  "next_wake": "Explicit bounded research release/handback, then refreshed three-host census/placement, guarded native126 scaling/full audit, terminal recovery, and positive reference127 admission",
+  "affected_tests": {
+    "passed": 62,
+    "elapsed_seconds": 22.24,
+    "command": ".venv/Scripts/python.exe -m pytest python/tests/test_gorge_local_recovery.py python/tests/test_gorge_local_reference_recovery.py python/tests/test_gorge_local_reference_result.py python/tests/test_gorge_runtime_source.py python/tests/test_gorge_reference_matrix.py -q"
+  },
+  "native_prepare_command": ".venv/Scripts/python.exe tools/gorge-native126-local-20261006.py --prepare --census <fresh-three-host-census.json> --placement <current-placement>",
+  "native_dispatch_command": "Base Python tools/gorge-native126-local-20261006.py --dispatch --census <fresh-three-host-census.json> --placement <current-placement>",
+  "reference_prepare_command": ".venv/Scripts/python.exe tools/gorge-reference127-local-20261006.py --prepare --native-seal-sha256 <positive-native126-seal> --cleanup-sha256 <native126-cleanup> --census <fresh-three-host-census.json> --placement <current-placement>",
+  "scope": {
+    "native_blocks": 320,
+    "native_games": 640,
+    "reference_games": 140,
+    "reference_cells": 60,
+    "native_participant_receipts": 160,
+    "rated_games": 3640
+  },
+  "operator_condition": "Do not prepare roots or dispatch heavy work until the research lead explicitly releases its bounded allocation. A free snapshot alone does not establish handback."
+}

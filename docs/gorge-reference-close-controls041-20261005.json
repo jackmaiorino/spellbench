@@ -1,0 +1,40 @@
+{
+  "schema": "spellbench-gorge-reference-close-controls/v1",
+  "phase": "prepared_unexecuted",
+  "source_of_record": "E:\\spellbench-gorge-reference-close-controls-20261005-041",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-close-controls-20261005-041",
+  "files": {
+    "gorge-close-reference041-20261005.py": {
+      "bytes": 10509,
+      "sha256": "2cee990a45356115dcb209262caac70f82332feec4ceb6faee21b7d7bbabcad5"
+    },
+    "gorge-derive-reference-close041-20261005.py": {
+      "bytes": 4779,
+      "sha256": "ad7da0a8d27670c836bb29bfd3798b496acb3150863f03e01f0b6182fca14879"
+    },
+    "gorge-reconcile-released-reference041-20261005.ps1": {
+      "bytes": 4573,
+      "sha256": "8ff031ad7a05d777cde25b7894257ebaf195226f809783972ddd0d1bce7ede78"
+    }
+  },
+  "independent_recovery_verified": true,
+  "required_job": "D:/e-scratch/spellbench-gorge-runpod-20261005-041",
+  "required_prior_ledger": "E:/spellbench-gorge-billing-20261005-020",
+  "output_ledger": "E:/spellbench-gorge-billing-20261005-021",
+  "required_runtime": "E:/spellbench-gorge-runtime-20261005-040",
+  "cleanup_requires": "Actual create-response id/name, verified final recovery, finished owner, confirmed pod absence, completed guardian, own task and credential removal.",
+  "qualification_requires": "Passing actual140-game/60-cell reference matrix, matched allocation, natural unique rows, pinned native admission, and identical preselected replay.",
+  "cap_usd": 10,
+  "prospective_lease_maximum_usd": 1.2,
+  "cap_failure_retains_evidence": true,
+  "allocation_created": false,
+  "new_cloud_spend_usd": 0,
+  "native_admission_proved": false,
+  "budget_admission_proved": false,
+  "validation": {
+    "python_ast_passed": true,
+    "powershell_parser_pending": false,
+    "powershell_parser_passed": true
+  },
+  "seal_sha256": "f30f63829cabca6dd116cef6e0305f682f23020cdfee65c1abfb8a92de498cb5"
+}

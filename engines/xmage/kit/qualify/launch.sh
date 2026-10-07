@@ -10,8 +10,8 @@
 #   P2_COMMIT  overrides P2's git revision (a copied python/ tree)
 #   ENGINE_MANIFEST_SHA256  the reviewed engine's manifest hash: the engine starts through P's verified entry
 #   OUT      this machine's run directory (on a volume with the 60 GiB reserve free)
-#   MACHINE  main-pc | haleyspc | runpod           PLAN    the shared plan.json
-#   CAP      qualify: the top rung's workers       PLACEMENT  qualify: 'main-pc=...: why; haleyspc=...: why; runpod=...: why'
+#   MACHINE  main-pc | computehost | runpod           PLAN    the shared plan.json
+#   CAP      qualify: the top rung's workers       PLACEMENT  qualify: 'main-pc=...: why; computehost=...: why; runpod=...: why'
 #   FRACTION, PART  run: this machine's share of the order (one machine: 1.0, A)
 #   LIMIT, TAIL, SKIP_ROWS  run, optional: the first or last N remaining games of the part; other machines' rows
 #   ENTRIES  plan: entries, default "h1 h2" (kit-mcts waits for its own qualification)

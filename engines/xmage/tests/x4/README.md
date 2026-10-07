@@ -7,7 +7,7 @@ thread and the exchange).
 
 ## Command
 
-On HaleysPC, engine built from branch `xmage-x0-x1` at `5e40ea8` with `scripts/build.sh` (identity strings
+On the compute host, engine built from branch `xmage-x0-x1` at `5e40ea8` with `scripts/build.sh` (identity strings
 unchanged from X1: no core patch was added), P's stack at protocol-v2 `4b588a1`:
 
 ```bash
@@ -36,7 +36,7 @@ The script runs, in order, at below-normal priority (the machine was shared):
 
 ## Results (2026-10-01)
 
-All files are in `evidence/` (`BUILD-MANIFEST-haleyspc.json` is the build's manifest).
+All files are in `evidence/` (`BUILD-MANIFEST-computehost.json` is the build's manifest).
 
 | Run | Games | Endings | Live-validator violations | Host halts | Decisions checked |
 |---|---:|---|---:|---:|---:|

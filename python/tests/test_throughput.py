@@ -27,7 +27,7 @@ from spellbench.wire import canonical_json_dumps
 
 DIGEST = "sha256:" + "0" * 64
 OTHER = "sha256:" + "1" * 64
-PLACEMENT = ("main-pc=used: fastest measured; haleyspc=slower: about half the speed per game; "
+PLACEMENT = ("main-pc=used: fastest measured; computehost=slower: about half the speed per game; "
              "runpod=not_authorized: no spending authority for this run")
 FIRST_16 = tuple(range(16))
 MACHINE = MachineFacts(memory_bytes=2**36, gpus=(), free_bytes=(("pin_root", 2**42), ("run_dir", 2**42)))
@@ -236,14 +236,14 @@ def test_a_substantial_run_needs_a_placement_naming_every_machine() -> None:
     for placement in (None, "   "):
         with pytest.raises(ThroughputError, match="placement"):
             _plan(play, placement=placement)
-    with pytest.raises(ThroughputError, match="main-pc, haleyspc and runpod"):
+    with pytest.raises(ThroughputError, match="main-pc, computehost and runpod"):
         _plan(play, placement="this PC only")
 
 
 def test_the_placement_names_each_machine_once_with_a_disposition_and_a_reason() -> None:
     placement = Placement.parse(PLACEMENT)
     assert [(entry.machine, entry.disposition) for entry in placement.entries] == [
-        ("main-pc", "used"), ("haleyspc", "slower"), ("runpod", "not_authorized")]
+        ("main-pc", "used"), ("computehost", "slower"), ("runpod", "not_authorized")]
     assert Placement.parse(str(placement)) == placement == Placement.from_json(placement.to_json())
     assert placement.to_json()["runpod"] == {"disposition": "not_authorized", "reason": "no spending authority for this run"}
     for bad in (
@@ -254,7 +254,7 @@ def test_the_placement_names_each_machine_once_with_a_disposition_and_a_reason()
         PLACEMENT.replace("main-pc=used", "main-pc=slower"),  # no machine used
         PLACEMENT + "; laptop=unavailable: off",  # an unknown machine
     ):
-        with pytest.raises(ThroughputError, match="main-pc, haleyspc and runpod"):
+        with pytest.raises(ThroughputError, match="main-pc, computehost and runpod"):
             Placement.parse(bad)
 
 
@@ -263,6 +263,40 @@ def test_outputs_that_change_with_the_worker_count_are_refused() -> None:
     with pytest.raises(ThroughputError, match="changed the results"):
         _plan(play, cap=2)
     assert _counts(calls) == [(1, 4), (2, 4), (1, 4)]  # the 1-worker trial was replayed and reproduced itself
+
+
+def test_github_placement_preserves_required_checks_and_measured_allocation(tmp_path: Path) -> None:
+    note = ("main-pc=unavailable: reserved; computehost=unavailable: priority window; "
+            "runpod=not_authorized: remaining cap cannot cover a lease; "
+            "github-actions=used: standard public runner with observed resources")
+    play, calls = _player(10.0, {2: 1.8, 4: 3.5})
+    allocation = _plan(play, cap=4, placement=note, evidence=tmp_path / "evidence.jsonl", workload=DIGEST)
+    assert allocation.kind == "substantial" and allocation.workers == 4 and allocation.outputs_identical
+    assert [workers for workers, _ in calls] == [1, 2, 4]
+    assert all(indices == tuple(range(8)) for _, indices in calls)
+    assert Allocation.from_json(allocation.to_json()) == allocation
+    assert Placement.parse(str(allocation.placement)) == allocation.placement
+    assert allocation.to_json()["placement"]["runpod"]["disposition"] == "not_authorized"
+    # A named additional host neither drops required machines nor permits
+    # duplicate, unknown or unused-only placement claims before the probe.
+    for bad in (note.replace("main-pc=unavailable: reserved; ", ""),
+                note + "; github-actions=used: duplicate",
+                note.replace("github-actions=used", "github-actions=unavailable"),
+                note + "; laptop=used: unknown"):
+        before = len(calls)
+        with pytest.raises(ThroughputError):
+            _plan(play, cap=4, placement=bad)
+        assert len(calls) == before
+
+
+def test_github_placement_does_not_change_legacy_serialization() -> None:
+    expected = {"main-pc": {"disposition": "used", "reason": "fastest measured"},
+                "computehost": {"disposition": "slower", "reason": "about half the speed per game"},
+                "runpod": {"disposition": "not_authorized", "reason": "no spending authority for this run"}}
+    assert canonical_json_dumps(Placement.parse(PLACEMENT).to_json()) == canonical_json_dumps(expected)
+    assert Placement.from_json(expected).to_json() == expected
+    with pytest.raises(ValidationError):
+        Placement.from_json({**expected, "github-actions": {"disposition": "used", "reason": " "}})
 
 
 def test_bots_that_read_the_clock_are_recorded_not_refused() -> None:

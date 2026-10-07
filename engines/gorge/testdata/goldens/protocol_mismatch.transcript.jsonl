@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","message":{"request_type":"hello","protocol":"spellbench/v1","request_id":"h-1","protocol_minor":0}}
+{"dir":"engine_to_host","message":{"error":{"code":"protocol_mismatch","message":"protocol spellbench/v1"},"protocol":"spellbench/v2","request_id":"h-1","response_type":"error"}}

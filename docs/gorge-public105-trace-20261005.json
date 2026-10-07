@@ -1,0 +1,35 @@
+{
+  "observed_at_utc": "2026-10-05T22:12:22.808878+00:00",
+  "source_of_record": "E:\\spellbench-gorge-public-trace-20261005-101",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-public-trace-20261005-101",
+  "seal_sha256": "c2127ef05a2622d85eb43a53b3f2477b0df4ed50ab801145409929be61f105fa",
+  "phase": "negative_public_witness_reproduced_and_recovered",
+  "generation": 222,
+  "token_fate": "released",
+  "source_commit": "8799a283c64de9597705737ab548c2b737826ccf",
+  "projection_sha256": "d722bb33bf2ab583f3bb3837f7e3e332efbdbebaf30a9fcfa7214d5524214955",
+  "frames": 93,
+  "work": {
+    "Attempts": 13,
+    "Submits": 5000,
+    "Nodes": 4531,
+    "BudgetExhausted": 1
+  },
+  "all_attempts_farthest_frame": 88,
+  "all_attempts_farthest_reason": "prefix:frame 88 identities",
+  "observed_mismatch": "Experimental Synthesizer top exile should reveal owned Goblin Tomb Raider; replay alternatives reach the same event stream with different card identities. Source repair remains unproven.",
+  "closure": {
+    "negative_witness_reproduced": true,
+    "error": null,
+    "at_utc": "2026-10-05T22:06:56.721790+00:00",
+    "elapsed_seconds": 7.1343787999940105,
+    "native_qualification_passed": false,
+    "completed_games": 0,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "native_qualification_passed": false,
+  "completed_games": 0,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0
+}

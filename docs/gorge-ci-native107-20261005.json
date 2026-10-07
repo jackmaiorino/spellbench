@@ -1,0 +1,81 @@
+{
+  "schema": "spellbench-gorge-ci-native-inputs/v1",
+  "at_utc": "2026-10-05T23:22:46.890581+00:00",
+  "phase": "prepared_unlaunched",
+  "scope": "native qualification only",
+  "source_of_record": "E:\\spellbench-gorge-hosted-native-20261005-107",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-hosted-native-20261005-107",
+  "runtime_source_of_record": "E:\\spellbench-gorge-hosted-public-replay-20261005-105\\result\\runtime",
+  "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+  "runtime_seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
+  "runtime_source_binding": {
+    "runtime_source_commit": "05c12d694e9e51100c252e7f29419d2002cccf99",
+    "compiled_gorge_source_identical": true,
+    "reference_launcher_source_changes": [],
+    "current_reference_requalification_required": true
+  },
+  "archive_sha256": "7963830b2c4203c700e37d242130e476c7b95162a732ccc38b512af95cece414",
+  "archive_bytes": 38337065,
+  "files": {
+    "BUILD.json": {
+      "bytes": 6837,
+      "sha256": "f283eabd8c414071d79d0c833ae982b9d130ffc367a9720cf6bff7a91a5138b1"
+    },
+    "gorgequal-linux-amd64": {
+      "bytes": 19055188,
+      "sha256": "f4b189a49b5c5b6e5550e9aedadc878290ad60808e4ed27ed6b2a112ee3ebe34"
+    },
+    "registry.gob.gz": {
+      "bytes": 9070329,
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+    },
+    "REGISTRY.json": {
+      "bytes": 658,
+      "sha256": "cac8c4a8ca2b30cd91b3c788af106ab8f4259d72a7686282d73268185d9565fb"
+    },
+    "spellbench-gorge-agent-linux-amd64": {
+      "bytes": 18197135,
+      "sha256": "ac30ab1726ecf76655621c047fd2881f98315bcbb19f96a5bda8e01245881a66"
+    },
+    "spellbench-gorge-env-linux-amd64": {
+      "bytes": 17400308,
+      "sha256": "dc828979bc8b6f8926ac518875cd7dab5baa298b344844263ad95761e97fcd00"
+    }
+  },
+  "placement": "main-pc=unavailable: observed research terminal-credit-execution-20261005 generation240 and explicit research hold; computehost=unavailable: explicit research hold, hardware and SSH checked; runpod=not_authorized: HTTP200 inventory checked, no new lease fits conservative9.99736347USD reservation under10USD; github-actions=used: standard public runner, matched serial/parallel guard selects shortest qualified wall time before substantial work",
+  "resource_census_sha256": "f3ecd29c2342a3068f950d79eeb0de78215e2f2e69eaf524cc60c529ed05b85c",
+  "repository_private": false,
+  "conservative_reserved_total_usd": 9.99736347,
+  "billing_source_of_record": "E:/spellbench-gorge-billing-20261005-042",
+  "billing_seal_sha256": "6b540954b94c707e3606f5e190a8a71f418dd0d50d5eb1b983e5032b22f31036",
+  "launch_authorized": true,
+  "saved_public_prefixes_passed": true,
+  "saved_public_prefix_seal_sha256": "57651fcff265bb07f0ae91c4714ec77dd2ed4eba6edebbacdb888a3d31167a86",
+  "whole_game105_passed": true,
+  "whole_game105_validation_record": "docs/gorge-hosted-regression106-report-validation-20261005.json",
+  "whole_game105_report_sha256": "083228da6338f12c4209c2d50c7a5e4cbe57ec6830a32d4b78a0e3d5305a2cae",
+  "original_regression106_failed_wrapper_preserved": true,
+  "actions_artifact_upload": false,
+  "actions_cache_upload": false,
+  "input_stage_private_draft": true,
+  "result_private_draft": true,
+  "result_artifact_cap_bytes": 268435456,
+  "planned_wall_cap_seconds": 18000,
+  "cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0,
+  "release_id": 404166041,
+  "release_asset_id": 613869137,
+  "release_tag": "gorge-reference-native107-20261005",
+  "raw_native_launch_used": false,
+  "guard_path": "gorge-qualify-ci.py -> qualify_native.py -> arena.throughput.plan_allocation",
+  "worker_selection": "wall",
+  "checks": {
+    "affected_tests_passed": 109,
+    "historical_native069_declaration_refused": true,
+    "private_preflight_failure_archive_verified": true,
+    "full_native_gate_unchanged": true
+  },
+  "next_wake": "Explicit native-ci commit/push on canonical branch after source review; supported launcher qualifies actual serial/parallel identical outputs before full audit"
+}

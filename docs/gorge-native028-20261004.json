@@ -1,0 +1,110 @@
+{
+  "at_utc": "2026-10-04T23:40:47.673294+00:00",
+  "phase": "released_native_qualification_incomplete",
+  "pod_id": "3k5tp0g34mkmoe",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-028",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-028",
+  "release": {
+    "at_utc": "2026-10-04T23:40:41.5148487+00:00",
+    "name": "spellbench-gorge-native-2c89b4183fac4378",
+    "pod_id": "3k5tp0g34mkmoe",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "a85d5f2186762b60a99b907f1512663f8a313672e82962a5cb3cc2d420c8cca6",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 5.71347147,
+    "maximum_lease_usd": 1.55,
+    "conservative_cumulative_lease_ceiling_usd": 7.26347147,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-04T23:29:01.720441+00:00",
+    "phase": "closed",
+    "runtime_reused": true,
+    "runtime_build_passed": false,
+    "native_qualification_passed": false,
+    "elapsed_seconds": 2404.7764222910046,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261004-027",
+  "runtime_seal_sha256": "b7be1bb34ad813cad9e4663c86bc629bb2092f4a49b26e05aafdee66794b23f3",
+  "native_audit": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-04T23:29:01.719432+00:00",
+      "phase": "supported_native_qualification",
+      "error_type": "RuntimeError",
+      "error": "Supported native qualifier exit 1",
+      "rated_games": 0
+    },
+    "native-001/EARLY-NATIVE-FAILURE.json": {
+      "at_utc": "2026-10-04T23:28:57.951688+00:00",
+      "game": 52,
+      "cell": "Wildfire/search-mana-redeal",
+      "coverage": {
+        "Natives": 629,
+        "Eligible": 182,
+        "Attempted": 91,
+        "Covered": 67,
+        "Attempts": 5824,
+        "Accepted": 4,
+        "Worlds": 536,
+        "Rollouts": 2136,
+        "Submits": 1973003,
+        "Terminal": 2136,
+        "Capped": 0,
+        "Redealt": 536,
+        "ReconstructionAttempts": 91,
+        "ReconstructionSubmits": 165433,
+        "ReconstructionNodes": 122300,
+        "ReconstructionBudgetExhausted": 24,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 24
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 91,
+          "insufficient worlds/ESS": 24
+        },
+        "Kinds": {
+          "attackers": 1,
+          "cast": 19,
+          "mana": 47
+        }
+      },
+      "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-04T23:40:47.673294+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-009",
+    "prior_closed_ledger_seal_sha256": "a8bbbee43a32867c1e6af7ec480eb0f05c81da76addadb543e0b2cb66f0c823b",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 3194.845461,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.46061,
+    "conservative_cumulative_lease_ceiling_usd": 6.17408147,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-010",
+  "billing_seal_sha256": "8266eea6e5322b9ab1d199b71abf7a998aa17df6f95d01f4a441d04d5f2e7c20",
+  "seal_sha256": "1356d74bf7d96bef8b8e0fce870ba18bfed5ddc2825ba0f71278dbee7e2c9e2f"
+}

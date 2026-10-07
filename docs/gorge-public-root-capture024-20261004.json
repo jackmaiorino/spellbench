@@ -1,0 +1,118 @@
+{
+  "at_utc": "2026-10-04T21:34:59.304267+00:00",
+  "phase": "released_valid_public_failure_capture",
+  "pod_id": "c2sd1b4g72gyf5",
+  "release": {
+    "at_utc": "2026-10-04T21:32:26.9316882+00:00",
+    "name": "spellbench-gorge-native-dd62b297d07a4811",
+    "pod_id": "c2sd1b4g72gyf5",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "e10a4f189cfbf074de36b94bb717161a0a6d19e931614ce2b1dba75b2c259ce5",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 4.89914747,
+    "maximum_lease_usd": 0.5625,
+    "conservative_cumulative_lease_ceiling_usd": 5.46164747,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-04T21:27:53.846981+00:00",
+    "phase": "closed",
+    "diagnostic_passed": true,
+    "elapsed_seconds": 596.9742112020031,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "first_failure": "First364-frame root exhausts5000 submits in4858 nodes, one attempt",
+  "checks": {
+    "passed": true,
+    "at_utc": "2026-10-04T21:27:53.846790+00:00",
+    "seed52_complete_row_equal": true,
+    "public_prefix182_equal": true,
+    "first_failure_frames": 364,
+    "unchanged_full_qualification_gate_failed": true,
+    "diagnostic_teacher_parallelism": 16,
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "published_entries": 0
+  },
+  "full_original_row_equal_locally": true,
+  "original_seed52_digest": "sha256:dc6a7513e6af2b911d09d442fb763b2b71fcac914999e48da7ffeb1b9c6746ee",
+  "first_public_root_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+  "pinned_fingerprint": "4e081d8104fbe09256edb9fa696ce6f7",
+  "remedy": "Trace exact364-frame public reconstruction to diagnose failing branches; full original seed52 and earlier182-frame history equality established; preserve zero-budget-failure gate",
+  "parity": {
+    "passed": true,
+    "fixtures": 6,
+    "teacher_parallelism": [
+      1,
+      16
+    ],
+    "full_intents_and_traces_equal": true,
+    "existing_sampler_and_teacher_parallelism2_checks_passed": true,
+    "scope": "Shipped fixtures only; seed52 complete row separately required"
+  },
+  "binary_pins": {
+    "at_utc": "2026-10-04T21:20:06.036928+00:00",
+    "binary_sha256": "66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d",
+    "pins": {
+      "gorgequal-diagnostic": {
+        "sha256": "66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d",
+        "source_of_record": "E:\\pinned-binaries\\66a88253056a8d05ca53a07409981cb8fc0f4c5c3e2182ec55fd0dc3e9edd50d\\gorgequal-diagnostic",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-gorgequal-diagnostic"
+      },
+      "go": {
+        "sha256": "30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624",
+        "source_of_record": "E:\\pinned-binaries\\30969f97169d7f43fe6a085873d75613adc21e30818a8c61d95bd27275df4624\\go",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-go"
+      },
+      "compile": {
+        "sha256": "3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4",
+        "source_of_record": "E:\\pinned-binaries\\3780fc07130d6d45096373acf062cc316940d253e2a1d892ece03a3bdd0d21d4\\compile",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-compile"
+      },
+      "link": {
+        "sha256": "a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9",
+        "source_of_record": "E:\\pinned-binaries\\a29ac5e8f64111b0b5c5d31e452f18abf7ee79f44b421081b5509c8939d92ba9\\link",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024\\PIN-link"
+      }
+    },
+    "independent_recovery_verified": true
+  },
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-024",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-024",
+  "billing": {
+    "observed_at_utc": "2026-10-04T21:34:59.304267+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-005",
+    "prior_closed_ledger_seal_sha256": "22042270de44e5aeafe125101804cbf9744ee59ba718ef06d2357ec551504e16",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 941.253165,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.241511,
+    "conservative_cumulative_lease_ceiling_usd": 5.14065847,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0,
+    "no_capacity_attempts021_022_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-006",
+  "billing_seal_sha256": "95acef08497c6834936620c0ed83aaf710ffd4d70d86bce253257ef8d702c061",
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "seal_sha256": "c031023642b56129d609a53c25e775e79245f717641cae8610e05f07cc862ed0"
+}

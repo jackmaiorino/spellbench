@@ -1,0 +1,103 @@
+{
+  "schema": "spellbench-gorge-public-reconstruction-diagnostic/v1",
+  "source_of_record": "E:\\spellbench-gorge-reconstruction-budget-20261004-002",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reconstruction-budget-20261004-002",
+  "seal_sha256": "1c04aed939cb2f2fa7670a2f21e440668d9ee502e4850e3f21f03ee17e7ee4d4",
+  "bytes": 19660106,
+  "public_input_sha256": "6158257b5f431234299ca26d0b67e4abf543dfcc05d1e8ac810d1016a73730d4",
+  "frames": 47,
+  "options": {
+    "Seed": 54321,
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000,
+    "MinESS": 0,
+    "NoLandExclusion": false,
+    "ComparePotentialActions": false,
+    "Parallelism": 0,
+    "KnownCards": false,
+    "Redeal": {
+      "SpellbenchPublic": true,
+      "Engine": null,
+      "Observer": null
+    }
+  },
+  "result": {
+    "PublicReconstruction": {
+      "Attempts": 13,
+      "Submits": 5000,
+      "Nodes": 4907,
+      "BudgetExhausted": 1
+    },
+    "Attempts": 64,
+    "Accepted": 0,
+    "PrefixRejected": 64,
+    "BudgetExhausted": 0,
+    "Submits": 461,
+    "Duplicates": 0,
+    "ESS": 0,
+    "FirstRejection": "frame 1 events",
+    "Rejections": [
+      {
+        "Frame": 1,
+        "Component": "events",
+        "Shape": "count",
+        "Count": 41
+      },
+      {
+        "Frame": 2,
+        "Component": "events",
+        "Shape": "count",
+        "Count": 12
+      },
+      {
+        "Frame": 13,
+        "Component": "identities",
+        "Shape": "hand_to_battlefield",
+        "Count": 11
+      }
+    ],
+    "GuidedGenesis": 64,
+    "GuidedLater": 64,
+    "ArrangeWindows": 0,
+    "UnguidedConstraints": 238,
+    "IncompatibleProposals": 0,
+    "WeightDiagnostics": {
+      "Accepted": 0,
+      "LogWeightMin": 0,
+      "LogWeightMedian": 0,
+      "LogWeightMax": 0,
+      "MaxNormalizedMass": 0,
+      "Top4NormalizedMass": 0,
+      "Mass50Count": 0,
+      "Mass90Count": 0
+    },
+    "HandToStackCauses": {
+      "PolicyCompetition": 0,
+      "ObserverReference": 0,
+      "ObservedCastMissing": 0,
+      "HypotheticalExtraCast": 0,
+      "Other": 0
+    },
+    "StackRejectionContexts": null,
+    "CompetitionExclusions": 0,
+    "CompetitionResidual": 0,
+    "CompetitionUnguided": 0,
+    "LandResidual": 10,
+    "LandUnguided": 1,
+    "KnownCardClaims": 12,
+    "RedealRefused": "public reconstruction submit budget exhausted"
+  },
+  "closure": {
+    "at_utc": "2026-10-04T02:44:59.230969+00:00",
+    "exit_code": 0,
+    "wall_seconds": 6.351495300012175,
+    "host_token_fate": "released",
+    "live_descendants": [],
+    "rated_games": 0
+  },
+  "completed_games": 0,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0,
+  "qualification_complete": false
+}

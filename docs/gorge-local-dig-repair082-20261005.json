@@ -1,0 +1,238 @@
+{
+  "schema": "spellbench-gorge-local-dig-repair/v1",
+  "observed_at_utc": "2026-10-05T18:09:18.027754+00:00",
+  "repair_source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
+  "failed_native_record": "docs/gorge-local-native077-20261005.json",
+  "captured_game": 164,
+  "captured_frames": 226,
+  "capture_sha256": "90688584800a76922d3ddaae39a52c06ca5f9da8da78da713282daf8adfa5e11",
+  "captured_work": {
+    "Attempts": 5,
+    "Submits": 5000,
+    "Nodes": 4280,
+    "BudgetExhausted": 1
+  },
+  "repaired_work": {
+    "Attempts": 1,
+    "Submits": 420,
+    "Nodes": 31,
+    "BudgetExhausted": 0
+  },
+  "attempts": {
+    "78": {
+      "source_of_record": "E:\\spellbench-gorge-local-diagnostic-20261005-078",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-diagnostic-20261005-078",
+      "seal_sha256": "5ee83db10c4a0f8675e59a32746cae421f5fb2e4af6efd1c267f6e57f3cffa66",
+      "closure": {
+        "capture_completed": false,
+        "error": "RuntimeError: linked-compiler exited 2",
+        "at_utc": "2026-10-05T17:13:48.519527+00:00",
+        "elapsed_seconds": 31.147088000026997,
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "canonical_generation": 194,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "79": {
+      "source_of_record": "E:\\spellbench-gorge-local-diagnostic-20261005-079",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-diagnostic-20261005-079",
+      "seal_sha256": "00f8e6826286156603a6597e6fb7af7f3b0ec68afe11cdd082dbb372cf645a04",
+      "closure": {
+        "capture_completed": true,
+        "error": null,
+        "at_utc": "2026-10-05T17:16:54.430152+00:00",
+        "elapsed_seconds": 76.35852860001614,
+        "native_qualification_passed": false,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "canonical_generation": 195,
+      "released": true,
+      "owned_processes_absent": true
+    },
+    "80": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-080",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-080",
+      "seal_sha256": "b4852a8af22209077ed84ce5973c25820252ee693466999e297f95bf2b82f84b",
+      "closure": {
+        "at_utc": "2026-10-05T17:28:29.909972+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 8.342997999978252,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 196,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "passed": true,
+        "captured_frames": 226,
+        "captured_work_identical": true,
+        "work": {
+          "Attempts": 5,
+          "Submits": 5000,
+          "Nodes": 4280,
+          "BudgetExhausted": 1
+        },
+        "farthest_reached": 224,
+        "farthest_failed": 224,
+        "farthest_reason": "prefix:frame 224 identities",
+        "native_qualification_complete": false,
+        "rated_games": 0
+      }
+    },
+    "81": {
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-081",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-081",
+      "seal_sha256": "349c4a8972624aecc511423d9f9575bed44180d5c9d3e75a6e46781abdbc1e26",
+      "closure": {
+        "at_utc": "2026-10-05T17:41:06.483017+00:00",
+        "diagnostic_passed": true,
+        "error": null,
+        "elapsed_seconds": 10.329196800012141,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 197,
+      "released": true,
+      "owned_processes_absent": true,
+      "checks": {
+        "passed": true,
+        "captured_frames": 226,
+        "captured_work_identical": false,
+        "saved_root_repaired": true,
+        "native_diagnostics_identical": true,
+        "redealt_worlds": 8,
+        "known_card_checks_passed": true,
+        "work": {
+          "Attempts": 1,
+          "Submits": 420,
+          "Nodes": 31,
+          "BudgetExhausted": 0
+        },
+        "farthest_reached": 225,
+        "farthest_failed": 217,
+        "farthest_reason": "prefix:frame 217 events",
+        "native_qualification_complete": false,
+        "rated_games": 0
+      }
+    },
+    "82": {
+      "source_of_record": "E:\\spellbench-gorge-runtime-20261005-082",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261005-082",
+      "seal_sha256": "0e9b4f3f1806027e08c886ebe036ee41a59865f259b77a794fa27c9d6f846b3e",
+      "closure": {
+        "at_utc": "2026-10-05T17:45:12.194653+00:00",
+        "runtime_build_passed": true,
+        "error": null,
+        "elapsed_seconds": 21.204074900015257,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "canonical_generation": 198,
+      "released": true,
+      "owned_processes_absent": true
+    }
+  },
+  "cause": "Actor-owned Lead the Stampede reveals five ordered cards, moves three selected cards to hand and bottoms two. The witness fold discarded this fully observed order and left the later draw unconstrained.",
+  "repair": "Preserve the untouched tail only when the full owned look, both semantic answers, exact library-to-hand moves, full all-to-bottom arrangement and visible library size agree. Missing, opaque, partial, ambiguous or contradictory transitions remain unguided.",
+  "production_functions": [
+    "spellbenchActorLibraryPositions",
+    "spellbenchActorDigOrder"
+  ],
+  "sampler_settings_changed": false,
+  "sampler_diagnostics_identical": true,
+  "redealt_worlds": 8,
+  "known_card_checks_passed": true,
+  "affected_boundary_cases_passed": 11,
+  "affected_existing_public_tests_passed": true,
+  "affected_existing_replays_passed": 4,
+  "reference_runner_repair_commit": "115a0c90e30d3a7f54c6d051d81378734a9007b0",
+  "affected_python_checks_passed": 196,
+  "post_test_environment_fix_cases_passed": 3,
+  "zero_game_handoff": {
+    "entrants": 14,
+    "distinct_native_policies": 12,
+    "scheduled_games": 3640,
+    "run_secret_created": false,
+    "launch_admitted": false
+  },
+  "whole_original_game_regression": {
+    "source_of_record": "E:\\spellbench-gorge-local-regression-20261005-083",
+    "closure": {
+      "targeted_regression_passed": false,
+      "error": "AssertionError: ",
+      "at_utc": "2026-10-05T17:57:05.111847+00:00",
+      "elapsed_seconds": 203.5650428000372,
+      "native_qualification_passed": false,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "report_sha256": "adc59339ef2f18dafbe4d53c24bee81d7ed8192cf24e7bef4956287b86ed6d6f",
+    "totals": {
+      "CompletedGames": 2,
+      "Games": 1,
+      "Halts": 0,
+      "Truncations": 0,
+      "Violations": 0,
+      "DigestMismatch": 0,
+      "ResampleChecks": 67,
+      "ResampleFailures": 0,
+      "LeakHits": 0,
+      "Inconsistent": 0,
+      "ParityCompared": 268,
+      "ParityMismatch": 0,
+      "Fallbacks": 0,
+      "Forced": 0,
+      "GamesPerSecond": 0.009873991950770145,
+      "GoMemoryMB": 900
+    },
+    "search_coverage": {
+      "Natives": 268,
+      "Eligible": 81,
+      "Attempted": 40,
+      "Covered": 33,
+      "Attempts": 2560,
+      "Accepted": 0,
+      "Worlds": 264,
+      "Rollouts": 944,
+      "Submits": 160296,
+      "Terminal": 944,
+      "Capped": 0,
+      "Redealt": 264,
+      "ReconstructionAttempts": 66,
+      "ReconstructionSubmits": 43728,
+      "ReconstructionNodes": 29190,
+      "ReconstructionBudgetExhausted": 7,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 7
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 41,
+        "insufficient worlds/ESS": 7
+      },
+      "Kinds": {
+        "attackers": 4,
+        "cast": 15,
+        "mana": 14
+      }
+    },
+    "passed": false,
+    "recipe_assertion_error": "Expected subset scheduled_games1 and CompletedGames1; actual report retains declared320 blocks and2 complete seat/replay checks. Regardless, seven remaining reconstruction refusals invalidate qualification."
+  },
+  "full_native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "provider_final_settlement_pending": true,
+  "next_action": "One unchanged original game164 logging-only diagnostic captures the remaining public failures; do not repeat full native077 unchanged"
+}

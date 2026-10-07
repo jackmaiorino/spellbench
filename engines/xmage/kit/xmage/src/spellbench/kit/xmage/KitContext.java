@@ -93,6 +93,21 @@ public final class KitContext {
         return dialogs;
     }
 
+    /** The colors the vendored MCTS players chose since {@link #resetColors} (a land's as-enters color, H3). */
+    private static final java.util.List<String> colors = new java.util.ArrayList<>();
+
+    public static synchronized void color(String name) {
+        colors.add(name == null ? null : name.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    public static synchronized void resetColors() {
+        colors.clear();
+    }
+
+    public static synchronized java.util.List<String> colors() {
+        return new java.util.ArrayList<>(colors);
+    }
+
     public static synchronized long counter(String key) {
         Long v = counters.get(key);
         return v == null ? 0 : v;

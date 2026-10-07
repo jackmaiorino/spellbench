@@ -1,0 +1,29 @@
+name: gorge guarded native qualification
+
+on:
+  push:
+    branches: ['codex/gorge-all-bots-20261002']
+    paths: ['docs/gorge-ci-native107-20261005.json', '.github/workflows/gorge-native.yml', 'tools/gorge-qualify-ci.py']
+
+# Draft release inputs require push access, even though the job only downloads.
+permissions:
+  contents: write
+
+jobs:
+  qualify:
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false && contains(github.event.head_commit.message, '[gorge-native-ci]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 310
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover space from unused hosted-runner SDKs
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+          df -B1 "$RUNNER_TEMP"
+      - name: Qualify exact production inputs through the supported guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/gorge-qualify-ci.py --job "$RUNNER_TEMP/gorge-native" --inputs docs/gorge-ci-native107-20261005.json

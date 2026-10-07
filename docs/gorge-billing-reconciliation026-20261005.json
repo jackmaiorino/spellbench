@@ -1,0 +1,41 @@
+{
+  "schema": "spellbench-gorge-closed-lifetime-budget-reconciliation/v2",
+  "observed_at_utc": "2026-10-05T06:57:54.114630+00:00",
+  "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-025",
+  "prior_closed_ledger_seal_sha256": "e50050c6adf17ced2af66ca2d55635816ac942eb01a9630fe541356e27a163e9",
+  "previous_conservative_cumulative_ceiling_usd": 9.84147447,
+  "unchanged_legacy_closed_ceiling_usd": 4.25617947,
+  "legacy_source_of_record": "E:\\spellbench-gorge-billing-20261004-003",
+  "legacy_seal_sha256": "cb7269fbdde2b9e396db2a28fddbce7b9257c37cfb46f825e896bf8b6e5247e9",
+  "audited_closed_lease_count": 22,
+  "audited_closed_lease_charge_ceiling_usd": 2.926963,
+  "retained_project_ancillary_allowance_usd": 0.15,
+  "conservative_cumulative_lease_ceiling_usd": 7.33314247,
+  "provider_reported_audited_closed_spend_usd_so_far": 1.1004542648370261,
+  "provider_reported_legacy_snapshot_usd": 2.5682813890016405,
+  "provider_reported_combined_spend_usd_so_far": 3.6687356538386666,
+  "provider_combined_basis": "Unchanged pre020 provider snapshot plus fresh22 selected pods. This is observed-to-date billing, not a final invoice.",
+  "provider_contract": {
+    "billing": {
+      "url": "https://docs.runpod.io/accounts-billing/billing.md",
+      "sha256": "36bac69701c0d8d8c8ab5a98a0d5a5449993bd6a67cd8af4497a85ff663be914",
+      "captured_at_utc": "2026-10-05T06:57:54.114630+00:00"
+    },
+    "manage-pods": {
+      "url": "https://docs.runpod.io/pods/manage-pods.md",
+      "sha256": "e89321b5c840e3ddf605af064721eed03d9a7b89c0db077267a48fcf79822b0e",
+      "captured_at_utc": "2026-10-05T06:57:54.114630+00:00"
+    }
+  },
+  "method": "Retain all legacy limits. For each verified deleted, zero-volume lease, retain all-in hourly cap from pre-create through confirmed deletion plus a further300 seconds. Retain one projectUSD0.15 ancillary reserve. Published per-second compute/storage billing, free transfer, actual compute quote and28-day storage divisor independently prove the rate cap covers all requested resources.",
+  "cloud_cap_usd": 10,
+  "final_invoice_pending": true,
+  "final_invoice_verified": false,
+  "no_current_owned_lease": true,
+  "new_allocation": false,
+  "new_cloud_spend_usd": 0,
+  "source_of_record": "E:\\spellbench-gorge-billing-20261005-026",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-billing-20261005-026",
+  "seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
+  "admission": "Reconciled closed ceiling only. Every new allocation still requires fresh ledger, inventory, bounded lease and armed independent guardian."
+}

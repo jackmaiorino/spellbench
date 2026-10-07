@@ -1,0 +1,217 @@
+{
+  "schema": "spellbench-gorge-caw-opening-draws-repair/v1",
+  "at_utc": "2026-10-04T05:10:32.214553+00:00",
+  "source_parent_commit": "a56c9bcccf4777e7b611a6fae64112839c14db1f",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "ce5766eb6cfaf057b9ec7ab65db82627abb664a9b004c94d40a7c4bb5b1bee40",
+    "engines/gorge/native-overlay/public_redeal.go.txt": "de6707c708c33cf65640e2b7b2d031f071a1994e601e711b373729566ff05308",
+    "engines/gorge/strategies/actor_london_draws_test.go": "d1361b67b6dda986469662c3cc5899d03ad04e25d8b34bfaee4cc52669dc9106"
+  },
+  "public_input": "E:/spellbench-gorge-caw-budget-prefix-20261004-001/PUBLIC-PROJECTION.json",
+  "public_input_sha256": "1e4914f9922e66e447b9d1fdb04b1fd3876afdce223a9fe21c0dfe44742035d8",
+  "before": {
+    "frames": 96,
+    "worlds": 0,
+    "work": {
+      "Attempts": 11,
+      "Submits": 5000,
+      "Nodes": 5002,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "frames": 96,
+    "worlds": 8,
+    "redealt": 8,
+    "work": {
+      "Attempts": 1,
+      "Submits": 224,
+      "Nodes": 62,
+      "BudgetExhausted": 0
+    },
+    "native_fields_identical": [
+      "Attempts",
+      "Accepted",
+      "PrefixRejected",
+      "BudgetExhausted",
+      "Submits",
+      "Duplicates",
+      "FirstRejection",
+      "Rejections",
+      "GuidedGenesis",
+      "GuidedLater",
+      "ArrangeWindows",
+      "UnguidedConstraints",
+      "IncompatibleProposals",
+      "WeightDiagnostics",
+      "HandToStackCauses",
+      "StackRejectionContexts",
+      "CompetitionExclusions",
+      "CompetitionResidual",
+      "CompetitionUnguided",
+      "LandResidual",
+      "LandUnguided",
+      "KnownCardClaims"
+    ],
+    "all_worlds_hold_known_cards": true
+  },
+  "trace": "E:/spellbench-gorge-caw-reconstruction-trace-20261004-001/TRACE.json",
+  "cause": "The anonymous opponent Islandcycling library exit at frame55 invalidated all native epoch cursors, although public actor library size remained49. Public witness proposals then guessed later named actor draws at frames64 and73.",
+  "repair": "Restore actor opening-shuffle draw positions while its original library remains unchanged. Infer an unnamed library move owner only when exactly one such move has a unique public size delta after recorded draws and named moves are accounted for.",
+  "soundness_limits": "No use of MoveZone.Player as ownership. Multiple anonymous moves, missing or inconsistent public sizes, token/copy creation, actor library mutation, reordering, later shuffle or exhaustion stop positional guidance. Native proposal compilation, policies, weighting and search budgets are unchanged.",
+  "regression": "A legal two-seat London game includes a real opponent Lorien Revealed Islandcycling search and later actor draws. Different unseen Mountain/Swamp library orders produce byte-identical complete actor histories. It supplies8 worlds in122 submits, holds projected known cards and preserves native counters.",
+  "affected_root_tests_passed": 36,
+  "affected_strategy_cases_passed": 51,
+  "go_vet_passed": true,
+  "diff_check_passed": true,
+  "check_limit": "The first suite hit its240-second wall cap during an existing shipped-budget rollout test. Successful cases were retained; the11 incomplete root tests passed from the same immutable binary under a fresh bounded check.",
+  "attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-caw-opening-draws-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-caw-opening-draws-20261004-001",
+      "seal_sha256": "59df5dfdc8e664f95ab95b031fe3b7b1aa0e603383ad87755ed054030a0c7d6a",
+      "bytes": 19224248,
+      "checks": {
+        "at_utc": "2026-10-04T04:59:03.292482+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-caw-opening-draws-20261004-001\\stock-prefix-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 15.091029700008221
+          },
+          {
+            "name": "saved-stock-prefix",
+            "command": [
+              "E:\\pinned-binaries\\195304d68ce5ae313cdfad8371cd58b53ee141e7b193603ae895f995a72bbecb\\stock-prefix-tests.exe",
+              "-test.run",
+              "^TestSavedCawOpeningDraws96$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 6.882092599989846
+          }
+        ],
+        "passed": true,
+        "wall_seconds": 22.160763199965004,
+        "rated_games": 0,
+        "completed_games": 0
+      },
+      "prune_manifest_sha256": "69fc70c0c9754b90ea9959cf434591d5d6b9c11e360935942dd8fe4aef2c9a23"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-caw-opening-checks-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-caw-opening-checks-20261004-001",
+      "seal_sha256": "e3bf12d9a38e66e2dfcc24c7761a1955ab5de4c4c6a83a4786df60f42229ab95",
+      "bytes": 19231054,
+      "checks": {
+        "at_utc": "2026-10-04T05:05:43.902063+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-caw-opening-checks-20261004-001\\strategies-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 10.120349299977534
+          },
+          {
+            "name": "strategies",
+            "command": [
+              "E:\\pinned-binaries\\75803b6ef1fbc9e6e30d884a2dccfec4e060ed26f8d0bf7ce6eae9c589fefc86\\strategies-tests.exe",
+              "-test.v",
+              "-test.timeout",
+              "240s"
+            ],
+            "exit_code": 2,
+            "seconds": 241.49384860001737
+          }
+        ],
+        "passed": false,
+        "seconds": 251.7592615999747,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "prune_manifest_sha256": "69fc70c0c9754b90ea9959cf434591d5d6b9c11e360935942dd8fe4aef2c9a23"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-caw-opening-checks-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-caw-opening-checks-20261004-002",
+      "seal_sha256": "45ae44e1e086b3712aa60d71ab0602e35f7f287c28836f28601e5bbafaceba79",
+      "bytes": 499804,
+      "checks": {
+        "at_utc": "2026-10-04T05:08:27.011653+00:00",
+        "checks": [
+          {
+            "name": "remaining-strategies",
+            "command": [
+              "E:\\pinned-binaries\\75803b6ef1fbc9e6e30d884a2dccfec4e060ed26f8d0bf7ce6eae9c589fefc86\\strategies-tests.exe",
+              "-test.run",
+              "^(TestPublicRedealPreservesAcceptedNativeSearchAtShippedBudgets|TestCanonicalPublicHistoryStillRejectsChangedBoard|TestSearchDeltaRejectsWrongActorAndMissingFrames|TestSearchDeltaRejectsChangedAnswersWithoutMutation|TestPublicHistoryErasesOpponentPrivateAskCounts|TestPublicCollectorForgetsBlindShuffleCopyIdentity|TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst|TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController|TestPublicSamplerReconstructsDeclaredLondonMulligans|TestPublicRedealAfterNaturallyPlayedLembasShuffle|TestPublicStackSourceStaysUnlinkedAfterShuffleAndRedraw)$",
+              "-test.v",
+              "-test.timeout",
+              "360s"
+            ],
+            "exit_code": 0,
+            "seconds": 58.61957949999487
+          },
+          {
+            "name": "vet",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "vet",
+              "-p",
+              "1",
+              "./...",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 31.482296800008044
+          },
+          {
+            "name": "diff",
+            "command": [
+              "git",
+              "diff",
+              "--check"
+            ],
+            "exit_code": 0,
+            "seconds": 0.44612390000838786
+          }
+        ],
+        "passed": true,
+        "seconds": 90.54822470003273,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "prune_manifest_sha256": "69fc70c0c9754b90ea9959cf434591d5d6b9c11e360935942dd8fe4aef2c9a23"
+    }
+  ],
+  "native_weighted_sampler_changed": false,
+  "native_policies_and_search_budgets_changed": false,
+  "benchmark_changed": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "spend_cap_usd": 10,
+  "remaining": "Freeze new runtime020 and obtain compatible guarded completed-work throughput and native/reference-host qualification, identity and benchmark reviews, ratings and publication."
+}

@@ -1,0 +1,166 @@
+{
+  "schema": "spellbench-gorge-preparation-record/v1",
+  "checked_at_utc": "2026-10-03T04:51:18Z",
+  "adapter_commit": "1482cfd7ee1d5f95313825a3f6b2d9eb3ca025f3",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "status": "frozen_runtime_prepared_startup_checked",
+  "qualification": "not complete",
+  "rated_games": 0,
+  "published": false,
+  "cold_root": "E:\\spellbench-gorge-runtime-20261003",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261003",
+  "copy_verification": "Every registry and runtime binary copied to E: and verified by size and SHA-256; D: and E: are different physical disks (2 and 1). Image archive has a separately verified copy on each.",
+  "manifest_sha256": "226d5a0555d775307bb065035c57ffdd5888a2a70f79d9deadde410faba2c188",
+  "preflight_sha256": "f6b1175aba6beedcc81a43f5f206a68f7dbd5139026d99157cb1008232afc494",
+  "registry": {
+    "schema": "spellbench-gorge-registry/v1",
+    "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+    "compiler_fingerprint": "4e081d8104fbe09256edb9fa696ce6f7",
+    "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+    "card_scripts_sha256": "377204728a927366bab4cc40bf89a64544bd5bf464d66d261e58e1a71b69bf5f",
+    "token_scripts_sha256": "6f6a6433a2075b2741982f28cc81963787d54e7fd5f81e643e754f71c24b2f58",
+    "card_scripts": 33669,
+    "token_scripts": 839,
+    "cards": 33669,
+    "tokens": 839,
+    "diagnostics": 13,
+    "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "registry_bytes": 9070329
+  },
+  "go_version": "go version go1.27.1 windows/amd64",
+  "gpu_ordinal": null,
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "sha256": "dbd595fe74e0b0ac7e08167fb3e90161754963b7ceffa9f2d91677a9e3e42ec4",
+      "bytes": 13476864,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\dbd595fe74e0b0ac7e08167fb3e90161754963b7ceffa9f2d91677a9e3e42ec4\\spellbench-gorge-corpus-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "bd52ba2fadff614ba3e65fbead65f58a32811c2c47fe06ed984c4d55e939ade7",
+      "bytes": 17464320,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\bd52ba2fadff614ba3e65fbead65f58a32811c2c47fe06ed984c4d55e939ade7\\spellbench-gorge-env-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "690ddb72c5fb38317f0ee39d7a1b85371e4dda326a0c5c0bff82090ac2430340",
+      "bytes": 17927680,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\690ddb72c5fb38317f0ee39d7a1b85371e4dda326a0c5c0bff82090ac2430340\\spellbench-gorge-agent-windows-amd64.exe"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "sha256": "2a4308b42f82df5c3ba8874276f3b84c33d0ef3dc1080ac3a7092f585e0db12a",
+      "bytes": 18775040,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\2a4308b42f82df5c3ba8874276f3b84c33d0ef3dc1080ac3a7092f585e0db12a\\gorgequal-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "sha256": "f6d793eb0e63a0c655f7711bc50cebb06e2e49f5787b83f8cfde914941007463",
+      "bytes": 17373988,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\f6d793eb0e63a0c655f7711bc50cebb06e2e49f5787b83f8cfde914941007463\\spellbench-gorge-env-linux-amd64"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "sha256": "80f2c1b7cfe7f46bc47a86fdbadc79e57c2a13918db69a931c4b6ce2e3be0c30",
+      "bytes": 17833945,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\80f2c1b7cfe7f46bc47a86fdbadc79e57c2a13918db69a931c4b6ce2e3be0c30\\spellbench-gorge-agent-linux-amd64"
+    },
+    {
+      "name": "registry.gob.gz",
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329,
+      "kind": "registry"
+    }
+  ],
+  "preserved_toolchain": [
+    {
+      "name": "go.exe",
+      "sha256": "d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490",
+      "bytes": 17508352,
+      "pinned_path": "E:\\pinned-binaries\\d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490\\go.exe"
+    },
+    {
+      "name": "link.exe",
+      "sha256": "9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720",
+      "bytes": 7581696,
+      "pinned_path": "E:\\pinned-binaries\\9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720\\link.exe"
+    }
+  ],
+  "container": {
+    "image": "sha256:1b7a3034059ac5a578bd4f75332ebcfa089f423cced74f11fffe6b15ee596bfd",
+    "archive_sha256": "a1e45d245c56f058c0d3184ca923aba4fe390b5884522984e48a455ed2fad83b",
+    "archive_bytes": 19078144,
+    "base": "scratch",
+    "startup_passed": true,
+    "restrictions": [
+      "network none",
+      "read-only root and registry mount",
+      "user 65534:65534",
+      "1 CPU",
+      "1 GiB memory and swap cap",
+      "128 PIDs",
+      "all capabilities dropped",
+      "no-new-privileges",
+      "16 MiB temporary filesystem"
+    ],
+    "windows_hello_profiles_identical": true,
+    "check_scope": "Startup and frozen-input compatibility only; no games or rating qualification"
+  },
+  "placement_snapshot": {
+    "maintainer": {
+      "reservation_lane": "codex-lead-20261002",
+      "generation": 95,
+      "work_id": "cooling-maintainer-stage1-001",
+      "formal_owner_pid_observed_live": 58872,
+      "docker_server": "28.3.2",
+      "substantial_run_launched": false
+    },
+    "computehost": {
+      "connection": "COMPUTE_HOST_SSH with existing strict host-key verification",
+      "logical_cpus": 16,
+      "memory_bytes": 34282180608,
+      "free_host_memory_bytes": 303828992,
+      "cpu_load_percent": 15,
+      "c_free_bytes": 110117769216,
+      "docker_server": "29.8.1",
+      "reservation_lock_at_canonical_path": "absent; this does not establish workload or guest-memory eligibility",
+      "eligibility": "No allocation chosen. Inspect Docker guest memory and competing workloads before qualification."
+    },
+    "runpod": {
+      "rest_inventory_http_status": 403,
+      "graphql_inventory_http_status": 403,
+      "current_pod_inventory": "unavailable",
+      "new_paid_compute_authorized": false
+    }
+  },
+  "guarded_evaluation": "No evaluation launched. The supported reference-host allocation guard must qualify serial and parallel completed work before any substantial qualification or ratings; gorgequal remains an unguarded diagnostic.",
+  "unfinished": [
+    "public-only roots for both redeal modes, including zero accepted proposals",
+    "complete event and identity audit",
+    "native five-deck behavior qualification and legal mapping",
+    "reference-host container lifecycle and isolation review",
+    "qualified allocation and complete roster freeze",
+    "paired ratings, review, merge and live publication"
+  ],
+  "regeneration": {
+    "source_definitions": "Pinned Forge git revision plus card/token script digests in registry receipt",
+    "build_flags": "go build -p 1 -trimpath -buildvcs=false; CGO_ENABLED=0; GOOS windows/linux; GOARCH amd64",
+    "commands": "PREPARATION.json records all six build commands. Use spellbench-gorge-corpus -corpus PATH -out NEWFILE for a fresh compile; preserve the exact existing registry rather than assuming repeated gob output is identical.",
+    "container": "FROM scratch; COPY --chmod=0555 env agent /; USER 65534:65534; docker build --network=none --pull=false",
+    "retention": "Keep manifests, receipts, cold runtime files, image archive, pinned binaries and verified recovery copies while this goal is active."
+  }
+}

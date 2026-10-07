@@ -1,0 +1,341 @@
+{
+  "schema": "spellbench-gorge-cloud-runtime-native-preparation/v1",
+  "at_utc": "2026-10-05T06:28:28.758750+00:00",
+  "spellbench_commit": "34da2161675c717e4108e9f325aacce5d377c1a7",
+  "runtime_source_commit": "34da2161675c717e4108e9f325aacce5d377c1a7",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-046",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-046",
+  "runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-046",
+  "runtime_recovery_root": "D:/e-scratch/spellbench-gorge-public-witness-runtime-20261005-046",
+  "user_authority": "The maintainer: Sure. 10$ cap go",
+  "spend_cap_usd": 10,
+  "prior_spend_estimate_usd": 9.67119547,
+  "new_lease_cap_usd": 0.325,
+  "lease_seconds": 1800,
+  "all_in_rate_cap_usd_per_hour": 0.35,
+  "ancillary_allowance_usd": 0.15,
+  "cumulative_conservative_ceiling_usd": 9.99619547,
+  "verified_billing_ledger": "E:\\spellbench-gorge-billing-20261005-024",
+  "billing_seal_sha256": "e50050c6adf17ced2af66ca2d55635816ac942eb01a9630fe541356e27a163e9",
+  "provider_reported_spend_usd_so_far": 2.7662702432571677,
+  "final_invoice_verified": false,
+  "scope": "One exact sealed596-frame public reconstruction failure replay with logging-only diagnostics and unchanged captured budgets. Diagnostic binary independently pinned before execution. No sampled-world, full-game or qualification claim.",
+  "teacher_parallelism": "Unchanged production default; no diagnostic teacher override",
+  "minimum_vcpu_count": 8,
+  "minimum_memory_gb": 16,
+  "actual_build_cpu_minimum": 4,
+  "actual_build_memory_minimum_bytes": 8000000000,
+  "process_memory_guard_bytes": 21474836480,
+  "Go_memory_target": "2GiB",
+  "container_disk_gb": 100,
+  "projected_bytes": 268435456,
+  "cap_bytes": 4294967296,
+  "reserve_bytes": 64424509440,
+  "remote_cap_bytes": 4294967296,
+  "remote_wall_cap_seconds": 1740,
+  "public_ip_required": true,
+  "provider_create_endpoint": "https://rest.runpod.io/v1/pods",
+  "gpu_types": [
+    "NVIDIA GeForce RTX 4070 Ti",
+    "NVIDIA GeForce RTX 3080 Ti",
+    "NVIDIA RTX A2000",
+    "NVIDIA RTX A4500",
+    "Tesla V100-PCIE-16GB",
+    "Tesla V100-SXM2-16GB"
+  ],
+  "gpu_compute": false,
+  "gpu_ordinal": null,
+  "production_changes": false,
+  "native_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "linux_sdk": {
+    "filename": "go1.27.1.linux-amd64.tar.gz",
+    "os": "linux",
+    "arch": "amd64",
+    "version": "go1.27.1",
+    "sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+    "size": 70553950,
+    "kind": "archive",
+    "url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+    "manifest_url": "https://go.dev/dl/?mode=json"
+  },
+  "cloud_host_alias": "RunPod-gorge046",
+  "placement": "main-pc=unavailable: verified human research priority; computehost=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host, bounded exact component replay, no substantial allocation claimed",
+  "runtime_seal_sha256": "e5680c1a6710582dfe7d9a17bfc633873d4c96d1b5e417aeb900bca6e39f773d",
+  "native_qualifier_sha256": "2ee674d41a841730a73f620a6612e6367e4c7fa99690e359e2e7a25ccbbbab3c",
+  "runtime_binaries": [
+    "public-witness-tests-linux-amd64"
+  ],
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "input_capture_work": {
+    "Attempts": 3,
+    "Submits": 5000,
+    "Nodes": 4570,
+    "BudgetExhausted": 1
+  },
+  "baseline_proof": {
+    "result_sha256": "4fe92f48ed9a7645466e3931ef934a617fefc5f8b44abce90797bc4974a8d9f2",
+    "source_commit": "78ed700911c4b27361f8d63ecb2fc04aafd04c87",
+    "production_overlay_sha256": "883d065168fd0e7cd2c5a9b59a83f070053b5e02ce8a2e3cfdc05d5149c7fab5",
+    "runtime_seal_sha256": "0d4e40617bd7cbad5cbf769e7d7de1a2c8d8844d2e1fb0e8dd26fe266c2b7f8b"
+  },
+  "hypothetical_shuffle_logging": true,
+  "public_projection_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+  "captured_frames": 596,
+  "captured_work": {
+    "Attempts": 3,
+    "Submits": 5000,
+    "Nodes": 4326,
+    "BudgetExhausted": 1
+  },
+  "diagnostic_only": true,
+  "trace_generator_sha256": "5135a1d6e9a338afcf06eb35c3674faa3130e63617fc3fe90abbe678526c49c6",
+  "component_goal": "Reproduce sealed045 source baseline work exactly, then inspect rejected hypothetical shuffle constraints; no repair or admission",
+  "source_archive_verified": true,
+  "bundle_verified": true,
+  "guardian_armed_before_create_required": true,
+  "bundle_sha256": "f17cd43ad7d12f6125bb25df11a8bc647166da218c377ac8337ab2256704d47a",
+  "phase": "released_witness_diagnostic_passed",
+  "host_facts_record": "E:\\spellbench-gorge-runpod-20261005-046\\HOSTS.json",
+  "gpu_catalog_record": "E:\\spellbench-gorge-runpod-20261005-046\\CATALOG.json",
+  "guard_path": "Independent half-hour release guardian; exact public inputs and bounded diagnostic build parent; durable one-binary pin gate; one exact component replay",
+  "pod_id": "a7738odlay383o",
+  "owned_lease_name": "spellbench-gorge-witness-9aab10c5abab462e",
+  "lease_deadline_utc": "2026-10-05T06:54:50.9370663+00:00",
+  "parent_pid": 3186,
+  "parent_start_tick": "4001383431",
+  "owner_watcher_session_id": 66128,
+  "parent_source_of_record": "E:\\spellbench-gorge-runpod-20261005-046\\DRIVER-ACTUAL.py",
+  "parent_sha256": "d243630e5ebb45f58f56de4bb56c06dfb1a8fd523d1cdd9f040c1c08a7a5cfda",
+  "parent_matches_prepared_bundle": true,
+  "observed_cpu_model": "Intel(R) Xeon(R) CPU E5-2698 v4 @ 2.20GHz",
+  "observed_effective_cpu_quota": 8.5,
+  "observed_memory_limit_bytes": 61999996928,
+  "quoted_compute_rate_usd_per_hour": 0.23,
+  "runtime_pins_complete": true,
+  "component_roots_passed": false,
+  "reference_qualification_complete": false,
+  "affected_go_checks": {
+    "source_commit": "78ed700911c4b27361f8d63ecb2fc04aafd04c87",
+    "ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37270082693",
+    "full_suite": "passed"
+  },
+  "next_wake_condition": "Isolated source repair and affected CI, changed eligible resource reservation, or refreshed university credentials. No active gorge lease; additional guarded cloud build does not fit retained all-in allowance.",
+  "release": {
+    "at_utc": "2026-10-05T06:28:19.5198114+00:00",
+    "name": "spellbench-gorge-witness-9aab10c5abab462e",
+    "pod_id": "a7738odlay383o",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "9956b2498908087d5fe224bdbb5fbab6446979f5e19d6b1aa8d1b9bbafa1d9ba",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 9.67119547,
+    "maximum_lease_usd": 0.325,
+    "conservative_cumulative_lease_ceiling_usd": 9.99619547,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T06:27:53.370566+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 122.495435744524,
+    "native_qualification_passed": false,
+    "diagnostic_passed": true,
+    "rated_games": 0
+  },
+  "native_audit": null,
+  "diagnostic_passed": true,
+  "diagnostic_checks": {
+    "passed": true,
+    "scope": "Sealed045 baseline work reproduced exactly with hypothetical shuffle logging; no sampled worlds or full games",
+    "baseline_work_identical": true,
+    "captured_frames": 596,
+    "work": {
+      "Attempts": 3,
+      "Submits": 5000,
+      "Nodes": 4326,
+      "BudgetExhausted": 1
+    },
+    "farthest_reached": 390,
+    "farthest_failed": 390,
+    "farthest_reason": "actor_submit:hypothetical shuffle planner: incompatible hypothetical proposal",
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "failures": {},
+  "billing": {
+    "observed_at_utc": "2026-10-05T06:28:28.758750+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-024",
+    "prior_closed_ledger_seal_sha256": "8e297f4710b2f2a8ed1fdcfaaba0d57248c48e609e488ac4686a4b874497e212",
+    "provider_reported_prior_closed_spend_usd": 2.7662702432571677,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7662702432571677,
+    "current_closed_lease_maximum_billable_seconds": 208.582745,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.170279,
+    "conservative_cumulative_lease_ceiling_usd": 9.84147447,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-025",
+  "seal_sha256": "3d3a0ad69d83cd6ef420936b09b02b93486864d61ca23ef6e2ebad446040cdf3",
+  "exact_baseline_refusal_reproduction_complete": true,
+  "shuffle_failures": {
+    "trace_source_of_record": "E:\\spellbench-gorge-runpod-20261005-046\\terminal-recovery\\trace-public-root\\TRACE.json",
+    "trace_sha256": "f5c4affc157a6254e02497ee18d9918c6c3a86ac2e965e64285d9b40036ee116",
+    "snapshots": [
+      {
+        "Frame": 390,
+        "Player": 1,
+        "Ordinal": 4,
+        "Hand": {
+          "Cleansing Wildfire": 1,
+          "Fanatical Offering": 1,
+          "Ichor Wellspring": 1,
+          "Pulse of Murasa": 1,
+          "Twisted Landscape": 2,
+          "Writhing Chrysalis": 1
+        },
+        "Library": {
+          "Blood Fountain": 1,
+          "Cast Down": 3,
+          "Cleansing Wildfire": 3,
+          "Drossforge Bridge": 1,
+          "Eviscerator's Insight": 1,
+          "Fanatical Offering": 3,
+          "Forest": 2,
+          "Ichor Wellspring": 1,
+          "Krark-Clan Shaman": 1,
+          "Lembas": 3,
+          "Makeshift Munitions": 1,
+          "Mountain": 1,
+          "Nihil Spellbomb": 4,
+          "Nyxborn Hydra": 1,
+          "Refurbished Familiar": 4,
+          "Slagwoods Bridge": 2,
+          "Swamp": 1,
+          "Toxin Analysis": 2,
+          "Twisted Landscape": 1,
+          "Writhing Chrysalis": 3
+        },
+        "Epoch": {
+          "Positions": null,
+          "Deadlines": [
+            {
+              "Through": 1,
+              "Name": "Twisted Landscape",
+              "Count": 1
+            },
+            {
+              "Through": 1,
+              "Name": "Refurbished Familiar",
+              "Count": 1
+            },
+            {
+              "Through": 1,
+              "Name": "Nihil Spellbomb",
+              "Count": 1
+            },
+            {
+              "Through": 2,
+              "Name": "Refurbished Familiar",
+              "Count": 2
+            }
+          ],
+          "ArrangeWindows": 0,
+          "Unguided": [
+            "library_mutation"
+          ]
+        },
+        "Error": "incompatible hypothetical proposal",
+        "ContextSource": "hypothetical_shuffle_proposal"
+      },
+      {
+        "Frame": 390,
+        "Player": 1,
+        "Ordinal": 4,
+        "Hand": {
+          "Fanatical Offering": 2,
+          "Forest": 1,
+          "Ichor Wellspring": 1,
+          "Mountain": 1,
+          "Refurbished Familiar": 1,
+          "Twisted Landscape": 1
+        },
+        "Library": {
+          "Blood Fountain": 1,
+          "Cast Down": 3,
+          "Cleansing Wildfire": 4,
+          "Drossforge Bridge": 1,
+          "Eviscerator's Insight": 1,
+          "Fanatical Offering": 2,
+          "Forest": 1,
+          "Ichor Wellspring": 1,
+          "Krark-Clan Shaman": 1,
+          "Lembas": 3,
+          "Makeshift Munitions": 1,
+          "Nihil Spellbomb": 4,
+          "Nyxborn Hydra": 1,
+          "Pulse of Murasa": 1,
+          "Refurbished Familiar": 3,
+          "Slagwoods Bridge": 2,
+          "Swamp": 1,
+          "Toxin Analysis": 2,
+          "Twisted Landscape": 2,
+          "Writhing Chrysalis": 4
+        },
+        "Epoch": {
+          "Positions": null,
+          "Deadlines": [
+            {
+              "Through": 1,
+              "Name": "Twisted Landscape",
+              "Count": 1
+            },
+            {
+              "Through": 1,
+              "Name": "Refurbished Familiar",
+              "Count": 1
+            },
+            {
+              "Through": 1,
+              "Name": "Nihil Spellbomb",
+              "Count": 1
+            },
+            {
+              "Through": 2,
+              "Name": "Refurbished Familiar",
+              "Count": 2
+            },
+            {
+              "Through": 2,
+              "Name": "Cast Down",
+              "Count": 1
+            }
+          ],
+          "ArrangeWindows": 0,
+          "Unguided": [
+            "library_mutation"
+          ]
+        },
+        "Error": "incompatible hypothetical proposal",
+        "ContextSource": "hypothetical_shuffle_proposal"
+      }
+    ],
+    "interpretation": "Both proposals reject opponent shuffle ordinal4 at matched actor frame390. The hypothetical hand lacks sufficient required names for the cumulative future draw deadlines. These are candidate hidden worlds, not observed actual hidden cards."
+  }
+}

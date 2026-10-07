@@ -1,0 +1,34 @@
+{
+  "schema": "spellbench-gorge-reference125-launcher-validation/v1",
+  "launcher": "tools/gorge-reference125-local-20261006.py",
+  "launcher_sha256": "ec1cc67cc4f9c4a7cc363f7cf82c3cb3c75433985c72326e1fb799c3d15cb997",
+  "runtime": "E:/spellbench-gorge-runtime-20261006-121",
+  "runtime_seal_sha256": "4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e",
+  "native_attempt": "E:/spellbench-gorge-native-20261006-124",
+  "checks": [
+    {
+      "mode": "--prepare",
+      "refused_unsealed_live_native": true,
+      "job_roots_created": false
+    },
+    {
+      "mode": "--dispatch",
+      "refused_unsealed_live_native": true,
+      "job_roots_created": false
+    }
+  ],
+  "canonical_state_unchanged": true,
+  "evaluation_started": false,
+  "new_paid_compute_usd": 0,
+  "rated_games": 0,
+  "positive_native_gate_test_pending": true,
+  "scope": "Local maintainer fallback only; refresh all placements after full native terminal recovery and preserve any current claim",
+  "affected_tests_passed": 57,
+  "affected_tests_seconds": 18.87,
+  "affected_test_files": [
+    "python/tests/test_gorge_local_reference_result.py",
+    "python/tests/test_gorge_local_reference_recovery.py",
+    "python/tests/test_gorge_reference_matrix.py",
+    "python/tests/test_gorge_local_recovery.py"
+  ]
+}

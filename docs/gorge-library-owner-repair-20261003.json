@@ -1,0 +1,141 @@
+{
+  "schema": "spellbench-gorge-library-owner-repair/v1",
+  "at_utc": "2026-10-03T22:09:38.823316+00:00",
+  "source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+  "runtime": "E:/spellbench-gorge-runtime-20261003-016",
+  "primary_reference": "https://github.com/Card-Forge/forge/blob/95f04e8a04c8925fa97cb226fc3341cabcc90a53/forge-game/src/main/java/forge/game/ability/effects/ChangeZoneEffect.java#L840",
+  "finding": "The pinned engine gave the caster private opponent-library confirmation and search offers despite DefinedPlayer=TargetedController.",
+  "change": "Generated effects/zone.go assigns library confirmation, look and pick to the searched player by default. Explicit Chooser selectors retain precedence, and the separate object-valued path retains its controller fallback.",
+  "bot_policy_changes": false,
+  "native_sampling_or_budget_changes": false,
+  "before": {
+    "command": "go test -p1 -count1 ./strategies/... -run TestOpponentLibrarySearchUsesLandControllerAndHidesOffers|TestPublicReconstructionAfterOpponentLibrarySearch -timeout120s -v",
+    "exit_code": 1,
+    "test_seconds": 1.213,
+    "failure": "Both real-card tests fail: opponent library confirmation is assigned to caster0."
+  },
+  "after": {
+    "actor_frames": 26,
+    "attempts": 1,
+    "submits": 52,
+    "nodes": 11,
+    "budget_exhausted": false,
+    "coherent": true
+  },
+  "noninterference": "Only the targeted land controller receives private offers. Different unseen opponent library tails preserve byte-identical caster public histories.",
+  "checks": {
+    "checks": {
+      "REGRESSION": {
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-p",
+          "1",
+          "-count",
+          "1",
+          "./strategies/...",
+          "-run",
+          "TestOpponentLibrarySearchUsesLandControllerAndHidesOffers|TestPublicReconstructionAfterOpponentLibrarySearch",
+          "-timeout",
+          "120s",
+          "-v"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 6.204214899975341
+      },
+      "EFFECTS": {
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-p",
+          "1",
+          "-count",
+          "1",
+          "github.com/adams-shaun/gorge/effects",
+          "-timeout",
+          "180s"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 38.61833119997755
+      },
+      "RULES": {
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-p",
+          "1",
+          "-count",
+          "1",
+          "github.com/adams-shaun/gorge/rules",
+          "-run",
+          "Search|Library|Optional",
+          "-timeout",
+          "180s"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 44.31838150002295
+      },
+      "STRATEGIES": {
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "test",
+          "-p",
+          "1",
+          "-count",
+          "1",
+          "./strategies/...",
+          "-timeout",
+          "180s"
+        ],
+        "exit_code": 0,
+        "wall_seconds": 42.98340680002002
+      },
+      "VET": {
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "vet",
+          "-p",
+          "1",
+          "./strategies/..."
+        ],
+        "exit_code": 0,
+        "wall_seconds": 2.282676899980288
+      },
+      "diff_check": "passed"
+    },
+    "wall_seconds": 134.561669000017,
+    "completed_games": 0,
+    "rated_games": 0,
+    "qualified": false
+  },
+  "artifacts": [
+    {
+      "source_of_record": "E:/spellbench-gorge-library-owner-20261003-001",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-library-owner-20261003-001",
+      "bytes": 48831,
+      "seal_sha256": "216ca19e6580756c2a1a0bb862bd586314f8ca9dbac2d9cc5e4da8410b38ef2d"
+    },
+    {
+      "source_of_record": "E:/spellbench-gorge-native-audit-20261003-003",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-native-audit-20261003-003",
+      "bytes": 67868,
+      "seal_sha256": "c6bb2ae1d0c5c363a9ae77e20b3cdf101e64255dc1139864220b8fbdcbb5b701"
+    }
+  ],
+  "prior_full_ci": {
+    "head": "dba809f298d89939c176de16ea818a42fd4eef17",
+    "conclusion": "success",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37155108637",
+    "limitation": "This pass predates the ownership correction."
+  },
+  "current_source_full_ci": "not_started",
+  "historical_evidence_limit": "Earlier opponent-library offer fixtures and saved 97- and 166-frame histories are mechanical replay evidence for faulty ownership. Their fairness conclusions are withdrawn; sealed source records are retained and cannot be transplanted into the corrected engine.",
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "completed_games": 0,
+  "qualified": false,
+  "rated_games": 0,
+  "published": false,
+  "remaining": "Full corrected-runtime qualification and identity review, reviewed benchmark and seed commitment, rated evaluation and publication."
+}

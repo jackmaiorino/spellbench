@@ -40,7 +40,7 @@ jobs:
         run: uv run --no-sync python python/tools/check_run_history.py --base "${{ github.event.pull_request.base.sha || github.event.before }}"
 
       - name: Run tests
-        run: uv run --no-sync pytest python/tests integrations -q
+        run: uv run --no-sync pytest python/tests integrations -q -n auto --dist loadgroup
 
       - name: Validate committed benchmark runs
         run: uv run --no-sync spellbench site benchmarks "${{ runner.temp }}/site-check"

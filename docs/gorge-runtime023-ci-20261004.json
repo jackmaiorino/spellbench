@@ -1,0 +1,81 @@
+{
+  "schema": "spellbench-gorge-runtime-ci/v1",
+  "checked_at_utc": "2026-10-04T09:38:56.140806+00:00",
+  "runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "tested_adapter_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "all_gorge_source_unchanged_since_runtime_source": true,
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37191439629,
+      "headSha": "caeddf3157ed47ef59f81291934f03708fa55202",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439629",
+      "workflowName": "LLM container isolation",
+      "jobs": [
+        {
+          "name": "container",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T09:13:10Z",
+          "completedAt": "2026-10-04T09:13:54Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439629/job/111404282397"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37191439634,
+      "headSha": "caeddf3157ed47ef59f81291934f03708fa55202",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439634",
+      "workflowName": "gorge adapter",
+      "jobs": [
+        {
+          "name": "test",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T09:13:10Z",
+          "completedAt": "2026-10-04T09:32:13Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439634/job/111404282350"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37191439623,
+      "headSha": "caeddf3157ed47ef59f81291934f03708fa55202",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439623",
+      "workflowName": "CI",
+      "jobs": [
+        {
+          "name": "Python tests (windows-2025)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T09:13:10Z",
+          "completedAt": "2026-10-04T09:36:53Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439623/job/111404282366"
+        },
+        {
+          "name": "Python tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T09:13:46Z",
+          "completedAt": "2026-10-04T09:26:18Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37191439623/job/111404282481"
+        }
+      ]
+    }
+  ],
+  "all_hosted_checks_passed": true,
+  "affected_strategy_cases_passed": 60,
+  "go_vet_passed": true,
+  "diff_check_passed": true,
+  "production_repair": "docs/gorge-public-london-token-repair-20261004.json",
+  "reference_launcher_correction": "docs/gorge-reference-scaling-repair-20261004.json",
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "source_compatibility": "Hosted checks ran on the exact frozen native source; subsequent commits change documents only."
+}

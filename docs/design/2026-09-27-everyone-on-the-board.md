@@ -1,8 +1,8 @@
 # Everyone on the board (program)
 
-Status: direction set by Jack 2026-09-26 ("work towards getting them all on
+Status: direction set by the maintainer 2026-09-26 ("work towards getting them all on
 the leaderboard; that's how we get engagement"). Decisions below were made
-under Jack's standing authorization and are reported, not blocking.
+under the maintainer's standing authorization and are reported, not blocking.
 
 ## Goal
 
@@ -17,7 +17,7 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 
 | Project | What exists | Path to the board | Blocked on |
 |---|---|---|---|
-| mtg-kernel (Jack) | g115, A48, c12 checkpoints; Codex's local branch | Bridge ported to Codex's evaluation commit `cd41885e`, g115 input extension, stdlib bot around the existing scorer | Engine port (3.5 to 4 agent-days); Codex owns the inputs (read-only use) |
+| mtg-kernel (the maintainer) | g115, A48, c12 checkpoints; Codex's local branch | Bridge ported to Codex's evaluation commit `cd41885e`, g115 input extension, stdlib bot around the existing scorer | Engine port (3.5 to 4 agent-days); Codex owns the inputs (read-only use) |
 | gorge | Go engine (91.6% of Forge cards), 3 bots, per-seat fair view | gorge as a second engine: Go stdio adapter + `x_gorge_view_v1` + a Go agent wrapping his bots | Protocol v2 decision kinds (or declared defaults); Go toolchain and gorge source on this PC |
 | DraftZero | FDN Limited models on XMage (pickled checkpoints) | FDN Limited on XMage; its search runs on a copy of the real game, so a rated entry needs policy-only play through an audited extension or its own search over sampled worlds (its position rebuilder does most of this) | XMage adapter; v2.1 rotating pairs with hidden lists; pickles only inside a sandbox |
 | MageZero | Deck-local models, 16-deck Standard 2022-25 pool | Standard 2022-25 on XMage with a bring-your-own-deck benchmark type; same fair-search gap as DraftZero, and its shipped config appears to feed the opponent's hand to the network | XMage adapter; v2.1 fixed-deck benchmarks and legality lists; fair mode |
@@ -27,7 +27,7 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 
 ## Sub-projects, in order
 
-1. **C: Jack's models on `pauper-kernel`.** Port the bridge to `cd41885e`,
+1. **C: The maintainer's models on `pauper-kernel`.** Port the bridge to `cd41885e`,
    add `x_kernel_flat_v4` (g115's input computed by the evaluation's own Rust
    code in a lockstep training-mode copy, plus the model-row to candidate-id
    map), a stdlib Python bot around the existing scorer (v4 mode, seeded
@@ -82,26 +82,26 @@ Full notes (kept out of the repository): `E:/spellbench-archive/program-research
 - Codex-owned kernel code and checkpoints are used read-only; nothing of
   Codex's is pushed; Spellbench results are measurement only.
 - Outreach (Discord posts, GitHub issues on members' repositories) is drafted
-  here and sent by Jack.
+  here and sent by the maintainer.
 
-## Approved by Jack (2026-09-26, "Approved for all")
+## Approved by the maintainer (2026-09-26, "Approved for all")
 
 1. Downloading and building community code for adapters: the Go toolchain
    and gorge's source first, later XMage and CABT.
 2. Telling Codex about the bridge port (posted to the collab mailbox).
-3. Outreach drafts, which Jack sends.
+3. Outreach drafts, which the maintainer's sends.
 
 ## Status (2026-09-27)
 
 - Public: the repository is public and the site deploys from `main` to
-  https://jackmaiorino.github.io/spellbench/ (Jack, 2026-09-27: "make the repo
+  https://jackmaiorino.github.io/spellbench/ (the maintainer, 2026-09-27: "make the repo
   public and push it").
 - C is done: g115, A48 and c12 are rated on `pauper-kernel`.
-- Jack, 2026-09-27: "We will do a best effort to integrate gorge and DraftZero
+- The maintainer, 2026-09-27: "We will do a best effort to integrate gorge and DraftZero
   and MageZero and Manafold." Order: G (gorge), then X (XMage for DraftZero and
   MageZero, with D's network-less sandbox for their checkpoints), with
   Manafold's protocol co-review now and its adapter after its M4.
-- Jack, 2026-09-27, on CP7 (XMage's strongest built-in AI, ComputerPlayer7
+- The maintainer, 2026-09-27, on CP7 (XMage's strongest built-in AI, ComputerPlayer7
   at skill 7): "I want that on the leaderboard", folded into X. CP7 plays
   as a labelled reference AI hosted inside the XMage adapter: its search reads
   the whole game, so it can never be a fair entry. CP7's Spellbench results

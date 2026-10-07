@@ -1,0 +1,86 @@
+{
+  "schema": "spellbench-gorge-runtime019-unallocated-cloud/v1",
+  "records": [
+    {
+      "closure": {
+        "schema": "spellbench-gorge-unallocated-native-cloud-closure/v1",
+        "at_utc": "2026-10-04T03:32:31.091365+00:00",
+        "source_of_record": "E:\\spellbench-gorge-runpod-20261004-008",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-008",
+        "source_commit": "b3c018d6185570b2d9f850f4aad0998e41c9c64c",
+        "runtime_source_commit": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+        "gpu_type": "NVIDIA RTX A5000",
+        "minimum_vcpu_count": 8,
+        "minimum_memory_gb": 16,
+        "create_error": {
+          "at_utc": "2026-10-04T03:22:14.818941+00:00",
+          "stage": "fresh_gpu_availability_or_rate_precheck",
+          "command_exit_code": 1,
+          "observed_error": "Fresh GPU host availability or rate precheck failed; no allocation",
+          "pod_create_called": false,
+          "guardian_armed": false,
+          "credential_created": false,
+          "new_cloud_spend_usd": 0
+        },
+        "reconciliation": {
+          "pod_create_called": false,
+          "guardian_armed": false,
+          "credential_created": false,
+          "new_cloud_spend_usd": 0
+        },
+        "scope": "Unrated all12-mode native qualification;320 blocks/640 games plus matched throughput probes. No training or rated games.",
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0,
+        "retention": "Complete source archive, frozen runtime019 inputs, bundle, helper/guard recipes and all rejection/cleanup evidence retained",
+        "next_step": "One materially different GPU host request with4vCPU/8GB minima and RAM-bounded worker cap; preserve active Maintainer166 and the compute host priorities"
+      },
+      "seal_sha256": "e1a2cb450ab99a3ad119e3ac357d235a73dc03d990f82b80c0bd2346a0a8f60e",
+      "bytes": 151691098,
+      "files": 951
+    },
+    {
+      "closure": {
+        "schema": "spellbench-gorge-unallocated-native-cloud-closure/v1",
+        "at_utc": "2026-10-04T03:32:35.479847+00:00",
+        "source_of_record": "E:\\spellbench-gorge-runpod-20261004-009",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-009",
+        "source_commit": "b3c018d6185570b2d9f850f4aad0998e41c9c64c",
+        "runtime_source_commit": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+        "gpu_type": "NVIDIA RTX 2000 Ada Generation",
+        "minimum_vcpu_count": 8,
+        "minimum_memory_gb": 16,
+        "create_error": {
+          "detail": "There are no longer any instances available with the requested specifications. Please refresh and try again.",
+          "status": 400,
+          "title": "Bad Request"
+        },
+        "reconciliation": {
+          "at_utc": "2026-10-04T03:28:02.8072681+00:00",
+          "name": "spellbench-gorge-native-daadbaa298ac4178",
+          "pod_id": null,
+          "owned_matches": 0,
+          "guardian_pid_absent": true,
+          "guardian_release_confirmed": true,
+          "task_removed": true,
+          "credential_removed": true,
+          "new_cloud_spend_usd": 0
+        },
+        "scope": "Unrated all12-mode native qualification;320 blocks/640 games plus matched throughput probes. No training or rated games.",
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0,
+        "retention": "Complete source archive, frozen runtime019 inputs, bundle, helper/guard recipes and all rejection/cleanup evidence retained",
+        "next_step": "One materially different GPU host request with4vCPU/8GB minima and RAM-bounded worker cap; preserve active Maintainer166 and the compute host priorities"
+      },
+      "seal_sha256": "f01d3827b63b31b8b1dbf72e7142e53948cac2c89f4e26f63dcea3e6f256c961",
+      "bytes": 151775377,
+      "files": 955
+    }
+  ],
+  "provider_reported_prior_spend_usd": 1.8445914197218372,
+  "cumulative_conservative_estimate_usd": 1.86026747,
+  "new_cloud_spend_usd": 0,
+  "cloud_cap_usd": 10,
+  "rated_games": 0
+}

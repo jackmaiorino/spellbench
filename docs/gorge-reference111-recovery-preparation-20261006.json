@@ -1,0 +1,26 @@
+{
+  "schema": "spellbench-gorge-computehost-reference-recovery-preparation/v1",
+  "collector": "tools/gorge-recover-computehost111-20261006.py",
+  "collector_sha256": "78b46e701f716a0dd011d5d7a6ebb113a58baccf1ef4f9e5e3f272169a1ca91a",
+  "remote_parent": "C:/mtg-node/spellbench-gorge-launcher-20261006-111/parent-current.py",
+  "remote_parent_sha256": "a4cd03ce0dc5c1c678a52ab1a6462a690f9618a22680826133a3971ca0841ce6",
+  "remote_job": "C:/mtg-node/spellbench-gorge-reference-20261006-111",
+  "hot_recovery": "D:\\e-scratch\\spellbench-gorge-computehost-reference-20261006-111",
+  "source_of_record": "E:\\spellbench-gorge-computehost-reference-20261006-111",
+  "release_observed_on_execution_host": true,
+  "changed_release_refused_before_writes": true,
+  "affected_tests_passed": 62,
+  "affected_tests_seconds": 17.73,
+  "actual_check_only": {
+    "ready": false,
+    "reason": "Native107 positive terminal recovery is still pending",
+    "recovery_started": false
+  },
+  "recovery_roots_created": false,
+  "native_source_execution_unchanged": true,
+  "retains_failed_reference_attempts": true,
+  "private_reservation_token_in_public_receipts": false,
+  "reference_started": false,
+  "rated_games": 0,
+  "new_paid_compute_usd": 0
+}

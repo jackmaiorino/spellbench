@@ -1,0 +1,97 @@
+{
+  "schema": "spellbench-gorge-public-arrange-diagnosis/v1",
+  "at_utc": "2026-10-04T10:02:13.132771+00:00",
+  "status": "diagnosed_source_repair_pending",
+  "native_runtime_source_commit": "caeddf3157ed47ef59f81291934f03708fa55202",
+  "checked_adapter_commit": "3ba9e276e291881721797bbc6ab44403d676a1c2",
+  "cloud_attempt": "docs/gorge-runtime023-cloud-20261004.json",
+  "source_of_record": "E:\\spellbench-gorge-wildfire-reconstruction-trace-20261004-003",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-003",
+  "seal_sha256": "63a0c348223f8e4c4fc5bee68e79662be604562d577b2c1a883e9f0ff360529e",
+  "bytes": 19356330,
+  "public_input": "E:\\spellbench-gorge-wildfire-prefix-20261004-003\\PUBLIC-PROJECTION.json",
+  "public_input_sha256": "ae6482f87bb807da8d0c09e3b350d2c269c9068907e7958510739916322fbd03",
+  "public_frames": 141,
+  "public_work": {
+    "Attempts": 1,
+    "Submits": 5000,
+    "Nodes": 4699,
+    "BudgetExhausted": 1
+  },
+  "native_sampler_and_public_result_identical": true,
+  "matched_native_fields": [
+    "Accepted",
+    "ArrangeWindows",
+    "Attempts",
+    "BudgetExhausted",
+    "CompetitionExclusions",
+    "CompetitionResidual",
+    "CompetitionUnguided",
+    "Duplicates",
+    "ESS",
+    "FirstRejection",
+    "GuidedGenesis",
+    "GuidedLater",
+    "HandToStackCauses",
+    "IncompatibleProposals",
+    "KnownCardClaims",
+    "LandResidual",
+    "LandUnguided",
+    "PrefixRejected",
+    "Rejections",
+    "StackRejectionContexts",
+    "Submits",
+    "UnguidedConstraints",
+    "WeightDiagnostics"
+  ],
+  "checks": [
+    {
+      "name": "build",
+      "command": [
+        "D:/tools/go1.27.1/go/bin/go.exe",
+        "test",
+        "-vet=off",
+        "-p",
+        "1",
+        "-c",
+        "-o",
+        "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-003\\wildfire-prefix-tests.exe",
+        "./strategies"
+      ],
+      "exit_code": 0,
+      "seconds": 13.428488500008825
+    },
+    {
+      "name": "saved-prefix",
+      "command": [
+        "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-003\\wildfire-prefix-tests.exe",
+        "-test.run",
+        "^TestSavedWildfireBudgetPrefix141$",
+        "-test.v",
+        "-test.timeout",
+        "150s"
+      ],
+      "exit_code": 0,
+      "seconds": 18.97120620001806
+    }
+  ],
+  "farthest_zero_based_frame": 137,
+  "actor_arrangement": {
+    "source": "Lembas",
+    "visible_ref": 43,
+    "expected_name": "Fanatical Offering",
+    "hypothetical_name": "Ichor Wellspring",
+    "observed_kind": "arrange",
+    "actor": 0,
+    "options": 1
+  },
+  "source_gap": "spellbenchActorOpeningDraws constrains actor draws and explore reveals but omits actor-visible arrangement windows and disables its cursor at LibraryOrder. Native compileEpochs has already stopped at London bottoming.",
+  "planned_repair": "Extend only the public replay witness with actor-visible top-window names and provable actor arrangement transitions. Account for observed London bottoms using their already observed opening positions. Unknown moves, ambiguous order and copies remain unguided. Preserve native sampling, policies and64/8/5000 budgets.",
+  "next_verification": "Replay all13 retained public failure roots and require every emitted native diagnostic to match. Add legal owned-arrangement histories with unchanged observations under unseen tail changes, run affected tests/vet/diff, then rebuild and perform compatible guarded qualification.",
+  "completed_games": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "fully_qualified_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "owned_pod_allocated": false
+}

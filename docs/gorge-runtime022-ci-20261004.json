@@ -1,0 +1,80 @@
+{
+  "schema": "spellbench-gorge-runtime-ci/v1",
+  "checked_at_utc": "2026-10-04T08:40:03.343410+00:00",
+  "runtime_source_commit": "c87d7ac335d7113176f969be9e3c6e0cabbeae71",
+  "tested_adapter_commit": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+  "all_gorge_source_unchanged_since_runtime_source": true,
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37188313207,
+      "headSha": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313207",
+      "workflowName": "LLM container isolation",
+      "jobs": [
+        {
+          "name": "container",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T08:15:14Z",
+          "completedAt": "2026-10-04T08:15:56Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313207/job/111394959225"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37188313219,
+      "headSha": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313219",
+      "workflowName": "gorge adapter",
+      "jobs": [
+        {
+          "name": "test",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T08:15:13Z",
+          "completedAt": "2026-10-04T08:27:51Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313219/job/111394959245"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37188313234,
+      "headSha": "ae4beb440cd65f84e96bd2f35fb028ef499fe03e",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313234",
+      "workflowName": "CI",
+      "jobs": [
+        {
+          "name": "Python tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T08:15:14Z",
+          "completedAt": "2026-10-04T08:27:44Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313234/job/111394959467"
+        },
+        {
+          "name": "Python tests (windows-2025)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T08:15:14Z",
+          "completedAt": "2026-10-04T08:36:47Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37188313234/job/111394959561"
+        }
+      ]
+    }
+  ],
+  "all_hosted_checks_passed": true,
+  "affected_strategy_cases_passed": 57,
+  "go_vet_passed": true,
+  "diff_check_passed": true,
+  "production_repair": "docs/gorge-public-explore-repair-20261004.json",
+  "reference_launcher_correction": "docs/gorge-reference-scaling-repair-20261004.json",
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0
+}

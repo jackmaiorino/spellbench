@@ -1,0 +1,194 @@
+{
+  "schema": "spellbench-gorge-public-payment-replay-check/v1",
+  "mode_qualification_complete": false,
+  "rated_games": 0,
+  "source_files": [
+    {
+      "path": "engines/gorge/native-overlay/public_payment.go.txt",
+      "sha256": "5f2867572331f845271424c16c2bafb8ee5b20f9dafd649db8e25511a45b087f"
+    },
+    {
+      "path": "engines/gorge/native-overlay/public_redeal.go.txt",
+      "sha256": "2b22244eb2e48a7168f67ccc086f2e36f663996f75e71e48224f37230fa3e9b6"
+    },
+    {
+      "path": "engines/gorge/native-overlay/public_collector.go.txt",
+      "sha256": "51d6465398b815ef5f91f39fa384f91fc495287d958841019323e995f21dc9ef"
+    },
+    {
+      "path": "engines/gorge/scripts/setup-dev.py",
+      "sha256": "78ac5371f60e9461221a930c5b783b252b676d67d767baca04472f984ac02470"
+    },
+    {
+      "path": "engines/gorge/internal/xview/search.go",
+      "sha256": "200fc82171a1982a10ce7637b7f7dae81fb464086e38eddaf0f4e51c94d5f340"
+    },
+    {
+      "path": "engines/gorge/strategies/payment_history_test.go",
+      "sha256": "c23120e084d8a6faef9c1927cd0bc98d658b2377a874f5bdcb9897de09c7c828"
+    },
+    {
+      "path": "engines/gorge/strategies/mulligan_constraints_test.go",
+      "sha256": "689066537b8ed413e21df26eff31d1b57d191d7cb35c3d517ce5adc4e6bad143"
+    }
+  ],
+  "native_source_pin": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "changes": [
+    "Preserve exclusive actor payment answers with complete semantic witnesses, observer aliases, empty native plan ID and zero native zone counters; match only independently offered hypothetical witnesses.",
+    "Enumerate the hypothetical opponents legal payment selectors and all ordinary intents within the unchanged shared root budget.",
+    "Scope the two pinned blind London hand-to-library move labels to their asking player; preserve generic unknown-owner invalidation."
+  ],
+  "regressions": {
+    "actor_atomic_cast": {
+      "before": "frame21 action mismatch: expected1..1 choices, got0",
+      "after_accepted": 64,
+      "after_worlds": 8,
+      "changed_witness_accepted": 0,
+      "native_selection_preserved": true,
+      "native_digests_and_zone_counters_removed": true
+    },
+    "opponent_atomic_cast": {
+      "native_accepted": 0,
+      "redealt_worlds": 8,
+      "reconstruction_attempts": 1,
+      "reconstruction_submits": 64,
+      "opponent_private_answer_transported": false
+    },
+    "opponent_london_bottom_and_three_actor_rare_draws": {
+      "before_accepted": 0,
+      "before_worlds": 0,
+      "before_reconstruction_submits": 5000,
+      "before_budget_exhausted": 1,
+      "after_native_accepted": 24,
+      "after_worlds": 8
+    }
+  },
+  "reference_host_prefix": {
+    "source_of_record": "E:\\spellbench-gorge-audit-check-20261003-015",
+    "recovery": "D:/e-scratch/spellbench-gorge-audit-check-20261003-015",
+    "check_sha256": "770029433aa8ee536cb014c78fe67eabfe5ad0671c4ad30dce0c5ac2bac36cf7",
+    "seal_sha256": "1539796f6b98b9854d69d5447283334c8f3d0d3d815b03973bf2827fcf69ef86",
+    "agent_build_source_of_record": "E:\\spellbench-gorge-proposal-debug-20261003-006",
+    "agent_binary_sha256": "e38291b53e0e297329c063703eb728706dc28f47ae51f2793d274f8da808e0cc",
+    "deck": "Burn",
+    "policies": [
+      "gorge-search-redeal",
+      "uniform"
+    ],
+    "actor_native_decision_cap": 64,
+    "classification": "forfeit",
+    "steps": 119,
+    "digest": "sha256:4bbb46f6f6b4bbe4c010112f2259d7d596fefd47f6f37901136091066442d23b",
+    "search": {
+      "Natives": 64,
+      "Eligible": 3,
+      "Attempted": 2,
+      "Covered": 2,
+      "Attempts": 128,
+      "Accepted": 0,
+      "Worlds": 16,
+      "Rollouts": 72,
+      "Submits": 33229,
+      "Terminal": 72,
+      "Capped": 0,
+      "Redealt": 16,
+      "ReconstructionAttempts": 3,
+      "ReconstructionSubmits": 522,
+      "ReconstructionNodes": 440,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 1
+      },
+      "Kinds": {
+        "cast": 2
+      }
+    },
+    "forced_natives": 0,
+    "fallback_natives": 0,
+    "all_processes_closed": true,
+    "limitation": "Deliberate capped forfeit is a correctness fixture. It is not a completed-game, all-mode qualification, throughput or rating result."
+  },
+  "validation": {
+    "strategy_suite": {
+      "seconds": 47.085,
+      "passed": true
+    },
+    "xview_tests": {
+      "seconds": 1.091,
+      "passed": true
+    },
+    "five_deck_public_prefixes_and_four_mode_replay": {
+      "seconds": 4.101,
+      "passed": true
+    },
+    "full_pool_hidden_card_capture": {
+      "cards": 83,
+      "seconds": 1.035,
+      "passed": true
+    },
+    "vet_passed": true,
+    "diff_check_passed": true,
+    "preserved_logs": {
+      "gorge-london-payment-strategies-20261003.log": "b36e0142169a69f11cd0e8d1693c2ed099916fd482c1c29e199b5ae251e501e1",
+      "gorge-payment-host-prefixes-20261003.log": "66df4fee087eb3c9151a90e9287286a6652b77c15806d04e2bf3bccc7eba07ab",
+      "gorge-payment-full-pool-privacy-20261003.log": "03f29e402f339dd71b81f9eab72d28aed705bb4986804a303b57eea8c55b25d4"
+    }
+  },
+  "prior_qualified_allocation": {
+    "source_of_record": "E:/spellbench-gorge-qualification-20261003-003",
+    "source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+    "selected_workers": 8,
+    "natural_games": 48,
+    "speedup": 5.612197180370509,
+    "reusable_for_changed_runtime_without_compatibility_check": false
+  },
+  "unfinished": [
+    "Compatible guarded throughput evidence and full mode/deck/clock qualification",
+    "Roster freeze, rated evaluation, review-path merge and live publication"
+  ],
+  "production_runtime_prefix": {
+    "source_of_record": "E:/spellbench-gorge-audit-check-20261003-017",
+    "game_digest": "sha256:5b9e41066d329d238046ebca99ea22f38ceba66236efd53820cc2ec64cc9ad5e",
+    "exact_primary_result_repeat": true,
+    "search": {
+      "Natives": 64,
+      "Eligible": 3,
+      "Attempted": 2,
+      "Covered": 2,
+      "Attempts": 128,
+      "Accepted": 0,
+      "Worlds": 16,
+      "Rollouts": 72,
+      "Submits": 33229,
+      "Terminal": 72,
+      "Capped": 0,
+      "Redealt": 16,
+      "ReconstructionAttempts": 3,
+      "ReconstructionSubmits": 522,
+      "ReconstructionNodes": 440,
+      "ReconstructionBudgetExhausted": 0,
+      "RedealRefusals": {},
+      "Reasons": {
+        "fewer_than_two_candidates": 1
+      },
+      "Kinds": {
+        "cast": 2
+      }
+    },
+    "all_processes_closed": true,
+    "classification": "forfeit",
+    "actor_decision_cap": 64,
+    "limitation": "Bounded correctness fixture; not a natural completed-game, allocation or rating result",
+    "check_sha256": "1736efbb8cd7e82c171cdd56783e5838554651a0647a17165d27ab6eef956900"
+  },
+  "production_transcript_comparison": {
+    "source_of_record": "E:/spellbench-gorge-audit-check-20261003-017/TRANSCRIPT-COMPARISON.json",
+    "sha256": "cb068eb28eff7fabcf3001ea6cb00c420c1cf21e419228f07cf1488b92e01a2e",
+    "exchanges": 120,
+    "changed_fields": 16,
+    "changes_only_public_aliases_and_payment_answer": true,
+    "search_aggregate_identical": true,
+    "failed_stale_digest_attempt_retained": "E:/spellbench-gorge-audit-check-20261003-016"
+  }
+}

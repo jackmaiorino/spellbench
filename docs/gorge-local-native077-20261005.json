@@ -1,0 +1,110 @@
+{
+  "phase": "numerical_failure_recovered_and_sealed",
+  "observed_at_utc": "2026-10-05T18:00:51.536684+00:00",
+  "execution_source_commit": "ea4b2d37704f55c4d00b7eebcb5613b637bb8799",
+  "runtime_source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-076",
+  "runtime_seal_sha256": "d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74",
+  "source_of_record": "E:\\spellbench-gorge-native-20261005-077",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-20261005-077",
+  "supervisor_pid": 31532,
+  "canonical_generation": 193,
+  "canonical_lane": "spellbench-gorge",
+  "worker_cap": 16,
+  "worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "placement": "main-pc=used: released Luna window, canonical host free, exact local build already recovered, compare all fitting serial/parallel rungs before audit; computehost=unavailable: preserve Maintainer-approved next XMage bounded stage and actual current claims; runpod=not_authorized: remaining all-in USD10 headroom cannot cover retained ancillary lease floor; github-actions=slower: local prepared runtime avoids staging and recovery, current runner offers4cores against local24logical cores",
+  "guard_path": "host_reservation_v1.dispatch -> this bounded parent -> qualify_native.py -> arena.throughput.plan_allocation -> qualified gorgequal callback",
+  "wall_cap_seconds": 21600,
+  "release_condition": "All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games",
+  "owner": "Failure retained; Codex owns public-only repair and a new compatible guarded qualification attempt",
+  "next_wake": "Capture remaining7 failing public roots from original game164, trace and repair; then supported full native audit",
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "provider_final_settlement_pending": true,
+  "raw_native_launch_used": false,
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "previous_numerical_failure_remains_failed": true,
+  "qualification_admission": "Full native audit starts only after supported matched completed-work comparison admits identical outputs",
+  "recovery_seal_sha256": "62704545a8ab05d67dff06999b8612f4122d06679e92520ce9ee100d565056eb",
+  "local_cleanup_sha256": "08ae4401dbe7079a8588e23e9357df60f0e42f716a0e8f94b397dcd8c3a00cd2",
+  "terminal": {
+    "at_utc": "2026-10-05T17:03:34.645673+00:00",
+    "native_passed": false,
+    "error": null,
+    "stop_reason": "existing_native_redeal_gate_failed",
+    "elapsed_seconds": 2895.6161604999797,
+    "new_cloud_spend_usd": 0,
+    "rated_games": 0
+  },
+  "host_release": {
+    "at_utc": "2026-10-05T17:03:34.809+00:00",
+    "execution_id": {
+      "generation": 193,
+      "host": "DESKTOP-DJ1C40R",
+      "lane": "spellbench-gorge",
+      "work_id": "gorge-guarded-native077"
+    },
+    "live_descendants": [],
+    "observation_errors": [],
+    "outcome": "failure",
+    "processes": {
+      "0": {
+        "creation_time": 134356905186951788,
+        "pid": 31532,
+        "state": "absent"
+      },
+      "1": {
+        "creation_time": 134356905188376941,
+        "pid": 3992,
+        "state": "absent"
+      }
+    },
+    "token_fate": "released"
+  },
+  "failure": {
+    "at_utc": "2026-10-05T17:03:34.118358+00:00",
+    "game": 164,
+    "cell": "Spy/search-mana-redeal",
+    "coverage": {
+      "Natives": 268,
+      "Eligible": 81,
+      "Attempted": 40,
+      "Covered": 29,
+      "Attempts": 2560,
+      "Accepted": 0,
+      "Worlds": 232,
+      "Rollouts": 816,
+      "Submits": 155576,
+      "Terminal": 816,
+      "Capped": 0,
+      "Redealt": 232,
+      "ReconstructionAttempts": 82,
+      "ReconstructionSubmits": 62066,
+      "ReconstructionNodes": 46265,
+      "ReconstructionBudgetExhausted": 11,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 11
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 41,
+        "insufficient worlds/ESS": 11
+      },
+      "Kinds": {
+        "attackers": 4,
+        "cast": 13,
+        "mana": 12
+      }
+    },
+    "gate": "Unchanged Report.Clean zero-refusal gate"
+  },
+  "matched_throughput_complete": false,
+  "completed_serial_comparison_rows": 15,
+  "full_native_qualification_started": false
+}

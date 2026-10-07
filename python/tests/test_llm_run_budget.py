@@ -47,7 +47,7 @@ def test_authorized_recovery_removes_expired_cutoff_without_resetting_limits(tmp
     parent = budget(tmp_path, requests=2)
     parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("subscription_sharing_usage_limit_exceeded")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("subscription_sharing_usage_limit_exceeded")), parent).complete(PROMPT, timeout_s=30)
     before = parent.summary()
     database_bytes = parent.path.read_bytes()
     overlay = parent.path.with_name(parent.path.name + ".deadline-extension.json")
@@ -63,8 +63,8 @@ def test_authorized_recovery_removes_expired_cutoff_without_resetting_limits(tmp
         assert after["policy"][name] == before["policy"][name]
     assert parent.path.read_bytes() == database_bytes and overlay.read_bytes() == overlay_bytes
     provider = Provider(Completion("{}", parent.model, 11, 3, "recovered"))
-    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
-    assert 0 < provider.timeout_s <= 2
+    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=30)
+    assert 0 < provider.timeout_s <= 30
     assert child.summary()["requests"] == 2 and child.summary()["accounted_tokens"] == before["accounted_tokens"] + 14
     with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
         child.reserve(PROMPT, output_tokens=1024)
@@ -74,7 +74,7 @@ def test_authorized_recovery_removes_expired_cutoff_without_resetting_limits(tmp
 def test_no_cutoff_recovery_keeps_token_and_concurrency_admission(tmp_path, limit):
     parent = budget(tmp_path, **({"tokens": 1050} if limit == "tokens" else {"max_inflight": 1}))
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
     if limit == "inflight":
         child.reserve(PROMPT, output_tokens=1024)
@@ -98,7 +98,7 @@ def test_failed_run_recovery_preserves_overlay_caps_abort_and_unknown_debit(tmp_
     parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
     wrapped = BudgetedProvider(Provider(ProviderError("inference_failed")), parent)
     with pytest.raises(ProviderError):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     parent.fail("hosted_broker_failed")
     before = parent.summary()
     database_bytes = parent.path.read_bytes()
@@ -116,7 +116,7 @@ def test_failed_run_recovery_preserves_overlay_caps_abort_and_unknown_debit(tmp_
     with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
         parent.check()
     provider = Provider(Completion("{}", parent.model, 11, 3, "diagnostic"))
-    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(provider, child).complete(PROMPT, timeout_s=30)
     assert child.summary()["requests"] == before["requests"] + 1
     assert child.summary()["accounted_tokens"] == before["accounted_tokens"] + 14
 
@@ -142,11 +142,11 @@ def test_failed_run_recovery_does_not_retry_or_clear_a_new_failure(tmp_path):
     provider = Provider(ProviderError("subscription_sharing_usage_limit_exceeded"))
     wrapped = BudgetedProvider(provider, child)
     with pytest.raises(ProviderError):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="provider_already_failed"):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
-        BudgetedProvider(provider, child).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, child).complete(PROMPT, timeout_s=30)
     assert provider.calls == 1 and child.summary()["unknown_usage"] == 1
 
 
@@ -343,10 +343,10 @@ def test_reported_usage_replaces_reservation_and_is_not_double_counted(tmp_path)
     state = budget(tmp_path, requests=2, tokens=2500)
     provider = Provider(Completion('{"candidate_id":0}', "luna", 100, 20, "response-1"))
     wrapped = BudgetedProvider(provider, state)
-    wrapped.complete(PROMPT, timeout_s=2)
-    wrapped.complete(PROMPT, timeout_s=2)
+    wrapped.complete(PROMPT, timeout_s=30)
+    wrapped.complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     summary = state.summary()
     assert provider.calls == summary["completed"] == 2
     assert summary["reported_input_tokens"] == 200 and summary["reported_output_tokens"] == 40
@@ -415,15 +415,15 @@ def test_expired_budget_stops_before_any_provider_request(tmp_path, monkeypatch)
     monkeypatch.setattr(module.time, "time", lambda: now + 61)
     provider = Provider(Completion("{}", "luna", 1, 1))
     with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     assert provider.calls == 0
 
 
 def failed_budget(tmp_path, **changes):
     state = budget(tmp_path, **changes)
-    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), state).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=30)
     return state
 
 
@@ -451,7 +451,7 @@ def test_continuation_preserves_original_bytes_deadline_failures_and_uncertain_r
     assert summary["uncertain_reserved_tokens"] == 1034 and summary["accounted_tokens"] == 1154
     for name in (*LIMIT_NAMES, "created_at", "deadline"):
         assert summary["policy"][name] == policy[name]
-    BudgetedProvider(Provider(Completion("{}", "luna", 50, 10)), successor).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 50, 10)), successor).complete(PROMPT, timeout_s=30)
     assert successor.summary()["requests"] == 3 and successor.summary()["accounted_tokens"] == 1214
     assert parent.path.read_bytes() == original
     with sqlite3.connect(parent.path.as_uri() + "?mode=ro", uri=True) as database:
@@ -591,7 +591,7 @@ def test_another_failure_stops_successor_workers_and_a_later_attempt_carries_all
     parent = failed_budget(tmp_path)
     child = continue_budget(parent, tmp_path / "child.sqlite3")
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), child).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), child).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         RunBudget(child.path, model="luna").reserve(PROMPT, output_tokens=1024)
     original_child = child.path.read_bytes()
@@ -633,13 +633,13 @@ def test_timeout_opt_in_allows_a_fresh_provider_but_never_reuses_the_failed_inst
     provider = Provider(ProviderError("timeout"))
     wrapped = BudgetedProvider(provider, state)
     with pytest.raises(ProviderError, match="timeout"):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="provider_already_failed"):
-        wrapped.complete(PROMPT, timeout_s=2)
+        wrapped.complete(PROMPT, timeout_s=30)
     state.check()
     assert provider.calls == 1
     other = Provider(Completion("{}", "luna", 100, 20))
-    BudgetedProvider(other, RunBudget(state.path, model="luna")).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(other, RunBudget(state.path, model="luna")).complete(PROMPT, timeout_s=30)
     summary = state.summary()
     assert summary["requests"] == 2 and summary["completed"] == summary["failed"] == summary["unknown_usage"] == 1
     assert summary["active_timeout_forfeits"] == 1 and summary["active_terminal_failures"] == 0
@@ -654,13 +654,13 @@ def test_opted_in_timeouts_keep_unknown_reservations_until_original_token_cap(tm
     state = budget(tmp_path, tokens=2500, allow_timeout_forfeits=True)
     for _ in range(2):
         with pytest.raises(ProviderError, match="timeout"):
-            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=30)
     summary = state.summary()
     assert summary["failed"] == summary["unknown_usage"] == summary["active_timeout_forfeits"] == 2
     assert summary["accounted_tokens"] == summary["uncertain_reserved_tokens"] == 2068
     provider = Provider(Completion("{}", "luna", 1, 1))
     with pytest.raises(ProviderError, match="run_budget_tokens_exhausted"):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     assert provider.calls == 0 and state.summary()["requests"] == 2
 
 
@@ -668,7 +668,7 @@ def test_opted_in_timeouts_keep_unknown_reservations_until_original_token_cap(tm
 def test_timeout_forfeit_does_not_relax_original_request_or_time_limits(tmp_path, monkeypatch, limit):
     state = budget(tmp_path, requests=1, allow_timeout_forfeits=True)
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=30)
     if limit == "deadline":
         import spellbench.llm.run_budget as module
         state_deadline = state.summary()["policy"]["deadline"]
@@ -685,7 +685,7 @@ def test_timeout_forfeit_does_not_relax_original_request_or_time_limits(tmp_path
 def test_only_exact_settled_timeout_errors_are_tolerated(tmp_path, code):
     state = budget(tmp_path, allow_timeout_forfeits=True)
     with pytest.raises(ProviderError, match=code):
-        BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         state.check(allow_pending=True)
     assert state.summary()["active_timeout_forfeits"] == 0
@@ -734,7 +734,7 @@ def test_explicit_timeout_continuation_keeps_both_legacy_ancestors_and_all_usage
     parent_bytes = parent.path.read_bytes()
     child = continue_budget(parent, tmp_path / "child.sqlite3")
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), child).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), child).complete(PROMPT, timeout_s=30)
     child_bytes = child.path.read_bytes()
     arguments = continuation_arguments(child)
     target = tmp_path / "allowed.sqlite3"
@@ -743,7 +743,7 @@ def test_explicit_timeout_continuation_keeps_both_legacy_ancestors_and_all_usage
     successor.check()
     assert parent.path.read_bytes() == parent_bytes and child.path.read_bytes() == child_bytes
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), successor).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), successor).complete(PROMPT, timeout_s=30)
     successor.check()
     summary = successor.summary()
     assert summary["requests"] == 4 and summary["failed"] == summary["unknown_usage"] == 3
@@ -811,7 +811,7 @@ def test_wall_extension_retains_both_legacy_ancestors_and_matches_hosted_child_l
     original_bytes = original.path.read_bytes()
     parent = continue_budget(original, tmp_path / "repair.sqlite3")
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(Provider(ProviderError("timeout")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("timeout")), parent).complete(PROMPT, timeout_s=30)
     parent_bytes = parent.path.read_bytes()
     parent_policy = parent.summary()["policy"]
     arguments = continuation_arguments(parent)
@@ -837,7 +837,7 @@ def test_wall_extension_retains_both_legacy_ancestors_and_matches_hosted_child_l
                   "--run-budget=" + str(target), "--max-run-requests", "8", "--max-run-tokens", "8000",
                   "--max-run-wall-seconds", "14400", "--allow-timeout-forfeits"))
     check_hosted_budgets(SimpleNamespace(bots=(bot,)))
-    BudgetedProvider(Provider(Completion("{}", "luna", 50, 10)), state).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 50, 10)), state).complete(PROMPT, timeout_s=30)
     assert state.summary()["requests"] == 4 and state.summary()["accounted_tokens"] == 2248
     with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
         parent.check()
@@ -883,7 +883,7 @@ def test_explicit_extension_can_recover_expired_failed_parent_without_renewing_s
     state.check()
     assert state.summary()["policy"]["deadline"] == created + 120
     assert state.summary()["accounted_tokens"] == 1154 and parent.path.read_bytes() == original
-    BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=100).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=100).complete(PROMPT, timeout_s=30)
     monkeypatch.setattr(module.time, "time", lambda: created + 120)
     with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
         state.check()
@@ -1039,7 +1039,7 @@ def test_overlay_expiry_stops_admission_before_provider_call(tmp_path, monkeypat
         state.check()
     provider = Provider(Completion("{}", "luna", 1, 1))
     with pytest.raises(ProviderError, match="run_budget_deadline_exhausted"):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     assert provider.calls == state.summary()["requests"] == 0
 
 
@@ -1053,11 +1053,11 @@ def test_deadline_overlay_refuses_active_failures_unresolved_or_exhausted_budget
         state.reserve(PROMPT, output_tokens=100)
     elif problem == "failure":
         with pytest.raises(ProviderError, match="timeout"):
-            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=2)
+            BudgetedProvider(Provider(ProviderError("timeout")), state).complete(PROMPT, timeout_s=30)
     elif problem == "host":
         state.fail("profile_renewal_failed")
     elif problem in {"requests", "tokens"}:
-        BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=1).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(Completion("{}", "luna", 10, 1)), state, output_tokens=1).complete(PROMPT, timeout_s=30)
     baseline = state.summary()["policy"]["deadline"]
     original = state.path.read_bytes()
     with pytest.raises(ProviderError, match=code):

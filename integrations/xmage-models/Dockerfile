@@ -3,7 +3,7 @@ RUN python -m pip install --no-cache-dir --no-deps --index-url https://download.
 COPY requirements.txt /app/requirements.txt
 RUN python -m pip install --no-cache-dir --requirement /app/requirements.txt
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 MZ_DEVICE=cpu OMP_NUM_THREADS=1 MKL_NUM_THREADS=1
-COPY checkpoint_runtime.py checkpoint_format.py jack_runtime.py /app/
+COPY checkpoint_runtime.py checkpoint_format.py maintainer_runtime.py /app/
 WORKDIR /tmp
 USER 65534:65534
 ENTRYPOINT ["python", "/app/checkpoint_runtime.py"]

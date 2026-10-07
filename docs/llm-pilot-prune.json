@@ -4,7 +4,7 @@
   "source_of_record": "E:\\spellbench-llm-pilot-20261001",
   "closure_archive_sha256": "1172233fadde827a4271692786178706d789407c7252e8ef07c190dea04cbcce",
   "closure_archive_bytes": 396590447,
-  "recovery_copy": "C:\\Users\\Jack\\IdeaProjects\\spellbench-wt\\codex-llm-subscription\\out\\magic-pilot-closure.zip",
+  "recovery_copy": "~\\IdeaProjects\\spellbench-wt\\codex-llm-subscription\\out\\magic-pilot-closure.zip",
   "recovery_copy_verified": true,
   "raw_receipt_bytes": 20689106,
   "kept": "all pilot/replay traffic, usage, manifests, scripts and confinement receipts; binary inputs by hash",

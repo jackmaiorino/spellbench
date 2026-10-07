@@ -1,0 +1,138 @@
+{
+  "schema": "spellbench-gorge-explore-fixture-attempts/v1",
+  "observed_at_utc": "2026-10-04T08:05:51.239911+00:00",
+  "attempts": [
+    {
+      "attempt": 1,
+      "roots": {
+        "repair": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-repair-20261004-001",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-repair-20261004-001",
+          "seal_sha256": "f9f13155224118e807374959c690ff3d0c537a9eacfad912577fc41261fe45a4",
+          "bytes": 19291711,
+          "binary_sha256": "bedf615726ed9e8e8f4f5ea3a2de9920aa1c66e3b3af4456d093a0f72114977a",
+          "fixture_sha256": "e45cb92f10df88e0bf26ec9bc9f533fb1f279617e6bb404dec746f85ee5701f1",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "saved_prefix_passed"
+        },
+        "checks": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-checks-20261004-001",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-checks-20261004-001",
+          "seal_sha256": "fbe186810a6045395ed52b5a03aa71ffb421a70abc068cb0b3cd9756d961398f",
+          "bytes": 505658,
+          "binary_sha256": "bedf615726ed9e8e8f4f5ea3a2de9920aa1c66e3b3af4456d093a0f72114977a",
+          "fixture_sha256": "e45cb92f10df88e0bf26ec9bc9f533fb1f279617e6bb404dec746f85ee5701f1",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "failed_fixture_attempt"
+        }
+      }
+    },
+    {
+      "attempt": 2,
+      "roots": {
+        "repair": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-repair-20261004-002",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-repair-20261004-002",
+          "seal_sha256": "503bbff1b7ffe29f682833cc8ef56aa66bfd20373b8c802ff47cb070f1e3e8fc",
+          "bytes": 19292961,
+          "binary_sha256": "3fe37b53ef60b82c8c2927a20c879fe6e550b58fb0cde6b49d2b0a01e7d9acd1",
+          "fixture_sha256": "b9d78364cd8ac5bfc49ca005457340d5c4aff215926f98e6a37032b88b602852",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "saved_prefix_passed"
+        },
+        "checks": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-checks-20261004-002",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-checks-20261004-002",
+          "seal_sha256": "833d56421da53328aecd27a1045aec106746cb6dddd77ff97851d08d8b8aef4d",
+          "bytes": 506213,
+          "binary_sha256": "3fe37b53ef60b82c8c2927a20c879fe6e550b58fb0cde6b49d2b0a01e7d9acd1",
+          "fixture_sha256": "b9d78364cd8ac5bfc49ca005457340d5c4aff215926f98e6a37032b88b602852",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "failed_fixture_attempt"
+        }
+      }
+    },
+    {
+      "attempt": 3,
+      "roots": {
+        "repair": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-repair-20261004-003",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-repair-20261004-003",
+          "seal_sha256": "887746f297509c5bcb712cb461096032363aa5f9a2ebf7ca15db0f20f2fe3e2a",
+          "bytes": 19297358,
+          "binary_sha256": "9311d8c6ee02a6d2b6706955bbba68e7035f37ee8c0ed96c1aba9890bf4a261d",
+          "fixture_sha256": "c4bd3297da626a2c531b9bf7e8850af26608ae97daf57d95ffddcb356a3e1f10",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "saved_prefix_passed"
+        },
+        "checks": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-checks-20261004-003",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-checks-20261004-003",
+          "seal_sha256": "4df8a27c89ee5d03f17da6f75389951bdbf6be62ba8a9849580204af6a5199be",
+          "bytes": 506519,
+          "binary_sha256": "9311d8c6ee02a6d2b6706955bbba68e7035f37ee8c0ed96c1aba9890bf4a261d",
+          "fixture_sha256": "c4bd3297da626a2c531b9bf7e8850af26608ae97daf57d95ffddcb356a3e1f10",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "failed_fixture_attempt"
+        }
+      }
+    },
+    {
+      "attempt": 4,
+      "roots": {
+        "repair": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-repair-20261004-004",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-repair-20261004-004",
+          "seal_sha256": "de0ca5e454516b83c9d4187ece54b980fdb604a8322174c983a66ff16fb4278c",
+          "bytes": 19297918,
+          "binary_sha256": "4bdb256f7f0fd5d4ea031ce8bd26052d40fb981f03d13d66e8897e0866ae39d9",
+          "fixture_sha256": "0c7dc211e449f3dfdb2053c5af275bf00129b0c9d5062e5ef5f9845faeba4c77",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "saved_prefix_passed"
+        },
+        "checks": {
+          "source_of_record": "E:\\spellbench-gorge-wildfire-explore-checks-20261004-004",
+          "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-explore-checks-20261004-004",
+          "seal_sha256": "258b5b294b86e5182ab7543c8cf07e7e66e06a750d4d9b226911ad55b4c18083",
+          "bytes": 1196237,
+          "binary_sha256": "4bdb256f7f0fd5d4ea031ce8bd26052d40fb981f03d13d66e8897e0866ae39d9",
+          "fixture_sha256": "0c7dc211e449f3dfdb2053c5af275bf00129b0c9d5062e5ef5f9845faeba4c77",
+          "prune_manifest_sha256": "23366362bec8aa50868de1206c43149f173b8494e745405e0e19299274a8ae61",
+          "status": "failed_fixture_attempt"
+        }
+      }
+    }
+  ],
+  "retained_failed_fixture_attempts": 4,
+  "saved_public_prefix_worlds": 8,
+  "native_fields_identical": [
+    "Attempts",
+    "Accepted",
+    "PrefixRejected",
+    "BudgetExhausted",
+    "Submits",
+    "Duplicates",
+    "ESS",
+    "FirstRejection",
+    "Rejections",
+    "GuidedGenesis",
+    "GuidedLater",
+    "ArrangeWindows",
+    "UnguidedConstraints",
+    "IncompatibleProposals",
+    "WeightDiagnostics",
+    "HandToStackCauses",
+    "StackRejectionContexts",
+    "CompetitionExclusions",
+    "CompetitionResidual",
+    "CompetitionUnguided",
+    "LandResidual",
+    "KnownCardClaims"
+  ],
+  "public_input": "E:\\spellbench-gorge-wildfire-prefix-20261004-001\\PUBLIC-PROJECTION.json",
+  "public_input_sha256": "d12427a9713a0a7707eba67618765573929b8acbf486ed60fd92702c750e580b",
+  "production_witness_unchanged_across_attempts": true,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0
+}

@@ -1,0 +1,205 @@
+{
+  "schema": "spellbench-gorge-scaling-closure/v1",
+  "closed_at_utc": "2026-10-03T10:08:03.744892+00:00",
+  "source_of_record": "E:\\spellbench-gorge-qualification-20261003-003",
+  "independent_recovery": "D:\\e-scratch\\spellbench-gorge-qualification-20261003-003",
+  "copies_hash_verified": true,
+  "bytes_retained_per_copy": 316818,
+  "storage_cap_bytes": 536870912,
+  "reserve_bytes": 64424509440,
+  "allocation_qualified": true,
+  "mode_qualification_complete": false,
+  "rated_games": 0,
+  "runtime_source_commit": "ec4bc3c2320e07bba538330c2a6c9c334e9ed771",
+  "original_preparation_commit": "ace3286aeaa1777735993831b102a7814ab7f4ac",
+  "preparation_commit_note": "The manifest preserves the original preparation ref. Bench and arena control sources are unchanged between that ref and the executed runtime source; this was verified by git diff.",
+  "runtime_preparation": "E:\\spellbench-gorge-runtime-20261003-007\\PREPARATION.json",
+  "runtime_preparation_sha256": "c7768a286b955a40c58a45bf408aedc154bf6845bf4f27ff3ae1cbe8308b8268",
+  "completed_at_utc": "2026-10-03T09:54:17.503435+00:00",
+  "guard_path": "spellbench.bench.run.plan_for -> qualification.plan_allocation -> qualification_play -> arena.runner.play_games",
+  "host_release": {
+    "generation": 106,
+    "supervisor_pid": 47640,
+    "token_fate": "released"
+  },
+  "throughput_evidence_sha256": "f8b84fab73c3145f33e2b6ee5695f300cfc59c7e0ba6323bcdebbd706a445464",
+  "workload": "sha256:42b21ce0db8ecad3d706ffb6cf6fce37cd2342b809dbbaf2bc99b73b53413a74",
+  "selected_workers": 8,
+  "natural_games": 48,
+  "unique_scheduled_games": 16,
+  "ledger_bytes_identical": true,
+  "ledgers": [
+    {
+      "path": ".qualification-records/qualification-a2ihd8js/trial-1-workers-1.jsonl",
+      "sha256": "b3b38e95348fdc55a0fd3f32af80bde1673976e941ec938b24b25f9ef80f109d",
+      "bytes": 21523,
+      "workers": 1,
+      "natural_games": 16,
+      "seconds": 405.644,
+      "games_per_second": 0.0394434528798651,
+      "outputs_digest": "sha256:ca66d684a4a8557f0a6954594d37ea2ad025f95a10d5f34ae0513d4e783bff2e"
+    },
+    {
+      "path": ".qualification-records/qualification-a2ihd8js/trial-2-workers-4.jsonl",
+      "sha256": "b3b38e95348fdc55a0fd3f32af80bde1673976e941ec938b24b25f9ef80f109d",
+      "bytes": 21523,
+      "workers": 4,
+      "natural_games": 16,
+      "seconds": 115.965,
+      "games_per_second": 0.1379726641659121,
+      "outputs_digest": "sha256:ca66d684a4a8557f0a6954594d37ea2ad025f95a10d5f34ae0513d4e783bff2e"
+    },
+    {
+      "path": ".qualification-records/qualification-a2ihd8js/trial-3-workers-8.jsonl",
+      "sha256": "b3b38e95348fdc55a0fd3f32af80bde1673976e941ec938b24b25f9ef80f109d",
+      "bytes": 21523,
+      "workers": 8,
+      "natural_games": 16,
+      "seconds": 72.279,
+      "games_per_second": 0.22136443503645598,
+      "outputs_digest": "sha256:ca66d684a4a8557f0a6954594d37ea2ad025f95a10d5f34ae0513d4e783bff2e"
+    }
+  ],
+  "speedup_serial_to_selected": 5.612197180370509,
+  "sample_decks": [
+    "Wildfire"
+  ],
+  "limits": [
+    "This supported guard sample covers one deck and cannot establish all-mode/all-deck behavior or search clocks.",
+    "All four search modes produce zero sampled worlds and zero covered decisions against uniform in the natural Wildfire sample. Their legal native delegation is not successful search qualification.",
+    "The projected full-run duration is based only on this sample and may change for other decks or search-heavy matchups.",
+    "Allocation evidence is reusable only while source, workload, machine and storage compatibility remains valid."
+  ],
+  "regeneration": "Use pinned runtime007 and saved benchmark/guard recipes with the private throwaway qualification secret. Three full official ledger files are byte-identical across1/4/8 workers. Keep the secret private; these are not rated seeds.",
+  "closure_sha256": "ff6f4fbbcc04029d927b20573ac010a0d43348158231bf0a3f99d450ef198416",
+  "serial_search_coverage": [
+    {
+      "policy": "search",
+      "game_id": "g-99be137479e4f1a1",
+      "native_decisions": 899,
+      "forced_natives": 0,
+      "fallback_natives": 0,
+      "search": {
+        "Natives": 899,
+        "Eligible": 44,
+        "Attempted": 28,
+        "Covered": 0,
+        "Attempts": 1792,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 0,
+        "ReconstructionSubmits": 0,
+        "ReconstructionNodes": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 16,
+          "insufficient worlds/ESS": 28
+        },
+        "Kinds": {}
+      }
+    },
+    {
+      "policy": "search-mana",
+      "game_id": "g-925f64a87dbad839",
+      "native_decisions": 913,
+      "forced_natives": 0,
+      "fallback_natives": 0,
+      "search": {
+        "Natives": 913,
+        "Eligible": 463,
+        "Attempted": 110,
+        "Covered": 0,
+        "Attempts": 7040,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 0,
+        "ReconstructionSubmits": 0,
+        "ReconstructionNodes": 0,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 353,
+          "insufficient worlds/ESS": 110
+        },
+        "Kinds": {}
+      }
+    },
+    {
+      "policy": "search-redeal",
+      "game_id": "g-bf7b5e49a43826cf",
+      "native_decisions": 250,
+      "forced_natives": 0,
+      "fallback_natives": 0,
+      "search": {
+        "Natives": 250,
+        "Eligible": 22,
+        "Attempted": 13,
+        "Covered": 0,
+        "Attempts": 832,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 66,
+        "ReconstructionSubmits": 65000,
+        "ReconstructionNodes": 65630,
+        "ReconstructionBudgetExhausted": 13,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 13
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 9,
+          "insufficient worlds/ESS": 13
+        },
+        "Kinds": {}
+      }
+    },
+    {
+      "policy": "search-mana-redeal",
+      "game_id": "g-e55ce900221375b1",
+      "native_decisions": 275,
+      "forced_natives": 0,
+      "fallback_natives": 0,
+      "search": {
+        "Natives": 275,
+        "Eligible": 120,
+        "Attempted": 28,
+        "Covered": 0,
+        "Attempts": 1792,
+        "Accepted": 0,
+        "Worlds": 0,
+        "Rollouts": 0,
+        "Submits": 0,
+        "Terminal": 0,
+        "Capped": 0,
+        "Redealt": 0,
+        "ReconstructionAttempts": 1792,
+        "ReconstructionSubmits": 80289,
+        "ReconstructionNodes": 76547,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {
+          "no public replay completion in 64 proposals": 28
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 92,
+          "insufficient worlds/ESS": 28
+        },
+        "Kinds": {}
+      }
+    }
+  ]
+}

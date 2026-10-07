@@ -1,0 +1,118 @@
+{
+  "at_utc": "2026-10-05T00:19:59.992580+00:00",
+  "phase": "released_diagnostic_incomplete_with_valid_public_case",
+  "pod_id": "r2xapqctau0zkm",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-029",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-029",
+  "release": {
+    "at_utc": "2026-10-05T00:18:53.5187826+00:00",
+    "name": "spellbench-gorge-diagnostic-1886ac0e70214da5",
+    "pod_id": "r2xapqctau0zkm",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "b0a0b713e28af31d001ed92d5f3714f0d64d85c49f4aa12955a3bf3b7c06a0a3",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 6.17408147,
+    "maximum_lease_usd": 0.5,
+    "conservative_cumulative_lease_ceiling_usd": 6.67408147,
+    "final_invoice_pending": true,
+    "annotation_correction": "The initial reconciliation receipt copied predecessor028 budget prose. Exact029 lease limits supply these annotations; observed release and absence fields are unchanged.",
+    "predecessor_annotation_receipt": "E:\\spellbench-gorge-runpod-20261004-029\\RELEASE-INITIAL-PREDECESSOR-BUDGET.json"
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T00:03:02.492947+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 898.1862455047667,
+    "native_qualification_passed": false,
+    "diagnostic_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-diagnostic-runtime-20261004-029",
+  "runtime_seal_sha256": "cd1b4ccb460aa16ea26e9e9be608e54f153a3334bcab232cefbcf49bae08a424",
+  "native_audit": null,
+  "diagnostic_capture_passed": false,
+  "diagnostic_checks": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T00:03:02.492597+00:00",
+      "phase": "first_public_failure_capture",
+      "error_type": "AssertionError",
+      "error": "",
+      "rated_games": 0
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T00:19:59.992580+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-010",
+    "prior_closed_ledger_seal_sha256": "8266eea6e5322b9ab1d199b71abf7a998aa17df6f95d01f4a441d04d5f2e7c20",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 1960.680644,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.340622,
+    "conservative_cumulative_lease_ceiling_usd": 6.51470347,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-011",
+  "billing_seal_sha256": "b1451f8e93f3ca722e9fc372991feefa22d13cb60489e9d77b1372f573729217",
+  "seal_sha256": "75351a760d99fe35c49cc3f54afa92907dd24d356930f302c5f7cc86157a628f",
+  "recovered_public_case": {
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261004-029\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+    "recovery_source": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-029\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+    "sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+    "bytes": 5092618,
+    "frames": 410,
+    "actor": 0,
+    "actor_boundaries": true,
+    "captured_work": {
+      "Attempts": 1,
+      "Submits": 5000,
+      "Nodes": 4755,
+      "BudgetExhausted": 1
+    },
+    "shared_historical_frame_prefix": 364,
+    "exact_options": {
+      "Seed": 54321,
+      "Attempts": 64,
+      "Worlds": 8,
+      "MaxSubmits": 5000,
+      "MinESS": 0,
+      "NoLandExclusion": false,
+      "ComparePotentialActions": false,
+      "Parallelism": 0,
+      "KnownCards": false,
+      "Redeal": {
+        "SpellbenchPublic": true,
+        "Engine": null,
+        "Observer": null
+      }
+    },
+    "trace_capsule_prepared": true,
+    "generated_go_execution_verified": false,
+    "capture_exit_code": 1,
+    "parent_expected_exit_code": 2,
+    "parent_failure_explanation": "The agent recovered the diagnostic panic and returned an internal_error response; the qualifier reported a violation and exit1. The parent exit assertion failed. The saved actor-public exhaustion case remains valid trace input.",
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "next_action": "Replay this sealed410-frame public witness with exact captured options and diagnostic trace; repair the demonstrated divergence, then rerun complete native/reference qualification."
+}

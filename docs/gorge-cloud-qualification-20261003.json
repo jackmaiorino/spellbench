@@ -1,0 +1,110 @@
+{
+  "schema": "spellbench-gorge-cloud-qualification-status/v1",
+  "at_utc": "2026-10-03T15:00:38.643432+00:00",
+  "spend_cap_usd": 10,
+  "cap_scope": "Separate cumulative gorge RunPod compute, disk, provisioning and failed attempts",
+  "cloud_pod_id": "avmelw7vb6ee7m",
+  "cloud_volume_id": "edl6fbf5j0",
+  "compute_usd_per_hour": 0.74,
+  "storage_rate_bound_usd_per_hour": 0.02,
+  "usable_cpu_quota": 13.6,
+  "launcher_cpu_count": 14,
+  "selected_workers": 4,
+  "source_commit": "2c818aa2ca85f4a35cba97769d0ce4b1622fbca8",
+  "runtime_source_commit": "21f91952b5d479d1745d5da910eceb7eaa49edc2",
+  "scaling": {
+    "simple_ledgers": [
+      {
+        "path": ".qualification-records/qualification-heono_v3/trial-1-workers-1.jsonl",
+        "sha256": "980e88b371e84efc24153f81810fcacaafbd86693f557985ad77e81e05dc67ba",
+        "workers": 1,
+        "natural_games": 8,
+        "wall_seconds": 122.629
+      },
+      {
+        "path": ".qualification-records/qualification-heono_v3/trial-2-workers-2.jsonl",
+        "sha256": "980e88b371e84efc24153f81810fcacaafbd86693f557985ad77e81e05dc67ba",
+        "workers": 2,
+        "natural_games": 8,
+        "wall_seconds": 76.288
+      },
+      {
+        "path": ".qualification-records/qualification-heono_v3/trial-3-workers-4.jsonl",
+        "sha256": "980e88b371e84efc24153f81810fcacaafbd86693f557985ad77e81e05dc67ba",
+        "workers": 4,
+        "natural_games": 8,
+        "wall_seconds": 44.483
+      }
+    ],
+    "representative_search_ledgers": [
+      {
+        "path": ".qualification-records/qualification-ckrvir3d/trial-1-workers-1.jsonl",
+        "sha256": "32e705e97335abdce3858ffb27e5b0947ed5c758a973cf2f91aee3053c233c54",
+        "workers": 1,
+        "natural_games": 8,
+        "wall_seconds": 244.326
+      },
+      {
+        "path": ".qualification-records/qualification-ckrvir3d/trial-2-workers-2.jsonl",
+        "sha256": "32e705e97335abdce3858ffb27e5b0947ed5c758a973cf2f91aee3053c233c54",
+        "workers": 2,
+        "natural_games": 8,
+        "wall_seconds": 170.248
+      },
+      {
+        "path": ".qualification-records/qualification-ckrvir3d/trial-3-workers-4.jsonl",
+        "sha256": "32e705e97335abdce3858ffb27e5b0947ed5c758a973cf2f91aee3053c233c54",
+        "workers": 4,
+        "natural_games": 8,
+        "wall_seconds": 140.403
+      }
+    ],
+    "byte_identical": true,
+    "simple_wall_speedup": 2.756761009823978,
+    "representative_search_wall_speedup": 1.7401764919553002,
+    "scope": "Eight matched Wildfire blocks per rung; representative sample includes all four search modes; 48 total natural games"
+  },
+  "matrix001": {
+    "scheduled_games": 120,
+    "retained_games": 5,
+    "natural_games": 4,
+    "faults": [
+      {
+        "game_index": 364,
+        "reason": "host_validator:V9",
+        "adjudication": {
+          "detail": "context.purpose 'dig' is not the purpose every candidate carrying one shares (spec 9.3)",
+          "kind": "halt"
+        }
+      }
+    ],
+    "secondary_helper_error": "StopIteration after trying to compare a replay absent from the interrupted ledger",
+    "disposition": "Preserved failed stage; mapper purpose and incomplete-matrix helper repaired before a new same-seed attempt"
+  },
+  "placement_correction": "The simple stage retained an older generation108 text. Fresh launch inventory observed maintainer free, but the peer XMage announced local qualification and subsequent short correctness claims. That announced priority was preserved. The compute host retained its queued training-performance priority.",
+  "artifacts": [
+    {
+      "stage": "scaling-001",
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261003-001\\scaling-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closed-stage-recovery-001\\scaling-001",
+      "seal_sha256": "62e183e5a6836cf1322441470f71819f6820165fea14f7be530f6d4bfbf060e1",
+      "bytes": 126722,
+      "exit_code": 0
+    },
+    {
+      "stage": "matrix-001",
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261003-001\\matrix-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closed-stage-recovery-001\\matrix-001",
+      "seal_sha256": "0bd5d349167ad437b45000cc4ad08317de4d6b162c91016503ab85f662c4cd37",
+      "bytes": 138955,
+      "exit_code": 1
+    }
+  ],
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "prune": {
+    "removed": [],
+    "retained": "All failed and measured attempts, exact D recovery archive and E sealed stage files; no bulk committed"
+  }
+}

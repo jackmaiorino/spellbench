@@ -1,0 +1,108 @@
+{
+  "schema": "spellbench-gorge-public-basic-search-repair/v1",
+  "at_utc": "2026-10-03T20:17:51.953279+00:00",
+  "source_commit": "7eab88c7c722c7c07db0409d59fd2815346d3fb4",
+  "runtime": "E:/spellbench-gorge-runtime-20261003-014",
+  "change": "Public replay witness planning conditions basic counts drawn before a named full-library search and the relative order of its offered basic matches.",
+  "scope": "Only an unmodified initial opponent library with an allowlisted unique printed basic-land search; other windows retain the existing planner.",
+  "preserved": "Native primary sampling, weights, search chooser/scorer, rollout settings, attempt/submit limits and full public-prefix checks.",
+  "fixture_before": {
+    "ordered_basic_options": 52,
+    "attempts": 34,
+    "submits": 5000,
+    "budget_exhausted": true,
+    "passed": false
+  },
+  "fixture_after": {
+    "ordered_basic_options": 52,
+    "attempts": 1,
+    "submits": 45,
+    "budget_exhausted": false,
+    "passed": true
+  },
+  "affected_checks": {
+    "all_strategies_tests": "passed",
+    "seconds": 48.398,
+    "strategies_vet": "passed",
+    "diff_check": "passed"
+  },
+  "real_first_root": {
+    "native_seed": 50,
+    "actor_frames": 73,
+    "root_found": true,
+    "work": {
+      "Attempts": 6,
+      "Submits": 1129,
+      "Nodes": 1003,
+      "BudgetExhausted": 0
+    },
+    "furthest_frame_before": 58,
+    "furthest_frame_after": 72,
+    "completed_games": 0
+  },
+  "retained_failed_probe": {
+    "native_seed": 50,
+    "natural_physical_games": 2,
+    "digest": "sha256:a2fd381a08c355a0e4a8cfe669ccc2b3428df9ef38dc77389d68fefd705487fd",
+    "digest_mismatch": 0,
+    "audit_enabled": false,
+    "search_coverage": {
+      "Natives": 322,
+      "Eligible": 16,
+      "Attempted": 11,
+      "Covered": 2,
+      "Attempts": 704,
+      "Accepted": 0,
+      "Worlds": 16,
+      "Rollouts": 48,
+      "Submits": 43653,
+      "Terminal": 48,
+      "Capped": 0,
+      "Redealt": 16,
+      "ReconstructionAttempts": 189,
+      "ReconstructionSubmits": 48619,
+      "ReconstructionNodes": 47970,
+      "ReconstructionBudgetExhausted": 9,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 9
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 5,
+        "insufficient worlds/ESS": 9
+      },
+      "Kinds": {
+        "cast": 2
+      }
+    },
+    "probe_passed": false,
+    "reason": "Source snapshot overwrote the logging overlay; complete seed block ran and the probe assertion failed."
+  },
+  "artifacts": [
+    {
+      "source_of_record": "E:/spellbench-gorge-basic-search-diagnostic-20261003-001",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-basic-search-diagnostic-20261003-001",
+      "bytes": 18956690,
+      "seal_sha256": "0878b044a9efa1e16ccb6b69d12c8adc0f6b2f55e2437968a90c75643dc751ad"
+    },
+    {
+      "source_of_record": "E:/spellbench-gorge-basic-search-diagnostic-20261003-002",
+      "recovery_root": "D:/e-scratch/spellbench-gorge-basic-search-diagnostic-20261003-002",
+      "bytes": 19395253,
+      "seal_sha256": "4ad1d0b7327d130f88748f5850a534b931f12cf87751db639067d67f3e401a35"
+    }
+  ],
+  "full_current_source_ci": "pending",
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "qualified": false,
+  "rated_games": 0,
+  "published": false,
+  "limitation": "The first root now reconstructs, but nine of eleven real-game search attempts still exhaust their reconstruction budget. Full qualification and ratings remain unfinished.",
+  "fairness_compatibility": {
+    "status": "superseded_by_library_ownership_correction",
+    "finding": "The pinned engine assigned Cleansing Wildfire opponent-library confirmation and offers to the caster instead of the targeted land controller.",
+    "evidence_use": "Retain historical mechanical replay and completed-game records. Do not reuse them as fairness or current-runtime qualification evidence, or transplant their histories into the corrected engine.",
+    "current_audit": "docs/gorge-native-identity-audit-20261003.md"
+  }
+}

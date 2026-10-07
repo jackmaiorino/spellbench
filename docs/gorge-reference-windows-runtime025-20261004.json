@@ -1,0 +1,68 @@
+{
+  "schema": "spellbench-gorge-reference-platform-check/v1",
+  "source_of_record": "E:\\spellbench-gorge-reference-windows-runtime025-20261004-002",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-windows-runtime025-20261004-002",
+  "source_files": {
+    "engines/gorge/README.md": "de4ac68ab5d5b318f5dea9772402105d1cfbb00146483eb1e953e2912df9cd18",
+    "engines/gorge/scripts/reference_matrix.py": "1f76f15c6c99c0513f1c3d13ee530597f6d47cec4e7e0d6b28d52a57d3cc08eb"
+  },
+  "checks": {
+    "command": [
+      "~\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\.venv\\Scripts\\python.exe",
+      "-m",
+      "pytest",
+      "-q",
+      "python/tests/test_gorge_reference_matrix.py",
+      "python/tests/test_bench_run.py::test_an_unrated_placement_note_is_checked_before_any_process",
+      "python/tests/test_bench_run.py::test_the_launch_definitions_parse"
+    ],
+    "exit_code": 0,
+    "seconds": 2.0309042000444606,
+    "windows_pinned_files_resolved": 3,
+    "compile_passed": true,
+    "diff_exit_code": 0,
+    "benchmark_unchanged": true,
+    "stdout_tail": "...                                                                      [100%]\n3 passed in 0.97s\n",
+    "passed": true,
+    "completed_games": 0,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "launch_files": [
+    {
+      "index": 0,
+      "file_name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "df809f9ff195231d1a2f4bfaf3669e7a10c89e766c38a788615ebea3de720f46",
+      "bytes": 17488384
+    },
+    {
+      "index": 2,
+      "file_name": "registry.gob.gz",
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329
+    },
+    {
+      "index": 0,
+      "file_name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "f657c702efe2ae1379fe11b9cc4e9cc6f396203b804d55b2c58b49af2981d276",
+      "bytes": 18173952
+    }
+  ],
+  "seal_sha256": "b3523adb294708ced5b5cb944d69c4fc2573c392d468b00ac846d1e0aac72906",
+  "bytes": 73112,
+  "runtime_native_source_commit": "75c6d2bd826d4ebe5abc6eebd37e9820b1d87392",
+  "native_go_sources_unchanged": true,
+  "benchmark_sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0",
+  "reference_matrix_games": 140,
+  "native_measurement_unchanged": true,
+  "reference_matrix_launched": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "retained_failed_check": {
+    "source_of_record": "E:\\spellbench-gorge-reference-windows-runtime025-20261004-001",
+    "seal_sha256": "f0d4b2c0c3b1824f455ca3c14d3686b5e641c938eef07e31353a8673a315348c",
+    "cause": "The system Python has no pytest; use the existing project-pinned test environment"
+  }
+}

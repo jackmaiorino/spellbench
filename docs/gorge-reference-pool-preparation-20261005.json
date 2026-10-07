@@ -1,0 +1,114 @@
+{
+  "schema": "spellbench-gorge-reference-pool-preparation/v1",
+  "prepared_at_utc": "2026-10-05T14:14:27Z",
+  "source_base_commit": "bae65f88480dd559a0dbaa8645d703555293fbfa",
+  "phase": "pool_worker_transport_modules_prepared_ci_orchestration_pending",
+  "files": {
+    "tools/gorge_reference_pool.py": {
+      "bytes": 16976,
+      "sha256": "0391909b8aa417a78ed61038f37da10caaee286f8fee127378ef753b0479eb52"
+    },
+    "tools/gorge_reference_worker.py": {
+      "bytes": 12075,
+      "sha256": "a250df2e44965817f1edfd46cd4f713d59e037eb635c5f5f354b0fa4f3ac41d3"
+    },
+    "tools/gorge_reference_transport.py": {
+      "bytes": 5326,
+      "sha256": "e3a63571fa92ebc463b3e918b308a2a9fe5dadcf3fe3768fdb8403db05717dff"
+    },
+    "tools/gorge_ci_exchange.py": {
+      "bytes": 6412,
+      "sha256": "584cf0d107ef6131da9cc00a71840a6883a6153b8403d3de141b296703badd3e"
+    },
+    "python/tests/test_gorge_reference_pool.py": {
+      "bytes": 6631,
+      "sha256": "c6d28f65084d5e6414c42452e2c6495b8570b4c1d01235859c8934e8bd815373"
+    },
+    "python/tests/test_gorge_reference_worker.py": {
+      "bytes": 10733,
+      "sha256": "1af830152dedfbed659c390559314fd168ca241961879cf4f36142937c9d64c0"
+    },
+    "python/tests/test_gorge_reference_transport.py": {
+      "bytes": 5548,
+      "sha256": "8147afad7dff862cf389b6115d9cbcf14fabcae4eb80913d972c04cc8f4210d5"
+    },
+    "python/tests/test_gorge_ci_exchange.py": {
+      "bytes": 4028,
+      "sha256": "4a4d78696c54969e8c5be98712c7b8d4acec3db333af9b0a8756f5a8ba1e6c4e"
+    }
+  },
+  "full_objective": "all twelve gorge modes rated and published through the existing review path",
+  "native_run_id": 37314990816,
+  "native_execution_commit": "e06161ee1334da3b875bdba08d19d623af783ed5",
+  "native_run_last_observed": "in_progress_supported_qualification_step",
+  "native_actual_positive_verified": false,
+  "native_owner_watcher_pid": 46624,
+  "native_owner_tool_session": 75735,
+  "native_followup": "existing bounded watcher recovers exact terminal results and cleans temporary hosting",
+  "reference009_seal_sha256": "60be8cb4cb306d0922313ce1a2cde911dc7c15fd1be3503a95ec766fccc58118",
+  "runtime068_seal_sha256": "4b0b7fb7b89e0cabbe79ee918bfa87194a0214814251a04820460d988e33e473",
+  "frozen_reference_games": 140,
+  "frozen_cells": 60,
+  "frozen_native_participant_receipts": 160,
+  "actual_reference_games_started": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "candidate_pool_nodes": [
+    2,
+    4
+  ],
+  "observed_pool_nodes": 0,
+  "pool_node_usable_cpu_min": 3,
+  "pool_node_memory_min_bytes": 8589934592,
+  "per_node_game_slots": 1,
+  "per_game_cores": 3,
+  "candidate_worker_ladders": [
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      2,
+      4
+    ]
+  ],
+  "measured_worker_ladder": null,
+  "coordinator_is_game_worker": false,
+  "pool_qualified": false,
+  "allocation_guard": "ReferencePool.qualify -> arena.throughput.plan_allocation; RequestJournal.admit before runner.play_games",
+  "allocation_selection": "measured wall completion including private dispatch, collection and persistence",
+  "original_qualification_rules_preserved_except_explicit_pool_wall_selection": true,
+  "worker_native_gate": "independent verify_native_audit with declared native/runtime seals and cleanup receipt",
+  "original_selection_and_receipts_reused_from": "engines/gorge/scripts/reference_matrix.py",
+  "secrets_created": false,
+  "request_journals_preserve_commitments_only": true,
+  "private_transport": "unpublished owned gorge-reference draft release assets; fixed repository; bounded hashes and paths",
+  "runner_credentials_must_be_removed": true,
+  "worker_restart_or_duplicate_does_not_replay": true,
+  "complete_worker_recovery_including_failures": true,
+  "checks": {
+    "affected_tests_passed": 62,
+    "fixtures_only": true,
+    "native_games_played_by_tests": 0,
+    "two_synthetic_persistent_workers_recovered": true,
+    "worker_failure_recovery_passed": true,
+    "compile_passed": true,
+    "diff_check_passed": true
+  },
+  "billing_ledger": "E:/spellbench-gorge-billing-20261005-038",
+  "billing_seal_sha256": "ce61ed4848461b9b7fd90259a293cdd67ef94d385a3fcee4274ab46fd7fc7606",
+  "conservative_reserved_total_usd": 9.96136347,
+  "authorized_all_in_cap_usd": 10,
+  "provider_final_settlement_pending": true,
+  "new_paid_compute_usd": 0,
+  "no_owned_runpod_lease": true,
+  "local_native_or_compiler_work_started": false,
+  "outstanding": [
+    "Native069 full positive pass and E/D recovery/cleanup",
+    "Coordinator CLI and standard CI prepare/worker/coordinator workflow with wall/process/resource supervision",
+    "Fresh actual resource census, source controls, compatible input staging and budget admission before dispatch",
+    "Actual serial/parallel completed-work comparison and unchanged matrix/replay",
+    "Existing identity/fair-play, benchmark/commitment and result reviews; rated run and publication"
+  ]
+}

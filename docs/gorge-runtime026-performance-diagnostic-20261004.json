@@ -1,0 +1,232 @@
+{
+  "schema": "spellbench-gorge-native-prefix-cpu-profile/v1",
+  "observed_at_utc": "2026-10-04T18:38:49.305561+00:00",
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "diagnostic_source_commit": "d0f192f433b304eb809bbc8f20221b186e70184d",
+  "diagnostic_binary_sha256": "2e8e8b60727f126bf3748b31cf342084ba3beded3951b7c98503a1788e2b5e86",
+  "diagnostic_binary_pin": "E:\\pinned-binaries\\2e8e8b60727f126bf3748b31cf342084ba3beded3951b7c98503a1788e2b5e86\\diagnostic-mana-qualifier.exe",
+  "cpu_affinity_mask": 65536,
+  "priority": "BelowNormal",
+  "audit": true,
+  "resample_every": 7,
+  "prefix_wall_seconds": 180.32952710002428,
+  "cpu_sample_seconds": 165,
+  "native_candidate_evaluation_cpu_sample_seconds": 138.61,
+  "native_candidate_evaluation_cpu_sample_percent": 84.01,
+  "nested_legal_action_pricing_cpu_sample_seconds": 97.31,
+  "nested_legal_action_pricing_cpu_sample_percent": 58.98,
+  "cpu_percentages_are_nested": true,
+  "completed_sampling_calls": 15,
+  "sampling_total_elapsed_seconds": 12.498691,
+  "slowest_sampling_seconds": 2.947862,
+  "last_public_frames": 182,
+  "observed_reconstruction_budget_failures": 0,
+  "pending_sampling_calls": 0,
+  "timing_rows": [
+    {
+      "frames": 32,
+      "seconds": 0.440663,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 55,
+        "Nodes": 0,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 50,
+      "seconds": 0.601046,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 94,
+        "Nodes": 0,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 71,
+      "seconds": 0.517264,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 139,
+        "Nodes": 7,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 73,
+      "seconds": 0.470731,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 144,
+        "Nodes": 13,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 94,
+      "seconds": 0.711064,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 190,
+        "Nodes": 12,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 96,
+      "seconds": 0.522574,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 192,
+        "Nodes": 13,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 100,
+      "seconds": 2.947862,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 202,
+        "Nodes": 24,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 123,
+      "seconds": 0.845984,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 246,
+        "Nodes": 14,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 124,
+      "seconds": 0.767,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 264,
+        "Nodes": 43,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 147,
+      "seconds": 0.690509,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 305,
+        "Nodes": 35,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 149,
+      "seconds": 0.845604,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 306,
+        "Nodes": 35,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 157,
+      "seconds": 0.790387,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 316,
+        "Nodes": 34,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 179,
+      "seconds": 0.873206,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 375,
+        "Nodes": 54,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 180,
+      "seconds": 0.820036,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 375,
+        "Nodes": 52,
+        "BudgetExhausted": 0
+      }
+    },
+    {
+      "frames": 182,
+      "seconds": 0.654761,
+      "public_reconstruction": {
+        "Attempts": 1,
+        "Submits": 380,
+        "Nodes": 56,
+        "BudgetExhausted": 0
+      }
+    }
+  ],
+  "terminal": {
+    "last_public_root": {
+      "path": "PUBLIC-LATEST.json",
+      "sha256": "f8cdeb7f699cd0c3996dc77d0049965d6c077dee68a843ff6cc4b96cb02e293e",
+      "frames": 182,
+      "actor": 0,
+      "options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      }
+    },
+    "at_utc": "2026-10-04T18:26:30.095291+00:00",
+    "exit_code": 0,
+    "timed_out": false,
+    "seconds": 180.32952710002428,
+    "first_failure_captured": false,
+    "captured": null,
+    "full_qualification": false,
+    "completed_games": 0,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0,
+    "cpu_profile_sha256": "3acbd95389c86334f10241e43da6906b06750e5aaaba159916ebef474910bf3c",
+    "cpu_profile_bytes": 393214,
+    "sampling_breadcrumbs": 30,
+    "profile_stop": {
+      "at_utc": "2026-10-04T18:26:30.0238709Z",
+      "rated_games": 0,
+      "scope": "Interrupted diagnostic prefix only; not a full game, throughput trial or qualification",
+      "stop_reason": "bounded_cpu_profile",
+      "wall_cap_seconds": 180
+    }
+  },
+  "interpretation": "In this bounded prefix, native candidate evaluation dominates sampled CPU; public sampling returns without exhausting its unchanged budget. Later roots and full-game behavior remain unmeasured.",
+  "next_action": "Refresh eligible hosts, prefer useful single-core performance for the serial comparison, and prepare a supported allocation with sufficient bounded callback time. Preserve policies, worlds, submits, seeds, decks and gates.",
+  "full_native_qualification": false,
+  "reference_qualification": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "source_of_record": "E:\\spellbench-gorge-native-profile-20261004-001",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-profile-20261004-001",
+  "seal_sha256": "f8ffd588a4e6208bb5a334e454c1c69ef1dba36955cb14fb97aeae4fb83e9456",
+  "bytes": 21656656
+}

@@ -28,4 +28,6 @@ Source of record: `E:/spellbench-luna-approved-evidence-20261003/sealed-formal-a
 | cold evidence.tar.gz | `1226127c3cf371cda0388ead601750f81001a079274760670846c483ebceac34` |
 | cold INDEX.json | `cbfc9a92dceca669a4022fec55e5d2c5aa0a0ddbfde16f3c012e3c7e63a95436` |
 
+The manifest hash above is of the sealed bytes, which are kept unchanged in the evidence archive and in this repository at commit `6f938c6cfd4760b82f5426dfd1ada8bfef210cba`. On 2026-10-07 a privacy cleanup renamed one placement host id in the committed copy to `computehost`; no other byte changed, and the committed copy's SHA-256 is now `51824bcfb0338e0c0d93935b1ad88d0c8a2184aa4cd1a0397614152e46eaa466`.
+
 [Full leaderboard](../benchmarks/standard-mirror-xmage/runs/2026-10-03/LEADERBOARD.md), [saved manifest](../benchmarks/standard-mirror-xmage/runs/2026-10-03/manifest.json).

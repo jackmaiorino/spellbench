@@ -1,0 +1,6 @@
+go.work
+go.work.sum
+go-overlay.json
+.go-overlay/
+*.gob.gz
+bin/

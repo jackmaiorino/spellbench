@@ -1,0 +1,225 @@
+{
+  "schema": "spellbench-gorge-actor-london-draw-repair/v1",
+  "at_utc": "2026-10-04T03:04:48.166764+00:00",
+  "source_parent_commit": "032481cfb768291b9313dcce29d4e5c4faab33a3",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "f2765c153a38cc121ba0041400b3797c9218961e5ae54351b1c68abe7b34bc42",
+    "engines/gorge/native-overlay/public_redeal.go.txt": "4ba87a46502f73a4ba7b9764d45f9cb1082d8e7362de0cfe1a9a30291963df39",
+    "engines/gorge/strategies/actor_london_draws_test.go": "a917b5a1dcd3e48347f3d4d1534b811207afa945e4d933ce3d2deb74aa16399c"
+  },
+  "public_input": "E:/spellbench-gorge-reconstruction-budget-20261004-002/PUBLIC-PROJECTION.json",
+  "public_input_sha256": "6158257b5f431234299ca26d0b67e4abf543dfcc05d1e8ac810d1016a73730d4",
+  "before": {
+    "frames": 47,
+    "worlds": 0,
+    "work": {
+      "Attempts": 13,
+      "Submits": 5000,
+      "Nodes": 4907,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "frames": 47,
+    "worlds": 8,
+    "redealt": 8,
+    "work": {
+      "Attempts": 1,
+      "Submits": 109,
+      "Nodes": 32,
+      "BudgetExhausted": 0
+    },
+    "native_fields_identical": [
+      "Attempts",
+      "Accepted",
+      "PrefixRejected",
+      "BudgetExhausted",
+      "Submits",
+      "Duplicates",
+      "FirstRejection",
+      "Rejections",
+      "GuidedGenesis",
+      "GuidedLater",
+      "ArrangeWindows",
+      "UnguidedConstraints",
+      "IncompatibleProposals",
+      "WeightDiagnostics",
+      "HandToStackCauses",
+      "StackRejectionContexts",
+      "CompetitionExclusions",
+      "CompetitionResidual",
+      "CompetitionUnguided",
+      "LandResidual",
+      "LandUnguided",
+      "KnownCardClaims"
+    ],
+    "all_worlds_hold_known_cards": true
+  },
+  "cause": "Actor London bottoming disabled positional guidance for later actor-visible draws. All13 witness proposals failed at frame20 by drawing the wrong known card, exhausting5000 submits.",
+  "repair": "Public witness compilation restores exact actor-visible post-London draw names at their original shuffle positions while the original undrawn library remains unchanged. The pinned engine appends London bottoms at the library tail.",
+  "soundness_limits": "Guidance stops at another actor library mutation, reorder, later shuffle, unknown-owner library move, token/copy creation, or exhaustion of the original library. Opponent hidden cards and physical copy order are never supplied.",
+  "primary_source": "Pinned gorge26257e0 rules/mulligan.go handleBottoming, lines321-329",
+  "regression": "Legal London mulligans and bottoms on both seats followed by two distinct actor draws. Independently built unseen opponent land orders produce identical complete actor histories. Reconstruction and eight sampled worlds hold projected known cards; native counters agree with sampling without public redeal.",
+  "affected_strategy_tests": 50,
+  "checks": "Affected complete strategies suite, Go vet and diff check passed on one E core. Comment wording was clarified after tests; executable logic and test body are unchanged.",
+  "attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-reconstruction-trace-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-003",
+      "seal_sha256": "505d6f769e2204defef84d5c69777918dfaddc13d02f55d70250a295c2c1938a",
+      "bytes": 19300984,
+      "files": 30,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-reconstruction-trace-20261004-003\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.716625200002454
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\297926bc01a98518fa820e0c1d9b8b4a0aef79f9af008c3370ee392920ec16e7\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedBudgetPrefix47$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 4.04903309996007
+        }
+      ],
+      "binary_sha256": "297926bc01a98518fa820e0c1d9b8b4a0aef79f9af008c3370ee392920ec16e7"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-actor-london-draws-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-actor-london-draws-20261004-001",
+      "seal_sha256": "e377a773d823653e114f1ebc5d270dfb277617032c7c52adfd86b991b0b4b5e5",
+      "bytes": 19191575,
+      "files": 29,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-actor-london-draws-20261004-001\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 5.601433600008022
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\cf7e18e4d122532de974ec195fcfcbd229012c73cbc1293c40b119989a6e3e80\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedActorLondonPrefix47$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 1.7068584999651648
+        }
+      ],
+      "binary_sha256": "cf7e18e4d122532de974ec195fcfcbd229012c73cbc1293c40b119989a6e3e80"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-actor-london-checks-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-actor-london-checks-20261004-001",
+      "seal_sha256": "5ad5a280b407c19043612bf9bab78927bb1d9b76316abfb8a6e50519380c2e76",
+      "bytes": 19203328,
+      "files": 31,
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-actor-london-checks-20261004-001\\strategies-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 6.834087700000964
+        },
+        {
+          "name": "strategies",
+          "command": [
+            "E:\\pinned-binaries\\96c9df8b74e1bc9c56454cff762b70d192266f3377bf2f38909590309fc91871\\strategies-tests.exe",
+            "-test.v",
+            "-test.timeout",
+            "240s"
+          ],
+          "exit_code": 0,
+          "seconds": 87.68234890000895
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 7.280648399959318
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.12906119995750487
+        }
+      ],
+      "binary_sha256": "96c9df8b74e1bc9c56454cff762b70d192266f3377bf2f38909590309fc91871"
+    }
+  ],
+  "native_weighted_sampler_changed": false,
+  "native_policies_and_search_budgets_changed": false,
+  "benchmark_changed": false,
+  "qualified": false,
+  "rated_games": 0,
+  "published": false,
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "remaining": "Build and freeze corrected runtime019, rerun guarded native qualification and reference-host clocks/isolation, identity review, rated benchmark review, ratings and publication",
+  "real_card_regression": {
+    "actor_frames": 34,
+    "native_accepted": 0,
+    "work": {
+      "Attempts": 1,
+      "Submits": 71,
+      "Nodes": 12,
+      "BudgetExhausted": 0
+    },
+    "unseen_opponent_land_orders_have_identical_actor_histories": true,
+    "both_seats_legally_mulligan_and_bottom": true,
+    "eight_worlds_hold_known_cards": true
+  }
+}

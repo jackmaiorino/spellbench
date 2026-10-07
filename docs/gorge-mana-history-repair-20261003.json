@@ -1,0 +1,120 @@
+{
+  "schema": "spellbench-gorge-mana-history-repair/v1",
+  "at_utc": "2026-10-03T18:51:36.797960+00:00",
+  "source_commit": "0ae11b7cadcb36cdec4c66e49fb2f7c0f5c75b0a",
+  "runtime": "E:/spellbench-gorge-runtime-20261003-013",
+  "cause": "Recorded mana-color answers omitted the native structured symbol and became ambiguous",
+  "projection_fix": "Public collector semantic actions retain Option.ManaSymbol; native decisions and intents are not modified by this projection",
+  "fixture_before": {
+    "colors": [
+      "B",
+      "R"
+    ],
+    "accepted_worlds": 0,
+    "passed": false
+  },
+  "fixture_after": {
+    "colors": [
+      "B",
+      "R"
+    ],
+    "worlds_per_color": 8,
+    "passed": true
+  },
+  "affected_checks": {
+    "all_strategies_tests": "passed",
+    "seconds": 43.415,
+    "strategies_vet": "passed",
+    "diff_check": "passed"
+  },
+  "ci_before_mana_fix": {
+    "conclusion": "success",
+    "headSha": "64ed1acecf4c1399ada0b3b85ebe0442a166a401",
+    "status": "completed",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37143704451"
+  },
+  "full_ci_after_mana_fix": {
+    "conclusion": "success",
+    "headSha": "3894ff5c976121c8c3c536810404e344e06876b9",
+    "status": "completed",
+    "updatedAt": "2026-10-03T19:07:23Z",
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37145943299"
+  },
+  "real_seed_check": {
+    "game": 50,
+    "deck": "Wildfire",
+    "pairing": "search-redeal/uniform",
+    "source_of_record": "E:/spellbench-gorge-mana-history-check-20261003-001/CHECK.json",
+    "check_sha256": "a84c170267fb0089a1ecf80da34bb86abfb86bed3e0d72666e4b653bdd4a280c",
+    "natural_games": 2,
+    "totals": {
+      "CompletedGames": 2,
+      "Games": 1,
+      "Halts": 0,
+      "Truncations": 0,
+      "Violations": 0,
+      "DigestMismatch": 0,
+      "ResampleChecks": 90,
+      "ResampleFailures": 0,
+      "LeakHits": 0,
+      "Inconsistent": 0,
+      "ParityCompared": 322,
+      "ParityMismatch": 0,
+      "Fallbacks": 0,
+      "Forced": 0,
+      "GamesPerSecond": 0.03567398360464025,
+      "GoMemoryMB": 720
+    },
+    "search_coverage": {
+      "Natives": 322,
+      "Eligible": 16,
+      "Attempted": 11,
+      "Covered": 0,
+      "Attempts": 704,
+      "Accepted": 0,
+      "Worlds": 0,
+      "Rollouts": 0,
+      "Submits": 0,
+      "Terminal": 0,
+      "Capped": 0,
+      "Redealt": 0,
+      "ReconstructionAttempts": 319,
+      "ReconstructionSubmits": 55000,
+      "ReconstructionNodes": 51121,
+      "ReconstructionBudgetExhausted": 11,
+      "RedealRefusals": {
+        "public reconstruction submit budget exhausted": 11
+      },
+      "Reasons": {
+        "fewer_than_two_candidates": 5,
+        "insufficient worlds/ESS": 11
+      },
+      "Kinds": {}
+    },
+    "coverage_improved_from_zero": false,
+    "wall_seconds": 56.72494610000285,
+    "passed_correctness": true,
+    "limitation": "Both games ended naturally with matching digest and zero audit faults. All eleven search attempts exhausted reconstruction; this repair alone does not qualify the mode."
+  },
+  "artifacts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-reconstruction-diagnostic-20261003-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-reconstruction-diagnostic-20261003-001",
+      "seal_sha256": "f852fa6efa9c2e6f8b6529026281ec615bedfba24eb6db0109f55da70eb4933a",
+      "bytes": 19356928
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-history-check-20261003-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-history-check-20261003-001",
+      "seal_sha256": "0fe364e8b11dcac7b707e8090bddb70d2fa4085249358b8cd68a52733d3ec58c",
+      "bytes": 9603
+    }
+  ],
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0,
+  "qualified": false,
+  "rated_games": 0,
+  "published": false,
+  "follow_up_diagnostic": "docs/gorge-public-reconstruction-diagnostic-20261003.json"
+}

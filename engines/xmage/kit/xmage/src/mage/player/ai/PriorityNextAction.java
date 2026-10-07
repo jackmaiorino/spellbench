@@ -30,6 +30,7 @@ public class PriorityNextAction implements MCTSNodeNextAction{
             MCTSPlayer simPlayer = (MCTSPlayer) sim.getPlayer(player.getId());
             int before = sim.getStack().size();
             long dialogsBefore = spellbench.kit.xmage.KitContext.dialogs(); // KIT
+            spellbench.kit.xmage.KitContext.resetColors(); // KIT
             try { // KIT: option-generation and operation budgets in expansion (addendum change 2)
                 simPlayer.activateAbility((ActivatedAbility)ability, sim);
             } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
@@ -38,14 +39,22 @@ public class PriorityNextAction implements MCTSNodeNextAction{
                 continue; // the child is dropped
             }
             // KIT: an action at the root that leaves no stack object and asked a dialog while it executed carries
-            // its choices in no executed copy: unsupported (review change 4), so it is never a root child
-            if (node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
-                    && sim.getStack().size() <= before && spellbench.kit.xmage.KitContext.dialogs() > dialogsBefore) {
+            // its choices in no executed copy: unsupported (review change 4), so it is never a root child, unless
+            // every dialog was a color choice (a Gate's as-enters color), which the plan carries as "colors"
+            java.util.List<String> kitColors = spellbench.kit.xmage.KitContext.colors();
+            long kitDialogs = spellbench.kit.xmage.KitContext.dialogs() - dialogsBefore;
+            boolean kitNonStack = node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
+                    && sim.getStack().size() <= before && kitDialogs > 0;
+            if (kitNonStack && (kitColors.size() != kitDialogs || kitColors.contains(null))) {
                 spellbench.kit.xmage.KitContext.count("mcts:non_stack_dialog_excluded");
                 continue;
             }
             // KIT: payload witness (design 5.3 N1): read from the executed object before the game resumes
             java.util.Map<String, Object> payload = spellbench.kit.xmage.KitContext.witness(sim, before);
+            if (kitNonStack) {
+                payload.put("colors", new java.util.ArrayList<Object>(kitColors));
+                spellbench.kit.xmage.KitContext.count("mcts:non_stack_colors_planned");
+            }
             // KIT: horizon in expansion (addendum change 4): a pass that would let a flagged object resolve
             if (spellbench.kit.xmage.KitContext.passWouldResolveFlagged(sim, player.getId(), ability)) {
                 MCTSNode child = new MCTSNode(node, sim, ability);

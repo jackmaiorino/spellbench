@@ -1,0 +1,80 @@
+{
+  "schema": "spellbench-gorge-preparation-record/v1",
+  "adapter_commit": "070428f7122e6e451d0312b7cfbd43693b70f3d1",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "status": "frozen_inputs_prepared_public_removal_roots_checked",
+  "qualification": "incomplete",
+  "rated_games": 0,
+  "published": false,
+  "source_of_record": "E:\\spellbench-gorge-runtime-20261003-015",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261003-015",
+  "manifest_sha256": "45953697848c276a97a1a11e4ac059496b47223660f79855b8b064bb8c3fc641",
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "sha256": "94a13d7dd4bba37a2e83cbee27dd03562345457485ac7ad9060c1f0d0d619e4e",
+      "bytes": 13476864,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\94a13d7dd4bba37a2e83cbee27dd03562345457485ac7ad9060c1f0d0d619e4e\\spellbench-gorge-corpus-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "1fbf26868019cee1dda4eae776b4b77a505832fb433ce7766454bc0bc5af04c0",
+      "bytes": 17485312,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\1fbf26868019cee1dda4eae776b4b77a505832fb433ce7766454bc0bc5af04c0\\spellbench-gorge-env-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "5f1cada30ad4ee6080fd5ab17d02ac10d2dd9fb0e13e428481a34fb607bbbb0c",
+      "bytes": 18076160,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\5f1cada30ad4ee6080fd5ab17d02ac10d2dd9fb0e13e428481a34fb607bbbb0c\\spellbench-gorge-agent-windows-amd64.exe"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "sha256": "d7f9e302b4cf21f9199dd7f097eaa02946049ccfee277b0d08c734a233d1d236",
+      "bytes": 18931712,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\d7f9e302b4cf21f9199dd7f097eaa02946049ccfee277b0d08c734a233d1d236\\gorgequal-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "sha256": "8db87c5c4b864cd0bdce3786ccabb630f228ebd0792fbe47884642cc664f3278",
+      "bytes": 17400525,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\8db87c5c4b864cd0bdce3786ccabb630f228ebd0792fbe47884642cc664f3278\\spellbench-gorge-env-linux-amd64"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "sha256": "e31225228f2bd70b4c5d99548399d6d84605612cec10c764b470d87bf0f0b4ca",
+      "bytes": 17979710,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\e31225228f2bd70b4c5d99548399d6d84605612cec10c764b470d87bf0f0b4ca\\spellbench-gorge-agent-linux-amd64"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "sha256": "54509146d27c973cdad88981b58c511aadb191cdaada55499ba219ecef498f36",
+      "bytes": 18829324,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\54509146d27c973cdad88981b58c511aadb191cdaada55499ba219ecef498f36\\gorgequal-linux-amd64"
+    },
+    {
+      "name": "registry.gob.gz",
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329,
+      "kind": "registry"
+    }
+  ],
+  "bounded_checks": "docs/gorge-public-removal-repair-20261003.json",
+  "copy_verification": "Seven binaries and exact registry verified by hash and size across E, independent D recovery and immutable binary pins.",
+  "limitation": "Complete current-runtime qualification and reference-host evidence remain unfinished."
+}

@@ -49,6 +49,9 @@ public final class Front {
     final long overheadMs;
     /** Reserved at the end of every clock for a kill and the fallback answer. */
     final long killReserveMs;
+    /** Clock pacing (0: off): a decision gets at most remaining/paceMoves + increment, never under paceFloorMs. */
+    final long paceMoves;
+    final long paceFloorMs;
     final Map<String, Object> budgets = new LinkedHashMap<>();
     final long hangAt;
     final boolean roundtrip;
@@ -116,6 +119,8 @@ public final class Front {
         graceMs = Json.num(clockPolicy, "grace_ms", 5000);
         overheadMs = Json.num(clockPolicy, "overhead_ms", 1500);
         killReserveMs = Json.num(clockPolicy, "kill_reserve_ms", 300);
+        paceMoves = Json.num(clockPolicy, "pace_moves", 0);
+        paceFloorMs = Json.num(clockPolicy, "pace_floor_ms", 0);
         Map<String, Object> diag = Json.obj(config, "diagnostics");
         hangAt = Json.num(diag, "hang_at", -1);
         roundtrip = Json.bool(diag, "roundtrip");
@@ -259,6 +264,51 @@ public final class Front {
         return Json.map("response_type", "ack", "protocol", PROTOCOL, "request_id", requestId);
     }
 
+    /**
+     * The decision without its engine extensions (Section 14): the kit reads none, and an engine may send large native
+     * payloads (mtg-kernel's model inputs reach several MiB) that anchors and runner requests would otherwise copy.
+     */
+    /**
+     * The pass candidate of a priority decision whose every other candidate is an ordinary mana activation, else -1.
+     * The kit's searches never root on a mana ability (the root filter admits only mapped non-mana actions), so such
+     * a stop is a pass however long they search; an engine that offers priority mana (the mtg-kernel v2 engine does at
+     * nearly every stop) would otherwise pay a full search for it.
+     */
+    static int manaOnlyPass(List<Object> cands) {
+        int pass = -1;
+        for (int i = 0; i < cands.size(); i++) {
+            String kind = Json.str(Json.obj(Json.obj(cands.get(i)), "semantic"), "kind");
+            if ("pass".equals(kind) && pass < 0) {
+                pass = i;
+            } else if (!"activate_mana_ability".equals(kind)) {
+                return -1;
+            }
+        }
+        return pass;
+    }
+
+    /**
+     * A decision's time under clock pacing: the decision limit, cut to an even share of the remaining bank
+     * ({@code remaining / paceMoves}) plus the increment it earns back, but never under {@code floorMs} (the least a
+     * runner search can use after the overhead, grace and kill reserve). The runner's search is interrupted at the
+     * clock (RunnerLink's deadline), so a shorter clock is a shorter search, not a kill.
+     */
+    static long pacedLimit(long limit, long remaining, long increment, long paceMoves, long floorMs) {
+        if (paceMoves <= 0) {
+            return limit;
+        }
+        return Math.min(limit, Math.max(floorMs, remaining / paceMoves + increment));
+    }
+
+    static Map<String, Object> withoutExtensions(Map<String, Object> d) {
+        if (d == null || !d.containsKey("extensions")) {
+            return d;
+        }
+        Map<String, Object> m = new LinkedHashMap<>(d);
+        m.remove("extensions");
+        return m;
+    }
+
     static Map<String, Object> stripEnvelope(Map<String, Object> req) {
         Map<String, Object> m = new LinkedHashMap<>(req);
         m.remove("request_id");
@@ -334,12 +384,15 @@ public final class Front {
 
     Map<String, Object> choose(Map<String, Object> req, String requestId) {
         long t0 = System.nanoTime();
-        Map<String, Object> d = Json.obj(req, "decision");
+        Map<String, Object> d = withoutExtensions(Json.obj(req, "decision"));
         VisibleNames.observe(Json.obj(d, "observation"), cardOrigins);
         Map<String, Object> clockIn = Json.obj(req, "clock");
         long limit = Math.min(clockIn == null ? 60_000 : Json.num(clockIn, "max_decision_ms", 60_000),
                 clockIn == null ? 60_000 : Json.num(clockIn, "remaining_ms", 60_000));
-        Clock clock = new Clock(t0, limit, overheadMs);
+        Map<String, Object> tc = gameStart == null ? null : Json.obj(gameStart, "time_control");
+        long paced = pacedLimit(limit, clockIn == null ? limit : Json.num(clockIn, "remaining_ms", limit),
+                tc == null ? 0 : Json.num(tc, "increment_ms", 0), paceMoves, paceFloorMs);
+        Clock clock = new Clock(t0, paced, overheadMs);
         Answer a;
         try {
             a = decide(d, clock);
@@ -651,6 +704,10 @@ public final class Front {
             if (forced != null && seatStep == forcedAt) {
                 return priorityAnchor(d, clock);
             }
+            int manaOnlyPass = manaOnlyPass(cands);
+            if (manaOnlyPass >= 0) {
+                return new Answer(manaOnlyPass, "bot", "mana_only_pass");
+            }
             String step = Json.str(obs, "phase_step");
             boolean passFirst = "pass".equals(Json.str(Json.obj(Json.obj(cands.get(0)), "semantic"), "kind"));
             if ("mad".equals(botKind) && passFirst && CP7_PASS_STEPS.contains(step)) {
@@ -844,6 +901,7 @@ public final class Front {
             }
             mergeCounters(detail, Json.obj(w, "counters"));
         }
+        aliasWorldKeys(Json.arr(d, "candidates"), results, candidateOf);
         Aggregate.Result agg;
         if ("mcts".equals(botKind)) {
             List<Map<String, Object>> ws = new ArrayList<>();
@@ -875,6 +933,12 @@ public final class Front {
             a.detail.putAll(detail);
             return a;
         }
+        if ("mcts".equals(botKind) && agg.winner != null && agg.votes.getOrDefault(agg.winner, 0) == 0) {
+            // interrupted before one completed iteration: the ranking is candidate order, not a search result
+            Answer a = fallback(d, null, "cap", "mcts_no_iterations");
+            a.detail.putAll(detail);
+            return a;
+        }
         Integer c = agg.winner == null ? null : candidateOf.get(agg.winner);
         if (c == null) {
             detail.put("unmapped_winner", agg.winner);
@@ -886,7 +950,8 @@ public final class Front {
         }
         // an action that does not use the stack and asked a dialog while it executed: no executed copy carries its
         // choices, so the state is unsupported (review change 4); the next ranked candidate answers
-        if (agg.planWorld >= 0 && Json.num(Json.obj(results.get(agg.planWorld)), "non_stack_dialogs", 0) > 0) {
+        if (agg.planWorld >= 0 && Json.num(Json.obj(results.get(agg.planWorld)), "non_stack_dialogs", 0) > 0
+                && !colorsOnly(Json.obj(results.get(agg.planWorld)))) {
             detail.put("non_stack_winner", agg.winner);
             Answer a = rankedFallback(d, agg, candidateOf, "wrapper", "unsupported_non_stack_payload", agg.winner);
             a.detail.putAll(detail);
@@ -901,6 +966,11 @@ public final class Front {
                 }
             }
             plans.open(seatStep, sem, Json.obj(d, "observation"), agg.planPayload, answers);
+            if ("cast_spell".equals(Json.str(sem, "kind")) && sem.get("method") == null) {
+                // a method-null cast (Section 7.4): choose_cast_method then takes the world's method
+                plans.active.castMethod = Offers.worldMethod(agg.winner);
+                detail.put("cast_method", plans.active.castMethod);
+            }
             detail.put("plan_payload", agg.planPayload);
         }
         Answer a = new Answer(c, tag, forcing ? "priority_forced" : "priority_anchor");
@@ -931,6 +1001,33 @@ public final class Front {
         for (Map.Entry<String, Object> e : counters.entrySet()) {
             long before = m.get(e.getKey()) instanceof Number ? ((Number) m.get(e.getKey())).longValue() : 0;
             m.put(e.getKey(), before + ((Number) e.getValue()).longValue());
+        }
+    }
+
+    /**
+     * Adds every world key that is not itself offered but answers an offered candidate (a method-null cast; see
+     * {@link Offers}) to {@code candidateOf}, so votes, visits and the ranked fallback reach that candidate.
+     */
+    static void aliasWorldKeys(List<Object> cands, List<Object> results, Map<String, Integer> candidateOf) {
+        List<Object> sems = new ArrayList<>();
+        for (Object o : results) {
+            Map<String, Object> w = Json.obj(o);
+            sems.add(w.get("semantic"));
+            for (Object so : Json.arr(w, "root_stats")) {
+                sems.add(Json.obj(so).get("semantic"));
+            }
+        }
+        for (Object s : sems) {
+            if (!(s instanceof Map)) {
+                continue;
+            }
+            String k = Aggregate.key(s);
+            if (!candidateOf.containsKey(k)) {
+                int c = Offers.candidateFor(cands, Json.obj(s));
+                if (c >= 0) {
+                    candidateOf.put(k, c);
+                }
+            }
         }
     }
 
@@ -1142,6 +1239,21 @@ public final class Front {
         return a;
     }
 
+    /** A non-stack action whose dialogs were all color choices (a Gate's as-enters color): the plan carries them. */
+    public static boolean colorsOnly(Map<String, Object> world) {
+        List<Object> answers = Json.arr(world, "answers");
+        if (answers.isEmpty()) {
+            return false;
+        }
+        for (Object o : answers) {
+            Map<String, Object> a = Json.obj(o);
+            if (!"choice".equals(Json.str(a, "family")) || PlanBook.colorName(a.get("value")) == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static boolean matchesPick(Map<String, Object> sem, Object want) {
         String kind = Json.str(sem, "kind");
         if (want instanceof Boolean) {
@@ -1153,6 +1265,8 @@ public final class Front {
                     || ("choose_spell_mode".equals(kind) && Json.num(sem, "mode_index", -1) == w);
         }
         switch (kind) {
+            case "choose_color":
+                return want instanceof String && want.equals(sem.get("color"));
             case "select_object":
                 return PlanBook.sameTarget(Json.obj(sem, "choice"), want);
             case "choose_target":

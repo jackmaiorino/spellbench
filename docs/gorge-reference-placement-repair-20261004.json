@@ -1,0 +1,39 @@
+{
+  "schema": "spellbench-gorge-reference-placement-repair/v1",
+  "source_of_record": "E:\\spellbench-gorge-reference-placement-checks-20261004-002",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-placement-checks-20261004-002",
+  "source_files": {
+    "engines/gorge/scripts/reference_matrix.py": "8d214e807c1887498a3f6a167a834f7fdda6a20f46dfda0cd806ada258d196d0",
+    "engines/gorge/README.md": "63be2ebc2904997f84f1196f0eed2eb544fce44b5f6a4c3df6f3e168d9b32616"
+  },
+  "checks": {
+    "at_utc": "2026-10-04T04:02:41.646994+00:00",
+    "command": [
+      "C:\\Python314\\python.exe",
+      "-m",
+      "pytest",
+      "-q",
+      "python/tests/test_throughput.py",
+      "python/tests/test_machine_limits.py",
+      "python/tests/test_machine_container.py",
+      "python/tests/test_bench_run.py::test_an_unrated_placement_note_is_checked_before_any_process",
+      "python/tests/test_bench_run.py::test_the_launch_definitions_parse"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 9.529618699976709,
+    "stdout_sha256": "196a6012f7c0bd91fb161a191b18222fce1f4de2c4532f66f672a5419e61d46d",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_tail": "........................................................................ [ 84%]\n.............                                                            [100%]\n85 passed in 3.15s\n",
+    "diff_exit_code": 0,
+    "diff_output": "",
+    "compile_passed": true,
+    "rated_games": 0
+  },
+  "seal_sha256": "aed3bf48541eac4c32e32805a8510dc87da03d300a3b3b148ae58f6d7dd4e83c",
+  "bytes": 61378,
+  "change": "Reference-host qualification requires actual assigned disk bytes and a current three-machine placement. Placement is parsed before creating private qualification secrets. No frozen game schedule, clock, policy, native binary or measurement is changed.",
+  "current_native_runtime_source_commit": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+  "current_native_execution_unchanged": true,
+  "qualification_complete": false,
+  "rated_games": 0
+}

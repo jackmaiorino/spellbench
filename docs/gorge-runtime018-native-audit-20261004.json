@@ -1,0 +1,277 @@
+{
+  "schema": "spellbench-gorge-runtime018-native-audit/v1",
+  "closure": {
+    "schema": "spellbench-gorge-native-audit-closure/v1",
+    "at_utc": "2026-10-04T02:40:36.139545+00:00",
+    "status": "incomplete_wall_cap",
+    "guard_stop": {
+      "at_utc": "2026-10-04T02:36:49.863198+00:00",
+      "reason": "Declared native audit wall cap",
+      "elapsed_seconds": 3600.431084599986,
+      "rated_games": 0
+    },
+    "tool_session_exit_code": 1,
+    "host_token_fate": "reclaimed-20261004T023849Z",
+    "owned_live_descendants": [],
+    "full_blocks_scheduled": 320,
+    "full_blocks_completed": 319,
+    "full_natural_blocks": 319,
+    "full_physical_games_completed": 638,
+    "missing_indices": [
+      166
+    ],
+    "full_stdout_sha256": "1290bd053dd5c3be512b7b675e889c8f9331c82e65aa5a4274304ca8113967c5",
+    "unparsed_lines": [],
+    "final_native_report_present": false,
+    "native_qualification_complete": false,
+    "scaling": [
+      {
+        "at_utc": "2026-10-04T02:00:01.310011+00:00",
+        "workers": 1,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 1391.5961422999972,
+        "exit_code": 1,
+        "primary_sha256": "b7001b6bb3f6e28b0e97261de18218d86f8bb0e724d026d273f9e4878c05deb0",
+        "full_native_gate_passed": false
+      },
+      {
+        "at_utc": "2026-10-04T02:07:40.585624+00:00",
+        "workers": 6,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 459.25019290001364,
+        "exit_code": 1,
+        "primary_sha256": "b7001b6bb3f6e28b0e97261de18218d86f8bb0e724d026d273f9e4878c05deb0",
+        "full_native_gate_passed": false
+      },
+      {
+        "at_utc": "2026-10-04T02:15:11.708847+00:00",
+        "workers": 13,
+        "blocks": 26,
+        "completed_games": 52,
+        "wall_seconds": 451.09583990002284,
+        "exit_code": 1,
+        "primary_sha256": "b7001b6bb3f6e28b0e97261de18218d86f8bb0e724d026d273f9e4878c05deb0",
+        "full_native_gate_passed": false
+      }
+    ],
+    "scaling_outputs_identical": true,
+    "speedup_13_vs_1": 3.0849234668367127,
+    "selected_allocation": {
+      "kind": "substantial",
+      "label": "substantial run, measured",
+      "workers": 13,
+      "host": "main-pc",
+      "cpu_count": 24,
+      "per_game_cores": 1,
+      "games_total": 320,
+      "rules": {
+        "substantial_run_seconds": 600,
+        "budget_percent": 12,
+        "games_per_worker": 2,
+        "probe_games": 2,
+        "ladder_divisors": [
+          2,
+          1
+        ],
+        "spot_check_divisor": 2
+      },
+      "probe": {
+        "workers": 1,
+        "games": 26,
+        "indices": [
+          40,
+          44,
+          48,
+          52,
+          96,
+          100,
+          104,
+          108,
+          152,
+          156,
+          160,
+          164,
+          208,
+          212,
+          216,
+          220,
+          264,
+          268,
+          272,
+          276,
+          280,
+          284,
+          288,
+          292,
+          296,
+          300
+        ],
+        "seconds_milli": 1391596,
+        "busy_milli": 1390939,
+        "row_bytes": 19140,
+        "outputs_digest": "sha256:882df0859abc240cc8c1ca373c63f0cfc35a90c4cb2f45c323ca69037775367c"
+      },
+      "trials": [
+        {
+          "workers": 1,
+          "games": 26,
+          "indices": [
+            40,
+            44,
+            48,
+            52,
+            96,
+            100,
+            104,
+            108,
+            152,
+            156,
+            160,
+            164,
+            208,
+            212,
+            216,
+            220,
+            264,
+            268,
+            272,
+            276,
+            280,
+            284,
+            288,
+            292,
+            296,
+            300
+          ],
+          "seconds_milli": 1391596,
+          "busy_milli": 1390939,
+          "row_bytes": 19140,
+          "outputs_digest": "sha256:882df0859abc240cc8c1ca373c63f0cfc35a90c4cb2f45c323ca69037775367c"
+        },
+        {
+          "workers": 6,
+          "games": 26,
+          "indices": [
+            40,
+            44,
+            48,
+            52,
+            96,
+            100,
+            104,
+            108,
+            152,
+            156,
+            160,
+            164,
+            208,
+            212,
+            216,
+            220,
+            264,
+            268,
+            272,
+            276,
+            280,
+            284,
+            288,
+            292,
+            296,
+            300
+          ],
+          "seconds_milli": 459250,
+          "busy_milli": 1310211,
+          "row_bytes": 19140,
+          "outputs_digest": "sha256:882df0859abc240cc8c1ca373c63f0cfc35a90c4cb2f45c323ca69037775367c"
+        },
+        {
+          "workers": 13,
+          "games": 26,
+          "indices": [
+            40,
+            44,
+            48,
+            52,
+            96,
+            100,
+            104,
+            108,
+            152,
+            156,
+            160,
+            164,
+            208,
+            212,
+            216,
+            220,
+            264,
+            268,
+            272,
+            276,
+            280,
+            284,
+            288,
+            292,
+            296,
+            300
+          ],
+          "seconds_milli": 451096,
+          "busy_milli": 1409921,
+          "row_bytes": 19140,
+          "outputs_digest": "sha256:882df0859abc240cc8c1ca373c63f0cfc35a90c4cb2f45c323ca69037775367c"
+        }
+      ],
+      "projected_serial_seconds": 17128,
+      "placement": {
+        "main-pc": {
+          "disposition": "used",
+          "reason": "fresh canonical free claim required,24 logical CPUs and ready frozen runtime018, matched1/6/13 audit blocks before full320 blocks"
+        },
+        "computehost": {
+          "disposition": "unavailable",
+          "reason": "queued training-performance owner priority retained"
+        },
+        "runpod": {
+          "disposition": "slower",
+          "reason": "a new cloud lease needs provisioning,50MB transfer and recovery while local corrected binaries are ready whenever the canonical claim releases. Cloud preparation005 remains unallocated. Prior cumulative spendUSD1.86026747 ofUSD10 cap"
+        }
+      },
+      "outputs_identical": true,
+      "outputs_note": null,
+      "spot_check": null,
+      "qualification_seconds_milli": 2302011,
+      "workload": "sha256:c292909f7497322e450892e1cd4854dd3d18fc2b1638607bf978f95d17462b72",
+      "reused": false,
+      "machine": {
+        "memory_bytes": 137242046464,
+        "gpus": [
+          "NVIDIA GeForce RTX 4070 SUPER",
+          "NVIDIA GeForce RTX 3050"
+        ],
+        "free_bytes": {
+          "pin_root": 279064535040,
+          "run_dir": 279064535040
+        }
+      },
+      "budget": {
+        "projected_bytes": 235570,
+        "pinned_bytes": 0,
+        "cap_bytes": 2147483648
+      }
+    },
+    "new_cloud_spend_usd": 0,
+    "rated_games": 0,
+    "source_of_record": "E:\\spellbench-gorge-native-audit-20261004-005",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-native-audit-20261004-005",
+    "retention": "All inputs, completed partial output, throughput evidence, monitor and guard stop retained; no frozen gate or cap changed",
+    "next_step": "Prepared fixed-seed48 public reconstruction diagnostic after the current research claim releases; reuse compatible throughput evidence only through the supported native launcher"
+  },
+  "seal_sha256": "38e778da27a7d3e4952368379b6534f43406fc6175ea57e41d6212a0d5ffed62",
+  "bytes": 551746,
+  "files": 40,
+  "provider_reported_prior_spend_usd": 1.8445914197218372,
+  "cumulative_conservative_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10
+}

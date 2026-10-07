@@ -1,0 +1,296 @@
+{
+  "schema": "spellbench-gorge-copy-target-repair/v1",
+  "observed_at_utc": "2026-10-04T14:23:34.457396+00:00",
+  "status": "affected_target_checks_passed_other_reconstruction_failures_pending",
+  "cloud_failure_record": "docs/gorge-runtime024-cloud019-20261004.json",
+  "cause": {
+    "source_of_record": "E:\\spellbench-gorge-rally-target-capture-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-rally-target-capture-20261004-001",
+    "bytes": 19508632,
+    "seal_sha256": "821561c5886f7142122e2a9520ae7813fa7180efac6fc8daa0780e92e713bd23",
+    "binary_sha256": "8c17f14c6f5ac9e046e236b10784a45c6c4f163a869a8fa6de5986dd20c07579",
+    "source_commit": "b4e9a0927c8765d0ac7b39ac0d9b3218c6374644",
+    "independent_recovery_verified": true,
+    "native_game_index": 108,
+    "diagnostic": {
+      "inherited_single_target_matches": true,
+      "kind": "target",
+      "maximum": 1,
+      "minimum": 1,
+      "option_count": 6,
+      "option_kind": "permanent",
+      "player": 0,
+      "public_source_name": "Chain Lightning",
+      "resume_kind": "copy_targets",
+      "scope": "Operator diagnostic of the already failed native seed. This record is never supplied to a bot or used as a search root.",
+      "source": 125,
+      "source_is_copy": true,
+      "source_target_count": 1,
+      "source_zone": "stack",
+      "target": 123,
+      "target_is_token": true,
+      "target_zone": "ceased"
+    },
+    "finding": "AskCopyTargets includes the inherited token target even after that token has ceased to exist. Declining new targets is legal and makes the copied Chain Lightning fizzle. The adapter formerly required a current ObjectRef for every target option and halted."
+  },
+  "repair": {
+    "base_commit": "b4e9a0927c8765d0ac7b39ac0d9b3218c6374644",
+    "working_tree_patch_sha256": "acd221e4725bf995abbb88b1b57a540838dcbdc4bb3eb3f385ee6b1daa71be00",
+    "source": "engines/gorge/internal/mapping/targets.go",
+    "fixture": "engines/gorge/internal/mapping/copy_targets_test.go",
+    "scope": "Represent the observed single inherited ceased-token option as choose_boolean(change_copy_targets, false), retaining the original native choose option index. Require a copy on the stack, one inherited object target, the matching option, and a ceased token. Other legal targets retain choose_target.",
+    "object_reference_boundary": "TargetOf still rejects the ceased token. No current ObjectRef is manufactured and no hidden object receives a visibility exemption.",
+    "native_policy_search_budgets_and_weights_unchanged": true,
+    "shared_protocol_unchanged": true
+  },
+  "affected_checks": {
+    "source_of_record": "E:\\spellbench-gorge-copy-target-checks-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-copy-target-checks-20261004-001",
+    "bytes": 19287468,
+    "seal_sha256": "e38870bb862ba097491d09f0eb5c2bbb5f523b6e8d879ab7d1a7dc11d7e6ed3e",
+    "binary_sha256": "b51b3a3e4e218ebc4a19dad59489126428a16370b1d3745865801ff6542564e1",
+    "source_commit": "b4e9a0927c8765d0ac7b39ac0d9b3218c6374644",
+    "independent_recovery_verified": true,
+    "checks": {
+      "at_utc": "2026-10-04T14:13:20.003274+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-copy-target-checks-20261004-001\\copy-target-tests.exe",
+            "./internal/mapping"
+          ],
+          "exit_code": 0,
+          "seconds": 11.989447100029793
+        },
+        {
+          "name": "copy-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\b51b3a3e4e218ebc4a19dad59489126428a16370b1d3745865801ff6542564e1\\copy-target-tests.exe",
+            "-test.run",
+            "^TestCopyCanKeepCeasedInheritedTokenOrRetargetPlayer$|^TestCeasedCopyTargetDoesNotAcquireObjectReference$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 6.559796900022775
+        },
+        {
+          "name": "mapping",
+          "command": [
+            "E:\\pinned-binaries\\b51b3a3e4e218ebc4a19dad59489126428a16370b1d3745865801ff6542564e1\\copy-target-tests.exe",
+            "-test.run",
+            "^Test",
+            "-test.skip",
+            "^TestCopyCanKeepCeasedInheritedTokenOrRetargetPlayer$|^TestCeasedCopyTargetDoesNotAcquireObjectReference$",
+            "-test.v",
+            "-test.timeout",
+            "240s"
+          ],
+          "exit_code": 0,
+          "seconds": 98.80998789996374
+        },
+        {
+          "name": "affected",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-p",
+            "1",
+            "-vet=off",
+            "-json",
+            "./internal/xview",
+            "./internal/agent",
+            "./internal/observe",
+            "./internal/validate"
+          ],
+          "exit_code": 0,
+          "seconds": 63.42088079999667
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./..."
+          ],
+          "exit_code": 0,
+          "seconds": 12.691669400024693
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.1280850999755785
+        }
+      ],
+      "passed": true,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "observed_behavior": [
+      "Real native copy ask retains every option.",
+      "Semantic and stream validation accept the mapped candidates.",
+      "The public extension and agent preserve the native option intent without fallback.",
+      "Keeping the target leaves player life at 20 because the copy fizzles.",
+      "Retargeting player 1 leaves life at 17 after three damage.",
+      "Direct TargetOf still returns ErrUnmapped for the ceased token."
+    ]
+  },
+  "prior_fixture_attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-copy-target-diagnostic-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-copy-target-diagnostic-20261004-001",
+      "bytes": 18952552,
+      "seal_sha256": "0b10542736f21bad52d3608cf87ae97bc0a0221d7e1492f6601559087b04e121",
+      "binary_sha256": "9fbdb153b18b7063e32e1097170ece455a3605afe126449b413e3ac7f6912f40",
+      "source_commit": "8108c315c61c84a10cf425870d719a9944c9b0ad",
+      "independent_recovery_verified": true,
+      "checks": {
+        "at_utc": "2026-10-04T13:49:30.916648+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-copy-target-diagnostic-20261004-001\\copy-target-tests.exe",
+              "./internal/mapping"
+            ],
+            "exit_code": 0,
+            "seconds": 8.641211799986195
+          },
+          {
+            "name": "fixture",
+            "command": [
+              "E:\\pinned-binaries\\9fbdb153b18b7063e32e1097170ece455a3605afe126449b413e3ac7f6912f40\\copy-target-tests.exe",
+              "-test.run",
+              "^TestUnavailableInheritedCopyTargetDiagnostic$",
+              "-test.v",
+              "-test.timeout",
+              "90s"
+            ],
+            "exit_code": 1,
+            "seconds": 6.45001890003914
+          }
+        ],
+        "passed": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "disposition": "The first event-built fixture used Burn, which does not contain Chain Lightning. The corrected Rally fixture reproduced the native copy target rejection."
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-copy-target-diagnostic-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-copy-target-diagnostic-20261004-002",
+      "bytes": 18954210,
+      "seal_sha256": "64d80f6627e815eb8bba7485f5ecc7d4b9dd0dc7fba99cb2086c055c7b54cbc1",
+      "binary_sha256": "0e692c3bc5093868838e085b746f7c1bb0d657767b2a9edb157ab9291e0e286e",
+      "source_commit": "8108c315c61c84a10cf425870d719a9944c9b0ad",
+      "independent_recovery_verified": true,
+      "checks": {
+        "at_utc": "2026-10-04T13:53:20.364287+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-copy-target-diagnostic-20261004-002\\copy-target-tests.exe",
+              "./internal/mapping"
+            ],
+            "exit_code": 0,
+            "seconds": 14.688029899960384
+          },
+          {
+            "name": "fixture",
+            "command": [
+              "E:\\pinned-binaries\\0e692c3bc5093868838e085b746f7c1bb0d657767b2a9edb157ab9291e0e286e\\copy-target-tests.exe",
+              "-test.run",
+              "^TestUnavailableInheritedCopyTargetDiagnostic$",
+              "-test.v",
+              "-test.timeout",
+              "90s"
+            ],
+            "exit_code": 0,
+            "seconds": 5.172915100003593
+          }
+        ],
+        "passed": true,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "disposition": "The Rally event-built fixture reproduced the rejection before the exact native seed confirmed its cause."
+    }
+  ],
+  "remaining_rally_root": {
+    "capture": {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-005",
+      "bytes": 20282117,
+      "seal_sha256": "97a03eb0808f0a9d35f020cfc74602df86090a6184c8dc67989513583d2a4701",
+      "binary_sha256": "ca3785a9d80449ff142b58b44d078e3171a7373cb78465165eaf1fe1082c48c6",
+      "source_commit": "b4e9a0927c8765d0ac7b39ac0d9b3218c6374644",
+      "independent_recovery_verified": true
+    },
+    "trace": {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-005",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-005",
+      "bytes": 19801240,
+      "seal_sha256": "3b5e5e9d0d3a3988acb5aaa56706e87a0f6a58318dc1b1620f5dda72ad84b0e9",
+      "binary_sha256": "22362063d8d70c209cf2a804798cc257ee46440dbb6ccde00b6e59d1bb159652",
+      "source_commit": "b4e9a0927c8765d0ac7b39ac0d9b3218c6374644",
+      "independent_recovery_verified": true
+    },
+    "frames": 47,
+    "native_game_index": 108,
+    "public_input_sha256": "ccfffa43ab834010234172b74375437d01b092939326c042f72d6289987b798b",
+    "public_work": {
+      "Attempts": 41,
+      "Submits": 5000,
+      "Nodes": 5086,
+      "BudgetExhausted": 1
+    },
+    "worlds": 0,
+    "native_diagnostics_identical": true,
+    "disposition": "Logging faithfully reproduced the known failure. Passing diagnostic execution does not mean the captured root or game qualified."
+  },
+  "supersedes_remaining_target_cause_in": "docs/gorge-mana-diagnosis-20261004.json",
+  "remaining_failures": [
+    "Rally native game 108 public reconstruction at 47 frames.",
+    "Spy native game 164 public reconstruction; capture remains to be completed."
+  ],
+  "active_owned_cloud_resources": 0,
+  "new_cloud_spend_usd": 0,
+  "frozen_gates_unchanged": true,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

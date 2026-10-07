@@ -1,0 +1,75 @@
+{
+  "schema": "spellbench-gorge-current-native/v1",
+  "at_utc": "2026-10-06T01:59:47.080236+00:00",
+  "source_commit": "4971a556b1030a03bf27ddd8eef7a831f39cb603",
+  "runtime_source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261006-121",
+  "runtime_recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261006-121",
+  "runtime_seal_sha256": "4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e",
+  "runtime_build_passed": true,
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 13475840,
+      "sha256": "98212b0de8f906a972ffa1a49fd912e3b7e00138b39ce82bb01a8ce2c9bb757d"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 17488384,
+      "sha256": "5581fe8b202f98cdcadab772d80b03aefe98ba59290d37bfcbab377aca1bdcb4"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 18306560,
+      "sha256": "694967fc80e544d8fe4727ff60571f48099784c3c12bf0c59b25401f5a11455c"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 19161600,
+      "sha256": "96fca3f16afa05278205b26053eee54af72bbb6d67cf08c6078db4d4c85076e3"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "platform": "linux",
+      "bytes": 17400140,
+      "sha256": "b6cd09d72907724d7462edcaf89c6206e042858d7b04e653adcb44c8877cbb6c"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "platform": "linux",
+      "bytes": 18206627,
+      "sha256": "96aa822a22f0c109828a2c45cce3e3cbe760bfe7e4d76f6848ef8344d5720997"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "platform": "linux",
+      "bytes": 19062032,
+      "sha256": "acd02586bc00712435254fae112ff164758d77773cc4039681c45244574220bd"
+    }
+  ],
+  "native_source_of_record": "E:\\spellbench-gorge-native-20261006-124",
+  "native_recovery_root": "D:\\e-scratch\\spellbench-gorge-native-20261006-124",
+  "native_preparation_sha256": "c0585c6d52bc2d180e2441bcf45262ae88f5692b0c475bbe24558831e8376236",
+  "native_parent_sha256": "3c3b24cd62bfc4f64a49476bf561e212ef4ca1a3befbfb05f12c754f235cae9d",
+  "native_guard_path": "host_reservation_v1.dispatch -> this bounded parent -> qualify_native.py -> arena.throughput.plan_allocation -> qualified gorgequal callback",
+  "phase": "guarded matched-throughput qualification running",
+  "worker_cap": 16,
+  "worker_ladder": [
+    1,
+    8,
+    16
+  ],
+  "worker_selection": "completed wall time",
+  "allocation": "main-pc=used: current24core i7-13700K free and exact recovered production121 ready, supported completed1/half/cap comparison precedes full audit; computehost=slower: currently16core Ryzen3700X free with21GiB memory, current production/source transfer and qualification still required, projected total turnaround favors prepared maintainer, this is placement inference not a measured speed claim; runpod=not_authorized: verified HTTP200 inventory but USD0.00263653 cap headroom cannot cover a bounded new allocation",
+  "canonical_generation": 268,
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_paid_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347
+}

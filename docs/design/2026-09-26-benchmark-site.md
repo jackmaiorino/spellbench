@@ -4,7 +4,7 @@ Status: approved 2026-09-26; implementation plan in `2026-09-26-benchmark-site-p
 
 ## Goal
 
-A clean public leaderboard Jack can post in the MTGRL Discord with the
+A clean public leaderboard the maintainer can post in the MTGRL Discord with the
 message "integrate with this so you can get your model on the benchmark".
 Viewers open a link and install nothing. Every number on the site traces
 back to a committed match ledger that anyone can re-check with

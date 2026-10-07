@@ -113,7 +113,7 @@ supported guard. Manifest SHA-256 is
 `90d96ad91536395b91a99dc6303cf4ad09ad9eb0f7eac930e7ed63c30e4bd6a2`;
 preparation SHA-256 is
 `e03cfb06391c861305c05a0e0c54365d625faf92613cf2f8117c9c787ea2c9a6`.
-Fresh local, Haley and RunPod records are pinned in that preparation. Haley's
+Fresh local, the compute host and RunPod records are pinned in that preparation. The compute host's
 queued training priority and the separate gorge lease remain reserved. The
 qualification has the original 90-minute, 16 GiB and 60 GiB reserve limits.
 That attempt completed successfully in 2,599.317 seconds, released generation

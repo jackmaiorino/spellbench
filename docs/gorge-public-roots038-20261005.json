@@ -1,0 +1,33 @@
+{
+  "at_utc": "2026-10-05T03:50:45.599899+00:00",
+  "phase": "closed_preallocation_capacity_rejected",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-038",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-038",
+  "release": {
+    "at_utc": "2026-10-05T03:50:32.4774322+00:00",
+    "name": "spellbench-gorge-roots-d56ea0dacbb54c14",
+    "pod_id": null,
+    "create_explicitly_rejected": true,
+    "rejection": "create pod: There are no instances currently available",
+    "owned_matches": 0,
+    "pod_allocated": false,
+    "guardian_pid_absent": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "remote_evidence_started": false,
+    "new_cloud_allocation": false,
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "allocation_created": false,
+  "diagnostic_capture_complete": false,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing_source_of_record": "E:/spellbench-gorge-billing-20261005-018",
+  "conservative_closed_ceiling_usd": 8.27733347,
+  "cloud_cap_usd": 10,
+  "next_action": "A separately prepared request using the RTX A4500 host pool, same three public roots, unchanged source/options and maximumUSD0.50 lease",
+  "seal_sha256": "6edc9f927cdc225081ab476b152aa92761160520bdfce5070768d8199519c3ec"
+}

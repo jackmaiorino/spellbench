@@ -1,0 +1,70 @@
+name: gorge guarded reference pool
+
+on:
+  push:
+    branches: ['codex/gorge-all-bots-20261002']
+    paths: ['docs/gorge-ci-reference-inputs.json', '.github/workflows/gorge-reference.yml', 'tools/gorge-reference-ci.py', 'tools/gorge_reference_*.py']
+
+# Inputs and results remain in one owned unpublished draft exchange.
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false && contains(github.event.head_commit.message, '[gorge-reference-ci]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 310
+    outputs:
+      nodes: ${{ steps.verify.outputs.nodes }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover space from unused hosted-runner SDKs
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+          df -B1 "$RUNNER_TEMP"
+      - name: Verify exact native pass, production pins and dispatch admission
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/gorge-reference-ci.py --role prepare --job "$RUNNER_TEMP/gorge-reference" --inputs docs/gorge-ci-reference-inputs.json
+  worker:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ${{ fromJson(needs.prepare.outputs.nodes) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 310
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover space from unused hosted-runner SDKs
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+          df -B1 "$RUNNER_TEMP"
+      - name: Run one guarded persistent three-core game slot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/gorge-reference-ci.py --role '${{ matrix.node }}' --job "$RUNNER_TEMP/gorge-reference" --inputs docs/gorge-ci-reference-inputs.json
+  coordinator:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 310
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover space from unused hosted-runner SDKs
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+          df -B1 "$RUNNER_TEMP"
+      - name: Qualify allocation, collect original matrix and verify replay
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/gorge-reference-ci.py --role coordinator --job "$RUNNER_TEMP/gorge-reference" --inputs docs/gorge-ci-reference-inputs.json

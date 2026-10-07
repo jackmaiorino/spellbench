@@ -1,0 +1,11 @@
+# Original maintainer London callback wiring
+
+The pinned private April callback (`b45257a66fc3914506fca4dd83461b6c8853d129b3e1f38b2d3aeba6137bd0c6`, lines 4842-5015) supplies the actual ranking and target loop. The source bytes remain outside public Git. The optional `london_callback` adds one private body, preserving the previous 16 bodies.
+
+The reviewed engine's `LondonMulligan` invokes a one-card `TargetCardInHand` inside its bottoming loop. The adapter therefore reranks the shrinking whole hand for every bottom card. Each ranking uses the original `card_select` head and full sequential draw, then applies the last ranked card and calls the engine's library movement before repeating. A single remaining card bypasses the model and chooser. The original default-enabled base-cache key fields are extracted separately from the same source.
+
+The permitted encoder names only own-hand cards and explicitly known library references. Previously bottomed hand aliases do not become new known-library features. Model and transport failures refuse instead of the original exception fallback. The Python plan binds original physical picks to consecutive public `order_pick:mulligan_bottom` substeps, including semantic echoes, and refuses changed references, groups, skipped callbacks and reused cards.
+
+Local Java 8-compatible compilation passes for the staged private loop and public pipe. The 580 affected checks include two shrinking-hand ranks, full draws of three and two candidates, original final-index application, singleton bypass, and rejection of hidden or changed references, truncated draws and reordered bottom targets. Native London execution, cache behavior across real engine movements, actual trained weights, deck association and complete games remain unqualified. No rated or published entry is claimed.
+
+The build without optional search sources also passes after excluding `MaintainerLondonMain` with the other search-dependent entrypoints. This fixes the first hosted Java compilation failure caused by its unavailable `MaintainerModeEncoder` dependency. All 26 affected build and London checks pass; hosted checks for the repair remain pending.

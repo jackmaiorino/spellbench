@@ -257,7 +257,7 @@
    "disposition": "used",
    "reason": "24 hardware threads and 128 GB, released by the coordinator for the rest of this run, and the fastest rung of P's scaling comparison plays the remaining games"
   },
-  "haleyspc": {
+  "computehost": {
    "disposition": "unavailable",
    "reason": "it recorded the first 3,544 games, then its C: neared the 60 GiB reserve while another task's builds grew there (ARTIFACT-LAW.md clause 1)"
   },

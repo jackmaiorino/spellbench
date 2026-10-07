@@ -1,0 +1,97 @@
+package rules
+
+import (
+	"reflect"
+	"testing"
+
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
+)
+
+func TestSpellbenchPublicPaymentRequiresHypothesisAndNativeValidation(t *testing.T) {
+	e, _, _ := newFixtureDeck(t, 9101, "Name:Witness Spell\nManaCost:R\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	a := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	b := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	wrong := onBoard(t, e, 0, "Name:Island\nTypes:Basic Land Island\nOracle:x\n")
+	e.ask(&decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1})
+	d := e.Pending()
+	if len(d.PaymentActions) != 1 || len(d.PaymentActions[0].Plans) != 1 {
+		t.Fatalf("fixture offers: %+v", d.PaymentActions)
+	}
+	action := decision.ClonePaymentAction(d.PaymentActions[0])
+	alternate := a
+	if action.Plans[0].Activations[0].Source == a {
+		alternate = b
+	}
+	sources := []state.ObjID{alternate}
+	if e.SpellbenchOfferPublicPayment(action.ID, sources) || !reflect.DeepEqual(action, d.PaymentActions[0]) {
+		t.Fatal("live engine accepted a replay-only payment")
+	}
+	e.rng.chance = &chanceState{}
+	if e.SpellbenchOfferPublicPayment(action.ID, []state.ObjID{wrong}) || !reflect.DeepEqual(action, d.PaymentActions[0]) {
+		t.Fatal("wrong-color witness changed the offer")
+	}
+	if !e.SpellbenchOfferPublicPayment(action.ID, sources) || len(d.PaymentActions[0].Plans) != 2 {
+		t.Fatal("legal public source was not added")
+	}
+	plan := d.PaymentActions[0].Plans[1]
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: plan}}
+	if d.Validate(in) != nil || e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
+		t.Fatal("added witness failed native validation")
+	}
+	if !e.SpellbenchOfferPublicPayment(action.ID, sources) || len(d.PaymentActions[0].Plans) != 2 {
+		t.Fatal("repeated witness duplicated the offer")
+	}
+}
+
+func TestSpellbenchPublicPaymentKeepsEachRecordedSourceMana(t *testing.T) {
+	e, _, _ := newFixtureDeck(t, 9102, "Name:Witness Removal\nManaCost:1 B\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
+	a := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
+	b := onBoard(t, e, 0, "Name:Swamp\nTypes:Basic Land Swamp\nOracle:x\n")
+	m := onBoard(t, e, 0, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	e.ask(&decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1})
+	d := e.Pending()
+	if len(d.PaymentActions) != 1 || len(d.PaymentActions[0].Plans) != 1 {
+		t.Fatalf("fixture offers: %+v", d.PaymentActions)
+	}
+	action := decision.ClonePaymentAction(d.PaymentActions[0])
+	e.rng.chance = &chanceState{}
+	// Every recorded order must be offered with each source's own mana,
+	// whatever positions and colours the canonical witness used.
+	for _, sources := range [][]state.ObjID{{a, b}, {b, a}, {m, a}, {a, m}, {m, b}, {b, m}} {
+		if !e.SpellbenchOfferPublicPayment(action.ID, sources) {
+			t.Fatalf("recorded sources %v were not offered", sources)
+		}
+		found := false
+		for _, plan := range d.PaymentActions[0].Plans {
+			if len(plan.Activations) != len(sources) {
+				continue
+			}
+			same := true
+			for i, activation := range plan.Activations {
+				same = same && activation.Source == sources[i]
+			}
+			if !same {
+				continue
+			}
+			found = true
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: plan}}
+			if d.Validate(in) != nil || e.ValidateCastPayment(d.Player, action.Cast, plan) != nil {
+				t.Fatalf("recorded sources %v failed native validation", sources)
+			}
+		}
+		if !found {
+			t.Fatalf("recorded sources %v have no plan in that order", sources)
+		}
+	}
+	if e.SpellbenchOfferPublicPayment(action.ID, []state.ObjID{m}) {
+		t.Fatal("an insufficient recorded payment was offered")
+	}
+	seen := map[string]bool{}
+	for _, plan := range d.PaymentActions[0].Plans {
+		if seen[plan.ID] {
+			t.Fatal("repeated witness duplicated the offer")
+		}
+		seen[plan.ID] = true
+	}
+}

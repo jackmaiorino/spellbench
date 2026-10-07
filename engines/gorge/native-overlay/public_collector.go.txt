@@ -1,0 +1,178 @@
+package searchprobe
+
+import (
+	"fmt"
+
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
+)
+
+// SpellbenchCollector binds public transport IDs to the observer IDs already
+// present in a public History. It has no engine, events, cards or hidden data.
+// The constructor adds bindings without copying a live game's state.
+func SpellbenchCollector(actor state.PlayerID, aliases map[uint32]uint32) (*Collector, error) {
+	c := NewCollector(actor)
+	c.spellbenchChronological = true
+	var max uint32
+	for public, observer := range aliases {
+		if public == 0 || observer == 0 || observer > 100000 {
+			return nil, fmt.Errorf("invalid public observer binding")
+		}
+		if observer > max {
+			max = observer
+		}
+	}
+	c.byRef = make([]state.ObjID, int(max)+1)
+	for public, observer := range aliases {
+		if c.byRef[observer] != 0 && c.byRef[observer] != state.ObjID(public) {
+			return nil, fmt.Errorf("ambiguous public observer binding")
+		}
+		c.known[state.ObjID(public)] = observer
+		c.byRef[observer] = state.ObjID(public)
+	}
+	return c, nil
+}
+
+// SpellbenchAlias is used only by the trusted driver when making the binding.
+// Raw IDs never leave that driver.
+func (c *Collector) SpellbenchAlias(id state.ObjID) uint32 { return c.ref(id) }
+
+// SpellbenchCapture also forgets physical copy identities when knowledge is
+// lost. A blind shuffle cannot link a later draw to an earlier seen copy.
+func (c *Collector) SpellbenchCapture(e *rules.Engine, burst []events.Event) (Frame, error) {
+	c.spellbenchChronological = true
+	f, err := c.Capture(e, burst)
+	c.spellbenchRemember(e)
+	return f, err
+}
+
+func (c *Collector) spellbenchCaptureScratch(e *rules.Engine, burst []events.Event, withPotential bool) (Frame, error) {
+	c.spellbenchChronological = true
+	f, err := c.captureScratch(e, burst, withPotential)
+	c.spellbenchRemember(e)
+	return f, err
+}
+
+func (c *Collector) spellbenchForget(e *rules.Engine, burst []events.Event) {
+	if c.spellbenchZones == nil {
+		c.spellbenchZones = map[state.ObjID]state.Zone{}
+	}
+	forget := func(id state.ObjID) {
+		if ref := c.known[id]; ref != 0 {
+			delete(c.known, id)
+			c.byRef[ref] = 0
+		}
+		delete(c.spellbenchZones, id)
+	}
+	for _, ev := range burst {
+		switch ev.Kind {
+		case events.Shuffle, events.LibraryOrder:
+			if ev.Kind == events.LibraryOrder && ev.Player == c.actor {
+				// The actor's answered arrangement identifies its own copies.
+				continue
+			}
+			// These IDs stay inside the trusted collector. No ID is allocated
+			// or exposed here; introductions happen on later visible facts.
+			for _, id := range ev.IDs {
+				forget(id)
+			}
+		case events.Draw, events.MoveZone, events.PutOnStack:
+			if ev.From.Hidden() && ev.To.Hidden() && view.RedactEvent(e.G, ev, c.actor).Obj == 0 {
+				// The observer cannot know which known opponent card moved.
+				// Player can be the effect controller rather than card owner.
+				// Invalidate every other owner's known hidden copies using the
+				// public event shape rather than its private selected object.
+				for id := range c.known {
+					zone, tracked := c.spellbenchZones[id]
+					if o := e.G.Obj(id); (!tracked || zone.Hidden()) && o != nil && o.Owner != c.actor {
+						forget(id)
+					}
+				}
+			}
+			if c.known[ev.Obj] != 0 {
+				c.spellbenchZones[ev.Obj] = ev.To
+			}
+		}
+	}
+}
+
+// Translate while this event's bindings are live. A later blind shuffle may
+// retire them before the current board introduces a fresh incarnation.
+func (c *Collector) spellbenchObservedEvent(ev events.Event) ObservedEvent {
+	out := ObservedEvent{Kind: ev.Kind, Player: ev.Player, Obj: c.ref(ev.Obj), From: ev.From, To: ev.To, Amount: ev.Amount, Step: ev.Step, Counter: ev.Counter, Text: ev.Text, Secret: ev.Secret}
+	for _, id := range ev.IDs {
+		if ref := c.ref(id); ref != 0 {
+			out.IDs = append(out.IDs, ref)
+		}
+	}
+	for _, pair := range ev.Pairs {
+		a, b := c.ref(pair[0]), c.ref(pair[1])
+		if a != 0 && b != 0 {
+			out.Pairs = append(out.Pairs, [2]uint32{a, b})
+		}
+	}
+	if ev.Kind == events.MoveZone || ev.Kind == events.Draw || ev.Kind == events.PutOnStack {
+		if c.known[ev.Obj] != 0 {
+			c.spellbenchZones[ev.Obj] = ev.To
+		}
+	}
+	return out
+}
+
+func (c *Collector) spellbenchRemember(e *rules.Engine) {
+	for id := range c.known {
+		if o := e.G.Obj(id); o != nil {
+			c.spellbenchZones[id] = o.Zone
+		}
+	}
+}
+
+// A stack ability keeps its public name after its source leaves. It cannot
+// identify a hidden incarnation of that source, including after a shuffle.
+// Use the same visible-zone boundary as the canonical observation and xview.
+func (c *Collector) spellbenchPublicView(e *rules.Engine, v *view.View) {
+	visible := func(id state.ObjID) bool {
+		o := e.G.Obj(id)
+		if o == nil {
+			return false
+		}
+		switch o.Zone {
+		case state.ZBattlefield, state.ZGraveyard, state.ZExile, state.ZStack, state.ZCommand:
+			return true
+		case state.ZHand:
+			return o.Owner == c.actor
+		}
+		return false
+	}
+	for i := range v.Stack {
+		if !visible(v.Stack[i].Source) {
+			v.Stack[i].Source = 0
+		}
+	}
+	kept := v.Pending[:0]
+	for _, pending := range v.Pending {
+		if visible(pending.Source) {
+			kept = append(kept, pending)
+		}
+	}
+	v.Pending = kept
+}
+
+// A public stack entry may keep the source reference it first observed only
+// while that binding remains live. A subsequent reveal or draw cannot link a
+// new copy identity back to an ability that outlived a blind shuffle.
+func (c *Collector) spellbenchStackSource(e *rules.Engine, s *view.StackView) {
+	if c.spellbenchSources == nil {
+		c.spellbenchSources = map[state.ObjID]uint32{}
+	}
+	if ref, seen := c.spellbenchSources[s.ID]; seen {
+		if ref == 0 || ref != c.ref(s.Source) {
+			s.Source = 0
+		}
+		return
+	}
+	c.introduce(e, s.Source)
+	c.spellbenchSources[s.ID] = c.ref(s.Source)
+}

@@ -1,0 +1,754 @@
+{
+  "cards": [
+    {
+      "name": "Azorius Guildgate",
+      "primitives": [
+        "api:Mana",
+        "api:Tap",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Balustrade Spy",
+      "primitives": [
+        "api:DigUntil",
+        "kw:Flying",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Basilisk Gate",
+      "primitives": [
+        "api:Mana",
+        "api:Pump"
+      ]
+    },
+    {
+      "name": "Blood Fountain",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Token",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Brainstorm",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Draw"
+      ]
+    },
+    {
+      "name": "Burning-Tree Emissary",
+      "primitives": [
+        "api:Mana",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Cast Down",
+      "primitives": [
+        "api:Destroy"
+      ]
+    },
+    {
+      "name": "Chain Lightning",
+      "primitives": [
+        "api:CopySpellAbility",
+        "api:DealDamage"
+      ]
+    },
+    {
+      "name": "Citadel Gate",
+      "primitives": [
+        "api:ChooseColor",
+        "api:Mana",
+        "api:Tap",
+        "kw:ETBReplacement",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Cleansing Wildfire",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Destroy",
+        "api:Draw"
+      ]
+    },
+    {
+      "name": "Clockwork Percussionist",
+      "primitives": [
+        "api:Cleanup",
+        "api:Dig",
+        "api:Effect",
+        "kw:Haste",
+        "stat:Continuous",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Counterspell",
+      "primitives": [
+        "api:Counter"
+      ]
+    },
+    {
+      "name": "Dread Return",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:Flashback"
+      ]
+    },
+    {
+      "name": "Drossforge Bridge",
+      "primitives": [
+        "api:Mana",
+        "api:Tap",
+        "kw:Indestructible",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Elves of Deep Shadow",
+      "primitives": [
+        "api:DealDamage",
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "End the Festivities",
+      "primitives": [
+        "api:DamageAll"
+      ]
+    },
+    {
+      "name": "Eviscerator's Insight",
+      "primitives": [
+        "api:Draw",
+        "kw:Flashback"
+      ]
+    },
+    {
+      "name": "Experimental Synthesizer",
+      "primitives": [
+        "api:Cleanup",
+        "api:Dig",
+        "api:Effect",
+        "api:Token",
+        "stat:Continuous",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Faithless Looting",
+      "primitives": [
+        "api:Discard",
+        "api:Draw",
+        "kw:Flashback"
+      ]
+    },
+    {
+      "name": "Fanatical Offering",
+      "primitives": [
+        "api:Draw",
+        "api:Token"
+      ]
+    },
+    {
+      "name": "Fiery Temper",
+      "primitives": [
+        "api:DealDamage",
+        "kw:Madness"
+      ]
+    },
+    {
+      "name": "Fireblast",
+      "primitives": [
+        "api:DealDamage",
+        "stat:AlternativeCost"
+      ]
+    },
+    {
+      "name": "Forest",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Galvanic Blast",
+      "primitives": [
+        "api:DealDamage"
+      ]
+    },
+    {
+      "name": "Gatecreeper Vine",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:Defender",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Generous Ent",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Token",
+        "kw:Reach",
+        "kw:TypeCycling",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Goblin Bushwhacker",
+      "primitives": [
+        "api:PumpAll",
+        "kw:Kicker",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Goblin Tomb Raider",
+      "primitives": [
+        "stat:Continuous"
+      ]
+    },
+    {
+      "name": "Grab the Prize",
+      "primitives": [
+        "api:DamageAll",
+        "api:Draw"
+      ]
+    },
+    {
+      "name": "Great Furnace",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Guardian of the Guildpact",
+      "primitives": [
+        "kw:Protection"
+      ]
+    },
+    {
+      "name": "Guttersnipe",
+      "primitives": [
+        "api:DealDamage",
+        "trig:SpellCast"
+      ]
+    },
+    {
+      "name": "Heap Gate",
+      "primitives": [
+        "api:Mana",
+        "api:Token"
+      ]
+    },
+    {
+      "name": "Highway Robbery",
+      "primitives": [
+        "api:Draw",
+        "api:GenericChoice",
+        "kw:Plot"
+      ]
+    },
+    {
+      "name": "Ichor Wellspring",
+      "primitives": [
+        "api:Draw",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Idyllic Beachfront",
+      "primitives": [
+        "api:Mana",
+        "api:Tap",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Island",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Journey to Nowhere",
+      "primitives": [
+        "api:ChangeZone",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Krark-Clan Shaman",
+      "primitives": [
+        "api:DamageAll"
+      ]
+    },
+    {
+      "name": "Land Grant",
+      "primitives": [
+        "api:ChangeZone",
+        "stat:AlternativeCost"
+      ]
+    },
+    {
+      "name": "Lava Dart",
+      "primitives": [
+        "api:DealDamage",
+        "kw:Flashback"
+      ]
+    },
+    {
+      "name": "Lead the Stampede",
+      "primitives": [
+        "api:Dig"
+      ]
+    },
+    {
+      "name": "Lembas",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Draw",
+        "api:GainLife",
+        "api:Scry",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Lightning Bolt",
+      "primitives": [
+        "api:DealDamage"
+      ]
+    },
+    {
+      "name": "Lotleth Giant",
+      "primitives": [
+        "api:DealDamage",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Lotus Petal",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Lórien Revealed",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Draw",
+        "kw:TypeCycling"
+      ]
+    },
+    {
+      "name": "Makeshift Munitions",
+      "primitives": [
+        "api:DealDamage"
+      ]
+    },
+    {
+      "name": "Masked Meower",
+      "primitives": [
+        "api:Draw",
+        "kw:Haste"
+      ]
+    },
+    {
+      "name": "Masked Vandal",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:Changeling",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Mesmeric Fiend",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Cleanup",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Mountain",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Nihil Spellbomb",
+      "primitives": [
+        "api:ChangeZoneAll",
+        "api:Draw",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Nyxborn Hydra",
+      "primitives": [
+        "api:PutCounter",
+        "kw:Bestow",
+        "kw:Reach",
+        "kw:Trample",
+        "kw:etbCounter",
+        "repl:Moved",
+        "stat:Continuous"
+      ]
+    },
+    {
+      "name": "Outlaw Medic",
+      "primitives": [
+        "api:Draw",
+        "kw:Lifelink",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Overgrown Battlement",
+      "primitives": [
+        "api:Mana",
+        "kw:Defender"
+      ]
+    },
+    {
+      "name": "Preordain",
+      "primitives": [
+        "api:Draw",
+        "api:Scry"
+      ]
+    },
+    {
+      "name": "Prismatic Strands",
+      "primitives": [
+        "api:ChooseColor",
+        "api:Effect",
+        "kw:Flashback",
+        "repl:DamageDone"
+      ]
+    },
+    {
+      "name": "Pulse of Murasa",
+      "primitives": [
+        "api:ChangeZone",
+        "api:GainLife"
+      ]
+    },
+    {
+      "name": "Quirion Ranger",
+      "primitives": [
+        "api:Untap"
+      ]
+    },
+    {
+      "name": "Rally at the Hornburg",
+      "primitives": [
+        "api:PumpAll",
+        "api:Token"
+      ]
+    },
+    {
+      "name": "Reckless Impulse",
+      "primitives": [
+        "api:Cleanup",
+        "api:Dig",
+        "api:Effect",
+        "stat:Continuous"
+      ]
+    },
+    {
+      "name": "Refurbished Familiar",
+      "primitives": [
+        "api:Cleanup",
+        "api:Discard",
+        "api:Draw",
+        "kw:Affinity",
+        "kw:Flying",
+        "stat:ReduceCost",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Sacred Cat",
+      "primitives": [
+        "api:CopyPermanent",
+        "kw:Embalm",
+        "kw:Lifelink"
+      ]
+    },
+    {
+      "name": "Sagu Wildling // Roost Seek",
+      "primitives": [
+        "api:ChangeZone",
+        "api:GainLife",
+        "kw:Flying",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Saruli Caretaker",
+      "primitives": [
+        "api:Mana",
+        "kw:Defender"
+      ]
+    },
+    {
+      "name": "Sea Gate",
+      "primitives": [
+        "api:ChooseColor",
+        "api:Mana",
+        "api:Tap",
+        "kw:ETBReplacement",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Slagwoods Bridge",
+      "primitives": [
+        "api:Mana",
+        "api:Tap",
+        "kw:Indestructible",
+        "repl:Moved"
+      ]
+    },
+    {
+      "name": "Sneaky Snacker",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:Flying",
+        "trig:Drawn"
+      ]
+    },
+    {
+      "name": "Spell Pierce",
+      "primitives": [
+        "api:Counter"
+      ]
+    },
+    {
+      "name": "Squadron Hawk",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:Flying",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Swamp",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "The Modern Age // Vector Glider",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Cleanup",
+        "api:Discard",
+        "api:Draw",
+        "kw:Chapter",
+        "kw:Flying"
+      ]
+    },
+    {
+      "name": "Thraben Charm",
+      "primitives": [
+        "api:ChangeZoneAll",
+        "api:Charm",
+        "api:DealDamage",
+        "api:Destroy"
+      ]
+    },
+    {
+      "name": "Tinder Wall",
+      "primitives": [
+        "api:DealDamage",
+        "api:Mana",
+        "kw:Defender"
+      ]
+    },
+    {
+      "name": "Toxin Analysis",
+      "primitives": [
+        "api:Investigate",
+        "api:Pump"
+      ]
+    },
+    {
+      "name": "Troll of Khazad-dûm",
+      "primitives": [
+        "api:ChangeZone",
+        "kw:TypeCycling",
+        "stat:MinMaxBlocker"
+      ]
+    },
+    {
+      "name": "Twisted Landscape",
+      "primitives": [
+        "api:ChangeZone",
+        "api:Draw",
+        "api:Mana",
+        "kw:Cycling"
+      ]
+    },
+    {
+      "name": "Vault of Whispers",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "Voldaren Epicure",
+      "primitives": [
+        "api:DealDamage",
+        "api:Token",
+        "trig:ChangesZone"
+      ]
+    },
+    {
+      "name": "Wall of Roots",
+      "primitives": [
+        "api:Mana",
+        "kw:Defender"
+      ]
+    },
+    {
+      "name": "Winding Way",
+      "primitives": [
+        "api:ChooseType",
+        "api:Dig"
+      ]
+    },
+    {
+      "name": "Writhing Chrysalis",
+      "primitives": [
+        "api:PutCounter",
+        "api:Token",
+        "kw:Devoid",
+        "kw:Reach",
+        "trig:Sacrificed",
+        "trig:SpellCast"
+      ]
+    }
+  ],
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "primitives": [
+    "api:ChangeZone",
+    "api:ChangeZoneAll",
+    "api:Charm",
+    "api:ChooseColor",
+    "api:ChooseType",
+    "api:Cleanup",
+    "api:CopyPermanent",
+    "api:CopySpellAbility",
+    "api:Counter",
+    "api:DamageAll",
+    "api:DealDamage",
+    "api:Destroy",
+    "api:Dig",
+    "api:DigUntil",
+    "api:Discard",
+    "api:Draw",
+    "api:Effect",
+    "api:Explore",
+    "api:GainLife",
+    "api:GenericChoice",
+    "api:Investigate",
+    "api:Mana",
+    "api:Pump",
+    "api:PumpAll",
+    "api:PutCounter",
+    "api:Scry",
+    "api:Tap",
+    "api:Token",
+    "api:Untap",
+    "kw:Affinity",
+    "kw:Bestow",
+    "kw:Changeling",
+    "kw:Chapter",
+    "kw:Cycling",
+    "kw:Defender",
+    "kw:Devoid",
+    "kw:ETBReplacement",
+    "kw:Embalm",
+    "kw:Flashback",
+    "kw:Flying",
+    "kw:Haste",
+    "kw:Indestructible",
+    "kw:Kicker",
+    "kw:Lifelink",
+    "kw:Madness",
+    "kw:Plot",
+    "kw:Protection",
+    "kw:Reach",
+    "kw:Trample",
+    "kw:TypeCycling",
+    "kw:Vigilance",
+    "kw:etbCounter",
+    "repl:DamageDone",
+    "repl:Moved",
+    "stat:AlternativeCost",
+    "stat:Continuous",
+    "stat:MinMaxBlocker",
+    "stat:ReduceCost",
+    "trig:ChangesZone",
+    "trig:Drawn",
+    "trig:Sacrificed",
+    "trig:SpellCast"
+  ],
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "schema": "spellbench-gorge-card-pool-census/v1",
+  "tokens": [
+    {
+      "name": "c_0_1_eldrazi_spawn_sac",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "c_a_blood_draw",
+      "primitives": [
+        "api:Draw"
+      ]
+    },
+    {
+      "name": "c_a_clue_draw",
+      "primitives": [
+        "api:Draw"
+      ]
+    },
+    {
+      "name": "c_a_food_sac",
+      "primitives": [
+        "api:GainLife"
+      ]
+    },
+    {
+      "name": "c_a_map_sac_explore",
+      "primitives": [
+        "api:Explore"
+      ]
+    },
+    {
+      "name": "c_a_treasure_sac",
+      "primitives": [
+        "api:Mana"
+      ]
+    },
+    {
+      "name": "w_1_1_human_soldier",
+      "primitives": []
+    },
+    {
+      "name": "w_2_2_samurai_vigilance",
+      "primitives": [
+        "kw:Vigilance"
+      ]
+    }
+  ]
+}

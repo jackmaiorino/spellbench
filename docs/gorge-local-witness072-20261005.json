@@ -1,0 +1,55 @@
+{
+  "phase": "exact_saved_failure_reproduced_locally_and_recovered",
+  "observed_at_utc": "2026-10-05T16:00:34.745271+00:00",
+  "source_commit": "461c3d333dcc3a32e647e415cce8a4a0bb02d28e",
+  "result_source_of_record": "E:\\spellbench-gorge-local-witness-20261005-072",
+  "result_recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-072",
+  "recovery_seal_sha256": "cea7e3e6214d7970ddff72511976d3f047d13dc2abf38294485dacfa1f9ec14b",
+  "input_sha256": "c3ea5e0550c9d1b6e0862a32ab8b9bed4d284688426cc19366a9f0093035124d",
+  "frames": 281,
+  "captured_work_identical": true,
+  "work": {
+    "Attempts": 4,
+    "Submits": 5000,
+    "Nodes": 4234,
+    "BudgetExhausted": 1
+  },
+  "diagnostic_passed": true,
+  "witness_constructed": false,
+  "first_farthest_divergence": {
+    "frame": 277,
+    "kind": "actor-visible basic search identity order",
+    "got": [
+      "Swamp",
+      "Forest",
+      "Mountain",
+      "Mountain",
+      "Forest",
+      "Swamp"
+    ],
+    "want": [
+      "Swamp",
+      "Forest",
+      "Forest",
+      "Swamp",
+      "Mountain",
+      "Mountain"
+    ]
+  },
+  "host_release": {
+    "generation": 188,
+    "outcome": "success",
+    "canonical_state_after": "free",
+    "supervisor_cleanup_remedy": "Owned contained supervisor ended after diagnostic success; base Python will avoid venv supervisor redirector in next launch"
+  },
+  "elapsed_seconds": 28.396066699991934,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "provider_final_settlement_pending": true,
+  "reconstruction_repaired": false,
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "next_action": "Validate filtered basic-search guidance after known nonbasic London bottoms against this exact root under original64/8/5000 budgets; no full audit rerun admitted yet"
+}

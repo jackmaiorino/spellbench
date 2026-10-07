@@ -1,0 +1,250 @@
+{
+  "schema": "spellbench-gorge-reference-preparation/v1",
+  "at_utc": "2026-10-05T01:32:29.893371+00:00",
+  "phase": "prepared_unlaunched",
+  "work_id": "gorge-runtime033-reference004",
+  "source_commit": "cb4b052f46f5df61109f52be8f1a6bf3cacbff92",
+  "runtime_source_commit": "1d9617c4e9c16924b335b0f7495b915b062e8b38",
+  "native_platform": "linux-amd64",
+  "reference_platform": "linux-amd64",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-033",
+  "runtime_seal_sha256": "5762eb56f54c7a4ce6a557fddaf8ea11110737027a61c27c1d5a3855a741b497",
+  "runtime_binaries": [
+    "spellbench-gorge-env-linux-amd64",
+    "spellbench-gorge-agent-linux-amd64",
+    "gorgequal-linux-amd64"
+  ],
+  "native_sha256": "2a3a043b07ca75f54a8b6644bf4351ae307529a6b2259b5cc70abc9afe12c679",
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "native_gate_recipe": "inputs/native-gate.py",
+  "native_gate_sha256": "53d82719b37c75d03932743e70553f69008a1aa2e191df692a4f21f68f6c663b",
+  "required_native_root": "E:\\spellbench-gorge-runpod-20261005-033",
+  "required_native_audit": "E:\\spellbench-gorge-runpod-20261005-033\\terminal-recovery\\native-001\\NATIVE-AUDIT.json",
+  "required_native_seal": "E:\\spellbench-gorge-runpod-20261005-033\\SEAL.json",
+  "required_native_seed_blocks": 320,
+  "required_native_completed_games": 640,
+  "native_admission_proved": false,
+  "positive_gate_case_unverified": true,
+  "hot_root": "D:\\e-scratch\\spellbench-gorge-reference-matrix-runtime033-20261005-004",
+  "source_of_record": "E:\\spellbench-gorge-reference-matrix-runtime033-20261005-004",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-matrix-runtime033-20261005-004",
+  "projected_bytes": 134217728,
+  "cap_bytes": 2147483648,
+  "reserve_bytes": 64424509440,
+  "remote_wall_cap_seconds": 10200,
+  "maximum_future_lease_seconds": 10800,
+  "maximum_future_lease_usd": 1.2,
+  "all_in_rate_cap_usd_per_hour": 0.35,
+  "future_dispatch_requires_fresh_census": true,
+  "future_dispatch_requires_latest_billing": true,
+  "future_dispatch_requires_independent_guard_armed_before_allocation": true,
+  "placement": "main-pc=unavailable: human research priority until handback; computehost=unavailable: queued training-performance priority; runpod=used: proposed Linux reference placement, fresh census, native gate, bounded budget and matched scaling required at dispatch",
+  "cloud_host_alias": "RunPod-gorge-reference004",
+  "guard_path": "Fresh budget/census + sealed native gate -> owned release guardian -> contained reference parent -> reference_matrix.py -> bench.plan_for -> plan_allocation -> runner.play_games",
+  "benchmark_sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0",
+  "original_uniform_games": 120,
+  "stock_sampler_native_bot_probe_games": 20,
+  "reference_matrix_games": 140,
+  "expected_cells": 60,
+  "expected_native_participant_receipts": 160,
+  "reference_replay": "Same preselected search/Burn label; bit-identical primary row required",
+  "clocks_and_seed_bindings_unchanged": true,
+  "worker_selection": "Actual cgroup cores / three per-game cores, capped by supported140-game scaling budget; no worker allocation selected yet",
+  "isolation_policy": "gorge is on ISOLATION_ALLOWLIST; subprocess isolation is unsandboxed and self_reported remains true",
+  "public_identity_audit_status": "Current identity review remains incomplete; qualified evidence and current source annotation required before rated commitment",
+  "cloud_budget": {
+    "authorized_cap_usd": 10,
+    "closed_ledger": "E:\\spellbench-gorge-billing-20261005-014",
+    "closed_ledger_seal_sha256": "fdf316ed2955673c70f7bb8a3b5a5091be4f9beb63aa7d69eaeed70147f2bf5c",
+    "conservative_closed_ceiling_usd": 7.06267947,
+    "active_native033_maximum_reservation_usd": 1.55,
+    "cumulative_ceiling_with_active_native_usd": 8.61267947,
+    "planned_reference_maximum_reservation_usd": 1.2,
+    "potential_ceiling_including_planned_reference_usd": 9.81267947,
+    "reference_reservation_not_allocated": true,
+    "final_invoice_verified": false
+  },
+  "private_matrix_and_guard_secrets_created_only_at_actual_dispatch": true,
+  "evaluation_launched": false,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "preparation": "E:\\spellbench-gorge-reference-matrix-runtime033-20261005-004\\PREPARATION.json",
+  "preparation_sha256": "b58cb40c93656f5d502ca924bbe42f9f0abe5624e2ceca2b59a55841580fe095",
+  "source_files": 195,
+  "inputs_verified_on_E_and_D": true,
+  "native_gate_check_record": "E:\\spellbench-gorge-reference-matrix-runtime033-20261005-004\\NATIVE-GATE-CHECKS.json",
+  "dispatch_packing_preparation": {
+    "at_utc": "2026-10-05T01:51:46.519988+00:00",
+    "phase": "packing_recipe_prepared_actual_unsealed_native_refused",
+    "recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-PACK-RECIPE.py",
+    "recipe_sha256": "bef9c9e261e377b1b47e95569a99873461f585eec320a5ff98235313208357b2",
+    "command": "python out/gorge-pack-reference034-20261005.py",
+    "actual_exit_code": 1,
+    "actual_refusal": {
+      "preparation_refused": "Native attempt is not sealed and closed",
+      "new_cloud_spend_usd": 0
+    },
+    "proposed_dispatch_root_created": false,
+    "evaluation_launched": false,
+    "native_admission_proved": false,
+    "fresh_closed_billing_census_and_guardian_still_required": true,
+    "new_cloud_spend_usd": 0
+  },
+  "dispatch_controls_preparation": {
+    "at_utc": "2026-10-05T01:58:08.639655+00:00",
+    "phase": "reference_controls_prepared_not_executed",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CONTROLS",
+    "pins": {
+      "gorge-derive-reference-controls034-20261005.py": {
+        "bytes": 7314,
+        "sha256": "b55e1110395c3cb5a08fd501829646b9457d37efe56d3bb0619a4b82c49aa6ac"
+      },
+      "gorge-reference034-precreate-check-20261005.py": {
+        "bytes": 2780,
+        "sha256": "49a89e125c9f9e98fbb00a187ec9a49afe7553020be33d559d389954ca6fda2b"
+      },
+      "gorge-dispatch-reference034-20261005.py": {
+        "bytes": 5165,
+        "sha256": "26ea84ffdb515fa56faf258ac151ff1fc89c215f8811bebbaffb6cfec91bbf23"
+      },
+      "gorge-cloud-create-reference034-20261005.ps1": {
+        "bytes": 10424,
+        "sha256": "c963f626900de09a937b74bc0c4ea3fe386baa44fe842170153499d1c16ffc7c"
+      },
+      "gorge-cloud-reference-guard-20261005-034.ps1": {
+        "bytes": 9155,
+        "sha256": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592"
+      },
+      "gorge-cloud-reference-scheduled-guard-20261005-034.ps1": {
+        "bytes": 785,
+        "sha256": "cb56c5971cd7a1a7f2744a029e2adb99c50cacb310cd91a1036f3f8193a7d01a"
+      },
+      "gorge-cloud-observe034-20261005.py": {
+        "bytes": 2151,
+        "sha256": "5079f41f69a14ea9969189f466a161c2dacb32ef66059978aca7f8ea1608fa71"
+      },
+      "gorge-connect-reference034-20261005.py": {
+        "bytes": 1214,
+        "sha256": "b6698f5636b5f5c02b05ee550237f4b150639eb2d3b22130374a504fb875c940"
+      },
+      "gorge-supervise-reference034-20261005.py": {
+        "bytes": 6727,
+        "sha256": "d20e32d1300dcfe85b0d84d2b46d66747dd26ae5dbc2846fc412fde16a5d470d"
+      },
+      "gorge-reconcile-released-reference034-20261005.ps1": {
+        "bytes": 4160,
+        "sha256": "dda6a23937d772647b004aebddec91933ec39a335693a1585d7b6c8318a17d7d"
+      }
+    },
+    "python_syntax_checked": 6,
+    "powershell_parser_checks": [
+      {
+        "name": "gorge-cloud-create-reference034-20261005.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-cloud-reference-guard-20261005-034.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-cloud-reference-scheduled-guard-20261005-034.ps1",
+        "parser_errors": 0
+      },
+      {
+        "name": "gorge-reconcile-released-reference034-20261005.ps1",
+        "parser_errors": 0
+      }
+    ],
+    "guard_path": "Fresh sealed native033 and billing/census checks -> owned guardian armed before paid create -> authenticated SSH and frozen bundle verification -> contained reference parent -> supported reference scaling guard -> unchanged140-game matrix and replay -> exact terminal recovery and owned release",
+    "reference_lease_seconds": 10800,
+    "reference_maximum_usd": 1.2,
+    "native_admission_proved": false,
+    "controls_execution_validated": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0,
+    "next_wake_condition": "Existing native033 full result, failure or lease deadline; existing watcher session28212 and independent guardian remain responsible"
+  },
+  "dispatch_close_preparation": {
+    "at_utc": "2026-10-05T02:02:54.707915+00:00",
+    "phase": "reference_close_and_deadline_aware_watcher_prepared_not_executed",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CLOSE-CONTROLS",
+    "pins": {
+      "gorge-prepare-reference-close034-20261005.py": {
+        "bytes": 6940,
+        "sha256": "7b4168caeb83689b5d30d3b52237dc33baa17bc4c963030341bcfb4dd3eca782"
+      },
+      "gorge-close-reference034-20261005.py": {
+        "bytes": 10007,
+        "sha256": "12e4f7268f2f5956ac71821a551949e7b704b60f887968ac08edf2a4b88b0546"
+      },
+      "gorge-supervise-reference034-20261005.py": {
+        "bytes": 7001,
+        "sha256": "48b4348eb28f68ae619d0a814c0c70cd667c02acfa4c3ec004b384ad0ccd9778"
+      }
+    },
+    "python_syntax_checked": 3,
+    "close_result_source": "reference-001/CLOSURE.json and MATRIX.json",
+    "pass_requirements": "Passed parent, unchanged140 natural unique games,60 cells and160 native participations, guarded matched allocation, matching ledger hash and identical preselected replay, admitted sealed native033 and runtime033 pins",
+    "recovery_requirements": "Exact-owned pod absence and guardian/task/credential cleanup; zero owned processes and verified terminal recovery archive; E/D SHA-256 equality before sealing",
+    "billing_basis": "Closed native033 ledger015; one actual reference034 lease reconciled into ledger016; original USD10 all-in cap and ancillary allowance retained; final settlement remains pending",
+    "updated_watcher": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CLOSE-CONTROLS\\gorge-supervise-reference034-20261005.py",
+    "watcher_change": "Retain300/900-second normal cadence and shorten waits near the independent deadline for terminal recovery",
+    "replaced_watcher_snapshot": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CONTROLS\\gorge-supervise-reference034-20261005.py",
+    "controls_execution_validated": false,
+    "native_admission_proved": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0
+  },
+  "dispatch_current_census_preparation": {
+    "at_utc": "2026-10-05T02:14:50.399829+00:00",
+    "phase": "current_scope_census_and_reference_recipes_prepared",
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS",
+    "pins": {
+      "gorge-resources-current-20261005.py": {
+        "bytes": 1310,
+        "sha256": "aa89678d63ca01797e997309f8541b04c211b11a74762fe8ca2223450907ebaa"
+      },
+      "gorge-pack-reference034-20261005.py": {
+        "bytes": 10434,
+        "sha256": "c4fb444466de31b7500cda82105ae7b86f3835eee61a240a6549da9b0ec7d0f2"
+      },
+      "gorge-reference034-precreate-check-20261005.py": {
+        "bytes": 2777,
+        "sha256": "c2452721e190ca52f7566b43c80cf74dba9f9b5a7bd41d36679a54f8dbbeae9e"
+      }
+    },
+    "python_syntax_checked": 3,
+    "observed_census": "E:\\spellbench-gorge-runpod-20261005-033\\HOSTS-REFRESH-20261005T0214Z.json",
+    "observed_census_sha256": "2b7144782331259bac52432e233ac15977a6b58bf1459240d606bca2a0c03ccc",
+    "change": "Replace stale proposed-regression026/all-prior-pods-deleted prose in future pack/precreate census with truthful read-only current-scope text; inventory and reservation checks unchanged",
+    "actual_new_pack_refusal": {
+      "preparation_refused": "Native attempt is not sealed and closed",
+      "new_cloud_spend_usd": 0
+    },
+    "current_pack_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-pack-reference034-20261005.py",
+    "current_precreate_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-reference034-precreate-check-20261005.py",
+    "current_census_recipe": "E:\\spellbench-gorge-runpod-20261005-033\\REFERENCE034-CURRENT-CENSUS-CONTROLS\\gorge-resources-current-20261005.py",
+    "controls_execution_validated": false,
+    "native_admission_proved": false,
+    "evaluation_launched": false,
+    "new_cloud_spend_usd": 0
+  },
+  "closed_native_prerequisite_outcome": {
+    "observed_at_utc": "2026-10-05T02:24:58.784541+00:00",
+    "native_source_of_record": "E:\\spellbench-gorge-runpod-20261005-033",
+    "native_seal_sha256": "6f46be26bae6931221d3a63b84296c4e5e833322f6d9424388f60c4851290642",
+    "native_qualification_complete": false,
+    "stopped_game": 52,
+    "stopped_cell": "Wildfire/search-mana-redeal",
+    "reconstruction_budget_exhausted": 17,
+    "actual_pack_refusal": {
+      "preparation_refused": "The sealed native attempt did not pass full qualification",
+      "new_cloud_spend_usd": 0
+    },
+    "reference_dispatch_root_created": false,
+    "next_action": "Capture and repair the remaining public reconstruction failure; freeze a corrected runtime and compatible reference inputs, then pass complete native qualification before reference dispatch",
+    "rating_or_publication_admission": false
+  }
+}

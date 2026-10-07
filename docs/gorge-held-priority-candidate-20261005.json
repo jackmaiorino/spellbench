@@ -1,0 +1,17 @@
+{
+  "at_utc": "2026-10-05T12:07:28.842499+00:00",
+  "phase": "six_saved_components_passed_full_qualification_pending",
+  "basis": "docs/gorge-witness-trace064-20261005.json",
+  "source_sha256": "3968b0991ac86057490cc91b5d6029be73cff6132ff2f9e6828e611bb13088c5",
+  "change": "When held and carry-only public witness constraints differ and at least three attempts are allowed, visit original proposal indices2,0,1 before the unchanged remainder. Preserve original engine, planner and opponent-choice seed coordinates for each proposal.",
+  "limits": "Unchanged64 attempts/eight worlds/5000 submits, shared node cap, teacher default and native sampler weights. All hypothetical witness candidates still require full public replay and native known-card validation.",
+  "rationale": "Exact637 trace reached573 on original held proposal2 after earlier proposals spent part of the shared submit budget. Prioritize this distinct public-derived hypothesis without deleting original alternatives or using fixture-specific names/seeds/frames.",
+  "verification_required": "All six exact saved public inputs364/410/478/504/596/637, eight valid native worlds each, unchanged364 native diagnostics; current source CI. Full native/reference qualification and identity review still required.",
+  "trace_instrumentation": "Map original proposal seed index to execution trace index; logging choices and limits are unchanged.",
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "engine_source_commit": "5ffac138a1e8327882e02aceb97812406821e40b",
+  "verification_record": "docs/gorge-component-replay066-20261005.json"
+}

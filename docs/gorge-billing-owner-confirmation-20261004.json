@@ -1,0 +1,105 @@
+{
+  "schema": "spellbench-gorge-billing-owner-confirmation/v1",
+  "recorded_at_utc": "2026-10-04T20:47:35.863526+00:00",
+  "owner": "Codex Spellbench gorge lane",
+  "pod_id": "s2th5rplbc7u87",
+  "authorization": {
+    "user_text": "Sure. 10$ cap go",
+    "scope": "Gorge RunPod integration and qualification, separate all-in USD10 cap; no additional research compute authority"
+  },
+  "lease_source_of_record": "E:\\spellbench-gorge-runpod-20261004-020",
+  "lease_record": "E:\\spellbench-gorge-runpod-20261004-020\\lease.json",
+  "release_record": "E:\\spellbench-gorge-runpod-20261004-020\\RELEASE.json",
+  "closure_record": "E:\\spellbench-gorge-runpod-20261004-020\\CLOSURE.json",
+  "lease_seal_sha256": "d54a83f2e41f981a860044066f59b7547fe2ee01554d0d1df8056d8a8da6fe99",
+  "recovery_root": "D:/e-scratch/spellbench-gorge-runpod-20261004-020",
+  "released_at_utc": "2026-10-04T18:10:23.8060035+00:00",
+  "pod_absent_at_release": true,
+  "owned_processes_remaining_at_closure": 0,
+  "storage": {
+    "container_disk_gb": 80,
+    "persistent_volume_gb": 0,
+    "network_volume": false,
+    "local_retained_bytes": 153790533,
+    "independent_recovery_verified": true,
+    "new_provider_storage_liability": "No persistent volume was requested; pod deletion verified in saved release. Final metered compute and disk settlement remains pending."
+  },
+  "lease_reported_total_usd": 0.18961251084692776,
+  "lease_reported_disk_usd": 0.009259259095415473,
+  "lease_reported_gpu_usd": 0.1803532517515123,
+  "lease_conservative_closed_maximum_usd": 0.446212,
+  "lease_retained_ancillary_allowance_usd": 0.15,
+  "latest_billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-004",
+  "latest_billing_record": "E:\\spellbench-gorge-billing-20261004-004\\BILLING-020.json",
+  "billing_seal_sha256": "7582ea9ee2a2bcec4997985e249788ccd784019163db5c9aca1a8e8e33298fcd",
+  "latest_billing_summary": {
+    "observed_at_utc": "2026-10-04T20:41:36.908269+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "014": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.19882145593874156,
+        "totalAmount": 0.20900664094369859
+      },
+      "015": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.0559598496183753,
+        "totalAmount": 0.05873762734699994
+      },
+      "016": {
+        "cpuAmount": 0,
+        "diskAmount": 0.003703703638166189,
+        "gpuAmount": 0.051996649941429496,
+        "totalAmount": 0.055700353579595685
+      },
+      "017": {
+        "cpuAmount": 0,
+        "diskAmount": 0.0009259259095415473,
+        "gpuAmount": 0.02108979970216751,
+        "totalAmount": 0.02201572561170906
+      },
+      "019": {
+        "cpuAmount": 0,
+        "diskAmount": 0.009259259095415473,
+        "gpuAmount": 0.17537672887556255,
+        "totalAmount": 0.18463598797097802
+      },
+      "020": {
+        "cpuAmount": 0,
+        "diskAmount": 0.009259259095415473,
+        "gpuAmount": 0.1803532517515123,
+        "totalAmount": 0.18961251084692776
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "conservative_cumulative_lease_ceiling_usd": 4.70239147,
+    "cloud_cap_usd": 10,
+    "original_reconciliation": "E:/spellbench-gorge-billing-20261004-003",
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "final_invoice_verified": false,
+  "provider_queries_for_this_confirmation": 0,
+  "new_allocation": false,
+  "new_cloud_spend_usd": 0,
+  "research_priority": "The maintainer PC remains yielded to research pilot002; no native work performed for this question",
+  "qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0
+}

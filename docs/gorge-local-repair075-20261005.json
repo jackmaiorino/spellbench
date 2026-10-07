@@ -1,0 +1,102 @@
+{
+  "phase": "exact_saved_root_repair_verified_and_recovered",
+  "at_utc": "2026-10-05T16:07:46.741897+00:00",
+  "source_commit": "333e230ab8b68e4489b1d6a7578503027057e418",
+  "input_sha256": "c3ea5e0550c9d1b6e0862a32ab8b9bed4d284688426cc19366a9f0093035124d",
+  "frames": 281,
+  "failure_work": {
+    "Attempts": 4,
+    "Submits": 5000,
+    "Nodes": 4234,
+    "BudgetExhausted": 1
+  },
+  "repaired_work": {
+    "Attempts": 1,
+    "Submits": 564,
+    "Nodes": 25,
+    "BudgetExhausted": 0
+  },
+  "native_diagnostic_fields_compared": 23,
+  "native_diagnostics_identical": true,
+  "native_diagnostic_baseline": "Existing native sampler with empty redeal base, retaining its known-card diagnostic; only PublicReconstruction/Redealt/RedealRefused excluded",
+  "native_redealt_worlds": 8,
+  "known_card_checks_passed": true,
+  "boundary_cases_passed": 6,
+  "repair": "Keep actor-visible filtered basic-land order through known nonbasic London bottoms before play; basic, undeclared, opaque owned and in-play mutations remain unguided",
+  "preserved_failed_attempts": [
+    {
+      "number": 73,
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-073",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-073",
+      "seal_sha256": "f96e17264dd8bdd503e6f531f2ac5f54fb7510459be2b5755d78ad83e521848a",
+      "closure": {
+        "at_utc": "2026-10-05T16:02:15.729751+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: london-basic-boundaries exit 1",
+        "elapsed_seconds": 4.030525099951774,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "host_release": {
+        "generation": 189,
+        "token_fate": "released",
+        "canonical_state_after": "free",
+        "automatic_release": true
+      }
+    },
+    {
+      "number": 74,
+      "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-074",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-074",
+      "seal_sha256": "66ad9356301922d091701e307571ab7e704340af4c4d2ca2be665252ba83fcda",
+      "closure": {
+        "at_utc": "2026-10-05T16:03:46.401254+00:00",
+        "diagnostic_passed": false,
+        "error": "RuntimeError: witness-replay exit 1",
+        "elapsed_seconds": 9.298538799979724,
+        "new_cloud_spend_usd": 0,
+        "native_qualification_complete": false,
+        "rated_games": 0
+      },
+      "host_release": {
+        "generation": 190,
+        "token_fate": "released",
+        "canonical_state_after": "free",
+        "automatic_release": true
+      }
+    }
+  ],
+  "successful_attempt": {
+    "number": 75,
+    "source_of_record": "E:\\spellbench-gorge-local-witness-20261005-075",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-local-witness-20261005-075",
+    "seal_sha256": "cc2a668d30ddeff2ddc771e0fd9aac09f4e46a37b8109c5b011b997c1c8bbac5",
+    "closure": {
+      "at_utc": "2026-10-05T16:05:20.079758+00:00",
+      "diagnostic_passed": true,
+      "error": null,
+      "elapsed_seconds": 9.32721339998534,
+      "new_cloud_spend_usd": 0,
+      "native_qualification_complete": false,
+      "rated_games": 0
+    },
+    "host_release": {
+      "generation": 191,
+      "token_fate": "released",
+      "canonical_state_after": "free",
+      "automatic_release": true
+    }
+  },
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "provider_final_settlement_pending": true,
+  "scope": "One saved public root and eight native pool checks; no completed games or playing-strength claim",
+  "reconstruction_repaired_for_saved_root": true,
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "next_action": "Build exact repaired production runtime locally, then compatible serial/parallel qualification and the unchanged full native audit through supported launcher",
+  "remaining": "Full native/reference qualification, current identity/fair-play review, required CI unblocked by truthful XMage reveal, frozen rated games, result review and publication"
+}

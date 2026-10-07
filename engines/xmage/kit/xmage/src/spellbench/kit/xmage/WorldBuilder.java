@@ -505,8 +505,8 @@ public final class WorldBuilder {
                     continue;
                 }
                 spec.random.scopeObject(id + ":permanent");
-                putCardOntoBattlefield(c, controller, pm != null && Json.bool(pm, "tapped"));
-                perm = game.getPermanent(c.getId());
+                perm = putCardOntoBattlefield(c, Json.str(rec, "card_name"), controller,
+                        pm != null && Json.bool(pm, "tapped"));
                 if (perm == null) {
                     flag("unsupported:did_not_enter:" + Json.str(rec, "card_name"));
                     continue;
@@ -524,13 +524,22 @@ public final class WorldBuilder {
     /**
      * mzbridge's {@code putCardOntoBattlefield}: CardUtil.putCardOntoBattlefieldWithEffects without changing the
      * card's owner. No ENTERS_THE_BATTLEFIELD event; "enters with counters / tapped" replacements still apply (the
-     * observed counters and tapped state are set afterwards).
+     * observed counters and tapped state are set afterwards). A double-faced card enters on the face it shows: its
+     * front face (XMage's default side, whose id is the face's, not the card's), or its back face, transformed, when
+     * the observed name is the back face's (as ZonesHandler enters a card transformed). Returns the permanent, null
+     * when none entered.
      */
-    private void putCardOntoBattlefield(Card card, Player controller, boolean tapped) {
+    private Permanent putCardOntoBattlefield(Card card, String shownName, Player controller, boolean tapped) {
         Ability source = fake.copy();
         source.setControllerId(controller.getId());
         source.setSourceId(card.getId());
         Card permCard = mage.util.CardUtil.getDefaultCardSideForBattlefield(game, card);
+        if (card instanceof mage.cards.DoubleFacedCard) {
+            Card back = ((mage.cards.DoubleFacedCard) card).getRightHalfCard();
+            if (back.getName().equals(shownName) && !back.getName().equals(permCard.getName())) {
+                permCard = back;
+            }
+        }
         permCard.setZone(Zone.BATTLEFIELD, game);
         PermanentCard permanent = permCard instanceof MeldCard ? new PermanentMeld(permCard, controller.getId(), game)
                 : new PermanentCard(permCard, controller.getId(), game);
@@ -548,6 +557,7 @@ public final class WorldBuilder {
                 effect.init(ability.get(), game, controller.getId());
             }
         }
+        return game.getPermanent(permanent.getId());
     }
 
     /** A token of a decklist-creatable class, matched on name and characteristics; null when none matches. */
@@ -556,6 +566,9 @@ public final class WorldBuilder {
         Map<String, Object> ch = Json.obj(rec, "characteristics");
         spec.random.scopeWorld("token-probe"); // probe instances are cached across worlds: never in an object scope
         Token token = resolveToken(name, ch);
+        if (token == null) {
+            token = copyToken(name, controller.getId());
+        }
         if (token == null) {
             return null;
         }
@@ -574,6 +587,42 @@ public final class WorldBuilder {
         pm.setZone(Zone.BATTLEFIELD, game);
         game.getPermanentsEntering().remove(pm.getId());
         return pm;
+    }
+
+    /**
+     * A token that copies a decklist card, which the token repository does not hold: an embalmed card (mtg-kernel
+     * names it {@code "<card> Embalmed Token"}; XMage's EmbalmEffect makes a white Zombie copy without a mana cost),
+     * or a plain copy that carries the card's own name. Null when the name is neither.
+     */
+    private Token copyToken(String name, UUID owner) {
+        if (name == null) {
+            return null;
+        }
+        boolean embalmed = name.endsWith(" Embalmed Token");
+        String base = embalmed ? name.substring(0, name.length() - " Embalmed Token".length()) : name;
+        if (!decklistNames().contains(base)) {
+            return null;
+        }
+        Token token = mage.util.functions.CopyTokenFunction.createTokenCopy(newCard(base, owner), game);
+        if (embalmed) {
+            token.setColor(mage.ObjectColor.WHITE);
+            token.addSubType(mage.constants.SubType.ZOMBIE);
+            token.clearManaCost();
+        }
+        return token;
+    }
+
+    private java.util.Set<String> decklistNames() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        for (String side : new String[]{"own_deck", "opponent_deck"}) {
+            Map<String, Object> deck = Json.obj(spec.gameStart, side);
+            if (deck != null) {
+                for (Object r : Json.arr(deck, "decklist")) {
+                    out.add(Json.str(Json.obj(r), "name"));
+                }
+            }
+        }
+        return out;
     }
 
     private static final Map<String, List<Token>> TOKEN_CACHE = new HashMap<>();

@@ -92,6 +92,8 @@ def child_command(model: str, config: AgentConfig, output_tokens: int, *,
     # but their CLI predates this opt-in argument.
     if config.prompt_format != "json-v1":
         command.extend(("--prompt-format", config.prompt_format))
+    if config.public_history_events:
+        command.extend(("--public-history-events", str(config.public_history_events)))
     return command
 
 
@@ -115,6 +117,7 @@ def main() -> int:
     parser.add_argument("--max-tokens-per-game", type=int, default=750_000)
     parser.add_argument("--history-decisions", type=int, default=1)
     parser.add_argument("--prompt-format", choices=tuple(PROMPT_FORMATS), default="json-v1")
+    parser.add_argument("--public-history-events", type=int, default=0)
     parser.add_argument("--timeout-ms", type=int, default=20_000)
     parser.add_argument("--max-run-requests", type=int, default=4096)
     parser.add_argument("--max-run-tokens", type=int, default=10_000_000)
@@ -131,7 +134,7 @@ def main() -> int:
         config = AgentConfig(max_calls_per_game=args.max_calls_per_game,
                              max_tokens_per_game=args.max_tokens_per_game,
                              history_decisions=args.history_decisions, timeout_ms=args.timeout_ms,
-                             prompt_format=args.prompt_format)
+                             prompt_format=args.prompt_format, public_history_events=args.public_history_events)
         if args.max_completion_tokens < 1:
             raise ValueError("output limit must be positive")
         budget = RunBudget(args.run_budget, model=args.model,

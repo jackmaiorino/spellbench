@@ -1,0 +1,66 @@
+{
+  "schema": "spellbench-gorge-runtime-ci/v1",
+  "checked_at_utc": "2026-10-04T07:53:07.843282+00:00",
+  "runtime_source_commit": "27bf0c78132b2f4e0cb42fb6a9dab8b62f431b92",
+  "tested_adapter_commit": "c99064984981471aad71e48404fb1831f50cd6da",
+  "native_go_and_native_launcher_unchanged_since_runtime_source": true,
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37183473937,
+      "headSha": "c99064984981471aad71e48404fb1831f50cd6da",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37183473937",
+      "workflowName": "LLM container isolation"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37183473946,
+      "headSha": "c99064984981471aad71e48404fb1831f50cd6da",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37183473946",
+      "workflowName": "gorge adapter"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37183473967,
+      "headSha": "c99064984981471aad71e48404fb1831f50cd6da",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37183473967",
+      "workflowName": "CI"
+    }
+  ],
+  "all_hosted_checks_passed": true,
+  "reference_launcher_correction": "docs/gorge-reference-scaling-repair-20261004.json",
+  "reference_launcher_new_hosted_checks_pending": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "reference_launcher_tested_adapter_commit": "ba92ebff59df4c6301d8e323444e8de9af5441ea",
+  "reference_launcher_runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37184758030,
+      "headSha": "ba92ebff59df4c6301d8e323444e8de9af5441ea",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37184758030",
+      "workflowName": "gorge adapter"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37184758024,
+      "headSha": "ba92ebff59df4c6301d8e323444e8de9af5441ea",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37184758024",
+      "workflowName": "CI"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37184757985,
+      "headSha": "ba92ebff59df4c6301d8e323444e8de9af5441ea",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37184757985",
+      "workflowName": "LLM container isolation"
+    }
+  ]
+}

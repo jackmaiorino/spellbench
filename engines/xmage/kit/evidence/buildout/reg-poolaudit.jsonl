@@ -1,11 +1,11 @@
 {"detail":{"warmup_failed":0,"warmup_ok":4482},"note":"boot"}
-{"check":"S2P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> C:\\Users\\haley\\AppData\\Local\\Temp\\kit-slice-S2P-264573050953100\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
+{"check":"S2P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> ~\\AppData\\Local\\Temp\\kit-slice-S2P-264573050953100\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
 {"detail":424,"note":"S2P.integration_ms"}
-{"check":"S3P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> C:\\Users\\haley\\AppData\\Local\\Temp\\kit-slice-S3P-264573137334900\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
+{"check":"S3P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> ~\\AppData\\Local\\Temp\\kit-slice-S3P-264573137334900\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
 {"detail":74,"note":"S3P.integration_ms"}
-{"check":"S4P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> C:\\Users\\haley\\AppData\\Local\\Temp\\kit-slice-S4P-264573221523900\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
+{"check":"S4P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> ~\\AppData\\Local\\Temp\\kit-slice-S4P-264573221523900\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
 {"detail":83,"note":"S4P.integration_ms"}
-{"check":"S10P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> C:\\Users\\haley\\AppData\\Local\\Temp\\kit-slice-S10P-264573291036400\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
+{"check":"S10P.completed","detail":"java.nio.file.FileSystemException: db\\cards.h2.mv.db -> ~\\AppData\\Local\\Temp\\kit-slice-S10P-264573291036400\\db\\cards.h2.mv.db: The process cannot access the file because another process has locked a portion of the file","pass":false}
 {"detail":79,"note":"S10P.integration_ms"}
 {"check":"REG.trigger_event_data_horizon","detail":{"flags":["approximate:trigger_event_data","horizon:stack_object","approximate:watchers_reset"],"reached":true,"register":{"class":"mage.cards.y.YouthfulValkyrie","reading_classes":["AddCountersSourceEffect"],"status":"approximate","trigger_classes":["EntersBattlefieldControlledTriggeredAbility"],"triggers":"event_data","why":["triggers read event data or captured values"]}},"pass":true}
 {"check":"REG.optional_cost_state_horizon","detail":{"flags":["approximate:optional_cost_state","horizon:stack_object","approximate:watchers_reset"],"reached":true},"pass":true}

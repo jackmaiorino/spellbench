@@ -51,6 +51,10 @@ import golden_helpers
 from conftest import ScriptedPeer
 from golden_helpers import golden_index, load_transcript_v2
 
+# CI runs the suite with --dist loadgroup, which keeps this module on one worker in its own order,
+# so the guard below still sees every replay that ran before it.
+pytestmark = pytest.mark.xdist_group("golden_replay_v2")
+
 TESTS = Path(__file__).resolve().parent
 INDEX = golden_index()                            # the committed index, read once to parametrize the replays
 ROLES = ("host", "bot_server", "engine")
@@ -384,8 +388,8 @@ def test_every_replay_the_goldens_allow_is_listed_and_parametrized() -> None:
 def test_no_replay_stopped_before_its_checks(request: pytest.FixtureRequest) -> None:
     """A replay that stopped before its checks would pass silently, so each records that it finished; every replay
     this session ran before this test (all of them, in a module's own order) must have."""
-    if hasattr(request.config, "workerinput"):
-        pytest.skip("an xdist worker runs only some of the items before this one")
+    if hasattr(request.config, "workerinput") and not getattr(request.config.option, "loadgroup", False):
+        pytest.skip("only --dist loadgroup keeps this module's replays on this test's xdist worker")
     items = request.session.items
     selected = {(REPLAY_TESTS[item.function], item.callspec.params["name"])
                 for item in items[:items.index(request.node)] if getattr(item, "function", None) in REPLAY_TESTS}

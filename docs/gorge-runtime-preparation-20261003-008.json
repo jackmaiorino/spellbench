@@ -1,0 +1,381 @@
+{
+  "schema": "spellbench-gorge-preparation-record/v1",
+  "checked_at_utc": "2026-10-03T10:38:38.823742+00:00",
+  "adapter_commit": "21f91952b5d479d1745d5da910eceb7eaa49edc2",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+  "status": "public_payment_london_runtime_prepared_all_mode_startup_checked",
+  "qualification": "not complete",
+  "rated_games": 0,
+  "published": false,
+  "previous_preparation_preserved": [
+    "E:/spellbench-gorge-runtime-20261003",
+    "E:/spellbench-gorge-runtime-20261003-002",
+    "E:/spellbench-gorge-runtime-20261003-003",
+    "E:/spellbench-gorge-runtime-20261003-004",
+    "E:/spellbench-gorge-runtime-20261003-005",
+    "E:/spellbench-gorge-runtime-20261003-006",
+    "E:/spellbench-gorge-runtime-20261003-007"
+  ],
+  "cold_root": "E:\\spellbench-gorge-runtime-20261003-008",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008",
+  "manifest_sha256": "5e6f1f1275c58ce50f95243c1aacef2f0b88b3cf3d5d25deb12cd6de3325498d",
+  "preflight_sha256": "ca2a73897609b9af50e3c601ebc0720518301d9136e8e9e50c88ff52d671a6ef",
+  "copy_verification": "All six binaries, registry, receipts and image archive verified by size and SHA-256 across E and D; every binary resolves under its preserved hash. Distinct physical disks previously verified as E=1 and D=2.",
+  "go_version": "go version go1.27.1 windows/amd64",
+  "toolchain_files": [
+    {
+      "name": "go.exe",
+      "sha256": "d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490",
+      "bytes": 17508352,
+      "pinned_path": "E:\\pinned-binaries\\d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490\\go.exe"
+    },
+    {
+      "name": "link.exe",
+      "sha256": "9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720",
+      "bytes": 7581696,
+      "pinned_path": "E:\\pinned-binaries\\9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720\\link.exe"
+    }
+  ],
+  "gpu_ordinal": null,
+  "registry": {
+    "schema": "spellbench-gorge-registry/v1",
+    "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+    "compiler_fingerprint": "4e081d8104fbe09256edb9fa696ce6f7",
+    "forge_commit": "95f04e8a04c8925fa97cb226fc3341cabcc90a53",
+    "card_scripts_sha256": "377204728a927366bab4cc40bf89a64544bd5bf464d66d261e58e1a71b69bf5f",
+    "token_scripts_sha256": "6f6a6433a2075b2741982f28cc81963787d54e7fd5f81e643e754f71c24b2f58",
+    "card_scripts": 33669,
+    "token_scripts": 839,
+    "cards": 33669,
+    "tokens": 839,
+    "diagnostics": 13,
+    "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "registry_bytes": 9070329
+  },
+  "registry_reuse": {
+    "source": "E:\\spellbench-gorge-runtime-20261003\\registry.gob.gz",
+    "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+    "reason": "Same pinned card/compiler sources; exact prior frozen bytes, not a new gob encoding"
+  },
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "sha256": "94a13d7dd4bba37a2e83cbee27dd03562345457485ac7ad9060c1f0d0d619e4e",
+      "bytes": 13476864,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\94a13d7dd4bba37a2e83cbee27dd03562345457485ac7ad9060c1f0d0d619e4e\\spellbench-gorge-corpus-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "sha256": "adcc9a7a3fe5b6021b1ff8dbdb6cc7016b81f09885114867bb9c2c0047284963",
+      "bytes": 17482752,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\adcc9a7a3fe5b6021b1ff8dbdb6cc7016b81f09885114867bb9c2c0047284963\\spellbench-gorge-env-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "sha256": "eb4ddc5d23c098b9b87ffb06d7393f02d7d1077fc2c8ed0d62a89d18ddf8a03d",
+      "bytes": 18012160,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\eb4ddc5d23c098b9b87ffb06d7393f02d7d1077fc2c8ed0d62a89d18ddf8a03d\\spellbench-gorge-agent-windows-amd64.exe"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "sha256": "fdd10bbc8689b97a139eb2c8e2badaf9b25347f2b0a26fcda2ccf11109522006",
+      "bytes": 18860032,
+      "platform": "windows",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\fdd10bbc8689b97a139eb2c8e2badaf9b25347f2b0a26fcda2ccf11109522006\\gorgequal-windows-amd64.exe"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "sha256": "aa54286777cd8dba4cdfb3d84832e6f9a76711698623c8de2a8ffc93698b5c8c",
+      "bytes": 17391645,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\aa54286777cd8dba4cdfb3d84832e6f9a76711698623c8de2a8ffc93698b5c8c\\spellbench-gorge-env-linux-amd64"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "sha256": "b03de47b95809d2cc070b05c7503304ea00465a30058562d6c51df8c9f88f6ed",
+      "bytes": 17914449,
+      "platform": "linux",
+      "kind": "binary",
+      "pinned_path": "E:\\pinned-binaries\\b03de47b95809d2cc070b05c7503304ea00465a30058562d6c51df8c9f88f6ed\\spellbench-gorge-agent-linux-amd64"
+    },
+    {
+      "name": "registry.gob.gz",
+      "sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+      "bytes": 9070329,
+      "kind": "registry"
+    }
+  ],
+  "build_commands": [
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\spellbench-gorge-corpus-windows-amd64.exe",
+      "./cmd/spellbench-gorge-corpus"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\spellbench-gorge-env-windows-amd64.exe",
+      "./cmd/spellbench-gorge-env"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\spellbench-gorge-agent-windows-amd64.exe",
+      "./cmd/spellbench-gorge-agent"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\gorgequal-windows-amd64.exe",
+      "./cmd/gorgequal"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\spellbench-gorge-env-linux-amd64",
+      "./cmd/spellbench-gorge-env"
+    ],
+    [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\spellbench-gorge-agent-linux-amd64",
+      "./cmd/spellbench-gorge-agent"
+    ]
+  ],
+  "representative_build_regeneration": {
+    "command": [
+      "D:\\tools\\go1.27.1\\go\\bin\\go.exe",
+      "build",
+      "-p",
+      "1",
+      "-trimpath",
+      "-buildvcs=false",
+      "-o",
+      "D:\\e-scratch\\spellbench-gorge-runtime-20261003-008\\env-rebuilt.exe",
+      "./cmd/spellbench-gorge-env"
+    ],
+    "file": "spellbench-gorge-env-windows-amd64.exe",
+    "sha256": "adcc9a7a3fe5b6021b1ff8dbdb6cc7016b81f09885114867bb9c2c0047284963",
+    "bit_identical": true
+  },
+  "container": {
+    "image": "sha256:55de230f2801ff87e1652c55fa7eea611efb6e7854af6d6be9687d1e752206fa",
+    "archive_sha256": "b84cd5b04762754aaf0abe8018cc553a469b898bb19254916e7f74d1adcaad4b",
+    "archive_bytes": 19132416,
+    "all_mode_startup_passed": true,
+    "policies": [
+      "bot",
+      "lethal-pressure",
+      "ar8",
+      "blocks",
+      "explore",
+      "legacy",
+      "bot-auto-pay",
+      "lethal-pressure-auto-pay",
+      "search",
+      "search-mana",
+      "search-redeal",
+      "search-mana-redeal"
+    ],
+    "normal_exit_container_cleanup": true,
+    "windows_linux_profiles_identical": true,
+    "restrictions": [
+      "network none",
+      "read-only root and registry mount",
+      "user 65534:65534",
+      "one CPU",
+      "1 GiB memory and swap",
+      "128 process limit",
+      "capabilities dropped",
+      "no new privileges",
+      "16 MiB tmpfs"
+    ],
+    "limitation": "Hello and normal exit only; no games, forced termination or arena lifecycle evidence"
+  },
+  "storage": {
+    "projected_bytes": 268435456,
+    "cap_bytes_per_volume": 536870912,
+    "reserve_bytes": 64424509440
+  },
+  "machines": {
+    "checked_at_utc": "2026-10-03T10:37:51.448109+00:00",
+    "Desktop": {
+      "checked_at_utc": "2026-10-03T10:37:53.6146512Z",
+      "memory_free_kib": 90509348,
+      "memory_total_kib": 134025436,
+      "cpu_logical": 24,
+      "cpu_name": "13th Gen Intel(R) Core(TM) i7-13700K",
+      "c_free_bytes": 80031588352,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 3050",
+        "NVIDIA GeForce RTX 4070 SUPER"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 80031588352,
+          "Size": 999136686080
+        },
+        {
+          "DeviceID": "D:",
+          "FreeSpace": 355836747776,
+          "Size": 1000186310656
+        },
+        {
+          "DeviceID": "E:",
+          "FreeSpace": 1114692870144,
+          "Size": 4000768323584
+        }
+      ],
+      "workloads": [
+        {
+          "ProcessId": 40432,
+          "Name": "python.exe",
+          "WorkingSetSize": 176128
+        },
+        {
+          "ProcessId": 40520,
+          "Name": "python.exe",
+          "WorkingSetSize": 1613824
+        },
+        {
+          "ProcessId": 41108,
+          "Name": "python.exe",
+          "WorkingSetSize": 1658880
+        },
+        {
+          "ProcessId": 55732,
+          "Name": "python.exe",
+          "WorkingSetSize": 71925760
+        },
+        {
+          "ProcessId": 57496,
+          "Name": "python.exe",
+          "WorkingSetSize": 21553152
+        },
+        {
+          "ProcessId": 61140,
+          "Name": "python.exe",
+          "WorkingSetSize": 21581824
+        },
+        {
+          "ProcessId": 32724,
+          "Name": "python.exe",
+          "WorkingSetSize": 21581824
+        },
+        {
+          "ProcessId": 14768,
+          "Name": "python.exe",
+          "WorkingSetSize": 21577728
+        },
+        {
+          "ProcessId": 37144,
+          "Name": "python.exe",
+          "WorkingSetSize": 21581824
+        },
+        {
+          "ProcessId": 14448,
+          "Name": "python.exe",
+          "WorkingSetSize": 21577728
+        },
+        {
+          "ProcessId": 14752,
+          "Name": "python.exe",
+          "WorkingSetSize": 21577728
+        },
+        {
+          "ProcessId": 31660,
+          "Name": "python.exe",
+          "WorkingSetSize": 21581824
+        },
+        {
+          "ProcessId": 55656,
+          "Name": "python.exe",
+          "WorkingSetSize": 23543808
+        }
+      ],
+      "canonical_reservation": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=cooling-maintainer-replacement-stage1-002 generation=108 since=2026-10-03T10:01:55.692+00:00",
+      "previous_formal_pid_58872_present": false,
+      "formal_completion": "Not inferred from process absence; no research outcomes read"
+    },
+    "ComputeHost": {
+      "checked_at_utc": "2026-10-03T10:37:55.8475552Z",
+      "memory_free_kib": 26207940,
+      "memory_total_kib": 33478692,
+      "cpu_logical": 16,
+      "cpu_name": "AMD Ryzen 7 3700X 8-Core Processor             ",
+      "c_free_bytes": 120543109120,
+      "gpu_names": [
+        "NVIDIA GeForce RTX 4060"
+      ],
+      "storage": [
+        {
+          "DeviceID": "C:",
+          "FreeSpace": 120543109120,
+          "Size": 999123054592
+        }
+      ],
+      "host_lock_exists": false,
+      "workloads": [],
+      "reservation": "Queued training-performance window retains priority per TO-CODEX #811 until owner or user disposition; no claim taken"
+    },
+    "RunPod": {
+      "checked_at_utc": "2026-10-03T10:37:51.448109+00:00",
+      "new_paid_compute": 0,
+      "inventory_status": "HTTP403",
+      "allocation_disposition": "Existing Luna lease is not reassigned to this task; no new paid compute authority"
+    },
+    "obsolete_reservation": "Old forty-minute maintainer Spellbench queue is retired per CODEX811",
+    "coordination": "The maintainer's generation108 research replacement is preserved per CODEX816; queued compute host training-performance window remains next per CODEX811",
+    "allocation": "Routine runtime preparation only; no substantial evaluation or host claim",
+    "qualification": "Historical runtime007 scaling is retained; changed runtime requires compatibility qualification at an eligible allocation"
+  },
+  "guarded_evaluation": "No rated evaluation launched. Sealed runtime007 scaling attempt003 completed 48 natural games in matched one, four and eight-worker rungs, with byte-identical official ledgers and 5.61x serial throughput. That historical sample produced no search worlds against uniform. Runtime008 preserves actor atomic payment witnesses with observer aliases, enumerates hypothetical opponent payment answers, and scopes the two pinned blind London hand-to-library moves to their asking player. The affected suites and diagnostic prefix pass; current-runtime allocation compatibility and complete mode/deck/clock qualification remain pending. The supported bench run guards serial/parallel allocation evidence and reserve. gorgequal remains an unguarded diagnostic and is not used to bypass the launcher. Current reservations and spending authority are preserved.",
+  "unfinished": [
+    "search behavior and legal mapping under reference-host clocks",
+    "reference-host timeout and process lifecycle checks under current isolation policy",
+    "guarded serial/parallel useful-throughput choice",
+    "complete frozen roster",
+    "paired ratings, review-path merge and live publication"
+  ]
+}

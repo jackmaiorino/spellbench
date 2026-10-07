@@ -1,0 +1,2 @@
+{"dir":"host_to_engine","raw":"{\"request_type\":"}
+{"dir":"engine_to_host","message":{"error":{"code":"malformed_json","message":"malformed_json: unexpected end of input"},"protocol":"spellbench/v2","request_id":"","response_type":"error"}}

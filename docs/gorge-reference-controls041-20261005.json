@@ -1,0 +1,69 @@
+{
+  "schema": "spellbench-gorge-reference-controls/v1",
+  "at_utc": "2026-10-05T04:44:29.294814+00:00",
+  "phase": "prepared_unlaunched",
+  "source_of_record": "E:\\spellbench-gorge-reference-controls-20261005-041",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-controls-20261005-041",
+  "files": {
+    "gorge-reference041-precreate-check-20261005.py": {
+      "sha256": "1e54c364bf73a65a9cc026f91df00b0fc036901c7d63ae2f217b47f6b370129d",
+      "bytes": 2817
+    },
+    "gorge-cloud-create-reference041-20261005.ps1": {
+      "sha256": "b0b11ddbe4da039e6b3eb61682bd3ba5531966081a4b88e5ea3d30fa5e588d7c",
+      "bytes": 10420
+    },
+    "gorge-cloud-reference-guard-20261005-041.ps1": {
+      "sha256": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592",
+      "bytes": 9155
+    },
+    "gorge-cloud-reference-scheduled-guard-20261005-041.ps1": {
+      "sha256": "294c7a096d9d1423acdb8d907780e5f703dfae487cff88c1f887f4b8fd2e3078",
+      "bytes": 785
+    },
+    "gorge-cloud-observe041-20261005.py": {
+      "sha256": "cc46de864e870ab34802dc037e61855d9c80a110d611584f94d7a6d33f477124",
+      "bytes": 2151
+    },
+    "gorge-connect-reference041-20261005.py": {
+      "sha256": "34c10466f5c14c47f72b6c85cba6cbb79f3a7c23140df79873732447d536c349",
+      "bytes": 1343
+    },
+    "gorge-dispatch-reference041-20261005.py": {
+      "sha256": "ddb08dd5986b917070287f21575fe48362d27d549d9c61a086148f8c04e5e36e",
+      "bytes": 5245
+    },
+    "gorge-supervise-reference041-20261005.py": {
+      "sha256": "40ee8a51f627b2bf97ce61f5c9f5d8bdd139b2fbf790f39a8ba9ae675ef4a71d",
+      "bytes": 7558
+    },
+    "gorge-pack-reference041-20261005.py": {
+      "sha256": "515734518b1d4cc3925ef2005b82cb53552fc41db0624475f12c2cbc1775e49f",
+      "bytes": 10587
+    },
+    "gorge-derive-reference-controls041-20261005.py": {
+      "sha256": "e7b8347437036ffcb504ebe13d1de8ddb6814d96e7e0980131f7426993070e8a",
+      "bytes": 5379
+    }
+  },
+  "native_admission_proved": false,
+  "budget_admission_proved": false,
+  "allocation_created": false,
+  "reference_reserved_usd": 0,
+  "required_native_root": "E:/spellbench-gorge-runpod-20261005-040",
+  "required_billing_ledger": "E:/spellbench-gorge-billing-20261005-020",
+  "frozen_reference_inputs": "E:/spellbench-gorge-reference-matrix-runtime040-20261005-005",
+  "prepared_controls": "Strict authenticated endpoint binding; eight requested CPUs; original140-game matrix; event-based terminal recovery; three bounded snapshot retries.",
+  "deadline_seconds": 10800,
+  "prospective_lease_cap_usd": 1.2,
+  "all_in_campaign_cap_usd": 10,
+  "validation": {
+    "python_ast_passed": true,
+    "powershell_parser_pending": false,
+    "existing_schedule_test": "passed,1 test,0.14s; plays zero games",
+    "powershell_parser_passed": true
+  },
+  "independent_recovery_verified": true,
+  "new_cloud_spend_usd": 0,
+  "seal_sha256": "9647aa2cc0b0461c2137d9a506619fb38a3a8ad4c77b82643939d530aaa40fb9"
+}
