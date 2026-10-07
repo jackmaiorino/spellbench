@@ -128,7 +128,7 @@ def test_failed_or_unresolved_budget_refuses_the_next_phase_but_not_live_peers(t
         check_hosted_budgets(config)
     check_hosted_budgets(config, allow_pending=True)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("transport_error")), budget).complete(PROMPT, timeout_s=1)
+        BudgetedProvider(Provider(ProviderError("transport_error")), budget).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         check_hosted_budgets(config, allow_pending=True)
 

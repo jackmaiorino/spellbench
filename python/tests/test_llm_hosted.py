@@ -258,7 +258,7 @@ def test_launcher_accepts_only_bound_timeout_policy_and_keeps_failed_usage(tmp_p
     state = RunBudget(path, model="luna")
     provider = Provider(ProviderError("timeout"))
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     command = ("python", "llm_hosted_bot.py", "--model", "luna", "--run-budget=" + str(path))
     def config(extra=()):
         return SimpleNamespace(bots=(BotSpec("luna", "0.1", "subprocess", command=command + extra),))
@@ -270,7 +270,7 @@ def test_launcher_accepts_only_bound_timeout_policy_and_keeps_failed_usage(tmp_p
         with pytest.raises(ProviderError, match="run_budget_ambiguous_command"):
             check_hosted_budgets(config(extra))
     other = Provider(Completion("{}", "luna", 100, 20))
-    BudgetedProvider(other, state).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(other, state).complete(PROMPT, timeout_s=30)
     assert provider.calls == other.calls == 1
     assert state.summary()["unknown_usage"] == 1 and state.summary()["accounted_tokens"] == 1154
 
@@ -286,9 +286,9 @@ def test_plan_provider_cannot_renew_or_infer_again_after_timeout(tmp_path, monke
     monkeypatch.setattr(hosted, "renew_profile", lambda *args: pytest.fail("failed game renewed its provider"))
     plan = hosted.PlanProvider("luna", Path("host.credentials"), "low", budget=state)
     with pytest.raises(ProviderError, match="timeout"):
-        BudgetedProvider(plan, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(plan, state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="provider_already_failed"):
-        plan.complete(PROMPT, timeout_s=2)
+        plan.complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="provider_already_failed"):
         plan.renew_before_game()
     state.check()
@@ -304,7 +304,7 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
     state = RunBudget(path, model="luna")
     if failure == "old_timeout_then_transport":
         with pytest.raises(ProviderError, match=availability_error):
-            BudgetedProvider(Provider(ProviderError(availability_error)), state).complete(PROMPT, timeout_s=2)
+            BudgetedProvider(Provider(ProviderError(availability_error)), state).complete(PROMPT, timeout_s=30)
     result = (ProviderError(availability_error) if failure in {"timeout", "timeout_log_cap", "timeout_cleanup"}
               else Completion('{"candidate_id":999}', "luna", 100, 20))
     provider = Provider(result)

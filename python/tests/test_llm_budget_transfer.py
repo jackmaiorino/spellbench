@@ -31,9 +31,9 @@ def test_failed_history_overlay_no_cutoff_and_new_usage_survive_relocation(tmp_p
     parent = budget(tmp_path, requests=4, tokens=4000, max_inflight=1)
     parent.extend_deadline(parent.summary()["effective_deadline"] + 120)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     source, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
-    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source).complete(PROMPT, timeout_s=30)
     before = source.summary()
     original_bytes = source.path.read_bytes()
     relocated = transfer(tmp_path, source)
@@ -61,9 +61,9 @@ def test_failed_history_overlay_no_cutoff_and_new_usage_survive_relocation(tmp_p
 def test_relocated_admission_refuses_changed_retained_evidence(tmp_path, target):
     parent = budget(tmp_path)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     source, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
-    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source).complete(PROMPT, timeout_s=30)
     relocated = transfer(tmp_path, source)
     paths = relocated.paths
     if target in {"prefix", "policy"}:
@@ -171,7 +171,7 @@ def test_failed_retirement_does_not_publish_a_cloud_activation_map(tmp_path, mon
 def test_launcher_uses_explicit_map_and_shared_token_cap(tmp_path):
     from dataclasses import replace
     source = budget(tmp_path, tokens=50)
-    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source, output_tokens=20).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), source, output_tokens=20).complete(PROMPT, timeout_s=30)
     relocated = transfer(tmp_path, source)
     config = hosted_config(relocated, extra=("--run-budget-map", str(relocated.paths.manifest),
                                             "--run-budget-map-sha256", relocated.paths.sha256,
@@ -187,7 +187,7 @@ def test_launcher_uses_explicit_map_and_shared_token_cap(tmp_path):
 def host_failure(tmp_path):
     parent = budget(tmp_path, requests=4, tokens=4000, max_inflight=1)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     source, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
     relocated = transfer(tmp_path, source)
     relocated.fail("profile_renewal_failed")
@@ -230,7 +230,7 @@ def test_host_preflight_recovery_cannot_repeat_inference(tmp_path, cause):
     source = budget(tmp_path)
     relocated = transfer(tmp_path, source)
     if cause == "request_exists":
-        BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), relocated).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(Completion("{}", source.model, 10, 2)), relocated).complete(PROMPT, timeout_s=30)
     relocated.fail("profile_renewal_failed" if cause == "request_exists" else cause)
     with pytest.raises(ProviderError, match="run_budget_parent_not_host_preflight"):
         recover_host(relocated)
@@ -352,7 +352,7 @@ def test_approved_increase_preserves_multihost_history_and_requires_new_qualific
     assert source.path.read_bytes() == parent_bytes
     with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
         source.check()
-    BudgetedProvider(Provider(Completion("{}", child.model, 10, 2)), child).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", child.model, 10, 2)), child).complete(PROMPT, timeout_s=30)
     assert child.summary()["requests"] == before["requests"] + 1
     assert child.summary()["accounted_tokens"] == before["accounted_tokens"] + 12
     assert child.summary()["unknown_usage"] == before["unknown_usage"] == 1
