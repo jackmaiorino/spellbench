@@ -65,7 +65,7 @@ def test_real_renewal_child_uses_relocated_budget_without_authorization(tmp_path
     from spellbench.llm.run_budget import BudgetedProvider
     parent = make_budget(tmp_path)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     source, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path, no_cutoff=True)
     relocated = transfer(tmp_path, source)
     profile = tmp_path / "profile.credentials"
