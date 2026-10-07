@@ -1,14 +1,14 @@
-"""Run the unchanged native audit for the nine modes that passed native134 on every deck through measured throughput and a canonical Haley claim."""
+"""Run the unchanged native audit for the nine modes that passed native134 on every deck through measured throughput and a canonical compute host claim."""
 import argparse,datetime,hashlib,json,os,shutil,subprocess,sys,time,traceback
 from pathlib import Path
 if not __debug__: raise RuntimeError('This guarded launcher requires Python assertions enabled')
-INPUT=Path('C:/mtg-node/spellbench-gorge-haley-staging-20261007-138')
-REPO=INPUT/'source';JOB=Path('C:/mtg-node/spellbench-gorge-haley-native-20261007-139');STAGE=JOB/'native'
+INPUT=Path('C:/mtg-node/spellbench-gorge-staging-20261007-138')
+REPO=INPUT/'source';JOB=Path('C:/mtg-node/spellbench-gorge-native-20261007-139');STAGE=JOB/'native'
 RUNTIME=INPUT/'runtime';SCRIPT=REPO/'engines/gorge/scripts/qualify_native.py'
 WALL=21600;WORKERS=8;POLICIES='bot,bot-auto-pay,lethal-pressure,lethal-pressure-auto-pay,ar8,blocks,explore,legacy,search-mana';CAP=2*2**30;RESERVE=60*2**30
 sys.dont_write_bytecode=True
 sys.path.insert(0,str(INPUT));import host_reservation_v1 as host
-assert os.name=='nt' and host.HOST=='HALEYSPC','This launcher only claims Haley'
+assert os.name=='nt' and host.HOST=='COMPUTEHOST','This launcher only claims compute host'
 sys.path.insert(0,str(REPO/'python'));sys.path.insert(0,str(REPO/'tools'))
 def inputs_check():
  staging=json.loads((INPUT/'STAGING.json').read_bytes())
@@ -30,16 +30,16 @@ def placement_check():
  assert args.census and args.placement,'Fresh census and explicit placement are required'
  census_path=Path(args.census);census=read(census_path)
  now=datetime.datetime.now(datetime.timezone.utc)
- for record in [census,census['Jack'],census['Haley'],census['RunPod']]:
+ for record in [census,census['Desktop'],census['ComputeHost'],census['RunPod']]:
   checked=datetime.datetime.fromisoformat(record['checked_at_utc'].replace('Z','+00:00'))
   assert 0 <= (now-checked).total_seconds() <= 300,'Placement census must be refreshed'
- assert not census['Haley']['host_lock_exists'] and host.status()['state']=='free'
+ assert not census['ComputeHost']['host_lock_exists'] and host.status()['state']=='free'
  assert census['RunPod']['inventory_status']=='HTTP200'
  assert census['budget']['conservative_reserved_total_usd']==9.99736347
  sys.path.insert(0,str(REPO/'python'))
  from spellbench.arena.allocation import Placement
  placement=Placement.parse(args.placement)
- assert [entry.machine for entry in placement.entries if entry.disposition=='used']==['haleyspc'],'This recipe claims Haley only'
+ assert [entry.machine for entry in placement.entries if entry.disposition=='used']==['computehost'],'This recipe claims the compute host only'
  return census_path
 
 def prepare():
@@ -66,7 +66,7 @@ def prepare():
  manifest=dict(schema='spellbench-gorge-local-native/v1',phase='prepared',at_utc=stamp(),source_commit=staging['source_commit'],source_archive_sha256=staging['source_archive_sha256'],
   runtime_source_commit=build['source_commit'],runtime_seal_sha256=sha(RUNTIME/'SEAL.json'),runtime_source_of_record=str(RUNTIME),files=files,runtime_builder_toolchain={key:build[key] for key in ('go_version','go_driver_sha256','compiler_sha256','linker_sha256')},
   script_sha256=sha(SCRIPT),parent_sha256=sha(Path(__file__)),usable_cpus=cores,memory_limit_bytes=memory,worker_cap=cap,worker_ladder=current_rules().ladder(cap),
-  placement=placement,allocation_reason='Fresh actual free Haley has exact production130 staged; native129 measured 8 and 16 workers at matched wall time, so cap8 keeps Haley usable; actual supported1/half/cap completed-work comparison selects workers by wall time, full audit refused without identical outputs',native_policies=POLICIES.split(','),process_priority='BelowNormal',
+  placement=placement,allocation_reason='Fresh actual free compute host has exact production130 staged; native129 measured 8 and 16 workers at matched wall time, so cap8 keeps the compute host usable; actual supported1/half/cap completed-work comparison selects workers by wall time, full audit refused without identical outputs',native_policies=POLICIES.split(','),process_priority='BelowNormal',
   unused_capacity_reason='Fresh three-host placement records eligibility and total-turnaround reasoning; worker bound preserves the unchanged12percent qualification-time budget',
   projected_bytes=512*2**20,cap_bytes=CAP,reserve_bytes=RESERVE,wall_cap_seconds=WALL,rated_games=0,published_entries=0,gpu_ordinal=None,
   conservative_reserved_total_usd=9.99736347,new_cloud_spend_usd=0,provider_final_settlement_pending=True,
@@ -102,7 +102,7 @@ def run():
  env={k:v for k,v in os.environ.items() if k not in ('GH_TOKEN','GITHUB_TOKEN','RUNPOD_API_KEY','GH_DEBUG')}
  env.update(GOMAXPROCS='1',GORGE_JOB_ROOT=str(JOB),GORGE_SOURCE_ROOT=str(REPO),GORGE_CLOUD_STAGE=str(STAGE),
   GORGE_NATIVE_QUALIFIER=str(native),GORGE_NATIVE_QUALIFIER_SHA256=sha(native),GORGE_REGISTRY=str(STAGE/'runtime/registry.gob.gz'),
-  GORGE_NATIVE_WORKER_CAP=str(prep['worker_cap']),GORGE_NATIVE_CALLBACK_WALL_SECONDS='18000',SPELLBENCH_HOST_ALIAS='gorge-Haley-native',
+  GORGE_NATIVE_WORKER_CAP=str(prep['worker_cap']),GORGE_NATIVE_CALLBACK_WALL_SECONDS='18000',SPELLBENCH_HOST_ALIAS='gorge-ComputeHost-native',
   GORGE_PLACEMENT=prep['placement'],GORGE_NATIVE_POLICIES=','.join(prep['native_policies']),PYTHONUNBUFFERED='1')
  args=[sys.executable,str(SCRIPT)]
  write(STAGE/'COMMAND.json',dict(command=args,guard_path=prep['guard_path']))
