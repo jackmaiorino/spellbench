@@ -231,6 +231,98 @@
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       },
       "evaluation_identity": "cce8e04cede01402b4d05abcc8084da687ab6f83f17e05fdc2f1718ef2b89644"
+    },
+    {
+      "name": "kit-mad-1",
+      "version": "0.3.0+4e575c6a49fc",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search",
+        "heuristic"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h1"
+      ],
+      "display": {
+        "label": "XMage MAD",
+        "author": "XMage / Spellbench",
+        "description": "XMage's ComputerPlayer7 (MAD) at skill 6 on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mad-k",
+      "version": "0.3.0+a49c05ddab71",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search",
+        "heuristic"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h2"
+      ],
+      "display": {
+        "label": "XMage MAD four worlds",
+        "author": "XMage / Spellbench",
+        "description": "As kit-mad-1, voting over four sampled hidden worlds per decision. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mcts",
+      "version": "0.3.0+068718d79078",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h3"
+      ],
+      "display": {
+        "label": "XMage MCTS",
+        "author": "XMage / Spellbench",
+        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts (at most 30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator), paced by the bank: each search stops at the remaining bank over 20 plus the increment, at least 12 s. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
     }
   ],
   "qualification_sample": [
