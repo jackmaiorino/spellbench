@@ -259,7 +259,8 @@
       "evaluation_inputs": [
         "${XMAGE_KIT}/lib/kit-core.jar",
         "${XMAGE_KIT}/lib/kit-xmage.jar",
-        "${XMAGE_BUILD}/BUILD-MANIFEST.json"
+        "${XMAGE_BUILD}/BUILD-MANIFEST.json",
+        "${XMAGE_DB}/cards.h2.mv.db"
       ],
       "display": {
         "label": "XMage MAD",
@@ -295,7 +296,8 @@
       "evaluation_inputs": [
         "${XMAGE_KIT}/lib/kit-core.jar",
         "${XMAGE_KIT}/lib/kit-xmage.jar",
-        "${XMAGE_BUILD}/BUILD-MANIFEST.json"
+        "${XMAGE_BUILD}/BUILD-MANIFEST.json",
+        "${XMAGE_DB}/cards.h2.mv.db"
       ],
       "display": {
         "label": "XMage MAD four worlds",
@@ -330,7 +332,8 @@
       "evaluation_inputs": [
         "${XMAGE_KIT}/lib/kit-core.jar",
         "${XMAGE_KIT}/lib/kit-xmage.jar",
-        "${XMAGE_BUILD}/BUILD-MANIFEST.json"
+        "${XMAGE_BUILD}/BUILD-MANIFEST.json",
+        "${XMAGE_DB}/cards.h2.mv.db"
       ],
       "display": {
         "label": "XMage MCTS",
