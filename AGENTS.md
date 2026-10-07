@@ -1,10 +1,10 @@
 # Spellbench working rules
 
-Use Jack's current assignment, standing instructions and repository contracts. Preserve engine/protocol pins, player-visible information boundaries, benchmark commitments, budgets, resource reservations and owned worktrees. Engineering integration does not establish rated admission or playing strength.
+Use the maintainer's current assignment, standing instructions and repository contracts. Preserve engine/protocol pins, player-visible information boundaries, benchmark commitments, budgets, resource reservations and owned worktrees. Engineering integration does not establish rated admission or playing strength.
 
-## GitHub delivery and cleanup (Jack, 2026-10-05)
+## GitHub delivery and cleanup (the maintainer, 2026-10-05)
 
-Applies to mtg-kernel and spellbench, their worktrees and associated collaboration PRs. Assigned agents own the GitHub lifecycle through integration and tracker cleanup. Jack authorizes routine reviews, approvals, merges and closures within that scope without another permission request.
+Applies to mtg-kernel and spellbench, their worktrees and associated collaboration PRs. Assigned agents own the GitHub lifecycle through integration and tracker cleanup. The maintainer authorizes routine reviews, approvals, merges and closures within that scope without another permission request.
 
 - At task start, read the existing issue, related open PRs and dependencies. Reuse the canonical issue and PR. Prefer one PR per coherent deliverable; use a stack only for independently reviewable changes, and integrate completed prerequisites before extending it. Update the existing PR for repairs and receipts instead of opening another PR for each turn.
 - Before reporting completion, commit owned changes, publish/update the PR, resolve review findings, run affected checks, review the actual current diff and merge when ready. A PR URL or green CI alone is not completion. Use the exact reviewed head SHA for the merge; recheck after any head or base change. Never bypass failed required checks, unresolved findings or a current scoped review gate.
@@ -12,5 +12,5 @@ Applies to mtg-kernel and spellbench, their worktrees and associated collaborati
 - Close a completed issue only after its acceptance criteria are verified on the default branch, linking the merged PR and evidence. Use closing keywords where appropriate. Keep umbrella issues open until all remaining criteria are met; record the remaining work and owner. Update checked-off subtasks and stale awaiting-review text.
 - Close duplicate, abandoned or superseded issues/PRs with a concise reason and a link to the canonical item. For superseded code, prove the old head is contained in the replacement or account for every distinct change. Preserve unique fixes, commits, evidence and review findings. Closure as superseded is not a claim that code has merged or work is complete.
 - When consolidating a stack, make the surviving integration PR target the intended default branch, describe the complete change and its remaining blockers, and link absorbed PRs. Reconcile sibling dependencies. Keep active worktree branches and frozen evidence; branch/worktree deletion follows their existing ownership and retention rules.
-- If integration cannot finish, leave one canonical item with the exact blocker, responsible owner, next action and existing wake condition. Keep useful authorized repair work moving. Do not leave ready PRs waiting solely for Jack to click approve or merge.
+- If integration cannot finish, leave one canonical item with the exact blocker, responsible owner, next action and existing wake condition. Keep useful authorized repair work moving. Do not leave ready PRs waiting solely for the maintainer's to click approve or merge.
 - Before ending a task, reconcile its issue/PR states with observed GitHub state and report merged/closed items plus real remaining blockers. Existing agent sessions must reread this amendment before their next delivery action. This grants cleanup authority, not unrelated implementation, new experiments, paid work or changes to frozen gates.

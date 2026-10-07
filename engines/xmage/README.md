@@ -73,7 +73,7 @@ Each engine process runs in its own working directory with its own copy of the c
 
 For adapters that need to float mana at ordinary priority, add `-Dspellbench.priorityMana=true` to the engine JVM command. The engine freezes this setting when loading its profile and declares `activate_mana_ability` only when enabled. Payment of spell and ability costs still uses `engine_autopay`; color and additional-cost choices follow the usual choice callbacks. The default is `false`. Pin the JVM command and profile with evaluation settings. This mapper support does not establish fidelity of a bot's original priority policy or native qualification of this opt-in profile.
 
-Jack's feature encoder accepts these priority mana candidates only when `game_start.engine_profile.decision_kinds` declares them. It resolves the exact public source and Oracle mana index in the permitted reconstructed world, retaining identical producers as distinct lookup options. The original candidate codec then supplies IDs and features. This is feature encoding support; Jack's original option construction, validation, phase dispatch and policy selection remain unfinished. `tests/priority-mana/JackManaEncoderCheck.java` is the guarded native check for two Forest sources, replay and sampled hidden-world invariance.
+The maintainer's feature encoder accepts these priority mana candidates only when `game_start.engine_profile.decision_kinds` declares them. It resolves the exact public source and Oracle mana index in the permitted reconstructed world, retaining identical producers as distinct lookup options. The original candidate codec then supplies IDs and features. This is feature encoding support; the maintainer's original option construction, validation, phase dispatch and policy selection remain unfinished. `tests/priority-mana/MaintainerManaEncoderCheck.java` is the guarded native check for two Forest sources, replay and sampled hidden-world invariance.
 
 ### Reproducibility (2026-09-30, branch commit 4c4f189)
 
@@ -175,6 +175,6 @@ Kept:
 - the build logs;
 - in WSL: `build-l1`, `build-l2`, `build-lstock` and `x1-linux` (not pruned: WSL stayed off at the request of another lane's timing run).
 
-X3 (2026-10-01, HaleysPC `~/x-spike/x3/`): the 360 per-game observation files (449 MB gzipped) and every per-process database copy were pruned after the check, leaving 301 KB of logs and summaries; `scripts/x3-observe.sh` regenerates them. The evidence is in `tests/x3/evidence/`.
+X3 (2026-10-01, the compute host `~/x-spike/x3/`): the 360 per-game observation files (449 MB gzipped) and every per-process database copy were pruned after the check, leaving 301 KB of logs and summaries; `scripts/x3-observe.sh` regenerates them. The evidence is in `tests/x3/evidence/`.
 
-X4 (2026-10-01, HaleysPC `~/x-spike/x4/`, 802 MB at the end: per-game logs, counters, debugging transcripts and id traces, development class files): pruned after the evidence was copied into `tests/x4/evidence/` (about 360 KB); `tests/x4/run-evidence.sh` regenerates it. Every engine process copied and then removed its own card database.
+X4 (2026-10-01, the compute host `~/x-spike/x4/`, 802 MB at the end: per-game logs, counters, debugging transcripts and id traces, development class files): pruned after the evidence was copied into `tests/x4/evidence/` (about 360 KB); `tests/x4/run-evidence.sh` regenerates it. Every engine process copied and then removed its own card database.

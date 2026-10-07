@@ -162,7 +162,7 @@ def matched(recovered, monkeypatch):
     facts = MachineFacts(memory_bytes=32*2**30, gpus=(),
         free_bytes=(('pin_root',100*2**30), ('run_dir',100*2**30)))
     allocation = plan_allocation(games_total=140, cap=bound, per_game_cores=3, cpu_count=24,
-        play=play, placement='main-pc=used: unit-test-only; haleyspc=unavailable: fixture; runpod=not_authorized: fixture',
+        play=play, placement='main-pc=used: unit-test-only; computehost=unavailable: fixture; runpod=not_authorized: fixture',
         host='unit-test-only', sample=sample, workload=workload, machine=facts, rules=rules)
     report['allocation'] = allocation.to_json()
     write(stage/'ALLOCATION.json', allocation.to_json())

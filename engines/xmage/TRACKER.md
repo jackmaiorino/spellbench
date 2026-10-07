@@ -52,7 +52,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | A1 (#28) | Position rebuild and sampler (Java agent process speaking the v2 agent role) | done (2026-10-01): build-out changes 1 to 7 pass (71/71 slice, 8/8 A3 and pilot); Sol check before qualification | A0, X3 (observation shape) | 4 | rebuilt worlds match the engine's public state over 1,000 sampled decisions |
 | A2 (#29) | Action to candidate mapping across group substeps | done (2026-10-01): action-to-candidate mapping; 0 unmapped in 222 searched decisions after the current-player fix | A1, X4 | 3 | every decision answered with a valid candidate in a 1,000-game soak |
 | A3 (#30) | Paired-world fairness tests for the kit (DraftZero's counterspell and cantrip positions) | done (2026-10-01): paired-world tests for all three entries; same answer within each pair | A2 | 1.5 | identical answers across hidden worlds where they must be |
-| A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, Jack's PC, HaleysPC, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
+| A4 (#31) | Throughput: determinizations per decision vs clock profile; compute-policy qualification (serial vs parallel, the primary desktop, the compute host, RunPod) | blocked: A2 | A2 | 1 | time-control profile proposal for P |
 
 ## Heuristic bot track (H)
 
@@ -67,7 +67,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 | ID | Issue | Status | Depends | Est. | Done when |
 |---|---|---|---|---:|---|
-| R0 | Outreach drafts for CABT, DraftZero and MageZero (brief 5.5, draft section 8), for Jack to send | drafted (2026-10-01): `x-outreach-drafts.md`, awaiting Jack | | 0.5 | drafts in `E:/spellbench-archive/program-research/`; Jack sends |
+| R0 | Outreach drafts for CABT, DraftZero and MageZero (brief 5.5, draft section 8), for the maintainer's to send | drafted (2026-10-01): `x-outreach-drafts.md`, awaiting maintainer | | 0.5 | drafts in `E:/spellbench-archive/program-research/`; the maintainer's sends |
 | R1 | Checkpoint handling: convert gzipped `torch.save` pickles to safetensors plus vocabulary JSON, inside the no-network container only | blocked: D-sandbox | D-sandbox, R0 answers | 1 | weights-only files with hashes |
 | R2 | MageZero entry: their fork's `StateEncoder` and MCTS on the kit's sampled worlds, hidden-info key fixed, one entry per (deck, model) | blocked: A2, R1 | A2, R1, D-sandbox | 4 to 6 | entries pass A3's paired-world tests |
 | R3 | DraftZero entry (ideally owned by DraftZero, their experiment 3): StateSpec rebuild plus K-determinized `coach` | blocked: A2, R1 | A2, R1, D-sandbox, R0 | 4 to 8 | as R2 |
@@ -82,7 +82,7 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 | P-v2.1 | P | deltas S1 to S10 of the design draft (rotating pairs, hidden lists, fixed-deck section 15, legality lists, time-control profiles, D6a to D6c rulings, Annex C corrections) | not started; requests and rulings filed with P as #40 (2026-10-01) |
 | D-sandbox | D (join kit) | network-less Docker runner for JVM, GPU and pickle agents; stdio relay | not started |
 
-## Decisions (Jack, 2026-09-30: "I'll take your recs for those")
+## Decisions (the maintainer, 2026-09-30: "I'll take your recs for those")
 
 - **Q1, push: yes.** The branch moves into the main spellbench repository (public; backed up by git_sync) and gets a PR into `board-program`. Work continues in a worktree of the main repository; the local clone `D:/spellbench-x/spellbench` is retired.
 - **Q2, heuristic bots: agent kit only.** No engine-side "house pilots" that read the real game.
@@ -90,75 +90,75 @@ GitHub: parent issue #13 (child issues #14 to #36; the RL track is #36). Status 
 
 ## Log
 
-- 2026-10-02 09:15: #23 checks on the `004913a` build (Jack's PC): paired-world leak tests PASS (counterspell 50/50 whole-game identical, cantrip 50, randomized 200, self-tests), X4b goldens regenerated (only `source_revision` changed) and replayed 5/5, conformance runner 21/21 on Standard and FDN decks.
-- 2026-10-02: X5m prepared on `xmage-m1` (from `main` `fb80e58`): fdn-mirror-v0 definition and rated-run script (public steps: the definition's merge, the commitment push, a third-party timestamp, the results push; the site deploys on each push to `main`). #23's open checks on the `004913a` build scripted in `tests/x5/run-23-checks.sh` (leak tests and X4b goldens), to run once Jack's PC is released.
+- 2026-10-02 09:15: #23 checks on the `004913a` build (the primary desktop): paired-world leak tests PASS (counterspell 50/50 whole-game identical, cantrip 50, randomized 200, self-tests), X4b goldens regenerated (only `source_revision` changed) and replayed 5/5, conformance runner 21/21 on Standard and FDN decks.
+- 2026-10-02: X5m prepared on `xmage-m1` (from `main` `fb80e58`): fdn-mirror-v0 definition and rated-run script (public steps: the definition's merge, the commitment push, a third-party timestamp, the results push; the site deploys on each push to `main`). #23's open checks on the `004913a` build scripted in `tests/x5/run-23-checks.sh` (leak tests and X4b goldens), to run once the primary desktop is released.
 - 2026-10-02 02:15: superseded history: an X5 run on build `d74803d5` (branch `xmage-x0-x1`) finished 10,112 games, 0 violations, 0 halts; its hash recheck stopped at 713 of 1,011 (all equal). Main's reviewed `004913a` build replaces it; its evidence is kept under `tests/x5/evidence/superseded-d74803d5/`.
-- 2026-10-01: X2 done on HaleysPC (Jack's PC reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
+- 2026-10-01: X2 done on the compute host (the primary desktop reserved for the research lead's timing run until about 03:35 EDT). Engine declares `deck_sources: [catalog, decklist]` (P's conformance runner takes catalog decks only). Found and fixed: the repo `.gitignore` had silently dropped `patches/build/` (now `patches/build-only/`).
 - 2026-10-01: A0 design drafted. Finding: at the pin, XMage's rule-based `ComputerPlayer` passes every priority and never attacks, so the H roster becomes MAD on 1 world (H1), MAD voting over K worlds (H2), MCTS (H3); pending the Sol review.
-- 2026-10-01 19:45: D4 sole-copy backup done: 16,165 files (52.1 GB) on E:, two full hash passes clean, registered. Lesson: E: is an SMR drive, and our copy's write stall (18:10 to 18:31) likely contributed to the research lead's training stop; recorded on both sides. On hold until the research lead's training continuation and 5-hour screen evaluation finish on Jack's PC (likely into 2026-10-02), queued in this order:
+- 2026-10-01 19:45: D4 sole-copy backup done: 16,165 files (52.1 GB) on E:, two full hash passes clean, registered. Lesson: E: is an SMR drive, and our copy's write stall (18:10 to 18:31) likely contributed to the research lead's training stop; recorded on both sides. On hold until the research lead's training continuation and 5-hour screen evaluation finish on the primary desktop (likely into 2026-10-02), queued in this order:
   1. the X5 resume;
   2. the `fdn-mirror-v0` first rated run;
   3. kit qualification and soak;
-  4. the HaleysPC dedupe (reads only on E:).
-  HaleysPC is below the reserve (57 GB free) because of the Codex FDN build caches.
+  4. the compute host dedupe (reads only on E:).
+  The compute host is below the reserve (57 GB free) because of the Codex FDN build caches.
 - 2026-10-01 18:45: X5 final rerun paused at 3,544 of 10,112 games.
-  - So far on the final build (`d74803d5`, HaleysPC, guard chose 6 workers): 0 violations over 2,030,290 decisions, 0 halts.
-  - Digests vs the earlier Jack's PC run: all 1,772 FDN games equal; 1,617 of 1,772 Standard games equal, and the 155 that changed are in the decks the two determinism fixes target.
-  - Paused because HaleysPC C: fell back to the reserve: a Codex cloud task's cargo builds into `C:/Users/haley/mtg-kernel-fdn-*-target` (about 21 GB, growing). Resumes on Jack's PC after tonight's evaluation, or on HaleysPC with 2 GiB or more of headroom.
-- 2026-10-01 18:00: Jack delegated the `C:/mtg-node` decisions.
+  - So far on the final build (`d74803d5`, the compute host, guard chose 6 workers): 0 violations over 2,030,290 decisions, 0 halts.
+  - Digests vs the earlier primary desktop run: all 1,772 FDN games equal; 1,617 of 1,772 Standard games equal, and the 155 that changed are in the decks the two determinism fixes target.
+  - Paused because the compute host C: fell back to the reserve: a Codex cloud task's cargo builds into `~/mtg-kernel-fdn-*-target` (about 21 GB, growing). Resumes on the primary desktop after tonight's evaluation, or on the compute host with 2 GiB or more of headroom.
+- 2026-10-01 18:00: The maintainer's delegated the `C:/mtg-node` decisions.
   - The sole-copy D4 production worker outputs (52 GB) are being copied to E: with full hash verification.
   - Deduping the seven E:-covered trees (about 117 GB) is scheduled after tonight's evaluation, with full-file hash checks first.
-- 2026-10-01 17:30: HaleysPC C: raised from 35.3 GB to 69.51 GiB free, above the 60 GiB reserve.
+- 2026-10-01 17:30: The compute host C: raised from 35.3 GB to 69.51 GiB free, above the 60 GiB reserve.
   - The build.rs session deleted its 23 GB build cache.
-  - Jack's April XMage RL snapshots and logs (93 files, 12.14 GiB) moved to `E:/haleyspc-archive/mage-airl-profiles-202604/` with a hash-verified manifest (`MOVED.md`, registered in the catalog).
-  - The research lead will check `C:\mtg-node` (210 GB of unregistered Codex outputs) against E: tonight and report to Jack.
-  - Run order on HaleysPC: X5 final rerun, then the `fdn-mirror-v0` first rated run, then kit qualification and soak.
+  - The maintainer's April XMage RL snapshots and logs (93 files, 12.14 GiB) moved to `E:/computehost-archive/mage-airl-profiles-202604/` with a hash-verified manifest (`MOVED.md`, registered in the catalog).
+  - The research lead will check `C:\mtg-node` (210 GB of unregistered Codex outputs) against E: tonight and report to the maintainer.
+  - Run order on the compute host: X5 final rerun, then the `fdn-mirror-v0` first rated run, then kit qualification and soak.
 - 2026-10-01 16:00: kit second review round. Sol first returned NOT READY (5 items); after the fixes it returned READY FOR QUALIFICATION at `xmage-agent-kit` 4580f8f.
   - Three more bugs fixed: unoffered actions chosen from XMage's playable list; an upstream MCTS crash on an empty combat group; MCTS running out of memory during blocking, now capped at 128 engagements (new `kit-mcts` identity, labelled).
   - Plan: H1 and H2 go into the first qualification and soak on `fdn-mirror-v0` (1,000 games each against P's builtins); H3 gets its own qualification at 120 s per decision.
-  - Waiting for a guarded machine: Jack's PC is held for the research lead's screen training, and HaleysPC is under the disk reserve.
-- 2026-10-01 14:30: X5 determinism fixed and verified on HaleysPC.
+  - Waiting for a guarded machine: The primary desktop is held for the research lead's screen training, and the compute host is under the disk reserve.
+- 2026-10-01 14:30: X5 determinism fixed and verified on the compute host.
   - All `ability_index` values now come from one ordering: own abilities in XMage's order, then granted abilities by rule text. This covers Agatha's Soul Cauldron and six more cards that grant abilities from a hash set.
   - 98/98 games are digest-identical under both identity-hash modes, including all 47 Standard16-UG games.
-  - Some main-run digests changed, so the full 10,112-game run is repeated on the final build. Queued for Jack's PC tonight, with the kit qualification and soak and `fdn-mirror-v0`.
+  - Some main-run digests changed, so the full 10,112-game run is repeated on the final build. Queued for the primary desktop tonight, with the kit qualification and soak and `fdn-mirror-v0`.
 - 2026-10-01 13:30: kit build-out done (branch `xmage-agent-kit` f14bb44).
   - Frozen entries: `kit-mad-1` 0.2.0+71444ecbf4b3, `kit-mad-k` 0.2.0+b0baca643a2a, `kit-mcts` 0.2.0+b1166f62616a (rollout cap 1000).
   - Real bug found and fixed: the rebuilt world made the active player XMage's current player, so MAD searched the opponent's options on the opponent's turn.
   - 13 games through P's host, 0 violations.
   - `kit-mcts` costs 17.9 s median per MCTS decision (max 51 s).
-  - Change 8 (guarded qualification, then a soak) waits for a Sol check and a machine. Jack's PC is held for the research lead until tonight. HaleysPC is refused by the disk reserve (37 GB free of 60).
+  - Change 8 (guarded qualification, then a soak) waits for a Sol check and a machine. The primary desktop is held for the research lead until tonight. The compute host is refused by the disk reserve (37 GB free of 60).
 - 2026-10-01 12:30: X5 determinism. The warm-up fix verified on 169 games. A second cause in Standard16-UG (abilities granted by Agatha's Soul Cauldron listed in identity-hash order) is getting an overlay fix: granted abilities ordered by public keys, so `card_pool_identity` stays unchanged.
 - 2026-10-01 11:50: X5.
-  - Final run on Jack's PC through P's `plan_allocation` guard (12 workers chosen; 1, 12 and 24 measured): 10,112 games on both pools (32 decks, all accepted), 0 validator violations over 5,982,064 decisions, 0 halts, 0 truncations, 200.6 games per minute.
+  - Final run on the primary desktop through P's `plan_allocation` guard (12 workers chosen; 1, 12 and 24 measured): 10,112 games on both pools (32 decks, all accepted), 0 validator violations over 5,982,064 decisions, 0 halts, 0 truncations, 200.6 games per minute.
   - Paired-world leak tests pass: counterspell 50 pairs, cantrip 50, randomized 200, and a 5/5 injected-leak self-test.
   - New core patch X-P4 (hash-ordered token creation): `rules_snapshot_id` is now `...-xpat-6f8a902b...`.
-  - Open: 17 of 1,011 identity-hash replays differed, caused by an AI scoring class that mints ids on first load. The warm-up fix is committed and being verified on HaleysPC.
+  - Open: 17 of 1,011 identity-hash replays differed, caused by an AI scoring class that mints ids on first load. The warm-up fix is committed and being verified on the compute host.
   - Label: "fairness: validator only".
-  - Jack's PC is off-limits to us from 14:00 for the research lead's timing and screen training (6 to 11 hours).
+  - The primary desktop is off-limits to us from 14:00 for the research lead's timing and screen training (6 to 11 hours).
 - 2026-10-01 10:15: A1 build-out.
   - Changes 1 to 7 built and mostly run: continuation passes on real positions; all clock checks pass; register and pool audit clean (394 cards); the A3 cantrip pair is identical for all three entries; E7 matches upstream 61/61. Five bugs found and fixed.
   - Decision (coordinator, standing authorization): the pre-registered 50% truncation threshold fired for `kit-mcts` at rollout cap 300 (97 to 100% truncated), so the entry is re-frozen at cap 1000 (0% truncated measured). A4 measures the cost before any rating.
-  - The final consolidated run waits for HaleysPC, which is held for another session's timing pass.
-  - HaleysPC C: is down to 35 GB free (mostly not ours).
+  - The final consolidated run waits for the compute host, which is held for another session's timing pass.
+  - The compute host C: is down to 35 GB free (mostly not ours).
 - 2026-10-01 09:00: X5 status.
-  - The 10,112-game run started on Jack's PC at 08:15. It was stopped at 08:2x so the research lead's calibration could have the PC (until about 11:30 EDT). 2,216 games had finished, with 0 violations and 62 halts from two decks; both causes are fixed (`dead_end:choose_target` for "two targets with different controllers", `unsupported:multi_amount` for "mana in any combination").
+  - The 10,112-game run started on the primary desktop at 08:15. It was stopped at 08:2x so the research lead's calibration could have the PC (until about 11:30 EDT). 2,216 games had finished, with 0 violations and 62 halts from two decks; both causes are fixed (`dead_end:choose_target` for "two targets with different controllers", `unsupported:multi_amount` for "mana in any combination").
   - Leak test: 50 counterspell-position pairs give identical acting-seat streams.
-  - P's guarded launcher refuses HaleysPC, which has only 54.6 GiB free on C: (below the 60 GiB reserve), so the full run waits for Jack's PC on the fixed build (about 50 minutes).
-  - A1 build-out: changes 1 to 7 coded, running on HaleysPC. The register scan admits 27 of the 32 pool decks; the 5 excluded carry restricted-mana lands or Gwenna.
-- 2026-10-01: A1 vertical slice passed (S1 to S9, E1 to E8 and the eight review changes, two partial items). H1 played 12 games and H2/H3 3 more through P's host with 0 violations. Costs: world build 5 to 9 ms, MAD about 0.1 s median per decision, 76 to 81% of decisions need no world, slice 3.5 agent-hours. Coordinator decisions under Jack's standing authorization:
+  - P's guarded launcher refuses compute host, which has only 54.6 GiB free on C: (below the 60 GiB reserve), so the full run waits for the primary desktop on the fixed build (about 50 minutes).
+  - A1 build-out: changes 1 to 7 coded, running on the compute host. The register scan admits 27 of the 32 pool decks; the 5 excluded carry restricted-mana lands or Gwenna.
+- 2026-10-01: A1 vertical slice passed (S1 to S9, E1 to E8 and the eight review changes, two partial items). H1 played 12 games and H2/H3 3 more through P's host with 0 violations. Costs: world build 5 to 9 ms, MAD about 0.1 s median per decision, 76 to 81% of decisions need no world, slice 3.5 agent-hours. Coordinator decisions under the maintainer's standing authorization:
   1. H3 uses truncated rollouts, labelled on the board;
   2. watcher reset is an approximate-world baseline flag, with watcher history for pool cards as build-out;
   3. E4's pre-registered decline on ambiguous stack triggers stands, with exact multi-trigger identity as build-out.
   Open: 9 of 2,460 H1 answers were MAD choices the engine did not offer.
-- 2026-10-01: X5 started (pools, leak tests, then the 10,000-game run on Jack's PC and HaleysPC, until about 11:00 EDT).
+- 2026-10-01: X5 started (pools, leak tests, then the 10,000-game run on the primary desktop and the compute host, until about 11:00 EDT).
 - 2026-10-01: X4 stage 2 done: goldens (X4b), fallback audit (X4c), combat oracle (X4d), hash-order audit (X4h); `rules_snapshot_id` unchanged; conformance 20/20 and 200-game soak still clean. Gap: attacks or blocks with a cost are never offered. Evidence `tests/x4s2/`.
-- 2026-10-01: X5 plan: after X4 stage 2 and once Jack's PC is free (about 07:00 EDT), run the compute-policy scaling comparison through P's run machinery (Jack's PC 24 threads, HaleysPC 16 cores shared, RunPod costed), then the 10,000-game live-validated run on the chosen allocation, then `fdn-mirror-v0`.
-- 2026-10-01: started X4 stage 2 (X4b goldens, X4c audit, X4d oracle, X4h audit) on `xmage-x0-x1` and the A1 vertical slice on `xmage-agent-kit` (worktree `D:/spellbench-wt/xmage-kit`), both building on HaleysPC at below-normal priority (shared with an mtg-kernel session; Jack's PC held for the research lead's calibration until about 07:00 EDT).
-- 2026-10-01: X4 stage 1 done (Opus agent, HaleysPC): whole games play through P's host with the live validator. Conformance runner 20/20 (`--games 20`); 200-game soak 0 violations, 0 halts, 95,130 decisions; game digests equal across process counts and reruns; 40 games/min in 12 processes. Fixed: process-wide cache of parsed mana costs made ids depend on game history (mapper parses mana itself; `-Dspellbench.trace.ids` diagnostic). Evidence: `tests/x4/`.
-- 2026-10-01: X3 done (Opus agent, built on HaleysPC): P's validator V1, V2, V4 to V9 plus six invariants over 360 random games, zero failures; mutation test catches 8 of 8 injected faults. Six spec questions for P recorded in `tests/x3/README.md`.
+- 2026-10-01: X5 plan: after X4 stage 2 and once the primary desktop is free (about 07:00 EDT), run the compute-policy scaling comparison through P's run machinery (the primary desktop 24 threads, the compute host 16 cores shared, RunPod costed), then the 10,000-game live-validated run on the chosen allocation, then `fdn-mirror-v0`.
+- 2026-10-01: started X4 stage 2 (X4b goldens, X4c audit, X4d oracle, X4h audit) on `xmage-x0-x1` and the A1 vertical slice on `xmage-agent-kit` (worktree `D:/spellbench-wt/xmage-kit`), both building on the compute host at below-normal priority (shared with an mtg-kernel session; the primary desktop held for the research lead's calibration until about 07:00 EDT).
+- 2026-10-01: X4 stage 1 done (Opus agent, the compute host): whole games play through P's host with the live validator. Conformance runner 20/20 (`--games 20`); 200-game soak 0 violations, 0 halts, 95,130 decisions; game digests equal across process counts and reruns; 40 games/min in 12 processes. Fixed: process-wide cache of parsed mana costs made ids depend on game history (mapper parses mana itself; `-Dspellbench.trace.ids` diagnostic). Evidence: `tests/x4/`.
+- 2026-10-01: X3 done (Opus agent, built on the compute host): P's validator V1, V2, V4 to V9 plus six invariants over 360 random games, zero failures; mutation test catches 8 of 8 injected faults. Six spec questions for P recorded in `tests/x3/README.md`.
 - 2026-10-01: engine finding from the A0 work: `ComputerPlayer.playMana` orders mana producers with identity-hash ties (`MageObjectImpl`, `CardImpl`, `PermanentImpl` have no `hashCode`), and `engine_autopay` runs it, so X4e must rerun the X1 digest checks under autopay; a fix would be patch X-P4 (owned by X4h). X1's games used CABT's step-wise mana prompts and never exercised this path.
 - 2026-10-01: A0 revisions 2 and 3 written; Sol round 2: BLOCK narrowed to 6 items; round 3: APPROVE WITH CHANGES (eight changes bound to the A1 vertical slice). A1 starts with the vertical slice, revised estimate 26 to 36 agent-days for tracks A and H before learned bots. Roster: kit-wrapped MAD on one world (H1), MAD K-world vote (H2), MCTS (H3); P's builtin heuristic is the cheap non-search baseline.
 - 2026-10-01: A0 review (GPT-6.1 Sol, xhigh): BLOCK with 12 required changes (MCTS rollouts re-deal hidden cards; whole-resolution replay repeats effects; MAD is not deterministic; plan identities break across zone changes; percentage rebuild bars hide rare decisive errors). Revision 2 in progress; A1 waits for approval. Log: `E:/spellbench-archive/program-research/reviews/REVIEWS.md`.
-- 2026-10-01: R0 outreach drafts written for Jack (`E:/spellbench-archive/program-research/x-outreach-drafts.md`).
+- 2026-10-01: R0 outreach drafts written for the maintainer (`E:/spellbench-archive/program-research/x-outreach-drafts.md`).
 - 2026-09-30: issues #13 to #36 opened; branch pushed, PR into `board-program`.
 - 2026-09-30: X0 and X1 done (README evidence). Tracker created. Critical path to M2: X2, X3, X4, X5, X5m, plus A0 to A2 in parallel once X3 fixes the observation shape.

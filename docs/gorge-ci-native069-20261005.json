@@ -34,7 +34,7 @@
       "bytes": 8223
     }
   },
-  "placement": "main-pc=unavailable: observed research generation184 London pilot002 retains priority; haleyspc=unavailable: observed queued training-performance window retains priority per CODEX811; runpod=not_authorized: remaining all-in cap cannot cover retained ancillary floor; github-actions=used: standard public runner, actual cores memory disk and matched throughput checked before substantial work",
+  "placement": "main-pc=unavailable: observed research generation184 London pilot002 retains priority; computehost=unavailable: observed queued training-performance window retains priority per CODEX811; runpod=not_authorized: remaining all-in cap cannot cover retained ancillary floor; github-actions=used: standard public runner, actual cores memory disk and matched throughput checked before substantial work",
   "repository_private": false,
   "conservative_reserved_total_usd": 9.96136347,
   "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-038",
@@ -128,5 +128,5 @@
   },
   "reference_bundle_refusal": "The exact hosted attempt did not finish and recover a full native pass",
   "reference_bundle_created": false,
-  "current_placement_decision": "collab placement665dece supersedes prior queued priorities; preserve XMage next bounded Haley stage and Luna Jack diagnostic plus actual canonical claims"
+  "current_placement_decision": "collab placement665dece supersedes prior queued priorities; preserve XMage next bounded compute host stage and Luna the maintainer's diagnostic plus actual canonical claims"
 }

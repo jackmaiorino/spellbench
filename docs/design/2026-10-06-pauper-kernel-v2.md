@@ -1,16 +1,16 @@
 # Pauper-kernel v2: one Pauper board for kernel models, XMage and gorge bots
 
-Status: route decided. On 2026-10-06 Jack chose the single board with world-model
+Status: route decided. On 2026-10-06 the maintainer chose the single board with world-model
 agents (C1 to C3) over separate per-engine Pauper boards. The remaining changes are
 proposals for review. Owner: the Spellbench lead (Claude),
-per Jack's 2026-10-06 assignment. This proposal changes no frozen gate,
+per the maintainer's 2026-10-06 assignment. This proposal changes no frozen gate,
 commitment, running qualification or existing benchmark definition. Everything
 below applies to a new evaluation version of `pauper-kernel-v2`; the v1
 `pauper-kernel` board and its two published runs stay frozen as history.
 
 ## Goal
 
-Jack, 2026-10-06: get all XMage heuristic bots and all gorge bots up against the
+The maintainer, 2026-10-06: get all XMage heuristic bots and all gorge bots up against the
 pauper-kernel benchmark, with a v2 of its protocol. Success is the gorge and
 XMage families rated on the same eight-deck Pauper board as g115, a48 and c12,
 on one engine, with ratings that are directly comparable.

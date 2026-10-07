@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from xmage_encoder_sources import stage
-from xmage_jack_sources import stage as stage_jack
+from xmage_maintainer_sources import stage as stage_maintainer
 from xmage_magezero_sources import stage as stage_magezero
 from xmage_magezero_search_sources import stage as stage_magezero_search
 from xmage_search_sources import stage as stage_search
@@ -44,13 +44,13 @@ def main() -> int:
     parser.add_argument("--magezero-inputs", type=Path, help="verified public MageZero v0.2 encoder input root")
     parser.add_argument("--magezero-search-inputs", type=Path, help="verified original MageZero v0.2 search source input root")
     parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
-    parser.add_argument("--jack-inputs", type=Path, help="owned private Jack encoder input root")
-    parser.add_argument("--jack-manifest", type=Path, help="private pinned Jack input manifest")
+    parser.add_argument("--maintainer-inputs", type=Path, help="owned private maintainer encoder input root")
+    parser.add_argument("--maintainer-manifest", type=Path, help="private pinned maintainer input manifest")
     parser.add_argument("--current-overlay", action="store_true",
                         help="compile the current public observation/decision overlay into the pinned kit classpath")
     args = parser.parse_args()
-    if bool(args.jack_inputs) != bool(args.jack_manifest):
-        raise ValueError("Jack build needs both its private inputs and manifest")
+    if bool(args.maintainer_inputs) != bool(args.maintainer_manifest):
+        raise ValueError("the maintainer's build needs both its private inputs and manifest")
     if args.magezero_search_inputs and not args.magezero_inputs:
         raise ValueError("MageZero search requires its separately pinned original encoder")
     repo = Path(__file__).resolve().parents[2]
@@ -58,7 +58,7 @@ def main() -> int:
     engine = args.engine.resolve()
     # Qualification uses the reviewed build, not an arbitrary release bundle.
     engine_manifest_sha = verify_model_engine(engine, compile_only=args.compile_only,
-                                             private_inputs=bool(args.jack_inputs))
+                                             private_inputs=bool(args.maintainer_inputs))
     jdk = subprocess.run([args.javac, "-version"], check=True, capture_output=True, text=True)
     version = (jdk.stdout + jdk.stderr).strip()
     if version != "javac 23.0.1":
@@ -71,8 +71,8 @@ def main() -> int:
                              args.out / "magezero-sources") if args.magezero_inputs else None
     magezero_search = stage_magezero_search(json.loads(manifest.read_text()), args.magezero_search_inputs,
                                            args.out / "magezero-search-sources") if args.magezero_search_inputs else None
-    jack = stage_jack(json.loads(args.jack_manifest.read_bytes()), args.jack_inputs,
-                      args.out / "jack-sources") if args.jack_inputs else None
+    maintainer = stage_maintainer(json.loads(args.maintainer_manifest.read_bytes()), args.maintainer_inputs,
+                      args.out / "maintainer-sources") if args.maintainer_inputs else None
     dependencies = []
     if search or magezero_search:
         search_assets = {a["id"]: a for a in json.loads(manifest.read_text())["assets"]}
@@ -101,16 +101,16 @@ def main() -> int:
         source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
                                 and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java",
                                                    "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java",
-                                                   "JackModeEncoder.java", "JackModeEncoderMain.java",
-                                                   "JackDialogEncoder.java", "JackDialogEncoderMain.java", "JackDialogReplay.java", "JackInheritedChoices.java", "JackTriggerOrder.java", "JackLibraryOrder.java", "JackTargetAmount.java", "JackNamedChoices.java", "JackManaReplay.java", "JackManaReplayCheck.java",
-                                                   "JackTargetEncoder.java", "JackTargetEncoderMain.java",
-                                                   "JackGeneralTargetEncoder.java", "JackGeneralTargetEncoderMain.java",
-                                                   "JackGeneralTargetNormalizationCheck.java",
-                                                   "JackCardSetEncoder.java", "JackCardSetEncoderMain.java",
-                                                   "JackParentCardEncoder.java", "JackParentCardEncoderMain.java", "JackCombatMain.java",
-                                                   "JackLondonMain.java", "JackLondonPlan.java", "JackCombatPlan.java")]
-    if jack:
-        source_sets["model"] += sorted((args.out / "jack-sources").rglob("*.java"))
+                                                   "MaintainerModeEncoder.java", "MaintainerModeEncoderMain.java",
+                                                   "MaintainerDialogEncoder.java", "MaintainerDialogEncoderMain.java", "MaintainerDialogReplay.java", "MaintainerInheritedChoices.java", "MaintainerTriggerOrder.java", "MaintainerLibraryOrder.java", "MaintainerTargetAmount.java", "MaintainerNamedChoices.java", "MaintainerManaReplay.java", "MaintainerManaReplayCheck.java",
+                                                   "MaintainerTargetEncoder.java", "MaintainerTargetEncoderMain.java",
+                                                   "MaintainerGeneralTargetEncoder.java", "MaintainerGeneralTargetEncoderMain.java",
+                                                   "MaintainerGeneralTargetNormalizationCheck.java",
+                                                   "MaintainerCardSetEncoder.java", "MaintainerCardSetEncoderMain.java",
+                                                   "MaintainerParentCardEncoder.java", "MaintainerParentCardEncoderMain.java", "MaintainerCombatMain.java",
+                                                   "MaintainerLondonMain.java", "MaintainerLondonPlan.java", "MaintainerCombatPlan.java")]
+    if maintainer:
+        source_sets["model"] += sorted((args.out / "maintainer-sources").rglob("*.java"))
     if magezero:
         source_sets["model"] += sorted((args.out / "magezero-sources").rglob("*.java"))
     else:
@@ -151,8 +151,8 @@ def main() -> int:
               "search_stage": search,
               "magezero_stage": magezero,
               "magezero_search_stage": magezero_search,
-              "jack_stage": jack,
-              "jack_inputs_manifest_sha256": hashlib.sha256(args.jack_manifest.read_bytes()).hexdigest() if jack else None,
+              "maintainer_stage": maintainer,
+              "maintainer_inputs_manifest_sha256": hashlib.sha256(args.maintainer_manifest.read_bytes()).hexdigest() if maintainer else None,
               "current_overlay_compiled": args.current_overlay,
               "dependency_sha256": {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies},
               "class_files_sha256": {str(p.relative_to(args.out)): hashlib.sha256(p.read_bytes()).hexdigest()

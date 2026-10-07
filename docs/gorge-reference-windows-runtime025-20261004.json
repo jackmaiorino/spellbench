@@ -8,7 +8,7 @@
   },
   "checks": {
     "command": [
-      "C:\\Users\\Jack\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\.venv\\Scripts\\python.exe",
+      "~\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\.venv\\Scripts\\python.exe",
       "-m",
       "pytest",
       "-q",

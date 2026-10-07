@@ -133,7 +133,7 @@
     "private_values_serialized": false,
     "search_aggregate_identical": true
   },
-  "resource_constraint": "Jack generation108 research replacement; Haley queued training-performance window retains priority per CODEX811; RunPod REST inventory403 and no assigned paid allocation",
+  "resource_constraint": "The maintainer's generation108 research replacement; the compute host queued training-performance window retains priority per CODEX811; RunPod REST inventory403 and no assigned paid allocation",
   "prune": {
     "removed": [],
     "retained": "Failed and capped attempts and every cited input in full; D is the independent recovery source"

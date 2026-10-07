@@ -267,7 +267,8 @@
         "author": "XMage / Spellbench",
         "description": "XMage's ComputerPlayer7 (MAD) at skill 6 on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
-      }
+      },
+      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
     },
     {
       "name": "kit-mad-k",
@@ -304,7 +305,8 @@
         "author": "XMage / Spellbench",
         "description": "As kit-mad-1, voting over four sampled hidden worlds per decision. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
-      }
+      },
+      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
     },
     {
       "name": "kit-mcts",
@@ -340,7 +342,8 @@
         "author": "XMage / Spellbench",
         "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts (at most 30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator), paced by the bank: each search stops at the remaining bank over 20 plus the increment, at least 12 s. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
-      }
+      },
+      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
     }
   ],
   "qualification_sample": [
@@ -357,12 +360,14 @@
     "projected_bytes": 17179869184,
     "cap_bytes": 25769803776
   },
-  "evaluation_engine_identity": "5c0287b687a4047dc6bebbd8fdd3d5d817bf2b160e75efe09606b33471e092b1",
+  "evaluation_engine_identity": "cd5637aa96282d914873827b0b191bd77477489108a3bd6928ca8c703c6aa6fc",
   "evaluation_targets": [
     "a48",
     "c12",
     "g115",
-    "llm-gpt-6-luna",
+    "kit-mad-1",
+    "kit-mad-k",
+    "kit-mcts",
     "uniform"
   ]
 }

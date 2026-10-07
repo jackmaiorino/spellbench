@@ -20,7 +20,7 @@ VERDICT = dict(closed=True, seed_blocks=320, completed_games=640, outputs_identi
     native_seal_sha256='native-fixture', runtime_seal_sha256='runtime-fixture')
 NODES = tuple(pool.PoolNode(f'node-{i}', 4, 16*2**30, 90*2**30, 'source-fixture',
     'native-fixture', 'runtime-fixture') for i in range(2))
-PLACEMENT = ('main-pc=unavailable: reserved; haleyspc=unavailable: priority; '
+PLACEMENT = ('main-pc=unavailable: reserved; computehost=unavailable: priority; '
     'runpod=not_authorized: cap; github-actions=used: two synthetic slots')
 
 

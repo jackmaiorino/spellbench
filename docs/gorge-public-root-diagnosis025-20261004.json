@@ -30,5 +30,5 @@
   "closed_spend_conservative_ceiling_usd": 5.33678747,
   "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-007",
   "final_invoice_verified": false,
-  "resource_priority": "Jack PC remains reserved for research pilot002; Haley queued training priority retained; no current owned gorge pod."
+  "resource_priority": "The maintainer PC remains reserved for research pilot002; the compute host queued training priority retained; no current owned gorge pod."
 }

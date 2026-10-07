@@ -16,7 +16,7 @@
 #                  (XMAGE_REPO: an XMage clone holding the pinned commit; M2: a Maven repository)
 #   SPELLBENCH_PIN_ROOT, SPELLBENCH_ARTIFACT_REGISTER, SPELLBENCH_SECRETS_DIR   P's rated-run values (bench commit
 #                  checks them before publishing anything); the secrets directory must lie outside every git tree
-#   PLACEMENT      the COMPUTE-POLICY placement note: 'main-pc=...; haleyspc=...; runpod=...'
+#   PLACEMENT      the COMPUTE-POLICY placement note: 'main-pc=...; computehost=...; runpod=...'
 set -euo pipefail
 STAGE="${1:-}"; shift || true
 APPROVED=""; RUN=""; PROOF=""; REHEARSE=0
@@ -123,7 +123,7 @@ print('definition ok:', b.id, len(schedule(c, RunSecret.generate())), 'games')" 
   fi
   rm -rf "$SB_SCRATCH/work"/*
   log "=================================================================================="
-  log "STOP. Everything above was private. The next steps are PUBLIC and need Jack's confirmation:"
+  log "STOP. Everything above was private. The next steps are PUBLIC and need the maintainer's confirmation:"
   log "  1. run_rated.sh commit --approved '<who, when>'   pushes COMMITMENT.json to origin/main"
   log "     (the push also redeploys the site); 2. a third-party timestamp of that commit (README);"
   log "  3. run_rated.sh play --run NAME --proof URL (private until 4); 4. run_rated.sh publish --run NAME"

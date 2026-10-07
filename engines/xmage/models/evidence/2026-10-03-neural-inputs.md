@@ -7,7 +7,7 @@ check uses synthetic initialized weights.
 | Inputs | Observed result | Remaining association or adapter work |
 |---|---|---|
 | DraftZero Exp1 gen0, gen10, gen33 | All strictly load in isolation; each repeatedly selects an offered target and boolean candidate; gen33 repeats original priority, target, binary, visible-library and numeric searches | Named replay, full history across transitions, remaining callbacks and complete-game qualification |
-| Jack's five current policy/mulligan pairs | All strictly load and repeat finite inference on five candidate heads, legacy actor and mulligan; Standard preserves its older two-Q rule | Exact decks, feature/cache/source associations and complete fair game adapter |
+| The maintainer's five current policy/mulligan pairs | All strictly load and repeat finite inference on five candidate heads, legacy actor and mulligan; Standard preserves its older two-Q rule | Exact decks, feature/cache/source associations and complete fair game adapter |
 | MageZero v0.1 and v0.2 bundles | ZIP directories contain no pretrained weights; raw and original `.mz` export contracts are wired | Author weights, exact deck list and encoder metadata; complete fair adapter |
 
 The immutable inference image is
@@ -81,8 +81,8 @@ Completed fixtures' disposable card-database copies are pruned with a path,
 size and hash receipt; their pinned original remains on E. Formal replay and
 rated qualification still require the complete agent and guarded launcher.
 
-Private Jack encoder preparation is retained at
-`E:/spellbench-xmage-all-20261002/jack-fair-preparation-001/` with a verified D
+Private maintainer encoder preparation is retained at
+`E:/spellbench-xmage-all-20261002/maintainer-fair-preparation-001/` with a verified D
 recovery copy. The original April source hash is
 `51504c1ffffbf5db8554258b5dca28f54f26bb7760121e0098561eac0b14b916`;
 the staged fair source hash is
@@ -108,7 +108,7 @@ The updated real fixtures include candidate IDs, masks and features in their
 hidden-sample comparison. Source staging alone is not game or checkpoint
 qualification.
 
-The guarded build 039 and real Jack priority checks completed exit 0 in
+The guarded build 039 and real maintainer priority checks completed exit 0 in
 20.547 seconds at public source `9fd90a1b7ae25be774da13a409aaa44905ba2ad8`.
 Both active and nonactive views pass: each varies eight hidden samples without
 changing base or candidate features, detects visible life changes and binds
@@ -119,7 +119,7 @@ masked. Build manifest SHA-256 is
 check SHA-256 is
 `055be1ddab22b8e0d602969b14293d719bece97682368c4f65b8f9a1eb3b1036`.
 All 160 source, class and receipt files were copied and reread against their
-hashes in `E:/spellbench-xmage-all-20261002/jack-priority-check-001/`.
+hashes in `E:/spellbench-xmage-all-20261002/maintainer-priority-check-001/`.
 Closure SHA-256 is
 `fc810ed79249def5d882909ea4d8325745d1d845b984458f7f734bc8b8a7926d`.
 The completed fixture's 311,762,944-byte card lookup cache was pruned with a
@@ -187,7 +187,7 @@ Closure SHA-256 is
 The closed lookup cache was pruned with a receipt. Full transition history,
 remembered permanent choices, remaining callbacks and complete games remain open.
 
-All five current Jack policy/mulligan pairs now also pass isolated inference
+All five current maintainer policy/mulligan pairs now also pass isolated inference
 on the actual Java priority fixtures, with active and nonactive views repeated
 identically, normalized finite 64-slot probabilities and zero probability on
 padding. Elves uses a fresh fixture with its own pinned embedding cache; the
@@ -200,7 +200,7 @@ confirmed absent. Check SHA-256 is
 Elves fixture SHA-256 is
 `779e03a7783b1b1d4811025f57824d1dc2215fc33732204336642066ea85c27a`.
 All 24 fixture, probe, source-archive and driver copies were reread in
-`E:/spellbench-xmage-all-20261002/jack-real-features-001/`.
+`E:/spellbench-xmage-all-20261002/maintainer-real-features-001/`.
 Closure SHA-256 is
 `d67a12fe16b440c3d207bb0a4f2e6c7db2cd2d0623b5ec393dd6d387f43fe219`.
 The closed Elves lookup cache was pruned with a receipt; the aggregate model
@@ -328,11 +328,11 @@ that counts both writable card DBs. It references existing model assets
 without copying them, preserves their unchanged 6 GiB aggregate input cap
 and both 60 GiB volume reserves, and authorizes no paid compute.
 
-At 19:19 UTC the guarded dispatch is not started: Jack's canonical claim
+At 19:19 UTC the guarded dispatch is not started: The maintainer's canonical claim
 generation 132 belongs to `codex-lead-20261002`, work
 `complete-agent-calibration-formal-001-002`. The retained `NOT-STARTED.json`
 records zero owned processes and no run manifest. The prepared check requires
-its own free canonical claim before dispatch. Haley's reserved work and
+its own free canonical claim before dispatch. The compute host's reserved work and
 frozen measurements are unchanged. Complete-game qualification, remaining
 callbacks, fork combat retry parity and all learned ratings/publication remain
 unfinished. Native ratings still require review of the benchmark definition.

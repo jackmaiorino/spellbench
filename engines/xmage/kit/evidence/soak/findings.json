@@ -16,19 +16,19 @@
  "failed_search_cause": "Witness Protection renames the enchanted creature 'Legitimate Businessperson'; the world builder rebuilds permanents by their observed card_name and has no card class for that name, so every priority and combat search of the seat fails while such a creature is on the battlefield",
  "deadline_interrupts": {
   "main-pc:kit-mad-k:\"deadline_interrupt\"": 63,
-  "haleyspc:kit-mad-k:\"deadline_interrupt\"": 1
+  "computehost:kit-mad-k:\"deadline_interrupt\"": 1
  },
  "games_with_deadline_interrupt": 33,
  "decisions_over_60s": {
   "main-pc:kit-mad-k": 127,
   "main-pc:kit-mad-1": 4,
-  "haleyspc:kit-mad-k": 22
+  "computehost:kit-mad-k": 22
  },
  "max_decision_ms": {
   "main-pc:kit-mad-k": 113324,
   "main-pc:kit-mad-1": 97917,
-  "haleyspc:kit-mad-1": 35158,
-  "haleyspc:kit-mad-k": 113206
+  "computehost:kit-mad-1": 35158,
+  "computehost:kit-mad-k": 113206
  },
  "deadline_replay": {
   "games": 6,
@@ -45,7 +45,7 @@
    ],
    "batches": 2
   },
-  "haleyspc": {
+  "computehost": {
    "agent_dirs_left": [],
    "batches": 1
   }

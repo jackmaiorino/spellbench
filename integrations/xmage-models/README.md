@@ -79,7 +79,7 @@ incompatible with v0.1 models. Keep those versions separate. An author export
 can enter the existing hash-pinned isolated loading path as soon as those
 inputs arrive; an exact deck association is still required before serving.
 
-Jack reported no known additional checkpoint locations on October 3. A
+The maintainer reported no known additional checkpoint locations on October 3. A
 concise author request is:
 
 > Could you share MageZero's publicly distributable pretrained models,
@@ -208,7 +208,7 @@ Local checkpoint, source-code and feature-data assets require recorded
 provenance and an already staged, hash-matching file. The preparation tool
 never downloads or deserializes a local input.
 
-Jack's five current policy/mulligan pairs also passed strict loading and
+The maintainer's five current policy/mulligan pairs also passed strict loading and
 repeated finite inference. Their weights, historical private sources and
 embedding caches stay outside this public repository. Standard's mulligan
 network has two Q outputs and uses the original `Q_keep >= Q_mulligan` rule.
@@ -216,7 +216,7 @@ The other four pairs use the April single keep-logit architecture. The first
 Standard probe correctly refused the mismatched April source; that failed
 receipt remains part of the evidence.
 
-For these pairs an external manifest's `inference_backends.jack-rl-april`
+For these pairs an external manifest's `inference_backends.maintainer-rl-april`
 configuration supplies `model`, `mulligan_source`, `state_encoder`,
 `callback_source` and `checkpoints` asset IDs. Each policy checkpoint supplies
 `mulligan_checkpoint`, `embedding_cache` and `checkpoint_format: "torch"`.
@@ -226,7 +226,7 @@ inputs have individual hashes and read-only mounts. The saved configuration
 and tensor shapes construct the original networks, then strict loading checks
 every parameter. There is no partial load or randomly initialized fallback.
 
-Jack probes use synthetic features without playing Magic and do not require
+The maintainer's probes use synthetic features without playing Magic and do not require
 a deck association. `serve` requires the policy's exact `deck_id` hash and
 `deck_association_evidence`. Each request's encoding identity includes the
 state encoder, callback source, embedding cache and mulligan source/format.
@@ -247,19 +247,19 @@ and sampled hidden library cards cannot produce identity features. Known
 library tokens use public object-alias order. These changes are part of the
 variant's identity and need actual game qualification.
 
-`xmage_model_build.py --jack-inputs PRIVATE_ROOT --jack-manifest PRIVATE_MANIFEST`
+`xmage_model_build.py --maintainer-inputs PRIVATE_ROOT --maintainer-manifest PRIVATE_MANIFEST`
 adds the private staged encoder to the reviewed model build. Both arguments
 are required; the source must match the recorded April hash. Private generated
-source remains in that owned build root. `JackEncoderMain` accepts recorded
+source remains in that owned build root. `MaintainerEncoderMain` accepts recorded
 priority decisions or a private NDJSON pipe, and returns base-state features
 bound to the decision hash. It checks the staged method and pinned embedding
 cache before reporting readiness. The original priority candidate features
 are implemented, bound to offered choices and compiled against the reviewed
-engine. `JackEncoderCheck` passes real active and nonactive priority fixtures
+engine. `MaintainerEncoderCheck` passes real active and nonactive priority fixtures
 for hand perspective, ownership, hidden-sample invariance, candidate padding
 and a visible life change. Other callback families remain unfinished.
 
-`pinned_jack_feature_probe_command` runs the confined `jack_feature_probe.py`
+`pinned_maintainer_feature_probe_command` runs the confined `maintainer_feature_probe.py`
 helper on a fixed hash-pinned Java fixture. All five real policy/mulligan pairs
 repeat finite normalized priority inference with masked padding; Elves uses
 its own embedding-cache fixture. This diagnostic probe preserves the refusal
@@ -279,9 +279,9 @@ selects a four-deck Pauper pool. Its current checkpoint association is pending.
 The optional `card_set_callback: true` private staging flag adds a ninth
 source body for the original `chooseTarget(Outcome, Cards, TargetCard, Ability,
 Game)` callback. It requires `target_callback` and the existing mode, dialog
-and payment prefix rules. `JackCardSetEncoderMain` takes the eight general-target
+and payment prefix rules. `MaintainerCardSetEncoderMain` takes the eight general-target
 arguments followed by the staged card-set rules SHA-256. The owned
-`xmage_jack_card_sets.CardSetSession` retains the original provided-card filter,
+`xmage_maintainer_card_sets.CardSetSession` retains the original provided-card filter,
 library/hand name groups, first available representatives, `card_select` head,
 STOP gates, first 64 groups and minimum completion. All physical copies are
 bound to offered public actions.
@@ -289,7 +289,7 @@ bound to offered public actions.
 The original callback chooses a physical copy with a fresh unseeded Java RNG.
 This explicitly declared fair variant uses a separate game-owned Python
 MT19937 stream, seeded from SHA-256 of
-`spellbench-jack-card-copy-mt19937/v1\0` followed by canonical `game_start`
+`spellbench-maintainer-card-copy-mt19937/v1\0` followed by canonical `game_start`
 bytes. A singleton copy consumes no copy RNG; a single original group consumes
 no neural inference or chooser RNG. The original Java neural chooser stream
 is unchanged, and recorded prefix choices consume neither stream. The
@@ -305,10 +305,10 @@ and permanent scoring are retained. This path assumes empty planning queues,
 preserves score/name ordering and UUID ties, and applies the original
 `target.add`. It does not substitute the current pinned engine's parent policy.
 
-`JackParentCardEncoderMain` takes the nine card-set arguments followed by hashes
+`MaintainerParentCardEncoderMain` takes the nine card-set arguments followed by hashes
 for the parent rules, selector, comparator, permanent scorer, scoring helper and
 original ability scoring table.
-`xmage_jack_parent_cards.ParentCardSession` binds the determined choice to the
+`xmage_maintainer_parent_cards.ParentCardSession` binds the determined choice to the
 complete offered public card set without model, chooser or physical-copy RNG.
 Recorded parent prefix choices must match the original policy. An original
 implicit completion maps only to an offered legal STOP. The parent pipe accepts
@@ -317,7 +317,7 @@ queued planning behavior, other callbacks, exact decks and full games remain
 unqualified.
 
 The optional `combat_callback: true` flag adds the original April `CombatRules`
-body independently of the target-prefix flags. `JackCombatMain` takes the
+body independently of the target-prefix flags. `MaintainerCombatMain` takes the
 embedding path and hash, original state and candidate hashes, and staged combat
 rules hash. Its private pipe requests paired inference and the shared original
 chooser for each original combat round. Attacks retain the first 63 creatures
@@ -326,8 +326,8 @@ original attacker power ordering, legality filters and blocker removal. Both
 use one cached permitted base state per callback. The full sequential chooser
 draw is retained even after DONE, preserving the game's original RNG stream.
 
-`xmage_jack_combat.CombatSession` owns this pipe, paired model and chooser with
-one shared clock. Its returned `JackCombatPlan` binds the actual declarations
+`xmage_maintainer_combat.CombatSession` owns this pipe, paired model and chooser with
+one shared clock. Its returned `MaintainerCombatPlan` binds the actual declarations
 to consecutive public group substeps and refuses changed or rewound public
 state. Nested interactive or mana-payment combat callbacks refuse. This is
 wiring and source staging; native execution, exact decks and complete games
@@ -335,13 +335,13 @@ remain unqualified.
 
 The optional `london_callback: true` stages `LondonRules` independently. The
 engine's London loop calls the original policy with a one-card target on each
-iteration. `JackLondonMain` ranks the shrinking whole hand for every card,
+iteration. `MaintainerLondonMain` ranks the shrinking whole hand for every card,
 uses the original `card_select` head and complete sequential chooser draw,
 applies the last ranked card to the target, and moves it to the library before
 the next callback. The original default-enabled base-cache signature is
 extracted from the private source. A singleton bypasses inference and RNG.
 
-`xmage_jack_london.LondonSession` shares the paired model, original chooser and
+`xmage_maintainer_london.LondonSession` shares the paired model, original chooser and
 clock. Its `LondonPlan` binds these repeated picks to consecutive public
 bottoming substeps and rejects changed hand references or reused picks. Moved
 hand aliases are excluded from newly built known-library features. Original
@@ -353,9 +353,9 @@ ephemeral temporary filesystem. It has no network, a read-only root filesystem,
 no privileges and no host socket. Probe timeout cleanup removes only the
 launcher's uniquely named container. Large evaluated workloads must still
 pass the existing useful-throughput guard.
-### Jack's original priority rules
+### The maintainer's original priority rules
 
-The private Jack input manifest can opt into `priority_callback: true`. The
+The private maintainer input manifest can opt into `priority_callback: true`. The
 source stager then emits `PriorityRules.java` and records both the original
 callback identity and the staged rule hash. Altered private source and
 nonboolean flags refuse staging. The private source remains outside public Git.
@@ -364,7 +364,7 @@ This component preserves the April default settings: base-state, playable and
 alternative-cost caches enabled, a 256-entry alternative-cost cache, activation
 fast path enabled, simulation validation enabled, and no-clone lookup disabled.
 It calls the original two-argument playable API. That engine API may already
-collapse equal-text abilities before Jack's source-specific mana deduplication;
+collapse equal-text abilities before the maintainer's source-specific mana deduplication;
 the separate offered-mana feature lookup does not change this policy behavior.
 
 The extracted rules retain activation tests, validated alternative-cost keys,
@@ -375,7 +375,7 @@ identity. Missing copied callbacks refuse instead of using a substitute bot.
 The caller still owns the permitted reconstructed world, the game-owned neural
 chooser and application of actual original callbacks.
 
-`engines/xmage/tests/priority-rules/JackPriorityRulesCheck.java` runs the actual
+`engines/xmage/tests/priority-rules/MaintainerPriorityRulesCheck.java` runs the actual
 staged rules on isolated metadata fixtures. It checks option order and
 deduplication, fast-path rejection, cache reuse and state changes, the 64-slot
 bound, twelve turn steps, alternative-cost enumeration and actual validated
@@ -398,7 +398,7 @@ and tap reservations. Payment calls the player's actual activation callback.
 Original parent color order, map iteration, nested payment mode behavior and
 random fallback are retained. Strategic callbacks and creature-type selection
 remain required; this abstract component does not implement the full copied
-callback marker. `JackParentManaCheck.java` executes these bodies with metadata
+callback marker. `MaintainerParentManaCheck.java` executes these bodies with metadata
 engine hooks, alongside the existing activation checks. No native game, card
 database or model is started. Native replay, ordering/RNG qualification and
 complete persistent player integration remain unfinished.
@@ -417,12 +417,12 @@ Each new path that reads a game requires its owned player and the runtime's
 library scan must run on a sampled permitted world, whose ordering can differ
 from the real hidden library. The gate remains abstract until the persistent
 runtime supplies its world/copy admission. Original ordering and fallback RNG
-remain unchanged. `JackParentDialogCheck.java` checks actual parent bodies with
+remain unchanged. `MaintainerParentDialogCheck.java` checks actual parent bodies with
 metadata engine hooks; neural overrides and the complete copied-callback marker
 remain unavailable. Native fairness, RNG/replay and full-game checks are still
 required before qualification or rating.
 
-`JackPriorityBinding` takes the actual validated list from the original rules'
+`MaintainerPriorityBinding` takes the actual validated list from the original rules'
 chooser hook and its cached permitted base state. It preserves the first 64
 slots in their original order, requires a unique exact offered semantic for
 each selected slot, and rejects unnamed sources, unmatched Oracle indices,
@@ -432,7 +432,7 @@ determine neural slot order. The frame binds the complete decision and game
 start, the source identities, original action IDs, float features and masks.
 Pass-only frames bypass feature encoding.
 
-`xmage_jack_priority.PrioritySelection` reuses the paired model and the same
+`xmage_maintainer_priority.PrioritySelection` reuses the paired model and the same
 game-owned original Java chooser under one clock. It maps the selected original
 slot to its offered public ID, preserves the pass-only inference/RNG shortcut,
 and closes both components on refusal. Isolated Java and Python checks cover
@@ -454,7 +454,7 @@ variant; the original unseeded per-copy stream is not claimed equivalent.
 The model sees copied tensors and the remaining decision allowance. Shape,
 probability, ownership, admission and deadline failures close the shared model;
 there is no replacement policy. Zero-pick callbacks retain original scoring
-without a random draw. `JackNeuralSelectionCheck.java` exercises actual staged
+without a random draw. `MaintainerNeuralSelectionCheck.java` exercises actual staged
 tensors and selection with metadata worlds and synthetic paired predictions.
 The runtime must still supply the isolated paired backend and verified world
 admission, connect the remaining callback bodies, and qualify native replay and
@@ -476,7 +476,7 @@ activation, mana and cast/play entry points also enforce admission. A closed
 session or expired decision is checked again after callback execution, so the
 original activation exception handler cannot hide a nested model refusal.
 
-`JackPriorityChoiceCheck.java` exercises these actual bodies with metadata worlds
+`MaintainerPriorityChoiceCheck.java` exercises these actual bodies with metadata worlds
 and synthetic paired predictions, including actual PassEffect application,
 neural priority activation, parent and forced choice paths, copy binding, timer
 cleanup, direct foreign-world refusal and nested model failure. Remaining
@@ -500,7 +500,7 @@ state/playable/alternative caches when those aliases change. Missing admission,
 backend errors and expired decisions close the session. Default backend methods
 refuse unavailable mulligan or physical-copy inference.
 
-`JackCallbackPlayerCheck.java` verifies actual callback dispatch with metadata
+`MaintainerCallbackPlayerCheck.java` verifies actual callback dispatch with metadata
 worlds and synthetic predictions, including target removal and pick indices,
 mode/card application, mulligan ties and caching, alias refresh, admitted copies
 and failure closure. These checks do not load pretrained weights or play games.
@@ -508,10 +508,10 @@ The real permitted-world registry, native backend qualification, hidden-world an
 ordering/RNG replay, checkpoint/deck associations and complete-game qualification
 remain required before rating or publication.
 
-`JackInferenceChannel` implements the staged original model interface by reflection
+`MaintainerInferenceChannel` implements the staged original model interface by reflection
 and sends private candidate, mulligan and physical-copy requests to one
-`JackNativeInferenceOwner`. That owner uses the existing confined
-`JackInferenceSession`, preserving checkpoint/deck/encoder readiness checks and
+`MaintainerNativeInferenceOwner`. That owner uses the existing confined
+`MaintainerInferenceSession`, preserving checkpoint/deck/encoder readiness checks and
 paired policy/value inference. Copies share the channel, pair and declared
 physical-copy stream. Requests carry increasing IDs, profile, seed, game-start
 digest and the remaining callback clock; masks, original pick bounds and indices
@@ -525,14 +525,14 @@ The owner also closes its confined checkpoint pair on identity, inference or
 response-write failure. Neither component grants a reservation or launches an
 evaluation campaign.
 
-`JackInferenceChannelCheck.java` runs actual original callbacks across a real
+`MaintainerInferenceChannelCheck.java` runs actual original callbacks across a real
 JVM/Python pipe with synthetic paired predictions, including a copied callback,
 mulligan Q tie, stale response and withheld pipe response. Metadata checks do not
 load pretrained weights or build a live match. The full adapter still needs its
 permitted-world registry and guarded launcher integration before native
 qualification, rating or publication.
 
-`JackPlayerBootstrap.build` rebuilds permitted inputs with the kit's setup players,
+`MaintainerPlayerBootstrap.build` rebuilds permitted inputs with the kit's setup players,
 then replaces the viewer with the actual staged `OriginalCallbackPlayer`. The
 base engine copy constructor preserves the initialized player identity and state.
 The conversion leaves original planning/payment queues, caches and world binding
@@ -542,14 +542,14 @@ attached viewers, simulations, duplicate/missing/invalid mulligan records and
 unavailable private classes are refused. The setup player never answers the
 observed decision after conversion.
 
-`JackPlayerBootstrapCheck.java` verifies actual state transfer, independence from
+`MaintainerPlayerBootstrapCheck.java` verifies actual state transfer, independence from
 later setup-player mutations, pre-admission refusal, the original mulligan encoder
 count and normal copied-player refusal. It uses metadata engine hooks and
 synthetic predictions. The root/copy registry below connects this reconstruction
 entrypoint to original-player admission. Guarded launcher integration, live
 reconstruction and complete-game qualification still require the native checks.
 
-`JackPermittedWorlds` owns reconstruction, sampling and original-player binding.
+`MaintainerPermittedWorlds` owns reconstruction, sampling and original-player binding.
 Its public build path accepts permitted inputs, not an existing engine game. A
 private lineage watcher identifies the reconstructed root; simulation admission
 requires a copied marker, independent branch knowledge, the original copied player,
@@ -561,7 +561,7 @@ Engine bookmark restoration preserves the bound player and validates the saved
 lineage token, allowing restored watcher copies with restored branch knowledge.
 
 The root alias projection is shared with the mode codec through
-`JackWorldAliases`. Entity enumeration uses the viewer's hand, public zones and
+`MaintainerWorldAliases`. Entity enumeration uses the viewer's hand, public zones and
 explicitly named permitted references. It fetches no hidden hand or library cards
 while filtering references. The state encoder also fetches only explicitly
 permitted library IDs and retains their public-alias ordering. Live alias refresh uses the
@@ -573,7 +573,7 @@ their incarnation suffix, so library feature ordering cannot recover collection
 iteration order. Initial opponent-hand references expire when their full known
 name count no longer survives.
 
-`JackPermittedWorldsCheck.java` exercises actual root and copied-player callbacks,
+`MaintainerPermittedWorldsCheck.java` exercises actual root and copied-player callbacks,
 engine watcher copies, alias expiry/return and ordering, decision retirement,
 failure closure, and the actual observation builder on metadata engine hooks.
 It also exercises actual engine bookmark restoration on a root and admitted copy.
@@ -584,8 +584,8 @@ launcher/serving integration, live reconstruction, visibility-window lifetime,
 hidden-world and ordering/RNG replay, pretrained inference and complete-game
 qualification remain unfinished.
 
-`JackNativeSession` owns a borrowed original-player JVM peer and the existing
-`JackNativeInferenceOwner` for one declared game. It verifies exact readiness,
+`MaintainerNativeSession` owns a borrowed original-player JVM peer and the existing
+`MaintainerNativeInferenceOwner` for one declared game. It verifies exact readiness,
 the game seed, permitted acting viewer and reconstruction seeds. Serial decision
 requests retain one deadline across inference, physical-copy draws, response
 writes and result validation. Results must echo the exact offered candidate and
@@ -593,7 +593,7 @@ its game/decision identities. A failure closes both resources; cleanup retains
 errors and checks process absence when the peer exposes its owned process.
 This component does not start a JVM, load a checkpoint or authorize native work.
 
-`JackNativeSessionCheck.java` connects this supervisor to actual original root
+`MaintainerNativeSessionCheck.java` connects this supervisor to actual original root
 and admitted-copy mulligan callbacks through a real JVM pipe, using the completed
 bootstrap and registry with metadata engine hooks and synthetic paired scores.
 Two JVM primary results match, including the shared physical-copy draw. A stalled
@@ -601,17 +601,17 @@ JVM is terminated and its process absence is checked. These are transport and
 ownership checks. Two successive decisions also retain one command reader and
 the increasing private inference sequence.
 
-`JackRootDecision` binds actual original mulligan and priority selections to the
+`MaintainerRootDecision` binds actual original mulligan and priority selections to the
 exact offered wire action. Priority uses the original rules dispatcher and neural
 chooser, preserves the original first 64 slots, and binds the complete prefix
 before inference. Pass-only phases retain their original shortcut. Combat-step
 results retain the original pass after activation for future replay. Unconnected
 callback families refuse the decision and close the game-owned session.
-`JackRootDecisionCheck.java` exercises actual original mulligan and priority
+`MaintainerRootDecisionCheck.java` exercises actual original mulligan and priority
 dispatch on metadata worlds, including a nonpass choice from a 70-action list in
 main and combat steps, reversed offered order, and invalid identity/choice input.
 
-`JackOriginalBridgeMain` is the production JVM entrypoint for these root decisions.
+`MaintainerOriginalBridgeMain` is the production JVM entrypoint for these root decisions.
 It shares one bounded input reader between serial commands and private inference,
 keeps the game-owned session across reconstructed decisions, and retires each
 decision's root and copies. It must be launched through the guarded runtime. Its
@@ -624,7 +624,7 @@ and X callbacks can replay an earlier offered choice without inference and pause
 at the current original choice while keeping the game-owned session open. Hooks
 do not survive player copies; copied simulations execute the original policy.
 Unconnected root replay callbacks and invalid bindings close the session.
-`JackDialogReplay` connects these hooks to the actual original activation path,
+`MaintainerDialogReplay` connects these hooks to the actual original activation path,
 compares the observed state and binds the complete original binary/X value range
 before inference. Metadata checks cover the actual activation path, earlier
 binary choice, current X choice, copy isolation, exact binding and failure closure.
@@ -642,7 +642,7 @@ complete-player qualification. The production entrypoint remains unexecuted
 under the native hold. Affected native preparations must be refreshed to the new
 encoder, replay-hook and priority-rule sources.
 
-`JackNativeAgent` connects the public game lifecycle to the original serving
+`MaintainerNativeAgent` connects the public game lifecycle to the original serving
 supervisor. A game factory receives the filtered, permitted start record and
 returns one session bound to its checkpoint, profile and seed. Every decision,
 including mulligan and forced choices, enters that original session. The frontend
@@ -662,10 +662,10 @@ clock and cleanup failures, and a byte-identical two-process frontend replay.
 They use synthetic private receipts, no JVM startup or pretrained inference.
 Live complete-player qualification remains unfinished.
 
-`xmage_jack_native_runtime.py` now constructs the production bridge command and
+`xmage_maintainer_native_runtime.py` now constructs the production bridge command and
 connects this frontend to one original inference owner and private JVM per game.
 It validates opaque checkpoint pairs, exact deck evidence, the embedding cache,
-Java, database and complete model build before launch. Jack builds must include
+Java, database and complete model build before launch. The maintainer's builds must include
 the private original callback/player stage and the optional replay/search layer;
 reduced encoder builds cannot serve this player. Public identity binds the pair,
 deck, original greedy or no-training sampled profile, build, image and source

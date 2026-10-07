@@ -235,8 +235,8 @@ are at `E:/spellbench-gorge-runtime-20261003-003`, with verified D recovery and
 the earlier sealed versions retained. Commands and hashes are in
 `docs/gorge-runtime-preparation-20261003-003.json`. No substantial evaluation
 or allocation qualification was launched. The fresh availability check found
-Jack's canonical reservation free and the previously observed formal PID
-absent, without inferring a research result. Haley's queued training window
+The maintainer's canonical reservation free and the previously observed formal PID
+absent, without inferring a research result. The compute host's queued training window
 keeps priority; RunPod's read-only inventory still returned HTTP 403.
 
 The complete pool census and source audit are recorded in the linked identity
@@ -433,5 +433,5 @@ A later repair caps an opponent's earlier draws when a later library requirement
 (a reveal or search that names cards still in the library) leaves too few copies
 to have been drawn. On the same screen it gives 176 exhaustions of 1,789 attempts
 in 8 games; Wildfire games 54 and 55 hold 147 of them. All 113 earlier saved
-captures still pass. Jack chose (2026-10-07) to qualify and rate the cells that
+captures still pass. The maintainer chose (2026-10-07) to qualify and rate the cells that
 pass now and hold the redeal cells that still exhaust until they are repaired.

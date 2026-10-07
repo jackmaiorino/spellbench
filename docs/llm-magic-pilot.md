@@ -1,6 +1,6 @@
 # GPT-6 Luna full-game pilot
 
-GPT-6 Luna completed two full 60-card Spellbench v2 Magic games through Jack's authorized ChatGPT-plan grant on October 1, 2026. Both ended naturally. The reference host checked all 768 decisions without a legality or protocol violation. This is engineering evidence, with no rated-entry or playing-strength claim.
+GPT-6 Luna completed two full 60-card Spellbench v2 Magic games through the maintainer's authorized ChatGPT-plan grant on October 1, 2026. Both ended naturally. The reference host checked all 768 decisions without a legality or protocol violation. This is engineering evidence, with no rated-entry or playing-strength claim.
 
 | Mirror deck | Luna seat | Luna outcome | Host decisions checked | Luna legal choices | Model requests | Reported tokens | Game wall time |
 |---|---|---|---:|---:|---:|---:|---:|

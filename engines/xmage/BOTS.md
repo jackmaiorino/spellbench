@@ -12,7 +12,7 @@ The machine-readable status and aliases are in [coverage.json](coverage.json).
 | XMage MAD / CP7 and MCTS | Pinned native sources and nine distinct fair variants wired; the frozen native runtime completed 30 natural matched throughput rows at 1/2/5 workers | No native rated games. Complete-player admission, the full 7040-game schedule, replay and publication remain unfinished |
 | DraftZero Exp1 gen0, gen10, gen33 | Three public checkpoints pinned; original search/callbacks and released 96-visit/12-second profile wired. Kiora source repair merged | Released gen33 check forfeited at actor step97. Fresh repaired runtime, actual public projection/face-down fairness, callback, natural full game, replay and learned throughput remain unqualified; zero ratings |
 | MageZero v0.2 | Original encoder/search and confined runtime wired | Compatible trained exports, exact decks, encoder/vocabulary revision and play settings unavailable. Historical ONNX candidates remain unqualified; zero ratings |
-| Jack's XMage RL | Five policy/mulligan pairs strictly loaded; original callback wiring retained | Exact checkpoint-bound decks/configurations, native serving and complete-game coverage unresolved; zero ratings |
+| The maintainer's XMage RL | Five policy/mulligan pairs strictly loaded; original callback wiring retained | Exact checkpoint-bound decks/configurations, native serving and complete-game coverage unresolved; zero ratings |
 
 The FDN builtin baseline is complete: 384 natural/rated games over 16 decks,
 64 complete seat-swapped pairs per matchup, zero forfeits/halts/truncations and
@@ -20,11 +20,11 @@ an exact-seed game0 replay. Three builtin entries are
 [verified live](https://jackmaiorino.github.io/spellbench/b/fdn-mirror-v0/).
 Those builtin ratings do not admit any requested native or learned family.
 
-Jack's research priority suspends new game/build/qualification launches on both
+The maintainer's research priority suspends new game/build/qualification launches on both
 PCs until explicit research handback. No automatic compute dispatch is queued.
 Missing learned inputs remain unfinished entries. For MageZero, request trained
 policy/value exports, their exact associated decks, matching encoder/vocabulary
-revision and evaluation/search settings. Jack knows of no additional weights.
+revision and evaluation/search settings. The maintainer knows of no additional weights.
 
 ## Native policies and aliases
 
@@ -134,11 +134,11 @@ worlds per execution include different hidden cards while preserving encoded
 features; changing visible own life changes the encoding. This is a priority
 encoder check without trained weights, original search or complete games.
 
-Jack's archive contains 43 snapshot files in the five named profiles visible
+The maintainer's archive contains 43 snapshot files in the five named profiles visible
 in its current manifest: Pauper-Affinity, Pauper-Elves, Pauper-Rally,
 Pauper-Wildfire and Pauper-Standard. The accompanying move note's older count
 differs. All ten current policy and mulligan files were copied opaquely from
-Haley and checked against the read-only 2026-10-03 size/hash inventory. Every
+The compute host and checked against the read-only 2026-10-03 size/hash inventory. Every
 current pair passes isolated strict loading and repeated finite inference
 through all five candidate heads, the legacy actor and its paired mulligan
 network. An archived Elves policy also passes the original candidate-head
@@ -169,7 +169,7 @@ checkpoint to its actual training deck version.
 
 ## Next delivery steps
 
-Jack's permitted priority feature pipe follows the received public action list.
+The maintainer's permitted priority feature pipe follows the received public action list.
 The original priority player separately constructs, deduplicates and validates
 its options, includes individual mana abilities, and dispatches by phase with
 different action/pass behavior. The production bridge now enters those original
@@ -187,9 +187,9 @@ pass. Original combat now connects through the whole-group path described below.
 Native priority/resolution qualification remains open. The guarded
 runtime is connected; the full player remains unqualified. Existing paired-network
 feature checks retain their tested scope; see
-[the priority fidelity comparison](models/evidence/2026-10-04-jack-priority-fidelity.md).
+[the priority fidelity comparison](models/evidence/2026-10-04-maintainer-priority-fidelity.md).
 
-Jack's original frontend now connects London bottoming through the actual
+The maintainer's original frontend now connects London bottoming through the actual
 player callback. It ranks the shrinking whole hand on each engine one-card
 callback, retains each complete sequential draw and the original base-cache
 signature, and moves each selected card to the bottom before the next ranking.
@@ -199,7 +199,7 @@ call. All 150 affected Python checks and two identical normalized JVM runs pass
 for 1/2/7-card hands. Card movement in these checks is a metadata fixture;
 native movement, trained-weight bottoming and complete games remain unqualified.
 The earlier component evidence remains in
-[the London wiring evidence](models/evidence/2026-10-04-jack-london-wiring.md).
+[the London wiring evidence](models/evidence/2026-10-04-maintainer-london-wiring.md).
 
 Original priority state now carries the complete inherited target queue through
 root receipts, the public frontend, private serving and activation replay.
@@ -226,7 +226,7 @@ the original resolving callback or next priority dispatch. Public passed-seat
 facts determine the one permitted opponent pass. Recorded callback prefixes replay
 without policy or physical-copy draws. An extra or reordered priority, opponent
 choice, unrecorded phase transition or incomplete resume refuses before further
-inference. `JackReplayOpponent` is a non-playing reconstruction helper, with no
+inference. `MaintainerReplayOpponent` is a non-playing reconstruction helper, with no
 leaderboard entry. All 329 affected Python checks pass, and two normalized JVM
 outputs match for resolving X, binary prefixes, opponent passes and fresh priority.
 These fixtures script resume and stack contents; the native event loop and stack
@@ -254,8 +254,8 @@ sampler, hidden-read traps, root feature exclusion, actual current-look admissio
 and original forced/neural target choices with current permitted features. Native
 reconstruction, shuffle/movement histories and complete games remain unqualified.
 
-Jack's original attack and block loops now have a separate private staged port
-and connect to the original frontend's game-owned session through `JackCombatPlan`.
+The maintainer's original attack and block loops now have a separate private staged port
+and connect to the original frontend's game-owned session through `MaintainerCombatPlan`.
 Root callbacks retain DONE-last full sequential selection, separate defender
 choices, descending attacker-power block order and blocker removal. Subsequent
 public declaration substeps reuse the resulting plan, checking its group and
@@ -264,7 +264,7 @@ refuse before additional inference. All 250 affected Python checks pass; two
 normalized combat metadata JVM outputs match, with prior callbacks also passing.
 The root binding now records the engine's complete creature slot schedule before
 inference, including each extra block slot. The frontend verifies that schedule
-on every substep. Jack's original policy assigns a blocker once and removes it
+on every substep. The maintainer's original policy assigns a blocker once and removes it
 from its pool, so any remaining slots decline without changing the assignment
 or making another model call. All 265 affected Python checks and two fresh JVM
 outputs pass for limited/unlimited block capacity, unchanged draw counts,
@@ -281,7 +281,7 @@ finishes its full sequential draw even when DONE appears earlier. A plan binds
 the original declarations to consecutive offered wire substeps. Nested combat
 callbacks refuse until qualified. Source staging preserves all fifteen earlier
 private bodies byte for byte; native combat and complete games remain unfinished.
-See [the combat delivery evidence](models/evidence/2026-10-04-jack-combat.md).
+See [the combat delivery evidence](models/evidence/2026-10-04-maintainer-combat.md).
 
 Finish the game adapters, native qualification, and learned encoder/action
 qualification. The tested Exp1 decision slices disable opponent-hand encoding,
@@ -299,7 +299,7 @@ sampled-world trees, synchronous inference, all trained priors, minimum visits w
 and no noise. Full transition history, remaining callbacks and game qualification are open.
 
 Use the FDN and Standard benchmarks with appropriate deck associations and
-baseline anchors; add suitable Pauper support for Jack's deck-local entries.
+baseline anchors; add suitable Pauper support for the maintainer's deck-local entries.
 Freeze the rated roster, schedules, seeds and clocks, collect complete
 seat-swapped pairs, and retain outcome handling and uncertainty intervals.
 Before substantial evaluation, refresh all three placements and reservations,
@@ -312,7 +312,7 @@ and its local reservation released. No rated XMage games, GPU run, new training
 or paid compute were launched by this task. Existing review and publication paths remain
 part of the outstanding delivery.
 
-Jack's original replay verifies permitted library positions against the
+The maintainer's original replay verifies permitted library positions against the
 reconstructed owner's UUID order before projection, alias admission and scoring.
 Stale positions and wrong-library references refuse without fetching hidden names.
 Two repeat metadata JVMs and fourteen Java replay regressions pass. Native library

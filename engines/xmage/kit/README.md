@@ -38,7 +38,7 @@ kit/scripts/agent.sh --kit KIT --engine-build ENGINE --db DB [--work DIR] --entr
 ```
 
 The front answers `hello` at once; at `game_start` it starts the runner (a child JVM with its own copy of the card
-database, about 12 to 14 s to boot on HaleysPC) inside `game_start_ms`.
+database, about 12 to 14 s to boot on the compute host) inside `game_start_ms`.
 
 Entries (frozen in `Entries.java`, A1 result review change 6). The identity is the name plus a digest of the whole
 configuration (`bot.version` = `0.3.0+DIGEST`); any override of a frozen value adds `-custom` to the name and changes

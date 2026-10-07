@@ -1,7 +1,7 @@
 """Resolve the full rated definition against pinned inputs; publish no commitment."""
 import argparse,hashlib,json,subprocess,sys
 from pathlib import Path
-repo=Path.cwd();collab=Path('C:/Users/Jack/IdeaProjects/collab-spellbench-gorge-preparation-20261003')
+repo=Path.cwd();collab=Path.home()/('IdeaProjects/collab-spellbench-gorge-preparation-20261003')
 sys.path.insert(0,str(repo/'python'))
 from spellbench.bench.definition import load_benchmark,substitute,placeholder_names
 from spellbench.arena.config import TournamentConfig

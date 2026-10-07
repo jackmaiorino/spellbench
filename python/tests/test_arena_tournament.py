@@ -244,7 +244,7 @@ def test_an_allocation_the_declared_cores_cannot_hold_is_refused_before_any_proc
     def slow_games(workers: int, indices: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
         return 10.0 * len(indices) / workers, tuple(PlayedGame(index, 10.0, digest, 10) for index in indices)
 
-    placement = ("main-pc=used: fastest measured; haleyspc=slower: half the speed per game; "
+    placement = ("main-pc=used: fastest measured; computehost=slower: half the speed per game; "
                  "runpod=not_authorized: no spending authority")
     allocation = plan_allocation(games_total=200, cap=4, per_game_cores=1, play=slow_games, placement=placement,
                                  cpu_count=4, host="test-host", machine=machine)

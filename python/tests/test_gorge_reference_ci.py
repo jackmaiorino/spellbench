@@ -20,8 +20,8 @@ def inputs():
         archive_bytes=1024,extracted_bytes=2048,archive_sha256='a'*64,native_seal_sha256='b'*64,
         runtime_seal_sha256='c'*64,cleanup_sha256='d'*64,billing_seal_sha256='e'*64,
         benchmark_sha256=ci.BENCHMARK,registry_sha256=ci.REGISTRY,runtime_source_commit='f'*40,
-        placement='main-pc=unavailable: reserved; haleyspc=unavailable: priority; runpod=not_authorized: cap; github-actions=used: synthetic',
-        resource_census={host:dict(checked=True) for host in ('main-pc','haleyspc','runpod')},
+        placement='main-pc=unavailable: reserved; computehost=unavailable: priority; runpod=not_authorized: cap; github-actions=used: synthetic',
+        resource_census={host:dict(checked=True) for host in ('main-pc','computehost','runpod')},
         files={'runtime/fixture':dict(bytes=2048,sha256='a'*64)})
 
 

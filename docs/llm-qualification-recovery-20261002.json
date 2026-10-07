@@ -135,7 +135,7 @@
     }
   },
   "approved_wall_extension": {
-    "approved_by": "Jack in the current Spellbench task on 2026-10-02",
+    "approved_by": "The maintainer's in the current Spellbench task on 2026-10-02",
     "approval_text": "Approved. Get Luna on the benchmark.",
     "approval_context": "Extend only the original time limit from10:22EDT to12:22EDT, preserving cumulative4096 requests and10-million-token limits",
     "original_created_at": 1790943743.4969766,

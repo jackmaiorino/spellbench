@@ -14,7 +14,7 @@
   "planned_local_values": {
     "SPELLBENCH_SECRETS_DIR": "E:/spellbench-gorge-rated-secrets",
     "SPELLBENCH_PIN_ROOT": "E:/spellbench-gorge-rated-pins",
-    "SPELLBENCH_ARTIFACT_REGISTER": "C:\\Users\\Jack\\IdeaProjects\\collab-spellbench-gorge-preparation-20261003\\tools\\artifact_register.py",
+    "SPELLBENCH_ARTIFACT_REGISTER": "~\\IdeaProjects\\collab-spellbench-gorge-preparation-20261003\\tools\\artifact_register.py",
     "SPELLBENCH_ARTIFACT_OWNER": "spellbench-gorge"
   },
   "planned_paths_created": false,

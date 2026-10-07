@@ -35,7 +35,7 @@
     "rated_games": 0,
     "gpu_ordinal": null,
     "script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
-    "placement": "main-pc=unavailable: fresh canonical generation166 pauper-luna-service-qualification-003 retained; haleyspc=unavailable: fresh hardware check complete and queued training-performance priority retained; runpod=used: owned community RTX3070 host CPU allocation measured19 usable CPU cores and24000000000 memory bytes with80GB assigned disk, source438dffd runtime019, rateUSD0.13 per hour plus bounded storage, supported matched serial and parallel completed-work guard before the320-block full audit, Linux stage6600 seconds within the original two-hour lease, other PCs have no known release time",
+    "placement": "main-pc=unavailable: fresh canonical generation166 pauper-luna-service-qualification-003 retained; computehost=unavailable: fresh hardware check complete and queued training-performance priority retained; runpod=used: owned community RTX3070 host CPU allocation measured19 usable CPU cores and24000000000 memory bytes with80GB assigned disk, source438dffd runtime019, rateUSD0.13 per hour plus bounded storage, supported matched serial and parallel completed-work guard before the320-block full audit, Linux stage6600 seconds within the original two-hour lease, other PCs have no known release time",
     "guard_path": "owned Linux process group and bounded driver -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
     "closed_at_utc": "2026-10-04T04:34:24.299675+00:00",
     "exit_code": 1,
