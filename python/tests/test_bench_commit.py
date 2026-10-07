@@ -439,6 +439,31 @@ def test_bench_commit_checks_the_local_values_before_publishing(repo: Path, tmp_
     assert not (tmp_path / "secrets").exists()
 
 
+def test_bench_commit_checks_the_job_root_before_publishing(repo: Path, tmp_path: Path, monkeypatch) -> None:
+    # bench run builds its whole-job storage guard after marking the run started, so commit checks the job root first
+    from dataclasses import replace
+    load = bench_commit.definition.load_benchmark
+    budget = {"projected_bytes": 1 << 20, "cap_bytes": 1 << 21}
+    monkeypatch.setattr(bench_commit.definition, "load_benchmark",
+                        lambda directory: replace(load(directory), job_storage_budget=budget))
+    bench = repo / "benchmarks" / "fake-pool"
+    head = git(repo, "rev-parse", "HEAD")
+    root = tmp_path / "job"
+    for job_root, expected in ((None, "not an absolute path"), ("job", "not an absolute path"),
+                               (str(root), "not a directory")):
+        environ = {**env(tmp_path), **({} if job_root is None else {"SPELLBENCH_JOB_ROOT": job_root})}
+        with pytest.raises(CommitError, match=expected):
+            commit_run(bench, date=RUN, placement=PLACEMENT, environ=environ)
+    root.mkdir()
+    with pytest.raises(CommitError, match="outside SPELLBENCH_JOB_ROOT"):
+        commit_run(bench, date=RUN, placement=PLACEMENT, environ={**env(tmp_path), "SPELLBENCH_JOB_ROOT": str(root)})
+    assert git(repo, "rev-parse", "HEAD") == head and not (bench / "runs").exists()            # nothing published (R3-14)
+    assert not (tmp_path / "secrets").exists()
+    committed = commit_run(bench, date=RUN, placement=PLACEMENT, environ={
+        **env(tmp_path), "SPELLBENCH_JOB_ROOT": str(root), "SPELLBENCH_PIN_ROOT": str(root / "pins")})
+    assert committed.secret_path.is_file()
+
+
 def test_local_json_supplies_the_local_values(repo: Path, tmp_path: Path) -> None:
     names = ("SPELLBENCH_SECRETS_DIR", "SPELLBENCH_PIN_ROOT", "SPELLBENCH_ARTIFACT_REGISTER")
     values = env(tmp_path)

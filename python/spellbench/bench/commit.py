@@ -51,7 +51,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Mapping, NamedTuple
 
-from ..arena import runner, store
+from ..arena import job_storage, runner, store
 from ..arena.manifest import commitment_record
 from ..arena.throughput import Placement, ThroughputError
 from ..arena.validate import REVEAL_NAME, REVEAL_REASONS, REVEAL_SCHEMA, WITHHELD_REASON
@@ -158,6 +158,26 @@ def _checked_local_values(environ: Mapping[str, str], local: Mapping[str, str], 
         return str(Placement.parse(placement))
     except ThroughputError as exc:
         raise CommitError(f"the placement note: {exc}") from None
+
+
+def _checked_job_root(environ: Mapping[str, str], local: Mapping[str, str], budget: object) -> None:
+    """Step 1 of :func:`commit_run`, for a benchmark with a ``job_storage_budget``: ``bench run`` builds its
+    whole-job storage guard only after it marks the run started, so a job root it would refuse burns the commitment
+    (R3-14). Like that guard, read ``SPELLBENCH_JOB_ROOT`` from the environment only."""
+    if budget is None:
+        return
+    name = job_storage.ROOT_ENV
+    raw = environ.get(name)
+    if not raw or not Path(raw).is_absolute():
+        raise CommitError(f"{name} is not an absolute path: this benchmark's job_storage_budget makes bench run "
+                          f"keep the run and its pins inside that folder; set it in the environment before bench commit")
+    root = Path(raw)
+    if not root.is_dir():
+        raise CommitError(f"{name} names {raw}, which is not a directory")
+    pins = _local_value(PIN_ROOT_NAME, environ, local)
+    if pins and not Path(pins).expanduser().resolve().is_relative_to(root.resolve()):
+        raise CommitError(f"{PIN_ROOT_NAME} ({pins}) is outside {name} ({raw}); bench run keeps its pins inside "
+                          "the job root, as it does the benchmark folder")
 
 
 def _checked_names(benchmark_id: str, run: str) -> None:
@@ -410,6 +430,7 @@ def commit_run(
     local = definition.load_local_values(benchmark_dir.parent)
     # 1. The local values the rated run needs, before anything is published (R3-14).
     note = _checked_local_values(environ, local, placement)
+    _checked_job_root(environ, local, benchmark.job_storage_budget)
     # 2. The run's name, and a secrets directory outside every work tree (Review Focus 5).
     name = definition.next_run_name(benchmark_dir, datetime.date.today().isoformat() if date is None else date)
     files = _run_files(_secrets_folder(environ, local, benchmark_dir) / benchmark.id, name)
