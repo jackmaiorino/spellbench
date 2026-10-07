@@ -428,3 +428,10 @@ carried across many shuffles, which the current carry guidance cannot express.
 Excluding them, the rate is 29 of 1,177 (2.5%), still above the proposed v2
 counted-fallback cap of 1%. Qualification, the reference matrix and ratings remain
 unfinished.
+
+A later repair caps an opponent's earlier draws when a later library requirement
+(a reveal or search that names cards still in the library) leaves too few copies
+to have been drawn. On the same screen it gives 176 exhaustions of 1,789 attempts
+in 8 games; Wildfire games 54 and 55 hold 147 of them. All 113 earlier saved
+captures still pass. Jack chose (2026-10-07) to qualify and rate the cells that
+pass now and hold the redeal cells that still exhaust until they are repaired.
