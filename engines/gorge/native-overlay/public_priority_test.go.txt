@@ -917,3 +917,44 @@ func TestSpellbenchExploreRevealsTopPosition(t *testing.T) {
 		})
 	}
 }
+
+func TestSpellbenchLibraryRequirementCapsEarlierDraws(t *testing.T) {
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{{}, {}}}
+	for _, name := range []string{"Mountain", "Mountain", "Other", "Other", "Other", "Other"} {
+		setup.Decks[1] = append(setup.Decks[1], &cards.Card{Faces: []*cards.Face{{Name: name}}})
+	}
+	board := json.RawMessage(`{"players":[{"seat":0},{"seat":1,"battlefield":[{"id":40}]}],"stack":[]}`)
+	empty := json.RawMessage(`{"players":[{"seat":0},{"seat":1}],"stack":[]}`)
+	history := func(exit ObservedEvent, identities []Identity, end json.RawMessage) History {
+		return History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+			{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.TurnChange, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+			{Identities: identities, Events: []ObservedEvent{exit}},
+			{Board: end, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}},
+		}}
+	}
+	played := ObservedEvent{Kind: events.MoveZone, Player: 1, Obj: 40, From: state.ZHand, To: state.ZBattlefield}
+	mountain := []Identity{{ID: 40, Name: "Mountain", Owner: 1}}
+	for _, test := range []struct {
+		name     string
+		h        History
+		required int
+		want     []exclusionConstraint
+	}{
+		{"both copies needed later", history(ObservedEvent{Kind: events.Priority}, nil, empty), 2, []exclusionConstraint{{Through: 3, Name: "Mountain", Cap: 0}}},
+		{"a played copy was drawn", history(played, mountain, board), 1, []exclusionConstraint{{Through: 3, Name: "Mountain", Cap: 1}}},
+		{"hidden hand exit ends the cap", history(ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZExile}, nil, empty), 2, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			epochs := map[epochKey]epochConstraints{{Player: 1, Ordinal: 1}: {}}
+			for i := range test.required {
+				epoch := epochs[epochKey{Player: 1, Ordinal: 1}]
+				epoch.Positions = append(epoch.Positions, epochPosition{Index: i, Name: "Mountain"})
+				epochs[epochKey{Player: 1, Ordinal: 1}] = epoch
+			}
+			got := spellbenchLibraryRequirementExclusions(setup, test.h, epochs)[epochKey{Player: 1}]
+			if !reflect.DeepEqual(got, test.want) {
+				t.Fatalf("exclusions %+v, want %+v", got, test.want)
+			}
+		})
+	}
+}
