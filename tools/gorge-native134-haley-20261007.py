@@ -2,8 +2,8 @@
 import argparse,datetime,hashlib,json,os,shutil,subprocess,sys,time,traceback
 from pathlib import Path
 if not __debug__: raise RuntimeError('This guarded launcher requires Python assertions enabled')
-INPUT=Path('C:/mtg-node/spellbench-gorge-haley-staging-20261007-131')
-REPO=INPUT/'source';JOB=Path('C:/mtg-node/spellbench-gorge-haley-native-20261007-132');STAGE=JOB/'native'
+INPUT=Path('C:/mtg-node/spellbench-gorge-haley-staging-20261007-133')
+REPO=INPUT/'source';JOB=Path('C:/mtg-node/spellbench-gorge-haley-native-20261007-134');STAGE=JOB/'native'
 RUNTIME=INPUT/'runtime';SCRIPT=REPO/'engines/gorge/scripts/qualify_native.py'
 WALL=21600;WORKERS=8;POLICIES='bot,bot-auto-pay,lethal-pressure,lethal-pressure-auto-pay,ar8,blocks,explore,legacy,search,search-mana';CAP=2*2**30;RESERVE=60*2**30
 sys.dont_write_bytecode=True
@@ -86,13 +86,14 @@ def dispatch():
  for name,pin in prep['files'].items():assert sha(STAGE/'runtime'/name)==pin['sha256']
  assert not (JOB/'host-dispatch.json').exists() and host.status()['state']=='free'
  assert Path(sys.executable).resolve()==Path(sys._base_executable).resolve()
- result=host.dispatch(lane='spellbench-gorge',work_id='gorge-guarded-native132',release_condition='All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games',
+ result=host.dispatch(lane='spellbench-gorge',work_id='gorge-guarded-native134',release_condition='All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games',
   command=[sys.executable,str(Path(__file__).resolve()),'--run'],cwd=str(REPO),busy_pattern=r'^(go|compile|link|gorgequal.*|public-witness.*|phase1_train|phase1_eval|cargo|rustc)\.exe$',
   transport_record=dict(kind='local-supported-native-audit',prepared_root=str(JOB),new_cloud_usd=0))
  write(JOB/'host-dispatch.json',result);print(json.dumps({k:result[k] for k in ('state','pid','generation')}))
 def run():
  token=os.environ.get(host.TOKEN_ENV);assert token and host.status(token)['state']=='held'
- import ctypes;assert ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(),0x4000) # BelowNormal, inherited by the audit
+ import ctypes;k=ctypes.windll.kernel32;k.GetCurrentProcess.restype=ctypes.c_void_p;k.SetPriorityClass.argtypes=[ctypes.c_void_p,ctypes.c_uint32]
+ assert k.SetPriorityClass(k.GetCurrentProcess(),0x4000) # BelowNormal, inherited by the audit
  prep=read(JOB/'PREPARATION.json');assert sha(SCRIPT)==prep['script_sha256'] and sha(Path(__file__))==prep['parent_sha256']
  assert inputs_check()['source_commit']==prep['source_commit'] and sha(INPUT/'source.tar')==prep['source_archive_sha256']
  for name,pin in prep['files'].items():assert sha(STAGE/'runtime'/name)==pin['sha256']
@@ -150,5 +151,5 @@ parser=argparse.ArgumentParser();parser.add_argument('--prepare',action='store_t
 assert sum((args.prepare,args.dispatch,args.run,args.release_check))==1
 if args.release_check:
  from gorge_recover_local_native import owned_release
- print(json.dumps(owned_release(host,read(JOB/'host-dispatch.json'),lane='spellbench-gorge',work_id='gorge-guarded-native132')))
+ print(json.dumps(owned_release(host,read(JOB/'host-dispatch.json'),lane='spellbench-gorge',work_id='gorge-guarded-native134')))
 else:prepare() if args.prepare else dispatch() if args.dispatch else run()
