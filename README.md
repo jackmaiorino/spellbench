@@ -119,7 +119,10 @@ path is an error.
 For a rated run, review and merge the definition first. Set
 `SPELLBENCH_SECRETS_DIR` outside all worktrees, and set `SPELLBENCH_PIN_ROOT`
 and `SPELLBENCH_ARTIFACT_REGISTER` in local values. The guard pins engine and
-bot inputs, registers them and preserves a 60 GiB disk reserve.
+bot inputs, registers them and preserves a 60 GiB disk reserve. A benchmark
+with a `job_storage_budget` also needs an absolute `SPELLBENCH_JOB_ROOT` in
+the environment, holding the run worktree and the pin root; `bench commit`
+checks it before publishing.
 
 Authors publish commitments through a PR, from their own branch at the
 reviewed default branch's tip:
