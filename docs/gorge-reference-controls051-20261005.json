@@ -96,6 +96,6 @@
   "next_wake_condition": "Existing48 native full result, failure or deadline; owner53116/session27682 and release guardian37988 retained. No51 launch without actual closed admission.",
   "seal_sha256": "f5d683509b9784954cfad978fcbcdb565338f23ca525d2d5a957c093b14811cc",
   "summary_write_recovery": "Factory retained controls049 document sink and refused before changing it. This recorder verifies all sealed E/D files and writes only new controls051 summaries.",
-  "summary_write_recovery_recipe": "C:\\Users\\Jack\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\out\\gorge-record-sealed-reference-controls051-20261005.py",
+  "summary_write_recovery_recipe": "~\\IdeaProjects\\spellbench-wt\\codex-gorge-all-20261002\\out\\gorge-record-sealed-reference-controls051-20261005.py",
   "summary_write_recovery_recipe_sha256": "f5a46ad5708925585df6b9697554f97bbcb22253d3ca511d442cd43296a36488"
 }

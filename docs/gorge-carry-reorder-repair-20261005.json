@@ -34,7 +34,7 @@
   "rated_games": 0,
   "published_entries": 0,
   "new_runpod_spend_usd": 0,
-  "constraints": "Ledger026 verifies22 closed exact leases, actual quotes, zero persistent volumes, full lifetime bounds, fresh bills and provider contract. Conservative boundUSD7.33314247 includes legacy allowances, extra300 seconds per lease and one projectUSD0.15 reserve. Jack generation184 and Haley queued research priority remain excluded; Zaratan credential refresh remains pending.",
+  "constraints": "Ledger026 verifies22 closed exact leases, actual quotes, zero persistent volumes, full lifetime bounds, fresh bills and provider contract. Conservative boundUSD7.33314247 includes legacy allowances, extra300 seconds per lease and one projectUSD0.15 reserve. The maintainer's generation184 and the compute host queued research priority remain excluded; Zaratan credential refresh remains pending.",
   "next_wake_condition": "Compatible production048 durable pins, supported matched serial/parallel allocation and full native audit; exact roots now passed.",
   "exact_replay_preparation": {
     "record": "docs/gorge-portable-roots047-20261005.json",

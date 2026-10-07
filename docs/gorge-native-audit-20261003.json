@@ -83,7 +83,7 @@
         "disposition": "used",
         "reason": "fresh canonical free claim,24 logical CPUs and local pinned inputs, same-input1/6/13 native audit blocks measured before full dispatch"
       },
-      "haleyspc": {
+      "computehost": {
         "disposition": "unavailable",
         "reason": "queued training-performance owner priority retained"
       },

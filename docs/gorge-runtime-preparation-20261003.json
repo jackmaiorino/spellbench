@@ -121,16 +121,16 @@
     "check_scope": "Startup and frozen-input compatibility only; no games or rating qualification"
   },
   "placement_snapshot": {
-    "jack": {
+    "maintainer": {
       "reservation_lane": "codex-lead-20261002",
       "generation": 95,
-      "work_id": "cooling-jack-stage1-001",
+      "work_id": "cooling-maintainer-stage1-001",
       "formal_owner_pid_observed_live": 58872,
       "docker_server": "28.3.2",
       "substantial_run_launched": false
     },
-    "haley": {
-      "connection": "haley@100.71.75.65 with existing strict host-key verification",
+    "computehost": {
+      "connection": "COMPUTE_HOST_SSH with existing strict host-key verification",
       "logical_cpus": 16,
       "memory_bytes": 34282180608,
       "free_host_memory_bytes": 303828992,

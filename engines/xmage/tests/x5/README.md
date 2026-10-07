@@ -8,7 +8,7 @@ Task X5 (issue #23): both benchmark pools in the engine catalog, at least 10,000
 host, paired-world leak tests, and the fairness label. The historical run below used protocol-v2 `4b588a1`. Progress
 notes for the coordinator are in `STATUS.md`.
 
-## #23 checks on the `004913a` build (2026-10-02, Jack's PC)
+## #23 checks on the `004913a` build (2026-10-02, the primary desktop)
 
 Run with `run-23-checks.sh` on the reviewed CI build (manifest `3b54f3f6...`, 41 jars verified, lib `094733a7`,
 `hello.source_revision` `004913a`), engines started through `python/tools/xmage_verified_entry.py`, below-normal
@@ -33,7 +33,7 @@ paired-world worlds and bots do not reach the repaired code paths in a way that 
 | Catalog | 32 decks (16 Standard 2022-25, 16 FDN), all `deck_ok` in `validate_deck`, none left out |
 | Live-validated games, final build | 10,112 games, 0 validator violations (`evidence/final-summary.json`) |
 | Halts and truncations, final build | 0 halted, 0 truncated, 0 forfeits: all 10,112 natural (run 1 on the earlier build: 62 halts from two causes, fixed) |
-| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes, both fixed and verified on HaleysPC: process history (boot warm-up) and the identity-hash order of abilities granted by Agatha's Soul Cauldron (ability ordering in the mapper) |
+| Determinism | rungs of 1, 12 and 24 workers identical; every tenth game (1,011) replayed under another identity-hash mode: 994 equal, 17 differ. Two causes, both fixed and verified on the compute host: process history (boot warm-up) and the identity-hash order of abilities granted by Agatha's Soul Cauldron (ability ordering in the mapper) |
 | Paired-world leak tests, final build (`evidence/leak/`) | counterspell 50 pairs, cantrip 50 pairs and 200 randomized pairs PASS, 0 unexplained divergences; comparator self-tests PASS |
 | Fairness label | "fairness: validator only" (`hello_ok.fairness.noninterference_probe` false; README) |
 
@@ -89,7 +89,7 @@ engine README states the label.
   insertion-ordered; the game then gave 1 digest in 6 runs. X4h's hash audit had not met it (no deck there creates
   two kinds of token at once). The final run replays every tenth game under `-XX:hashCode=3` with a hash warm-up
   to look for more such paths.
-- **Machines.** HaleysPC (JDK 23.0.2) reproduced Jack's PC's (JDK 23.0.1) digests on every game compared, and the
+- **Machines.** The compute host (JDK 23.0.2) reproduced the primary desktop's (JDK 23.0.1) digests on every game compared, and the
   final build's jars are byte-identical on both machines (`lib_digest` `c81b025a...`).
 
 ## Compute allocation (COMPUTE-POLICY.md)
@@ -102,7 +102,7 @@ start plus a 259 MB card-database copy per game would add 6 to 58 s to every 2 t
 has no guard yet (its allocation is "unmeasured"), so this module is the guarded path. `run-final.sh` runs build,
 `validate_deck`, guard, run, hash check and summary in one go.
 
-Scaling on Jack's PC (24 hardware threads, 128 GB), final build, engines started before timing
+Scaling on the primary desktop (24 hardware threads, 128 GB), final build, engines started before timing
 (`evidence/allocation-final.json`; run 1's build gave 37.1, 125.7 and 121.7):
 
 | Workers | Games | Wall s | Busy s (sum of game times) | Rate by busy time (games/min) |
@@ -119,14 +119,14 @@ percent; per-game time triples from 1 to 12 workers (each game is a JVM plus a P
 
 Placement (recorded in the allocation):
 
-- **Jack's PC: used.** Released 07:10 EDT; reclaimed about 08:27 for the research lead's calibration, which stopped
+- **The primary desktop: used.** Released 07:10 EDT; reclaimed about 08:27 for the research lead's calibration, which stopped
   run 1 at 2,216 games; released again 10:06 for the final run.
-- **HaleysPC: unavailable.** P's guard refused it before its first game: its only volume (C:) has 54.6 GiB free,
-  below the 60 GiB reserve of ARTIFACT-LAW.md clause 1 (`evidence/qualify-haleyspc-refused-reserve.log`); the
+- **The compute host: unavailable.** P's guard refused it before its first game: its only volume (C:) has 54.6 GiB free,
+  below the 60 GiB reserve of ARTIFACT-LAW.md clause 1 (`evidence/qualify-computehost-refused-reserve.log`); the
   coordinator kept the reserve (no exception). It ran only small correctness checks (leak tests, fix replays, a
   build) and was then reserved for another session's timing. X4 measured 40 to 56 games per minute there in 12
-  processes, a quarter of Jack's PC.
-- **RunPod: slower.** At Jack's PC's measured rate the whole schedule takes about 49 minutes. A CPU pod would first
+  processes, a quarter of the primary desktop.
+- **RunPod: slower.** At the primary desktop's measured rate the whole schedule takes about 49 minutes. A CPU pod would first
   need a JDK 23 image, Maven Central downloads, the 2.5 to 4 minute build, the card-database scan and P's stack
   before its first game, and a pod as fast as a 24-thread desktop just to tie; no spending authority covers it.
 
@@ -136,7 +136,7 @@ of those.
 
 ## Run 1 (interrupted): 2,216 games
 
-Build `d2563f73` (before the halt fixes and X-P4), 12 workers, 08:15 to 08:27 EDT, stopped when Jack's PC was
+Build `d2563f73` (before the halt fixes and X-P4), 12 workers, 08:15 to 08:27 EDT, stopped when the primary desktop was
 reclaimed. Every game live-validated. `evidence/run1-summary.json`, digests in `evidence/run1-digests.tsv`.
 
 | Pool | Games | Natural | Halted | Truncated | Validator violations |
@@ -158,7 +158,7 @@ All 62 end naturally on the fixed builds (`evidence/fixcheck.jsonl` and the Glis
 
 ## Final run: 10,112 games
 
-Build `c81b025a` (commit `a4a9eda`: catalog with full names, `ManaCostCache`, X-P4, the three mapper fixes), Jack's
+Build `c81b025a` (commit `a4a9eda`: catalog with full names, `ManaCostCache`, X-P4, the three mapper fixes), the maintainer's
 PC, 12 workers chosen by P's guard, 10:14 to 11:07 EDT: 10,112 games in 3,024 s, **200.6 games per minute**. Every
 decision was checked by P's live validator: 5,982,064 decisions, **0 violations**. Summary
 `evidence/final-summary.json`; every game's ending and digest in `evidence/final-games.tsv.gz`.
@@ -201,7 +201,7 @@ hit the completion budget (all candidates kept, no halt). Engine autopay inside 
   mints ids. X1's boot warm-up initializes only the framework jar's classes, so in each process the first game to
   reach that path drew those ids from its own stream.
 - Fix: the boot warm-up also initializes every class under `mage/player/ai/` (`Warmup`), so no game draws those
-  ids. Verified on HaleysPC (build `e8e5a42b`, commit `b5ce052`, below-normal priority; `evidence/warmup-verify.json`
+  ids. Verified on the compute host (build `e8e5a42b`, commit `b5ce052`, below-normal priority; `evidence/warmup-verify.json`
   and `.tsv`), each set played under the default identity hash and under `-XX:hashCode=3` with a hash warm-up, in
   different process layouts:
 
@@ -228,7 +228,7 @@ hit the completion budget (all candidates kept, no halt). Engine autopay inside 
   Granted ones follow, ordered by rule text (code point order) and then the original ability's id. The id only
   orders abilities with identical text, so it tells the seat nothing. XMage does not record which effect granted
   an ability, so the granting card's name cannot be a key. The observation carries no `ability_index`, and every
-  candidate takes it from that one ordering (Section 5.1). Verified on HaleysPC (`d74803d5`, commit `213d95a`;
+  candidate takes it from that one ordering (Section 5.1). Verified on the compute host (`d74803d5`, commit `213d95a`;
   `evidence/ability-order-verify.json`, `.tsv`), each game under both hash modes in different process layouts:
 
   | Set | Games | Equal across hash modes | Equal to the previous build | Equal to the main run |
@@ -242,7 +242,7 @@ hit the completion budget (all candidates kept, no halt). Engine autopay inside 
   differently; the MonoW game is the first-in-process game described above.
 - So the run's outcomes and validator verdict stand. On the current build every game checked is reproducible
   across hash modes and process layouts. Main-run digests are stale for games that reach a granted-ability
-  ordering or that first loaded an AI class in their process; the full 1,011-game recheck (Jack's PC) will
+  ordering or that first loaded an AI class in their process; the full 1,011-game recheck (the primary desktop) will
   measure how many.
 
 ## Paired-world leak tests (spec 13 F1, F3; design draft section 6)
@@ -278,7 +278,7 @@ Limits: a leak that only appears after the public state has diverged is out of e
 accepts any difference in the other hand's `known` entries during the observer's own resolving spell; the
 randomized windows are short (the salted seat's different hand soon changes its public plays).
 
-Earlier pass on HaleysPC (build before X-P4 and the Glissa fix): counterspell 50 pairs, every one identical for
+Earlier pass on the compute host (build before X-P4 and the Glissa fix): counterspell 50 pairs, every one identical for
 the whole game, with 1,001 p0 decisions taken while its own spell was on the stack and p1 held Counterspell over
 two untapped Islands; cantrip 50 pairs, p1 identical until a public divergence (median 62 decisions, turn 7) while
 p0 had already seen different library cards (median turn 2) in all 50; randomized 200 pairs flagged 2, both

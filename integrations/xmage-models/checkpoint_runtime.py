@@ -1,4 +1,4 @@
-"""Isolated MageZero, DraftZero and Jack checkpoint inference.
+"""Isolated MageZero, DraftZero and the maintainer's checkpoint inference.
 
 Use only through a no-network Docker container. The host supplies pinned
 checkpoints and exact model/encoder inputs, each mounted read-only.
@@ -151,7 +151,7 @@ def main() -> int:
     parser.add_argument("--vocab-sha256")
     parser.add_argument("--actions", type=Path)
     parser.add_argument("--actions-sha256")
-    parser.add_argument("--architecture", choices=("draftzero-exp1", "magezero-v02", "jack-rl-april"), required=True)
+    parser.add_argument("--architecture", choices=("draftzero-exp1", "magezero-v02", "maintainer-rl-april"), required=True)
     parser.add_argument("--mulligan", type=Path)
     parser.add_argument("--mulligan-sha256")
     parser.add_argument("--mulligan-source-sha256")
@@ -165,14 +165,14 @@ def main() -> int:
     expected_export = None
     if args.export_deck is not None or args.export_version is not None:
         expected_export = {"deck": args.export_deck, "version": args.export_version}
-    if args.architecture == "jack-rl-april":
-        from jack_runtime import JackRuntime
+    if args.architecture == "maintainer-rl-april":
+        from maintainer_runtime import MaintainerRuntime
         if (args.checkpoint_format != "torch" or expected_export is not None
                 or any(value is None for value in (args.mulligan, args.mulligan_sha256,
                     args.mulligan_source_sha256, args.encoder_sha256, args.callback_sha256,
                     args.embeddings, args.embeddings_sha256))):
-            raise ValueError("Jack inference requires raw weights and all paired source/encoder/embedding pins")
-        runtime = JackRuntime(args.checkpoint, args.checkpoint_sha256, args.source, args.model_sha256,
+            raise ValueError("the maintainer's inference requires raw weights and all paired source/encoder/embedding pins")
+        runtime = MaintainerRuntime(args.checkpoint, args.checkpoint_sha256, args.source, args.model_sha256,
                               args.mulligan, args.mulligan_sha256, args.mulligan_source_sha256,
                               args.encoder_sha256, args.callback_sha256, args.embeddings, args.embeddings_sha256,
                               args.mulligan_format)
@@ -183,8 +183,8 @@ def main() -> int:
                           args.vocab_sha256, args.actions, args.actions_sha256, args.architecture,
                           args.checkpoint_format, expected_export)
     if args.mode == "probe":
-        first = runtime.probe() if args.architecture == "jack-rl-april" else runtime.evaluate(runtime.probe_features, runtime.encoding)
-        second = runtime.probe() if args.architecture == "jack-rl-april" else runtime.evaluate(runtime.probe_features, runtime.encoding)
+        first = runtime.probe() if args.architecture == "maintainer-rl-april" else runtime.evaluate(runtime.probe_features, runtime.encoding)
+        second = runtime.probe() if args.architecture == "maintainer-rl-april" else runtime.evaluate(runtime.probe_features, runtime.encoding)
         raw = json.dumps(first, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
         if first != second:
             raise ValueError("repeated checkpoint inference differs")

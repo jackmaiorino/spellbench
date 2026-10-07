@@ -108,6 +108,11 @@ func (pl *Plan) match(p xview.Payload, op mapping.NativeOp, ask func(decision.De
 		return op.Position < len(list) && list[op.Position] == op.Option
 	case "finish":
 		return len(pl.used) >= len(in.Choices)
+	case "fixed":
+		// An order gorge's engine fixes without asking (cards a reveal
+		// sends to the graveyard): the plan has no say, so any one answer
+		// is gorge's.
+		return true
 	}
 	return false
 }

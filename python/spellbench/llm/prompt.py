@@ -25,12 +25,34 @@ SYSTEM_PROMPT = (
 
 
 PROMPT_FORMATS = {"json-v1": PROMPT_VERSION, "shared-records-v1": COMPACT_PROMPT_VERSION}
+PUBLIC_HISTORY = "x_public_history_v1"
+PUBLIC_HISTORY_SUFFIX = "+public-history-v1"
+PUBLIC_HISTORY_PROMPT_VERSION = PROMPT_VERSION + PUBLIC_HISTORY_SUFFIX
+PUBLIC_HISTORY_INSTRUCTIONS = (
+    "public_history lists, oldest first, the most recent game events you were able to observe "
+    "(draws, zone moves, reveals, looks, shuffles, tokens and turn starts); a card is null when you "
+    "could not identify it, an object_id in an older event may no longer appear in the current observation, "
+    "and omitted_earlier_events counts older events left out."
+)
 
 
-def system_prompt(prompt_format: str = "json-v1") -> str:
+def system_prompt(prompt_format: str = "json-v1", *, public_history: bool = False) -> str:
     if prompt_format not in PROMPT_FORMATS:
         raise ValueError("unsupported prompt format")
-    return SYSTEM_PROMPT if prompt_format == "json-v1" else SYSTEM_PROMPT + " " + COMPACT_INSTRUCTIONS
+    text = SYSTEM_PROMPT if prompt_format == "json-v1" else SYSTEM_PROMPT + " " + COMPACT_INSTRUCTIONS
+    return text + " " + PUBLIC_HISTORY_INSTRUCTIONS if public_history else text
+
+
+def public_history_events(extensions: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Read one decision's x_public_history_v1 delta; its object IDs are observation IDs."""
+    value = extensions.get(PUBLIC_HISTORY)
+    if not isinstance(value, dict) or value.get("schema") != PUBLIC_HISTORY:
+        raise ValueError("decision lacks the accepted x_public_history_v1 extension")
+    events = value.get("events")
+    if not isinstance(events, list) or not all(isinstance(event, dict) and isinstance(event.get("kind"), str)
+                                               for event in events):
+        raise ValueError("x_public_history_v1 events must be a list of event objects")
+    return events
 
 
 def sha256(data: bytes) -> str:
@@ -97,10 +119,12 @@ def render_prompt(
     catalog: CardCatalog | None = None,
     max_bytes: int = 64_000,
     prompt_format: str = "json-v1",
+    public_history: Mapping[str, Any] | None = None,
 ) -> Prompt:
-    instructions = system_prompt(prompt_format)
-    # The host validates core observations before forwarding them. Extensions and
-    # raw envelopes are deliberately excluded: they may carry engine-native IDs.
+    instructions = system_prompt(prompt_format, public_history=public_history is not None)
+    # The host validates core observations before forwarding them. Raw envelopes
+    # and other extensions are deliberately excluded: they may carry engine-native
+    # IDs. x_public_history_v1 declares native_ids false and is opt-in.
     if decision.acting_seat not in {"p0", "p1"} or decision.observation.get("viewer") != decision.acting_seat:
         raise ValueError("LLM requires a v2 observation for its acting seat")
     players = decision.observation.get("players")
@@ -117,7 +141,7 @@ def render_prompt(
         elif player.get("hand") is not None:
             raise ValueError("opponent's private hand must be hidden")
     payload: dict[str, Any] = {
-        "prompt_version": PROMPT_VERSION,
+        "prompt_version": PROMPT_VERSION if public_history is None else PUBLIC_HISTORY_PROMPT_VERSION,
         "seat": decision.acting_seat,
         "observation": decision.observation,
         "context": decision.context,
@@ -129,6 +153,9 @@ def render_prompt(
         "own_deck": own_deck,
         "own_decision_history": list(history),
     }
+    if public_history is not None:
+        payload["public_history"] = {"events": list(public_history["events"]),
+                                     "omitted_earlier_events": public_history["omitted_earlier_events"]}
     if catalog is not None:
         names = sorted(_card_names(payload))
         payload["card_text"] = {name: catalog.cards[name] for name in names if name in catalog.cards}

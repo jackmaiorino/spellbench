@@ -115,7 +115,7 @@ def test_local_checkpoint_is_verified_opaquely_and_never_downloaded(tmp_path):
     data = b"private checkpoint bytes"
     item = pinned(data)
     item.pop("url")
-    item.update(kind="checkpoint", transport="local-file", provenance="Jack's archived export")
+    item.update(kind="checkpoint", transport="local-file", provenance="the maintainer's archived export")
     def must_not_open(*args, **kwargs):
         pytest.fail("a local checkpoint reached the network")
     with pytest.raises(ValueError, match="already be staged"):

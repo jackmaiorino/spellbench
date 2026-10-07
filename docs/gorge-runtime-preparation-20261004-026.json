@@ -201,8 +201,8 @@
     "path": "E:\\spellbench-gorge-runtime-20261004-026\\RESOURCES.json",
     "sha256": "3394343c556e13e82dbfd8d7f06add660126e6d8a9dad5def1cc3367d7c23f44",
     "checked_at_utc": "2026-10-04T17:03:59.173007+00:00",
-    "Jack_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=spellbench-pauper-luna-20261003 work_id=pauper-luna-approved-qualification-004 generation=174 since=2026-10-04T16:39:08.234+00:00",
-    "Haley_priority_preserved": true,
+    "Maintainer_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=spellbench-pauper-luna-20261003 work_id=pauper-luna-approved-qualification-004 generation=174 since=2026-10-04T16:39:08.234+00:00",
+    "ComputeHost_priority_preserved": true,
     "owned_runpod_running": []
   },
   "repair_record": "docs/gorge-public-ability-repair-20261004.json",

@@ -143,7 +143,7 @@ def main():
     # Include all four search modes on all five decks in the first24 blocks.
     order=sorted(range(len(GAMES)),key=lambda i:(not GAMES[i][1].startswith('search'),GAMES[i][2],i))
     placement=os.environ.get('GORGE_PLACEMENT') or ('main-pc=unavailable: peer XMage short guarded correctness claims retain their announced priority; '
-               'haleyspc=unavailable: queued training-performance window retains priority per CODEX811; '
+               'computehost=unavailable: queued training-performance window retains priority per CODEX811; '
                'runpod=used: owned13.6-core CFS CPU allocation under separate gorge USD10 total cap, native audit worker cap12')
     facts=machine.machine_facts({'run_dir':STAGE,'pin_root':STAGE},memory=machine.total_memory,
         gpus=machine.nvidia_gpus,disk_free=assigned_free)

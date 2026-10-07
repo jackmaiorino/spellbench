@@ -276,7 +276,40 @@
              if (options.isEmpty()) {
                  if (!ability.getManaCosts().getVariableCosts().isEmpty()) {
                      simulateVariableCosts(ability, all, game);
-@@ -179,6 +188,67 @@
+@@ -99,6 +108,10 @@
+         int powerElements = (int) Math.pow(2, attackersList.size());
+         StringBuilder binary = new StringBuilder();
+         for (int i = powerElements - 1; i >= 0; i--) {
++            if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT: combat option budget
++                spellbench.kit.xmage.KitContext.count("cap:combat_options");
++                break;
++            }
+             binary.setLength(0);
+             binary.append(Integer.toBinaryString(i));
+             while (binary.length() < attackersList.size()) {
+@@ -146,6 +159,10 @@
+     protected void addBlocker(Game game, List<List<UUID>> engagement, List<Permanent> blockers, List<List<List<UUID>>> engagements) {
+         if (blockers.isEmpty())
+             return;
++        if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT: combat option budget
++            spellbench.kit.xmage.KitContext.count("cap:combat_options");
++            return;
++        }
+         int numGroups = game.getCombat().getGroups().size();
+         //try to block each attacker with each potential blocker
+         Permanent blocker = blockers.get(0);
+@@ -156,6 +173,10 @@
+             if (game.getCombat().getGroups().get(i).canBlock(blocker, game)) {
+                 List<List<UUID>> newEngagement = copyEngagement(engagement);
+                 newEngagement.get(i).add(blocker.getId());
++                if (engagements.size() >= spellbench.kit.xmage.KitContext.combatOptionBudget) { // KIT
++                    spellbench.kit.xmage.KitContext.count("cap:combat_options");
++                    return;
++                }
+                 engagements.add(newEngagement);
+ //                    logger.debug("simulating -- found redundant block combination");
+                 addBlocker(game, newEngagement, remaining, engagements);  // and recurse minus the used blocker
+@@ -179,6 +200,71 @@
          return false;
      }
  
@@ -312,7 +345,11 @@
 +    @Override
 +    public boolean choose(mage.constants.Outcome outcome, mage.choices.Choice choice, Game game) {
 +        spellbench.kit.xmage.KitContext.dialog();
-+        return super.choose(outcome, choice, game);
++        boolean r = super.choose(outcome, choice, game);
++        if (choice instanceof mage.choices.ChoiceColor) {
++            spellbench.kit.xmage.KitContext.color(choice.getChoice()); // KIT: a color the plan can carry
++        }
++        return r;
 +    }
 +
 +    @Override
@@ -346,7 +383,7 @@
          game.pause();
 --- upstream/Mage.Player.AIMCTS/src/mage/player/ai/PriorityNextAction.java
 +++ kit/xmage/src/mage/player/ai/PriorityNextAction.java
-@@ -18,11 +18,58 @@
+@@ -18,11 +18,67 @@
          else
              abilities = MCTSNode.getPlayables(player, fullStateValue, game);
          for (Ability ability: abilities) {
@@ -364,6 +401,7 @@
 -            children.add(new MCTSNode(node, sim, ability));
 +            int before = sim.getStack().size();
 +            long dialogsBefore = spellbench.kit.xmage.KitContext.dialogs(); // KIT
++            spellbench.kit.xmage.KitContext.resetColors(); // KIT
 +            try { // KIT: option-generation and operation budgets in expansion (addendum change 2)
 +                simPlayer.activateAbility((ActivatedAbility)ability, sim);
 +            } catch (spellbench.kit.xmage.KitContext.BudgetExceeded e) {
@@ -372,14 +410,22 @@
 +                continue; // the child is dropped
 +            }
 +            // KIT: an action at the root that leaves no stack object and asked a dialog while it executed carries
-+            // its choices in no executed copy: unsupported (review change 4), so it is never a root child
-+            if (node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
-+                    && sim.getStack().size() <= before && spellbench.kit.xmage.KitContext.dialogs() > dialogsBefore) {
++            // its choices in no executed copy: unsupported (review change 4), so it is never a root child, unless
++            // every dialog was a color choice (a Gate's as-enters color), which the plan carries as "colors"
++            java.util.List<String> kitColors = spellbench.kit.xmage.KitContext.colors();
++            long kitDialogs = spellbench.kit.xmage.KitContext.dialogs() - dialogsBefore;
++            boolean kitNonStack = node.kitIsRoot() && !(ability instanceof mage.abilities.common.PassAbility)
++                    && sim.getStack().size() <= before && kitDialogs > 0;
++            if (kitNonStack && (kitColors.size() != kitDialogs || kitColors.contains(null))) {
 +                spellbench.kit.xmage.KitContext.count("mcts:non_stack_dialog_excluded");
 +                continue;
 +            }
 +            // KIT: payload witness (design 5.3 N1): read from the executed object before the game resumes
 +            java.util.Map<String, Object> payload = spellbench.kit.xmage.KitContext.witness(sim, before);
++            if (kitNonStack) {
++                payload.put("colors", new java.util.ArrayList<Object>(kitColors));
++                spellbench.kit.xmage.KitContext.count("mcts:non_stack_colors_planned");
++            }
 +            // KIT: horizon in expansion (addendum change 4): a pass that would let a flagged object resolve
 +            if (spellbench.kit.xmage.KitContext.passWouldResolveFlagged(sim, player.getId(), ability)) {
 +                MCTSNode child = new MCTSNode(node, sim, ability);

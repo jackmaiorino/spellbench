@@ -201,8 +201,8 @@
     "path": "E:\\spellbench-gorge-runtime-20261004-025\\RESOURCES.json",
     "sha256": "7ad2aaccde35639f2cd11d2b32268fc7cc856e48984ffcb228e1fb78c3d13297",
     "checked_at_utc": "2026-10-04T15:00:20.897221+00:00",
-    "Jack_claim": "host-reservation DESKTOP-DJ1C40R state=free lane=- work_id=- generation=- since=-",
-    "Haley_priority_preserved": true,
+    "Maintainer_claim": "host-reservation DESKTOP-DJ1C40R state=free lane=- work_id=- generation=- since=-",
+    "ComputeHost_priority_preserved": true,
     "owned_runpod_running": []
   },
   "repair_record": "docs/gorge-public-dig-repair-20261004.json",

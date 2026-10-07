@@ -1,5 +1,40 @@
 {
  "admission": {
+  "Affinity": {
+   "admitted": true,
+   "approximate_cards": [
+    "Refurbished Familiar"
+   ],
+   "unsupported_cards": []
+  },
+  "Burn": {
+   "admitted": true,
+   "approximate_cards": [
+    "Faithless Looting",
+    "Fiery Temper",
+    "Fireblast",
+    "Highway Robbery",
+    "Lava Dart"
+   ],
+   "unsupported_cards": []
+  },
+  "CawGates": {
+   "admitted": true,
+   "approximate_cards": [
+    "Citadel Gate",
+    "Journey to Nowhere",
+    "Prismatic Strands",
+    "Sea Gate"
+   ],
+   "unsupported_cards": []
+  },
+  "Elves": {
+   "admitted": true,
+   "approximate_cards": [
+    "Nyxborn Hydra"
+   ],
+   "unsupported_cards": []
+  },
   "FDN_top_02581_UR": {
    "admitted": true,
    "approximate_cards": [
@@ -148,6 +183,30 @@
     "Cackling Prowler",
     "Gnarlid Colony",
     "Nessian Hornbeetle"
+   ],
+   "unsupported_cards": []
+  },
+  "Faeries": {
+   "admitted": true,
+   "approximate_cards": [
+    "Moon-Circuit Hacker"
+   ],
+   "unsupported_cards": []
+  },
+  "Rally": {
+   "admitted": true,
+   "approximate_cards": [
+    "Goblin Bushwhacker"
+   ],
+   "unsupported_cards": []
+  },
+  "Spy": {
+   "admitted": true,
+   "approximate_cards": [
+    "Balustrade Spy",
+    "Dread Return",
+    "Land Grant",
+    "Mesmeric Fiend"
    ],
    "unsupported_cards": []
   },
@@ -308,6 +367,16 @@
     "Braided Net // Braided Quipu"
    ],
    "unsupported_cards": []
+  },
+  "Wildfire": {
+   "admitted": true,
+   "approximate_cards": [
+    "Eviscerator's Insight",
+    "Nyxborn Hydra",
+    "Refurbished Familiar",
+    "Writhing Chrysalis"
+   ],
+   "unsupported_cards": []
   }
  },
  "cards": {
@@ -463,6 +532,14 @@
     "triggers read event data or captured values"
    ]
   },
+  "Avenging Hunter": {
+   "class": "mage.cards.a.AvengingHunter",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Axebane Ferox": {
    "class": "mage.cards.a.AxebaneFerox",
    "status": "supported",
@@ -474,6 +551,10 @@
   "Axgard Cavalry": {
    "activated": "plain",
    "class": "mage.cards.a.AxgardCavalry",
+   "status": "supported"
+  },
+  "Azorius Guildgate": {
+   "class": "mage.cards.a.AzoriusGuildgate",
    "status": "supported"
   },
   "Bake into a Pie": {
@@ -491,6 +572,20 @@
    ],
    "triggers": "event_free"
   },
+  "Balustrade Spy": {
+   "class": "mage.cards.b.BalustradeSpy",
+   "reading_classes": [
+    "CardsImpl"
+   ],
+   "status": "approximate",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values"
+   ]
+  },
   "Banishing Light": {
    "class": "mage.cards.b.BanishingLight",
    "status": "supported",
@@ -504,6 +599,10 @@
    "reading_classes": [
     "EquipAbility"
    ],
+   "status": "supported"
+  },
+  "Basilisk Gate": {
+   "class": "mage.cards.b.BasiliskGate",
    "status": "supported"
   },
   "Battlefield Forge": {
@@ -537,9 +636,33 @@
    "class": "mage.cards.b.BiteDown",
    "status": "supported"
   },
+  "Black Mage's Rod": {
+   "class": "mage.cards.b.BlackMagesRod",
+   "reading_classes": [
+    "EquipAbility"
+   ],
+   "status": "supported",
+   "trigger_classes": [
+    "JobSelectAbility",
+    "SpellCastControllerTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Blackcleave Cliffs": {
    "class": "mage.cards.b.BlackcleaveCliffs",
    "status": "supported"
+  },
+  "Blood Fountain": {
+   "activated": "plain",
+   "class": "mage.cards.b.BloodFountain",
+   "status": "supported",
+   "tokens": [
+    "BloodToken"
+   ],
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
   },
   "Bloodletter of Aclazotz": {
    "class": "mage.cards.b.BloodletterOfAclazotz",
@@ -590,6 +713,10 @@
    "why": [
     "activated abilities read captured values or paid costs"
    ]
+  },
+  "Brainstorm": {
+   "class": "mage.cards.b.Brainstorm",
+   "status": "supported"
   },
   "Breach the Multiverse": {
    "class": "mage.cards.b.BreachTheMultiverse",
@@ -648,6 +775,14 @@
   },
   "Burglar Rat": {
    "class": "mage.cards.b.BurglarRat",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Burning-Tree Emissary": {
+   "class": "mage.cards.b.BurningTreeEmissary",
    "status": "supported",
    "trigger_classes": [
     "EntersBattlefieldTriggeredAbility"
@@ -729,6 +864,10 @@
    ],
    "triggers": "event_free"
   },
+  "Cast Down": {
+   "class": "mage.cards.c.CastDown",
+   "status": "supported"
+  },
   "Cat Collector": {
    "class": "mage.cards.c.CatCollector",
    "status": "supported",
@@ -796,6 +935,10 @@
    ],
    "triggers": "event_free"
   },
+  "Chain Lightning": {
+   "class": "mage.cards.c.ChainLightning",
+   "status": "supported"
+  },
   "Chandra, Hope's Beacon": {
    "activated": "captured_value",
    "class": "mage.cards.c.ChandraHopesBeacon",
@@ -832,6 +975,19 @@
     "triggers read event data or captured values"
    ]
   },
+  "Citadel Gate": {
+   "class": "mage.cards.c.CitadelGate",
+   "non_stack_choices": [
+    "land play asks a choice as it enters"
+   ],
+   "reading_classes": [
+    "AddManaChosenColorEffect"
+   ],
+   "status": "approximate",
+   "why": [
+    "non-stack action asks a choice (the kit declines that action, review change 4)"
+   ]
+  },
   "Clay-Fired Bricks // Cosmium Kiln": {
    "class": "mage.cards.c.ClayFiredBricks",
    "status": "supported",
@@ -840,6 +996,18 @@
    ],
    "trigger_classes": [
     "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Cleansing Wildfire": {
+   "class": "mage.cards.c.CleansingWildfire",
+   "status": "supported"
+  },
+  "Clockwork Percussionist": {
+   "class": "mage.cards.c.ClockworkPercussionist",
+   "status": "supported",
+   "trigger_classes": [
+    "DiesSourceTriggeredAbility"
    ],
    "triggers": "event_free"
   },
@@ -886,6 +1054,10 @@
    ],
    "triggers": "event_free"
   },
+  "Counterspell": {
+   "class": "mage.cards.c.Counterspell",
+   "status": "supported"
+  },
   "Courageous Goblin": {
    "class": "mage.cards.c.CourageousGoblin",
    "status": "supported",
@@ -899,6 +1071,15 @@
    "status": "supported",
    "trigger_classes": [
     "SpellCastControllerTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Cryogen Relic": {
+   "activated": "plain",
+   "class": "mage.cards.c.CryogenRelic",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldOrLeavesSourceTriggeredAbility"
    ],
    "triggers": "event_free"
   },
@@ -985,6 +1166,10 @@
    "class": "mage.cards.d.DestroyEvil",
    "status": "supported"
   },
+  "Dispel": {
+   "class": "mage.cards.d.Dispel",
+   "status": "supported"
+  },
   "Dissipate": {
    "class": "mage.cards.d.Dissipate",
    "status": "supported"
@@ -1047,8 +1232,25 @@
    ],
    "triggers": "event_free"
   },
+  "Dread Return": {
+   "class": "mage.cards.d.DreadReturn",
+   "optional_costs": [
+    "FlashbackAbility"
+   ],
+   "reading_classes": [
+    "FlashbackAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: FlashbackAbility"
+   ]
+  },
   "Dreamroot Cascade": {
    "class": "mage.cards.d.DreamrootCascade",
+   "status": "supported"
+  },
+  "Drossforge Bridge": {
+   "class": "mage.cards.d.DrossforgeBridge",
    "status": "supported"
   },
   "Duress": {
@@ -1129,8 +1331,16 @@
    ],
    "triggers": "event_free"
   },
+  "Elves of Deep Shadow": {
+   "class": "mage.cards.e.ElvesOfDeepShadow",
+   "status": "supported"
+  },
   "Elvish Archdruid": {
    "class": "mage.cards.e.ElvishArchdruid",
+   "status": "supported"
+  },
+  "Elvish Mystic": {
+   "class": "mage.cards.e.ElvishMystic",
    "status": "supported"
   },
   "Elvish Regrower": {
@@ -1149,6 +1359,10 @@
     "ValiantTriggeredAbility"
    ],
    "triggers": "event_free"
+  },
+  "End the Festivities": {
+   "class": "mage.cards.e.EndTheFestivities",
+   "status": "supported"
   },
   "Enduring Curiosity": {
    "class": "mage.cards.e.EnduringCuriosity",
@@ -1236,6 +1450,19 @@
     "triggers read event data or captured values (target pointer from the event)"
    ]
   },
+  "Eviscerator's Insight": {
+   "class": "mage.cards.e.EvisceratorsInsight",
+   "optional_costs": [
+    "FlashbackAbility"
+   ],
+   "reading_classes": [
+    "FlashbackAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: FlashbackAbility"
+   ]
+  },
   "Evolving Adaptive": {
    "class": "mage.cards.e.EvolvingAdaptive",
    "reading_classes": [
@@ -1271,6 +1498,17 @@
    "why": [
     "triggers read event data or captured values"
    ]
+  },
+  "Experimental Synthesizer": {
+   "class": "mage.cards.e.ExperimentalSynthesizer",
+   "status": "supported",
+   "tokens": [
+    "SamuraiToken"
+   ],
+   "trigger_classes": [
+    "EntersBattlefieldOrLeavesSourceTriggeredAbility"
+   ],
+   "triggers": "event_free"
   },
   "Extraction Specialist": {
    "class": "mage.cards.e.ExtractionSpecialist",
@@ -1312,6 +1550,35 @@
    ],
    "triggers": "event_free"
   },
+  "Faerie Miscreant": {
+   "class": "mage.cards.f.FaerieMiscreant",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Faerie Seer": {
+   "class": "mage.cards.f.FaerieSeer",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Faithless Looting": {
+   "class": "mage.cards.f.FaithlessLooting",
+   "optional_costs": [
+    "FlashbackAbility"
+   ],
+   "reading_classes": [
+    "FlashbackAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: FlashbackAbility"
+   ]
+  },
   "Fake Your Own Death": {
    "class": "mage.cards.f.FakeYourOwnDeath",
    "status": "approximate",
@@ -1331,6 +1598,13 @@
    "class": "mage.cards.f.FanaticalFirebrand",
    "status": "supported"
   },
+  "Fanatical Offering": {
+   "class": "mage.cards.f.FanaticalOffering",
+   "status": "supported",
+   "tokens": [
+    "MapToken"
+   ]
+  },
   "Felidar Savior": {
    "class": "mage.cards.f.FelidarSavior",
    "status": "supported",
@@ -1346,6 +1620,29 @@
   "Fiery Annihilation": {
    "class": "mage.cards.f.FieryAnnihilation",
    "status": "supported"
+  },
+  "Fiery Temper": {
+   "class": "mage.cards.f.FieryTemper",
+   "optional_costs": [
+    "MadnessAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: MadnessAbility"
+   ]
+  },
+  "Fireblast": {
+   "class": "mage.cards.f.Fireblast",
+   "optional_costs": [
+    "AlternativeCostSourceAbility"
+   ],
+   "reading_classes": [
+    "AlternativeCostSourceAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: AlternativeCostSourceAbility"
+   ]
   },
   "Firespitter Whelp": {
    "class": "mage.cards.f.FirespitterWhelp",
@@ -1410,6 +1707,10 @@
    "class": "mage.cards.f.FomoriVault",
    "status": "supported"
   },
+  "Force Spike": {
+   "class": "mage.cards.f.ForceSpike",
+   "status": "supported"
+  },
   "Forest": {
    "class": "mage.cards.basiclands.Forest",
    "status": "supported"
@@ -1441,11 +1742,27 @@
     "optional or alternative costs: WarpAbility"
    ]
   },
+  "Fyndhorn Elves": {
+   "class": "mage.cards.f.FyndhornElves",
+   "status": "supported"
+  },
+  "Galvanic Blast": {
+   "class": "mage.cards.g.GalvanicBlast",
+   "status": "supported"
+  },
   "Garruk's Uprising": {
    "class": "mage.cards.g.GarruksUprising",
    "status": "supported",
    "trigger_classes": [
     "EntersBattlefieldAllTriggeredAbility",
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Gatecreeper Vine": {
+   "class": "mage.cards.g.GatecreeperVine",
+   "status": "supported",
+   "trigger_classes": [
     "EntersBattlefieldTriggeredAbility"
    ],
    "triggers": "event_free"
@@ -1466,6 +1783,17 @@
    "why": [
     "optional or alternative costs: KickerAbility"
    ]
+  },
+  "Generous Ent": {
+   "class": "mage.cards.g.GenerousEnt",
+   "status": "supported",
+   "tokens": [
+    "FoodToken"
+   ],
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
   },
   "Get Lost": {
    "class": "mage.cards.g.GetLost",
@@ -1539,12 +1867,33 @@
    ],
    "status": "supported"
   },
+  "Goblin Bushwhacker": {
+   "class": "mage.cards.g.GoblinBushwhacker",
+   "optional_costs": [
+    "KickerAbility"
+   ],
+   "reading_classes": [
+    "KickerAbility"
+   ],
+   "status": "approximate",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free",
+   "why": [
+    "optional or alternative costs: KickerAbility"
+   ]
+  },
   "Goblin Surprise": {
    "class": "mage.cards.g.GoblinSurprise",
    "status": "supported",
    "tokens": [
     "GoblinToken"
    ]
+  },
+  "Goblin Tomb Raider": {
+   "class": "mage.cards.g.GoblinTombRaider",
+   "status": "supported"
   },
   "Goldvein Pick": {
    "class": "mage.cards.g.GoldveinPick",
@@ -1579,6 +1928,10 @@
    ],
    "triggers": "event_free"
   },
+  "Grab the Prize": {
+   "class": "mage.cards.g.GrabThePrize",
+   "status": "supported"
+  },
   "Graveyard Trespasser // Graveyard Glutton": {
    "class": "mage.cards.g.GraveyardTrespasser",
    "reading_classes": [
@@ -1593,6 +1946,10 @@
    "why": [
     "triggers read event data or captured values"
    ]
+  },
+  "Great Furnace": {
+   "class": "mage.cards.g.GreatFurnace",
+   "status": "supported"
   },
   "Grizzly Bears": {
    "class": "mage.cards.g.GrizzlyBears",
@@ -1622,11 +1979,23 @@
    ],
    "triggers": "event_free"
   },
+  "Guardian of the Guildpact": {
+   "class": "mage.cards.g.GuardianOfTheGuildpact",
+   "status": "supported"
+  },
   "Gutless Plunderer": {
    "class": "mage.cards.g.GutlessPlunderer",
    "status": "supported",
    "trigger_classes": [
     "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Guttersnipe": {
+   "class": "mage.cards.g.Guttersnipe",
+   "status": "supported",
+   "trigger_classes": [
+    "SpellCastControllerTriggeredAbility"
    ],
    "triggers": "event_free"
   },
@@ -1671,6 +2040,15 @@
    ],
    "triggers": "event_free"
   },
+  "Harrier Strix": {
+   "activated": "plain",
+   "class": "mage.cards.h.HarrierStrix",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Haughty Djinn": {
    "class": "mage.cards.h.HaughtyDjinn",
    "status": "supported"
@@ -1682,6 +2060,14 @@
   "Healer's Hawk": {
    "class": "mage.cards.h.HealersHawk",
    "status": "supported"
+  },
+  "Heap Gate": {
+   "activated": "plain",
+   "class": "mage.cards.h.HeapGate",
+   "status": "supported",
+   "tokens": [
+    "TreasureToken"
+   ]
   },
   "Heartfire Hero": {
    "class": "mage.cards.h.HeartfireHero",
@@ -1718,6 +2104,19 @@
   "Hero's Downfall": {
    "class": "mage.cards.h.HerosDownfall",
    "status": "supported"
+  },
+  "Highway Robbery": {
+   "class": "mage.cards.h.HighwayRobbery",
+   "optional_costs": [
+    "PlotAbility"
+   ],
+   "reading_classes": [
+    "PlotAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: PlotAbility"
+   ]
   },
   "Hired Claw": {
    "class": "mage.cards.h.HiredClaw",
@@ -1758,6 +2157,14 @@
    ],
    "triggers": "event_free"
   },
+  "Humbling Elder": {
+   "class": "mage.cards.h.HumblingElder",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Hungry Ghoul": {
    "activated": "captured_value",
    "class": "mage.cards.h.HungryGhoul",
@@ -1768,6 +2175,13 @@
    "why": [
     "activated abilities read captured values or paid costs"
    ]
+  },
+  "Hunter's Blowgun": {
+   "class": "mage.cards.h.HuntersBlowgun",
+   "reading_classes": [
+    "EquipAbility"
+   ],
+   "status": "supported"
   },
   "Hushwood Verge": {
    "class": "mage.cards.h.HushwoodVerge",
@@ -1780,6 +2194,18 @@
     "EntersBattlefieldTriggeredAbility"
    ],
    "triggers": "event_free"
+  },
+  "Ichor Wellspring": {
+   "class": "mage.cards.i.IchorWellspring",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldOrDiesSourceTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Idyllic Beachfront": {
+   "class": "mage.cards.i.IdyllicBeachfront",
+   "status": "supported"
   },
   "Imodane's Recruiter // Train Troops": {
    "class": "mage.cards.i.ImodanesRecruiter",
@@ -1897,6 +2323,21 @@
     "triggers read event data or captured values"
    ]
   },
+  "Journey to Nowhere": {
+   "class": "mage.cards.j.JourneyToNowhere",
+   "reading_classes": [
+    "ReturnFromExileForSourceEffect"
+   ],
+   "status": "approximate",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility",
+    "LeavesBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values"
+   ]
+  },
   "Joust Through": {
    "class": "mage.cards.j.JoustThrough",
    "status": "supported"
@@ -1985,6 +2426,11 @@
    ],
    "triggers": "event_free"
   },
+  "Krark-Clan Shaman": {
+   "activated": "plain",
+   "class": "mage.cards.k.KrarkClanShaman",
+   "status": "supported"
+  },
   "Lagrella, the Magpie": {
    "class": "mage.cards.l.LagrellaTheMagpie",
    "reading_classes": [
@@ -2000,6 +2446,19 @@
    "triggers": "event_data",
    "why": [
     "triggers read event data or captured values"
+   ]
+  },
+  "Land Grant": {
+   "class": "mage.cards.l.LandGrant",
+   "optional_costs": [
+    "AlternativeCostSourceAbility"
+   ],
+   "reading_classes": [
+    "AlternativeCostSourceAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: AlternativeCostSourceAbility"
    ]
   },
   "Lathril, Blade of the Elves": {
@@ -2021,11 +2480,41 @@
     "activated abilities read captured values or paid costs"
    ]
   },
+  "Lava Dart": {
+   "class": "mage.cards.l.LavaDart",
+   "optional_costs": [
+    "FlashbackAbility"
+   ],
+   "reading_classes": [
+    "FlashbackAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: FlashbackAbility"
+   ]
+  },
+  "Lead the Stampede": {
+   "class": "mage.cards.l.LeadTheStampede",
+   "status": "supported"
+  },
+  "Lembas": {
+   "class": "mage.cards.l.Lembas",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility",
+    "PutIntoGraveFromBattlefieldSourceTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Leyline Axe": {
    "class": "mage.cards.l.LeylineAxe",
    "reading_classes": [
     "EquipAbility"
    ],
+   "status": "supported"
+  },
+  "Lightning Bolt": {
+   "class": "mage.cards.l.LightningBolt",
    "status": "supported"
   },
   "Lightning Strike": {
@@ -2057,6 +2546,22 @@
   "Loot, Exuberant Explorer": {
    "activated": "plain",
    "class": "mage.cards.l.LootExuberantExplorer",
+   "status": "supported"
+  },
+  "Lorien Revealed": {
+   "class": "mage.cards.l.LorienRevealed",
+   "status": "supported"
+  },
+  "Lotleth Giant": {
+   "class": "mage.cards.l.LotlethGiant",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Lotus Petal": {
+   "class": "mage.cards.l.LotusPetal",
    "status": "supported"
   },
   "Luminous Rebuke": {
@@ -2113,6 +2618,11 @@
    "class": "mage.cards.m.MakeYourMove",
    "status": "supported"
   },
+  "Makeshift Munitions": {
+   "activated": "plain",
+   "class": "mage.cards.m.MakeshiftMunitions",
+   "status": "supported"
+  },
   "Manifold Mouse": {
    "class": "mage.cards.m.ManifoldMouse",
    "optional_costs": [
@@ -2132,6 +2642,19 @@
    "status": "supported",
    "trigger_classes": [
     "GainLifeControllerTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Masked Meower": {
+   "activated": "plain",
+   "class": "mage.cards.m.MaskedMeower",
+   "status": "supported"
+  },
+  "Masked Vandal": {
+   "class": "mage.cards.m.MaskedVandal",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
    ],
    "triggers": "event_free"
   },
@@ -2158,6 +2681,18 @@
    "status": "approximate",
    "why": [
     "optional or alternative costs: FlashbackAbility"
+   ]
+  },
+  "Mesmeric Fiend": {
+   "class": "mage.cards.m.MesmericFiend",
+   "status": "approximate",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility",
+    "LeavesBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values"
    ]
   },
   "Meteor Golem": {
@@ -2215,6 +2750,10 @@
    "class": "mage.cards.m.MishrasFoundry",
    "status": "supported"
   },
+  "Mistvault Bridge": {
+   "class": "mage.cards.m.MistvaultBridge",
+   "status": "supported"
+  },
   "Monastery Swiftspear": {
    "class": "mage.cards.m.MonasterySwiftspear",
    "status": "supported",
@@ -2226,6 +2765,17 @@
   "Monstrous Rage": {
    "class": "mage.cards.m.MonstrousRage",
    "status": "supported"
+  },
+  "Moon-Circuit Hacker": {
+   "class": "mage.cards.m.MoonCircuitHacker",
+   "status": "approximate",
+   "trigger_classes": [
+    "DealsCombatDamageToAPlayerTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values (target pointer from the event)"
+   ]
   },
   "Mosswood Dreadknight // Dread Whispers": {
    "class": "mage.cards.m.MosswoodDreadknight",
@@ -2246,6 +2796,10 @@
    "why": [
     "restricted mana"
    ]
+  },
+  "Myr Enforcer": {
+   "class": "mage.cards.m.MyrEnforcer",
+   "status": "supported"
   },
   "Needletooth Pack": {
    "class": "mage.cards.n.NeedletoothPack",
@@ -2273,6 +2827,23 @@
     "triggers read event data or captured values"
    ]
   },
+  "Nihil Spellbomb": {
+   "activated": "plain",
+   "class": "mage.cards.n.NihilSpellbomb",
+   "status": "supported",
+   "trigger_classes": [
+    "DiesSourceTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Ninja of the Deep Hours": {
+   "class": "mage.cards.n.NinjaOfTheDeepHours",
+   "status": "supported",
+   "trigger_classes": [
+    "DealsCombatDamageToAPlayerTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Nova Hellkite": {
    "class": "mage.cards.n.NovaHellkite",
    "optional_costs": [
@@ -2299,6 +2870,24 @@
    ],
    "triggers": "event_free"
   },
+  "Nyxborn Hydra": {
+   "class": "mage.cards.n.NyxbornHydra",
+   "optional_costs": [
+    "BestowAbility"
+   ],
+   "reading_classes": [
+    "BestowAbility",
+    "EntersBattlefieldWithXCountersEffect"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: BestowAbility"
+   ]
+  },
+  "Of One Mind": {
+   "class": "mage.cards.o.OfOneMind",
+   "status": "supported"
+  },
   "Ojer Axonil, Deepest Might // Temple of Power": {
    "class": "mage.cards.o.OjerAxonilDeepestMight",
    "status": "supported",
@@ -2313,6 +2902,18 @@
   },
   "Otawara, Soaring City": {
    "class": "mage.cards.o.OtawaraSoaringCity",
+   "status": "supported"
+  },
+  "Outlaw Medic": {
+   "class": "mage.cards.o.OutlawMedic",
+   "status": "supported",
+   "trigger_classes": [
+    "DiesSourceTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Overgrown Battlement": {
+   "class": "mage.cards.o.OvergrownBattlement",
    "status": "supported"
   },
   "Overgrown Farmland": {
@@ -2395,6 +2996,10 @@
    ],
    "triggers": "event_free"
   },
+  "Preordain": {
+   "class": "mage.cards.p.Preordain",
+   "status": "supported"
+  },
   "Prideful Parent": {
    "class": "mage.cards.p.PridefulParent",
    "status": "supported",
@@ -2405,6 +3010,27 @@
     "EntersBattlefieldTriggeredAbility"
    ],
    "triggers": "event_free"
+  },
+  "Priest of Titania": {
+   "class": "mage.cards.p.PriestOfTitania",
+   "status": "supported"
+  },
+  "Prismatic Strands": {
+   "class": "mage.cards.p.PrismaticStrands",
+   "optional_costs": [
+    "FlashbackAbility"
+   ],
+   "reading_classes": [
+    "FlashbackAbility"
+   ],
+   "status": "approximate",
+   "why": [
+    "optional or alternative costs: FlashbackAbility"
+   ]
+  },
+  "Pulse of Murasa": {
+   "class": "mage.cards.p.PulseOfMurasa",
+   "status": "supported"
   },
   "Questing Druid // Seek the Beast": {
    "class": "mage.cards.q.QuestingDruid",
@@ -2449,6 +3075,17 @@
     "triggers read event data or captured values"
    ]
   },
+  "Quirion Ranger": {
+   "class": "mage.cards.q.QuirionRanger",
+   "status": "supported"
+  },
+  "Rally at the Hornburg": {
+   "class": "mage.cards.r.RallyAtTheHornburg",
+   "status": "supported",
+   "tokens": [
+    "HumanSoldierToken"
+   ]
+  },
   "Razorkin Needlehead": {
    "class": "mage.cards.r.RazorkinNeedlehead",
    "status": "approximate",
@@ -2469,6 +3106,10 @@
    "class": "mage.cards.r.ReassemblingSkeleton",
    "status": "supported"
   },
+  "Reckless Impulse": {
+   "class": "mage.cards.r.RecklessImpulse",
+   "status": "supported"
+  },
   "Reckoner Bankbuster": {
    "activated": "plain",
    "class": "mage.cards.r.ReckonerBankbuster",
@@ -2477,6 +3118,10 @@
     "PilotCrewToken",
     "TreasureToken"
    ]
+  },
+  "Reckoner's Bargain": {
+   "class": "mage.cards.r.ReckonersBargain",
+   "status": "supported"
   },
   "Reclamation Sage": {
    "class": "mage.cards.r.ReclamationSage",
@@ -2490,6 +3135,20 @@
    "activated": "plain",
    "class": "mage.cards.r.RecruitmentOfficer",
    "status": "supported"
+  },
+  "Refurbished Familiar": {
+   "class": "mage.cards.r.RefurbishedFamiliar",
+   "reading_classes": [
+    "CardsImpl"
+   ],
+   "status": "approximate",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values"
+   ]
   },
   "Refute": {
    "class": "mage.cards.r.Refute",
@@ -2615,6 +3274,26 @@
    "class": "mage.cards.r.RunAwayTogether",
    "status": "supported"
   },
+  "Sacred Cat": {
+   "class": "mage.cards.s.SacredCat",
+   "status": "supported"
+  },
+  "Sagu Wildling": {
+   "class": "mage.cards.s.SaguWildling",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Saiba Cryptomancer": {
+   "class": "mage.cards.s.SaibaCryptomancer",
+   "status": "supported",
+   "trigger_classes": [
+    "BackupAbility"
+   ],
+   "triggers": "event_free"
+  },
   "Sandstorm Salvager": {
    "activated": "plain",
    "class": "mage.cards.s.SandstormSalvager",
@@ -2647,6 +3326,10 @@
    ],
    "triggers": "event_free"
   },
+  "Saruli Caretaker": {
+   "class": "mage.cards.s.SaruliCaretaker",
+   "status": "supported"
+  },
   "Scavenging Ooze": {
    "activated": "plain",
    "class": "mage.cards.s.ScavengingOoze",
@@ -2678,6 +3361,19 @@
     "triggers read event data or captured values"
    ]
   },
+  "Sea Gate": {
+   "class": "mage.cards.s.SeaGate",
+   "non_stack_choices": [
+    "land play asks a choice as it enters"
+   ],
+   "reading_classes": [
+    "AddManaChosenColorEffect"
+   ],
+   "status": "approximate",
+   "why": [
+    "non-stack action asks a choice (the kit declines that action, review change 4)"
+   ]
+  },
   "Seachrome Coast": {
    "class": "mage.cards.s.SeachromeCoast",
    "status": "supported"
@@ -2700,6 +3396,10 @@
     "BeginningOfEndStepTriggeredAbility"
    ],
    "triggers": "event_free"
+  },
+  "Seat of the Synod": {
+   "class": "mage.cards.s.SeatOfTheSynod",
+   "status": "supported"
   },
   "Seeker's Folly": {
    "class": "mage.cards.s.SeekersFolly",
@@ -2804,6 +3504,10 @@
    "class": "mage.cards.s.ShoreUp",
    "status": "supported"
   },
+  "Silverbluff Bridge": {
+   "class": "mage.cards.s.SilverbluffBridge",
+   "status": "supported"
+  },
   "Simulacrum Synthesizer": {
    "class": "mage.cards.s.SimulacrumSynthesizer",
    "status": "supported",
@@ -2851,6 +3555,10 @@
    ],
    "triggers": "event_free"
   },
+  "Slagwoods Bridge": {
+   "class": "mage.cards.s.SlagwoodsBridge",
+   "status": "supported"
+  },
   "Sleight of Hand": {
    "class": "mage.cards.s.SleightOfHand",
    "status": "supported"
@@ -2883,6 +3591,22 @@
   },
   "Snakeskin Veil": {
    "class": "mage.cards.s.SnakeskinVeil",
+   "status": "supported"
+  },
+  "Snap": {
+   "class": "mage.cards.s.Snap",
+   "status": "supported"
+  },
+  "Sneaky Snacker": {
+   "class": "mage.cards.s.SneakySnacker",
+   "status": "supported",
+   "trigger_classes": [
+    "DrawNthCardTriggeredAbility"
+   ],
+   "triggers": "event_free"
+  },
+  "Snow-Covered Forest": {
+   "class": "mage.cards.s.SnowCoveredForest",
    "status": "supported"
   },
   "Sokenzan, Crucible of Defiance": {
@@ -2928,6 +3652,14 @@
   "Spell Pierce": {
    "class": "mage.cards.s.SpellPierce",
    "status": "supported"
+  },
+  "Spellstutter Sprite": {
+   "class": "mage.cards.s.SpellstutterSprite",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
   },
   "Sphinx of Forgotten Lore": {
    "class": "mage.cards.s.SphinxOfForgottenLore",
@@ -2981,6 +3713,14 @@
    "activated": "plain",
    "class": "mage.cards.s.SquadRallier",
    "status": "supported"
+  },
+  "Squadron Hawk": {
+   "class": "mage.cards.s.SquadronHawk",
+   "status": "supported",
+   "trigger_classes": [
+    "EntersBattlefieldTriggeredAbility"
+   ],
+   "triggers": "event_free"
   },
   "Stab": {
    "class": "mage.cards.s.Stab",
@@ -3172,6 +3912,10 @@
    ],
    "triggers": "event_free"
   },
+  "The Modern Age": {
+   "class": "mage.cards.t.TheModernAge",
+   "status": "supported"
+  },
   "Think Twice": {
    "class": "mage.cards.t.ThinkTwice",
    "optional_costs": [
@@ -3201,6 +3945,10 @@
    ],
    "triggers": "event_free"
   },
+  "Thoughtcast": {
+   "class": "mage.cards.t.Thoughtcast",
+   "status": "supported"
+  },
   "Thousand Moons Smithy // Barracks of the Thousand": {
    "class": "mage.cards.t.ThousandMoonsSmithy",
    "status": "supported",
@@ -3225,6 +3973,10 @@
     "triggers read event data or captured values (target pointer from the event)"
    ]
   },
+  "Thraben Charm": {
+   "class": "mage.cards.t.ThrabenCharm",
+   "status": "supported"
+  },
   "Thrill of Possibility": {
    "class": "mage.cards.t.ThrillOfPossibility",
    "status": "supported"
@@ -3241,6 +3993,16 @@
    "why": [
     "non-stack action asks a choice (the kit declines that action, review change 4)"
    ]
+  },
+  "Timberwatch Elf": {
+   "activated": "plain",
+   "class": "mage.cards.t.TimberwatchElf",
+   "status": "supported"
+  },
+  "Tinder Wall": {
+   "activated": "plain",
+   "class": "mage.cards.t.TinderWall",
+   "status": "supported"
   },
   "Tishana's Tidebinder": {
    "class": "mage.cards.t.TishanasTidebinder",
@@ -3271,6 +4033,10 @@
    ],
    "triggers": "event_free"
   },
+  "Toxin Analysis": {
+   "class": "mage.cards.t.ToxinAnalysis",
+   "status": "supported"
+  },
   "Tragic Banshee": {
    "class": "mage.cards.t.TragicBanshee",
    "status": "supported",
@@ -3298,6 +4064,15 @@
   },
   "Treetop Snarespinner": {
    "class": "mage.cards.t.TreetopSnarespinner",
+   "status": "supported"
+  },
+  "Troll of Khazad-dum": {
+   "class": "mage.cards.t.TrollOfKhazadDum",
+   "status": "supported"
+  },
+  "Twisted Landscape": {
+   "activated": "plain",
+   "class": "mage.cards.t.TwistedLandscape",
    "status": "supported"
   },
   "Uncharted Voyage": {
@@ -3383,6 +4158,10 @@
    ],
    "triggers": "event_free"
   },
+  "Vault of Whispers": {
+   "class": "mage.cards.v.VaultOfWhispers",
+   "status": "supported"
+  },
   "Vengeful Bloodwitch": {
    "class": "mage.cards.v.VengefulBloodwitch",
    "status": "supported",
@@ -3412,6 +4191,10 @@
     "EntersBattlefieldTriggeredAbility"
    ],
    "triggers": "event_free"
+  },
+  "Wall of Roots": {
+   "class": "mage.cards.w.WallOfRoots",
+   "status": "supported"
   },
   "Warden of the Inner Sky": {
    "class": "mage.cards.w.WardenOfTheInnerSky",
@@ -3448,6 +4231,11 @@
    "class": "mage.cards.w.WastewoodVerge",
    "status": "supported"
   },
+  "Wellwisher": {
+   "activated": "plain",
+   "class": "mage.cards.w.Wellwisher",
+   "status": "supported"
+  },
   "Wildwood Scourge": {
    "class": "mage.cards.w.WildwoodScourge",
    "reading_classes": [
@@ -3472,6 +4260,13 @@
    ],
    "triggers": "event_free"
   },
+  "Winding Way": {
+   "class": "mage.cards.w.WindingWay",
+   "reading_classes": [
+    "CardsImpl"
+   ],
+   "status": "supported"
+  },
   "Witchstalker Frenzy": {
    "class": "mage.cards.w.WitchstalkerFrenzy",
    "status": "supported"
@@ -3479,6 +4274,24 @@
   "Witness Protection": {
    "class": "mage.cards.w.WitnessProtection",
    "status": "supported"
+  },
+  "Writhing Chrysalis": {
+   "class": "mage.cards.w.WrithingChrysalis",
+   "reading_classes": [
+    "AddCountersSourceEffect"
+   ],
+   "status": "approximate",
+   "tokens": [
+    "EldraziSpawnToken"
+   ],
+   "trigger_classes": [
+    "CastSourceTriggeredAbility",
+    "SacrificePermanentTriggeredAbility"
+   ],
+   "triggers": "event_data",
+   "why": [
+    "triggers read event data or captured values"
+   ]
   },
   "Yavimaya Coast": {
    "class": "mage.cards.y.YavimayaCoast",

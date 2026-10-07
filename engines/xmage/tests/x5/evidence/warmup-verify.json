@@ -1,5 +1,5 @@
 {
- "build": "lib_digest e8e5a42b9ecc8d473eaae57a1f3e9dd50325df743d1342810e16a37edf0e785b (commit b5ce052, HaleysPC, JDK 23.0.2)",
+ "build": "lib_digest e8e5a42b9ecc8d473eaae57a1f3e9dd50325df743d1342810e16a37edf0e785b (commit b5ce052, the compute host, JDK 23.0.2)",
  "modes": {
   "default": "HotSpot default identity hash",
   "hash": "-XX:+UnlockExperimentalVMOptions -XX:hashCode=3 -Dspellbench.hashWarmup=7919"

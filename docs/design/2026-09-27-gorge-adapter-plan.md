@@ -14,14 +14,14 @@
 **Tech Stack:** Go 1.27.1 (module `go 1.25.8`), gorge `26257e0e` (Apache-2.0), Forge corpus `95f04e8a` (GPL-3.0, fetched, never shipped), stdlib only (`crypto/hmac`, `crypto/sha256`, `math/rand/v2` ChaCha8, `encoding/json`).
 
 **Spec:**
-- `C:\Users\Jack\IdeaProjects\spellbench\spec\SPELLBENCH_PROTOCOL_V2.md`, branch `board-program`, commit `7e9e73f`. Annex B describes gorge informatively. Where this plan departs from Annex B, it says why.
-- Background: `C:\Users\Jack\AppData\Local\Temp\claude\C--Users-Jack-IdeaProjects\157aeb44-0d40-4f26-8ee2-2b800f31ba9e\scratchpad\gorge-adapter-brief.md`.
+- `~\IdeaProjects\spellbench\spec\SPELLBENCH_PROTOCOL_V2.md`, branch `board-program`, commit `7e9e73f`. Annex B describes gorge informatively. Where this plan departs from Annex B, it says why.
+- Background: `~\AppData\Local\Temp\claude\C--Users-user-IdeaProjects\157aeb44-0d40-4f26-8ee2-2b800f31ba9e\scratchpad\gorge-adapter-brief.md`.
 - Evidence probes: `D:\community\gorge-scratch\probe\cmd\{census5,sourceprobe,plannerprobe,catalogprobe}`, logs in `D:\community\gorge-scratch\logs\`.
 
 ## Global Constraints
 
 - **Protocol authority:** `spellbench/v2`, `protocol_minor` 0, frozen at spec commit `7e9e73f`. The environment role is strict (Section 4.2); anything the spec does not license is rejected with its pinned error code, and unrepresentable states end the game `halted` with reason `engine_contract_failure:<cause>`.
-- **Where the adapter lives:** a separate Go module at `C:\Users\Jack\IdeaProjects\spellbench\engines\gorge`, module path `github.com/jackmaiorino/spellbench/engines/gorge`, license MIT (the Spellbench repository license). It requires `github.com/adams-shaun/gorge v0.0.0-20260927030508-26257e0eda17`, resolved locally through a git-ignored `go.work` replace to `D:/community/gorge` (commit `26257e0eda1779d739a07e835c6500b9c4dabc62`). Why not a fork branch of gorge:
+- **Where the adapter lives:** a separate Go module at `~\IdeaProjects\spellbench\engines\gorge`, module path `github.com/jackmaiorino/spellbench/engines/gorge`, license MIT (the Spellbench repository license). It requires `github.com/adams-shaun/gorge v0.0.0-20260927030508-26257e0eda17`, resolved locally through a git-ignored `go.work` replace to `D:/community/gorge` (commit `26257e0eda1779d739a07e835c6500b9c4dabc62`). Why not a fork branch of gorge:
   - (a) No engine change is needed. `rules.NewHypotheticalPlanned` (planner per player and ordinal) plus a forced toss gives the Section 11.6 streams, proven by `D:\community\gorge-scratch\probe\cmd\plannerprobe` on 20 live games with zero unplanned draws.
   - (b) The adapter implements the Spellbench spec, so it belongs next to the spec, its goldens and sub-project P's conformance harness.
   - (c) gorge churns daily (6,204 commits, head committed the day of the pin). A pinned import isolates us; the pin moves by a deliberate task.
@@ -30,7 +30,7 @@
   - Cost: `internal/policynet` cannot be imported from outside gorge, so the PolicyNet bot needs an exported loader upstream. It is out of scope here.
 - **gorge's tree is read-only.** No tracked gorge file is modified and nothing is committed there. gorge's per-package test budgets (`TEST_HISTORY.md` `budget_s`) and dependency-order rules (`internal/archtest`) apply to anything placed inside gorge's tree. This plan places nothing there; the rules bind any later upstream PR.
 - **Forge scripts are never shipped.** They are GPL-3.0 and are never vendored, embedded, committed or published. The corpus lives only in `D:\community\gorge\.cards` (gitignored), fetched by `forgec fetch -ref 95f04e8a04c8925fa97cb226fc3341cabcc90a53`. Binaries load it at run time through `-corpus` or `GORGE_CARDS`.
-- **Toolchain and caches:** Go 1.27.1 at `D:\tools\go1.27.1\go\bin`, `GOTOOLCHAIN=local`, `CGO_ENABLED=0`, `GOCACHE=D:/community/go-cache/build`, `GOMODCACHE=D:/community/go-cache/mod`. Every command in this plan runs in Git Bash from `C:/Users/Jack/IdeaProjects/spellbench/engines/gorge` after `source scripts/env.sh`. Builds use no network.
+- **Toolchain and caches:** Go 1.27.1 at `D:\tools\go1.27.1\go\bin`, `GOTOOLCHAIN=local`, `CGO_ENABLED=0`, `GOCACHE=D:/community/go-cache/build`, `GOMODCACHE=D:/community/go-cache/mod`. Every command in this plan runs in Git Bash from `~/IdeaProjects/spellbench/engines/gorge` after `source scripts/env.sh`. Builds use no network.
 - **Randomness (Section 11.6):**
   - Library shuffle n of seat s uses `rand.New(rand.NewChaCha8(HMAC-SHA256(game_secret, "spellbench/v2/rng:<s>:library_shuffle:<n>")))`, Fisher-Yates over the planner's input.
   - The toss is not random: the chance prefix `{Bound: 2, Value: starting_seat}` forces it.
@@ -55,12 +55,12 @@
   - The payload carries no global counters (gorge `Decision.Seq` is replaced), no digests (payment actions dropped), and no hidden order (hidden-zone options sorted by `(card_name, object_id)`).
 - **Repository and commits:**
   - Commits go only to the Spellbench repository, on integration branch `gorge-adapter` (created from `board-program`).
-  - Parallel tasks use separate worktrees `C:\Users\Jack\IdeaProjects\spellbench-wt\g<N>` on branches `gorge-adapter-g<N>`, merged into `gorge-adapter` in wave order.
-  - Nothing is pushed or published without Jack.
+  - Parallel tasks use separate worktrees `~\IdeaProjects\spellbench-wt\g<N>` on branches `gorge-adapter-g<N>`, merged into `gorge-adapter` in wave order.
+  - Nothing is pushed or published without the maintainer.
 - **House rules:** no em-dashes anywhere (code, comments, docs, commits); concise docs; name projects, not people.
-- **Compute policy.** Before the rated run (Task 30), apply `C:/Users/Jack/COMPUTE-POLICY.md`:
-  - measure serial and parallel completed games per second on Jack's PC;
-  - check HaleysPC and RunPod availability;
+- **Compute policy.** Before the rated run (Task 30), apply `~/COMPUTE-POLICY.md`:
+  - measure serial and parallel completed games per second on the primary desktop;
+  - check compute host and RunPod availability;
   - record the choice in the run manifest;
   - launch only through P's supported host launcher.
 
@@ -76,7 +76,7 @@
 
 ## File Structure
 
-All paths are relative to `C:\Users\Jack\IdeaProjects\spellbench\engines\gorge` unless absolute.
+All paths are relative to `~\IdeaProjects\spellbench\engines\gorge` unless absolute.
 
 | Path | Responsibility |
 |---|---|
@@ -145,7 +145,7 @@ Each row is one task of about half a day unless noted. Tasks in one wave run in 
 2. **Unless-cost payment (Chain Lightning copy, Spell Pierce).** gorge asks pay/decline before its mana window, so v2's "`pay: false` is always offered" cannot hold after floating mana inside that window. Recommended: offer `optional_cost` pay:true only when the floating pool already covers the cost, with no activation candidates (7.1 says "may"), and document it. Alternatives: declare `mana_payment: "engine_autopay"` (changes the whole mana model), or ask upstream for a window-first unless flow.
 3. **Hybrid pip allocation** (Burning-Tree Emissary's `{R/G}` paid from a pool holding both). v2.0 has no kind for allocating floating mana (`pay_mana` is reserved). Recommended: the engine answers with gorge's first offered option and documents it; alternative: pose `choose_color` with purpose `mana`.
 4. **Mulligan rule for `pauper-gorge`.** Section 12.2 says `london` wherever supported, which makes the cross-engine comparison with `pauper-kernel` (`none`) not like for like. Recommended: `london`, per the spec.
-5. **Publishing.** Pushing `gorge-adapter`, publishing the benchmark, and offering the adapter to gorge's maintainer are Jack's to send.
+5. **Publishing.** Pushing `gorge-adapter`, publishing the benchmark, and offering the adapter to gorge's maintainer are the maintainer's to send.
 6. **What "gorge-bot" means on the leaderboard.** Through the adapter the bot sees per-seat ids and name-sorted hidden options (F1), so its games are not byte-identical to native gorge games. Recommended: rate it as `gorge-bot` with that note, and qualify it by intent parity (Task 28b: the adapter commits exactly the move the bot chose). The alternative, native-identical play, would need native ids and engine-ordered hidden options, which F1 rules out.
 
 ---
@@ -169,7 +169,7 @@ Each row is one task of about half a day unless noted. Tasks in one wave run in 
 - [ ] **Step 1: Create the integration branch and the module files**
 
 ```bash
-cd /c/Users/Jack/IdeaProjects/spellbench && git switch board-program && git switch -c gorge-adapter
+cd /c~/IdeaProjects/spellbench && git switch board-program && git switch -c gorge-adapter
 mkdir -p engines/gorge/scripts engines/gorge/internal/gorgepin engines/gorge/internal/testcorpus
 ```
 
@@ -15210,7 +15210,7 @@ git add engines/gorge/cmd/gorgequal && git commit -m "gorge adapter: qualificati
 ### Task 29: Benchmark definition and engine notes
 
 **Files:**
-- Create: `C:\Users\Jack\IdeaProjects\spellbench\benchmarks\pauper-gorge\benchmark.json`
+- Create: `~\IdeaProjects\spellbench\benchmarks\pauper-gorge\benchmark.json`
 - Create: `engines/gorge/README.md`
 - Test: `internal/server/benchmark_test.go`
 
@@ -15356,7 +15356,7 @@ git add benchmarks/pauper-gorge engines/gorge/README.md engines/gorge/internal/s
 
 - [ ] **Step 1: Point the benchmark at the built binaries**
 
-Run: `go build -o bin/ ./cmd/spellbench-gorge-env ./cmd/spellbench-gorge-agent`, then set in `benchmarks/local.json`: `"GORGE_SPELLBENCH_ENV": "C:/Users/Jack/IdeaProjects/spellbench/engines/gorge/bin/spellbench-gorge-env.exe"`, `"GORGE_SPELLBENCH_AGENT": ".../spellbench-gorge-agent.exe"`, `"GORGE_CARDS": "D:/community/gorge/.cards"`.
+Run: `go build -o bin/ ./cmd/spellbench-gorge-env ./cmd/spellbench-gorge-agent`, then set in `benchmarks/local.json`: `"GORGE_SPELLBENCH_ENV": "~/IdeaProjects/spellbench/engines/gorge/bin/spellbench-gorge-env.exe"`, `"GORGE_SPELLBENCH_AGENT": ".../spellbench-gorge-agent.exe"`, `"GORGE_CARDS": "D:/community/gorge/.cards"`.
 Expected: P2's loader validates `benchmarks/pauper-gorge/benchmark.json` with no error. If P2's schema differs from the draft fields, edit the file to P2's schema and rerun `TestBenchmarkMatchesTheEngineProfile`.
 
 - [ ] **Step 2: Run P's engine conformance harness against the binary**
@@ -15369,17 +15369,17 @@ Expected: every envelope and error scenario passes with engine identity masked. 
 Run: P1's tournament launcher on `pauper-gorge`, 1 pair per deck, all four bots.
 Expected: validator verdict `pass`, zero `halted` games, gorge agents with zero `malformed_response` or `invalid_selection` forfeits.
 
-- [ ] **Step 4: Compute qualification before the rated run** (`C:/Users/Jack/COMPUTE-POLICY.md`)
+- [ ] **Step 4: Compute qualification before the rated run** (`~/COMPUTE-POLICY.md`)
 
 Each item fills a field of the run manifest's compute record.
-- Placements (`placements`): for Jack's PC, HaleysPC and RunPod, record availability, competing work, cores, memory, storage and connectivity, and any current reservation to preserve.
-- Throughput on identical inputs (`throughput`): the same seeded pairs through P's launcher at `workers` 1, 4, 8 and 16 on Jack's PC, and the same pairs with the same binaries (hashes checked) on HaleysPC. Record completed games per second and projected completion time per machine and worker count. Task 28b's in-process figures are ceilings only.
+- Placements (`placements`): for the primary desktop, the compute host and RunPod, record availability, competing work, cores, memory, storage and connectivity, and any current reservation to preserve.
+- Throughput on identical inputs (`throughput`): the same seeded pairs through P's launcher at `workers` 1, 4, 8 and 16 on the primary desktop, and the same pairs with the same binaries (hashes checked) on the compute host. Record completed games per second and projected completion time per machine and worker count. Task 28b's in-process figures are ceilings only.
 - RunPod projection (`runpod_projection`): cost and turnaround, counting startup, the transfer of the binaries, a `forgec fetch` of the corpus there (it is never shipped), games per second, recovery and release, against the two PCs and within existing spending authority.
 - Guarded launch path (`guarded_launcher`): run P's launcher once without throughput evidence and record its refusal, then name the launch command that carries the guard. A launch that bypasses it is not a qualified run.
 - Choice (`choice`): the fastest qualified allocation, and why.
 Expected: every field is recorded, the refusal is shown, and the chosen allocation is the fastest qualified one.
 
-- [ ] **Step 5: Artifact law before launch** (`C:/Users/Jack/IdeaProjects/collab/ARTIFACT-LAW.md`)
+- [ ] **Step 5: Artifact law before launch** (`~/IdeaProjects/collab/ARTIFACT-LAW.md`)
 
 Each item fills a field of the run manifest's artifact record.
 - Budget (`budget_bytes`, `cap_bytes`, clause 1): the run's projected bytes and a cap; the launcher refuses dispatch past the cap or below a 60 GiB reserve on the target volume, and the actual bytes are reconciled after the run.
@@ -15396,7 +15396,7 @@ Expected: the pushed commit and the timestamp both exist before Step 7 starts. A
 - [ ] **Step 7: Rated run and publication gate**
 
 Run: P1's launcher with the recorded allocation and the pushed, timestamped commitment. During the run, sample CPU, memory and I/O each minute: two consecutive 60-second windows of idle eligible capacity while games are queued require diagnosis and a qualified correction, recorded in the manifest (compute policy item 6).
-Expected: a completed run with validator verdict `pass`, `fairness_label` `validator only`, `native_id_extensions` empty, and gorge-bot and gorge-lethal-pressure rated. Publishing the run and pushing branches wait for Jack.
+Expected: a completed run with validator verdict `pass`, `fairness_label` `validator only`, `native_id_extensions` empty, and gorge-bot and gorge-lethal-pressure rated. Publishing the run and pushing branches wait for the maintainer.
 
 - [ ] **Step 8: Closure prune manifest** (artifact law clause 3)
 

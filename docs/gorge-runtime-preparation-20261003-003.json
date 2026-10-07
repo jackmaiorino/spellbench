@@ -233,7 +233,7 @@
     "reserve_bytes": 64424509440
   },
   "machines": {
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-03T07:32:50.8433807Z",
       "memory_free_kib": 90195512,
       "memory_total_kib": 134025436,
@@ -266,7 +266,7 @@
       "previous_formal_pid_58872_present": false,
       "formal_completion": "Not inferred from process absence; no research outcomes read"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-03T07:32:52.9116070Z",
       "memory_free_kib": 26573400,
       "memory_total_kib": 33478692,
@@ -282,7 +282,7 @@
       "new_paid_compute": 0,
       "inventory": "HTTP403 on read-only inventory request"
     },
-    "obsolete_reservation": "Old 40-minute Jack Spellbench Luna queue is retired per TO-CODEX #811",
+    "obsolete_reservation": "Old 40-minute maintainer Spellbench Luna queue is retired per TO-CODEX #811",
     "allocation": "No substantial evaluation launched; useful-throughput qualification remains pending"
   },
   "guarded_evaluation": "No substantial evaluation launched. Supported bench run guards serial/parallel allocation evidence and reserve; gorgequal remains an unguarded diagnostic and is not used to bypass it.",

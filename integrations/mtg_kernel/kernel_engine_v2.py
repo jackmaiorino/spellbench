@@ -24,6 +24,7 @@ from spellbench.digests import deck_id
 from spellbench.errors import MalformedJsonError, ValidationError
 from spellbench.messages import HelloRequest, ResetRequest, StepRequest, ValidateDeckRequest, EnvHelloOk
 from kernel_observation_v2 import KernelProjection, ProjectionError
+from kernel_history_v2 import SCHEMA as HISTORY, PublicHistory
 from kernel_semantics_v2 import ordinary_semantic
 from kernel_combat_v2 import native_block_plan, BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement, native_arrangement_binding, native_arrangement_pick
@@ -50,21 +51,37 @@ def pack_proposal_tensor(tensor):
     return result
 
 
-def intern_proposal_vectors(proposals):
-    """Store exact repeated arrays once, without changing any score input."""
-    vectors, indices, indexed = [], {}, []
+def intern_proposal_vectors(proposals, grouped=False):
+    """Store exact repeated arrays once, without changing any score input.
+
+    grouped lists the table by tensor key and then trajectory step instead of
+    first use. Consecutive steps of a long order differ in a few rows, and
+    grouping puts those near-copies next to each other where zlib's 32 KiB
+    window can match them. The scorer resolves indices either way."""
+    vectors, keys, indices, indexed = [], [], {}, []
     for trajectory in proposals:
         steps = []
-        for step in trajectory:
+        for position, step in enumerate(trajectory):
             tensor = {}
             for key, words in step["tensor"].items():
                 encoded = wire.canonical_json_dumps(words)
                 if encoded not in indices:
                     indices[encoded] = len(vectors)
                     vectors.append(words)
+                    keys.append((key, position))
                 tensor[key] = {"vector": indices[encoded]}
             steps.append({"tensor": tensor, "selected_row": step["selected_row"]})
         indexed.append(steps)
+    if grouped:
+        order = sorted(range(len(vectors)), key=keys.__getitem__)
+        rank = [0] * len(order)
+        for new, old in enumerate(order):
+            rank[old] = new
+        vectors = [vectors[old] for old in order]
+        for steps in indexed:
+            for step in steps:
+                for ref in step["tensor"].values():
+                    ref["vector"] = rank[ref["vector"]]
     return {"vectors": vectors, "proposals": indexed}
 
 
@@ -106,8 +123,12 @@ class NativePeer:
 
 
 class KernelEngine:
-    def __init__(self, peer, catalog, *, source_revision=None):
-        self.peer, self.catalog = peer, catalog
+    known_cards = False
+
+    def __init__(self, peer, catalog, *, source_revision=None, known_cards=False):
+        # known_cards needs a bridge that exports public history: `known` then
+        # follows the Section 6.7 update table instead of the current look.
+        self.peer, self.catalog, self.known_cards = peer, catalog, known_cards
         native = peer.request({"request_type": "hello"})
         if native["response_type"] != "hello_ok":
             raise ProjectionError("native bridge did not handshake")
@@ -119,12 +140,13 @@ class KernelEngine:
         self.hello = {"protocol": "spellbench/v2", "response_type": "hello_ok", "request_id": "hello", "protocol_minor": 0,
             "engine": identity, "formats": ["pauper-bo1"], "deck_sources": ["catalog"], "catalog": catalog["catalog"],
             "rules_supported": {"mulligan": ["none"], "starting_player": ["host_assigned"]},
-            "observation": {flag: flag in ("passed_seats", "keywords", "full_name", "exiled_by", "permanent_details", "designations") for flag in OBSERVATION_FLAGS},
+            "observation": {flag: flag in ("passed_seats", "keywords", "full_name", "exiled_by", "permanent_details", "designations") or
+                            flag == "known_cards" and known_cards for flag in OBSERVATION_FLAGS},
             "decision_kinds": sorted(V2_KINDS),
             "engine_defaults": {"trigger_order": None, "replacement_order": "engine_order",
                 "combat_damage_assignment": "engine_order", "mana_payment": "engine_autopay"},
             "rewind": False, "fairness": {"noninterference_probe": False},
-            "extensions": [{"name": FLAT, "native_ids": True}]}
+            "extensions": [{"name": FLAT, "native_ids": True}, {"name": HISTORY, "native_ids": False}]}
         EnvHelloOk.from_json(self.hello)
         self.cache = None
         self.used = set()
@@ -192,7 +214,7 @@ class KernelEngine:
                 return error(rid, "deck_id_mismatch", "deck id differs from the compiled catalog")
         rules = request["rules"]
         if (rules["mulligan"] != "none" or rules["starting_player"] != "host_assigned" or rules["probe"] or
-            any(name != FLAT for name in rules["extensions"])):
+            any(name not in (FLAT, HISTORY) for name in rules["extensions"])):
             return error(rid, "unsupported_rule", "unsupported rules or extensions")
         self.used.add(request["game_id"])
         if self.game and self.current["response_type"] == "decision":
@@ -212,11 +234,13 @@ class KernelEngine:
         first = rules["starting_seat"]
         self.projection = KernelProjection(self.catalog, secret, first_seat=first, keywords=True)
         self.native_group = None
+        self.history = PublicHistory()
         seats = request["seats"] if first == "p0" else list(reversed(request["seats"]))
         self.current = self.peer.request({"request_type": "reset", "game_id": self.game, "format": "pauper-bo1",
             "seats": [{"seat": f"p{i}", "deck": {"catalog_id": entry["deck"]["catalog_id"]}} for i, entry in enumerate(seats)],
             "game_seed": int.from_bytes(hmac.new(secret, b"spellbench-kernel-v2/rng", hashlib.sha256).digest()[:8], "little"),
             "max_decisions": (1 << 53) - 1, "max_steps": (1 << 53) - 1})
+        self.absorb_history()
         return self.respond(rid)
 
     def step(self, request):
@@ -257,6 +281,21 @@ class KernelEngine:
         self.current = self.peer.request({"request_type": "step", "game_id": self.game,
             "expected_step": self.current["step"], "selection": {"candidate_id": candidate,
             "semantic_echo": self.current["candidates"][candidate]["semantic"]}})
+        self.absorb_history()
+
+    def absorb_history(self):
+        """Queue the public events of every production native decision.
+
+        Only production responses carry the slice; a terminal has none, and
+        nothing after it reaches an agent's decision."""
+        if self.current.get("response_type") != "decision":
+            return
+        history = self.current["extensions"]["x_kernel_v2_support"].get("history")
+        if history is None:
+            if self.known_cards or HISTORY in self.rules["extensions"]:
+                raise ProjectionError("native bridge sent no public history")
+            return
+        self.history.absorb(history)
 
     def commit_buffer(self):
         if isinstance(self.buffer, TriggerOrder):
@@ -318,24 +357,37 @@ class KernelEngine:
                 raise ProjectionError("private completion preview exceeded its bound")
             proposals.append(steps)
         original = self.root["extensions"][FLAT]
-        payload = wire.canonical_json_dumps(intern_proposal_vectors(proposals))
-        if len(payload) > 64 * 1024 * 1024:
-            raise ProjectionError("completion proposal exceeds the decoded payload bound")
         extension = {"schema": PROPOSALS, "mapping": "deterministic-completion-logprob/v1", "tensor_encoding": PROPOSAL_ENCODING,
             **{key: original[key] for key in ("card_db_hash", "feature_contract_digest", "feature_encoding_digest")},
             "acting_seat": actor, "step": self.seat_steps[actor],
             "row_candidate_ids": list(range(candidate_count))}
         # Large graveyard orders repeat many tensor slices. The fast compressor
-        # can miss those repetitions and exceed the unchanged wire limit.
-        for level in (1, 9):
-            extension["proposals_zlib"] = base64.b64encode(zlib.compress(payload, level=level)).decode("ascii")
-            if len(wire.canonical_json_dumps(extension)) <= wire.MAX_LINE_BYTES - 262144:
+        # can miss those repetitions, and a whole-library mill also needs the
+        # table grouped by key. First-use encodings are kept only while they
+        # leave a quarter of the bound free, so a proposal near the limit moves
+        # to the grouped table (about half the size) instead of riding the edge.
+        # Proposals well under the bound keep their exact bytes.
+        limit = wire.MAX_LINE_BYTES - 262144
+        smallest = None
+        for grouped, level in ((False, 1), (False, 9), (True, 9)):
+            if level == 1 or grouped:
+                payload = wire.canonical_json_dumps(intern_proposal_vectors(proposals, grouped=grouped))
+                if len(payload) > 64 * 1024 * 1024:
+                    raise ProjectionError("completion proposal exceeds the decoded payload bound")
+            encoded = base64.b64encode(zlib.compress(payload, level=level)).decode("ascii")
+            if smallest is None or len(encoded) < len(smallest):
+                smallest = encoded
+            extension["proposals_zlib"] = encoded
+            if len(wire.canonical_json_dumps(extension)) <= limit * 3 // 4:
                 break
+        else:
+            # Nothing left the margin: send the smallest encoding if it fits.
+            extension["proposals_zlib"] = smallest
         extension_bytes = len(wire.canonical_json_dumps(extension))
-        if extension_bytes > wire.MAX_LINE_BYTES - 262144:
+        if extension_bytes > limit:
             raise ProjectionError(f"completion proposal exceeds the wire bound: "
                 f"decoded={len(payload)} encoded_extension={extension_bytes} "
-                f"limit={wire.MAX_LINE_BYTES - 262144} candidates={candidate_count} "
+                f"limit={limit} candidates={candidate_count} "
                 f"steps={sum(map(len, proposals))}")
         return extension
 
@@ -363,7 +415,9 @@ class KernelEngine:
     def pose(self, rid):
         raw = json.loads(self.current["extensions"]["x_kernel_v5"]["observation_json"])
         support = self.current["extensions"]["x_kernel_v2_support"]
-        observation = self.projection.project(raw, support)
+        knowledge = (self.history.knowledge(("p0", "p1").index(raw["acting_player"]))
+                     if self.known_cards else None)
+        observation = self.projection.project(raw, support, knowledge)
         actor = observation["viewer"]
         if self.buffer is None:
             if support.get("at_block_root") is True:
@@ -410,6 +464,8 @@ class KernelEngine:
                 extension["acting_seat"], extension["step"] = actor, self.seat_steps[actor]
                 extension["row_candidate_ids"] = [self.native_candidates.index(i) for i in ids]
                 extensions[FLAT] = extension
+        if HISTORY in self.rules["extensions"]:
+            extensions[HISTORY] = self.history.drain(("p0", "p1").index(raw["acting_player"]), self.projection)
         kinds = {family(semantic["kind"]) for semantic in semantics}
         if len(kinds) != 1:
             raise ProjectionError("native decision mixes neutral choice and priority families")
@@ -432,10 +488,13 @@ def main():
     parser.add_argument("--bridge", required=True)
     parser.add_argument("--catalog", required=True, type=Path)
     parser.add_argument("--source-revision")
+    parser.add_argument("--known-cards", action="store_true",
+                        help="declare known_cards and track Section 6.7 knowledge (needs a history-exporting bridge)")
     args = parser.parse_args()
     peer = NativePeer(args.bridge)
     try:
-        engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision)
+        engine = KernelEngine(peer, json.loads(args.catalog.read_bytes()), source_revision=args.source_revision,
+                             known_cards=args.known_cards)
         while True:
             try:
                 payload = wire.read_line(sys.stdin.buffer)

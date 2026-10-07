@@ -53,6 +53,7 @@ type Server struct {
 	searchHistory     strategies.History
 	gameID, auditSeat string
 	gameOverReceived  bool
+	neutral           *neutralGame // set when the seat plays another engine's game (EnableNeutral)
 }
 
 func New(policy string) (*Server, error) {
@@ -129,9 +130,15 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 	case "hello":
 		base["response_type"] = "hello_ok"
 		base["bot"] = map[string]string{"name": s.identity.Name, "version": Version}
+		if s.neutral != nil {
+			base["bot"] = map[string]string{"name": s.identity.Name, "version": Version + "/" + NeutralVersion}
+		}
 		base["requires"] = map[string][]string{"observation": {}, "extensions": {"x_gorge_view_v1"}}
 		base["extensions_accepted"] = []string{"x_gorge_view_v1"}
-		if strings.HasPrefix(s.policy, "search") {
+		if s.neutral != nil {
+			base["requires"] = map[string][]string{"observation": {"keywords"}, "extensions": {}}
+			base["extensions_accepted"] = []string{}
+		} else if strings.HasPrefix(s.policy, "search") {
 			extensions := []string{"x_gorge_view_v1", strategies.Extension}
 			base["requires"] = map[string][]string{"observation": {}, "extensions": extensions}
 			base["extensions_accepted"] = extensions
@@ -139,7 +146,11 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 	case "game_start":
 		// Atomic cast witnesses are offered through x_gorge_view_v1. They do
 		// not imply that the engine answers every trigger-cost mana decision.
-		if strings.HasPrefix(s.policy, "search") {
+		if s.neutral != nil {
+			if err := s.startNeutral(q); err != nil {
+				return errorLine(q.RequestID, "malformed_request", err.Error())
+			}
+		} else if strings.HasPrefix(s.policy, "search") {
 			if err := s.startSearch(q); err != nil {
 				return errorLine(q.RequestID, "malformed_request", err.Error())
 			}
@@ -152,6 +163,9 @@ func (s *Server) Handle(line []byte) (resp []byte) {
 	case "choose":
 		if s.bot == nil {
 			return errorLine(q.RequestID, "malformed_request", "choose before game_start")
+		}
+		if s.neutral != nil {
+			s.neutral.line = line
 		}
 		base["response_type"] = "choice"
 		base["selection"] = map[string]uint32{"candidate_id": s.choose(q)}
@@ -203,16 +217,25 @@ func (s *Server) choose(q request) uint32 {
 		s.fallbacks++
 		return 0 // no candidate exists to name: the selection is unusable either way
 	}
-	raw, ok := q.Decision.Extensions["x_gorge_view_v1"]
-	if !ok {
-		s.fallbacks++
-		return cands[0].CandidateID
-	}
 	var p xview.Payload
-	if err := json.Unmarshal(raw, &p); err != nil || len(p.Ops) != len(cands) {
-		fmt.Fprintln(os.Stderr, "gorge agent: payload unusable:", err)
-		s.fallbacks++
-		return cands[0].CandidateID
+	if s.neutral != nil {
+		var err error
+		if p, err = s.translate(q); err != nil {
+			fmt.Fprintln(os.Stderr, "gorge agent: decision untranslatable:", err)
+			s.fallbacks++
+			return cands[0].CandidateID
+		}
+	} else {
+		raw, ok := q.Decision.Extensions["x_gorge_view_v1"]
+		if !ok {
+			s.fallbacks++
+			return cands[0].CandidateID
+		}
+		if err := json.Unmarshal(raw, &p); err != nil || len(p.Ops) != len(cands) {
+			fmt.Fprintln(os.Stderr, "gorge agent: payload unusable:", err)
+			s.fallbacks++
+			return cands[0].CandidateID
+		}
 	}
 	v, d := Rebuild(p)
 	ask := func(nd decision.Decision) decision.Intent {
@@ -238,6 +261,9 @@ func (s *Server) choose(q request) uint32 {
 		sems[i] = c.Semantic
 	}
 	i, miss := Pick(p, sems, s.plan, ask)
+	if s.neutral != nil && s.neutral.session != nil {
+		s.neutral.session.Picked(i)
+	}
 	if miss == "" && s.plan.intent.Payment != nil && p.Ops[i].Op == "choose" && p.Ops[i].Payment != nil {
 		r := s.records[p.NativeIndex]
 		r.Intent = decision.Intent{Choices: []int{p.Ops[i].Option}}

@@ -1,6 +1,6 @@
 # Luna subscription integration check
 
-On 2026-10-01 Jack approved Spellbench's browser consent. The direct plan API accepted `gpt-6-luna` and returned that model, despite its account catalog listing `gpt-5.6-luna` and omitting GPT-6 Luna. No model substitution was made. Catalog omission did not establish lack of inference access.
+On 2026-10-01 the maintainer approved Spellbench's browser consent. The direct plan API accepted `gpt-6-luna` and returned that model, despite its account catalog listing `gpt-5.6-luna` and omitting GPT-6 Luna. No model substitution was made. Catalog omission did not establish lack of inference access.
 
 The live transport exposed two differences from the initial offline fixtures: SSE was labeled `text/plain`, and the completed response left its output array empty. The adapter now validates finalized output-item snapshots against the matching completed response. It never chooses from deltas or an incomplete/failed stream. Native certificate validation also resolved the Windows Python/OpenSSL expired-chain failure without a TLS bypass.
 

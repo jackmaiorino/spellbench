@@ -2,7 +2,7 @@
 
 The Bradley-Terry MM iteration is ported from mtg-kernel
 ``scripts/experiments/population_v2_cycle4_v1/bt_rating_v1.py``
-(``fit_bt_ratings``), with Jack's attribution: draws count half (the standard
+(``fit_bt_ratings``), with the maintainer's attribution: draws count half (the standard
 Davidson-free reduction), one declared anchor identity is fixed at 0.0 log
 units, and the fit fails closed on schema violations, a disconnected
 comparison graph, degenerate records, or non-convergence.
@@ -11,7 +11,7 @@ The paired bootstrap (percentile 95% CI over resampled pair totals) and the
 exact two-sided sign test are ported from mtg-kernel
 ``python/mtg_kernel_rl/evaluation_stats.py`` (``bootstrap_pair_half_points``,
 ``exact_two_sided_sign_test`` and their private helpers, including the
-private ``_SplitMix64``), with Jack's attribution.
+private ``_SplitMix64``), with the maintainer's attribution.
 
 Elo-scale display conversion: ``rating * 400 / ln(10) + 1000``; the anchor
 displays at exactly 1000.0. Artifacts store fixed-point integers: log-unit

@@ -235,7 +235,7 @@
   },
   "machines": {
     "checked_at_utc": "2026-10-03T08:16:50.563585+00:00",
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-03T08:16:52.2738195Z",
       "memory_free_kib": 90591172,
       "memory_total_kib": 134025436,
@@ -273,7 +273,7 @@
       "previous_formal_pid_58872_present": false,
       "formal_completion": "Not inferred from process absence; no research outcomes read"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-03T08:16:54.2657243Z",
       "memory_free_kib": 26415572,
       "memory_total_kib": 33478692,
@@ -290,9 +290,9 @@
       "inventory_status": "HTTP403",
       "allocation_disposition": "Existing Luna lease is not reassigned to this task; no new paid compute authority"
     },
-    "obsolete_reservation": "Old Jack forty-minute Spellbench queue is retired per TO-CODEX #811",
-    "coordination": "XMage owner explicitly leaves Jack available for this gorge qualification and will refresh before its claim",
-    "allocation": "Preparing guarded local qualification; no new cloud lease or Haley claim"
+    "obsolete_reservation": "Old maintainer forty-minute Spellbench queue is retired per TO-CODEX #811",
+    "coordination": "XMage owner explicitly leaves maintainer available for this gorge qualification and will refresh before its claim",
+    "allocation": "Preparing guarded local qualification; no new cloud lease or the compute host claim"
   },
   "guarded_evaluation": "No rated evaluation launched. Prior guarded scaling attempt002 stopped after two natural games at a declaration V8; this runtime fixes that declaration and still needs fresh scaling. Supported bench run guards serial/parallel allocation evidence and reserve; gorgequal remains an unguarded diagnostic and is not used to bypass it.",
   "unfinished": [

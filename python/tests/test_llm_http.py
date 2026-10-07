@@ -114,9 +114,13 @@ def test_unusable_response_stops_inference(endpoint, body, code):
 
 def test_whole_exchange_has_a_deadline(endpoint):
     endpoint.delay = 0.3
+    # Provider construction (including the platform TLS opener) and prompt
+    # setup happen before the request's deadline starts in the real agent.
+    client = provider(endpoint)
+    prompt = render_prompt(decision())
     started = time.monotonic()
     with pytest.raises(ProviderError, match="timeout"):
-        provider(endpoint).complete(render_prompt(decision()), timeout_s=0.03)
+        client.complete(prompt, timeout_s=0.03)
     assert time.monotonic() - started < 0.25
 
 

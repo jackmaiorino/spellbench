@@ -38,7 +38,7 @@ kit/scripts/agent.sh --kit KIT --engine-build ENGINE --db DB [--work DIR] --entr
 ```
 
 The front answers `hello` at once; at `game_start` it starts the runner (a child JVM with its own copy of the card
-database, about 12 to 14 s to boot on HaleysPC) inside `game_start_ms`.
+database, about 12 to 14 s to boot on the compute host) inside `game_start_ms`.
 
 Entries (frozen in `Entries.java`, A1 result review change 6). The identity is the name plus a digest of the whole
 configuration (`bot.version` = `0.3.0+DIGEST`); any override of a frozen value adds `-custom` to the name and changes
@@ -85,6 +85,45 @@ from the register (one emblem class with a no-argument constructor per source); 
 that do not resolve by name are unsupported. `admission` lists the decks admitted for kit entries (a deck with a
 restricted-mana card, an emblem that cannot be rebuilt or control of another player is excluded).
 
+## Other engines (mtg-kernel)
+
+The kit reads only its seat's protocol messages, so it can sit in a seat of another v2 engine whose cards XMage
+implements. The pauper-kernel decks are XMage `.dek` lists; `register/pauper-kernel-decks.json` copies them from
+mtg-kernel's `data/runtime_decks_v1.json` with their source hashes, and the register admits all eight decks
+(112 cards, every one resolving at the XMage pin). What the kit handles for that engine:
+
+- `cast_spell` with `method: null` (Section 7.4). The world's cast of that card, whatever its method, answers the
+  candidate (`core/.../Offers.java`, the runner's root filter and the front's keys), and the action's plan answers the
+  following `choose_cast_method` with the world's method.
+- `seat_decision.extensions` are dropped on arrival: the kit reads none, and mtg-kernel's model inputs can reach
+  several MiB per decision.
+- A double-faced card on the battlefield enters the world on the face the observation names, the back face
+  transformed, and the sampler counts a face's name against the list row its `full_name` names (CawGates' The
+  Modern Age // Vector Glider; Slice case `DFC`).
+- A priority stop whose only actions besides pass are mana activations answers pass without a search
+  (`mana_only_pass`): the kernel offers priority mana at nearly every stop, and the kit's searches never root on a
+  mana ability.
+
+Still open for the kernel: `choose_cost_option`, `optional_cast` (madness) and `optional_cost` for `additional` and
+`copy` costs have no world dialog yet and answer by the declining fallback; the kernel's observation omits
+`pending_triggers` and offers a shorter keyword list, so continuation and characteristic checks fall back more often.
+- A token that copies a decklist card enters as XMage's copy: an embalmed card (the kernel's `"<card> Embalmed
+  Token"`, a white Zombie copy without mana cost) or a plain copy under the card's name. The token repository holds
+  neither, and CawGates' embalmed Sacred Cat left 23% of its decisions unsearched (Slice case `EMBALM`).
+- kit-mcts paces its searches by the bank (`clock.pace_moves` 20, `clock.pace_floor_ms` 12000): a decision gets at
+  most an even share of the remaining bank plus the increment, and its search is interrupted at that clock. A fixed 30
+  iterations on the kernel decks took 20 to 25 s per decision and spent the 600 s bank by about decision 50. The
+  pacing is part of kit-mcts's configuration, so its identity changed; kit-mad-1 and kit-mad-k are unchanged.
+- A land that asks a color as it enters (Sea Gate, Citadel Gate) is played. Such a land leaves no stack object, so
+  its dialog used to make the play unsupported and the next ranked candidate answered (47 times in 7 CawGates games
+  on the kernel). When every dialog of a non-stack action is a color choice, the world's color is the plan's
+  (kit-mcts carries it as the payload's `colors`), and the color decision binds to the played land by name, since the
+  land is a new object on the battlefield. A `choose_color` with no planned color (Prismatic Strands) is answered by
+  ComputerPlayer's color choice on the offered colors. The policy text changed, so all three identities changed.
+
+None of this is qualification. Thirty-two unrated smoke games on the kernel (2026-10-06, kit-mad-1 and kit-mcts
+against a uniform seat) ended naturally with no halts or validator violations; they showed the two gaps above.
+
 ## Games through P's host
 
 ```bash
@@ -99,7 +138,7 @@ java -cp KIT/lib/kit-core.jar spellbench.kit.core.SliceCore
 java -cp KIT/lib/kit-core.jar spellbench.kit.core.TerminationCheck WORKDIR
 java -cp KIT/lib/kit-core.jar spellbench.kit.core.FrontCheck WORKDIR     # continuation plans and the clock
 java -cp "KIT/lib/kit-xmage.jar;KIT/lib/kit-core.jar;KIT/lib/kit-upstream.jar;ENGINE/lib/*" -Dkit.e7.dir=DUMPS \
-  spellbench.kit.xmage.Slice OUT.jsonl [S1 ... E7MAD S2P S3P S4P S10P REG POOLAUDIT A3 MCTSPOWER UNMAPPED]
+  spellbench.kit.xmage.Slice OUT.jsonl [S1 ... E7MAD DFC S2P S3P S4P S10P REG POOLAUDIT A3 MCTSPOWER UNMAPPED]
 ```
 
 Run `Slice` in a directory holding its own `./db`. The `P` cases and `A3` answer the viewer seat through a real front

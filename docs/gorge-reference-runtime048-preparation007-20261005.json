@@ -39,7 +39,7 @@
   "future_dispatch_requires_fresh_census": true,
   "future_dispatch_requires_latest_billing": true,
   "future_dispatch_requires_independent_guard_armed_before_allocation": true,
-  "placement": "main-pc=unavailable: human research priority until handback; haleyspc=unavailable: queued training-performance priority; runpod=used: proposed Linux reference placement, fresh census, native gate, bounded budget and matched scaling required at dispatch",
+  "placement": "main-pc=unavailable: human research priority until handback; computehost=unavailable: queued training-performance priority; runpod=used: proposed Linux reference placement, fresh census, native gate, bounded budget and matched scaling required at dispatch",
   "cloud_host_alias": "RunPod-gorge-reference007",
   "guard_path": "Fresh budget/census + sealed native gate -> owned release guardian -> contained reference parent -> reference_matrix.py -> bench.plan_for -> plan_allocation -> runner.play_games",
   "benchmark_sha256": "92e31861c41d505f83b95722a534c83d5b5078106d42a515fa22e984d6f517a7",

@@ -36,7 +36,7 @@
   "release_id": 403859684,
   "release_asset_id": 612924892,
   "input_stage_private_draft": true,
-  "placement": "main-pc=unavailable: preserve Luna guarded Spy diagnostic and actual canonical claim; haleyspc=unavailable: preserve XMage next bounded runtime stage and actual canonical claim; runpod=not_authorized: retained all-in cap cannot cover another lease floor; github-actions=used: standard public runner for one bounded correctness diagnostic only",
+  "placement": "main-pc=unavailable: preserve Luna guarded Spy diagnostic and actual canonical claim; computehost=unavailable: preserve XMage next bounded runtime stage and actual canonical claim; runpod=not_authorized: retained all-in cap cannot cover another lease floor; github-actions=used: standard public runner for one bounded correctness diagnostic only",
   "resource_census_source": "E:\\spellbench-gorge-ci-diagnostic-20261005-070\\HOSTS.json",
   "resource_census_sha256": "a486454f7943d02b9c66d0ddaa0302e4b2e64039a0569e915ab2793343c188fd",
   "source_of_record": "E:\\spellbench-gorge-ci-diagnostic-20261005-070",

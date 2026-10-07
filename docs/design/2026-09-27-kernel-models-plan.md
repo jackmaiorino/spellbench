@@ -1,14 +1,14 @@
-# Sub-project C: Jack's kernel models on Spellbench, Implementation Plan
+# Sub-project C: The maintainer's kernel models on Spellbench, Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Rate Jack's Phase 1 policies g115, A48 and c12 on the Spellbench `pauper-kernel` benchmark, each seeing exactly the model input its evaluation harness computes and making the harness's choice.
+**Goal:** Rate the maintainer's Phase 1 policies g115, A48 and c12 on the Spellbench `pauper-kernel` benchmark, each seeing exactly the model input its evaluation harness computes and making the harness's choice.
 
 **Architecture:** The Spellbench bridge is ported onto Codex's g115 evaluation commit `cd41885e`. Behind an opt-in flag it runs a lockstep training-mode copy of every game (`FastActorSessionV1`, flat-action V3), checks it for exact equality after every step, and attaches the acting seat's V4 model input (computed by the kernel's own encoder) plus a row to candidate-id map to each decision as `x_kernel_flat_v4`. A stdlib Python bot in the Spellbench repo forwards that input to a native scorer (`spellbench_scorer_v1`, V4 mode with seeded sampling) and answers with the mapped candidate id. A replay verifier proves bot choices equal the harness's on the same positions before the benchmark is re-launched.
 
 **Tech Stack:** Rust 2021 (mtg-kernel crate, serde, serde_json, sha2; no new dependencies), Python 3.11+ standard library (Spellbench), pytest for Spellbench tests, cargo test for kernel tests.
 
-**Spec:** The "Spec" section below (no separate spec document). Background and evidence: `C:\Users\Jack\AppData\Local\Temp\claude\C--Users-Jack-IdeaProjects\157aeb44-0d40-4f26-8ee2-2b800f31ba9e\scratchpad\research-C-kernel-models.md`. Program: `C:\Users\Jack\IdeaProjects\spellbench\docs\design\2026-09-27-everyone-on-the-board.md` (sub-project 1).
+**Spec:** The "Spec" section below (no separate spec document). Background and evidence: `~\AppData\Local\Temp\claude\C--Users-user-IdeaProjects\157aeb44-0d40-4f26-8ee2-2b800f31ba9e\scratchpad\research-C-kernel-models.md`. Program: `~\IdeaProjects\spellbench\docs\design\2026-09-27-everyone-on-the-board.md` (sub-project 1).
 
 ---
 
@@ -42,14 +42,14 @@ host -> kernel_flat_bot.py (choose) -> spellbench_scorer_v1 (one pinned checkpoi
 - No edits to Codex-owned kernel code: only new files, one-line `mod` registrations in `mtg-kernel/src/lib.rs`, and the cherry-picked bridge files.
 - No fixes to the goad or menace kernel defects; no Terror support; no Protocol v2.
 - No relocation or copying of checkpoints; scorer configs point at the original read-only files.
-- Nothing pushed from mtg-kernel; no public release of results (Jack's call).
+- Nothing pushed from mtg-kernel; no public release of results (the maintainer's call).
 
 ---
 
 ## Global Constraints
 
-- mtg-kernel worktree: `C:/Users/Jack/IdeaProjects/mtg-kernel-spellbench-g115` on branch `spellbench/bridge-g115`, created by the controller from `cd41885e`; never create branches or worktrees yourself. (Called `$MTGK` below.)
-- Spellbench work happens on branch `c-kernel-bots`, created by the controller from `board-program` (`b97b068`), in `C:/Users/Jack/IdeaProjects/spellbench` (called `$SB` below).
+- mtg-kernel worktree: `~/IdeaProjects/mtg-kernel-spellbench-g115` on branch `spellbench/bridge-g115`, created by the controller from `cd41885e`; never create branches or worktrees yourself. (Called `$MTGK` below.)
+- Spellbench work happens on branch `c-kernel-bots`, created by the controller from `board-program` (`b97b068`), in `~/IdeaProjects/spellbench` (called `$SB` below).
 - All cargo commands: `CARGO_TARGET_DIR=D:/cargo-target/mtg-kernel-spellbench-g115`, `-j 4`, at BelowNormal priority: start them from a PowerShell prompt after `(Get-Process -Id $PID).PriorityClass = 'BelowNormal'` (child processes inherit it). Commands below are written in Git Bash syntax; in PowerShell write `$env:VAR = 'value'; cmd` for `VAR=value cmd`. Never build into any other target directory.
 - Codex-owned kernel code is read-only: do not edit `rl_session*.rs`, `flat_policy_*.rs`, `native_*.rs`, `sideboard_play_policy_v1.rs`, `expanded_deck_training_v1*`, `xmage_observed_inference_v1.rs` or any other pre-existing file, except the cherry-picked bridge files and one-line `mod` registrations in `mtg-kernel/src/lib.rs`.
 - Checkpoints and descriptors are read-only and stay where they are; nothing of Codex's is pushed anywhere.
@@ -64,7 +64,7 @@ host -> kernel_flat_bot.py (choose) -> spellbench_scorer_v1 (one pinned checkpoi
   - c12: checkpoint `D:/phase1-live/campaign-002/c/block12/run/iterations/000199/attempt-000000/update/checkpoint.json` sha256 `993373f3e107e31f4be2ca0f368d2b1dd69b8088e59a81ea8257776c5bbc6abf`; play_import b-descriptor as for g115; state `5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de`.
 - Evidence lands outside the repositories in `E:/spellbench-archive/2026-09-27-c-kernel-models/`; scorer configs in `E:/spellbench-archive/kernel-bots/`.
 - Spellbench results are measurement only: they are not inputs to Codex's D4 or the research director.
-- Tasks 8 and 9 run evaluations: apply `C:/Users/Jack/COMPUTE-POLICY.md` (placement check across Jack's PC, HaleysPC and RunPod; scaling comparison; allocation recorded).
+- Tasks 8 and 9 run evaluations: apply `~/COMPUTE-POLICY.md` (placement check across the primary desktop, the compute host and RunPod; scaling comparison; allocation recorded).
 - Never use em-dashes in code, docs, commit messages or reports.
 
 ## Review Focus
@@ -2835,9 +2835,9 @@ Expected: three binaries; record the commit and the three sha256 values in the a
   "deck_pool": [{"catalog_id": "Wildfire"}, {"catalog_id": "Rally"}, {"catalog_id": "Affinity"}, {"catalog_id": "Elves"}, {"catalog_id": "Spy"}, {"catalog_id": "Burn"}, {"catalog_id": "CawGates"}, {"catalog_id": "Faeries"}],
   "engine": {"command": ["D:/cargo-target/mtg-kernel-spellbench-g115/release/agent_bridge_v1.exe", "--x-kernel-flat-v4"], "timeout_ms": 120000},
   "bots": [
-    {"name": "g115", "version": "1.0.0", "type": "subprocess", "command": ["C:/Users/Jack/IdeaProjects/spellbench/.venv/Scripts/python.exe", "C:/Users/Jack/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/g115.scorer.json", "--name", "g115", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]},
-    {"name": "a48", "version": "1.0.0", "type": "subprocess", "command": ["C:/Users/Jack/IdeaProjects/spellbench/.venv/Scripts/python.exe", "C:/Users/Jack/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/a48.scorer.json", "--name", "a48", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]},
-    {"name": "c12", "version": "1.0.0", "type": "subprocess", "command": ["C:/Users/Jack/IdeaProjects/spellbench/.venv/Scripts/python.exe", "C:/Users/Jack/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/c12.scorer.json", "--name", "c12", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]}
+    {"name": "g115", "version": "1.0.0", "type": "subprocess", "command": ["~/IdeaProjects/spellbench/.venv/Scripts/python.exe", "~/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/g115.scorer.json", "--name", "g115", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]},
+    {"name": "a48", "version": "1.0.0", "type": "subprocess", "command": ["~/IdeaProjects/spellbench/.venv/Scripts/python.exe", "~/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/a48.scorer.json", "--name", "a48", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]},
+    {"name": "c12", "version": "1.0.0", "type": "subprocess", "command": ["~/IdeaProjects/spellbench/.venv/Scripts/python.exe", "~/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py", "--scorer", "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe", "--config", "E:/spellbench-archive/kernel-bots/c12.scorer.json", "--name", "c12", "--version", "1.0.0", "--decision-log", "E:/spellbench-archive/2026-09-27-c-kernel-models/qualification/logs"]}
   ],
   "pairs_per_matchup": 8,
   "base_seed": 20260927,
@@ -2911,15 +2911,15 @@ What a re-launch needs, in order: (1) the Task 8 PASS report and gate G1; (2) re
 
 - [ ] **Step 1: Gate G1**
 
-Wait for the controller to confirm the focused Fable review of Tasks 6 to 8 is recorded with its disposition (IdeaProjects AGENTS.md), or that the controller waived it under Jack's standing authorization.
+Wait for the controller to confirm the focused Fable review of Tasks 6 to 8 is recorded with its disposition (IdeaProjects AGENTS.md), or that the controller waived it under the maintainer's standing authorization.
 
 - [ ] **Step 2: COMPUTE-POLICY placement check**
 
 ```bash
-powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Measure-Object NumberOfLogicalProcessors -Sum).Sum; [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB); Test-Connection HaleysPC -Count 1 -Quiet"
+powershell -NoProfile -Command "(Get-CimInstance Win32_Processor | Measure-Object NumberOfLogicalProcessors -Sum).Sum; [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1GB); Test-Connection the compute host -Count 1 -Quiet"
 curl -s -A "Mozilla/5.0" -H "Authorization: Bearer $RUNPOD_API_KEY" https://rest.runpod.io/v1/pods | head -c 400
 ```
-Expected: Jack's PC 24 logical CPUs and 128 GB (as of 2026-09-26); HaleysPC reachability true or false; the RunPod pod list. Record them in `throughput/placement.json` with competing work observed (`tasklist` entries for `phase1_bo3_collect_v1.exe`, `cargo.exe`, `mtg_kernel*`) and existing reservations.
+Expected: The primary desktop 24 logical CPUs and 128 GB (as of 2026-09-26); the compute host reachability true or false; the RunPod pod list. Record them in `throughput/placement.json` with competing work observed (`tasklist` entries for `phase1_bo3_collect_v1.exe`, `cargo.exe`, `mtg_kernel*`) and existing reservations.
 
 - [ ] **Step 3: Scaling comparison**
 
@@ -2931,7 +2931,7 @@ for W in 1 4 8 12 16; do
     E:/spellbench-archive/2026-09-27-c-kernel-models/throughput/scale-config-$W.json
 done
 ```
-Expected: 48 games per run, 0 forfeits; wall seconds per W. Write `throughput/throughput.json` with games per second per W, the chosen W (highest completed games per second; ties go to fewer workers), the projected full-run time for 960 games, and the placement decision: HaleysPC or RunPod only if the projected saving exceeds their setup (a Windows release build of this branch, about 100 MB of model assets, config rewrites) and, for RunPod, cost. State that `spellbench bench run` has no throughput guard (an unguarded launch path, COMPUTE-POLICY item 17).
+Expected: 48 games per run, 0 forfeits; wall seconds per W. Write `throughput/throughput.json` with games per second per W, the chosen W (highest completed games per second; ties go to fewer workers), the projected full-run time for 960 games, and the placement decision: The compute host or RunPod only if the projected saving exceeds their setup (a Windows release build of this branch, about 100 MB of model assets, config rewrites) and, for RunPod, cost. State that `spellbench bench run` has no throughput guard (an unguarded launch path, COMPUTE-POLICY item 17).
 
 - [ ] **Step 4: Add the bots and the flag to the benchmark**
 
@@ -2964,8 +2964,8 @@ Set `benchmarks/local.json` (git-ignored) to:
 {
   "MTG_KERNEL_BRIDGE": "D:/cargo-target/mtg-kernel-spellbench-g115/release/agent_bridge_v1.exe",
   "MTG_KERNEL_SCORER": "D:/cargo-target/mtg-kernel-spellbench-g115/release/spellbench_scorer_v1.exe",
-  "PYTHON": "C:/Users/Jack/IdeaProjects/spellbench/.venv/Scripts/python.exe",
-  "MTG_KERNEL_FLAT_BOT": "C:/Users/Jack/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py",
+  "PYTHON": "~/IdeaProjects/spellbench/.venv/Scripts/python.exe",
+  "MTG_KERNEL_FLAT_BOT": "~/IdeaProjects/spellbench/integrations/mtg_kernel/kernel_flat_bot.py",
   "G115_SCORER_CONFIG": "E:/spellbench-archive/kernel-bots/g115.scorer.json",
   "G115_CHECKPOINT": "D:/phase1-live/campaign-002/g/block115/run/iterations/000199/attempt-000000/update/checkpoint.json",
   "A48_SCORER_CONFIG": "E:/spellbench-archive/kernel-bots/a48.scorer.json",
@@ -2999,7 +2999,7 @@ uv run --no-sync spellbench site benchmarks E:/spellbench-archive/2026-09-27-c-k
 git add benchmarks/pauper-kernel spec/SPELLBENCH_PROTOCOL_V1.md
 git commit -m "pauper-kernel: add g115, a48, c12 and re-launch on the V4 engine (measurement only)"
 ```
-Expected: the site builds; the commit contains the benchmark, the run directory and the spec sentence. Do not push (Jack's call).
+Expected: the site builds; the commit contains the benchmark, the run directory and the spec sentence. Do not push (the maintainer's call).
 
 ---
 
@@ -3011,4 +3011,4 @@ Expected: the site builds; the commit contains the benchmark, the run directory 
 
 ## Execution notes
 
-Subagent-driven is recommended: tasks 2, 3, 4 and 5 run in parallel on disjoint files, every later task depends on exact names from earlier ones, and a shipped mistake would publish wrong ratings for Jack's models.
+Subagent-driven is recommended: tasks 2, 3, 4 and 5 run in parallel on disjoint files, every later task depends on exact names from earlier ones, and a shipped mistake would publish wrong ratings for the maintainer's models.

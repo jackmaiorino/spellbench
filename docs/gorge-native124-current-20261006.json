@@ -64,7 +64,7 @@
     16
   ],
   "worker_selection": "completed wall time",
-  "allocation": "main-pc=used: current24core i7-13700K free and exact recovered production121 ready, supported completed1/half/cap comparison precedes full audit; haleyspc=slower: currently16core Ryzen3700X free with21GiB memory, current production/source transfer and qualification still required, projected total turnaround favors prepared Jack, this is placement inference not a measured speed claim; runpod=not_authorized: verified HTTP200 inventory but USD0.00263653 cap headroom cannot cover a bounded new allocation",
+  "allocation": "main-pc=used: current24core i7-13700K free and exact recovered production121 ready, supported completed1/half/cap comparison precedes full audit; computehost=slower: currently16core Ryzen3700X free with21GiB memory, current production/source transfer and qualification still required, projected total turnaround favors prepared maintainer, this is placement inference not a measured speed claim; runpod=not_authorized: verified HTTP200 inventory but USD0.00263653 cap headroom cannot cover a bounded new allocation",
   "canonical_generation": 268,
   "native_qualification_passed": false,
   "reference_qualification_passed": false,

@@ -257,7 +257,7 @@
    "disposition": "used",
    "reason": "24 hardware threads and 128 GB, released for this run by the coordinator, and the fastest rung of P's scaling comparison plays the whole schedule"
   },
-  "haleyspc": {
+  "computehost": {
    "disposition": "unavailable",
    "reason": "P's launch guard refused it before its first game, its only volume C: has 54.6 GiB free, below the 60 GiB reserve (ARTIFACT-LAW.md clause 1)"
   },

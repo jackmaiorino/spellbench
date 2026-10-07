@@ -1,6 +1,6 @@
 # Approved fresh Luna panel
 
-Jack approved one fresh unchanged 48-game panel after [the archived aborted attempt](luna-panel-20261002-3.md). The cumulative allowance is now 5,000 requests and 20,000,000 accounted tokens. The failed parent retains 2,304 requests, 9,964,927 accounted tokens, seven inherited unknown requests and three host failures. Every debit carries forward. Four inflight, the 750,000-token game cap, model, history, prompt, decks, clocks, panel and scoring remain fixed. There is no overall benchmark cutoff.
+The maintainer approved one fresh unchanged 48-game panel after [the archived aborted attempt](luna-panel-20261002-3.md). The cumulative allowance is now 5,000 requests and 20,000,000 accounted tokens. The failed parent retains 2,304 requests, 9,964,927 accounted tokens, seven inherited unknown requests and three host failures. Every debit carries forward. Four inflight, the 750,000-token game cap, model, history, prompt, decks, clocks, panel and scoring remain fixed. There is no overall benchmark cutoff.
 
 The authorized allocation is one new RunPod lease of at most four hours and at most $0.10/hour, within the existing $5 cumulative cloud budget. The prior formal attempt took 114.7 minutes for 43 games, projecting about 128 minutes for 48. This is a forecast, not a completion guarantee. Preserve other users' host reservations and retain the trusted, unsandboxed, self-reported designation. Renew neither the lease nor the allowance automatically.
 

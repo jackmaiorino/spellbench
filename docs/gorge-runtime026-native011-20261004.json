@@ -77,7 +77,7 @@
     }
   ],
   "all_host_census_at_launch": true,
-  "queued_Haley_priority_preserved": true,
+  "queued_ComputeHost_priority_preserved": true,
   "new_cloud_spend_usd": 0,
   "gpu_work": false,
   "authorized_cloud_cap_usd": 10,
