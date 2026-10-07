@@ -166,6 +166,22 @@ def test_whole_job_guard_counts_logs_staging_recovery_and_growth(tmp_path, monke
         guard.reconcile_game(576, qualification_games=32)
 
 
+def test_pins_written_between_qualification_and_play_are_not_game_growth(tmp_path, monkeypatch):
+    # run 2026-10-07-2: 326 MB of pins landed after qualification, and the first formal game was charged for them
+    _roomy_storage(monkeypatch)
+    guard = job_storage.JobStorageGuard({"projected_bytes": 2**20, "cap_bytes": 2**26},
+                                        environ={job_storage.ROOT_ENV: str(tmp_path)})
+    (tmp_path / "qualification-game").write_bytes(bytes(2**10))
+    guard.reconcile_game(959, qualification_games=1)
+    (tmp_path / "pins").mkdir()
+    (tmp_path / "pins" / "engine.jar").write_bytes(bytes(2**24))
+    assert guard.rebase() >= 2**24
+    (tmp_path / "game-1").write_bytes(bytes(2**10))
+    guard.reconcile_game(959)
+    assert guard.peak_game_growth < 2**14
+    assert guard.projected < guard.settings["cap_bytes"]
+
+
 def test_whole_job_scan_failure_refuses_incomplete_accounting(tmp_path, monkeypatch):
     failure = PermissionError("cannot scan broker logs")
     def failing_walk(root, *, followlinks, onerror):
