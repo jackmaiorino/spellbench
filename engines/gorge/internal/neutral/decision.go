@@ -28,9 +28,10 @@ type native struct {
 	index   uint64
 	key     string
 	d       decision.Decision
-	options map[string]int // option key -> option index
-	casts   map[string]int // priority: cast source v2 id -> its cast option
-	arrange *arrangement   // an arrangement's partition and order so far
+	options map[string]int   // option key -> option index
+	casts   map[string][]int // priority: cast source v2 id -> its cast options
+	arrange *arrangement     // an arrangement's partition and order so far
+	follow  map[string]decision.Decision
 }
 
 // arrangement is a scry-like native decision spent over 2n-1 v2 decisions.
@@ -39,6 +40,8 @@ type arrangement struct {
 	other  string   // the destination that is not the top
 	dest   []string // the partition answered so far, per card
 	placed []string // cards placed by ordering picks
+	native []int    // dig: each card's option in the dig ask, -1 for none
+	fixed  bool     // dig: gorge's engine moves the cards without asking
 }
 
 // Session translates one seat's decisions in one game.
@@ -136,7 +139,7 @@ func (s *Session) Payload(sd *protocol.SeatDecision) (xview.Payload, error) {
 	s.cur = n
 	d := n.d
 	d.Player = s.seat
-	return xview.Payload{Version: 1, NativeIndex: n.index, View: v, Decision: d, Ops: ops}, nil
+	return xview.Payload{Version: 1, NativeIndex: n.index, View: v, Decision: d, Ops: ops, Followups: n.follow}, nil
 }
 
 // open starts a new native decision under key.
@@ -183,6 +186,10 @@ func (s *Session) translate(sd *protocol.SeatDecision, v *view.View) ([]mapping.
 		return s.arrange(sd)
 	case "choose_spell_mode":
 		return s.modes(sd)
+	case "choose_cost_option":
+		return s.costOption(sd)
+	case "choose_option":
+		return s.option(sd)
 	case "choose_number":
 		return s.numbers(sd)
 	case "choose_color":
@@ -263,7 +270,7 @@ var castModes = map[string]string{"normal": "", "flashback": "flashback", "escap
 
 func (s *Session) priority(sd *protocol.SeatDecision, v *view.View) ([]mapping.NativeOp, *native, error) {
 	n := s.open("priority", decision.Decision{Kind: decision.KPriority, Min: 1, Max: 1})
-	n.casts = map[string]int{}
+	n.casts = map[string][]int{}
 	ops := make([]mapping.NativeOp, len(sd.Candidates))
 	add := func(o decision.Option) int {
 		o.Index = len(n.d.Options)
@@ -307,8 +314,16 @@ func (s *Session) priority(sd *protocol.SeatDecision, v *view.View) ([]mapping.N
 				o.Mode = mode
 			}
 			idx := add(o)
-			n.casts[src.ObjectID] = idx
+			n.casts[src.ObjectID] = []int{idx}
 			ops[i] = mapping.NativeOp{Op: "choose", Option: idx}
+			if sem.Fields["method"] == nil && src.Zone == "hand" && s.altCost(sd, src) {
+				// gorge offers the alternative cost as a cast of its own,
+				// right after the plain cast; the method decision follows.
+				alt := add(decision.Option{Kind: "cast", Label: "Cast " + name(src) + " (alternative cost)",
+					Obj: o.Obj, AltCostIndex: 1})
+				n.casts[src.ObjectID] = append(n.casts[src.ObjectID], alt)
+				ops[i] = mapping.NativeOp{Op: "cast", Option: -1, Covers: []int{idx, alt}}
+			}
 		case "activate_ability":
 			src, err := ref(sem, "source")
 			if err != nil {
@@ -325,6 +340,40 @@ func (s *Session) priority(sd *protocol.SeatDecision, v *view.View) ([]mapping.N
 		// exactly as its auto-pay policies drop mana activations.
 	}
 	return ops, n, nil
+}
+
+// altCost reports whether src's own AlternativeCost static offers its cost
+// now. Land Grant's condition (no land cards in hand) is read off the hand;
+// any other condition is not offered.
+func (s *Session) altCost(sd *protocol.SeatDecision, src protocol.ObjectRef) bool {
+	f := s.B.face(src.CardName, false, nil)
+	if f == nil {
+		return false
+	}
+	for _, st := range f.Statics {
+		if st.Mode != "AlternativeCost" || st.Params["ValidCard"] != "Card.Self" {
+			continue
+		}
+		check := st.Params["CheckSVar"]
+		if check == "" {
+			return true
+		}
+		if !strings.HasPrefix(f.SVars[check], "Count$ValidHand Land") || st.Params["SVarCompare"] != "EQ0" {
+			return false
+		}
+		for _, p := range sd.Observation.Players {
+			if p.Seat != sd.ActingSeat {
+				continue
+			}
+			for _, o := range p.Hand {
+				if o.Characteristics != nil && slices.Contains(o.Characteristics.Types, "land") {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // abilityOption is gorge's "ability" option for a permanent's non-mana
@@ -377,25 +426,23 @@ func (s *Session) castMethod(sd *protocol.SeatDecision) ([]mapping.NativeOp, *na
 		if err != nil {
 			return nil, nil, err
 		}
-		opt, ok := n.casts[src.ObjectID]
-		if !ok {
-			continue
-		}
-		o := n.d.Options[opt]
 		method := str(c.Semantic, "method")
-		want := "normal"
-		switch {
-		case o.AltCostIndex > 0:
-			want = "alternative"
-		case o.Mode != "":
-			for m, mode := range castModes {
-				if mode == o.Mode {
-					want = m
+		for _, opt := range n.casts[src.ObjectID] {
+			o := n.d.Options[opt]
+			want := "normal"
+			switch {
+			case o.AltCostIndex > 0:
+				want = "alternative"
+			case o.Mode != "":
+				for m, mode := range castModes {
+					if mode == o.Mode {
+						want = m
+					}
 				}
 			}
-		}
-		if method == want {
-			ops[i] = mapping.NativeOp{Op: "cast", Option: -1, Covers: []int{opt}}
+			if method == want {
+				ops[i] = mapping.NativeOp{Op: "cast", Option: -1, Covers: []int{opt}}
+			}
 		}
 	}
 	return ops, n, nil
@@ -506,13 +553,20 @@ var selectKinds = map[string]string{"discard": "discard", "sacrifice": "sacrific
 func (s *Session) selection(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
 	first := sd.Candidates[0].Semantic
 	purpose := str(first, "purpose")
-	kind, ok := selectKinds[purpose]
-	if !ok {
-		return nil, nil, nil
-	}
 	src, err := optRef(first, "source")
 	if err != nil {
 		return nil, nil, err
+	}
+	if purpose == "other" && src != nil {
+		if sa := s.chainSA(*src, func(sa *cards.SA) bool {
+			return sa.API == "ChangeZone" && strings.EqualFold(sa.Params["Origin"], "Hand") && strings.EqualFold(sa.Params["Destination"], "Library")
+		}); sa != nil {
+			return s.handToLibrary(sd, *src, sa)
+		}
+	}
+	kind, ok := selectKinds[purpose]
+	if !ok {
+		return nil, nil, nil
 	}
 	lo, hi := num(first, "minimum"), num(first, "maximum")
 	for _, c := range sd.Candidates {
@@ -542,6 +596,85 @@ func (s *Session) selection(sd *protocol.SeatDecision) ([]mapping.NativeOp, *nat
 		}
 		return decision.Option{Kind: kind, Label: name(*t.Object), Obj: s.B.IDs.Of(t.Object.ObjectID)}, nil
 	}, "finish_selection")
+}
+
+// chainSA is the first ability in the source spell's chain (its spell
+// ability and SubAbilities) that want accepts, or nil.
+func (s *Session) chainSA(src protocol.ObjectRef, want func(*cards.SA) bool) *cards.SA {
+	f := s.B.face(src.CardName, false, nil)
+	if f == nil {
+		return nil
+	}
+	for _, sa := range chain(f, f.SpellAbility()) {
+		if want(sa) {
+			return sa
+		}
+	}
+	return nil
+}
+
+// chain is root and the SubAbilities it leads to, in order.
+func chain(f *cards.Face, root *cards.SA) []*cards.SA {
+	var out []*cards.SA
+	for sa := root; sa != nil && len(out) < 16; {
+		out = append(out, sa)
+		sub := sa.Params["SubAbility"]
+		if sub == "" {
+			break
+		}
+		sa = cards.ResolveSVar(f.SVars, sub)
+	}
+	return out
+}
+
+// handToLibrary is Brainstorm's "put cards from your hand on top": gorge's
+// KChoose of hand_move options in hand order, whose answer order is the
+// order the cards go on top. v2 selects the cards (select_object), then
+// orders them (order_pick library_top).
+func (s *Session) handToLibrary(sd *protocol.SeatDecision, src protocol.ObjectRef, sa *cards.SA) ([]mapping.NativeOp, *native, error) {
+	first := sd.Candidates[0].Semantic
+	key := "handmove|" + src.ObjectID
+	n := s.continuing(key)
+	if n == nil || (sd.Group.SubstepIndex == 0 && num(first, "selected_count") == 0) {
+		lo, hi := num(first, "minimum"), num(first, "maximum")
+		n = s.open(key, decision.Decision{Kind: decision.KChoose, Min: lo, Max: hi, Source: s.B.IDs.Of(src.ObjectID),
+			Prompt: "Put cards on top", ResumeSA: sa})
+		offered := map[string]bool{}
+		for _, c := range sd.Candidates {
+			if t, err := target(c.Semantic, "choice"); err == nil && t != nil && t.Object != nil {
+				offered[t.Object.ObjectID] = true
+			}
+		}
+		for _, p := range sd.Observation.Players {
+			if p.Seat != sd.ActingSeat {
+				continue
+			}
+			for _, o := range p.Hand {
+				if offered[o.ObjectID] {
+					n.options[o.ObjectID] = len(n.d.Options)
+					n.d.Options = append(n.d.Options, decision.Option{Index: len(n.d.Options), Kind: "hand_move",
+						Label: name(o.ObjectRef), Obj: s.B.IDs.Of(o.ObjectID), Player: s.seat})
+				}
+			}
+		}
+	}
+	ops := make([]mapping.NativeOp, len(sd.Candidates))
+	for i, c := range sd.Candidates {
+		ops[i] = noOp
+		if c.Semantic.Kind != "select_object" {
+			continue
+		}
+		t, err := target(c.Semantic, "choice")
+		if err != nil {
+			return nil, nil, err
+		}
+		if t != nil && t.Object != nil {
+			if k, ok := n.options[t.Object.ObjectID]; ok {
+				ops[i] = mapping.NativeOp{Op: "choose", Option: k}
+			}
+		}
+	}
+	return ops, n, nil
 }
 
 // costKinds maps choose_cost_target's cost_kind to gorge's cost option kind.
@@ -665,6 +798,27 @@ func findCard(cvs []view.CardView, id state.ObjID) (view.CardView, bool) {
 	return view.CardView{}, false
 }
 
+// protected reports whether attacker a has protection from a blocker of
+// these colors (Guardian of the Guildpact's "from monocolored", or from a
+// color), read off its Forge keyword lines.
+func protected(a view.CardView, colors []string) bool {
+	for _, k := range a.Keywords {
+		k = strings.ToLower(k)
+		if !strings.HasPrefix(k, "protection") {
+			continue
+		}
+		if strings.Contains(k, "monocolor") && len(colors) == 1 {
+			return true
+		}
+		for _, c := range colors {
+			if strings.Contains(k, "card."+c) || strings.HasSuffix(k, " "+c) || strings.HasSuffix(k, ":"+c) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // blockers builds gorge's whole block declaration at the group's first
 // substep: one option per (untapped creature, attacker it could block).
 func (s *Session) blockers(sd *protocol.SeatDecision, v *view.View) ([]mapping.NativeOp, *native, error) {
@@ -677,6 +831,14 @@ func (s *Session) blockers(sd *protocol.SeatDecision, v *view.View) ([]mapping.N
 				attackers = append(attackers, cv)
 			}
 		}
+		colors := map[string][]string{}
+		for _, p := range sd.Observation.Players {
+			for _, o := range p.Battlefield {
+				if o.Characteristics != nil {
+					colors[o.ObjectID] = o.Characteristics.Colors
+				}
+			}
+		}
 		first, err := ref(sd.Candidates[0].Semantic, "blocker")
 		if err != nil {
 			return nil, nil, err
@@ -687,6 +849,9 @@ func (s *Session) blockers(sd *protocol.SeatDecision, v *view.View) ([]mapping.N
 			}
 			for _, a := range attackers {
 				if hasKeyword(a, "Flying") && !hasKeyword(b, "Flying") && !hasKeyword(b, "Reach") {
+					continue
+				}
+				if protected(a, colors[s.B.IDs.V2(b.ID)]) {
 					continue
 				}
 				o := decision.Option{Index: len(n.d.Options), Kind: "block", Label: b.Name + " blocks " + a.Name,
@@ -812,19 +977,118 @@ func (s *Session) modes(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native,
 	if err != nil {
 		return nil, nil, err
 	}
-	count := num(first, "mode_count")
 	key := "modes|" + src.ObjectID
 	n := s.continuing(key)
 	if n == nil || sd.Group.SubstepIndex == 0 {
+		// gorge offers only the eligible modes, in printed order.
 		n = s.open(key, decision.Decision{Kind: decision.KModes, Min: num(first, "minimum"), Max: num(first, "maximum"),
 			Source: s.B.IDs.Of(src.ObjectID), Prompt: "Choose a mode"})
-		for k := 0; k < count; k++ {
-			n.d.Options = append(n.d.Options, decision.Option{Index: k, Kind: "mode", Label: fmt.Sprintf("Mode %d", k+1)})
+		var modes []int
+		for _, c := range sd.Candidates {
+			modes = append(modes, num(c.Semantic, "mode_index"))
+		}
+		slices.Sort(modes)
+		for _, k := range slices.Compact(modes) {
+			n.options[strconv.Itoa(k)] = len(n.d.Options)
+			n.d.Options = append(n.d.Options, decision.Option{Index: len(n.d.Options), Kind: "mode", Label: fmt.Sprintf("Mode %d", k+1)})
 		}
 	}
 	ops := make([]mapping.NativeOp, len(sd.Candidates))
 	for i, c := range sd.Candidates {
-		ops[i] = mapping.NativeOp{Op: "choose", Option: num(c.Semantic, "mode_index")}
+		ops[i] = noOp
+		if k, ok := n.options[strconv.Itoa(num(c.Semantic, "mode_index"))]; ok {
+			ops[i] = mapping.NativeOp{Op: "choose", Option: k}
+		}
+	}
+	return ops, n, nil
+}
+
+// costOption is a choice between a spell's optional costs (Highway
+// Robbery: discard a card or sacrifice a land). gorge poses the same choice
+// as the modes of the spell's GenericChoice, in printed order; each
+// candidate is matched to the printed choice whose cost names its words.
+func (s *Session) costOption(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
+	src, err := ref(sd.Candidates[0].Semantic, "source")
+	if err != nil {
+		return nil, nil, err
+	}
+	var printed []string
+	if f := s.B.face(src.CardName, false, nil); f != nil {
+		if root := f.SpellAbility(); root != nil && root.API == "GenericChoice" {
+			for _, c := range strings.Split(root.Params["Choices"], ",") {
+				cost := ""
+				if sa := cards.ResolveSVar(f.SVars, strings.TrimSpace(c)); sa != nil {
+					cost = strings.ToLower(sa.Params["UnlessCost"] + " " + sa.Params["Cost"])
+				}
+				printed = append(printed, cost)
+			}
+		}
+	}
+	rank := func(choice string) int {
+		for i, cost := range printed {
+			for _, w := range strings.Split(choice, "_") {
+				w = strings.TrimSuffix(strings.Replace(w, "sacrifice", "sac", 1), "s")
+				if len(w) > 2 && strings.Contains(cost, w) {
+					return i
+				}
+			}
+		}
+		return len(printed)
+	}
+	choices := make([]string, len(sd.Candidates))
+	for i, c := range sd.Candidates {
+		choices[i] = str(c.Semantic, "choice")
+	}
+	order := slices.Clone(choices)
+	slices.SortStableFunc(order, func(a, b string) int { return rank(a) - rank(b) })
+	n := s.open("costoption|"+src.ObjectID, decision.Decision{Kind: decision.KModes, Min: 1, Max: 1,
+		Source: s.B.IDs.Of(src.ObjectID), Prompt: "Choose a cost"})
+	for _, c := range order {
+		n.d.Options = append(n.d.Options, decision.Option{Index: len(n.d.Options), Kind: "mode", Label: c})
+	}
+	ops := make([]mapping.NativeOp, len(sd.Candidates))
+	for i, c := range choices {
+		ops[i] = mapping.NativeOp{Op: "choose", Option: slices.Index(order, c)}
+	}
+	return ops, n, nil
+}
+
+// option is an effect's choice among numbered options (Winding Way's
+// creature or land). gorge offers them in the same printed order and takes
+// the first, whether it poses them as a type choice or as modes.
+func (s *Session) option(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
+	first := sd.Candidates[0].Semantic
+	src, err := optRef(first, "source")
+	if err != nil {
+		return nil, nil, err
+	}
+	d := decision.Decision{Kind: decision.KModes, Min: 1, Max: 1, Prompt: "Choose an option"}
+	kind := "mode"
+	var labels []string
+	if src != nil {
+		d.Source = s.B.IDs.Of(src.ObjectID)
+		if sa := s.chainSA(*src, func(sa *cards.SA) bool { return sa.API == "ChooseType" }); sa != nil {
+			d.Kind, kind = decision.KChoose, "type"
+			labels = strings.Split(sa.Params["ValidTypes"], ",")
+		}
+	}
+	var idx []int
+	for _, c := range sd.Candidates {
+		idx = append(idx, num(c.Semantic, "option_index"))
+	}
+	slices.Sort(idx)
+	idx = slices.Compact(idx)
+	n := s.open("option", d)
+	for _, k := range idx {
+		label := fmt.Sprintf("Option %d", k+1)
+		if k < len(labels) {
+			label = strings.TrimSpace(labels[k])
+		}
+		n.d.Options = append(n.d.Options, decision.Option{Index: len(n.d.Options), Kind: kind, Label: label})
+	}
+	ops := make([]mapping.NativeOp, len(sd.Candidates))
+	for i, c := range sd.Candidates {
+		ops[i] = mapping.NativeOp{Op: "choose", Option: slices.Index(idx, num(c.Semantic, "option_index"))}
 	}
 	return ops, n, nil
 }
@@ -891,18 +1155,9 @@ func (s *Session) targetEffect(o *protocol.Observation, src protocol.ObjectRef, 
 	if root == nil {
 		return nil
 	}
-	var chain []*cards.SA
-	for sa := root; sa != nil && len(chain) < 16; {
-		chain = append(chain, sa)
-		sub := sa.Params["SubAbility"]
-		if sub == "" {
-			break
-		}
-		sa = cards.ResolveSVar(f.SVars, sub)
-	}
 	var sa *cards.SA
 	k := 0
-	for _, c := range chain {
+	for _, c := range chain(f, root) {
 		if _, ok := c.Params["ValidTgts"]; ok {
 			if k == slot {
 				sa = c
@@ -956,6 +1211,10 @@ func (s *Session) order(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native,
 	if purpose == "arrangement" {
 		return s.arrange(sd)
 	}
+	switch purpose {
+	case "library_top", "other":
+		return s.placed(sd)
+	}
 	var kind decision.Kind
 	var optKind string
 	switch purpose {
@@ -1005,6 +1264,35 @@ func (s *Session) order(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native,
 	return ops, n, nil
 }
 
+// placed orders the cards a selection just chose: Brainstorm's cards going
+// on top, or discarded cards going to the graveyard. gorge's answer order
+// is their order. An ordering with no selection before it (a reveal sent
+// to the graveyard) is one gorge's engine fixes without asking.
+func (s *Session) placed(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
+	ops := make([]mapping.NativeOp, len(sd.Candidates))
+	n := s.cur
+	if n == nil || !(strings.HasPrefix(n.key, "handmove|") || strings.HasPrefix(n.key, "select|")) {
+		n = s.open("fixed", decision.Decision{})
+		for i := range ops {
+			ops[i] = noOp
+		}
+		ops[0] = mapping.NativeOp{Op: "fixed", Option: -1}
+		return ops, n, nil
+	}
+	pos := num(sd.Candidates[0].Semantic, "position")
+	for i, c := range sd.Candidates {
+		ops[i] = noOp
+		it, err := field[protocol.OrderItem](c.Semantic, "item")
+		if err != nil || it.Object == nil {
+			continue
+		}
+		if k, ok := n.options[it.Object.ObjectID]; ok {
+			ops[i] = mapping.NativeOp{Op: "list", Option: k, List: "choices", Position: pos}
+		}
+	}
+	return ops, n, nil
+}
+
 // arrangeKinds maps an arrangement purpose to gorge's KArrange pile-B kind.
 var arrangeKinds = map[string]string{"scry": "bottom", "surveil": "graveyard", "look_at_top": "bottom"}
 
@@ -1014,6 +1302,9 @@ var arrangeKinds = map[string]string{"scry": "bottom", "surveil": "graveyard", "
 // known list with their positions from the top.
 func (s *Session) arrange(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
 	first := sd.Candidates[0].Semantic
+	if (first.Kind == "arrange_card" && str(first, "purpose") == "dig") || (s.cur != nil && s.cur.key == "dig") {
+		return s.dig(sd)
+	}
 	if first.Kind == "arrange_card" && num(first, "card_index") == 0 && sd.Group.SubstepIndex == 0 {
 		purpose := str(first, "purpose")
 		other, ok := arrangeKinds[purpose]
@@ -1093,6 +1384,180 @@ func (s *Session) arrange(sd *protocol.SeatDecision) ([]mapping.NativeOp, *nativ
 				list = "rest"
 			}
 			ops[i] = mapping.NativeOp{Op: "list", Option: k, List: list, Position: pos}
+		}
+	}
+	return ops, n, nil
+}
+
+// looked lists the acting seat's top count library cards it now knows
+// (looked at or revealed), top first, or nil when any is missing.
+func looked(sd *protocol.SeatDecision, count int) []string {
+	type card struct {
+		id  string
+		pos uint32
+	}
+	var cs []card
+	for _, k := range sd.Observation.Known {
+		if k.OwnerSeat == sd.ActingSeat && k.Zone == "library" && k.ObjectID != nil && k.PositionFromTop != nil &&
+			(k.How == "looked_at" || k.How == "revealed") && int(*k.PositionFromTop) < count {
+			cs = append(cs, card{*k.ObjectID, *k.PositionFromTop})
+		}
+	}
+	slices.SortFunc(cs, func(a, b card) int { return int(a.pos) - int(b.pos) })
+	if len(cs) != count {
+		return nil
+	}
+	ids := make([]string, count)
+	for i, c := range cs {
+		if int(c.pos) != i {
+			return nil
+		}
+		ids[i] = c.id
+	}
+	return ids
+}
+
+// dig is a Dig's look: v2 partitions the window (hand or bottom) and then
+// orders it. gorge asks a KChoose of the eligible cards ("dig", in window
+// order) and, when two or more go to the bottom, their bottom order as the
+// follow-up dig_bottom. A Dig whose cards all move without a choice
+// (Winding Way's "all cards of the chosen type", the rest to the graveyard)
+// is one gorge's engine answers itself.
+func (s *Session) dig(sd *protocol.SeatDecision) ([]mapping.NativeOp, *native, error) {
+	first := sd.Candidates[0].Semantic
+	if first.Kind == "arrange_card" && num(first, "card_index") == 0 && sd.Group.SubstepIndex == 0 {
+		src, err := optRef(first, "source")
+		if err != nil || src == nil {
+			return nil, nil, err
+		}
+		sa := s.chainSA(*src, func(sa *cards.SA) bool { return sa.API == "Dig" })
+		ids := looked(sd, num(first, "card_count"))
+		if sa == nil || ids == nil {
+			return nil, nil, nil
+		}
+		param := func(k string) string { return strings.TrimSpace(sa.Params[k]) }
+		dest, dest2 := param("DestinationZone"), param("DestinationZone2")
+		n := s.open("dig", decision.Decision{})
+		n.arrange = &arrangement{cards: ids}
+		switch {
+		case strings.EqualFold(param("ChangeNum"), "All") || (dest2 != "" && !strings.EqualFold(dest2, "Library")):
+			n.arrange.fixed = true
+		case dest == "" || strings.EqualFold(dest, "Hand"):
+			valid := strings.Split(param("ChangeValid"), ",")
+			eligible := func(id string) bool {
+				name := ""
+				for _, k := range sd.Observation.Known {
+					if k.ObjectID != nil && *k.ObjectID == id {
+						name = k.CardName
+					}
+				}
+				f := s.B.face(&name, false, nil)
+				if f == nil {
+					return false
+				}
+				for _, v := range valid {
+					if slices.Contains(f.Types, strings.TrimSpace(v)) {
+						return true
+					}
+				}
+				return false
+			}
+			if slices.ContainsFunc(valid, func(v string) bool { return strings.ContainsAny(v, ".+") }) {
+				return nil, nil, nil
+			}
+			d := decision.Decision{Kind: decision.KChoose, Prompt: "dig", ResumeSA: sa}
+			if src != nil {
+				d.Source = s.B.IDs.Of(src.ObjectID)
+			}
+			for _, id := range ids {
+				k := -1
+				if eligible(id) {
+					k = len(d.Options)
+					d.Options = append(d.Options, decision.Option{Index: k, Kind: "dig", Label: "card", Obj: s.B.IDs.Of(id), Player: s.seat})
+				}
+				n.arrange.native = append(n.arrange.native, k)
+			}
+			changeNum, err := strconv.Atoi(param("ChangeNum"))
+			anyNum := strings.EqualFold(param("ChangeNum"), "Any")
+			if err != nil && !anyNum {
+				return nil, nil, nil
+			}
+			if anyNum {
+				changeNum = len(d.Options)
+			}
+			d.Max = min(changeNum, len(d.Options))
+			if !anyNum && !strings.EqualFold(param("Optional"), "True") {
+				d.Min = d.Max
+			}
+			n.d = d
+		default:
+			return nil, nil, nil
+		}
+		s.cur = n
+	}
+	n := s.continuing("dig")
+	if n == nil || n.arrange == nil {
+		return nil, nil, nil
+	}
+	a := n.arrange
+	ops := make([]mapping.NativeOp, len(sd.Candidates))
+	for i := range ops {
+		ops[i] = noOp
+	}
+	if a.fixed {
+		ops[0] = mapping.NativeOp{Op: "fixed", Option: -1}
+		return ops, n, nil
+	}
+	var bottom []int
+	for ci, dst := range a.dest {
+		if dst == "bottom" {
+			bottom = append(bottom, ci)
+		}
+	}
+	if len(a.dest) == len(a.cards) && len(bottom) >= 2 && n.follow == nil {
+		fd := decision.Decision{Kind: decision.KArrange, Min: len(bottom), Max: len(bottom), ResumeKind: "dig_arrange",
+			ResumeSA: n.d.ResumeSA, Source: n.d.Source, Player: s.seat, Prompt: "Put the remaining cards on the bottom of your library in any order"}
+		for j, ci := range bottom {
+			fd.Options = append(fd.Options, decision.Option{Index: j, Kind: "dig_bottom", Label: "card", Obj: s.B.IDs.Of(a.cards[ci]), Player: s.seat})
+		}
+		n.follow = map[string]decision.Decision{"dig_bottom": fd}
+	}
+	for i, c := range sd.Candidates {
+		switch c.Semantic.Kind {
+		case "arrange_card":
+			card, err := ref(c.Semantic, "card")
+			if err != nil {
+				return nil, nil, err
+			}
+			ci := slices.Index(a.cards, card.ObjectID)
+			if dst := str(c.Semantic, "destination"); ci >= 0 && (dst == "hand" || dst == "bottom") {
+				ops[i] = mapping.NativeOp{Op: "dest", Option: a.native[ci], List: dst, Position: ci}
+			}
+		case "order_pick":
+			it, err := field[protocol.OrderItem](c.Semantic, "item")
+			if err != nil || it.Object == nil {
+				continue
+			}
+			ci := slices.Index(a.cards, it.Object.ObjectID)
+			if ci < 0 || ci >= len(a.dest) {
+				continue
+			}
+			dst := a.dest[ci]
+			pos := 0
+			for _, p := range a.placed {
+				if j := slices.Index(a.cards, p); j >= 0 && j < len(a.dest) && a.dest[j] == dst {
+					pos++
+				}
+			}
+			switch {
+			case dst == "hand":
+				ops[i] = mapping.NativeOp{Op: "list", Option: a.native[ci], List: "choices", Position: pos}
+			case dst == "bottom" && len(bottom) == 1:
+				// gorge moves a lone remainder without asking dig_bottom.
+				ops[i] = mapping.NativeOp{Op: "dest", Option: -1, List: "bottom"}
+			case dst == "bottom":
+				ops[i] = mapping.NativeOp{Op: "list", Option: slices.Index(bottom, ci), List: "followup:dig_bottom", Position: pos}
+			}
 		}
 	}
 	return ops, n, nil

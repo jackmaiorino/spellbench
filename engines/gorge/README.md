@@ -79,8 +79,12 @@ plan-and-pick path as on gorge's engine. The search policies replay games in gor
 - Mana: under the kernel's `engine_autopay` the policy never floats mana. Mana activations are left untranslated,
   exactly as the auto-pay policies drop them, so `bot` and `bot-auto-pay` (and the lethal-pressure pair) play
   alike on such an engine.
-- Untranslated families (library orders other than triggers and mulligan bottoms, piles, names, replacements,
-  distribution) answer by the agent's fallback and are counted.
+- Cards gorge's engine moves without asking (a reveal sent to the graveyard, Winding Way's "all cards of the
+  chosen type") arrive as kernel orderings with no gorge question behind them; they carry the `fixed` op, which
+  the agent takes as is, and are not fallbacks. Brainstorm, Dig looks (Lead the Stampede), discard orders,
+  optional-cost choices, effect options, eligible-only modes and Land Grant's alternative cost are translated.
+  `internal/neutral/kernel_shapes_test.go` replays the kernel shapes of the first Spy and CawGates smoke.
+- Untranslated families (piles, names, replacements, distribution) answer by the agent's fallback and are counted.
 - Parity (`internal/neutral/parity_test.go`): on gorge-hosted bot mirrors, the translated view matches gorge's own
   view on every Board fact, and the translated decision picks the same candidate as `x_gorge_view_v1` on every
   comparable decision (all but those where gorge's own seat floated mana).
