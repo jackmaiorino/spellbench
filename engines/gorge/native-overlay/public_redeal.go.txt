@@ -401,22 +401,45 @@ func spellbenchDeclinedShufflePositions(h History) map[epochKey][]epochPosition 
 // SpellbenchScryPrefix bounds original shuffle ranks using public draws,
 // printed maximum look counts and public bottom counts. It stores no cards.
 // Reordering a kept window cannot advance the untouched tail. Bottoming can.
+// Cards put back on top from hand, and the kept part of a scried window, are
+// drawn before the next untouched rank, so those draws do not advance it.
 type SpellbenchScryPrefix struct {
 	draws, bottom, touched int
+	// above counts cards put back on top from hand; kept counts cards left
+	// on top by a scry. free counts draws taken from either.
+	above, kept, free int
 }
 
-func (p *SpellbenchScryPrefix) Draw() { p.draws++ }
+func (p *SpellbenchScryPrefix) Draw() {
+	p.draws++
+	if p.above > 0 {
+		p.above--
+		p.free++
+	} else if p.kept > 0 {
+		p.kept--
+		p.free++
+	}
+}
 
 // Remove consumes one undrawn position without a draw.
 func (p *SpellbenchScryPrefix) Remove() { p.bottom++ }
 
+// Return puts one card from hand on top of the library.
+func (p *SpellbenchScryPrefix) Return() { p.above++ }
+
 func (p *SpellbenchScryPrefix) Scry(look, bottom int) {
-	p.touched = max(p.touched, p.draws+p.bottom+look)
-	p.bottom += bottom
+	// Returned cards, then earlier kept cards, fill the window before
+	// untouched ranks do. Cards left below the window stay ahead of them.
+	returned := min(p.above, look)
+	kept := min(p.kept, look-returned)
+	p.touched = p.Through() + look - returned - kept
+	p.kept = look - bottom + p.above - returned + p.kept - kept
+	p.above = 0
+	p.bottom = max(p.bottom, p.touched-(p.draws-p.free))
 }
 
 func (p SpellbenchScryPrefix) Through() int {
-	return max(p.draws+p.bottom, p.touched)
+	return max(p.draws-p.free+p.bottom, p.touched)
 }
 
 func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epochConstraints) map[epochKey]epochConstraints {
@@ -502,8 +525,7 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 				}
 				if look == 0 && spellbenchHandToTopOrder(frame.Events[:index], ev.Player, identities, faces) {
 					// Cards put back from hand came from drawn positions or an
-					// earlier hand. Later draws still advance at most one
-					// original position each, so the draw bound remains valid.
+					// earlier hand. Their redraws advance no original position.
 					current.guided = true
 				} else if look == 0 {
 					current.reliable = false
@@ -539,8 +561,9 @@ func spellbenchScryEpochs(setup PublicGame, h History, original map[epochKey]epo
 						continue
 					}
 					// A card put back from hand does not consume an undrawn
-					// position; its later redraw is counted as a draw.
+					// position, and its later redraw does not advance one.
 					if known && ev.From == state.ZHand && ev.To == state.ZLibrary && spellbenchHandToTopOrder(frame.Events[:index], identity.Owner, identities, faces) {
+						get(identity.Owner).prefix.Return()
 						continue
 					}
 					disable(identity.Owner, known)
@@ -1139,6 +1162,24 @@ func spellbenchCarryEpochsOrdered(h History, original map[epochKey]epochConstrai
 					returned[identity.Owner] = map[string]int{}
 				}
 				returned[identity.Owner][identity.Name]++
+			} else if ev.Kind == events.MoveZone && ev.From == state.ZLibrary && ev.To == state.ZHand && !known {
+				// A search can name the hidden card it put into hand. That
+				// card can stay in hand through a shuffle without a draw.
+				for _, note := range frame.Events[eventIndex+1:] {
+					if note.Kind == events.MoveZone {
+						break
+					}
+					if note.Kind != events.Note || len(note.IDs) != 1 {
+						continue
+					}
+					if found, named := identities[note.IDs[0]]; named && found.Name != "" && found.Owner == note.Player {
+						if returned[found.Owner] == nil {
+							returned[found.Owner] = map[string]int{}
+						}
+						returned[found.Owner][found.Name]++
+					}
+					break
+				}
 			}
 			switch ev.Kind {
 			case events.TurnChange:
@@ -1276,6 +1317,9 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 		prefix                      SpellbenchScryPrefix
 		clean                       bool
 		exits, removed              map[string]int
+		// searched holds the observer reference of each hidden library card
+		// put into hand, or 0 when no reference was published.
+		searched []uint32
 	}
 	faces := map[string]*cards.Face{}
 	for _, deck := range setup.Decks {
@@ -1287,6 +1331,10 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 	}
 	result := map[epochKey][]exclusionConstraint{}
 	cursors := map[state.PlayerID]*cursor{}
+	// closed holds each player's contiguous run of clean earlier epochs. A
+	// card drawn there and still in hand at a later shuffle limits those
+	// draws too, after adding the hand exits of every epoch in between.
+	closed := map[state.PlayerID][]cursor{}
 	get := func(player state.PlayerID) *cursor {
 		if cursors[player] == nil {
 			cursors[player] = &cursor{exits: map[string]int{}, removed: map[string]int{}}
@@ -1295,9 +1343,13 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 	}
 	identities := map[uint32]Identity{}
 	started := false
-	for _, frame := range h.Frames {
+	for frameIndex, frame := range h.Frames {
 		for _, identity := range frame.Identities {
 			identities[identity.ID] = identity
+		}
+		var inferred map[int]state.PlayerID
+		if frameIndex > 0 {
+			inferred = spellbenchLibraryMoveOwners(h.Frames[frameIndex-1], frame, identities)
 		}
 		for index, ev := range frame.Events {
 			switch ev.Kind {
@@ -1319,7 +1371,7 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 						}
 					}
 				}
-				if look == 0 {
+				if look == 0 || len(c.searched) > 0 {
 					c.clean = false
 				}
 			case events.CardToken, events.CopyToken, events.MyriadCopy, events.StackCopy:
@@ -1328,8 +1380,12 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 				}
 			case events.Shuffle:
 				c := get(ev.Player)
+				if c.clean {
+					closed[ev.Player] = append(closed[ev.Player], *c)
+				} else {
+					closed[ev.Player] = nil
+				}
 				if ev.Player != h.Actor && started && c.ordinal > 0 && c.clean && int(ev.Player) < len(setup.Decks) {
-					previous := epochKey{Player: ev.Player, Ordinal: c.ordinal - 1}
 					next := epochKey{Player: ev.Player, Ordinal: c.ordinal}
 					required := map[string]int{}
 					for _, position := range epochs[next].Positions {
@@ -1346,14 +1402,31 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 							names = append(names, name)
 						}
 						sort.Strings(names)
-						for _, name := range names {
-							// Drawn positions lie below the prefix bound. Its other
-							// positions were removed publicly or left undrawn.
-							through := c.prefix.Through()
-							undrawn := through - c.prefix.draws - c.removals
-							limit := c.exits[name] + c.bottomed + c.removed[name] + undrawn + total[name] - public[name] - required[name]
-							if limit >= 0 && limit < through {
-								result[previous] = append(result[previous], exclusionConstraint{Through: through, Name: name, Cap: limit})
+						later := map[string]int{}
+						run := closed[ev.Player]
+						// A cursor's ordinal counts the shuffles before its epoch.
+						for i := len(run) - 1; i >= 0 && run[i].ordinal > 0; i-- {
+							epoch := run[i]
+							for _, name := range names {
+								// Drawn positions lie below the prefix bound. Its other
+								// positions were removed publicly, left undrawn, or hold
+								// a hidden card put into hand from the library.
+								through := epoch.prefix.Through()
+								undrawn := through - epoch.prefix.draws - epoch.removals
+								searched := 0
+								for _, ref := range epoch.searched {
+									if identity, named := identities[ref]; !named || identity.Name == "" || identity.Name == name {
+										searched++
+									}
+								}
+								limit := epoch.exits[name] + later[name] + epoch.bottomed + epoch.removed[name] + undrawn + searched + total[name] - public[name] - required[name]
+								if limit >= 0 && limit < through {
+									key := epochKey{Player: ev.Player, Ordinal: epoch.ordinal - 1}
+									result[key] = append(result[key], exclusionConstraint{Through: through, Name: name, Cap: limit})
+								}
+							}
+							for name, count := range epoch.exits {
+								later[name] += count
 							}
 						}
 					}
@@ -1364,6 +1437,10 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 				if ev.From == state.ZHand && ev.To == state.ZLibrary && !started && (ev.Text == "mulligan" || ev.Text == "bottomed") {
 					if ev.Text == "bottomed" {
 						get(ev.Player).bottomed++
+					} else {
+						// A mulligan returns this deal's draws, so they no
+						// longer bound any later hand.
+						get(ev.Player).clean = false
 					}
 					continue
 				}
@@ -1377,6 +1454,27 @@ func spellbenchLibraryRequirementExclusions(setup PublicGame, h History, epochs 
 				// A public card put into the library does not change which
 				// original positions were drawn.
 				if ev.To == state.ZLibrary && ev.From != state.ZHand && !ev.From.Hidden() && known && identity.Name != "" {
+					continue
+				}
+				// A hidden library card put into hand, as by a search, holds
+				// at most one position below each later draw bound.
+				if owner, inferredMove := inferred[index]; inferredMove && !known && ev.From == state.ZLibrary && ev.To == state.ZHand {
+					c := get(owner)
+					if c.prefix.touched > 0 {
+						c.clean = false
+						continue
+					}
+					var ref uint32
+					for _, note := range frame.Events[index+1:] {
+						if note.Kind == events.Note && note.Player == owner && len(note.IDs) == 1 {
+							ref = note.IDs[0]
+							break
+						}
+						if note.Kind == events.MoveZone {
+							break
+						}
+					}
+					c.searched = append(c.searched, ref)
 					continue
 				}
 				if ev.From == state.ZLibrary || ev.To == state.ZLibrary {

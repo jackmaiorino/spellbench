@@ -567,6 +567,41 @@ func TestSpellbenchPublicCarryCreditsReturnedCards(t *testing.T) {
 	}
 }
 
+func TestSpellbenchPublicCarryCreditsNamedSearchResults(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		note          uint32
+		wantLandscape int
+	}{
+		{"named search result remains held", 14, 1},
+		{"unnamed search result supplies no credit", 15, 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+				{Identities: []Identity{{ID: 14, Name: "Twisted Landscape", Owner: 1}},
+					Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZHand}, {Kind: events.Note, Player: 1, IDs: []uint32{test.note}}}},
+				{Board: []byte(`{"players":[{"seat":1,"hand_size":2}]}`),
+					Events: []ObservedEvent{{Kind: events.TurnChange, Player: 1}, {Kind: events.Shuffle, Player: 1}}},
+			}}
+			previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
+			original := map[epochKey]epochConstraints{
+				previous: {Deadlines: []deadlineConstraint{{Through: 1, Name: "Twisted Landscape", Count: 1}}},
+				next:     {Deadlines: []deadlineConstraint{{Through: 0, Name: "Twisted Landscape", Count: 1}}},
+			}
+			landscape := 0
+			for _, bound := range spellbenchCarryEpochs(h, original)[previous].Deadlines {
+				if bound.Name == "Twisted Landscape" {
+					landscape = max(landscape, bound.Count)
+				}
+			}
+			if landscape != test.wantLandscape {
+				t.Fatalf("landscape carry %d, want %d", landscape, test.wantLandscape)
+			}
+		})
+	}
+}
+
 func TestSpellbenchPublicCarrySurvivesScryBottom(t *testing.T) {
 	previous, next := epochKey{Player: 1}, epochKey{Player: 1, Ordinal: 1}
 	for _, test := range []struct {
@@ -803,6 +838,47 @@ func TestSpellbenchRevealedHandOrderFollowsHandEntries(t *testing.T) {
 	}
 }
 
+func TestSpellbenchScryPrefixSkipsReturnedAndKeptCards(t *testing.T) {
+	steps := func(ops string) int {
+		var p SpellbenchScryPrefix
+		for _, op := range strings.Fields(ops) {
+			switch op {
+			case "d":
+				p.Draw()
+			case "r":
+				p.Return()
+			case "x":
+				p.Remove()
+			default:
+				look, bottom, _ := strings.Cut(op, "/")
+				l, _ := strconv.Atoi(look)
+				b, _ := strconv.Atoi(bottom)
+				p.Scry(l, b)
+			}
+		}
+		return p.Through()
+	}
+	for _, test := range []struct {
+		ops  string
+		want int
+	}{
+		{"d d d 2/1", 5},
+		{"d d d 2/1 d", 5},
+		{"d d d 2/1 d d", 6},
+		{"d d d 2/0 2/0", 5},
+		{"d d d 2/0 2/0 d d d", 6},
+		{"d d d x", 4},
+		// Brainstorm, a redraw, then Preordain: each later draw holds either
+		// a returned card or the scried original, then the next rank.
+		{"d d d r r d 2/1 d d", 5},
+		{"d d d r r d", 3},
+	} {
+		if got := steps(test.ops); got != test.want {
+			t.Errorf("%q through %d, want %d", test.ops, got, test.want)
+		}
+	}
+}
+
 func TestSpellbenchScryEpochsKeepDrawBoundThroughHandToTop(t *testing.T) {
 	put := &cards.SA{API: "ChangeZone", Params: map[string]string{"Origin": "Hand", "Destination": "Library", "ChangeNum": "2"}}
 	brainstorm := &cards.Card{Faces: []*cards.Face{{Name: "Brainstorm", Abilities: []*cards.SA{{API: "Draw", Params: map[string]string{"NumCards": "3"}, Sub: put}}}}}
@@ -915,6 +991,64 @@ func TestSpellbenchExploreRevealsTopPosition(t *testing.T) {
 				t.Fatalf("positions %+v, want %+v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestSpellbenchLibraryRequirementCapsDrawsCarriedThroughSearch(t *testing.T) {
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{{}, {}}}
+	for _, name := range []string{"Mountain", "Mountain", "Other", "Other", "Other", "Other"} {
+		setup.Decks[1] = append(setup.Decks[1], &cards.Card{Faces: []*cards.Face{{Name: name}}})
+	}
+	sizes := func(library int) json.RawMessage {
+		return json.RawMessage(`{"players":[{"seat":0,"library_size":0},{"seat":1,"library_size":` + strconv.Itoa(library) + `}],"stack":[]}`)
+	}
+	history := func(found []Identity) History {
+		return History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+			{Board: sizes(3), Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.TurnChange, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}},
+			{Board: sizes(2), Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, From: state.ZLibrary, To: state.ZHand}, {Kind: events.Note, Player: 1, IDs: []uint32{50}}, {Kind: events.Shuffle, Player: 1}}},
+			{Board: sizes(2), Identities: found, Events: []ObservedEvent{{Kind: events.Priority}}},
+			{Board: sizes(2), Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}},
+		}}
+	}
+	epochs := map[epochKey]epochConstraints{{Player: 1, Ordinal: 2}: {Positions: []epochPosition{{Index: 0, Name: "Mountain"}, {Index: 1, Name: "Mountain"}}}}
+	for _, test := range []struct {
+		name  string
+		found []Identity
+		cap   int
+	}{
+		{"named search result", []Identity{{ID: 50, Name: "Other", Owner: 1}}, 0},
+		{"unnamed search result", nil, 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			got := spellbenchLibraryRequirementExclusions(setup, history(test.found), epochs)
+			want := map[epochKey][]exclusionConstraint{{Player: 1}: {{Through: 3, Name: "Mountain", Cap: test.cap}}}
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("exclusions %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestSpellbenchLibraryRequirementSkipsMulliganedDeals(t *testing.T) {
+	setup := PublicGame{Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{{}, {}}}
+	for _, name := range []string{"Mountain", "Mountain", "Other", "Other", "Other", "Other"} {
+		setup.Decks[1] = append(setup.Decks[1], &cards.Card{Faces: []*cards.Face{{Name: name}}})
+	}
+	deal := []ObservedEvent{{Kind: events.Shuffle, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}, {Kind: events.Draw, Player: 1}}
+	opening := append([]ObservedEvent(nil), deal...)
+	for range 3 {
+		opening = append(opening, ObservedEvent{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Text: "mulligan"})
+	}
+	opening = append(append(opening, deal...), ObservedEvent{Kind: events.TurnChange, Player: 1})
+	h := History{Actor: 0, ActorBoundaries: true, Frames: []Frame{
+		{Events: opening},
+		{Board: json.RawMessage(`{"players":[{"seat":0},{"seat":1}],"stack":[]}`), Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}},
+	}}
+	epochs := map[epochKey]epochConstraints{{Player: 1, Ordinal: 2}: {Positions: []epochPosition{{Index: 0, Name: "Mountain"}, {Index: 1, Name: "Mountain"}}}}
+	got := spellbenchLibraryRequirementExclusions(setup, h, epochs)
+	want := map[epochKey][]exclusionConstraint{{Player: 1, Ordinal: 1}: {{Through: 3, Name: "Mountain", Cap: 0}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("exclusions %+v, want %+v", got, want)
 	}
 }
 
