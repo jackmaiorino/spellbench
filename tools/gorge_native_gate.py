@@ -201,4 +201,6 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
         runtime_source_commit=build['source_commit'], launcher_source_commit=terminal['head_sha'],
         execution_kind=layout['kind'], native_qualifier_name=layout['qualifier'],
         native_sha256=native_hash, registry_sha256=registry_hash, primary_sha256=sha(primary),
-        policies=policies, seed_blocks=blocks, completed_games=2 * blocks, outputs_identical=True, closed=True)
+        seed_blocks=blocks, completed_games=2 * blocks, outputs_identical=True, closed=True,
+        # Full-roster verdicts keep their original shape for existing bundles.
+        **({} if policies == POLICIES else dict(policies=policies)))
