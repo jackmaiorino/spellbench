@@ -69,7 +69,8 @@ func (e *Env) CloseLooks() {
 // declines), "cast" (a cast_spell standing for several native variants,
 // listed in Covers), "list" (Option at Position of the native list named by
 // List: "choices", "rest" or "followup:<key>"), "dest" (an arrangement
-// partition, Task 19b).
+// partition, Task 19b). The neutral world adds "fixed": a choice another
+// engine poses where gorge's engine asks nothing (Pick takes it as is).
 type NativeOp struct {
 	Payment  *decision.PaymentSelection `json:"payment,omitempty"`
 	Op       string                     `json:"op"`
