@@ -26,13 +26,20 @@ def seal(root):
 
 @pytest.fixture
 def evidence(tmp_path):
+    return build_evidence(tmp_path)
+
+
+def build_evidence(tmp_path, policies=None):
+    selection = 'all' if policies is None else ','.join(policies)
+    policies = gate.POLICIES if policies is None else policies
+    blocks = gate.schedule_blocks(policies)
     runtime, native = tmp_path / 'runtime', tmp_path / 'native'
     runtime.mkdir(); native.mkdir()
     (runtime / 'gorgequal-linux-amd64').write_bytes(b'fixture-only-binary')
     (runtime / 'registry.gob.gz').write_bytes(b'fixture-only-registry')
     write(runtime / 'BUILD.json', {'source_commit': 'runtime-source'})
     runtime_seal = seal(runtime)
-    rows = [{'game': i, 'classification': 'natural'} for i in range(320)]
+    rows = [{'game': i, 'classification': 'natural'} for i in range(blocks)]
     callback = native / 'artifact/full-native-audit-3-workers-2'
     callback.mkdir(parents=True)
     primary = callback / 'primary.jsonl'
@@ -41,22 +48,22 @@ def evidence(tmp_path):
     write(native / 'CI-TERMINAL.json', {'status': 'completed', 'conclusion': 'success', 'id': 17, 'head_sha': 'launcher-source'})
     write(native / 'RECOVERY.json', {'native_qualification_passed': True, 'independent_recovery_verified': True,
         'github_run_id': 17, 'launcher_source_commit': 'launcher-source', 'rated_games': 0})
-    write(native / 'artifact/NATIVE-AUDIT.json', {'passed': True, 'seed_blocks': 320, 'completed_games': 640,
+    write(native / 'artifact/NATIVE-AUDIT.json', {'passed': True, 'seed_blocks': blocks, 'completed_games': 2 * blocks,
         'rated_games': 0, 'allocation': allocation, 'full_report_path': '/remote/' + callback.name + '/report.json',
         'primary_sha256': gate.sha(primary)})
     write(native / 'artifact/ALLOCATION.json', allocation)
     write(native / 'artifact/CLOSURE.json', {'exit_code': 0, 'stop_reason': None, 'native_passed': True})
     write(native / 'artifact/MANIFEST.json', {'runtime_source_commit': 'runtime-source', 'source_commit': 'launcher-source',
         'native_qualifier_sha256': gate.sha(runtime / 'gorgequal-linux-amd64'),
-        'registry_sha256': gate.sha(runtime / 'registry.gob.gz'), 'policies': gate.POLICIES,
-        'decks': gate.DECKS, 'fixed_seed_indices': list(range(320))})
-    report = {'policies': gate.POLICIES, 'scheduled_games': 320, 'rows': rows,
-        'totals': {'Games': 320, 'CompletedGames': 640, **dict.fromkeys(gate.FAULTS, 0)},
+        'registry_sha256': gate.sha(runtime / 'registry.gob.gz'), 'policies': policies,
+        'policy_selection': selection, 'decks': gate.DECKS, 'fixed_seed_indices': list(range(blocks))})
+    report = {'policies': policies, 'scheduled_games': blocks, 'rows': rows,
+        'totals': {'Games': blocks, 'CompletedGames': 2 * blocks, **dict.fromkeys(gate.FAULTS, 0)},
         'gates': {'fixture': {'AgentNatives': 1000, 'ForcedNatives': 0, 'FallbackNatives': 0}},
         'policy_gates': {'fixture': {'AgentNatives': 1000, 'ForcedNatives': 0, 'FallbackNatives': 0}},
         'search_coverage': {deck + '/' + policy: {'Eligible': 1, 'Covered': 1, 'Redealt': 1,
             'ReconstructionBudgetExhausted': 0, 'RedealRefusals': {}}
-            for deck in gate.DECKS for policy in gate.POLICIES if policy.startswith('search')}}
+            for deck in gate.DECKS for policy in policies if policy.startswith('search')}}
     write(callback / 'report.json', report)
     write(callback / 'RECEIPT.json', {'primary_sha256': gate.sha(primary), 'exit_code': 0, 'full_native_gate_passed': True})
     native_seal = seal(native)
@@ -75,8 +82,26 @@ def test_complete_structural_fixture_and_byte_tampering(evidence):
         gate.verify_native_audit(native, runtime, **pins)
 
 
+def test_declared_policy_subset_passes_only_with_its_own_schedule(tmp_path):
+    subset = gate.POLICIES[:10]
+    native, runtime, pins = build_evidence(tmp_path, subset)
+    verdict = gate.verify_native_audit(native, runtime, **pins)
+    assert (verdict['policies'], verdict['seed_blocks'], verdict['completed_games']) == (subset, 280, 560)
+    manifest = json.loads((native / 'artifact/MANIFEST.json').read_bytes())
+    for change in ({'policy_selection': 'all'}, {'policy_selection': ','.join(reversed(subset))},
+                   {'policies': list(reversed(subset)), 'policy_selection': ','.join(reversed(subset))},
+                   {'fixed_seed_indices': list(range(320))}):
+        write(native / 'artifact/MANIFEST.json', {**manifest, **change})
+        pins['seal_sha256'] = seal(native)
+        cleanup = json.loads((native / 'HOSTED-CLEANUP.json').read_bytes())
+        write(native / 'HOSTED-CLEANUP.json', {**cleanup, 'recovery_seal_sha256': pins['seal_sha256']})
+        pins['cleanup_sha256'] = gate.sha(native / 'HOSTED-CLEANUP.json')
+        with pytest.raises(gate.NativeAuditGateError, match='^Audit'):
+            gate.verify_native_audit(native, runtime, **pins)
+
+
 def local_evidence(tmp_path):
-    native, runtime, pins = evidence.__wrapped__(tmp_path)
+    native, runtime, pins = build_evidence(tmp_path)
     (native / 'artifact').rename(native / 'native')
     (native / 'native/CLOSURE.json').rename(native / 'native/RECEIPT.json')
     (native / 'CI-TERMINAL.json').unlink()
