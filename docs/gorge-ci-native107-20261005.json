@@ -42,7 +42,7 @@
       "sha256": "dc828979bc8b6f8926ac518875cd7dab5baa298b344844263ad95761e97fcd00"
     }
   },
-  "placement": "main-pc=unavailable: observed research terminal-credit-execution-20261005 generation240 and explicit research hold; haleyspc=unavailable: explicit research hold, hardware and SSH checked; runpod=not_authorized: HTTP200 inventory checked, no new lease fits conservative9.99736347USD reservation under10USD; github-actions=used: standard public runner, matched serial/parallel guard selects shortest qualified wall time before substantial work",
+  "placement": "main-pc=unavailable: observed research terminal-credit-execution-20261005 generation240 and explicit research hold; computehost=unavailable: explicit research hold, hardware and SSH checked; runpod=not_authorized: HTTP200 inventory checked, no new lease fits conservative9.99736347USD reservation under10USD; github-actions=used: standard public runner, matched serial/parallel guard selects shortest qualified wall time before substantial work",
   "resource_census_sha256": "f3ecd29c2342a3068f950d79eeb0de78215e2f2e69eaf524cc60c529ed05b85c",
   "repository_private": false,
   "conservative_reserved_total_usd": 9.99736347,

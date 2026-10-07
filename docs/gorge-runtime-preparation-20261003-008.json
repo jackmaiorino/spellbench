@@ -239,7 +239,7 @@
   },
   "machines": {
     "checked_at_utc": "2026-10-03T10:37:51.448109+00:00",
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-03T10:37:53.6146512Z",
       "memory_free_kib": 90509348,
       "memory_total_kib": 134025436,
@@ -334,11 +334,11 @@
           "WorkingSetSize": 23543808
         }
       ],
-      "canonical_reservation": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=cooling-jack-replacement-stage1-002 generation=108 since=2026-10-03T10:01:55.692+00:00",
+      "canonical_reservation": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=cooling-maintainer-replacement-stage1-002 generation=108 since=2026-10-03T10:01:55.692+00:00",
       "previous_formal_pid_58872_present": false,
       "formal_completion": "Not inferred from process absence; no research outcomes read"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-03T10:37:55.8475552Z",
       "memory_free_kib": 26207940,
       "memory_total_kib": 33478692,
@@ -365,8 +365,8 @@
       "inventory_status": "HTTP403",
       "allocation_disposition": "Existing Luna lease is not reassigned to this task; no new paid compute authority"
     },
-    "obsolete_reservation": "Old forty-minute Jack Spellbench queue is retired per CODEX811",
-    "coordination": "Jack generation108 research replacement is preserved per CODEX816; queued Haley training-performance window remains next per CODEX811",
+    "obsolete_reservation": "Old forty-minute maintainer Spellbench queue is retired per CODEX811",
+    "coordination": "The maintainer's generation108 research replacement is preserved per CODEX816; queued compute host training-performance window remains next per CODEX811",
     "allocation": "Routine runtime preparation only; no substantial evaluation or host claim",
     "qualification": "Historical runtime007 scaling is retained; changed runtime requires compatibility qualification at an eligible allocation"
   },

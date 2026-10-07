@@ -1,0 +1,26 @@
+spellbench conformance engine --format standard-2022-25-bo1 --deck Standard16-RG --deck Standard16-UB --games 2 -- scripts/engine.sh ...
+P's runner at protocol-v2 4b588a1; engine built from xmage-x0-x1 9be4ad3 on the compute host (JDK 23.0.2, Maven 3.9.9), 2026-10-01.
+Until X3/X4 map decisions, every game halts at its first prompt (engine_contract_failure:decision_mapping_pending),
+so the checks that need a posed decision fail by construction.
+
+PASS hello
+PASS protocol_mismatch
+PASS malformed_json
+PASS malformed_request
+PASS malformed_request_non_object
+PASS unsupported_rule
+PASS game_id_reuse
+FAIL never_cached: needs a deck whose game poses a decision (the reset ended halted)
+FAIL step_check_order: no decision offered two candidates before the game ended at step_count 0
+PASS step_before_reset
+PASS unsupported_format
+PASS unsupported_deck
+FAIL unsupported_request: needs a pending decision (the reset ended halted)
+FAIL game_already_active: needs a pending decision (the reset ended halted)
+FAIL game_id_mismatch: needs a pending decision (the reset ended halted)
+FAIL expected_step_mismatch: needs a pending decision (the reset ended halted)
+FAIL candidate_id_out_of_range: needs a pending decision (the reset ended halted)
+FAIL semantic_echo_mismatch: no decision offered two candidates before the game ended at step_count 0
+FAIL retransmission: needs a pending decision (the reset ended halted)
+PASS game_already_terminal
+PASS games

@@ -1,7 +1,7 @@
-# A1 vertical slice: evidence (2026-10-01, HaleysPC)
+# A1 vertical slice: evidence (2026-10-01, the compute host)
 
 Design A0 revision 3 with its addendum (`E:/spellbench-archive/program-research/x-agent-kit-design.md`, Section
-9.1); issue spellbench#28. Everything ran on HaleysPC at below-normal priority, JDK 23.0.2, engine built from this
+9.1); issue spellbench#28. Everything ran on the compute host at below-normal priority, JDK 23.0.2, engine built from this
 branch with `engines/xmage/scripts/build.sh` (unchanged identity: `rules_snapshot_id`
 `xmage-fd40ad5c...-xpat-8c2578bef...`, `lib_digest` `6a942b3f...`), P's stack at protocol-v2 `4b588a1`. Kit build
 manifest: `KIT-MANIFEST.json`.
@@ -16,7 +16,7 @@ implemented.
 
 ## Build-out after the A1 result review (Sol, PROCEED WITH CHANGES): changes 1 to 7 run
 
-Review: `E:/spellbench-archive/program-research/reviews/a1-sol-opinion.md`. Run 2026-10-01 on HaleysPC at below-normal
+Review: `E:/spellbench-archive/program-research/reviews/a1-sol-opinion.md`. Run 2026-10-01 on the compute host at below-normal
 priority, after merging `origin/xmage-x0-x1` (X-P4 core patch; engine rebuilt: `rules_snapshot_id`
 `xmage-fd40ad5c...-xpat-6f8a902b...`, `lib_digest` `c81b025a...`). Records in `buildout/`: `finalA.jsonl` (71/71
 PASS: S1 to S9, SENTINEL, E2, E7MCTS, E7MAD, S2P, S3P, S4P, S10P, REG, POOLAUDIT), `finalB.jsonl` (8/8 PASS: A3,
@@ -33,7 +33,7 @@ Change 8 (qualification, soak) waits for a coordinator go.
 | 6 entry identities | `Entries`: kit-mad-1, kit-mad-k (K = 4), kit-mcts (K = 1, 30 iterations, rollout cap 1000); identity = name + config digest; H3 on upstream dispatch (MCTS at every priority decision and for combat) | kit-mad-1 `0.2.0+71444ecbf4b3`, kit-mad-k `0.2.0+b0baca643a2a`, kit-mcts `0.2.0+b1166f62616a`. Smoke games below |
 | 7 E4 accounting, A3 | `horizon_hits` per MAD root alternative; truncated expansions and expanded children for MCTS; `e4.py` share never above 1 | E4 re-measured (H1, 8 games, measurement mode, same schedule as the slice): 5 flagged anchors searched, 13 of 13 evaluated root alternatives met the horizon (share 1.0 each; 17 encounters, reported separately), so clause 1 still fires and the decline stands. A3 (final code): counterspell pair equal modulo ids (the hidden cards shift the engine's ids), cantrip pair identical; the same answer in each pair for kit-mad-1, kit-mad-k and kit-mcts. MCTSPOWER at cap 1000: 0 of 400 rollouts truncated in all eight runs |
 
-Games after the fix, frozen identities, P's host and live validator, HaleysPC:
+Games after the fix, frozen identities, P's host and live validator, the compute host:
 
 | Set | Games | Endings | Violations, forfeits, halts | Decisions checked | Kit wins | Searched priority decisions, unmapped | Wall s |
 |---|---:|---|---|---:|---:|---|---:|
@@ -79,7 +79,7 @@ first (X5's `ability_index` order: own abilities, then granted ones by rule text
 own `SeatPlayer.abilityIndex` via `KitBridge`, so it agrees by construction; engine rebuilt, `lib_digest`
 `d74803d5...`). Records in `buildout/second/`.
 
-| Item | Fix | Test (HaleysPC, final build) |
+| Item | Fix | Test (the compute host, final build) |
 |---|---|---|
 | 1 latch an unconfirmed runner exit | `RunnerLink`: an unconfirmed kill latches the link; no replacement starts (start, `startAsync`) and requests are refused with `Busy("runner_exit_unconfirmed")` until the killed process is seen gone, which clears the latch and removes the locks | FrontCheck `latch.unconfirmed_exit_blocks_restart` (fallback in time, no restart while latched) and `latch.clears_after_confirmed_exit`: PASS |
 | 2 skip enforcement and attribution | placeholders take `horizon:stack_object` (no search); a skipped combat world answers the declining candidate tagged `wrapper` | Slice `REG.placeholder_no_search`, FrontCheck `skip.combat_is_wrapper`: PASS |
@@ -136,7 +136,7 @@ accepted as a labelled baseline: it keeps a prefix of upstream's enumeration, so
 (`qualify/kitrun.py`, `ENTRY_DESCRIPTIONS`; kit README), and cap firings are reported separately for attack and
 block decisions (`tests/kitlog.py`, `combat_option_cap`). Change 8 is prepared in `qualify/` (README there) and not
 run: it waits for a guarded machine and the coordinator's go. Prepared since: per-game kit logs (`--log-dir`,
-checked in one FDN game on HaleysPC, not a qualification), `kitrun.py` (plan, P's `plan_allocation` qualification,
+checked in one FDN game on the compute host, not a qualification), `kitrun.py` (plan, P's `plan_allocation` qualification,
 guarded run, R-1 replay, summary with the pass criteria), `launch.sh`.
 
 ## Change 8 plan (ran 2026-10-02; results in the next section)
@@ -145,8 +145,8 @@ Entries: kit-mad-1 and kit-mad-k enter the first soak; kit-mcts waits for its ow
 profile 120 s per decision, a 3,600 s bank, 2 s increments and 300 s startup and game start (cap 1000 and 30
 iterations kept; cap 300 stays rejected). Pass criteria, from the review's last section:
 
-1. Qualified allocation: one worker against increasing worker counts on identical representative inputs; Jack's
-   PC, HaleysPC and RunPod availability checked; completed-game throughput including database copies, JVM start,
+1. Qualified allocation: one worker against increasing worker counts on identical representative inputs; the maintainer's
+   PC, the compute host and RunPod availability checked; completed-game throughput including database copies, JVM start,
    search, mapping, validation, output and recovery; the fastest eligible allocation recorded in the small manifest;
    the launcher refuses missing or incompatible qualification evidence before spawning the soak.
 2. Preserved outputs and usable clocks: matched game digests across worker counts; decision tails, combat costs,
@@ -164,20 +164,20 @@ iterations kept; cap 300 stays rejected). Pass criteria, from the review's last 
 ## Change 8 results (2026-10-02): soak complete, verdict FAIL on two findings
 
 Reviewed engine `004913a` (manifest `3b54f3f6...`, lib `094733a7...`) through P's verified entry, kit build
-`kit-build-004913a` (the same jars copied to HaleysPC), plan `plan.json` (2,176 games, clock `kit`), P at
+`kit-build-004913a` (the same jars copied to the compute host), plan `plan.json` (2,176 games, clock `kit`), P at
 `fb80e58`, below-normal priority, no E: writes, no WSL. Records: `soak/`.
 
 Qualification (both substantial, `outputs_identical: true`, guard accepted both):
 
 | Machine | Rungs (games, wall s) | Chosen | Soak share | Soak rate |
 |---|---|---|---|---|
-| Jack's PC (24 threads, 128 GB) | 24 games: 1w 897, 6w 399, 12w 448 | 12 workers | 1,000 (part A) + 218 tail | 427 games/h |
-| HaleysPC (16 cores, 32 GB) | 8 games: 1w 210, 2w 144, 4w 114 | 4 workers (memory) | 958 (part B) | 320 to 342 games/h |
+| The primary desktop (24 threads, 128 GB) | 24 games: 1w 897, 6w 399, 12w 448 | 12 workers | 1,000 (part A) + 218 tail | 427 games/h |
+| The compute host (16 cores, 32 GB) | 8 games: 1w 210, 2w 144, 4w 114 | 4 workers (memory) | 958 (part B) | 320 to 342 games/h |
 
 RunPod not costed or used: the two PCs finished in 2 h 58 min. The first qualification failed the outputs check
 because the bot command carried per-batch paths (bot id in every row); fixed in `db4da41` and requalified. When
-Jack's PC finished part A, HaleysPC was stopped and the remaining 384 part-B games split by measured rate
-(`--limit 166` on HaleysPC, `--tail 218 --skip-rows` on Jack's PC; record `STOP-haleyspc-124246.json`); no game
+The primary desktop finished part A, the compute host was stopped and the remaining 384 part-B games split by measured rate
+(`--limit 166` on the compute host, `--tail 218 --skip-rows` on the primary desktop; record `STOP-computehost-124246.json`); no game
 played twice (no duplicate row in the summary).
 
 | Criterion | Result |
@@ -186,8 +186,8 @@ played twice (no duplicate row in the summary).
 | No `invalid_selection`, `malformed_response`, violation, halt | PASS: all 2,176 natural (2,151 life, 25 library); 0 violations, 0 host halts, 0 runner restarts or kills |
 | R-1 replay (20 games, one worker) | PASS 20/20 equal digests |
 | Unmapped candidates, combat option cap, E4 MAD | 0 unmapped of 50,928 searched priority decisions; cap never fired; E4 flags 0 |
-| Per-game isolation | FAIL as coded: one agent work directory left on Jack's PC at 12 workers (the host kills the agent tree when it has not exited 2 s after stdin closes, so the agent's cleanup trap never runs); never reused by another game |
-| Usable clocks, preserved outputs | FINDING: 64 kit-mad-k decisions hit the deadline interrupt (63 on Jack's PC at 12 workers), in 33 games; 2 of 6 such games replayed serially give another digest. Max decision 113.3 s of 120 s; bank use max 938 s of 3,600 |
+| Per-game isolation | FAIL as coded: one agent work directory left on the primary desktop at 12 workers (the host kills the agent tree when it has not exited 2 s after stdin closes, so the agent's cleanup trap never runs); never reused by another game |
+| Usable clocks, preserved outputs | FINDING: 64 kit-mad-k decisions hit the deadline interrupt (63 on the primary desktop at 12 workers), in 33 games; 2 of 6 such games replayed serially give another digest. Max decision 113.3 s of 120 s; bank use max 938 s of 3,600 |
 | Wrapper rate by kind and mechanic | FINDING: 3.3 to 3.5 percent; 6,275 of them are failed searches with one cause: Witness Protection renames the enchanted creature "Legitimate Businessperson", which the world builder cannot create, so every priority and combat search of that seat fails for the rest of the game (129 of 2,304 kit seat-games, all on deck `FDN_top_05840_UGpR`). The register rates the card supported |
 
 Details: `soak/findings.json`, `soak/SOAK-SUMMARY.json`, `soak/R1.json`, `soak/REPLAY-SELECTED.json`.
@@ -214,7 +214,7 @@ Details: `soak/findings.json`, `soak/SOAK-SUMMARY.json`, `soak/R1.json`, `soak/R
 | E2 budgets | PASS: values below; none fires on S1 to S9 except the H3 rollout cap at the debugging cap of 400 in S7 (see E4); the runaway position (Arc Lightning over 30 creatures, plus Shock) fires the option budget, the operation cap, the node budget, the MCTS iteration count and the rollout cap, each answered in under 3 s; `KitBudgetExceeded` thrown 16, caught at the kit's boundary 16 (none swallowed) | the stop is an `Error`, so XMage's `catch (Exception)` blocks cannot swallow it |
 | E3 termination | PASS: link check (`e3-termination.jsonl`): stale reply discarded, hung request answered in 3.0 s for a 2 s deadline plus 1 s grace, exit confirmed (kill to exit 0 ms), fresh runner served the next request. In game (`e3-game/`): a priority search that ignores interruption at seat step 48, `max_decision_ms` 20 000: fallback answered in 18.5 s tagged `cap`, runner killed and exit confirmed, the stale H2 lock removed, a replacement booted in the background (12 s), the game ended naturally, zero violations | anchors are kept in the front as inputs (decision and world seed), so a restart loses none |
 | E4 horizon | threshold written before measuring (`E4-threshold.md`). S1 to S9 and the DraftZero positions: 0 flagged stack objects, MAD horizon 0; MCTS truncation 0% at rollout caps 1000 and 5000, 100% at 200. Game set (`e4-horizon-games.json`): 13 anchors held a flagged object, all above clause 1's 25%, cause `stack_ability_identity` (a source with several triggered abilities, for example Emberheart Challenger) and one `stack_source_ambiguous`: **these kinds now go without search** (the kit declines, tagged wrapper), implemented after the measurement; in the final set 17 such decisions were declined and none searched (`e4-horizon-final-games.json`). H3 in game at cap 300: 32.6% truncated (clause 2 not crossed) | outcome is a register change, see Deviations |
-| E5 determinism (R-1) | PASS: one schedule (4 games, H1 against heuristic) twice, concurrently, separate processes and work directories: 4/4 game digests equal and 657/657 kit answers equal on the final code; the pre-E4 code also gave 4/4 (694 answers, `r1-pre-e4/`) | `r1/`, `r1-pre-e4/`; same machine only (Jack's PC was off limits); `game_id` not varied (the kit's seeds read only `agent_seed`) |
+| E5 determinism (R-1) | PASS: one schedule (4 games, H1 against heuristic) twice, concurrently, separate processes and work directories: 4/4 game digests equal and 657/657 kit answers equal on the final code; the pre-E4 code also gave 4/4 (694 answers, `r1-pre-e4/`) | `r1/`, `r1-pre-e4/`; same machine only (the primary desktop was off limits); `game_id` not varied (the kit's seeds read only `agent_seed`) |
 | E6 MCTS knowledge | PASS: S7 (a) to (e); C-MCTS pilot measured (below) and its A3 expectation written | |
 | E7 behaviour preservation | PASS: MAD 72/72 positions (dumped from H1 games) same choice as upstream `ComputerPlayer7` from the pristine sources with the same X-P4 build; 10 skipped because a cap or horizon was active; MCTS: with no knowledge the re-deal keeps upstream's semantics (decider hand untouched, sizes and multisets conserved, every unseen name reaches the opponent's hand over 200 re-deals) | `kit-upstream.jar` from `scripts/upstream.sh`; never on an entry's classpath |
 | E8 costs | measured (below) | |
@@ -281,7 +281,7 @@ Total: 15 games, 6058 decisions checked by P's live validator, 0 violations. Wra
 
 ## Measured costs (E8; replaces Section 8.1 and 9.2 guesses)
 
-Runtime, HaleysPC, final game set (`costs.json`):
+Runtime, the compute host, final game set (`costs.json`):
 
 | Set | Kit decisions per seat per game | Answered without a world | Anchors per game | World build ms (median, p90, max) | Search ms per anchor, world 0 (median, p90, max) | Kit s per seat per game | Node cap fired |
 |---|---:|---:|---:|---|---|---:|---:|

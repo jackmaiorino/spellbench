@@ -4,7 +4,7 @@
  "duplicate_rows": 0,
  "duplicate_rows_with_different_digest": 0,
  "machines": {
-  "haleyspc": 3544,
+  "computehost": 3544,
   "main-pc": 6568
  },
  "violations_total": 0,

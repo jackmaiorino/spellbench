@@ -478,7 +478,7 @@
   "diagnostic_before_claim": "Passed means faithful reproduction of the broken root, not successful reconstruction.",
   "current_resource_observation": {
     "checked_at_utc": "2026-10-04T17:03:59.173007+00:00",
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-04T17:04:01.1683179Z",
       "memory_free_kib": 82427796,
       "memory_total_kib": 134025436,
@@ -667,7 +667,7 @@
       "previous_formal_pid_58872_present": false,
       "formal_completion": "Not inferred from process absence; no research outcomes read"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-04T17:04:03.3186319Z",
       "memory_free_kib": 23371036,
       "memory_total_kib": 33478692,
@@ -745,8 +745,8 @@
         "scope": "Verified billing snapshot reused while no new gorge cloud resources have been launched. Refresh through the same ledger before a paid launch."
       }
     },
-    "obsolete_reservation": "Old forty-minute Jack Spellbench queue is retired per CODEX811",
-    "coordination": "Current canonical Jack reservation and queued Haley training-performance priority remain binding. No host or GPU claim is taken.",
+    "obsolete_reservation": "Old forty-minute maintainer Spellbench queue is retired per CODEX811",
+    "coordination": "Current canonical maintainer reservation and queued compute host training-performance priority remain binding. No host or GPU claim is taken.",
     "allocation": "Runtime026 needs fresh matched serial and parallel completed-work qualification through the supported guarded launcher.",
     "qualification": "All17 saved failure roots pass with eight worlds, unchanged native diagnostics and known-card checks. The affected strategy package is being checked. Full native and reference qualification remains unfinished."
   },

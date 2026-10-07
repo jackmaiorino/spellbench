@@ -3,7 +3,7 @@
   "checked_at_utc": "2026-10-03T01:45:52Z",
   "rechecked_at_utc": "2026-10-03T05:42:27Z",
   "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
-  "scope": "Moderate public search requested by Jack; no author contact or new training.",
+  "scope": "Moderate public search requested by the maintainer; no author contact or new training.",
   "conclusion": "No compatible public gorge checkpoint recovered. This does not prove that none exists under an unknown account or unindexed location.",
   "checks": [
     {
@@ -63,7 +63,7 @@
       "danieljbrooks/mage exp1-fdn-generalist 5a32441c"
     ],
     "compatibility": "MageZero/XMage checkpoints, incompatible with gorge's .gpol loader. Model card says MageZero v0.2.0 loading is untested and end-to-end use outside its training harness has not been verified.",
-    "coordination": "Source and compatibility requirements sent to Jack's XMage task. No checkpoint downloaded or rated here."
+    "coordination": "Source and compatibility requirements sent to the maintainer's XMage task. No checkpoint downloaded or rated here."
   },
   "confirmation": {
     "checked_at_utc": "2026-10-03T07:31:30.253672+00:00",

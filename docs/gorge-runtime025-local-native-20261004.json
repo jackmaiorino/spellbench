@@ -61,7 +61,7 @@
     "scope": "Unrated native qualification, unchanged twelve policies, five decks, fixed seeds, sampler, budgets and gates"
   },
   "all_three_placements_checked_at_dispatch": true,
-  "queued_Haley_training_priority_preserved": true,
+  "queued_ComputeHost_training_priority_preserved": true,
   "owned_gorge_cloud_resources": 0,
   "cloud_budget": {
     "cap_usd": 10,

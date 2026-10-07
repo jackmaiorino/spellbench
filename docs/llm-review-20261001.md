@@ -1,6 +1,6 @@
 # Luna integration review, October 1
 
-Jack authorized review in this chat or fresh subagents, and authorized the necessary merges. Three independent read-only Codex subagents reviewed the protocol foundation/release, LLM stack, and engine source. Their actual model identifiers were unavailable, so no specific model is claimed. None ran tests, read account credentials or ran inference.
+The maintainer authorized review in this chat or fresh subagents, and authorized the necessary merges. Three independent read-only Codex subagents reviewed the protocol foundation/release, LLM stack, and engine source. Their actual model identifiers were unavailable, so no specific model is claimed. None ran tests, read account credentials or ran inference.
 
 The protocol reviewer found no blocking source defect. Actual qualification, a public commitment, complete validated measurement and the deployed row remain necessary. The fixed 48-game schedule and its stochastic-output rules remain unchanged.
 

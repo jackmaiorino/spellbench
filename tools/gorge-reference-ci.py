@@ -44,7 +44,7 @@ def validate_inputs(value):
         raise RuntimeError('Reference CI lacks the original bounded scope and actual dispatch admission')
     amount = value.get('conservative_reserved_total_usd')
     if type(amount) not in (int,float) or not math.isfinite(amount) or not 0 <= amount <= 10:
-        raise RuntimeError('Reference CI does not fit Jack\'s all-in USD10 cap')
+        raise RuntimeError('Reference CI does not fit the maintainer\'s all-in USD10 cap')
     for key in ('release_id','release_asset_id','archive_bytes','extracted_bytes'):
         if type(value.get(key)) is not int or value[key] <= 0:
             raise RuntimeError('Reference CI lacks an exact owned draft input asset')
@@ -60,7 +60,7 @@ def validate_inputs(value):
         raise RuntimeError('Reference CI lacks the compiled source pin')
     Placement.parse(value['placement'])
     census = value.get('resource_census',{})
-    if any(census.get(host,{}).get('checked') is not True for host in ('main-pc','haleyspc','runpod')):
+    if any(census.get(host,{}).get('checked') is not True for host in ('main-pc','computehost','runpod')):
         raise RuntimeError('Reference dispatch lacks actual checks of all required placements')
     files = value.get('files')
     if not isinstance(files,dict) or not files:

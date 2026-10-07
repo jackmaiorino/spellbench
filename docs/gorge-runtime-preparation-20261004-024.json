@@ -201,8 +201,8 @@
     "path": "E:\\spellbench-gorge-runtime-20261004-024\\RESOURCES.json",
     "sha256": "544ceb36f85b7de191b280dd0acf372e315866a08e9ee076a754be0a1dde863b",
     "checked_at_utc": "2026-10-04T10:49:06.465528+00:00",
-    "Jack_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=london-opening-pilot-001 generation=167 since=2026-10-04T03:51:18.080+00:00",
-    "Haley_priority_preserved": true,
+    "Maintainer_claim": "host-reservation DESKTOP-DJ1C40R state=held lane=codex-lead-20261002 work_id=london-opening-pilot-001 generation=167 since=2026-10-04T03:51:18.080+00:00",
+    "ComputeHost_priority_preserved": true,
     "owned_runpod_running": []
   },
   "repair_record": "docs/gorge-public-arrange-repair-20261004.json",

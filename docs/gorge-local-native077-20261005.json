@@ -16,7 +16,7 @@
     8,
     16
   ],
-  "placement": "main-pc=used: released Luna window, canonical host free, exact local build already recovered, compare all fitting serial/parallel rungs before audit; haleyspc=unavailable: preserve Jack-approved next XMage bounded stage and actual current claims; runpod=not_authorized: remaining all-in USD10 headroom cannot cover retained ancillary lease floor; github-actions=slower: local prepared runtime avoids staging and recovery, current runner offers4cores against local24logical cores",
+  "placement": "main-pc=used: released Luna window, canonical host free, exact local build already recovered, compare all fitting serial/parallel rungs before audit; computehost=unavailable: preserve Maintainer-approved next XMage bounded stage and actual current claims; runpod=not_authorized: remaining all-in USD10 headroom cannot cover retained ancillary lease floor; github-actions=slower: local prepared runtime avoids staging and recovery, current runner offers4cores against local24logical cores",
   "guard_path": "host_reservation_v1.dispatch -> this bounded parent -> qualify_native.py -> arena.throughput.plan_allocation -> qualified gorgequal callback",
   "wall_cap_seconds": 21600,
   "release_condition": "All contained native/replay descendants exited after guarded audit completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games",

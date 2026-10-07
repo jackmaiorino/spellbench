@@ -5,7 +5,7 @@
   "runtime": "E:/spellbench-gorge-runtime-20261005-108",
   "runtime_seal_sha256": "411fa9f41914bfca0f04a72c4ed5899b8cbf14c5bb0a5a32af31b25b2f6c06a7",
   "native_run_id": 37388600601,
-  "scope": "Local Jack fallback only; choose fresh eligible allocation after native qualification, preserve any XMage claim",
+  "scope": "Local maintainer fallback only; choose fresh eligible allocation after native qualification, preserve any XMage claim",
   "gate_refusal": {
     "checks": [
       {

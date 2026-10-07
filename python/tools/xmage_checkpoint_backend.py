@@ -44,7 +44,7 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     if len(candidates) != 1:
         raise ValueError("checkpoint has no pinned inference backend")
     architecture, config = candidates[0]
-    if architecture not in ("draftzero-exp1", "magezero-v02", "jack-rl-april"):
+    if architecture not in ("draftzero-exp1", "magezero-v02", "maintainer-rl-april"):
         raise ValueError("unsupported checkpoint architecture")
     assets = {a["id"]: a for a in manifest["assets"]}
     if len(assets) != len(manifest["assets"]):
@@ -54,7 +54,7 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     if checkpoint_format not in ("torch", "torch-gzip", "magezero-mz"):
         raise ValueError("unsupported checkpoint format")
     expected_export = checkpoint.get("export_metadata")
-    if architecture == "magezero-v02" or (architecture == "jack-rl-april" and mode == "serve"):
+    if architecture == "magezero-v02" or (architecture == "maintainer-rl-april" and mode == "serve"):
         if (not isinstance(checkpoint.get("deck_id"), str)
                 or not re.fullmatch(r"sha256:[a-f0-9]{64}", checkpoint["deck_id"])
                 or not isinstance(checkpoint.get("deck_association_evidence"), str)
@@ -72,25 +72,25 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
         raise ValueError("export metadata requires a MageZero .mz bundle")
     checkpoint_path = "/inputs/checkpoint." + {"torch": "pt", "torch-gzip": "pt.gz", "magezero-mz": "mz"}[checkpoint_format]
     mounts = {checkpoint_id: checkpoint_path, config["model"]: "/inputs/source/model.py"}
-    if architecture == "jack-rl-april":
+    if architecture == "maintainer-rl-april":
         if checkpoint_format != "torch":
-            raise ValueError("Jack checkpoints require their original raw Torch format")
+            raise ValueError("the maintainer's checkpoints require their original raw Torch format")
         required = {"mulligan_checkpoint": checkpoint.get("mulligan_checkpoint"),
                     "mulligan_source": checkpoint.get("mulligan_source", config.get("mulligan_source")),
                     "state_encoder": config.get("state_encoder"), "callback_source": config.get("callback_source"),
                     "embedding_cache": checkpoint.get("embedding_cache", config.get("embedding_cache"))}
         if any(not isinstance(aid, str) or aid not in assets for aid in required.values()):
-            raise ValueError("Jack inference needs paired mulligan, source, encoder and embedding inputs")
+            raise ValueError("the maintainer's inference needs paired mulligan, source, encoder and embedding inputs")
         mulligan_format = checkpoint.get("mulligan_format", "keep-logit")
         if mulligan_format not in ("keep-logit", "keep-mull-q"):
-            raise ValueError("unsupported Jack mulligan policy format")
+            raise ValueError("unsupported maintainer mulligan policy format")
         destinations = {"mulligan_checkpoint": "/inputs/mulligan.pt",
                         "mulligan_source": "/inputs/source/mulligan_model.py",
                         "state_encoder": "/inputs/source/StateSequenceBuilder.java",
                         "callback_source": "/inputs/source/ComputerPlayerRL.java",
                         "embedding_cache": "/inputs/card_embeddings.json"}
         if len({*mounts, *required.values()}) != len(mounts) + len(required):
-            raise ValueError("Jack's paired input identities must be distinct")
+            raise ValueError("the maintainer's paired input identities must be distinct")
         mounts.update({required[key]: destination for key, destination in destinations.items()})
     else:
         mounts[config["feature_vocab_code"]] = "/inputs/source/vocab.py"
@@ -116,7 +116,7 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
                  assets[checkpoint_id]["sha256"], "--source", "/inputs/source", "--model-sha256",
                  assets[config["model"]]["sha256"], "--architecture", architecture,
                  "--checkpoint-format", checkpoint_format])
-    if architecture == "jack-rl-april":
+    if architecture == "maintainer-rl-april":
         argv.extend(["--mulligan", "/inputs/mulligan.pt", "--mulligan-sha256",
                      assets[required["mulligan_checkpoint"]]["sha256"], "--mulligan-source-sha256",
                      assets[required["mulligan_source"]]["sha256"], "--encoder-sha256",
@@ -133,30 +133,30 @@ def pinned_command(manifest: dict, root: Path, checkpoint_id: str, image: str, m
     return argv
 
 
-def pinned_jack_feature_probe_command(manifest: dict, root: Path, checkpoint_id: str, image: str,
+def pinned_maintainer_feature_probe_command(manifest: dict, root: Path, checkpoint_id: str, image: str,
                                      fixture: Path, fixture_sha256: str, staged_base_sha256: str,
                                      staged_candidates_sha256: str, container_name: str) -> list[str]:
     """Probe a fixed, hash-bound Java fixture while retaining the serve association check."""
-    config = manifest.get("inference_backends", {}).get("jack-rl-april", {})
+    config = manifest.get("inference_backends", {}).get("maintainer-rl-april", {})
     if checkpoint_id not in config.get("checkpoints", []):
-        raise ValueError("real Jack feature probes require a pinned Jack checkpoint")
+        raise ValueError("real maintainer feature probes require a pinned maintainer checkpoint")
     for digest in (fixture_sha256, staged_base_sha256, staged_candidates_sha256):
         if not re.fullmatch(r"[a-f0-9]{64}", digest):
-            raise ValueError("real Jack feature probe identities must be SHA-256")
+            raise ValueError("real maintainer feature probe identities must be SHA-256")
     fixture = fixture.resolve()
     if fixture.stat().st_size > 4 * 2**20 or hashlib.sha256(fixture.read_bytes()).hexdigest() != fixture_sha256:
-        raise ValueError("real Jack feature fixture differs")
-    helper = Path(__file__).resolve().parents[2] / "integrations/xmage-models/jack_feature_probe.py"
+        raise ValueError("real maintainer feature fixture differs")
+    helper = Path(__file__).resolve().parents[2] / "integrations/xmage-models/maintainer_feature_probe.py"
     argv = pinned_command(manifest, root, checkpoint_id, image, "probe", container_name)
     extra = ["--entrypoint", "python"]
-    for path, destination in ((fixture, "/checks/fixture.json"), (helper, "/checks/jack_feature_probe.py")):
+    for path, destination in ((fixture, "/checks/fixture.json"), (helper, "/checks/maintainer_feature_probe.py")):
         if any(c in str(path) for c in (",", "\n", "\r")):
             raise ValueError("real feature probe path cannot be a read-only Docker mount")
         extra.extend(["--mount", f"type=bind,src={path},dst={destination},readonly"])
     index = argv.index(image)
     argv[index:index] = extra
     index = argv.index(image)
-    argv.insert(index + 1, "/checks/jack_feature_probe.py")
+    argv.insert(index + 1, "/checks/maintainer_feature_probe.py")
     argv.extend(["--fixture", "/checks/fixture.json", "--fixture-sha256", fixture_sha256,
                  "--staged-base-sha256", staged_base_sha256,
                  "--staged-candidates-sha256", staged_candidates_sha256])

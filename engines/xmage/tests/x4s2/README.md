@@ -8,7 +8,7 @@ counters, interpretations); this file adds to it. Code: `overlay/.../decide/Comb
 
 ## Commands
 
-All on HaleysPC at below-normal priority, P's stack at protocol-v2 `4b588a1`, the card database template
+All on the compute host at below-normal priority, P's stack at protocol-v2 `4b588a1`, the card database template
 `~/x-spike/db`:
 
 ```bash
@@ -19,7 +19,7 @@ tests/x4s2/run-evidence.sh --build B --db DB --p2 P2 --work W --section hash    
 tests/x4s2/run-evidence.sh --build B --db DB --p2 P2 --work W --section regress   # conformance and 200-game soak
 ```
 
-Builds: `goldens`, `hash` and `regress` ran on the full `scripts/build.sh` build of `d62e6e6` (`~/haley-build.sh`,
+Builds: `goldens`, `hash` and `regress` ran on the full `scripts/build.sh` build of `d62e6e6` (`~/computehost-build.sh`,
 lib digest `7fdf9e26...`). `audit` and `combat` ran on a development build of the same overlay sources (`e7de309`:
 the stage 1 jars with the overlay recompiled by `javac --release 8`); the overlay did not change after `e7de309`.
 Results are in `evidence/`.

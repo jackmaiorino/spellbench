@@ -14,7 +14,7 @@ spec = importlib.util.spec_from_file_location('gorge_reference_pool', ROOT/'tool
 pool = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = pool
 spec.loader.exec_module(pool)
-PLACEMENT = ('main-pc=unavailable: reserved; haleyspc=unavailable: priority; '
+PLACEMENT = ('main-pc=unavailable: reserved; computehost=unavailable: priority; '
     'runpod=not_authorized: cap; github-actions=used: two distinct three-core slots')
 VERDICT = dict(closed=True, seed_blocks=320, completed_games=640, outputs_identical=True,
     native_seal_sha256='native-seal-fixture', runtime_seal_sha256='runtime-seal-fixture')
