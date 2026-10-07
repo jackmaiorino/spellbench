@@ -13,7 +13,7 @@ from .agent import AgentConfig, LlmAgent
 from .broker import StdioProvider
 from .chatgpt import ChatGptConfig, ChatGptProvider
 from .login import default_credentials_path, load_credentials
-from .prompt import CardCatalog, PROMPT_FORMATS
+from .prompt import CardCatalog, PROMPT_FORMATS, PUBLIC_HISTORY
 from .provider import ChatCompletionsProvider, ProviderConfig
 
 
@@ -36,6 +36,8 @@ def main() -> int:
     parser.add_argument("--max-prompt-bytes", type=int, default=64_000)
     parser.add_argument("--prompt-format", choices=tuple(PROMPT_FORMATS), default="json-v1")
     parser.add_argument("--history-decisions", type=int, default=8)
+    parser.add_argument("--public-history-events", type=int, default=0,
+                        help="accept x_public_history_v1 and keep this many recent public events in each prompt")
     parser.add_argument("--card-catalog", type=Path)
     parser.add_argument("--log-dir", type=Path, default=Path("out/llm"))
     parser.add_argument("--record-prompts", action="store_true")
@@ -66,14 +68,15 @@ def main() -> int:
         config = AgentConfig(max_calls_per_game=args.max_calls_per_game, max_tokens_per_game=args.max_tokens_per_game,
                              max_prompt_bytes=args.max_prompt_bytes, history_decisions=args.history_decisions,
                              timeout_ms=args.timeout_ms, record_prompts=args.record_prompts,
-                             prompt_format=args.prompt_format)
+                             prompt_format=args.prompt_format, public_history_events=args.public_history_events)
         catalog = None if args.card_catalog is None else CardCatalog.load(args.card_catalog)
         args.log_dir.mkdir(parents=True, exist_ok=True)
         log_path = args.log_dir / f"llm-{os.getpid()}-{uuid.uuid4().hex}.jsonl"
         with log_path.open("x", encoding="utf-8", newline="\n") as log:
             agent = LlmAgent(provider, settings=settings,
                              max_completion_tokens=args.max_completion_tokens, config=config, catalog=catalog, log=log)
-            return serve(agent, name="llm-" + args.model, version="0.1.0")
+            return serve(agent, name="llm-" + args.model, version="0.1.0",
+                         extensions_accepted=(PUBLIC_HISTORY,) if config.public_history_events else ())
     except (ValueError, OSError):
         print("LLM configuration or local logging failed; check endpoint, settings, catalog and log directory", file=sys.stderr)
         return 2

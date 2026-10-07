@@ -16,6 +16,33 @@ from test_bench_commit import PLACEMENT
 from test_bench_run import ENVIRON, _write_benchmark
 
 
+def test_native_diagnostic_evidence_cannot_replace_frozen_launch_evidence(tmp_path, monkeypatch):
+    roomy_machine(monkeypatch)
+    directory = _write_benchmark(tmp_path)
+    report = qualify(directory, benchmark_sha256=sha(directory / "benchmark.json"),
+                     out=tmp_path / "diagnostic", placement=PLACEMENT, environ=ENVIRON,
+                     diagnostic_sample=(1, 0), diagnostic_games_per_worker=4)
+    assert report["diagnostic_only"] and report["preferred_sample"] == [1, 0]
+    assert (directory / ("diagnostic-" + EVIDENCE_NAME)).exists()
+    assert not (directory / EVIDENCE_NAME).exists() and not (directory / "runs").exists()
+    assert report["allocation"]["rules"]["games_per_worker"] == 4
+    assert report["allocation"]["probe"]["indices"][0] == 1
+    actual = qualify(directory, benchmark_sha256=sha(directory / "benchmark.json"),
+                     out=tmp_path / "qualification", placement=PLACEMENT, environ=ENVIRON)
+    assert not actual["diagnostic_only"] and not actual["reused"]
+
+
+@pytest.mark.parametrize("indices,games_per_worker", [((0,), None), ((), 4), ((0,), 9)])
+def test_native_diagnostic_arguments_refuse_before_output_or_games(tmp_path, indices, games_per_worker):
+    directory = _write_benchmark(tmp_path)
+    out = tmp_path / "diagnostic"
+    with pytest.raises(ValueError, match="diagnostic sampl"):
+        qualify(directory, benchmark_sha256=sha(directory / "benchmark.json"), out=out,
+                placement=PLACEMENT, environ=ENVIRON, diagnostic_sample=indices,
+                diagnostic_games_per_worker=games_per_worker)
+    assert not out.exists() and not (directory / ".qualification-records").exists()
+
+
 def test_native_preparation_evidence_is_reusable_by_the_actual_launch(tmp_path, monkeypatch):
     roomy_machine(monkeypatch)
     directory = _write_benchmark(tmp_path)

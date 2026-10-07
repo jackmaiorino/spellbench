@@ -9,7 +9,8 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Protocol, TextIO
 
 from ..bot import Decision, GameOver, GameStart
-from .prompt import CardCatalog, PROMPT_FORMATS, Prompt, PromptSizeError, canonical_json, render_prompt, sha256, system_prompt
+from .prompt import (CardCatalog, PROMPT_FORMATS, PUBLIC_HISTORY_SUFFIX, Prompt, PromptSizeError, canonical_json,
+                     public_history_events, render_prompt, sha256, system_prompt)
 from .provider import Completion, ProviderError
 
 
@@ -27,6 +28,8 @@ class AgentConfig:
     deadline_margin_ms: int = 100
     record_prompts: bool = False
     prompt_format: str = "json-v1"
+    # 0 leaves x_public_history_v1 unaccepted; otherwise the most recent events kept in each prompt.
+    public_history_events: int = 0
 
     def __post_init__(self) -> None:
         if self.prompt_format not in PROMPT_FORMATS:
@@ -34,7 +37,7 @@ class AgentConfig:
         for name in ("max_calls_per_game", "max_tokens_per_game", "max_prompt_bytes", "timeout_ms"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"{name} must be a positive integer")
-        for name in ("history_decisions", "deadline_margin_ms"):
+        for name in ("history_decisions", "deadline_margin_ms", "public_history_events"):
             if type(getattr(self, name)) is not int or getattr(self, name) < 0:
                 raise ValueError(f"{name} must be a nonnegative integer")
 
@@ -55,8 +58,13 @@ class LlmAgent:
         self._calls = self._tokens = 0
         self._failed = False
         self._history: deque[dict[str, Any]] = deque(maxlen=config.history_decisions)
-        metadata = {"provider": settings, "agent": asdict(config), "prompt_version": PROMPT_FORMATS[config.prompt_format],
-                    "system_prompt_sha256": sha256(system_prompt(config.prompt_format).encode("utf-8")),
+        self._public_events: deque[dict[str, Any]] = deque(maxlen=config.public_history_events or None)
+        self._public_seen = 0
+        self._public_step: int | None = None
+        public = config.public_history_events > 0
+        version = PROMPT_FORMATS[config.prompt_format] + (PUBLIC_HISTORY_SUFFIX if public else "")
+        metadata = {"provider": settings, "agent": asdict(config), "prompt_version": version,
+                    "system_prompt_sha256": sha256(system_prompt(config.prompt_format, public_history=public).encode("utf-8")),
                     "catalog_sha256": None if catalog is None else catalog.sha256}
         self._write("configuration", configuration_sha256=sha256(canonical_json(metadata).encode("utf-8")), **metadata)
 
@@ -69,6 +77,7 @@ class LlmAgent:
         self._calls = self._tokens = 0
         self._failed = False
         self._history.clear()
+        self._reset_public_history()
         self._write("game_start", game_id=game.game_id, seat=game.seat,
                     own_deck_sha256=sha256(canonical_json(game.own_deck).encode("utf-8")))
 
@@ -76,6 +85,23 @@ class LlmAgent:
         self._write("game_over", game_id=game.game_id, calls=self._calls, tokens=self._tokens, terminal=game.terminal)
         self._game = None
         self._history.clear()
+        self._reset_public_history()
+
+    def _reset_public_history(self) -> None:
+        self._public_events.clear()
+        self._public_seen = 0
+        self._public_step = None
+
+    def _observe_public_history(self, decision: Decision) -> dict[str, Any] | None:
+        if not self.config.public_history_events:
+            return None
+        events = public_history_events(decision.extensions)
+        # A retransmitted decision repeats its delta; a rewind carries none.
+        if self._public_step is None or decision.seat_step is None or decision.seat_step > self._public_step:
+            self._public_events.extend(events)
+            self._public_seen += len(events)
+            self._public_step = decision.seat_step
+        return {"events": list(self._public_events), "omitted_earlier_events": self._public_seen - len(self._public_events)}
 
     def choose(self, decision: Decision) -> int:
         started = self._monotonic()
@@ -87,13 +113,14 @@ class LlmAgent:
         try:
             if self._failed:
                 raise ProviderError("game_already_failed")
+            public_history = self._observe_public_history(decision)
             if len(decision.candidates) == 1:
                 candidate_id = decision.candidates[0].candidate_id
                 fields.update(status="forced", candidate_id=candidate_id)
             else:
                 prompt = render_prompt(decision, own_deck=self._game.own_deck, history=self._history,
                                        catalog=self.catalog, max_bytes=self.config.max_prompt_bytes,
-                                       prompt_format=self.config.prompt_format)
+                                       prompt_format=self.config.prompt_format, public_history=public_history)
                 fields.update(prompt_sha256=prompt.sha256, prompt_bytes=prompt.bytes)
                 if self.config.record_prompts:
                     fields["messages"] = list(prompt.messages)

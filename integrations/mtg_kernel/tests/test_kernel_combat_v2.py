@@ -47,6 +47,16 @@ def test_a_later_untouched_attacker_is_not_accepted_as_the_declaration_root():
             {"at_block_root": False, "block_declaration_instance": "root"}, None)
 
 
+def test_a_public_zero_minimum_reads_as_one_like_the_native_engine():
+    # a bestowed Nyxborn Hydra attacks with minimum_blockers 0 (2026-10-06 smoke halt)
+    assert module.public_minimum(0) == 1 and module.public_minimum(2) == 2
+    for bad in (-1, None, True, 1.0):
+        with pytest.raises(module.CombatError, match="invalid minimum"):
+            module.public_minimum(bad)
+    plan = BlockPlan(("b",), {"b": ("a",)}, {"a": module.public_minimum(0)})
+    assert plan.choices(()) == (None, "a")
+
+
 def test_lone_remaining_blocker_is_forced_to_complete_menace():
     plan = BlockPlan(("b0", "b1"), {"b0": ("a",), "b1": ("a",)}, {"a": 2})
     assert plan.choices(()) == (None, "a")
