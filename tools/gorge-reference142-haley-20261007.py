@@ -2,16 +2,16 @@
 
 This parent retains the exact source archive and production runtime130 and plays
 only the original matrix games whose native seats name modes in the recovered
-native134 verdict. Success still requires terminal release and independent E/D recovery.
+native139 verdict. Success still requires terminal release and independent E/D recovery.
 """
 import argparse,datetime,hashlib,json,os,shutil,subprocess,sys,time,traceback
 from pathlib import Path
 if not __debug__: raise RuntimeError('This guarded launcher requires Python assertions enabled')
 INPUT=Path('C:/mtg-node/spellbench-gorge-haley-staging-20261007-133')
-JOB=Path('C:/mtg-node/spellbench-gorge-haley-reference-20261007-137');STAGE=JOB/'reference'
+JOB=Path('C:/mtg-node/spellbench-gorge-haley-reference-20261007-142');STAGE=JOB/'reference'
 REPO=JOB/'source';RUNTIME=INPUT/'runtime';SCRIPT=REPO/'engines/gorge/scripts/reference_matrix.py'
-PROOF=Path('C:/mtg-node/spellbench-gorge-reference-proof-20261007-135')
-SOURCE_INPUT=Path('C:/mtg-node/spellbench-gorge-reference-source-20261007-136')
+PROOF=Path('C:/mtg-node/spellbench-gorge-reference-proof-20261007-140')
+SOURCE_INPUT=Path('C:/mtg-node/spellbench-gorge-reference-source-20261007-141')
 WALL=21600;CAP=2*2**30;RESERVE=60*2**30
 with (INPUT/'host_reservation_v1.py').open('rb') as stream:
  assert hashlib.file_digest(stream,'sha256').hexdigest()=='a736f9cc617db898aba1b150eb92193cae80dd500cbd5419a6e0867eeb5a9570'
@@ -26,7 +26,7 @@ def read(p):return json.loads(p.read_bytes())
 def write(p,v):p.write_text(json.dumps(v,indent=2)+'\n',encoding='utf-8',newline='\n')
 def check():
  if not (PROOF/'BUNDLE.json').is_file():
-  raise RuntimeError('Native134 positive bundle absent; no Haley job created')
+  raise RuntimeError('Native139 positive bundle absent; no Haley job created')
  assert args.bundle_sha256 and sha(PROOF/'BUNDLE.json')==args.bundle_sha256
  bundle=read(PROOF/'BUNDLE.json')
  assert bundle['independent_recovery_verified'] is True and bundle['rated_games']==0
@@ -76,7 +76,7 @@ def prepare():
  benchmark=load_benchmark(SOURCE_INPUT/'source/benchmarks/pauper-gorge')
  cores=machine.usable_cpus()
  rules=benchmark.qualification_rules()
- bound=max(n for n in range(2,min(8,cores//3)+1) if rules.ladder_fits(120,n))
+ bound=max(n for n in range(2,min(8,cores//3)+1) if rules.ladder_fits(100,n))
  assert all(shutil.disk_usage(p).free>RESERVE+CAP for p in (JOB.parent,))
  JOB.mkdir();STAGE.mkdir();(STAGE/'runtime').mkdir()
  build=read(RUNTIME/'BUILD.json');files={}
@@ -97,7 +97,7 @@ def prepare():
   benchmark_sha256=sha(REPO/'benchmarks/pauper-gorge/benchmark.json'),
   runtime_builder_toolchain={key:read(RUNTIME/'BUILD.json')[key] for key in ('go_version','go_driver_sha256','compiler_sha256','linker_sha256')},matrix_policies=','.join(policies),process_priority='BelowNormal',
   script_sha256=sha(SCRIPT),parent_sha256=sha(Path(__file__)),usable_cpus=cores,memory_limit_bytes=machine.total_memory(),
-  placement=args.placement,worker_cap=bound,per_game_cores=3,expected_matrix_games=120,expected_cells=50,expected_native_participant_receipts=140,
+  placement=args.placement,worker_cap=bound,per_game_cores=3,expected_matrix_games=100,expected_cells=45,expected_native_participant_receipts=110,
   cap_bytes=CAP,reserve_bytes=RESERVE,wall_cap_seconds=WALL,rated_games=0,published_entries=0,gpu_ordinal=None,
   conservative_reserved_total_usd=9.99736347,new_cloud_spend_usd=0,provider_final_settlement_pending=True,
   source_of_record=str(JOB),recovery_root=None,independent_recovery_pending=True,
@@ -119,7 +119,7 @@ def dispatch():
  assert sha(Path(__file__))==prep['parent_sha256'] and sha(SCRIPT)==prep['script_sha256']
  assert not (JOB/'STOP').exists() and host.status()['state']=='free'
  assert not (JOB/'host-dispatch.json').exists()
- result=host.dispatch(lane='spellbench-gorge',work_id='gorge-guarded-reference137',release_condition='All contained reference/replay descendants exited after guarded matrix completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games',
+ result=host.dispatch(lane='spellbench-gorge',work_id='gorge-guarded-reference142',release_condition='All contained reference/replay descendants exited after guarded matrix completion or numerical/environmental failure, maximum21600seconds; own parent recovers outputs, no rated games',
   command=[sys.executable,str(Path(__file__).resolve()),'--run'],cwd=str(REPO),busy_pattern=r'^(go|compile|link|gorgequal.*|spellbench-gorge-.*|public-witness.*|phase1_train|phase1_eval|cargo|rustc)\.exe$',
   transport_record=dict(kind='local-supported-reference-matrix',prepared_root=str(JOB),new_cloud_usd=0))
  write(JOB/'host-dispatch.json',result);print(json.dumps({k:result[k] for k in ('state','pid','generation')}))
@@ -178,7 +178,7 @@ def release_check():
  sys.path.insert(0,str(SOURCE_INPUT/'source/tools'))
  from gorge_recover_local_native import owned_release,put
  assert (JOB/'CLOSURE.json').is_file()
- result=owned_release(host,read(JOB/'host-dispatch.json'),lane='spellbench-gorge',work_id='gorge-guarded-reference137')
+ result=owned_release(host,read(JOB/'host-dispatch.json'),lane='spellbench-gorge',work_id='gorge-guarded-reference142')
  put(JOB,'HOST-RELEASE.json',result)
  print(json.dumps(result))
 
