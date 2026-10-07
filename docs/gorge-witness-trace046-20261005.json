@@ -8,7 +8,7 @@
   "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-046",
   "runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-046",
   "runtime_recovery_root": "D:/e-scratch/spellbench-gorge-public-witness-runtime-20261005-046",
-  "user_authority": "Jack: Sure. 10$ cap go",
+  "user_authority": "The maintainer: Sure. 10$ cap go",
   "spend_cap_usd": 10,
   "prior_spend_estimate_usd": 9.67119547,
   "new_lease_cap_usd": 0.325,
@@ -62,7 +62,7 @@
     "manifest_url": "https://go.dev/dl/?mode=json"
   },
   "cloud_host_alias": "RunPod-gorge046",
-  "placement": "main-pc=unavailable: verified human research priority; haleyspc=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host, bounded exact component replay, no substantial allocation claimed",
+  "placement": "main-pc=unavailable: verified human research priority; computehost=unavailable: queued training-performance priority; runpod=used: owned bounded CPU host, bounded exact component replay, no substantial allocation claimed",
   "runtime_seal_sha256": "e5680c1a6710582dfe7d9a17bfc633873d4c96d1b5e417aeb900bca6e39f773d",
   "native_qualifier_sha256": "2ee674d41a841730a73f620a6612e6367e4c7fa99690e359e2e7a25ccbbbab3c",
   "runtime_binaries": [

@@ -161,7 +161,7 @@
    "disposition": "used",
    "reason": "24 hardware threads and 128 GB, released for this run by the coordinator, qualified by P's scaling comparison"
   },
-  "haleyspc": {
+  "computehost": {
    "disposition": "used",
    "reason": "16 cores and 32 GB with 123 GB free on C:, qualified separately (memory caps it at 4 concurrent games) and given a disjoint shard in proportion to its measured throughput"
   },

@@ -125,7 +125,7 @@ Authors publish commitments through a PR, from their own branch at the
 reviewed default branch's tip:
 
 ```text
-uv run spellbench bench commit benchmarks/<id> --review-branch <your-branch> --placement "main-pc=used: measured fastest; haleyspc=slower: measured comparison; runpod=not_authorized: no lease authority"
+uv run spellbench bench commit benchmarks/<id> --review-branch <your-branch> --placement "main-pc=used: measured fastest; computehost=slower: measured comparison; runpod=not_authorized: no lease authority"
 ```
 
 The command commits and pushes only `COMMITMENT.json` to that branch, then

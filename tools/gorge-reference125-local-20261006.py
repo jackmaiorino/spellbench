@@ -2,7 +2,7 @@
 import argparse,datetime,hashlib,json,os,shutil,subprocess,sys,time,traceback
 from pathlib import Path
 if not __debug__: raise RuntimeError('This guarded launcher requires Python assertions enabled')
-REPO=Path(__file__).resolve().parents[1];COLLAB=Path('C:/Users/Jack/IdeaProjects/collab-spellbench-gorge-preparation-20261003')
+REPO=Path(__file__).resolve().parents[1];COLLAB=Path.home()/('IdeaProjects/collab-spellbench-gorge-preparation-20261003')
 JOB=Path('D:/e-scratch/spellbench-gorge-reference-20261006-125');COLD=Path('E:/')/JOB.name;STAGE=JOB/'reference'
 RUNTIME=Path('E:/spellbench-gorge-runtime-20261006-121');SCRIPT=REPO/'engines/gorge/scripts/reference_matrix.py'
 WALL=21600;CAP=2*2**30;RESERVE=60*2**30
@@ -31,15 +31,15 @@ def placement_check():
  assert args.census and args.placement
  census_path=Path(args.census);census=read(census_path)
  now=datetime.datetime.now(datetime.timezone.utc)
- for record in [census,census['Jack'],census['Haley'],census['RunPod']]:
+ for record in [census,census['Desktop'],census['ComputeHost'],census['RunPod']]:
   checked=datetime.datetime.fromisoformat(record['checked_at_utc'].replace('Z','+00:00'))
   assert 0 <= (now-checked).total_seconds() <= 300,'Placement census must be refreshed'
- assert 'state=free' in census['Jack']['canonical_reservation']
+ assert 'state=free' in census['Desktop']['canonical_reservation']
  assert census['RunPod']['inventory_status']=='HTTP200'
  assert census['budget']['conservative_reserved_total_usd']==9.99736347
  from spellbench.arena.allocation import Placement
  placement=Placement.parse(args.placement)
- assert [entry.machine for entry in placement.entries if entry.disposition=='used']==['main-pc'],'This recipe claims the local Jack host only'
+ assert [entry.machine for entry in placement.entries if entry.disposition=='used']==['main-pc'],'This recipe claims the local desktop host only'
  return census_path
 
 def prepare():
@@ -107,7 +107,7 @@ def run():
  runtime=STAGE/'runtime'
  env={k:v for k,v in os.environ.items() if k not in ('GH_TOKEN','GITHUB_TOKEN','RUNPOD_API_KEY','GH_DEBUG')}
  env.update(GOMAXPROCS='1',GORGE_JOB_ROOT=str(JOB),GORGE_CLOUD_STAGE=str(STAGE),
-  GORGE_CLOUD_RUNTIME=str(runtime),GORGE_ASSIGNED_DISK_BYTES=str(CAP),SPELLBENCH_HOST_ALIAS='gorge-Jack-local-reference',
+  GORGE_CLOUD_RUNTIME=str(runtime),GORGE_ASSIGNED_DISK_BYTES=str(CAP),SPELLBENCH_HOST_ALIAS='gorge-Maintainer-local-reference',
   GORGE_PLACEMENT=prep['placement'],PYTHONUNBUFFERED='1')
  args=[str(REPO/'.venv/Scripts/python.exe'),str(SCRIPT)]
  write(STAGE/'COMMAND.json',dict(command=args,guard_path=prep['guard_path']))

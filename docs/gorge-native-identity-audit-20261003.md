@@ -43,7 +43,7 @@ pins. It is compatible with compiled source at `4971a556b1030a03bf27ddd8eef7a831
 the later launcher/document commits do not change compiled Go. The runtime seal is
 `4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e`.
 
-[Native124](gorge-native124-current-20261006.json) is running on Jack under canonical
+[Native124](gorge-native124-current-20261006.json) is running on the maintainer's under canonical
 generation268. Its supported path is host dispatch, bounded parent,
 `qualify_native.py`, matched throughput guard, then the native callback.
 Ordered 32-block serial/8/16-worker samples must complete with identical outputs;
@@ -59,7 +59,7 @@ checks refuse live unsealed native124 without creating a job root or claim;
 until native124 finishes. The matrix remains 140 games, 60 cells, 160 native
 participant receipts and the fixed search/Burn replay. No reference job is started.
 Fresh three-host placement must preserve any actual claim, including XMage's
-Haley preflight. No gorge Haley job is queued.
+compute host preflight. No gorge compute host job is queued.
 
 Reference games, rated games and published gorge entries remain zero. The
 [zero-game handoff](gorge-rated-handoff-20261005.json) resolves all 14 entrants,
@@ -126,7 +126,7 @@ before a secret, commitment or engine process is created. No playing-strength re
 or rating is claimed.
 
 Ledger037 bounds closed charges conservatively at $9.95136347, leaving $0.04863653
-under Jack's $10 cap. The bound retainsUSD0.02 for the deletedCI artifact. Provider settlement is pending.
+under the maintainer's $10 cap. The bound retainsUSD0.02 for the deletedCI artifact. Provider settlement is pending.
 No new RunPod lease fits that
 remainder with the retained $0.15 ancillary allowance. Both PCs retain their current
 resource priorities; no current-source substantial run is admitted.
@@ -581,7 +581,7 @@ by the protocol. No playing-strength result is claimed by these checks.
 Production076 contains the London basic-search repair and seven pinned
 Windows/Linux binaries. Its saved 281-frame root reconstructs in 564 submits,
 with eight known-card-valid worlds and all 23 native diagnostic fields matching.
-Native069 remains failed and sealed. Native077 is active on Jack's local host
+Native069 remains failed and sealed. Native077 is active on the maintainer's local host
 through the canonical reservation and supported throughput launcher. It must
 finish the matched 1/8/16-worker comparison before the unchanged full native
 audit. No complete native pass, reference qualification or rated result exists.

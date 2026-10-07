@@ -82,9 +82,9 @@ between steps 2 and 3 and writes only into the local run directory and the pin r
    manifest against the pin, scans the card database,
    runs `validate_deck` over the catalog, and with `--rehearse` plays an unrated run of the same definition in a
    private copy outside the repository (guard, runner and validator end to end). Ends at **STOP**.
-3. With Jack's confirmation: `run_rated.sh commit --approved '...'`, then the timestamp (step 2 above).
+3. With the maintainer's confirmation: `run_rated.sh commit --approved '...'`, then the timestamp (step 2 above).
 4. `run_rated.sh play --run <date> --proof <url>`: guard, pins, 384 games, validate, leaderboard.
-5. With Jack's confirmation: `run_rated.sh publish --run <date> --approved '...'`. If `main` moved since the
+5. With the maintainer's confirmation: `run_rated.sh publish --run <date> --approved '...'`. If `main` moved since the
    commitment, rebase the run commit on it (never force-push).
 
 ## Cost
@@ -94,8 +94,8 @@ between steps 2 and 3 and writes only into the local run directory and the pin r
 | Games | 384 (the guard's qualification adds up to 3 rungs of 2 games per top-rung worker, at most 72 games) |
 | Wall time at X5's measured 184 games/min (engine kept per worker) | about 2 min of games |
 | Wall time with P's runner (engine per game: about 6 s to start alone, 15 to 35 s when 12 start at once, then 3 to 4 s of FDN play) | about 7 to 13 min of games (30 to 55 games/min) |
-| Build, database scan, `validate_deck`, preflight (16 engine starts), guard | about 10 min on Jack's PC |
-| Total, Jack's PC | **about 20 to 25 min**; with `--rehearse` about 40 min |
+| Build, database scan, `validate_deck`, preflight (16 engine starts), guard | about 10 min on the primary desktop |
+| Total, the primary desktop | **about 20 to 25 min**; with `--rehearse` about 40 min |
 | Disk | engine scratch about 3 GiB transient (12 database copies), rows under 1 MB, pins of a few small files on the pin root |
 
 ## Branch

@@ -5,7 +5,7 @@ validator of the protocol-v2 branch.
 
 ## Command
 
-On HaleysPC, engine built from branch `xmage-x0-x1` at `0619c3d` (`BUILD-MANIFEST-haleyspc.json`; identity strings
+On the compute host, engine built from branch `xmage-x0-x1` at `0619c3d` (`BUILD-MANIFEST-computehost.json`; identity strings
 unchanged from X1), reference stack at protocol-v2 `4b588a1`:
 
 ```bash
@@ -29,7 +29,7 @@ invariants against an engine-side audit (internal keys, face-down objects, hidde
 | I6 | a face-down object is named exactly for the seat XMage's `CardView` lets look; unnamed in exile, it has no characteristics |
 
 `mutation_test.py` injects eight faults into a copy of one game file. The checker catches all eight
-(`mutation-haleyspc.txt`).
+(`mutation-computehost.txt`).
 
 ## Results (2026-10-01)
 
@@ -41,7 +41,7 @@ invariants against an engine-side audit (internal keys, face-down objects, hidde
 | Validation failures | 0 | 0 | 0 |
 | Invariant violations | 0 | 0 | 0 |
 
-- Verdict `X3 verdict: PASS` (`x3-haleyspc.log`, `check-haleyspc.json`, per-game rows in `games-haleyspc.jsonl`).
+- Verdict `X3 verdict: PASS` (`x3-computehost.log`, `check-computehost.json`, per-game rows in `games-computehost.jsonl`).
 - Coverage: 1,653 looks (library searches, the other seat's hand), 19,561 zone changes, 76,368 stack entries.
   Face-down objects checked for each seat: 16,730 on the battlefield, 291 on the stack, 179,411 in exile.
 - Determinism: a fresh process replays games 0 to 7 with the same per-game digests (8 of 8).

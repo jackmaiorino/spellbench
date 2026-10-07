@@ -236,7 +236,7 @@
   },
   "machines": {
     "checked_at_utc": "2026-10-03T08:44:45.368557+00:00",
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-03T08:44:47.0877656Z",
       "memory_free_kib": 90382348,
       "memory_total_kib": 134025436,
@@ -279,7 +279,7 @@
       "previous_formal_pid_58872_present": false,
       "formal_completion": "Not inferred from process absence; no research outcomes read"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-03T08:44:49.0831285Z",
       "memory_free_kib": 26347180,
       "memory_total_kib": 33478692,
@@ -296,9 +296,9 @@
       "inventory_status": "HTTP403",
       "allocation_disposition": "Existing Luna lease is not reassigned to this task; no new paid compute authority"
     },
-    "obsolete_reservation": "Old Jack forty-minute Spellbench queue is retired per TO-CODEX #811",
+    "obsolete_reservation": "Old maintainer forty-minute Spellbench queue is retired per TO-CODEX #811",
     "coordination": "Gorge generation99 released. XMage now owns a separate native qualification claim; gorge must refresh and await its release.",
-    "allocation": "Runtime004 retry prepared; not launched while canonical host is held. No new cloud lease or Haley claim."
+    "allocation": "Runtime004 retry prepared; not launched while canonical host is held. No new cloud lease or the compute host claim."
   },
   "guarded_evaluation": "No rated evaluation launched. Prior guarded scaling attempt002 stopped after two natural games at a declaration V8; Runtime004 fixed that declaration; this runtime also loads the registry for both redeal commands and accepts interactive mana for auto-pay policies. Fresh scaling is still required. Supported bench run guards serial/parallel allocation evidence and reserve; gorgequal remains an unguarded diagnostic and is not used to bypass it.",
   "unfinished": [

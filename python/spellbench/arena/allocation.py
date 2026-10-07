@@ -28,8 +28,8 @@ from typing import Any, Sequence
 from ..errors import ValidationError
 
 ALLOCATION_KINDS = ("small", "substantial", "unmeasured")
-# The placements COMPUTE-POLICY.md item 1 names: the operator's main PC, HaleysPC and RunPod.
-PLACEMENT_MACHINES = ("main-pc", "haleyspc", "runpod")
+# The placements COMPUTE-POLICY.md item 1 names: the operator's main PC, the compute host and RunPod.
+PLACEMENT_MACHINES = ("main-pc", "computehost", "runpod")
 # Additional supported hosts never replace the three required policy checks.
 OPTIONAL_PLACEMENT_MACHINES = ("github-actions",)
 PLACEMENT_DISPOSITIONS = ("used", "unavailable", "slower", "not_authorized")
@@ -41,9 +41,9 @@ _DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 _ROLE = re.compile(r"[a-z][a-z0-9_]*")
 _PLACEMENT_ITEM = re.compile(r"\s*([A-Za-z][A-Za-z0-9-]*)\s*=\s*([a-z_]+)\s*:\s*(.*\S)\s*")
 PLACEMENT_FORM = (
-    "a placement names each of main-pc, haleyspc and runpod once, as '<machine>=<disposition>: <reason>' "
+    "a placement names each of main-pc, computehost and runpod once, as '<machine>=<disposition>: <reason>' "
     f"separated by ';', each disposition one of {', '.join(PLACEMENT_DISPOSITIONS)} and at least one used, for "
-    "example 'main-pc=used: fastest measured; haleyspc=slower: half the speed per game; runpod=not_authorized: "
+    "example 'main-pc=used: fastest measured; computehost=slower: half the speed per game; runpod=not_authorized: "
     "no spending authority' (COMPUTE-POLICY.md item 1); github-actions may also be named"
 )
 _RULES_KEYS = ("substantial_run_seconds", "budget_percent", "games_per_worker", "probe_games", "ladder_divisors",
@@ -325,7 +325,7 @@ class Placement:
 
     @classmethod
     def parse(cls, text: str) -> Placement:
-        """Read ``'main-pc=used: why; haleyspc=slower: why; runpod=not_authorized: why'`` (the ``--placement`` text)."""
+        """Read ``'main-pc=used: why; computehost=slower: why; runpod=not_authorized: why'`` (the ``--placement`` text)."""
         found: dict[str, MachinePlacement] = {}
         for item in text.split(";"):
             match = _PLACEMENT_ITEM.fullmatch(item)

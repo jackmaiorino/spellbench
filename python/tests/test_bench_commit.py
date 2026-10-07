@@ -42,7 +42,7 @@ from spellbench.run_secret import RunSecret
 from arena_helpers import roomy_machine
 from test_bench_run import ENVIRON, REPO, _write_benchmark
 
-PLACEMENT = ("main-pc=used: fastest measured; haleyspc=slower: about half the speed per game; "
+PLACEMENT = ("main-pc=used: fastest measured; computehost=slower: about half the speed per game; "
              "runpod=not_authorized: not needed for a 1 h run")
 PROOF = "https://example.org/issues/1#c1"
 RUN = "2026-10-01"

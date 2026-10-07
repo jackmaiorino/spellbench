@@ -1,5 +1,5 @@
 {
- "build": "lib_digest d74803d53e8192ab32a1626cbc5e3effa39c1aa49b362280acb3f3b0fd724ca3 (commit 213d95a, HaleysPC)",
+ "build": "lib_digest d74803d53e8192ab32a1626cbc5e3effa39c1aa49b362280acb3f3b0fd724ca3 (commit 213d95a, the compute host)",
  "layout": "3 workers default hash, 2 workers -XX:hashCode=3 with hash warm-up",
  "violations": 0,
  "cells": {

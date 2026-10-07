@@ -230,11 +230,11 @@
     "reserve_bytes": 64424509440
   },
   "machines": {
-    "Jack": {
+    "Desktop": {
       "checked_at_utc": "2026-10-03T06:30:00Z",
-      "reservation": "held generation95, cooling-jack-stage1-001; PID58872 observed live"
+      "reservation": "held generation95, cooling-maintainer-stage1-001; PID58872 observed live"
     },
-    "Haley": {
+    "ComputeHost": {
       "checked_at_utc": "2026-10-03T06:30:00.2699216Z",
       "memory_free_kib": 26835712,
       "memory_total_kib": 33478692,
@@ -248,7 +248,7 @@
       "inventory": "HTTP403 on read-only inventory request",
       "new_paid_compute": 0
     },
-    "obsolete_reservation": "Old 40-minute Jack Spellbench Luna queue is retired per TO-CODEX #811"
+    "obsolete_reservation": "Old 40-minute maintainer Spellbench Luna queue is retired per TO-CODEX #811"
   },
   "guarded_evaluation": "No substantial evaluation launched. Supported bench run guards serial/parallel allocation evidence and reserve; gorgequal remains an unguarded diagnostic and is not used to bypass it.",
   "unfinished": [

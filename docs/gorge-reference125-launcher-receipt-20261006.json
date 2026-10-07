@@ -22,7 +22,7 @@
   "new_paid_compute_usd": 0,
   "rated_games": 0,
   "positive_native_gate_test_pending": true,
-  "scope": "Local Jack fallback only; refresh all placements after full native terminal recovery and preserve any current claim",
+  "scope": "Local maintainer fallback only; refresh all placements after full native terminal recovery and preserve any current claim",
   "affected_tests_passed": 57,
   "affected_tests_seconds": 18.87,
   "affected_test_files": [

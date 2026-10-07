@@ -85,7 +85,7 @@
     "bytes": 67016,
     "sha256": "45f7e2fef23d36d2e30f9ac67b57d72516656ff9dbbb63e64942e2c8d5d2e061"
   },
-  "host_coordination": "Jack remains reserved by Pauper generation174. Haley queued training-performance priority remains binding. No local gorge claim or unrelated lease is touched.",
+  "host_coordination": "The maintainer's remains reserved by Pauper generation174. The compute host queued training-performance priority remains binding. No local gorge claim or unrelated lease is touched.",
   "native_qualification_complete": false,
   "reference_qualification_complete": false,
   "allocation_qualified": false,
@@ -115,7 +115,7 @@
     "rated_games": 0,
     "gpu_ordinal": null,
     "script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
-    "placement": "main-pc=unavailable: fresh canonical generation174 pauper-luna-approved-qualification-004 reservation retained; haleyspc=unavailable: fresh hardware check complete and queued training-performance priority retained; runpod=used: owned community RTX3090 host CPU allocation with actual CPU quota and memory to be measured before execution, GPU unused, minimum8vCPUs and16GB with80GB assigned disk, current runtime026, supported matched serial and parallel completed-work guard before any substantial qualification, current production repair verified on all17 saved public roots and45 affected strategy tests plus corrected vet and diff checks, supported qualification first, both local release times unknown",
+    "placement": "main-pc=unavailable: fresh canonical generation174 pauper-luna-approved-qualification-004 reservation retained; computehost=unavailable: fresh hardware check complete and queued training-performance priority retained; runpod=used: owned community RTX3090 host CPU allocation with actual CPU quota and memory to be measured before execution, GPU unused, minimum8vCPUs and16GB with80GB assigned disk, current runtime026, supported matched serial and parallel completed-work guard before any substantial qualification, current production repair verified on all17 saved public roots and45 affected strategy tests plus corrected vet and diff checks, supported qualification first, both local release times unknown",
     "guard_path": "owned Linux process group and bounded driver -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
     "closed_at_utc": "2026-10-04T18:06:47.178332+00:00",
     "exit_code": 1,
