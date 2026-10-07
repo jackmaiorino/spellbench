@@ -10,6 +10,7 @@ import mage.player.cabt.CardResolver;
 import mage.player.spellbench.Warmup;
 import mage.players.Player;
 import spellbench.kit.core.Json;
+import spellbench.kit.core.Offers;
 import spellbench.kit.core.ObsIndex;
 import spellbench.kit.core.Sampler;
 import spellbench.kit.core.Seeds;
@@ -436,12 +437,14 @@ public final class Runner {
     static java.util.function.BiPredicate<mage.abilities.Ability, Game> offeredFilter(World w, Map<String, Object> decision,
                                                                                  ObsIndex index) {
         final java.util.Set<String> offered = new java.util.HashSet<>();
-        for (Object c : Json.arr(decision, "candidates")) {
+        final List<Object> candidates = Json.arr(decision, "candidates");
+        for (Object c : candidates) {
             offered.add(Json.canonical(Json.obj(Json.obj(c), "semantic")));
         }
         return (a, g) -> {
             Map<String, Object> sem = Mapping.prioritySemantic(w, g, a, index);
-            return sem != null && offered.contains(Json.canonical(sem));
+            // a method-null cast_spell (Section 7.4) admits every method of that card
+            return sem != null && (offered.contains(Json.canonical(sem)) || Offers.candidateFor(candidates, sem) >= 0);
         };
     }
 

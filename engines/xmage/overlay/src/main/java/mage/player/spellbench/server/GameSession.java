@@ -54,6 +54,12 @@ final class GameSession {
 
     static GameSession create(Requests.Reset reset, List<CabtDeckFactory.Entry> deck0,
                               List<CabtDeckFactory.Entry> deck1, CardResolver resolver, boolean priorityMana) {
+        return create(reset, deck0, deck1, resolver, priorityMana, false);
+    }
+
+    static GameSession create(Requests.Reset reset, List<CabtDeckFactory.Entry> deck0,
+                              List<CabtDeckFactory.Entry> deck1, CardResolver resolver,
+                              boolean priorityMana, boolean stackText) {
         mage.player.spellbench.ManaCostCache.restore(); // the parsed-cost cache of a fresh process (X5)
         GameRandom.installBoot();
         resolver.buildDeck(UUID.nameUUIDFromBytes(new byte[]{0}), deck0);
@@ -66,7 +72,7 @@ final class GameSession {
         router.assignSeat(seats.player(0).getId(), "p0");
         router.assignSeat(seats.player(1).getId(), "p1");
         seats.game.setStartingPlayerId(seats.player(Requests.SEATS.indexOf(reset.rules.startingSeat)).getId());
-        seats.connect(reset.gameSecret, EngineProfile.observationFlags(), reset.maxSteps, reset.maxDecisions,
+        seats.connect(reset.gameSecret, EngineProfile.observationFlags(stackText), reset.maxSteps, reset.maxDecisions,
                 reset.rules.cardNameDomain, "none".equals(reset.rules.mulligan), priorityMana);
         return new GameSession(reset.gameId, seats);
     }

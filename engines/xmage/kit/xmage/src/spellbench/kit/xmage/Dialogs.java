@@ -189,6 +189,25 @@ public final class Dialogs {
                 picks.add(bot.chooseUse(Outcome.Benefit, "kit dialog", source, game));
                 return picks;
             }
+            case "choose_color": {
+                // the bot's color heuristic among the offered colors (a Gate's as-enters color, Prismatic Strands)
+                mage.choices.ChoiceColor choice = new mage.choices.ChoiceColor(true);
+                Set<String> offered = new LinkedHashSet<>();
+                for (Object c : cands) {
+                    String color = Json.str(Json.obj(Json.obj(c), "semantic"), "color");
+                    if (color != null && !color.isEmpty()) {
+                        offered.add(color.substring(0, 1).toUpperCase(java.util.Locale.ROOT) + color.substring(1));
+                    }
+                }
+                choice.setChoices(offered);
+                bot.choose(outcome(Json.str(first, "purpose")), choice, game);
+                if (choice.getChoice() == null) {
+                    return null;
+                }
+                List<Object> picks = new ArrayList<>();
+                picks.add(choice.getChoice().toLowerCase(java.util.Locale.ROOT));
+                return picks;
+            }
             case "choose_number": {
                 int min = (int) Json.num(first, "minimum", 0);
                 int max = (int) Json.num(first, "maximum", 0);

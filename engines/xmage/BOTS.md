@@ -1,21 +1,30 @@
 # XMage bot coverage
 
-Snapshot: 2026-10-05 UTC. This is the delivery inventory, not a leaderboard.
-The intended outcome remains reproducible public ratings for every distinct
-playable family. No new bot rating has been produced by this preparation slice.
-The machine-readable status and alias relationships are in [coverage.json](coverage.json).
-The prepared [native benchmark](../../benchmarks/fdn-native-v1/benchmark.json)
-has nine distinct variants and two anchors, with a full round robin across the
-sixteen FDN decks. Its 600-second decision and engine-step clocks apply to all
-entries. It has no rated run. The historical `fdn-mirror-v0` definition is unchanged.
+Snapshot: 2026-10-05 UTC. This inventory records source wiring, complete-player
+admission, ratings and publication separately. Source PR121 and the Kiora repair
+[PR133](https://github.com/jackmaiorino/spellbench/pull/133) are merged. PR133's
+reviewed head passed all six hosted checks and its tree was verified on main.
+These checks do not establish actual repaired-runtime or full-game admission.
+The machine-readable status and aliases are in [coverage.json](coverage.json).
 
-| Family | Available inputs | Wiring | Qualification, rating and publication |
-|---|---|---|---|
-| XMage MAD / CP7 | Pinned public source; ten UI skills | Kit H1/H2 plus explicitly named `mad7-s1` to `mad7-s10` fair variants | Historical native runtime passed 48 natural complete-game throughput checks with identical 1/4/8-worker outputs; current mapping and engine build require fresh qualification; unrated |
-| XMage MCTS | Pinned public source | Existing H3, labelled fixed-iteration sampled-world variant | Historical native qualification retained; current source requires fresh qualification; unrated |
-| DraftZero Exp1 gen0, gen10, gen33 | All three public weights downloaded and hash verified | All three complete a six-visit FDN game and same-seed replay; a distinct released final-evaluation fair profile is wired through priority, dialogs and combat | Published-profile full games, broader FDN coverage and benchmark qualification unfinished; unrated |
-| MageZero v0.2 | Public model/vocab source and both engine bundles pinned | Original priority and dialog search pass native synthetic checks; typed combat, mixed bridge, public frontend and deck-bound confined runtime are wired | Native synthetic combat/mixed checks pass; compatible trained weights and author settings absent; full-game qualification pending; unrated |
-| Jack's XMage RL | Archived April snapshots plus current policy and mulligan files verified in five profiles | All five current pairs pass strict loading and repeated inference on actual permitted Java priority features; paired inference, private original chooser, mulligan, mode, original binary/X, named-source spell targets, general cost/object targets and original provided-card components are wired; provided-card selection retains name groups, representative features and the card_select head with a separately labelled seeded physical-copy stream; a distinct inherited card pipe retains the original April sorting helpers, UUID ties, target.add and empty planning queues without neural or copy RNG; optional automatic mana replay adds original producer filters, tap reservations, nested payment context and engine choices; modes retain original cost flags and legality; Standard retains its legacy Q mulligan rule | Native source checks including target/card ordering, STOP, prefix and chooser/copy application, modes with costs and automatic mana payment, other callbacks, exact decks and complete game adapter unfinished; unrated |
+| Family | Inputs and source wiring | Remaining qualification and publication |
+|---|---|---|
+| XMage MAD / CP7 and MCTS | Pinned native sources and nine distinct fair variants wired; the frozen native runtime completed 30 natural matched throughput rows at 1/2/5 workers | No native rated games. Complete-player admission, the full 7040-game schedule, replay and publication remain unfinished |
+| DraftZero Exp1 gen0, gen10, gen33 | Three public checkpoints pinned; original search/callbacks and released 96-visit/12-second profile wired. Kiora source repair merged | Released gen33 check forfeited at actor step97. Fresh repaired runtime, actual public projection/face-down fairness, callback, natural full game, replay and learned throughput remain unqualified; zero ratings |
+| MageZero v0.2 | Original encoder/search and confined runtime wired | Compatible trained exports, exact decks, encoder/vocabulary revision and play settings unavailable. Historical ONNX candidates remain unqualified; zero ratings |
+| Jack's XMage RL | Five policy/mulligan pairs strictly loaded; original callback wiring retained | Exact checkpoint-bound decks/configurations, native serving and complete-game coverage unresolved; zero ratings |
+
+The FDN builtin baseline is complete: 384 natural/rated games over 16 decks,
+64 complete seat-swapped pairs per matchup, zero forfeits/halts/truncations and
+an exact-seed game0 replay. Three builtin entries are
+[verified live](https://jackmaiorino.github.io/spellbench/b/fdn-mirror-v0/).
+Those builtin ratings do not admit any requested native or learned family.
+
+Jack's research priority suspends new game/build/qualification launches on both
+PCs until explicit research handback. No automatic compute dispatch is queued.
+Missing learned inputs remain unfinished entries. For MageZero, request trained
+policy/value exports, their exact associated decks, matching encoder/vocabulary
+revision and evaluation/search settings. Jack knows of no additional weights.
 
 ## Native policies and aliases
 
@@ -48,20 +57,28 @@ failures, deadline-dependent replays and a temporary-directory leak. Version
 [the repair evidence](kit/evidence/native-repairs-20261003.md). The historical
 deadline-dependent profile is unchanged. The 600-second profile completed the
 historical matched qualification described below. Rated play is pending.
-The new runtime completed 24 serial games, all natural and without validator
-violations. A missing report module stopped that attempt before the parallel
-comparison. The rows and restored report are retained, and a repaired runtime
-checks report dependencies before preflight and checkpoints completed rung
-timings. Those earlier rows remain functional evidence. A later completed
-48-game 1/4/8-worker comparison passed natural outcome and output-identity
-checks for its frozen source and benchmark. That guard selected eight workers.
-Its matched batch speedup is 1.354x, with a planning projection near 23 hours
-for the full round robin. This is historical throughput evidence; there is no
-rated run. The current kit mapping, mechanics register and engine overlay have
-changed since that qualification. Its current-source build and a new supported
-serial/parallel comparison must pass before substantial native evaluation.
-The running builtin FDN baseline retains its own frozen engine and
-qualification and does not establish native-bot admission.
+Earlier 24-game serial rows and the later 48-game 1/4/8-worker comparison
+remain historical evidence for their own frozen source and benchmark. Their
+1.354x speedup and earlier run projection do not describe the newer runtime.
+
+Generation45 completed 30 natural rows using the same ten game indices at
+1/2/5 workers in 838.113/732.032/671.373 seconds. Five workers achieved
+1.24836x serial with identical primary outputs and trial ledgers. This evidence
+binds source `eb27befef38e789d5bb74e2e3a97b30c479df3ce`, engine manifest
+`35aea0fd4a097f2d8733f6757a54cd560000407247303940a273ed52aeee26aa`,
+kit manifest `5dcc7b1ce399f43bc7752c47615e2b51fd903a62d7472715b9abaac5d3b718e0`
+and the unchanged native benchmark. The
+[merged receipt](https://github.com/jackmaiorino/mtg-kernel-collab/blob/54e33c5182c2187ca8fca3c5672bbf6404eca157/ARTIFACTS/spellbench-xmage-native-current-runtime-20261005.json)
+retains the terminal, cleanup, frozen inputs and verified recovery references.
+It does not qualify every later checkout or all matchups and decks.
+
+The [native benchmark](../../benchmarks/fdn-native-v1/benchmark.json) retains
+nine distinct variants, two anchors, 16 FDN decks and the full 7040-game round
+robin with 600-second decision and engine-step clocks. The sample projects
+131.29 hours for that schedule; the full matchup/deck mix may differ. Its
+7200-second qualification window cannot be reused as the formal-run window.
+After explicit handback, refresh eligible placement and supported guards and
+reuse only compatible frozen-runtime evidence. No native rated run is complete.
 
 ## Learned inputs and associations
 

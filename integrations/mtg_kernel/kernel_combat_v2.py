@@ -86,6 +86,15 @@ class BlockPlan:
         return result
 
 
+def public_minimum(value) -> int:
+    """The blockers an attacker needs once blocked. The native engine reads a
+    public 0 as 1 (engine.rs minimum_blockers_required takes max(1)); a
+    bestowed Nyxborn Hydra attacks with 0."""
+    if type(value) is not int or value < 0:
+        raise CombatError("invalid minimum blockers")
+    return max(1, value)
+
+
 def native_block_plan(raw: dict, support: dict, projection) -> tuple[BlockPlan, dict]:
     """Build only from the defender's actor-visible legal edges and facts.
 
@@ -113,7 +122,7 @@ def native_block_plan(raw: dict, support: dict, projection) -> tuple[BlockPlan, 
         facts = public.get(attack_key)
         if facts is None:
             raise CombatError("native blocker graph contains an unobserved attacker")
-        minimums[attack_key] = facts["characteristics"]["effective_keywords"]["minimum_blockers"]
+        minimums[attack_key] = public_minimum(facts["characteristics"]["effective_keywords"]["minimum_blockers"])
         ref = projection.stable_ref(attacker)
         if ref is None:
             raise CombatError("attacker has no current public reference")

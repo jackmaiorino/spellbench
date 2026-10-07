@@ -32,7 +32,9 @@ public final class Entries {
                         + "front answers the declining candidate (wrapper)",
                 "unsupported_states", "a world with an unsupported flag is not searched; the front declines (wrapper)",
                 "non_stack_payload", "a chosen action that does not use the stack and asks a dialog while it executes is "
-                        + "unsupported; the next ranked candidate answers (wrapper)",
+                        + "unsupported; the next ranked candidate answers (wrapper), unless every dialog was a color "
+                        + "choice, which the plan carries",
+                "color_choice", "choose_color: the plan's color, else ComputerPlayer.choose on the offered colors",
                 "approximation_flags", Arrays.asList("approximate:watchers_reset (every world)",
                         "approximate:unexplained_characteristics", "approximate:activation_usage_other_seat",
                         "approximate:first_strike_step_unknown", "approximate:token_characteristics",
@@ -96,6 +98,12 @@ public final class Entries {
         c.put("policies", commonPolicies());
         // the clock policy is part of the entry (second review, item 4)
         c.put("clock", Json.map("grace_ms", 5000L, "overhead_ms", 1500L, "kill_reserve_ms", 300L));
+        if ("h3".equals(entry)) {
+            // kit-mcts paces its searches by the bank (pauper-kernel panel, 2026-10-06: a fixed 30
+            // iterations spent the 600 s bank by about decision 50); kit-mad-1 and kit-mad-k keep their identity
+            Json.obj(c, "clock").put("pace_moves", 20L);
+            Json.obj(c, "clock").put("pace_floor_ms", 12000L);
+        }
         c.put("diagnostics", Json.map("roundtrip", false, "hang_at", -1L));
         return c;
     }
@@ -128,7 +136,8 @@ public final class Entries {
         }
         c.put("budgets", b);
         Map<String, Object> clock = new LinkedHashMap<>((Map<String, Object>) c.get("clock"));
-        for (String[] k : new String[][]{{"grace-ms", "grace_ms"}, {"overhead-ms", "overhead_ms"}, {"kill-reserve-ms", "kill_reserve_ms"}}) {
+        for (String[] k : new String[][]{{"grace-ms", "grace_ms"}, {"overhead-ms", "overhead_ms"}, {"kill-reserve-ms", "kill_reserve_ms"},
+                {"pace-moves", "pace_moves"}, {"pace-floor-ms", "pace_floor_ms"}}) {
             if (opts.containsKey(k[0]) && !Long.valueOf(Long.parseLong(opts.get(k[0]))).equals(clock.get(k[1]))) {
                 clock.put(k[1], Long.parseLong(opts.get(k[0])));
                 overridden.add(k[1]);

@@ -711,11 +711,14 @@ final class ModelReplay {
         WorldBuilder.Spec spec = new WorldBuilder.Spec();
         spec.gameStart = Json.obj(record, "game_start"); spec.observation = observation; spec.random = random;
         spec.sample = Sampler.sample(spec.gameStart, observation, random.stream("sampler"));
+        int priorOwnDraws = VisibleReplayDraws.condition(spec.sample, observation, result.decision, result.earlier,
+                random.stream("replay-visible-draws"));
         spec.mode = WorldBuilder.Mode.PRIORITY; spec.history = Json.obj(a, "x_history");
         ReplayPlayer[] other = new ReplayPlayer[1];
         spec.viewerFactory = seat -> result.player = new ReplayPlayer(seat);
         spec.otherFactory = seat -> other[0] = new ReplayPlayer(seat);
         result.world = WorldBuilder.build(spec);
+        VisibleReplayDrawWatchers.restore(result.world, priorOwnDraws);
         result.world.flags.addAll(flags);
         for (String flag : result.world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {

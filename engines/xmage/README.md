@@ -126,6 +126,10 @@ What it took beyond the patch series:
 - **Ids.** `ids.ObjectIds` over `<uuid>:z<zone change counter>`, per viewer. A look id lasts while that seat's consecutive observations show the card. An internal key that returns after leaving a seat's observation (XMage restores zone change counters when it rolls back a failed action) is minted as `<key>:r<n>`, so an id never returns. A collision halts the game.
 - **Flags.** Exactly `EngineProfile.observationFlags`; a flag the builder does not implement must be false.
 
+For learned callback reconstruction, `xmage_verified_entry.py --stack-text` enables public stack ability rules text. The profile freezes this flag at startup. Face-down spell visibility is checked before rendering text; reconstruction requires an exact, unique public ability-rule match.
+
+When using the reviewed model engine, build the model kit with `xmage_model_build.py --current-overlay` and give the game launcher `--overlay-manifest <model-build>/BUILD.json --overlay-build-sha256 <SHA256> --stack-text`. Use that same model build for the learned agent. The launcher checks every kit class and resource, rejects undeclared files and links, and checks the exact original engine manifest association before placing the kit ahead of the pinned jars. The model and core directories are absent from the game classpath. Compilation-only builds are refused. The explicit manifest file is also pinned by the arena's command-file checks. This path still requires a new guarded correctness check, natural game, deterministic replay and throughput qualification before rated use; the frozen native benchmark keeps its existing runtime and default flags.
+
 Interpretations:
 
 - `known`: a library card is `searching` with no position, since its position may have changed since the seat saw it; X4 passes positions for scry, surveil and look-at-top. An other-seat hand card is `revealed` when XMage revealed it to both players, else `looked_at`.

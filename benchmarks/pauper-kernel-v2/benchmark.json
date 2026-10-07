@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel-v2",
   "title": "Pauper · mtg-kernel v2",
-  "summary": "Eight Pauper decks with neutral protocol v2 choices. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -14,7 +14,8 @@
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "${MTG_KERNEL_V2_SOURCE}"
+      "${MTG_KERNEL_V2_SOURCE}",
+      "--known-cards"
     ]
   },
   "deck_pool": [
@@ -34,9 +35,10 @@
     "a48",
     "c12"
   ],
-  "evaluation_version": "pauper-neutral-v2.0.0",
+  "evaluation_version": "pauper-neutral-v2.1.0",
   "extensions": [
-    "x_kernel_flat_v4"
+    "x_kernel_flat_v4",
+    "x_public_history_v1"
   ],
   "native_id_audits": {
     "x_kernel_flat_v4": "docs/pauper-luna-panel-20261003.md#visibility-and-policy-inputs"
@@ -47,7 +49,8 @@
     "${MTG_KERNEL_V2_COMBAT}",
     "${MTG_KERNEL_V2_ARRANGEMENT}",
     "${MTG_KERNEL_V2_SELECTION_ORDER}",
-    "${MTG_KERNEL_V2_ORDER}"
+    "${MTG_KERNEL_V2_ORDER}",
+    "${MTG_KERNEL_V2_HISTORY}"
   ],
   "workers": 4,
   "qualification_budget_percent": 30,
@@ -228,6 +231,98 @@
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       },
       "evaluation_identity": "cce8e04cede01402b4d05abcc8084da687ab6f83f17e05fdc2f1718ef2b89644"
+    },
+    {
+      "name": "kit-mad-1",
+      "version": "0.3.0+4e575c6a49fc",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search",
+        "heuristic"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h1"
+      ],
+      "display": {
+        "label": "XMage MAD",
+        "author": "XMage / Spellbench",
+        "description": "XMage's ComputerPlayer7 (MAD) at skill 6 on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mad-k",
+      "version": "0.3.0+a49c05ddab71",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search",
+        "heuristic"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h2"
+      ],
+      "display": {
+        "label": "XMage MAD four worlds",
+        "author": "XMage / Spellbench",
+        "description": "As kit-mad-1, voting over four sampled hidden worlds per decision. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
+    },
+    {
+      "name": "kit-mcts",
+      "version": "0.3.0+068718d79078",
+      "type": "subprocess",
+      "owner": "spellbench",
+      "engine": "any",
+      "training_style_tags": [
+        "search"
+      ],
+      "command": [
+        "${BASH}",
+        "${XMAGE_KIT_AGENT}",
+        "--kit",
+        "${XMAGE_KIT}",
+        "--engine-build",
+        "${XMAGE_BUILD}",
+        "--db",
+        "${XMAGE_DB}",
+        "--work",
+        "${XMAGE_AGENT_WORK}",
+        "--entry",
+        "h3"
+      ],
+      "display": {
+        "label": "XMage MCTS",
+        "author": "XMage / Spellbench",
+        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts (at most 30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator), paced by the bank: each search stops at the remaining bank over 20 plus the increment, at least 12 s. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "url": null
+      }
     }
   ],
   "qualification_sample": [

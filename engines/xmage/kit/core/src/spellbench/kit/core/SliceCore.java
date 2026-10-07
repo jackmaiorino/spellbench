@@ -39,6 +39,10 @@ public final class SliceCore {
         samplerPins();
         logicalDialogs();
         rebinding();
+        methodNullCasts();
+        kernelSmokeFixes();
+        clockPacing();
+        gateColors();
         boolean all = true;
         for (Map<String, Object> r : results) {
             all &= Boolean.TRUE.equals(r.get("pass"));
@@ -281,5 +285,151 @@ public final class SliceCore {
         d2.put("observation", Json.map("viewer", "p0", "stack", Arrays.asList(entry, entry2)));
         pb2.claim(d2);
         check("S2.rebinding.ambiguous_binds_nothing", pb2.counters.containsKey("rebind_ambiguous"), pb2.counters);
+    }
+
+    // ------------------------------------------------------------------ method-null casts (Section 7.4)
+
+    static void methodNullCasts() {
+        Map<String, Object> dart = ref("o-dart", "Lava Dart", "p0", "graveyard");
+        Map<String, Object> bolt = ref("o-bolt", "Lightning Bolt", "p0", "hand");
+        Map<String, Object> offeredDart = Json.map("kind", "cast_spell", "source", dart, "method", null);
+        Map<String, Object> offeredBolt = Json.map("kind", "cast_spell", "source", bolt, "method", "normal");
+        Map<String, Object> worldDart = Json.map("kind", "cast_spell", "source", dart, "method", "flashback");
+        Map<String, Object> worldBoltFlash = Json.map("kind", "cast_spell", "source", bolt, "method", "flashback");
+        List<Object> cands = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", Json.map("kind", "pass"), "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", offeredDart, "display_text", null),
+                Json.map("candidate_id", 2L, "semantic", offeredBolt, "display_text", null));
+        boolean answers = Offers.answers(offeredDart, worldDart) && !Offers.answers(offeredBolt, worldBoltFlash)
+                && !Offers.answers(offeredDart, Json.map("kind", "cast_spell", "source", bolt, "method", "normal"))
+                && Offers.candidateFor(cands, worldDart) == 1 && Offers.candidateFor(cands, offeredBolt) == 2
+                && Offers.candidateFor(cands, worldBoltFlash) == -1;
+        check("kernel.method_null.answers", answers, null);
+
+        // the world's flashback key reaches the method-null candidate through the alias, and the plan keeps the method
+        Map<String, Object> d = Json.map("candidates", cands);
+        Map<String, Integer> candidateOf = Front.candidateKeys(d);
+        List<Object> results = Arrays.asList(Json.map("index", 0L, "semantic", worldDart, "root_stats", Arrays.asList(
+                Json.map("semantic", worldDart, "bound", "exact", "adjusted", 5L),
+                Json.map("semantic", Json.map("kind", "pass"), "bound", "exact", "adjusted", 1L))));
+        Front.aliasWorldKeys(cands, results, candidateOf);
+        List<Aggregate.WorldVote> votes = Arrays.asList(Aggregate.fromRunner(Json.obj(results.get(0))));
+        Aggregate.Result r = Aggregate.vote(votes, candidateOf);
+        Integer chosen = candidateOf.get(r.winner);
+        String method = Offers.worldMethod(r.winner);
+        check("kernel.method_null.vote", chosen != null && chosen == 1 && "flashback".equals(method),
+                Json.map("candidate", chosen == null ? null : (long) chosen, "method", method));
+
+        PlanBook pb = new PlanBook();
+        pb.open(30, offeredDart, Json.map("viewer", "p0", "stack", new ArrayList<>()), Json.map("targets", new ArrayList<>()), null);
+        pb.active.castMethod = method;
+        List<Object> methods = new ArrayList<>();
+        for (String m : new String[]{"normal", "flashback"}) {
+            methods.add(Json.map("candidate_id", (long) methods.size(), "semantic",
+                    Json.map("kind", "choose_cast_method", "source", dart, "method", m), "display_text", null));
+        }
+        Map<String, Object> md = Json.map("seat_step", 31L, "context", Json.map("kind", "choice", "source", dart, "purpose", null),
+                "observation", Json.map("viewer", "p0", "stack", new ArrayList<>()), "candidates", methods);
+        int claimed = pb.claim(md);
+        check("kernel.method_null.plan_answers_method", claimed == 1, Json.map("answer", (long) claimed));
+
+        Map<String, Object> withExt = Json.map("seat_step", 1L, "extensions", Json.map("x_kernel_flat_v4", "payload"));
+        Map<String, Object> stripped = Front.withoutExtensions(withExt);
+        check("kernel.extensions_stripped", !stripped.containsKey("extensions") && withExt.containsKey("extensions")
+                && Front.withoutExtensions(md) == md, null);
+    }
+
+    /** The two kit gaps the first pauper-kernel smoke games showed (CawGates' saga back face; priority mana stops). */
+    static void kernelSmokeFixes() {
+        // a transformed saga shows its back face; the list names its front face; nothing is surplus or negative
+        Map<String, Object> gs = Json.map("own_deck", deck("own", "The Modern Age", 4L, "Island", 16L),
+                "opponent_deck", deck("opp", "Island", 20L), "rules", Json.map("opponent_decklist", "visible"));
+        Map<String, Object> glider = rec("o-vg", "Vector Glider", "p0", "battlefield", false);
+        glider.put("full_name", "The Modern Age // Vector Glider");
+        Map<String, Object> age = rec("o-ma", "The Modern Age", "p0", "battlefield", false);
+        age.put("full_name", "The Modern Age // Vector Glider");
+        Map<String, Object> obs = Json.map("viewer", "p0", "players", Arrays.asList(
+                player("p0", 0, 18, new ArrayList<>(), new ArrayList<Object>(Arrays.asList(glider, age)), new ArrayList<>()),
+                player("p1", 0, 20, null, new ArrayList<>(), new ArrayList<>())), "stack", new ArrayList<>(),
+                "known", new ArrayList<>());
+        Sampler.Sample sm = Sampler.sample(gs, obs, new Random(3));
+        int ages = 0;
+        for (Sampler.Slot sl : sm.seats.get("p0").library) {
+            ages += "The Modern Age".equals(sl.name) ? 1 : 0;
+        }
+        java.util.TreeMap<String, Integer> list = new java.util.TreeMap<>();
+        list.put("Fire // Ice", 1);
+        check("kernel.back_face_counts_against_list", sm.flags.isEmpty() && ages == 2
+                && "Fire // Ice".equals(Sampler.listName("Fire", "Fire // Ice", list))
+                && "Vector Glider".equals(Sampler.listName("Vector Glider", null, list)),
+                Json.map("flags", new ArrayList<Object>(sm.flags), "library_ages", (long) ages));
+
+        // pass beside only mana activations needs no search; any other action does
+        Map<String, Object> land = ref("o-land", "Island", "p0", "battlefield");
+        Map<String, Object> mana = Json.map("kind", "activate_mana_ability", "source", land, "ability_index", 0L,
+                "mana_choice", null, "cost_target", null);
+        List<Object> manaOnly = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", mana, "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", Json.map("kind", "pass"), "display_text", null));
+        List<Object> withCast = Arrays.asList(
+                Json.map("candidate_id", 0L, "semantic", Json.map("kind", "pass"), "display_text", null),
+                Json.map("candidate_id", 1L, "semantic", mana, "display_text", null),
+                Json.map("candidate_id", 2L, "semantic", Json.map("kind", "cast_spell",
+                        "source", ref("o-bolt", "Lightning Bolt", "p0", "hand"), "method", null), "display_text", null));
+        check("kernel.mana_only_pass", Front.manaOnlyPass(manaOnly) == 1 && Front.manaOnlyPass(withCast) == -1
+                && Front.manaOnlyPass(Arrays.asList(manaOnly.get(0))) == -1, null);
+    }
+
+    /** kit-mcts paces its searches by the bank; kit-mad-1 and kit-mad-k keep their frozen configuration. */
+    static void clockPacing() {
+        boolean math = Front.pacedLimit(90_000, 600_000, 2_000, 30, 12_000) == 22_000
+                && Front.pacedLimit(90_000, 120_000, 2_000, 30, 12_000) == 12_000
+                && Front.pacedLimit(9_000, 9_000, 2_000, 30, 12_000) == 9_000
+                && Front.pacedLimit(90_000, 600_000, 2_000, 0, 12_000) == 90_000;
+        Map<String, Object> h3 = Json.obj(Entries.frozen("h3"), "clock");
+        boolean entries = Json.num(h3, "pace_moves", 0) == 20 && Json.num(h3, "pace_floor_ms", 0) == 12_000
+                && !Json.obj(Entries.frozen("h1"), "clock").containsKey("pace_moves")
+                && !Json.obj(Entries.frozen("h2"), "clock").containsKey("pace_moves");
+        check("kernel.mcts_clock_pacing", math && entries, Json.map("h1", Entries.version(Entries.frozen("h1")),
+                "h3", Entries.version(Entries.frozen("h3"))));
+    }
+
+    /** A land that asks a color as it enters: the plan carries the world's color and binds to the played land. */
+    static void gateColors() {
+        Map<String, Object> obs = Json.map("viewer", "p0", "stack", new ArrayList<>());
+        Map<String, Object> play = Json.map("kind", "play_land", "source", ref("o-gate", "Sea Gate", "p0", "hand"), "face", 0L);
+        Map<String, Object> onField = ref("o-gate2", "Sea Gate", "p0", "battlefield");
+        List<Object> colors = new ArrayList<>();
+        for (String c : Arrays.asList("white", "black", "red", "green")) {
+            colors.add(Json.map("candidate_id", (long) colors.size(), "semantic",
+                    Json.map("kind", "choose_color", "source", onField, "purpose", "effect", "color", c), "display_text", null));
+        }
+        Map<String, Object> d = Json.map("seat_step", 11L, "context", Json.map("kind", "choice", "source", onField),
+                "observation", obs, "candidates", colors);
+        PlanBook pb = new PlanBook();
+        List<Map<String, Object>> none = new ArrayList<>();
+        pb.open(10, play, obs, Json.map("colors", Arrays.asList("red")), none);
+        int mcts = pb.claim(d);
+        List<Map<String, Object>> mad = new ArrayList<>();
+        mad.add(Json.map("family", "choice", "value", "Green"));
+        pb.open(10, play, obs, new LinkedHashMap<String, Object>(), mad);
+        int madPick = pb.claim(d);
+        pb.open(10, play, obs, new LinkedHashMap<String, Object>(), none);
+        int deferred = pb.claim(d);
+        boolean kept = pb.active != null;
+        Map<String, Object> other = Json.map("seat_step", 11L, "context", Json.map("kind", "choice", "source",
+                ref("o-cit", "Citadel Gate", "p0", "battlefield")), "observation", obs, "candidates", colors);
+        pb.open(10, play, obs, Json.map("colors", Arrays.asList("red")), none);
+        int foreign = pb.claim(other);
+        boolean only = Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Blue"))))
+                && !Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Blue"),
+                        Json.map("family", "use", "value", true))))
+                && !Front.colorsOnly(Json.map("answers", Arrays.asList(Json.map("family", "choice", "value", "Option A"))))
+                && !Front.colorsOnly(Json.map("answers", new ArrayList<>()));
+        boolean pick = Front.matchesPick(Json.obj(Json.obj(colors.get(1)), "semantic"), "black")
+                && !Front.matchesPick(Json.obj(Json.obj(colors.get(1)), "semantic"), "red");
+        check("kernel.gate_color_plan", mcts == 2 && madPick == 3 && deferred == -3 && kept && foreign == -2 && only && pick,
+                Json.map("mcts", (long) mcts, "mad", (long) madPick, "deferred", (long) deferred, "kept", kept,
+                        "foreign", (long) foreign, "colors_only", only, "pick", pick));
     }
 }

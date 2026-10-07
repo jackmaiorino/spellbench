@@ -123,6 +123,12 @@ def test_hosted_child_format_and_agent_log_identify_opt_in():
     assert expand_payload(json.loads(calls[0].messages[1]['content']))['candidates'][1]['candidate_id'] == 1
 
 
+def test_hosted_child_passes_public_history_only_when_enabled():
+    assert '--public-history-events' not in child_command('test', AgentConfig(), 32)
+    command = child_command('test', AgentConfig(public_history_events=96), 32)
+    assert command[command.index('--public-history-events') + 1] == '96'
+
+
 def test_default_format_is_the_existing_prompt_and_unknown_format_refuses():
     assert render_prompt(item()) == render_prompt(item(), prompt_format='json-v1')
     # The pinned pre-change Docker CLI accepts this exact argument contract.

@@ -296,7 +296,7 @@ public final class Mapping {
                 continue;
             }
             Map<String, Object> s = prioritySemantic(w, w.game, a, idx);
-            if (s != null && want.equals(Json.canonical(s))) {
+            if (s != null && (want.equals(Json.canonical(s)) || spellbench.kit.core.Offers.answers(semantic, s))) {
                 return a;
             }
         }

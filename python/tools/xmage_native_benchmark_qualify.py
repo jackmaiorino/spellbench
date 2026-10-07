@@ -7,6 +7,7 @@ limits. Native kit jars and engine inputs must be pinned by that manifest.
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 import hashlib
 import json
 import os
@@ -59,7 +60,8 @@ def trial_ledgers(records: Path, allocation) -> list[dict]:
 
 
 def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
-            placement: str, environ: Mapping[str, str] | None = None) -> dict:
+            placement: str, environ: Mapping[str, str] | None = None,
+            diagnostic_sample: tuple[int, ...] = (), diagnostic_games_per_worker: int | None = None) -> dict:
     benchmark_dir = benchmark_dir.resolve()
     benchmark_file = benchmark_dir / "benchmark.json"
     if sha(benchmark_file) != benchmark_sha256:
@@ -72,11 +74,22 @@ def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
     config = runner.TournamentConfig.from_json(benchmark.tournament_config(str(out)))
     executed = runner.executed_config(config, lambda text: definition.substitute(text, values))
     files = run_files(executed)
+    rules = benchmark.qualification_rules()
+    sample = benchmark.qualification_sample
+    diagnostic = bool(diagnostic_sample)
+    if diagnostic != (diagnostic_games_per_worker is not None):
+        raise ValueError("diagnostic sampling requires both indices and games per worker")
+    if diagnostic:
+        if not 1 <= diagnostic_games_per_worker <= 8 or len(diagnostic_sample) > 64:
+            raise ValueError("native diagnostic sampling exceeds its bounded envelope")
+        rules = replace(rules, games_per_worker=diagnostic_games_per_worker)
+        sample = diagnostic_sample
     out.mkdir(parents=True, exist_ok=False)
     records = benchmark_dir / ".qualification-records"
-    allocation = plan_for(executed, placement=placement, evidence=benchmark_dir / EVIDENCE_NAME,
+    evidence = benchmark_dir / ("diagnostic-" + EVIDENCE_NAME if diagnostic else EVIDENCE_NAME)
+    allocation = plan_for(executed, placement=placement, evidence=evidence,
                           volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
-                          rules=benchmark.qualification_rules())
+                          rules=rules, sample=sample)
     if allocation.kind == "substantial" and allocation.outputs_identical is not True:
         raise ValueError("native qualification outputs differ across worker counts")
     trials = trial_ledgers(records, allocation)
@@ -84,7 +97,9 @@ def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
               "benchmark_sha256": benchmark_sha256, "allocation": allocation.to_json(),
               "trial_ledgers": trials, "reused": allocation.reused,
               "files": [file.to_json() for file in files], "rated_games": 0,
-              "scope": "throughput and natural completion only; ratings and publication remain pending"}
+              "diagnostic_only": diagnostic, "preferred_sample": list(sample),
+              "scope": ("placement diagnostic only; separate evidence cannot qualify the frozen rated launch"
+                        if diagnostic else "throughput and natural completion only; ratings and publication remain pending")}
     with (out / "QUALIFICATION.json").open("x", encoding="utf-8") as target:
         json.dump(report, target, indent=2, allow_nan=False)
         target.write("\n")
@@ -97,9 +112,14 @@ def main() -> int:
     parser.add_argument("--benchmark-sha256", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--placement", required=True)
+    parser.add_argument("--diagnostic-index", type=int, action="append", default=[],
+                        help="Prefer this scheduled game in a separate placement diagnostic")
+    parser.add_argument("--diagnostic-games-per-worker", type=int,
+                        help="Bounded diagnostic sample size per top-rung worker (1 to 8)")
     args = parser.parse_args()
     report = qualify(args.benchmark, benchmark_sha256=args.benchmark_sha256, out=args.out,
-                     placement=args.placement)
+                     placement=args.placement, diagnostic_sample=tuple(args.diagnostic_index),
+                     diagnostic_games_per_worker=args.diagnostic_games_per_worker)
     print(json.dumps({"benchmark": report["benchmark"], "allocation": report["allocation"],
                       "trial_ledgers": report["trial_ledgers"], "rated_games": 0}))
     return 0
