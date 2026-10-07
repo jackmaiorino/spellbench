@@ -344,6 +344,168 @@
         "url": null
       },
       "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
+    },
+    {
+      "name": "gorge-bot",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "bot",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge bot",
+        "author": "gorge",
+        "description": "gorge's default heuristic bot. On this engine it plays exactly as gorge's bot-auto-pay, which is therefore not entered. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-lethal-pressure",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "lethal-pressure",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge lethal-pressure",
+        "author": "gorge",
+        "description": "gorge's lethal-pressure bot variant. On this engine it plays exactly as gorge's lethal-pressure-auto-pay, which is therefore not entered. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-ar8",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "ar8",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge ar8",
+        "author": "gorge",
+        "description": "gorge's combined lethal attack policy. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-blocks",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "blocks",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge blocks",
+        "author": "gorge",
+        "description": "gorge's blocker policy with its native lethal-pressure attack rule. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-explore",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "explore",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge explore",
+        "author": "gorge",
+        "description": "gorge's seeded exploration policy used for card coverage. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "gorge-legacy",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "legacy",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "${GORGE_REGISTRY_SHA256}"
+      ],
+      "display": {
+        "label": "gorge legacy",
+        "author": "gorge",
+        "description": "gorge's legacy policy with the native PCG seed derivation. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
     }
   ],
   "qualification_sample": [

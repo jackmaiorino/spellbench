@@ -88,6 +88,10 @@ plan-and-pick path as on gorge's engine. The search policies replay games in gor
 - Parity (`internal/neutral/parity_test.go`): on gorge-hosted bot mirrors, the translated view matches gorge's own
   view on every Board fact, and the translated decision picks the same candidate as `x_gorge_view_v1` on every
   comparable decision (all but those where gorge's own seat floated mana).
+- Board entries: pauper-kernel-v2 lists `gorge-bot`, `gorge-lethal-pressure`, `gorge-ar8`, `gorge-blocks`,
+  `gorge-explore` and `gorge-legacy` with `-world neutral`. The two auto-pay policies are not entered, as they play
+  the same as `bot` and `lethal-pressure` there. None is an evaluation target until `bench prepare` fingerprints it
+  on the evaluation host and its qualification passes.
 
 ## Benchmark: `pauper-gorge`
 
