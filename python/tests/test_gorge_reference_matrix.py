@@ -93,3 +93,30 @@ def test_reference_probes_preserve_original_seeds_seats_and_replay(monkeypatch, 
                          4 if policy in {'gorge-search', 'gorge-search-mana'} else 2)
     assert sum(expected.values()) == 160  # Both native participants have receipts.
     assert cfg.to_json() == original_config
+
+
+def test_restricted_matrix_keeps_original_order_for_qualified_modes(monkeypatch, tmp_path):
+    import sys
+    sys.path.insert(0, str(REPO/'tools'))
+    from gorge_reference_selection import ALL_POLICIES, matrix_counts, restrict_matrix
+    from spellbench.arena.allocation import ThroughputError
+    monkeypatch.setenv('GORGE_CLOUD_STAGE', str(tmp_path/'unstarted'))
+    spec = importlib.util.spec_from_file_location('gorge_reference_restricted',
+                                                REPO/'engines/gorge/scripts/reference_matrix.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    benchmark = load_benchmark(REPO/'benchmarks/pauper-gorge')
+    cfg = TournamentConfig.from_json(benchmark.tournament_config(str(tmp_path/'diagnostics')))
+    chosen, expected = module.select_matrix(schedule(cfg, RunSecret.from_hex('23'*32)))
+    assert restrict_matrix(chosen, expected, ','.join(ALL_POLICIES)) == (chosen, expected)
+    kept, cells = restrict_matrix(chosen, expected, ','.join(ALL_POLICIES[:10]))
+    assert matrix_counts(kept, cells) == (120, 50, 140)
+    assert [c.game_index for c in kept] == [c.game_index for c in chosen
+        if not any(s.name.endswith('redeal') for _, s in c.seat_specs)]
+    with pytest.raises(ThroughputError):
+        restrict_matrix(chosen, expected, ','.join(reversed(ALL_POLICIES[:10])))
+    nine = [name for name in ALL_POLICIES[:10] if name != 'search']
+    kept, cells = restrict_matrix(chosen, expected, ','.join(nine))
+    # Dropping the search/bot probes also drops their gorge-bot seats.
+    assert matrix_counts(kept, cells) == (100, 45, 110)
+    assert all(cells[cell] <= expected[cell] for cell in cells)

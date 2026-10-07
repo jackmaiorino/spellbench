@@ -23,14 +23,21 @@ STAGE = Path(os.environ['GORGE_CLOUD_STAGE'])
 NATIVE = Path(os.environ['GORGE_NATIVE_QUALIFIER'])
 REGISTRY = Path(os.environ.get('GORGE_REGISTRY',str(JOB/'runtime009/registry.gob.gz')))
 REGISTRY_SHA = '42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937'
-POLICIES = ['bot','bot-auto-pay','lethal-pressure','lethal-pressure-auto-pay','ar8','blocks',
-            'explore','legacy','search','search-mana','search-redeal','search-mana-redeal']
+ALL_POLICIES = ['bot','bot-auto-pay','lethal-pressure','lethal-pressure-auto-pay','ar8','blocks',
+                'explore','legacy','search','search-mana','search-redeal','search-mana-redeal']
+# An explicit subset keeps gorgequal's own -policies schedule, which numbers
+# seeds over only the selected pairings. The default remains every mode.
+SELECTED = os.environ.get('GORGE_NATIVE_POLICIES','all')
+POLICIES = ALL_POLICIES if SELECTED == 'all' else [p for p in ALL_POLICIES if p in SELECTED.split(',')]
+if SELECTED != 'all' and (len(POLICIES) != len(SELECTED.split(',')) or not POLICIES):
+    raise ValueError('Native policy subset names an unknown or duplicate mode')
 DECKS = ['Wildfire','Rally','Spy','Burn','CawGates']
 PAIRINGS = ['uniform/uniform','bot/lethal-pressure']+[p+'/uniform' for p in POLICIES]
 GAMES = [(d,p,g) for d in DECKS for p in PAIRINGS for g in range(4)]
 # Append coverage probes so all original deck/pairing/seed bindings survive.
 # These are qualification inputs, separate from the frozen rated benchmark.
-GAMES += [(d,p+'/bot',g) for d in DECKS for p in ['search','search-mana'] for g in range(4)]
+PROBES = [p for p in ['search','search-mana'] if p in POLICIES]
+GAMES += [(d,p+'/bot',g) for d in DECKS for p in PROBES for g in range(4)]
 
 def stamp():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -71,7 +78,8 @@ def main():
     manifest.update(native_qualifier_sha256=expected_native, registry_sha256=REGISTRY_SHA,
         unit='fixed-seed audit block containing two completed games', fixed_seed_indices=list(range(len(GAMES))),
         policies=POLICIES, decks=DECKS, games_per_deck_pairing=4, resample_every=7,
-        extra_coverage_pairings=['search/bot','search-mana/bot'], original_seed_blocks=280,
+        extra_coverage_pairings=[p+'/bot' for p in PROBES], original_seed_blocks=len(DECKS)*len(PAIRINGS)*4,
+        policy_selection=SELECTED,
         native_run_secret='gorge-qualification-run-secret!!',
         guard_path='engines/gorge/scripts/qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback',
         scope='native validator, determinism, leak, consistency, resample, intent parity, mapping and search gates; unrated',
@@ -91,6 +99,7 @@ def main():
         output=directory/'report.json'
         args=[str(NATIVE),'-games','4','-workers',str(workers),'-resample','7','-audit=true',
               '-progress','-registry',str(REGISTRY),'-registry-sha256',REGISTRY_SHA,'-out',str(output)]
+        if SELECTED != 'all': args += ['-policies',','.join(POLICIES)]
         if indices is not None: args += ['-game-indices',','.join(str(i) for i in indices)]
         write(directory/'COMMAND.json',{'command':args,'GOMAXPROCS':workers,'at_utc':stamp(),
             'wall_cap_seconds':callback_wall_seconds})

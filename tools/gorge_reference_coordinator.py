@@ -96,7 +96,7 @@ def validate_matrix(results, *, chosen, expected, secret, setup, entries, helper
     for policy, count in redealt.items():
         if count == 0:
             failures.append(policy + ': no accepted redealt world')
-    if len(aggregates) != 60 or len(results) != 140 or receipts_count != 160:
+    if len(aggregates) != len(expected) or len(results) != len(chosen) or receipts_count != sum(expected.values()):
         failures.append('incomplete original matrix or native participant receipts')
     return aggregates, joins, failures
 

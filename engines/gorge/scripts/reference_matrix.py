@@ -125,22 +125,35 @@ def main():
     cfg = runner.executed_config(cfg, lambda text: definition.substitute(text, values))
     configured_workers = cfg.workers
     rules = replace(benchmark.qualification_rules(), worker_selection='wall')
+    prior_secret = os.environ.get('GORGE_MATRIX_SECRET_FILE')
+    secret = (RunSecret.from_hex(json.loads(Path(prior_secret).read_bytes())['secret_hex'])
+              if prior_secret else RunSecret.generate())
+    # An explicit selection keeps only games whose native seats name natively
+    # qualified modes, after the unchanged full-schedule selection.
+    matrix_policies = os.environ.get('GORGE_MATRIX_POLICIES', 'all')
+    def selected(cfg):
+        chosen, expected = select_matrix(schedule(cfg, secret))
+        if matrix_policies != 'all':
+            sys.path.insert(0, str(ROOT/'tools'))
+            from gorge_reference_selection import restrict_matrix
+            chosen, expected = restrict_matrix(chosen, expected, matrix_policies)
+        return chosen, expected
+    matrix_games = len(selected(cfg)[0])
     eligible_workers = min(configured_workers, resource_bound(usable_cpus(), cfg.per_game_cores()))
     # This shorter unrated matrix needs its own measured ladder. A bound that
     # cannot fit the qualification budget would select the small-run path,
     # which only probes serially before using its configured workers.
     measured_bounds = [workers for workers in range(2, eligible_workers + 1)
-                       if rules.ladder_fits(140, workers)]
+                       if rules.ladder_fits(matrix_games, workers)]
     if not measured_bounds:
         raise RuntimeError('No parallel reference-host ladder fits the current resources and qualification budget')
     cfg = replace(cfg, workers=max(measured_bounds))
     files = bench_run.run_files(cfg)
-    prior_secret = os.environ.get('GORGE_MATRIX_SECRET_FILE')
-    secret = (RunSecret.from_hex(json.loads(Path(prior_secret).read_bytes())['secret_hex'])
-              if prior_secret else RunSecret.generate())
     private_secret(STAGE/'PRIVATE-MATRIX-SECRET.json', secret)
     contexts = schedule(cfg, secret)
-    chosen, expected = select_matrix(contexts)
+    chosen, expected = selected(cfg)
+    if len(chosen) != matrix_games:
+        raise RuntimeError('Reference matrix selection depends on the worker bound')
     manifest = json.loads((STAGE/'MANIFEST.json').read_bytes())
     manifest.update(started_at_utc=stamp(), executed_config=cfg.to_json(),
                     launch_files=[f.to_json() for f in files], python=sys.version,
@@ -152,6 +165,8 @@ def main():
                     expected_cells=[list(cell) for cell in sorted(expected)],
                     expected_cell_games={policy+'/'+deck:count for (policy,deck),count in sorted(expected.items())},
                     original_uniform_games=120, stock_sampler_native_bot_probe_games=20,
+                    matrix_policies=matrix_policies, matrix_games=len(chosen),
+                    native_participant_receipts_expected=sum(expected.values()),
                     scope='reference-host clocks, lifecycle, native mapping and search coverage; not native leak/parity qualification or ratings')
     write(STAGE/'MANIFEST.json', manifest)
     original_qualification = bench_run.qualification_play
@@ -245,7 +260,7 @@ def main():
     for policy,n in redealt.items():
         if n == 0: failures.append(policy+': no accepted redealt world')
     if bad_rows: failures.append('non-natural matrix games: '+str(bad_rows))
-    if len(aggregates) != 60 or len(seconds) != len(chosen): failures.append('incomplete matrix')
+    if len(aggregates) != len(expected) or len(seconds) != len(chosen): failures.append('incomplete matrix')
     if len(seconds) != len(chosen):
         report = {'schema':'spellbench-gorge-reference-host-matrix/v1', 'at_utc':stamp(),
             'passed':False, 'failures':failures, 'completed_games':len(seconds), 'cells':aggregates,

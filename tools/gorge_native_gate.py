@@ -20,6 +20,26 @@ class NativeAuditGateError(RuntimeError):
     pass
 
 
+def schedule_blocks(policies):
+    """Seed blocks gorgequal schedules for an ordered policy selection."""
+    probes = [name for name in ('search', 'search-mana') if name in policies]
+    return len(DECKS) * 4 * (2 + len(policies) + len(probes))
+
+
+def declared_policies(manifest):
+    """Accept every mode or an explicit ordered subset declared before launch."""
+    policies = manifest.get('policies')
+    selection = manifest.get('policy_selection', 'all')
+    if selection == 'all':
+        if policies != POLICIES:
+            raise NativeAuditGateError('Audit roster, decks or frozen seed indices differ')
+        return POLICIES
+    if (not isinstance(policies, list) or not policies or selection != ','.join(policies) or
+            policies != [name for name in POLICIES if name in policies]):
+        raise NativeAuditGateError('Audit policy subset is not an ordered declared selection')
+    return policies
+
+
 def sha(path):
     with path.open('rb') as stream:
         return hashlib.file_digest(stream, 'sha256').hexdigest()
@@ -114,9 +134,11 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
     manifest = json.loads(evidence(prefix + 'MANIFEST.json').read_bytes())
     parent = json.loads(evidence(layout['parent']).read_bytes())
     allocation = json.loads(evidence(prefix + 'ALLOCATION.json').read_bytes())
-    if (native.get('passed') is not True or native.get('seed_blocks') != 320 or
-            native.get('completed_games') != 640 or native.get('rated_games') != 0):
-        raise NativeAuditGateError('The full 320-block/640-game native pass is absent')
+    policies = declared_policies(manifest)
+    blocks = schedule_blocks(policies)
+    if (native.get('passed') is not True or native.get('seed_blocks') != blocks or
+            native.get('completed_games') != 2 * blocks or native.get('rated_games') != 0):
+        raise NativeAuditGateError('The full declared native pass is absent')
     if (allocation != native.get('allocation') or allocation.get('kind') != 'substantial' or
             allocation.get('outputs_identical') is not True):
         raise NativeAuditGateError('Matched serial/parallel allocation is absent or differs')
@@ -132,8 +154,7 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
     if (layout['kind'] == 'local-windows-amd64' and
             manifest.get('runtime_seal_sha256') != runtime_seal_sha256):
         raise NativeAuditGateError('Local audit names a different sealed production runtime')
-    if (manifest.get('policies') != POLICIES or manifest.get('decks') != DECKS or
-            manifest.get('fixed_seed_indices') != list(range(320))):
+    if manifest.get('decks') != DECKS or manifest.get('fixed_seed_indices') != list(range(blocks)):
         raise NativeAuditGateError('Audit roster, decks or frozen seed indices differ')
     # Windows receipts must remain readable after recovery on a Linux worker.
     directory = native['full_report_path'].replace('\\', '/').split('/')[-2]
@@ -147,11 +168,11 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
             receipt.get('exit_code') != 0 or receipt.get('full_native_gate_passed') is not True):
         raise NativeAuditGateError('Primary output hash or successful callback differs')
     totals, rows = report['totals'], report['rows']
-    if (report.get('policies') != POLICIES or report.get('scheduled_games') != 320 or
-            totals.get('Games') != 320 or totals.get('CompletedGames') != 640 or
+    if (report.get('policies') != policies or report.get('scheduled_games') != blocks or
+            totals.get('Games') != blocks or totals.get('CompletedGames') != 2 * blocks or
             any(totals.get(key) != 0 for key in FAULTS)):
         raise NativeAuditGateError('Native schedule, completion or original fault gate failed')
-    if ([row['game'] for row in rows] != list(range(320)) or
+    if ([row['game'] for row in rows] != list(range(blocks)) or
             any(row.get('classification') != 'natural' or 'error' in row for row in rows)):
         raise NativeAuditGateError('A native seed is missing, reordered or non-natural')
     for section in ('gates', 'policy_gates'):
@@ -162,7 +183,7 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
             bad = value['ForcedNatives'] + value['FallbackNatives']
             if natives < 0 or bad < 0 or (100 * bad >= natives if natives else bad != 0):
                 raise NativeAuditGateError('Native mapping fails its original one-percent gate')
-    for policy in (name for name in POLICIES if name.startswith('search')):
+    for policy in (name for name in policies if name.startswith('search')):
         redealt = 0
         for deck in DECKS:
             value = report['search_coverage'][deck + '/' + policy]
@@ -180,4 +201,6 @@ def verify_native_audit(root, runtime, *, seal_sha256, runtime_seal_sha256, clea
         runtime_source_commit=build['source_commit'], launcher_source_commit=terminal['head_sha'],
         execution_kind=layout['kind'], native_qualifier_name=layout['qualifier'],
         native_sha256=native_hash, registry_sha256=registry_hash, primary_sha256=sha(primary),
-        seed_blocks=320, completed_games=640, outputs_identical=True, closed=True)
+        seed_blocks=blocks, completed_games=2 * blocks, outputs_identical=True, closed=True,
+        # Full-roster verdicts keep their original shape for existing bundles.
+        **({} if policies == POLICIES else dict(policies=policies)))
