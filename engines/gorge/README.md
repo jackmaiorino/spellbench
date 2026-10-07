@@ -63,6 +63,28 @@ The engine's explicit `-search` flag adds actor-only public history and bindings
 
 Native qualification retains its original uniform-opponent games and seed bindings, then appends stock search and search-mana games against the native bot on all five decks. These additional probes exercise the opponent policy assumed by the shipped rejection sampler. Uniform-opponent histories can legitimately exhaust its attempts without supplying worlds. The existing coverage and reconstruction gates still apply. This qualification schedule is separate from the frozen rated benchmark. See `docs/gorge-stock-sampler-diagnostics-20261004.json` for observed rejection details.
 
+## Playing another engine's game (`-world neutral`)
+
+`spellbench-gorge-agent -world neutral -policy P -registry R -registry-sha256 H` plays any engine's v2 game, for
+the single Pauper board (pauper-kernel-v2, where mtg-kernel hosts). It requires only the `keywords` observation flag
+and reads no extension. Each decision is rebuilt from the seat's own observation and candidates (`internal/neutral`):
+a gorge view whose printed facts (mana cost, type line, spell API, mana production) come from the frozen registry by
+card name, and a native decision with one op per candidate, which the shipped policy answers through the same
+plan-and-pick path as on gorge's engine. The search policies replay games in gorge, so they cannot play here.
+
+- Names: kernel lists spell two cards in ASCII (`Lorien Revealed`, `Troll of Khazad-dum`); an explicit table maps
+  them to the Oracle names. A face name resolves to its card ("Roost Seek" is face 1 of "Sagu Wildling // Roost
+  Seek"); any other near miss is an error, never a substitution. All eight kernel decks resolve; Affinity, Elves and
+  Faeries each hold one card gorge cannot play (Black Mage's Rod, Avenging Hunter, Saiba Cryptomancer).
+- Mana: under the kernel's `engine_autopay` the policy never floats mana. Mana activations are left untranslated,
+  exactly as the auto-pay policies drop them, so `bot` and `bot-auto-pay` (and the lethal-pressure pair) play
+  alike on such an engine.
+- Untranslated families (library orders other than triggers and mulligan bottoms, piles, names, replacements,
+  distribution) answer by the agent's fallback and are counted.
+- Parity (`internal/neutral/parity_test.go`): on gorge-hosted bot mirrors, the translated view matches gorge's own
+  view on every Board fact, and the translated decision picks the same candidate as `x_gorge_view_v1` on every
+  comparable decision (all but those where gorge's own seat floated mana).
+
 ## Benchmark: `pauper-gorge`
 
 `benchmarks/pauper-gorge/benchmark.json` (schema `spellbench-benchmark/v2`): the five catalog decks, 4 seat-swapped pairs per matchup/deck, both gorge extensions, and fourteen entrants: `uniform` (the rating anchor), `heuristic`, and all twelve gorge modes. The search modes are `search`, `search-mana`, `search-redeal`, and `search-mana-redeal`; the other modes are `bot`, `lethal-pressure`, `ar8`, `blocks`, `explore`, `legacy`, `bot-auto-pay`, and `lethal-pressure-auto-pay`. The engine command enables `-auto-pay` and `-search` and names `${GORGE_REGISTRY}` and `${GORGE_REGISTRY_SHA256}`. This remains a draft 3,640-game full round robin. The complete pinned inventory, aliases, qualification and publication status are in `docs/gorge-roster-20261002.json`.
