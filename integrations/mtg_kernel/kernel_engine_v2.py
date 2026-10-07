@@ -362,19 +362,27 @@ class KernelEngine:
             "acting_seat": actor, "step": self.seat_steps[actor],
             "row_candidate_ids": list(range(candidate_count))}
         # Large graveyard orders repeat many tensor slices. The fast compressor
-        # can miss those repetitions and exceed the unchanged wire limit; a
-        # whole-library mill also needs the table grouped by key. Each fallback
-        # runs only when the previous encoding does not fit, so every proposal
-        # that fit before keeps its exact bytes.
+        # can miss those repetitions, and a whole-library mill also needs the
+        # table grouped by key. First-use encodings are kept only while they
+        # leave a quarter of the bound free, so a proposal near the limit moves
+        # to the grouped table (about half the size) instead of riding the edge.
+        # Proposals well under the bound keep their exact bytes.
         limit = wire.MAX_LINE_BYTES - 262144
+        smallest = None
         for grouped, level in ((False, 1), (False, 9), (True, 9)):
             if level == 1 or grouped:
                 payload = wire.canonical_json_dumps(intern_proposal_vectors(proposals, grouped=grouped))
                 if len(payload) > 64 * 1024 * 1024:
                     raise ProjectionError("completion proposal exceeds the decoded payload bound")
-            extension["proposals_zlib"] = base64.b64encode(zlib.compress(payload, level=level)).decode("ascii")
-            if len(wire.canonical_json_dumps(extension)) <= limit:
+            encoded = base64.b64encode(zlib.compress(payload, level=level)).decode("ascii")
+            if smallest is None or len(encoded) < len(smallest):
+                smallest = encoded
+            extension["proposals_zlib"] = encoded
+            if len(wire.canonical_json_dumps(extension)) <= limit * 3 // 4:
                 break
+        else:
+            # Nothing left the margin: send the smallest encoding if it fits.
+            extension["proposals_zlib"] = smallest
         extension_bytes = len(wire.canonical_json_dumps(extension))
         if extension_bytes > limit:
             raise ProjectionError(f"completion proposal exceeds the wire bound: "
