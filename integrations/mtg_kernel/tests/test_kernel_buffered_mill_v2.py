@@ -171,6 +171,20 @@ def test_whole_library_mill_projects_previews_and_commits_without_changing_root(
     assert engine.current["response_type"] == "terminal"
 
 
+def test_mill_proposal_near_the_wire_bound_moves_to_a_smaller_encoding(monkeypatch):
+    plain = engine_for(MillPeer(20)).pose("plain")["seat_decision"]["extensions"][FLAT]
+    size = len(wire.canonical_json_dumps(plain))
+    # Leave the first-use encoding inside the bound but past its margin.
+    monkeypatch.setattr(wire, "MAX_LINE_BYTES", 262144 + size * 4 // 3 - 8)
+    tight = engine_for(MillPeer(20)).pose("tight")["seat_decision"]["extensions"][FLAT]
+    assert tight["proposals_zlib"] != plain["proposals_zlib"]
+    assert len(wire.canonical_json_dumps(tight)) <= size
+    assert unpack(tight) == unpack(plain)
+    monkeypatch.setattr(wire, "MAX_LINE_BYTES", 262144 + 1024)
+    with pytest.raises(ProjectionError, match="exceeds the wire bound"):
+        engine_for(MillPeer(20)).pose("over")
+
+
 @pytest.mark.parametrize("invalid", ["knowledge", "effect"])
 def test_mill_projection_rejects_unlicensed_library_objects_before_preview(invalid):
     peer = MillPeer(3)
