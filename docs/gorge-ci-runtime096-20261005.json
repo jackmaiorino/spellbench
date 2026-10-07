@@ -1,0 +1,95 @@
+{
+  "at_utc": "2026-10-05T19:09:12.159932+00:00",
+  "source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
+  "current_source_commit": "d9f02e50212102d203028f0de6216a99639ad7e4",
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-096",
+  "runtime_recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261005-096",
+  "runtime_seal_sha256": "d736deb111c115f40c89d8a2e78016f849e6d9f4683e77807e5be1471141337e",
+  "github_run_id": 37359642777,
+  "ci_build_passed": true,
+  "seven_binaries_verified": true,
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "recovered_artifacts": [
+    {
+      "id": 11365923827,
+      "source_commit": "fbee04a52002ca84cfb9cd06c1c8ec6d864224b9",
+      "archive_sha256": "31c02bf921d1cd0649cb52141aa5f84cad39c3b64bd16af1d170afd26ee9077d",
+      "archive_bytes": 69410720,
+      "extracted_bytes": 123079588,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11364629644,
+      "source_commit": "02bcd559d0a0ab872f766620dd3c12ffc85cbcbe",
+      "archive_sha256": "74b2ab5da3397625d6e6c4f273276ffe38284c69e0c3d57a8505c82de665dc36",
+      "archive_bytes": 69332987,
+      "extracted_bytes": 122936431,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11364161427,
+      "source_commit": "2e195221199c75fc83de458fdb6f895b205299ff",
+      "archive_sha256": "65e5a7e5fe473f7e385a7ca403979a6be1f16fbbf23f8d5b4bccb42939955ffd",
+      "archive_bytes": 69279523,
+      "extracted_bytes": 122826610,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11362983653,
+      "source_commit": "88ecf96fd0d350a575a45d4071cd858c5f85cd5e",
+      "archive_sha256": "e0a22df8c7b2274300cb6fe650e9d24281bffed66e0eff2d8ac7cd15054549ae",
+      "archive_bytes": 69279527,
+      "extracted_bytes": 122826618,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11362351553,
+      "source_commit": "e9c2a7b7b6284800b3db56ecaaf47b37d03588bc",
+      "archive_sha256": "ffdc169984cd69a699be2e3737fe4d9018058477e436f983f1aabc0a4a678492",
+      "archive_bytes": 69250412,
+      "extracted_bytes": 122774660,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11358344077,
+      "source_commit": "7fc59c49ed4b6ec874d7dbca2c9d26a452e6b81a",
+      "archive_sha256": "a5e57e2313bfbffff9d18fbe85109797fbb075c77bb1a66108b5cd7d494efe36",
+      "archive_bytes": 69250409,
+      "extracted_bytes": 122774659,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    },
+    {
+      "id": 11357632051,
+      "source_commit": "333e230ab8b68e4489b1d6a7578503027057e418",
+      "archive_sha256": "7d2d8422075d5fe3100af4542a2c46154d05c67747cb19abc1b3f8050491076b",
+      "archive_bytes": 69250417,
+      "extracted_bytes": 122774659,
+      "seven_binary_hashes_verified": true,
+      "independent_archive_copy_verified": true,
+      "remote_deletion_verified": true
+    }
+  ],
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-041",
+  "billing_seal_sha256": "f755ce0e1e5efa3738966f4030bf2de79ee9721fe3b758846e1756385672512d",
+  "conservative_reserved_total_usd": 9.99736347,
+  "provider_final_settlement_pending": true,
+  "new_runpod_spend_usd": 0,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "recovery_seal_sha256": "282584234eb820d452b57d7cf987095e197de79df7d47485ae60c44de42f7914",
+  "timestamp_mirror_repair_record": "RECOVERY-REPAIR.json"
+}

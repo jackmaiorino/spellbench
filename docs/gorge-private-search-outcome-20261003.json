@@ -1,0 +1,32 @@
+{
+  "schema": "spellbench-gorge-private-search-outcome/v1",
+  "source_commit": "a1f851ae6a69428f2b630af3197734b2ece3c729",
+  "runtime_source_commit": "1ca4bb29487f4bfb9702721a84349ef0c279934a",
+  "production_changes": false,
+  "source_of_record": "E:/spellbench-gorge-library-owner-20261003-002",
+  "recovery_root": "D:/e-scratch/spellbench-gorge-library-owner-20261003-002",
+  "bytes": 19819,
+  "seal_sha256": "1bfa716f5013a288527174c5fb749aafcab34fa8510e706c65babde587e97009",
+  "checks": {
+    "exit_code": 0,
+    "wall_seconds": 19.878843099984806,
+    "diff_check_exit_code": 0,
+    "test_source_sha256": "5e49569f864efdd5939c7861ca778cc64f748b58d47415427fb96bb6296985e1",
+    "completed_games": 0,
+    "rated_games": 0,
+    "qualified": false
+  },
+  "private_offer_and_public_outcome_noninterference": true,
+  "distinct_hidden_copies_checked": true,
+  "public_reconstruction": {
+    "actor_frames": 26,
+    "attempts": 1,
+    "submits": 52,
+    "nodes": 11,
+    "budget_exhausted": false
+  },
+  "completed_games": 0,
+  "rated_games": 0,
+  "qualified": false,
+  "limitation": "Real-card effect fixture; full runtime qualification and rated publication remain separate."
+}

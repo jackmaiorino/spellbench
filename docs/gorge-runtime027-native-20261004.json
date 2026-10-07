@@ -1,0 +1,79 @@
+{
+  "at_utc": "2026-10-04T22:41:19.051811+00:00",
+  "phase": "released_native_qualification_incomplete",
+  "pod_id": "cwyob8qtley1y4",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-027",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-027",
+  "release": {
+    "at_utc": "2026-10-04T22:41:09.1688444+00:00",
+    "name": "spellbench-gorge-native-24f428eb52fc4180",
+    "pod_id": "cwyob8qtley1y4",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "17bfad2cd4978001975dea9293dc63dc35a812b1e9348872bc403e4bfb1f5670",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 5.50823747,
+    "maximum_lease_usd": 1.55,
+    "conservative_cumulative_lease_ceiling_usd": 7.05823747,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-04T22:39:32.217469+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 343.7583751499769,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261004-027",
+  "runtime_seal_sha256": "b7be1bb34ad813cad9e4663c86bc629bb2092f4a49b26e05aafdee66794b23f3",
+  "native_audit": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-04T22:39:32.211442+00:00",
+      "phase": "supported_native_qualification",
+      "error_type": "RuntimeError",
+      "error": "supported-native exit 1",
+      "rated_games": 0
+    },
+    "native-001/FAILED.json": {
+      "at_utc": "2026-10-04T22:39:27.714799+00:00",
+      "error_type": "ThroughputError",
+      "error": "a placement names each of main-pc, haleyspc and runpod once, as '<machine>=<disposition>: <reason>' separated by ';', each disposition one of used, unavailable, slower, not_authorized and at least one used, for example 'main-pc=used: fastest measured; haleyspc=slower: half the speed per game; runpod=not_authorized: no spending authority' (COMPUTE-POLICY.md item 1)",
+      "rated_games": 0
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-04T22:41:19.051811+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-008",
+    "prior_closed_ledger_seal_sha256": "4107f1e799659547d0ccca2596312930b6e43e63fa0bb070f2f876d93478ed9a",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 568.12014,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.205234,
+    "conservative_cumulative_lease_ceiling_usd": 5.71347147,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-009",
+  "billing_seal_sha256": "a8bbbee43a32867c1e6af7ec480eb0f05c81da76addadb543e0b2cb66f0c823b",
+  "seal_sha256": "4ce4825b04f6fa4735f096b44c57398c6391eb888efb64ac83fb55d50eb2b20f"
+}

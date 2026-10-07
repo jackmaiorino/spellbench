@@ -1,0 +1,62 @@
+{
+  "schema": "spellbench-gorge-cloud-preflight/v1",
+  "at_utc": "2026-10-04T11:21:56.077560+00:00",
+  "status": "released_network_preflight_failed",
+  "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-017",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-017",
+  "seal_sha256": "9b036c972d0d7b05a6aac5cda8189b2b58df985f9d16019babda925c2ba714db",
+  "bytes": 152246496,
+  "release": {
+    "at_utc": "2026-10-04T11:18:31.3314469+00:00",
+    "name": "spellbench-gorge-native-7505378c15c249de",
+    "pod_id": "kmffx163918q09",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "remote_evidence_started": false,
+    "qualification_launched": false,
+    "preflight_failure_sha256": "e5b60d0fd5a9732f373562ba8c7b9d2fa96366a5159d016d28d4677c557e6ac9",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 6.11026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 6.96026747,
+    "final_invoice_pending": true
+  },
+  "failure": {
+    "at_utc": "2026-10-04T11:15:20.557634+00:00",
+    "status": "preflight_failed_no_direct_ssh",
+    "pod_id": "kmffx163918q09",
+    "name": "spellbench-gorge-native-7505378c15c249de",
+    "observed_ssh": {
+      "direct": null,
+      "proxy": {
+        "command": "ssh kmffx163918q09-64411752@ssh.runpod.io",
+        "host": "ssh.runpod.io",
+        "port": 22,
+        "username": "kmffx163918q09-64411752"
+      }
+    },
+    "requested_ports": [
+      "22/tcp"
+    ],
+    "remote_inputs_transferred": false,
+    "qualification_launched": false,
+    "completed_games": 0,
+    "rated_games": 0,
+    "remedy": "Require a public IP for the next community allocation so authenticated direct SSH, SCP and periodic recovery are available."
+  },
+  "remedy": "Use the documented REST v1 supportPublicIp=true scheduling constraint. REST v2 create currently exposes no equivalent constraint. Require authenticated direct SSH before input transfer or dispatch.",
+  "sources": [
+    "https://docs.runpod.io/pods/configuration/use-ssh",
+    "https://docs.runpod.io/api-reference/pods/POST/pods",
+    "https://docs.runpod.io/api-reference-v2/pods/create-a-pod"
+  ],
+  "completed_games": 0,
+  "rated_games": 0,
+  "fully_qualified_entries": 0,
+  "published_entries": 0
+}

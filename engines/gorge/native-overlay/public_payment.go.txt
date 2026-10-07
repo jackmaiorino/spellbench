@@ -1,0 +1,66 @@
+package searchprobe
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// A payment answer is an exclusive selector, so Choices is empty. Keep its
+// cast and complete witness as a comparable public action. Native digests and
+// zone event counters never enter history; every source uses an observer ID.
+func (c *Collector) spellbenchPaymentAction(d *decision.Decision, selection *decision.PaymentSelection) (Action, error) {
+	if d == nil || d.Player != c.actor || d.Kind != decision.KPriority || selection == nil {
+		return Action{}, fmt.Errorf("invalid owned payment answer")
+	}
+	for _, offer := range d.PaymentActions {
+		if offer.ID != selection.ActionID {
+			continue
+		}
+		obj := c.ref(offer.Cast.Object)
+		if obj == 0 {
+			return Action{}, fmt.Errorf("payment cast references an unobserved object")
+		}
+		plan := decision.ClonePaymentPlan(selection.Plan)
+		plan.ID = ""
+		for i := range plan.Activations {
+			activation := &plan.Activations[i]
+			activation.Source = state.ObjID(c.ref(activation.Source))
+			activation.SourceZoneSeq = 0
+			if activation.Source == 0 {
+				return Action{}, fmt.Errorf("payment source references an unobserved object")
+			}
+		}
+		encoded, err := json.Marshal(plan)
+		if err != nil {
+			return Action{}, err
+		}
+		return Action{Decision: d.Kind, Kind: "cast", Obj: obj, Player: d.Player, Amount: offer.Cast.Face, Value: offer.Cast.Origin, SpellbenchPayment: string(encoded)}, nil
+	}
+	return Action{}, fmt.Errorf("payment answer was not offered")
+}
+
+// Match against this hypothetical world's independently offered witnesses.
+// That rebinds both sequence-dependent IDs and native zone counters without
+// trusting or recovering them from another world's public representation.
+func (c *Collector) spellbenchMatchPayment(d *decision.Decision, want Action) (decision.Intent, error) {
+	if d == nil || d.Player != c.actor {
+		return decision.Intent{}, fmt.Errorf("may only match the acting seat's payment")
+	}
+	for _, offer := range d.PaymentActions {
+		for _, plan := range offer.Plans {
+			selection := &decision.PaymentSelection{ActionID: offer.ID, Plan: decision.ClonePaymentPlan(plan)}
+			got, err := c.spellbenchPaymentAction(d, selection)
+			if err != nil || got != want {
+				continue
+			}
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: selection}
+			if err := d.Validate(in); err == nil {
+				return in, nil
+			}
+		}
+	}
+	return decision.Intent{}, fmt.Errorf("missing semantic payment answer")
+}

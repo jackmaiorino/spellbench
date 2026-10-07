@@ -1,0 +1,140 @@
+{
+  "schema": "spellbench-gorge-reference-payment/v1",
+  "source_commit": "b6c82823597d5f6eeb73b6b88a8b4ed2460a51dc",
+  "rated": false,
+  "public_fixture_secret": "0000000000000000000000000000000000000000000000000000000000000000",
+  "failed_attempt002_replayed": false,
+  "game_index": 80,
+  "games": [
+    {
+      "repetition": 0,
+      "bots": {
+        "p0": "uniform",
+        "p1": "gorge-lethal-pressure"
+      },
+      "deck": "Wildfire",
+      "engine_defaults": {
+        "combat_damage_assignment": "engine_order",
+        "mana_payment": null,
+        "replacement_order": null,
+        "trigger_order": null
+      },
+      "wall_seconds": 4.260678500024369,
+      "result": {
+        "outcome": "p1_win",
+        "classification": "natural",
+        "winner": "p1",
+        "reason": "p0_life_zero",
+        "adjudication": null,
+        "step_count": 560,
+        "decision_count": 556,
+        "decisions_checked": 560,
+        "last_selection_seat": null,
+        "game_digest": "sha256:6842df2d40ff79a33583ddc36b762f386fd1c5e373947b701b3995c93919a1b9",
+        "violation": null,
+        "diagnostics": []
+      },
+      "mana_windows": [
+        {
+          "step": 265,
+          "seat": "p1",
+          "kinds": [
+            "activate_mana_ability",
+            "optional_cost"
+          ]
+        }
+      ],
+      "processes": [
+        {
+          "pid": 20768,
+          "max_read_bytes": 54762,
+          "max_write_bytes": 2295,
+          "reads": 562,
+          "writes": 562,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 49244,
+          "max_read_bytes": 263,
+          "max_write_bytes": 50354,
+          "reads": 318,
+          "writes": 318,
+          "closed": true,
+          "exit_code": 0
+        }
+      ]
+    },
+    {
+      "repetition": 1,
+      "bots": {
+        "p0": "uniform",
+        "p1": "gorge-lethal-pressure"
+      },
+      "deck": "Wildfire",
+      "engine_defaults": {
+        "combat_damage_assignment": "engine_order",
+        "mana_payment": null,
+        "replacement_order": null,
+        "trigger_order": null
+      },
+      "wall_seconds": 4.277108999987831,
+      "result": {
+        "outcome": "p1_win",
+        "classification": "natural",
+        "winner": "p1",
+        "reason": "p0_life_zero",
+        "adjudication": null,
+        "step_count": 560,
+        "decision_count": 556,
+        "decisions_checked": 560,
+        "last_selection_seat": null,
+        "game_digest": "sha256:6842df2d40ff79a33583ddc36b762f386fd1c5e373947b701b3995c93919a1b9",
+        "violation": null,
+        "diagnostics": []
+      },
+      "mana_windows": [
+        {
+          "step": 265,
+          "seat": "p1",
+          "kinds": [
+            "activate_mana_ability",
+            "optional_cost"
+          ]
+        }
+      ],
+      "processes": [
+        {
+          "pid": 3216,
+          "max_read_bytes": 54762,
+          "max_write_bytes": 2295,
+          "reads": 562,
+          "writes": 562,
+          "closed": true,
+          "exit_code": 0
+        },
+        {
+          "pid": 46416,
+          "max_read_bytes": 263,
+          "max_write_bytes": 50354,
+          "reads": 318,
+          "writes": 318,
+          "closed": true,
+          "exit_code": 0
+        }
+      ]
+    }
+  ],
+  "replay_equal": true,
+  "interactive_mana_observed": true,
+  "passed": true,
+  "recipe_sha256": "a0726f75c78ed185ba86b43f6f7ddc26ce6c050e1a6e07b2dea86e5f7eb9f277",
+  "runtime_preparation": "docs/gorge-runtime-preparation-20261003-004.json",
+  "checks": {
+    "go_test": "TestBenchmarkMatchesTheEngineProfile; TestSpellbombWindowIsOneManaPaymentDecision/manual and /cast_witnesses; TestAutoPayCastCommitsTheOfferedNativeWitness; TestPoolOnlyPaymentAndManualCastHaveTheSameEffect",
+    "go_test_result": "PASS: internal/server 0.633s; internal/mapping 0.895s",
+    "go_vet": "PASS: internal/server and internal/mapping",
+    "toolchain": "go1.27.1 windows/amd64; CGO_ENABLED=0; GOMAXPROCS=1; pinned read-only gorge source with owned overlay",
+    "scope": "Affected declaration and payment checks, one public correctness game and replay; no qualification or playing-strength claim"
+  }
+}

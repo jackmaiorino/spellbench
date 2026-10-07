@@ -1,0 +1,109 @@
+{
+  "at_utc": "2026-10-05T02:24:58.784541+00:00",
+  "phase": "released_native_qualification_incomplete",
+  "pod_id": "0vnelx3sj13mcr",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-033",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-033",
+  "release": {
+    "at_utc": "2026-10-05T02:24:40.7905505+00:00",
+    "name": "spellbench-gorge-native-7d50fd7fdb394021",
+    "pod_id": "0vnelx3sj13mcr",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "699ce2682a881c181bca984222c722b3c841b7f3b8989d573b49519cc3a6a7f9",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 7.06267947,
+    "maximum_lease_usd": 1.55,
+    "conservative_cumulative_lease_ceiling_usd": 8.61267947,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T02:15:07.343334+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 3282.4778941019904,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-033",
+  "runtime_seal_sha256": "5762eb56f54c7a4ce6a557fddaf8ea11110737027a61c27c1d5a3855a741b497",
+  "native_audit": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T02:15:07.342284+00:00",
+      "phase": "supported_native_qualification",
+      "error_type": "RuntimeError",
+      "error": "supported-native exit 1",
+      "rated_games": 0
+    },
+    "native-001/EARLY-NATIVE-FAILURE.json": {
+      "at_utc": "2026-10-05T02:15:03.138485+00:00",
+      "game": 52,
+      "cell": "Wildfire/search-mana-redeal",
+      "coverage": {
+        "Natives": 628,
+        "Eligible": 212,
+        "Attempted": 91,
+        "Covered": 74,
+        "Attempts": 5824,
+        "Accepted": 4,
+        "Worlds": 592,
+        "Rollouts": 2392,
+        "Submits": 2149369,
+        "Terminal": 2392,
+        "Capped": 0,
+        "Redealt": 592,
+        "ReconstructionAttempts": 145,
+        "ReconstructionSubmits": 152585,
+        "ReconstructionNodes": 90724,
+        "ReconstructionBudgetExhausted": 17,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 17
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 121,
+          "insufficient worlds/ESS": 17
+        },
+        "Kinds": {
+          "attackers": 2,
+          "cast": 20,
+          "mana": 52
+        }
+      },
+      "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T02:24:58.784541+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-014",
+    "prior_closed_ledger_seal_sha256": "fdf316ed2955673c70f7bb8a3b5a5091be4f9beb63aa7d69eaeed70147f2bf5c",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0.0011574074160307646,
+      "gpuAmount": 0.007218935992568731,
+      "totalAmount": 0.008376343408599496
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7662702432571677,
+    "current_closed_lease_maximum_billable_seconds": 3941.234917,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.533176,
+    "conservative_cumulative_lease_ceiling_usd": 7.59585547,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-015",
+  "billing_seal_sha256": "e2d2ca9d7bee1471e3d52e842cb65158172f91781068542cc2e5c132053df9bb",
+  "seal_sha256": "6f46be26bae6931221d3a63b84296c4e5e833322f6d9424388f60c4851290642"
+}

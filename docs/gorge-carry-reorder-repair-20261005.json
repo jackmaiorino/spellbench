@@ -1,0 +1,74 @@
+{
+  "schema": "spellbench-gorge-source-repair/v1",
+  "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "public_projection_source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+  "public_projection_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+  "event_source_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "event_source_sha256": "cf735eff33519764484a240cb48f36bcb69b4a2f4d9a175901337c4798cff80d",
+  "exact_baseline_diagnostic": "docs/gorge-witness-trace046-20261005.json",
+  "opponent_reorder": {
+    "frame": 355,
+    "event_index": 1,
+    "draws_before": 9,
+    "scry_bottom_count": 1
+  },
+  "draw_after_reorder": {
+    "frame": 355,
+    "event_index": 3,
+    "draw_count": 10
+  },
+  "repair": "Optional carry deadline uses the drawn prefix before the first public reorder in the previous epoch. It counts all prior consumed copies while retaining known return credit. Native constraints and odd proposal alternatives remain unchanged.",
+  "interpretation": "The repaired source now yields eight valid worlds for the unchanged saved596-frame input, with one proposal,1220submits,31nodes and zero exhaustion. This validates the exact component repair; production qualification and playing strength remain unproved.",
+  "regression": "TestSpellbenchPublicCarrySurvivesScryBottom checks opponent/actor/no reorder, repeated reorder, consumption after reorder, unchanged native constraints, and eight real constrained shuffle plans retaining required copies before scry.",
+  "ci": {
+    "source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+    "run_id": 37273275687,
+    "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+    "affected_checks": "passed",
+    "full_suite": "passed"
+  },
+  "exact596_replay_with_repair_complete": true,
+  "production_runtime_rebuilt": true,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_runpod_spend_usd": 0,
+  "constraints": "Ledger026 verifies22 closed exact leases, actual quotes, zero persistent volumes, full lifetime bounds, fresh bills and provider contract. Conservative boundUSD7.33314247 includes legacy allowances, extra300 seconds per lease and one projectUSD0.15 reserve. Jack generation184 and Haley queued research priority remain excluded; Zaratan credential refresh remains pending.",
+  "next_wake_condition": "Compatible production048 durable pins, supported matched serial/parallel allocation and full native audit; exact roots now passed.",
+  "exact_replay_preparation": {
+    "record": "docs/gorge-portable-roots047-20261005.json",
+    "source_of_record": "E:/spellbench-gorge-public-root-preparation-20261005-047",
+    "seal_sha256": "2d8d224603daa760bcb4b97cd3d4b4fb2aa32be2c9e610c169b134d7f219dfd3",
+    "public_frames": [
+      364,
+      410,
+      478,
+      596
+    ],
+    "independent_recovery_verified": true,
+    "runtime_built": false,
+    "new_allocation": false,
+    "new_cloud_spend_usd": 0
+  },
+  "current_billing": {
+    "source_of_record": "E:\\spellbench-gorge-billing-20261005-026",
+    "seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
+    "conservative_cumulative_ceiling_usd": 7.33314247,
+    "final_invoice_verified": false,
+    "new_allocation": false
+  },
+  "exact_replay_result_record": "docs/gorge-runtime048-native-20261005.json",
+  "exact_replay_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "exact596_reconstruction": {
+    "Attempts": 1,
+    "Submits": 1220,
+    "Nodes": 31,
+    "BudgetExhausted": 0
+  },
+  "exact596_worlds": 8,
+  "production_runtime_record": "docs/gorge-runtime048-native-20261005.json",
+  "current_native_qualification": "failed_existing_redeal_gate_game52",
+  "current_native_failure_record": "docs/gorge-runtime048-native-20261005.json",
+  "current_native_attempt_seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6"
+}

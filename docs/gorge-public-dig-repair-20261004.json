@@ -1,0 +1,466 @@
+{
+  "schema": "spellbench-gorge-public-dig-repair/v1",
+  "observed_at_utc": "2026-10-04T14:58:07.697945+00:00",
+  "status": "local_affected_verification_passed_full_qualification_pending",
+  "base_commit": "2eb5438f18fadee89948628c3999dd4f5fb928c5",
+  "working_tree_patch_sha256": "81ae83eedfa8b84e6f2f868e4f42b24c8126a133be483dd1f8fbdeeee56c54cb",
+  "repairs": [
+    {
+      "source": "engines/gorge/native-overlay/public_top_exile.go.txt",
+      "cause": "Rally 108 exhausted reconstruction after public Experimental Synthesizer and Reckless Impulse top exiles disabled later public draw and hand-exit guidance.",
+      "change": "Recognize only an unfiltered printed Dig of one or two top cards to exile, with an exact public stack source, observed new exile membership and matching public library-size changes. Retain consumed opening-prefix positions and public hand-exit bounds. Exile order is a witness proposal checked by full replay.",
+      "boundaries": "London bottoms, additions, reorders and unrecognized removals stop the affected guidance. Copy creation stops all guidance. Anonymous effect-controller fields do not establish ownership."
+    },
+    {
+      "source": "engines/gorge/native-overlay/public_basic_search.go.txt",
+      "cause": "Spy 164 could not reproduce the actor-visible five-card Lead the Stampede look at frame 197.",
+      "change": "Preserve the ordered top-library look note only when its viewer is the actor and every named card independently belongs to the actor. Uncertain ordering and other ownership stay unguided."
+    }
+  ],
+  "frozen_native_policy_weights_options_and_gates_unchanged": true,
+  "affected_verification": {
+    "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-005",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-005",
+    "seal_sha256": "9815949fbad48dd91100e2997ec4b99b0fe07477af432451b9e9ec206d87a469",
+    "bytes": 19574995,
+    "independent_recovery_verified": true,
+    "binary_sha256": "c6a3bd0d6e6aae67f13e88c0085559a35209eede3f352ad484632f4a25b24cbd",
+    "checks": {
+      "at_utc": "2026-10-04T14:55:25.289276+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-005\\arrange-corpus-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 2.916744199988898
+        },
+        {
+          "name": "saved-corpus",
+          "command": [
+            "E:\\pinned-binaries\\c6a3bd0d6e6aae67f13e88c0085559a35209eede3f352ad484632f4a25b24cbd\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^TestSavedWildfireActorArrangeCorpus$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 16.42286759999115
+        },
+        {
+          "name": "additional-roots",
+          "command": [
+            "E:\\pinned-binaries\\c6a3bd0d6e6aae67f13e88c0085559a35209eede3f352ad484632f4a25b24cbd\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^TestSavedAdditionalManaRoots$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 3.657774499966763
+        },
+        {
+          "name": "affected-strategies",
+          "command": [
+            "E:\\pinned-binaries\\c6a3bd0d6e6aae67f13e88c0085559a35209eede3f352ad484632f4a25b24cbd\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^Test",
+            "-test.skip",
+            "^TestSavedWildfireActorArrangeCorpus$|^TestSavedAdditionalManaRoots$|^TestPublicTopExilesPreserveLaterDrawsAndCasts$|^TestPublicOwnedTopLookPreservesWindow$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 140.4053098000004
+        }
+      ],
+      "passed": true,
+      "seconds": 163.49048029998085,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "roots": [
+      {
+        "frames": 141,
+        "input_sha256": "ae6482f87bb807da8d0c09e3b350d2c269c9068907e7958510739916322fbd03",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 284,
+          "Nodes": 40,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 164,
+        "input_sha256": "0bb0e504f2e74943c2e84b5583f3e562970995fe121f6182fd9ac0bcf7dcbf8e",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 330,
+          "Nodes": 48,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 166,
+        "input_sha256": "e6b9ff4dca16116b69c76eba421169147e825a10f9fd660caa734bf8dc073908",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 332,
+          "Nodes": 48,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 176,
+        "input_sha256": "69472444a40e6004251a6b952c4f59defc1de397e53b5969c7c763288d9c3925",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 347,
+          "Nodes": 47,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 202,
+        "input_sha256": "b6d4e6782e457af39abd1b001102b9add58bf3b81375f46a76c21b42a650a147",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 400,
+          "Nodes": 56,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 207,
+        "input_sha256": "31e230d27ed3feb126e29393261cfb637326a989b078ee33227c612263703870",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 412,
+          "Nodes": 65,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 228,
+        "input_sha256": "d7196a626ae01ec78a7b67c7c8070e951836b89333a22402550b4d23ec3c64c5",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 449,
+          "Nodes": 53,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 235,
+        "input_sha256": "7c12eaca9c75b4277d9c497f2d193aef69347df4d4cb4dd7d880af837aa5da98",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 481,
+          "Nodes": 87,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 255,
+        "input_sha256": "cef992f2d0d8495a25e972997aa245dadb874ea5d5561b9f684a86bea83cf1c2",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 504,
+          "Nodes": 76,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 274,
+        "input_sha256": "119c517b1b0a2c8908eac9672df9bbed2d773059da1582e612d2c34f88361fae",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 549,
+          "Nodes": 82,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 295,
+        "input_sha256": "2fbacf2d5eb2b3ada675d5283604030995c801010dce00b2684febc5e5ca06c8",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 575,
+          "Nodes": 76,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 313,
+        "input_sha256": "6eb652c3b7c9b08cbe2832a2796685eea6d522a45f75320e3feeac9d39b8a4c3",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 622,
+          "Nodes": 86,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 320,
+        "input_sha256": "aa4ef7735030c82433724fcba17f45ee54e70dab12c4f5d317155672d9915a56",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 628,
+          "Nodes": 86,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 47,
+        "input_sha256": "ccfffa43ab834010234172b74375437d01b092939326c042f72d6289987b798b",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 91,
+          "Nodes": 2,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 200,
+        "input_sha256": "e40626d24b58fe82e9c885ad9042c05da3d127f1fd15f485e31eca833fd5ea72",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 367,
+          "Nodes": 34,
+          "BudgetExhausted": 0
+        }
+      },
+      {
+        "frames": 157,
+        "input_sha256": "31eba6ad34081625cc1bdfc1607f8fa65a699e6bd7cc884dfb472d5a196f996a",
+        "worlds": 8,
+        "native_diagnostics_identical": true,
+        "public_work": {
+          "Attempts": 1,
+          "Submits": 319,
+          "Nodes": 41,
+          "BudgetExhausted": 0
+        }
+      }
+    ],
+    "known_card_checks_passed_for_every_world": true,
+    "source_compatibility": "All saved roots and remaining affected strategy cases used one immutable binary. The two new fixture functions used the same production overlay inputs and were passed separately, with vet and diff checks."
+  },
+  "legal_fixtures": {
+    "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-009",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-009",
+    "seal_sha256": "83c3f5132eb26a37fe7aa1f8f37978e689a3783c5500b0a034aaf95c47f2ce50",
+    "bytes": 19451390,
+    "independent_recovery_verified": true,
+    "checks": {
+      "at_utc": "2026-10-04T14:49:17.585174+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-009\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 2.8207231999840587
+        },
+        {
+          "name": "selected-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\f53a2e9175ea83a17a299b609dc52893adf4753f4efe03ba81a916ea65640100\\arrange-tests.exe",
+            "-test.run",
+            "^TestPublicTopExilesPreserveLaterDrawsAndCasts$|^TestPublicOwnedTopLookPreservesWindow$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 10.130793399992399
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 5.415250000020023
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.19599670002935454
+        }
+      ],
+      "passed": true,
+      "seconds": 18.940066800045315,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "fixture": "engines/gorge/strategies/top_exile_history_test.go",
+    "results": [
+      {
+        "case": "public one-card and two-card exiles followed by later actor draws",
+        "frames": 36,
+        "submits": 77,
+        "worlds": 8
+      },
+      {
+        "case": "pending actor top-five look",
+        "frames": 45,
+        "submits": 85,
+        "public_witness": true
+      },
+      {
+        "case": "answered actor top-five look",
+        "frames": 47,
+        "submits": 87,
+        "worlds": 8
+      }
+    ],
+    "full_history_identical_under_unseen_tail_swaps": true,
+    "native_diagnostics_identical": true
+  },
+  "original_failure_diagnostics": [
+    {
+      "capture": {
+        "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-005",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-005",
+        "seal_sha256": "97a03eb0808f0a9d35f020cfc74602df86090a6184c8dc67989513583d2a4701",
+        "bytes": 20282117,
+        "independent_recovery_verified": true
+      },
+      "trace": {
+        "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-005",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-005",
+        "seal_sha256": "3b5e5e9d0d3a3988acb5aaa56706e87a0f6a58318dc1b1620f5dda72ad84b0e9",
+        "bytes": 19801240,
+        "independent_recovery_verified": true
+      },
+      "disposition": "First public-budget failure captured from the unchanged native seed and sampler options. Logging-only replay faithfully reproduced the failure; passing diagnostic execution is not qualification."
+    },
+    {
+      "capture": {
+        "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-006",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-006",
+        "seal_sha256": "f7803dc624a771dc2fc7b1c944903cde95a754942ce3151ef634c5528e88b076",
+        "bytes": 23685118,
+        "independent_recovery_verified": true
+      },
+      "trace": {
+        "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-006",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-006",
+        "seal_sha256": "ac70a2ef00f307737c86e3abf7627dd2655f275ff79fce99e0d47b5c6820d17f",
+        "bytes": 19463380,
+        "independent_recovery_verified": true
+      },
+      "disposition": "First public-budget failure captured from the unchanged native seed and sampler options. Logging-only replay faithfully reproduced the failure; passing diagnostic execution is not qualification."
+    }
+  ],
+  "retained_failed_preparation": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-007",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-007",
+      "seal_sha256": "a7ef2a2472f47da9e6794bdb97d405fbf65400f74d0e0dc3bf8917093471f610",
+      "bytes": 522212,
+      "independent_recovery_verified": true,
+      "cause": "New source used a pointer to an already pointer-valued card face; corrected before successful compilation."
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-006",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-006",
+      "seal_sha256": "fce07b6ddbb76a333bbe8ab17709dadbc364cc9746ce09c5a94ad9b82fbdae0f",
+      "bytes": 19462620,
+      "independent_recovery_verified": true,
+      "cause": "New fixture omitted the required hand-size discard."
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-007",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-007",
+      "seal_sha256": "7591ef4f7672443bb7b927f923eb518ed8ff86db2529b598df8639448d1eea4c",
+      "bytes": 19451470,
+      "independent_recovery_verified": true,
+      "cause": "New fixture compared a phase display string instead of StepMain1."
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-008",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-008",
+      "seal_sha256": "95ecfa1b600bb2029ee930e5986c394052491d8baebb63f23f2e7b303d429182",
+      "bytes": 19450446,
+      "independent_recovery_verified": true,
+      "cause": "New fixture selected ability instead of the native activate option for basic mana."
+    }
+  ],
+  "supersedes_remaining_reconstruction_status_in": "docs/gorge-copy-target-repair-20261004.json",
+  "active_owned_cloud_resources": 0,
+  "new_cloud_spend_usd": 0,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": [
+    "Fresh immutable runtime and hosted checks.",
+    "Guarded serial and parallel useful-compute qualification.",
+    "Complete native and reference qualification.",
+    "Fair-play review, frozen rated evaluation and publication."
+  ]
+}

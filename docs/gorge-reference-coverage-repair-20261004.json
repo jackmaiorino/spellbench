@@ -1,0 +1,130 @@
+{
+  "schema": "spellbench-gorge-reference-coverage-repair/v1",
+  "source_of_record": "E:\\spellbench-gorge-reference-coverage-checks-20261004-002",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-coverage-checks-20261004-002",
+  "source_files": {
+    "engines/gorge/scripts/reference_matrix.py": "f9cda893da85a5a044f9144deb2bad796ec1d17b83b9386fafaf626e5b4f109f",
+    "engines/gorge/README.md": "3531bb5f1d90a27c5978aa643673773ea3698f9e9f255799e5c10ec9d236b77d",
+    "python/tests/test_gorge_reference_matrix.py": "3f282be88192342bfbb5fc5e2c148286c599f5b1e9aa0f72637dad312bd67220"
+  },
+  "source_parent": "a2961191c17c5dccba63339182ddb6aead9dea51",
+  "benchmark_sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0",
+  "checks": {
+    "at_utc": "2026-10-04T12:17:36.944026+00:00",
+    "command": [
+      "C:\\Python314\\python.exe",
+      "-m",
+      "pytest",
+      "-q",
+      "python/tests/test_gorge_reference_matrix.py",
+      "python/tests/test_throughput.py",
+      "python/tests/test_machine_limits.py",
+      "python/tests/test_machine_container.py",
+      "python/tests/test_bench_run.py::test_an_unrated_placement_note_is_checked_before_any_process",
+      "python/tests/test_bench_run.py::test_the_launch_definitions_parse"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 8.61013060004916,
+    "compile_passed": true,
+    "diff_exit_code": 0,
+    "stdout_sha256": "9fb08b80a0305f10735cd556e78f8d40c02f1db6c8fc57962b69367f037c8b28",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_tail": "........................................................................ [ 83%]\n..............                                                           [100%]\n86 passed in 3.33s\n",
+    "benchmark_unchanged": true,
+    "passed": true
+  },
+  "seal_sha256": "ff65607e7edf3f7c381b377fa1e722690a4f23262a88806e2be47b6cf12a4d2f",
+  "prune_manifest_sha256": "6b2bd204a2f9189747bdddd538bd88eb7a302e6dc8b6f9d564328c2b3f306068",
+  "bytes": 77306,
+  "capacity_diagnosis": [
+    {
+      "usable_cpus": 8,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 2,
+      "selected_worker_bound": 2,
+      "ladder": [
+        1,
+        2
+      ],
+      "sample_size": 4,
+      "configured_bound_fits": true,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 16,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 5,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 24,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 8,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 28,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 8,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    }
+  ],
+  "change": "Preserve all120 original uniform reference games and the original Burn replay, then append20 existing seat-swapped stock search/search-mana vs native-bot games. Record expected counts for all60 policy/deck cells. Keep all qualification gates and the rated benchmark unchanged; require matched serial/parallel primary rows before the140-game matrix.",
+  "native_go_inputs_unchanged": true,
+  "rated_benchmark_definition_unchanged": true,
+  "native_runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "current_owned_native_stage_unchanged": true,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "previous_failed_check": {
+    "source_of_record": "E:\\spellbench-gorge-reference-coverage-checks-20261004-001",
+    "recovery_root": "D:/e-scratch/spellbench-gorge-reference-coverage-checks-20261004-001",
+    "seal_sha256": "1c1d4079d34aa2dc621f832c8f63b12deb1c840691183adbb3e0c9790fa93d69",
+    "checks_sha256": "f479ff33ee97bfe6739aa08189ad7ac27e63f9d1268c85e9c5b68c7723a080db",
+    "failure": "ImportError: usable_cpus was imported from throughput instead of machine",
+    "remedy": "Import usable_cpus from arena.machine; load the actual reference launcher in the frozen schedule test",
+    "all_failed_logs_preserved": true
+  },
+  "original_uniform_games": 120,
+  "appended_native_bot_probe_games": 20,
+  "total_reference_games": 140,
+  "original_burn_replay_preserved": true,
+  "expected_policy_deck_cells": 60,
+  "expected_games_per_cell": {
+    "gorge-bot": 6,
+    "gorge-search": 4,
+    "gorge-search-mana": 4,
+    "other_gorge_modes": 2
+  }
+}

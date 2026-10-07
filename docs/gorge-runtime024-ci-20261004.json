@@ -1,0 +1,75 @@
+{
+  "schema": "spellbench-gorge-hosted-ci/v1",
+  "checked_at_utc": "2026-10-04T11:22:04.556878+00:00",
+  "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "tested_adapter_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "all_hosted_checks_passed": true,
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37196997491,
+      "headSha": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997491",
+      "workflowName": "LLM container isolation",
+      "jobs": [
+        {
+          "name": "container",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T10:56:19Z",
+          "completedAt": "2026-10-04T10:57:09Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997491/job/111420839898"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37196997465,
+      "headSha": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997465",
+      "workflowName": "gorge adapter",
+      "jobs": [
+        {
+          "name": "test",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T10:56:21Z",
+          "completedAt": "2026-10-04T11:13:18Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997465/job/111420840274"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37196997461,
+      "headSha": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+      "status": "completed",
+      "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997461",
+      "workflowName": "CI",
+      "jobs": [
+        {
+          "name": "Python tests (ubuntu-24.04)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T10:56:20Z",
+          "completedAt": "2026-10-04T11:09:01Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997461/job/111420839858"
+        },
+        {
+          "name": "Python tests (windows-2025)",
+          "status": "completed",
+          "conclusion": "success",
+          "startedAt": "2026-10-04T10:56:19Z",
+          "completedAt": "2026-10-04T11:17:37Z",
+          "url": "https://github.com/jackmaiorino/spellbench/actions/runs/37196997461/job/111420840002"
+        }
+      ]
+    }
+  ],
+  "source_compatibility": "Hosted checks use the exact frozen native source; subsequent documentation commits preserve all engine files.",
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

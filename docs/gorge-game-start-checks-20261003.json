@@ -1,0 +1,878 @@
+{
+  "schema": "spellbench-gorge-game-start-regression/v1",
+  "rated": false,
+  "baseline": {
+    "schema": "spellbench-gorge-reference-game-start/v1",
+    "source_commit": "b6c82823597d5f6eeb73b6b88a8b4ed2460a51dc",
+    "runtime": "E:\\spellbench-gorge-runtime-20261003-004",
+    "rated": false,
+    "games_played": 0,
+    "checks": [
+      {
+        "policy": "gorge-bot",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.017779599991627038,
+        "processes": [
+          {
+            "pid": 520,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009139500005403534,
+        "processes": [
+          {
+            "pid": 11428,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.010669999988749623,
+        "processes": [
+          {
+            "pid": 47944,
+            "max_read_bytes": 263,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.011310400004731491,
+        "processes": [
+          {
+            "pid": 60660,
+            "max_read_bytes": 263,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-ar8",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.01089710000087507,
+        "processes": [
+          {
+            "pid": 23228,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-ar8",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009077999973669648,
+        "processes": [
+          {
+            "pid": 52288,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-blocks",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.01100399999995716,
+        "processes": [
+          {
+            "pid": 43156,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-blocks",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009271599992644042,
+        "processes": [
+          {
+            "pid": 18908,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-explore",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.011018300021532923,
+        "processes": [
+          {
+            "pid": 2328,
+            "max_read_bytes": 255,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-explore",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009050900000147521,
+        "processes": [
+          {
+            "pid": 61196,
+            "max_read_bytes": 255,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-legacy",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.01033710001502186,
+        "processes": [
+          {
+            "pid": 15712,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-legacy",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009342400007881224,
+        "processes": [
+          {
+            "pid": 33932,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot-auto-pay",
+        "seat": "p0",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.010602800000924617,
+        "processes": [
+          {
+            "pid": 46132,
+            "max_read_bytes": 260,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot-auto-pay",
+        "seat": "p1",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.009523600019747391,
+        "processes": [
+          {
+            "pid": 9988,
+            "max_read_bytes": 260,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure-auto-pay",
+        "seat": "p0",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.011927899991860613,
+        "processes": [
+          {
+            "pid": 42448,
+            "max_read_bytes": 272,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure-auto-pay",
+        "seat": "p1",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.010543300013523549,
+        "processes": [
+          {
+            "pid": 41852,
+            "max_read_bytes": 272,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5802507000043988,
+        "processes": [
+          {
+            "pid": 42320,
+            "max_read_bytes": 294,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.6085764000017662,
+        "processes": [
+          {
+            "pid": 48936,
+            "max_read_bytes": 294,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5742135000182316,
+        "processes": [
+          {
+            "pid": 46168,
+            "max_read_bytes": 299,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.582139800011646,
+        "processes": [
+          {
+            "pid": 35896,
+            "max_read_bytes": 299,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-redeal",
+        "seat": "p0",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.013187500007916242,
+        "processes": [
+          {
+            "pid": 5952,
+            "max_read_bytes": 301,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-redeal",
+        "seat": "p1",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.015967700019245967,
+        "processes": [
+          {
+            "pid": 10656,
+            "max_read_bytes": 301,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana-redeal",
+        "seat": "p0",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.012871099985204637,
+        "processes": [
+          {
+            "pid": 50372,
+            "max_read_bytes": 306,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana-redeal",
+        "seat": "p1",
+        "passed": false,
+        "cause": "agent_error",
+        "diagnostic": "agent_error: game_start was answered with an error (malformed_request)",
+        "wall_seconds": 0.009622699988540262,
+        "processes": [
+          {
+            "pid": 52152,
+            "max_read_bytes": 306,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      }
+    ],
+    "engine_defaults": {
+      "combat_damage_assignment": "engine_order",
+      "mana_payment": null,
+      "replacement_order": null,
+      "trigger_order": null
+    },
+    "passed": false,
+    "engine_process_closed": true
+  },
+  "corrected": {
+    "schema": "spellbench-gorge-reference-game-start/v1",
+    "source_commit": "e2dab41e2c25b7ecf74cff9d880a40dfada5fba9",
+    "runtime": "E:\\spellbench-gorge-runtime-20261003-005",
+    "rated": false,
+    "games_played": 0,
+    "checks": [
+      {
+        "policy": "gorge-bot",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.017353700008243322,
+        "processes": [
+          {
+            "pid": 7252,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.010678499995265156,
+        "processes": [
+          {
+            "pid": 23860,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.010242099990136921,
+        "processes": [
+          {
+            "pid": 30980,
+            "max_read_bytes": 263,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.008543400006601587,
+        "processes": [
+          {
+            "pid": 45844,
+            "max_read_bytes": 263,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-ar8",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.012318599998252466,
+        "processes": [
+          {
+            "pid": 8256,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-ar8",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.00911179999820888,
+        "processes": [
+          {
+            "pid": 54192,
+            "max_read_bytes": 251,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-blocks",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.009964400000171736,
+        "processes": [
+          {
+            "pid": 48644,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-blocks",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.009626399987610057,
+        "processes": [
+          {
+            "pid": 59368,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-explore",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.010247500002151355,
+        "processes": [
+          {
+            "pid": 46224,
+            "max_read_bytes": 255,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-explore",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.008631999982753769,
+        "processes": [
+          {
+            "pid": 53032,
+            "max_read_bytes": 255,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-legacy",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.011358500021742657,
+        "processes": [
+          {
+            "pid": 48180,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-legacy",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.008939799998188391,
+        "processes": [
+          {
+            "pid": 7256,
+            "max_read_bytes": 254,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot-auto-pay",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.010501000011572614,
+        "processes": [
+          {
+            "pid": 32716,
+            "max_read_bytes": 260,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-bot-auto-pay",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.01092689999495633,
+        "processes": [
+          {
+            "pid": 42876,
+            "max_read_bytes": 260,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure-auto-pay",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.01026749997981824,
+        "processes": [
+          {
+            "pid": 29848,
+            "max_read_bytes": 272,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-lethal-pressure-auto-pay",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.00914449998526834,
+        "processes": [
+          {
+            "pid": 45504,
+            "max_read_bytes": 272,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5794911000120919,
+        "processes": [
+          {
+            "pid": 30148,
+            "max_read_bytes": 294,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.5631762999983039,
+        "processes": [
+          {
+            "pid": 38188,
+            "max_read_bytes": 294,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5888550000090618,
+        "processes": [
+          {
+            "pid": 47952,
+            "max_read_bytes": 299,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.5623473000014201,
+        "processes": [
+          {
+            "pid": 55300,
+            "max_read_bytes": 299,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-redeal",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5758771999971941,
+        "processes": [
+          {
+            "pid": 42196,
+            "max_read_bytes": 301,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-redeal",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.568620700010797,
+        "processes": [
+          {
+            "pid": 59040,
+            "max_read_bytes": 301,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana-redeal",
+        "seat": "p0",
+        "passed": true,
+        "wall_seconds": 0.5684957000194117,
+        "processes": [
+          {
+            "pid": 18636,
+            "max_read_bytes": 306,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      },
+      {
+        "policy": "gorge-search-mana-redeal",
+        "seat": "p1",
+        "passed": true,
+        "wall_seconds": 0.5665556000021752,
+        "processes": [
+          {
+            "pid": 54268,
+            "max_read_bytes": 306,
+            "max_write_bytes": 5551,
+            "reads": 2,
+            "writes": 2,
+            "closed": true,
+            "exit_code": 0
+          }
+        ]
+      }
+    ],
+    "engine_defaults": {
+      "combat_damage_assignment": "engine_order",
+      "mana_payment": null,
+      "replacement_order": null,
+      "trigger_order": null
+    },
+    "passed": true,
+    "engine_process_closed": true
+  },
+  "go_agent_tests": {
+    "passed": true,
+    "seconds": 5.675
+  },
+  "go_vet": "PASS: internal/agent and cmd/spellbench-gorge-agent",
+  "regression": "Auto-pay null-profile test and real runtime004 subprocess checks failed before the fixes; all twenty-four runtime005 handshakes pass",
+  "scope": "Game start and clean exit only; no choose, completed-game qualification or playing strength",
+  "recipe_sha256": "57c4fd7c2309739d267aea1bd542db55831c8f7f864f074bfc4d97105fdfa21c"
+}

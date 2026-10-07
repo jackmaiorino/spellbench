@@ -1,0 +1,98 @@
+{
+  "schema": "spellbench-gorge-reference-controls/v1",
+  "at_utc": "2026-10-05T07:40:03.988650+00:00",
+  "phase": "prepared_unlaunched",
+  "source_of_record": "E:\\spellbench-gorge-reference-controls-20261005-049",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-controls-20261005-049",
+  "files": {
+    "gorge-reference049-precreate-check-20261005.py": {
+      "bytes": 2817,
+      "sha256": "2501ea613c33cf0a701c87ebe02520f09846d0d6b89695fc399d89ff6e74b44b"
+    },
+    "gorge-cloud-create-reference049-20261005.ps1": {
+      "bytes": 10420,
+      "sha256": "3654eb0d9bb6f7de39c3cc24b44acb0587666d0616534f85998e3ae57cf507bf"
+    },
+    "gorge-cloud-reference-guard-20261005-049.ps1": {
+      "bytes": 9155,
+      "sha256": "de4c8307cbd9aea4c10f7582d9500934a1436d01a9a336cf909f1c6ec62cb592"
+    },
+    "gorge-cloud-reference-scheduled-guard-20261005-049.ps1": {
+      "bytes": 785,
+      "sha256": "42790f1f8180d97557a1a0db733033d39d80a44065899b19994e668debbda6e4"
+    },
+    "gorge-cloud-observe049-20261005.py": {
+      "bytes": 2151,
+      "sha256": "db9006495b44b47df6b0fddba3b5eea7b8b3576baea88d0bdadee9addc07084a"
+    },
+    "gorge-connect-reference049-20261005.py": {
+      "bytes": 1343,
+      "sha256": "c04a0c007764fd23957bbdcb78113b0d82ab9948e91b360ee2458eeb6d5f647f"
+    },
+    "gorge-dispatch-reference049-20261005.py": {
+      "bytes": 5245,
+      "sha256": "7b83345f465d15b6269d8869eeaaad9e3ee9736866edcfd0a7b264c6c622cf2f"
+    },
+    "gorge-supervise-reference049-20261005.py": {
+      "bytes": 7558,
+      "sha256": "7429a12c94683121eddc80c56e75cb36a2f12787914222b50efecd8b3360f6ae"
+    },
+    "gorge-close-reference049-20261005.py": {
+      "bytes": 10509,
+      "sha256": "728d901db488c3757ae8a901870b3f430d3bcd33db3340d8ce5ebef900060f6e"
+    },
+    "gorge-reconcile-released-reference049-20261005.ps1": {
+      "bytes": 4573,
+      "sha256": "5b9e4ade624cdbab2cd788a4452d87c74128abc6cb57cd2d482ce3c0640b9cee"
+    },
+    "gorge-pack-reference049-20261005.py": {
+      "bytes": 10587,
+      "sha256": "6f76fd4395eabefc89aa068a5f70a2ad39f3fea73c9deeefc0a928b5503fd5a0"
+    },
+    "gorge-derive-reference-controls049-20261005.py": {
+      "bytes": 6375,
+      "sha256": "f9ed6ddca6f9085c4c02d537f07dd9e0c2bc91255609a7359df1b51a377004a1"
+    }
+  },
+  "python_ast_passed": true,
+  "powershell_parser_checks": [
+    {
+      "name": "gorge-cloud-create-reference049-20261005.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-cloud-reference-guard-20261005-049.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-cloud-reference-scheduled-guard-20261005-049.ps1",
+      "errors": 0
+    },
+    {
+      "name": "gorge-reconcile-released-reference049-20261005.ps1",
+      "errors": 0
+    }
+  ],
+  "required_native_root": "E:/spellbench-gorge-runpod-20261005-048",
+  "required_runtime": "E:/spellbench-gorge-runtime-20261005-048",
+  "required_billing_ledger": "E:/spellbench-gorge-billing-20261005-027",
+  "output_billing_ledger": "E:/spellbench-gorge-billing-20261005-028",
+  "frozen_reference_inputs": "E:/spellbench-gorge-reference-matrix-runtime048-20261005-006",
+  "frozen_reference_seal_sha256": "1590a757044cb05dc048577d9ceb5fde2bc5209151570e44b1501be681a968a9",
+  "scope": "Native-admitted reference140games/60cells/160nativeparticipant receipts, matched serial/parallel guard, preselected replay, terminal recovery and exact owned deletion. No training or rated games.",
+  "guard_path": "Sealed native48 full audit -> fresh closed billing and resource census -> independent lease guardian armed before POST -> authenticated SSH/verified bundle -> native gate -> reference_matrix.py -> bench.plan_for -> plan_allocation -> play_games",
+  "prospective_lease_seconds": 10800,
+  "prospective_lease_cap_usd": 1.2,
+  "all_in_campaign_cap_usd": 10,
+  "native_admission_proved": false,
+  "budget_admission_proved": false,
+  "allocation_created": false,
+  "reference_reserved_usd": 0,
+  "new_cloud_spend_usd": 0,
+  "qualification_requires": "Actual140unique natural games,60cells,160native receipts,matched output hashes and identical preselected replay; unchanged seeds,seats,clocks and policies",
+  "cleanup_requires": "Actual create-response id/name, verified terminal recovery, finished owner, API absence, finished independent guardian and own task/credential removal.",
+  "cap_failure_retains_evidence": true,
+  "controls_execution_validated": false,
+  "next_wake_condition": "Existing48 native full result, failure or deadline; owner53116/session27682 and release guardian37988 retained. No49 launch without actual closed admission.",
+  "seal_sha256": "0ba295688213783359a4b0faaee75e0be00f8395f11ce5f4be43c6629715f1ea"
+}

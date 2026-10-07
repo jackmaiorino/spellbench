@@ -1,0 +1,52 @@
+{
+  "observed_at_utc": "2026-10-05T23:25:05.756737+00:00",
+  "phase": "go_prefixes_and_complete_game105_report_pass_full_native107_prepared",
+  "base_source_commit": "8799a283c64de9597705737ab548c2b737826ccf",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "629cc8bc0132a78aa3fa2dfdd400ccdb8a2687edf4701b983a8232a91ec4b746",
+    "engines/gorge/strategies/top_exile_history_test.go": "2c25a7700c244fb24fb43f4c3caade945e124e65576af22d7dfda5eafcd3f87d",
+    "engines/gorge/scripts/qualify_native.py": "9dff1f56f138583e67cdb8e8b1eda99a92d2455addb28b6885ab4d9c388c3d42"
+  },
+  "failure_record": "docs/gorge-local-native098-20261005.json",
+  "public_capture_record": "docs/gorge-public105-capture-20261005.json",
+  "negative_trace_record": "docs/gorge-public105-trace-20261005.json",
+  "change": "Recognized declared top-exile moves use the existing actor-library position fold, preserving observed shuffle epochs, London bottoms and arrangements. Full chronological replay and known-card validation still decide acceptance.",
+  "test": "Legal owned London mulligan/bottom, Experimental Synthesizer top exile, cast of the exiled Goblin Tomb Raider, Reckless Impulse and later draw; permuted unseen tails must have identical actor-public history and native diagnostics.",
+  "checks": {
+    "diff_check": "passed",
+    "gofmt": "passed",
+    "go_tests": "Full gorge suite, vet, policy/payment mapping, public bridge and all TestSpellbench boundaries passed at29c3544; current engine source is byte-identical",
+    "saved_93_113_123_frame_positive_checks": "Sealed105 passes all three:1 attempt and165/207/221 submits, zero exhaustion; known cards and8 native redealt worlds hold; native diagnostics identical",
+    "whole_game105_and_replay": "Both complete,34 resamples and128 parity comparisons, all primary faults/refusals zero. Original106 wrapper failed on expected selected-subset qualifier exit1; separate validated report retained without modifying failed closure.",
+    "full_native_qualification": "Guarded native107/run37388600601 live, serial/parallel allocation must pass before full320/640; no pass yet",
+    "reference_qualification": "unlaunched",
+    "independent_fairplay_review": "Optional, unperformed; repository rules do not require a separate reviewer for this engineering change",
+    "current_maintainer_source_review": "docs/gorge-current-maintainer-review-20261005.md; honest implementing-session review, not independent approval; full qualification and final audit binding still pending",
+    "affected_python_qualification_tests": "89 passed; synthetic engineering unit tests, zero actual games/builds/qualifications",
+    "gorge_bridge_and_public_boundary_tests": "Passed with full Go suite at29c3544, current engine source byte-identical",
+    "current_go_ci_record": "docs/gorge-ci-top-exile-repair-20261005.json",
+    "current_production_build": "Seven production binaries built at8fe6fdd and recovered as104; build only, no qualification",
+    "hosted_regression_preparation": "20 affected tests passed, YAML and diff check pass; actual retained failed game105 report rejected at zero-refusal assertion"
+  },
+  "resource_state": "No gorge local job/claim; both PCs remain yielded for research. Hosted native107 live on standard public runner, no Actions artifacts/cache or new paid compute.",
+  "native_sampling_settings_unchanged": {
+    "attempts": 64,
+    "worlds": 8,
+    "max_submits": 5000
+  },
+  "native_gate_unchanged": true,
+  "qualified": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.99736347,
+  "native_worker_selection": {
+    "candidate_method": "wall",
+    "prior_native098_method": "busy",
+    "prior_native098_selected_workers": 16,
+    "prior_native098_fastest_matched_wall_workers": 8,
+    "retained_prior_allocation_unchanged": true,
+    "frozen_native_schedule_and_top_level_gate_helpers_ast_identical": true,
+    "current_requalification_required": true
+  }
+}

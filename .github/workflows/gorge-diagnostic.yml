@@ -1,0 +1,41 @@
+name: gorge bounded public failure diagnostic
+
+on:
+  push:
+    branches: ['codex/gorge-all-bots-20261002']
+    paths: ['docs/gorge-ci-diagnostic071-20261005.json', 'tools/gorge-diagnose-ci.py', '.github/workflows/gorge-diagnostic.yml']
+
+permissions:
+  # Unpublished release downloads require push access. Children lose this token.
+  contents: write
+
+jobs:
+  capture:
+    if: github.repository == 'jackmaiorino/spellbench' && github.event.repository.private == false && contains(github.event.head_commit.message, '[gorge-diagnostic-ci]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Recover space from unused hosted-runner SDKs
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo docker image prune --all --force
+      - name: Capture the first public exhaustion from exact game49
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/gorge-diagnose-ci.py --job "$RUNNER_TEMP/gorge-diagnostic" --inputs docs/gorge-ci-diagnostic071-20261005.json
+      - name: Enforce diagnostic storage budget
+        id: artifact-budget
+        if: always()
+        run: |
+          python3 -c 'import os; from pathlib import Path; p=Path(os.environ["RUNNER_TEMP"])/"gorge-diagnostic/diagnostic"; assert p.is_dir(); assert sum(f.stat().st_size for f in p.rglob("*") if f.is_file())<=128*2**20'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always() && steps.artifact-budget.outcome == 'success'
+        with:
+          name: gorge-diagnostic-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/gorge-diagnostic/diagnostic/
+          retention-days: 1
+          compression-level: 1
+          if-no-files-found: error

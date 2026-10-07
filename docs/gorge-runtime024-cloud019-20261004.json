@@ -1,0 +1,278 @@
+{
+  "schema": "spellbench-gorge-runtime024-closed-cloud/v1",
+  "observed_at_utc": "2026-10-04T12:36:17.081043+00:00",
+  "status": "released_after_observed_mana_qualification_gate_failure",
+  "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "source_archive_commit": "1ce38af9e05b5f3aaf1f890096598a0055ba0e83",
+  "pod_id": "pr52w650htj23w",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-019",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-019",
+  "seal_sha256": "e14fb852908ace9ecd04d97558f01479b9360e0e0a8279335aea1be281ac8b43",
+  "bytes": 153459994,
+  "natural_native_blocks": 19,
+  "emitted_rows": 20,
+  "reconstruction_failures": [
+    {
+      "game": 52,
+      "deck": "Wildfire",
+      "pairing": "search-mana-redeal/uniform",
+      "cell": "Wildfire/search-mana-redeal",
+      "search_coverage": {
+        "Natives": 645,
+        "Eligible": 315,
+        "Attempted": 82,
+        "Covered": 16,
+        "Attempts": 5248,
+        "Accepted": 4,
+        "Worlds": 128,
+        "Rollouts": 392,
+        "Submits": 443651,
+        "Terminal": 392,
+        "Capped": 0,
+        "Redealt": 128,
+        "ReconstructionAttempts": 83,
+        "ReconstructionSubmits": 334677,
+        "ReconstructionNodes": 318343,
+        "ReconstructionBudgetExhausted": 66,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 66
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 233,
+          "insufficient worlds/ESS": 66
+        },
+        "Kinds": {
+          "cast": 2,
+          "mana": 14
+        }
+      }
+    },
+    {
+      "game": 108,
+      "deck": "Rally",
+      "pairing": "search-mana-redeal/uniform",
+      "cell": "Rally/search-mana-redeal",
+      "search_coverage": {
+        "Natives": 162,
+        "Eligible": 75,
+        "Attempted": 16,
+        "Covered": 3,
+        "Attempts": 1024,
+        "Accepted": 44,
+        "Worlds": 24,
+        "Rollouts": 80,
+        "Submits": 35631,
+        "Terminal": 80,
+        "Capped": 0,
+        "Redealt": 16,
+        "ReconstructionAttempts": 583,
+        "ReconstructionSubmits": 69214,
+        "ReconstructionNodes": 70417,
+        "ReconstructionBudgetExhausted": 13,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 13
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 59,
+          "insufficient worlds/ESS": 13
+        },
+        "Kinds": {
+          "attackers": 1,
+          "cast": 2
+        }
+      }
+    },
+    {
+      "game": 164,
+      "deck": "Spy",
+      "pairing": "search-mana-redeal/uniform",
+      "cell": "Spy/search-mana-redeal",
+      "search_coverage": {
+        "Natives": 268,
+        "Eligible": 81,
+        "Attempted": 40,
+        "Covered": 26,
+        "Attempts": 2560,
+        "Accepted": 0,
+        "Worlds": 208,
+        "Rollouts": 712,
+        "Submits": 147794,
+        "Terminal": 712,
+        "Capped": 0,
+        "Redealt": 208,
+        "ReconstructionAttempts": 87,
+        "ReconstructionSubmits": 76249,
+        "ReconstructionNodes": 63273,
+        "ReconstructionBudgetExhausted": 14,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 14
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 41,
+          "insufficient worlds/ESS": 14
+        },
+        "Kinds": {
+          "attackers": 3,
+          "cast": 12,
+          "mana": 11
+        }
+      }
+    }
+  ],
+  "halted_rows": [
+    {
+      "game": 108,
+      "deck": "Rally",
+      "pairing": "search-mana-redeal/uniform",
+      "classification": "halted",
+      "halt": "engine_contract_failure:unmapped_decision"
+    }
+  ],
+  "mapping_error": "engine_contract_failure:unmapped_decision: target 123 not visible",
+  "previously_failing_wildfire48": {
+    "classification": "natural",
+    "deck": "Wildfire",
+    "digest": "sha256:fa2423a570455815a3cb0192c8e9235a2bafc3da45db862e2e26320b5cc632a7",
+    "fallbacks": 0,
+    "forced": 0,
+    "game": 48,
+    "inconsistent": 0,
+    "leaks": 0,
+    "outcome": "p0_win",
+    "pairing": "search-redeal/uniform",
+    "parity_mismatch": 0,
+    "reason": "p1_life_zero",
+    "search_coverage": {
+      "Wildfire/search-redeal": {
+        "Natives": 280,
+        "Eligible": 29,
+        "Attempted": 16,
+        "Covered": 16,
+        "Attempts": 1024,
+        "Accepted": 0,
+        "Worlds": 128,
+        "Rollouts": 552,
+        "Submits": 379541,
+        "Terminal": 552,
+        "Capped": 0,
+        "Redealt": 128,
+        "ReconstructionAttempts": 16,
+        "ReconstructionSubmits": 5110,
+        "ReconstructionNodes": 789,
+        "ReconstructionBudgetExhausted": 0,
+        "RedealRefusals": {},
+        "Reasons": {
+          "fewer_than_two_candidates": 13
+        },
+        "Kinds": {
+          "attackers": 6,
+          "cast": 10
+        }
+      }
+    },
+    "steps": 517
+  },
+  "release": {
+    "at_utc": "2026-10-04T12:25:52.0983137+00:00",
+    "name": "spellbench-gorge-native-a22f786c5c654d10",
+    "pod_id": "pr52w650htj23w",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "2fb45b9ad38ca7815136fe61ddfb61b96e89b02db5c743f177dabfeadbd7fadf",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 6.96026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+    "final_invoice_pending": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T12:32:59.643140+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "runtime021-014": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.19882145593874156,
+        "totalAmount": 0.20900664094369859
+      },
+      "runtime022-015": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.0559598496183753,
+        "totalAmount": 0.05873762734699994
+      },
+      "runtime023-016": {
+        "cpuAmount": 0,
+        "diskAmount": 0.003703703638166189,
+        "gpuAmount": 0.051996649941429496,
+        "totalAmount": 0.055700353579595685
+      },
+      "runtime024-017": {
+        "cpuAmount": 0,
+        "diskAmount": 0.0009259259095415473,
+        "gpuAmount": 0.02108979970216751,
+        "totalAmount": 0.02201572561170906
+      },
+      "runtime024-019": {
+        "cpuAmount": 0,
+        "diskAmount": 0,
+        "gpuAmount": 0,
+        "totalAmount": 0
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.3836454010306625,
+    "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "native_closure": {
+    "schema": "spellbench-gorge-cloud-native-stage/v1",
+    "at_utc": "2026-10-04T11:42:27.787966+00:00",
+    "phase": "closed",
+    "spellbench_commit": "1ce38af9e05b5f3aaf1f890096598a0055ba0e83",
+    "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+    "usable_cpus": 28,
+    "qualified_worker_bound": 16,
+    "worker_bound_reason": "Largest feasible ladder within current12percent qualification budget and CPU/memory limits",
+    "cpu_max": "2720000 100000",
+    "memory_max": "53999996928",
+    "projected_bytes": 134217728,
+    "cap_bytes": 2147483648,
+    "reserve_bytes": 64424509440,
+    "wall_cap_seconds": 6000,
+    "rated_games": 0,
+    "gpu_ordinal": null,
+    "script_sha256": "3e81e4af584ce9e6027d08aac70385fb683b4943c6d341ad928daf11138f9ed8",
+    "placement": "main-pc=unavailable: fresh canonical generation167 london-opening-pilot-001 reservation retained; haleyspc=unavailable: fresh hardware check complete and queued training-performance priority retained; runpod=used: owned community RTX3090 host CPU allocation with actual CPU quota and memory to be measured before execution, GPU unused, minimum8vCPUs and16GB with80GB assigned disk, current runtime024, supported matched serial and parallel completed-work guard before any substantial qualification, current production repair verified on all13 saved public roots and eight legal actor arrangements, supported qualification first, both local release times unknown",
+    "guard_path": "owned Linux process group and bounded driver -> qualify_native.py -> arena.throughput.plan_allocation -> bounded gorgequal callback",
+    "closed_at_utc": "2026-10-04T12:20:07.792366+00:00",
+    "exit_code": -15,
+    "stop_reason": "owned_STOP",
+    "elapsed_seconds": 2259.9922246588394
+  },
+  "final_recovery_sha256": "2fb45b9ad38ca7815136fe61ddfb61b96e89b02db5c743f177dabfeadbd7fadf",
+  "next_action": "Capture the failed mana public roots and Rally target mapping with logging-only current native source. Diagnose locally before another rental.",
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0
+}

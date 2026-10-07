@@ -1,0 +1,99 @@
+{
+  "at_utc": "2026-10-05T01:11:26.901180+00:00",
+  "phase": "released_public_roots_passed",
+  "pod_id": "9542ubihoqwjkd",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-032",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-032",
+  "release": {
+    "at_utc": "2026-10-05T01:11:25.9502422+00:00",
+    "name": "spellbench-gorge-witness-6a14f012f0ed43c7",
+    "pod_id": "9542ubihoqwjkd",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "a4f1bd67cd3e354aca6e783edee97ebf0d10bab281591e93d73c5f38c00374b3",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 6.88890947,
+    "maximum_lease_usd": 0.5,
+    "conservative_cumulative_lease_ceiling_usd": 7.38890947,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T01:10:27.001721+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 115.5194014441222,
+    "native_qualification_passed": false,
+    "component_roots_passed": true,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-public-root-runtime-20261005-032",
+  "runtime_seal_sha256": "caeb74728f2b0f70cbdf56a70f293674d0ba0e9cbba4584cd11dd866683b5abd",
+  "native_audit": null,
+  "component_roots_passed": true,
+  "diagnostic_checks": {
+    "passed": true,
+    "scope": "Both saved roots reconstructed into eight known-card-valid worlds; no full games",
+    "cases": {
+      "364": {
+        "frames": 364,
+        "worlds": 8,
+        "work": {
+          "Attempts": 1,
+          "Submits": 783,
+          "Nodes": 101,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_baseline_available": true,
+        "native_diagnostics_identical": true
+      },
+      "410": {
+        "frames": 410,
+        "worlds": 8,
+        "work": {
+          "Attempts": 2,
+          "Submits": 2107,
+          "Nodes": 1184,
+          "BudgetExhausted": 0
+        },
+        "native_diagnostics_baseline_available": false,
+        "native_diagnostics_identical": null
+      }
+    },
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "failures": {},
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T01:11:26.901180+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-013",
+    "prior_closed_ledger_seal_sha256": "6f525fd4c8c385c45333f68b296e028a7af310e1497946934378cc2ba1f6b760",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 244.486143,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.17377,
+    "conservative_cumulative_lease_ceiling_usd": 7.06267947,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-014",
+  "billing_seal_sha256": "fdf316ed2955673c70f7bb8a3b5a5091be4f9beb63aa7d69eaeed70147f2bf5c",
+  "seal_sha256": "a855767755f2c52822940738cd55b1cce90198fb1ae289079a5d7787a5419b57"
+}

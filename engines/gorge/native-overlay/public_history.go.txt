@@ -1,0 +1,98 @@
+package searchprobe
+
+import (
+	"errors"
+	"math/rand/v2"
+
+	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// SpellbenchPublicHistory coalesces the native feed at this actor's own asks.
+// Opponent asks, answer transcripts and private notes never enter the wire.
+// Visible events and identity introductions retain their chronological order.
+func SpellbenchPublicHistory(h History) History {
+	out := History{Actor: h.Actor, ActorBoundaries: true, Answers: map[int][]Action{}}
+	var identities []Identity
+	var burst []ObservedEvent
+	for i, f := range h.Frames {
+		identities = append(identities, f.Identities...)
+		burst = spellbenchEvents(burst, f.Events, h.Actor)
+		if f.Decision == nil {
+			continue
+		}
+		f.Identities, f.Events = identities, burst
+		out.Frames = append(out.Frames, f)
+		if answer, ok := h.Answers[i]; ok {
+			out.Answers[len(out.Frames)-1] = answer
+		}
+		identities, burst = nil, nil
+	}
+	return out
+}
+
+func spellbenchEvents(out []ObservedEvent, burst []ObservedEvent, actor state.PlayerID) []ObservedEvent {
+	for _, ev := range burst {
+		if ev.Kind == events.DecisionAsk || ev.Kind == events.DecisionMade {
+			continue
+		}
+		if ev.Secret && ev.Player != actor {
+			// These are public game effects with redacted identities.
+			// LibraryOrder invalidates knowledge; its ordering is never sent.
+			switch ev.Kind {
+			case events.Shuffle, events.LibraryOrder, events.Draw, events.MoveZone:
+			default:
+				continue
+			}
+		}
+		out = append(out, ev)
+	}
+	return out
+}
+
+// spellbenchActorFrame advances hypothetical opponent play to the next actor
+// ask. It uses the native replay's same opponent policy, random streams,
+// collector, proposal planner and total submit budget. Only the observation
+// comparison boundary changes: private opponent asks are not observations.
+func spellbenchActorFrame(e *rules.Engine, c *Collector, pos, submits *int, actor state.PlayerID,
+	opts SampleOptions, bots []*rand.Rand, boards []botpolicy.Board, res *SampleResult,
+) (Frame, bool, error) {
+	var identities []Identity
+	var burst []ObservedEvent
+	for {
+		d := e.Pending()
+		if d == nil || e.G.Over {
+			res.PrefixRejected++
+			if res.FirstRejection == "" {
+				res.FirstRejection = "hypothesis has no next actor ask"
+			}
+			return Frame{}, false, nil
+		}
+		f, err := c.spellbenchCaptureScratch(e, e.L.Events[*pos:], opts.ComparePotentialActions)
+		if err != nil {
+			return Frame{}, false, err
+		}
+		identities = append(identities, f.Identities...)
+		burst = spellbenchEvents(burst, f.Events, actor)
+		*pos = len(e.L.Events)
+		if d.Player == actor {
+			f.Identities, f.Events = identities, burst
+			return f, true, nil
+		}
+		if *submits >= opts.MaxSubmits {
+			res.BudgetExhausted++
+			return Frame{}, false, nil
+		}
+		in := botpolicy.Decide(opponentBoard(e, d.Player, boards), d, bots[d.Player])
+		*submits = *submits + 1
+		res.Submits++
+		if err := e.SubmitHypothetical(in); err != nil {
+			if errors.Is(err, errIncompatibleProposal) {
+				return Frame{}, false, nil
+			}
+			return Frame{}, false, err
+		}
+	}
+}

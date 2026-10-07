@@ -1,0 +1,164 @@
+{
+  "schema": "spellbench-gorge-public-london-token-repair/v1",
+  "observed_at_utc": "2026-10-04T09:08:19.352508+00:00",
+  "base_runtime_source_commit": "c87d7ac335d7113176f969be9e3c6e0cabbeae71",
+  "source_commit_before_patch": "cc1a63dc6b4d221942fe1a6b6d0caf424d2f4402",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "43dcfc7e21406ef9a3229863f9e500631375510a70317ff3bbec61049714fa0b",
+    "engines/gorge/strategies/london_token_history_test.go": "ce7680b9af38c410e8e3bdefa74e312daed8c1f22ece43741e67c1246f89b27b"
+  },
+  "public_input": "E:\\spellbench-gorge-wildfire-prefix-20261004-002\\PUBLIC-PROJECTION.json",
+  "public_input_sha256": "ab892e978a70ecdf877ead113888f060debc8c93dce41eafd5a2289853813c24",
+  "public_frames": 132,
+  "before": {
+    "worlds": 0,
+    "public_reconstruction": {
+      "Attempts": 2,
+      "Submits": 5000,
+      "Nodes": 4795,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "worlds": 8,
+    "public_reconstruction": {
+      "Attempts": 1,
+      "Submits": 267,
+      "Nodes": 40,
+      "BudgetExhausted": 0
+    },
+    "known_card_checks_passed_for_all_worlds": true
+  },
+  "native_fields_identical": true,
+  "native_field_names": [
+    "Attempts",
+    "Accepted",
+    "PrefixRejected",
+    "BudgetExhausted",
+    "Submits",
+    "Duplicates",
+    "ESS",
+    "FirstRejection",
+    "Rejections",
+    "GuidedGenesis",
+    "GuidedLater",
+    "ArrangeWindows",
+    "UnguidedConstraints",
+    "IncompatibleProposals",
+    "WeightDiagnostics",
+    "HandToStackCauses",
+    "StackRejectionContexts",
+    "CompetitionExclusions",
+    "CompetitionResidual",
+    "CompetitionUnguided",
+    "LandResidual",
+    "LandUnguided",
+    "KnownCardClaims"
+  ],
+  "native_fields_checked": 23,
+  "native_budgets": {
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000
+  },
+  "change": "Public London draw bounds include visible spells while on the stack, before their effects can draw more cards. Declared ordinary tokens with names absent from the decks preserve those bounds. Unknown tokens, deck-name collisions, copying and affected library mutations keep the optional guidance disabled. Native sampler, policies and budgets are unchanged.",
+  "legal_cases": [
+    "stack",
+    "land"
+  ],
+  "byte_identical_actor_history_under_unseen_opponent_tail_changes": true,
+  "passed_cases": 60,
+  "passed_root_tests": 39,
+  "affected_checks": {
+    "at_utc": "2026-10-04T09:02:12.304420+00:00",
+    "checks": [
+      {
+        "name": "london-token-fixture",
+        "command": [
+          "E:\\pinned-binaries\\fe42b4f8ff233f34dfc1454fd90598ee02c7611d8245a14a6fc09332ac9e78db\\stock-prefix-tests.exe",
+          "-test.run",
+          "^TestPublicLondonOpponentTokenAndStack$",
+          "-test.v",
+          "-test.timeout",
+          "120s"
+        ],
+        "exit_code": 0,
+        "seconds": 12.479276300000492
+      },
+      {
+        "name": "strategies",
+        "command": [
+          "E:\\pinned-binaries\\fe42b4f8ff233f34dfc1454fd90598ee02c7611d8245a14a6fc09332ac9e78db\\stock-prefix-tests.exe",
+          "-test.run",
+          "^(TestPublicLondonBottomReplayPreservesFutureDiscards|TestPublicActorLondonReplayPreservesLaterDraws|TestPublicActorOpeningDrawsSurviveOpponentLibrarySearch|TestPublicActorExploreAfterLondonAndToken|TestPublicKnownLibraryKeepsAnonymousMembershipAfterShuffle|TestPublicKnownLibraryConsumesVisibleDrawAndForgetsUnseenDraw|TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle|TestPublicCollectorForgetsOpponentPrivateLibraryReorder|TestPublicCollectorKeepsActorsAnsweredLibraryArrangement|TestPublicKnownHandKeepsNameWithoutRetiredCopyAfterHiddenDraw|TestPublicKnownHandDoesNotDistinguishHiddenDrawnCopies|TestPublicKnownHandConsumesVisibleExitAfterMixing|TestPublicLondonReplayPreservesDrawsAndFilteredOwnSearch|TestPublicSamplerReplaysActorMultiColorMana|TestOpponentLondonBottomPreservesActorsObservedDraws|TestPublicSamplerReplaysActorsAtomicCast|TestPublicRedealReplaysOpponentsAtomicCast|TestOpponentLibrarySearchUsesLandControllerAndHidesOffers|TestPublicReconstructionAfterOpponentLibrarySearch|TestPublicRedealReconstructsZeroAcceptedNativeProposals|TestPublicRedealIgnoresDifferentHiddenDealsAndFutureSeeds|TestPublicRedealReconstructionBudgetFailsClosed|TestDriverMatchesNativeFeedAndDeltaDelivery|TestPublicHistoryIgnoresHiddenDealsAndFutureSeed|TestSearchDefaultsPreserveShippedConfiguration|TestPublicSearchMatchesNativeChooseWithRekeyedObjects|TestPublicSearchMatchesNativeChooseAtShippedBudgets|TestPublicRedealPreservesAcceptedNativeSearchAtShippedBudgets|TestCanonicalPublicHistoryStillRejectsChangedBoard|TestSearchDeltaRejectsWrongActorAndMissingFrames|TestSearchDeltaRejectsChangedAnswersWithoutMutation|TestPublicHistoryErasesOpponentPrivateAskCounts|TestPublicCollectorForgetsBlindShuffleCopyIdentity|TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst|TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController|TestPublicSamplerReconstructsDeclaredLondonMulligans|TestPublicRedealAfterNaturallyPlayedLembasShuffle|TestPublicStackSourceStaysUnlinkedAfterShuffleAndRedraw)$",
+          "-test.v",
+          "-test.timeout",
+          "500s"
+        ],
+        "exit_code": 0,
+        "seconds": 264.7214476999943
+      },
+      {
+        "name": "vet",
+        "command": [
+          "D:/tools/go1.27.1/go/bin/go.exe",
+          "vet",
+          "-p",
+          "1",
+          "./...",
+          "./strategies"
+        ],
+        "exit_code": 0,
+        "seconds": 6.2119628000073135
+      },
+      {
+        "name": "diff",
+        "command": [
+          "git",
+          "diff",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 0.11999109998578206
+      }
+    ],
+    "passed": true,
+    "seconds": 283.5329520999803,
+    "rated_games": 0,
+    "completed_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "artifacts": {
+    "initial_saved_prefix": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-london-token-repair-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-london-token-repair-20261004-001",
+      "seal_sha256": "028191e231cc6cabf2457c7db08795376505b0270c78b263df896e6d7b38dd1e",
+      "bytes": 19309141,
+      "files": 35,
+      "prune_manifest_sha256": "c7c1c7784da1bc3f0737e88f4de024c1313032cb43c6c015d273c4ff77e4a3ec"
+    },
+    "production": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-london-token-repair-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-london-token-repair-20261004-002",
+      "seal_sha256": "cbbb7b52f70e02379aff1d80a691a820799e505175e06a5e0b06b2f417cb6f65",
+      "bytes": 19339999,
+      "files": 35,
+      "prune_manifest_sha256": "c7c1c7784da1bc3f0737e88f4de024c1313032cb43c6c015d273c4ff77e4a3ec"
+    },
+    "affected_checks": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-london-token-checks-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-london-token-checks-20261004-002",
+      "seal_sha256": "387c9e20eab972eb59373a144c6ba0a5bbc8976493a4df01af9b9e621cdb5454",
+      "bytes": 532232,
+      "files": 33,
+      "prune_manifest_sha256": "c7c1c7784da1bc3f0737e88f4de024c1313032cb43c6c015d273c4ff77e4a3ec"
+    }
+  },
+  "initial_wrapper_failure": "An exactly22-field post-test assumption rejected the first passed replay because this input also emits KnownCardClaims. All23 fields were then compared directly without repeating that completed test; the original wrapper and failure are retained.",
+  "closed_native_attempt": "docs/gorge-runtime022-cloud-20261004.json",
+  "new_cloud_spend_usd": 0,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "remaining": "Freeze the current runtime and obtain compatible guarded scaling and complete native/reference qualification, reviews, ratings and publication. The saved repair is not a full qualification."
+}

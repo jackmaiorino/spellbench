@@ -1,0 +1,813 @@
+{
+  "schema": "spellbench-gorge-public-mana-diagnosis/v1",
+  "observed_at_utc": "2026-10-04T13:54:51.746084+00:00",
+  "status": "local_later_shuffle_repair_validated_full_qualification_pending",
+  "runtime_source_commit": "556f7c0eda54aa3585f7b4477dcd0d074a63646d",
+  "cloud_failure_record": "docs/gorge-runtime024-cloud019-20261004.json",
+  "bounded_captures": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-001",
+      "bytes": 19510935,
+      "seal_sha256": "9f86f874c417ee636af82862999380d6d9400889bb1812e29184a64ef9fa63d0",
+      "independent_recovery_verified": true,
+      "terminal": {
+        "at_utc": "2026-10-04T13:00:04.166352+00:00",
+        "exit_code": 1,
+        "timed_out": true,
+        "seconds": 120.38949339999817,
+        "first_failure_captured": false,
+        "captured": null,
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "684c90a974518a15177cd1f98c7858fda5b4f7c1f842ab9d8829e312a5aea0cd"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-002",
+      "bytes": 20057237,
+      "seal_sha256": "ed8d68b7030aee9d5d930b1202d44d47f9099bf6dfe9bdc1927bc6b17de05ad4",
+      "independent_recovery_verified": true,
+      "terminal": {
+        "last_public_root": {
+          "path": "PUBLIC-LATEST.json",
+          "sha256": "42cde8031eca3fd181751a69435ba58bb657b695866b3369af8171ba5b6d7be4",
+          "frames": 94,
+          "actor": 0,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          }
+        },
+        "at_utc": "2026-10-04T13:04:47.558645+00:00",
+        "exit_code": 1,
+        "timed_out": true,
+        "seconds": 120.18519739998737,
+        "first_failure_captured": false,
+        "captured": null,
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "c2dc6854e37570b6acff5e8f288be580c49329786a6eb2dc9f9002c88c243e2b"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-003",
+      "bytes": 20603555,
+      "seal_sha256": "c63815a6e1e476f79b53230383eb20960cc082123f3c5ec3f064af4ff160d4c1",
+      "independent_recovery_verified": true,
+      "terminal": {
+        "last_public_root": {
+          "path": "PUBLIC-LATEST.json",
+          "sha256": "ad18703501a3ae2e7e847db3b46a941061bb3b27234e469e9b898aa4e9361c42",
+          "frames": 149,
+          "actor": 0,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          }
+        },
+        "at_utc": "2026-10-04T13:14:23.217438+00:00",
+        "exit_code": 1,
+        "timed_out": true,
+        "seconds": 300.3322339000297,
+        "first_failure_captured": false,
+        "captured": null,
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "fa0da0bd585be8e3e02c7b9778797128d911044c750f580128bc22adf62e792a"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-prefix-20261004-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-prefix-20261004-004",
+      "bytes": 23070357,
+      "seal_sha256": "94eb76fc87f4dbcbb3617019f7c51b9bccaa3ee3b8240217229d841b4c7a25be",
+      "independent_recovery_verified": true,
+      "terminal": {
+        "last_public_root": {
+          "path": "PUBLIC-LATEST.json",
+          "sha256": "f82c7132e98e37b25c04a292c374d3185b63fb8bb0bca7859a2857e5cacac226",
+          "frames": 157,
+          "actor": 0,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          }
+        },
+        "at_utc": "2026-10-04T13:25:11.655622+00:00",
+        "exit_code": 0,
+        "timed_out": false,
+        "seconds": 318.9941606000066,
+        "first_failure_captured": true,
+        "captured": {
+          "path": "PUBLIC-FAILURE-000157.json",
+          "sha256": "31eba6ad34081625cc1bdfc1607f8fa65a699e6bd7cc884dfb472d5a196f996a",
+          "frames": 157,
+          "actor": 0,
+          "options": {
+            "Seed": 54321,
+            "Attempts": 64,
+            "Worlds": 8,
+            "MaxSubmits": 5000,
+            "MinESS": 0,
+            "NoLandExclusion": false,
+            "ComparePotentialActions": false,
+            "Parallelism": 0,
+            "KnownCards": false,
+            "Redeal": {
+              "SpellbenchPublic": true,
+              "Engine": null,
+              "Observer": null
+            }
+          },
+          "result": {
+            "PublicReconstruction": {
+              "Attempts": 1,
+              "Submits": 5000,
+              "Nodes": 4818,
+              "BudgetExhausted": 1
+            },
+            "Attempts": 64,
+            "Accepted": 0,
+            "PrefixRejected": 64,
+            "BudgetExhausted": 0,
+            "Submits": 851,
+            "Duplicates": 0,
+            "ESS": 0,
+            "FirstRejection": "frame 1 events",
+            "Rejections": [
+              {
+                "Frame": 1,
+                "Component": "events",
+                "Shape": "move_zone_to_move_zone",
+                "Count": 9
+              },
+              {
+                "Frame": 1,
+                "Component": "events",
+                "Shape": "turn_to_move_zone",
+                "Count": 40
+              },
+              {
+                "Frame": 20,
+                "Component": "identities",
+                "Shape": "hand_to_battlefield",
+                "Count": 11
+              },
+              {
+                "Frame": 39,
+                "Component": "events",
+                "Shape": "priority_to_priority",
+                "Count": 4
+              }
+            ],
+            "GuidedGenesis": 64,
+            "GuidedLater": 14,
+            "ArrangeWindows": 0,
+            "UnguidedConstraints": 176,
+            "IncompatibleProposals": 0,
+            "WeightDiagnostics": {
+              "Accepted": 0,
+              "LogWeightMin": 0,
+              "LogWeightMedian": 0,
+              "LogWeightMax": 0,
+              "MaxNormalizedMass": 0,
+              "Top4NormalizedMass": 0,
+              "Mass50Count": 0,
+              "Mass90Count": 0
+            },
+            "HandToStackCauses": {
+              "PolicyCompetition": 0,
+              "ObserverReference": 0,
+              "ObservedCastMissing": 0,
+              "HypotheticalExtraCast": 0,
+              "Other": 0
+            },
+            "StackRejectionContexts": null,
+            "CompetitionExclusions": 0,
+            "CompetitionResidual": 0,
+            "CompetitionUnguided": 0,
+            "LandResidual": 11,
+            "KnownCardClaims": 8,
+            "RedealRefused": "public reconstruction submit budget exhausted"
+          }
+        },
+        "full_qualification": false,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "17c61def661dbf874fa6786ccd2660d9474e676eb0e088b88ab8352b820ff85e"
+    }
+  ],
+  "saved_root_traces": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-001",
+      "bytes": 19385186,
+      "seal_sha256": "53ceb8ba243a8e4999bcf275dd69a1fab6084adf8f0971f004131cc7aa99156a",
+      "independent_recovery_verified": true,
+      "frames": 94,
+      "worlds": 8,
+      "public_input_sha256": "42cde8031eca3fd181751a69435ba58bb657b695866b3369af8171ba5b6d7be4",
+      "public_work": {
+        "Attempts": 1,
+        "Submits": 192,
+        "Nodes": 16,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false,
+      "diagnostic_note": "An entry-only capture has no returned native result to compare.",
+      "options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      },
+      "checks": {
+        "at_utc": "2026-10-04T13:07:05.987435+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-001\\mana-root-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 21.784889500006102
+          },
+          {
+            "name": "saved-root",
+            "command": [
+              "E:\\pinned-binaries\\98394e65011fae15716fa549103279f082ae77f8c5d38313639402f03337c29e\\mana-root-tests.exe",
+              "-test.run",
+              "^TestSavedManaPublicRoot$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "seconds": 4.950881100026891
+          }
+        ],
+        "passed": true,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "98394e65011fae15716fa549103279f082ae77f8c5d38313639402f03337c29e"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-002",
+      "bytes": 19393509,
+      "seal_sha256": "9bbee479e2ecd9c0354e53b839cfeb5b3e6a52aa0d1b5f3d6fc7398184a1c898",
+      "independent_recovery_verified": true,
+      "frames": 149,
+      "worlds": 8,
+      "public_input_sha256": "ad18703501a3ae2e7e847db3b46a941061bb3b27234e469e9b898aa4e9361c42",
+      "public_work": {
+        "Attempts": 1,
+        "Submits": 309,
+        "Nodes": 42,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": false,
+      "diagnostic_note": "An entry-only capture has no returned native result to compare.",
+      "options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      },
+      "checks": {
+        "at_utc": "2026-10-04T13:15:03.498476+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-002\\mana-root-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 13.637555099965539
+          },
+          {
+            "name": "saved-root",
+            "command": [
+              "E:\\pinned-binaries\\644e0fd6fb9f6527370329b1da1ba7a0a71c2464a4d294c2be7d71f185bfa5e1\\mana-root-tests.exe",
+              "-test.run",
+              "^TestSavedManaPublicRoot$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "seconds": 6.5336005999706686
+          }
+        ],
+        "passed": true,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "644e0fd6fb9f6527370329b1da1ba7a0a71c2464a4d294c2be7d71f185bfa5e1"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-003",
+      "bytes": 19394628,
+      "seal_sha256": "5230f07daedd800d09dc7b3e7f4069a92eea336c372bcd03908680bd495c0c04",
+      "independent_recovery_verified": true,
+      "frames": 157,
+      "worlds": 0,
+      "public_input_sha256": "31eba6ad34081625cc1bdfc1607f8fa65a699e6bd7cc884dfb472d5a196f996a",
+      "public_work": {
+        "Attempts": 1,
+        "Submits": 5000,
+        "Nodes": 4818,
+        "BudgetExhausted": 1
+      },
+      "native_diagnostics_identical": true,
+      "diagnostic_note": "Compared every emitted native field except the three public reconstruction addenda.",
+      "options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      },
+      "checks": {
+        "at_utc": "2026-10-04T13:26:06.869907+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-003\\mana-root-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 11.510444000014104
+          },
+          {
+            "name": "saved-root",
+            "command": [
+              "E:\\pinned-binaries\\65edc10d491444bc4027b305aa3ce3b9873de86db2a1b147e68f8a3a45dede76\\mana-root-tests.exe",
+              "-test.run",
+              "^TestSavedManaPublicRoot$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "seconds": 18.94662740000058
+          }
+        ],
+        "passed": true,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "65edc10d491444bc4027b305aa3ce3b9873de86db2a1b147e68f8a3a45dede76"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-mana-trace-20261004-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-004",
+      "bytes": 19418603,
+      "seal_sha256": "329a8bd2021a195d49e92ed6e056abba22556106c44ffefe96eaf25e7985c286",
+      "independent_recovery_verified": true,
+      "frames": 157,
+      "worlds": 8,
+      "public_input_sha256": "31eba6ad34081625cc1bdfc1607f8fa65a699e6bd7cc884dfb472d5a196f996a",
+      "public_work": {
+        "Attempts": 1,
+        "Submits": 319,
+        "Nodes": 41,
+        "BudgetExhausted": 0
+      },
+      "native_diagnostics_identical": true,
+      "diagnostic_note": "Compared every emitted native field except the three public reconstruction addenda.",
+      "options": {
+        "Seed": 54321,
+        "Attempts": 64,
+        "Worlds": 8,
+        "MaxSubmits": 5000,
+        "MinESS": 0,
+        "NoLandExclusion": false,
+        "ComparePotentialActions": false,
+        "Parallelism": 0,
+        "KnownCards": false,
+        "Redeal": {
+          "SpellbenchPublic": true,
+          "Engine": null,
+          "Observer": null
+        }
+      },
+      "checks": {
+        "at_utc": "2026-10-04T13:40:52.092018+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-mana-trace-20261004-004\\mana-root-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 19.675404399982654
+          },
+          {
+            "name": "saved-root",
+            "command": [
+              "E:\\pinned-binaries\\09427fb1208f2f88471dcea682279ce15702ddd044de4cda0911e84e7b93e130\\mana-root-tests.exe",
+              "-test.run",
+              "^TestSavedManaPublicRoot$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "seconds": 9.39274330000626
+          }
+        ],
+        "passed": true,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      },
+      "binary_sha256": "09427fb1208f2f88471dcea682279ce15702ddd044de4cda0911e84e7b93e130"
+    }
+  ],
+  "cause": {
+    "frames": 157,
+    "failing_frame": 154,
+    "finding": "The second owned Twisted Landscape search belongs to a later shuffle epoch with cards already in hand. Initial-shuffle-only guidance could not reproduce the observed order of matching basic lands.",
+    "actual_match_names": [
+      "Mountain",
+      "Mountain",
+      "Swamp",
+      "Swamp"
+    ],
+    "required_match_names": [
+      "Swamp",
+      "Mountain",
+      "Mountain",
+      "Swamp"
+    ]
+  },
+  "repair": {
+    "scope": "Index public owned basic-search constraints by shuffle epoch and preserve the existing hand outside a later shuffled library. Native policy, sampling budgets, weights, and hidden pools are unchanged.",
+    "base_commit": "8108c315c61c84a10cf425870d719a9944c9b0ad",
+    "working_tree_patch_sha256": "da879be5fada81cced495180e9c56b88693e2d0971280374932f993e87d155bd",
+    "fixtures": "Pending repeated search public witness and eight worlds at its answered eligible priority boundary, identical histories under unseen nonmatching tail permutations, native-field equality under the same native known-card reporting settings, and known-card consistency."
+  },
+  "affected_checks": {
+    "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-005",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-005",
+    "bytes": 19376145,
+    "seal_sha256": "77530817f38b12c9f467b09a9a927d7b29204eba4a7311b7808d0011ce873428",
+    "independent_recovery_verified": true,
+    "checks": {
+      "at_utc": "2026-10-04T13:53:50.563555+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-005\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 9.663851399964187
+        },
+        {
+          "name": "selected-fixtures",
+          "command": [
+            "E:\\pinned-binaries\\b7adf9379e93e4765201cef6df67b69be87d62baf304b6823dfd60cede314628\\arrange-tests.exe",
+            "-test.run",
+            "^TestPublicFilteredOwnSearchAfterShuffle$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "seconds": 19.801443599979393
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 27.01496970001608
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.7045441999798641
+        }
+      ],
+      "passed": true,
+      "seconds": 57.98103170003742,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "prior_full_suite": {
+      "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-004",
+      "bytes": 19387802,
+      "seal_sha256": "8df81f80bad428211555111aecd30f0f994f3fbd2c9f9cad32f2e64c50187144",
+      "independent_recovery_verified": true,
+      "checks": {
+        "at_utc": "2026-10-04T13:47:50.704965+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-vet=off",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-004\\arrange-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "seconds": 8.53440760000376
+          },
+          {
+            "name": "arrange-fixture",
+            "command": [
+              "E:\\pinned-binaries\\0118b7d4a4583cc10d3159aa2d187f15bc05c5c89300b3be6c47e83e633a696e\\arrange-tests.exe",
+              "-test.run",
+              "^TestPublicActorArrangeAfterLondon$",
+              "-test.v",
+              "-test.timeout",
+              "240s"
+            ],
+            "exit_code": 0,
+            "seconds": 75.67115140001988
+          },
+          {
+            "name": "strategies",
+            "command": [
+              "E:\\pinned-binaries\\0118b7d4a4583cc10d3159aa2d187f15bc05c5c89300b3be6c47e83e633a696e\\arrange-tests.exe",
+              "-test.run",
+              "^Test",
+              "-test.skip",
+              "^TestPublicActorArrangeAfterLondon$",
+              "-test.v",
+              "-test.timeout",
+              "500s"
+            ],
+            "exit_code": 1,
+            "seconds": 379.86446820001584
+          }
+        ],
+        "passed": false,
+        "seconds": 465.750556199986,
+        "completed_games": 0,
+        "rated_games": 0,
+        "new_cloud_spend_usd": 0
+      }
+    },
+    "disposition": "All existing arrangement and strategy cases passed. The two newly authored fixture cases initially failed because the pending library choice is outside shipped search eligibility and the before/after options enabled different native known-card reporting. The corrected selected cases, vet and diff checks then passed with identical production overlay hashes."
+  },
+  "prior_failed_build": {
+    "source_of_record": "E:\\spellbench-gorge-arrange-checks-20261004-003",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-003",
+    "bytes": 517940,
+    "seal_sha256": "2ec39378232753f612a5f4f6268542d4a797b8ea677d52d3ae5fd81f42a51a5e",
+    "independent_recovery_verified": true,
+    "checks": {
+      "at_utc": "2026-10-04T13:34:02.131653+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-arrange-checks-20261004-003\\arrange-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 1,
+          "seconds": 7.695459500013385
+        }
+      ],
+      "passed": false,
+      "seconds": 7.695545899972785,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "cause": "Missing events import in the new fixture, corrected before successful checks."
+  },
+  "prior_failure_corpus": {
+    "source_of_record": "E:\\spellbench-gorge-wildfire-arrange-repair-20261004-004",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-004",
+    "bytes": 19458564,
+    "seal_sha256": "6a2bbc7d7089c56af0f126fe89ed9c4c7142ee05d224b2e59e6d65bd3117cead",
+    "independent_recovery_verified": true,
+    "frames": [
+      141,
+      164,
+      166,
+      176,
+      202,
+      207,
+      228,
+      235,
+      255,
+      274,
+      295,
+      313,
+      320
+    ],
+    "all_eight_worlds": true,
+    "all_native_fields_identical": true,
+    "checks": {
+      "at_utc": "2026-10-04T13:43:00.105352+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-wildfire-arrange-repair-20261004-004\\arrange-corpus-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 13.010382100008428
+        },
+        {
+          "name": "saved-corpus",
+          "command": [
+            "E:\\pinned-binaries\\45292adceb9814bc45a977f7f6679ffe5ec58ad6f9054fe70821e8ad221e3069\\arrange-corpus-tests.exe",
+            "-test.run",
+            "^TestSavedWildfireActorArrangeCorpus$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 66.12996350001777
+        }
+      ],
+      "passed": true,
+      "seconds": 79.42126930004451,
+      "completed_games": 0,
+      "rated_games": 0,
+      "new_cloud_spend_usd": 0
+    }
+  },
+  "billing": {
+    "source_of_record": "E:\\spellbench-gorge-billing-20261004-001",
+    "recovery_root": "D:\\e-scratch\\spellbench-gorge-billing-20261004-001",
+    "bytes": 17346,
+    "seal_sha256": "b59a6f24ebe21f060fba4ae0e9848a840a9e78bfbca3646dabfa6f28c8cd23ea",
+    "independent_recovery_verified": true,
+    "provider_reported_total_usd": 2.541344251760165,
+    "conservative_cumulative_lease_ceiling_usd": 7.81026747,
+    "authorized_cap_usd": 10,
+    "final_invoice_verified": false,
+    "correction": "A nonzero owned-pod charge does not establish invoice finality. The sealed summary final_invoice_pending=false field was inferred from a nonzero charge and is superseded by this explicit finality-unverified statement. Sealed artifacts remain unchanged."
+  },
+  "remaining_failures": [
+    "Rally native game 108 target 123 not visible; exact cause still being investigated."
+  ],
+  "active_owned_cloud_resources": 0,
+  "frozen_gates_unchanged": true,
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0
+}

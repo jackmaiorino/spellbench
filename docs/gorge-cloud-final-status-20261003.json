@@ -1,0 +1,303 @@
+{
+  "schema": "spellbench-gorge-cloud-final-status/v1",
+  "at_utc": "2026-10-03T16:04:29.121238+00:00",
+  "release": {
+    "schema": "spellbench-gorge-cloud-release/v1",
+    "at_utc": "2026-10-03T15:37:28.418036+00:00",
+    "pod_id": "avmelw7vb6ee7m",
+    "volume_id": "edl6fbf5j0",
+    "pod_http_status": 404,
+    "volume_http_status": 404,
+    "pod_absent": true,
+    "volume_absent": true,
+    "verified_recovery_sha256": "ff29456dba1a7a6cb0d2ab7b5b2c5449eede1bd15ecf94adebb3505ec9ab27fe",
+    "stop_confirmed_utc": "2026-10-03T15:24:14.7693206+00:00",
+    "volume_delete_requested_utc": "2026-10-03T15:24:16.5549976+00:00",
+    "billing_start_utc": "2026-10-03T12:57:28.31+00:00",
+    "estimated_compute_usd": 1.810216638,
+    "conservative_estimated_total_usd": 1.860267470158333,
+    "spend_cap_usd": 10,
+    "billing_note": "Conservative time-times-rate estimate; provider invoice not yet reconciled"
+  },
+  "matrix": {
+    "source_of_record": "E:\\spellbench-gorge-runpod-20261003-001\\matrix-002\\MATRIX.json",
+    "sha256": "f94b767a15095c1f5c55570cc546a6537908aacbc004bd97baf6ef5ffa99fe35",
+    "runtime_source_commit": "be161b5706082e2d109ecae654050526782438b3",
+    "scheduled_games": 120,
+    "natural_games": 119,
+    "halts": 1,
+    "passed": false,
+    "failures": [
+      "gorge-search/Wildfire: no eligible and covered native search",
+      "gorge-search/Spy: no eligible and covered native search",
+      "gorge-search/CawGates: no eligible and covered native search",
+      "gorge-search-mana/Wildfire: no eligible and covered native search",
+      "gorge-search-mana/Spy: no eligible and covered native search",
+      "gorge-search-mana/Burn: no eligible and covered native search",
+      "gorge-search-mana/CawGates: no eligible and covered native search",
+      "gorge-search-redeal/Wildfire: no eligible and covered native search",
+      "gorge-search-redeal/Wildfire: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Rally: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Spy: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/Burn: redeal reconstruction refused or exhausted",
+      "gorge-search-redeal/CawGates: no eligible and covered native search",
+      "gorge-search-redeal/CawGates: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Wildfire: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Rally: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Spy: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/Burn: redeal reconstruction refused or exhausted",
+      "gorge-search-mana-redeal/CawGates: redeal reconstruction refused or exhausted",
+      "non-natural matrix games: [408]"
+    ],
+    "search_coverage_columns": [
+      "eligible",
+      "covered",
+      "redealt_worlds",
+      "reconstruction_budget_exhaustions",
+      "redeal_refusals"
+    ],
+    "search_coverage": {
+      "gorge-search/Wildfire": [
+        53,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search/Rally": [
+        31,
+        4,
+        0,
+        0,
+        0
+      ],
+      "gorge-search/Spy": [
+        33,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search/Burn": [
+        30,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gorge-search/CawGates": [
+        39,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-mana/Wildfire": [
+        728,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-mana/Rally": [
+        113,
+        1,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-mana/Spy": [
+        94,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-mana/Burn": [
+        47,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-mana/CawGates": [
+        80,
+        0,
+        0,
+        0,
+        0
+      ],
+      "gorge-search-redeal/Wildfire": [
+        55,
+        0,
+        0,
+        38,
+        38
+      ],
+      "gorge-search-redeal/Rally": [
+        31,
+        5,
+        32,
+        17,
+        17
+      ],
+      "gorge-search-redeal/Spy": [
+        28,
+        1,
+        8,
+        14,
+        23
+      ],
+      "gorge-search-redeal/Burn": [
+        25,
+        5,
+        40,
+        13,
+        13
+      ],
+      "gorge-search-redeal/CawGates": [
+        37,
+        0,
+        0,
+        8,
+        28
+      ],
+      "gorge-search-mana-redeal/Wildfire": [
+        786,
+        18,
+        144,
+        260,
+        260
+      ],
+      "gorge-search-mana-redeal/Rally": [
+        65,
+        9,
+        64,
+        28,
+        28
+      ],
+      "gorge-search-mana-redeal/Spy": [
+        188,
+        4,
+        32,
+        43,
+        70
+      ],
+      "gorge-search-mana-redeal/Burn": [
+        46,
+        1,
+        8,
+        26,
+        26
+      ],
+      "gorge-search-mana-redeal/CawGates": [
+        139,
+        3,
+        24,
+        56,
+        56
+      ]
+    },
+    "ordinary_modes": 8,
+    "ordinary_native_decisions": 27240,
+    "ordinary_bad_native_decisions": 0,
+    "replay": {
+      "replay_identical": true,
+      "replay_game_index": 366,
+      "replay_store_sha256": "cd572f31e516b536ab2ff21ed621c255126b13903e9e724548fd41f0e8003c99"
+    },
+    "limitation": "Per-deck coverage and public reconstruction gates failed; this matrix alone does not qualify any mode"
+  },
+  "payment_repair": {
+    "source_commit": "bedf32b39b69b9a566e764671612f4830593fbb0",
+    "runtime_source_of_record": "E:/spellbench-gorge-runtime-20261003-011",
+    "game_index": 408,
+    "natural_repetitions": 2,
+    "byte_identical_rows": true,
+    "game_digest": "sha256:742c2fb5568df36fd2e4723f43afcbcd00bc013ee570912b358b174ce25112f1",
+    "wall_seconds": [
+      20.08872660002089,
+      19.88128999999026
+    ],
+    "affected_checks": "TestSpellbombWindow, TestUnlessPay, TestHybridPip and mapping vet passed; real fixture exercises interactive and Done-only windows",
+    "limitation": "Small same-seed correctness replay. Subsequent full native audit and source-resolution repair are recorded in docs/gorge-native-audit-20261003.json; full current-runtime qualification remains incomplete."
+  },
+  "sampler_diagnostic": {
+    "source_of_record": "E:/spellbench-gorge-search-diagnostic-20261003-002/CHECK.json",
+    "game_index": 360,
+    "intentional_decision_cap": 64,
+    "classification": "forfeit",
+    "attempts": [
+      64,
+      64
+    ],
+    "accepted": [
+      0,
+      0
+    ],
+    "top_rejections": [
+      "identities/hand_to_battlefield",
+      "identities/hand_to_battlefield"
+    ],
+    "scope": "Observed replay rejections under the shipped opponent policy; diagnosis, not a completed qualification"
+  },
+  "artifacts": [
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\matrix-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closed-stage-recovery-002\\matrix-002",
+      "bytes": 602761,
+      "seal_sha256": "3463e580c41ab1742126a2388e06b626c9729f84d85dbac696b54067eca20d2a"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-001",
+      "bytes": 17500704,
+      "seal_sha256": "0f33b6272ed697e9db40ef9189f44a51de08f14c326bd17e17e7d7adf5e5a34a"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-002",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-002",
+      "bytes": 17507084,
+      "seal_sha256": "8c344be4f8e44bff30192cd2ca1bdb9101b1271735dc2e93cde5ad0ff63eb71e"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-003",
+      "bytes": 4633,
+      "seal_sha256": "e5d01bf051db20c04e50fdefa903a3f71a294a7396affbe5711ca142bfdcc617"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\native-progress-correctness-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\native-progress-correctness-001",
+      "bytes": 2930,
+      "seal_sha256": "d58f0c226f6d3b50ef1609ade57ce3ff1f20d40dc550d6ce5e5daa1b7c395310"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\closure-metadata-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-001\\closure-metadata-001",
+      "bytes": 732489,
+      "seal_sha256": "17fec143b2d3eaf34b928d8e05b9706434b466a2010d0ff9b44ed82660bfa7cb"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-004",
+      "seal_sha256": "972ebe5460a8ab4aada4454dd4571702318d2fdf1249e27164bd2a066c9f8925"
+    },
+    {
+      "path": "E:\\spellbench-gorge-runpod-20261003-001\\caw-mapping-correctness-005",
+      "seal_sha256": "82603a7f7aa032c9fb550128427c2fab032737fa29968c8a4e1b29aeeb8b383e"
+    },
+    {
+      "path": "E:\\spellbench-gorge-search-diagnostic-20261003-001",
+      "seal_sha256": "3956ad6826406e749233915fc5453871a0a2e1aade72d92b375635ef2b86b80e"
+    },
+    {
+      "path": "E:\\spellbench-gorge-search-diagnostic-20261003-002",
+      "seal_sha256": "99bc8e80346b9b1984398f250a72afb823045a9a3bd99d9ccc1df93710c783b2"
+    }
+  ],
+  "native_audit": "Completed on runtime011: 280 blocks, 552 of 560 physical games natural, four duplicated source-resolution halts. All four failed seeds and repeats pass on runtime012. Search coverage and reconstruction gates still fail; docs/gorge-native-audit-20261003.json.",
+  "qualification_complete": false,
+  "rated_games": 0,
+  "published": false,
+  "disposition": "Cloud pilot released under the separate cumulative USD10 cap; failed search coverage and mapping retained for local repairs"
+}

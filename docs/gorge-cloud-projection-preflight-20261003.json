@@ -1,0 +1,39 @@
+{
+  "schema": "spellbench-gorge-cloud-preflight-closures/v1",
+  "at_utc": "2026-10-03T23:49:13.613609+00:00",
+  "attempts": [
+    {
+      "schema": "spellbench-gorge-cloud-preflight-closure/v1",
+      "at_utc": "2026-10-03T23:49:13.613609+00:00",
+      "reason": "ProviderHTTP400: two-vCPU container disk must be at most20GB. Exact persisted allocation name reconciled absent; independent guardian released.",
+      "paid_resource_created": false,
+      "new_cloud_spend_usd": 0,
+      "rated_games": 0,
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261003-003",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-003",
+      "cumulative_cloud_spend_estimate_usd": 1.86026747,
+      "cloud_cap_usd": 10,
+      "bytes": 47549565,
+      "seal_sha256": "be195036903201489504f6b4cbfe51f08818d1d3d474e8a713b36d5171c5643b"
+    },
+    {
+      "schema": "spellbench-gorge-cloud-preflight-closure/v1",
+      "at_utc": "2026-10-03T23:49:13.613609+00:00",
+      "reason": "Fresh CPU/rate precheck refused allocation, then the next precheck observed the local reservation had changed. No lease, guardian, credential or paid resource created; local diagnostic selected.",
+      "paid_resource_created": false,
+      "new_cloud_spend_usd": 0,
+      "rated_games": 0,
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261003-004",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261003-004",
+      "cumulative_cloud_spend_estimate_usd": 1.86026747,
+      "cloud_cap_usd": 10,
+      "bytes": 47540479,
+      "seal_sha256": "b470275339169be55ed7b08800fc8bd881948f9e6b6d49d7540d3d82c35cf70e"
+    }
+  ],
+  "new_cloud_spend_usd": 0,
+  "cumulative_cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "rated_games": 0,
+  "qualified": false
+}

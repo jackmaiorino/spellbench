@@ -1,0 +1,63 @@
+{
+  "source_commit": "dde39652fe974b36daa6be5de7da0729d84a586b",
+  "source_of_record": "E:\\spellbench-gorge-runtime-20261006-121",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261006-121",
+  "go_version": "go version go1.27.1 windows/amd64",
+  "go_driver_sha256": "d3ccdb604eafa6031133aefe1a3db24f0bb7362b857bc2125ac4e4c178b4b490",
+  "compiler_sha256": "69294d68bcaa3e786f80d23bfb8bed807d5d969e931d5bf92161bdf518778a01",
+  "linker_sha256": "9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720",
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 13475840,
+      "sha256": "98212b0de8f906a972ffa1a49fd912e3b7e00138b39ce82bb01a8ce2c9bb757d"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 17488384,
+      "sha256": "5581fe8b202f98cdcadab772d80b03aefe98ba59290d37bfcbab377aca1bdcb4"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 18306560,
+      "sha256": "694967fc80e544d8fe4727ff60571f48099784c3c12bf0c59b25401f5a11455c"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 19161600,
+      "sha256": "96fca3f16afa05278205b26053eee54af72bbb6d67cf08c6078db4d4c85076e3"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "platform": "linux",
+      "bytes": 17400140,
+      "sha256": "b6cd09d72907724d7462edcaf89c6206e042858d7b04e653adcb44c8877cbb6c"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "platform": "linux",
+      "bytes": 18206627,
+      "sha256": "96aa822a22f0c109828a2c45cce3e3cbe760bfe7e4d76f6848ef8344d5720997"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "platform": "linux",
+      "bytes": 19062032,
+      "sha256": "acd02586bc00712435254fae112ff164758d77773cc4039681c45244574220bd"
+    }
+  ],
+  "scope": "Affected native replay regressions and seven production binary builds; no substantial evaluation or rated games",
+  "conservative_reserved_total_usd": 9.99736347,
+  "new_cloud_spend_usd": 0,
+  "gpu_ordinal": null,
+  "schema": "spellbench-gorge-current-runtime/v1",
+  "seal_sha256": "4b514ebb2c99dd876778a99cfc056ab841d021d6bb221722a759732efd35037e",
+  "build_sha256": "1d3523638942e9f725cae8c844329673b8be10e6bde64052b2fabe609d94e3a8",
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0
+}

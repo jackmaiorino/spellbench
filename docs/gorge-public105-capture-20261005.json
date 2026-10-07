@@ -1,0 +1,121 @@
+{
+  "observed_at_utc": "2026-10-05T22:06:22.491507+00:00",
+  "phase": "failed_post_capture_counter_assertion_with_validated_public_inputs",
+  "source_of_record": "E:\\spellbench-gorge-local-diagnostic-20261005-100",
+  "recovery_root": "D:/e-scratch/spellbench-gorge-local-diagnostic-20261005-100",
+  "seal_sha256": "cc7f4bed8abdc66a43dd0641c9108ae61a4c16b097c3441e110ea8d049f3cf1b",
+  "source_commit": "8799a283c64de9597705737ab548c2b737826ccf",
+  "original_closure": {
+    "capture_completed": false,
+    "error": "AssertionError: ",
+    "at_utc": "2026-10-05T21:49:36.529648+00:00",
+    "elapsed_seconds": 92.39926079998259,
+    "native_qualification_passed": false,
+    "rated_games": 0,
+    "new_cloud_spend_usd": 0
+  },
+  "captured_prefixes_validated": true,
+  "captures": [
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-001.json",
+      "sha256": "d722bb33bf2ab583f3bb3837f7e3e332efbdbebaf30a9fcfa7214d5524214955",
+      "frames": 93,
+      "actor": 0,
+      "work": {
+        "Attempts": 13,
+        "Submits": 5000,
+        "Nodes": 4531,
+        "BudgetExhausted": 1
+      }
+    },
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-002.json",
+      "sha256": "c18f35eae6bd5269ffce77211c82ed739a0cc46423c6795d13e233248a536c64",
+      "frames": 113,
+      "actor": 0,
+      "work": {
+        "Attempts": 11,
+        "Submits": 5000,
+        "Nodes": 4640,
+        "BudgetExhausted": 1
+      }
+    },
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-003.json",
+      "sha256": "3585338514ed1a6f9c825851829352b7d8ce86dec57b3d04eb98784456dc3989",
+      "frames": 123,
+      "actor": 0,
+      "work": {
+        "Attempts": 11,
+        "Submits": 5000,
+        "Nodes": 4564,
+        "BudgetExhausted": 1
+      }
+    },
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-004.json",
+      "sha256": "d722bb33bf2ab583f3bb3837f7e3e332efbdbebaf30a9fcfa7214d5524214955",
+      "frames": 93,
+      "actor": 0,
+      "work": {
+        "Attempts": 13,
+        "Submits": 5000,
+        "Nodes": 4531,
+        "BudgetExhausted": 1
+      }
+    },
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-005.json",
+      "sha256": "c18f35eae6bd5269ffce77211c82ed739a0cc46423c6795d13e233248a536c64",
+      "frames": 113,
+      "actor": 0,
+      "work": {
+        "Attempts": 11,
+        "Submits": 5000,
+        "Nodes": 4640,
+        "BudgetExhausted": 1
+      }
+    },
+    {
+      "path": "capture-001/PUBLIC-PROJECTION-006.json",
+      "sha256": "3585338514ed1a6f9c825851829352b7d8ce86dec57b3d04eb98784456dc3989",
+      "frames": 123,
+      "actor": 0,
+      "work": {
+        "Attempts": 11,
+        "Submits": 5000,
+        "Nodes": 4564,
+        "BudgetExhausted": 1
+      }
+    }
+  ],
+  "first_game_budget_exhaustions": 3,
+  "first_game_and_replay_capture_count": 6,
+  "three_exact_replay_duplicates": true,
+  "original_failed_assertion_preserved": true,
+  "complete_game_and_replay_rows_identical_to_original_failed105": true,
+  "completed_games": 2,
+  "native_qualification_passed": false,
+  "rated_games": 0,
+  "new_cloud_spend_usd": 0,
+  "supervisor_cleanup": {
+    "at_utc": "2026-10-05T21:58:04.793433+00:00",
+    "generation": 219,
+    "outcome": "failure",
+    "work_child_pid": 10216,
+    "work_child_absent_before_cleanup": true,
+    "supervisor_pids": [
+      60008,
+      43632
+    ],
+    "owned_remnants_only": true,
+    "token_fate": "released",
+    "all_work_and_supervisors_absent": true,
+    "independent_files_before_cleanup": 33,
+    "original_closure_preserved": true,
+    "original_failed_assertion_preserved": true,
+    "new_cloud_spend_usd": 0,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  }
+}

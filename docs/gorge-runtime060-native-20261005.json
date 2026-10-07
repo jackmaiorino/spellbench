@@ -1,0 +1,122 @@
+{
+  "at_utc": "2026-10-05T10:50:52.875004+00:00",
+  "phase": "released_native_qualification_incomplete",
+  "pod_id": "m1uih0fltibkbl",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-060",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-060",
+  "release": {
+    "at_utc": "2026-10-05T10:50:52.2414864+00:00",
+    "name": "spellbench-gorge-native-87019de818b242ee",
+    "pod_id": "m1uih0fltibkbl",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "ff8b664f0619b95c7df34623b4f2f159fec4e857585191cd8347fccff2a710f4",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 8.91288647,
+    "maximum_lease_usd": 0.966667,
+    "conservative_cumulative_lease_ceiling_usd": 9.87955347,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T10:48:51.919641+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "component_runtime_build_passed": false,
+    "component_roots_passed": true,
+    "elapsed_seconds": 1533.7879867190495,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-060",
+  "runtime_seal_sha256": "ddde5315e977be5fcb5e0619ed82a0a3d2e7556139db78c1dfa901a1f4e8ccc2",
+  "native_audit": null,
+  "component_roots_passed": true,
+  "component_runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-058",
+  "component_runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
+  "component_checks": {
+    "passed": true,
+    "component_roots_passed": true,
+    "component_reused": true,
+    "verification_seal_sha256": "db793f598bf059ecc2fcf25f95953fcbfa9a7f8e71b5a11196295895b3363748",
+    "source_commit": "1a21bf0116e7bcdb2a83a2145d8fc6f47d23ce0a",
+    "scope": "Five compatible saved roots verified in059; frozen parent058 reporting error retained"
+  },
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T10:48:51.919111+00:00",
+      "phase": "supported_native_qualification",
+      "error_type": "RuntimeError",
+      "error": "supported-native exit 1",
+      "rated_games": 0
+    },
+    "native-001/EARLY-NATIVE-FAILURE.json": {
+      "at_utc": "2026-10-05T10:48:51.812870+00:00",
+      "game": 52,
+      "cell": "Wildfire/search-mana-redeal",
+      "coverage": {
+        "Natives": 632,
+        "Eligible": 194,
+        "Attempted": 97,
+        "Covered": 95,
+        "Attempts": 6208,
+        "Accepted": 4,
+        "Worlds": 760,
+        "Rollouts": 3160,
+        "Submits": 2448675,
+        "Terminal": 3160,
+        "Capped": 0,
+        "Redealt": 760,
+        "ReconstructionAttempts": 121,
+        "ReconstructionSubmits": 112672,
+        "ReconstructionNodes": 37162,
+        "ReconstructionBudgetExhausted": 2,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 2
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 97,
+          "insufficient worlds/ESS": 2
+        },
+        "Kinds": {
+          "attackers": 3,
+          "cast": 28,
+          "mana": 64
+        }
+      },
+      "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T10:50:52.875004+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-032",
+    "prior_closed_ledger_seal_sha256": "167a941b41c27cdd031fde498c73f340b71c1e6a9ac7d99b4c7382cc8017a9a9",
+    "provider_reported_prior_closed_spend_usd": 3.717524520565348,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 3.717524520565348,
+    "current_closed_lease_maximum_billable_seconds": 1728.055413,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.318006,
+    "conservative_cumulative_lease_ceiling_usd": 9.23089247,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-033",
+  "billing_seal_sha256": "844baef10dc5be054c367b8cd9cfc8ed59045b89fc56b077af699ae86bd35369",
+  "seal_sha256": "34e396e1e20b2c06898d6bd0e33f337de519c05b9880c0236b02a05e7fd00d0f"
+}

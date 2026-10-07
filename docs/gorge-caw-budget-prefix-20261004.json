@@ -1,0 +1,86 @@
+{
+  "schema": "spellbench-gorge-caw-budget-prefix/v1",
+  "at_utc": "2026-10-04T04:43:20.055544+00:00",
+  "source_of_record": "E:\\spellbench-gorge-caw-budget-prefix-20261004-001",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-caw-budget-prefix-20261004-001",
+  "runtime_source_commit": "438dffd42bc0c8d00d01dbfea13f3ec16ce593e1",
+  "logging_only_source_commit": "a56c9bcccf4777e7b611a6fae64112839c14db1f",
+  "game_index": 272,
+  "pairing": "CawGates/search-redeal/uniform, original g0",
+  "frames": 96,
+  "public_input_sha256": "1e4914f9922e66e447b9d1fdb04b1fd3876afdce223a9fe21c0dfe44742035d8",
+  "public_reconstruction": {
+    "Attempts": 11,
+    "Submits": 5000,
+    "Nodes": 5002,
+    "BudgetExhausted": 1
+  },
+  "native_result": {
+    "PublicReconstruction": {
+      "Attempts": 11,
+      "Submits": 5000,
+      "Nodes": 5002,
+      "BudgetExhausted": 1
+    },
+    "Attempts": 64,
+    "Accepted": 0,
+    "PrefixRejected": 64,
+    "BudgetExhausted": 0,
+    "Submits": 1244,
+    "Duplicates": 0,
+    "ESS": 0,
+    "FirstRejection": "frame 12 identities",
+    "Rejections": [
+      {
+        "Frame": 1,
+        "Component": "events",
+        "Shape": "move_zone_to_turn",
+        "Count": 20
+      },
+      {
+        "Frame": 12,
+        "Component": "identities",
+        "Shape": "hand_to_battlefield",
+        "Count": 44
+      }
+    ],
+    "GuidedGenesis": 128,
+    "GuidedLater": 20,
+    "ArrangeWindows": 0,
+    "UnguidedConstraints": 192,
+    "IncompatibleProposals": 0,
+    "WeightDiagnostics": {
+      "Accepted": 0,
+      "LogWeightMin": 0,
+      "LogWeightMedian": 0,
+      "LogWeightMax": 0,
+      "MaxNormalizedMass": 0,
+      "Top4NormalizedMass": 0,
+      "Mass50Count": 0,
+      "Mass90Count": 0
+    },
+    "HandToStackCauses": {
+      "PolicyCompetition": 0,
+      "ObserverReference": 0,
+      "ObservedCastMissing": 0,
+      "HypotheticalExtraCast": 0,
+      "Other": 0
+    },
+    "StackRejectionContexts": null,
+    "CompetitionExclusions": 0,
+    "CompetitionResidual": 0,
+    "CompetitionUnguided": 0,
+    "LandResidual": 42,
+    "LandUnguided": 2,
+    "KnownCardClaims": 6,
+    "RedealRefused": "public reconstruction submit budget exhausted"
+  },
+  "diagnostic_wall_seconds": 7.471009057015181,
+  "logging_only_binary_sha256": "f0ca1893b1a0a5037de5f2f2bf92b1c39bc96fe2f9dee126e44c782916fec3d0",
+  "seal_sha256": "adfbd0a2acf7a5eeca91d3fc6fafd2936721bbdb2f5932145a69f7d31bfb181e",
+  "bytes": 20363058,
+  "completed_games": 0,
+  "rated_games": 0,
+  "qualification_complete": false,
+  "next_step": "Replay the retained public prefix offline with bounded tracing, identify the first incompatible witness, and repair only the actual reconstruction defect while preserving native budgets and policies."
+}

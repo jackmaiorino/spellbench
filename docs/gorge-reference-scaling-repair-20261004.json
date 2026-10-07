@@ -1,0 +1,108 @@
+{
+  "schema": "spellbench-gorge-reference-scaling-repair/v1",
+  "source_of_record": "E:\\spellbench-gorge-reference-scaling-checks-20261004-001",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-reference-scaling-checks-20261004-001",
+  "source_files": {
+    "engines/gorge/scripts/reference_matrix.py": "5bdc35adc8215c1239d6a2d74d7554c57398ddc108c63954b2b6a5143d135b77",
+    "engines/gorge/README.md": "229748ffa1da5a0f979a39482019754c03cc58b857cc84447930d8f09997a3ac"
+  },
+  "source_parent": "c99064984981471aad71e48404fb1831f50cd6da",
+  "benchmark_sha256": "6bf3cc7caab4c9f59b3ce4f57bee616c17b360570e5a7057cd433cc6296775c0",
+  "checks": {
+    "at_utc": "2026-10-04T06:55:51.174595+00:00",
+    "command": [
+      "C:\\Python314\\python.exe",
+      "-m",
+      "pytest",
+      "-q",
+      "python/tests/test_throughput.py",
+      "python/tests/test_machine_limits.py",
+      "python/tests/test_machine_container.py",
+      "python/tests/test_bench_run.py::test_an_unrated_placement_note_is_checked_before_any_process",
+      "python/tests/test_bench_run.py::test_the_launch_definitions_parse"
+    ],
+    "exit_code": 0,
+    "wall_seconds": 2.439332199981436,
+    "compile_passed": true,
+    "diff_exit_code": 0,
+    "stdout_sha256": "95b6904e42714c85e547b97081f00a9e44c8a309e604a10d08985fae83ad37bc",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_tail": "........................................................................ [ 84%]\n.............                                                            [100%]\n85 passed in 0.77s\n",
+    "benchmark_unchanged": true,
+    "passed": true
+  },
+  "seal_sha256": "afcde749cfce43260097348c19de57315f4b11a899aafcb5deee31ca1f891468",
+  "prune_manifest_sha256": "231630aa29d49029bb8171f269a8a27700235bbc3148b9332f6b0808a983c300",
+  "bytes": 68368,
+  "capacity_diagnosis": [
+    {
+      "usable_cpus": 8,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 2,
+      "selected_worker_bound": 2,
+      "ladder": [
+        1,
+        2
+      ],
+      "sample_size": 4,
+      "configured_bound_fits": true,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 16,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 5,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 24,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 8,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    },
+    {
+      "usable_cpus": 28,
+      "configured_workers": 8,
+      "per_game_cores": 3,
+      "eligible_workers": 8,
+      "selected_worker_bound": 4,
+      "ladder": [
+        1,
+        2,
+        4
+      ],
+      "sample_size": 8,
+      "configured_bound_fits": false,
+      "selected_bound_fits": true
+    }
+  ],
+  "change": "Choose the largest feasible measured ladder within current qualification rules for the120-game reference matrix and require identical-output substantial allocation before the matrix.",
+  "native_go_inputs_unchanged": true,
+  "rated_benchmark_definition_unchanged": true,
+  "native_runtime_source_commit": "27bf0c78132b2f4e0cb42fb6a9dab8b62f431b92",
+  "current_owned_native_stage_unchanged": true,
+  "full_reference_matrix_started": false,
+  "fully_qualified_entries": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0
+}

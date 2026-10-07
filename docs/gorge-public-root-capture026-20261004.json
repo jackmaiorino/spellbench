@@ -1,0 +1,95 @@
+{
+  "at_utc": "2026-10-04T22:11:45.660553+00:00",
+  "phase": "released_public_root_repair_verified",
+  "pod_id": "d0p9dsvh3msfyd",
+  "release": {
+    "at_utc": "2026-10-04T22:11:06.9958743+00:00",
+    "name": "spellbench-gorge-native-0250e7f28b944752",
+    "pod_id": "d0p9dsvh3msfyd",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "961647645ed89347f95a57224c832b3c9f9b8a5a8840d6284379f232b6d302c1",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 5.33678747,
+    "maximum_lease_usd": 0.325,
+    "conservative_cumulative_lease_ceiling_usd": 5.66178747,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-04T22:10:09.162836+00:00",
+    "phase": "closed",
+    "diagnostic_passed": true,
+    "elapsed_seconds": 86.4724793266505,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "checks": {
+    "at_utc": "2026-10-04T22:10:07.582221+00:00",
+    "passed": true,
+    "native_sampler_diagnostics_identical": true,
+    "known_cards_valid": true,
+    "input_frames": 364,
+    "worlds": 8,
+    "work": {
+      "Attempts": 1,
+      "Submits": 783,
+      "Nodes": 101,
+      "BudgetExhausted": 0
+    },
+    "native_qualification_complete": false,
+    "rated_games": 0
+  },
+  "failure": null,
+  "trace_record": null,
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-026",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-026",
+  "source_root_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+  "original_sampler_options_preserved": true,
+  "native_sampler_diagnostics_equality": true,
+  "full_sample_result_equality": false,
+  "binary_pins": {
+    "at_utc": "2026-10-04T22:10:00.439527+00:00",
+    "binary_sha256": "c129dc2434c572dbfbddc117c23d3c406f44961ba5db256aee8943dbff6792a7",
+    "pins": {
+      "root364-tests": {
+        "sha256": "c129dc2434c572dbfbddc117c23d3c406f44961ba5db256aee8943dbff6792a7",
+        "source_of_record": "E:\\pinned-binaries\\c129dc2434c572dbfbddc117c23d3c406f44961ba5db256aee8943dbff6792a7\\root364-tests",
+        "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-026\\PIN-root364-tests"
+      }
+    },
+    "independent_recovery_verified": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T22:11:45.660553+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261004-007",
+    "prior_closed_ledger_seal_sha256": "6ad5fe6aac899c9ac6fe2a7ab677e5089743cfab9e8dc422fd2696fb025d3245",
+    "provider_reported_prior_closed_spend_usd": 2.7578938998485683,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.7578938998485683,
+    "current_closed_lease_maximum_billable_seconds": 220.61887,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.17145,
+    "conservative_cumulative_lease_ceiling_usd": 5.50823747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-008",
+  "billing_seal_sha256": "4107f1e799659547d0ccca2596312930b6e43e63fa0bb070f2f876d93478ed9a",
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "seal_sha256": "f2ac228cf7571cf69dcb82dc895768d8c67835ad1a45122764a6c9a6fe2ec97d"
+}

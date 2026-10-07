@@ -1,0 +1,213 @@
+{
+  "schema": "spellbench-gorge-runtime021-closed-cloud/v1",
+  "observed_at_utc": "2026-10-04T07:53:07.843282+00:00",
+  "status": "released_after_observed_qualification_gate_failure",
+  "runtime_source_commit": "27bf0c78132b2f4e0cb42fb6a9dab8b62f431b92",
+  "source_archive_commit": "c99064984981471aad71e48404fb1831f50cd6da",
+  "pod_id": "eelvpg9fghkh7u",
+  "artifacts": {
+    "cloud": {
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261004-014",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-014",
+      "seal_sha256": "d5c0048d31292ff6e2ce211d6083485d225eb659381136161ce36c6bd5dd55da",
+      "bytes": 155202890,
+      "files": 1048,
+      "prune_manifest_sha256": "0e371c5801c29393804d023f116779991405472729b76ab06357802fe1cce59a"
+    },
+    "public_prefix": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-prefix-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-prefix-20261004-001",
+      "seal_sha256": "1b21a4673109727c940ad62b1643c309ecc3f37c34bcc7103f1114b6f72cadc1",
+      "bytes": 20421757,
+      "files": 35,
+      "prune_manifest_sha256": "0e371c5801c29393804d023f116779991405472729b76ab06357802fe1cce59a"
+    },
+    "saved_trace": {
+      "source_of_record": "E:\\spellbench-gorge-wildfire-reconstruction-trace-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-wildfire-reconstruction-trace-20261004-001",
+      "seal_sha256": "d377263daf7cadea1d644bc21373ea6e1d244923153f6379b2bf756718a47f7c",
+      "bytes": 19302607,
+      "files": 31,
+      "prune_manifest_sha256": "0e371c5801c29393804d023f116779991405472729b76ab06357802fe1cce59a"
+    }
+  },
+  "cpu_quota_cores": 27.2,
+  "usable_cpus": 28,
+  "qualified_worker_bound_proposed": 16,
+  "gpu_used": false,
+  "completed_native_blocks": 9,
+  "completed_physical_audited_and_replayed_games": 18,
+  "failing_rows": [
+    {
+      "index": 48,
+      "deck": "Wildfire",
+      "pairing": "search-redeal/uniform",
+      "name": "Wildfire/search-redeal",
+      "search_coverage": {
+        "Natives": 309,
+        "Eligible": 30,
+        "Attempted": 19,
+        "Covered": 4,
+        "Attempts": 1216,
+        "Accepted": 0,
+        "Worlds": 32,
+        "Rollouts": 152,
+        "Submits": 161635,
+        "Terminal": 152,
+        "Capped": 0,
+        "Redealt": 32,
+        "ReconstructionAttempts": 35,
+        "ReconstructionSubmits": 75496,
+        "ReconstructionNodes": 70516,
+        "ReconstructionBudgetExhausted": 15,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 15
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 11,
+          "insufficient worlds/ESS": 15
+        },
+        "Kinds": {
+          "cast": 4
+        }
+      }
+    },
+    {
+      "index": 52,
+      "deck": "Wildfire",
+      "pairing": "search-mana-redeal/uniform",
+      "name": "Wildfire/search-mana-redeal",
+      "search_coverage": {
+        "Natives": 645,
+        "Eligible": 315,
+        "Attempted": 82,
+        "Covered": 16,
+        "Attempts": 5248,
+        "Accepted": 4,
+        "Worlds": 128,
+        "Rollouts": 392,
+        "Submits": 443651,
+        "Terminal": 392,
+        "Capped": 0,
+        "Redealt": 128,
+        "ReconstructionAttempts": 87,
+        "ReconstructionSubmits": 334744,
+        "ReconstructionNodes": 318172,
+        "ReconstructionBudgetExhausted": 66,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 66
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 233,
+          "insufficient worlds/ESS": 66
+        },
+        "Kinds": {
+          "cast": 2,
+          "mana": 14
+        }
+      }
+    },
+    {
+      "index": 104,
+      "deck": "Rally",
+      "pairing": "search-redeal/uniform",
+      "name": "Rally/search-redeal",
+      "search_coverage": {
+        "Natives": 118,
+        "Eligible": 16,
+        "Attempted": 12,
+        "Covered": 4,
+        "Attempts": 768,
+        "Accepted": 15,
+        "Worlds": 32,
+        "Rollouts": 160,
+        "Submits": 74246,
+        "Terminal": 160,
+        "Capped": 0,
+        "Redealt": 24,
+        "ReconstructionAttempts": 63,
+        "ReconstructionSubmits": 41442,
+        "ReconstructionNodes": 41163,
+        "ReconstructionBudgetExhausted": 8,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 8
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 4,
+          "insufficient worlds/ESS": 8
+        },
+        "Kinds": {
+          "attackers": 1,
+          "cast": 3
+        }
+      }
+    }
+  ],
+  "serial_stage_seconds": 1810.9122178750113,
+  "public_frames": 110,
+  "public_input_sha256": "d12427a9713a0a7707eba67618765573929b8acbf486ed60fd92702c750e580b",
+  "public_reconstruction": {
+    "Attempts": 2,
+    "Submits": 5000,
+    "Nodes": 4668,
+    "BudgetExhausted": 1
+  },
+  "native_sampler_and_public_result_identical": true,
+  "trace_farthest_zero_based_frame": 105,
+  "observed_failure": "Actor explore top-card name differs. The saved failure is reproduced with current production source and the unchanged native64/8/5000 budgets.",
+  "release": {
+    "at_utc": "2026-10-04T07:39:26.7992180+00:00",
+    "name": "spellbench-gorge-native-1788c85f6ba042de",
+    "pod_id": "eelvpg9fghkh7u",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "b78b0c3ff5a41737faa033c13f29c69ee53a641c2604d53c1ac53625fcbf7848",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 3.56026747,
+    "maximum_lease_usd": 0.85,
+    "conservative_cumulative_lease_ceiling_usd": 4.41026747,
+    "final_invoice_pending": true
+  },
+  "billing": {
+    "observed_at_utc": "2026-10-04T07:41:44.000256+00:00",
+    "provider_reported_prior_closed_spend_usd": 1.8445914197218372,
+    "provider_reported_refreshed_pods": {
+      "runtime019-011": {
+        "cpuAmount": 0,
+        "diskAmount": 0.01018518500495702,
+        "gpuAmount": 0.12385392561554909,
+        "totalAmount": 0.1340391106205061
+      },
+      "runtime020-013": {
+        "cpuAmount": 0,
+        "diskAmount": 0.002777777728624642,
+        "gpuAmount": 0.05677674547769129,
+        "totalAmount": 0.059554523206315935
+      },
+      "runtime021-014": {
+        "cpuAmount": 0,
+        "diskAmount": 0,
+        "gpuAmount": 0,
+        "totalAmount": 0
+      }
+    },
+    "provider_reported_combined_spend_usd_so_far": 2.038185053548659,
+    "conservative_cumulative_lease_ceiling_usd": 4.41026747,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true
+  },
+  "cloud_cap_usd": 10,
+  "conservative_cumulative_lease_ceiling_usd": 4.41026747,
+  "final_invoice_pending": true,
+  "parallel_trial_started": false,
+  "allocation_qualified": false,
+  "full_native_audit_started": false,
+  "rated_games": 0,
+  "fully_qualified_entries": 0,
+  "published_entries": 0,
+  "remaining": "Repair public explore reconstruction, obtain current compatible guarded serial/parallel and full native/reference qualification, then reviews, ratings and publication."
+}

@@ -1,0 +1,244 @@
+{
+  "schema": "spellbench-gorge-stock-sampler-diagnostics/v1",
+  "at_utc": "2026-10-04T00:34:29.443204+00:00",
+  "attempts": [
+    {
+      "source_of_record": "E:\\spellbench-gorge-stock-prefix-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-stock-prefix-20261004-001",
+      "seal_sha256": "e9ae00baf088f764e66d95de56a79705724302192a30147b48235e383595507c",
+      "bytes": 19136206,
+      "closure": {
+        "at_utc": "2026-10-04T00:27:01.655772+00:00",
+        "checks": [
+          {
+            "name": "build",
+            "command": [
+              "D:/tools/go1.27.1/go/bin/go.exe",
+              "test",
+              "-p",
+              "1",
+              "-c",
+              "-o",
+              "D:\\e-scratch\\spellbench-gorge-stock-prefix-20261004-001\\stock-prefix-tests.exe",
+              "./strategies"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 10.223149900033604
+          },
+          {
+            "name": "saved-stock-prefix",
+            "command": [
+              "E:\\pinned-binaries\\f590bca507fd806df94ef005fe4a64cfde6318d6468bfd6a4d786a6790ea3693\\stock-prefix-tests.exe",
+              "-test.run",
+              "^TestSavedStockPrefix449$",
+              "-test.v",
+              "-test.timeout",
+              "120s"
+            ],
+            "exit_code": 0,
+            "wall_seconds": 6.85103599994909
+          }
+        ],
+        "passed": true,
+        "wall_seconds": 17.22926459996961,
+        "rated_games": 0,
+        "completed_games": 0
+      },
+      "sample": {
+        "frames": 449,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": null
+        },
+        "result": {
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 39,
+          "BudgetExhausted": 0,
+          "Submits": 1322,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 11 identities",
+          "Rejections": [
+            {
+              "Frame": 11,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 32
+            },
+            {
+              "Frame": 33,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 1
+            },
+            {
+              "Frame": 33,
+              "Component": "identities",
+              "Shape": "hand_to_stack",
+              "Count": 6
+            }
+          ],
+          "GuidedGenesis": 128,
+          "GuidedLater": 0,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 128,
+          "IncompatibleProposals": 25,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 6,
+            "Other": 0
+          },
+          "StackRejectionContexts": [
+            {
+              "Cause": "hypothetical_extra_cast",
+              "Step": "main1",
+              "ExpectedAction": "pass",
+              "Constraint": "no_observed_cast",
+              "Count": 6
+            }
+          ],
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 6,
+          "LandResidual": 33
+        },
+        "worlds": 0
+      },
+      "source_commit": "4e83316007cdafdce37c68610ef15602ec76479a",
+      "binary_sha256": "f590bca507fd806df94ef005fe4a64cfde6318d6468bfd6a4d786a6790ea3693"
+    },
+    {
+      "source_of_record": "E:\\spellbench-gorge-stock-sample-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-stock-sample-20261004-001",
+      "seal_sha256": "9ae51921a08d2e7ea2b6bf3107cf416fe793c88b98fa1449c298eeeaba7a5547",
+      "bytes": 19556199,
+      "closure": {
+        "at_utc": "2026-10-04T00:30:10.702597+00:00",
+        "exit_code": 0,
+        "wall_seconds": 0.9567835999769159,
+        "host_token_fate": "released",
+        "live_descendants": [],
+        "rated_games": 0
+      },
+      "sample": {
+        "frames": 26,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": null
+        },
+        "result": {
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 64,
+          "BudgetExhausted": 0,
+          "Submits": 299,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 1 events",
+          "Rejections": [
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "move_zone_to_move_zone",
+              "Count": 16
+            },
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "turn_to_move_zone",
+              "Count": 43
+            },
+            {
+              "Frame": 12,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 5
+            }
+          ],
+          "GuidedGenesis": 64,
+          "GuidedLater": 0,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 99,
+          "IncompatibleProposals": 0,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 0,
+            "Other": 0
+          },
+          "StackRejectionContexts": null,
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 0,
+          "LandResidual": 5
+        },
+        "worlds": 0
+      },
+      "source_commit": "4e83316007cdafdce37c68610ef15602ec76479a",
+      "binary_sha256": "0b843493fe3ecfb4ca1ad5f24db4e57326d8563cc027451c588bc4e0f9b69251"
+    }
+  ],
+  "finding": "Both saved prefixes exhaust the native64-attempt rejection sampler without a submit-budget exhaustion or invariant error. Wildfire rejects hypothetical land/cast behavior; CawGates rejects opponent mulligan events at frame1 in59/64 attempts and a land move at frame12 in5/64.",
+  "interpretation": "These observations are consistent with starvation of the native bot-policy opponent model on histories produced by a uniform opponent. They do not establish coverage or correctness for every game or deck.",
+  "qualification_change": "Retain all280 original qualification blocks with exact seed/deck/pairing bindings and append40 stock search/search-mana versus native bot coverage blocks. Every existing mapping, coverage, redeal refusal, reconstruction budget, replay and terminal gate remains required.",
+  "harness_checks": {
+    "command": "go test -p1 ./cmd/gorgequal -run Test(NativeOpponent|Scaling|Clean) -count=1",
+    "exit_code": 0,
+    "python_compile_passed": true,
+    "diff_check_passed": true,
+    "source_files": {
+      "engines/gorge/cmd/gorgequal/main.go": "eb566df16675d81df55a2cbaac9dd6538fcc51a8cab783ebe462b367ebf13465",
+      "engines/gorge/cmd/gorgequal/main_test.go": "3628521c78a2360dd6c5ba2e891b8ecb39cb7487aadbb5a4ec422ab8e8a2340b",
+      "engines/gorge/scripts/qualify_native.py": "0d9bf913a3565a65cad4eca53e5c9f4cc34f19dc1ea80333bc8ffbb48f5e6cab"
+    }
+  },
+  "native_policies_and_search_budgets_changed": false,
+  "rated_benchmark_changed": false,
+  "qualification_complete": false,
+  "remaining": "Fresh complete native qualification, public redeal reconstruction failures, reference-host/isolation/clocks, identity review, ratings and publication.",
+  "completed_games": 0,
+  "rated_games": 0,
+  "cloud_spend_estimate_usd": 1.86026747,
+  "cloud_cap_usd": 10,
+  "new_cloud_spend_usd": 0
+}

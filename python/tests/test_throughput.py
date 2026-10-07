@@ -265,6 +265,40 @@ def test_outputs_that_change_with_the_worker_count_are_refused() -> None:
     assert _counts(calls) == [(1, 4), (2, 4), (1, 4)]  # the 1-worker trial was replayed and reproduced itself
 
 
+def test_github_placement_preserves_required_checks_and_measured_allocation(tmp_path: Path) -> None:
+    note = ("main-pc=unavailable: reserved; haleyspc=unavailable: priority window; "
+            "runpod=not_authorized: remaining cap cannot cover a lease; "
+            "github-actions=used: standard public runner with observed resources")
+    play, calls = _player(10.0, {2: 1.8, 4: 3.5})
+    allocation = _plan(play, cap=4, placement=note, evidence=tmp_path / "evidence.jsonl", workload=DIGEST)
+    assert allocation.kind == "substantial" and allocation.workers == 4 and allocation.outputs_identical
+    assert [workers for workers, _ in calls] == [1, 2, 4]
+    assert all(indices == tuple(range(8)) for _, indices in calls)
+    assert Allocation.from_json(allocation.to_json()) == allocation
+    assert Placement.parse(str(allocation.placement)) == allocation.placement
+    assert allocation.to_json()["placement"]["runpod"]["disposition"] == "not_authorized"
+    # A named additional host neither drops required machines nor permits
+    # duplicate, unknown or unused-only placement claims before the probe.
+    for bad in (note.replace("main-pc=unavailable: reserved; ", ""),
+                note + "; github-actions=used: duplicate",
+                note.replace("github-actions=used", "github-actions=unavailable"),
+                note + "; laptop=used: unknown"):
+        before = len(calls)
+        with pytest.raises(ThroughputError):
+            _plan(play, cap=4, placement=bad)
+        assert len(calls) == before
+
+
+def test_github_placement_does_not_change_legacy_serialization() -> None:
+    expected = {"main-pc": {"disposition": "used", "reason": "fastest measured"},
+                "haleyspc": {"disposition": "slower", "reason": "about half the speed per game"},
+                "runpod": {"disposition": "not_authorized", "reason": "no spending authority for this run"}}
+    assert canonical_json_dumps(Placement.parse(PLACEMENT).to_json()) == canonical_json_dumps(expected)
+    assert Placement.from_json(expected).to_json() == expected
+    with pytest.raises(ValidationError):
+        Placement.from_json({**expected, "github-actions": {"disposition": "used", "reason": " "}})
+
+
 def test_bots_that_read_the_clock_are_recorded_not_refused() -> None:
     def digest(workers: int, index: int) -> str:  # game 1's digest names the call that played it: a bot reading the clock
         return DIGEST if index != 1 else "sha256:" + format(call[0], "064x")

@@ -1,0 +1,65 @@
+{
+  "phase": "exact_repaired_production_runtime_built_and_recovered",
+  "source_commit": "e86a1d5a7fcc9e4dbbc4c6cefa64275fbb06a1b5",
+  "source_of_record": "E:\\spellbench-gorge-runtime-20261005-076",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runtime-20261005-076",
+  "seal_sha256": "d78c742af40381e92a535a6ffd75873357c81a9ac16aeada7709af342cb7dc74",
+  "files": [
+    {
+      "name": "spellbench-gorge-corpus-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 13475840,
+      "sha256": "fcf74f1e65e4162a03aface01a4b9417bccba3d851121e4e5f64bbb37f161488"
+    },
+    {
+      "name": "spellbench-gorge-env-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 17488384,
+      "sha256": "7f497327f7063211d30fcb478ce21caeba462dbce96b7bed59d7b6bd3b881cf7"
+    },
+    {
+      "name": "spellbench-gorge-agent-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 18220544,
+      "sha256": "05104820fa6c88698d770a1bf978c66bdf4b41eca940059c1138a42fc7eba233"
+    },
+    {
+      "name": "gorgequal-windows-amd64.exe",
+      "platform": "windows",
+      "bytes": 19076096,
+      "sha256": "656c3cb9d221c95279096950d41418101cc27abfa5634af14a8c6c2c8ba7564c"
+    },
+    {
+      "name": "spellbench-gorge-env-linux-amd64",
+      "platform": "linux",
+      "bytes": 17400188,
+      "sha256": "85a8ccbf91f0a261c3605725e241f3b78584e703f01e3e0e5de88a18b91348b7"
+    },
+    {
+      "name": "spellbench-gorge-agent-linux-amd64",
+      "platform": "linux",
+      "bytes": 18125755,
+      "sha256": "c6b1016809edf9584ac0aa95502a74716b3958d79b3a90510e3d5f27024623e6"
+    },
+    {
+      "name": "gorgequal-linux-amd64",
+      "platform": "linux",
+      "bytes": 18975304,
+      "sha256": "16e9657f594aee422b492a2107b2c20c480c7f1b872faa8efaaab278606ac6e0"
+    }
+  ],
+  "go_version": "go version go1.27.1 windows/amd64",
+  "compiler_sha256": "69294d68bcaa3e786f80d23bfb8bed807d5d969e931d5bf92161bdf518778a01",
+  "linker_sha256": "9146582fd2b0a8cf765831e7ee3127603faaf51697531496584024db96414720",
+  "affected_tests_passed": true,
+  "affected_replay_tests": 4,
+  "boundary_cases": 6,
+  "automatic_host_release": true,
+  "new_cloud_spend_usd": 0,
+  "conservative_reserved_total_usd": 9.98136347,
+  "native_qualification_passed": false,
+  "reference_qualification_passed": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "next_action": "Compatible serial/parallel comparison then unchanged full native audit through qualify_native.py on eligible local host"
+}

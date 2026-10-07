@@ -1,0 +1,501 @@
+{
+  "at_utc": "2026-10-05T08:31:14.529029+00:00",
+  "phase": "released_native_qualification_incomplete",
+  "pod_id": "qtd35q03d1uo05",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-048",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-048",
+  "release": {
+    "at_utc": "2026-10-05T08:31:09.4294112+00:00",
+    "name": "spellbench-gorge-native-c9ae47e442ba470e",
+    "pod_id": "qtd35q03d1uo05",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "56f0dedc4c767c321cd49a6ad6bb0072e8d47b048510efce27c0b2077a18bf92",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 7.33314247,
+    "maximum_lease_usd": 1.2,
+    "conservative_cumulative_lease_ceiling_usd": 8.53314247,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T08:30:04.485494+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "component_runtime_build_passed": true,
+    "component_roots_passed": true,
+    "elapsed_seconds": 4067.364489234984,
+    "native_qualification_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-runtime-20261005-048",
+  "runtime_seal_sha256": "b4a17891e93b69c58cf5b8036853428e2366d750f4a43d7e35988e0c8a7c95ef",
+  "native_audit": null,
+  "component_roots_passed": true,
+  "component_runtime_source_of_record": "E:\\spellbench-gorge-public-root-runtime-20261005-048",
+  "component_runtime_seal_sha256": "48e43b2121362c81acc8ff8cf955537970d9460e71e8d2316d212b89775bcb48",
+  "component_checks": {
+    "passed": true,
+    "cases": {
+      "364": {
+        "frames": 364,
+        "native_diagnostics_identical": true,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": {
+            "SpellbenchPublic": true,
+            "Engine": null,
+            "Observer": null
+          }
+        },
+        "phase": "returned",
+        "public_input_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+        "result": {
+          "PublicReconstruction": {
+            "Attempts": 1,
+            "Submits": 729,
+            "Nodes": 11,
+            "BudgetExhausted": 0
+          },
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 62,
+          "BudgetExhausted": 0,
+          "Submits": 1209,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 1 events",
+          "Rejections": [
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "move_zone_to_move_zone",
+              "Count": 2
+            },
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "turn_to_move_zone",
+              "Count": 39
+            },
+            {
+              "Frame": 20,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 12
+            },
+            {
+              "Frame": 39,
+              "Component": "events",
+              "Shape": "priority_to_priority",
+              "Count": 9
+            }
+          ],
+          "GuidedGenesis": 64,
+          "GuidedLater": 4,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 182,
+          "IncompatibleProposals": 2,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 0,
+            "Other": 0
+          },
+          "StackRejectionContexts": null,
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 0,
+          "LandResidual": 11,
+          "LandUnguided": 1,
+          "KnownCardClaims": 10,
+          "Redealt": 8
+        },
+        "worlds": 8
+      },
+      "410": {
+        "frames": 410,
+        "native_diagnostics_baseline_available": false,
+        "native_diagnostics_identical": false,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": {
+            "SpellbenchPublic": true,
+            "Engine": null,
+            "Observer": null
+          }
+        },
+        "phase": "first_budget_exhaustion",
+        "public_input_sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13",
+        "result": {
+          "PublicReconstruction": {
+            "Attempts": 1,
+            "Submits": 831,
+            "Nodes": 19,
+            "BudgetExhausted": 0
+          },
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 62,
+          "BudgetExhausted": 0,
+          "Submits": 607,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 1 events",
+          "Rejections": [
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "move_zone_to_move_zone",
+              "Count": 2
+            },
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "turn_to_move_zone",
+              "Count": 50
+            },
+            {
+              "Frame": 20,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 7
+            },
+            {
+              "Frame": 39,
+              "Component": "events",
+              "Shape": "priority_to_priority",
+              "Count": 3
+            }
+          ],
+          "GuidedGenesis": 64,
+          "GuidedLater": 4,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 162,
+          "IncompatibleProposals": 2,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 0,
+            "Other": 0
+          },
+          "StackRejectionContexts": null,
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 0,
+          "LandResidual": 7,
+          "KnownCardClaims": 8,
+          "Redealt": 8
+        },
+        "worlds": 8
+      },
+      "478": {
+        "frames": 478,
+        "native_diagnostics_baseline_available": false,
+        "native_diagnostics_identical": false,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": {
+            "SpellbenchPublic": true,
+            "Engine": null,
+            "Observer": null
+          }
+        },
+        "phase": "first_budget_exhaustion",
+        "public_input_sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78",
+        "result": {
+          "PublicReconstruction": {
+            "Attempts": 2,
+            "Submits": 2412,
+            "Nodes": 1330,
+            "BudgetExhausted": 0
+          },
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 62,
+          "BudgetExhausted": 0,
+          "Submits": 906,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 1 events",
+          "Rejections": [
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "move_zone_to_move_zone",
+              "Count": 5
+            },
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "turn_to_move_zone",
+              "Count": 40
+            },
+            {
+              "Frame": 20,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 13
+            },
+            {
+              "Frame": 39,
+              "Component": "events",
+              "Shape": "priority_to_priority",
+              "Count": 4
+            }
+          ],
+          "GuidedGenesis": 64,
+          "GuidedLater": 7,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 182,
+          "IncompatibleProposals": 2,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 0,
+            "Other": 0
+          },
+          "StackRejectionContexts": null,
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 0,
+          "LandResidual": 12,
+          "LandUnguided": 1,
+          "KnownCardClaims": 5,
+          "Redealt": 8
+        },
+        "worlds": 8
+      },
+      "596": {
+        "frames": 596,
+        "native_diagnostics_baseline_available": false,
+        "native_diagnostics_identical": false,
+        "options": {
+          "Seed": 54321,
+          "Attempts": 64,
+          "Worlds": 8,
+          "MaxSubmits": 5000,
+          "MinESS": 0,
+          "NoLandExclusion": false,
+          "ComparePotentialActions": false,
+          "Parallelism": 0,
+          "KnownCards": false,
+          "Redeal": {
+            "SpellbenchPublic": true,
+            "Engine": null,
+            "Observer": null
+          }
+        },
+        "phase": "first_budget_exhaustion",
+        "public_input_sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6",
+        "result": {
+          "PublicReconstruction": {
+            "Attempts": 1,
+            "Submits": 1220,
+            "Nodes": 31,
+            "BudgetExhausted": 0
+          },
+          "Attempts": 64,
+          "Accepted": 0,
+          "PrefixRejected": 61,
+          "BudgetExhausted": 0,
+          "Submits": 414,
+          "Duplicates": 0,
+          "ESS": 0,
+          "FirstRejection": "frame 1 events",
+          "Rejections": [
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "move_zone_to_move_zone",
+              "Count": 7
+            },
+            {
+              "Frame": 1,
+              "Component": "events",
+              "Shape": "turn_to_move_zone",
+              "Count": 48
+            },
+            {
+              "Frame": 20,
+              "Component": "identities",
+              "Shape": "hand_to_battlefield",
+              "Count": 5
+            },
+            {
+              "Frame": 39,
+              "Component": "events",
+              "Shape": "priority_to_priority",
+              "Count": 1
+            }
+          ],
+          "GuidedGenesis": 64,
+          "GuidedLater": 10,
+          "ArrangeWindows": 0,
+          "UnguidedConstraints": 169,
+          "IncompatibleProposals": 3,
+          "WeightDiagnostics": {
+            "Accepted": 0,
+            "LogWeightMin": 0,
+            "LogWeightMedian": 0,
+            "LogWeightMax": 0,
+            "MaxNormalizedMass": 0,
+            "Top4NormalizedMass": 0,
+            "Mass50Count": 0,
+            "Mass90Count": 0
+          },
+          "HandToStackCauses": {
+            "PolicyCompetition": 0,
+            "ObserverReference": 0,
+            "ObservedCastMissing": 0,
+            "HypotheticalExtraCast": 0,
+            "Other": 0
+          },
+          "StackRejectionContexts": null,
+          "CompetitionExclusions": 0,
+          "CompetitionResidual": 0,
+          "CompetitionUnguided": 0,
+          "LandResidual": 5,
+          "KnownCardClaims": 4,
+          "Redealt": 8
+        },
+        "worlds": 8
+      }
+    },
+    "component_roots_passed": true,
+    "scope": "Four exact histories pass unchanged native limits; not full qualification or rated games"
+  },
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T08:30:04.484732+00:00",
+      "phase": "supported_native_qualification",
+      "error_type": "RuntimeError",
+      "error": "supported-native exit 1",
+      "rated_games": 0
+    },
+    "native-001/EARLY-NATIVE-FAILURE.json": {
+      "at_utc": "2026-10-05T08:30:00.849652+00:00",
+      "game": 52,
+      "cell": "Wildfire/search-mana-redeal",
+      "coverage": {
+        "Natives": 746,
+        "Eligible": 241,
+        "Attempted": 111,
+        "Covered": 76,
+        "Attempts": 7104,
+        "Accepted": 4,
+        "Worlds": 608,
+        "Rollouts": 2456,
+        "Submits": 2259672,
+        "Terminal": 2456,
+        "Capped": 0,
+        "Redealt": 608,
+        "ReconstructionAttempts": 200,
+        "ReconstructionSubmits": 245488,
+        "ReconstructionNodes": 158616,
+        "ReconstructionBudgetExhausted": 35,
+        "RedealRefusals": {
+          "public reconstruction submit budget exhausted": 35
+        },
+        "Reasons": {
+          "fewer_than_two_candidates": 130,
+          "insufficient worlds/ESS": 35
+        },
+        "Kinds": {
+          "cast": 24,
+          "mana": 52
+        }
+      },
+      "gate": "Unchanged Report.Clean requires zero reconstruction budget failures and no redeal refusals"
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T08:31:14.529029+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-026",
+    "prior_closed_ledger_seal_sha256": "a33d7e460aed234fe32493bc427fe1008d7e141cdf7eecc9ab0f93a9b25e795f",
+    "provider_reported_prior_closed_spend_usd": 3.6687356538386666,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0.0034722222480922937,
+      "gpuAmount": 0.045316644478589296,
+      "totalAmount": 0.04878886672668159
+    },
+    "provider_reported_combined_spend_usd_so_far": 3.717524520565348,
+    "current_closed_lease_maximum_billable_seconds": 4235.133513,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.56175,
+    "conservative_cumulative_lease_ceiling_usd": 7.89489247,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-027",
+  "billing_seal_sha256": "a128f21e7c2d3a9c35c88bc42d0efa8b6b81bf45c188719470031b2bfa2e4206",
+  "seal_sha256": "4c1f8f9b7f25679aa85412c7aa2155ad3bf548bbd443be3b32efc4827cb81fd6"
+}

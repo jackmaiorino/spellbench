@@ -1,0 +1,186 @@
+{
+  "schema": "spellbench-gorge-spy-london-bottom-repair/v1",
+  "observed_at_utc": "2026-10-04T06:36:19.948030+00:00",
+  "base_source_commit": "45ebf6400528807b904209764b8e3ee0dd35a00b",
+  "base_runtime_source_commit": "cfb7ff2def65eb0572255708f05422a1f05730e3",
+  "working_tree_patch_sha256": "ad4cae934be7c3d2ef53935d72f63075754857ea4260ffe815546ef65cbdbab3",
+  "source_files": {
+    "engines/gorge/native-overlay/public_basic_search.go.txt": "1c3cbf1331c18c7c80c2129c0ab84e4ddace5f6e222562003d1828ce75febf49",
+    "engines/gorge/native-overlay/public_redeal.go.txt": "6a9af0d7c1d4bd62c1d7dc47492132b4c4d68945691d5e40d7551cc99b4e3045",
+    "engines/gorge/strategies/actor_london_draws_test.go": "d2701b18e27271349a3b46d8ca32e357f58678685b333bf1e3f293315d3affb1"
+  },
+  "public_input": "E:\\spellbench-gorge-spy-prefix-20261004-001\\PUBLIC-ENTERED-SNAPSHOT.json",
+  "public_input_sha256": "969c00039f0c5e0f3986a8fbf6b840e8542479f5a3af92a6344b634626da7734",
+  "public_frames": 316,
+  "before": {
+    "worlds": 0,
+    "public_reconstruction": {
+      "Attempts": 1,
+      "Submits": 5000,
+      "Nodes": 4818,
+      "BudgetExhausted": 1
+    }
+  },
+  "after": {
+    "worlds": 8,
+    "public_reconstruction": {
+      "Attempts": 1,
+      "Submits": 648,
+      "Nodes": 68,
+      "BudgetExhausted": 0
+    },
+    "known_card_checks_passed_for_all_worlds": true
+  },
+  "native_fields_identical": [
+    "Attempts",
+    "Accepted",
+    "PrefixRejected",
+    "BudgetExhausted",
+    "Submits",
+    "Duplicates",
+    "ESS",
+    "FirstRejection",
+    "Rejections",
+    "GuidedGenesis",
+    "GuidedLater",
+    "ArrangeWindows",
+    "UnguidedConstraints",
+    "IncompatibleProposals",
+    "WeightDiagnostics",
+    "HandToStackCauses",
+    "StackRejectionContexts",
+    "CompetitionExclusions",
+    "CompetitionResidual",
+    "CompetitionUnguided",
+    "LandResidual",
+    "KnownCardClaims"
+  ],
+  "native_budgets": {
+    "Attempts": 64,
+    "Worlds": 8,
+    "MaxSubmits": 5000
+  },
+  "repair": "An anonymous single London bottom formerly consumed a hypothetical copy needed by later public name bounds. A spare declared card absent from those bounds guides the opening-hand witness and its legal bottom choice.",
+  "applicability": "Opponent-only single anonymous pre-game bottom; no later shuffle, library movement, library order or token/copy creation; optional placement cannot override a public position. The full public replay and known-card checks still apply.",
+  "native_policies_weights_and_budgets_changed": false,
+  "sealed_evidence": {
+    "production": {
+      "source_of_record": "E:\\spellbench-gorge-spy-london-bottom-repair-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-spy-london-bottom-repair-20261004-001",
+      "seal_sha256": "b38dbc193fb6e4c71a6b3390f3315011a20994955a2efdb972d99c6d3de3ea6b",
+      "bytes": 19272697,
+      "prune_manifest_sha256": "465355f91690b7346ea96b608517b20807b3e92176e9e939acff5543131280c9"
+    },
+    "affected_checks": {
+      "source_of_record": "E:\\spellbench-gorge-spy-london-bottom-checks-20261004-001",
+      "recovery_root": "D:\\e-scratch\\spellbench-gorge-spy-london-bottom-checks-20261004-001",
+      "seal_sha256": "7363b797badc3cdb8d6ef07c7e7fe1ae6a126ee8ad3a629f1c62154b9ef38a1d",
+      "bytes": 517147,
+      "prune_manifest_sha256": "465355f91690b7346ea96b608517b20807b3e92176e9e939acff5543131280c9"
+    }
+  },
+  "checks": {
+    "saved_prefix": {
+      "at_utc": "2026-10-04T06:20:54.668041+00:00",
+      "checks": [
+        {
+          "name": "build",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "test",
+            "-vet=off",
+            "-p",
+            "1",
+            "-c",
+            "-o",
+            "D:\\e-scratch\\spellbench-gorge-spy-london-bottom-repair-20261004-001\\stock-prefix-tests.exe",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 12.32959470001515
+        },
+        {
+          "name": "saved-stock-prefix",
+          "command": [
+            "E:\\pinned-binaries\\4d685052bdf9968761e78ac5321f80f0c34df95810b38a079b74ce242feee529\\stock-prefix-tests.exe",
+            "-test.run",
+            "^TestSavedSpyLondonBottom316$",
+            "-test.v",
+            "-test.timeout",
+            "120s"
+          ],
+          "exit_code": 0,
+          "wall_seconds": 23.880740299995523
+        }
+      ],
+      "passed": true,
+      "wall_seconds": 36.9901533999946,
+      "rated_games": 0,
+      "completed_games": 0
+    },
+    "affected": {
+      "at_utc": "2026-10-04T06:27:50.646309+00:00",
+      "checks": [
+        {
+          "name": "strategies",
+          "command": [
+            "E:\\pinned-binaries\\4d685052bdf9968761e78ac5321f80f0c34df95810b38a079b74ce242feee529\\stock-prefix-tests.exe",
+            "-test.run",
+            "^(TestPublicLondonBottomReplayPreservesFutureDiscards|TestPublicActorLondonReplayPreservesLaterDraws|TestPublicActorOpeningDrawsSurviveOpponentLibrarySearch|TestPublicKnownLibraryKeepsAnonymousMembershipAfterShuffle|TestPublicKnownLibraryConsumesVisibleDrawAndForgetsUnseenDraw|TestWholePublicHistoryIgnoresHiddenDrawAfterShuffle|TestPublicCollectorForgetsOpponentPrivateLibraryReorder|TestPublicCollectorKeepsActorsAnsweredLibraryArrangement|TestPublicKnownHandKeepsNameWithoutRetiredCopyAfterHiddenDraw|TestPublicKnownHandDoesNotDistinguishHiddenDrawnCopies|TestPublicKnownHandConsumesVisibleExitAfterMixing|TestPublicLondonReplayPreservesDrawsAndFilteredOwnSearch|TestPublicSamplerReplaysActorMultiColorMana|TestOpponentLondonBottomPreservesActorsObservedDraws|TestPublicSamplerReplaysActorsAtomicCast|TestPublicRedealReplaysOpponentsAtomicCast|TestOpponentLibrarySearchUsesLandControllerAndHidesOffers|TestPublicReconstructionAfterOpponentLibrarySearch|TestPublicRedealReconstructsZeroAcceptedNativeProposals|TestPublicRedealIgnoresDifferentHiddenDealsAndFutureSeeds|TestPublicRedealReconstructionBudgetFailsClosed|TestDriverMatchesNativeFeedAndDeltaDelivery|TestPublicHistoryIgnoresHiddenDealsAndFutureSeed|TestSearchDefaultsPreserveShippedConfiguration|TestPublicSearchMatchesNativeChooseWithRekeyedObjects|TestPublicSearchMatchesNativeChooseAtShippedBudgets|TestPublicRedealPreservesAcceptedNativeSearchAtShippedBudgets|TestCanonicalPublicHistoryStillRejectsChangedBoard|TestSearchDeltaRejectsWrongActorAndMissingFrames|TestSearchDeltaRejectsChangedAnswersWithoutMutation|TestPublicHistoryErasesOpponentPrivateAskCounts|TestPublicCollectorForgetsBlindShuffleCopyIdentity|TestPublicCollectorForgetsCardsRevealedEarlierInSameBurst|TestPublicCollectorForgetsHiddenCopiesWhenPlayerIsEffectController|TestPublicSamplerReconstructsDeclaredLondonMulligans|TestPublicRedealAfterNaturallyPlayedLembasShuffle|TestPublicStackSourceStaysUnlinkedAfterShuffleAndRedraw)$",
+            "-test.v",
+            "-test.timeout",
+            "500s"
+          ],
+          "exit_code": 0,
+          "seconds": 231.91525560000446
+        },
+        {
+          "name": "vet",
+          "command": [
+            "D:/tools/go1.27.1/go/bin/go.exe",
+            "vet",
+            "-p",
+            "1",
+            "./...",
+            "./strategies"
+          ],
+          "exit_code": 0,
+          "seconds": 16.866160499979742
+        },
+        {
+          "name": "diff",
+          "command": [
+            "git",
+            "diff",
+            "--check"
+          ],
+          "exit_code": 0,
+          "seconds": 0.4242672999971546
+        }
+      ],
+      "passed": true,
+      "seconds": 249.20589969999855,
+      "rated_games": 0,
+      "completed_games": 0,
+      "new_cloud_spend_usd": 0
+    },
+    "root_tests": 37,
+    "passed_cases": 52,
+    "hidden_tail_fixture": {
+      "frames": 210,
+      "public_opponent_discards": 12,
+      "worlds": 8,
+      "submits": 420,
+      "nodes": 3,
+      "byte_identical_actor_histories": true
+    }
+  },
+  "failed_candidates_retained": "docs/gorge-spy-london-bottom-candidates-20261004.json",
+  "prior_cloud": "docs/gorge-runtime020-cloud-20261004.json",
+  "limit": "Saved-history correctness and affected strategy verification only. Current full native/reference-host qualification, compatible throughput, review, ratings and publication remain unfinished.",
+  "fully_qualified_entries": 0,
+  "completed_games": 0,
+  "rated_games": 0,
+  "published_entries": 0,
+  "new_cloud_spend_usd": 0
+}

@@ -1,0 +1,83 @@
+{
+  "schema": "spellbench-gorge-portable-component-preparation/v1",
+  "at_utc": "2026-10-05T06:47:21.289313+00:00",
+  "source_of_record": "E:\\spellbench-gorge-public-root-preparation-20261005-047",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-public-root-preparation-20261005-047",
+  "source_commit": "f6d4f744b3b0ae9b0cb7576e942f1036e30fdea4",
+  "engine_source_commit": "e3c84a133aa826a59be3c07f1644c2401d477e95",
+  "gorge_commit": "26257e0eda1779d739a07e835c6500b9c4dabc62",
+  "production_overlay_sha256": "349836a1a60393bb0c4fdc0517ae08d14c3e484d598871c33ccd1bac9de977fd",
+  "registry_sha256": "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937",
+  "registry_source_of_record": "E:\\spellbench-gorge-runtime-20261005-040\\registry.gob.gz",
+  "registry_runtime_seal_sha256": "fad0d1108536b76e253f89717542e322955d01b8cc732e95d28723ccda46f183",
+  "linux_sdk": {
+    "filename": "go1.27.1.linux-amd64.tar.gz",
+    "os": "linux",
+    "arch": "amd64",
+    "version": "go1.27.1",
+    "sha256": "63d339f0da5ab53635a56f2490a7984dfe12dfcff22ad749f63edaf590168445",
+    "size": 70553950,
+    "kind": "archive",
+    "url": "https://go.dev/dl/go1.27.1.linux-amd64.tar.gz",
+    "manifest_url": "https://go.dev/dl/?mode=json"
+  },
+  "public_cases": {
+    "364": {
+      "frames": 364,
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261004-024\\FIRST-PUBLIC-FAILURE.json",
+      "sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f"
+    },
+    "410": {
+      "frames": 410,
+      "source_of_record": "E:\\spellbench-gorge-runpod-20261004-029\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+      "sha256": "8c63706e96bdafc0a0d52c17a884cedd59d83f8966d5e3b3b49426213931bd13"
+    },
+    "478": {
+      "frames": 478,
+      "source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-036\\terminal-recovery\\capture-001\\RECOVERED-PUBLIC-PROJECTION.json",
+      "sha256": "d594abff5a659535fe88cd2186a1f310e6c0fd8f297794b362d85180d91cbb78"
+    },
+    "596": {
+      "frames": 596,
+      "source_of_record": "E:\\spellbench-gorge-first-root-diagnostic-20261005-042\\terminal-recovery\\capture-001\\PUBLIC-PROJECTION.json",
+      "sha256": "79645acb034f0cfd7e3e85f78bac6d277e6f36e31cd55c1bf071a4c5f48954e6"
+    }
+  },
+  "scope": "Inputs only for exact364/410/478/596-frame component replay of the scry/carry repair. No launcher, host admission, allocation, binary, runtime qualification, games or ratings.",
+  "component_success_required": "Eight worlds per exact history under unchanged captured budgets, zero refusal/exhaustion, known-card checks, and unchanged364 native diagnostics. Full benchmark qualification remains separate.",
+  "portable_root_environment": "GORGE_COMPONENT_ROOT: absolute dedicated admitted execution directory; generated tests and logging use this path rather than a cloud mount.",
+  "required_launch_prerequisites": [
+    "Fresh eligible resource inventory and explicit ownership through its supported launcher",
+    "Actual CPU/memory/storage limits and bounded wall time",
+    "Official SDK hash and pinned CRLF upstream compiler fingerprint",
+    "One component test binary and registry pinned on independent E/D drives before execution"
+  ],
+  "requested_build_cpu_minimum": 4,
+  "requested_memory_minimum_bytes": 8000000000,
+  "GOMAXPROCS": 2,
+  "GOMEMLIMIT": "2GiB",
+  "projected_bytes": 268435456,
+  "cap_bytes": 536870912,
+  "reserve_bytes": 64424509440,
+  "logging_only_instrumentation": true,
+  "logging_overlay_sha256": "4c1268f47b181760527cf26170b758917fc14c0d009a9d8c292b0e2f81fadaff",
+  "test_source_sha256": "e3bd4d1bdcfbf2d1296ec47d04ff68fa2e524e25369a1540b8fcc4f736a3ca80",
+  "source_archive_verified": true,
+  "public_inputs_verified": true,
+  "source_ci_url": "https://github.com/jackmaiorino/spellbench/actions/runs/37273275687",
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-025",
+  "billing_seal_sha256": "e50050c6adf17ced2af66ca2d55635816ac942eb01a9630fe541356e27a163e9",
+  "conservative_closed_ceiling_usd": 9.84147447,
+  "spend_cap_usd": 10,
+  "new_allocation": false,
+  "new_cloud_spend_usd": 0,
+  "runtime_built": false,
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "bundle_sha256": "b3fd0b99c26a4bb525200ec01193964801b80df28310838032d7223db1a25a4d",
+  "phase": "frozen_inputs_unallocated",
+  "seal_sha256": "2d8d224603daa760bcb4b97cd3d4b4fb2aa32be2c9e610c169b134d7f219dfd3",
+  "next_wake_condition": "Eligible host admission and durable component binary build under the existing task authority. This input bundle supplies no reservation or runtime qualification."
+}

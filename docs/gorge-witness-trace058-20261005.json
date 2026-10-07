@@ -1,0 +1,77 @@
+{
+  "at_utc": "2026-10-05T10:07:22.077253+00:00",
+  "phase": "released_witness_diagnostic_failed",
+  "pod_id": "qjzi7xplps56l2",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261005-058",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261005-058",
+  "release": {
+    "at_utc": "2026-10-05T10:07:21.2900990+00:00",
+    "name": "spellbench-gorge-witness-32843f8047c04c12",
+    "pod_id": "qjzi7xplps56l2",
+    "pod_absent": true,
+    "owned_matches": 0,
+    "guardian_pid_absent": true,
+    "guardian_stop_confirmed": true,
+    "task_removed": true,
+    "credential_removed": true,
+    "final_recovery_sha256": "910cda63596f3e40ac8d7104bcd9aede7817e6a69dfe24a402e7fe6ae13d1763",
+    "cloud_cap_usd": 10,
+    "conservative_prior_spend_usd": 8.73521647,
+    "maximum_lease_usd": 0.325,
+    "conservative_cumulative_lease_ceiling_usd": 9.06021647,
+    "final_invoice_pending": true
+  },
+  "terminal": {
+    "at_utc": "2026-10-05T10:06:13.710273+00:00",
+    "phase": "closed",
+    "runtime_build_passed": true,
+    "elapsed_seconds": 136.98444452229887,
+    "native_qualification_passed": false,
+    "diagnostic_passed": false,
+    "rated_games": 0
+  },
+  "runtime_source_of_record": "E:\\spellbench-gorge-public-witness-runtime-20261005-058",
+  "runtime_seal_sha256": "14c22184fa259ee6ca4bfc12ba4c458611ad257d8f4ec5f07b25f441ad0dd45d",
+  "native_audit": null,
+  "component_roots_passed": false,
+  "diagnostic_passed": false,
+  "diagnostic_checks": null,
+  "failures": {
+    "capture-001/FAILED.json": {
+      "at_utc": "2026-10-05T10:06:13.709969+00:00",
+      "phase": "saved_public_roots_correctness",
+      "error_type": "KeyError",
+      "error": "'RedealRefused'",
+      "rated_games": 0
+    }
+  },
+  "native_qualification_complete": false,
+  "reference_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "billing": {
+    "observed_at_utc": "2026-10-05T10:07:22.077253+00:00",
+    "prior_closed_ledger": "E:\\spellbench-gorge-billing-20261005-031",
+    "prior_closed_ledger_seal_sha256": "bf4200c9a664ac0a5e94590ac65e24ed73293578325de57c5aee2f64234b8a53",
+    "provider_reported_prior_closed_spend_usd": 3.717524520565348,
+    "provider_reported_current_lease": {
+      "cpuAmount": 0,
+      "diskAmount": 0,
+      "gpuAmount": 0,
+      "totalAmount": 0
+    },
+    "provider_reported_combined_spend_usd_so_far": 3.717524520565348,
+    "current_closed_lease_maximum_billable_seconds": 284.6036,
+    "current_closed_lease_retained_ancillary_allowance_usd": 0.15,
+    "current_closed_lease_reconciled_maximum_usd": 0.17767,
+    "conservative_cumulative_lease_ceiling_usd": 8.91288647,
+    "cloud_cap_usd": 10,
+    "final_invoice_pending": true,
+    "final_invoice_verified": false,
+    "no_current_owned_lease": true,
+    "new_cloud_spend_usd": 0
+  },
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261005-032",
+  "billing_seal_sha256": "167a941b41c27cdd031fde498c73f340b71c1e6a9ac7d99b4c7382cc8017a9a9",
+  "seal_sha256": "103a89d3e3d20c47b757a585018b435e93d8037a05a19faffac893305c63fb0c"
+}

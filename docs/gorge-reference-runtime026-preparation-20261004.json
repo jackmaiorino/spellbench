@@ -1,0 +1,22 @@
+{
+  "preparation": "E:\\spellbench-gorge-reference-matrix-runtime026-20261004-001\\PREPARATION.json",
+  "preparation_sha256": "d905118ff819346972e22957294d9299e21a4b19b2b99228a985f6af7b7b2254",
+  "runtime_source_commit": "cea68048f483b6d7277743e9c8511105e819d621",
+  "source_archive_commit": "6ec11c576be333978c906dea0a6ee9372ce520a4",
+  "source_files": 193,
+  "inputs_verified_on_E_and_D": true,
+  "reference_matrix_games": 140,
+  "expected_cells": 60,
+  "worker_ladder": [
+    1,
+    2,
+    4
+  ],
+  "required_native_audit": "E:\\spellbench-gorge-runpod-20261004-020\\terminal-recovery\\native-001\\NATIVE-AUDIT.json",
+  "required_native_seal": "E:\\spellbench-gorge-runpod-20261004-020\\SEAL.json",
+  "guard_path": "canonical host_reservation_v1.dispatch/supervise -> contained reference-driver -> reference_matrix.py -> bench.run.plan_for -> arena.throughput.plan_allocation -> arena.runner.play_games",
+  "clocks_and_seed_bindings_unchanged": true,
+  "evaluation_launched": false,
+  "rated_games": 0,
+  "published_entries": 0
+}

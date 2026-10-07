@@ -1,0 +1,34 @@
+{
+  "schema": "spellbench-gorge-public-root-diagnosis/v1",
+  "at_utc": "2026-10-04T21:59:25.265673+00:00",
+  "source_of_record": "E:\\spellbench-gorge-runpod-20261004-025",
+  "recovery_root": "D:\\e-scratch\\spellbench-gorge-runpod-20261004-025",
+  "seal_sha256": "7aec75fcac37b2e59695d68f7c20f105107e41b3d189b641099dcf72ab143b3a",
+  "original_root_sha256": "54f2d8fccf4bbe0b22d952023dc9f28f59ccfa3b01b2985826baa297c4b0b60f",
+  "exact_original_result_preserved": true,
+  "input_frames": 364,
+  "farthest_frame": 355,
+  "failed_comparison": "Public identity prefix",
+  "got": {
+    "ID": 90,
+    "Name": "Forest",
+    "Owner": 1
+  },
+  "want": {
+    "ID": 90,
+    "Name": "Vault of Whispers",
+    "Owner": 1
+  },
+  "public_sequence": "Frame355: opponent Lembas scry, private LibraryOrder, public Scry bottom count1, anonymous draw, then public Vault of Whispers land play.",
+  "hypothesis": "The latest opponent epoch loses name guidance at an unobserved scry order. Reconstruction explores opponent choices within one infeasible sampled library until the shared submit budget is exhausted.",
+  "hypothesis_confirmed": false,
+  "next_remedy": "Test a conservative witness-only prefix bound through a publicly bounded scry, or another proposal-search repair that preserves full replay, native sampling and the existing submit cap.",
+  "production_source_changed": false,
+  "native_qualification_complete": false,
+  "rated_games": 0,
+  "published_entries": 0,
+  "closed_spend_conservative_ceiling_usd": 5.33678747,
+  "billing_source_of_record": "E:\\spellbench-gorge-billing-20261004-007",
+  "final_invoice_verified": false,
+  "resource_priority": "Jack PC remains reserved for research pilot002; Haley queued training priority retained; no current owned gorge pod."
+}
