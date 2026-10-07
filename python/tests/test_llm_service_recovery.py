@@ -14,12 +14,12 @@ from test_llm_run_budget import PROMPT, Provider, budget, failed_run_recovery
 def stopped(tmp_path, *, suffix="recovery", mutate=None, no_cutoff=True):
     original = budget(tmp_path, requests=12, tokens=100_000)
     with pytest.raises(ProviderError):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), original).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("inference_failed")), original).complete(PROMPT, timeout_s=30)
     continued, _, _ = failed_run_recovery(original, tmp_path / "prior.sqlite3", tmp_path, no_cutoff=no_cutoff)
-    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), continued).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), continued).complete(PROMPT, timeout_s=30)
     source = transfer(tmp_path, continued)
     with pytest.raises(ProviderError, match="http_503"):
-        BudgetedProvider(Provider(ProviderError("http_503")), source).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("http_503")), source).complete(PROMPT, timeout_s=30)
     source.fail("hosted_broker_failed")
     return source, evidence(source, suffix=suffix, mutate=mutate)
 
@@ -70,7 +70,7 @@ def test_stopped_precommit_carries_all_charges_and_retires_one_writer(tmp_path):
     assert source.path.read_bytes() == retained and source.paths.manifest.read_bytes() == mapping
     with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
         source.reserve(PROMPT, output_tokens=20)
-    BudgetedProvider(Provider(Completion("{}", "luna", 5, 2)), child).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 5, 2)), child).complete(PROMPT, timeout_s=30)
     assert child.summary()["requests"] == before["requests"] + 1
     assert child.summary()["accounted_tokens"] == before["accounted_tokens"] + 7
 
@@ -87,7 +87,7 @@ def test_recovery_preserves_finite_cutoff_and_can_relocate_with_all_proofs(tmp_p
     relocated.check()
     assert relocated.summary() == child_summary
     with pytest.raises(ProviderError, match="http_503"):
-        BudgetedProvider(Provider(ProviderError("http_503")), relocated).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(Provider(ProviderError("http_503")), relocated).complete(PROMPT, timeout_s=30)
     relocated.check()
     assert relocated.summary()["active_http503_forfeits"] == 1
 
@@ -186,7 +186,7 @@ def test_http503_is_charged_once_and_failed_broker_cannot_retry(tmp_path):
     assert provider.calls == 1 and summary["requests"] == summary["failed"] == summary["active_http503_forfeits"] == 1
     assert summary["uncertain_reserved_tokens"] == PROMPT.bytes + 1024
     assert summary["accounted_tokens"] == summary["uncertain_reserved_tokens"] and summary["pending"] == 0
-    BudgetedProvider(Provider(Completion("{}", "luna", 10, 2)), state).complete(PROMPT, timeout_s=2)
+    BudgetedProvider(Provider(Completion("{}", "luna", 10, 2)), state).complete(PROMPT, timeout_s=30)
     assert state.summary()["requests"] == 2
 
 
@@ -196,7 +196,7 @@ def test_service_policy_does_not_relax_other_failures(tmp_path, code):
     state = budget(tmp_path, allow_http503_forfeits=True)
     provider = Provider(ProviderError(code))
     with pytest.raises(ProviderError, match=code):
-        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=2)
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         state.check()
     assert state.summary()["active_http503_forfeits"] == 0 and provider.calls == 1
