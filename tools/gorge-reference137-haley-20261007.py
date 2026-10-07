@@ -32,7 +32,10 @@ def check():
  assert bundle['independent_recovery_verified'] is True and bundle['rated_games']==0
  assert bundle['runtime_seal_sha256']=='2f92a15a12d0154184a99e202914e7ef6e6f96af3a4f55693493709879bf1482'
  assert sha(RUNTIME/'SEAL.json')==bundle['runtime_seal_sha256']
- sys.path.insert(0,str(INPUT/'source/tools'));sys.path.insert(0,str(INPUT/'source/python'))
+ assert args.source_record_sha256 and sha(SOURCE_INPUT/'SOURCE.json')==args.source_record_sha256
+ assert sha(SOURCE_INPUT/'source.tar')==read(SOURCE_INPUT/'SOURCE.json')['source_archive_sha256']
+ assert read(SOURCE_INPUT/'SOURCE-TREE.json')=={p.relative_to(SOURCE_INPUT/'source').as_posix():sha(p) for p in sorted((SOURCE_INPUT/'source').rglob('*')) if p.is_file()}
+ sys.path.insert(0,str(SOURCE_INPUT/'source/tools'));sys.path.insert(0,str(SOURCE_INPUT/'source/python'))
  from gorge_native_gate import verify_native_audit
  from gorge_reference_pool import portable_native_verdict
  verdict=verify_native_audit(PROOF/'input/native',RUNTIME,seal_sha256=bundle['native_seal_sha256'],
@@ -70,7 +73,7 @@ def prepare():
  census_path=placement_check()
  from spellbench.arena import machine
  from spellbench.bench.definition import load_benchmark
- benchmark=load_benchmark(INPUT/'source/benchmarks/pauper-gorge')
+ benchmark=load_benchmark(SOURCE_INPUT/'source/benchmarks/pauper-gorge')
  cores=machine.usable_cpus()
  rules=benchmark.qualification_rules()
  bound=max(n for n in range(2,min(8,cores//3)+1) if rules.ladder_fits(120,n))
@@ -172,7 +175,7 @@ def run():
   write(JOB/'CLOSURE.json',dict(at_utc=stamp(),reference_passed=passed,error=failure,stop_reason=reason,elapsed_seconds=time.monotonic()-start,new_cloud_spend_usd=0,rated_games=0))
  if not passed:raise SystemExit(1)
 def release_check():
- sys.path.insert(0,str(INPUT/'source/tools'))
+ sys.path.insert(0,str(SOURCE_INPUT/'source/tools'))
  from gorge_recover_local_native import owned_release,put
  assert (JOB/'CLOSURE.json').is_file()
  result=owned_release(host,read(JOB/'host-dispatch.json'),lane='spellbench-gorge',work_id='gorge-guarded-reference137')
