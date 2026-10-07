@@ -23,8 +23,10 @@ from spellbench.messages import EngineIdentity
 from spellbench.run_secret import RunSecret
 
 from gorge_ci_exchange import sha
+from gorge_native_gate import schedule_blocks
 from gorge_reference_coordinator import validate_matrix
 from gorge_reference_pool import portable_native_verdict
+from gorge_reference_selection import declared_matrix_policies, matrix_counts, restrict_matrix
 from gorge_reference_worker import load_original_helpers
 
 
@@ -57,13 +59,16 @@ def verify_local_matrix(stage, *, source, cfg, manifest, report, preflight):
         raise ThroughputError('Local matrix private seed differs from its recorded commitment')
     helpers = load_original_helpers(source, stage)
     chosen, expected = helpers.select_matrix(schedule(cfg, secret))
+    if manifest.get('matrix_policies', 'all') != 'all':
+        chosen, expected = restrict_matrix(chosen, expected, manifest['matrix_policies'])
+    games, cells, receipts = matrix_counts(chosen, expected)
     indices = [context.game_index for context in chosen]
     if manifest['selected_indices'] != indices:
         raise ThroughputError('Local matrix changed its original seed, seat or deck selection')
     setup, entries = retained_setup(cfg, preflight)
     primary, joined = rows(stage/'matches.jsonl'), rows(stage/'policy-joins.jsonl')
     times = report['game_seconds']
-    if (len(primary) != 140 or len(joined) != 140 or len(times) != 140 or
+    if (len(primary) != games or len(joined) != games or len(times) != games or
             [value['game_index'] for value in times] != indices or
             any(type(value['seconds']) not in (int, float) or not math.isfinite(value['seconds']) or
                 value['seconds'] <= 0 for value in times)):
@@ -73,8 +78,8 @@ def verify_local_matrix(stage, *, source, cfg, manifest, report, preflight):
     aggregates, expected_joins, failures = validate_matrix(results, chosen=chosen, expected=expected,
         secret=secret, setup=setup, entries=entries, helpers=helpers, cfg=cfg)
     canonical = b''.join(store.canonical_bytes(value)+b'\n' for value in primary)
-    if (failures or report['passed'] is not True or report['failures'] or report['completed_games'] != 140 or
-            report['native_participant_receipts'] != 160 or report['cells'] != aggregates or
+    if (failures or report['passed'] is not True or report['failures'] or report['completed_games'] != games or
+            report['native_participant_receipts'] != receipts or report['cells'] != aggregates or
             joined != expected_joins or (stage/'matches.jsonl').read_bytes() != canonical or
             sha(stage/'matches.jsonl') != report['ledger_sha256']):
         raise ThroughputError('Local matrix rows, participant evidence or numerical gates failed')
@@ -85,7 +90,7 @@ def verify_local_matrix(stage, *, source, cfg, manifest, report, preflight):
             (stage/'replay-original.jsonl').read_bytes() != original or
             (stage/'replay.jsonl').read_bytes() != original or sha(stage/'replay.jsonl') != report['replay_store_sha256']):
         raise ThroughputError('Local preselected search/Burn replay differs from the original row')
-    return dict(completed_games=140, cells=60, native_participant_receipts=160, replay_identical=True,
+    return dict(completed_games=games, cells=cells, native_participant_receipts=receipts, replay_identical=True,
                 ledger_sha256=report['ledger_sha256'], rated_games=0)
 
 
@@ -115,9 +120,14 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict, re
     stage = Path(stage)
     manifest, report = read(stage/'MANIFEST.json'), read(stage/'MATRIX.json')
     native = portable_native_verdict(native_verdict)
+    # The matrix covers exactly the natively qualified modes; a full native
+    # verdict without a policy list is the original twelve-mode pass.
+    qualified = declared_matrix_policies(native.get('policies'))
+    blocks = schedule_blocks(qualified)
     if (manifest['source_commit'] != head_sha or manifest['native_proof']['native_verdict'] != native or
-            native.get('closed') is not True or native.get('seed_blocks') != 320 or
-            native.get('completed_games') != 640 or native.get('outputs_identical') is not True or
+            declared_matrix_policies(manifest.get('matrix_policies', 'all')) != qualified or
+            native.get('closed') is not True or native.get('seed_blocks') != blocks or
+            native.get('completed_games') != 2 * blocks or native.get('outputs_identical') is not True or
             manifest['runtime_seal_sha256'] != native['runtime_seal_sha256'] or
             manifest['runtime_source_commit'] != native['runtime_source_commit'] or
             manifest['rated_games'] != 0 or report['rated_games'] != 0):
@@ -135,7 +145,8 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict, re
     allocation = Allocation.from_json(report['allocation'])
     rules = replace(benchmark.qualification_rules(), worker_selection='wall')
     eligible = min(blueprint.workers, resource_bound(allocation.cpu_count, cfg.per_game_cores()))
-    bounds = [n for n in range(2, eligible+1) if rules.ladder_fits(140, n)]
+    games = len(manifest['selected_indices'])
+    bounds = [n for n in range(2, eligible+1) if rules.ladder_fits(games, n)]
     if not bounds or cfg.to_json() != replace(blueprint, workers=max(bounds)).to_json():
         raise ThroughputError('Local reference changed the roster, clocks or fitting worker bound')
     if recovered_runtime is not None and Path(recovered_runtime).resolve() != Path(native_verdict['runtime_root']).resolve():
@@ -151,7 +162,7 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict, re
     shape = {key: value for key, value in qualification_config(cfg).items() if key != 'tournament_dir'}
     identity = dict(arena=__version__, config=shape, files=files, games=manifest['selected_indices'])
     if (allocation.kind != 'substantial' or allocation.outputs_identical is not True or allocation.reused or
-            allocation.games_total != 140 or allocation.per_game_cores != 3 or allocation.rules != rules or
+            allocation.games_total != games or allocation.per_game_cores != 3 or allocation.rules != rules or
             allocation.cpu_count != manifest['usable_cpus'] or
             allocation.workload != workload_id(identity) or manifest['launch_files'] != files or
             read(stage/'ALLOCATION.json') != report['allocation'] or
@@ -175,7 +186,7 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict, re
     groups = {}
     for position, index in enumerate(manifest['selected_indices']):
         groups.setdefault(contexts[index].matchup_index, []).append(position)
-    sample = tuple(sample_order(list(groups.values()))[:rules.probe_size(140, cfg.workers)])
+    sample = tuple(sample_order(list(groups.values()))[:rules.probe_size(games, cfg.workers)])
     declarations = [dict(workers=trial.workers, schedule_indices=[manifest['selected_indices'][i] for i in sample])
                     for trial in allocation.trials]
     if replay['trials'] != declarations:
