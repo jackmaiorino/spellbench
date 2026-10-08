@@ -69,6 +69,16 @@ def required_matchups(config: TournamentConfig) -> tuple[tuple[str, str], ...]:
     return tuple((a, b) for i, a in enumerate(names) for b in names[i + 1:] if a in panel or b in panel)
 
 
+def without_entrants(config: TournamentConfig, names: tuple[str, ...]) -> TournamentConfig:
+    """The same evaluation without the named roster entries."""
+    if not names:
+        return config
+    left = replace(config, bots=tuple(bot for bot in config.bots if bot.name not in names),
+                   matchups=None if config.matchups is None else
+                   tuple(pair for pair in config.matchups if not set(pair) & set(names)))
+    return TournamentConfig.from_json(left.to_json())
+
+
 @dataclass(frozen=True)
 class Source:
     path: Path
@@ -136,7 +146,12 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
 
 
 def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source], *, benchmark_id: str,
-                label: str, rated_only: bool = True) -> tuple[dict[str, Any], list[registry.RegistryEntry], dict[str, Any], str]:
+                label: str, rated_only: bool = True, pending: Sequence[str] = ()
+                ) -> tuple[dict[str, Any], list[registry.RegistryEntry], dict[str, Any], str]:
+    pending = list(pending)
+    if (len(set(pending)) != len(pending) or any(type(name) is not str or not name for name in pending)
+            or set(pending) & {bot.name for bot in config.bots}):
+        raise SnapshotError("pending entrants must be distinct names outside the snapshot roster")
     wanted = set(required_matchups(config))
     if chosen.keys() - wanted:
         raise SnapshotError("snapshot contains matchups outside the reference panel")
@@ -199,10 +214,15 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         "opponents": list(config.opponent_panel), "sources": sorted(sources), "caveat": CAVEAT,
         "observed_matchups": len(document["matchups"]), "possible_matchups": len(entries) * (len(entries) - 1) // 2}
     document["notes"] = [*document["notes"], CAVEAT]
+    if pending:
+        # Listed, not rated: these roster entries have no compatible panel block yet.
+        document["evaluation"]["pending"] = sorted(pending)
+        document["notes"].append("Pending, no panel results yet: " + ", ".join(sorted(pending)))
     assert facts is not None
     manifest = {"schema": SCHEMA, **facts, "contract": expected,
         "sources": [receipts[name] for name in sorted(receipts)],
         "allow_unrated": not rated_only,
+        **({"pending": sorted(pending)} if pending else {}),
         "run": {"benchmark_id": benchmark_id, "label": checked_label(label), "status": "complete",
                 "rated": rated_only and all(source.manifest["run"]["rated"] for source in sources.values())},
         "validator": {"verdict": "pass", "decisions_checked": sum(row.decisions_checked for row in rows),
@@ -213,9 +233,9 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
 
 
 def write_snapshot(directory: Path, config: TournamentConfig, chosen: dict[tuple[str, str], Source], *,
-                   benchmark_id: str, rated_only: bool = True) -> Path:
+                   benchmark_id: str, rated_only: bool = True, pending: Sequence[str] = ()) -> Path:
     body, entries, board, markdown = materialize(config, chosen, benchmark_id=benchmark_id,
-                                                label=directory.name, rated_only=rated_only)
+                                                label=directory.name, rated_only=rated_only, pending=pending)
     store.prepare_tournament_dir(directory)
     store.write_json_atomic(directory / store.CONFIG_NAME, config.to_json())
     registry.write_registry(directory / store.REGISTRY_NAME, entries)
@@ -264,7 +284,7 @@ def validate_snapshot(directory: Path) -> list[str]:
                 chosen[key] = source
         body, entries, board, markdown = materialize(config, chosen,
             benchmark_id=manifest["run"]["benchmark_id"], label=manifest["run"]["label"],
-            rated_only=not manifest["allow_unrated"])
+            rated_only=not manifest["allow_unrated"], pending=manifest.get("pending", ()))
         body["files"] = manifest["files"]
         expected = {store.MANIFEST_NAME: store.canonical_bytes(body) + b"\n",
                     store.REGISTRY_NAME: store.canonical_bytes({"schema": store.REGISTRY_SCHEMA,

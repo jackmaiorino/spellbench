@@ -460,7 +460,11 @@ def _drift(benchmark: definition.Benchmark, run: _Run) -> tuple[list[str], froze
     recorded = run.config.to_json()
     if run.snapshot:
         benchmark = replace(benchmark, evaluation_targets=None)
-    current = TournamentConfig.from_json(benchmark.tournament_config(f"runs/{run.name}")).to_json()
+    current = TournamentConfig.from_json(benchmark.tournament_config(f"runs/{run.name}"))
+    if run.snapshot:
+        # Pending entrants are listed beside the snapshot, not fitted, so they are not drift.
+        current = snapshot.without_entrants(current, tuple(run.board.get("evaluation", {}).get("pending", ())))
+    current = current.to_json()
     if run.snapshot:
         recorded.pop("tournament_dir")
         current.pop("tournament_dir")

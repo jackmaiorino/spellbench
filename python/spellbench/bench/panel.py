@@ -112,12 +112,38 @@ def published_snapshots(directory: Path) -> list[Path]:
     return sorted(result, key=lambda p: definition.run_sort_key(p.name))
 
 
+def pending_entrants(config: TournamentConfig, selected: Mapping[tuple[str, str], snapshot.Source]) -> tuple[str, ...]:
+    """Entrants outside the panel with no compatible block yet; partly played entrants still fail."""
+    played = {name for pair in selected for name in pair}
+    fixed = set(config.opponent_panel) | {config.rating_anchor}
+    return tuple(bot.name for bot in config.bots if bot.name not in played and bot.name not in fixed)
+
+
+def unprepared_entrants(config: TournamentConfig) -> tuple[str, ...]:
+    """Entrants outside the panel not yet fingerprinted; no block can match them."""
+    fixed = set(config.opponent_panel) | {config.rating_anchor}
+    return tuple(bot.name for bot in config.bots if bot.evaluation_identity is None and bot.name not in fixed)
+
+
 def compose_benchmark(directory: Path, *, unrated: bool = False, date: str | None = None) -> Path:
-    """Publish a source-backed snapshot; no game or inference executes."""
+    """Publish a source-backed snapshot; no game or inference executes.
+
+    Roster entries with no compatible block at all, including entries not yet
+    fingerprinted, are listed as pending and left out of the fit, so one
+    unplayed entrant does not hold back the board.
+    """
     directory = directory.resolve()
     benchmark = definition.load_benchmark(directory)
     config = full_config(benchmark)
-    selected = snapshot.select_blocks(config, sources(directory), rated_only=not unrated)
+    found = sources(directory)
+    unprepared = unprepared_entrants(config)
+    config = snapshot.without_entrants(config, unprepared)
+    selected = snapshot.select_blocks(config, found, rated_only=not unrated)
+    unplayed = pending_entrants(config, selected)
+    if unplayed:
+        config = snapshot.without_entrants(config, unplayed)
+        selected = snapshot.select_blocks(config, found, rated_only=not unrated)
+    pending = unprepared + unplayed
     date = datetime.date.today().isoformat() if date is None else snapshot.checked_label(date)
     if len(date) != 10:
         raise definition.BenchmarkError("snapshot date must be YYYY-MM-DD")
@@ -128,4 +154,5 @@ def compose_benchmark(directory: Path, *, unrated: bool = False, date: str | Non
         if not target.exists():
             break
         number += 1
-    return snapshot.write_snapshot(target, config, selected, benchmark_id=benchmark.id, rated_only=not unrated)
+    return snapshot.write_snapshot(target, config, selected, benchmark_id=benchmark.id, rated_only=not unrated,
+                                   pending=pending)

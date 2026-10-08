@@ -456,7 +456,9 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         sources = ", ".join(_e(name) for name in evaluation["sources"])
         main.append('<aside class="fairness reference-panel"><span class="chip">reference panel</span>'
                     f'<p>Local opponents: {opponents}. Evaluation runs: {sources}.</p>'
-                    f'<p>{_e(evaluation["caveat"])}</p></aside>')
+                    f'<p>{_e(evaluation["caveat"])}</p>'
+                    + (f'<p>Pending, no panel results yet: {", ".join(_e(name) for name in evaluation["pending"])}.</p>'
+                       if evaluation.get("pending") else "") + '</aside>')
     if view["newer_runs"]:
         main.append(_newer_runs_note(view["newer_runs"]))
     if view.get("withheld_runs"):
