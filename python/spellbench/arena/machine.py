@@ -74,7 +74,27 @@ def usable_cpus(cpu_count: int | None = None) -> int:
             period = _cgroup_text(f"/sys/fs/cgroup/{directory}/cpu.cfs_period_us")
             quotas.append(cgroup_cpus(f"{quota} {period}"))
         count = min((count, *(quota for quota in quotas if quota is not None)))
+    elif os.name == "nt":
+        count = min(count, _windows_affinity_cpus() or count)
     return count
+
+
+def _windows_affinity_cpus() -> int | None:
+    """CPUs in this process's Windows affinity mask (a core-slot claim pins it), or None when unreadable."""
+    try:
+        import ctypes
+
+        kernel32 = ctypes.WinDLL("kernel32")  # a private instance, so these argtypes stay local
+        kernel32.GetCurrentProcess.restype = ctypes.c_void_p
+        kernel32.GetProcessAffinityMask.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.c_size_t),
+                                                    ctypes.POINTER(ctypes.c_size_t))
+        process, system = ctypes.c_size_t(0), ctypes.c_size_t(0)
+        if not kernel32.GetProcessAffinityMask(kernel32.GetCurrentProcess(), ctypes.byref(process),
+                                               ctypes.byref(system)):
+            return None
+    except (AttributeError, OSError):
+        return None
+    return bin(process.value).count("1") or None
 
 
 def total_memory() -> int | None:
