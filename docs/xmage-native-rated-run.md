@@ -17,3 +17,7 @@ Rated monitoring counts new rows of that run's `matches.jsonl`. It does not coun
 On interruption or refusal, retain the commitment, logs, partial ledger and terminal state. The normal benchmark runner reveals failures it can finalize. If the outer guard must terminate its process, inspect and close that same attempt after confirmed owned cleanup; publish its required reveal before preparing another identity. Never restart a started commitment because its process stopped.
 
 Existing manifests without `execution_kind` remain qualification-only. Completed frozen qualification artifacts and launchers are unchanged. Prepare a new manifest when adopting a changed controller or workload, and let the normal throughput guard determine whether retained evidence is compatible.
+
+## Sharing the host by core
+
+A manifest may declare `cores` (for example `"0-15"`) together with `host_slots`, the path and SHA-256 of a pinned `host_slots_v1.py`. The worker then runs the pinned command under `host_slots_v1.py timed --cores SPEC`, so untimed work and CI can use the other cores. The busy refusal then ignores a `java`, `bo3_*`, `native_*` or `mtg_kernel*` process only when its CPU affinity is readable and lies entirely outside the declared cores. Overlapping, unpinned and unreadable processes still refuse the launch. Without `cores`, the whole host is reserved and every name match refuses, as before. Declaring cores changes a run's execution: qualify with the same declaration under the same background load before a commitment names it.

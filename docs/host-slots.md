@@ -35,7 +35,7 @@ host_reservation_v1.py supervise --token T -- python host_slots_v1.py timed --co
 
 A held lock with no declaration still reserves the whole host, which covers every launcher written before this tool.
 
-Declaring is a change to a run's execution. For a rated run, qualify throughput with the same declaration and the same background load before the commitment names it. Launchers whose busy refusal matches process names (for example `java`) also see suspended claim processes.
+Declaring is a change to a run's execution. For a rated run, qualify throughput with the same declaration and the same background load before the commitment names it. Launchers whose busy refusal matches process names (for example `java`) also see suspended claim processes. `xmage_native_qualified_job.py` with a manifest `cores` declaration ignores matches pinned entirely outside those cores.
 
 ## Per-host config
 
