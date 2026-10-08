@@ -150,7 +150,9 @@ def test_no_room_without_wait_and_fifo_queue_with_wait(host, tmp_path):
         order = tmp_path / "order"
         waiters = []
         for name in ("a", "b"):
-            waiters.append(cli("run", "--wait", "--lane", "l", "--work-id", name, "--cores", "1", "--",
+            # Each waiter wants every core, so b cannot start until a ends and the
+            # file order is the admission order rather than a race between them.
+            waiters.append(cli("run", "--wait", "--lane", "l", "--work-id", name, "--cores", str(len(CPUS)), "--",
                                sys.executable, mark, str(order), name))
             assert wait_for(lambda n=len(waiters): len(list((host / "TESTHOST.slots").glob("queue-*.json"))) == n)
         status = slots.status()
