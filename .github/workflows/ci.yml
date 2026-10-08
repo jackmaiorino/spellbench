@@ -8,13 +8,25 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels that PR's older run. Runs on main all
+# finish, because each one checks the run history its push added.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   python-tests:
-    name: Python tests (${{ matrix.os }})
+    name: Python tests (${{ matrix.os }}, shard ${{ matrix.shard }}/${{ matrix.shards }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, windows-2025]
+        include:
+          - {os: ubuntu-24.04, shard: 1, shards: 1}
+          # Windows runs the suite about twice as slowly, so it is split across
+          # three jobs (python/tests/conftest.py picks each shard's tests).
+          - {os: windows-2025, shard: 1, shards: 3}
+          - {os: windows-2025, shard: 2, shards: 3}
+          - {os: windows-2025, shard: 3, shards: 3}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
@@ -34,13 +46,31 @@ jobs:
         run: uv sync --locked --extra test
 
       - name: Check protocol golden transcripts
+        if: matrix.shard == 1
         run: uv run --no-sync python python/tools/generate_goldens_v2.py --check
 
       - name: Check the run history
+        if: matrix.shard == 1
         run: uv run --no-sync python python/tools/check_run_history.py --base "${{ github.event.pull_request.base.sha || github.event.before }}"
 
       - name: Run tests
-        run: uv run --no-sync pytest python/tests integrations -q -n auto --dist loadgroup
+        env:
+          SPELLBENCH_TEST_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+        run: uv run --no-sync pytest python/tests integrations -q -n auto --dist loadgroup --durations=15
 
       - name: Validate committed benchmark runs
+        if: matrix.shard == 1
         run: uv run --no-sync spellbench site benchmarks "${{ runner.temp }}/site-check"
+
+  # Keeps the per-OS check names that existed before the Windows split.
+  python-tests-result:
+    name: Python tests (${{ matrix.os }})
+    needs: python-tests
+    if: always()
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every shard to pass
+        run: test "${{ needs.python-tests.result }}" = success
