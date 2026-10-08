@@ -137,3 +137,29 @@ def test_storage_scan_keeps_unreadable_file_failures(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "stat", unreadable_stat)
     with pytest.raises(PermissionError, match="storage metadata unavailable"):
         job.tree_bytes(tmp_path)
+
+
+def test_busy_check_without_cores_counts_every_name_match():
+    table = [(10, 1, "java.exe"), (11, 1, "mtg_kernel_tests.exe"), (12, 1, "python.exe")]
+    assert job.busy_processes(table, None, affinity=lambda pid: {16}) == [(10, "java.exe"), (11, "mtg_kernel_tests.exe")]
+
+
+def test_busy_check_with_cores_ignores_only_processes_pinned_elsewhere():
+    table = [(10, 1, "java.exe"), (11, 1, "mtg_kernel_tests.exe"), (12, 1, "native_x.exe"), (13, 1, "bo3_y.exe")]
+    affinity = {10: set(range(16, 24)), 11: {15, 16}, 12: None, 13: set(range(24))}.get
+    cores = job.parse_cores("0-15")
+    # pinned entirely to 16-23: ignored; overlapping, unreadable or unpinned: still busy
+    assert job.busy_processes(table, cores, affinity=affinity) == [
+        (11, "mtg_kernel_tests.exe"), (12, "native_x.exe"), (13, "bo3_y.exe")]
+
+
+def test_declared_cores_wrap_the_child_in_timed():
+    prepared = {"command": ["py", "rated.py", "--out", "o"]}
+    assert job.run_command({}, prepared) == ["py", "rated.py", "--out", "o"]
+    record = {"cores": "0-15", "host_slots": {"path": "C:/pins/host_slots_v1.py"}}
+    assert job.run_command(record, prepared) == [sys.executable, "C:/pins/host_slots_v1.py", "timed", "--cores", "0-15",
+                                                 "--", "py", "rated.py", "--out", "o"]
+    assert job.declared_cores({}) is None
+    assert job.parse_cores("3-1,8") == [3, 2, 1, 8]
+    with pytest.raises(ValueError):
+        job.parse_cores("0-x")

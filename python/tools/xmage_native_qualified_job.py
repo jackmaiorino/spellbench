@@ -15,11 +15,84 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+
+BUSY_PATTERN = r"^(?:java|bo3_.*|native_.*|mtg_kernel.*)\.exe$"
+NEVER_MATCHES = r"(?!)"
+
+
+def parse_cores(spec: str) -> list[int]:
+    """'0-3,8' -> [0, 1, 2, 3, 8], the same syntax host_slots_v1.py accepts."""
+    out: list[int] = []
+    for part in spec.replace(" ", "").split(","):
+        match = re.fullmatch(r"(\d+)(?:-(\d+))?", part)
+        if not match:
+            raise ValueError(f"bad core list {spec!r}")
+        a, b = int(match.group(1)), int(match.group(2) or match.group(1))
+        step = 1 if b >= a else -1
+        out.extend(core for core in range(a, b + step, step) if core not in out)
+    return out
+
+
+def declared_cores(record: dict) -> list[int] | None:
+    """The cores a job declares with host_slots_v1.py timed, or None for the whole host."""
+    spec = record.get("cores")
+    return None if spec is None else parse_cores(spec)
+
+
+def process_affinity(pid: int) -> set[int] | None:
+    """The CPUs a Windows process may run on, or None when it cannot be read."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = wintypes.HANDLE
+    k32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    k32.GetProcessAffinityMask.argtypes = (wintypes.HANDLE, ctypes.POINTER(ctypes.c_size_t),
+                                           ctypes.POINTER(ctypes.c_size_t))
+    k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+    if not handle:
+        return None
+    try:
+        mask, system = ctypes.c_size_t(0), ctypes.c_size_t(0)
+        if not k32.GetProcessAffinityMask(handle, ctypes.byref(mask), ctypes.byref(system)):
+            return None
+        return {cpu for cpu in range(64) if mask.value >> cpu & 1}
+    finally:
+        k32.CloseHandle(handle)
+
+
+def busy_processes(table, cores: list[int] | None, affinity=process_affinity) -> list[tuple[int, str]]:
+    """Processes that make the host busy for this job.
+
+    Without declared cores every name match counts, as before. With them, a
+    match is ignored only when its affinity is readable and lies entirely
+    outside the declared cores (for example CI pinned to other cores)."""
+    pattern = re.compile(BUSY_PATTERN, re.IGNORECASE)
+    busy = []
+    for pid, _, name in table:
+        if not pattern.match(name or ""):
+            continue
+        if cores is not None:
+            allowed = affinity(pid)
+            if allowed is not None and not allowed & set(cores):
+                continue
+        busy.append((pid, name))
+    return busy
+
+
+def run_command(record: dict, prepared: dict) -> list[str]:
+    """The child command; a job with declared cores runs it under host_slots_v1.py timed."""
+    if record.get("cores") is None:
+        return list(prepared["command"])
+    return [sys.executable, record["host_slots"]["path"], "timed", "--cores", record["cores"], "--",
+            *prepared["command"]]
 
 
 def sha(path: Path) -> str:
@@ -137,6 +210,10 @@ def load(manifest: Path, digest: str):
     module_spec.loader.exec_module(module)
     if module.CANONICAL_ROOT != "C:/mtg-node/host-lock" or module.SCHEMA != "mtg-host-reservation/v1":
         raise ValueError("host helper does not use the canonical reservation")
+    if declared_cores(record) is not None:
+        slots = Path(record.get("host_slots", {}).get("path", ""))
+        if slots.name != "host_slots_v1.py" or not slots.is_file() or sha(slots) != record["host_slots"].get("sha256"):
+            raise ValueError("declared cores require the pinned host_slots_v1.py")
     for item in (prepared["database"], *prepared["engine_jars"].values(), *prepared["kit_jars"].values()):
         if sha(Path(item["path"])) != item["sha256"]:
             raise ValueError("native pinned input differs")
@@ -193,7 +270,7 @@ def work(record: dict, prepared: dict, helper) -> int:
     try:
         with (attempt/"QUALIFY.log").open("xb") as log, (attempt/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
             baseline = progress_counts(prepared, qualifier_output)
-            child = subprocess.Popen(prepared["command"], cwd=hot, env=env, stdout=log, stderr=subprocess.STDOUT)
+            child = subprocess.Popen(run_command(record, prepared), cwd=hot, env=env, stdout=log, stderr=subprocess.STDOUT)
             terminal["child_pid"] = child.pid
             while child.poll() is None:
                 if (hot/"STOP").exists():
@@ -272,9 +349,19 @@ def main() -> int:
         raise ValueError("this prepared job was already dispatched; inspect its actual status before any recovery")
     command = [sys.executable, str(Path(__file__).resolve()), "--mode", "work", "--manifest", str(args.manifest.resolve()),
                "--manifest-sha256", args.manifest_sha256]
+    cores = declared_cores(record)
+    if cores is None:
+        pattern = BUSY_PATTERN
+    else:
+        # The helper matches names only. Check here with affinity, so work
+        # pinned to other cores (desktop CI) does not refuse the launch.
+        busy = busy_processes(helper.process_table(), cores)
+        if busy:
+            raise ValueError(f"processes on the declared cores {record['cores']} are busy: {busy}")
+        pattern = NEVER_MATCHES
     result = helper.dispatch("spellbench-xmage-native", record["work_id"],
         "supported qualifier exit, declared window/cap/STOP and confirmed owned child cleanup", command, str(hot),
-        busy_pattern=r"^(?:java|bo3_.*|native_.*|mtg_kernel.*)\.exe$",
+        busy_pattern=pattern,
         transport_record={"manifest": str(args.manifest.resolve()), "manifest_sha256": args.manifest_sha256})
     put(attempt/"DISPATCH.json", result)
     print(json.dumps({k: result.get(k) for k in ("state", "generation", "pid", "nested")}))
