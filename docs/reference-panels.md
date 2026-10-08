@@ -27,6 +27,8 @@ uv run spellbench site benchmarks site
 
 Composing and publishing play zero games. Snapshots keep references to complete source matchup blocks, including halts and truncations. Both seat slots stay together; duplicate blocks cannot be counted twice. Selection uses the latest compatible completed source for each required matchup, independent of its outcomes. Snapshots do not overwrite the original runs or secrets.
 
+A roster entry outside the panel with no compatible block at all, including one not yet fingerprinted by `bench prepare`, is listed as pending: the snapshot leaves it out of the fit, records it under `pending` in its manifest and leaderboard, and the site lists it beside the panel. An entry with some but not all of its required blocks still fails composition, so a partial evaluation never reaches the board. Panel references and the rating anchor are never pending.
+
 Changing an entrant's version, seed, command or declared input bytes requires only that entrant's new evaluation. Changing the engine, deck pool, information rules, clocks, caps, resources, evaluation version or frozen reference inputs invalidates the affected panel. Advance `evaluation_version` for changes in arena behavior or other game-affecting inputs outside the declared files.
 
 For configuration or dependencies not given as standalone file arguments, declare files to fingerprint and pin:

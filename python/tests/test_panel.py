@@ -178,8 +178,9 @@ def test_unrated_sources_need_an_explicit_preview_and_do_not_enter_the_site(comp
     write_definition(directory, raw)
     assert panel.prepare_benchmark(directory) == ("first",)
     play(directory, "2026-10-03", rated=False, secret=RunSecret(b"x" * 32))
-    with pytest.raises(snapshot.SnapshotError, match="missing compatible"):
-        panel.compose_benchmark(directory, date="2026-10-03")
+    rated = panel.compose_benchmark(directory, date="2026-10-03")
+    assert store.read_json(rated / "leaderboard.json")["evaluation"]["pending"] == ["first"]
+    shutil.rmtree(rated)
     preview = panel.compose_benchmark(directory, date="2026-10-03", unrated=True)
     assert not store.read_json(preview / "manifest.json")["run"]["rated"]
     assert validate_tournament_dir(preview) == []
@@ -217,6 +218,57 @@ def test_cli_uses_the_guarded_launcher_and_composes_an_unrated_preview(completed
     snapshot_dir = panel.published_snapshots(directory)[-1]
     assert not store.read_json(snapshot_dir / "manifest.json")["run"]["rated"]
     assert validate_tournament_dir(snapshot_dir) == []
+
+
+def test_an_entrant_with_no_results_is_listed_as_pending_not_fitted(completed, tmp_path):
+    directory = copied(completed, tmp_path)
+    raw = json.loads((directory / "benchmark.json").read_bytes())
+    raw["bots"].append({**raw["bots"][2], "name": "unplayed",
+                        "display": {**raw["bots"][2]["display"], "label": "unplayed"}})
+    raw["bots"][-1].pop("evaluation_identity")
+    write_definition(directory, raw)
+    unprepared = panel.compose_benchmark(directory, date="2026-10-03")
+    assert store.read_json(unprepared / "manifest.json")["pending"] == ["unplayed"]
+    assert validate_tournament_dir(unprepared) == []
+    shutil.rmtree(unprepared)
+    assert panel.prepare_benchmark(directory) == ("unplayed",)
+    composed = panel.compose_benchmark(directory, date="2026-10-03")
+    assert validate_tournament_dir(composed) == []
+    board = store.read_json(composed / "leaderboard.json")
+    assert board["evaluation"]["pending"] == ["unplayed"] and len(board["rows"]) == 4
+    assert board["games"]["total"] == 20
+    assert "unplayed" not in {bot["name"] for bot in store.read_json(composed / "config.json")["bots"]}
+    assert store.read_json(composed / "manifest.json")["pending"] == ["unplayed"]
+    assert "Pending, no panel results yet: unplayed" in (composed / "LEADERBOARD.md").read_text()
+    shutil.rmtree(directory / "snapshots" / "2026-10-02")
+    site = tmp_path / "site"
+    warnings = build_site(tmp_path, site)
+    page = (site / "b" / directory.name / "index.html").read_text(encoding="utf-8")
+    assert "Pending, no panel results yet: unplayed." in page
+    assert not any("changed since" in warning for warning in warnings)
+    manifest = store.read_json(composed / "manifest.json")
+    manifest["pending"] = []
+    store.write_json_atomic(composed / "manifest.json", manifest)
+    assert "does not recompute" in " ".join(validate_tournament_dir(composed))
+
+
+def test_a_partly_played_entrant_still_blocks_the_snapshot(completed, tmp_path):
+    directory = copied(completed, tmp_path)
+    config = panel.full_config(definition.load_benchmark(directory))
+    selected = snapshot.select_blocks(config, panel.sources(directory))
+    assert panel.pending_entrants(config, selected) == ()
+    del selected[("first", "uniform")]
+    assert panel.pending_entrants(config, selected) == ()
+    with pytest.raises(snapshot.SnapshotError, match="missing compatible panel matchups: first vs uniform"):
+        snapshot.materialize(config, selected, benchmark_id=directory.name, label="2026-10-05")
+
+
+def test_panel_entrants_are_never_pending(completed, tmp_path):
+    directory = copied(completed, tmp_path)
+    config = panel.full_config(definition.load_benchmark(directory))
+    assert panel.pending_entrants(config, {}) == ("cached-llm", "first")
+    with pytest.raises(snapshot.SnapshotError, match="outside the snapshot roster"):
+        snapshot.materialize(config, {}, benchmark_id=directory.name, label="2026-10-05", pending=["first"])
 
 
 def test_preparation_preserves_a_pending_committed_definition(completed, tmp_path):
