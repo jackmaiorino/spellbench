@@ -370,7 +370,8 @@
         "author": "gorge",
         "description": "gorge's default heuristic bot. On this engine it plays exactly as gorge's bot-auto-pay, which is therefore not entered. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "gorge-lethal-pressure",
@@ -397,7 +398,8 @@
         "author": "gorge",
         "description": "gorge's lethal-pressure bot variant. On this engine it plays exactly as gorge's lethal-pressure-auto-pay, which is therefore not entered. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "gorge-ar8",
@@ -424,7 +426,8 @@
         "author": "gorge",
         "description": "gorge's combined lethal attack policy. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "gorge-blocks",
@@ -451,7 +454,8 @@
         "author": "gorge",
         "description": "gorge's blocker policy with its native lethal-pressure attack rule. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "gorge-explore",
@@ -478,7 +482,8 @@
         "author": "gorge",
         "description": "gorge's seeded exploration policy used for card coverage. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     },
     {
       "name": "gorge-legacy",
@@ -505,7 +510,8 @@
         "author": "gorge",
         "description": "gorge's legacy policy with the native PCG seed derivation. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
         "url": "https://github.com/adams-shaun/gorge"
-      }
+      },
+      "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     }
   ],
   "qualification_sample": [
@@ -524,12 +530,11 @@
   },
   "evaluation_engine_identity": "cd5637aa96282d914873827b0b191bd77477489108a3bd6928ca8c703c6aa6fc",
   "evaluation_targets": [
-    "a48",
-    "c12",
-    "g115",
-    "kit-mad-1",
-    "kit-mad-k",
-    "kit-mcts",
-    "uniform"
+    "gorge-ar8",
+    "gorge-blocks",
+    "gorge-bot",
+    "gorge-explore",
+    "gorge-legacy",
+    "gorge-lethal-pressure"
   ]
 }

@@ -21,12 +21,13 @@ def test_fixed_pauper_probe_covers_decks_opponents_and_model_concurrency():
     config = TournamentConfig.from_json(bench.tournament_config("check"))
     contexts = schedule(config, RunSecret(bytes(32)))
     sample = [contexts[index] for index in bench.qualification_sample]
-    assert len(contexts) == 960
+    # The gorge block: each of the six gorge entries plays the three reference models.
+    assert len(contexts) == 1152
     assert {game.decks[0].catalog_id for game in sample} == {deck.catalog_id for deck in bench.deck_pool}
-    kit = {"kit-mad-1", "kit-mad-k", "kit-mcts"}
     seats = [{spec.name for _, spec in game.seat_specs} for game in sample]
-    assert kit | {"g115", "a48", "c12"} <= set().union(*seats)
-    assert sum(bool(kit & names) for names in seats[:4]) == 3
+    assert all(any(name.startswith("gorge-") for name in names) for names in seats)
+    assert all(names - {name for name in names if name.startswith("gorge-")} <= {"g115", "a48", "c12"} for names in seats)
+    assert len({name for names in seats for name in names if name.startswith("gorge-")}) >= 5
     assert any(game.decks[0].catalog_id == "Spy" for game in sample[:4])
     assert all("llm-gpt-6-luna" not in names for names in seats)
 
@@ -226,7 +227,7 @@ def test_sample_order_binds_qualification_evidence(tmp_path, monkeypatch):
     storage = SimpleNamespace(settings={"projected_bytes": 100, "cap_bytes": 200}, check=lambda: 0)
     run.plan_for(config, sample=bench.qualification_sample, job_storage=storage, **options)
     assert captured[0]["sample"][:8] == bench.qualification_sample
-    assert set(captured[0]["sample"]) == set(range(960))
+    assert set(captured[0]["sample"]) == set(range(1152))
     assert captured[0]["workload"] != captured[1]["workload"]
     assert captured[0]["workload"] != captured[2]["workload"]
 
