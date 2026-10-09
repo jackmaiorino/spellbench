@@ -63,6 +63,8 @@ def main(argv=None):
     parser.add_argument("--engine", type=Path, required=True)
     parser.add_argument("--model-build", type=Path, required=True)
     parser.add_argument("--model-build-sha256", required=True)
+    parser.add_argument("--search-math", type=Path,
+                        help="relocated Commons Math jar; must match the build's declared SHA-256")
     parser.add_argument("--manifest", type=Path,
                         default=Path(__file__).resolve().parents[2] / "engines/xmage/releases.json")
     parser.add_argument("--root", type=Path, required=True)
@@ -81,7 +83,7 @@ def main(argv=None):
     descriptor = identity(simulations=args.simulations, build_sha256=args.model_build_sha256,
                           image=args.image, manifest_bytes=raw)
     metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest,
-                                  architecture=ARCHITECTURE)
+                                  architecture=ARCHITECTURE, search_math=args.search_math)
     if sha(args.java) != args.java_sha256 or sha(args.db_file) != args.db_sha256:
         raise ValueError("graph network Java or database differs from its pin")
     # Validate the opaque release files and the no-network command before any game.
