@@ -125,6 +125,30 @@ public final class MageZeroSearchMain {
                     head(scores, "target"), head(scores, "binary"), ((Number) value).floatValue());
         } catch (java.io.IOException e) { throw new IllegalStateException("neural transport failed", e); }
     }
+    /** One encoded state for a bound graph search (SearchPlayer.GRAPH) on this request's pipe. */
+    static Map<String, Object> inferGraph(Map<String, Object> graph) {
+        long call = ++calls;
+        out.println(Json.canonical(Json.map("id", requestId, "event", "infer", "call", call, "graph", graph)));
+        try {
+            String line = in.readLine();
+            if (line == null) throw new IllegalStateException("graph network transport EOF");
+            Map<String, Object> reply = Json.parseObject(line);
+            if (!requestId.equals(reply.get("id")) || !(reply.get("call") instanceof Long)
+                    || (Long) reply.get("call") != call || !Boolean.TRUE.equals(reply.get("ok"))) {
+                throw new IllegalArgumentException("stale or failed graph network transport response");
+            }
+            return Json.obj(reply, "scores");
+        } catch (java.io.IOException e) { throw new IllegalStateException("graph network transport failed", e); }
+    }
+    /** Valid original defaults for the bound graph search: its own settings drive the tree. */
+    static MCTSDefaults graphDefaults(Map<String, Object> values, SearchPlayer.GraphSearch graph) {
+        if (values == null || !Json.canonical(values).equals(Json.canonical(graph.settings()))) {
+            throw new IllegalArgumentException("graph search request differs from its bound settings");
+        }
+        MCTSDefaults result = new MCTSDefaults();
+        result.searchBudget = 2; result.searchTimeout = 600; result.noNoise = true;
+        return result;
+    }
     private static byte[] seed(String value) {
         if (value == null || !value.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("search seed envelope");
         return Seeds.unhex(value);
@@ -141,8 +165,9 @@ public final class MageZeroSearchMain {
         }
         boolean priority = "priority".equals(Json.str(context, "kind"));
         Map<String, Object> values = Json.obj(record, "settings");
-        MCTSDefaults configured = settings(values);
-        boolean diagnostic = "minimum-visits-diagnostic".equals(Json.str(values, "profile"));
+        SearchPlayer.GraphSearch graph = SearchPlayer.GRAPH;
+        MCTSDefaults configured = graph == null ? settings(values) : graphDefaults(values, graph);
+        boolean diagnostic = graph == null && "minimum-visits-diagnostic".equals(Json.str(values, "profile"));
         // Original constructors and copy field initializers read CURRENT.
         // Bind the explicit settings before building or replaying the world.
         MCTSDefaults.CURRENT = configured;
@@ -199,9 +224,8 @@ public final class MageZeroSearchMain {
         List<Object> unofferedModes = new ArrayList<>();
         Set<String> branchKeys = new HashSet<>();
         MCTSNode2 tree = active.tree();
-        Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
         for (MCTSNode child : active.initialRootChildren()) {
-            boolean pruned = !retained.contains(child);
+            boolean pruned = active.pruned(child);
             boolean masked = !pruned && active.selectionMasked(child);
             if (callback != null && callback.modeActions != null
                     && !callback.modeActions.actions.containsKey(child.getAmountAction())) {
@@ -223,8 +247,8 @@ public final class MageZeroSearchMain {
             if (action == null || !branchKeys.add(Json.canonical(action))) {
                 throw new IllegalArgumentException("search root has an unmapped or aliased action");
             }
-            children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) child.getVisits(),
-                    "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
+            children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) active.visits(child),
+                    "value", pruned || masked ? null : active.meanScore(child), "pruned", pruned,
                     "selection_masked", masked,
                     "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
                     "mask_reason", masked ? "original MageZero bestChild resets branches without a legal future" : null));
@@ -247,7 +271,7 @@ public final class MageZeroSearchMain {
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
         Map<String, Object> result = Json.map("selection", Json.map("candidate_id", offered.get("candidate_id"), "semantic_echo", offered.get("semantic")),
                 "decision_sha256", decisionHash,
-                "children", children, "root_visits", (long) tree.getVisits(), "neural_calls", calls,
+                "children", children, "root_visits", (long) active.rootVisits(), "neural_calls", calls,
                 "policy_width", 128L, "settings", Json.copy(values),
                 "search_budget", Json.map("kind", diagnostic ? "minimum_root_visits_until_legal_future"
                         : "original_source_time_or_visits_until_legal_future", "requested", values.get("searchBudget"),
@@ -260,6 +284,14 @@ public final class MageZeroSearchMain {
         if (callback != null && callback.modeActions != null) {
             result.put("unoffered_mode_branches", unofferedModes);
             result.put("scope", "original MageZero numeric spell-mode callback; trained weights, combat, complete games and ratings unfinished");
+        }
+        if (graph != null) {
+            result.remove("policy_width");
+            result.put("settings", Json.copy(graph.settings()));
+            result.put("search_budget", graph.searchBudget());
+            result.put("variant", graph.variant());
+            result.put("graph_search", new ArrayList<>(graph.receipts()));
+            result.put("scope", "graph network search on priority and replayed callback roots; complete-game qualification and ratings unfinished");
         }
         return result;
     }

@@ -17,6 +17,11 @@ scores under the head the decision reads, or the use head's [no, yes]), the
 use logits, value = tanh(value_x), value_x and the leaf vocabulary coverage.
 graph_type null asks for the value only.
 
+A search request is {"id", "state", "heads": true} instead: the response then
+carries the per-node priority and target scores (null at leaves, which have no
+score), the use logits, value, value_x and coverage, as DraftZero's graph
+server returns them to its Java search.
+
     check   run the release's goldens through the serving path and report
     serve   NDJSON requests on stdin after a readiness line
 """
@@ -157,8 +162,8 @@ class Runtime:
         with torch.inference_mode():
             out = self.model(graphs)
         use = out.use[0].double().tolist()
-        value_x = float(out.value_x[0])
-        if not all(map(math.isfinite, use + [value_x])):
+        value_x, value = float(out.value_x[0]), float(out.value[0])
+        if not all(map(math.isfinite, use + [value_x, value])):
             raise ValueError("graph network returned non-finite use or value outputs")
         logits = []
         if graph_type == CHOOSE_USE:
@@ -178,15 +183,34 @@ class Runtime:
                 if not np.isfinite(m):
                     raise ValueError("graph network returned a non-finite option score")
                 logits.append(float(m + np.log(np.exp(x - m).sum())))
-        return {"option_logits": logits, "use": use, "value": math.tanh(value_x), "value_x": value_x,
+        return {"option_logits": logits, "use": use, "value": value, "value_x": value_x,
                 "coverage": coverage}
+
+    def heads(self, state: dict) -> dict:
+        graphs, types, coverage = self._graph(state)
+        with self.torch.inference_mode():
+            out = self.model(graphs)
+        internal = types != self.gn.NodeType.LEAF
+
+        def scores(head):
+            x = head.double().tolist()
+            if not all(math.isfinite(v) for v, k in zip(x, internal) if k):
+                raise ValueError("graph network returned a non-finite node score")
+            return [v if k else None for v, k in zip(x, internal)]
+
+        use = out.use[0].double().tolist()
+        value_x, value = float(out.value_x[0]), float(out.value[0])
+        if not all(map(math.isfinite, use + [value_x, value])):
+            raise ValueError("graph network returned non-finite use or value outputs")
+        return {"priority": scores(out.priority), "target": scores(out.target), "use": use,
+                "value": value, "value_x": value_x, "coverage": coverage}
 
 
 def check(runtime: Runtime, goldens: Path, goldens_sha256: str) -> dict:
     check_pin(goldens, goldens_sha256)
     with gzip.open(goldens, "rt", encoding="utf-8") as stream:
         rows = [json.loads(line) for line in stream]
-    worst = {"option_logits": 0.0, "value_x": 0.0, "value": 0.0, "use": 0.0}
+    worst = {"option_logits": 0.0, "value_x": 0.0, "value": 0.0, "use": 0.0, "heads_vs_options": 0.0}
     agree, by_type, timings, leaf_hits, leaf_total = 0, {}, [], 0, 0
     repeat = None
     for i, g in enumerate(rows):
@@ -208,6 +232,17 @@ def check(runtime: Runtime, goldens: Path, goldens_sha256: str) -> dict:
         by_type[key] = by_type.get(key, 0) + 1
         leaf_hits += r["coverage"]["leaf_occurrences_in_vocab"]
         leaf_total += r["coverage"]["leaf_occurrences"]
+        # The search path reads per-node scores: rebuild each option's logit from them.
+        h = runtime.heads(g["state"])
+        if h["value"] != r["value"] or h["use"] != r["use"]:
+            raise ValueError("per-node and option paths disagree on value or use")
+        if g["graph_type"] != CHOOSE_USE:
+            scores = h["priority"] if g["graph_type"] == PRIORITY else h["target"]
+            for nodes, logit in zip(g["options"], r["option_logits"]):
+                xs = [scores[k] for k in nodes]
+                m = max(xs)
+                rebuilt = m + math.log(sum(math.exp(x - m) for x in xs))
+                worst["heads_vs_options"] = max(worst["heads_vs_options"], abs(rebuilt - logit))
         if i == 0:
             repeat = runtime.evaluate(g["state"], g["graph_type"], g["options"]) == r
     ms = sorted(x * 1000 for x in timings[10:])
@@ -240,7 +275,12 @@ def main() -> int:
     print(json.dumps({"ready": True, **runtime.summary}, sort_keys=True), flush=True)
     for line in sys.stdin:
         request = json.loads(line)
-        result = runtime.evaluate(request["state"], request.get("graph_type"), request.get("options", []))
+        if request.get("heads") is True:
+            if set(request) != {"id", "state", "heads"}:
+                raise ValueError("a per-node request carries only its id and state")
+            result = runtime.heads(request["state"])
+        else:
+            result = runtime.evaluate(request["state"], request.get("graph_type"), request.get("options", []))
         print(json.dumps({"id": request["id"], **result}, allow_nan=False), flush=True)
     return 0
 

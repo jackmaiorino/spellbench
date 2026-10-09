@@ -78,6 +78,21 @@ public final class MageZeroSearchCombatMain {
                     head(scores, "target"), head(scores, "binary"), ((Number) value).floatValue());
         } catch (java.io.IOException e) { throw new IllegalStateException("combat neural transport failed", e); }
     }
+    /** One encoded state for a bound graph search (SearchPlayer.GRAPH) on this request's pipe. */
+    static Map<String, Object> inferGraph(Map<String, Object> graph) {
+        long call = ++calls;
+        out.println(Json.canonical(Json.map("id", requestId, "event", "infer", "call", call, "graph", graph)));
+        try {
+            String line = in.readLine();
+            if (line == null) throw new IllegalStateException("combat graph network transport EOF");
+            Map<String, Object> reply = Json.parseObject(line);
+            if (!requestId.equals(reply.get("id")) || !(reply.get("call") instanceof Long)
+                    || (Long) reply.get("call") != call || !Boolean.TRUE.equals(reply.get("ok"))) {
+                throw new IllegalArgumentException("stale or failed graph network transport response");
+            }
+            return Json.obj(reply, "scores");
+        } catch (java.io.IOException e) { throw new IllegalStateException("combat graph network transport failed", e); }
+    }
     private static String hash(Object value) {
         try { return Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(value).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -112,7 +127,7 @@ public final class MageZeroSearchCombatMain {
         void begin(World built, RemoteModelEvaluator model, MCTSDefaults settings, Map<String, Object> values) {
             world = built; liveGame = built.game; visits = settings.searchBudget;
             minimumVisits = "minimum-visits-diagnostic".equals(Json.str(values, "profile"));
-            stoppingRule = budget(values);
+            stoppingRule = SearchPlayer.GRAPH == null ? budget(values) : SearchPlayer.GRAPH.searchBudget();
             if (minimumVisits) configureDiagnostic(model, visits);
             else configure(model, settings);
         }
@@ -147,22 +162,21 @@ public final class MageZeroSearchCombatMain {
             MCTSNode2 chosen = super.getNextAction(game, type);
             requireRootType(type);
             MCTSNode2 tree = tree();
-            if (chosen == null || tree == null || (minimumVisits && tree.getVisits() < visits) || tree.getVisits() < 1 || calls <= before) {
+            if (chosen == null || tree == null || (minimumVisits && rootVisits() < visits) || rootVisits() < 1 || calls <= before) {
                 throw new IllegalStateException("original combat root did not complete real neural work");
             }
-            Set<MCTSNode> retained = new HashSet<>(tree.getChildren());
             List<Object> children = new ArrayList<>();
             Set<String> keys = new HashSet<>();
             for (MCTSNode child : initialRootChildren()) {
                 Object pick = action(child, type);
                 if (!keys.add(Json.canonical(pick))) throw new IllegalArgumentException("aliased combat root action");
-                boolean pruned = !retained.contains(child), masked = !pruned && selectionMasked(child);
-                children.add(Json.map("action", pick, "visits", pruned ? 0L : (long) child.getVisits(),
-                        "value", pruned || masked ? null : child.getMeanScore(), "pruned", pruned,
+                boolean pruned = pruned(child), masked = !pruned && selectionMasked(child);
+                children.add(Json.map("action", pick, "visits", pruned ? 0L : (long) visits(child),
+                        "value", pruned || masked ? null : meanScore(child), "pruned", pruned,
                         "selection_masked", masked, "discarded_visits", masked ? (long) discardedSelectionVisits(child) : 0L));
             }
             roots.add(Json.map("index", (long) roots.size(), "type", type.name(), "selected", action(chosen, type),
-                    "root_visits", (long) tree.getVisits(), "requested_minimum", minimumVisits ? (long) visits : 0L, "search_budget", stoppingRule,
+                    "root_visits", (long) rootVisits(), "requested_minimum", minimumVisits ? (long) visits : 0L, "search_budget", stoppingRule,
                     "neural_calls", calls - before, "children", children));
             return chosen;
         }
@@ -174,7 +188,8 @@ public final class MageZeroSearchCombatMain {
     }
     static Map<String, Object> plan(Map<String, Object> record) {
         Map<String, Object> values = Json.obj(record, "settings");
-        MCTSDefaults configured = MageZeroSearchMain.settings(values);
+        SearchPlayer.GraphSearch graph = SearchPlayer.GRAPH;
+        MCTSDefaults configured = graph == null ? MageZeroSearchMain.settings(values) : MageZeroSearchMain.graphDefaults(values, graph);
         // Original player constructors bind CURRENT, including simulation copies.
         MCTSDefaults.CURRENT = configured;
         Map<String, Object> decision = Json.obj(record, "decision");
@@ -229,6 +244,15 @@ public final class MageZeroSearchCombatMain {
         if (accounted != calls) throw new IllegalStateException("combat neural work is unaccounted");
         world.flags.add("approximate:initial_combat_anchor_resume");
         world.flags.add("approximate:magezero_v02_combat_simulation_flag_port");
+        if (graph != null) {
+            Map<String, Object> result = Json.map("decision_sha256", hash(decision), "combat", path,
+                    "pairs", Runner.combatPairs(world, game, "attack".equals(path)), "roots", player[0].roots,
+                    "neural_calls", calls, "world_flags", world.flags, "settings", Json.copy(graph.settings()),
+                    "search_budget", graph.searchBudget(), "graph_search", new ArrayList<>(graph.receipts()),
+                    "variant", "per-creature attack questions and target blocks (MageZero v0.2 loops, GraphMCTSPlayer form); " + graph.variant(),
+                    "scope", "graph network combat plan and callback receipts; complete-game qualification unfinished");
+            return result;
+        }
         return Json.map("decision_sha256", hash(decision), "combat", path, "pairs", Runner.combatPairs(world, game, "attack".equals(path)),
                 "roots", player[0].roots, "neural_calls", calls, "world_flags", world.flags,
                 "policy_width", 128L, "settings", Json.copy(values), "search_budget", budget(values),

@@ -15,6 +15,29 @@ import spellbench.models.magezero.v02.search.MCTSNode;
 
 /** Original MageZero v0.2 tree with an explicit deterministic, no-noise play profile. */
 public class SearchPlayer extends ComputerPlayerMCTS2 {
+    /**
+     * A different search over this player's original root: the DraftZero graph
+     * network's BenchSearch (GnnSearch). The graph bridge binds it per request,
+     * before any player or simulation copy is built, as MCTSDefaults.CURRENT is.
+     * Null keeps MageZero's own tree.
+     */
+    public interface GraphSearch {
+        Game createMCTSGame(SearchPlayer player, Game anchor);
+        MCTSNode choose(SearchPlayer player, Game game, MCTSNode2 root, ActionEncoder.ActionType type);
+        Map<String, Object> settings();
+        Map<String, Object> searchBudget();
+        List<Object> receipts();
+        String variant();
+    }
+    /** The private pipe a graph search sends encoded states through; scores per node come back. */
+    public interface GraphPipe {
+        Map<String, Object> infer(Map<String, Object> graph);
+    }
+    public static GraphSearch GRAPH;
+    private Map<MCTSNode, Integer> graphVisits = new IdentityHashMap<>();
+    private Map<MCTSNode, Double> graphValues = new IdentityHashMap<>();
+    private Set<MCTSNode> graphPruned = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
+    private int graphRootVisits;
     private boolean requireVisitBudget;
     private List<MCTSNode> initialRootChildren = new ArrayList<>();
     private Map<MCTSNode, Integer> beforeSelectionVisits = new IdentityHashMap<>();
@@ -80,7 +103,7 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         Set<Integer> observedFeatures = new HashSet<>(stateEncoder.processState(game, playerId, type, text));
         resetSearchTree();
         MCTSNode2 best = getNextAction(game, type);
-        if (best == null || root == null || (requireVisitBudget && root.getVisits() < searchBudget)) {
+        if (best == null || root == null || (requireVisitBudget && rootVisits() < searchBudget)) {
             throw new IllegalStateException("original search did not complete its declared stopping rule");
         }
         if (!playerId.equals(root.playerId) || root.actionType != type
@@ -90,6 +113,51 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         return best;
     }
     public MCTSNode2 tree() { return root; }
+    /** A graph search's root statistics, reported on the original root's children. */
+    public void graphStatistics(Map<MCTSNode, Integer> visits, Map<MCTSNode, Double> values, Set<MCTSNode> pruned, int rootVisits) {
+        graphVisits = new IdentityHashMap<>(visits); graphValues = new IdentityHashMap<>(values);
+        graphPruned = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
+        graphPruned.addAll(pruned); graphRootVisits = rootVisits;
+    }
+    public int rootVisits() { return GRAPH == null ? root.getVisits() : graphRootVisits; }
+    public int visits(MCTSNode child) {
+        if (GRAPH == null) return child.getVisits();
+        Integer value = graphVisits.get(child);
+        if (value == null) throw new IllegalStateException("graph search has no statistics for a root option");
+        return value;
+    }
+    public Double meanScore(MCTSNode child) {
+        if (GRAPH == null) return child.getMeanScore();
+        if (!graphVisits.containsKey(child)) throw new IllegalStateException("graph search has no statistics for a root option");
+        return graphValues.get(child);
+    }
+    /** Not part of the searched tree: MageZero's pruning, or a graph search's merged copy or dead option. */
+    public boolean pruned(MCTSNode child) {
+        return GRAPH == null ? !root.getChildren().contains(child) : graphPruned.contains(child);
+    }
+    @Override protected Game createMCTSGame(Game game) {
+        return GRAPH == null ? super.createMCTSGame(game) : GRAPH.createMCTSGame(this, game);
+    }
+    @Override protected MCTSNode2 getNextAction(Game game, ActionEncoder.ActionType actionType) {
+        if (GRAPH == null) return super.getNextAction(game, actionType);
+        // ComputerPlayerMCTS2.getNextAction's original root, without its flat
+        // root evaluation; the graph search starts a fresh tree every decision.
+        if (stateEncoder == null) RLInit(game);
+        if (actionEncoder == null) {
+            actionEncoder = new ActionEncoder();
+            try { printAllActionsFromDeck(getMatchPlayer().getDeck(), actionEncoder); }
+            catch (mage.game.GameException e) { throw new RuntimeException(e); }
+        }
+        Game sim = createMCTSGame(GameAccess.lastPriority(game));
+        PlayerScript prefixScript = new PlayerScript(getPlayerHistory());
+        PlayerScript opponentPrefixScript = new PlayerScript(GameAccess.history(GameAccess.opponent(game, playerId)));
+        MCTSNode2 newRoot = new MCTSNode2(this, sim, actionType, prefixScript, opponentPrefixScript);
+        newRoot.validateState();
+        newRoot.expand();
+        root = newRoot;
+        root.emancipate();
+        return (MCTSNode2) calculateActions(game, actionType);
+    }
     protected void resetSearchTree() { root = null; }
     protected void requireRootType(ActionEncoder.ActionType type) {
         if (root == null || root.actionType != type || !playerId.equals(root.playerId)) {
@@ -115,6 +183,7 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         // Preserve original pruning. The bridge still accounts for every
         // initially offered action, including those removed from the tree.
         initialRootChildren = new ArrayList<>(root.getChildren());
+        if (GRAPH != null) return GRAPH.choose(this, game, root, type);
         return super.calculateActions(game, type);
     }
     @Override public boolean chooseMulligan(Game game) {
