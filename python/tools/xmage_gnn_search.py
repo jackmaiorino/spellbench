@@ -10,6 +10,7 @@ ratings are separate requirements.
 from __future__ import annotations
 
 import copy
+import json
 import sys
 
 from xmage_neural_agent import NeuralAgent
@@ -59,6 +60,15 @@ def _receipts(result: dict, calls: int) -> None:
         total += receipt["network_calls"]
     if total != calls:
         raise ValueError("graph search has unaccounted network calls")
+
+
+def report_unmatched(result: dict) -> dict:
+    """BenchPlayer ignores searched options no original option matches; keep their keys visible."""
+    odd = [r for r in result.get("graph_search", []) if isinstance(r, dict) and r.get("unmatched_options")]
+    if odd:
+        print(json.dumps({"event": "graph_unmatched_options", "receipts": odd}, separators=(",", ":"),
+                         allow_nan=False)[:8000], file=sys.stderr, flush=True)
+    return result
 
 
 def search_request(record: dict, settings: dict) -> dict:
@@ -141,26 +151,19 @@ class BridgeSession(NeuralSession):
         try:
             request = search_request(record, settings)
             return self.exchange({**request, "operation": "search"}, timeout_s=timeout_s,
-                                 validate=lambda result, calls: search_result(record, result, request["settings"], calls))
+                                 validate=lambda result, calls: report_unmatched(
+                                     search_result(record, result, request["settings"], calls)))
         except BaseException:
             self.failed = True
             self.close()
             raise
 
-    def close(self):
-        # The opt-in leaf audit (SPELLBENCH_GNN_LEAF_AUDIT) writes to the bridge's
-        # captured stderr; keep only those lines, on this process's own stderr.
-        text = getattr(self.peer, "stderr_text", lambda: "")() if not self.closed else ""
-        for line in text.splitlines():
-            if line.startswith('{"event":"graph_leaf_audit"'):
-                print(line, file=sys.stderr, flush=True)
-        super().close()
-
     def plan(self, record: dict, *, settings: dict, timeout_s: float) -> dict:
         try:
             request = combat_request(record, settings)
             return self.exchange({**request, "operation": "combat"}, timeout_s=timeout_s,
-                                 validate=lambda result, calls: combat_result(record, result, request["settings"], calls))
+                                 validate=lambda result, calls: report_unmatched(
+                                     combat_result(record, result, request["settings"], calls)))
         except BaseException:
             self.failed = True
             self.close()

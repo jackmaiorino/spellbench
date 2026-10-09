@@ -136,8 +136,13 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         if (res.stats.timedOut) throw new IllegalStateException("graph search reached its source timeout");
         Map<String, Integer> visits = new HashMap<>();
         Map<String, Double> weighted = new HashMap<>();
+        Map<String, Object> unmatched = new java.util.TreeMap<>();
         for (BenchSearch.RootChild k : res.children) {
-            if (!byKey.containsKey(k.key)) throw new IllegalStateException("graph search root option is not an original option");
+            // BenchPlayer ignores a searched option whose key no original option has; its work is reported apart.
+            if (!byKey.containsKey(k.key)) {
+                unmatched.put(k.key, (long) k.visits + (unmatched.containsKey(k.key) ? (Long) unmatched.get(k.key) : 0L));
+                continue;
+            }
             visits.merge(k.key, k.visits, Integer::sum);
             if (k.q != null && k.visits > 0) weighted.merge(k.key, k.q * k.visits, Double::sum);
         }
@@ -171,7 +176,9 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
                 total += n;
             }
         }
-        if (total != res.rootVisits) throw new IllegalStateException("graph search root visits are unaccounted");
+        long unmatchedVisits = 0;
+        for (Object n : unmatched.values()) unmatchedVisits += (Long) n;
+        if (total + unmatchedVisits != res.rootVisits) throw new IllegalStateException("graph search root visits are unaccounted");
         player.graphStatistics(reportedVisits, values, pruned, total);
         Map<String, Object> receipt = new LinkedHashMap<>();
         receipt.put("type", action.name());
@@ -184,16 +191,19 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         receipt.put("root_q", res.rootQ);
         receipt.put("root_value", res.rootNet);
         receipt.put("merged_copies", (long) (kids.size() - byKey.size()));
+        receipt.put("unmatched_options", unmatched);
+        if (!unmatched.isEmpty()) receipt.put("original_option_keys", new ArrayList<Object>(byKey.keySet()));
         receipts.add(receipt);
         return byKey.get(bestKey).get(0);
     }
 
-    /** Diagnostic only, off unless SPELLBENCH_GNN_LEAF_AUDIT names a file of the release's leaf ids: the root's
-     *  leaf strings with no vocabulary row (they have no embedding, so the network silently drops them). */
+    /** Diagnostic only, off unless SPELLBENCH_GNN_LEAF_AUDIT names a file of the release's leaf ids and
+     *  SPELLBENCH_GNN_LEAF_AUDIT_LOG a JSONL file to append to: each searched root's leaf strings with no
+     *  vocabulary row (they have no embedding, so the network silently drops them). */
     private static Set<Integer> auditVocab;
     private void auditLeaves(MCTSNode2 rk, ActionEncoder.ActionType action) {
-        String path = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT");
-        if (path == null || path.isEmpty()) return;
+        String path = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT"), log = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT_LOG");
+        if (path == null || path.isEmpty() || log == null || log.isEmpty()) return;
         try {
             if (auditVocab == null) {
                 Set<Integer> ids = new HashSet<>();
@@ -230,7 +240,9 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
             event.put("text", q.ask.text);
             event.put("leaves", (long) leaves);
             event.put("missing", new LinkedHashMap<String, Object>(missing));
-            System.err.println(spellbench.kit.core.Json.canonical(event));
+            java.nio.file.Files.write(java.nio.file.Paths.get(log),
+                    (spellbench.kit.core.Json.canonical(event) + "\n").getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
         } catch (java.io.IOException | RuntimeException e) {
             System.err.println("graph leaf audit failed: " + e);
         }
