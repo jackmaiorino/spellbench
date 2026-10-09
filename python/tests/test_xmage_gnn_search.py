@@ -146,3 +146,22 @@ def test_unsearched_worlds_answer_the_kits_declining_candidate():
     attack = {"candidates": [{"candidate_id": 4, "semantic": {"kind": "declare_attack", "defender": {"player": "p1"}}},
                              {"candidate_id": 9, "semantic": {"kind": "declare_attack", "defender": None}}]}
     assert search.declining(attack)["candidate_id"] == 9
+
+
+def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
+    history = search.GraphHistory("p0")
+    begin = {"turn": 5, "phase_step": "beginning_of_combat", "active_seat": "p0", "stack": [], "passed_seats": []}
+    history.anchor = {"decision": {"context": {"kind": "priority"}, "observation": begin},
+                      "selection": {"candidate_id": 1, "semantic_echo": {"kind": "pass"}}}
+    def attack(index):
+        return {"decision": {"group": {"group_id": 7, "substep_count": 2, "substep_index": index},
+                             "candidates": [{"candidate_id": 1, "semantic": {"kind": "declare_attack"}}]},
+                "selection": {"candidate_id": 1, "semantic_echo": {"kind": "declare_attack"}}}
+    history.earlier = [attack(0), attack(1)]
+    callback = {"observation": {"turn": 5, "phase_step": "declare_attackers", "viewer": "p0"},
+                "candidates": [{"candidate_id": 3, "semantic": {"kind": "choose_target"}}]}
+    record = history.callback(callback)
+    assert record["replay"] == {"priority_passes": ["p1"], "earlier": history.earlier, "attack_declarations": 2}
+    history.earlier = [attack(0)]                      # an incomplete group is not replayable
+    with pytest.raises(ValueError):
+        history.callback(callback)

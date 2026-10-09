@@ -172,6 +172,7 @@ class PublicHistory:
 
 class NeuralAgent:
     """Own one mixed search session through one public game lifecycle."""
+    history_factory = PublicHistory
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
                  profile=None, plan_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
@@ -196,7 +197,7 @@ class NeuralAgent:
                 raise ValueError("neural replay requires public passed-seat observations")
             self.key = game_key(game.agent_seed)
             self.game = copy.deepcopy(game)
-            self.history = PublicHistory(game.seat)
+            self.history = self.history_factory(game.seat)
             self.session = self.factory()
             if self.session.model.checkpoint != self.checkpoint:
                 raise ValueError("neural session checkpoint differs from its public bot identity")

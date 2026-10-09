@@ -75,6 +75,8 @@ final class MageZeroSearchReplay {
         ModelModes modeActions;
         /** The anchor's observed characteristics, by object, and whether its world already could not reproduce some. */
         final Map<String, Object> anchorCharacteristics = new java.util.HashMap<>();
+        /** Opt-in (the graph frontend): this many earlier entries are this seat's recorded attack declarations. */
+        int attackDeclarations;
         boolean approximateCharacteristics;
 
         void compare(Game game) {
@@ -327,8 +329,67 @@ final class MageZeroSearchReplay {
             } catch (RuntimeException e) { throw new Failure(e); }
         }
         @Override public void selectAttackers(Game game, UUID player) {
-            rejectReplay(game, "attack");
-            super.selectAttackers(game, player);
+            Result replay = context(game);
+            if (replay == null || replay.attackDeclarations == 0) {
+                rejectReplay(game, "attack");
+                super.selectAttackers(game, player);
+                return;
+            }
+            try { replayAttacks(replay, game, player); }
+            catch (RuntimeException e) { throw new Failure(e); }
+        }
+        /**
+         * The recorded declaration group, declared as MageZero v0.2's selectAttackersOneAtATime would: available
+         * attackers in id order, one answer each, kept in the use history the search root later replays. Only the
+         * group's first substep shows the state before any declaration, so it alone is compared here; the callback
+         * that follows is compared in full.
+         */
+        private void replayAttacks(Result replay, Game game, UUID attackingPlayer) {
+            if (!getId().equals(replay.world.player(replay.world.viewer)) || !getId().equals(attackingPlayer)
+                    || replay.replayed != 0 || replay.attackDeclarations > replay.earlier.size()) {
+                throw new IllegalArgumentException("recorded attack declarations do not open the callback replay");
+            }
+            Map<UUID, UUID> picks = new java.util.HashMap<>();
+            for (int i = 0; i < replay.attackDeclarations; i++) {
+                Map<String, Object> entry = Json.obj(replay.earlier.get(i));
+                Map<String, Object> past = Json.obj(entry, "decision");
+                Map<String, Object> semantic = selectedSemantic(past, Json.obj(entry, "selection"));
+                if (!"declare_attack".equals(Json.str(semantic, "kind"))) {
+                    throw new IllegalArgumentException("recorded attack group holds another decision");
+                }
+                if (i == 0) replay.compare(game, past);
+                UUID attacker = replay.world.idToUuid.get(Json.str(Json.obj(semantic, "attacker"), "object_id"));
+                Map<String, Object> defender = Json.obj(semantic, "defender");
+                UUID target = defender == null ? null : defender.get("player") instanceof String
+                        ? replay.world.player(Json.str(defender, "player"))
+                        : replay.world.idToUuid.get(Json.str(defender, "object_id"));
+                if (attacker == null || picks.containsKey(attacker) || defender != null && target == null) {
+                    throw new IllegalArgumentException("recorded attack declaration is not bound to the world");
+                }
+                picks.put(attacker, target);
+                replay.replayed++;
+            }
+            game.fireEvent(new mage.game.events.GameEvent(mage.game.events.GameEvent.EventType.DECLARE_ATTACKERS_STEP_PRE,
+                    null, null, attackingPlayer));
+            if (game.replaceEvent(mage.game.events.GameEvent.getEvent(mage.game.events.GameEvent.EventType.DECLARING_ATTACKERS,
+                    attackingPlayer, attackingPlayer))) {
+                throw new IllegalArgumentException("recorded attack declarations were replaced");
+            }
+            List<mage.game.permanent.Permanent> available = getAvailableAttackers(game);
+            available.sort(java.util.Comparator.comparing(mage.game.permanent.Permanent::getId));
+            int declared = 0;
+            for (mage.game.permanent.Permanent creature : available) {
+                UUID target = picks.get(creature.getId());
+                boolean attack = target != null;
+                getPlayerHistory().useSequence.add(attack);
+                if (attack) {
+                    declareAttacker(creature.getId(), target, game, false);
+                    declared++;
+                }
+            }
+            long recorded = picks.values().stream().filter(java.util.Objects::nonNull).count();
+            if (declared != recorded) throw new IllegalArgumentException("recorded attacker is not available here");
+            game.getPlayers().resetPassed();
         }
         @Override public void selectBlockers(Ability source, Game game, UUID player) {
             rejectReplay(game, "block");
@@ -445,6 +506,11 @@ final class MageZeroSearchReplay {
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
         if (history == null) throw new IllegalArgumentException("callback search needs explicit replay history");
+        Object attacks = history.get("attack_declarations");
+        if (attacks != null) {
+            if (!(attacks instanceof Long) || (Long) attacks < 1) throw new IllegalArgumentException("invalid attack declaration count");
+            result.attackDeclarations = ((Long) attacks).intValue();
+        }
         result.earlier = new ArrayList<>(Json.arr(history, "earlier"));
         for (Object seat : Json.arr(history, "priority_passes")) {
             if (!(seat instanceof String) || !("p0".equals(seat) || "p1".equals(seat))) {

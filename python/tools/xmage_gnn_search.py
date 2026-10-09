@@ -13,7 +13,7 @@ import copy
 import json
 import sys
 
-from xmage_neural_agent import NeuralAgent
+from xmage_neural_agent import NeuralAgent, PublicHistory
 from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as checked_combat_request,
                                  select_candidate, validate_result as validate_combat)
 from xmage_neural_decisions import close_resources
@@ -274,8 +274,52 @@ class SettingsSession:
         self.session.close()
 
 
+class GraphHistory(PublicHistory):
+    """PublicHistory, plus callbacks that follow this seat's own attack declarations.
+
+    After a beginning-of-combat pass, the attack declaration group and then a
+    callback (an attack trigger's target, say) arrive in the declare-attackers
+    step. The Java replay re-declares the recorded group (attack_declarations)
+    before the callback and compares the callback's whole observation.
+    """
+    def attack_group(self, decision):
+        if self.anchor is None or self.anchor["selection"]["semantic_echo"].get("kind") != "pass":
+            return 0
+        previous, observation = self.anchor["decision"]["observation"], decision["observation"]
+        if not (previous.get("phase_step") == "beginning_of_combat" and observation.get("phase_step") == "declare_attackers"
+                and type(previous.get("turn")) is int and previous["turn"] == observation.get("turn")
+                and previous.get("active_seat") == self.seat and not previous.get("stack")):
+            return 0
+        count, group = 0, None
+        for entry in self.earlier:
+            candidates = entry["decision"].get("candidates", [])
+            if not candidates or any(c.get("semantic", {}).get("kind") != "declare_attack" for c in candidates):
+                break
+            step = entry["decision"].get("group", {})
+            if group is None:
+                group = step
+            if (step.get("group_id") != group.get("group_id") or step.get("substep_index") != count
+                    or step.get("substep_count") != group.get("substep_count")):
+                return 0
+            count += 1
+        return count if group is not None and count == group.get("substep_count") else 0
+
+    def callback(self, decision):
+        attacks = self.attack_group(decision)
+        if not attacks:
+            return super().callback(decision)
+        other = "p1" if self.seat == "p0" else "p0"
+        passed = self.anchor["decision"]["observation"].get("passed_seats")
+        if not isinstance(passed, list) or any(p not in ("p0", "p1") for p in passed):
+            raise ValueError("callback anchor needs public passed-seat facts")
+        return {"anchor": copy.deepcopy(self.anchor),
+                "replay": {"priority_passes": [] if other in passed else [other],
+                           "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks}}
+
+
 class GraphAgent(NeuralAgent):
     """One graph search session per public game."""
+    history_factory = GraphHistory
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)
 
