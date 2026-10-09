@@ -1,5 +1,6 @@
 """A transported qualification must not report old trial rows as new games."""
 import sys
+import json
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
@@ -8,6 +9,60 @@ from types import SimpleNamespace
 
 import xmage_native_qualified_job as job
 from xmage_native_qualified_job import completed_since, execution_kind, progress_counts, sha
+
+
+def owned_receipt(root, digit):
+    name = "spellbench-xmage-" + digit * 32
+    path = root / (name + ".owned.json")
+    path.write_text(json.dumps({"schema": "spellbench-owned-model-container/v1", "container": name,
+                               "creator_pid": 42, "work_directory": str(root / "agent-private")}))
+    return name, path
+
+
+def test_abort_cleanup_removes_only_new_recorded_containers(tmp_path):
+    root = tmp_path / "agent-work"
+    root.mkdir()
+    old_name, old = owned_receipt(root, "a")
+    baseline = job.container_records((root,))
+    new_name, new = owned_receipt(root, "b")
+    calls = []
+    def docker(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stderr="")
+    result = job.cleanup_containers((root,), baseline, run=docker)
+    assert calls == [["docker", "rm", "--force", new_name]]
+    assert result[0]["confirmed_absent"] is True
+    assert result[0]["receipt_sha256"] == sha(new)
+    assert old.exists() and new.exists()  # Audit receipts survive cleanup.
+    assert old_name not in calls[0]
+
+
+@pytest.mark.parametrize("change", ["name", "directory", "schema"])
+def test_cleanup_rejects_foreign_or_malformed_receipt(tmp_path, change):
+    _, path = owned_receipt(tmp_path, "a")
+    data = json.loads(path.read_bytes())
+    data[{"name": "container", "directory": "work_directory", "schema": "schema"}[change]] = (
+        str(tmp_path.parent / "foreign") if change == "directory" else "foreign")
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="invalid owned"):
+        job.cleanup_containers((tmp_path,), {}, run=lambda *a, **k: pytest.fail("foreign Docker call"))
+
+
+def test_cleanup_preserves_docker_failure_and_refuses_changed_history(tmp_path):
+    _, path = owned_receipt(tmp_path, "a")
+    result = job.cleanup_containers((tmp_path,), {}, run=lambda *a, **k:
+        SimpleNamespace(returncode=1, stderr="daemon unavailable"))
+    assert result[0]["confirmed_absent"] is False
+    baseline = job.container_records((tmp_path,))
+    path.write_text(path.read_text() + " ")
+    with pytest.raises(ValueError, match="older owned container receipt changed"):
+        job.cleanup_containers((tmp_path,), baseline, run=lambda *a, **k: pytest.fail("changed-history call"))
+
+
+def test_container_work_roots_cannot_select_foreign_tree(tmp_path):
+    record = {"hot_root": str(tmp_path / "owned"), "container_work_roots": [str(tmp_path / "foreign")]}
+    with pytest.raises(ValueError, match="outside the owned hot root"):
+        job.container_roots(record)
 
 
 def test_benchmark_progress_excludes_retained_trials(tmp_path):
