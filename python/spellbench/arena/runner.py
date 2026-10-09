@@ -563,12 +563,16 @@ def _spot_checked(
     run_secret: RunSecret,
     entries: dict[str, RegistryEntry],
     launch_files: Sequence[EngineFile] = (),
+    recording: dict | None = None,
+    guard: Callable[[], None] | None = None,
 ) -> tuple[Allocation, BaseException | None]:
     """Replay scheduled game ``index`` serially and record whether its ledger row matches the recorded one
     (``Allocation.with_spot_check``). A replay that raises leaves the allocation unchecked, so the run publishes
     as unrated; the exception is returned for the caller to note, or to raise after the manifest."""
     result = play_games(config, setup, [context], run_secret=run_secret, entries=entries, workers=1,
-                        stop_on_violation=False, launch_files=launch_files)
+                        stop_on_violation=False, launch_files=launch_files, recording=recording, guard=guard,
+                        on_outcome=lambda outcome: engine_records.collect(
+                            getattr(outcome, "record_directory", None), outcome.row, guard=guard))
     if result.error is not None or len(result.outcomes) != 1:
         return allocation, result.error
     replayed = result.outcomes[0].row
@@ -678,6 +682,7 @@ def run_tournament(
                             allocation, game, config=executed, setup=setup, context=contexts[game], row=rows[game],
                             run_secret=run_secret, entries=entries,
                             launch_files=launch_files,
+                            recording=recording, guard=guard,
                         )
                     if isinstance(failure, Exception):  # noted, never fatal: the run publishes as not spot-checked
                         with interrupts.holding():

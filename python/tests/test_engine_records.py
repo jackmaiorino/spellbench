@@ -70,6 +70,28 @@ def test_explicit_disabled_recording_does_not_read_global_environment(monkeypatc
     assert seen["submission_window"] is None
 
 
+@pytest.mark.parametrize("recording_data", [None, {"enabled": True}])
+def test_small_spot_check_uses_same_recording_and_supervised_collection(recording, recording_data, monkeypatch):
+    from spellbench.arena import runner
+    _, terminal, _ = recording
+    events = []
+    guard = lambda: None
+    def play(*args, **kwargs):
+        assert kwargs["recording"] is recording_data and kwargs["guard"] is guard
+        kwargs["on_outcome"](SimpleNamespace(row=terminal, record_directory="same-route"))
+        return SimpleNamespace(error=None, outcomes=[SimpleNamespace(row=terminal)])
+    monkeypatch.setattr(runner, "play_games", play)
+    monkeypatch.setattr(engine_records, "collect", lambda directory, row, **kwargs:
+                        events.append((directory, row, kwargs["guard"])))
+    class Allocation:
+        def with_spot_check(self, *args, **kwargs):
+            assert events == [("same-route", terminal, guard)]
+            return "spot-proof"
+    result = runner._spot_checked(Allocation(), 0, config=None, setup=None, context=None,
+                                  row=terminal, run_secret=None, entries={}, recording=recording_data, guard=guard)
+    assert result == ("spot-proof", None)
+
+
 def test_production_runner_records_actual_parallel_engine_games_and_collects_in_order(tmp_path, collector):
     from spellbench.arena import runner
     from spellbench.arena.schedule import schedule, preflight
