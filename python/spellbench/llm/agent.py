@@ -61,6 +61,7 @@ class LlmAgent:
         self._public_events: deque[dict[str, Any]] = deque(maxlen=config.public_history_events or None)
         self._public_seen = 0
         self._public_step: int | None = None
+        self._aliases: dict[str, str] = {}
         public = config.public_history_events > 0
         version = PROMPT_FORMATS[config.prompt_format] + (PUBLIC_HISTORY_SUFFIX if public else "")
         metadata = {"provider": settings, "agent": asdict(config), "prompt_version": version,
@@ -88,6 +89,7 @@ class LlmAgent:
         self._reset_public_history()
 
     def _reset_public_history(self) -> None:
+        self._aliases.clear()
         self._public_events.clear()
         self._public_seen = 0
         self._public_step = None
@@ -120,7 +122,8 @@ class LlmAgent:
             else:
                 prompt = render_prompt(decision, own_deck=self._game.own_deck, history=self._history,
                                        catalog=self.catalog, max_bytes=self.config.max_prompt_bytes,
-                                       prompt_format=self.config.prompt_format, public_history=public_history)
+                                       prompt_format=self.config.prompt_format, public_history=public_history,
+                                       aliases=self._aliases)
                 fields.update(prompt_sha256=prompt.sha256, prompt_bytes=prompt.bytes)
                 if self.config.record_prompts:
                     fields["messages"] = list(prompt.messages)
