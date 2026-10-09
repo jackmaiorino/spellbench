@@ -73,6 +73,9 @@ final class MageZeroSearchReplay {
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
+        /** The anchor's observed characteristics, by object, and whether its world already could not reproduce some. */
+        final Map<String, Object> anchorCharacteristics = new java.util.HashMap<>();
+        boolean approximateCharacteristics;
 
         void compare(Game game) {
             compare(game, decision);
@@ -87,10 +90,41 @@ final class MageZeroSearchReplay {
             try {
                 Map<String, Object> projected = RoundTrip.project(world, RoundTrip.flagsFrom(received),
                         Json.str(current, "priority_seat"), Json.arr(current, "known"));
-                List<String> diff = ObsCompare.diff(current, projected, 8);
-                if (!diff.isEmpty()) throw new IllegalArgumentException("callback replay observation differs: " + diff);
+                List<String> diff = new ArrayList<>();
+                boolean tolerated = false;
+                for (String d : ObsCompare.diff(current, projected, 1000)) {
+                    if (knownCharacteristic(current, d)) tolerated = true;
+                    else diff.add(d);
+                }
+                if (!diff.isEmpty()) {
+                    throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
+                }
+                if (tolerated && !world.flags.contains("approximate:unexplained_characteristics_callback")) {
+                    world.flags.add("approximate:unexplained_characteristics_callback");
+                }
             } catch (RuntimeException e) { throw e; }
             catch (Exception e) { throw new IllegalStateException("callback replay projection failed", e); }
+        }
+        /**
+         * A power, toughness or keyword difference the anchor world already could not reproduce (WorldBuilder flags
+         * an until-end-of-turn effect as approximate:unexplained_characteristics), with the received value still the
+         * one observed at the anchor. Any other difference, or a changed value, is refused.
+         */
+        private boolean knownCharacteristic(Map<String, Object> current, String difference) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("^/players/(\\d+)/battlefield/(\\d+)/characteristics/(power|toughness|keywords)(?:/\\d+)? \\(")
+                    .matcher(difference);
+            if (!approximateCharacteristics || !m.find()) return false;
+            List<Object> players = Json.arr(current, "players");
+            int player = Integer.parseInt(m.group(1)), index = Integer.parseInt(m.group(2));
+            if (players == null || player >= players.size()) return false;
+            List<Object> battlefield = Json.arr(Json.obj(players.get(player)), "battlefield");
+            if (battlefield == null || index >= battlefield.size()) return false;
+            Map<String, Object> object = Json.obj(battlefield.get(index));
+            Map<String, Object> now = Json.obj(object, "characteristics");
+            Object anchored = anchorCharacteristics.get(Json.str(object, "object_id"));
+            return now != null && anchored instanceof Map
+                    && Json.canonical(now.get(m.group(3))).equals(Json.canonical(Json.obj(anchored).get(m.group(3))));
         }
         void priority(String seat, SearchPlayer p, Game game) {
             if (passes.isEmpty() || !seat.equals(passes.removeFirst())) {
@@ -458,6 +492,15 @@ final class MageZeroSearchReplay {
         spec.otherFactory = seat -> other[0] = new ReplayPlayer(seat);
         result.world = WorldBuilder.build(spec);
         result.world.flags.addAll(flags);
+        result.approximateCharacteristics = result.world.flags.contains("approximate:unexplained_characteristics");
+        for (Object player : Json.arr(observation, "players")) {
+            for (Object item : Json.arr(Json.obj(player), "battlefield")) {
+                Map<String, Object> object = Json.obj(item);
+                if (Json.str(object, "object_id") != null && object.get("characteristics") instanceof Map) {
+                    result.anchorCharacteristics.put(Json.str(object, "object_id"), Json.copy(object.get("characteristics")));
+                }
+            }
+        }
         for (String flag : result.world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
                 throw new IllegalArgumentException("callback anchor is unsupported: " + flag);

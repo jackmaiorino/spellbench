@@ -10,6 +10,7 @@ ratings are separate requirements.
 from __future__ import annotations
 
 import copy
+import sys
 
 from xmage_neural_agent import NeuralAgent
 from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as checked_combat_request,
@@ -145,6 +146,15 @@ class BridgeSession(NeuralSession):
             self.failed = True
             self.close()
             raise
+
+    def close(self):
+        # The opt-in leaf audit (SPELLBENCH_GNN_LEAF_AUDIT) writes to the bridge's
+        # captured stderr; keep only those lines, on this process's own stderr.
+        text = getattr(self.peer, "stderr_text", lambda: "")() if not self.closed else ""
+        for line in text.splitlines():
+            if line.startswith('{"event":"graph_leaf_audit"'):
+                print(line, file=sys.stderr, flush=True)
+        super().close()
 
     def plan(self, record: dict, *, settings: dict, timeout_s: float) -> dict:
         try:

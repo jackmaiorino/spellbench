@@ -130,6 +130,7 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         if (!rk.isTerminal() && rk.getPlayer().scriptFailed) {
             throw new IllegalStateException("graph search world does not replay to its root");
         }
+        auditLeaves(rk, action);
         long before = net.calls;
         BenchSearch.Result res = BenchSearch.searchTree(new BenchSearch.World(rk, player, a, b, action, game), config);
         if (res.stats.timedOut) throw new IllegalStateException("graph search reached its source timeout");
@@ -185,6 +186,54 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         receipt.put("merged_copies", (long) (kids.size() - byKey.size()));
         receipts.add(receipt);
         return byKey.get(bestKey).get(0);
+    }
+
+    /** Diagnostic only, off unless SPELLBENCH_GNN_LEAF_AUDIT names a file of the release's leaf ids: the root's
+     *  leaf strings with no vocabulary row (they have no embedding, so the network silently drops them). */
+    private static Set<Integer> auditVocab;
+    private void auditLeaves(MCTSNode2 rk, ActionEncoder.ActionType action) {
+        String path = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT");
+        if (path == null || path.isEmpty()) return;
+        try {
+            if (auditVocab == null) {
+                Set<Integer> ids = new HashSet<>();
+                for (String line : java.nio.file.Files.readAllLines(java.nio.file.Paths.get(path))) {
+                    if (!line.trim().isEmpty()) ids.add(Integer.parseInt(line.trim()));
+                }
+                auditVocab = ids;
+            }
+            Set<Integer> types = new HashSet<>();
+            for (FeatureGraph.Node.Type t : FeatureGraph.Node.Type.values()) {
+                types.add(spellbench.models.draftzero.gnn.encoder.StateEncoder.indexFor(
+                        spellbench.models.draftzero.gnn.encoder.StateEncoder.hash64(t.name())));
+            }
+            types.add(0);
+            GraphNet.Ask q = GraphNet.ask(rk);
+            spellbench.models.draftzero.gnn.encoder.StateEncoder enc = new spellbench.models.draftzero.gnn.encoder.StateEncoder();
+            enc.setAgent(rk.targetPlayer);
+            enc.setOpponent(GameAccess.opponent(rk.getGame(), rk.targetPlayer).getId());
+            enc.perfectInfo = false;
+            FeatureGraph g = enc.processState(rk.getGame(), rk.playerId, ActionEncoder.ActionType.valueOf(q.ask.type),
+                    q.ask.text, q.ask.fromCards, q.ask.source);
+            FeatureGraph.GraphArrays arrays = g.getGraphArrays();
+            Map<String, Long> missing = new java.util.TreeMap<>();
+            int leaves = 0;
+            for (UUID id : arrays.order) {
+                FeatureGraph.Node node = g.get(id);
+                if (types.contains(node.id)) continue;
+                leaves++;
+                if (!auditVocab.contains(node.id)) missing.merge(node.name, 1L, Long::sum);
+            }
+            Map<String, Object> event = new LinkedHashMap<>();
+            event.put("event", "graph_leaf_audit");
+            event.put("type", action.name());
+            event.put("text", q.ask.text);
+            event.put("leaves", (long) leaves);
+            event.put("missing", new LinkedHashMap<String, Object>(missing));
+            System.err.println(spellbench.kit.core.Json.canonical(event));
+        } catch (java.io.IOException | RuntimeException e) {
+            System.err.println("graph leaf audit failed: " + e);
+        }
     }
 
     static Map<String, Object> payload(FeatureGraph.GraphArrays a) {
