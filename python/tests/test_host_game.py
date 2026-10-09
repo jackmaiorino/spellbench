@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import dataclasses
 import json
 import sys
 import threading
@@ -258,6 +259,27 @@ def test_a_bad_answer_forfeits_the_acting_seat(pick, cause: str) -> None:
     result = play_game(setup(), engine=engine, seats={"p0": Seat(pick), "p1": Seat()})
     assert (result.classification, result.winner, result.reason) == ("forfeit", "p1", f"forfeit:{cause}")
     assert (result.step_count, result.decisions_checked) == (0, 1)
+
+
+@pytest.mark.parametrize("phase", ["start", "choose"])
+def test_seat_failure_retains_operator_diagnostic_without_changing_primary_result(phase: str) -> None:
+    detail = f"{phase} was answered with an error (internal_error)"
+    diagnostic = "choose failed: ValueError\nprivate peer stderr pid=123"
+    results = []
+    for text in ("", diagnostic):
+        failure = SeatFailure("agent_error", detail, diagnostic=text)
+        seat = (Seat(start_error=failure) if phase == "start"
+                else Seat(lambda decision: fail(failure)))
+        engine, peer = scripted(FIRST)
+        other = Seat()
+        results.append(play_game(setup(), engine=engine, seats={"p0": seat, "p1": other}))
+        # The diagnostic is never forwarded to the engine or either seat.
+        assert "private peer stderr" not in repr(peer.sent)
+        assert "private peer stderr" not in repr(seat.received + other.received)
+    baseline, retained = results
+    assert retained.diagnostics == (diagnostic,)
+    assert dataclasses.replace(retained, diagnostics=()) == baseline
+    assert diagnostic not in json.dumps(retained.adjudication)
 
 
 def test_matching_echoes_are_accepted() -> None:
