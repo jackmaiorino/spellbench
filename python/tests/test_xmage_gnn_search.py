@@ -118,3 +118,15 @@ def test_graph_states_and_scores_are_checked_on_the_host():
     for key, value in (("priority", [None, float("nan"), None]), ("use", [0]), ("value", 1.5), ("target", [None])):
         with pytest.raises(ValueError):
             model_module.validate_heads({**good, key: value}, 3)
+
+
+def test_runtime_identity_binds_the_repository_release_inputs():
+    import xmage_gnn_runtime as runtime
+    raw = (Path(__file__).parents[2] / "engines/xmage/releases.json").read_bytes()
+    first = runtime.identity(simulations=100, build_sha256="a" * 64, image="sha256:" + "b" * 64, manifest_bytes=raw)
+    assert first["name"] == "draftzero-fdn-gnn-100-fair" and first["version"].startswith("draftzero-gnn-pimc-v1-")
+    assert first["identity"]["input_sha256"]["checkpoint"] == "d5ee8323ccca11f18b1667bc2312407d9d5696b6dacf7243d9a30461cdc29b56"
+    other = runtime.identity(simulations=300, build_sha256="a" * 64, image="sha256:" + "b" * 64, manifest_bytes=raw)
+    assert other["version"] != first["version"]
+    with pytest.raises(ValueError):
+        runtime.identity(simulations=100, build_sha256="a" * 64, image="gnn:latest", manifest_bytes=raw)

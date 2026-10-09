@@ -22,12 +22,13 @@ DB_SHA256 = "fcdba7e7e5a0875d70380d8d99a5e776fe1eead630ef2a4d6c3340f9378919e3"
 
 
 def entrant(*, build: Path, image: str, simulations: int, manifest_path: Path, engine: Path) -> dict:
-    manifest = json.loads(manifest_path.read_bytes())
+    raw = manifest_path.read_bytes()
+    manifest = json.loads(raw)
     build_sha = sha(build / "BUILD.json")
     meta = json.loads((build / "BUILD.json").read_bytes())
     if not meta.get("draftzero_gnn_stage"):
         raise ValueError("the entrant needs a model build with the graph network stage")
-    descriptor = identity(simulations=simulations, build_sha256=build_sha, image=image, manifest=manifest)
+    descriptor = identity(simulations=simulations, build_sha256=build_sha, image=image, manifest_bytes=raw)
     config = manifest["inference_backends"][ARCHITECTURE]
     assets = {a["id"]: a for a in manifest["assets"]}
     release = [assets[config[key]]["filename"] for key in ("vocab", "config", "model")]

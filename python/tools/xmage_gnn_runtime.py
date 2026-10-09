@@ -33,8 +33,9 @@ SOURCES = ("xmage_gnn_runtime.py", "xmage_gnn_search.py", "xmage_gnn_model.py", 
            "xmage_release_assets.py", "xmage_draftzero_gnn_sources.py")
 
 
-def identity(*, simulations, build_sha256, image, manifest):
+def identity(*, simulations, build_sha256, image, manifest_bytes):
     settings = played_settings(simulations)
+    manifest = json.loads(manifest_bytes)
     if (not isinstance(build_sha256, str) or re.fullmatch(r"[a-f0-9]{64}", build_sha256) is None
             or not isinstance(image, str) or re.fullmatch(r"sha256:[a-f0-9]{64}", image) is None):
         raise ValueError("graph network identity needs immutable build and confined image pins")
@@ -48,7 +49,7 @@ def identity(*, simulations, build_sha256, image, manifest):
              "source_assets_sha256": {aid: assets[aid]["sha256"] for aid in
                                       config["encoder_source_assets"] + config["search_source_assets"]},
              "model_build_sha256": build_sha256, "image": image,
-             "manifest_sha256": hashlib.sha256(wire.canonical_json_dumps(manifest)).hexdigest(),
+             "manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
              "source_sha256": {name: sha(Path(__file__).with_name(name)) for name in SOURCES}}
     digest = hashlib.sha256(wire.canonical_json_dumps(bound)).hexdigest()
     return {"name": f"draftzero-fdn-gnn-{simulations}-fair", "version": "draftzero-gnn-pimc-v1-" + digest[:24],
@@ -74,10 +75,11 @@ def main(argv=None):
     args = parser.parse_args(argv)
     for key in ("java", "engine", "model_build", "manifest", "root", "db_file", "work"):
         setattr(args, key, getattr(args, key).absolute())
-    manifest = json.loads(args.manifest.read_bytes())
+    raw = args.manifest.read_bytes()
+    manifest = json.loads(raw)
     settings = played_settings(args.simulations)
     descriptor = identity(simulations=args.simulations, build_sha256=args.model_build_sha256,
-                          image=args.image, manifest=manifest)
+                          image=args.image, manifest_bytes=raw)
     metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest,
                                   architecture=ARCHITECTURE)
     if sha(args.java) != args.java_sha256 or sha(args.db_file) != args.db_sha256:
