@@ -23,6 +23,16 @@ import java.util.Map;
  * search and combat roots then run the MageZero v0.2 replay and combat paths unchanged.
  */
 public final class GnnBridgeMain {
+    /** Refusals raised before any search: the kit's no-search policy for horizon and unsupported worlds. */
+    private static final String[] UNSUPPORTED = {"search world is unsupported: ", "callback anchor is unsupported: ",
+            "combat world is unsupported: "};
+
+    static String unsupported(RuntimeException e) {
+        if (!(e instanceof IllegalArgumentException) || e.getMessage() == null) return null;
+        for (String prefix : UNSUPPORTED) if (e.getMessage().startsWith(prefix)) return e.getMessage();
+        return null;
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 0) throw new IllegalArgumentException("private graph NDJSON pipe takes no arguments");
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
@@ -58,6 +68,14 @@ public final class GnnBridgeMain {
             } catch (RuntimeException e) {
                 long calls = !started ? 0 : "combat".equals(operation)
                         ? MageZeroSearchCombatMain.neuralCalls() : MageZeroSearchMain.neuralCalls();
+                String refusal = unsupported(e);
+                if (started && calls == 0 && refusal != null) {
+                    // The kit does not search such a world. No network call was made, so the pipe is in step;
+                    // the frontend answers the kit's declining candidate.
+                    out.println(Json.canonical(Json.map("id", record.get("id"), "operation", operation,
+                            "event", "result", "ok", true, "result", Json.map("unsupported", refusal, "neural_calls", 0L))));
+                    continue;
+                }
                 out.println(Json.canonical(Json.map("id", record == null ? null : record.get("id"),
                         "operation", operation, "event", "result", "ok", false,
                         "error", e.toString(), "neural_calls", calls)));

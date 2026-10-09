@@ -130,3 +130,19 @@ def test_runtime_identity_binds_the_repository_release_inputs():
     assert other["version"] != first["version"]
     with pytest.raises(ValueError):
         runtime.identity(simulations=100, build_sha256="a" * 64, image="gnn:latest", manifest_bytes=raw)
+
+
+def test_unsearched_worlds_answer_the_kits_declining_candidate():
+    record, _, settings = fixture()
+    refusal = {"unsupported": "search world is unsupported: horizon:stack_object", "neural_calls": 0}
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": refusal}])
+    out = search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["semantic_echo"] == {"kind": "pass"} and out["fallback"] == "kit_declining_unsearched_world"
+    for bad in ({**refusal, "neural_calls": 1}, {**refusal, "unsupported": "search world is unsupported: approximate:x"},
+                {"unsupported": "callback replay observation differs: []", "neural_calls": 0}):
+        peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": bad}])
+        with pytest.raises(ValueError):
+            search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    attack = {"candidates": [{"candidate_id": 4, "semantic": {"kind": "declare_attack", "defender": {"player": "p1"}}},
+                             {"candidate_id": 9, "semantic": {"kind": "declare_attack", "defender": None}}]}
+    assert search.declining(attack)["candidate_id"] == 9

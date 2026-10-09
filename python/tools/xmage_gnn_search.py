@@ -62,6 +62,64 @@ def _receipts(result: dict, calls: int) -> None:
         raise ValueError("graph search has unaccounted network calls")
 
 
+UNSUPPORTED = ("search world is unsupported: ", "callback anchor is unsupported: ", "combat world is unsupported: ")
+
+
+def declining(decision: dict) -> dict:
+    """The kit front's fallback (Front.fallback without a ranking): the declining candidate, else the first."""
+    candidates = decision["candidates"]
+    for candidate in candidates:
+        sem = candidate["semantic"]
+        kind = sem.get("kind", "")
+        if (kind == "pass" or kind.startswith("finish_")
+                or (kind == "choose_boolean" and sem.get("value") is False)
+                or sem.get("pay") is False or sem.get("cast_it") is False
+                or (kind == "declare_attack" and sem.get("defender") is None)
+                or (kind == "declare_block" and sem.get("attacker") is None)):
+            return {"candidate_id": candidate["candidate_id"], "semantic_echo": copy.deepcopy(sem)}
+    return {"candidate_id": candidates[0]["candidate_id"], "semantic_echo": copy.deepcopy(candidates[0]["semantic"])}
+
+
+def unsupported_result(record: dict, result: dict, calls: int) -> dict:
+    """A world the kit does not search (horizon or unsupported flag), refused before any network call."""
+    refusal = result.get("unsupported")
+    if (set(result) != {"unsupported", "neural_calls"} or not isinstance(refusal, str)
+            or not refusal.startswith(UNSUPPORTED) or result["neural_calls"] != 0 or calls != 0):
+        raise ValueError("graph search reported an invalid unsupported world")
+    flag = refusal.split(": ", 1)[1]
+    if not flag.startswith(("horizon:", "unsupported:")):
+        raise ValueError("graph search refused a world without a horizon or unsupported flag")
+    return {"selection": declining(record["decision"]), "neural_calls": 0, "world_flags": [flag],
+            "fallback": "kit_declining_unsearched_world", "unsupported": refusal}
+
+
+class DecliningPlan:
+    """The kit's declining answer for every declaration of a combat group it does not search."""
+    def __init__(self, decision: dict, result: dict):
+        self.result = copy.deepcopy(result)
+        self.group = PermittedPlan._group(decision)
+        if self.group["substep_index"] != 0:
+            raise ValueError("combat plan needs the initial group substep")
+        self.first_step, self.next_index, self.failed = decision.get("seat_step"), 0, False
+
+    @property
+    def complete(self):
+        return self.next_index == self.group["substep_count"]
+
+    def select(self, decision: dict) -> dict:
+        if self.failed or self.complete:
+            raise ValueError("combat plan is complete or failed")
+        group = PermittedPlan._group(decision)
+        if (group["group_id"] != self.group["group_id"] or group["substep_count"] != self.group["substep_count"]
+                or group["substep_index"] != self.next_index
+                or decision.get("seat_step") != self.first_step + self.next_index
+                or decision.get("context", {}).get("rewind") is not False):
+            self.failed = True
+            raise ValueError("combat declaration group is stale, skipped or rewound")
+        self.next_index += 1
+        return declining(decision)
+
+
 def report_unmatched(result: dict) -> dict:
     """BenchPlayer ignores searched options no original option matches; keep their keys visible."""
     odd = [r for r in result.get("graph_search", []) if isinstance(r, dict) and r.get("unmatched_options")]
@@ -151,7 +209,8 @@ class BridgeSession(NeuralSession):
         try:
             request = search_request(record, settings)
             return self.exchange({**request, "operation": "search"}, timeout_s=timeout_s,
-                                 validate=lambda result, calls: report_unmatched(
+                                 validate=lambda result, calls: unsupported_result(record, result, calls)
+                                 if "unsupported" in result else report_unmatched(
                                      search_result(record, result, request["settings"], calls)))
         except BaseException:
             self.failed = True
@@ -162,7 +221,8 @@ class BridgeSession(NeuralSession):
         try:
             request = combat_request(record, settings)
             return self.exchange({**request, "operation": "combat"}, timeout_s=timeout_s,
-                                 validate=lambda result, calls: report_unmatched(
+                                 validate=lambda result, calls: unsupported_result(record, result, calls)
+                                 if "unsupported" in result else report_unmatched(
                                      combat_result(record, result, request["settings"], calls)))
         except BaseException:
             self.failed = True
@@ -183,6 +243,7 @@ def profile(settings: dict) -> dict:
         "world": "permitted sampled world (one deal; no second re-deal)",
         "mulligan": "keep (mulligans were off in the published games)",
         "unheaded_decisions": "MageZero v0.2 tree with uniform priors through the same graph search",
+        "unsearched_worlds": "kit policy: a horizon or unsupported world is not searched; the declining candidate answers",
         "full_game_qualified": False,
     }
 
@@ -224,6 +285,8 @@ class GraphAgent(NeuralAgent):
         def plan_factory(decision, result, *, visits):
             if type(visits) is not int or visits != declared["simulations"]:
                 raise ValueError("graph combat changed its declared simulation count")
+            if result.get("fallback") == "kit_declining_unsearched_world":
+                return DecliningPlan(decision, result)
             return CombatPlan(decision, result, settings=declared)
 
         super().__init__(bound_factory, checkpoint=checkpoint, visits=declared["simulations"],
