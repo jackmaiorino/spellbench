@@ -1,0 +1,120 @@
+"""The graph network's played settings, graph calls and work receipts stay bound."""
+import copy
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
+import xmage_gnn_model as model_module
+import xmage_gnn_search as search
+from xmage_neural_decisions import decision_hash
+from test_xmage_neural_search import fixture as original_fixture
+
+GRAPH = {"indices": [0, 499558809, 1234], "values": [0, 0, 20], "edge_child": [1, 2], "edge_parent": [0, 1],
+         "edge_label": [77, 88]}
+
+
+def fixture(simulations=100):
+    record, result = original_fixture()
+    record["game_start"]["seat"] = "p0"
+    record["decision"].update(acting_seat="p0", observation={"viewer": "p0"})
+    record["decision"]["context"]["rewind"] = False
+    settings = search.played_settings(simulations)
+    result.update(decision_sha256=decision_hash(record["decision"]), settings=copy.deepcopy(settings),
+                  search_budget=search.budget(settings),
+                  graph_search=[{"type": "PRIORITY", "simulations": simulations, "network_calls": 1}])
+    return record, result, settings
+
+
+class Peer:
+    def __init__(self, messages):
+        self.messages = iter([search.READY, *messages])
+        self.writes, self.closed = [], False
+    def read_line(self):
+        return json.dumps(next(self.messages)).encode()
+    def write_line(self, value):
+        self.writes.append(json.loads(value))
+    def set_timeout(self, value):
+        assert value > 0
+    def close(self):
+        self.closed = True
+
+
+class Model:
+    architecture, checkpoint, input_field = "draftzero-gnn", "draftzero-gnn-model", "graph"
+    def __init__(self):
+        self.closed, self.calls = False, []
+    def score(self, graph, *, timeout_s):
+        self.calls.append(graph)
+        return {"priority": [None, 0.5, None], "target": [None, -1.0, None], "use": [0.1, -0.1], "value": 0.25}
+    def close(self):
+        self.closed = True
+
+
+def test_played_settings_admit_only_the_simulation_count():
+    settings = search.played_settings(100)
+    assert settings["profile"] == "draftzero-gnn-pimc-tree-v1" and settings["opponentPriors"] == "uniform"
+    for key, value in (("priorTemp", "1.0"), ("leaf", "mix"), ("opponentPriors", "net"), ("cPuct", 1),
+                       ("discountUnit", "turn"), ("maxIterations", 400)):
+        with pytest.raises(ValueError, match="played configuration"):
+            search.validate_settings({**settings, key: value})
+    for simulations in (0, 1, 1001, 100.0, True):
+        with pytest.raises(ValueError):
+            search.played_settings(simulations)
+    with pytest.raises(ValueError, match="every explicit setting"):
+        search.validate_settings({k: v for k, v in settings.items() if k != "timeoutSeconds"})
+
+
+def test_graph_calls_reach_the_confined_network_and_bind_receipts():
+    record, result, settings = fixture()
+    peer = Peer([{"id": "1", "event": "infer", "call": 1, "graph": GRAPH},
+                 {"id": "1", "operation": "search", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.BridgeSession(peer, model)
+    out = session.choose(record, settings=settings, timeout_s=30)
+    assert model.calls == [GRAPH] and out["checkpoint"] == "draftzero-gnn-model"
+    assert peer.writes[0]["operation"] == "search" and peer.writes[0]["settings"] == settings
+    assert peer.writes[1]["scores"]["priority"] == [None, 0.5, None]
+
+
+@pytest.mark.parametrize("fault", ["features-call", "receipt-calls", "policy-width", "budget", "settings"])
+def test_unbound_graph_work_poisons_the_session(fault):
+    record, result, settings = fixture()
+    call = {"id": "1", "event": "infer", "call": 1, "graph": GRAPH}
+    if fault == "features-call":
+        call = {"id": "1", "event": "infer", "call": 1, "features": [4, 800]}
+    elif fault == "receipt-calls":
+        result["graph_search"][0]["network_calls"] = 2
+    elif fault == "policy-width":
+        result["policy_width"] = 128
+    elif fault == "budget":
+        result["search_budget"] = {**result["search_budget"], "requested": 99}
+    else:
+        result["settings"] = {**settings, "priorBonus": "0"}
+    peer = Peer([call, {"id": "1", "operation": "search", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    session = search.BridgeSession(peer, model)
+    with pytest.raises(ValueError):
+        session.choose(record, settings=settings, timeout_s=30)
+    assert peer.closed and model.closed
+
+
+def test_flat_checkpoints_cannot_drive_the_graph_pipe():
+    class Flat(Model):
+        architecture = "magezero-v02"
+    with pytest.raises(ValueError, match="confined graph network"):
+        search.BridgeSession(Peer([]), Flat())
+
+
+def test_graph_states_and_scores_are_checked_on_the_host():
+    assert model_module.validate_graph(GRAPH) == 3
+    for key, value in (("indices", [0, -1, 2]), ("edge_child", [1, 3]), ("values", [0, 0]), ("edge_label", [1])):
+        with pytest.raises(ValueError):
+            model_module.validate_graph({**GRAPH, key: value})
+    good = {"priority": [None, 0.5, None], "target": [None, 1, None], "use": [0, 1], "value": 0.5}
+    model_module.validate_heads(good, 3)
+    for key, value in (("priority", [None, float("nan"), None]), ("use", [0]), ("value", 1.5), ("target", [None])):
+        with pytest.raises(ValueError):
+            model_module.validate_heads({**good, key: value}, 3)
