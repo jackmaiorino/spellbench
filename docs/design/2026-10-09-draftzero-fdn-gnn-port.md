@@ -131,6 +131,25 @@ Risks:
 
 ## Status
 
-- **Done.** The release download and hash check are complete, and the confined probe and `gnn` image target are written.
-- **Waiting.** Both hosts' reservations are held by other lanes, so the container golden check and the network timing have not run yet. A detached waiter on the second host takes that host's reservation once it and CI are free, then runs the build and probe under `supervise`.
-- **No rated runs and no commitments.**
+Implemented on this branch (uncompiled until a host reservation frees):
+
+- `releases.json` pins the release files, the draft-zero encoder and search sources and a `draftzero-gnn` backend.
+- `xmage_draftzero_gnn_sources.py` stages StateEncoder, FeatureGraph, GraphRecord, GraphNet, GraphMCTSPlayer and
+  BenchSearch with recorded edits (namespaces, Exp1Compat/GameAccess helpers, Java 8, the pipe instead of the HTTP
+  graph server, tree method only). `xmage_model_build.py --draftzero-gnn-inputs` compiles them.
+- `SearchPlayer.GRAPH` routes MageZero v0.2's priority, replayed callback and combat roots through `GnnSearch`
+  (BenchPlayer's PIMC path on the permitted sampled world). `GnnBridgeMain` binds settings and the graph pipe per
+  request; MageZero's own tree is unchanged when nothing is bound.
+- Container: `gnn_runtime.py` serves per-node scores, use and value from the release's NetGraph; its `check` mode runs
+  the 300 goldens through both the option and per-node paths. Host: `xmage_gnn_backend.py`, `xmage_gnn_model.py`,
+  `xmage_gnn_search.py`, `xmage_gnn_runtime.py` (identity binds inputs, settings, build, image and sources). Leaf
+  vocabulary coverage is audited at every session close.
+
+Declared differences from the author's games: one permitted sampled world instead of a re-deal of the live game; CPU
+float32 instead of bfloat16 on GPU; copies of one option report merged statistics on the played copy; a root with one
+MageZero option is still searched; a source timeout is a failure rather than a fallback.
+
+Next: golden and timing receipts, compile and bridge smoke (queued on the second host), a natural game and its
+exact-seed replay, then the `fdn-draftzero-v1` entrant (100 simulations) with its evaluation inputs.
+
+No rated runs and no commitments.
