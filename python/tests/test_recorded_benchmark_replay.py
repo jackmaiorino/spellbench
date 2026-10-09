@@ -25,6 +25,9 @@ def tool(name):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     import sys
+    # Match executing the tool by filename, including imports in spawned workers.
+    if str(path.parent) not in sys.path:
+        sys.path.insert(0, str(path.parent))
     sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
