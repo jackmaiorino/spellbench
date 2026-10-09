@@ -155,7 +155,11 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
                 bestKey = e.getKey();
             }
         }
-        if (bestKey == null || bestN <= 0) throw new IllegalStateException("graph search visited no original option");
+        if (bestKey == null || bestN <= 0) {
+            String detail = "searched " + unmatched + " original " + byKey.keySet();
+            throw new IllegalStateException("graph search visited no original option: "
+                    + detail.substring(0, Math.min(3000, detail.length())));
+        }
         Map<MCTSNode, Integer> reportedVisits = new IdentityHashMap<>();
         Map<MCTSNode, Double> values = new IdentityHashMap<>();
         Set<MCTSNode> pruned = Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
@@ -197,12 +201,12 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         return byKey.get(bestKey).get(0);
     }
 
-    /** Diagnostic only, off unless SPELLBENCH_GNN_LEAF_AUDIT names a file of the release's leaf ids and
-     *  SPELLBENCH_GNN_LEAF_AUDIT_LOG a JSONL file to append to: each searched root's leaf strings with no
+    /** Diagnostic only, off unless GNN_LEAF_AUDIT names a file of the release's leaf ids and GNN_LEAF_AUDIT_LOG
+     *  a JSONL file to append to (the arena strips SPELLBENCH_* from bot environments): each searched root's leaf strings with no
      *  vocabulary row (they have no embedding, so the network silently drops them). */
     private static Set<Integer> auditVocab;
     private void auditLeaves(MCTSNode2 rk, ActionEncoder.ActionType action) {
-        String path = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT"), log = System.getenv("SPELLBENCH_GNN_LEAF_AUDIT_LOG");
+        String path = System.getenv("GNN_LEAF_AUDIT"), log = System.getenv("GNN_LEAF_AUDIT_LOG");
         if (path == null || path.isEmpty() || log == null || log.isEmpty()) return;
         try {
             if (auditVocab == null) {
