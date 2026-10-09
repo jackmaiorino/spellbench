@@ -88,6 +88,13 @@ def _totals(policy, rows) -> dict:
             or any(type(value) is not int or value < 0 for value in inherited.values())):
         raise ValueError("invalid inherited accounting")
     result = dict(inherited)
+    for imported in policy.get("continuation", {}).get("debit_imports", []):
+        totals = imported["totals"]
+        if (set(totals) != set(INHERITED_NAMES)
+                or any(type(value) is not int or value < 0 for value in totals.values())):
+            raise ValueError("invalid imported accounting")
+        for name in INHERITED_NAMES:
+            result[name] += totals[name]
     result["requests"] += len(rows)
     result["completed"] += sum(row["status"] == "completed" for row in rows)
     result["failed"] += sum(row["status"] == "failed" for row in rows)
@@ -99,6 +106,78 @@ def _totals(policy, rows) -> dict:
         if row["status"] != "pending" and (row["input_tokens"] is None or row["output_tokens"] is None))
     result["host_failures"] += int(policy.get("terminal_error") is not None)
     return result
+
+
+def debit_ancestry_paths(parent: Path, paths: BudgetPaths | None = None) -> list[Path]:
+    """The primary chain and its already imported ledgers, without authority/profile contents."""
+    result, seen = [], set()
+    current = parent.resolve(strict=True)
+    while current not in seen:
+        seen.add(current)
+        result.append(current)
+        with sqlite3.connect(current.as_uri() + "?mode=ro", uri=True) as database:
+            policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+        continuation = policy.get("continuation")
+        if continuation is None:
+            return result
+        resolve = paths.resolve if paths else lambda name: Path(name).resolve(strict=True)
+        result.extend(resolve(entry["ledger"]) for entry in continuation.get("debit_imports", []))
+        current = resolve(continuation["parent"])
+    raise ProviderError("run_budget_continuation_changed")
+
+
+def _request_keys(row) -> set[tuple]:
+    keys = {("request", row["started"], row["prompt_sha256"])}
+    if row["response_id"] is not None:
+        keys.add(("response", row["returned_model"], row["response_id"]))
+    return keys
+
+
+def sealed_debit_imports(paths, *, model: str, forbidden_paths=()) -> list[dict]:
+    """Read settled independent, expired/failed ledgers without reopening their allowance."""
+    imports, seen, requests = [], set(), set()
+    for filename in forbidden_paths:
+        path = Path(filename).resolve(strict=True)
+        seen.add(_digest(path))
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as database:
+            database.row_factory = sqlite3.Row
+            for row in database.execute("SELECT * FROM requests"):
+                requests.update(_request_keys(row))
+    for filename in paths:
+        path = Path(filename).resolve(strict=True)
+        _retained_file(path)
+        # Imports support independent final ledgers only. Ignoring these overlays
+        # could import an expired-looking live grant or a retired chain ancestor.
+        if any(marker.exists() for marker in
+               (_deadline_extension(path), _successor_claim(path), _origin(path))):
+            raise ProviderError("run_budget_debit_import_not_independent")
+        sha256 = _digest(path)
+        if sha256 in seen:
+            raise ProviderError("run_budget_duplicate_debit_import")
+        seen.add(sha256)
+        with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as database:
+            database.row_factory = sqlite3.Row
+            if database.execute("PRAGMA journal_mode").fetchone()[0] != "delete":
+                raise ProviderError("run_budget_parent_unsealed")
+            policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+            RunBudget._validate_policy(policy, model, {})
+            if "continuation" in policy:
+                raise ProviderError("run_budget_debit_import_not_independent")
+            rows = database.execute("SELECT * FROM requests ORDER BY id").fetchall()
+            for row in rows:
+                keys = _request_keys(row)
+                if requests.intersection(keys):
+                    raise ProviderError("run_budget_overlapping_debit_import")
+                requests.update(keys)
+            if any(row["status"] == "pending" for row in rows):
+                raise ProviderError("run_budget_unresolved_request")
+            if not policy.get("terminal_error") and policy["deadline"] > time.time():
+                raise ProviderError("run_budget_debit_import_still_active")
+            totals = _totals(policy, rows)
+        if sha256 != _digest(path):
+            raise ProviderError("run_budget_debit_import_changed")
+        imports.append({"ledger": str(path), "sha256": sha256, "totals": totals})
+    return imports
 
 
 def _timeout_forfeit(policy, row) -> bool:
@@ -337,7 +416,8 @@ class RunBudget:
 
     @staticmethod
     def _idle_amendment(continuation: dict, parent: Path, prior: dict, child: dict,
-                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None) -> dict:
+                        paths: BudgetPaths | None = None, *, parent_logical: str | None = None,
+                        parent_paths: BudgetPaths | None = None) -> dict:
         """Bind prospective caps to explicit authority and the unchanged idle parent."""
         try:
             increase = continuation["limit_increase"]
@@ -349,8 +429,21 @@ class RunBudget:
             record = json.loads(authority.read_bytes())
             old = {name: prior[name] for name in LIMIT_NAMES}
             new = {name: child[name] for name in LIMIT_NAMES}
-            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
-                               "approved_limits", "no_cutoff", "purpose", "user_authority"}
+            imports = continuation.get("debit_imports", [])
+            fields = {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                      "approved_limits", "no_cutoff", "purpose", "user_authority"}
+            if imports:
+                fields.add("debit_imports")
+                if record.get("debit_imports") != imports:
+                    raise ValueError("unapproved debit imports")
+                actual = sealed_debit_imports(
+                    [paths.resolve(entry["ledger"]) if paths else entry["ledger"] for entry in imports],
+                    model=child["model"], forbidden_paths=debit_ancestry_paths(parent, paths or parent_paths))
+                for verified in actual:
+                    verified["ledger"] = paths.key(Path(verified["ledger"])) if paths else verified["ledger"]
+                if actual != imports:
+                    raise ValueError("imported ledger changed")
+            if (set(record) != fields
                     or record["schema"] != IDLE_AMENDMENT_SCHEMA or record["model"] != child["model"]
                     or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
                     or record["parent_sha256"] != continuation["parent_sha256"]
@@ -365,7 +458,7 @@ class RunBudget:
                            for value in limits.values())
                     or any(new[name] != old[name] for name in ("max_inflight", "max_wall_seconds"))
                     or any(new[name] < old[name] for name in ("max_requests", "max_reported_tokens"))
-                    or (new == old and not record["no_cutoff"])):
+                    or (new == old and not record["no_cutoff"] and not imports)):
                 raise ValueError("unauthorized amendment")
             return record
         except (OSError, ValueError, KeyError, TypeError):
@@ -508,6 +601,8 @@ class RunBudget:
         child = value
         while child.get("continuation") is not None:
             continuation = child["continuation"]
+            if "debit_imports" in continuation and continuation["kind"] != "healthy-idle-amendment":
+                raise ProviderError("run_budget_continuation_changed")
             if continuation["kind"] not in {"precommit-qualification", "failed-run-recovery", "host-preflight-recovery", "healthy-idle-amendment", "stopped-qualification-recovery"}:
                 raise ValueError("invalid continuation kind")
             no_cutoff = continuation.get("no_cutoff", False)
