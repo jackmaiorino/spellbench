@@ -123,8 +123,9 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         }
         PlayerScript a = new PlayerScript(player.getPlayerHistory());
         PlayerScript b = new PlayerScript(GameAccess.history(GameAccess.opponent(game, me)));
-        // BenchPlayer searches a fresh copy of the root: r is already expanded.
-        MCTSNode2 rk = new MCTSNode2(player, createMCTSGame(player, GameAccess.lastPriority(game)), action,
+        // BenchPlayer searches a fresh copy of the root: r is already expanded. Build it as r was built, through
+        // the player's own createMCTSGame, so a subclass's anchor handling (combat's resume) applies.
+        MCTSNode2 rk = new MCTSNode2(player, player.createMCTSGame(GameAccess.lastPriority(game)), action,
                 new PlayerScript(a), new PlayerScript(b));
         rk.validateState();
         if (!rk.isTerminal() && rk.getPlayer().scriptFailed) {

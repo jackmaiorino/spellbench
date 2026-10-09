@@ -46,6 +46,12 @@ SOURCES = {
         ("game.getEntityName(id, myPlayerId)", f"{COMPAT}.entityName(game, id, myPlayerId)"),
         ("myPlayer.getPlayerHistory()", f"{COMPAT}.history(myPlayer)"),
         ("((PlayerImpl)myPlayer).isActivating", f"{COMPAT}.isActivating(myPlayer)"),
+        # The release's engine fork comments out PhaseStep.toString(), so its step leaf is the enum name
+        # (UPKEEP, PRECOMBAT_MAIN); the reviewed engine's toString() returns display text ("Upkeep").
+        ("addFeature(game.getTurnStepType().toString(), GAME_ROOT_ID);", "addFeature(game.getTurnStepType().name(), GAME_ROOT_ID);"),
+        # The reviewed engine keeps always-present UX helper emblems (rad counters, day or night, storm) whose
+        # texts never occur in the release's training states or vocabulary.
+        ("for (Emblem emblem : game.getState().getHelperEmblems())", "for (Emblem emblem : java.util.Collections.<Emblem>emptyList())"),
     ]),
     "FeatureGraph": ("featuregraph", ENCODER, [
         ("package org.draftzero.mzbridge.graph;", f"package {ENCODER};"),
