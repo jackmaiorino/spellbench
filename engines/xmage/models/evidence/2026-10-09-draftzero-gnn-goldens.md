@@ -54,5 +54,5 @@ A searched root took a median of 101 network calls, and a searched decision took
 Check receipts: UR `11fba535659f553abc452e6afb25a4b017e3beb9a659d958618c0281c311157b`, BR/WG
 `241e6934ecaeb1fe81af442cb370116f9574576d3b5b4b9ed397a23e29beaed3`.
 
-The golden checks above cover the network, the weights and the option mapping only. They do not cover the Java encoder on
-this engine, which needs native games and their coverage audit. They also do not establish strength or rated admission.
+The golden checks cover the network, the weights and the option mapping. The native games and their leaf audit cover the
+Java encoder on this engine. Neither establishes strength or rated admission.

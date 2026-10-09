@@ -131,25 +131,38 @@ Risks:
 
 ## Status
 
-Implemented on this branch (uncompiled until a host reservation frees):
+Done on this branch:
 
-- `releases.json` pins the release files, the draft-zero encoder and search sources and a `draftzero-gnn` backend.
-- `xmage_draftzero_gnn_sources.py` stages StateEncoder, FeatureGraph, GraphRecord, GraphNet, GraphMCTSPlayer and
-  BenchSearch with recorded edits (namespaces, Exp1Compat/GameAccess helpers, Java 8, the pipe instead of the HTTP
-  graph server, tree method only). `xmage_model_build.py --draftzero-gnn-inputs` compiles them.
-- `SearchPlayer.GRAPH` routes MageZero v0.2's priority, replayed callback and combat roots through `GnnSearch`
-  (BenchPlayer's PIMC path on the permitted sampled world). `GnnBridgeMain` binds settings and the graph pipe per
-  request; MageZero's own tree is unchanged when nothing is bound.
-- Container: `gnn_runtime.py` serves per-node scores, use and value from the release's NetGraph; its `check` mode runs
-  the 300 goldens through both the option and per-node paths. Host: `xmage_gnn_backend.py`, `xmage_gnn_model.py`,
-  `xmage_gnn_search.py`, `xmage_gnn_runtime.py` (identity binds inputs, settings, build, image and sources). Leaf
-  vocabulary coverage is audited at every session close.
+- **Pins.** The release inputs, the pinned draft-zero sources and a `draftzero-gnn` backend are pinned in `releases.json`.
+- **Staging.** `xmage_draftzero_gnn_sources.py` stages the encoder and search with recorded edits, and CI compiles the stage.
+  Two encoder compatibility edits come from a leaf audit of native games:
+  - the release fork's step leaf is the enum name;
+  - the reviewed engine's always-present helper emblems are skipped.
+- **Search.** `SearchPlayer.GRAPH` and `GnnSearch` (BenchPlayer's PIMC path) handle the priority, callback and combat roots.
+  `GnnBridgeMain` is the bridge.
+- **Container.** The confined `gnn` runtime and image are in place, and its goldens match to 1e-5 with all 300 top options agreeing.
+- **Host side.** The host session, validators and runtime CLI are done, as is the entrant on `fdn-draftzero-v1`.
+- **Native games.** Two natural games and their exact-seed replays ran through the board's engine command. See
+  `engines/xmage/models/evidence/2026-10-09-draftzero-gnn-goldens.md`.
 
-Declared differences from the author's games: one permitted sampled world instead of a re-deal of the live game; CPU
-float32 instead of bfloat16 on GPU; copies of one option report merged statistics on the played copy; a root with one
-MageZero option is still searched; a source timeout is a failure rather than a fallback.
+Declared differences from the author's games:
 
-Next: golden and timing receipts, compile and bridge smoke (queued on the second host), a natural game and its
-exact-seed replay, then the `fdn-draftzero-v1` entrant (100 simulations) with its evaluation inputs.
+- **World.** One permitted sampled world, not a re-deal of the live game.
+- **Inference.** CPU float32, where the author used bfloat16 on GPU.
+- **Copies.** Copies of one option report merged statistics on the played copy.
+- **One-option roots.** A root with one MageZero option is still searched.
+- **Timeouts and empty roots.** A source timeout, or a root that visits no original option, is refused rather than
+  falling back.
+- **Kit fallback.** The kit's declining answer (else the first candidate) is used for:
+  - horizon or unsupported worlds;
+  - callbacks whose replay does not reproduce the observation;
+  - decision families no search root supports, such as trigger order.
+- **Callback replay.** The graph agent opts in to:
+  - characteristic gaps already present at the anchor;
+  - which identical permanent a replayed payment tapped;
+  - visible own draws;
+  - its own attack declarations before an attack-trigger callback.
+
+Other agents keep the strict replay.
 
 No rated runs and no commitments.
