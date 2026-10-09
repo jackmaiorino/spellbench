@@ -1234,6 +1234,7 @@ agent_seed(i, s)  the first 8 bytes of HMAC-SHA256(key = run_secret,
   - The sandbox has no network access and no access to the engine process, its files, or the host's secrets.
   - A bot's only input is its own seat's messages in that game.
 - **Self-reported runs** (bots run by their authors) cannot claim these guarantees, and are labelled self-reported.
+- **Remote seats.** A host may play a seat through a relay to a bot on its author's own machine. The relay forwards only that seat's agent messages, and the engine, the secrets and the validator stay with the host. The seat's clock includes the network, and a lost connection is a forfeit. A run with a remote seat is self-reported. The reference relay and its handshake are in `docs/remote-seats.md`.
 
 ### 11.8 Game digest
 

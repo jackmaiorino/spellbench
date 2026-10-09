@@ -44,10 +44,15 @@ _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 
 # Isolation (spec 11.7, 13 F5; R3-9).
-ISOLATION_KINDS = ("builtin-in-process", "unsandboxed", "verified-sandbox")
+ISOLATION_KINDS = ("builtin-in-process", "unsandboxed", "verified-sandbox", "remote-self-reported")
 # A subprocess command whose first part is this placeholder runs inside sub-project D's sandbox wrapper, the only
 # verified isolation; no v2.0 run has it yet.
 SANDBOX_PLACEHOLDER = "${SPELLBENCH_SANDBOX}"
+# A subprocess command that starts with these parts is the host's relay to a bot on its author's own machine
+# (spellbench.remote_seat): the placeholder names the arena's Python, and nothing of the author's runs on the host.
+# Any other command after the placeholder is an ordinary unsandboxed subprocess.
+REMOTE_SEAT_PLACEHOLDER = "${SPELLBENCH_REMOTE_SEAT}"
+REMOTE_SEAT_COMMAND = (REMOTE_SEAT_PLACEHOLDER, "-m", "spellbench.remote_seat", "relay")
 # Owners whose subprocess bots may run unsandboxed: the maintainer's own models, and bots the maintainer builds
 # from pinned, reviewed source, like the gorge engine itself. spellbench's own bots are always allowed.
 ISOLATION_ALLOWLIST = ("jackmaiorino", "gorge")
@@ -104,28 +109,33 @@ def _bot_isolation(bot: BotSpec) -> str:
         return "builtin-in-process"
     if bot.command and bot.command[0] == SANDBOX_PLACEHOLDER:
         return "verified-sandbox"
+    if tuple(bot.command[: len(REMOTE_SEAT_COMMAND)]) == REMOTE_SEAT_COMMAND:
+        return "remote-self-reported"
     return "unsandboxed"
 
 
 def isolation_record(config: TournamentConfig) -> dict[str, Any]:
     """The manifest's ``isolation`` block: each bot's isolation, in config order, and whether the run is
-    self-reported (spec 11.7: true when any entry is unsandboxed)."""
+    self-reported (spec 11.7: true when any entry is unsandboxed or a remote seat)."""
     entries = [{"name": bot.name, "isolation": _bot_isolation(bot)} for bot in config.bots]
-    return {"entries": entries, "self_reported": any(entry["isolation"] == "unsandboxed" for entry in entries)}
+    self_reported = any(entry["isolation"] in ("unsandboxed", "remote-self-reported") for entry in entries)
+    return {"entries": entries, "self_reported": self_reported}
 
 
 def isolation_refusals(config: TournamentConfig) -> list[str]:
     """One message per subprocess bot whose owner is neither ``spellbench`` nor on ``ISOLATION_ALLOWLIST`` and
-    whose command is not the sandbox wrapper: submitted binaries, checkpoints and pickles need the sandbox."""
+    whose command is neither the sandbox wrapper nor the remote-seat relay: submitted binaries, checkpoints and
+    pickles need the sandbox, or must run on their authors' own machines."""
     refusals = []
     for index, bot in enumerate(config.bots):
-        if bot.type != "subprocess" or _bot_isolation(bot) == "verified-sandbox":
+        if bot.type != "subprocess" or _bot_isolation(bot) in ("verified-sandbox", "remote-self-reported"):
             continue
         if bot.owner == "spellbench" or bot.owner in ISOLATION_ALLOWLIST:
             continue
         refusals.append(
             f"bots[{index}] ({bot.name}): a subprocess bot owned by {bot.owner!r} runs only inside the sub-project D "
-            f"sandbox (command starting {SANDBOX_PLACEHOLDER}); unsandboxed bots are limited to spellbench and "
+            f"sandbox (command starting {SANDBOX_PLACEHOLDER}) or as a remote seat (command starting "
+            f"{' '.join(REMOTE_SEAT_COMMAND)}); unsandboxed bots are limited to spellbench and "
             f"{', '.join(ISOLATION_ALLOWLIST)} (spec 11.7)"
         )
     return refusals
