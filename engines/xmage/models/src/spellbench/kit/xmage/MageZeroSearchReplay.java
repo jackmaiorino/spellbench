@@ -73,11 +73,14 @@ final class MageZeroSearchReplay {
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
-        /** The anchor's observed characteristics, by object, and whether its world already could not reproduce some. */
-        final Map<String, Object> anchorCharacteristics = new java.util.HashMap<>();
+        /**
+         * Opt-in (the graph frontend): characteristic gaps the anchor world already had. Key: the anchor object's id
+         * and field; value: the observed and the projected value at the anchor, canonical.
+         */
+        boolean tolerateGaps;
+        final Map<String, String[]> anchorGaps = new java.util.HashMap<>();
         /** Opt-in (the graph frontend): this many earlier entries are this seat's recorded attack declarations. */
         int attackDeclarations;
-        boolean approximateCharacteristics;
 
         void compare(Game game) {
             compare(game, decision);
@@ -95,7 +98,7 @@ final class MageZeroSearchReplay {
                 List<String> diff = new ArrayList<>();
                 boolean tolerated = false;
                 for (String d : ObsCompare.diff(current, projected, 1000)) {
-                    if (knownCharacteristic(current, d)) tolerated = true;
+                    if (knownGap(current, projected, d)) tolerated = true;
                     else diff.add(d);
                 }
                 if (!diff.isEmpty()) {
@@ -108,25 +111,47 @@ final class MageZeroSearchReplay {
             catch (Exception e) { throw new IllegalStateException("callback replay projection failed", e); }
         }
         /**
-         * A power, toughness or keyword difference the anchor world already could not reproduce (WorldBuilder flags
-         * an until-end-of-turn effect as approximate:unexplained_characteristics), with the received value still the
-         * one observed at the anchor. Any other difference, or a changed value, is refused.
+         * A power, toughness or keyword difference this object already had at the anchor (WorldBuilder cannot rebuild an
+         * until-end-of-turn effect: approximate:unexplained_characteristics), with both the received and the replayed
+         * value unchanged since the anchor. Any other difference, or a changed value on either side, is refused.
          */
-        private boolean knownCharacteristic(Map<String, Object> current, String difference) {
+        private boolean knownGap(Map<String, Object> current, Map<String, Object> projected, String difference) {
+            if (!tolerateGaps) return false;
+            String[] at = gapAt(difference);
+            if (at == null) return false;
+            Map<String, Object> seen = objectAt(current, at), replayed = objectAt(projected, at);
+            if (seen == null || replayed == null) return false;
+            String[] gap = anchorGaps.get(Json.str(seen, "object_id") + "/" + at[2]);
+            return gap != null && gap[0].equals(characteristic(seen, at[2])) && gap[1].equals(characteristic(replayed, at[2]));
+        }
+        /** Record the anchor world's own characteristic gaps (object id and field: observed and projected values). */
+        void recordGaps(Map<String, Object> observation, Map<String, Object> projected) {
+            for (String d : ObsCompare.diff(observation, projected, 1000)) {
+                String[] at = gapAt(d);
+                if (at == null) continue;
+                Map<String, Object> seen = objectAt(observation, at), replayed = objectAt(projected, at);
+                if (seen != null && replayed != null && Json.str(seen, "object_id") != null) {
+                    anchorGaps.put(Json.str(seen, "object_id") + "/" + at[2],
+                            new String[]{characteristic(seen, at[2]), characteristic(replayed, at[2])});
+                }
+            }
+        }
+        private static String[] gapAt(String difference) {
             java.util.regex.Matcher m = java.util.regex.Pattern
                     .compile("^/players/(\\d+)/battlefield/(\\d+)/characteristics/(power|toughness|keywords)(?:/\\d+)? \\(")
                     .matcher(difference);
-            if (!approximateCharacteristics || !m.find()) return false;
-            List<Object> players = Json.arr(current, "players");
-            int player = Integer.parseInt(m.group(1)), index = Integer.parseInt(m.group(2));
-            if (players == null || player >= players.size()) return false;
+            return m.find() ? new String[]{m.group(1), m.group(2), m.group(3)} : null;
+        }
+        private static Map<String, Object> objectAt(Map<String, Object> observation, String[] at) {
+            List<Object> players = Json.arr(observation, "players");
+            int player = Integer.parseInt(at[0]), index = Integer.parseInt(at[1]);
+            if (players == null || player >= players.size()) return null;
             List<Object> battlefield = Json.arr(Json.obj(players.get(player)), "battlefield");
-            if (battlefield == null || index >= battlefield.size()) return false;
-            Map<String, Object> object = Json.obj(battlefield.get(index));
-            Map<String, Object> now = Json.obj(object, "characteristics");
-            Object anchored = anchorCharacteristics.get(Json.str(object, "object_id"));
-            return now != null && anchored instanceof Map
-                    && Json.canonical(now.get(m.group(3))).equals(Json.canonical(Json.obj(anchored).get(m.group(3))));
+            return battlefield == null || index >= battlefield.size() ? null : Json.obj(battlefield.get(index));
+        }
+        private static String characteristic(Map<String, Object> object, String field) {
+            Map<String, Object> ch = Json.obj(object, "characteristics");
+            return ch == null ? "absent" : Json.canonical(ch.get(field));
         }
         void priority(String seat, SearchPlayer p, Game game) {
             if (passes.isEmpty() || !seat.equals(passes.removeFirst())) {
@@ -377,18 +402,22 @@ final class MageZeroSearchReplay {
             }
             List<mage.game.permanent.Permanent> available = getAvailableAttackers(game);
             available.sort(java.util.Comparator.comparing(mage.game.permanent.Permanent::getId));
-            int declared = 0;
+            java.util.Set<UUID> ids = new java.util.HashSet<>();
+            for (mage.game.permanent.Permanent creature : available) ids.add(creature.getId());
+            if (!ids.equals(picks.keySet())) {
+                throw new IllegalArgumentException("recorded attack group does not answer exactly the available attackers");
+            }
             for (mage.game.permanent.Permanent creature : available) {
                 UUID target = picks.get(creature.getId());
                 boolean attack = target != null;
                 getPlayerHistory().useSequence.add(attack);
                 if (attack) {
                     declareAttacker(creature.getId(), target, game, false);
-                    declared++;
+                    if (!game.getCombat().getAttackers().contains(creature.getId())) {
+                        throw new IllegalArgumentException("recorded attacker could not attack here");
+                    }
                 }
             }
-            long recorded = picks.values().stream().filter(java.util.Objects::nonNull).count();
-            if (declared != recorded) throw new IllegalArgumentException("recorded attacker is not available here");
             game.getPlayers().resetPassed();
         }
         @Override public void selectBlockers(Ability source, Game game, UUID player) {
@@ -506,6 +535,9 @@ final class MageZeroSearchReplay {
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
         if (history == null) throw new IllegalArgumentException("callback search needs explicit replay history");
+        Object gaps = history.get("characteristic_gaps");
+        if (gaps != null && !Boolean.TRUE.equals(gaps)) throw new IllegalArgumentException("invalid characteristic gap opt-in");
+        result.tolerateGaps = Boolean.TRUE.equals(gaps);
         Object attacks = history.get("attack_declarations");
         if (attacks != null) {
             if (!(attacks instanceof Long) || (Long) attacks < 1) throw new IllegalArgumentException("invalid attack declaration count");
@@ -558,14 +590,12 @@ final class MageZeroSearchReplay {
         spec.otherFactory = seat -> other[0] = new ReplayPlayer(seat);
         result.world = WorldBuilder.build(spec);
         result.world.flags.addAll(flags);
-        result.approximateCharacteristics = result.world.flags.contains("approximate:unexplained_characteristics");
-        for (Object player : Json.arr(observation, "players")) {
-            for (Object item : Json.arr(Json.obj(player), "battlefield")) {
-                Map<String, Object> object = Json.obj(item);
-                if (Json.str(object, "object_id") != null && object.get("characteristics") instanceof Map) {
-                    result.anchorCharacteristics.put(Json.str(object, "object_id"), Json.copy(object.get("characteristics")));
-                }
-            }
+        if (result.tolerateGaps && result.world.flags.contains("approximate:unexplained_characteristics")) {
+            try {
+                result.recordGaps(observation, RoundTrip.project(result.world, RoundTrip.flagsFrom(a),
+                        Json.str(observation, "priority_seat"), Json.arr(observation, "known")));
+            } catch (RuntimeException e) { throw e; }
+            catch (Exception e) { throw new IllegalStateException("callback anchor projection failed", e); }
         }
         for (String flag : result.world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {

@@ -307,14 +307,17 @@ class GraphHistory(PublicHistory):
     def callback(self, decision):
         attacks = self.attack_group(decision)
         if not attacks:
-            return super().callback(decision)
+            record = super().callback(decision)
+            record["replay"]["characteristic_gaps"] = True
+            return record
         other = "p1" if self.seat == "p0" else "p0"
         passed = self.anchor["decision"]["observation"].get("passed_seats")
         if not isinstance(passed, list) or any(p not in ("p0", "p1") for p in passed):
             raise ValueError("callback anchor needs public passed-seat facts")
         return {"anchor": copy.deepcopy(self.anchor),
                 "replay": {"priority_passes": [] if other in passed else [other],
-                           "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks}}
+                           "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks,
+                           "characteristic_gaps": True}}
 
 
 class GraphAgent(NeuralAgent):

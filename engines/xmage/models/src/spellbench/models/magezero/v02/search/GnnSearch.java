@@ -128,9 +128,8 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         MCTSNode2 rk = new MCTSNode2(player, player.createMCTSGame(GameAccess.lastPriority(game)), action,
                 new PlayerScript(a), new PlayerScript(b));
         rk.validateState();
-        if (!rk.isTerminal() && rk.getPlayer().scriptFailed) {
-            throw new IllegalStateException("graph search world does not replay to its root");
-        }
+        // BenchPlayer's pimcFallbackWorld keeps an unre-dealt root even when its script failed; so does the port.
+        boolean scriptFailed = !rk.isTerminal() && rk.getPlayer().scriptFailed;
         auditLeaves(rk, action);
         long before = net.calls;
         BenchSearch.Result res = BenchSearch.searchTree(new BenchSearch.World(rk, player, a, b, action, game), config);
@@ -139,12 +138,13 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         Map<String, Double> weighted = new HashMap<>();
         Map<String, Object> unmatched = new java.util.TreeMap<>();
         for (BenchSearch.RootChild k : res.children) {
-            // BenchPlayer ignores a searched option whose key no original option has; its work is reported apart.
+            // As BenchPlayer: every searched key enters the visit table (its iteration order breaks ties); a key no
+            // original option has is never played, and its work is reported apart.
+            visits.merge(k.key, k.visits, Integer::sum);
             if (!byKey.containsKey(k.key)) {
                 unmatched.put(k.key, (long) k.visits + (unmatched.containsKey(k.key) ? (Long) unmatched.get(k.key) : 0L));
                 continue;
             }
-            visits.merge(k.key, k.visits, Integer::sum);
             if (k.q != null && k.visits > 0) weighted.merge(k.key, k.q * k.visits, Double::sum);
         }
         // BenchPlayer's choice: the first most visited key, in its HashMap's order, and that key's first option.
@@ -196,6 +196,7 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
         receipt.put("root_q", res.rootQ);
         receipt.put("root_value", res.rootNet);
         receipt.put("merged_copies", (long) (kids.size() - byKey.size()));
+        receipt.put("root_script_failed", scriptFailed);
         receipt.put("unmatched_options", unmatched);
         if (!unmatched.isEmpty()) receipt.put("original_option_keys", new ArrayList<Object>(byKey.keySet()));
         receipts.add(receipt);
@@ -227,8 +228,11 @@ public final class GnnSearch implements SearchPlayer.GraphSearch {
             spellbench.models.draftzero.gnn.encoder.StateEncoder enc = new spellbench.models.draftzero.gnn.encoder.StateEncoder();
             enc.setAgent(rk.targetPlayer);
             enc.setOpponent(GameAccess.opponent(rk.getGame(), rk.targetPlayer).getId());
+            // (opponent ids are the same in the copy)
             enc.perfectInfo = false;
-            FeatureGraph g = enc.processState(rk.getGame(), rk.playerId, ActionEncoder.ActionType.valueOf(q.ask.type),
+            // Encode a copy: this diagnostic must not touch the game the search then reads.
+            Game copy = rk.getGame().copy();
+            FeatureGraph g = enc.processState(copy, rk.playerId, ActionEncoder.ActionType.valueOf(q.ask.type),
                     q.ask.text, q.ask.fromCards, q.ask.source);
             FeatureGraph.GraphArrays arrays = g.getGraphArrays();
             Map<String, Long> missing = new java.util.TreeMap<>();
