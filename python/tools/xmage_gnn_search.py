@@ -246,7 +246,8 @@ def profile(settings: dict) -> dict:
         "unsearched_worlds": "kit policy: a horizon or unsupported world is not searched; the declining candidate answers",
         "unsearched_families": "decisions no graph search root supports (trigger order, for one) take the kit's fallback: "
                                "the declining candidate, else the first",
-        "callback_tolerances": "anchor-known characteristic gaps; which identical permanent a replayed payment tapped",
+        "callback_tolerances": "anchor-known characteristic gaps; which identical permanent a replayed payment tapped; "
+                               "own draws the callback shows are pinned to the sampled library's top",
         "full_game_qualified": False,
     }
 
@@ -311,7 +312,7 @@ class GraphHistory(PublicHistory):
         attacks = self.attack_group(decision)
         if not attacks:
             record = super().callback(decision)
-            record["replay"].update(characteristic_gaps=True, fungible_tapped=True)
+            record["replay"].update(characteristic_gaps=True, fungible_tapped=True, visible_draws=True)
             return record
         other = "p1" if self.seat == "p0" else "p0"
         passed = self.anchor["decision"]["observation"].get("passed_seats")
@@ -320,7 +321,7 @@ class GraphHistory(PublicHistory):
         return {"anchor": copy.deepcopy(self.anchor),
                 "replay": {"priority_passes": [] if other in passed else [other],
                            "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks,
-                           "characteristic_gaps": True, "fungible_tapped": True}}
+                           "characteristic_gaps": True, "fungible_tapped": True, "visible_draws": True}}
 
 
 class GraphAgent(NeuralAgent):

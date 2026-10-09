@@ -161,7 +161,8 @@ final class MageZeroSearchReplay {
             copy.remove("object_id");
             Map<String, Object> permanent = Json.obj(copy, "permanent");
             if (permanent != null) permanent.remove("tapped");
-            return Json.canonical(copy);
+            // References to other objects carry each side's own ids; compare them as the observation diff does.
+            return Json.canonical(ObsCompare.normalize(copy));
         }
         /** Record the anchor world's own characteristic gaps (object id and field: observed and projected values). */
         void recordGaps(Map<String, Object> observation, Map<String, Object> projected) {
@@ -561,6 +562,33 @@ final class MageZeroSearchReplay {
         if (result == null) throw new IllegalArgumentException("replay selection was not offered");
         return result;
     }
+    /**
+     * Opt-in (the graph frontend): cards now in the viewer's hand whose ids appear nowhere in the anchor observation
+     * were drawn since the anchor (Refute's "draw a card, then discard a card", say). The callback shows them, so the
+     * anchor's sampled library starts with them, in hand order, and the replayed draws reproduce the same cards and ids.
+     * Skipped when the anchor already pins a position from the library's top. Returns the number pinned.
+     */
+    static int pinVisibleDraws(Map<String, Object> anchor, Map<String, Object> decision, List<Object> known, String viewer) {
+        for (Object entry : known) {
+            Map<String, Object> fact = Json.obj(entry);
+            if (viewer.equals(Json.str(fact, "owner_seat")) && "library".equals(Json.str(fact, "zone"))
+                    && fact.get("position_from_top") != null) return 0;
+        }
+        String before = Json.canonical(anchor.get("observation"));
+        int position = 0;
+        for (Object item : Json.arr(Json.obj(decision, "observation"), "players")) {
+            Map<String, Object> player = Json.obj(item);
+            if (!viewer.equals(Json.str(player, "seat"))) continue;
+            for (Object held : Json.arr(player, "hand")) {
+                Map<String, Object> card = Json.obj(held);
+                String id = Json.str(card, "object_id"), name = Json.str(card, "card_name");
+                if (id == null || name == null || before.contains("\"" + id + "\"")) continue;
+                known.add(Json.map("object_id", id, "card_name", name, "owner_seat", viewer, "zone", "library",
+                        "how", "looked_at", "position_from_top", (long) position++));
+            }
+        }
+        return position;
+    }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
                       MCTSDefaults settings, boolean diagnostic) {
         Map<String, Object> anchor = Json.obj(record, "anchor");
@@ -619,6 +647,7 @@ final class MageZeroSearchReplay {
                 if (!present) known.add(Json.copy(card));
             }
         }
+        int drawsPinned = Boolean.TRUE.equals(history.get("visible_draws")) ? pinVisibleDraws(a, result.decision, known, viewer) : 0;
         observation.put("known", known);
         KitContext.reset(); GameAccess.reset(); KitRandom.installBoot();
         List<String> flags = WorldBuilder.restoreVisibleNames(observation, Json.obj(a, "x_history"));
@@ -632,6 +661,7 @@ final class MageZeroSearchReplay {
         spec.otherFactory = seat -> other[0] = new ReplayPlayer(seat);
         result.world = WorldBuilder.build(spec);
         result.world.flags.addAll(flags);
+        if (drawsPinned > 0) result.world.flags.add("approximate:visible_draws_pinned");
         if (result.tolerateGaps && result.world.flags.contains("approximate:unexplained_characteristics")) {
             try {
                 result.recordGaps(observation, RoundTrip.project(result.world, RoundTrip.flagsFrom(a),
