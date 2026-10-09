@@ -59,9 +59,44 @@ def trial_ledgers(records: Path, allocation) -> list[dict]:
     return list(found.values())
 
 
+def clock_repeat_receipt(allocation, trials: list[dict]) -> dict:
+    """Bind the generic guard's clock disposition to its retained full serial replay."""
+    if allocation.outputs_identical is not False or not allocation.outputs_note:
+        raise ValueError("clock-sensitive qualification lacks the generic guard's variability disposition")
+    paths = [Path(row["path"]) for row in trials]
+    if len({path.parent for path in paths}) != 1:
+        raise ValueError("clock-sensitive trials lack one coherent retained measurement")
+    def rows(path):
+        values = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+        by_index = {row["game_index"]: row for row in values}
+        if len(by_index) != len(values) or any(row["classification"] != "natural" for row in values):
+            raise ValueError("clock-sensitive serial replay is incomplete or non-natural")
+        return by_index
+    first_path = next(path for path in paths if path.name.endswith("-workers-1.jsonl"))
+    first = rows(first_path)
+    changed = set()
+    for path in paths:
+        compared = rows(path)
+        if set(compared) != set(first):
+            raise ValueError("clock-sensitive trials played different game indices")
+        changed.update(index for index in first if compared[index] != first[index])
+    if not changed:
+        raise ValueError("clock-sensitive disposition has no differing measured outputs")
+    for path in sorted(first_path.parent.glob("trial-*-workers-1.jsonl"), reverse=True):
+        if path in paths:
+            continue
+        repeated = rows(path)
+        if set(repeated) == set(first) and all(repeated[index] != first[index] for index in changed):
+            return {"path": str(path), "sha256": sha(path), "natural_games": len(repeated),
+                    "cross_worker_changed_indices": sorted(changed),
+                    "disposition": "every changed game also changed on a complete serial policy replay"}
+    raise ValueError("clock-sensitive qualification lacks the generic guard's complete varying serial replay")
+
+
 def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
             placement: str, environ: Mapping[str, str] | None = None,
-            diagnostic_sample: tuple[int, ...] = (), diagnostic_games_per_worker: int | None = None) -> dict:
+            diagnostic_sample: tuple[int, ...] = (), diagnostic_games_per_worker: int | None = None,
+            clock_sensitive: bool = False) -> dict:
     benchmark_dir = benchmark_dir.resolve()
     benchmark_file = benchmark_dir / "benchmark.json"
     if sha(benchmark_file) != benchmark_sha256:
@@ -90,14 +125,17 @@ def qualify(benchmark_dir: Path, *, benchmark_sha256: str, out: Path,
     allocation = plan_for(executed, placement=placement, evidence=evidence,
                           volumes={"run_dir": benchmark_dir}, files=files, environ=environ,
                           rules=rules, sample=sample)
-    if allocation.kind == "substantial" and allocation.outputs_identical is not True:
+    if allocation.kind == "substantial" and allocation.outputs_identical is not True and not clock_sensitive:
         raise ValueError("native qualification outputs differ across worker counts")
     trials = trial_ledgers(records, allocation)
+    clock_repeat = (clock_repeat_receipt(allocation, trials) if allocation.kind == "substantial"
+                    and allocation.outputs_identical is not True else None)
     report = {"schema": "spellbench-native-benchmark-qualification/v1", "benchmark": benchmark.id,
               "benchmark_sha256": benchmark_sha256, "allocation": allocation.to_json(),
               "trial_ledgers": trials, "reused": allocation.reused,
               "files": [file.to_json() for file in files], "rated_games": 0,
               "diagnostic_only": diagnostic, "preferred_sample": list(sample),
+              "clock_sensitive_opt_in": clock_sensitive, "clock_sensitive_serial_replay": clock_repeat,
               "scope": ("placement diagnostic only; separate evidence cannot qualify the frozen rated launch"
                         if diagnostic else "throughput and natural completion only; ratings and publication remain pending")}
     with (out / "QUALIFICATION.json").open("x", encoding="utf-8") as target:
@@ -112,6 +150,8 @@ def main() -> int:
     parser.add_argument("--benchmark-sha256", required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--placement", required=True)
+    parser.add_argument("--clock-sensitive", action="store_true",
+                        help="Accept only generic-guard-certified full serial policy variability; engine replay remains separate")
     parser.add_argument("--diagnostic-index", type=int, action="append", default=[],
                         help="Prefer this scheduled game in a separate placement diagnostic")
     parser.add_argument("--diagnostic-games-per-worker", type=int,
@@ -119,7 +159,8 @@ def main() -> int:
     args = parser.parse_args()
     report = qualify(args.benchmark, benchmark_sha256=args.benchmark_sha256, out=args.out,
                      placement=args.placement, diagnostic_sample=tuple(args.diagnostic_index),
-                     diagnostic_games_per_worker=args.diagnostic_games_per_worker)
+                          diagnostic_games_per_worker=args.diagnostic_games_per_worker,
+                          clock_sensitive=args.clock_sensitive)
     print(json.dumps({"benchmark": report["benchmark"], "allocation": report["allocation"],
                       "trial_ledgers": report["trial_ledgers"], "rated_games": 0}))
     return 0
