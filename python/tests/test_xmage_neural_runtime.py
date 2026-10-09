@@ -85,6 +85,29 @@ def test_public_identity_changes_with_checkpoint_visits_build_and_confined_image
     assert len(original["identity"]["source_sha256"]) == 8
 
 
+@pytest.mark.parametrize("changed", [False, True])
+def test_relocated_search_dependency_keeps_build_pin_and_refuses_changed_bytes(tmp_path, monkeypatch, changed):
+    build, engine, release, metadata = fixture(tmp_path)
+    original = Path(next(iter(metadata["dependency_sha256"])))
+    relocated = tmp_path / "new-host" / "commons-math.jar"
+    relocated.parent.mkdir()
+    relocated.write_bytes(b"changed" if changed else original.read_bytes())
+    original.unlink()
+    manifest = build / "BUILD.json"
+    raw = json.dumps(metadata).encode()
+    manifest.write_bytes(raw)
+    monkeypatch.setattr(runtime, "verify_build", lambda *args: None)
+    if changed:
+        with pytest.raises(ValueError, match="original search dependency changed"):
+            runtime.verify_model_build(build, runtime.sha(manifest), engine, release, search_math=relocated)
+    else:
+        verified = runtime.verify_model_build(build, runtime.sha(manifest), engine, release, search_math=relocated)
+        assert verified["dependency_sha256"] == {str(relocated.absolute()): runtime.sha(relocated)}
+        assert {k: v for k, v in verified.items() if k != "dependency_sha256"} == {
+            k: v for k, v in metadata.items() if k != "dependency_sha256"}
+    assert manifest.read_bytes() == raw
+
+
 @pytest.mark.parametrize("fault", [None, "close", "container", "receipt", "primary-error"])
 def test_cleanup_attempts_every_owned_container_after_shutdown_failure(tmp_path, monkeypatch, fault):
     work = tmp_path / "work"

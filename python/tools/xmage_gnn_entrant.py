@@ -46,6 +46,7 @@ def entrant(*, build: Path, image: str, simulations: int, manifest_path: Path, e
         "command": ["${PYTHON}", "${XMAGE_GNN_RUNTIME}", "--java", "${JAVA}", "--java-sha256", JAVA_SHA256,
                     "--engine", "${XMAGE_BUILD}", "--model-build", "${XMAGE_GNN_MODEL_BUILD}",
                     "--model-build-sha256", build_sha, "--manifest", "${XMAGE_GNN_MANIFEST}",
+                    "--search-math", "${XMAGE_SEARCH_MATH}",
                     "--root", "${XMAGE_GNN_ROOT}", "--image", image, "--simulations", str(simulations),
                     "--db-file", "${XMAGE_DB}/cards.h2.mv.db", "--db-sha256", DB_SHA256,
                     "--work", "${XMAGE_AGENT_WORK}"],
