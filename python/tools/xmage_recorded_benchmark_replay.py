@@ -71,6 +71,7 @@ def load_inputs(plan):
     if len(records) != len(rows) or [item["game_index"] for item in records] != list(range(len(rows))):
         raise ValueError("recorded replay requires one hash-bound durable record for every ledger row")
     executed = runner.executed_config(config, lambda part: definition.substitute(part, plan["values"]))
+    executed = replace(executed, engine_command=pinning.resolve_command(executed.engine_command))
     files = pinning.engine_files(executed.engine_command, extra=executed.evaluation_engine_inputs)
     if [file.to_json() for file in files] != manifest["engine_files"]:
         raise ValueError("recorded replay does not use the published engine files")
@@ -120,6 +121,7 @@ def replay(plan, out: Path, *, guard):
             raise result.error
         if result.stopped is not None or len(played) != len(selected):
             raise ValueError("recorded replay stopped before the complete requested prefix")
+        check()
         return time.perf_counter() - started, tuple(played)
     sample = list(plan["qualification_sample"])
     if (len(set(sample)) != len(sample) or any(type(index) is not int or not 0 <= index < len(rows) for index in sample)):

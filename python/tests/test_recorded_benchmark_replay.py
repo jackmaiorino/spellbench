@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import threading
 import time
+from dataclasses import replace
 
 import pytest
 
@@ -171,3 +172,45 @@ def test_failed_complete_response_replay_retains_hot_attempt(complete, monkeypat
         recorded_replay.replay_record(plan["records"][0], rows[0], TEST_RUN_SECRET, plan["recording_identity"],
                                      config.engine_command, root / "failed", cap_bytes=2**20, timeout_s=1)
     assert (root / "failed" / "engine.jsonl").is_file()
+
+
+def test_launch_uses_same_resolved_executable_as_published_file_pin(complete, monkeypatch):
+    plan, _, config, _ = complete
+    replay = tool("xmage_recorded_benchmark_replay")
+    original = runner.executed_config
+    monkeypatch.setattr(runner, "executed_config", lambda *args:
+                        replace(original(*args), engine_command=("bare-python", *config.engine_command[1:])))
+    resolve = pinning.resolve_command
+    resolved = []
+    def fixed(command):
+        if command[0] == "bare-python":
+            command = (config.engine_command[0], *command[1:])
+        result = resolve(command)
+        resolved.append(result)
+        return result
+    monkeypatch.setattr(pinning, "resolve_command", fixed)
+    _, _, _, executed, files = replay.load_inputs(plan)
+    assert resolved and executed.engine_command == resolved[0]
+    assert str(files[0].path) == executed.engine_command[0]
+
+
+def test_refusal_after_pool_shutdown_does_not_publish_qualification(complete, monkeypatch):
+    plan, _, _, root = complete
+    replay = tool("xmage_recorded_benchmark_replay")
+    monkeypatch.setenv("SPELLBENCH_JOB_ROOT", str(root))
+    roomy_machine(monkeypatch)
+    monkeypatch.setattr(replay.JobStorageGuard, "check", lambda self: 0)
+    real_execute = replay.execute
+    stopped = []
+    def execute(*args, **kwargs):
+        result = real_execute(*args, **kwargs)
+        stopped.append(True)
+        return result
+    def guard():
+        if stopped:
+            raise RuntimeError("STOP during pool shutdown")
+    monkeypatch.setattr(replay, "execute", execute)
+    with pytest.raises(RuntimeError, match="pool shutdown"):
+        replay.replay(plan, root / "refused", guard=guard)
+    assert not (root / "refused" / "ALLOCATION.json").exists()
+    assert not (root / "refused" / "REPLAY.json").exists()
