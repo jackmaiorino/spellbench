@@ -29,7 +29,7 @@ def test_abort_cleanup_removes_only_new_recorded_containers(tmp_path):
     def docker(command, **kwargs):
         calls.append(command)
         return SimpleNamespace(returncode=0, stderr="")
-    result = job.cleanup_containers((root,), baseline, run=docker)
+    result = job.cleanup_containers((root,), baseline, environ={}, run=docker)
     assert calls == [["docker", "rm", "--force", new_name]]
     assert result[0]["confirmed_absent"] is True
     assert result[0]["receipt_sha256"] == sha(new)
@@ -44,25 +44,47 @@ def test_cleanup_rejects_foreign_or_malformed_receipt(tmp_path, change):
     data[{"name": "container", "directory": "work_directory", "schema": "schema"}[change]] = (
         str(tmp_path.parent / "foreign") if change == "directory" else "foreign")
     path.write_text(json.dumps(data))
-    with pytest.raises(ValueError, match="invalid owned"):
-        job.cleanup_containers((tmp_path,), {}, run=lambda *a, **k: pytest.fail("foreign Docker call"))
+    result = job.cleanup_containers((tmp_path,), {}, environ={}, run=lambda *a, **k: pytest.fail("foreign Docker call"))
+    assert result[0]["confirmed_absent"] is False
+    assert "invalid owned" in result[0]["error"]
 
 
 def test_cleanup_preserves_docker_failure_and_refuses_changed_history(tmp_path):
     _, path = owned_receipt(tmp_path, "a")
-    result = job.cleanup_containers((tmp_path,), {}, run=lambda *a, **k:
+    result = job.cleanup_containers((tmp_path,), {}, environ={}, run=lambda *a, **k:
         SimpleNamespace(returncode=1, stderr="daemon unavailable"))
     assert result[0]["confirmed_absent"] is False
     baseline = job.container_records((tmp_path,))
     path.write_text(path.read_text() + " ")
-    with pytest.raises(ValueError, match="older owned container receipt changed"):
-        job.cleanup_containers((tmp_path,), baseline, run=lambda *a, **k: pytest.fail("changed-history call"))
+    result = job.cleanup_containers((tmp_path,), baseline, environ={}, run=lambda *a, **k: pytest.fail("changed-history call"))
+    assert result[0]["confirmed_absent"] is False
+    assert "older owned container receipt changed" in result[0]["error"]
 
 
 def test_container_work_roots_cannot_select_foreign_tree(tmp_path):
     record = {"hot_root": str(tmp_path / "owned"), "container_work_roots": [str(tmp_path / "foreign")]}
     with pytest.raises(ValueError, match="outside the owned hot root"):
         job.container_roots(record)
+
+
+def test_cleanup_uses_workload_daemon_and_continues_after_bad_receipts(tmp_path, monkeypatch):
+    _, old = owned_receipt(tmp_path, "a")
+    baseline = job.container_records((tmp_path,))
+    old.write_text(old.read_text() + " ")
+    _, malformed = owned_receipt(tmp_path, "b")
+    malformed.write_text("invalid json")
+    good_name, good = owned_receipt(tmp_path, "c")
+    monkeypatch.setenv("DOCKER_HOST", "controller-daemon")
+    workload = {"DOCKER_HOST": "workload-daemon", "DOCKER_CONFIG": "workload-config", "PATH": "workload-bin"}
+    calls = []
+    def docker(command, **kwargs):
+        assert kwargs["env"] == workload
+        calls.append(command)
+        return SimpleNamespace(returncode=0, stderr="")
+    result = job.cleanup_containers((tmp_path,), baseline, environ=workload, run=docker)
+    assert calls == [["docker", "rm", "--force", good_name]]
+    assert sum(row["confirmed_absent"] is False for row in result) == 2
+    assert [row for row in result if row["confirmed_absent"]][0]["receipt"] == str(good)
 
 
 def test_benchmark_progress_excludes_retained_trials(tmp_path):

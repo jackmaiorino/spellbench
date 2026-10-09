@@ -89,25 +89,33 @@ def container_records(roots: tuple[Path, ...]) -> dict[Path, str]:
     return records
 
 
-def cleanup_containers(roots: tuple[Path, ...], baseline: dict[Path, str], *, run=subprocess.run) -> list[dict]:
+def cleanup_containers(roots: tuple[Path, ...], baseline: dict[Path, str], *, environ: dict,
+                       run=subprocess.run) -> list[dict]:
     """Clean this attempt's recorded names, preserving older receipts and foreign containers."""
     results = []
     for path, digest in container_records(roots).items():
         if path in baseline:
             if baseline[path] != digest:
-                raise ValueError("an older owned container receipt changed during this job")
+                results.append({"receipt": str(path), "receipt_sha256": digest, "confirmed_absent": False,
+                                "error": "an older owned container receipt changed during this job"})
             continue
-        data = json.loads(path.read_bytes())
-        name = data.get("container", "")
-        work = Path(data.get("work_directory", "")).resolve()
-        if (data.get("schema") != "spellbench-owned-model-container/v1"
-                or not re.fullmatch(r"spellbench-xmage-[a-f0-9]{32}", name)
-                or path.name != name + ".owned.json"
-                or type(data.get("creator_pid")) is not int
-                or not any(work != root and work.is_relative_to(root) for root in roots)):
-            raise ValueError("invalid owned model container receipt")
         try:
-            removed = run(["docker", "rm", "--force", name], capture_output=True, text=True, timeout=15)
+            data = json.loads(path.read_bytes())
+            name = data.get("container", "")
+            work = Path(data.get("work_directory", "")).resolve()
+            if (data.get("schema") != "spellbench-owned-model-container/v1"
+                    or not isinstance(name, str) or not re.fullmatch(r"spellbench-xmage-[a-f0-9]{32}", name)
+                    or path.name != name + ".owned.json"
+                    or type(data.get("creator_pid")) is not int
+                    or not any(work != root and work.is_relative_to(root) for root in roots)):
+                raise ValueError("invalid owned model container receipt")
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            results.append({"receipt": str(path), "receipt_sha256": digest,
+                            "confirmed_absent": False, "error": str(exc)})
+            continue
+        try:
+            removed = run(["docker", "rm", "--force", name], capture_output=True, text=True, timeout=15,
+                          env=environ)
             results.append({"container": name, "receipt": str(path), "receipt_sha256": digest,
                             "confirmed_absent": removed.returncode == 0 or "No such container" in removed.stderr,
                             "exit_code": removed.returncode, "stderr": removed.stderr})
@@ -415,7 +423,7 @@ def work(record: dict, prepared: dict, helper) -> int:
         if remaining:
             terminal["exit_code"] = 2
         try:
-            terminal["container_cleanup"] = cleanup_containers(roots, baseline_containers)
+            terminal["container_cleanup"] = cleanup_containers(roots, baseline_containers, environ=env)
             terminal["owned_container_cleanup_confirmed"] = all(
                 row["confirmed_absent"] for row in terminal["container_cleanup"])
         except BaseException as exc:
