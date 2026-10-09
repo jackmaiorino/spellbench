@@ -1,15 +1,17 @@
 # XMage protocol rulings, 2026-10-09
 
 Status: disposition of [issue #40][issue40], including its complete body and
-three question comments. Existing rules below remain binding. The explicitly
-marked proposals require maintainer sign-off and implementation in a subsequent
-evaluation version. Merging this document approves the disposition record, not
-those proposed protocol changes.
+three question comments. On 2026-10-09, Jack accepted all seven R1-R7
+recommendations in response to the explicit sign-off question: "Accept all seven
+(recommended)". They are the accepted future implementation contract. Existing
+rules below remain binding until separately scoped implementation and admission
+under a new negotiated protocol minor and evaluation version. Acceptance is not
+implementation or authorization to change frozen boards or run benchmarks.
 
 Reviewed main: `ec0bbed05951cd565e94d320e3b66d55bb2d53aa`. Source links below pin
-that revision so later edits cannot silently change the evidence. This change
-adds only this document: no benchmark, protocol schema, engine input, clock,
-resource declaration, golden or evaluation fingerprint changes. No games or
+that revision so later edits cannot silently change the evidence. This document
+changes no benchmark, protocol schema, engine input, clock,
+resource declaration, golden or evaluation fingerprint. No games or
 compute measurements were run for this review.
 
 ## Consumers and disposition keys
@@ -37,8 +39,9 @@ that work or admit unavailable learned entries.
 - **B: superseded / no live consumer of the requested feature.** The one-board
   route replaced the request, or current boards do not use the requested wire
   feature. This does not retire the FDN boards or declare future work delivered.
-- **C: live ruling proposed.** A current board or its host still needs the
-  decision. The proposal section gives the rationale and concrete future change.
+- **C: accepted future ruling.** A current board or its host needs the
+  implementation. R1-R7 give the accepted rationale and concrete future change;
+  existing behavior and pins remain unchanged.
 
 ## Complete question table
 
@@ -50,24 +53,24 @@ Q24-Q27 and Q28-Q33 are in [comment 1][questions16],
 |---|---|---|---|
 | 1 | Publicly granted keywords on a face-down object | **A.** Section 6.4 exposes current face-down characteristics; 6.8 hides printed identity, not a public grant. V6 constrains names, not public granted keywords. The ward-only XMage projection is conservative implementation behavior, not a normative prohibition; a faithful public-grant correction must preserve hidden printed abilities and wait for new pins. | [Spec 6.4][s64], [V6][v6], [ward-only implementation][ward] |
 | 2 | `card_name: null` for a nameless face-up copy | **A.** Use `null`, not an empty or invented name. Main's observation builder explicitly handles this case and the nullable observation name permits it. | [Nameless normalization][nameless], [observation name validation][names] |
-| 3 | Token name convention | **C.** Proposed R1: serialize the token's public in-game name in NFC; do not substitute a Scryfall label or append a suffix merely for serialization. Make the exception to the Oracle-card-name rule explicit. | [Object names][s51], [current token/permanent projection][tokens] |
+| 3 | Token name convention | **C.** Accepted R1: serialize the token's public in-game name in NFC; do not substitute a Scryfall label or append a suffix merely for serialization. Make the exception to the Oracle-card-name rule explicit. | [Object names][s51], [current token/permanent projection][tokens] |
 | 4 | Positionless looked-at library cards with `known_cards: false` | **A.** Main uses the permitted `searching`/null-position representation for a current library look with unknown position. It does not assert order or retain knowledge after the look. This is the existing conservative v2.0 representation, not permission to encode an unknown position as known. | [Spec 6.7][s67], [Looks contract][looks] |
 | 5 | Seat-history-based `<key>:r<n>` ids after rollback | **A.** Allowed if the same secret and answers reproduce ids and ids never return. Main's viewer-local incarnation scheme implements that requirement; counters for unseen events remain forbidden. | [Spec 5.3][s53], [ViewerIds][viewerids] |
 | 6 | Public trigger whose source later moves to a hidden zone | **A.** Current Section 6.6 omits a trigger whose source is currently hidden and unrevealed; the builder does the same. A public-event/provenance-based alternative would change the information rule and require a separate future proposal. | [Spec 6.6][s66], [pending-trigger filter][pending] |
 | 7 | Published-pool priors under hidden decklists | **B.** Current mirror pools disclose the opponent list, so the requested hidden-pool restriction has no current board consumer. Static, provenance-declared model knowledge is distinct from runtime access; any future hidden-list board must decide that policy before use and keep runtime inputs seat-only. | [Information rules][s122], [seat-only inputs][s117], [mirror definitions][fdn0] |
-| 8 | D6a: engine answers pass-only priority | **C.** Proposed R2, shared with Q23: retain posing now; add an opt-in, negotiated pass-only engine default for the next evaluation version. There is no current exception for priority in Section 7.6. | [Engine defaults][s76], [group posing][s8], [#143 dependency][issue143] |
+| 8 | D6a: engine answers pass-only priority | **C.** Accepted R2, shared with Q23: retain posing now; add an opt-in, negotiated pass-only engine default for the next evaluation version. There is no current exception for priority in Section 7.6. | [Engine defaults][s76], [group posing][s8], [#143 dependency][issue143] |
 | 9 | D6b: autopay includes convoke, delve, improvise | **A.** Main's payment planner explicitly includes their object choices under `engine_autopay`. This applies while paying a cost, not to unrelated selections or the choice to incur an optional cost; the `select_object` purpose vocabulary is not a requirement to pose choices owned by a declared payment default. | [Spec 7.6][s76], [PayChoice contract][paychoice] |
 | 10 | D6c: remainder on first versus last blocker | **A.** The declared `engine_order` default requires remainder on the last blocker (or trample defender). XMage declares no damage default and poses `distribute`; its upstream default therefore does not license a different wire rule. | [Spec 7.6][s76], [XMage defaults][defaults], [distribution mapping][distribution] |
 | 11 | S1-S6: rotating pairs, hidden pools, two deck ids, FDN legality, clocks, attribution | **B (partly A).** Current FDN format, mirror deck pool and board-wide clocks exist. Distinct-deck `rotating_pairs`, hidden rotating lists, dual deck ids and a manifest-expressible legality/provenance bundle remain future features with no consumer in these mirror definitions; the parser rejects non-`rotating_pool` pairing. Keep the remaining manifest work in #36, not as an implicit completion of X6. Pauper retains one clock for all entrants. | [FDN definition][fdn0], [pairing refusal][pairing], [one-board clock policy][clockdesign], [#36][issue36] |
 | 12 | S7-S8: enable fixed-deck Standard and legality manifest | **B.** Standard mirror exists; fixed-deck Standard does not. Section 15 remains reserved and the parser refuses it. The proposed legality-list format is not implemented by format naming or card-resolution validation. Revisit with the future fixed-deck deliverable in #36. | [Section 15][s15], [pairing refusal][pairing], [Standard mirror][standard] |
-| 13 | Public activation, combat and stack additions | **C (partly A).** Trigger-order items already have `ability_index`/`event_objects`; stack and pending-trigger records do not. Activation-use history, a separate first-strike damage step, attacker `blocked`, cast method and paid costs remain absent from core observation. Proposed R3 adds truthful, versioned public fields; optional mana restrictions need their own complete representation. | [Permanent and stack schema][s65], [trigger items][triggeritems], [phase vocabulary][phasevocab], [history design][history] |
+| 13 | Public activation, combat and stack additions | **C (partly A).** Trigger-order items already have `ability_index`/`event_objects`; stack and pending-trigger records do not. Activation-use history, a separate first-strike damage step, attacker `blocked`, cast method and paid costs remain absent from core observation. Accepted R3 adds truthful, versioned public fields; optional mana restrictions need their own complete representation. | [Permanent and stack schema][s65], [trigger items][triggeritems], [phase vocabulary][phasevocab], [history design][history] |
 | 14 | Agent `requires.engine` | **B.** For the Pauper route, the explicit replacement is an ordinary `engine: "any"` world-model agent. Native entries retain registry engine metadata and observation/extension requirements. The wire does not implement `requires.engine`; this disposition does not claim engine metadata already enforces a new compatibility handshake. | [Route C2 and question disposition][route], [agent requirements][s101], [registry metadata][registry] |
-| 15 | Search-agent clocks and declared resources | **C (partly A).** Clocks and a shared per-seat resource block already exist. Per-entrant CPU/memory/scratch declarations and memory-aware admission do not follow from C2's illustrative JSON. Proposed R4 retains a board-wide clock and adds measured, fingerprinted per-entrant resources. The cited 2 GB/300 MB are estimates, not qualification evidence. | [Spec 11.4][s114], [current defaults and BotSpec][config], [CPU accounting][cores], [Route C2/C7][route] |
+| 15 | Search-agent clocks and declared resources | **C (partly A).** Clocks and a shared per-seat resource block already exist. Per-entrant CPU/memory/scratch declarations and memory-aware admission do not follow from C2's illustrative JSON. Accepted R4 retains a board-wide clock and adds measured, fingerprinted per-entrant resources. The cited 2 GB/300 MB are estimates, not qualification evidence. | [Spec 11.4][s114], [current defaults and BotSpec][config], [CPU accounting][cores], [Route C2/C7][route] |
 | 16 | Rewind abandons intervening groups of either seat | **A.** Section 8 explicitly abandons every group begun or completed since the action, including the other seat's groups; answered step counters continue and group ids are never reused. | [Spec 8][s8] |
 | 17 | London bottoming after keep | **A.** Required: Section 7.5 bottoms k cards after keeping. The XMage overlay implements the after-keep ordering instead of repeated earlier bottoming. | [London rule][london], [London overlay][londonoverlay] |
-| 18 | `rules_snapshot_id` includes rules-affecting overlays | **C.** Proposed R5: include semantic overlay code. Main hashes the core pin and patch series into this string but copies the decision/autopay/mulligan overlay afterwards. Other input hashes provide additional provenance, not this missing semantic identity. Change the identity and regenerate pins only in a new evaluation version. | [Identity construction][buildidentity], [engine identity contract][s91] |
-| 19 | Replacement `affected: choosing seat`, `event: other` | **C.** Proposed R6: `other` may mean a genuine other event type, not unknown callback data; the choosing player must not substitute for an affected object. Capture the public affected entity/event at the call site, or explicitly declare an engine replacement-order default and disclose the changed decision surface. | [Replacement semantics][replacement], [current placeholder][replacementcode] |
-| 20 | Trigger items with `event_objects: []`, `label: null` | **C (partly A).** Null labels are allowed. Empty event objects are correct only when no event object has a current visible incarnation; blanket emptiness does not meet the semantic definition. Proposed R6 captures public event participants and uses current viewer references. | [Trigger-item definition][triggeritems], [current trigger items][triggercode] |
+| 18 | `rules_snapshot_id` includes rules-affecting overlays | **C.** Accepted R5: include semantic overlay code. Main hashes the core pin and patch series into this string but copies the decision/autopay/mulligan overlay afterwards. Other input hashes provide additional provenance, not this missing semantic identity. Change the identity and regenerate pins only in a new evaluation version. | [Identity construction][buildidentity], [engine identity contract][s91] |
+| 19 | Replacement `affected: choosing seat`, `event: other` | **C.** Accepted R6: `other` may mean a genuine other event type, not unknown callback data; the choosing player must not substitute for an affected object. Capture the public affected entity/event at the call site, or explicitly declare an engine replacement-order default and disclose the changed decision surface. | [Replacement semantics][replacement], [current placeholder][replacementcode] |
+| 20 | Trigger items with `event_objects: []`, `label: null` | **C (partly A).** Null labels are allowed. Empty event objects are correct only when no event object has a current visible incarnation; blanket emptiness does not meet the semantic definition. Accepted R6 captures public event participants and uses current viewer references. | [Trigger-item definition][triggeritems], [current trigger items][triggercode] |
 | 21 | Whole looked-at hand or only candidates in `known` | **A.** Main shows the whole current look, including exposed cards that are not selectable. `known_cards: false` does not require candidate-only knowledge; Section 6.7 also permits declared under-informing, so whole-look projection is allowed and implemented rather than a new universal completeness rule. Never add cards the effect did not expose. | [Spec 6.7][s67], [whole-look mapping][wholelook] |
 | 22 | Force no attack/block after three rejected declarations | **A.** No: the no-dead-end rule still applies. Main has a completability oracle, and three rejected declarations halt rather than silently restricting play to no attack/block. This supersedes the interim workaround. | [Oracle][oracle], [rejection handling][combatcode], [no-dead-end rule][nodeadend] |
 | 23 | D6a follow-up: mostly single-candidate decisions | **C.** Same ruling as Q8/R2. The reported fraction is historical motivation, not a fresh timing measurement or authority for elision. | [Question comment][questions16], [engine defaults][s76] |
@@ -79,11 +82,11 @@ Q24-Q27 and Q28-Q33 are in [comment 1][questions16],
 | 29 | Any-combination mana as a group of color choices | **A.** Main represents one `choose_color`, purpose `mana`, per unit, as a fixed group with bounds checked for completion. `distribute` requires a recipient and is not the correct scalar color allocation shape. | [Mana-color group][manacolors], [distribution rule][s75distribution] |
 | 30 | Label multi-line `choose_number` amounts | **B.** The schema has source/purpose plus public context/display text; a new semantic amount label is an optional wire enhancement, not a current requirement. The documented Glissa multi-line callback is in the wider Standard catalog, outside the current two-deck Standard board and FDN pools. Revisit when a live pool needs it; use public row labels and never hidden counters as an identifier. | [Number schema][options], [multi-amount mapping][multiamount], [catalog][catalog], [Standard pool][standard] |
 | 31 | Rewind a cast with no complete target set | **A.** Yes, with declared rewind: Section 7.1 permits abandoning an unfinishable action and Section 8 removes the failing priority candidate. Without rewind, the engine must offer only completable candidates. | [No-dead-end rule][nodeadend], [Spec 8][s8] |
-| 32 | Reuse an engine process across games | **C (partly A).** Wire reset supports sequential games, but the arena still starts a fresh engine for each game. Proposed R7 allows opt-in worker-local reuse after state/cache isolation and cross-order replay checks. Agent sandboxes remain fresh per game. | [EngineProcess reset][reset], [arena process lifecycle][runner], [agent isolation][s117] |
+| 32 | Reuse an engine process across games | **C (partly A).** Wire reset supports sequential games, but the arena still starts a fresh engine for each game. Accepted R7 allows opt-in worker-local reuse after state/cache isolation and cross-order replay checks. Agent sandboxes remain fresh per game. | [EngineProcess reset][reset], [arena process lifecycle][runner], [agent isolation][s117] |
 | 33 | Exclude catalog from golden comparisons | **A.** Keep the existing full handshake comparison: `hello_ok` contains the catalog and goldens cover it. Main deliberately regenerated fixtures after catalog changes. Smaller stable fixture catalogs may reduce churn, but do not silently remove declaration coverage or weaken pinned equality. | [Golden catalog receipt][goldenreceipt], [strict golden comparison][goldencompare], [conformance goldens][s16] |
 | probe_resample | Enable the reserved optional noninterference probe | **A.** Keep disabled for current XMage: `noninterference_probe: false`, `unsupported_request`, validator-only label. The kernel's two-world/history audit and the kit's reconstruction are not this engine request. Enabling it later requires Section 9.7 whole-seat-decision equality, knowledge-consistent resampling and proof the real game is unchanged before claiming validator-and-probe. | [Reserved probe][probe], [XMage declaration][defaults], [request refusal][proberefusal], [fairness labels][s16] |
 
-## Proposed live rulings
+## Accepted future rulings
 
 ### R1. Token names (Q3)
 
@@ -124,7 +127,7 @@ rewinds and terminal counts before any future board enables it. Use a new
 
 ### R3. Public decision state (Q13)
 
-Approve an additive, negotiated observation revision containing:
+Add an additive, negotiated observation revision containing:
 per-permanent public activation-use records, `first_strike_damage`, attacker
 `blocked`, stack/pending-trigger public `ability_index` and `event_objects`, and
 spell cast `method` plus announced/paid optional costs. These facts distinguish
@@ -176,7 +179,7 @@ manifest and `engines/xmage/README.md`; update `scripts/build.sh` only with new
 evaluation pins. Keep `card_pool_identity` scoped to card data and card-rule
 sources. Rationale: equal rules identities should not hide different mulligan or
 payment behavior. The current artifact/source hashes remain valid historical
-pins; this proposal does not invalidate old evidence or recompute it in place.
+pins; this ruling does not invalidate old evidence or recompute it in place.
 
 ### R6. Truthful callback semantics (Q19 and Q20)
 
@@ -200,7 +203,7 @@ must wait for a new evaluation version and cannot loosen the hidden-state bounda
 
 ### R7. Engine process reuse (Q32)
 
-Approve opt-in reuse of one engine per arena worker, with at most one active
+Allow opt-in reuse of one engine per arena worker, with at most one active
 game at a time and fresh agent sandboxes for every game. Leave fresh-process
 execution as the default until qualified. Reuse must clear game/RNG/id/decision
 and observation state, verify the same pinned engine identity, and restart a
@@ -217,7 +220,7 @@ supported launcher and current resource policy; none is run here.
 
 ## Sign-off and version boundary
 
-Only these proposed decisions remain for the protocol maintainer:
+Jack accepted these seven decisions on 2026-10-09:
 
 1. **Q3 / R1:** use the public in-game NFC token name and document the card-name exception.
 2. **Q8 and Q23 / R2:** add negotiated pass-only priority elision, opt-in only for a new evaluation version.
@@ -227,13 +230,13 @@ Only these proposed decisions remain for the protocol maintainer:
 6. **Q19 and Q20 / R6:** require truthful affected-event and trigger-participant semantics; permit a disclosed replacement-order default only under new pins.
 7. **Q32 / R7:** allow opt-in engine reuse only after state-isolation and cross-order replay qualification.
 
-These are proposals for the **next evaluation_version**, not amendments to
-`pauper-neutral-v2.1.0`, existing FDN definitions or committed run inputs.
+These are accepted requirements for the **next evaluation_version**, not
+amendments to `pauper-neutral-v2.1.0`, existing FDN definitions or committed run inputs.
 Wire additions also require negotiated protocol-minor handling; an evaluation
 version bump alone cannot override strict v2.0 field/default rules. Old behavior,
-goldens and fingerprints remain reproducible. Maintainer sign-off decides the
-future implementation contract; implementation and admission evidence still
-belong to their delivery lanes. None of the B dispositions authorizes opening a
+goldens and fingerprints remain reproducible. This completes #40's maintainer
+sign-off; implementation and admission evidence still belong to their delivery
+lanes. None of the B dispositions authorizes opening a
 new board or claiming the unfinished #36 work complete.
 
 ## Sources
