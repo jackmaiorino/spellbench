@@ -162,7 +162,7 @@ def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
                 "candidates": [{"candidate_id": 3, "semantic": {"kind": "choose_target"}}]}
     record = history.callback(callback)
     assert record["replay"] == {"priority_passes": ["p1"], "earlier": history.earlier, "attack_declarations": 2,
-                                "characteristic_gaps": True}
+                                "characteristic_gaps": True, "fungible_tapped": True}
     history.earlier = [attack(0)]                      # an incomplete group is not replayable
     with pytest.raises(ValueError):
         history.callback(callback)

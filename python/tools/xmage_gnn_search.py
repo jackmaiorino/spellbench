@@ -244,6 +244,9 @@ def profile(settings: dict) -> dict:
         "mulligan": "keep (mulligans were off in the published games)",
         "unheaded_decisions": "MageZero v0.2 tree with uniform priors through the same graph search",
         "unsearched_worlds": "kit policy: a horizon or unsupported world is not searched; the declining candidate answers",
+        "unsearched_families": "decisions no graph search root supports (trigger order, for one) take the kit's fallback: "
+                               "the declining candidate, else the first",
+        "callback_tolerances": "anchor-known characteristic gaps; which identical permanent a replayed payment tapped",
         "full_game_qualified": False,
     }
 
@@ -308,7 +311,7 @@ class GraphHistory(PublicHistory):
         attacks = self.attack_group(decision)
         if not attacks:
             record = super().callback(decision)
-            record["replay"]["characteristic_gaps"] = True
+            record["replay"].update(characteristic_gaps=True, fungible_tapped=True)
             return record
         other = "p1" if self.seat == "p0" else "p0"
         passed = self.anchor["decision"]["observation"].get("passed_seats")
@@ -317,12 +320,13 @@ class GraphHistory(PublicHistory):
         return {"anchor": copy.deepcopy(self.anchor),
                 "replay": {"priority_passes": [] if other in passed else [other],
                            "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks,
-                           "characteristic_gaps": True}}
+                           "characteristic_gaps": True, "fungible_tapped": True}}
 
 
 class GraphAgent(NeuralAgent):
     """One graph search session per public game."""
     history_factory = GraphHistory
+    unsearched_family = staticmethod(declining)
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)
 

@@ -78,6 +78,8 @@ final class MageZeroSearchReplay {
          * and field; value: the observed and the projected value at the anchor, canonical.
          */
         boolean tolerateGaps;
+        /** Opt-in (the graph frontend): which of several identical permanents is tapped (a mana payment) may differ. */
+        boolean fungibleTapped;
         final Map<String, String[]> anchorGaps = new java.util.HashMap<>();
         /** Opt-in (the graph frontend): this many earlier entries are this seat's recorded attack declarations. */
         int attackDeclarations;
@@ -97,9 +99,18 @@ final class MageZeroSearchReplay {
                         Json.str(current, "priority_seat"), Json.arr(current, "known"));
                 List<String> diff = new ArrayList<>();
                 boolean tolerated = false;
+                List<String> tapped = new ArrayList<>();
                 for (String d : ObsCompare.diff(current, projected, 1000)) {
                     if (knownGap(current, projected, d)) tolerated = true;
+                    else if (fungibleTapped && d.matches("^/players/\\d+/battlefield/\\d+/permanent/tapped \\((true vs false|false vs true)\\)$")) tapped.add(d);
                     else diff.add(d);
+                }
+                if (!tapped.isEmpty()) {
+                    if (diff.isEmpty() && tappedPermutation(current, projected)) {
+                        if (!world.flags.contains("approximate:fungible_tapped_permanents")) world.flags.add("approximate:fungible_tapped_permanents");
+                    } else {
+                        diff.addAll(tapped);
+                    }
                 }
                 if (!diff.isEmpty()) {
                     throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
@@ -123,6 +134,34 @@ final class MageZeroSearchReplay {
             if (seen == null || replayed == null) return false;
             String[] gap = anchorGaps.get(Json.str(seen, "object_id") + "/" + at[2]);
             return gap != null && gap[0].equals(characteristic(seen, at[2])) && gap[1].equals(characteristic(replayed, at[2]));
+        }
+        /**
+         * Every battlefield's permanents, grouped by everything but their id and tapped state, have the same number
+         * tapped in the observation and in the replayed world: the two differ only in which identical copy is tapped.
+         */
+        private static boolean tappedPermutation(Map<String, Object> current, Map<String, Object> projected) {
+            List<Object> seen = Json.arr(current, "players"), replayed = Json.arr(projected, "players");
+            if (seen == null || replayed == null || seen.size() != replayed.size()) return false;
+            for (int p = 0; p < seen.size(); p++) {
+                Map<String, Integer> counts = new java.util.HashMap<>();
+                List<Object> a = Json.arr(Json.obj(seen.get(p)), "battlefield"), b = Json.arr(Json.obj(replayed.get(p)), "battlefield");
+                if (a == null || b == null || a.size() != b.size()) return false;
+                for (int i = 0; i < a.size(); i++) {
+                    String sa = untapped(Json.obj(a.get(i))), sb = untapped(Json.obj(b.get(i)));
+                    if (!sa.equals(sb)) return false;
+                    if (Boolean.TRUE.equals(Json.obj(Json.obj(a.get(i)), "permanent").get("tapped"))) counts.merge(sa, 1, Integer::sum);
+                    if (Boolean.TRUE.equals(Json.obj(Json.obj(b.get(i)), "permanent").get("tapped"))) counts.merge(sa, -1, Integer::sum);
+                }
+                for (int count : counts.values()) if (count != 0) return false;
+            }
+            return true;
+        }
+        private static String untapped(Map<String, Object> object) {
+            Map<String, Object> copy = Json.obj(Json.copy(object));
+            copy.remove("object_id");
+            Map<String, Object> permanent = Json.obj(copy, "permanent");
+            if (permanent != null) permanent.remove("tapped");
+            return Json.canonical(copy);
         }
         /** Record the anchor world's own characteristic gaps (object id and field: observed and projected values). */
         void recordGaps(Map<String, Object> observation, Map<String, Object> projected) {
@@ -538,6 +577,9 @@ final class MageZeroSearchReplay {
         Object gaps = history.get("characteristic_gaps");
         if (gaps != null && !Boolean.TRUE.equals(gaps)) throw new IllegalArgumentException("invalid characteristic gap opt-in");
         result.tolerateGaps = Boolean.TRUE.equals(gaps);
+        Object fungible = history.get("fungible_tapped");
+        if (fungible != null && !Boolean.TRUE.equals(fungible)) throw new IllegalArgumentException("invalid fungible tapped opt-in");
+        result.fungibleTapped = Boolean.TRUE.equals(fungible);
         Object attacks = history.get("attack_declarations");
         if (attacks != null) {
             if (!(attacks instanceof Long) || (Long) attacks < 1) throw new IllegalArgumentException("invalid attack declaration count");
