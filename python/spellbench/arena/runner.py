@@ -89,6 +89,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 
+from .. import wire
 from ..digests import GameDigest
 from ..file_pins import PinningError, verify_files
 from ..errors import PeerTimeoutError, ProtocolError, RemoteError, TransportError, ValidationError
@@ -97,7 +98,7 @@ from ..host.game import GameResult, play_game
 from ..host.setup import GameSetup
 from ..messages import EngineIdentity, ResetRequest
 from ..run_secret import RunSecret
-from . import leaderboard, registry, store
+from . import engine_records, leaderboard, registry, store
 from .config import BotSpec, TournamentConfig, TournamentError  # re-exported
 from .drivers import make_driver
 from .executor import ExecutionResult, GameOutcome, execute
@@ -280,6 +281,7 @@ def play_one(
     run_secret_hex: str,
     entries: dict[str, RegistryEntry],
     launch_files: Sequence[EngineFile] = (),
+    recording: dict | None = None,
 ) -> GameOutcome:
     """Play one scheduled game in its own engine process and seat drivers; returns its ledger row.
 
@@ -291,10 +293,20 @@ def play_one(
     process is closed whatever happens.
     """
     verify_files(launch_files)
+    engine_records.assert_current(recording)
     game = game_setup(config, setup, context, RunSecret.from_hex(run_secret_hex))
     with contextlib.ExitStack() as stack:
+        capture = None if recording is None else engine_records.EngineRecord(recording, context)
+        if capture is not None:
+            stack.callback(capture.close)
         try:
-            engine = EngineProcess(list(config.engine_command), timeout_s=config.time_control.startup_ms / 1000)
+            command = list(config.engine_command)
+            if capture is None:
+                engine = EngineProcess(command, timeout_s=config.time_control.startup_ms / 1000)
+            else:
+                command = engine_records.work_command(command, capture.directory / "engine-work")
+                peer = wire.SubprocessPeer(command, timeout_s=config.time_control.startup_ms / 1000)
+                engine = EngineProcess(peer=engine_records.RecordPeer(peer, capture))
         except TransportError as exc:
             return _unstarted(config, setup, context, entries, game, exc)
         stack.callback(engine.close)
@@ -304,6 +316,9 @@ def play_one(
             return _unstarted(config, setup, context, entries, game, exc)
         seats = {}
         for seat, spec in context.seat_specs:
+            if capture is not None and spec.command:
+                spec = dataclasses.replace(spec, command=tuple(engine_records.work_command(
+                    spec.command, capture.directory / f"agent-work-{seat}")))
             driver = make_driver(spec, config.time_control, launch_files=launch_files)
             stack.callback(driver.close)
             seats[seat] = driver
@@ -314,7 +329,11 @@ def play_one(
         if diagnostic:
             result = dataclasses.replace(result, diagnostics=(*result.diagnostics, diagnostic))
     verify_files(launch_files)
-    return _outcome(config, setup, context, entries, result, hello.engine)
+    outcome = _outcome(config, setup, context, entries, result, hello.engine)
+    if capture is not None:
+        fields = {field.name: getattr(outcome, field.name) for field in dataclasses.fields(outcome)}
+        return RecordedOutcome(**fields, record_directory=capture.seal(outcome.row))
+    return outcome
 
 
 def _unstarted(
@@ -402,7 +421,12 @@ def _outcome(
 
 
 @dataclass(frozen=True)
-class TimedOutcome(GameOutcome):
+class RecordedOutcome(GameOutcome):
+    record_directory: str | None = dataclasses.field(default=None, kw_only=True)
+
+
+@dataclass(frozen=True)
+class TimedOutcome(RecordedOutcome):
     """A played game and its own time in seconds, measured in the process that played it: from the game's start
     (its engine and seat processes starting) to its result. Qualification ranks worker counts by these times
     (Task 5: ``PlayedGame.seconds``)."""
@@ -439,17 +463,20 @@ def play_games(
     timed: bool = False,
     guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
+    recording: dict | None = engine_records.FROM_ENV,
 ) -> ExecutionResult:
     """Play ``contexts`` (a run's schedule, or any of its games: a qualification sample, a rerun) with ``workers``
     workers through ``executor.execute``: outcomes in the order given, the rest stopped at a violation when
     ``stop_on_violation`` (Decision 6), and any exception reported in the result's ``error`` (spec 11.3). With
     ``timed``, each outcome is a :class:`TimedOutcome`."""
+    recording = engine_records.settings() if recording is engine_records.FROM_ENV else recording
     play = functools.partial(play_one, config, setup, run_secret_hex=run_secret.hex(), entries=entries,
-                             launch_files=launch_files)
+                             launch_files=launch_files, recording=recording)
     if timed:
         play = functools.partial(_timed, play)
     return execute(contexts, play, workers=workers, stop_on_violation=stop_on_violation, on_outcome=on_outcome,
-                   monitor=monitor, on_warning=on_warning, guard=guard)
+                   monitor=monitor, on_warning=on_warning, guard=guard,
+                   submission_window=None if recording is None else workers)
 
 
 # ---------------------------------------------------------------------------
@@ -536,12 +563,16 @@ def _spot_checked(
     run_secret: RunSecret,
     entries: dict[str, RegistryEntry],
     launch_files: Sequence[EngineFile] = (),
+    recording: dict | None = None,
+    guard: Callable[[], None] | None = None,
 ) -> tuple[Allocation, BaseException | None]:
     """Replay scheduled game ``index`` serially and record whether its ledger row matches the recorded one
     (``Allocation.with_spot_check``). A replay that raises leaves the allocation unchecked, so the run publishes
     as unrated; the exception is returned for the caller to note, or to raise after the manifest."""
     result = play_games(config, setup, [context], run_secret=run_secret, entries=entries, workers=1,
-                        stop_on_violation=False, launch_files=launch_files)
+                        stop_on_violation=False, launch_files=launch_files, recording=recording, guard=guard,
+                        on_outcome=lambda outcome: engine_records.collect(
+                            getattr(outcome, "record_directory", None), outcome.row, guard=guard))
     if result.error is not None or len(result.outcomes) != 1:
         return allocation, result.error
     replayed = result.outcomes[0].row
@@ -562,6 +593,7 @@ def run_tournament(
     on_game: Callable[[LedgerRow], None] | None = None,
     guard: Callable[[], None] | None = None,
     launch_files: Sequence[EngineFile] = (),
+    recording: dict | None = engine_records.FROM_ENV,
 ) -> TournamentSummary:
     """Run the full schedule and publish the tournament (the module docstring gives the order).
 
@@ -572,6 +604,8 @@ def run_tournament(
     measured ``allocation`` (a small one once its spot check passed) and pinned ``engine_files``.
     """
     refusals = isolation_refusals(config)
+    recording = engine_records.settings() if recording is engine_records.FROM_ENV else recording
+    engine_records.assert_current(recording)
     if refusals:
         raise TournamentError("; ".join(refusals))
     executed = config if resolve is None else executed_config(config, resolve)
@@ -608,6 +642,7 @@ def run_tournament(
                 violations.append(outcome.violation)
             if outcome.diagnostics:
                 store.append_diagnostics(directory / store.DIAGNOSTICS_NAME, outcome.row.game_id, outcome.diagnostics)
+        engine_records.collect(getattr(outcome, "record_directory", None), outcome.row, guard=guard)
         if on_game is not None:
             on_game(outcome.row)
 
@@ -635,7 +670,7 @@ def run_tournament(
                 with interrupts.interruptible():  # only here does a Ctrl+C raise, and it stops the games
                     result = play_games(executed, setup, contexts, run_secret=run_secret, entries=entries,
                                         workers=allocation.workers, on_outcome=record, monitor=monitor,
-                                        on_warning=on_warning, launch_files=launch_files, guard=guard)
+                                        on_warning=on_warning, launch_files=launch_files, guard=guard, recording=recording)
                 error = result.error
                 game = None if error is not None else _spot_check_game(
                     allocation, scheduled=len(contexts), recorded=len(rows), violations=len(violations),
@@ -647,6 +682,7 @@ def run_tournament(
                             allocation, game, config=executed, setup=setup, context=contexts[game], row=rows[game],
                             run_secret=run_secret, entries=entries,
                             launch_files=launch_files,
+                            recording=recording, guard=guard,
                         )
                     if isinstance(failure, Exception):  # noted, never fatal: the run publishes as not spot-checked
                         with interrupts.holding():
