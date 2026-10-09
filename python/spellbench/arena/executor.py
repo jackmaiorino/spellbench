@@ -24,8 +24,10 @@ Workers are spawned, so a caller using ``workers > 1`` must run under
 from __future__ import annotations
 
 import multiprocessing
+from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from itertools import islice
 from typing import Callable, Sequence, TypeVar
 
 from .ledger import LedgerRow
@@ -100,12 +102,21 @@ def execute(
     monitor: IdleMonitor | None = None,
     on_warning: Callable[[str], None] | None = None,
     guard: Callable[[], None] | None = None,
+    submission_window: int | None = None,
 ) -> ExecutionResult:
     """Play each context through ``play_one``, recording outcomes in schedule order.
 
-    ``workers == 1`` plays serially; more plays in a spawn-context pool. See
-    the module docstring for the prefix, violation and abort rules.
+    ``workers == 1`` plays serially; more plays in a spawn-context pool. With
+    ``submission_window``, at most that many tasks remain submitted but not
+    collected. Replenishment waits for ``on_outcome`` and ``guard`` to return,
+    so a collection acknowledgment can bound retained worker artifacts.
+    ``None`` keeps the existing eager submission. See the module docstring
+    for the prefix, violation and abort rules.
     """
+    if submission_window is not None and (
+        type(submission_window) is not int or not 1 <= submission_window <= workers
+    ):
+        raise ValueError("submission_window must be an integer from 1 through workers")
     outcomes: list[GameOutcome] = []
     warnings: list[str] = []
     stopped: str | None = None
@@ -154,8 +165,11 @@ def execute(
         if guard is not None:
             guard()
         pool = ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("spawn"))
-        futures = [pool.submit(play_one, context) for context in contexts]
-        for future in futures:  # schedule order, whatever the completion order
+        pending = iter(contexts)
+        window = len(contexts) if submission_window is None else submission_window
+        futures = deque(pool.submit(play_one, context) for context in islice(pending, window))
+        while futures:  # schedule order, whatever the completion order
+            future = futures.popleft()
             tick()
             while True:
                 try:
@@ -166,6 +180,13 @@ def execute(
             if record(outcome):
                 stopped = "violation"
                 break
+            if submission_window is not None:
+                try:
+                    context = next(pending)
+                except StopIteration:
+                    pass
+                else:
+                    futures.append(pool.submit(play_one, context))
     except BaseException as exc:
         stopped, error = "aborted", exc
     finally:
