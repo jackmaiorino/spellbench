@@ -27,6 +27,104 @@ BUSY_PATTERN = r"^(?:java|bo3_.*|native_.*|mtg_kernel.*)\.exe$"
 NEVER_MATCHES = r"(?!)"
 
 
+def below_normal() -> None:
+    """Set the contained controller's priority before it creates children."""
+    import ctypes
+    from ctypes import wintypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.GetCurrentProcess.restype = wintypes.HANDLE
+    k32.SetPriorityClass.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    k32.SetPriorityClass.restype = wintypes.BOOL
+    k32.GetPriorityClass.argtypes = (wintypes.HANDLE,)
+    k32.GetPriorityClass.restype = wintypes.DWORD
+    handle = k32.GetCurrentProcess()
+    if not k32.SetPriorityClass(handle, 0x4000) or k32.GetPriorityClass(handle) != 0x4000:
+        raise ctypes.WinError(ctypes.get_last_error())
+
+
+def memory_status() -> dict:
+    import ctypes
+    from ctypes import wintypes
+
+    class Memory(ctypes.Structure):
+        _fields_ = [("length", wintypes.DWORD), ("load", wintypes.DWORD),
+                    *[(name, ctypes.c_ulonglong) for name in
+                      ("physical", "free", "commit_limit", "commit_free", "virtual", "virtual_free", "extended")]]
+    memory = Memory()
+    memory.length = ctypes.sizeof(memory)
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.GlobalMemoryStatusEx.argtypes = (ctypes.POINTER(Memory),)
+    k32.GlobalMemoryStatusEx.restype = wintypes.BOOL
+    if not k32.GlobalMemoryStatusEx(ctypes.byref(memory)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    return {"physical_bytes": memory.physical, "available_physical_bytes": memory.free,
+            "commit_limit_bytes": memory.commit_limit, "available_commit_bytes": memory.commit_free}
+
+
+def container_roots(record: dict) -> tuple[Path, ...]:
+    """Only explicitly declared owned work directories can supply cleanup records."""
+    hot = Path(record["hot_root"]).resolve()
+    declared = tuple(Path(value) for value in record.get("container_work_roots", ()))
+    if any(root.is_symlink() or root.is_junction() for root in declared):
+        raise ValueError("container work directory redirects through a link")
+    roots = tuple(root.resolve() for root in declared)
+    if any(root == hot or not root.is_relative_to(hot) for root in roots):
+        raise ValueError("container work directory is outside the owned hot root")
+    return roots
+
+
+def container_records(roots: tuple[Path, ...]) -> dict[Path, str]:
+    records = {}
+    for root in roots:
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            here = Path(directory)
+            dirs[:] = [d for d in dirs if not (here/d).is_symlink() and not (here/d).is_junction()]
+            for name in files:
+                if not name.endswith(".owned.json"):
+                    continue
+                path = here/name
+                if path.is_symlink() or not path.resolve().is_relative_to(root):
+                    raise ValueError("owned container receipt redirects outside its work directory")
+                records[path] = sha(path)
+    return records
+
+
+def cleanup_containers(roots: tuple[Path, ...], baseline: dict[Path, str], *, environ: dict,
+                       run=subprocess.run) -> list[dict]:
+    """Clean this attempt's recorded names, preserving older receipts and foreign containers."""
+    results = []
+    for path, digest in container_records(roots).items():
+        if path in baseline:
+            if baseline[path] != digest:
+                results.append({"receipt": str(path), "receipt_sha256": digest, "confirmed_absent": False,
+                                "error": "an older owned container receipt changed during this job"})
+            continue
+        try:
+            data = json.loads(path.read_bytes())
+            name = data.get("container", "")
+            work = Path(data.get("work_directory", "")).resolve()
+            if (data.get("schema") != "spellbench-owned-model-container/v1"
+                    or not isinstance(name, str) or not re.fullmatch(r"spellbench-xmage-[a-f0-9]{32}", name)
+                    or path.name != name + ".owned.json"
+                    or type(data.get("creator_pid")) is not int
+                    or not any(work != root and work.is_relative_to(root) for root in roots)):
+                raise ValueError("invalid owned model container receipt")
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            results.append({"receipt": str(path), "receipt_sha256": digest,
+                            "confirmed_absent": False, "error": str(exc)})
+            continue
+        try:
+            removed = run(["docker", "rm", "--force", name], capture_output=True, text=True, timeout=15,
+                          env=environ)
+            results.append({"container": name, "receipt": str(path), "receipt_sha256": digest,
+                            "confirmed_absent": removed.returncode == 0 or "No such container" in removed.stderr,
+                            "exit_code": removed.returncode, "stderr": removed.stderr})
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            results.append({"container": name, "receipt": str(path), "receipt_sha256": digest,
+                            "confirmed_absent": False, "error": str(exc)})
+    return results
+
+
 def parse_cores(spec: str) -> list[int]:
     """'0-3,8' -> [0, 1, 2, 3, 8], the same syntax host_slots_v1.py accepts."""
     out: list[int] = []
@@ -201,6 +299,10 @@ def load(manifest: Path, digest: str):
     if sha(preparation) != record["preparation_sha256"]:
         raise ValueError("frozen runtime preparation differs")
     prepared = json.loads(preparation.read_bytes())
+    roots = container_roots(record)
+    agent_work = prepared.get("environment", {}).get("XMAGE_AGENT_WORK")
+    if agent_work and Path(agent_work).resolve() not in roots:
+        raise ValueError("learned model work requires its declared container cleanup directory")
     execution_kind(record, prepared)
     helper = Path(record["reservation_helper"])
     if helper.name != "host_reservation_v1.py" or sha(helper) != record["reservation_helper_sha256"]:
@@ -267,7 +369,10 @@ def work(record: dict, prepared: dict, helper) -> int:
                 "source_revision": prepared["source_revision"], "manifest_sha256": record["manifest_sha256"],
                 "execution_kind": kind, "scope": scope, "exit_code": 2}
     child = None
+    roots = container_roots(record)
+    baseline_containers = container_records(roots)
     try:
+        below_normal()
         with (attempt/"QUALIFY.log").open("xb") as log, (attempt/"MONITOR.jsonl").open("x", encoding="utf-8") as monitor:
             baseline = progress_counts(prepared, qualifier_output)
             child = subprocess.Popen(run_command(record, prepared), cwd=hot, env=env, stdout=log, stderr=subprocess.STDOUT)
@@ -281,7 +386,10 @@ def work(record: dict, prepared: dict, helper) -> int:
                 completed = completed_since(prepared, qualifier_output, baseline)
                 monitor.write(json.dumps({"utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     "elapsed_s": round(time.monotonic()-start, 3), "completed_game_rows": completed,
-                    "aggregate_bytes": used, "owned_processes": helper.job_members(None)})+"\n")
+                    "aggregate_bytes": used, "owned_processes": helper.job_members(None),
+                    "volumes_free_bytes": {key: shutil.disk_usage(Path(record[key]).anchor).free
+                                           for key in ("hot_root", "cold_root")},
+                    "memory": memory_status()})+"\n")
                 monitor.flush()
                 try:
                     child.wait(timeout=30)
@@ -313,6 +421,15 @@ def work(record: dict, prepared: dict, helper) -> int:
         terminal.update(elapsed_s=round(time.monotonic()-start, 3), owned_children_remaining=remaining,
                         owned_child_cleanup_confirmed=not remaining)
         if remaining:
+            terminal["exit_code"] = 2
+        try:
+            terminal["container_cleanup"] = cleanup_containers(roots, baseline_containers, environ=env)
+            terminal["owned_container_cleanup_confirmed"] = all(
+                row["confirmed_absent"] for row in terminal["container_cleanup"])
+        except BaseException as exc:
+            terminal["owned_container_cleanup_confirmed"] = False
+            terminal["container_cleanup_error"] = f"{type(exc).__name__}: {exc}"
+        if not terminal["owned_container_cleanup_confirmed"]:
             terminal["exit_code"] = 2
         put(attempt/"TERMINAL.json", terminal)
     return terminal["exit_code"]
