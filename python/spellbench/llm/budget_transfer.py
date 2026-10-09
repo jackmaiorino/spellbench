@@ -305,7 +305,8 @@ def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
 
 
 def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limits: dict,
-                      authority: Path, authority_sha256: str, no_cutoff: bool = False) -> Path:
+                      authority: Path, authority_sha256: str, no_cutoff: bool = False,
+                      debit_ledgers=()) -> Path:
     """Prospective operator amendment between phases, retaining every prior debit.
 
     The caller stops all source controllers first. The SQLite admission lock and
@@ -315,17 +316,20 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
     """
     from .run_budget import (RunBudget, LIMIT_NAMES, _origin, _successor_claim, _retained_file,
                              _totals, _terminal_request, _write_marker, TIMEOUT_FORFEIT_SCHEMA,
-                             CONTINUATION_SCHEMA, _deadline_extension)
+                             CONTINUATION_SCHEMA, _deadline_extension, sealed_debit_imports,
+                             debit_ancestry_paths)
     if budget.paths.manifest is None:
         raise ProviderError("run_budget_transfer_required")
     root = budget.paths.manifest.parent
     successor, manifest = successor.resolve(), manifest.resolve()
     authority = authority.resolve(strict=True)
+    debit_ledgers = tuple(Path(path).resolve(strict=True) for path in debit_ledgers)
     snapshot = successor.with_name(successor.name + ".initial.sqlite3")
     outputs = (successor, manifest, _origin(successor), snapshot)
     if (len(set(outputs)) != len(outputs)
             or any(not path.is_relative_to(root) or path.exists() for path in outputs)
             or not authority.is_relative_to(root) or type(no_cutoff) is not bool
+            or any(not path.is_relative_to(root) for path in debit_ledgers)
             or set(approved_limits) != set(LIMIT_NAMES)
             or any(type(value) is not int or value < 1 for value in approved_limits.values())):
         raise ValueError("fresh mapped paths and explicit positive limits required")
@@ -346,6 +350,8 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
         if not no_cutoff and cutoff is not None and cutoff <= time.time():
             raise ProviderError("run_budget_deadline_exhausted")
         inherited, parent_sha = _totals(policy, rows), digest(budget.path)
+        imports = sealed_debit_imports(debit_ledgers, model=budget.model,
+                                      forbidden_paths=debit_ancestry_paths(budget.path, budget.paths))
         child = {**policy, **approved_limits,
                  "schema": _policy_schema(policy),
                  "continuation": {"kind": "healthy-idle-amendment", "parent": budget.paths.key(budget.path),
@@ -353,10 +359,13 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
                                   "allow_timeout_forfeits": policy.get("allow_timeout_forfeits", False),
                                   "no_cutoff": no_cutoff,
                                   "limit_increase": {"authority": str(authority), "authority_sha256": authority_sha256}}}
+        if imports:
+            child["continuation"]["debit_imports"] = imports
         RunBudget._idle_amendment(child["continuation"], budget.path.resolve(), policy, child,
-                                  parent_logical=budget.paths.key(budget.path))
-        if (inherited["requests"] >= child["max_requests"] or inherited["reported_input_tokens"]
-                + inherited["reported_output_tokens"] + inherited["uncertain_reserved_tokens"] >= child["max_reported_tokens"]):
+                                  parent_logical=budget.paths.key(budget.path), parent_paths=budget.paths)
+        cumulative = _totals(child, [])
+        if (cumulative["requests"] >= child["max_requests"] or cumulative["reported_input_tokens"]
+                + cumulative["reported_output_tokens"] + cumulative["uncertain_reserved_tokens"] >= child["max_reported_tokens"]):
             raise ProviderError("run_budget_exhausted")
         RunBudget._initialize(successor, child)
         claim = {"successor": str(successor), "parent_sha256": parent_sha,
@@ -371,13 +380,13 @@ def amend_idle_budget(budget, successor: Path, manifest: Path, *, approved_limit
         snapshot.chmod(0o600)
         value = dict(budget.paths.value)
         value["files"], value["immutable"] = list(value["files"]), dict(value["immutable"])
-        for path in (successor, authority):
+        for path in (successor, authority, *debit_ledgers):
             if str(path) not in budget.paths.files:
                 value["files"].append({"logical": str(path), "file": path.relative_to(root).as_posix()})
         value.update(active=str(successor), destination=str(successor),
                      transfer_snapshot=value.get("transfer_snapshot", value["snapshot"]),
                      snapshot=snapshot.relative_to(root).as_posix())
-        for path in (budget.path, _origin(successor), snapshot, authority):
+        for path in (budget.path, _origin(successor), snapshot, authority, *debit_ledgers):
             value["immutable"][path.resolve().relative_to(root).as_posix()] = digest(path)
         # Publish activation only after the durable retirement of the old writer.
         _write_marker(_successor_claim(budget.path), claim)
@@ -530,6 +539,9 @@ def export_budget(budget, bundle: Path, *, destination: str, host_identity_file:
             continuation = child.get("continuation")
             if continuation is None:
                 break
+            for donor_index, imported in enumerate(continuation.get("debit_imports", [])):
+                copy(budget.paths.resolve(imported["ledger"]),
+                     f"retained/{index}/debit-imports/{donor_index}.sqlite3")
             recovery = continuation.get("recovery")
             if recovery is not None:
                 receipt = budget.paths.resolve(recovery["receipt"])

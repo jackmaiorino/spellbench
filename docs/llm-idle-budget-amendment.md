@@ -24,3 +24,34 @@ Never recreate or reset a ledger to apply the amendment.
 The changed allowance forms a new qualification identity. Prepare and fingerprint
 the actual source and evaluation inputs before qualifying the next phase. A
 successful amendment alone is neither qualification nor formal launch authority.
+
+## Carry forward separately authorized smoke debits
+
+An explicit prospective amendment can also supply `debit_ledgers` to
+`amend_idle_budget`. This imports settled charges into the same cumulative
+allowance; it does not reopen the smoke budgets or add their caps. Copy each
+sealed source into the mapped bundle, preserving its original bytes outside
+the bundle. Use `sealed_debit_imports(..., model=budget.model,
+forbidden_paths=debit_ancestry_paths(budget.path, budget.paths))` to obtain the
+exact `debit_imports` list, and include that list in the authority JSON. The
+authority's `user_authority` must explicitly authorize carrying those charges
+forward. Existing limits may stay unchanged.
+
+Each imported ledger must be independent, with no continuation, deadline
+extension, successor or continuation-origin marker, no pending requests, and an
+expired deadline or a terminal failure. Retain and inspect original sidecar
+metadata before copying sources; removing a marker does not make a source
+independent. The helper rejects
+duplicate files and request overlap with another imported ledger, any primary
+ancestor, or a previous import. It compares recorded request start time plus
+prompt hash, and provider response IDs when available. Unknown usage retains
+the entire original reservation. Failure counts remain historical charges;
+they do not invent an active failure in the new successor.
+
+The successor map retains each imported database by SHA-256. Every admission
+rechecks its sealed contents, exact totals, independent request set and approved
+scope. Later continuations inherit those charges once, and budget relocation
+retains the imported evidence. Do not edit source databases, insert synthetic
+request rows, reset allowances or copy credentials to perform consolidation.
+Only apply the real amendment after the scoped human decision. An offline
+synthetic fixture or prepared authority template is not that decision.
