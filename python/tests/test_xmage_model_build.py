@@ -7,7 +7,36 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "tools"))
-from xmage_model_build import verify_model_engine
+from xmage_model_build import reviewed_model_register, verify_model_engine
+
+
+def test_reviewed_model_register_only_changes_the_audited_source_counter_trigger():
+    path = Path(__file__).parents[2] / "engines/xmage/kit/xmage/resources/spellbench/kit/xmage/register.json"
+    raw = path.read_bytes()
+    original = json.loads(raw)
+    result = json.loads(reviewed_model_register(raw))
+    assert path.read_bytes() == raw
+    before = original["cards"].pop("Brineborn Cutthroat")
+    after = result["cards"].pop("Brineborn Cutthroat")
+    assert original == result
+    assert before["triggers"] == "event_data"
+    assert after["triggers"] == "event_free" and after["status"] == "supported"
+    assert before["class"] == after["class"]
+    assert before["trigger_classes"] == after["trigger_classes"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("class", "mage.cards.other.ChangedCard"),
+    ("reading_classes", ["AddCountersSourceEffect", "CapturedEventEffect"]),
+    ("trigger_classes", ["OtherTriggeredAbility"]),
+    ("optional_costs", ["KickerAbility"]),
+])
+def test_model_trigger_audit_refuses_changed_or_additional_unreviewed_mechanics(field, value):
+    path = Path(__file__).parents[2] / "engines/xmage/kit/xmage/resources/spellbench/kit/xmage/register.json"
+    register = json.loads(path.read_bytes())
+    register["cards"]["Brineborn Cutthroat"][field] = value
+    with pytest.raises(ValueError, match="no longer matches"):
+        reviewed_model_register(json.dumps(register).encode())
 
 
 def engine_fixture(root):

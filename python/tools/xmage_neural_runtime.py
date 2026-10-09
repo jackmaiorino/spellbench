@@ -68,7 +68,7 @@ def checked_tree(root, declared, *, suffix=None):
 
 
 def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *, architecture="draftzero-exp1",
-                       play_profile="minimum-visits-diagnostic", maintainer_manifest=None):
+                       play_profile="minimum-visits-diagnostic", maintainer_manifest=None, search_math=None):
     if sha(build / "BUILD.json") != digest:
         raise ValueError("model build manifest changed")
     metadata = json.loads((build / "BUILD.json").read_bytes())
@@ -152,8 +152,13 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
     if not isinstance(dependencies, dict) or len(dependencies) != 1:
         raise ValueError("original search needs its one pinned Commons Math dependency")
     for name, digest in dependencies.items():
-        if sha(Path(name)) != digest:
+        dependency = Path(name) if search_math is None else search_math.absolute()
+        if sha(dependency) != digest:
             raise ValueError("original search dependency changed")
+        if search_math is not None:
+            # Preserve the frozen build manifest. The host may mount the same
+            # verified jar at a different path without changing model bytes.
+            metadata["dependency_sha256"] = {str(dependency): digest}
     return metadata
 
 
@@ -239,6 +244,8 @@ def main():
     parser.add_argument("--engine", type=Path, required=True)
     parser.add_argument("--model-build", type=Path, required=True)
     parser.add_argument("--model-build-sha256", required=True)
+    parser.add_argument("--search-math", type=Path,
+                        help="relocated Commons Math jar; must match the build's declared SHA-256")
     parser.add_argument("--manifest", type=Path, default=Path(__file__).resolve().parents[2] / "engines/xmage/releases.json")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--checkpoint", required=True)
@@ -256,7 +263,7 @@ def main():
         setattr(args, key, getattr(args, key).absolute())
     manifest = json.loads(args.manifest.read_bytes())
     metadata = verify_model_build(args.model_build, args.model_build_sha256, args.engine, args.manifest,
-                                  play_profile=args.play_profile)
+                                  play_profile=args.play_profile, search_math=args.search_math)
     if sha(args.java) != args.java_sha256 or sha(args.db_file) != args.db_sha256:
         raise ValueError("model runtime Java or database differs from its pin")
     descriptor = identity(checkpoint=args.checkpoint, visits=args.visits, build_sha256=args.model_build_sha256,
