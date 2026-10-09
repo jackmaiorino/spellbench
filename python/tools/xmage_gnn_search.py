@@ -63,6 +63,7 @@ def _receipts(result: dict, calls: int) -> None:
 
 
 UNSUPPORTED = ("search world is unsupported: ", "callback anchor is unsupported: ", "combat world is unsupported: ")
+UNREPRODUCED = "callback replay observation differs: "
 
 
 def declining(decision: dict) -> dict:
@@ -84,11 +85,16 @@ def unsupported_result(record: dict, result: dict, calls: int) -> dict:
     """A world the kit does not search (horizon or unsupported flag), refused before any network call."""
     refusal = result.get("unsupported")
     if (set(result) != {"unsupported", "neural_calls"} or not isinstance(refusal, str)
-            or not refusal.startswith(UNSUPPORTED) or result["neural_calls"] != 0 or calls != 0):
+            or not refusal.startswith((*UNSUPPORTED, UNREPRODUCED)) or result["neural_calls"] != 0 or calls != 0):
         raise ValueError("graph search reported an invalid unsupported world")
-    flag = refusal.split(": ", 1)[1]
-    if not flag.startswith(("horizon:", "unsupported:")):
-        raise ValueError("graph search refused a world without a horizon or unsupported flag")
+    if refusal.startswith(UNREPRODUCED):
+        if root_family(record["decision"]) == "priority":
+            raise ValueError("a priority root has no callback replay to refuse")
+        flag = "unreproduced_callback"
+    else:
+        flag = refusal.split(": ", 1)[1]
+        if not flag.startswith(("horizon:", "unsupported:")):
+            raise ValueError("graph search refused a world without a horizon or unsupported flag")
     return {"selection": declining(record["decision"]), "neural_calls": 0, "world_flags": [flag],
             "fallback": "kit_declining_unsearched_world", "unsupported": refusal}
 
@@ -243,7 +249,8 @@ def profile(settings: dict) -> dict:
         "world": "permitted sampled world (one deal; no second re-deal)",
         "mulligan": "keep (mulligans were off in the published games)",
         "unheaded_decisions": "MageZero v0.2 tree with uniform priors through the same graph search",
-        "unsearched_worlds": "kit policy: a horizon or unsupported world is not searched; the declining candidate answers",
+        "unsearched_worlds": "kit policy: a horizon or unsupported world, or a callback whose replay does not reproduce "
+                             "the received observation, is not searched; the declining candidate answers",
         "unsearched_families": "decisions no graph search root supports (trigger order, for one) take the kit's fallback: "
                                "the declining candidate, else the first",
         "callback_tolerances": "anchor-known characteristic gaps; which identical permanent a replayed payment tapped; "

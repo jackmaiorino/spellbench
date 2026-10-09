@@ -167,3 +167,15 @@ def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
     history.earlier = [attack(0)]                      # an incomplete group is not replayable
     with pytest.raises(ValueError):
         history.callback(callback)
+
+
+def test_unreproduced_callbacks_take_the_fallback_but_priority_roots_cannot():
+    record, _, settings = fixture()
+    refusal = {"unsupported": "callback replay observation differs: [/players/0/battlefield/4/permanent/tapped]",
+               "neural_calls": 0}
+    with pytest.raises(ValueError, match="priority root"):
+        search.unsupported_result(record, refusal, 0)
+    record["decision"] = {"context": {"kind": "choice"}, "candidates": [
+        {"candidate_id": 5, "semantic": {"kind": "choose_target"}}, {"candidate_id": 6, "semantic": {"kind": "choose_target"}}]}
+    out = search.unsupported_result(record, refusal, 0)
+    assert out["world_flags"] == ["unreproduced_callback"] and out["selection"]["candidate_id"] == 5

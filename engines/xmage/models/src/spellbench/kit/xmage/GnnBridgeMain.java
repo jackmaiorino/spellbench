@@ -23,9 +23,12 @@ import java.util.Map;
  * search and combat roots then run the MageZero v0.2 replay and combat paths unchanged.
  */
 public final class GnnBridgeMain {
-    /** Refusals raised before any search: the kit's no-search policy for horizon and unsupported worlds. */
+    /**
+     * Refusals raised before any search: the kit's no-search policy for horizon and unsupported worlds, and (as the
+     * kit's continuation does) for a callback whose replay does not reproduce the received observation.
+     */
     private static final String[] UNSUPPORTED = {"search world is unsupported: ", "callback anchor is unsupported: ",
-            "combat world is unsupported: "};
+            "combat world is unsupported: ", "callback replay observation differs: "};
 
     static String unsupported(RuntimeException e) {
         if (!(e instanceof IllegalArgumentException) || e.getMessage() == null) return null;
