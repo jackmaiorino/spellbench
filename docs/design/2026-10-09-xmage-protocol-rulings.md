@@ -1,7 +1,7 @@
 # XMage protocol rulings, 2026-10-09
 
 Status: disposition of [issue #40][issue40], including its complete body and
-three question comments. On 2026-10-09, Jack accepted all seven R1-R7
+three question comments. On 2026-10-09, the maintainer accepted all seven R1-R7
 recommendations in response to the explicit sign-off question: "Accept all seven
 (recommended)". They are the accepted future implementation contract. Existing
 rules below remain binding until separately scoped implementation and admission
@@ -220,7 +220,7 @@ supported launcher and current resource policy; none is run here.
 
 ## Sign-off and version boundary
 
-Jack accepted these seven decisions on 2026-10-09:
+The maintainer accepted these seven decisions on 2026-10-09:
 
 1. **Q3 / R1:** use the public in-game NFC token name and document the card-name exception.
 2. **Q8 and Q23 / R2:** add negotiated pass-only priority elision, opt-in only for a new evaluation version.
