@@ -6,10 +6,11 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, MutableMapping, Sequence
 
 from ..bot import Decision
 from .compact import COMPACT_INSTRUCTIONS, COMPACT_PROMPT_VERSION, compact_payload
+from .lean import LEAN_INSTRUCTIONS, LEAN_PROMPT_VERSION, lean_payload
 from .prompt_json import canonical_json
 
 PROMPT_VERSION = "spellbench-llm/v1"
@@ -24,7 +25,8 @@ SYSTEM_PROMPT = (
 )
 
 
-PROMPT_FORMATS = {"json-v1": PROMPT_VERSION, "shared-records-v1": COMPACT_PROMPT_VERSION}
+PROMPT_FORMATS = {"json-v1": PROMPT_VERSION, "shared-records-v1": COMPACT_PROMPT_VERSION, "lean-v1": LEAN_PROMPT_VERSION}
+_FORMAT_INSTRUCTIONS = {"shared-records-v1": COMPACT_INSTRUCTIONS, "lean-v1": LEAN_INSTRUCTIONS}
 PUBLIC_HISTORY = "x_public_history_v1"
 PUBLIC_HISTORY_SUFFIX = "+public-history-v1"
 PUBLIC_HISTORY_PROMPT_VERSION = PROMPT_VERSION + PUBLIC_HISTORY_SUFFIX
@@ -39,7 +41,7 @@ PUBLIC_HISTORY_INSTRUCTIONS = (
 def system_prompt(prompt_format: str = "json-v1", *, public_history: bool = False) -> str:
     if prompt_format not in PROMPT_FORMATS:
         raise ValueError("unsupported prompt format")
-    text = SYSTEM_PROMPT if prompt_format == "json-v1" else SYSTEM_PROMPT + " " + COMPACT_INSTRUCTIONS
+    text = SYSTEM_PROMPT if prompt_format == "json-v1" else SYSTEM_PROMPT + " " + _FORMAT_INSTRUCTIONS[prompt_format]
     return text + " " + PUBLIC_HISTORY_INSTRUCTIONS if public_history else text
 
 
@@ -120,6 +122,7 @@ def render_prompt(
     max_bytes: int = 64_000,
     prompt_format: str = "json-v1",
     public_history: Mapping[str, Any] | None = None,
+    aliases: MutableMapping[str, str] | None = None,
 ) -> Prompt:
     instructions = system_prompt(prompt_format, public_history=public_history is not None)
     # The host validates core observations before forwarding them. Raw envelopes
@@ -160,7 +163,11 @@ def render_prompt(
         names = sorted(_card_names(payload))
         payload["card_text"] = {name: catalog.cards[name] for name in names if name in catalog.cards}
         payload["missing_card_text"] = [name for name in names if name not in catalog.cards]
-    body = payload if prompt_format == "json-v1" else compact_payload(payload)
+    if prompt_format == "lean-v1":
+        # Callers pass one alias map per game so an object's alias is stable across its prompts.
+        body = lean_payload(payload, {} if aliases is None else aliases)
+    else:
+        body = payload if prompt_format == "json-v1" else compact_payload(payload)
     messages = ({"role": "system", "content": instructions}, {"role": "user", "content": canonical_json(body)})
     encoded = canonical_json(messages).encode("utf-8")
     if len(encoded) > max_bytes:
