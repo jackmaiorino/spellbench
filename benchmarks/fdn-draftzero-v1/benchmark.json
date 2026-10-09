@@ -57,7 +57,7 @@
       "--overlay-manifest",
       "${XMAGE_MODEL_BUILD}/BUILD.json",
       "--overlay-build-sha256",
-      "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2"
+      "e10b9f088940bc91f51ff0a4cf1d96dac796d92a67bcde257dd5832000c45f20"
     ]
   },
   "bots": [
@@ -94,7 +94,7 @@
     },
     {
       "name": "draftzero-exp1-gen0-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-44bc6c4e44f0ed27fb1f1b96",
+      "version": "exp1-published-fair-v1-616cdda17bc16e6497b897a8",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -116,7 +116,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "e10b9f088940bc91f51ff0a4cf1d96dac796d92a67bcde257dd5832000c45f20",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
@@ -158,6 +158,7 @@
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Json.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsCompare.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsIndex.class",
+        "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Offers.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork$1.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/PlanBook$Plan.class",
@@ -555,7 +556,7 @@
     },
     {
       "name": "draftzero-exp1-gen10-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-f9ff34a9fc1d0b207e1db32e",
+      "version": "exp1-published-fair-v1-e7e81f72142be624d12380a6",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -577,7 +578,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "e10b9f088940bc91f51ff0a4cf1d96dac796d92a67bcde257dd5832000c45f20",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
@@ -619,6 +620,7 @@
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Json.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsCompare.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsIndex.class",
+        "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Offers.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork$1.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/PlanBook$Plan.class",
@@ -1016,7 +1018,7 @@
     },
     {
       "name": "draftzero-exp1-gen33-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-8f6191c354aec156daaabba1",
+      "version": "exp1-published-fair-v1-ef61a7b40abbb12c64b8e805",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -1038,7 +1040,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "149de0fdc441ee8e5823d55290cb687e4df6c0a78d2e5f81e72f1a09e5f9e9d2",
+        "e10b9f088940bc91f51ff0a4cf1d96dac796d92a67bcde257dd5832000c45f20",
         "--root",
         "${XMAGE_CHECKPOINT_ROOT}",
         "--checkpoint",
@@ -1080,6 +1082,7 @@
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Json.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsCompare.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/ObsIndex.class",
+        "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/Offers.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork$1.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/OwnedWork.class",
         "${XMAGE_MODEL_BUILD}/core/spellbench/kit/core/PlanBook$Plan.class",
