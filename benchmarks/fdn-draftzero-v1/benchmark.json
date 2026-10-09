@@ -1901,5 +1901,6 @@
     }
   ],
   "stats_seed": 20261006,
+  "qualification_sample": [0, 1152, 1792, 1794],
   "qualification_worker_selection": "wall"
 }
