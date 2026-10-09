@@ -32,8 +32,9 @@ def entrant(*, build: Path, image: str, simulations: int, manifest_path: Path, e
     assets = {a["id"]: a for a in manifest["assets"]}
     release = [assets[config[key]]["filename"] for key in ("vocab", "config", "model")]
     inputs = ["${XMAGE_GNN_MODEL_BUILD}/BUILD.json"]
-    inputs += ["${XMAGE_GNN_MODEL_BUILD}/" + name for name in sorted(meta["class_files_sha256"])]
-    inputs += ["${XMAGE_GNN_MODEL_BUILD}/kit/" + name for name in sorted(meta["resource_files_sha256"])]
+    # BUILD.json records platform-relative paths; the definition uses forward slashes.
+    inputs += ["${XMAGE_GNN_MODEL_BUILD}/" + name for name in sorted(n.replace("\\", "/") for n in meta["class_files_sha256"])]
+    inputs += ["${XMAGE_GNN_MODEL_BUILD}/kit/" + name for name in sorted(n.replace("\\", "/") for n in meta["resource_files_sha256"])]
     inputs += ["${XMAGE_GNN_ROOT}/" + name for name in release]
     inputs += ["${XMAGE_GNN_MANIFEST}", "${XMAGE_SEARCH_MATH}"]
     inputs += ["${XMAGE_GNN_SOURCE}/" + name for name in sorted(SOURCES) if name != "xmage_gnn_runtime.py"]
