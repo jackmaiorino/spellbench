@@ -1,0 +1,1 @@
+safetensors==0.6.2 --hash=sha256:8045db2c872db8f4cbe3faa0495932d89c38c899c603f21e9b6486951a5ecb8f
