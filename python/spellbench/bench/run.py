@@ -54,6 +54,7 @@ from ..arena.validate import validate_tournament_dir
 from ..arena.job_storage import JobStorageGuard
 from ..errors import ProtocolError, RemoteError, TransportError
 from ..host.engine_process import EngineProcess
+from ..arena import engine_records
 from ..messages import EngineIdentity
 from ..run_secret import RunSecret
 from ..llm.provider import ProviderError
@@ -109,7 +110,8 @@ class QualificationPlay:
 
 def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None = None,
                        storage_dir: Path | None = None, files: Sequence[EngineFile] | None = None,
-                       job_storage: JobStorageGuard | None = None) -> QualificationPlay:
+                       job_storage: JobStorageGuard | None = None,
+                       recording: dict | None = engine_records.FROM_ENV) -> QualificationPlay:
     """The ``play`` a qualification calls (``throughput.plan_allocation``).
 
     ``play(workers, positions)`` plays the scheduled games at those positions of the schedule (of ``games``, the
@@ -125,6 +127,8 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
     A hard process kill can prevent this final reveal; it cannot recover secrets from older qualifications.
     """
     secret = RunSecret.generate()
+    from ..arena import engine_records
+    recording = engine_records.settings() if recording is engine_records.FROM_ENV else recording
     files = run_files(config) if files is None else tuple(files)
     contexts = schedule(config, secret)
     chosen = contexts if games is None else [contexts[index] for index in games]
@@ -141,6 +145,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
 
     def play(workers: int, positions: tuple[int, ...]) -> tuple[float, tuple[PlayedGame, ...]]:
         nonlocal trial_number, cleanup_confirmed
+        engine_records.assert_current(recording)
         if finished:
             raise ThroughputError("qualification replay secret already revealed; refusing more trials")
         if not cleanup_confirmed:
@@ -166,6 +171,8 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
             if outcome.diagnostics:
                 store.append_diagnostics(stored[0] / f"trial-{trial_number}-diagnostics.jsonl",
                                          outcome.row.game_id, outcome.diagnostics)
+            engine_records.collect(getattr(outcome, "record_directory", None), outcome.row,
+                                   guard=None if job_storage is None else job_storage.check)
             write_seconds[outcome.row.game_index] = time.perf_counter() - started_write
             _hosted_budget_guard(config, allow_pending=True)
             if job_storage is not None:
@@ -181,7 +188,7 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
         result = runner.play_games(config, setups[0], [chosen[position] for position in positions],
                                    run_secret=secret, entries=entries, workers=workers, stop_on_violation=False,
                                    timed=True, on_outcome=record, launch_files=files,
-                                   guard=None if job_storage is None else job_storage.check)
+                                   guard=None if job_storage is None else job_storage.check, recording=recording)
         cleanup_confirmed = result.stopped != "aborted"
         pinning.verify_files(files)
         wall = time.perf_counter() - started
@@ -373,6 +380,10 @@ def plan_for(
     shape = {key: value for key, value in qualification_config(config).items() if key != "tournament_dir"}
     identity = {"arena": __version__, "config": shape, "files": [file.to_json() for file in files],
                 "games": None if games is None else positions}
+    from ..arena import engine_records
+    recording = engine_records.settings(environ)
+    if recording is not None:
+        identity["operator_engine_recording"] = engine_records.identity(recording)
     if sample:
         identity["qualification_sample"] = list(sample)
     if job_storage is not None:
@@ -381,7 +392,7 @@ def plan_for(
     workload = workload_id(identity)
     _hosted_budget_guard(config)
     measured = qualification_play(config, games=None if games is None else positions, storage_dir=roles["run_dir"],
-                                  files=files, job_storage=job_storage)
+                                  files=files, job_storage=job_storage, recording=recording)
     try:
         allocation = plan_allocation(
             games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
@@ -405,6 +416,7 @@ def plan_for(
     _hosted_budget_guard(config)
     if job_storage is not None:
         job_storage.check()
+    engine_records.assert_current(recording)
     return allocation
 
 
@@ -564,6 +576,7 @@ def _unrated_run(
         config, run_secret=RunSecret.generate(), allocation=allocation, run_label=name, benchmark_id=benchmark.id,
         engine_files=engine, resolve=resolve, output_dir=run_dir,
         launch_files=files,
+        recording=engine_records.settings(environ),
         on_game=lambda row: _completed_game_guard(executed, job_storage, allocation.games_total, row.game_index + 1),
         guard=None if job_storage is None else job_storage.check,
     )
@@ -641,6 +654,7 @@ def _committed_run(
                     commitment_proof=CommitmentProof(commit=pushed, timestamp=proof), run_label=name,
                     benchmark_id=checked.id, engine_files=engine, resolve=resolve, output_dir=run_dir,
                     launch_files=files,
+                    recording=engine_records.settings(environ),
                     on_game=lambda row: _completed_game_guard(executed, job_storage, allocation.games_total, row.game_index + 1),
                     guard=None if job_storage is None else job_storage.check,
                 )
