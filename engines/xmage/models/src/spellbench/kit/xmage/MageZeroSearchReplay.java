@@ -106,7 +106,7 @@ final class MageZeroSearchReplay {
                     else diff.add(d);
                 }
                 if (!tapped.isEmpty()) {
-                    if (diff.isEmpty() && tappedPermutation(current, projected)) {
+                    if (diff.isEmpty() && tappedPermutation(current, projected, tapped)) {
                         if (!world.flags.contains("approximate:fungible_tapped_permanents")) world.flags.add("approximate:fungible_tapped_permanents");
                     } else {
                         diff.addAll(tapped);
@@ -136,24 +136,39 @@ final class MageZeroSearchReplay {
             return gap != null && gap[0].equals(characteristic(seen, at[2])) && gap[1].equals(characteristic(replayed, at[2]));
         }
         /**
-         * Every battlefield's permanents, grouped by everything but their id and tapped state, have the same number
-         * tapped in the observation and in the replayed world: the two differ only in which identical copy is tapped.
+         * The tapped differences are a permutation among identical permanents: each differing permanent is identical,
+         * apart from its id and tapped state, on both sides, and among the permanents of that same signature the
+         * observation and the replayed world have the same number tapped. Other permanents are not considered here
+         * (any other difference of theirs is refused separately).
          */
-        private static boolean tappedPermutation(Map<String, Object> current, Map<String, Object> projected) {
+        private static boolean tappedPermutation(Map<String, Object> current, Map<String, Object> projected, List<String> tapped) {
             List<Object> seen = Json.arr(current, "players"), replayed = Json.arr(projected, "players");
             if (seen == null || replayed == null || seen.size() != replayed.size()) return false;
-            for (int p = 0; p < seen.size(); p++) {
-                Map<String, Integer> counts = new java.util.HashMap<>();
+            java.util.Set<String> signatures = new java.util.HashSet<>();
+            for (String d : tapped) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("^/players/(\\d+)/battlefield/(\\d+)/").matcher(d);
+                if (!m.find()) return false;
+                int p = Integer.parseInt(m.group(1)), i = Integer.parseInt(m.group(2));
                 List<Object> a = Json.arr(Json.obj(seen.get(p)), "battlefield"), b = Json.arr(Json.obj(replayed.get(p)), "battlefield");
-                if (a == null || b == null || a.size() != b.size()) return false;
-                for (int i = 0; i < a.size(); i++) {
-                    String sa = untapped(Json.obj(a.get(i))), sb = untapped(Json.obj(b.get(i)));
-                    if (!sa.equals(sb)) return false;
-                    if (Boolean.TRUE.equals(Json.obj(Json.obj(a.get(i)), "permanent").get("tapped"))) counts.merge(sa, 1, Integer::sum);
-                    if (Boolean.TRUE.equals(Json.obj(Json.obj(b.get(i)), "permanent").get("tapped"))) counts.merge(sa, -1, Integer::sum);
-                }
-                for (int count : counts.values()) if (count != 0) return false;
+                if (a == null || b == null || i >= a.size() || i >= b.size()) return false;
+                String sa = p + ":" + untapped(Json.obj(a.get(i))), sb = p + ":" + untapped(Json.obj(b.get(i)));
+                if (!sa.equals(sb)) return false;
+                signatures.add(sa);
             }
+            Map<String, Integer> counts = new java.util.HashMap<>();
+            for (int p = 0; p < seen.size(); p++) {
+                List<Object> a = Json.arr(Json.obj(seen.get(p)), "battlefield"), b = Json.arr(Json.obj(replayed.get(p)), "battlefield");
+                if (a == null || b == null) return false;
+                for (Object o : a) {
+                    String sig = p + ":" + untapped(Json.obj(o));
+                    if (signatures.contains(sig) && Boolean.TRUE.equals(Json.obj(Json.obj(o), "permanent").get("tapped"))) counts.merge(sig, 1, Integer::sum);
+                }
+                for (Object o : b) {
+                    String sig = p + ":" + untapped(Json.obj(o));
+                    if (signatures.contains(sig) && Boolean.TRUE.equals(Json.obj(Json.obj(o), "permanent").get("tapped"))) counts.merge(sig, -1, Integer::sum);
+                }
+            }
+            for (int count : counts.values()) if (count != 0) return false;
             return true;
         }
         private static String untapped(Map<String, Object> object) {
