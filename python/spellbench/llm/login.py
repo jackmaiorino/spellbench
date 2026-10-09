@@ -294,9 +294,11 @@ def refresh_credentials(path: Path, *, minimum_valid_seconds: int = 120,
     if type(minimum_valid_seconds) is not int or minimum_valid_seconds < 1:
         raise ValueError("invalid credential freshness horizon")
     with credential_lock(path, timeout_s=lock_timeout_s):
+        # Admission may refuse a bounded stage before any token rotation.
+        # That refusal is not an uncertain authorization failure.
+        if before_refresh is not None:
+            before_refresh()
         try:
-            if before_refresh is not None:
-                before_refresh()
             return _refresh_credentials(path, minimum_valid_seconds=minimum_valid_seconds)
         except Exception:
             if on_failure is not None:

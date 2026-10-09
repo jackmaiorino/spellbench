@@ -109,6 +109,41 @@ def test_scope_exhaustion_sends_no_provider_request_and_preserves_broad_allowanc
     source.check()
 
 
+def test_actual_provider_usage_above_reservation_is_retained_and_stops_stage(tmp_path):
+    source, scope = setup(tmp_path, tokens=40)
+    delegate = Provider(Completion("{}", source.model, 50, 10))
+    provider = BudgetedProvider(delegate, scoped(source, scope), output_tokens=20)
+    with pytest.raises(ProviderError, match="run_budget_stage_tokens_exhausted"):
+        provider.complete(PROMPT, timeout_s=20)
+    assert delegate.calls == 1 and provider.settled_error == "run_budget_stage_tokens_exhausted"
+    summary = source.summary()
+    assert summary["accounted_tokens"] == 72 and summary["completed"] == 2
+    assert summary["pending"] == 0 and summary["active_terminal_failures"] == 0
+    assert summary["policy"]["terminal_error"] is None
+    source.check()
+    with pytest.raises(ProviderError, match="run_budget_stage_tokens_exhausted"):
+        scoped(source, scope).check()
+
+
+def test_real_renewal_child_refuses_stage_exhaustion_before_profile_read(tmp_path):
+    from spellbench.llm import hosted, renewal
+    source, scope = setup(tmp_path, requests=1)
+    request, _ = source.reserve(PROMPT, output_tokens=20)
+    source.finish(request, result=Completion("{}", source.model, 10, 2), elapsed_ms=1)
+    state = scoped(source, scope)
+    # The absent profile proves the child's real login callback rejects stage
+    # admission before reading or rotating credentials. No HTTP is possible.
+    profile = tmp_path / "absent.credentials"
+    with pytest.raises(ProviderError, match="run_budget_stage_requests_exhausted"):
+        renewal.renew_profile(profile, state)
+    plan = hosted.PlanProvider(source.model, profile, "low", budget=state)
+    with pytest.raises(ProviderError, match="run_budget_stage_requests_exhausted"):
+        plan.renew_before_game()
+    assert source.summary()["requests"] == 2 and source.summary()["policy"]["terminal_error"] is None
+    assert not profile.exists()
+    source.check()
+
+
 @pytest.mark.parametrize("field,value", [
     ("model", "other"), ("budget", "other.sqlite3"), ("budget_map_sha256", "0" * 64),
     ("baseline_requests", 0), ("baseline_accounted_tokens", 11),

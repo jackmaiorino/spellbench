@@ -61,6 +61,8 @@ class PlanProvider:
             ))
         except Exception as exc:
             self._failed = True
+            if isinstance(exc, ProviderError) and exc.code in STAGE_EXHAUSTED:
+                raise
             if not isinstance(exc, ProviderError) or exc.code != "profile_renewal_failed":
                 self.budget.fail("profile_renewal_failed")
             raise ProviderError("profile_renewal_failed") from None
@@ -185,7 +187,8 @@ def main() -> int:
                                   if args.renew_profile_before_game else None)
             availability_error = ((args.allow_timeout_forfeits and provider.settled_error == "timeout")
                                   or (args.allow_http503_forfeits and provider.settled_error == "http_503"))
-            stage_exhausted = provider.admission_error in STAGE_EXHAUSTED
+            stage_exhausted = (provider.admission_error in STAGE_EXHAUSTED
+                               or provider.settled_error in STAGE_EXHAUSTED)
             if status != 0 and not (session._failed and (availability_error or stage_exhausted)):
                 # Choice validation and child transport happen after provider
                 # accounting. Their failure cannot masquerade as a completed call.

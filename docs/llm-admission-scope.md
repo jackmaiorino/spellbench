@@ -24,6 +24,15 @@ Scope exhaustion refuses before a provider call, stops qualification through
 the ordinary hosted-budget guard and does not mark the broader cumulative pool
 failed. Logging, child transport and integrity failures retain their existing
 failure behavior; already admitted calls can still settle their actual usage.
+The real renewal child receives the same scope. A refusal before token rotation
+does not invoke its uncertain-authorization failure callback.
+
+Admission reserves a conservative input-byte estimate plus the output limit.
+An external provider can report usage above that admitted reservation; a local
+guard cannot prevent that report. Settlement always retains the actual charges
+and immediately surfaces stage exhaustion if they cross the scoped ceiling,
+before another completion can be used. The provider request remains truthfully
+completed in accounting while the stage stops; the broader pool stays healthy.
 
 For the authorized prospective Luna stage, the baseline is 4,837 requests /
 31,136,214 accounted tokens and the additional ceilings are 4,096 requests /

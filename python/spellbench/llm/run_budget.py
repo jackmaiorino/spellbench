@@ -936,6 +936,7 @@ class RunBudget:
                 raise ProviderError("run_budget_request_mismatch")
             policy = self._policy(database)
             counts = (None, None) if result is None else (result.prompt_tokens, result.completion_tokens)
+            stage_error = None
             if result is not None:
                 if result.model != self.model:
                     error = "run_budget_model_mismatch"
@@ -943,6 +944,13 @@ class RunBudget:
                 used = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
                 if used + sum(counts) > policy["max_reported_tokens"]:
                     error = "run_budget_tokens_exceeded"
+                if self.admission_scope is not None:
+                    try:
+                        _, token_limit = self._admission_limits(policy)
+                        if used + sum(counts) > token_limit:
+                            stage_error = "run_budget_stage_tokens_exhausted"
+                    except ProviderError as exc:
+                        stage_error = exc.code
                 cutoff = self._effective_deadline(policy)
                 if cutoff is not None and time.time() >= cutoff:
                     error = "run_budget_deadline_exhausted"
@@ -953,7 +961,10 @@ class RunBudget:
                  None if result is None else result.response_id,
                  None if result is None else result.model, elapsed_ms, error, request),
             )
-            return error
+            # Known provider usage must settle even after a stage boundary.
+            # Its request remains completed; the stage refusal is returned to
+            # the caller without inventing an active cumulative failure row.
+            return error or stage_error
 
     def summary(self) -> dict:
         with self._transaction() as database:
