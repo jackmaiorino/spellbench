@@ -81,6 +81,8 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
         required_stages = ("search_stage",)
     elif architecture == "magezero-v02":
         required_stages = ("magezero_stage", "magezero_search_stage")
+    elif architecture == "draftzero-gnn":
+        required_stages = ("magezero_stage", "magezero_search_stage", "draftzero_gnn_stage")
     elif architecture == "maintainer-rl-april":
         required_stages = ("search_stage", "maintainer_stage")
         from xmage_maintainer_sources import CALLBACK_SHA256, ENCODER_SHA256, MULLIGAN_JAVA_SHA256
@@ -113,6 +115,14 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
             "model/spellbench/kit/xmage/MageZeroSearchCombatMain.class",
             "model/spellbench/kit/xmage/MageZeroSearchBridgeMain.class"}.issubset(classes):
         raise ValueError("MageZero runtime lacks its mixed search and combat entrypoints")
+    if architecture == "draftzero-gnn" and not {
+            "model/spellbench/kit/xmage/GnnBridgeMain.class",
+            "model/spellbench/models/magezero/v02/search/GnnSearch.class",
+            "model/spellbench/models/magezero/v02/search/BenchSearch.class",
+            "model/spellbench/models/magezero/v02/search/GraphNet.class",
+            "model/spellbench/models/magezero/v02/search/GraphMCTSPlayer.class",
+            "model/spellbench/models/draftzero/gnn/encoder/StateEncoder.class"}.issubset(classes):
+        raise ValueError("graph network runtime lacks its staged encoder, search or bridge")
     if architecture == "maintainer-rl-april":
         required = {"model/spellbench/models/maintainer/" + name + ".class" for name in (
             "OriginalCallbackPlayer", "OriginalPriorityChoicePlayer", "OriginalNeuralSelection",

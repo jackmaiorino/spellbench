@@ -46,6 +46,19 @@
     "draftzero_weights": {
       "url": "https://huggingface.co/danbrooks/draftzero-fdn-exp1",
       "revision": "c0ac902361c041f986f429ad9d42e7b92494741f"
+    },
+    "draftzero_gnn": {
+      "url": "https://github.com/danieljbrooks/draft-zero",
+      "revision": "2a461518985e3b2bb393bddac4649e217f8fddfe"
+    },
+    "draftzero_gnn_encoder": {
+      "url": "https://github.com/WillWroble/mage",
+      "revision": "e4afc9c77ba7e4a6dbc24966cbdc6dc0819e0bff",
+      "branch": "graph-encoder"
+    },
+    "draftzero_gnn_weights": {
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn",
+      "revision": "a8351e8b43572fe262a2ae93c5dac745ea3a2e7b"
     }
   },
   "assets": [
@@ -642,6 +655,153 @@
       "source_revision": "cb7e9c6fe2dcbe2f650a77dd98a87771e730f22f",
       "source_path": "Mage.Server.Plugins/Mage.Player.AI.RL/src/mage/player/ai/RemoteModelEvaluator.java",
       "hash_evidence": "Observed pinned MageZero v0.2 Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-stateencoder",
+      "filename": "draftzero-gnn-StateEncoder.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/0e2a1b3235d0e0e841fe11f94944027d0471608e",
+      "transport": "github-raw-blob",
+      "sha256": "2fb99f1fbebe6b8dbf4c029090dfd21574713cbc808b4e833f3f17c073032a50",
+      "bytes": 35304,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/org/draftzero/mzbridge/graph/StateEncoder.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-featuregraph",
+      "filename": "draftzero-gnn-FeatureGraph.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/8277737cb60c85bb4582c2086233bece0255f29a",
+      "transport": "github-raw-blob",
+      "sha256": "433a6699f2aa2b16778d35b46c17de4391d79af0d95da0fe380d35c442ed07a3",
+      "bytes": 6606,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/org/draftzero/mzbridge/graph/FeatureGraph.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-graphrecord",
+      "filename": "draftzero-gnn-GraphRecord.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/ad2275f82ebc3780cad84f5d38da19829a63fae0",
+      "transport": "github-raw-blob",
+      "sha256": "2d13ed382c43222c40426f34780440ae180584284277f94604158dfc3adfa9b5",
+      "bytes": 6976,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/org/draftzero/mzbridge/GraphRecord.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-graphnet",
+      "filename": "draftzero-gnn-GraphNet.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/c0279b195f5f74d5d4366942246dd4900cae4a01",
+      "transport": "github-raw-blob",
+      "sha256": "4949f23b71252fe6e12683a0ca001d76dada5f08ef54f9673d56d932f4efe0cb",
+      "bytes": 13824,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/mage/player/ai/GraphNet.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-graphmctsplayer",
+      "filename": "draftzero-gnn-GraphMCTSPlayer.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/717e3f8e00efaa9083cb48d886a0073540dd77f6",
+      "transport": "github-raw-blob",
+      "sha256": "fb8ae557c8c27369bab95ccc50ce484db3cb534c8824700ecec671297a2daba9",
+      "bytes": 5230,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/mage/player/ai/GraphMCTSPlayer.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-benchsearch",
+      "filename": "draftzero-gnn-BenchSearch.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/8c0494f2a31d9c0bdd6a3d0bb4f25add8cc22172",
+      "transport": "github-raw-blob",
+      "sha256": "e2a0fb99448a157a39adf8cf5f363379cfed7ffee297e8cd6206a7e14fe67bb0",
+      "bytes": 50777,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/mage/player/ai/BenchSearch.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-src-benchplayer",
+      "filename": "draftzero-gnn-BenchPlayer.java",
+      "url": "https://api.github.com/repos/danieljbrooks/draft-zero/git/blobs/40c0a27371fb1bc52e7592772509d343588710e5",
+      "transport": "github-raw-blob",
+      "sha256": "daff59039fec642bd5eafcc499f05bdb729609269b9e51879fc435ae173ebdb2",
+      "bytes": 29993,
+      "kind": "source-code",
+      "source_revision": "2a461518985e3b2bb393bddac4649e217f8fddfe",
+      "source_path": "java/mzbridge/src/mage/player/ai/BenchPlayer.java",
+      "hash_evidence": "Observed pinned draft-zero Git blob bytes; Git blob SHA1 and SHA256 verified"
+    },
+    {
+      "id": "draftzero-gnn-model",
+      "filename": "draftzero-gnn-model.safetensors",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/model.safetensors",
+      "sha256": "d5ee8323ccca11f18b1667bc2312407d9d5696b6dacf7243d9a30461cdc29b56",
+      "bytes": 53671100,
+      "kind": "checkpoint",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-vocab",
+      "filename": "draftzero-gnn-vocab.json",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/vocab.json",
+      "sha256": "9b8ecf250963bbdbb4c18560d037e3ed547cbb154275188ac363bbcf07f0127d",
+      "bytes": 22672,
+      "kind": "feature-data",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-config",
+      "filename": "draftzero-gnn-config.json",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/config.json",
+      "sha256": "6b48d3de2bc4c40b7b2f68d52823a276ec777a68908c03ab11a58206c2d77b10",
+      "bytes": 2646,
+      "kind": "feature-data",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-goldens",
+      "filename": "draftzero-gnn-goldens.jsonl.gz",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/goldens.jsonl.gz",
+      "sha256": "46d5949bb97528a1e0ea02ae255c22287fcc49d84a77feef778f2e1eb08318c8",
+      "bytes": 542894,
+      "kind": "feature-data",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-coverage",
+      "filename": "draftzero-gnn-coverage.json",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/coverage.json",
+      "sha256": "4e57a5c497b0aca0890f3327da9ab09cf00b51ffdaec4e6eeb4b0226dcd07374",
+      "bytes": 831,
+      "kind": "feature-data",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-graph-net",
+      "filename": "draftzero-gnn-graph-net.py",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/graph_net.py",
+      "sha256": "8e27fc756f99460ce17418142e2243926400cbea3a72ae3d0801d9726d1cddce",
+      "bytes": 17659,
+      "kind": "source-code",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
+    },
+    {
+      "id": "draftzero-gnn-loader",
+      "filename": "draftzero-gnn-gnn-release.py",
+      "url": "https://huggingface.co/danbrooks/draftzero-fdn-gnn/resolve/a8351e8b43572fe262a2ae93c5dac745ea3a2e7b/gnn_release.py",
+      "sha256": "c4cfa96626fd731022f5b37e70db473bb56a4cd52712e981b96fbb4825793189",
+      "bytes": 6832,
+      "kind": "source-code",
+      "hash_evidence": "release SHA256SUMS at the pinned Hugging Face commit; bytes re-hashed"
     }
   ],
   "inference_backends": {
@@ -671,6 +831,31 @@
         "magezero-v02-labeledstate",
         "magezero-v02-stateencoder"
       ]
+    },
+    "draftzero-gnn": {
+      "model": "draftzero-gnn-graph-net",
+      "loader": "draftzero-gnn-loader",
+      "vocab": "draftzero-gnn-vocab",
+      "config": "draftzero-gnn-config",
+      "goldens": "draftzero-gnn-goldens",
+      "coverage": "draftzero-gnn-coverage",
+      "feature_hash_bins": 2147483647,
+      "checkpoint_format": "safetensors",
+      "checkpoints": [
+        "draftzero-gnn-model"
+      ],
+      "encoder_source_assets": [
+        "draftzero-gnn-src-stateencoder",
+        "draftzero-gnn-src-featuregraph"
+      ],
+      "search_source_assets": [
+        "draftzero-gnn-src-graphrecord",
+        "draftzero-gnn-src-graphnet",
+        "draftzero-gnn-src-graphmctsplayer",
+        "draftzero-gnn-src-benchsearch",
+        "draftzero-gnn-src-benchplayer"
+      ],
+      "status": "goldens and native encoder pending; unqualified"
     }
   },
   "search_adapters": {

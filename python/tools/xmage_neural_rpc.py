@@ -59,7 +59,11 @@ class NeuralSession:
                         or message["call"] != calls + 1):
                     raise ValueError("neural search returned a stale or invalid neural call")
                 calls += 1
-                scores = self.model.score(message.get("features"), timeout_s=remaining())
+                # Flat checkpoints score hashed features; the graph network an encoded state.
+                field = getattr(self.model, "input_field", "features")
+                if set(message) != {"id", "event", "call", field}:
+                    raise ValueError("neural search sent a call for another model input")
+                scores = self.model.score(message.get(field), timeout_s=remaining())
                 self.peer.set_timeout(remaining())
                 # Float-valued heads stay on this private pipe. Public v2
                 # frames retain their integer-only canonical JSON contract.

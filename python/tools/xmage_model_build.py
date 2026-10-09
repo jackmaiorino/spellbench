@@ -9,6 +9,7 @@ import subprocess
 from pathlib import Path
 
 from xmage_encoder_sources import stage
+from xmage_draftzero_gnn_sources import stage as stage_draftzero_gnn
 from xmage_maintainer_sources import stage as stage_maintainer
 from xmage_magezero_sources import stage as stage_magezero
 from xmage_magezero_search_sources import stage as stage_magezero_search
@@ -43,6 +44,8 @@ def main() -> int:
     parser.add_argument("--search-inputs", type=Path, help="verified Exp1 search source input root")
     parser.add_argument("--magezero-inputs", type=Path, help="verified public MageZero v0.2 encoder input root")
     parser.add_argument("--magezero-search-inputs", type=Path, help="verified original MageZero v0.2 search source input root")
+    parser.add_argument("--draftzero-gnn-inputs", type=Path,
+                        help="verified DraftZero FDN graph network encoder and search source input root")
     parser.add_argument("--compile-only", action="store_true", help="CI compilation against a freshly pinned engine; cannot qualify play")
     parser.add_argument("--maintainer-inputs", type=Path, help="owned private maintainer encoder input root")
     parser.add_argument("--maintainer-manifest", type=Path, help="private pinned maintainer input manifest")
@@ -53,6 +56,8 @@ def main() -> int:
         raise ValueError("the maintainer's build needs both its private inputs and manifest")
     if args.magezero_search_inputs and not args.magezero_inputs:
         raise ValueError("MageZero search requires its separately pinned original encoder")
+    if args.draftzero_gnn_inputs and not args.magezero_search_inputs:
+        raise ValueError("the graph network search runs on the pinned MageZero v0.2 encoder and search")
     repo = Path(__file__).resolve().parents[2]
     manifest = repo / "engines/xmage/releases.json"
     engine = args.engine.resolve()
@@ -71,6 +76,8 @@ def main() -> int:
                              args.out / "magezero-sources") if args.magezero_inputs else None
     magezero_search = stage_magezero_search(json.loads(manifest.read_text()), args.magezero_search_inputs,
                                            args.out / "magezero-search-sources") if args.magezero_search_inputs else None
+    draftzero_gnn = stage_draftzero_gnn(json.loads(manifest.read_text()), args.draftzero_gnn_inputs,
+                                        args.out / "draftzero-gnn-sources") if args.draftzero_gnn_inputs else None
     maintainer = stage_maintainer(json.loads(args.maintainer_manifest.read_bytes()), args.maintainer_inputs,
                       args.out / "maintainer-sources") if args.maintainer_inputs else None
     dependencies = []
@@ -121,6 +128,10 @@ def main() -> int:
         source_sets["model"] = [p for p in source_sets["model"]
                                 if not ("magezero" in p.parts and "search" in p.parts)
                                 and not p.name.startswith("MageZeroSearch")]
+    if draftzero_gnn:
+        source_sets["model"] += sorted((args.out / "draftzero-gnn-sources").rglob("*.java"))
+    else:
+        source_sets["model"] = [p for p in source_sets["model"] if not p.name.startswith("Gnn")]
     hashes = {}
     for name, sources in source_sets.items():
         cp = os.pathsep.join(str(p) for p in ([paths["core"]] if name == "kit" else
@@ -151,6 +162,7 @@ def main() -> int:
               "search_stage": search,
               "magezero_stage": magezero,
               "magezero_search_stage": magezero_search,
+              "draftzero_gnn_stage": draftzero_gnn,
               "maintainer_stage": maintainer,
               "maintainer_inputs_manifest_sha256": hashlib.sha256(args.maintainer_manifest.read_bytes()).hexdigest() if maintainer else None,
               "current_overlay_compiled": args.current_overlay,

@@ -172,6 +172,9 @@ class PublicHistory:
 
 class NeuralAgent:
     """Own one mixed search session through one public game lifecycle."""
+    history_factory = PublicHistory
+    # Opt-in (the graph agent): a function answering decisions no search root family supports.
+    unsearched_family = None
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
                  profile=None, plan_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
@@ -196,7 +199,7 @@ class NeuralAgent:
                 raise ValueError("neural replay requires public passed-seat observations")
             self.key = game_key(game.agent_seed)
             self.game = copy.deepcopy(game)
-            self.history = PublicHistory(game.seat)
+            self.history = self.history_factory(game.seat)
             self.session = self.factory()
             if self.session.model.checkpoint != self.checkpoint:
                 raise ValueError("neural session checkpoint differs from its public bot identity")
@@ -265,13 +268,22 @@ class NeuralAgent:
                 selection = {"candidate_id": offered[0].candidate_id, "semantic_echo": offered[0].semantic}
                 family = "original_default_mulligan_keep"
             else:
-                family = root_family(received)
-                if family != "priority":
-                    record.update(self.history.callback(received))
-                if len(decision.candidates) == 1:
+                try:
+                    family = root_family(received)
+                except ValueError:
+                    if self.unsearched_family is None:
+                        raise
+                    family = None
+                if family is None:
+                    selection, family = self.unsearched_family(received), "unsearched_family_fallback"
+                elif len(decision.candidates) == 1:
+                    if family != "priority":
+                        record.update(self.history.callback(received))
                     candidate = decision.candidates[0]
                     selection = {"candidate_id": candidate.candidate_id, "semantic_echo": candidate.semantic}
                 else:
+                    if family != "priority":
+                        record.update(self.history.callback(received))
                     result = self.session.choose(record, visits=self.visits, timeout_s=remaining())
                     selection = result["selection"]
             remaining()

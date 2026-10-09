@@ -73,6 +73,16 @@ final class MageZeroSearchReplay {
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
+        /**
+         * Opt-in (the graph frontend): characteristic gaps the anchor world already had. Key: the anchor object's id
+         * and field; value: the observed and the projected value at the anchor, canonical.
+         */
+        boolean tolerateGaps;
+        /** Opt-in (the graph frontend): which of several identical permanents is tapped (a mana payment) may differ. */
+        boolean fungibleTapped;
+        final Map<String, String[]> anchorGaps = new java.util.HashMap<>();
+        /** Opt-in (the graph frontend): this many earlier entries are this seat's recorded attack declarations. */
+        int attackDeclarations;
 
         void compare(Game game) {
             compare(game, decision);
@@ -87,10 +97,116 @@ final class MageZeroSearchReplay {
             try {
                 Map<String, Object> projected = RoundTrip.project(world, RoundTrip.flagsFrom(received),
                         Json.str(current, "priority_seat"), Json.arr(current, "known"));
-                List<String> diff = ObsCompare.diff(current, projected, 8);
-                if (!diff.isEmpty()) throw new IllegalArgumentException("callback replay observation differs: " + diff);
+                List<String> diff = new ArrayList<>();
+                boolean tolerated = false;
+                List<String> tapped = new ArrayList<>();
+                for (String d : ObsCompare.diff(current, projected, 1000)) {
+                    if (knownGap(current, projected, d)) tolerated = true;
+                    else if (fungibleTapped && d.matches("^/players/\\d+/battlefield/\\d+/permanent/tapped \\((true vs false|false vs true)\\)$")) tapped.add(d);
+                    else diff.add(d);
+                }
+                if (!tapped.isEmpty()) {
+                    if (diff.isEmpty() && tappedPermutation(current, projected, tapped)) {
+                        if (!world.flags.contains("approximate:fungible_tapped_permanents")) world.flags.add("approximate:fungible_tapped_permanents");
+                    } else {
+                        diff.addAll(tapped);
+                    }
+                }
+                if (!diff.isEmpty()) {
+                    throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
+                }
+                if (tolerated && !world.flags.contains("approximate:unexplained_characteristics_callback")) {
+                    world.flags.add("approximate:unexplained_characteristics_callback");
+                }
             } catch (RuntimeException e) { throw e; }
             catch (Exception e) { throw new IllegalStateException("callback replay projection failed", e); }
+        }
+        /**
+         * A power, toughness or keyword difference this object already had at the anchor (WorldBuilder cannot rebuild an
+         * until-end-of-turn effect: approximate:unexplained_characteristics), with both the received and the replayed
+         * value unchanged since the anchor. Any other difference, or a changed value on either side, is refused.
+         */
+        private boolean knownGap(Map<String, Object> current, Map<String, Object> projected, String difference) {
+            if (!tolerateGaps) return false;
+            String[] at = gapAt(difference);
+            if (at == null) return false;
+            Map<String, Object> seen = objectAt(current, at), replayed = objectAt(projected, at);
+            if (seen == null || replayed == null) return false;
+            String[] gap = anchorGaps.get(Json.str(seen, "object_id") + "/" + at[2]);
+            return gap != null && gap[0].equals(characteristic(seen, at[2])) && gap[1].equals(characteristic(replayed, at[2]));
+        }
+        /**
+         * The tapped differences are a permutation among identical permanents: each differing permanent is identical,
+         * apart from its id and tapped state, on both sides, and among the permanents of that same signature the
+         * observation and the replayed world have the same number tapped. Other permanents are not considered here
+         * (any other difference of theirs is refused separately).
+         */
+        private static boolean tappedPermutation(Map<String, Object> current, Map<String, Object> projected, List<String> tapped) {
+            List<Object> seen = Json.arr(current, "players"), replayed = Json.arr(projected, "players");
+            if (seen == null || replayed == null || seen.size() != replayed.size()) return false;
+            java.util.Set<String> signatures = new java.util.HashSet<>();
+            for (String d : tapped) {
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("^/players/(\\d+)/battlefield/(\\d+)/").matcher(d);
+                if (!m.find()) return false;
+                int p = Integer.parseInt(m.group(1)), i = Integer.parseInt(m.group(2));
+                List<Object> a = Json.arr(Json.obj(seen.get(p)), "battlefield"), b = Json.arr(Json.obj(replayed.get(p)), "battlefield");
+                if (a == null || b == null || i >= a.size() || i >= b.size()) return false;
+                String sa = p + ":" + untapped(Json.obj(a.get(i))), sb = p + ":" + untapped(Json.obj(b.get(i)));
+                if (!sa.equals(sb)) return false;
+                signatures.add(sa);
+            }
+            Map<String, Integer> counts = new java.util.HashMap<>();
+            for (int p = 0; p < seen.size(); p++) {
+                List<Object> a = Json.arr(Json.obj(seen.get(p)), "battlefield"), b = Json.arr(Json.obj(replayed.get(p)), "battlefield");
+                if (a == null || b == null) return false;
+                for (Object o : a) {
+                    String sig = p + ":" + untapped(Json.obj(o));
+                    if (signatures.contains(sig) && Boolean.TRUE.equals(Json.obj(Json.obj(o), "permanent").get("tapped"))) counts.merge(sig, 1, Integer::sum);
+                }
+                for (Object o : b) {
+                    String sig = p + ":" + untapped(Json.obj(o));
+                    if (signatures.contains(sig) && Boolean.TRUE.equals(Json.obj(Json.obj(o), "permanent").get("tapped"))) counts.merge(sig, -1, Integer::sum);
+                }
+            }
+            for (int count : counts.values()) if (count != 0) return false;
+            return true;
+        }
+        private static String untapped(Map<String, Object> object) {
+            Map<String, Object> copy = Json.obj(Json.copy(object));
+            copy.remove("object_id");
+            Map<String, Object> permanent = Json.obj(copy, "permanent");
+            if (permanent != null) permanent.remove("tapped");
+            // References to other objects carry each side's own ids; compare them as the observation diff does.
+            return Json.canonical(ObsCompare.normalize(copy));
+        }
+        /** Record the anchor world's own characteristic gaps (object id and field: observed and projected values). */
+        void recordGaps(Map<String, Object> observation, Map<String, Object> projected) {
+            for (String d : ObsCompare.diff(observation, projected, 1000)) {
+                String[] at = gapAt(d);
+                if (at == null) continue;
+                Map<String, Object> seen = objectAt(observation, at), replayed = objectAt(projected, at);
+                if (seen != null && replayed != null && Json.str(seen, "object_id") != null) {
+                    anchorGaps.put(Json.str(seen, "object_id") + "/" + at[2],
+                            new String[]{characteristic(seen, at[2]), characteristic(replayed, at[2])});
+                }
+            }
+        }
+        private static String[] gapAt(String difference) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("^/players/(\\d+)/battlefield/(\\d+)/characteristics/(power|toughness|keywords)(?:/\\d+)? \\(")
+                    .matcher(difference);
+            return m.find() ? new String[]{m.group(1), m.group(2), m.group(3)} : null;
+        }
+        private static Map<String, Object> objectAt(Map<String, Object> observation, String[] at) {
+            List<Object> players = Json.arr(observation, "players");
+            int player = Integer.parseInt(at[0]), index = Integer.parseInt(at[1]);
+            if (players == null || player >= players.size()) return null;
+            List<Object> battlefield = Json.arr(Json.obj(players.get(player)), "battlefield");
+            return battlefield == null || index >= battlefield.size() ? null : Json.obj(battlefield.get(index));
+        }
+        private static String characteristic(Map<String, Object> object, String field) {
+            Map<String, Object> ch = Json.obj(object, "characteristics");
+            return ch == null ? "absent" : Json.canonical(ch.get(field));
         }
         void priority(String seat, SearchPlayer p, Game game) {
             if (passes.isEmpty() || !seat.equals(passes.removeFirst())) {
@@ -293,8 +409,71 @@ final class MageZeroSearchReplay {
             } catch (RuntimeException e) { throw new Failure(e); }
         }
         @Override public void selectAttackers(Game game, UUID player) {
-            rejectReplay(game, "attack");
-            super.selectAttackers(game, player);
+            Result replay = context(game);
+            if (replay == null || replay.attackDeclarations == 0) {
+                rejectReplay(game, "attack");
+                super.selectAttackers(game, player);
+                return;
+            }
+            try { replayAttacks(replay, game, player); }
+            catch (RuntimeException e) { throw new Failure(e); }
+        }
+        /**
+         * The recorded declaration group, declared as MageZero v0.2's selectAttackersOneAtATime would: available
+         * attackers in id order, one answer each, kept in the use history the search root later replays. Only the
+         * group's first substep shows the state before any declaration, so it alone is compared here; the callback
+         * that follows is compared in full.
+         */
+        private void replayAttacks(Result replay, Game game, UUID attackingPlayer) {
+            if (!getId().equals(replay.world.player(replay.world.viewer)) || !getId().equals(attackingPlayer)
+                    || replay.replayed != 0 || replay.attackDeclarations > replay.earlier.size()) {
+                throw new IllegalArgumentException("recorded attack declarations do not open the callback replay");
+            }
+            Map<UUID, UUID> picks = new java.util.HashMap<>();
+            for (int i = 0; i < replay.attackDeclarations; i++) {
+                Map<String, Object> entry = Json.obj(replay.earlier.get(i));
+                Map<String, Object> past = Json.obj(entry, "decision");
+                Map<String, Object> semantic = selectedSemantic(past, Json.obj(entry, "selection"));
+                if (!"declare_attack".equals(Json.str(semantic, "kind"))) {
+                    throw new IllegalArgumentException("recorded attack group holds another decision");
+                }
+                if (i == 0) replay.compare(game, past);
+                UUID attacker = replay.world.idToUuid.get(Json.str(Json.obj(semantic, "attacker"), "object_id"));
+                Map<String, Object> defender = Json.obj(semantic, "defender");
+                UUID target = defender == null ? null : defender.get("player") instanceof String
+                        ? replay.world.player(Json.str(defender, "player"))
+                        : replay.world.idToUuid.get(Json.str(defender, "object_id"));
+                if (attacker == null || picks.containsKey(attacker) || defender != null && target == null) {
+                    throw new IllegalArgumentException("recorded attack declaration is not bound to the world");
+                }
+                picks.put(attacker, target);
+                replay.replayed++;
+            }
+            game.fireEvent(new mage.game.events.GameEvent(mage.game.events.GameEvent.EventType.DECLARE_ATTACKERS_STEP_PRE,
+                    null, null, attackingPlayer));
+            if (game.replaceEvent(mage.game.events.GameEvent.getEvent(mage.game.events.GameEvent.EventType.DECLARING_ATTACKERS,
+                    attackingPlayer, attackingPlayer))) {
+                throw new IllegalArgumentException("recorded attack declarations were replaced");
+            }
+            List<mage.game.permanent.Permanent> available = getAvailableAttackers(game);
+            available.sort(java.util.Comparator.comparing(mage.game.permanent.Permanent::getId));
+            java.util.Set<UUID> ids = new java.util.HashSet<>();
+            for (mage.game.permanent.Permanent creature : available) ids.add(creature.getId());
+            if (!ids.equals(picks.keySet())) {
+                throw new IllegalArgumentException("recorded attack group does not answer exactly the available attackers");
+            }
+            for (mage.game.permanent.Permanent creature : available) {
+                UUID target = picks.get(creature.getId());
+                boolean attack = target != null;
+                getPlayerHistory().useSequence.add(attack);
+                if (attack) {
+                    declareAttacker(creature.getId(), target, game, false);
+                    if (!game.getCombat().getAttackers().contains(creature.getId())) {
+                        throw new IllegalArgumentException("recorded attacker could not attack here");
+                    }
+                }
+            }
+            game.getPlayers().resetPassed();
         }
         @Override public void selectBlockers(Ability source, Game game, UUID player) {
             rejectReplay(game, "block");
@@ -398,6 +577,33 @@ final class MageZeroSearchReplay {
         if (result == null) throw new IllegalArgumentException("replay selection was not offered");
         return result;
     }
+    /**
+     * Opt-in (the graph frontend): cards now in the viewer's hand whose ids appear nowhere in the anchor observation
+     * were drawn since the anchor (Refute's "draw a card, then discard a card", say). The callback shows them, so the
+     * anchor's sampled library starts with them, in hand order, and the replayed draws reproduce the same cards and ids.
+     * Skipped when the anchor already pins a position from the library's top. Returns the number pinned.
+     */
+    static int pinVisibleDraws(Map<String, Object> anchor, Map<String, Object> decision, List<Object> known, String viewer) {
+        for (Object entry : known) {
+            Map<String, Object> fact = Json.obj(entry);
+            if (viewer.equals(Json.str(fact, "owner_seat")) && "library".equals(Json.str(fact, "zone"))
+                    && fact.get("position_from_top") != null) return 0;
+        }
+        String before = Json.canonical(anchor.get("observation"));
+        int position = 0;
+        for (Object item : Json.arr(Json.obj(decision, "observation"), "players")) {
+            Map<String, Object> player = Json.obj(item);
+            if (!viewer.equals(Json.str(player, "seat"))) continue;
+            for (Object held : Json.arr(player, "hand")) {
+                Map<String, Object> card = Json.obj(held);
+                String id = Json.str(card, "object_id"), name = Json.str(card, "card_name");
+                if (id == null || name == null || before.contains("\"" + id + "\"")) continue;
+                known.add(Json.map("object_id", id, "card_name", name, "owner_seat", viewer, "zone", "library",
+                        "how", "looked_at", "position_from_top", (long) position++));
+            }
+        }
+        return position;
+    }
     static Result run(Map<String, Object> record, RemoteModelEvaluator evaluator,
                       MCTSDefaults settings, boolean diagnostic) {
         Map<String, Object> anchor = Json.obj(record, "anchor");
@@ -411,6 +617,17 @@ final class MageZeroSearchReplay {
         result.decision = Json.obj(record, "decision");
         Map<String, Object> history = Json.obj(record, "replay");
         if (history == null) throw new IllegalArgumentException("callback search needs explicit replay history");
+        Object gaps = history.get("characteristic_gaps");
+        if (gaps != null && !Boolean.TRUE.equals(gaps)) throw new IllegalArgumentException("invalid characteristic gap opt-in");
+        result.tolerateGaps = Boolean.TRUE.equals(gaps);
+        Object fungible = history.get("fungible_tapped");
+        if (fungible != null && !Boolean.TRUE.equals(fungible)) throw new IllegalArgumentException("invalid fungible tapped opt-in");
+        result.fungibleTapped = Boolean.TRUE.equals(fungible);
+        Object attacks = history.get("attack_declarations");
+        if (attacks != null) {
+            if (!(attacks instanceof Long) || (Long) attacks < 1) throw new IllegalArgumentException("invalid attack declaration count");
+            result.attackDeclarations = ((Long) attacks).intValue();
+        }
         result.earlier = new ArrayList<>(Json.arr(history, "earlier"));
         for (Object seat : Json.arr(history, "priority_passes")) {
             if (!(seat instanceof String) || !("p0".equals(seat) || "p1".equals(seat))) {
@@ -445,6 +662,7 @@ final class MageZeroSearchReplay {
                 if (!present) known.add(Json.copy(card));
             }
         }
+        int drawsPinned = Boolean.TRUE.equals(history.get("visible_draws")) ? pinVisibleDraws(a, result.decision, known, viewer) : 0;
         observation.put("known", known);
         KitContext.reset(); GameAccess.reset(); KitRandom.installBoot();
         List<String> flags = WorldBuilder.restoreVisibleNames(observation, Json.obj(a, "x_history"));
@@ -458,6 +676,14 @@ final class MageZeroSearchReplay {
         spec.otherFactory = seat -> other[0] = new ReplayPlayer(seat);
         result.world = WorldBuilder.build(spec);
         result.world.flags.addAll(flags);
+        if (drawsPinned > 0) result.world.flags.add("approximate:visible_draws_pinned");
+        if (result.tolerateGaps && result.world.flags.contains("approximate:unexplained_characteristics")) {
+            try {
+                result.recordGaps(observation, RoundTrip.project(result.world, RoundTrip.flagsFrom(a),
+                        Json.str(observation, "priority_seat"), Json.arr(observation, "known")));
+            } catch (RuntimeException e) { throw e; }
+            catch (Exception e) { throw new IllegalStateException("callback anchor projection failed", e); }
+        }
         for (String flag : result.world.flags) {
             if (flag.startsWith("unsupported:") || flag.startsWith("horizon:")) {
                 throw new IllegalArgumentException("callback anchor is unsupported: " + flag);
