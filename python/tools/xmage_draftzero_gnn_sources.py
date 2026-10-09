@@ -88,6 +88,8 @@ SOURCES = {
         ("live.getEntityName(c.getTargetAction(), me)", "GameAccess.entityName(live, c.getTargetAction(), me)"),
         ("GameStateEvaluator3.evaluateNormalized(eng.targetPlayer, eng.getGame())",
          "spellbench.models.draftzero.gnn.GnnCompat.heuristicLeafRefused()"),
+        # The staged v0.2 evaluator is synchronous behind inferAsync (flat networks only; unused here).
+        ("cfg.nn.infer(idx)", "cfg.nn.inferAsync(idx).join()"),
         ("List.of(", LIST_OF),
     ]),
 }
