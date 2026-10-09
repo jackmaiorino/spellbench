@@ -426,6 +426,9 @@ class _Game:
                             adjudication=adjudication, last_selection_seat=None)
 
     def _forfeit(self, seat: str, failure: SeatFailure) -> GameResult:
+        if failure.diagnostic:
+            # Operator diagnostics never enter the adjudication, digest, or another peer's input.
+            self.diagnostics.append(failure.diagnostic)
         return self._forfeit_for(seat, failure.cause, failure.detail)
 
     def _draw(self, detail: str) -> GameResult:
