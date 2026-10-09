@@ -78,6 +78,7 @@ jobs:
             --inputs "$RUNNER_TEMP/model-inputs" --search-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-inputs "$RUNNER_TEMP/model-inputs" \
             --magezero-search-inputs "$RUNNER_TEMP/model-inputs" \
+            --draftzero-gnn-inputs "$RUNNER_TEMP/model-inputs" \
             --engine "$RUNNER_TEMP/xmage-build" --out "$RUNNER_TEMP/model-build"
           java -cp "$RUNNER_TEMP/model-build/model" spellbench.models.magezero.v02.search.TransportCheck
           java -cp "$RUNNER_TEMP/model-build/model:$RUNNER_TEMP/model-build/core:$RUNNER_TEMP/model-build/kit:$RUNNER_TEMP/xmage-build/lib/*" spellbench.kit.xmage.MageZeroSearchSettingsCheck
