@@ -24,7 +24,7 @@ from .login import default_credentials_path, load_credentials
 from .renewal import renew_profile
 from .provider import ProviderError
 from .prompt import PROMPT_FORMATS
-from .run_budget import BudgetedProvider, RunBudget
+from .run_budget import BudgetedProvider, RunBudget, STAGE_EXHAUSTED
 
 
 class BoundedLog:
@@ -61,6 +61,8 @@ class PlanProvider:
             ))
         except Exception as exc:
             self._failed = True
+            if isinstance(exc, ProviderError) and exc.code in STAGE_EXHAUSTED:
+                raise
             if not isinstance(exc, ProviderError) or exc.code != "profile_renewal_failed":
                 self.budget.fail("profile_renewal_failed")
             raise ProviderError("profile_renewal_failed") from None
@@ -107,6 +109,8 @@ def main() -> int:
     parser.add_argument("--run-budget", type=Path, required=True)
     parser.add_argument("--run-budget-map", type=Path)
     parser.add_argument("--run-budget-map-sha256")
+    parser.add_argument("--admission-scope", type=Path)
+    parser.add_argument("--admission-scope-sha256")
     parser.add_argument("--log-dir", type=Path, required=True)
     parser.add_argument("--credentials", type=Path)
     parser.add_argument("--renew-profile-before-game", action="store_true",
@@ -139,6 +143,7 @@ def main() -> int:
             raise ValueError("output limit must be positive")
         budget = RunBudget(args.run_budget, model=args.model,
                            path_map=args.run_budget_map, path_map_sha256=args.run_budget_map_sha256,
+                           admission_scope=args.admission_scope, admission_scope_sha256=args.admission_scope_sha256,
                            expected_limits={"max_requests": args.max_run_requests,
                                             "max_reported_tokens": args.max_run_tokens,
                                             "max_wall_seconds": args.max_run_wall_seconds,
@@ -182,13 +187,15 @@ def main() -> int:
                                   if args.renew_profile_before_game else None)
             availability_error = ((args.allow_timeout_forfeits and provider.settled_error == "timeout")
                                   or (args.allow_http503_forfeits and provider.settled_error == "http_503"))
-            if status != 0 and not (session._failed and availability_error):
+            stage_exhausted = (provider.admission_error in STAGE_EXHAUSTED
+                               or provider.settled_error in STAGE_EXHAUSTED)
+            if status != 0 and not (session._failed and (availability_error or stage_exhausted)):
                 # Choice validation and child transport happen after provider
                 # accounting. Their failure cannot masquerade as a completed call.
                 budget.fail("hosted_broker_failed")
             return status
-    except (ValueError, OSError, ProviderError, SpellbenchError):
-        if budget is not None:
+    except (ValueError, OSError, ProviderError, SpellbenchError) as exc:
+        if budget is not None and not (isinstance(exc, ProviderError) and exc.code in STAGE_EXHAUSTED):
             # An exception in logging, transport or renewal also stops admission,
             # even if a previous request in this broker happened to time out.
             budget.fail("hosted_broker_failed")

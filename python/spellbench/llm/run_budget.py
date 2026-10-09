@@ -30,6 +30,8 @@ SERVICE_FORFEIT_SCHEMA = "spellbench-llm-run-budget/v4"
 DEADLINE_EXTENSION_SCHEMA = "spellbench-llm-run-budget-deadline/v1"
 LIMIT_INCREASE_SCHEMA = "spellbench-llm-budget-increase/v1"
 IDLE_AMENDMENT_SCHEMA = "spellbench-llm-idle-budget-amendment/v1"
+ADMISSION_SCOPE_SCHEMA = "spellbench-llm-admission-scope/v1"
+STAGE_EXHAUSTED = frozenset(("run_budget_stage_requests_exhausted", "run_budget_stage_tokens_exhausted"))
 LIMIT_NAMES = ("max_requests", "max_reported_tokens", "max_wall_seconds", "max_inflight")
 INHERITED_NAMES = ("requests", "completed", "failed", "unknown_usage", "reported_input_tokens",
                    "reported_output_tokens", "uncertain_reserved_tokens", "host_failures")
@@ -205,14 +207,52 @@ def _terminal_request(policy, row) -> bool:
 
 class RunBudget:
     def __init__(self, path: Path, *, model: str, expected_limits: dict | None = None,
-                 path_map: Path | None = None, path_map_sha256: str | None = None):
+                 path_map: Path | None = None, path_map_sha256: str | None = None,
+                 admission_scope: Path | None = None, admission_scope_sha256: str | None = None):
         self.path, self.model = Path(path), model
         self.paths = BudgetPaths(self.path, path_map, path_map_sha256)
         self.expected_limits = dict(expected_limits or {})
+        self.admission_scope, self.admission_scope_sha256 = admission_scope, admission_scope_sha256
+        if (admission_scope is None) != (admission_scope_sha256 is None):
+            raise ProviderError("run_budget_admission_scope_changed")
         with self._transaction() as database:
             policy = self._policy(database)
             if policy["model"] != model:
                 raise ProviderError("run_budget_model_mismatch")
+            self._admission_limits(policy)
+
+    def _admission_limits(self, policy: dict) -> tuple[int, int]:
+        """A hashed stage scope restricts admission without changing cumulative policy."""
+        limits = policy["max_requests"], policy["max_reported_tokens"]
+        if self.admission_scope is None:
+            return limits
+        try:
+            if self.paths.manifest is None or _digest(self.admission_scope) != self.admission_scope_sha256:
+                raise ValueError("scope changed or unmapped budget")
+            record = json.loads(self.admission_scope.read_bytes())
+            if (set(record) != {"schema", "model", "budget", "budget_map_sha256", "baseline_requests",
+                                "baseline_accounted_tokens", "max_additional_requests", "max_additional_tokens",
+                                "user_authority"}
+                    or record["schema"] != ADMISSION_SCOPE_SCHEMA or record["model"] != self.model
+                    or record["budget"] != self.paths.key(self.path)
+                    or record["budget_map_sha256"] != self.paths.sha256
+                    or any(type(record[name]) is not int or record[name] < 0
+                           for name in ("baseline_requests", "baseline_accounted_tokens"))
+                    or any(type(record[name]) is not int or record[name] < 1
+                           for name in ("max_additional_requests", "max_additional_tokens"))
+                    or not isinstance(record["user_authority"], str) or not record["user_authority"].strip()):
+                raise ValueError("scope does not bind this mapped stage")
+            with sqlite3.connect(self.paths.snapshot.as_uri() + "?mode=ro", uri=True) as retained:
+                retained.row_factory = sqlite3.Row
+                initial = json.loads(retained.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+                totals = _totals(initial, retained.execute("SELECT * FROM requests").fetchall())
+            tokens = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
+            if record["baseline_requests"] != totals["requests"] or record["baseline_accounted_tokens"] != tokens:
+                raise ValueError("scope baseline is not the immutable initial accounting")
+            return (min(limits[0], totals["requests"] + record["max_additional_requests"]),
+                    min(limits[1], tokens + record["max_additional_tokens"]))
+        except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
+            raise ProviderError("run_budget_admission_scope_changed") from None
 
     @staticmethod
     def create(path: Path, *, model: str, requests: int, tokens: int,
@@ -870,15 +910,18 @@ class RunBudget:
             if remaining <= 0:
                 raise ProviderError("run_budget_deadline_exhausted")
             totals = _totals(policy, rows)
-            if totals["requests"] >= policy["max_requests"]:
-                raise ProviderError("run_budget_requests_exhausted")
+            request_limit, token_limit = self._admission_limits(policy)
+            if totals["requests"] >= request_limit:
+                raise ProviderError("run_budget_stage_requests_exhausted" if request_limit < policy["max_requests"]
+                                    else "run_budget_requests_exhausted")
             if len(pending) >= policy["max_inflight"]:
                 raise ProviderError("run_budget_concurrency_exhausted")
             used = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
             reserved = sum(row["reserved_tokens"] for row in pending)
             estimate = prompt.bytes + output_tokens
-            if used + reserved + estimate > policy["max_reported_tokens"]:
-                raise ProviderError("run_budget_tokens_exhausted")
+            if used + reserved + estimate > token_limit:
+                raise ProviderError("run_budget_stage_tokens_exhausted" if token_limit < policy["max_reported_tokens"]
+                                    else "run_budget_tokens_exhausted")
             cursor = database.execute(
                 "INSERT INTO requests (prompt_sha256,reserved_tokens,started,status,lease_deadline) VALUES (?,?,?,?,?)",
                 (prompt.sha256, estimate, time.time(), "pending", time.time() + min(timeout_s, remaining) + 60),
@@ -893,6 +936,7 @@ class RunBudget:
                 raise ProviderError("run_budget_request_mismatch")
             policy = self._policy(database)
             counts = (None, None) if result is None else (result.prompt_tokens, result.completion_tokens)
+            stage_error = None
             if result is not None:
                 if result.model != self.model:
                     error = "run_budget_model_mismatch"
@@ -900,6 +944,13 @@ class RunBudget:
                 used = totals["reported_input_tokens"] + totals["reported_output_tokens"] + totals["uncertain_reserved_tokens"]
                 if used + sum(counts) > policy["max_reported_tokens"]:
                     error = "run_budget_tokens_exceeded"
+                if self.admission_scope is not None:
+                    try:
+                        _, token_limit = self._admission_limits(policy)
+                        if used + sum(counts) > token_limit:
+                            stage_error = "run_budget_stage_tokens_exhausted"
+                    except ProviderError as exc:
+                        stage_error = exc.code
                 cutoff = self._effective_deadline(policy)
                 if cutoff is not None and time.time() >= cutoff:
                     error = "run_budget_deadline_exhausted"
@@ -910,7 +961,10 @@ class RunBudget:
                  None if result is None else result.response_id,
                  None if result is None else result.model, elapsed_ms, error, request),
             )
-            return error
+            # Known provider usage must settle even after a stage boundary.
+            # Its request remains completed; the stage refusal is returned to
+            # the caller without inventing an active cumulative failure row.
+            return error or stage_error
 
     def summary(self) -> dict:
         with self._transaction() as database:
@@ -935,16 +989,19 @@ class RunBudget:
     def check(self, *, allow_pending: bool = False) -> None:
         """Refuse a failed, depleted or unresolved phase without reserving inference."""
         summary = self.summary()
+        request_limit, token_limit = self._admission_limits(summary["policy"])
         if summary["policy"].get("terminal_error") or summary["active_terminal_failures"]:
             raise ProviderError("run_budget_already_failed")
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
         if summary["effective_deadline"] is not None and summary["effective_deadline"] <= time.time():
             raise ProviderError("run_budget_deadline_exhausted")
-        if summary["requests"] >= summary["policy"]["max_requests"]:
-            raise ProviderError("run_budget_requests_exhausted")
-        if summary["accounted_tokens"] >= summary["policy"]["max_reported_tokens"]:
-            raise ProviderError("run_budget_tokens_exhausted")
+        if summary["requests"] >= request_limit:
+            raise ProviderError("run_budget_stage_requests_exhausted" if request_limit < summary["policy"]["max_requests"]
+                                else "run_budget_requests_exhausted")
+        if summary["accounted_tokens"] >= token_limit:
+            raise ProviderError("run_budget_stage_tokens_exhausted" if token_limit < summary["policy"]["max_reported_tokens"]
+                                else "run_budget_tokens_exhausted")
 
 
 class BudgetedProvider:
@@ -952,6 +1009,11 @@ class BudgetedProvider:
         self.provider, self.budget, self.output_tokens = provider, budget, output_tokens
         self._failed = False
         self._settled_error = None
+        self._admission_error = None
+
+    @property
+    def admission_error(self) -> str | None:
+        return self._admission_error
 
     @property
     def settled_error(self) -> str | None:
@@ -964,7 +1026,11 @@ class BudgetedProvider:
         if type(timeout_s) not in (float, int) or not math.isfinite(timeout_s) or timeout_s <= 0:
             raise ProviderError("timeout")
         deadline = time.monotonic() + timeout_s
-        request, remaining = self.budget.reserve(prompt, output_tokens=self.output_tokens, timeout_s=timeout_s)
+        try:
+            request, remaining = self.budget.reserve(prompt, output_tokens=self.output_tokens, timeout_s=timeout_s)
+        except ProviderError as exc:
+            self._admission_error = exc.code
+            raise
         started = time.monotonic()
         result = None
         error = None
@@ -1021,8 +1087,11 @@ def _hosted_budgets(config):
             raise ProviderError("run_budget_ambiguous_command")
 
         map_option = option("--run-budget-map")
+        scope_option = option("--admission-scope")
         budget = RunBudget(Path(option("--run-budget")), model=option("--model"),
                            path_map=Path(map_option) if map_option else None,
+                           admission_scope=Path(scope_option) if scope_option else None,
+                           admission_scope_sha256=option("--admission-scope-sha256"),
                            path_map_sha256=option("--run-budget-map-sha256"), expected_limits={
             "max_requests": int(option("--max-run-requests", 4096)),
             "max_reported_tokens": int(option("--max-run-tokens", 10_000_000)),

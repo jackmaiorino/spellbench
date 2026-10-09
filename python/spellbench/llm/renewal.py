@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .login import refresh_credentials
 from .provider import ProviderError
-from .run_budget import RunBudget
+from .run_budget import RunBudget, STAGE_EXHAUSTED
 
 GAME_PROFILE_HORIZON_S = 1800
 PROFILE_LOCK_TIMEOUT_S = 35
@@ -25,15 +25,24 @@ def renew_profile(path: Path, budget: RunBudget) -> None:
     if budget.paths.manifest is not None:
         command += ["--run-budget-map", str(budget.paths.manifest),
                     "--run-budget-map-sha256", budget.paths.sha256]
+    if budget.admission_scope is not None:
+        command += ["--admission-scope", str(budget.admission_scope),
+                    "--admission-scope-sha256", budget.admission_scope_sha256]
     child = subprocess.Popen(
         command,
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:
-        if child.wait(timeout=RENEWAL_TIMEOUT_S) != 0:
+        status = child.wait(timeout=RENEWAL_TIMEOUT_S)
+        if status in (3, 4) and budget.admission_scope is not None:
+            # Revalidate the parent rather than trusting an exit-code claim.
+            budget.check(allow_pending=True)
+        if status != 0:
             raise ProviderError("profile_renewal_failed")
         budget.check(allow_pending=True)
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, ProviderError) and exc.code in STAGE_EXHAUSTED:
+            raise
         # Stop admission before killing the child and releasing its profile
         # lock. Another waiter must not reuse an uncertain rotating token.
         budget.fail("profile_renewal_failed")
@@ -50,10 +59,13 @@ def main() -> int:
     parser.add_argument("--run-budget", type=Path, required=True)
     parser.add_argument("--run-budget-map", type=Path)
     parser.add_argument("--run-budget-map-sha256")
+    parser.add_argument("--admission-scope", type=Path)
+    parser.add_argument("--admission-scope-sha256")
     parser.add_argument("--model", required=True)
     args = parser.parse_args()
     budget = RunBudget(args.run_budget, model=args.model, path_map=args.run_budget_map,
-                       path_map_sha256=args.run_budget_map_sha256)
+                       path_map_sha256=args.run_budget_map_sha256,
+                       admission_scope=args.admission_scope, admission_scope_sha256=args.admission_scope_sha256)
     try:
         refresh_credentials(
             args.credentials, minimum_valid_seconds=GAME_PROFILE_HORIZON_S,
@@ -62,7 +74,9 @@ def main() -> int:
             on_failure=lambda: budget.fail("profile_renewal_failed"),
         )
         return 0
-    except Exception:
+    except Exception as exc:
+        if isinstance(exc, ProviderError) and exc.code in STAGE_EXHAUSTED:
+            return 3 if exc.code == "run_budget_stage_requests_exhausted" else 4
         budget.fail("profile_renewal_failed")
         return 2
 
