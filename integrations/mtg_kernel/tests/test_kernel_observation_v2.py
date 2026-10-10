@@ -339,3 +339,39 @@ def test_mana_ability_semantics_bind_the_exact_native_row_index(monkeypatch):
     assert result["ability_index"] == 1
     with pytest.raises(ValueError, match="exact native index"):
         ordinary_semantic(semantic, value, {}, instance, {}, candidate_id=7)
+
+
+def test_spell_copy_target_choice_is_announced_by_its_public_copy_item(monkeypatch):
+    # Chain Lightning: after paying {R}{R}, the copier picks the copy's one
+    # new target while the copy already sits on the stack.
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[1]))
+    from kernel_semantics_v2 import ordinary_semantic
+    value = raw()
+    parent = card(arena=60, zone="Stack", zcc=2)["stable"]
+    copy = card(arena=122, zone="Stack")["stable"]
+    items = [stack(parent), stack(copy)]
+    for item in items:
+        item["stack_item_kind"] = "spell"
+    items[1]["is_copy"] = True
+    value["projection"]["stack"] = items
+    value["projection"]["engine_context"]["pending_spell_copy"] = {
+        "parent": parent, "player": "p0", "stage": "target", "copy": copy,
+        "inherited_target": {"target_kind": "player", "player": "p0"}}
+    support = {"stack_instances": ["4", "5"]}
+    instance = adapter()
+    observation = instance.project(value, support)
+    copied = next(item for item in observation["stack"] if item["copy"])
+    stable = module.normalized_zones(copy)
+    semantic = {"kind": "choose_target", "remaining": 1, "target": {"player": "p1"}, "source": {
+        "object_id": module.legacy_id(stable), "card_name": "Island", "zone": "stack",
+        "owner_seat": "p0", "controller_seat": "p0"}}
+    result = ordinary_semantic(semantic, value, support, instance, {})
+    assert result["source"]["object_id"] == copied["object_id"]
+    assert (result["slot"], result["selected_count"], result["minimum"], result["maximum"]) == (0, 0, 1, 1)
+    assert result["target"] == {"player": "p1"}
+    semantic["source"]["object_id"] = module.legacy_id(module.normalized_zones(parent))
+    with pytest.raises(ValueError, match="another source"):
+        ordinary_semantic(semantic, value, support, instance, {})
+    value["projection"]["engine_context"]["pending_spell_copy"]["stage"] = "retarget"
+    with pytest.raises(ValueError, match="actor-visible announcement"):
+        ordinary_semantic(semantic, value, support, instance, {})

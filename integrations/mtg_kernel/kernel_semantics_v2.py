@@ -5,8 +5,18 @@ This conversion never forwards native references or display strings.
 """
 from __future__ import annotations
 
-from kernel_observation_v2 import ProjectionError, normalized_zones
+from kernel_observation_v2 import ProjectionError, legacy_id, native_key, normalized_zones
 from spellbench.candidates import SELECT_PURPOSES, validate_semantic
+
+
+def copy_stack_ref(raw, support, projection, copy):
+    """The public stack item of a spell copy, which has no card of its own."""
+    stack = normalized_zones(raw)["projection"]["stack"]
+    found = [instance for item, instance in zip(stack, support["stack_instances"])
+             if item["is_copy"] and native_key(item["source"]) == native_key(copy)]
+    if len(found) != 1 or found[0] not in projection.stack_refs:
+        raise ProjectionError("spell copy is not a visible stack item")
+    return projection.stack_refs[found[0]].copy()
 
 
 def ordinary_semantic(semantic, raw, support, projection, group, *, candidate_id=None):
@@ -51,16 +61,25 @@ def ordinary_semantic(semantic, raw, support, projection, group, *, candidate_id
     elif kind == "choose_target":
         pending = context.get("pending_cast") or context.get("pending_activation")
         bounds = support.get("target_bounds")
+        copy = context.get("pending_spell_copy")
         if (pending is not None or support.get("announcing_trigger")) and isinstance(bounds, dict):
             selected = bounds["selected_count"]
             minimum, maximum, slot = bounds["minimum"], bounds["maximum"], bounds["slot"]
+            chooser = source()
+        elif copy and copy["stage"] == "target" and copy["copy"] is not None:
+            # A copy that is already on the stack chooses its one new target
+            # (Chain Lightning). The public copy item is the chooser.
+            if (semantic.get("source") or {}).get("object_id") != legacy_id(copy["copy"]):
+                raise ProjectionError("copy target choice names another source")
+            chooser = copy_stack_ref(raw, support, projection, copy["copy"])
+            selected, minimum, maximum, slot = 0, 1, 1, 0
         else:
             raise ProjectionError("target choice lacks its actor-visible announcement")
         # This native announcement chooses fixed targets in one slot. The
         # legacy remaining count is the remaining fixed cardinality.
         if maximum - selected != semantic["remaining"]:
             raise ProjectionError("target bounds disagree with the native remaining count")
-        result = {"kind": kind, "source": source(), "slot": slot, "target": target(semantic["target"]),
+        result = {"kind": kind, "source": chooser, "slot": slot, "target": target(semantic["target"]),
                   "selected_count": selected, "minimum": minimum, "maximum": maximum}
     elif kind == "finish_target_selection":
         result = {"kind": kind, "source": source(), "slot": 0, "selected_count": semantic["selected_count"]}

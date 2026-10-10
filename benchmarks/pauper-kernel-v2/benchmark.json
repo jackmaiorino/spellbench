@@ -35,7 +35,7 @@
     "a48",
     "c12"
   ],
-  "evaluation_version": "pauper-neutral-v2.1.0",
+  "evaluation_version": "pauper-neutral-v2.2.0",
   "extensions": [
     "x_kernel_flat_v4",
     "x_public_history_v1"
