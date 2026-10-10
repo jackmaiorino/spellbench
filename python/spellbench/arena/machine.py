@@ -153,11 +153,18 @@ def free_bytes(path: Path) -> int:
 def machine_facts(
     volumes: Mapping[str, Path],
     *,
-    memory: Callable[[], int | None] = total_memory,
-    gpus: Callable[[], Sequence[str]] = nvidia_gpus,
-    disk_free: Callable[[Path], int] = free_bytes,
+    memory: Callable[[], int | None] | None = None,
+    gpus: Callable[[], Sequence[str]] | None = None,
+    disk_free: Callable[[Path], int] | None = None,
 ) -> MachineFacts:
-    """This machine's memory, GPUs and the free bytes of each target volume, by role (``run_dir``, ``pin_root``)."""
+    """This machine's memory, GPUs and the free bytes of each target volume, by role (``run_dir``, ``pin_root``).
+
+    A probe left out is this module's (``total_memory``, ``nvidia_gpus``, ``free_bytes``), looked up at call
+    time, so a probe patched on this module applies to every caller.
+    """
+    memory = total_memory if memory is None else memory
+    gpus = nvidia_gpus if gpus is None else gpus
+    disk_free = free_bytes if disk_free is None else disk_free
     return MachineFacts(memory_bytes=memory(), gpus=tuple(gpus()),
                         free_bytes=tuple(sorted((role, disk_free(Path(path))) for role, path in volumes.items())))
 

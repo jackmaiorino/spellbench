@@ -480,8 +480,8 @@ def test_a_grid_cell_names_the_sample_behind_its_share() -> None:
     # The share is over complete pairs only: 57 rated games, but 27 complete pairs (54 games).
     page = _pages()["benchmark"]
     cell = re.search(r'<td data-row="uniform" data-col="first" title="([^"]*)"', page)
-    assert cell and cell.group(1) == "over 27 complete pairs (54 games)"
-    assert 'title="over 32 complete pairs (64 games)"' in page
+    assert cell and cell.group(1) == "random vs first: 55% of the points, over 27 complete pairs (54 games)"
+    assert 'title="heuristic vs random: 60% of the points, over 32 complete pairs (64 games)"' in page
 
 
 def test_every_deck_and_style_gets_a_panel() -> None:
@@ -903,3 +903,119 @@ def test_a_script_url_in_a_data_field_never_becomes_a_link() -> None:
     for name, render_page, view in _fuzz_views():
         links = _Structure(render_page(_inject(view, "javascript:alert(1)", frozenset({"href"})))).links
         assert links and not [link for link in links if link.strip().lower().startswith("javascript:")], name
+
+
+# ---------------- axes, tiles, panel grid, card groups ----------------
+
+
+def test_ticks_are_round_values_inside_the_scale() -> None:
+    assert render._ticks((-560.0, 500.0)) == [-400, -200, 0, 200, 400]
+    assert render._ticks((970.0, 1420.0)) == [1000, 1100, 1200, 1300, 1400]
+    assert render._ticks((-1.0, 1.0)) == [-1, 0, 1]  # never a step below one Elo
+
+
+def test_the_hero_has_an_elo_axis_and_gridlines_and_hover_text() -> None:
+    home = _pages()["home"]
+    axis = _html(home, "li", "class", "axis")
+    assert '<span class="axis-title">Elo above random</span>' in axis and 'aria-hidden="true"' in home
+    assert re.search(r'<text x="[0-9.]+%" y="12" text-anchor="middle">0</text>', axis)
+    row = _html(home, "li", "data-bot", "heuristic")
+    assert 'class="gridline"' in row
+    assert "<title>heuristic: 101 Elo above random, 95% interval +52 to +150</title>" in row
+
+
+def test_a_leaderboard_has_an_elo_axis_an_anchor_line_and_hover_text() -> None:
+    page = _pages()["benchmark"]
+    overall = page[page.index('data-panel="overall"'):]
+    head = overall[overall.index("<thead>"):overall.index("</thead>")]
+    assert '<svg class="ticks"' in head and ">1000</text>" in head
+    row = _html(overall, "tr", "data-bot", "heuristic")
+    assert '<line class="zero"' in row  # the random bot's 1000
+    assert "<title>heuristic: Elo 1101, 95% interval 1052 to 1150</title>" in row
+
+
+def test_the_benchmark_page_opens_with_tiles_then_the_leaderboards_then_the_run() -> None:
+    page = _pages()["benchmark"]
+    tiles = _html(page, "dl", "class", "tiles")
+    text = re.sub(r"<[^>]+>", " ", tiles)
+    assert "Rated games" in text and "190" in text and "of 192 played" in text
+    assert "Bots" in text and "2 decks" in text
+    assert "Matchups measured" in text and "3" in text and "of 3 possible" in text
+    assert "Top rated" in text and 'href="../../models.html#model-heuristic"' in tiles and "1101 Elo" in text
+    order = [page.index(marker) for marker in ('class="tiles"', 'class="leaderboards"', 'class="matchups"',
+                                              '<section class="about">', 'class="details"')]
+    assert order == sorted(order)
+
+
+def test_the_top_rated_tile_skips_the_anchor_and_marks_a_bound() -> None:
+    bench = copy.deepcopy(BENCH)
+    bench["overall"] = [bench["overall"][1], {**bench["overall"][0], "bound": "lower"}, bench["overall"][2]]
+    text = re.sub(r"<[^>]+>", " ", _html(render.render_benchmark(bench), "dl", "class", "tiles"))
+    assert "heuristic" in text and f"{GE}{NBSP}1101 Elo" in text
+
+
+def _panel_bench() -> dict[str, Any]:
+    """BENCH as a reference-panel board: heuristic is the panel, and uniform never met first."""
+    bench = copy.deepcopy(BENCH)
+    bench["grid"]["cells"][1][2] = bench["grid"]["cells"][2][1] = None
+    bench["evaluation"] = {"opponents": ["heuristic"], "sources": ["2026-09-26"], "caveat": "Panel caveat."}
+    return bench
+
+
+def test_a_reference_panel_grid_shows_only_the_panels_columns() -> None:
+    page = render.render_benchmark(_panel_bench())
+    grid = page[page.index('<table class="grid panel">'):]
+    assert grid.count('data-col="heuristic"') == 3 and 'data-col="uniform"' not in grid
+    assert "Entrants play the reference panel, not one another" in page
+    assert '<td data-row="heuristic" data-col="heuristic" class="self"></td>' in grid
+
+
+def test_a_panel_grid_falls_back_to_every_column_when_a_matchup_skips_the_panel() -> None:
+    bench = _panel_bench()
+    bench["grid"]["cells"][1][2] = {"score": 0.5, "games": 2, "complete_pairs": 1}
+    page = render.render_benchmark(bench)
+    assert '<table class="grid">' in page and page.count('data-col="uniform"') == 3
+    bench["evaluation"]["opponents"] = ["nobody"]
+    assert '<table class="grid">' in render.render_benchmark(bench)
+
+
+def test_the_grid_has_a_legend_and_tells_unplayed_cells_from_the_diagonal() -> None:
+    page = render.render_benchmark(_panel_bench())
+    assert '<div class="legend" aria-hidden="true">' in page and "not measured" in page
+    full = _pages()["benchmark"]
+    assert '<td data-row="first" data-col="first" class="self"></td>' in full
+    bench = copy.deepcopy(BENCH)
+    bench["grid"]["cells"][1][2] = None
+    assert '<td data-row="uniform" data-col="first" class="none"></td>' in render.render_benchmark(bench)
+
+
+def test_home_groups_live_waiting_and_proposed_benchmarks() -> None:
+    home = _pages()["home"]
+    groups = re.findall(r'<h3 class="group">([^<]+)</h3>', home)
+    assert groups == ["Live boards", "Awaiting a published run", "Proposed"]
+    live = home[home.index("Live boards"):home.index("Awaiting a published run")]
+    assert 'href="b/pauper-kernel/index.html"' in live and "New benchmark" not in live
+    empty = copy.deepcopy(HOME)
+    empty["benchmarks"], empty["proposed"] = [], []
+    assert '<p class="empty">No benchmarks yet.</p>' in render.render_home(empty)
+
+
+def test_a_live_card_lists_its_leaders() -> None:
+    home = copy.deepcopy(HOME)
+    home["benchmarks"][0]["leaders"] = [
+        {"label": "heuristic", "elo_milli": 1_101_499, "bound": None},
+        {"label": "first", "elo_milli": 1_050_000, "bound": "lower"},
+    ]
+    page = render.render_home(home)
+    mini = _html(page, "ol", "class", "leaders-mini")
+    assert '<li><span class="label">heuristic</span> <span class="num">1101</span></li>' in mini
+    assert f'<span class="num">{GE}{NBSP}1050</span>' in mini
+    assert 'class="leaders-mini"' not in _pages()["home"]  # no leaders, no list
+
+
+def test_the_models_page_opens_with_a_jump_list() -> None:
+    page = _pages()["models"]
+    jump = _html(page, "nav", "class", "jump")
+    assert [name for name in re.findall(r'href="#model-([^"]+)"', jump)] == ["g115", "heuristic", "uniform"]
+    assert ">random</a>" in jump
+    assert 'class="jump"' not in render.render_models({**MODELS, "models": []})

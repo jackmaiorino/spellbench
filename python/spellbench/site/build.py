@@ -525,7 +525,7 @@ def _home_view(
             "benchmark_count": len(table.benchmark_ids),
             "approximate": any(row.approximate for row in table.rows),
         },
-        "benchmarks": [{**_card(benchmark, runs.get(benchmark.id)),
+        "benchmarks": [{**_card(benchmark, runs.get(benchmark.id), stale.get(benchmark.id, frozenset())),
                         "other_runs": list((publications or {}).get(benchmark.id, ()))} for benchmark in benchmarks],
         "proposed": [{"title": item.title, "summary": item.summary, "needs": item.needs} for item in proposed],
     }
@@ -685,8 +685,9 @@ def _model_order(section: Mapping[str, Any]) -> tuple[bool, float, str]:
     return (section["kind"] == "builtin reference bot", -best, section["name"])
 
 
-def _card(benchmark: definition.Benchmark, run: _Run | None) -> dict[str, Any]:
-    """A benchmark card: the board run's counts when there is one, the definition's otherwise."""
+def _card(benchmark: definition.Benchmark, run: _Run | None, stale: frozenset[str] = frozenset()) -> dict[str, Any]:
+    """A benchmark card: the board run's counts and its top-rated bots when there is one, the definition's
+    counts otherwise. ``stale`` names the bots shown by registry identity, as on the benchmark page."""
     card = {
         "id": benchmark.id,
         "title": benchmark.title,
@@ -704,8 +705,26 @@ def _card(benchmark: definition.Benchmark, run: _Run | None) -> dict[str, Any]:
             games=run.board["games"]["total"],
             run_name=run.name,
             href=f"b/{benchmark.id}/index.html",
+            leaders=_card_leaders(benchmark, run, stale),
         )
     return card
+
+
+def _card_leaders(
+    benchmark: definition.Benchmark, run: _Run, stale: frozenset[str], count: int = 3
+) -> list[dict[str, Any]]:
+    """The board's top ``count`` rated bots other than the anchor, in leaderboard order."""
+    anchor_id = run.board["anchor"]["bot_id"]
+    leaders = []
+    for row in run.board["rows"]:
+        if row["bot_id"] == anchor_id or row["elo_milli"] is None:
+            continue
+        bot = None if row["name"] in stale else benchmark.bot(row["name"])
+        label = _display_of(bot, row["name"], run.owners.get(row["name"], ""))["label"]
+        leaders.append({"label": label, "elo_milli": row["elo_milli"], "bound": hero.rating_bound(row)})
+        if len(leaders) == count:
+            break
+    return leaders
 
 
 def _benchmark_view(benchmark: definition.Benchmark, run: _Run, stale: frozenset[str]) -> dict[str, Any]:
