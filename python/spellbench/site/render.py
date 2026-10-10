@@ -29,6 +29,12 @@ flag. A missing key raises KeyError, so a half-built view fails loudly.
 - Pages load nothing external: one inline stylesheet with light and dark
   color tokens, inline SVG charts, and on benchmark pages a few lines of tab
   script. Without script every tab panel shows under its own heading.
+- Charts read on their own: the Hero chart and every leaderboard draw an
+  Elo axis with faint gridlines, each chart mark carries its label as hover
+  text, and the matchup grid has a color legend. A benchmark page opens with
+  tiles for the board at a glance, then its leaderboards and matchups, then
+  the run's files, fairness verdict and setup. On a reference-panel board
+  the grid's columns are the panel's bots (``_panel_opponents``).
 - SVG x positions are percentages of the chart width with one decimal, so
   marks keep their shape at any width and the output stays stable.
 - A rating that is only a bound (a row whose ``bound`` is ``"lower"`` or
@@ -40,6 +46,7 @@ flag. A missing key raises KeyError, so a half-built view fails loudly.
 from __future__ import annotations
 
 import html
+import math
 from typing import Any, Iterable, Mapping, Sequence
 
 _SEP = " \N{MIDDLE DOT} "
@@ -260,18 +267,26 @@ main { padding-top: 40px; padding-bottom: 64px; }
 ol.hero { margin: 24px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
 ol.hero > li {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "who value" "bar bar" "chips chips";
-  align-items: center; gap: 6px 16px; padding: 12px 0; border-bottom: 1px solid var(--border);
+  align-items: center; gap: 4px 16px; padding: 10px 0; border-bottom: 1px solid var(--border);
 }
+/* the axis row stays in view while the list scrolls under it */
+ol.hero > li.axis { position: sticky; top: 0; z-index: 1; padding: 8px 0 4px; background: var(--bg); }
+.axis .ticks { grid-area: bar; }
+.axis-title { grid-area: who; color: var(--muted); font-size: 12.5px; font-weight: 500; }
 .who { grid-area: who; min-width: 0; }
 .name, .label { font-weight: 600; }
 .by { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
 .value { grid-area: value; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .reference .value { color: var(--muted); }
 .chips { grid-area: chips; display: flex; flex-wrap: wrap; gap: 4px; }
+ol.hero .chips .chip { background: none; box-shadow: inset 0 0 0 1px var(--border); color: var(--muted); font-size: 12px; line-height: 18px; }
 #hero .note { margin-top: 12px; }
 svg { display: block; overflow: visible; }
 svg.bar { grid-area: bar; width: 100%; height: 24px; }
 svg.ci { width: 100%; min-width: 96px; height: 16px; }
+svg.ticks { width: 100%; height: 16px; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+svg.ticks text { fill: var(--muted); }
+.gridline { stroke: var(--border); stroke-width: 1; opacity: 0.7; }
 .zero { stroke: var(--muted); stroke-dasharray: 3 3; }
 .whisker { stroke: var(--text); stroke-width: 1.5; }
 /* a bound's open-ended arrow: the tone's color in a table, the whisker's in the Hero chart */
@@ -281,7 +296,8 @@ svg.bar .arrow { color: var(--text); }
 .down { color: var(--warn); }
 .flat { color: var(--muted); }
 @media (min-width: 720px) {
-  ol.hero > li { grid-template-columns: 11rem minmax(0, 1fr) 4.5rem 11rem; grid-template-areas: "who bar value chips"; gap: 16px; }
+  ol.hero > li { grid-template-columns: 12rem minmax(0, 1fr) 4.5rem; grid-template-areas: "who bar value" "who chips chips"; gap: 2px 16px; }
+  ol.hero > li.axis { grid-template-areas: "who bar value"; }
 }
 .cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px; margin-top: 40px; padding: 20px 24px; border-radius: 12px; background: var(--surface); }
 .cta h2 { font-size: 18px; }
@@ -289,6 +305,8 @@ svg.bar .arrow { color: var(--text); }
 .button { display: inline-block; padding: 8px 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-weight: 500; text-decoration: none; white-space: nowrap; }
 .button:hover { border-color: var(--accent); color: var(--accent-ink); }
 #benchmarks { margin-top: 56px; }
+#benchmarks h3.group { margin-top: 28px; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+#benchmarks h3.group + .cards { margin-top: 10px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; margin-top: 16px; }
 .card { position: relative; padding: 16px 18px; border: 1px solid var(--border); border-radius: 12px; }
 .card.linked:hover { border-color: var(--accent); }
@@ -298,10 +316,27 @@ svg.bar .arrow { color: var(--text); }
 .card h3 a:focus-visible { outline: none; }
 .card h3 a:focus-visible::after { outline: 2px solid var(--accent); outline-offset: 2px; }
 .card p { margin-top: 6px; font-size: 15px; }
+/* a live board's full description is on its page; the card keeps the first lines */
+.card.linked .summary { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden; color: var(--muted); }
+.leaders-mini { margin: 10px 0 0; padding: 0; list-style: none; counter-reset: leader; font-size: 14px; }
+.leaders-mini li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; border-top: 1px solid var(--border); counter-increment: leader; }
+.leaders-mini li::before { content: counter(leader); width: 1em; color: var(--muted); font-variant-numeric: tabular-nums; }
+.leaders-mini .label { flex: 1; min-width: 0; }
+.leaders-mini .num { font-weight: 600; font-variant-numeric: tabular-nums; }
 .card .meta, .card .status { font-size: 14px; }
 .status { color: var(--muted); }
 .status.live { color: var(--text); }
 .status.live::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--good); vertical-align: 1px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 12px; margin: 24px 0 0; }
+.tile { padding: 12px 16px; border: 1px solid var(--border); border-radius: 12px; }
+.tile dt { color: var(--muted); font-size: 13px; }
+.tile dd { margin: 0; }
+.tile-value { margin-top: 2px; font-size: 24px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile-value a { color: var(--text); text-decoration-thickness: 1px; }
+.tile-value a:hover { color: var(--accent-ink); }
+.tile-sub { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.about { margin-top: 56px; }
+.about > h2 { margin-bottom: 4px; }
 .run { margin-top: 24px; padding: 14px 18px; border-radius: 12px; background: var(--surface); }
 .files { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 6px 0 0; padding: 0; list-style: none; font-size: 14px; }
 .validated { color: var(--good-ink); font-weight: 600; }
@@ -336,6 +371,8 @@ table.leaders tbody tr { border-bottom: 1px solid var(--border); }
 .elo { font-weight: 600; }
 .elo .record { display: table; margin: 2px 0 0 auto; font-size: 11.5px; line-height: 18px; }
 .ci-cell { width: 34%; }
+thead th.ci-cell svg.ticks { margin-top: 2px; }
+table.leaders .by .ident { display: inline-block; max-width: 15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .ci-text { color: var(--muted); font-size: 13px; }
 .matchups { margin-top: 56px; }
 .matchups .note { margin: 4px 0 16px; }
@@ -345,8 +382,20 @@ table.grid thead th { border: 0; text-align: center; vertical-align: bottom; whi
 table.grid tbody th { color: var(--text); text-align: right; }
 table.grid td { width: 4.5rem; padding: 10px 8px; border-radius: 6px; text-align: center; font-variant-numeric: tabular-nums; }
 table.grid td.none { background: var(--surface); }
+table.grid td.self { background: repeating-linear-gradient(135deg, var(--surface) 0 4px, transparent 4px 8px); }
+table.grid thead th { min-width: 4.5rem; max-width: 7rem; }
+table.grid.panel td { width: 6rem; }
+table.grid td[title] { cursor: default; }
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-bottom: 12px; color: var(--muted); font-size: 12.5px; }
+.legend .ramp { width: 120px; height: 10px; border-radius: 3px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 55%, transparent), transparent, color-mix(in srgb, var(--accent) 55%, transparent));
+  box-shadow: inset 0 0 0 1px var(--border); }
+.legend .key { width: 14px; height: 10px; margin-left: 12px; border-radius: 3px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
 @media (max-width: 599px) {
   th, td { padding: 8px 6px; }
+  table.leaders .by .ident { max-width: 9rem; }
+  /* the interval column is narrow on a phone: every other axis label */
+  table.leaders svg.ticks text:nth-child(even) { display: none; }
   table { font-size: 14px; }
 }
 .details { display: grid; gap: 32px 40px; margin-top: 56px; }
@@ -362,7 +411,11 @@ table.grid td.none { background: var(--surface); }
 @media (min-width: 760px) {
   .details { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
 }
+.jump ul { display: flex; flex-wrap: wrap; gap: 6px; margin: 20px 0 0; padding: 0; list-style: none; }
+.jump a.chip { text-decoration: none; }
+.jump a.chip:hover { color: var(--text); box-shadow: inset 0 0 0 1px var(--accent); }
 .models { margin-top: 32px; }
+.models section { scroll-margin-top: 16px; }
 .models section + section { margin-top: 40px; }
 .models h2 .ident { color: var(--muted); font-size: 15px; font-weight: 400; }
 .models p { margin-top: 6px; }
@@ -399,9 +452,19 @@ def format_share(score: float) -> str:
 def render_home(view: Mapping[str, Any]) -> str:
     """``index.html``: the Hero chart, the call to action, and the benchmark cards."""
     site = view["site"]
-    cards = [_benchmark_card(card) for card in view["benchmarks"]]
-    cards += [_proposed_card(card) for card in view["proposed"]]
-    listing = ['<div class="cards">', *cards, "</div>"] if cards else ['<p class="empty">No benchmarks yet.</p>']
+    live = [card for card in view["benchmarks"] if card["href"] is not None]
+    waiting = [card for card in view["benchmarks"] if card["href"] is None]
+    groups = [
+        ("Live boards", [_benchmark_card(card) for card in live]),
+        ("Awaiting a published run", [_benchmark_card(card) for card in waiting]),
+        ("Proposed", [_proposed_card(card) for card in view["proposed"]]),
+    ]
+    listing = []
+    for heading, cards in groups:
+        if cards:
+            listing += [f'<h3 class="group">{heading}</h3>', '<div class="cards">', *cards, "</div>"]
+    if not listing:
+        listing = ['<p class="empty">No benchmarks yet.</p>']
     main = [
         _hero(view["hero"]),
         '<section class="cta">',
@@ -447,6 +510,11 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         f"<h1>{_e(view['title'])}</h1>",
         f'<p class="lead">{_e(view["summary"])}</p>',
         f'<p class="meta">{meta}</p>',
+        _tiles(view),
+        _leaderboards(view),
+        _grid(view["grid"], _panel_opponents(view)),
+        '<section class="about">',
+        "<h2>About this run</h2>",
         _run_box(view["run"]),
         _fairness_block(view),
     ]
@@ -465,10 +533,9 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         listed = ", ".join(_e(run["name"]) + " (withheld)" for run in view["withheld_runs"])
         main.append(f'<p class="note withheld-runs">Withheld runs: {listed}. Their secrets were lost; '
                     'no games can be verified.</p>')
-    main += [_leaderboards(view), _grid(view["grid"])]
     if view["attribution"]:
         main.append(_attribution(view["attribution"], view["overall"]))
-    main.append(_details(view))
+    main += ["</section>", _details(view)]
     return _page(
         site,
         title=f"{view['title']}{_SEP}{site['title']}",
@@ -537,9 +604,14 @@ def render_models(view: Mapping[str, Any]) -> str:
     sections = [_model_section(model) for model in view["models"]]
     if not sections:
         sections = ['<p class="empty">No bots yet.</p>']
+    jump = "".join(
+        f'<li><a class="chip quiet" href="#model-{_e(model["name"])}">{_e(model["label"])}</a></li>'
+        for model in view["models"]
+    )
     main = [
         "<h1>Models</h1>",
         f'<p class="lead">{_MODELS_SUBTITLE}</p>',
+        f'<nav class="jump" aria-label="Models on this page"><ul>{jump}</ul></nav>' if jump else "",
         '<div class="models">',
         *sections,
         "</div>",
@@ -733,6 +805,39 @@ def _position(value: float, scale: tuple[float, float]) -> float:
     return round((value - low) / (high - low) * 100, 1)
 
 
+def _ticks(scale: tuple[float, float], target: int = 6) -> list[float]:
+    """Round values inside ``scale`` for axis labels and gridlines: about ``target`` steps of 1, 2, 2.5 or 5 times
+    a power of ten, never below one Elo (2.5 only from 25 up, so every tick is a whole number)."""
+    low, high = scale
+    raw = max((high - low) / target, 1.0)
+    magnitude = 10 ** math.floor(math.log10(raw))
+    factors = (1, 2, 2.5, 5, 10) if magnitude >= 10 else (1, 2, 5, 10)
+    step = next(factor * magnitude for factor in factors if factor * magnitude >= raw)
+    first = math.ceil(low / step) * step
+    count = int((high - first) // step) + 1
+    return [first + index * step for index in range(max(count, 0))]
+
+
+def _gridlines(ticks: Sequence[float], scale: tuple[float, float], height: int, skip: float | None = None) -> str:
+    """Faint vertical lines at ``ticks`` across a chart ``height`` tall; the value ``skip`` has its own line."""
+    lines = []
+    for value in ticks:
+        if skip is not None and value == skip:
+            continue
+        x = _position(value, scale)
+        lines.append(f'<line class="gridline" x1="{x:.1f}%" y1="0" x2="{x:.1f}%" y2="{height}"/>')
+    return "".join(lines)
+
+
+def _axis_labels(ticks: Sequence[float], scale: tuple[float, float], text: Any) -> str:
+    """An axis: a label at each tick, centered on it, formatted by ``text``; hidden from screen readers,
+    since every mark states its own value."""
+    labels = "".join(
+        f'<text x="{_position(value, scale):.1f}%" y="12" text-anchor="middle">{text(value)}</text>' for value in ticks
+    )
+    return f'<svg class="ticks" width="100%" height="16" aria-hidden="true">{labels}</svg>'
+
+
 def _bound_kind(bound: Any) -> str | None:
     """``"lower"`` or ``"upper"``; any other value is not a bound."""
     return bound if bound in _BOUND_SIGNS else None
@@ -776,8 +881,13 @@ def _hero(hero: Mapping[str, Any]) -> str:
             if _hero_bound(row) is None:  # a bound is drawn as an arrow, not across its interval
                 values.extend(end for end in (row["lower"], row["upper"]) if end is not None)
         scale = _scale(values)
+        ticks = _ticks(scale)
         parts.append('<ol class="hero">')
-        parts.extend(_hero_row(row, scale) for row in rows)
+        parts.append(
+            '<li class="axis" aria-hidden="true"><span class="axis-title">Elo above random</span>'
+            f"{_axis_labels(ticks, scale, format_margin)}</li>"
+        )
+        parts.extend(_hero_row(row, scale, ticks) for row in rows)
         parts.append("</ol>")
         note = f"{_count(hero['benchmark_count'], 'benchmark')} in the chart."
         if hero["approximate"]:
@@ -817,7 +927,7 @@ def _versus_random(value: float, bound: str | None) -> str:
     return ("at least " if (bound == "lower") == above else "at most ") + text
 
 
-def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
+def _hero_row(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequence[float]) -> str:
     bound = _hero_bound(row)
     who = f'<span class="name">{_model_link("", row["name"], row["label"], row["description"])}</span>'
     if row["reference"]:
@@ -836,7 +946,7 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
         [
             f'<li data-bot="{_e(row["name"])}"{kind}>',
             f'<div class="who">{who}</div>',
-            _hero_bar(row, scale, bound),
+            _hero_bar(row, scale, ticks, bound),
             f'<span class="value">{_bounded(format_margin(row["score"]), bound)}</span>',
             f'<span class="chips">{chips}</span>',
             "</li>",
@@ -844,14 +954,15 @@ def _hero_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     )
 
 
-def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str | None) -> str:
-    """A bar from 0 to the score over a dashed zero line, with a whisker across the interval.
+def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequence[float], bound: str | None) -> str:
+    """A bar from 0 to the score over faint gridlines and a dashed zero line, with a whisker across the interval.
 
     A bound gets an open-ended arrow toward the side it is open on instead of
-    the whisker; a zero-width interval gets no whisker.
+    the whisker; a zero-width interval gets no whisker. The label is also the
+    bar's hover text.
     """
     zero = _position(0.0, scale)
-    marks = [f'<line class="zero" x1="{zero:.1f}%" y1="0" x2="{zero:.1f}%" y2="24"/>']
+    marks = [_gridlines(ticks, scale, 24, skip=0.0), f'<line class="zero" x1="{zero:.1f}%" y1="0" x2="{zero:.1f}%" y2="24"/>']
     if row["reference"]:
         marks.append(f'<circle class="flat" cx="{zero:.1f}%" cy="12" r="4" fill="currentColor"/>')
         label = "0, the reference"
@@ -884,7 +995,10 @@ def _hero_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str | N
             )
             interval = "approximate 95% interval" if row["approximate"] else "95% interval"
             label += f", {interval} {format_margin(lower)} to {format_margin(upper)}"
-    return f'<svg class="bar" width="100%" height="24" role="img" aria-label="{_e(label)}">{"".join(marks)}</svg>'
+    return (
+        f'<svg class="bar" width="100%" height="24" role="img" aria-label="{_e(label)}">'
+        f'<title>{_e(row["label"])}: {_e(label)}</title>{"".join(marks)}</svg>'
+    )
 
 
 def _benchmark_card(card: Mapping[str, Any]) -> str:
@@ -901,16 +1015,21 @@ def _benchmark_card(card: Mapping[str, Any]) -> str:
     if card.get("other_runs"):
         listed = ", ".join(f"{_e(run['name'])} ({_e(run['status'])})" for run in card["other_runs"])
         status += f'<p class="note">Other runs: {listed}</p>'
-    return "\n".join(
-        [
-            f'<article class="{"card linked" if linked else "card"}">',
-            f"<h3>{heading}</h3>",
-            f'<p>{_e(card["summary"])}</p>',
-            f'<p class="meta">{_SEP.join(facts)}</p>',
-            status,
-            "</article>",
-        ]
-    )
+    lines = [
+        f'<article class="{"card linked" if linked else "card"}">',
+        f"<h3>{heading}</h3>",
+        f'<p class="summary">{_e(card["summary"])}</p>',
+    ]
+    if card.get("leaders"):
+        lines.append('<ol class="leaders-mini" aria-label="Top rated">')
+        lines.extend(
+            f'<li><span class="label">{_e(leader["label"])}</span> '
+            f'<span class="num">{_bounded(format_elo(leader["elo_milli"]), leader["bound"])}</span></li>'
+            for leader in card["leaders"]
+        )
+        lines.append("</ol>")
+    lines += [f'<p class="meta">{_SEP.join(facts)}</p>', status, "</article>"]
+    return "\n".join(lines)
 
 
 def _proposed_card(card: Mapping[str, Any]) -> str:
@@ -926,6 +1045,50 @@ def _proposed_card(card: Mapping[str, Any]) -> str:
 
 
 # ---------------- benchmark page ----------------
+
+
+def _tiles(view: Mapping[str, Any]) -> str:
+    """The board at a glance: rated games, bots, matchups measured (with a complete pair), and the top-rated bot."""
+    games = view["run"]["games"]
+    cells = view["grid"]["cells"]
+    played = sum(1 for i, line in enumerate(cells) for j, cell in enumerate(line) if j > i and cell is not None)
+    possible = len(cells) * (len(cells) - 1) // 2
+    tiles = [
+        ("Rated games", f"{games['rated']:,}", f"of {games['total']:,} played"),
+        ("Bots", str(len(view["overall"])), _count(len(view["decks"]), "deck")),
+        ("Matchups measured", str(played), f"of {possible} possible"),
+    ]
+    top = next((row for row in view["overall"] if not row["anchor"] and row["elo_milli"] is not None), None)
+    if top is not None:
+        link = _model_link("../../", top["name"], top["label"], top["description"])
+        elo = _bounded(format_elo(top["elo_milli"]), _row_bound(top))
+        tiles.append(("Top rated", link, f"{elo} Elo"))
+    items = "".join(
+        f'<div class="tile"><dt>{term}</dt><dd class="tile-value">{value}</dd><dd class="tile-sub">{sub}</dd></div>'
+        for term, value, sub in tiles
+    )
+    return f'<dl class="tiles">{items}</dl>'
+
+
+def _panel_opponents(view: Mapping[str, Any]) -> list[str] | None:
+    """The reference panel's bots, in grid order, when every played matchup involves one of them; else None.
+
+    Entrants on a reference-panel board play only the panel, so the grid's
+    columns other than the panel's are empty but for the panel's own games,
+    which the panel's columns already show from the other side.
+    """
+    evaluation = view.get("evaluation")
+    if not evaluation:
+        return None
+    names = view["grid"]["names"]
+    panel = set(evaluation["opponents"])
+    if not panel or not panel <= set(names):
+        return None
+    for i, line in enumerate(view["grid"]["cells"]):
+        for j, cell in enumerate(line):
+            if cell is not None and names[i] not in panel and names[j] not in panel:
+                return None
+    return [name for name in names if name in panel]
 
 
 def _run_box(run: Mapping[str, Any]) -> str:
@@ -1153,10 +1316,12 @@ def _row_bound(row: Mapping[str, Any]) -> str | None:
 
 
 def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float]) -> str:
-    """One leaderboard; every row's interval bar is drawn on ``scale``."""
+    """One leaderboard; every row's interval bar is drawn on ``scale``, under an Elo axis in the header."""
+    ticks = _ticks(scale)
     head = (
         '<thead><tr><th scope="col" class="num" aria-label="Rank">#</th><th scope="col">Bot</th>'
-        '<th scope="col" class="num">Elo</th><th scope="col" class="ci-cell">95% interval</th>'
+        '<th scope="col" class="num">Elo</th>'
+        f'<th scope="col" class="ci-cell">95% interval{_axis_labels(ticks, scale, lambda value: f"{value:.0f}")}</th>'
         '<th scope="col" class="num">W-D-L</th><th scope="col" class="num">Games</th>'
         '<th scope="col" class="num">Forfeits</th></tr></thead>'
     )
@@ -1166,7 +1331,7 @@ def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float])
             '<table class="leaders">',
             head,
             "<tbody>",
-            *(_leader_row(row, scale) for row in rows),
+            *(_leader_row(row, scale, ticks) for row in rows),
             "</tbody>",
             "</table>",
             "</div>",
@@ -1174,7 +1339,7 @@ def _leader_table(rows: Sequence[Mapping[str, Any]], scale: tuple[float, float])
     )
 
 
-def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
+def _leader_row(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequence[float]) -> str:
     bound = _row_bound(row)
     rank = "-" if row["rank"] is None else str(row["rank"])
     bot = f'<span class="label">{_model_link("../../", row["name"], row["label"], row["description"])}</span>'
@@ -1186,7 +1351,7 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     # not recorded in runs, so this keeps a relabel in benchmark.json from hiding what the numbers belong to.
     byline = [_e(row["author"])] if row["author"] else []
     byline.append(
-        f'<span class="ident" title="the rated bot: registry name and version">{_e(row["name"])} {_e(row["version"])}</span>'
+        f'<span class="ident" title="rated as {_e(row["name"])} {_e(row["version"])}">{_e(row["name"])} {_e(row["version"])}</span>'
     )
     bot += f'<span class="by">{_SEP.join(byline)}</span>'
     if row["elo_milli"] is None:
@@ -1201,7 +1366,7 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
             f'<td class="num rank">{rank}</td>',
             f'<td class="bot">{bot}</td>',
             f'<td class="num elo">{elo}</td>',
-            f'<td class="ci-cell">{_interval_bar(row, scale, bound)}</td>',
+            f'<td class="ci-cell">{_interval_bar(row, scale, ticks, bound)}</td>',
             f'<td class="num">{row["wins"]}-{row["draws"]}-{row["losses"]}</td>',
             f'<td class="num">{row["games"]}</td>',
             f'<td class="num">{row["forfeits"]}</td>',
@@ -1210,8 +1375,9 @@ def _leader_row(row: Mapping[str, Any], scale: tuple[float, float]) -> str:
     )
 
 
-def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str | None) -> str:
-    """A dot at the Elo and a line across its 95% interval; empty for an unrated row.
+def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], ticks: Sequence[float], bound: str | None) -> str:
+    """A dot at the Elo and a line across its 95% interval, over the axis's gridlines and a dashed line at the
+    random bot's 1000; empty for an unrated row. The label is also the hover text.
 
     A bound gets an open-ended arrow from the dot toward the side it is open on
     instead of the line. A zero-width interval on a row that is neither the
@@ -1228,7 +1394,12 @@ def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str
     else:
         tone = "up" if elo_milli > _ANCHOR_ELO_MILLI else "down"
     elo, x = format_elo(elo_milli), _position(elo_milli / 1000, scale)
-    marks = ['<line class="track" x1="0" y1="8" x2="100%" y2="8"/>', f'<g class="{tone}">']
+    anchor = _ANCHOR_ELO_MILLI / 1000
+    marks = [_gridlines(ticks, scale, 16, skip=anchor), '<line class="track" x1="0" y1="8" x2="100%" y2="8"/>']
+    if scale[0] <= anchor <= scale[1]:
+        x0 = _position(anchor, scale)
+        marks.append(f'<line class="zero" x1="{x0:.1f}%" y1="0" x2="{x0:.1f}%" y2="16"/>')
+    marks.append(f'<g class="{tone}">')
     if bound is not None:
         marks.append(_arrow(x, bound, 8))
         limit = "at least" if bound == "lower" else "at most"
@@ -1248,27 +1419,46 @@ def _interval_bar(row: Mapping[str, Any], scale: tuple[float, float], bound: str
         else:
             label = f"Elo {elo}, 95% interval {format_elo(interval[0])} to {format_elo(interval[1])}"
     marks.append(f'<circle cx="{x:.1f}%" cy="8" r="4" fill="currentColor"/></g>')
-    return f'<svg class="ci" width="100%" height="16" role="img" aria-label="{_e(label)}">{"".join(marks)}</svg>'
+    return (
+        f'<svg class="ci" width="100%" height="16" role="img" aria-label="{_e(label)}">'
+        f'<title>{_e(row["label"])}: {_e(label)}</title>{"".join(marks)}</svg>'
+    )
 
 
-def _grid(grid: Mapping[str, Any]) -> str:
-    """The matchup grid: each row bot's share of the points against each column bot."""
+def _grid(grid: Mapping[str, Any], panel: Sequence[str] | None = None) -> str:
+    """The matchup grid: each row bot's share of the points against each column bot.
+
+    With ``panel`` (a reference-panel board, see ``_panel_opponents``) the
+    columns are the panel's bots only, since entrants never meet one another.
+    """
     names, labels, descriptions = grid["names"], grid["labels"], grid["descriptions"]
+    columns = [index for index, name in enumerate(names) if panel is None or name in panel]
     head = "".join(
-        f'<th scope="col">{_model_link("../../", name, label, description)}</th>'
-        for name, label, description in zip(names, labels, descriptions, strict=True)
+        f'<th scope="col">{_model_link("../../", names[j], labels[j], descriptions[j])}</th>' for j in columns
     )
     body = []
-    for name, label, description, cells in zip(names, labels, descriptions, grid["cells"], strict=True):
-        tds = "".join(_grid_cell(name, other, cell) for other, cell in zip(names, cells, strict=True))
+    for i, (name, label, description, cells) in enumerate(zip(names, labels, descriptions, grid["cells"], strict=True)):
+        tds = "".join(_grid_cell((name, label), (names[j], labels[j]), cells[j], i == j) for j in columns)
         body.append(f'<tr><th scope="row">{_model_link("../../", name, label, description)}</th>{tds}</tr>')
+    if panel is None:
+        note = "Each cell is the row bot's share of the points against the column bot."
+    else:
+        note = (
+            "Entrants play the reference panel, not one another, so the columns are the panel's bots. "
+            "Each cell is the row bot's share of the points against the column bot."
+        )
+    legend = (
+        '<div class="legend" aria-hidden="true"><span>row bot behind</span><span class="ramp"></span>'
+        "<span>row bot ahead</span><span class=\"key none\"></span><span>not measured</span></div>"
+    )
     return "\n".join(
         [
             '<section class="matchups">',
             "<h2>Matchups</h2>",
-            _note("Each cell is the row bot's share of the points against the column bot."),
+            _note(note),
+            legend,
             '<div class="table-wrap">',
-            '<table class="grid">',
+            f'<table class="grid{" panel" if panel is not None else ""}">',
             f'<thead><tr><th scope="col"><span class="sr-only">Bot</span></th>{head}</tr></thead>',
             "<tbody>",
             *body,
@@ -1280,15 +1470,17 @@ def _grid(grid: Mapping[str, Any]) -> str:
     )
 
 
-def _grid_cell(row_name: str, col_name: str, cell: Mapping[str, Any] | None) -> str:
+def _grid_cell(row: tuple[str, str], col: tuple[str, str], cell: Mapping[str, Any] | None, self_cell: bool) -> str:
     """One matchup cell, tinted by how far its share is from even, titled with the sample behind the share.
 
-    The share is computed over complete seat-swapped pairs only, so the
-    title counts those pairs (and their games), not every rated game.
+    ``row`` and ``col`` are (name, label) pairs. The share is computed over
+    complete seat-swapped pairs only, so the title counts those pairs (and
+    their games), not every rated game.
     """
-    position = f'data-row="{_e(row_name)}" data-col="{_e(col_name)}"'
+    position = f'data-row="{_e(row[0])}" data-col="{_e(col[0])}"'
     if cell is None:
-        return f'<td {position} class="none"></td>'
+        kind = "self" if self_cell else "none"
+        return f'<td {position} class="{kind}"></td>'
     percent = round(cell["score"] * 100)
     strength = abs(percent - 50) * _TINT_MAX // 50
     tint = ""
@@ -1296,8 +1488,12 @@ def _grid_cell(row_name: str, col_name: str, cell: Mapping[str, Any] | None) -> 
         tone = "accent" if percent > 50 else "warn"
         tint = f' style="background: color-mix(in srgb, var(--{tone}) {strength}%, transparent)"'
     pairs = cell["complete_pairs"]
-    sample = f"over {_count(pairs, 'complete pair')} ({_count(2 * pairs, 'game')})"
-    return f'<td {position} title="{sample}"{tint}>{format_share(cell["score"])}</td>'
+    share = format_share(cell["score"])
+    sample = (
+        f"{_e(row[1])} vs {_e(col[1])}: {share} of the points, "
+        f"over {_count(pairs, 'complete pair')} ({_count(2 * pairs, 'game')})"
+    )
+    return f'<td {position} title="{sample}"{tint}>{share}</td>'
 
 
 def _details(view: Mapping[str, Any]) -> str:
