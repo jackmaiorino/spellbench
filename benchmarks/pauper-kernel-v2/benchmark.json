@@ -112,7 +112,7 @@
         "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
       },
-      "evaluation_identity": "8e72a2406fa6fc9fac1beaa2cd51baf99803340376e22c73ce7512989ccd6611"
+      "evaluation_identity": "881d75dc25246bafd6e59c92c3f4439d0069eecfae6901cbcc210858edfb7f6d"
     },
     {
       "name": "a48",
@@ -144,7 +144,7 @@
         "description": "mtg-kernel policy network, Phase 1 lineage a block 48 (8,800 updates, independent initialization), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
       },
-      "evaluation_identity": "f7c3965c9cc491a4b72938358386799cd008280f14cd1a1b3128f6793bef3916"
+      "evaluation_identity": "c8779a0b04edf0188fd9efaebe6d46445b0a8c27d220507beec26e5eb5305e8a"
     },
     {
       "name": "c12",
@@ -176,7 +176,7 @@
         "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
         "url": null
       },
-      "evaluation_identity": "2f8514876870310b8e5fd54d7c9eba347c09135b4063bf88ecfd3d8eac641ab4"
+      "evaluation_identity": "7bb2edec44dfe5c73a4ced51654360d8a754786930b88be9c76f4daafe377660"
     },
     {
       "name": "llm-gpt-6-luna",
@@ -268,7 +268,7 @@
         "description": "XMage's ComputerPlayer7 (MAD) at skill 6 on one sampled hidden world, with the kit's synchronous 5000-node, 2000-option and 20000-operation budgets, permitted reconstruction, explicit horizons, dialog heuristics and fallback. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
       },
-      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
+      "evaluation_identity": "a7f58257eda6763c7252158410ee1368d5eb22fccbed17aa7e9ee1bf666cdc82"
     },
     {
       "name": "kit-mad-k",
@@ -306,7 +306,7 @@
         "description": "As kit-mad-1, voting over four sampled hidden worlds per decision. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
       },
-      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
+      "evaluation_identity": "a7f58257eda6763c7252158410ee1368d5eb22fccbed17aa7e9ee1bf666cdc82"
     },
     {
       "name": "kit-mcts",
@@ -343,7 +343,7 @@
         "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts (at most 30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator), paced by the bank: each search stops at the remaining bank over 20 plus the increment, at least 12 s. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
       },
-      "evaluation_identity": "385ebeb251a06e16e3a1ba2afeef22208dc5409c047cd7d5ef92b6bdcc6f4e3e"
+      "evaluation_identity": "a7f58257eda6763c7252158410ee1368d5eb22fccbed17aa7e9ee1bf666cdc82"
     },
     {
       "name": "gorge-bot",
@@ -525,16 +525,23 @@
     142
   ],
   "job_storage_budget": {
-    "projected_bytes": 17179869184,
+    "projected_bytes": 4294967296,
     "cap_bytes": 25769803776
   },
-  "evaluation_engine_identity": "cd5637aa96282d914873827b0b191bd77477489108a3bd6928ca8c703c6aa6fc",
+  "evaluation_engine_identity": "2de20af36c12bfbd071140f400cdf1d025d903be59a4c2b69bd19546479f1a98",
   "evaluation_targets": [
+    "a48",
+    "c12",
+    "g115",
     "gorge-ar8",
     "gorge-blocks",
     "gorge-bot",
     "gorge-explore",
     "gorge-legacy",
-    "gorge-lethal-pressure"
+    "gorge-lethal-pressure",
+    "kit-mad-1",
+    "kit-mad-k",
+    "kit-mcts",
+    "uniform"
   ]
 }
