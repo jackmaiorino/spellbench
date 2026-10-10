@@ -572,14 +572,17 @@ def test_every_leaderboard_number_reaches_the_benchmark_page(tree: Path, tmp_pat
     board = json.loads((tree / "alpha/runs/2026-09-26/leaderboard.json").read_text(encoding="utf-8"))
     _assert_overall_rows(page, board)
     names = {row["bot_id"]: row["name"] for row in board["rows"]}
+    labels = {"uniform": "random"}  # the fixture's labels are the names but for the anchor's
     for matchup in board["matchups"]:
         a, b = names[matchup["a_bot_id"]], names[matchup["b_bot_id"]]
         share = matchup["a_score"]["num"] / matchup["a_score"]["den"]
         pairs = matchup["complete_pairs"]
         sample = f"over {pairs} complete pair{'s' if pairs != 1 else ''} ({2 * pairs} games)"
         for row, col, expected in ((a, b, share), (b, a, 1 - share)):
+            title = (f"{labels.get(row, row)} vs {labels.get(col, col)}: {render.format_share(expected)} of the points, "
+                     + sample)
             cell = re.search(rf'<td data-row="{row}" data-col="{col}" title="([^"]*)"[^>]*>([^<]*)</td>', page)
-            assert cell and cell.groups() == (sample, render.format_share(expected)), (row, col)
+            assert cell and cell.groups() == (title, render.format_share(expected)), (row, col)
     for deck_slice in board["slices"]["deck"]:
         section = page[page.index(f'data-deck="{deck_slice["label"]}"'):]
         for row in deck_slice["rows"]:
@@ -874,12 +877,15 @@ def test_every_number_on_the_site_matches_the_leaderboard(checked: tuple[Path, d
             assert cell, (row_name, col_name)
             matchup = matchups.get(frozenset((row_name, col_name))) if row_name != col_name else None
             if matchup is None or matchup["a_score"] is None:
-                assert cell.groups() == (' class="none"', ""), (row_name, col_name)
+                kind = "self" if row_name == col_name else "none"
+                assert cell.groups() == (f' class="{kind}"', ""), (row_name, col_name)
                 continue
             num, den = matchup["a_score"]["num"], matchup["a_score"]["den"]
             share = num / den if matchup["a_name"] == row_name else (den - num) / den
             pairs = matchup["complete_pairs"]
-            assert cell.group(1).startswith(f' title="over {pairs} complete pairs ({2 * pairs} games)"'), (row_name, col_name)
+            sample = f'of the points, over {pairs} complete pairs ({2 * pairs} games)"'
+            assert re.match(rf' title="[^"]*: {re.escape(render.format_share(share))} {re.escape(sample)}', cell.group(1)), (
+                row_name, col_name)
             assert cell.group(2) == render.format_share(share), (row_name, col_name)
 
     # the Hero chart: one benchmark, so each row is that benchmark's overall row
@@ -1286,3 +1292,17 @@ def test_a_newer_v2_run_is_listed_on_a_legacy_page(tmp_path: Path) -> None:
     assert "Run 2026-09-26" in page and 'class="legacy"' in page
     assert '<p class="note newer-runs">Newer runs not shown: 2026-09-28 (complete)</p>' in page
     assert "pauper-kernel: runs/2026-09-28 is complete and not rated; showing runs/2026-09-26" in warnings
+
+
+def test_a_live_card_lists_its_top_rated_bots_in_leaderboard_order(tree: Path, tmp_path: Path,
+                                                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    _, views = _build_with_views(tree, tmp_path / "site", monkeypatch)
+    (home,) = views["render_home"]
+    benchmarks = {view["id"]: view for view in views["render_benchmark"]}
+    for card in home["benchmarks"]:
+        overall = benchmarks[card["id"]]["overall"]
+        expected = [
+            {"label": row["label"], "elo_milli": row["elo_milli"], "bound": row["bound"]}
+            for row in overall if not row["anchor"] and row["elo_milli"] is not None
+        ][:3]
+        assert card["leaders"] == expected and expected  # the anchor never appears
