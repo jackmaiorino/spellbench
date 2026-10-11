@@ -141,6 +141,7 @@ final class ModelReplay {
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
         ModelModes modeActions;
+        ModelArrangement arrangement;
         ModeCapture modeCapture;
         DialogCapture dialogCapture;
         ManaCapture manaCapture;
@@ -192,9 +193,61 @@ final class ModelReplay {
     static final class ReplayPlayer extends SearchPlayer {
         private static final long serialVersionUID = 1L;
         final String seat;
+        private String arrangementPurpose;
+        private ModelArrangement runningArrangement;
         ReplayPlayer(String seat) { super(seat); this.seat = seat; }
         private ReplayPlayer(ReplayPlayer p) { super(p); seat = p.seat; }
         @Override public ReplayPlayer copy() { return new ReplayPlayer(this); }
+        @Override public boolean scry(int value, Ability source, Game game) {
+            String previous = arrangementPurpose;
+            if (context(game) != null) arrangementPurpose = "scry";
+            try { boolean result = super.scry(value, source, game); finishArrangement(game); return result; }
+            finally { arrangementPurpose = previous; }
+        }
+        @Override public Player.SurveilResult doSurveil(int value, Ability source, Game game) {
+            String previous = arrangementPurpose;
+            if (context(game) != null) arrangementPurpose = "surveil";
+            try { Player.SurveilResult result = super.doSurveil(value, source, game); finishArrangement(game); return result; }
+            finally { arrangementPurpose = previous; }
+        }
+        private void finishArrangement(Game game) {
+            Result replay = context(game);
+            ModelArrangement arrangement = runningArrangement;
+            if (replay == null || arrangement == null) return;
+            runningArrangement = null;
+            Map<String, Object> plan = arrangement.finish(game);
+            if (!arrangement.replaying) {
+                replay.arrangement = arrangement; replay.encoded = plan; replay.player = this;
+                throw new Stop();
+            }
+        }
+        @Override public boolean putCardsOnTopOfLibrary(Cards cards, Game game, Ability source, boolean anyOrder) {
+            ModelArrangement arrangement = context(game) == null ? null : runningArrangement;
+            if (arrangement == null) return super.putCardsOnTopOfLibrary(cards, game, source, anyOrder);
+            if (!anyOrder) throw new IllegalArgumentException("arrangement changed original top-order rule");
+            String old = arrangement.stage; arrangement.stage = "top_order";
+            try { return super.putCardsOnTopOfLibrary(cards, game, source, true); }
+            finally { arrangement.stage = old; }
+        }
+        @Override public boolean putCardsOnBottomOfLibrary(Cards cards, Game game, Ability source, boolean anyOrder) {
+            ModelArrangement arrangement = context(game) == null ? null : runningArrangement;
+            if (arrangement == null) return super.putCardsOnBottomOfLibrary(cards, game, source, anyOrder);
+            if (!anyOrder) throw new IllegalArgumentException("arrangement changed original bottom-order rule");
+            String old = arrangement.stage; arrangement.stage = "bottom_order";
+            try { return super.putCardsOnBottomOfLibrary(cards, game, source, true); }
+            finally { arrangement.stage = old; }
+        }
+        @Override protected MCTSNode2 getNextAction(Game game, ActionEncoder.ActionType type) {
+            Result replay = context(game);
+            ModelArrangement arrangement = replay == null ? null : runningArrangement;
+            if (arrangement == null) return super.getNextAction(game, type);
+            if (arrangement.replaying || type != ActionEncoder.ActionType.CHOOSE_TARGET) {
+                throw new IllegalArgumentException("arrangement reached an unrecorded original search root");
+            }
+            resetSearchTree(); long before = ModelSearchMain.neuralCalls();
+            MCTSNode2 chosen = super.getNextAction(game, type); requireRootType(type);
+            arrangement.root(this, chosen, before, replay); return chosen;
+        }
         private ManaCapture paymentRules() {
             return live != null && live.manaCapture != null
                     && getId().equals(live.world.player(live.world.viewer)) ? live.manaCapture : null;
@@ -330,6 +383,30 @@ final class ModelReplay {
                 throw new IllegalArgumentException("unrecorded opponent or divided-target callback");
             }
             UUID controller = target.getAffectedAbilityControllerId(getId());
+            if (arrangementPurpose != null) {
+                if (runningArrangement == null) {
+                    Map<String, Object> decision = replay.callbackDecision();
+                    replay.compare(game, decision);
+                    if (!replay.passes.isEmpty()) throw new IllegalArgumentException("arrangement reached before recorded passes");
+                    replay.searchAllowed();
+                    runningArrangement = new ModelArrangement(replay.world, decision, arrangementPurpose, target, cards, source, game);
+                    if (replay.replayed < replay.earlier.size()) runningArrangement.earlier(replay, game);
+                    else configure(replay.evaluator, replay.settings);
+                }
+                ModelArrangement arrangement = runningArrangement;
+                if (arrangement.depth > 0) return super.makeChoice(outcome, target, source, game, cards);
+                Map<String, Object> frame = arrangement.frame(target, cards, source, game, this);
+                int before = getPlayerHistory().targetSequence.size();
+                arrangement.depth++;
+                boolean result;
+                try {
+                    result = arrangement.replaying ? arrangement.replayChoice(target, cards, source, game, this)
+                            : super.makeChoice(outcome, target, source, game, cards);
+                } finally { arrangement.depth--; }
+                if (!arrangement.replaying) arrangement.record(frame, getPlayerHistory().targetSequence, before);
+                if ("partition".equals(arrangement.stage)) arrangement.selectedAway = new java.util.LinkedHashSet<>(target.getTargets());
+                return result;
+            }
             if (target.isChoiceCompleted(controller, source, game, cards)) return false;
             Map<String, Object> past = replay.earlierPick(game);
             if (past != null) {

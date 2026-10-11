@@ -149,9 +149,27 @@ History contains only previously visible names and confirmed own loyalty
 costs. Seeds follow the kit's HMAC construction, using only `agent_seed` and
 `seat_step`. Opaque request and game IDs do not seed play.
 
+The frontend also retains public resolution witnesses for native prowess and
+Fleeting Distraction until-end-of-turn effects. A witness requires one observed
+top stack object to disappear and the entire public battlefield to remain
+identical except for that rule's exact power/toughness change. Reconstruction
+installs the corresponding native continuous effect, preserves its expiry and
+checks the resulting visible characteristics. Missing evidence never supplies
+a numerical adjustment; callback observation comparison remains exact. The
+saved game 1152 Immolator callback regression uses permitted observations only
+and reaches the original inference boundary without loading a checkpoint.
+
 The default minimum visit count is 1000. A six-visit diagnostic is a separate
 identity. The fair port uses the shared host clock with the previously
 declared 600-second search envelope; original Exp1's default is 4 seconds.
+
+Exp1 scry and surveil use the original sequential target searches and native
+placement loop. One complete plan answers the wire's partition and order
+substeps without searching again. Later callback replay retains the original
+target sequence, including STOP choices, rather than inferring it from the final
+wire order. Every looked-at card, callback range, root budget and placement must
+match. The native regression exercises scry and surveil with fixed synthetic
+scores; it does not establish trained-policy serving or ratings.
 The emitted identity records this change, no root noise, fresh trees,
 disabled opponent-hand encoding, checkpoint hash, model build, immutable
 container image and Python adapter source hashes. The pregame keep choice

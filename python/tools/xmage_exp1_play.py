@@ -14,6 +14,7 @@ from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as 
 from xmage_neural_rpc import NeuralSession
 from xmage_neural_decisions import close_resources
 from xmage_neural_search import search_request as checked_search_request, search_result as checked_search_result
+import xmage_neural_arrangement as arrangement
 
 PROFILE_NAME = "published-exp1-final-eval-fair-v1"
 PUBLISHED_SETTINGS = {
@@ -114,6 +115,26 @@ class PublishedPlan(PermittedPlan):
         super().__init__(decision, result, visits=96, minimum_visits=False, expected_budget=budget())
 
 
+def arrangement_request(record):
+    _own_decision(record)
+    request = arrangement.request(record, 96)
+    request.pop("visits")
+    return {**request, "settings": validate_settings(PUBLISHED_SETTINGS)}
+
+
+def arrangement_result(record, result, calls):
+    _echo(result)
+    return arrangement.result(record, result, 96, calls, minimum_visits=False, expected_budget=budget())
+
+
+class PublishedArrangement(arrangement.ArrangementPlan):
+    def __init__(self, decision, result, *, visits):
+        if type(visits) is not int or visits != 96:
+            raise ValueError("Exp1 published arrangement changed its visit budget")
+        _echo(result)
+        super().__init__(decision, result, visits=96, minimum_visits=False, expected_budget=budget())
+
+
 class PublishedSession(NeuralSession):
     def __init__(self, peer, model):
         super().__init__(peer, model, ready=READY)
@@ -140,6 +161,9 @@ class PublishedSession(NeuralSession):
     def plan(self, record, *, visits, timeout_s):
         return self._run(record, visits, timeout_s, "combat", combat_request, combat_result)
 
+    def arrange(self, record, *, visits, timeout_s):
+        return self._run(record, visits, timeout_s, "search", arrangement_request, arrangement_result)
+
 
 class PublishedAgent(NeuralAgent):
     def __init__(self, factory, *, checkpoint: str, audit=None):
@@ -150,4 +174,4 @@ class PublishedAgent(NeuralAgent):
                 raise ValueError("Exp1 published frontend requires its typed play session")
             return session
         super().__init__(bound_factory, checkpoint=checkpoint, visits=96, audit=audit,
-                         profile=profile(), plan_factory=PublishedPlan)
+                         profile=profile(), plan_factory=PublishedPlan, arrangement_factory=PublishedArrangement)
