@@ -403,7 +403,7 @@ final class ModelReplay {
                     result = arrangement.replaying ? arrangement.replayChoice(target, cards, source, game, this)
                             : super.makeChoice(outcome, target, source, game, cards);
                 } finally { arrangement.depth--; }
-                if (!arrangement.replaying) arrangement.record(frame, getPlayerHistory().targetSequence, before);
+                if (!arrangement.replaying) arrangement.record(frame, new ArrayList<>(getPlayerHistory().targetSequence), before);
                 if ("partition".equals(arrangement.stage)) arrangement.selectedAway = new java.util.LinkedHashSet<>(target.getTargets());
                 return result;
             }
