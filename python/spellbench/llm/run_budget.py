@@ -416,7 +416,11 @@ class RunBudget:
                      "dispatch", "dispatch_sha256",
                      "failed_row", "limits", "effective_deadline", "owned_processes_absent",
                      "formal_started", "public_commitment", "allow_http503_forfeits", "user_authority"}
-            failed = [row for row in rows if _terminal_request(prior, row)]
+            # A host-side broker failure can stop an attempt whose HTTP503 was
+            # already an allowed game forfeit. Preserve and bind that settled
+            # row too; the separate hosted_broker_failed policy still remains
+            # mandatory below. This never makes a failed parent admit again.
+            failed = [row for row in rows if _terminal_request(prior, row) or _http503_forfeit(prior, row)]
             fields = ("id", "status", "error", "reserved_tokens", "input_tokens", "output_tokens")
             completion_path = resolve(record["completion"])
             completion = json.loads(completion_path.read_bytes())
