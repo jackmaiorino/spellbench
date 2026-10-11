@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -8,9 +9,23 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from xmage_model_ci_inputs import NoTokenRedirect, input_opener
+from xmage_model_ci_inputs import NoTokenRedirect, input_opener, public_inputs
 
 BLOB = "https://api.github.com/repos/example/model/git/blobs/" + "a" * 40
+
+
+def test_public_callback_inputs_include_pinned_vocab_without_any_checkpoints():
+    assets = json.loads((Path(__file__).parents[2] / "engines/xmage/releases.json").read_text())["assets"]
+    selected = public_inputs(assets)
+    vocabulary = [asset for asset in selected if asset["id"] == "draftzero-exp1-actions"]
+    assert len(vocabulary) == 1 and vocabulary[0]["filename"] == "FDN_SPG.tsv"
+    assert vocabulary[0]["sha256"] == "16faa169baa03eafd3e36490b40c3cbabf1a902e7c227eff69646be1c09afee9"
+    assert all(asset["kind"] in ("source-code", "build-dependency", "action-vocabulary") for asset in selected)
+    assert sum(asset["bytes"] for asset in selected) < 32 * 1024**2
+    with pytest.raises(ValueError, match="action vocabulary"):
+        public_inputs([asset for asset in assets if asset["id"] != "draftzero-exp1-actions"])
+    with pytest.raises(ValueError, match="action vocabulary"):
+        public_inputs(assets + [{"id": "draftzero-exp1-search-unreviewed-weights", "kind": "checkpoint"}])
 
 
 def test_pinned_blob_receives_read_token_only_in_authenticated_opener():

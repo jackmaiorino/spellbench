@@ -253,6 +253,7 @@ public final class WorldBuilder {
         game.getState().resetWatchers();
         flag("approximate:watchers_reset");
         game.applyEffects();
+        PublicReplayEffects.restore(world, obs, spec.history);
         checkCharacteristics();
         game.getOptions().stopOnTurn = null;
         random.scopeWorld("play");
@@ -260,7 +261,8 @@ public final class WorldBuilder {
 
     /**
      * Design 3.2: a difference between the world's power, toughness or keywords and the observation (an until-end-of-
-     * turn effect, a condition) marks the world approximate:unexplained_characteristics; nothing compensates it.
+     * turn effect, a condition) marks the world approximate:unexplained_characteristics. Only explicitly witnessed
+     * public native effects are restored above; an unexplained numerical gap never supplies an effect.
      */
     private void checkCharacteristics() {
         for (Map<String, Object> pm : playersObs.values()) {

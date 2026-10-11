@@ -19,6 +19,7 @@ from spellbench import wire
 from spellbench.bot import serve
 from xmage_checkpoint_backend import cleanup_container
 from xmage_neural_agent import NeuralAgent, PROFILE
+from xmage_neural_arrangement import ArrangementPlan
 from xmage_neural_bridge import BridgeSession
 from xmage_exp1_play import PROFILE_NAME, PublishedAgent, PublishedSession, profile as published_profile
 from xmage_neural_decisions import InferenceSession, close_resources
@@ -110,6 +111,8 @@ def verify_model_build(build: Path, digest: str, engine: Path, releases: Path, *
         if (architecture != "draftzero-exp1" or play_profile != PROFILE_NAME
                 or "model/spellbench/models/exp1/PlaySettings.class" not in classes):
             raise ValueError("model runtime lacks the supported published Exp1 play settings")
+    if architecture == "draftzero-exp1" and "model/spellbench/kit/xmage/ModelArrangement.class" not in classes:
+        raise ValueError("model runtime lacks complete original Exp1 scry and surveil support")
     if architecture == "magezero-v02" and not {
             "model/spellbench/kit/xmage/MageZeroSearchMain.class",
             "model/spellbench/kit/xmage/MageZeroSearchCombatMain.class",
@@ -187,8 +190,8 @@ def identity(*, checkpoint, visits, build_sha256, image, manifest, play_profile=
              "image": image,
              "source_sha256": {name: sha(Path(__file__).with_name(name)) for name in
                                ("xmage_neural_agent.py", "xmage_neural_runtime.py", "xmage_neural_rpc.py",
-                                "xmage_neural_bridge.py", "xmage_neural_search.py", "xmage_neural_combat.py",
-                                "xmage_neural_decisions.py", "xmage_checkpoint_backend.py")}}
+                                "xmage_neural_bridge.py", "xmage_neural_search.py", "xmage_neural_combat.py", "xmage_neural_arrangement.py",
+                                "xmage_neural_decisions.py", "xmage_checkpoint_backend.py", "xmage_public_effects.py")}}
     if published:
         bound["source_sha256"]["xmage_exp1_play.py"] = sha(Path(__file__).with_name("xmage_exp1_play.py"))
         bound["source_sha256"]["engines/xmage/draftzero-published-play.json"] = sha(
@@ -315,7 +318,8 @@ def main():
             print(json.dumps(event, separators=(",", ":"), allow_nan=False), file=sys.stderr, flush=True)
 
         agent = (PublishedAgent(factory, checkpoint=args.checkpoint, audit=audit) if args.play_profile == PROFILE_NAME
-                 else NeuralAgent(factory, checkpoint=args.checkpoint, visits=args.visits, audit=audit))
+                 else NeuralAgent(factory, checkpoint=args.checkpoint, visits=args.visits, audit=audit,
+                                  arrangement_factory=ArrangementPlan))
         return serve(agent, name=descriptor["name"], version=descriptor["version"],
                      requires_observation=("passed_seats", "keywords"))
     finally:

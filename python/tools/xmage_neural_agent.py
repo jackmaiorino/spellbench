@@ -14,6 +14,7 @@ from spellbench.bot import BotSession, Decision, GameOver, GameStart
 from xmage_neural_combat import CombatPlan, combat_kind
 from xmage_neural_search import root_family
 from xmage_neural_decisions import close_resources
+from xmage_public_effects import PublicEffects
 
 PROFILE = {
     "name": "exp1-permitted-worlds-minimum-visits-v1",
@@ -61,6 +62,7 @@ class PublicHistory:
         self.seat = seat
         self.origins, self.activations = {}, []
         self.anchor, self.earlier = None, []
+        self.effects = PublicEffects(seat)
 
     def loyalty(self, observation, oid):
         for player in observation.get("players", []):
@@ -71,6 +73,7 @@ class PublicHistory:
         return None
 
     def observe(self, observation):
+        self.effects.observe(observation)
         for card in _cards(observation):
             oid, name = card.get("object_id"), card.get("card_name")
             if isinstance(oid, str) and isinstance(name, str):
@@ -89,8 +92,11 @@ class PublicHistory:
         renamed = {c["object_id"]: self.origins[c["object_id"]] for c in _cards(observation)
                    if c.get("object_id") in self.origins and isinstance(c.get("card_name"), str)
                    and c["card_name"] != self.origins[c["object_id"]]}
-        return {"loyalty_used": sorted({a["object_id"] for a in self.activations if a["confirmed"]}),
-                "card_origins": dict(sorted(renamed.items()))}
+        result = {"loyalty_used": sorted({a["object_id"] for a in self.activations if a["confirmed"]}),
+                  "card_origins": dict(sorted(renamed.items()))}
+        if self.effects.effects:
+            result["public_effects"] = self.effects.fields()
+        return result
 
     def callback(self, decision):
         if self.anchor is None:
@@ -176,13 +182,15 @@ class NeuralAgent:
     # Opt-in (the graph agent): a function answering decisions no search root family supports.
     unsearched_family = None
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
-                 profile=None, plan_factory=None):
+                 profile=None, plan_factory=None, arrangement_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
             raise ValueError("Exp1 visits must be 2..1000")
         self.factory, self.checkpoint, self.visits = factory, checkpoint, visits
         self.audit = audit or (lambda event: None)
         self.profile = copy.deepcopy(PROFILE if profile is None else profile)
         self.plan_factory = CombatPlan if plan_factory is None else plan_factory
+        self.arrangement_factory = arrangement_factory
+        self.arrangement = None
         self.session = self.game = self.history = self.key = self.plan = None
         self.failed = False
         self.step = None
@@ -250,10 +258,24 @@ class NeuralAgent:
             received = record["decision"]
             kinds = {candidate.semantic.get("kind") for candidate in decision.candidates}
             result = None
+            if self.arrangement is not None and not self.arrangement.complete and kinds not in (
+                    {"arrange_card"}, {"order_pick"}):
+                raise ValueError("neural arrangement group ended before its complete plan")
             if self.plan is not None and not self.plan.complete and kinds not in (
                     {"declare_attack"}, {"declare_block"}):
                 raise ValueError("neural combat group ended before all declarations")
-            if kinds in ({"declare_attack"}, {"declare_block"}):
+            if self.arrangement_factory is not None and (kinds == {"arrange_card"}
+                    or kinds == {"order_pick"} and self.arrangement is not None and not self.arrangement.complete):
+                family = "original_arrangement_plan"
+                if self.arrangement is None or self.arrangement.complete:
+                    record.update(self.history.callback(received))
+                    result = self.session.arrange(record, visits=self.visits, timeout_s=remaining())
+                    self.arrangement = self.arrangement_factory(received, result, visits=self.visits)
+                first = self.arrangement.next_index == 0
+                selection = self.arrangement.select(received)
+                if first:
+                    received["x_arrangement_plan"] = self.arrangement.history()
+            elif kinds in ({"declare_attack"}, {"declare_block"}):
                 family = combat_kind(received)
                 if self.plan is None or self.plan.complete:
                     result = self.session.plan(record, visits=self.visits, timeout_s=remaining())
@@ -313,7 +335,7 @@ class NeuralAgent:
         if self.game is None or game.game_id != self.game.game_id:
             raise ValueError("neural terminal belongs to another game")
         self.close()
-        self.game = self.history = self.key = self.plan = self.step = None
+        self.game = self.history = self.key = self.plan = self.arrangement = self.step = None
 
     def close(self):
         session, self.session = self.session, None

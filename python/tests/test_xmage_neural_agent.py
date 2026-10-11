@@ -294,7 +294,8 @@ def test_visible_name_and_loyalty_history_never_uses_hidden_hand_or_unconfirmed_
     own = {"seat": "p0", "hand": [{"object_id": "card", "card_name": "Original"}],
            "battlefield": [{"object_id": "walker", "card_name": "Walker",
                             "permanent": {"counters": {"loyalty": 3}}}]}
-    observation = {"turn": 1, "players": [own, {"seat": "p1", "hand": None}], "stack": []}
+    observation = {"viewer": "p0", "turn": 1, "phase_step": "precombat_main",
+                   "players": [own, {"seat": "p1", "hand": None}], "stack": []}
     history.observe(observation)
     selected = {"candidate_id": 10, "semantic_echo": {"kind": "activate_ability", "source": {"object_id": "walker"}}}
     history.selected({"context": {"kind": "priority"}, "observation": observation}, selected)
