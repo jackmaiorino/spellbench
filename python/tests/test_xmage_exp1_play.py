@@ -205,7 +205,8 @@ def test_runtime_profile_is_separate_and_requires_its_new_compiled_support(tmp_p
     diagnostic = runtime.identity(**params)
     assert published["name"] != diagnostic["name"] and published["version"] != diagnostic["version"]
     assert published["identity"]["profile"]["settings"]["backpropDiscount"] == "0.99"
-    assert len(published["identity"]["source_sha256"]) == 10
+    assert len(published["identity"]["source_sha256"]) == 12
+    assert {"xmage_public_effects.py", "xmage_neural_arrangement.py"} <= published["identity"]["source_sha256"].keys()
     assert runtime.selected_visits(play.PROFILE_NAME, None) == 96
     assert runtime.selected_visits("minimum-visits-diagnostic", None) == 1000
     for visits in (6, 96.0, True):
