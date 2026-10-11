@@ -142,3 +142,27 @@ def test_frontend_searches_once_and_retains_original_history_for_later_callback_
     assert bot.history.earlier[0]["decision"]["x_arrangement_plan"]["target_script"] == value["target_script"]
     assert all("x_arrangement_plan" not in entry["decision"] for entry in bot.history.earlier[1:])
     bot.close()
+
+
+def test_published_multi_root_arrangement_uses_one_rpc_and_shared_clock_with_released_settings():
+    import xmage_exp1_play as play
+    from test_xmage_exp1_play import Model
+    from test_xmage_neural_bridge import Peer, exchange
+    d, value, refs = fixture("scry", (), ("b", "a"), 2)
+    value.update(policy_width=1024, settings=copy.deepcopy(play.PUBLISHED_SETTINGS), search_budget=play.budget())
+    for root in value["roots"]:
+        root.update(requested_minimum=0, search_budget=play.budget())
+    record = {"game_start": game(), "decision": d, "anchor": {},
+              "replay": {"earlier": [], "priority_passes": ["p1"]}, "world_seed": "1" * 64, "id_seed": "2" * 64}
+    peer, model = Peer(exchange(value, 1, "search")), Model()
+    session = play.PublishedSession(peer, model)
+    actual = session.arrange(record, visits=96, timeout_s=3)
+    plan = play.PublishedArrangement(d, actual, visits=96)
+    for step in range(3):
+        plan.select(later(d, actual, refs, step))
+    assert plan.complete and len(model.calls) == len(value["roots"]) == 2
+    requests = [message for message in peer.writes if "decision" in message]
+    assert len(requests) == 1 and requests[0]["settings"] == play.PUBLISHED_SETTINGS
+    assert "visits" not in requests[0] and all(0 < clock <= 3 for _, clock in model.calls)
+    assert all(a >= b for a, b in zip(peer.timeouts, peer.timeouts[1:]))
+    session.close()

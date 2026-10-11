@@ -34,6 +34,23 @@ public final class ModelArrangementCheck {
         try { run(record); throw new AssertionError("accepted changed " + label); }
         catch (IllegalArgumentException expected) { }
     }
+    private static void replayedPrefix(Map<String, Object> record, List<Object> earlier) {
+        Map<String, Object> saved = copy(record);
+        Json.obj(saved, "replay").put("earlier", earlier);
+        spellbench.models.exp1.RemoteModelEvaluator evaluator = new spellbench.models.exp1.RemoteModelEvaluator(features -> {
+            throw new AssertionError("retained arrangement repeated neural inference");
+        });
+        try {
+            ModelReplay.run(saved, evaluator, 2);
+            throw new AssertionError("fixture unexpectedly reached a fresh callback after its retained group");
+        } catch (IllegalArgumentException expected) {
+            // These spells finish their native operation before the next priority.
+            // Reaching it proves every recorded native choice and the resulting
+            // physical plan were checked, with no fresh search for wire substeps.
+            require("unrecorded or reordered priority during callback replay".equals(expected.getMessage()),
+                    "retained arrangement did not finish its original operation: " + expected.getMessage());
+        }
+    }
     private static Map<String, Object> check(String spell, String purpose, int count, Path output) throws Exception {
         Slice.SeatSetup own = new Slice.SeatSetup().lib("Island", 12);
         own.library.set(1, "Think Twice"); own.library.set(2, "Essence Scatter");
@@ -80,6 +97,7 @@ public final class ModelArrangementCheck {
                     Json.obj(Json.obj(Json.obj(changed, "decision"), "context"), "source").put("object_id", "unobserved-source");
                     refused(changed, "source");
                     // Apply the native plan through the real wire, including forced order substeps.
+                    List<Object> retained = new ArrayList<>(earlier);
                     for (int wireStep = 0; wireStep < 2 * count - 1; wireStep++) {
                         Map<String, Object> d = pos.decision(); int choice = -1;
                         for (int i = 0; i < Json.arr(d, "candidates").size(); i++) {
@@ -92,14 +110,26 @@ public final class ModelArrangementCheck {
                                 if (id.equals(Json.arr(result, "order").get(wireStep - count))) choice = i;
                             }
                         }
-                        require(choice >= 0, "native plan is unoffered by real wire"); pos.answer(choice);
+                        require(choice >= 0, "native plan is unoffered by real wire");
+                        Map<String, Object> saved = copy(d);
+                        if (wireStep == 0) {
+                            Map<String, Object> plan = new LinkedHashMap<>();
+                            for (String key : Arrays.asList("arrangement", "cards", "destinations", "order", "target_script")) {
+                                plan.put(key, Json.copy(result.get(key)));
+                            }
+                            saved.put("x_arrangement_plan", plan);
+                        }
+                        retained.add(Json.map("decision", saved, "selection", selected(d, choice)));
+                        pos.answer(choice);
                     }
+                    replayedPrefix(record, retained);
                     String stem = spell.replace(' ', '-');
                     Files.write(output.resolve(stem + "-record.json"), Json.canonical(record).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
                     Files.write(output.resolve(stem + "-result.json"), Json.canonical(result).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
                     return Json.map("spell", spell, "purpose", purpose, "cards", (long) count,
                             "roots", (long) Json.arr(result, "roots").size(), "neural_calls", result.get("neural_calls"),
-                            "complete_plan_repeated", true, "actual_wire_group_applied", true, "changed_inputs_refused", 3L);
+                            "complete_plan_repeated", true, "actual_wire_group_applied", true,
+                            "original_history_replayed_without_inference", true, "changed_inputs_refused", 3L);
                 }
                 if ("priority".equals(Json.str(Json.obj(current, "context"), "kind"))) {
                     int pass = Slice.candidateOf(current, Json.map("kind", "pass")); require(pass >= 0, "fixture pass missing");
