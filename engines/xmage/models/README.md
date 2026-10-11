@@ -313,9 +313,21 @@ offered priority `decision` and bound `selection`, and `replay` with public
 each received observation and selection before reaching the requested callback.
 Only visible own-library facts condition the sampled world. The original
 micro-decision history and activation flag reach the encoder through the real
-callback. Unrecorded callbacks terminate replay even when XMage would catch an
+callback. Other unrecorded callbacks terminate replay even when XMage would catch an
 ordinary exception. The result records how many earlier choices and passes it
 replayed and confirms an identical received observation.
+
+One bounded reconstruction exception covers Uncharted Voyage putting an
+opponent-owned creature on its owner's chosen library end before the viewer
+surveils. The wire does not provide that opponent answer. With the exact native
+spell, effects and prompt, the observed target disappearance and library-count
+increase, and no current or retained opponent library pins, replay samples Top
+or Bottom once from a dedicated world-seed stream. The result marks
+`approximate:unobserved_opponent_library_destination`; it does not claim the
+sampled answer was the opponent's actual choice. The native effect and original
+opponent replay history use that sampled branch. Full viewer observation
+comparison still precedes inference, and a mismatch ends replay without
+resampling. The viewer's scry/surveil choices use the original Exp1 policy.
 
 The declared play variant uses a fresh tree per received root, synchronous
 inference, a minimum visit count with original legal-future stopping, all four trained policy heads, no root noise

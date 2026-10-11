@@ -1,8 +1,13 @@
 package spellbench.kit.xmage;
 
 import mage.abilities.Ability;
+import mage.abilities.effects.common.PutOnTopOrBottomLibraryTargetEffect;
+import mage.abilities.effects.keyword.SurveilEffect;
+import mage.cards.Card;
 import mage.cards.Cards;
+import mage.constants.Outcome;
 import mage.game.Game;
+import mage.game.permanent.Permanent;
 import mage.target.Target;
 import mage.target.TargetCard;
 import spellbench.kit.core.Json;
@@ -15,6 +20,75 @@ import java.util.*;
 
 /** A complete original operation, retained across the wire partition/order group. */
 final class ModelArrangement {
+    /**
+     * Uncharted Voyage's owner choice precedes its controller's surveil prompt.
+     * The current wire exposes neither opponent library order nor that answer.
+     * Reconstruct one seeded compatible world, never an asserted actual answer.
+     */
+    static Boolean unobservedVoyageDestination(ModelReplay.Result replay, UUID chooser, Outcome outcome,
+                                               String message, String second, String yes, String no,
+                                               Ability source, Game game) {
+        if (source == null || outcome != Outcome.Detriment || second != null
+                || !"Top".equals(yes) || !"Bottom".equals(no)
+                || !"Put the targeted object on the top or bottom of your library?".equals(message)) return null;
+        World world = replay.world;
+        Card spell = game.getCard(source.getSourceId());
+        Permanent target = game.getPermanent(source.getFirstTarget());
+        if (spell == null || !"mage.cards.u.UnchartedVoyage".equals(spell.getClass().getName())
+                || source.getEffects().size() != 2
+                || !(source.getEffects().get(0) instanceof PutOnTopOrBottomLibraryTargetEffect)
+                || !(source.getEffects().get(1) instanceof SurveilEffect)
+                || !world.player(world.viewer).equals(source.getControllerId())
+                || target == null || !chooser.equals(target.getOwnerId())
+                || chooser.equals(world.player(world.viewer))
+                || source.getTargets().size() != 1 || source.getTargets().get(0).getTargets().size() != 1) return null;
+        Map<String, Object> decision = replay.callbackDecision(), context = Json.obj(decision, "context");
+        Map<String, Object> observation = Json.obj(decision, "observation");
+        if (!world.viewer.equals(Json.str(decision, "acting_seat")) || !world.viewer.equals(Json.str(observation, "viewer"))
+                || !"surveil".equals(Json.str(context, "purpose")) || !"choice".equals(Json.str(context, "kind"))
+                || !Boolean.FALSE.equals(context.get("rewind")) || !replay.passes.isEmpty()) {
+            throw new IllegalArgumentException("unobserved owner destination lacks its actual later surveil callback");
+        }
+        Map<String, Object> reference = Json.obj(context, "source");
+        UUID stack = ModelModes.visibleSource(world, decision, reference, game);
+        if (stack == null || game.getStack().getStackObject(stack) == null
+                || !source.getSourceId().equals(game.getStack().getStackObject(stack).getSourceId())) {
+            throw new IllegalArgumentException("unobserved owner destination changed its visible source");
+        }
+        String owner = world.seatOf(chooser), alias = world.uuidToId.get(target.getId());
+        if (alias == null || new ObsIndex(observation).has(alias)) {
+            throw new IllegalArgumentException("unobserved owner destination did not remove its visible target");
+        }
+        Map<String, Object> ownerAfter = null;
+        for (Object item : Json.arr(observation, "players")) {
+            if (owner.equals(Json.str(Json.obj(item), "seat"))) ownerAfter = Json.obj(item);
+        }
+        if (ownerAfter == null || Json.num(ownerAfter, "library_count", -1) != game.getPlayer(chooser).getLibrary().size() + 1L) {
+            throw new IllegalArgumentException("unobserved owner destination changed the library count");
+        }
+        for (UUID id : world.pinnedLibrary) {
+            Card known = game.getCard(id);
+            if (known != null && chooser.equals(known.getOwnerId())) {
+                throw new IllegalArgumentException("unobserved owner destination conflicts with an earlier library pin");
+            }
+        }
+        requireUnobservedLibrary(observation, owner);
+        requireUnobservedLibrary(Json.obj(replay.decision, "observation"), owner);
+        for (Object entry : replay.earlier) {
+            requireUnobservedLibrary(Json.obj(Json.obj(Json.obj(entry), "decision"), "observation"), owner);
+        }
+        world.flags.add("approximate:unobserved_opponent_library_destination");
+        return world.random.stream("replay:uncharted-voyage:owner-library-destination").nextBoolean();
+    }
+    private static void requireUnobservedLibrary(Map<String, Object> observation, String owner) {
+        for (Object item : Json.arr(observation, "known")) {
+            Map<String, Object> known = Json.obj(item);
+            if (owner.equals(Json.str(known, "owner_seat")) && "library".equals(Json.str(known, "zone"))) {
+                throw new IllegalArgumentException("unobserved owner destination conflicts with visible library information");
+            }
+        }
+    }
+
     final World world;
     final Map<String, Object> initial;
     final String purpose, away;

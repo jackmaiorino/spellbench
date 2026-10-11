@@ -447,6 +447,12 @@ final class ModelReplay {
             Result replay = context(game);
             if (replay == null) return super.chooseUse(outcome, message, second, yes, no, source, game);
             if (!getId().equals(replay.world.player(replay.world.viewer))) {
+                Boolean destination = ModelArrangement.unobservedVoyageDestination(replay, getId(), outcome,
+                        message, second, yes, no, source, game);
+                if (destination != null) {
+                    getPlayerHistory().useSequence.add(destination);
+                    return destination;
+                }
                 throw new IllegalArgumentException("unrecorded opponent binary callback");
             }
             Map<String, Object> past = replay.earlierPick(game);

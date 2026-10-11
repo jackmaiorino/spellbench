@@ -51,7 +51,8 @@ public final class ModelArrangementCheck {
                     "retained arrangement did not finish its original operation: " + expected.getMessage());
         }
     }
-    private static Map<String, Object> check(String spell, String purpose, int count, Path output) throws Exception {
+    private static Map<String, Object> check(String spell, String purpose, int count, Path output,
+                                             Boolean opponentTop) throws Exception {
         Slice.SeatSetup own = new Slice.SeatSetup().lib("Island", 12);
         own.library.set(1, "Think Twice"); own.library.set(2, "Essence Scatter");
         own.hand.add(spell); own.battlefield.addAll(Arrays.asList("Island", "Island", "Island", "Island", "Island"));
@@ -66,6 +67,7 @@ public final class ModelArrangementCheck {
             Map<String, Object> action = selected(anchor, cast);
             pos.answer(cast);
             List<Object> passes = new ArrayList<>(), earlier = new ArrayList<>();
+            int opponentChoices = 0;
             for (int step = 0; step < 40 && !pos.over(); step++) {
                 Map<String, Object> current = pos.decision();
                 String kind = Slice.Front_firstKind(current);
@@ -79,6 +81,9 @@ public final class ModelArrangementCheck {
                             "replay", Json.map("priority_passes", passes, "earlier", earlier),
                             "world_seed", Seeds.hex(Seeds.hmac(ids, "world")), "id_seed", Seeds.hex(ids));
                     Map<String, Object> result = run(record);
+                    require(opponentChoices == (opponentTop == null ? 0 : 1), "fixture lost the real owner destination choice");
+                    require(Json.arr(result, "world_flags").contains("approximate:unobserved_opponent_library_destination")
+                            == (opponentTop != null), "latent owner destination was not classified honestly");
                     require(purpose.equals(Json.str(result, "arrangement")), "wrong original arrangement");
                     require(Json.arr(result, "cards").size() == count && Json.arr(result, "order").size() == count, "incomplete original plan");
                     require(!Json.arr(result, "target_script").isEmpty(), "original target history was lost");
@@ -96,6 +101,20 @@ public final class ModelArrangementCheck {
                     changed = copy(record);
                     Json.obj(Json.obj(Json.obj(changed, "decision"), "context"), "source").put("object_id", "unobserved-source");
                     refused(changed, "source");
+                    if (opponentTop != null) {
+                        changed = copy(record);
+                        for (Object player : Json.arr(Json.obj(Json.obj(changed, "decision"), "observation"), "players")) {
+                            Map<String, Object> p = Json.obj(player);
+                            if ("p1".equals(Json.str(p, "seat"))) p.put("library_count", Json.num(p, "library_count", -1) + 1L);
+                        }
+                        refused(changed, "owner library count");
+                        changed = copy(record);
+                        Json.arr(Json.obj(Json.obj(changed, "decision"), "observation"), "known").add(Json.map(
+                                "object_id", "visible-owner-library-pin", "owner_seat", "p1", "zone", "library",
+                                "card_name", "Grizzly Bears", "position_from_top", 0L, "position_from_bottom", null,
+                                "how", "revealed"));
+                        refused(changed, "visible owner library position");
+                    }
                     // Apply the native plan through the real wire, including forced order substeps.
                     List<Object> retained = new ArrayList<>(earlier);
                     for (int wireStep = 0; wireStep < 2 * count - 1; wireStep++) {
@@ -123,13 +142,14 @@ public final class ModelArrangementCheck {
                         pos.answer(choice);
                     }
                     replayedPrefix(record, retained);
-                    String stem = spell.replace(' ', '-');
+                    String stem = spell.replace(' ', '-') + (opponentTop == null ? "" : opponentTop ? "-owner-top" : "-owner-bottom");
                     Files.write(output.resolve(stem + "-record.json"), Json.canonical(record).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
                     Files.write(output.resolve(stem + "-result.json"), Json.canonical(result).getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
                     return Json.map("spell", spell, "purpose", purpose, "cards", (long) count,
                             "roots", (long) Json.arr(result, "roots").size(), "neural_calls", result.get("neural_calls"),
                             "complete_plan_repeated", true, "actual_wire_group_applied", true,
-                            "original_history_replayed_without_inference", true, "changed_inputs_refused", 3L);
+                            "original_history_replayed_without_inference", true, "changed_inputs_refused", opponentTop == null ? 3L : 5L,
+                            "permitted_record", Json.canonical(record), "complete_result", Json.canonical(result));
                 }
                 if ("priority".equals(Json.str(Json.obj(current, "context"), "kind"))) {
                     int pass = Slice.candidateOf(current, Json.map("kind", "pass")); require(pass >= 0, "fixture pass missing");
@@ -137,7 +157,22 @@ public final class ModelArrangementCheck {
                     else passes.add(pos.acting());
                     pos.answer(pass);
                 } else {
-                    require("p0".equals(pos.acting()), "unexpected opposing fixture callback");
+                    if (!"p0".equals(pos.acting())) {
+                        require(opponentTop != null && opponentChoices++ == 0 && "p1".equals(pos.acting())
+                                && "choose_boolean".equals(kind)
+                                && "Uncharted Voyage".equals(Json.str(Json.obj(Json.obj(current, "context"), "source"), "card_name")),
+                                "unexpected opposing fixture callback: " + kind);
+                        int choice = -1;
+                        for (int i = 0; i < Json.arr(current, "candidates").size(); i++) {
+                            Map<String, Object> semantic = Json.obj(Json.obj(Json.arr(current, "candidates").get(i)), "semantic");
+                            if (opponentTop.equals(semantic.get("value"))) choice = i;
+                        }
+                        require(choice >= 0, "fixture owner destination is not offered");
+                        // This is the fixture opponent's private decision. It
+                        // is never put into p0's record or replay history.
+                        pos.answer(choice);
+                        continue;
+                    }
                     Map<String, Object> selection = selected(current, 0);
                     earlier.add(Json.map("decision", copy(current), "selection", selection)); pos.answer(0);
                 }
@@ -150,9 +185,19 @@ public final class ModelArrangementCheck {
         Path output = Paths.get(args[0]); Files.createDirectory(output);
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, "UTF-8");
         System.setOut(System.err); Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework(); new CardResolver().resolve("Plains");
-        for (String spell : Arrays.asList("Uncharted Voyage", "Lightshell Duo", "Opt", "Preordain")) {
-            boolean surveil = spell.equals("Uncharted Voyage") || spell.equals("Lightshell Duo");
-            out.println(Json.canonical(check(spell, surveil ? "surveil" : "scry", spell.equals("Uncharted Voyage") || spell.equals("Opt") ? 1 : 2, output)));
+        Map<String, Object> top = check("Uncharted Voyage", "surveil", 1, output, true);
+        Map<String, Object> bottom = check("Uncharted Voyage", "surveil", 1, output, false);
+        require(top.get("permitted_record").equals(bottom.get("permitted_record"))
+                && top.get("complete_result").equals(bottom.get("complete_result")),
+                "opponent private destination changed the permitted search input or result");
+        top.remove("permitted_record"); top.remove("complete_result");
+        top.put("both_owner_destinations_preserve_permitted_result", true);
+        out.println(Json.canonical(top));
+        for (String spell : Arrays.asList("Lightshell Duo", "Opt", "Preordain")) {
+            boolean surveil = spell.equals("Lightshell Duo");
+            Map<String, Object> result = check(spell, surveil ? "surveil" : "scry", spell.equals("Opt") ? 1 : 2, output, null);
+            result.remove("permitted_record"); result.remove("complete_result");
+            out.println(Json.canonical(result));
         }
     }
 }
