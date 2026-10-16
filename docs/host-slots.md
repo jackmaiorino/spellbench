@@ -39,7 +39,7 @@ Between `acquire` and the `timed` declaration, a lock with no recorded cores res
 host_reservation_v1.py acquire --lane L --work-id W --release-condition TEXT --cores 0-7
 ```
 
-The lock then reserves only those cores from the moment it exists, and again after `timed` ends while the lock is still held. A live `timed` declaration takes precedence while it runs. A held lock with neither recorded cores nor a live declaration still reserves the whole host, which covers every launcher written before this tool.
+Pass `--cores` only when the work is pinned to those cores, normally by `timed --cores` with the same set; unpinned work under such a lock would share cores with claims. The lock then reserves only those cores from the moment it exists, and again after `timed` ends while the lock is still held. A live `timed` declaration takes precedence while it runs. A held lock with neither recorded cores nor a live declaration still reserves the whole host, which covers every launcher written before this tool.
 
 Declaring is a change to a run's execution. For a rated run, qualify throughput with the same declaration and the same background load before the commitment names it. Launchers whose busy refusal matches process names (for example `java`) also see suspended claim processes. `xmage_native_qualified_job.py` with a manifest `cores` declaration ignores matches pinned entirely outside those cores.
 
