@@ -23,5 +23,8 @@ package-dir = {"" = "python"}
 where = ["python"]
 include = ["spellbench*"]
 
+[tool.setuptools.package-data]
+"spellbench.site" = ["og-image.png"]
+
 [tool.uv]
 required-version = ">=0.11.29"
