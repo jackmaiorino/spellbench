@@ -49,6 +49,8 @@ import html
 import math
 from typing import Any, Iterable, Mapping, Sequence
 
+SOCIAL_IMAGE_NAME = "og-image.png"  # at the site root; 1200x630 for summary_large_image cards
+
 _SEP = " \N{MIDDLE DOT} "
 _ARROW = "\N{RIGHTWARDS ARROW}"
 _CHECK = "\N{CHECK MARK}"
@@ -487,6 +489,7 @@ def render_home(view: Mapping[str, Any]) -> str:
             "re-derived from committed match ledgers."
         ),
         main="\n".join(main),
+        path="",
     )
 
 
@@ -541,6 +544,7 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         title=f"{view['title']}{_SEP}{site['title']}",
         description=view["summary"],
         main="\n".join(main),
+        path=f"b/{view['id']}/",
         depth=2,
         script=True,
     )
@@ -573,6 +577,7 @@ def render_join(view: Mapping[str, Any]) -> str:
         title=f"Join{_SEP}{site['title']}",
         description="Speak the Spellbench protocol, send us your bot, get rated.",
         main="\n".join(main),
+        path="join.html",
         current="Join",
     )
 
@@ -594,6 +599,7 @@ def render_method(view: Mapping[str, Any]) -> str:
         title=f"How ratings work{_SEP}{site['title']}",
         description="How Spellbench rates bots: seat-swapped pairs, an anchored Bradley-Terry fit, and ledgers anyone can re-check.",
         main="\n".join(main),
+        path="method.html",
         current="Method",
     )
 
@@ -621,6 +627,7 @@ def render_models(view: Mapping[str, Any]) -> str:
         title=f"Models{_SEP}{site['title']}",
         description="The bots on the Spellbench benchmarks: what each one is, and its rating on each benchmark it entered.",
         main="\n".join(main),
+        path="models.html",
         current="Models",
     )
 
@@ -697,17 +704,20 @@ def _page(
     title: str,
     description: str,
     main: str,
+    path: str,
     depth: int = 0,
     current: str | None = None,
     script: bool = False,
 ) -> str:
     """A complete document: head with the inline style, header, ``main``, footer.
 
+    ``path`` is the page's URL path under the site root, for its social card.
     ``depth`` counts the directories between the page and the site root; every
     cross-page link gets that many ``../``. ``current`` names the nav entry to
     mark as the current page, and ``script`` adds the tab script.
     """
     root = "../" * depth
+    base = site["site_url"]
     nav = []
     for name, href in _NAV:
         mark = ' aria-current="page"' if name == current else ""
@@ -722,6 +732,15 @@ def _page(
         '<meta name="color-scheme" content="light dark">',
         f'<meta name="description" content="{_e(description)}">',
         f"<title>{_e(title)}</title>",
+        '<meta property="og:type" content="website">',
+        f'<meta property="og:site_name" content="{_e(site["title"])}">',
+        f'<meta property="og:title" content="{_e(title)}">',
+        f'<meta property="og:description" content="{_e(description)}">',
+        f'<meta property="og:url" content="{_e(base + path)}">',
+        f'<meta property="og:image" content="{_e(base + SOCIAL_IMAGE_NAME)}">',
+        '<meta property="og:image:width" content="1200">',
+        '<meta property="og:image:height" content="630">',
+        '<meta name="twitter:card" content="summary_large_image">',
         f"<style>\n{_STYLE}</style>",
         "</head>",
         "<body>",

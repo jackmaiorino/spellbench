@@ -12,7 +12,8 @@ import pytest
 
 from spellbench.site import render
 
-SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": "https://github.com/jackmaiorino/spellbench"}
+SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": "https://github.com/jackmaiorino/spellbench",
+        "site_url": "https://jackmaiorino.github.io/spellbench/"}
 REPO = SITE["repo_url"]
 GE, LE, NBSP = "≥", "≤", " "  # a bound's sign, then a no-break space before its number
 SEP = " \u00b7 "

@@ -199,6 +199,18 @@ def test_the_site_has_every_page_and_run_file(tree: Path, tmp_path: Path) -> Non
     assert re.findall(r'<a href="run/([^"]+)" download>', page) == list(RUN_FILES)  # the commitment after the manifest
 
 
+def test_every_page_has_a_social_card(tree: Path, tmp_path: Path) -> None:
+    out = tmp_path / "site"
+    build_site(tree, out)
+    assert (out / "og-image.png").read_bytes()[:8] == b"\x89PNG\r\n\x1a\n"
+    base = "https://jackmaiorino.github.io/spellbench/"
+    for page, path in (("index.html", ""), ("models.html", "models.html"), ("b/alpha/index.html", "b/alpha/")):
+        text = (out / page).read_text(encoding="utf-8")
+        assert f'<meta property="og:url" content="{base}{path}">' in text, page
+        assert f'<meta property="og:image" content="{base}og-image.png">' in text, page
+        assert '<meta name="twitter:card" content="summary_large_image">' in text, page
+
+
 def test_every_models_link_resolves_to_a_section(tree: Path, tmp_path: Path) -> None:
     out = tmp_path / "site"
     build_site(tree, out)
