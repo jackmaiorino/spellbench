@@ -52,7 +52,7 @@
     "${MTG_KERNEL_V2_ORDER}",
     "${MTG_KERNEL_V2_HISTORY}"
   ],
-  "workers": 4,
+  "workers": 8,
   "qualification_budget_percent": 30,
   "qualification_worker_selection": "wall",
   "bootstrap_replicates": 2000,
