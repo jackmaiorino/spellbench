@@ -58,7 +58,7 @@ from ..arena import engine_records
 from ..messages import EngineIdentity
 from ..run_secret import RunSecret
 from ..llm.provider import ProviderError
-from ..llm.run_budget import check_hosted_budgets
+from ..llm.run_budget import check_hosted_budgets, hosted_inflight_limit
 from ..wire import canonical_json_dumps
 from . import commit, definition, pinning
 from .commit import CommitError
@@ -325,6 +325,13 @@ def _free_space(volumes: Mapping[str, Path]) -> MachineFacts:
     return machine.machine_facts(volumes, memory=lambda: None, gpus=tuple, disk_free=machine.free_bytes)
 
 
+def _worker_cap(config: TournamentConfig) -> int:
+    """The config's workers, capped by each scheduled hosted-LLM entrant's in-flight request limit: one more of its
+    games at once than its budget admits would forfeit games (``llm.run_budget.hosted_inflight_limit``)."""
+    limit = hosted_inflight_limit(config)
+    return config.workers if limit is None else max(1, min(config.workers, limit))
+
+
 def plan_for(
     config: TournamentConfig,
     *,
@@ -395,7 +402,7 @@ def plan_for(
                                   files=files, job_storage=job_storage, recording=recording)
     try:
         allocation = plan_allocation(
-            games_total=len(positions), cap=config.workers, per_game_cores=config.per_game_cores(),
+            games_total=len(positions), cap=_worker_cap(config), per_game_cores=config.per_game_cores(),
             play=measured,
             placement=placement, host=host, sample=ordered_sample, workload=workload,
             evidence=Path(evidence), machine=_machine_facts(roles), pinned_bytes=pinned_bytes,

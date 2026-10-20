@@ -1063,11 +1063,33 @@ class BudgetedProvider:
         return result
 
 
+def _hosted_command(command) -> bool:
+    return any(Path(part).name == "llm_hosted_bot.py" for part in command) or "spellbench.llm.hosted" in command
+
+
+def hosted_inflight_limit(config) -> int | None:
+    """The fewest requests any scheduled hosted-LLM entrant's budget admits at once (``--max-inflight``), or None.
+
+    A game holds at most one request of its hosted seat in flight, so playing more of one entrant's games at once
+    than its limit has the budget refuse requests (``run_budget_concurrency_exhausted``), which forfeits games."""
+    scheduled = None if config.matchups is None else {name for pair in config.matchups for name in pair}
+    limits = []
+    for bot in config.bots:
+        if (scheduled is not None and bot.name not in scheduled) or not _hosted_command(bot.command):
+            continue
+        command = bot.command
+        found = [part.split("=", 1)[1] for part in command if part.startswith("--max-inflight=")]
+        found += [command[index + 1] for index, part in enumerate(command[:-1]) if part == "--max-inflight"]
+        if len(found) > 1:
+            raise ProviderError("run_budget_ambiguous_command")
+        limits.append(int(found[0]) if found else 4)  # hosted.py's default
+    return min(limits) if limits else None
+
+
 def _hosted_budgets(config):
     for index, bot in enumerate(config.bots):
         command = bot.command
-        if not (any(Path(part).name == "llm_hosted_bot.py" for part in command)
-                or "spellbench.llm.hosted" in command):
+        if not _hosted_command(command):
             continue
 
         def option(name, default=None):
