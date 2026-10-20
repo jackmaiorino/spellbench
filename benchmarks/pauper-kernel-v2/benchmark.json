@@ -311,7 +311,7 @@
     },
     {
       "name": "kit-mcts-custom",
-      "version": "0.3.0+d503ec97246c",
+      "version": "0.3.0+25b213ad6a3c",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "any",
@@ -334,7 +334,9 @@
         "--iterations",
         "8",
         "--pace-moves",
-        "0"
+        "0",
+        "--rollout",
+        "200"
       ],
       "evaluation_inputs": [
         "${XMAGE_KIT}/lib/kit-core.jar",
@@ -345,10 +347,10 @@
       "display": {
         "label": "XMage MCTS, 8 iterations",
         "author": "XMage / Spellbench",
-        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts: exactly 8 completed iterations per search (rollout cap 1000, truncated rollouts scored by the evaluator), never paced by the clock, so its play does not depend on machine speed or concurrency. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Replaces the bank-paced kit-mcts, whose searches stopped on the clock. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts: exactly 8 completed iterations per search (rollouts capped at 200 actions, truncated rollouts scored by the evaluator), never paced by the clock, so its play does not depend on machine speed or concurrency. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Replaces the bank-paced kit-mcts, whose searches stopped on the clock. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
       },
-      "evaluation_identity": "e7fb2e0d930785632307e976cfa9d0396678e58bba7dccf262c9aa5e3c203250"
+      "evaluation_identity": "7d98297e612f45909997fde6378b0a1b058d94119b50d360025ae75472c59fef"
     },
     {
       "name": "gorge-bot",
