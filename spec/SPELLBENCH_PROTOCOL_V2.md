@@ -1173,6 +1173,7 @@ Each benchmark declares:
   - Otherwise the recent play was a loop of mandatory actions, and the host records a draw with reason `mandatory_loop` (CR 104.4b).
   - A loop that fires the other seat's "may" triggers makes that seat's answers count as real choices too.
 - **`resources`** declares the cores, memory and GPU of each agent (`cpus`, `memory_mb`, `gpu`) and the engine's cores (`engine_cpus`). The host runs games in parallel only while the declared cores of every running game, agents and engine, are free. Enforcement beyond this declaration (container limits) is reserved.
+- **`core_accounting`** (optional, default `concurrent`) says how a game's declared cores add up. Under `concurrent` a game holds the engine's cores and both agents' cores at once. Under `sequential` it holds the larger of the engine's cores and one agent's cores: the host, the engine and the two agents take turns, so only one of them computes at a time, and an agent keeps its declared cores while it decides. An agent that computes while it waits (between `choice` and its next `choose`) has no reserved cores under `sequential`. A bot that paces its search by its clock sees less time per decision as concurrency rises; fixed budgets avoid that (below).
 - **Enforcement** is the host's. The protocol only declares budgets.
 
 A game reproduces exactly only when the bots do not depend on wall time. Bots should use fixed search budgets (simulations, not seconds) seeded from `agent_seed`.

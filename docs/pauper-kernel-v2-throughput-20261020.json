@@ -59,5 +59,52 @@
   },
   "rows_identical": "31 of 33; kit-mcts (clock-paced) and one long a48 vs kit-mad-k game (decision deadlines) differ in path, same outcome"
  },
- "projected_board_hours_at_5_workers": 20.6
+ "projected_board_hours_at_5_workers": 20.6,
+ "sequential_accounting": {
+  "same_33_games_8_workers": {
+   "workers": 8,
+   "games": 33,
+   "wall_seconds": 1375.6,
+   "busy_games_per_hour": 146.7,
+   "note": "run past the concurrent declaration; only the bank-paced kit-mcts games changed path, and game 1718 changed outcome"
+  },
+  "bank_paced_kit_mcts": "stopped about 90% of its searches on the clock; 8 fixed iterations with 1000-action rollouts still spent the bank at 8 workers (65 clock cuts, ladder refused)",
+  "kit_mcts_custom": {
+   "flags": "--iterations 8 --pace-moves 0 --rollout 200",
+   "version": "0.3.0+25b213ad6a3c",
+   "ladder": {
+    "rungs": [
+     {
+      "workers": 1,
+      "games": 16,
+      "wall_seconds": 1972.8,
+      "busy_games_per_hour": 29.2
+     },
+     {
+      "workers": 4,
+      "games": 16,
+      "wall_seconds": 862.9,
+      "busy_games_per_hour": 92.6
+     },
+     {
+      "workers": 8,
+      "games": 16,
+      "wall_seconds": 904.5,
+      "busy_games_per_hour": 129.7
+     }
+    ],
+    "outputs_identical": true,
+    "chosen_workers": 4,
+    "outputs_digest": "sha256:4e68aaab640666e52a07d5c63767252f9f22116b89f4d95263c6381b75a8f7d5"
+   },
+   "kit_logs": {
+    "decisions": 3552,
+    "searches": 1164,
+    "iterations_per_search": 8,
+    "clock_cuts": 0,
+    "peak_net_bank_seconds": 61,
+    "max_decision_seconds": 13.1
+   }
+  }
+ }
 }

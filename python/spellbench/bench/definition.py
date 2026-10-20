@@ -41,6 +41,7 @@ from .._schema import EXTENSION_KEY_RE
 from ..arena import store
 from ..arena.config import (
     CONFIG_SCHEMA,
+    CORE_ACCOUNTING,
     DEFAULT_BOOTSTRAP_REPLICATES,
     DEFAULT_LIMITS,
     DEFAULT_RESOURCES,
@@ -97,6 +98,7 @@ _OPTIONAL_FIELDS = (
     "resources",
     "bootstrap_replicates",
     "workers",
+    "core_accounting",
     "qualification_budget_percent",
     "qualification_worker_selection",
     "qualification_sample",
@@ -172,6 +174,7 @@ class Benchmark:
     evaluation_targets: tuple[str, ...] | None = None
     evaluation_engine_identity: str | None = None
     evaluation_engine_inputs: tuple[str, ...] = ()
+    core_accounting: str = "concurrent"
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -213,6 +216,8 @@ class Benchmark:
             "rating_anchor": ANCHOR_BOT,
             "include_self_play": False,
         }
+        if self.core_accounting != "concurrent":
+            document["core_accounting"] = self.core_accounting
         if self.opponent_panel:
             targets = {bot.name for bot in self.bots} if self.evaluation_targets is None else set(self.evaluation_targets)
             active = set(self.opponent_panel) | targets | {ANCHOR_BOT}
@@ -512,6 +517,9 @@ def parse_benchmark(value: Any) -> Benchmark:
     overhead = document.get("qualification_budget_percent")
     if "qualification_budget_percent" in document:
         overhead = _integer(overhead, "benchmark.qualification_budget_percent", minimum=1, maximum=100)
+    accounting = document.get("core_accounting", "concurrent")
+    if accounting not in CORE_ACCOUNTING:
+        raise BenchmarkError(f"{context}.core_accounting: must be one of {', '.join(CORE_ACCOUNTING)}")
     sample = document.get("qualification_sample", [])
     if (not isinstance(sample, list) or any(type(index) is not int or index < 0 for index in sample)
             or len(set(sample)) != len(sample)):
@@ -571,6 +579,7 @@ def parse_benchmark(value: Any) -> Benchmark:
         workers=_integer(
             document.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         ),
+        core_accounting=accounting,
         bots=bots,
         qualification_budget_percent=overhead,
         qualification_worker_selection=selection,

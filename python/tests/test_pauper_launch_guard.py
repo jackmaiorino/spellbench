@@ -22,19 +22,14 @@ def test_fixed_pauper_probe_covers_decks_opponents_and_model_concurrency():
     config = TournamentConfig.from_json(bench.tournament_config("check"))
     contexts = schedule(config, RunSecret(bytes(32)))
     sample = [contexts[index] for index in bench.qualification_sample]
-    # The pauper-neutral-v2.2.0 replay: 33 matchups, every entrant but llm-gpt-6-luna against the panel,
-    # and the three references against one another.
-    assert len(contexts) == 2112
-    assert len(config.matchups) == 33
+    # The fixed-budget kit-mcts block: the new entrant against each reference on all eight decks.
+    assert len(contexts) == 192
+    assert len(config.matchups) == 3
     assert {game.decks[0].catalog_id for game in sample} == {deck.catalog_id for deck in bench.deck_pool}
     seats = [{spec.name for _, spec in game.seat_specs} for game in sample]
     panel = {"g115", "a48", "c12"}
     assert all(names & panel for names in seats)
-    kit = {"kit-mad-1", "kit-mad-k", "kit-mcts"}
-    assert kit <= set().union(*seats)
-    assert any(name.startswith("gorge-") for names in seats for name in names)
-    assert any("uniform" in names for names in seats)
-    assert any(names <= panel for names in seats)
+    assert {name for names in seats for name in names} == panel | {"kit-mcts-custom"}
     assert any(game.decks[0].catalog_id == "Spy" for game in sample[:4])
     assert all("llm-gpt-6-luna" not in names for names in seats)
 
@@ -234,7 +229,7 @@ def test_sample_order_binds_qualification_evidence(tmp_path, monkeypatch):
     storage = SimpleNamespace(settings={"projected_bytes": 100, "cap_bytes": 200}, check=lambda: 0)
     run.plan_for(config, sample=bench.qualification_sample, job_storage=storage, **options)
     assert captured[0]["sample"][:8] == bench.qualification_sample
-    assert set(captured[0]["sample"]) == set(range(2112))
+    assert set(captured[0]["sample"]) == set(range(192))
     assert captured[0]["workload"] != captured[1]["workload"]
     assert captured[0]["workload"] != captured[2]["workload"]
 
@@ -283,3 +278,17 @@ def test_pauper_cap_is_a_ceiling_the_qualification_chooses_under():
     config = TournamentConfig.from_json(bench.tournament_config("check"))
     # The scheduled entrants include no hosted LLM, so the definition's ceiling applies in full.
     assert run._worker_cap(config) == bench.workers == 8
+
+
+def test_pauper_sequential_cores_fit_one_game_per_core_and_keep_blocks_compatible():
+    from dataclasses import replace
+    from spellbench.arena import snapshot
+    from spellbench.arena.qualification import resource_bound
+    bench = definition.load_benchmark(Path(__file__).parents[2] / "benchmarks/pauper-kernel-v2")
+    config = TournamentConfig.from_json(bench.tournament_config("check"))
+    assert config.core_accounting == "sequential" and config.per_game_cores() == 1
+    assert resource_bound(16, config.per_game_cores()) >= bench.workers  # the ceiling, not the cores, binds at 16
+    # Published blocks were played under concurrent accounting; the snapshot contract does not include it.
+    concurrent = TournamentConfig.from_json(replace(bench, core_accounting="concurrent").tournament_config("check"))
+    assert concurrent.per_game_cores() == 3
+    assert snapshot.contract(config) == snapshot.contract(concurrent)
