@@ -37,6 +37,9 @@ MULLIGAN_CHOICES = ("auto", "london", "none")
 
 DEFAULT_BOOTSTRAP_REPLICATES = 2_000
 DEFAULT_WORKERS = 1
+# How a game's declared cores add up (spec 11.4): "concurrent" reserves the engine's and both seats' cores at once;
+# "sequential" reserves the larger share, since the engine and the seats take turns.
+CORE_ACCOUNTING = ("concurrent", "sequential")
 
 BOT_TYPES = frozenset({"builtin", "subprocess"})
 
@@ -351,6 +354,7 @@ class TournamentConfig:
     evaluation_version: str | None = None
     evaluation_engine_identity: str | None = None
     evaluation_engine_inputs: tuple[str, ...] = ()
+    core_accounting: str = "concurrent"
 
     def decks_for_pair(self, pair_index: int) -> tuple[DeckSpec, DeckSpec]:
         """The (p0, p1) decks of both games of pair ``pair_index``."""
@@ -374,9 +378,14 @@ class TournamentConfig:
         return tuple(dict.fromkeys(ordered))
 
     def per_game_cores(self) -> int:
-        """Cores one game needs: the engine's, plus two per-seat shares when a bot is a subprocess."""
+        """Cores one game needs (spec 11.4): with ``concurrent`` accounting the engine's plus two per-seat shares when
+        a bot is a subprocess; with ``sequential`` accounting the larger of the engine's and one seat's, since the
+        engine and the two seats take turns and only one of them works at a time."""
+        subprocess_seats = any(spec.type == "subprocess" for spec in self.bots)
+        if self.core_accounting == "sequential":
+            return max(self.resources.engine_cpus, self.resources.cpus if subprocess_seats else 0)
         cores = self.resources.engine_cpus
-        if any(spec.type == "subprocess" for spec in self.bots):
+        if subprocess_seats:
             cores += 2 * self.resources.cpus
         return cores
 
@@ -400,6 +409,8 @@ class TournamentConfig:
             "workers": self.workers,
             "include_self_play": self.include_self_play,
         }
+        if self.core_accounting != "concurrent":  # the default stays unwritten, so existing configs keep their bytes
+            doc["core_accounting"] = self.core_accounting
         if self.deck_pool is None:
             assert self.decks is not None
             doc["decks"] = [deck.to_json() for deck in self.decks]
@@ -453,6 +464,7 @@ class TournamentConfig:
             "evaluation_version",
             "evaluation_engine_identity",
             "evaluation_engine_inputs",
+            "core_accounting",
         }
         required = {
             "schema",
@@ -597,6 +609,9 @@ class TournamentConfig:
         workers = _req_uint(
             value.get("workers", DEFAULT_WORKERS), f"{context}.workers", minimum=1, maximum=MAX_WORKERS
         )
+        core_accounting = value.get("core_accounting", "concurrent")
+        if core_accounting not in CORE_ACCOUNTING:
+            raise TournamentError(f"{context}.core_accounting: must be one of {', '.join(CORE_ACCOUNTING)}")
         # The leaderboard's bootstraps refuse oversized inputs; refuse such a
         # config now rather than after every game has been played.
         rated_pairs = (len(matchups) if matchups is not None else len(bots) * (len(bots) - 1) // 2) * pairs_per_matchup
@@ -633,4 +648,5 @@ class TournamentConfig:
             evaluation_version=evaluation_version,
             evaluation_engine_identity=engine_identity,
             evaluation_engine_inputs=tuple(engine_inputs),
+            core_accounting=core_accounting,
         )

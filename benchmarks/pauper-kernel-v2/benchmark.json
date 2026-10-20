@@ -53,6 +53,7 @@
     "${MTG_KERNEL_V2_HISTORY}"
   ],
   "workers": 8,
+  "core_accounting": "sequential",
   "qualification_budget_percent": 30,
   "qualification_worker_selection": "wall",
   "bootstrap_replicates": 2000,
