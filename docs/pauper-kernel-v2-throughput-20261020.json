@@ -1,0 +1,63 @@
+{
+ "schema": "spellbench-throughput-note/v1",
+ "benchmark": "pauper-kernel-v2",
+ "host": "computehost (Ryzen 7 3700X, 16 threads)",
+ "date": "2026-10-20",
+ "code": "claude/pauper-v2-throughput at 29e283d, launcher planner bench.run.plan_for",
+ "baseline_run": {
+  "run": "2026-10-18",
+  "workers": 4,
+  "games": 2112,
+  "wall_hours": 25.57,
+  "games_per_hour": 82.6
+ },
+ "ladder_ceiling_8": {
+  "bound": "16 threads // 3 declared cores per game = 5",
+  "chosen_workers": 5,
+  "outputs_identical": true,
+  "trials": [
+   {
+    "workers": 1,
+    "games": 10,
+    "seconds_milli": 490948,
+    "busy_milli": 489405,
+    "outputs_digest": "sha256:266caa1bbc7ffb3a8c01b3eb60f9efac967a14e6abdc35f8148a99c296b6f2aa"
+   },
+   {
+    "workers": 2,
+    "games": 10,
+    "seconds_milli": 304156,
+    "busy_milli": 580607,
+    "outputs_digest": "sha256:266caa1bbc7ffb3a8c01b3eb60f9efac967a14e6abdc35f8148a99c296b6f2aa"
+   },
+   {
+    "workers": 5,
+    "games": 10,
+    "seconds_milli": 211072,
+    "busy_milli": 692838,
+    "outputs_digest": "sha256:266caa1bbc7ffb3a8c01b3eb60f9efac967a14e6abdc35f8148a99c296b6f2aa"
+   }
+  ]
+ },
+ "same_33_games_one_per_matchup": {
+  "secret": "one throwaway secret for both batches",
+  "4_workers": {
+   "workers": 4,
+   "games": 33,
+   "wall_seconds": 1751.9,
+   "summed_game_seconds": 5926.3,
+   "busy_games_per_hour": 80.2,
+   "machine_cpu_busy_share": 0.264
+  },
+  "5_workers": {
+   "workers": 5,
+   "games": 33,
+   "wall_seconds": 1362.7,
+   "summed_game_seconds": 5793.2,
+   "busy_games_per_hour": 102.5,
+   "machine_cpu_busy_share": 0.327
+  },
+  "rows_identical": "31 of 33; kit-mcts (clock-paced) and one long a48 vs kit-mad-k game (decision deadlines) differ in path, same outcome"
+ },
+ "projected_board_hours_at_5_workers": 20.6
+}
