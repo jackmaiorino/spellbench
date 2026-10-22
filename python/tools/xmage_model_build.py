@@ -133,7 +133,7 @@ def main() -> int:
         source_sets["model"] += sorted((args.out / "search-sources").rglob("*.java"))
     else:
         source_sets["model"] = [p for p in source_sets["model"] if "exp1" not in p.parts
-                                and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelSearchCallbackCheck.java",
+                                and p.name not in ("ModelSearchMain.java", "ModelReplay.java", "ModelArrangement.java", "ModelSearchCallbackCheck.java",
                                                    "ModelCombatMain.java", "ModelCombatCheck.java", "ModelBridgeMain.java",
                                                    "MaintainerModeEncoder.java", "MaintainerModeEncoderMain.java",
                                                    "MaintainerDialogEncoder.java", "MaintainerDialogEncoderMain.java", "MaintainerDialogReplay.java", "MaintainerInheritedChoices.java", "MaintainerTriggerOrder.java", "MaintainerLibraryOrder.java", "MaintainerTargetAmount.java", "MaintainerNamedChoices.java", "MaintainerManaReplay.java", "MaintainerManaReplayCheck.java",

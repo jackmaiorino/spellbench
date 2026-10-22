@@ -98,7 +98,7 @@ final class ModelModes {
     }
 
     /** Called only after ModelReplay verifies the entire current observation. */
-    private static UUID visibleSource(World world, Map<String, Object> decision,
+    static UUID visibleSource(World world, Map<String, Object> decision,
                                       Map<String, Object> reference, Game game) {
         if (reference == null) throw new IllegalArgumentException("mode source reference is missing");
         Map<String, Object> observation = Json.obj(decision, "observation");

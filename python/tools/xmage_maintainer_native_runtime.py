@@ -74,7 +74,8 @@ def identity(manifest, checkpoint, profile, build_sha256, image, idle_seconds):
              "source_sha256": {name: sha(Path(__file__).with_name(name)) for name in (
                  "xmage_maintainer_native_runtime.py", "xmage_maintainer_native_agent.py", "xmage_maintainer_native_session.py",
                  "xmage_maintainer_native_inference.py", "xmage_maintainer_inference.py", "xmage_checkpoint_backend.py",
-                 "xmage_neural_runtime.py", "xmage_neural_agent.py", "xmage_release_assets.py")},
+                 "xmage_neural_runtime.py", "xmage_neural_agent.py", "xmage_release_assets.py", "xmage_public_effects.py",
+                 "xmage_neural_arrangement.py")},
              "full_original_player_qualified": False}
     return {"name": checkpoint + "-" + profile, "version": "maintainer-original-visible-v1-" + digest(bound)[:24],
             "identity": bound}

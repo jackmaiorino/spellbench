@@ -98,10 +98,14 @@ jobs:
           javac --release 8 -cp "$mana_cp" -d "$RUNNER_TEMP/priority-mana-check" \
             engines/xmage/tests/stack-text/StackAbilityTextCheck.java \
             engines/xmage/tests/stack-text/BrinebornStackCheck.java \
+            engines/xmage/tests/stack-text/PublicReplayEffectsCheck.java \
+            engines/xmage/tests/stack-text/ModelArrangementCheck.java \
             engines/xmage/tests/stack-text/VisibleReplayDrawsCheck.java \
             engines/xmage/tests/stack-text/VisibleReplayDrawWatchersCheck.java
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.StackAbilityTextCheck
           (cd "$RUNNER_TEMP" && java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.BrinebornStackCheck "$GITHUB_WORKSPACE/engines/xmage/tests/stack-text/brineborn-public-stack.json")
+          (cd "$RUNNER_TEMP" && java -Xmx1g -Dmz.actionVocab="$RUNNER_TEMP/model-inputs/FDN_SPG.tsv" -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp:$RUNNER_TEMP/model-inputs/commons-math3-3.6.1.jar" spellbench.kit.xmage.PublicReplayEffectsCheck "$GITHUB_WORKSPACE/engines/xmage/tests/stack-text/temporary-effects-public-replay.json")
+          (cd "$RUNNER_TEMP" && java -Xmx1g -Dmz.actionVocab="$RUNNER_TEMP/model-inputs/FDN_SPG.tsv" -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp:$RUNNER_TEMP/model-inputs/commons-math3-3.6.1.jar" spellbench.kit.xmage.ModelArrangementCheck "$RUNNER_TEMP/arrangement-check")
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.VisibleReplayDrawsCheck
           java -cp "$RUNNER_TEMP/priority-mana-check:$mana_cp" spellbench.kit.xmage.VisibleReplayDrawWatchersCheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
