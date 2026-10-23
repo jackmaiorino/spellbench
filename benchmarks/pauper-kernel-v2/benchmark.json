@@ -52,7 +52,7 @@
     "${MTG_KERNEL_V2_ORDER}",
     "${MTG_KERNEL_V2_HISTORY}"
   ],
-  "workers": 8,
+  "workers": 4,
   "core_accounting": "sequential",
   "qualification_budget_percent": 30,
   "qualification_worker_selection": "wall",
@@ -519,6 +519,70 @@
         "url": "https://github.com/adams-shaun/gorge"
       },
       "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
+    },
+    {
+      "name": "r2-b20",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${R2B20_SCORER_CONFIG}",
+        "--name",
+        "r2-b20",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "244e9336800ab4d1557f9130a2b231928780cddff5134a1569f54ef34272190d"
+      ],
+      "checkpoint": "${R2B20_CHECKPOINT}",
+      "display": {
+        "label": "r2-b20",
+        "author": "mipo",
+        "description": "mtg-kernel policy network: g115 continued on all nine decks (nine-deck baseline r2, block 20; 35,640 Adam steps), sampled, no search. The OH1 parent. Descriptive entrant, not rated.",
+        "url": null
+      },
+      "evaluation_identity": "b3dc681fdfef964a127b519aaa7d6c41bdcd74db50a487507c2d0b17dbebbaf7"
+    },
+    {
+      "name": "oh1-r2s1-b128",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH1R2S1B128_SCORER_CONFIG}",
+        "--name",
+        "oh1-r2s1-b128",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "b43745f3818dd3a63a07e7106681d3e3169ed803bb89500834f063b5c4c00f10"
+      ],
+      "checkpoint": "${OH1R2S1B128_CHECKPOINT}",
+      "display": {
+        "label": "oh1-r2s1-b128",
+        "author": "mipo",
+        "description": "mtg-kernel policy network: r2-b20 after 128 more blocks of ordinary RL (OH1 r2 seed 1, 20,736 updates; 56,376 Adam steps), sampled, no search. The OH1 research parent. Descriptive entrant, not rated.",
+        "url": null
+      },
+      "evaluation_identity": "33294a695bf58ce9a8dbe84efa90e0482e6cfc69c5a14d18bffb15f33ae015c9"
     }
   ],
   "qualification_sample": [
@@ -537,6 +601,7 @@
   },
   "evaluation_engine_identity": "2de20af36c12bfbd071140f400cdf1d025d903be59a4c2b69bd19546479f1a98",
   "evaluation_targets": [
-    "kit-mcts-custom"
+    "oh1-r2s1-b128",
+    "r2-b20"
   ]
 }
