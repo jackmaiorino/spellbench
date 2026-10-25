@@ -36,6 +36,17 @@ PROPOSALS = "mtg-kernel-spellbench-completion-proposals/v1"
 PROPOSAL_ENCODING = "integer-rle-table/v1"
 
 
+def _plain_ints(values):
+    """True for a list of canonical JSON integers (no bools), whose canonical text is plain ``str(value)``."""
+    return type(values) is list and all(type(value) is int and -wire.MAX_JSON_INT <= value <= wire.MAX_JSON_INT
+                                        for value in values)
+
+
+def _ints_length(values):
+    """The length of the canonical JSON of a list of plain integers, without encoding it."""
+    return 2 + sum(map(len, map(str, values))) + max(0, len(values) - 1)
+
+
 def pack_proposal_tensor(tensor):
     """Losslessly shorten float-bit words and signed metadata integers."""
     result = {}
@@ -47,8 +58,25 @@ def pack_proposal_tensor(tensor):
             else:
                 runs.append([value, 1])
         packed = {"length": len(values), "rle": runs}
-        result[key] = packed if len(wire.canonical_json_dumps(packed)) < len(wire.canonical_json_dumps(values)) else values
+        if _plain_ints(values):
+            # The canonical lengths, counted: '{"length":N,"rle":[[v,c],...]}' against '[v,...]'.
+            rle = 2 + sum(3 + len(str(value)) + len(str(count)) for value, count in runs) + max(0, len(runs) - 1)
+            shorter = 17 + len(str(len(values))) + rle + 1 < _ints_length(values)
+        else:
+            shorter = len(wire.canonical_json_dumps(packed)) < len(wire.canonical_json_dumps(values))
+        result[key] = packed if shorter else values
     return result
+
+
+def _vector_key(words):
+    """A key equal for two vectors exactly when their canonical JSON is equal."""
+    if _plain_ints(words):
+        return tuple(words)
+    if (type(words) is dict and words.keys() == {"length", "rle"} and type(words["length"]) is int
+            and type(words["rle"]) is list and all(type(run) is list and len(run) == 2 for run in words["rle"])
+            and _plain_ints([words["length"], *(part for run in words["rle"] for part in run)])):
+        return (words["length"], tuple(map(tuple, words["rle"])))
+    return wire.canonical_json_dumps(words)
 
 
 def intern_proposal_vectors(proposals, grouped=False):
@@ -64,7 +92,7 @@ def intern_proposal_vectors(proposals, grouped=False):
         for position, step in enumerate(trajectory):
             tensor = {}
             for key, words in step["tensor"].items():
-                encoded = wire.canonical_json_dumps(words)
+                encoded = _vector_key(words)
                 if encoded not in indices:
                     indices[encoded] = len(vectors)
                     vectors.append(words)
