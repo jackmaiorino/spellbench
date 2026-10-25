@@ -59,6 +59,35 @@ def test_a_toss_rule_needs_no_seat_and_subprocess_bots_count_their_cores() -> No
     assert sub.per_game_cores() == 5
 
 
+SUBPROCESS_BOTS = [{"name": "uniform", "version": "2.0.0", "type": "builtin"},
+                   {"name": "mine", "version": "1", "type": "subprocess", "command": ["python", "bot.py"]}]
+
+
+@pytest.mark.parametrize("resources, bots, cores", [
+    ({"cpus": 1, "memory_mb": 4096, "gpu": False, "engine_cpus": 1}, SUBPROCESS_BOTS, 1),
+    ({"cpus": 2, "memory_mb": 4096, "gpu": False, "engine_cpus": 1}, SUBPROCESS_BOTS, 2),
+    ({"cpus": 1, "memory_mb": 4096, "gpu": False, "engine_cpus": 3}, SUBPROCESS_BOTS, 3),
+    ({"cpus": 4, "memory_mb": 4096, "gpu": False, "engine_cpus": 1}, None, 1),  # builtins run in the host
+])
+def test_sequential_accounting_holds_the_larger_share_of_engine_and_one_seat(resources, bots, cores) -> None:
+    changes = {"resources": resources, "core_accounting": "sequential"}
+    if bots is not None:
+        changes["bots"] = bots
+    parsed = TournamentConfig.from_json(config(**changes))
+    assert parsed.per_game_cores() == cores
+    assert parsed.to_json()["core_accounting"] == "sequential"
+    assert TournamentConfig.from_json(parsed.to_json()) == parsed
+
+
+def test_concurrent_accounting_is_the_default_and_stays_unwritten() -> None:
+    default = TournamentConfig.from_json(config(bots=SUBPROCESS_BOTS))
+    explicit = TournamentConfig.from_json(config(bots=SUBPROCESS_BOTS, core_accounting="concurrent"))
+    assert default == explicit and default.per_game_cores() == 3
+    assert "core_accounting" not in default.to_json() and "core_accounting" not in explicit.to_json()
+    with pytest.raises(TournamentError, match="core_accounting"):
+        TournamentConfig.from_json(config(core_accounting="parallel"))
+
+
 def test_a_pool_rotates_and_must_divide_the_pairs() -> None:
     pool = config(deck_pool=[{"catalog_id": "Burn"}, {"catalog_id": "Elves"}], pairs_per_matchup=4)
     del pool["decks"]

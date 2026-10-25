@@ -30,10 +30,12 @@ def host(tmp_path, monkeypatch):
     return root
 
 
-def lock(root, token=TOKEN):
-    (root / "TESTHOST.lock").write_text(json.dumps({
-        "schema": slots.LOCK_SCHEMA, "token": token, "lane": "board", "work_id": "run-1",
-        "acquired_at": "2026-10-07T00:00:00Z"}), encoding="utf-8")
+def lock(root, token=TOKEN, cores=None):
+    record = {"schema": slots.LOCK_SCHEMA, "token": token, "lane": "board", "work_id": "run-1",
+              "acquired_at": "2026-10-07T00:00:00Z"}
+    if cores is not None:
+        record["cores"] = cores
+    (root / "TESTHOST.lock").write_text(json.dumps(record), encoding="utf-8")
 
 
 def declare(root, cores, token=TOKEN):
@@ -100,6 +102,22 @@ def test_timed_state_is_the_whole_host_unless_a_live_declaration_says_otherwise(
     assert slots.timed_state()["cores"] is None
     (host / "TESTHOST.lock").write_text("not json")
     assert slots.timed_state() == {"held": True, "cores": None, "why": "lock record unreadable or incomplete"}
+
+
+def test_cores_recorded_at_acquire_count_before_and_after_the_timed_declaration(host):
+    lock(host, cores=[0, 1])
+    state = slots.timed_state()
+    assert state["held"] and state["cores"] == [0, 1] and "acquired" in state["why"]
+    assert slots.conflicts([1]) and not slots.conflicts([2])
+    config = {"cores": [3, 2, 1, 0], "keep_free": 0, "priority": "below_normal"}
+    assert slots.available(config, state, []) == [3, 2]
+    declare(host, [1])  # a live declaration by timed wins while it lasts
+    assert slots.timed_state()["cores"] == [1]
+    (host / f"TESTHOST.slots/share-{slots.token_hash(TOKEN)[:16]}.json").unlink()
+    assert slots.timed_state()["cores"] == [0, 1]  # after timed ends: the recorded cores, not the whole host
+    for bad in ([], [-1], [0, 0], ["0"], [True], "0-1"):
+        lock(host, cores=bad)
+        assert slots.timed_state()["cores"] is None, bad
 
 
 def test_declaration_whose_declarer_exited_reserves_the_whole_host(host, tmp_path):

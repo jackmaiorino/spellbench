@@ -33,7 +33,13 @@ host_reservation_v1.py supervise --token T -- python host_slots_v1.py timed --co
 
 `timed` checks that `MTG_HOST_RESERVATION_TOKEN` holds the lock and declares the cores. It waits for any claim on those cores to suspend; if one does not within 60 s, it refuses with exit 6. It then pins `COMMAND` to those cores and removes the declaration when the command's tree ends. Untimed claims may then use the rest of the host.
 
-A held lock with no declaration still reserves the whole host, which covers every launcher written before this tool.
+Between `acquire` and the `timed` declaration, a lock with no recorded cores reserves the whole host, so every claim pauses for a few seconds even when the declaration will cover other cores. To avoid that, record the cores when acquiring:
+
+```
+host_reservation_v1.py acquire --lane L --work-id W --release-condition TEXT --cores 0-7
+```
+
+Pass `--cores` only when the work is pinned to those cores, normally by `timed --cores` with the same set; unpinned work under such a lock would share cores with claims. The lock then reserves only those cores from the moment it exists, and again after `timed` ends while the lock is still held. A live `timed` declaration takes precedence while it runs. A held lock with neither recorded cores nor a live declaration still reserves the whole host, which covers every launcher written before this tool.
 
 Declaring is a change to a run's execution. For a rated run, qualify throughput with the same declaration and the same background load before the commitment names it. Launchers whose busy refusal matches process names (for example `java`) also see suspended claim processes. `xmage_native_qualified_job.py` with a manifest `cores` declaration ignores matches pinned entirely outside those cores.
 
@@ -61,6 +67,18 @@ On the compute host, its owner's use comes first. Set `keep_free` so the owner a
 - the free cores
 
 Records whose process has exited are removed as they are read.
+
+Background queue filenames sort after ordinary queue filenames. This keeps
+legacy filename-FIFO launchers compatible with the priority-aware CI allocator
+and avoids an admission deadlock when both generations share a registry.
+
+## Per-request core pools
+
+`run` and `submit` accept `--core-pool 8-15` to restrict one request to those
+configured logical CPUs. The existing reservation, ordinary/background claims,
+queue order and shared mutex still govern admission. A request waits when its
+pool lacks room even if CPUs outside the pool are free. The host configuration
+is unchanged; omitting this option preserves the existing allocation behavior.
 
 ## Limits
 

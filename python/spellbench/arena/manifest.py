@@ -301,6 +301,8 @@ def manifest_body(
             "rating_anchor": {"name": config.rating_anchor, "bot_id": anchor_bot_id},
             "arena_version": __version__,
             "bots": [entry.to_json() for entry in entries],
+            # Written only when it is not the default, so manifests of concurrent accounting keep their bytes.
+            **({"core_accounting": config.core_accounting} if config.core_accounting != "concurrent" else {}),
         },
         "engine": engine.to_json(),
         "engine_profile": profile.to_json(),

@@ -68,12 +68,16 @@ from ..messages import ENGINE_DEFAULT_KEYS, EngineIdentity
 from . import hero, render
 
 REPO_URL = "https://github.com/jackmaiorino/spellbench"
+SITE_URL = "https://jackmaiorino.github.io/spellbench/"
+# The link-preview image (1200x630) that social cards show, copied to the site root.
+SOCIAL_IMAGE = Path(__file__).with_name(render.SOCIAL_IMAGE_NAME)
 SITE_MARKER = ".spellbench-site"
 # The published files of a board run, copied for download: a v2 run's manifest hashes its commitment too.
 RUN_FILES = (store.MANIFEST_NAME, store.COMMITMENT_NAME, *store.DATA_FILE_NAMES)
 LEGACY_RUN_FILES = (store.MANIFEST_NAME, *store.DATA_FILE_NAMES)
 
-_SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL}
+_SITE = {"title": "Spellbench", "tagline": "cross-engine Magic bot benchmark", "repo_url": REPO_URL,
+         "site_url": SITE_URL}
 _MARKER_TEXT = "spellbench site output; rebuilt by spellbench site\n"
 _GAME_COUNTS = ("total", "rated", "forfeit", "truncated", "halted")
 _ANCHOR_WITHOUT_PAIRS = "reference_id has no games"  # the fit's error when the anchor has no complete pair
@@ -212,6 +216,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         "models.html": render.render_models(_models_view(benchmarks, runs, stale)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
+        render.SOCIAL_IMAGE_NAME: SOCIAL_IMAGE.read_bytes(),
     }
     for benchmark in benchmarks:
         run = runs.get(benchmark.id)

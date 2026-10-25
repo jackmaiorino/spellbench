@@ -52,7 +52,8 @@
     "${MTG_KERNEL_V2_ORDER}",
     "${MTG_KERNEL_V2_HISTORY}"
   ],
-  "workers": 4,
+  "workers": 8,
+  "core_accounting": "sequential",
   "qualification_budget_percent": 30,
   "qualification_worker_selection": "wall",
   "bootstrap_replicates": 2000,
@@ -309,8 +310,8 @@
       "evaluation_identity": "a7f58257eda6763c7252158410ee1368d5eb22fccbed17aa7e9ee1bf666cdc82"
     },
     {
-      "name": "kit-mcts",
-      "version": "0.3.0+068718d79078",
+      "name": "kit-mcts-custom",
+      "version": "0.3.0+25b213ad6a3c",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "any",
@@ -329,7 +330,13 @@
         "--work",
         "${XMAGE_AGENT_WORK}",
         "--entry",
-        "h3"
+        "h3",
+        "--iterations",
+        "8",
+        "--pace-moves",
+        "0",
+        "--rollout",
+        "200"
       ],
       "evaluation_inputs": [
         "${XMAGE_KIT}/lib/kit-core.jar",
@@ -338,12 +345,12 @@
         "${XMAGE_DB}/cards.h2.mv.db"
       ],
       "display": {
-        "label": "XMage MCTS",
+        "label": "XMage MCTS, 8 iterations",
         "author": "XMage / Spellbench",
-        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts (at most 30 iterations, rollout cap 1000, truncated rollouts scored by the evaluator), paced by the bank: each search stops at the remaining bank over 20 plus the increment, at least 12 s. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
+        "description": "XMage's MCTS on one sampled hidden world with knowledge-consistent rollouts: exactly 8 completed iterations per search (rollouts capped at 200 actions, truncated rollouts scored by the evaluator), never paced by the clock, so its play does not depend on machine speed or concurrency. MCTS combat keeps at most 128 engagements per expansion, in upstream's enumeration order. Replaces the bank-paced kit-mcts, whose searches stopped on the clock. Plays protocol v2 as an ordinary agent: each decision rebuilds an XMage world from the observation, public history and card knowledge, so it sees nothing the seat cannot.",
         "url": null
       },
-      "evaluation_identity": "a7f58257eda6763c7252158410ee1368d5eb22fccbed17aa7e9ee1bf666cdc82"
+      "evaluation_identity": "7d98297e612f45909997fde6378b0a1b058d94119b50d360025ae75472c59fef"
     },
     {
       "name": "gorge-bot",
@@ -515,14 +522,14 @@
     }
   ],
   "qualification_sample": [
-    320,
-    450,
-    520,
-    332,
-    4,
-    198,
-    394,
-    142
+    72,
+    0,
+    132,
+    66,
+    6,
+    138,
+    12,
+    78
   ],
   "job_storage_budget": {
     "projected_bytes": 4294967296,
@@ -530,18 +537,6 @@
   },
   "evaluation_engine_identity": "2de20af36c12bfbd071140f400cdf1d025d903be59a4c2b69bd19546479f1a98",
   "evaluation_targets": [
-    "a48",
-    "c12",
-    "g115",
-    "gorge-ar8",
-    "gorge-blocks",
-    "gorge-bot",
-    "gorge-explore",
-    "gorge-legacy",
-    "gorge-lethal-pressure",
-    "kit-mad-1",
-    "kit-mad-k",
-    "kit-mcts",
-    "uniform"
+    "kit-mcts-custom"
   ]
 }
