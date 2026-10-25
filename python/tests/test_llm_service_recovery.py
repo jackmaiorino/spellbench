@@ -56,6 +56,27 @@ def recover(source, proof, *, suffix="recovery"):
                      expected_limits={"allow_http503_forfeits": True})
 
 
+def test_stopped_host_failure_can_preserve_an_already_allowed_http503(tmp_path):
+    original = budget(tmp_path, requests=12, tokens=100_000, allow_http503_forfeits=True)
+    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), original).complete(PROMPT, timeout_s=30)
+    source = transfer(tmp_path, original)
+    with pytest.raises(ProviderError, match="http_503"):
+        BudgetedProvider(Provider(ProviderError("http_503")), source).complete(PROMPT, timeout_s=30)
+    source.check()
+    source.fail("hosted_broker_failed")
+    proof = evidence(source)
+    before, parent_bytes = source.summary(), source.path.read_bytes()
+    child = recover(source, proof)
+    child.check()
+    after = child.summary()
+    assert source.path.read_bytes() == parent_bytes
+    assert all(after[name] == before[name] for name in (*INHERITED_NAMES, "accounted_tokens"))
+    assert all(after["policy"][name] == before["policy"][name] for name in LIMIT_NAMES)
+    assert after["effective_deadline"] == before["effective_deadline"]
+    with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
+        source.check()
+
+
 def test_stopped_precommit_carries_all_charges_and_retires_one_writer(tmp_path):
     source, proof = stopped(tmp_path)
     before, retained, mapping = source.summary(), source.path.read_bytes(), source.paths.manifest.read_bytes()
