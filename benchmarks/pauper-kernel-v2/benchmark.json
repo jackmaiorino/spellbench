@@ -583,6 +583,102 @@
         "url": null
       },
       "evaluation_identity": "33294a695bf58ce9a8dbe84efa90e0482e6cfc69c5a14d18bffb15f33ae015c9"
+    },
+    {
+      "name": "oh2-r2s1-b512",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S1B512_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s1-b512",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "662aad1a2c01089f4b5405c0bee73f17a4c3e13c57afb989e56fc21a0c269934"
+      ],
+      "checkpoint": "${OH2R2S1B512_CHECKPOINT}",
+      "display": {
+        "label": "oh2-r2s1-b512",
+        "author": "mipo",
+        "url": null,
+        "description": "mtg-kernel policy network: r2-b20 continued by ordinary RL, OH2 r2 seed 1, dose 512 (82,944 updates); sampled, no search. Descriptive entrant, not rated."
+      },
+      "evaluation_identity": "372285e27d6d683e5787abc433a998e9d325d3ef061cbcf33d041b2faa79a830"
+    },
+    {
+      "name": "oh2-r2s2-b512",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S2B512_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s2-b512",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "9a02821811ae8d47cd6387ffb1adca59603dfa8f14a98a2b9d96f37e654a698b"
+      ],
+      "checkpoint": "${OH2R2S2B512_CHECKPOINT}",
+      "display": {
+        "label": "oh2-r2s2-b512",
+        "author": "mipo",
+        "url": null,
+        "description": "mtg-kernel policy network: r2-b20 continued by ordinary RL, OH2 r2 seed 2, dose 512 (82,944 updates); sampled, no search. Descriptive entrant, not rated."
+      },
+      "evaluation_identity": "3119862e3738e7531ce2008548047440741b498cbb000b0a708211ec796cef0d"
+    },
+    {
+      "name": "oh2-r2s3-b512",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S3B512_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s3-b512",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "609f72dc98a837d0f610847dcd1e896c3b2afd6af5f6aa16a4164b5a362c0180"
+      ],
+      "checkpoint": "${OH2R2S3B512_CHECKPOINT}",
+      "display": {
+        "label": "oh2-r2s3-b512",
+        "author": "mipo",
+        "url": null,
+        "description": "mtg-kernel policy network: r2-b20 continued by ordinary RL, OH2 r2 seed 3, dose 512 (82,944 updates); sampled, no search. Descriptive entrant, not rated."
+      },
+      "evaluation_identity": "ea97373a49d8dd91d4bdd0a9f4fc2e6ff3a4c0aac5a966b0934cd7ede5d06b3d"
     }
   ],
   "qualification_sample": [
