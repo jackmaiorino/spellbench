@@ -13,6 +13,7 @@ import json
 import subprocess
 import sys
 import zlib
+from collections import OrderedDict
 from copy import deepcopy
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from kernel_selection_order_v2 import native_selection_order
 FLAT = "x_kernel_flat_v4"
 PROPOSALS = "mtg-kernel-spellbench-completion-proposals/v1"
 PROPOSAL_ENCODING = "integer-rle-table/v1"
+PREVIEW_CACHE_BYTES = 32 * 1024 * 1024
 
 
 def _plain_ints(values):
@@ -113,6 +115,34 @@ def intern_proposal_vectors(proposals, grouped=False):
     return {"vectors": vectors, "proposals": indexed}
 
 
+class PreviewCache:
+    """Private previews of one buffered declaration, keyed by native prefix.
+
+    A preview is a pure function of the declaration's root and its native
+    prefix, so a stored answer equals a fresh one. Every candidate's completion
+    replays the declaration's shared prefix, which stays recently used; other
+    entries leave oldest first once the stored response bytes pass the bound."""
+
+    def __init__(self, bound=PREVIEW_CACHE_BYTES):
+        self.entries, self.bytes, self.bound = OrderedDict(), 0, bound
+
+    def get(self, key):
+        stored = self.entries.get(key)
+        if stored is None:
+            return None
+        self.entries.move_to_end(key)
+        return stored[0]
+
+    def put(self, key, entry, size):
+        """Store [view or None when complete, packed tensor or None] and return it."""
+        self.entries[key] = entry, size
+        self.bytes += size
+        while self.bytes > self.bound and len(self.entries) > 1:
+            _, (_, dropped) = self.entries.popitem(last=False)
+            self.bytes -= dropped
+        return entry
+
+
 def error(request_id, code, message):
     return {"protocol": "spellbench/v2", "response_type": "error", "request_id": request_id,
             "error": {"code": code, "message": message}}
@@ -133,6 +163,7 @@ class NativePeer:
         line = self.child.stdout.readline(wire.MAX_LINE_BYTES + 1)
         if not line or len(line) > wire.MAX_LINE_BYTES:
             raise ProjectionError("native bridge ended or exceeded its line bound")
+        self.last_line_bytes = len(line)
         return json.loads(line)
 
     def close(self):
@@ -257,7 +288,7 @@ class KernelEngine:
         self.max_steps, self.max_groups = request["max_steps"], request["max_decisions"]
         self.answered, self.completed = 0, 0
         self.seat_steps, self.group_ids = {"p0": 0, "p1": 0}, {"p0": 0, "p1": 0}
-        self.buffer = None
+        self.buffer = self.previews = None
         secret = bytes.fromhex(request["game_secret"])
         first = rules["starting_seat"]
         self.projection = KernelProjection(self.catalog, secret, first_seat=first, keywords=True)
@@ -297,7 +328,7 @@ class KernelEngine:
             if self.buffer:
                 if self.buffer.choose(candidate):
                     self.commit_buffer()
-                    self.buffer = None
+                    self.buffer = self.previews = None
             else:
                 self.native_step(self.native_candidates[candidate])
         except (ValueError, KeyError, IndexError) as exc:
@@ -364,23 +395,30 @@ class KernelEngine:
                 binding = native_arrangement_binding(self.root, self.arrangement_cards)
                 result = plan.result()
                 pick = lambda view: native_arrangement_pick(view, result, binding)
-            view = self.root
+            entry = self.previews.get(()) or self.previews.put((), [self.root, None], 0)
             prefix, steps = [], []
             for _ in range(4096):
+                view = entry[0]
                 selected = pick(view)
                 flat = view["extensions"][FLAT]
-                steps.append({"tensor": pack_proposal_tensor(flat["tensor"]),
-                    "selected_row": flat["row_candidate_ids"].index(selected)})
+                if entry[1] is None:
+                    entry[1] = pack_proposal_tensor(flat["tensor"])
+                steps.append({"tensor": entry[1], "selected_row": flat["row_candidate_ids"].index(selected)})
                 prefix.append(selected)
-                answer = self.peer.request({"request_type": "preview_steps", "game_id": self.game,
-                    "expected_step": self.root["step"], "candidate_ids": prefix})
-                if answer["response_type"] == "private_complete":
+                key = tuple(prefix)
+                entry = self.previews.get(key)
+                if entry is None:
+                    answer = self.peer.request({"request_type": "preview_steps", "game_id": self.game,
+                        "expected_step": self.root["step"], "candidate_ids": prefix})
+                    if answer["response_type"] == "error":
+                        raise ProjectionError("private completion preview refused within its declaration")
+                    if answer["response_type"] not in ("private_complete", "private_preview"):
+                        raise ProjectionError("private completion preview returned an unexpected response")
+                    view = answer["view"] if answer["response_type"] == "private_preview" else None
+                    size = getattr(self.peer, "last_line_bytes", None)
+                    entry = self.previews.put(key, [view, None], len(json.dumps(answer)) if size is None else size)
+                if entry[0] is None:
                     break
-                if answer["response_type"] == "error":
-                    raise ProjectionError("private completion preview refused within its declaration")
-                if answer["response_type"] != "private_preview":
-                    raise ProjectionError("private completion preview returned an unexpected response")
-                view = answer["view"]
             else:
                 raise ProjectionError("private completion preview exceeded its bound")
             proposals.append(steps)
@@ -461,6 +499,8 @@ class KernelEngine:
             elif self.current["candidates"][0]["semantic"]["kind"] == "order_triggers":
                 self.buffer = TriggerOrder(self.current, self.projection)
                 self.root = deepcopy(self.current)
+            if self.buffer is not None:
+                self.previews = PreviewCache()
         if self.buffer:
             semantics = self.buffer.semantics()
             if isinstance(self.buffer, BlockDeclaration):
