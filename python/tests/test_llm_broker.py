@@ -192,12 +192,25 @@ def test_unexpected_provider_fault_poison_is_logged_without_private_details(resu
     assert "secret-provider-detail" not in json.dumps(answer) + log.getvalue()
 
 
-def test_provider_illegal_candidate_is_not_sent_to_child():
-    broker, peer, provider, log = session(Provider(Completion('{"candidate_id":999}', "test", 50, 10)))
-    peer.responses = [rpc()]
+def child_error(request_id="r"):
+    return {"response_type": "error", "protocol": "spellbench/v2", "request_id": request_id,
+            "error": {"code": "internal_error", "message": "agent failed"}}
+
+
+@pytest.mark.parametrize("content, code", [('{"candidate_id":999}', "unoffered_candidate"),
+                                           ('{"candidate_id":1', "invalid_choice_json"),
+                                           ('{"candidate":1}', "invalid_choice_shape")])
+def test_settled_invalid_choice_forfeits_only_its_game(content, code):
+    broker, peer, provider, log = session(Provider(Completion(content, "test", 50, 10)))
+    peer.responses = [rpc(), child_error(), ack("end"), ack("start")]
     assert broker.exchange(choose_request())["response_type"] == "error"
-    assert "completion" not in peer.sent[-1]
-    assert events(log)[-2]["unknown_usage"] is False
+    # The content never reaches the child; the child fails its own game.
+    assert peer.sent[-1] == {"broker": RPC, "request_id": "i-0", "error": {"code": code}}
+    inference = [event for event in events(log) if event["event"] == "inference"][-1]
+    assert inference["error"] == code and inference["unknown_usage"] is False
+    assert not broker._failed
+    assert broker.exchange(host("game_over", "end", game_id="g"))["response_type"] == "ack"
+    assert broker.exchange(host("game_start", "start", game_id="g2", seat="p0"))["response_type"] == "ack"
 
 
 def test_stdio_provider_has_no_network_or_environment_dependency(monkeypatch):
