@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel-v2",
   "title": "Pauper · mtg-kernel v2",
-  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. Entrants, GPT-6 Luna among them, face the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout, provider HTTP503 and malformed-choice forfeits, with each kind reported separately; they measure the deployed system including availability.",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. Entrants, GPT-6 Luna among them, face the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately, and malformed-choice forfeits, recorded as agent errors; they measure the deployed system including availability.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -289,9 +289,12 @@
         "${SPELLBENCH_LLM_SOURCE}/provider.py",
         "${SPELLBENCH_LLM_SOURCE}/renewal.py",
         "${SPELLBENCH_LLM_SOURCE}/run_budget.py",
-        "${SPELLBENCH_LLM_SOURCE}/tls.py"
+        "${SPELLBENCH_LLM_SOURCE}/tls.py",
+        "${SPELLBENCH_LLM_SOURCE}/../bot.py",
+        "${SPELLBENCH_LLM_SOURCE}/../wire.py",
+        "${SPELLBENCH_LLM_SOURCE}/../messages.py"
       ],
-      "evaluation_identity": "064651ba6f3c7e2a990740623602181ab7b07aa9a6143b9efa385d181ea00268"
+      "evaluation_identity": "9c7af38f5ceaa333a25c3f5babbf3014856760237bd1e1c27ac622dc7a91fde7"
     },
     {
       "name": "kit-mad-1",
@@ -585,7 +588,7 @@
     "projected_bytes": 4294967296,
     "cap_bytes": 25769803776
   },
-  "evaluation_engine_identity": "d09ac67d61958c4a9dbefdf761c180f9c535d3d0eb80c2e30582641b6beaf4fc",
+  "evaluation_engine_identity": "7bb4e637bf269f8c9e4f06d773a78c602622c5e4fb99334b2523b55688ee201a",
   "evaluation_targets": [
     "a48",
     "c12",
