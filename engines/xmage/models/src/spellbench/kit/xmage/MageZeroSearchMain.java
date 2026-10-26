@@ -224,6 +224,8 @@ public final class MageZeroSearchMain {
         List<Object> unofferedModes = new ArrayList<>();
         Set<String> branchKeys = new HashSet<>();
         MCTSNode2 tree = active.tree();
+        // The graph frontend runs this tree under its own name: its checker binds reasons to that source.
+        String source = graph == null ? "MageZero" : "graph network";
         for (MCTSNode child : active.initialRootChildren()) {
             boolean pruned = active.pruned(child);
             boolean masked = !pruned && active.selectionMasked(child);
@@ -251,7 +253,7 @@ public final class MageZeroSearchMain {
                     "value", pruned || masked ? null : active.meanScore(child), "pruned", pruned,
                     "selection_masked", masked,
                     "discarded_visits", masked ? (long) active.discardedSelectionVisits(child) : 0L,
-                    "mask_reason", masked ? "original MageZero bestChild resets branches without a legal future" : null));
+                    "mask_reason", masked ? "original " + source + " bestChild resets branches without a legal future" : null));
         }
         Set<String> offeredKeys = new HashSet<>();
         for (Object c : Json.arr(decision, "candidates")) {
@@ -262,7 +264,7 @@ public final class MageZeroSearchMain {
                     && "finish_selection".equals(Json.str(action, "kind")) && "search".equals(Json.str(action, "purpose"))) {
                 branchKeys.add(key);
                 children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
-                        "excluded", true, "reason", "original MageZero library target expansion requires its minimum before finishing"));
+                        "excluded", true, "reason", "original " + source + " library target expansion requires its minimum before finishing"));
             }
         }
         if (!offeredKeys.equals(branchKeys)) throw new IllegalArgumentException("search root does not cover the offered actions");

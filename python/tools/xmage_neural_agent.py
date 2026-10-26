@@ -56,6 +56,19 @@ def _cards(observation):
             yield entry
 
 
+def first_trigger(decision):
+    """The original player's trigger order: XMage's first remaining trigger at each position. The engine offers
+    simultaneous triggers unsorted, in that list order, so the first offered candidate is the original's choice."""
+    candidates = decision.get("candidates")
+    positions = {c.get("semantic", {}).get("position") for c in candidates or []}
+    counts = {c.get("semantic", {}).get("count") for c in candidates or []}
+    if (not candidates or len(positions) != 1 or len(counts) != 1 or type(next(iter(positions))) is not int
+            or type(next(iter(counts))) is not int or len(candidates) != next(iter(counts)) - next(iter(positions))):
+        raise ValueError("trigger order root does not offer exactly the remaining triggers")
+    first = candidates[0]
+    return {"candidate_id": first["candidate_id"], "semantic_echo": copy.deepcopy(first["semantic"])}
+
+
 class PublicHistory:
     """Remember only this seat's visible names, choices and confirmed costs."""
     def __init__(self, seat):
@@ -181,6 +194,8 @@ class NeuralAgent:
     history_factory = PublicHistory
     # Opt-in (the graph agent): a function answering decisions no search root family supports.
     unsearched_family = None
+    # The original Exp1 ComputerPlayer.chooseTriggeredAbility returns abilities.get(0), no search.
+    original_trigger_order = True
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
                  profile=None, plan_factory=None, arrangement_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
@@ -281,6 +296,10 @@ class NeuralAgent:
                     result = self.session.plan(record, visits=self.visits, timeout_s=remaining())
                     self.plan = self.plan_factory(received, result, visits=self.visits)
                 selection = self.plan.select(received)
+            elif self.original_trigger_order and kinds == {"order_pick"} and all(
+                    c.semantic.get("purpose") == "triggers" for c in decision.candidates):
+                selection = first_trigger(received)
+                family = "original_first_trigger"
             elif kinds == {"mulligan"}:
                 # This is the original newly constructed player's shipped flag,
                 # not a guessed neural decision or another bot's keep heuristic.
@@ -314,7 +333,9 @@ class NeuralAgent:
                        and c.semantic == selection.get("semantic_echo")]
             if len(offered) != 1 or result is not None and result.get("checkpoint") != self.checkpoint:
                 raise ValueError("neural choice is unoffered or belongs to another checkpoint")
-            self.history.selected(received, selection)
+            if family != "original_first_trigger":
+                # The replayed original player orders its triggers itself; its callbacks compare the result.
+                self.history.selected(received, selection)
             self.step = decision.seat_step
             self.audit({"event": "neural_choice", "seat_step": self.step, "family": family,
                         "selection": selection, "neural_calls": 0 if result is None else result["neural_calls"],

@@ -677,7 +677,8 @@ public final class WorldBuilder {
             Object pw = ch.get("power");
             Object th = ch.get("toughness");
             boolean ok = (pw == null || ((Number) pw).intValue() == t.getPower().getValue())
-                    && (th == null || ((Number) th).intValue() == t.getToughness().getValue());
+                    && (th == null || ((Number) th).intValue() == t.getToughness().getValue())
+                    && sameTypesAndColors(t, ch);
             if (ok) {
                 return t.copy();
             }
@@ -687,6 +688,24 @@ public final class WorldBuilder {
             return candidates.get(0).copy();
         }
         return null;
+    }
+
+    /**
+     * Several token classes share a name ("Goblin Token" is mono-red in one set and black and red in another): the
+     * observed supertypes, types, subtypes and colors pick the class, as the observation would report its instance.
+     */
+    private boolean sameTypesAndColors(Token t, Map<String, Object> ch) {
+        Map<String, Object> have = KitBridge.typesAndColors(t, game);
+        if (have == null) {
+            return false;
+        }
+        for (String field : new String[]{"supertypes", "types", "subtypes", "colors"}) {
+            Object want = ch.get(field);
+            if (want instanceof List && !new java.util.HashSet<>((List<?>) want).equals(new java.util.HashSet<>((List<?>) have.get(field)))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void decorate(Permanent perm, Map<String, Object> pm) {

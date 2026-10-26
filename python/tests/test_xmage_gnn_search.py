@@ -179,3 +179,30 @@ def test_unreproduced_callbacks_take_the_fallback_but_priority_roots_cannot():
         {"candidate_id": 5, "semantic": {"kind": "choose_target"}}, {"candidate_id": 6, "semantic": {"kind": "choose_target"}}]}
     out = search.unsupported_result(record, refusal, 0)
     assert out["world_flags"] == ["unreproduced_callback"] and out["selection"]["candidate_id"] == 5
+
+
+def test_library_fail_to_find_binds_the_graph_frontends_own_reason():
+    # The graph frontend runs the MageZero tree in Java under its own name; the host checks that name.
+    record, result, settings = fixture()
+    decision = {"context": {"kind": "choice", "purpose": "search"}, "candidates": [
+        {"candidate_id": 11, "semantic": {"kind": "finish_selection", "purpose": "search"}},
+        {"candidate_id": 3, "semantic": {"kind": "select_object", "purpose": "search",
+                                        "choice": {"object": {"object_id": "visible-library-card"}}}}]}
+    result.update(decision_sha256=decision_hash(decision), root_visits=100,
+                  selection={"candidate_id": 3, "semantic_echo": decision["candidates"][1]["semantic"]},
+                  policy_restrictions=["library_fail_to_find_before_minimum"],
+                  children=[{"semantic": c["semantic"], "visits": 100 if c["candidate_id"] == 3 else 0,
+                             "value": 0.2 if c["candidate_id"] == 3 else None,
+                             "excluded": c["candidate_id"] == 11} for c in decision["candidates"]])
+    reason = "original {} library target expansion requires its minimum before finishing"
+    result["children"][0]["reason"] = reason.format("graph network")
+    from xmage_neural_search import validate_result
+    validate_result(decision, result, settings["simulations"], 1, expected_budget=search.budget(settings),
+                    minimum_visits=False, source_label="graph network")
+    result["children"][0]["reason"] = reason.format("MageZero")
+    with pytest.raises(ValueError, match="original policy restriction"):
+        validate_result(decision, result, settings["simulations"], 1, expected_budget=search.budget(settings),
+                        minimum_visits=False, source_label="graph network")
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
+    assert 'String source = graph == null ? "MageZero" : "graph network";' in java
+    assert java.count('"original " + source + " ') == 2 and "original MageZero library" not in java

@@ -60,6 +60,7 @@ class SettingsSession:
 
 class MageZeroAgent(NeuralAgent):
     """Create one deck-bound MageZero bridge for each public game."""
+    original_trigger_order = False  # the Exp1 trigger order is not MageZero's
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)
 

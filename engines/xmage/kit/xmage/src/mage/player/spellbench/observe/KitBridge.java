@@ -44,6 +44,23 @@ public final class KitBridge {
         }
     }
 
+    /**
+     * Section 6.4 characteristics an observation reports for a non-face-down object: its supertypes, types, subtypes
+     * and colors (power, toughness and keywords are read separately). Null when the engine vocabulary cannot name one.
+     */
+    public static java.util.Map<String, Object> typesAndColors(mage.MageObject o, mage.game.Game game) {
+        try {
+            java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+            m.put("supertypes", Vocabulary.supertypes(o.getSuperType(game)));
+            m.put("types", Vocabulary.cardTypes(o.getCardType(game)));
+            m.put("subtypes", Vocabulary.subtypes(o.getSubtype(game)));
+            m.put("colors", Vocabulary.colors(o.getColor(game)));
+            return m;
+        } catch (ObservationException e) {
+            return null;
+        }
+    }
+
     /** Section 4.4 name normalization (NFC; an empty name is null). */
     public static String nfc(String name) {
         return ObservationBuilder.nfc(name);

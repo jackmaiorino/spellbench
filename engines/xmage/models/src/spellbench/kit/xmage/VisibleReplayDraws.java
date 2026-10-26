@@ -18,16 +18,13 @@ final class VisibleReplayDraws {
     static int condition(Sampler.Sample sample, Map<String, Object> anchor,
                           Map<String, Object> current, List<Object> earlier, Random random) {
         List<Object> stack = Json.arr(anchor, "stack");
-        if (stack.size() != 1) return 0;
-        Map<String, Object> top = Json.obj(stack.get(0));
-        String text = Json.str(top, "text");
-        int count;
-        if ("Kiora, the Rising Tide".equals(Json.str(top, "card_name"))
-                && text != null && text.contains("draw two cards, then discard two cards")) count = 2;
-        else if ("Icewind Elemental".equals(Json.str(top, "card_name"))
-                && "When {this} enters, draw a card, then discard a card.".equals(text)) count = 1;
-        else return 0;
-        if (!"triggered_ability".equals(Json.str(top, "stack_kind"))) return 0;
+        if (stack.isEmpty()) return 0;
+        // The observation lists the stack bottom first: the last entry resolves next.
+        Map<String, Object> top = Json.obj(stack.get(stack.size() - 1));
+        int count = declaredLoot(Json.str(top, "text"));
+        if (count == 0) return 0;
+        String kind = Json.str(top, "stack_kind");
+        if (!("triggered_ability".equals(kind) || "activated_ability".equals(kind) || "spell".equals(kind))) return 0;
         String viewer = Json.str(anchor, "viewer");
         if (!viewer.equals(Json.str(top, "controller_seat"))) return 0;
         Map<String, Object> first = null;
@@ -107,6 +104,21 @@ final class VisibleReplayDraws {
         own.pinned += count;
         sample.flags.add("replay:visible_own_draw_conditioning");
         return priorOwnDraws;
+    }
+
+    private static final java.util.regex.Pattern LOOT = java.util.regex.Pattern.compile(
+            "(?i)(?:^|[.:,] )draw (a card|two cards|three cards), then discard (a card|two cards|three cards)\\.");
+
+    /**
+     * The own draws a resolving object's public rules text declares before its discard ("draw a card, then discard a
+     * card", "draw two cards, then discard two cards"), else 0. The observed hand and library counts must still match.
+     */
+    static int declaredLoot(String text) {
+        if (text == null) return 0;
+        java.util.regex.Matcher m = LOOT.matcher(text);
+        if (!m.find() || !m.group(1).equalsIgnoreCase(m.group(2)) || m.find()) return 0;
+        String n = m.group(1).toLowerCase(java.util.Locale.ROOT);
+        return n.startsWith("a ") ? 1 : n.startsWith("two") ? 2 : 3;
     }
 
     private static boolean publicSecondDraw(Map<String, Object> before, Map<String, Object> after, String viewer) {

@@ -365,3 +365,30 @@ def test_policy_failure_survives_shutdown_and_failure_audit_errors(phase):
     assert any("session shutdown failed" in note for note in failure.__notes__)
     if phase == "choose-audit":
         assert any("failure audit unavailable" in note for note in failure.__notes__)
+
+
+def test_simultaneous_triggers_take_the_original_first_trigger_without_search_or_history():
+    bot, session = ready(Session([1]))
+    bot.choose(view(decision({"kind": "pass"}, {"kind": "play_land"})))
+    def trigger(name, position, count=3):
+        return {"kind": "order_pick", "source": None, "purpose": "triggers", "position": position, "count": count,
+                "item": {"trigger": {"source_name": name, "ability_index": 0, "instance": 0}}}
+    first = decision(trigger("Spectral Sailor", 0), trigger("Burst Lightning", 0), trigger("Prowess", 0), step=1)
+    assert bot.choose(view(first)) == 10
+    second = decision(trigger("Burst Lightning", 1), trigger("Prowess", 1), step=2)
+    assert bot.choose(view(second)) == 10
+    assert len(session.requests) == 1 and bot.history.earlier == []
+    for bad in (decision(trigger("A", 0), trigger("B", 1), step=3), decision(trigger("A", 0, count=3), step=3)):
+        stale, _ = ready(Session([1]))
+        stale.choose(view(decision({"kind": "pass"}, {"kind": "play_land"})))
+        bad["seat_step"] = 1
+        with pytest.raises(ValueError, match="remaining triggers"):
+            stale.choose(view(bad))
+
+
+def test_graph_and_magezero_agents_keep_their_own_trigger_answers():
+    import xmage_gnn_search
+    import xmage_magezero_agent
+    assert agent.NeuralAgent.original_trigger_order is True
+    assert xmage_gnn_search.GraphAgent.original_trigger_order is False
+    assert xmage_magezero_agent.MageZeroAgent.original_trigger_order is False
