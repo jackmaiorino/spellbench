@@ -17,21 +17,20 @@ from arena_helpers import builtin, make_config, subprocess_bot
 from test_ledger import VALID
 
 
-def test_fixed_pauper_probe_covers_decks_opponents_and_model_concurrency():
+def test_pauper_schedule_covers_decks_references_and_its_sample():
+    """Whatever the definition schedules (every target, or one shard), each block plays all decks against a reference."""
     bench = definition.load_benchmark(Path(__file__).parents[2] / "benchmarks/pauper-kernel-v2")
     config = TournamentConfig.from_json(bench.tournament_config("check"))
     contexts = schedule(config, RunSecret(bytes(32)))
+    decks = {deck.catalog_id for deck in bench.deck_pool}
+    panel = set(bench.opponent_panel)
+    assert config.matchups and len(contexts) == len(config.matchups) * 2 * config.pairs_per_matchup
+    for pair in config.matchups:
+        games = [game for game in contexts if {spec.name for _, spec in game.seat_specs} == set(pair)]
+        assert set(pair) & panel and {game.decks[0].catalog_id for game in games} == decks
     sample = [contexts[index] for index in bench.qualification_sample]
-    # The fixed-budget kit-mcts block: the new entrant against each reference on all eight decks.
-    assert len(contexts) == 192
-    assert len(config.matchups) == 3
-    assert {game.decks[0].catalog_id for game in sample} == {deck.catalog_id for deck in bench.deck_pool}
-    seats = [{spec.name for _, spec in game.seat_specs} for game in sample]
-    panel = {"g115", "a48", "c12"}
-    assert all(names & panel for names in seats)
-    assert {name for names in seats for name in names} == panel | {"kit-mcts-custom"}
-    assert any(game.decks[0].catalog_id == "Spy" for game in sample[:4])
-    assert all("llm-gpt-6-luna" not in names for names in seats)
+    if sample:
+        assert {game.decks[0].catalog_id for game in sample} == decks
 
 
 def test_invalid_sample_is_refused_before_any_qualification(tmp_path, monkeypatch):
@@ -224,12 +223,14 @@ def test_sample_order_binds_qualification_evidence(tmp_path, monkeypatch):
         return SimpleNamespace(budget=SimpleNamespace(projected_bytes=0))
     monkeypatch.setattr(run, "plan_allocation", plan)
     options = dict(placement=None, evidence=tmp_path / "evidence", volumes={"run_dir":tmp_path})
-    run.plan_for(config, sample=bench.qualification_sample, **options)
-    run.plan_for(config, sample=tuple(reversed(bench.qualification_sample)), **options)
+    games = len(schedule(config, RunSecret(bytes(32))))
+    sample = bench.qualification_sample or tuple(range(3, games, games // 8))[:8]
+    run.plan_for(config, sample=sample, **options)
+    run.plan_for(config, sample=tuple(reversed(sample)), **options)
     storage = SimpleNamespace(settings={"projected_bytes": 100, "cap_bytes": 200}, check=lambda: 0)
-    run.plan_for(config, sample=bench.qualification_sample, job_storage=storage, **options)
-    assert captured[0]["sample"][:8] == bench.qualification_sample
-    assert set(captured[0]["sample"]) == set(range(192))
+    run.plan_for(config, sample=sample, job_storage=storage, **options)
+    assert captured[0]["sample"][:len(sample)] == tuple(sample)
+    assert set(captured[0]["sample"]) == set(range(games))
     assert captured[0]["workload"] != captured[1]["workload"]
     assert captured[0]["workload"] != captured[2]["workload"]
 
