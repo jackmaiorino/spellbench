@@ -81,7 +81,7 @@
         "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
         "url": null
       },
-      "evaluation_identity": "1061f3d2a1bdbb05d1c54c7710bbfa910c4d72bb064046e7fb60ed1bf2a4e6cc"
+      "evaluation_identity": "0e51234020a4a7ac3c6cbd04ecdf60ce5bcab65a070ee3ac3a6883b7a5c2b434"
     },
     {
       "name": "g115",
@@ -297,7 +297,7 @@
         "${SPELLBENCH_LLM_SOURCE}/../wire.py",
         "${SPELLBENCH_LLM_SOURCE}/../messages.py"
       ],
-      "evaluation_identity": "9c7af38f5ceaa333a25c3f5babbf3014856760237bd1e1c27ac622dc7a91fde7"
+      "evaluation_identity": "bc0d04fd13af1e831ae1162cba288e73af05689a268c4394bc7b2ee9d023e5a5"
     },
     {
       "name": "kit-mad-1",
