@@ -68,6 +68,35 @@ def test_unusable_qualification_terminals_retain_elapsed_and_rows(tmp_path, monk
     assert json.loads(retained[0].read_text().splitlines()[0])["classification"] == row.classification
 
 
+def test_failed_record_callback_reports_its_own_error_and_retains_the_summary(tmp_path, monkeypatch):
+    """A game whose record callback fails (here an expired engine-record collection) surfaces that error."""
+    from spellbench.arena import engine_records
+    config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")]))
+    (row,) = parse_ledger([VALID["natural"]])
+    outcome = runner.TimedOutcome(row=row, diagnostics=(), violation=None, engine=row.engine, seconds=2.0)
+    expired = TimeoutError("operator transcript collection acknowledgement expired; attempt retained")
+
+    def collect(*args, **kwargs):
+        raise expired
+
+    def play(*args, **kwargs):
+        try:
+            kwargs["on_outcome"](outcome)
+        except TimeoutError as error:
+            return SimpleNamespace(outcomes=[outcome], error=error, stopped="aborted")
+        pytest.fail("record callback did not fail")
+
+    monkeypatch.setattr(run, "preflight", lambda *args: object())
+    monkeypatch.setattr(engine_records, "collect", collect)
+    monkeypatch.setattr(runner, "play_games", play)
+    with pytest.raises(TimeoutError) as caught:
+        run.qualification_play(config, storage_dir=tmp_path, files=())(1, (0,))
+    assert caught.value is expired
+    (summary_path,) = list(tmp_path.rglob("trial-1-summary.json"))
+    (timing,) = json.loads(summary_path.read_bytes())["game_timings"]
+    assert timing["game_index"] == row.game_index and timing["ledger_write_seconds"] is None
+
+
 def test_failed_qualification_retains_replay_only_after_cleanup(tmp_path, monkeypatch):
     config = TournamentConfig.from_json(make_config(tmp_path, [builtin("uniform"), builtin("first")],
         decks=("Halt", "Halt"), pairs=1, include_self_play=False))
