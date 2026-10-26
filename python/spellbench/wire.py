@@ -38,7 +38,7 @@ _MAX_JSON_INT_DIGITS = len(str(MAX_JSON_INT))
 _QUOTED_INT_CHARS = 32
 # read_line discards the rest of an oversized line in reads of at most this many bytes.
 _DISCARD_CHUNK_BYTES = 64 * 1024
-# A peer's stderr is diagnostics only; keep a bounded prefix of it.
+# A peer's stderr is diagnostics only; keep a bounded prefix and suffix of it (half each).
 STDERR_CAPTURE_BYTES = 64 * 1024
 
 
@@ -290,16 +290,31 @@ def _stdout_reader(stream: Any, output: "queue.Queue[bytes | BaseException]", ma
 
 
 def _stderr_reader(stream: Any, chunks: list[bytes]) -> None:
-    """Drain stderr (so the child never blocks on it), keeping a bounded prefix."""
-    kept = 0
+    """Drain stderr (so the child never blocks on it), keeping a bounded prefix and suffix.
+
+    A failing peer's last lines (its error) are at the end of a long stderr, so the suffix keeps them. ``chunks`` is
+    rewritten in place as head chunks, then a dropped-bytes marker and the suffix once the prefix is full.
+    """
+    half = STDERR_CAPTURE_BYTES // 2
+    head: list[bytes] = []
+    kept = dropped = 0
+    tail = bytearray()
     while True:
         chunk = stream.read1(65536)
         if chunk == b"":
             return
-        if kept < STDERR_CAPTURE_BYTES:
-            chunk = chunk[: STDERR_CAPTURE_BYTES - kept]
-            chunks.append(chunk)
-            kept += len(chunk)
+        if kept < half:
+            take = chunk[: half - kept]
+            head.append(take)
+            kept += len(take)
+            chunk = chunk[len(take):]
+        if chunk:
+            tail += chunk
+            if len(tail) > half:
+                dropped += len(tail) - half
+                del tail[: len(tail) - half]
+        marker = [f"\n[... {dropped} bytes of stderr dropped ...]\n".encode()] if dropped else []
+        chunks[:] = head + marker + ([bytes(tail)] if tail else [])
 
 
 def _kill_process_tree(proc: "subprocess.Popen[bytes]") -> None:

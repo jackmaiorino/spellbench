@@ -293,28 +293,6 @@ class GraphHistory(PublicHistory):
     step. The Java replay re-declares the recorded group (attack_declarations)
     before the callback and compares the callback's whole observation.
     """
-    def attack_group(self, decision):
-        if self.anchor is None or self.anchor["selection"]["semantic_echo"].get("kind") != "pass":
-            return 0
-        previous, observation = self.anchor["decision"]["observation"], decision["observation"]
-        if not (previous.get("phase_step") == "beginning_of_combat" and observation.get("phase_step") == "declare_attackers"
-                and type(previous.get("turn")) is int and previous["turn"] == observation.get("turn")
-                and previous.get("active_seat") == self.seat and not previous.get("stack")):
-            return 0
-        count, group = 0, None
-        for entry in self.earlier:
-            candidates = entry["decision"].get("candidates", [])
-            if not candidates or any(c.get("semantic", {}).get("kind") != "declare_attack" for c in candidates):
-                break
-            step = entry["decision"].get("group", {})
-            if group is None:
-                group = step
-            if (step.get("group_id") != group.get("group_id") or step.get("substep_index") != count
-                    or step.get("substep_count") != group.get("substep_count")):
-                return 0
-            count += 1
-        return count if group is not None and count == group.get("substep_count") else 0
-
     def callback(self, decision):
         attacks = self.attack_group(decision)
         if not attacks:
@@ -335,6 +313,7 @@ class GraphAgent(NeuralAgent):
     """One graph search session per public game."""
     history_factory = GraphHistory
     unsearched_family = staticmethod(declining)
+    original_trigger_order = False  # the graph agent keeps its own unsearched-family answer
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)
 

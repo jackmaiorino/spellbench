@@ -8,8 +8,12 @@ import mage.abilities.Modes;
 import mage.abilities.SpellAbility;
 import mage.abilities.TriggeredAbility;
 import mage.abilities.common.SimpleStaticAbility;
+import mage.abilities.common.delayed.ReflexiveTriggeredAbility;
 import mage.abilities.effects.ContinuousEffect;
 import mage.abilities.effects.common.InfoEffect;
+import mage.abilities.effects.common.TapTargetEffect;
+import mage.abilities.keyword.FlashbackAbility;
+import mage.abilities.keyword.KickerAbility;
 import mage.cards.Card;
 import mage.cards.MeldCard;
 import mage.cards.decks.Deck;
@@ -47,6 +51,7 @@ import mage.players.Player;
 import mage.players.PlayerImpl;
 import mage.target.Target;
 import mage.target.TargetAmount;
+import mage.target.common.TargetOpponentsCreaturePermanent;
 import spellbench.kit.core.Json;
 import spellbench.kit.core.Sampler;
 
@@ -665,28 +670,78 @@ public final class WorldBuilder {
         return candidates;
     }
 
+    /**
+     * The token class for an observed token. When the register's classes (the tokens the pool's cards create) hold
+     * the name, only they are candidates. An exact match needs the observed power, toughness, keywords, types and
+     * colors. An anthem or a temporary effect changes the observed power, toughness or keywords, so a register class
+     * that alone has the observed name, types and colors is that token; checkCharacteristics() still flags a
+     * difference no restored effect explains.
+     */
     private Token resolveToken(String name, Map<String, Object> ch) {
         if (name == null) {
             return null;
         }
-        List<Token> candidates = tokenCandidates(name);
+        List<Token> candidates = new ArrayList<>(tokenCandidates(name));
+        if (ch == null) {
+            return candidates.isEmpty() ? null : candidates.get(0).copy();
+        }
+        java.util.Set<String> pool = Register.tokenClasses();
+        List<Token> fromPool = new ArrayList<>();
         for (Token t : candidates) {
-            if (ch == null) {
-                return t.copy();
+            if (pool.contains(t.getClass().getSimpleName())) {
+                fromPool.add(t);
             }
-            Object pw = ch.get("power");
-            Object th = ch.get("toughness");
+        }
+        if (!fromPool.isEmpty()) {
+            candidates = fromPool; // another set's same-named class cannot be in a pool game
+        }
+        Object pw = ch.get("power");
+        Object th = ch.get("toughness");
+        for (Token t : candidates) {
+            List<Object> kw = KitBridge.keywords(t.getAbilities());
             boolean ok = (pw == null || ((Number) pw).intValue() == t.getPower().getValue())
-                    && (th == null || ((Number) th).intValue() == t.getToughness().getValue());
+                    && (th == null || ((Number) th).intValue() == t.getToughness().getValue())
+                    && (!(ch.get("keywords") instanceof List) || kw != null
+                        && new java.util.HashSet<>(Json.arr(ch, "keywords")).equals(new java.util.HashSet<>(kw)))
+                    && sameTypesAndColors(t, ch);
             if (ok) {
                 return t.copy();
             }
+        }
+        Token named = null;
+        int matches = 0;
+        for (Token t : fromPool) {
+            if (sameTypesAndColors(t, ch)) {
+                named = t;
+                matches++;
+            }
+        }
+        if (matches == 1) {
+            return named.copy();
         }
         if (!candidates.isEmpty()) {
             flag("approximate:token_characteristics:" + name);
             return candidates.get(0).copy();
         }
         return null;
+    }
+
+    /**
+     * Several token classes share a name ("Goblin Token" is mono-red in one set and black and red in another): the
+     * observed supertypes, types, subtypes and colors pick the class, as the observation would report its instance.
+     */
+    private boolean sameTypesAndColors(Token t, Map<String, Object> ch) {
+        Map<String, Object> have = KitBridge.typesAndColors(t, game);
+        if (have == null) {
+            return false;
+        }
+        for (String field : new String[]{"supertypes", "types", "subtypes", "colors"}) {
+            Object want = ch.get(field);
+            if (want instanceof List && !new java.util.HashSet<>((List<?>) want).equals(new java.util.HashSet<>((List<?>) have.get(field)))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void decorate(Permanent perm, Map<String, Object> pm) {
@@ -1083,16 +1138,22 @@ public final class WorldBuilder {
                     continue;
                 }
                 Player p = game.getPlayer(controller);
-                c.setZone(Zone.HAND, game);
-                p.getHand().add(c);
-                SpellAbility sa = c.getSpellAbility();
+                Map<String, Object> cast = stackCast(id);
+                boolean flashback = cast != null && "flashback".equals(Json.str(cast, "method"));
+                SpellAbility sa = flashback ? flashbackAbility(c, controller) : c.getSpellAbility();
                 if (sa == null || c.isLand(game)) {
-                    flag("unsupported:stack_spell_not_castable");
-                    p.getHand().remove(c);
+                    flag(flashback ? "unsupported:stack_flashback" : "unsupported:stack_spell_not_castable");
                     placeholder(e, controller);
                     continue;
                 }
-                c.cast(game, Zone.HAND, sa, controller);
+                Zone from = flashback ? Zone.GRAVEYARD : Zone.HAND;
+                c.setZone(from, game);
+                if (flashback) {
+                    p.getGraveyard().add(c);
+                } else {
+                    p.getHand().add(c);
+                }
+                c.cast(game, from, sa, controller);
                 Spell spell = game.getStack().getSpell(c.getId());
                 if (spell == null) {
                     flag("unsupported:stack_cast_failed");
@@ -1105,8 +1166,9 @@ public final class WorldBuilder {
                 String why = null;
                 if (incomplete) {
                     why = "approximate:stack_targets_incomplete";
-                } else if (Register.optionalCosts(Json.str(e, "card_name"))) {
-                    // kicker, flashback, gift...: whether they were paid is not observed (register row)
+                } else if (Register.optionalCosts(Json.str(e, "card_name")) && !castKnown(c, spell, cast)) {
+                    // kicker, flashback, gift...: whether they were paid is not observed (register row) and the
+                    // front's history does not say
                     why = "approximate:optional_cost_state";
                 }
                 if (why != null) {
@@ -1202,6 +1264,14 @@ public final class WorldBuilder {
             }
         }
         ofKind = stackAbilitiesWithText(ofKind, Json.str(e, "text"));
+        if (ofKind.isEmpty() && triggered) {
+            Ability reflexive = reflexiveTrigger(source.getName(), Json.str(e, "text"));
+            if (reflexive != null) {
+                reflexive.setSourceId(source.getId());
+                flag("register:reflexive_trigger");
+                return reflexive;
+            }
+        }
         if (ofKind.size() != 1) {
             flag("approximate:stack_ability_identity");
             if (ofKind.isEmpty()) {
@@ -1221,6 +1291,19 @@ public final class WorldBuilder {
             horizonNext = true;
         }
         return ofKind.get(0);
+    }
+
+    /**
+     * An audited reflexive trigger ("when you do"): the source card has no such ability, its resolving effect creates
+     * one, so the trigger is rebuilt as that effect builds it. Its resolution reads no event data. Else null.
+     */
+    static Ability reflexiveTrigger(String sourceName, String publicText) {
+        if ("Faebloom Trick".equals(sourceName) && "tap target creature an opponent controls.".equals(publicText)) {
+            ReflexiveTriggeredAbility ability = new ReflexiveTriggeredAbility(new TapTargetEffect(), false);
+            ability.addTarget(new TargetOpponentsCreaturePermanent());
+            return ability;
+        }
+        return null;
     }
 
     static List<Ability> stackAbilitiesWithText(List<Ability> candidates, String publicText) {
@@ -1270,6 +1353,61 @@ public final class WorldBuilder {
                 flag("unsupported:command_object:" + name);
             }
         }
+    }
+
+    /** How the front's history says a stack spell was cast ({@code x_history.stack_casts}), else null. */
+    private Map<String, Object> stackCast(String id) {
+        Map<String, Object> casts = spec.history == null ? null : Json.obj(spec.history, "stack_casts");
+        return casts == null ? null : Json.obj(casts, id);
+    }
+
+    /** The card's one flashback ability, cast by the spell's controller, else null. */
+    private static SpellAbility flashbackAbility(Card c, UUID controller) {
+        List<FlashbackAbility> found = new ArrayList<>();
+        for (Ability a : c.getAbilities()) {
+            if (a instanceof FlashbackAbility) {
+                found.add((FlashbackAbility) a);
+            }
+        }
+        if (found.size() != 1) {
+            return null;
+        }
+        SpellAbility fb = found.get(0).copy();
+        fb.setControllerId(controller);
+        fb.setSourceId(c.getId());
+        return fb;
+    }
+
+    /**
+     * Whether the history settles every optional cost the card's register row lists: the cast method for flashback,
+     * the payment count of a single kicker cost (set as XMage's kicker cost tag). Any other optional cost is unknown.
+     */
+    private boolean castKnown(Card c, Spell spell, Map<String, Object> cast) {
+        List<Object> costs = Register.optionalCostClasses(c.getName());
+        if (cast == null || costs == null || !Arrays.asList("normal", "flashback").contains(Json.str(cast, "method"))
+                || !Arrays.asList("FlashbackAbility", "KickerAbility").containsAll(costs)) {
+            return false;
+        }
+        if (costs.contains("KickerAbility")) {
+            List<KickerAbility> kickers = new ArrayList<>();
+            for (Ability a : c.getAbilities()) {
+                if (a instanceof KickerAbility) {
+                    kickers.add((KickerAbility) a);
+                }
+            }
+            Object paid = cast.get("kicker");
+            if (kickers.size() != 1 || kickers.get(0).getKickerCosts().size() != 1
+                    || !(paid instanceof Long || paid instanceof Integer)
+                    || ((Number) paid).intValue() < 0 || ((Number) paid).intValue() > 1) {
+                return false;
+            }
+            if (((Number) paid).intValue() == 1) {
+                spell.getSpellAbility().setCostsTag(
+                        "kickerActivation" + kickers.get(0).getKickerCosts().get(0).getText(true), 1);
+            }
+        }
+        flag("history:stack_cast");
+        return true;
     }
 
     /** A stack object the world cannot rebuild: kept for the stack's shape, flagged, never resolved in search. */

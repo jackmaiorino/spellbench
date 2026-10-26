@@ -136,6 +136,40 @@ public final class VisibleReplayDrawsCheck {
         }
     }
 
+    /** An activated ability, or a spell resolving above another object, that declares its draw before its discard. */
+    private static void declaredLoot() {
+        String[][] cases = {
+                {"Strix Lookout", "activated_ability", "{1}{U}, {T}: Draw a card, then discard a card.", "1"},
+                {"Refute", "spell", "counter target spell. Draw a card, then discard a card.", "2"}};
+        for (String[] c : cases) {
+            Map<String, Object> before = icewindObservation(false), current = icewindDecision();
+            current.put("observation", icewindObservation(true));
+            for (Map<String, Object> o : Arrays.asList(before, Json.obj(current, "observation"))) {
+                o.put("pending_triggers", new ArrayList<>());
+                List<Object> stack = new ArrayList<>(Json.arr(o, "stack"));
+                o.put("stack", stack);
+                Map<String, Object> top = Json.obj(stack.get(0));
+                top.put("card_name", c[0]); top.put("stack_kind", c[1]); top.put("text", c[2]);
+                if ("2".equals(c[3])) stack.add(0, Json.map("card_name", "Icewind Elemental", "object_id", "below",
+                        "stack_kind", "spell", "controller_seat", "p1", "text", null));
+            }
+            Sampler.Sample sample = sample();
+            require(VisibleReplayDraws.condition(sample, before, current, Collections.emptyList(), new Random(3)) == 0,
+                    "declared loot restored watcher history: " + c[0]);
+            require("drawn-island".equals(sample.seats.get("p0").library.get(0).objectId)
+                    && sample.seats.get("p0").pinned == 1, "declared single draw was not conditioned: " + c[0]);
+        }
+        Map<String, Object> before = icewindObservation(false);
+        Json.obj(Json.arr(before, "stack").get(0)).put("controller_seat", "p1");
+        Sampler.Sample opponent = sample();
+        String unchanged = Json.canonical(opponent.json());
+        VisibleReplayDraws.condition(opponent, before, icewindDecision(), Collections.emptyList(), new Random(3));
+        require(unchanged.equals(Json.canonical(opponent.json())), "an opponent's loot conditioned the viewer's library");
+        require(VisibleReplayDraws.declaredLoot("Draw two cards, then discard a card.") == 0
+                && VisibleReplayDraws.declaredLoot("draw a card, then discard a card at random.") == 0
+                && VisibleReplayDraws.declaredLoot(RULE) == 2, "declared loot text was misread");
+    }
+
     public static void main(String[] args) {
         Sampler.Sample sample = sample(), repeat = sample();
         Map<String, Object> opponentBefore = Json.obj(Json.obj(sample.json(), "seats"), "p1");
@@ -173,6 +207,7 @@ public final class VisibleReplayDrawsCheck {
                 "duplicate-name removal always selected the first physical copy");
         for (String fault : new String[]{"viewer", "turn", "count", "prefix", "opponent", "duplicate", "absent", "pin"}) refuse(fault);
         icewind();
+        declaredLoot();
         System.out.println("public own-draw replay conditioning: PASS");
     }
 }

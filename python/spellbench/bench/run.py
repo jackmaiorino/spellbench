@@ -205,7 +205,8 @@ def qualification_play(config: TournamentConfig, *, games: Sequence[int] | None 
                        "decks": [deck.catalog_id for deck in outcome.row.decks],
                        "classification": outcome.row.classification,
                        "elapsed_seconds": outcome.seconds,
-                       "ledger_write_seconds": write_seconds[outcome.row.game_index],
+                       # None when this game's record callback failed; result.error below reports why.
+                       "ledger_write_seconds": write_seconds.get(outcome.row.game_index),
                    } for outcome in result.outcomes]}
         (stored[0] / f"trial-{trial_number}-summary.json").write_text(
             json.dumps(summary, sort_keys=True) + "\n", encoding="utf-8")

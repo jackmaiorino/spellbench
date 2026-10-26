@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from datetime import datetime, timezone
 import gzip
 import hashlib
 import json
@@ -111,6 +112,7 @@ def collect_remote(data, *, duration, stop):
                 raise ValueError("unexpected owned engine record directory")
             # Charge raw SSD staging before the first SCP, plus bounded receipt/row overhead.
             check_storage(data, "recovery", data["per_game_cap_bytes"] + 16*2**20)
+            started = time.monotonic()  # phase timings locate a stalled step (copy, custody writes or ACK)
             with tempfile.TemporaryDirectory(prefix="collection-", dir=data["recovery"]) as scratch:
                 bundle = Path(scratch) / name
                 bundle.mkdir()
@@ -118,14 +120,20 @@ def collect_remote(data, *, duration, stop):
                     subprocess.run(["scp", "-o", "BatchMode=yes", f"{target}:{root}/{name}/{filename}",
                                     str(bundle / filename)], check=True, timeout=transport["copy_timeout_seconds"])
                 check_storage(data, "recovery", 0)
+                copied = time.monotonic()
                 ack = preserve(bundle, data)
+                preserved = time.monotonic()
                 encoded = base64.b64encode(json.dumps(ack, sort_keys=True).encode() + b"\n").decode()
                 final = f"{root}/{name}/COLLECTED.json"
                 temporary = final + ".partial"
                 script = (f"[IO.File]::WriteAllBytes({quoted(temporary)},[Convert]::FromBase64String('{encoded}'));"
                           f"Move-Item -LiteralPath {quoted(temporary)} -Destination {quoted(final)} -ErrorAction Stop")
                 powershell(target, script, timeout)
-                print(json.dumps({"state": "collected", "record": name, **ack}), flush=True)
+                seconds = {"copy": round(copied - started, 3), "custody": round(preserved - copied, 3),
+                           "acknowledge": round(time.monotonic() - preserved, 3)}
+                print(json.dumps({"state": "collected", "record": name,
+                                  "utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                                  "seconds": seconds, **ack}), flush=True)
         time.sleep(transport["poll_seconds"])
 
 

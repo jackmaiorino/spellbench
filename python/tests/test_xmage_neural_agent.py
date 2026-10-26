@@ -365,3 +365,96 @@ def test_policy_failure_survives_shutdown_and_failure_audit_errors(phase):
     assert any("session shutdown failed" in note for note in failure.__notes__)
     if phase == "choose-audit":
         assert any("failure audit unavailable" in note for note in failure.__notes__)
+
+
+def test_simultaneous_triggers_take_the_original_first_trigger_without_search_or_history():
+    bot, session = ready(Session([1]))
+    bot.choose(view(decision({"kind": "pass"}, {"kind": "play_land"})))
+    def trigger(name, position, count=3):
+        return {"kind": "order_pick", "source": None, "purpose": "triggers", "position": position, "count": count,
+                "item": {"trigger": {"source_name": name, "ability_index": 0, "instance": 0}}}
+    first = decision(trigger("Spectral Sailor", 0), trigger("Burst Lightning", 0), trigger("Prowess", 0), step=1)
+    assert bot.choose(view(first)) == 10
+    second = decision(trigger("Burst Lightning", 1), trigger("Prowess", 1), step=2)
+    assert bot.choose(view(second)) == 10
+    assert len(session.requests) == 1 and bot.history.earlier == []
+    for bad in (decision(trigger("A", 0), trigger("B", 1), step=3), decision(trigger("A", 0, count=3), step=3)):
+        stale, _ = ready(Session([1]))
+        stale.choose(view(decision({"kind": "pass"}, {"kind": "play_land"})))
+        bad["seat_step"] = 1
+        with pytest.raises(ValueError, match="remaining triggers"):
+            stale.choose(view(bad))
+
+
+def test_graph_and_magezero_agents_keep_their_own_trigger_answers():
+    import xmage_gnn_search
+    import xmage_magezero_agent
+    assert agent.NeuralAgent.original_trigger_order is True
+    assert xmage_gnn_search.GraphAgent.original_trigger_order is False
+    assert xmage_magezero_agent.MageZeroAgent.original_trigger_order is False
+
+
+def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
+    history = agent.PublicHistory("p0")
+    begin = {"turn": 5, "phase_step": "beginning_of_combat", "active_seat": "p0", "stack": [], "passed_seats": []}
+    history.anchor = {"decision": {"context": {"kind": "priority"}, "observation": begin},
+                      "selection": {"candidate_id": 1, "semantic_echo": {"kind": "pass"}}}
+    def attack(index):
+        return {"decision": {"group": {"group_id": 7, "substep_count": 2, "substep_index": index},
+                             "candidates": [{"candidate_id": 1, "semantic": {"kind": "declare_attack"}}]},
+                "selection": {"candidate_id": 1, "semantic_echo": {"kind": "declare_attack"}}}
+    history.earlier = [attack(0), attack(1)]
+    callback = {"observation": {"turn": 5, "phase_step": "declare_attackers", "viewer": "p0"},
+                "candidates": [{"candidate_id": 3, "semantic": {"kind": "choose_target"}}]}
+    assert history.callback(callback)["replay"] == {"priority_passes": ["p1"], "earlier": history.earlier,
+                                                    "attack_declarations": 2}
+    begin["passed_seats"] = ["p1"]
+    assert history.callback(callback)["replay"]["priority_passes"] == []
+    for broken in ([attack(0)], [attack(1), attack(0)]):   # an incomplete or reordered group is not replayable
+        history.earlier = broken
+        with pytest.raises(ValueError, match="phase transition"):
+            history.callback(callback)
+
+
+def _cast_observation(stack, graveyard=(), exile=(), turn=4, step="main_1"):
+    other = {"seat": "p1", "graveyard": [{"card_name": n, "object_id": f"g-{i}"} for i, n in enumerate(graveyard)],
+             "exile": [{"card_name": n, "object_id": f"x-{i}"} for i, n in enumerate(exile)]}
+    return {"viewer": "p0", "turn": turn, "phase_step": step, "players": [{"seat": "p0"}, other],
+            "stack": [{"stack_kind": "spell", "copy": False, "object_id": oid, "card_name": name, "controller_seat": seat}
+                      for oid, name, seat in stack]}
+
+
+def test_stack_casts_record_own_methods_and_kicker_answers_and_public_flashback_only():
+    history = agent.PublicHistory("p0")
+    history.observe(_cast_observation([]))
+    cast = {"kind": "cast_spell", "method": "flashback",
+            "source": {"card_name": "Think Twice", "object_id": "o-grave", "zone": "graveyard"}}
+    history.selected({"observation": _cast_observation([]), "context": {"kind": "priority"}},
+                     {"candidate_id": 1, "semantic_echo": cast})
+    history.observe(_cast_observation([("o-new", "Think Twice", "p0")]))
+    kicker = {"kind": "optional_cost", "cost": "kicker", "pay": True,
+              "source": {"card_name": "Think Twice", "object_id": "o-new", "zone": "stack", "controller_seat": "p0"}}
+    history.selected({"observation": _cast_observation([("o-new", "Think Twice", "p0")]), "context": {"kind": "choice"}},
+                     {"candidate_id": 2, "semantic_echo": kicker})
+    assert history.fields(history.previous)["stack_casts"] == {"o-new": {"method": "flashback", "kicker": 1}}
+
+    # The other seat's spell on an otherwise unchanged stack: one card fewer in its public graveyard is flashback,
+    # an unchanged graveyard is a normal cast; an exile change or a second new object leaves the cast unknown.
+    base = [("o-new", "Think Twice", "p0")]
+    for graveyard, exile, expected in ((("Think Twice",), (), {"method": "normal"}), ((), (), None)):
+        history.observe(_cast_observation(base, graveyard=("Think Twice",), exile=exile))
+        history.observe(_cast_observation(base + [("o-opp", "Think Twice", "p1")], graveyard=graveyard))
+        assert history.casts.get("o-opp") == (expected or {"method": "flashback"})
+        history.casts.pop("o-opp")
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-opp", "Think Twice", "p1")], exile=("Think Twice",)))
+    assert "o-opp" not in history.casts
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-a", "Think Twice", "p1"), ("o-b", "Shock", "p1")]))
+    assert not {"o-a", "o-b"} & set(history.casts)
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-late", "Think Twice", "p1")], step="main_2"))
+    assert "o-late" not in history.casts
+    # A spell that left the stack drops its fact.
+    history.observe(_cast_observation([]))
+    assert "stack_casts" not in history.fields(history.previous)

@@ -56,6 +56,19 @@ def _cards(observation):
             yield entry
 
 
+def first_trigger(decision):
+    """The original player's trigger order: XMage's first remaining trigger at each position. The engine offers
+    simultaneous triggers unsorted, in that list order, so the first offered candidate is the original's choice."""
+    candidates = decision.get("candidates")
+    positions = {c.get("semantic", {}).get("position") for c in candidates or []}
+    counts = {c.get("semantic", {}).get("count") for c in candidates or []}
+    if (not candidates or len(positions) != 1 or len(counts) != 1 or type(next(iter(positions))) is not int
+            or type(next(iter(counts))) is not int or len(candidates) != next(iter(counts)) - next(iter(positions))):
+        raise ValueError("trigger order root does not offer exactly the remaining triggers")
+    first = candidates[0]
+    return {"candidate_id": first["candidate_id"], "semantic_echo": copy.deepcopy(first["semantic"])}
+
+
 class PublicHistory:
     """Remember only this seat's visible names, choices and confirmed costs."""
     def __init__(self, seat):
@@ -63,6 +76,7 @@ class PublicHistory:
         self.origins, self.activations = {}, []
         self.anchor, self.earlier = None, []
         self.effects = PublicEffects(seat)
+        self.previous, self.pending_cast, self.casts = None, None, {}
 
     def loyalty(self, observation, oid):
         for player in observation.get("players", []):
@@ -74,6 +88,7 @@ class PublicHistory:
 
     def observe(self, observation):
         self.effects.observe(observation)
+        self.observe_casts(observation)
         for card in _cards(observation):
             oid, name = card.get("object_id"), card.get("card_name")
             if isinstance(oid, str) and isinstance(name, str):
@@ -88,6 +103,40 @@ class PublicHistory:
             if (type(now) is int and now != activation["before"]) or on_stack:
                 activation["confirmed"] = True
 
+    # How each spell on the stack was cast, where public: this seat's own cast method and optional-cost answers,
+    # and a spell the other seat put on an otherwise unchanged stack, from its public graveyard and exile.
+    def observe_casts(self, observation):
+        previous, self.previous = self.previous, observation
+        pending, self.pending_cast = self.pending_cast, None
+        stack = observation.get("stack") or []
+        ids = [e.get("object_id") for e in stack]
+        self.casts = {oid: fact for oid, fact in self.casts.items() if oid in ids}
+        if previous is None:
+            return
+        before = [e.get("object_id") for e in previous.get("stack") or []]
+        new = [e for e in stack if e.get("object_id") not in before]
+        spells = [e for e in new if e.get("stack_kind") == "spell" and isinstance(e.get("object_id"), str)
+                  and isinstance(e.get("card_name"), str) and e.get("copy") is False]
+        if pending is not None:
+            own = [e for e in spells if e.get("controller_seat") == self.seat and e["card_name"] == pending["card_name"]]
+            if len(own) == 1:
+                self.casts.setdefault(own[0]["object_id"], {})["method"] = pending["method"]
+            return
+        if not (len(new) == len(spells) == 1 and ids[:-1] == before and new[0] is stack[-1]
+                and (observation.get("turn"), observation.get("phase_step"))
+                == (previous.get("turn"), previous.get("phase_step"))):
+            return
+        spell = new[0]
+        if spell.get("controller_seat") == self.seat or spell["object_id"] in self.casts:
+            return
+
+        def count(obs, zone):
+            return sum(card.get("card_name") == spell["card_name"] for player in obs.get("players", [])
+                       if player.get("seat") == spell.get("controller_seat") for card in player.get(zone) or [])
+        left = count(previous, "graveyard") - count(observation, "graveyard")
+        if count(previous, "exile") == count(observation, "exile") and left in (0, 1):
+            self.casts[spell["object_id"]] = {"method": "flashback" if left else "normal"}
+
     def fields(self, observation):
         renamed = {c["object_id"]: self.origins[c["object_id"]] for c in _cards(observation)
                    if c.get("object_id") in self.origins and isinstance(c.get("card_name"), str)
@@ -96,11 +145,48 @@ class PublicHistory:
                   "card_origins": dict(sorted(renamed.items()))}
         if self.effects.effects:
             result["public_effects"] = self.effects.fields()
+        if self.casts:
+            result["stack_casts"] = copy.deepcopy(dict(sorted(self.casts.items())))
         return result
+
+    # A callback in the declare attackers step after this seat's complete recorded declaration group (an attack
+    # trigger's target or loot): the count of group entries that open the replay, else 0.
+    def attack_group(self, decision):
+        if self.anchor is None or self.anchor["selection"]["semantic_echo"].get("kind") != "pass":
+            return 0
+        previous, observation = self.anchor["decision"]["observation"], decision["observation"]
+        if not (previous.get("phase_step") == "beginning_of_combat" and observation.get("phase_step") == "declare_attackers"
+                and type(previous.get("turn")) is int and previous["turn"] == observation.get("turn")
+                and previous.get("active_seat") == self.seat and not previous.get("stack")):
+            return 0
+        count, group = 0, None
+        for entry in self.earlier:
+            candidates = entry["decision"].get("candidates", [])
+            if not candidates or any(c.get("semantic", {}).get("kind") != "declare_attack" for c in candidates):
+                break
+            step = entry["decision"].get("group", {})
+            if group is None:
+                group = step
+            if (step.get("group_id") != group.get("group_id") or step.get("substep_index") != count
+                    or step.get("substep_count") != group.get("substep_count")):
+                return 0
+            count += 1
+        return count if group is not None and count == group.get("substep_count") else 0
 
     def callback(self, decision):
         if self.anchor is None:
             raise ValueError("callback has no recorded own priority anchor")
+        attacks = self.attack_group(decision)
+        if attacks:
+            # The other seat passes beginning of combat unless it already had; Java re-declares the group and
+            # compares its first substep and then the callback in full.
+            other = "p1" if self.seat == "p0" else "p0"
+            passed = self.anchor["decision"]["observation"].get("passed_seats")
+            if not isinstance(passed, list) or any(p not in ("p0", "p1") for p in passed):
+                raise ValueError("callback anchor needs public passed-seat facts")
+            return {"anchor": copy.deepcopy(self.anchor),
+                    "replay": {"priority_passes": [] if other in passed else [other],
+                               "earlier": copy.deepcopy(self.earlier), "attack_declarations": attacks}}
         observation = decision["observation"]
         previous = self.anchor["decision"]["observation"]
         action = self.anchor["selection"]["semantic_echo"]
@@ -163,6 +249,15 @@ class PublicHistory:
     def selected(self, decision, selection):
         semantic = selection["semantic_echo"]
         observation = decision["observation"]
+        source = semantic.get("source") or {}
+        if (semantic.get("kind") == "cast_spell" and semantic.get("method") in ("normal", "flashback")
+                and isinstance(source.get("card_name"), str)):
+            self.pending_cast = {"card_name": source["card_name"], "method": semantic["method"]}
+        elif (semantic.get("kind") == "optional_cost" and semantic.get("cost") == "kicker"
+                and type(semantic.get("pay")) is bool and source.get("zone") == "stack"
+                and source.get("controller_seat") == self.seat and isinstance(source.get("object_id"), str)):
+            fact = self.casts.setdefault(source["object_id"], {})
+            fact["kicker"] = fact.get("kicker", 0) + semantic["pay"]
         if semantic.get("kind") == "activate_ability":
             oid = (semantic.get("source") or {}).get("object_id")
             before = self.loyalty(observation, oid)
@@ -181,6 +276,8 @@ class NeuralAgent:
     history_factory = PublicHistory
     # Opt-in (the graph agent): a function answering decisions no search root family supports.
     unsearched_family = None
+    # The original Exp1 ComputerPlayer.chooseTriggeredAbility returns abilities.get(0), no search.
+    original_trigger_order = True
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
                  profile=None, plan_factory=None, arrangement_factory=None):
         if type(visits) is not int or not 2 <= visits <= 1000:
@@ -281,6 +378,10 @@ class NeuralAgent:
                     result = self.session.plan(record, visits=self.visits, timeout_s=remaining())
                     self.plan = self.plan_factory(received, result, visits=self.visits)
                 selection = self.plan.select(received)
+            elif self.original_trigger_order and kinds == {"order_pick"} and all(
+                    c.semantic.get("purpose") == "triggers" for c in decision.candidates):
+                selection = first_trigger(received)
+                family = "original_first_trigger"
             elif kinds == {"mulligan"}:
                 # This is the original newly constructed player's shipped flag,
                 # not a guessed neural decision or another bot's keep heuristic.
@@ -314,7 +415,9 @@ class NeuralAgent:
                        and c.semantic == selection.get("semantic_echo")]
             if len(offered) != 1 or result is not None and result.get("checkpoint") != self.checkpoint:
                 raise ValueError("neural choice is unoffered or belongs to another checkpoint")
-            self.history.selected(received, selection)
+            if family != "original_first_trigger":
+                # The replayed original player orders its triggers itself; its callbacks compare the result.
+                self.history.selected(received, selection)
             self.step = decision.seat_step
             self.audit({"event": "neural_choice", "seat_step": self.step, "family": family,
                         "selection": selection, "neural_calls": 0 if result is None else result["neural_calls"],
