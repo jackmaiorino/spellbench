@@ -57,7 +57,7 @@
       "--overlay-manifest",
       "${XMAGE_MODEL_BUILD}/BUILD.json",
       "--overlay-build-sha256",
-      "9e3770226b58bfb634233049bfa070ae448429b7313e0679b70f194aacc9d22b"
+      "21b95147fe5a50a2d65ef3e94dc85c1782344d96ee7a9aa9b44a315be5b274f0"
     ]
   },
   "bots": [
@@ -94,7 +94,7 @@
     },
     {
       "name": "draftzero-exp1-gen0-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-54be3545f8c954fa18a36269",
+      "version": "exp1-published-fair-v1-597e20eb5da5ad6d8bf4bec1",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -116,7 +116,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "9e3770226b58bfb634233049bfa070ae448429b7313e0679b70f194aacc9d22b",
+        "21b95147fe5a50a2d65ef3e94dc85c1782344d96ee7a9aa9b44a315be5b274f0",
         "--search-math",
         "${XMAGE_SEARCH_MATH}",
         "--root",
@@ -632,7 +632,7 @@
     },
     {
       "name": "draftzero-exp1-gen10-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-b0630fe1998812f352088bd9",
+      "version": "exp1-published-fair-v1-2d8300343e337fa2fa39f5fc",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -654,7 +654,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "9e3770226b58bfb634233049bfa070ae448429b7313e0679b70f194aacc9d22b",
+        "21b95147fe5a50a2d65ef3e94dc85c1782344d96ee7a9aa9b44a315be5b274f0",
         "--search-math",
         "${XMAGE_SEARCH_MATH}",
         "--root",
@@ -1170,7 +1170,7 @@
     },
     {
       "name": "draftzero-exp1-gen33-published-final-eval-fair",
-      "version": "exp1-published-fair-v1-042f9f1024e6d836e0a3144f",
+      "version": "exp1-published-fair-v1-88d1275f11e281cd45c59ec5",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -1192,7 +1192,7 @@
         "--model-build",
         "${XMAGE_MODEL_BUILD}",
         "--model-build-sha256",
-        "9e3770226b58bfb634233049bfa070ae448429b7313e0679b70f194aacc9d22b",
+        "21b95147fe5a50a2d65ef3e94dc85c1782344d96ee7a9aa9b44a315be5b274f0",
         "--search-math",
         "${XMAGE_SEARCH_MATH}",
         "--root",
@@ -1708,7 +1708,7 @@
     },
     {
       "name": "draftzero-fdn-gnn-100-fair",
-      "version": "draftzero-gnn-pimc-v1-420e4978bff12961b798417e",
+      "version": "draftzero-gnn-pimc-v1-c2fddef60d75ad9f870075d8",
       "type": "subprocess",
       "owner": "spellbench",
       "engine": "xmage",
@@ -1731,7 +1731,7 @@
         "--model-build",
         "${XMAGE_GNN_MODEL_BUILD}",
         "--model-build-sha256",
-        "9e3770226b58bfb634233049bfa070ae448429b7313e0679b70f194aacc9d22b",
+        "21b95147fe5a50a2d65ef3e94dc85c1782344d96ee7a9aa9b44a315be5b274f0",
         "--search-math",
         "${XMAGE_SEARCH_MATH}",
         "--manifest",
