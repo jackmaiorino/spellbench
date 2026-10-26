@@ -213,7 +213,7 @@
     },
     {
       "name": "llm-gpt-6-luna",
-      "version": "0.2.0",
+      "version": "0.1.0",
       "type": "subprocess",
       "owner": "jackmaiorino",
       "engine": "any",
