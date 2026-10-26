@@ -21,7 +21,15 @@ returned model mismatch, stay terminal. Each forfeited request still counts, and
 unknown usage keeps its full reservation charged, so the request and token caps
 still bound the run. A persistent provider fault now forfeits games one by one
 until a cap stops admission, so watch the `active_provider_failure_forfeits`
-summary count. Continuations, transfers and recoveries keep this policy exactly.
+summary count. Continuations, transfers and recoveries keep this policy exactly,
+with one exception: `increase_failed_run_limits(..., enable_provider_failure_forfeits=True)`
+may enable it once on a failed parent without it, when the limit-increase authority
+also records `"enable_provider_failure_forfeits": true`. The successor's
+continuation records the enable; nothing can remove the policy.
+
+A failure receipt's retained run may also be the `REVEAL.json` of a committed run
+that aborted before publishing any game (`spellbench-run-reveal/v1`, status
+`aborted`, exactly the reveal fields). Its hash binds as `retained_run_sha256`.
 
 `continue_stopped_qualification` supports one exclusive mapped successor for a
 stopped **precommit** qualification whose sole new terminal request is HTTP503.

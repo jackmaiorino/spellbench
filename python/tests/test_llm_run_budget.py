@@ -1384,6 +1384,21 @@ def test_continuation_cannot_drop_or_add_the_provider_failure_policy(tmp_path, p
         RunBudget(target, model="luna")
 
 
+@pytest.mark.parametrize("recorded", [True, False])
+def test_only_an_authorized_failed_run_increase_may_record_a_provider_failure_enable(tmp_path, recorded):
+    parent = budget(tmp_path)
+    parent.fail("hosted_broker_failed")
+    target = tmp_path / "child.sqlite3"
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent))
+
+    def enable(policy):
+        policy.update(allow_provider_failure_forfeits=True, schema=PROVIDER_FAILURE_SCHEMA)
+        policy["continuation"]["enable_provider_failure_forfeits"] = recorded
+    _rebind_continuation_policy(parent, target, enable)
+    with pytest.raises(ProviderError, match="run_budget_continuation_changed"):
+        RunBudget(target, model="luna")
+
+
 @pytest.mark.parametrize("extra", [("--allow-provider-failure-forfeits", "--allow-provider-failure-forfeits"),
                                    ("--allow-provider-failure-forfeits=true",),
                                    ("--allow-provider-failure-forfeits=false",)])

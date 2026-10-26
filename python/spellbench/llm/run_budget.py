@@ -79,6 +79,16 @@ def _retained_file(path: Path) -> None:
         raise ProviderError("run_budget_parent_unsealed")
 
 
+# arena.validate.REVEAL_KEYS: a committed run that stopped before any game was
+# published retains only its REVEAL.json, so no game ledger exists to bind.
+_REVEAL_KEYS = frozenset(("schema", "benchmark_id", "run_label", "commitment", "run_secret", "status", "reason"))
+
+
+def _aborted_reveal(publication) -> bool:
+    return (isinstance(publication, dict) and set(publication) == _REVEAL_KEYS
+            and publication["schema"] == "spellbench-run-reveal/v1" and publication["status"] == "aborted")
+
+
 def _write_marker(path: Path, value: dict) -> None:
     with path.open("x", encoding="utf-8") as stream:
         json.dump(value, stream, sort_keys=True)
@@ -372,10 +382,11 @@ class RunBudget:
                 or value["effective_deadline"] != deadline
                 or value["purpose"] not in {"provider-diagnostics", "fixed-panel-rerun"}
                 or _digest(manifest) != value["retained_run_sha256"]
-                or publication.get("schema") != "spellbench-tournament/v2"
-                or publication.get("protocol", {}).get("name") != "spellbench/v2"
-                or publication.get("run", {}).get("status") != "aborted"
-                or publication.get("run", {}).get("rated") is not False):
+                or not (_aborted_reveal(publication)
+                        or (publication.get("schema") == "spellbench-tournament/v2"
+                            and publication.get("protocol", {}).get("name") == "spellbench/v2"
+                            and publication.get("run", {}).get("status") == "aborted"
+                            and publication.get("run", {}).get("rated") is False))):
             raise ProviderError("run_budget_recovery_changed")
 
     @staticmethod
@@ -395,8 +406,18 @@ class RunBudget:
             record = json.loads(authority.read_bytes())
             old = {name: prior[name] for name in LIMIT_NAMES}
             new = {name: child[name] for name in LIMIT_NAMES}
-            if (set(record) != {"schema", "model", "parent", "parent_sha256", "parent_limits",
-                               "approved_limits", "failure_receipt_sha256", "purpose", "user_authority"}
+            fields = {"schema", "model", "parent", "parent_sha256", "parent_limits",
+                      "approved_limits", "failure_receipt_sha256", "purpose", "user_authority"}
+            # The one authorized policy change: the same authority may enable
+            # provider-failure forfeits on a parent without them, never remove them.
+            enable = "enable_provider_failure_forfeits" in continuation
+            if enable:
+                fields.add("enable_provider_failure_forfeits")
+            if (set(record) != fields
+                    or (enable and (continuation["enable_provider_failure_forfeits"] is not True
+                                    or record["enable_provider_failure_forfeits"] is not True
+                                    or prior.get("allow_provider_failure_forfeits", False) is not False
+                                    or child.get("allow_provider_failure_forfeits", False) is not True))
                     or record["schema"] != LIMIT_INCREASE_SCHEMA or record["model"] != child["model"]
                     or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
                     or record["parent_sha256"] != continuation["parent_sha256"]
@@ -736,8 +757,15 @@ class RunBudget:
                                                        else extension["parent_max_wall_seconds"])
                 self._validate_policy(prior, self.model, ancestor_limits)
                 rows = retained.execute("SELECT * FROM requests ORDER BY id").fetchall()
-                # No continuation kind may add or drop the provider-failure policy.
-                if (child.get("allow_provider_failure_forfeits", False)
+                # No continuation may add or drop the provider-failure policy, except one
+                # recorded false-to-true enable bound by a failed-run limit-increase authority.
+                enable = "enable_provider_failure_forfeits" in continuation
+                if enable and (continuation["enable_provider_failure_forfeits"] is not True
+                               or continuation["kind"] != "failed-run-recovery" or increase is None
+                               or prior.get("allow_provider_failure_forfeits", False) is not False
+                               or child.get("allow_provider_failure_forfeits", False) is not True):
+                    raise ProviderError("run_budget_continuation_changed")
+                if (not enable and child.get("allow_provider_failure_forfeits", False)
                         != prior.get("allow_provider_failure_forfeits", False)):
                     raise ProviderError("run_budget_continuation_changed")
                 if continuation["kind"] == "stopped-qualification-recovery":
