@@ -116,8 +116,9 @@ final class VisibleReplayDraws {
     static int declaredLoot(String text) {
         if (text == null) return 0;
         java.util.regex.Matcher m = LOOT.matcher(text);
-        if (!m.find() || !m.group(1).equalsIgnoreCase(m.group(2)) || m.find()) return 0;
+        if (!m.find()) return 0;
         String n = m.group(1).toLowerCase(java.util.Locale.ROOT);
+        if (!n.equalsIgnoreCase(m.group(2)) || m.find()) return 0;
         return n.startsWith("a ") ? 1 : n.startsWith("two") ? 2 : 3;
     }
 
