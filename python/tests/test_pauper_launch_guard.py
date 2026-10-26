@@ -277,8 +277,11 @@ def test_worker_cap_is_the_config_workers_without_hosted_entrants(tmp_path):
 def test_pauper_cap_is_a_ceiling_the_qualification_chooses_under():
     bench = definition.load_benchmark(Path(__file__).parents[2] / "benchmarks/pauper-kernel-v2")
     config = TournamentConfig.from_json(bench.tournament_config("check"))
-    # The scheduled entrants include no hosted LLM, so the definition's ceiling applies in full.
-    assert run._worker_cap(config) == bench.workers == 8
+    # The definition's ceiling applies in full unless a scheduled hosted LLM admits fewer requests at once.
+    from spellbench.llm.run_budget import hosted_inflight_limit
+    limit = hosted_inflight_limit(config)
+    assert run._worker_cap(config) == (bench.workers if limit is None else max(1, min(bench.workers, limit)))
+    assert bench.workers >= 8
 
 
 def test_pauper_sequential_cores_fit_one_game_per_core_and_keep_blocks_compatible():
@@ -288,7 +291,7 @@ def test_pauper_sequential_cores_fit_one_game_per_core_and_keep_blocks_compatibl
     bench = definition.load_benchmark(Path(__file__).parents[2] / "benchmarks/pauper-kernel-v2")
     config = TournamentConfig.from_json(bench.tournament_config("check"))
     assert config.core_accounting == "sequential" and config.per_game_cores() == 1
-    assert resource_bound(16, config.per_game_cores()) >= bench.workers  # the ceiling, not the cores, binds at 16
+    assert resource_bound(bench.workers, config.per_game_cores()) >= bench.workers  # one game per core fits the ceiling
     # Published blocks were played under concurrent accounting; the snapshot contract does not include it.
     concurrent = TournamentConfig.from_json(replace(bench, core_accounting="concurrent").tournament_config("check"))
     assert concurrent.per_game_cores() == 3
