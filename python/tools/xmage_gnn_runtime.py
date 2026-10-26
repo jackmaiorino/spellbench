@@ -30,7 +30,7 @@ from xmage_release_assets import prepare_root
 SOURCES = ("xmage_gnn_runtime.py", "xmage_gnn_search.py", "xmage_gnn_model.py", "xmage_gnn_backend.py",
            "xmage_neural_agent.py", "xmage_neural_runtime.py", "xmage_neural_rpc.py", "xmage_neural_search.py",
            "xmage_neural_combat.py", "xmage_neural_decisions.py", "xmage_checkpoint_backend.py",
-           "xmage_release_assets.py", "xmage_draftzero_gnn_sources.py")
+           "xmage_release_assets.py", "xmage_draftzero_gnn_sources.py", "xmage_public_effects.py", "xmage_neural_arrangement.py")
 
 
 def identity(*, simulations, build_sha256, image, manifest_bytes):

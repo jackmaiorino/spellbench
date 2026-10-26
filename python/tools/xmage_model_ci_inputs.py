@@ -1,4 +1,4 @@
-"""Fetch the small pinned public Java inputs for model compilation in CI.
+"""Fetch pinned public Java inputs and the action vocabulary for CI checks.
 
 No checkpoints, private files or engine bundles are fetched. The 32 MiB input
 cap and 1 GiB free-space reserve apply to the ephemeral CI input directory.
@@ -41,24 +41,30 @@ def input_opener(token: str | None, *, public_opener=urllib.request.urlopen, git
     return open_input
 
 
+def public_inputs(assets):
+    encoder = {"draftzero-exp1-" + name for name in
+               ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
+    encoder |= {"magezero-v02-" + name for name in
+                ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
+    required = encoder | {"draftzero-exp1-actions"}
+    selected = [asset for asset in assets if asset["id"] in required
+                or asset["id"].startswith(("draftzero-exp1-search-", "magezero-v02-search-", "draftzero-gnn-src-"))]
+    if required - {asset["id"] for asset in selected} or any(
+            asset["kind"] != "source-code"
+            and not (asset["id"] == "draftzero-exp1-search-commonsmath3" and asset["kind"] == "build-dependency")
+            and not (asset["id"] == "draftzero-exp1-actions" and asset["kind"] == "action-vocabulary")
+            for asset in selected):
+        raise ValueError("CI inputs must be pinned public sources, build dependency and action vocabulary")
+    return selected
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     args = parser.parse_args()
     manifest = Path(__file__).resolve().parents[2] / "engines/xmage/releases.json"
     raw = manifest.read_bytes()
-    assets = json.loads(raw)["assets"]
-    encoder = {"draftzero-exp1-" + name for name in
-               ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
-    encoder |= {"magezero-v02-" + name for name in
-                ("actionencoder", "featuremap", "features", "labeledstate", "stateencoder")}
-    selected = [asset for asset in assets if asset["id"] in encoder
-                or asset["id"].startswith(("draftzero-exp1-search-", "magezero-v02-search-", "draftzero-gnn-src-"))]
-    if encoder - {asset["id"] for asset in selected} or any(
-            asset["kind"] != "source-code"
-            and not (asset["id"] == "draftzero-exp1-search-commonsmath3" and asset["kind"] == "build-dependency")
-            for asset in selected):
-        raise ValueError("compile inputs must be the complete pinned public source set")
+    selected = public_inputs(json.loads(raw)["assets"])
     root = prepare_root(args.root)
     storage = {"cap_bytes": 32 * 1024**2, "reserve_bytes": 1024**3}
     opener = input_opener(os.environ.get("SPELLBENCH_CI_GITHUB_TOKEN"))
@@ -66,7 +72,7 @@ def main():
     report = {"schema": "spellbench-draftzero-ci-inputs/v1",
               "input_manifest_sha256": hashlib.sha256(raw).hexdigest(),
               "assets": receipts, "storage": storage,
-              "scope": "public source compilation; no checkpoints or qualification"}
+              "scope": "public source compilation and callback correctness; no checkpoints or qualification"}
     with (root / "CI-INPUTS.json").open("x", encoding="utf-8") as stream:
         json.dump(report, stream, indent=2)
         stream.write("\n")

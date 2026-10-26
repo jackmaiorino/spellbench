@@ -8,6 +8,7 @@ from __future__ import annotations
 from xmage_neural_rpc import NeuralSession
 from xmage_neural_search import search_request, search_result
 from xmage_neural_combat import combat_request, combat_result
+import xmage_neural_arrangement as arrangement
 
 READY = {"ready": True, "search": "draftzero-exp1-original-mixed",
          "operations": ["search", "combat"]}
@@ -27,3 +28,8 @@ class BridgeSession(NeuralSession):
         request = combat_request(record, visits)
         return self.exchange({**request, "operation": "combat"}, timeout_s=timeout_s,
                              validate=lambda result, calls: combat_result(record, result, visits, calls))
+
+    def arrange(self, record: dict, *, visits: int, timeout_s: float) -> dict:
+        request = arrangement.request(record, visits)
+        return self.exchange({**request, "operation": "search"}, timeout_s=timeout_s,
+                             validate=lambda result, calls: arrangement.result(record, result, visits, calls))

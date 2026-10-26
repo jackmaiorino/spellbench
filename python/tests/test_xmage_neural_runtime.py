@@ -15,6 +15,9 @@ def fixture(tmp_path):
     (build / "kit").mkdir()
     (build / "core").mkdir()
     (build / "model/Main.class").write_bytes(b"compiled")
+    arrangement = build / "model/spellbench/kit/xmage/ModelArrangement.class"
+    arrangement.parent.mkdir(parents=True)
+    arrangement.write_bytes(b"compiled arrangement")
     (build / "kit/resource.txt").write_bytes(b"resource")
     release = tmp_path / "releases.json"
     release.write_bytes(b'{"public":true}')
@@ -23,7 +26,8 @@ def fixture(tmp_path):
     metadata = {"schema": "spellbench-draftzero-encoder-build/v1", "jdk": "javac 23.0.1",
                 "inputs_manifest_sha256": runtime.sha(release), "engine_manifest_sha256": runtime.REVIEWED_ENGINE,
                 "search_stage": {"pinned": True},
-                "class_files_sha256": {"model/Main.class": runtime.sha(build / "model/Main.class")},
+                "class_files_sha256": {"model/Main.class": runtime.sha(build / "model/Main.class"),
+                    "model/spellbench/kit/xmage/ModelArrangement.class": runtime.sha(arrangement)},
                 "resource_files_sha256": {"resource.txt": runtime.sha(build / "kit/resource.txt")},
                 "dependency_sha256": {str(dependency): runtime.sha(dependency)}}
     return build, engine, release, metadata
@@ -82,7 +86,8 @@ def test_public_identity_changes_with_checkpoint_visits_build_and_confined_image
     with pytest.raises(ValueError):
         runtime.identity(**{**params, "checkpoint": "invented"})
     assert original["identity"]["profile"]["full_game_qualified"] is False
-    assert len(original["identity"]["source_sha256"]) == 8
+    assert len(original["identity"]["source_sha256"]) == 10
+    assert "xmage_public_effects.py" in original["identity"]["source_sha256"]
 
 
 @pytest.mark.parametrize("changed", [False, True])

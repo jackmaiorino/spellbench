@@ -98,6 +98,17 @@ public final class ModelSearchMain {
             libraryFailToFindExcluded = replay.libraryFailToFindExcluded;
             replayProof = Json.map("earlier", (long) replay.replayed, "priority_passes",
                     (long) Json.arr(Json.obj(record, "replay"), "priority_passes").size(), "observation_identical", true);
+            if (replay.arrangement != null) {
+                Map<String, Object> result = Json.obj(Json.copy(replay.encoded));
+                String hash;
+                try { hash = Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
+                catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+                result.put("decision_sha256", hash); result.put("roots", replay.arrangement.roots);
+                result.put("neural_calls", calls); result.put("world_flags", world.flags); result.put("replay", replayProof);
+                result.put("search_budget", declared.budget());
+                if (declared.published) { result.put("settings", declared.values); result.put("policy_width", 1024L); }
+                return result;
+            }
         } else {
         KitContext.reset(); GameAccess.reset(); KitRandom.installBoot();
         List<String> nameFlags = WorldBuilder.restoreVisibleNames(obs, Json.obj(decision, "x_history"));

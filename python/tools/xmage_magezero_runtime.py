@@ -98,8 +98,8 @@ def identity(*, checkpoint, settings, build_sha256, image, manifest, public):
                  "xmage_magezero_agent.py", "xmage_magezero_runtime.py", "xmage_magezero_bridge.py",
                  "xmage_magezero_search.py", "xmage_magezero_combat.py", "xmage_neural_agent.py",
                  "xmage_neural_runtime.py", "xmage_neural_rpc.py", "xmage_neural_search.py",
-                 "xmage_neural_combat.py", "xmage_neural_decisions.py", "xmage_checkpoint_backend.py",
-                 "xmage_release_assets.py")}}
+                 "xmage_neural_combat.py", "xmage_neural_decisions.py", "xmage_checkpoint_backend.py", "xmage_public_effects.py",
+                 "xmage_release_assets.py", "xmage_neural_arrangement.py")}}
     digest = hashlib.sha256(wire.canonical_json_dumps(bound)).hexdigest()
     return {"name": checkpoint + "-fair-search", "version": "magezero-v02-visible-v1-" + digest[:24], "identity": bound}
 
