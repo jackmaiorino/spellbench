@@ -360,3 +360,19 @@ def test_peer_caps_captured_stderr() -> None:
         assert len(peer.stderr_text()) <= wire.STDERR_CAPTURE_BYTES + 64
     finally:
         peer.close()
+
+
+def test_peer_keeps_the_end_of_a_long_stderr() -> None:
+    code = (
+        "import sys; sys.stderr.buffer.write(b'e' * (1 << 20) + b'final error'); sys.stderr.flush();"
+        " sys.stdout.buffer.write(b'{}' + bytes([10])); sys.stdout.flush()"
+    )
+    peer = _peer_running(code, timeout_s=10)
+    try:
+        assert peer.read_line() == b"{}"
+        peer.close()
+        text = peer.stderr_text()
+        assert text.startswith("e") and text.endswith("final error")
+        assert f"[... {(1 << 20) + len('final error') - wire.STDERR_CAPTURE_BYTES} bytes of stderr dropped ...]" in text
+    finally:
+        peer.close()
