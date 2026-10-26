@@ -670,23 +670,54 @@ public final class WorldBuilder {
         return candidates;
     }
 
+    /**
+     * The token class for an observed token. When the register's classes (the tokens the pool's cards create) hold
+     * the name, only they are candidates. An exact match needs the observed power, toughness, keywords, types and
+     * colors. An anthem or a temporary effect changes the observed power, toughness or keywords, so a register class
+     * that alone has the observed name, types and colors is that token; checkCharacteristics() still flags a
+     * difference no restored effect explains.
+     */
     private Token resolveToken(String name, Map<String, Object> ch) {
         if (name == null) {
             return null;
         }
-        List<Token> candidates = tokenCandidates(name);
+        List<Token> candidates = new ArrayList<>(tokenCandidates(name));
+        if (ch == null) {
+            return candidates.isEmpty() ? null : candidates.get(0).copy();
+        }
+        java.util.Set<String> pool = Register.tokenClasses();
+        List<Token> fromPool = new ArrayList<>();
         for (Token t : candidates) {
-            if (ch == null) {
-                return t.copy();
+            if (pool.contains(t.getClass().getSimpleName())) {
+                fromPool.add(t);
             }
-            Object pw = ch.get("power");
-            Object th = ch.get("toughness");
+        }
+        if (!fromPool.isEmpty()) {
+            candidates = fromPool; // another set's same-named class cannot be in a pool game
+        }
+        Object pw = ch.get("power");
+        Object th = ch.get("toughness");
+        for (Token t : candidates) {
+            List<Object> kw = KitBridge.keywords(t.getAbilities());
             boolean ok = (pw == null || ((Number) pw).intValue() == t.getPower().getValue())
                     && (th == null || ((Number) th).intValue() == t.getToughness().getValue())
+                    && (!(ch.get("keywords") instanceof List) || kw != null
+                        && new java.util.HashSet<>(Json.arr(ch, "keywords")).equals(new java.util.HashSet<>(kw)))
                     && sameTypesAndColors(t, ch);
             if (ok) {
                 return t.copy();
             }
+        }
+        Token named = null;
+        int matches = 0;
+        for (Token t : fromPool) {
+            if (sameTypesAndColors(t, ch)) {
+                named = t;
+                matches++;
+            }
+        }
+        if (matches == 1) {
+            return named.copy();
         }
         if (!candidates.isEmpty()) {
             flag("approximate:token_characteristics:" + name);

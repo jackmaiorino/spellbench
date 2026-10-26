@@ -101,6 +101,18 @@ public final class Register {
         return c == null ? null : c.get("optional_costs") == null ? Collections.emptyList() : Json.arr(c, "optional_costs");
     }
 
+    /** The token classes (XMage simple names) the register's cards create: every token a pool game can hold. */
+    public static synchronized java.util.Set<String> tokenClasses() {
+        load();
+        java.util.Set<String> out = new java.util.TreeSet<>();
+        for (Map<String, Object> c : byFace.values()) {
+            for (Object t : Json.arr(c, "tokens")) {
+                out.add(String.valueOf(t));
+            }
+        }
+        return out;
+    }
+
     /** The class of the one emblem a card creates when it can be rebuilt (a no-argument constructor), else null. */
     public static String emblemClass(String sourceName) {
         Map<String, Object> c = card(sourceName);

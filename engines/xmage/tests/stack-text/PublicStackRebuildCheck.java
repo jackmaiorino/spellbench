@@ -3,18 +3,24 @@ package spellbench.kit.xmage;
 import mage.abilities.keyword.KickerAbility;
 import mage.constants.Zone;
 import mage.game.permanent.Permanent;
+import mage.game.permanent.PermanentToken;
 import mage.game.stack.Spell;
 import mage.game.stack.StackAbility;
 import mage.game.stack.StackObject;
+import mage.player.spellbench.observe.KitBridge;
 import spellbench.kit.core.Json;
 import spellbench.kit.core.Sampler;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Rebuild public stack objects the kit used to refuse (optional-cost spells, a reflexive trigger) and resolve them. */
+/**
+ * Rebuild public stack objects the kit used to refuse (optional-cost spells, a reflexive trigger) and resolve them,
+ * and rebuild tokens as the pool's classes.
+ */
 public final class PublicStackRebuildCheck {
     private static void require(boolean value, String message) {
         if (!value) throw new AssertionError(message);
@@ -117,12 +123,38 @@ public final class PublicStackRebuildCheck {
                 "an unaudited reflexive trigger was rebuilt");
     }
 
+    /** A Cat token is the pool's 1/1 Cat11Token, under an anthem too, never another set's same-named class. */
+    private static void catToken(Map<String, Object> fixture, int power) {
+        World world = build(fixture, null);
+        String id = null;
+        for (Object player : Json.arr(Json.obj(fixture, "observation"), "players")) {
+            for (Object o : Json.arr(Json.obj(player), "battlefield")) {
+                if ("Cat Token".equals(Json.str(Json.obj(o), "card_name"))) id = Json.str(Json.obj(o), "object_id");
+            }
+        }
+        require(id != null, "fixture has no Cat token");
+        Permanent cat = world.game.getPermanent(world.idToUuid.get(id));
+        require(cat instanceof PermanentToken
+                && "Cat11Token".equals(((PermanentToken) cat).getToken().getClass().getSimpleName()),
+                "Cat token rebuilt as " + (cat instanceof PermanentToken ? ((PermanentToken) cat).getToken().getClass() : cat));
+        require(cat.getPower().getValue() == power && cat.getToughness().getValue() == power,
+                "Cat token is " + cat.getPower().getValue() + "/" + cat.getToughness().getValue());
+        List<Object> keywords = KitBridge.keywords(cat.getAbilities(world.game));
+        require(keywords != null && keywords.isEmpty(), "Cat token has keywords " + keywords);
+        for (String flag : world.flags) {
+            require(!flag.startsWith("approximate:token_characteristics"), "Cat token flagged " + flag);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         Map<String, Object> fixtures = Json.parseObject(new String(
                 Files.readAllBytes(Paths.get(args[0])), StandardCharsets.UTF_8));
         thinkTwice(Json.obj(fixtures, "think_twice"));
         burstLightning(Json.obj(fixtures, "burst_lightning"));
         faebloomTrick(Json.obj(fixtures, "faebloom_trick"));
-        System.out.println("Optional-cost spells and a reflexive trigger rebuilt from public history and resolved: PASS");
+        catToken(Json.obj(fixtures, "plain_cat"), 1);
+        catToken(Json.obj(fixtures, "arahbo_cat"), 2);
+        System.out.println("Optional-cost spells and a reflexive trigger rebuilt from public history and resolved,"
+                + " and pool token classes rebuilt: PASS");
     }
 }
