@@ -221,3 +221,24 @@ def test_service_policy_does_not_relax_other_failures(tmp_path, code):
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         state.check()
     assert state.summary()["active_http503_forfeits"] == 0 and provider.calls == 1
+
+
+def test_stopped_recovery_keeps_an_inherited_provider_failure_policy(tmp_path):
+    original = budget(tmp_path, requests=12, tokens=100_000, allow_timeout_forfeits=True, allow_http503_forfeits=True,
+                      allow_provider_failure_forfeits=True, max_consecutive_forfeits=3)
+    BudgetedProvider(Provider(Completion("{}", "luna", 100, 20)), original).complete(PROMPT, timeout_s=30)
+    source = transfer(tmp_path, original)
+    with pytest.raises(ProviderError, match="http_503"):
+        BudgetedProvider(Provider(ProviderError("http_503")), source).complete(PROMPT, timeout_s=30)
+    source.check()
+    source.fail("hosted_broker_failed")
+    before = source.summary()
+    child = recover(source, evidence(source))
+    after = child.summary()
+    assert after["policy"]["allow_provider_failure_forfeits"] is True
+    assert after["policy"]["schema"] == "spellbench-llm-run-budget/v5"
+    assert all(after[name] == before[name] for name in (*INHERITED_NAMES, "accounted_tokens"))
+    with pytest.raises(ProviderError, match="inference_failed"):
+        BudgetedProvider(Provider(ProviderError("inference_failed")), child).complete(PROMPT, timeout_s=30)
+    child.check()
+    assert child.summary()["active_provider_failure_forfeits"] == 1

@@ -172,11 +172,14 @@ def test_connection_call_budget_survives_a_new_game():
     assert events(log)[-1]["error"] == "call_budget_exhausted"
 
 
-def test_unknown_usage_poison_cannot_be_cleared_by_game_start():
-    broker, peer, provider, log = session(Provider(ProviderError("http_429")))
+@pytest.mark.parametrize("code", ["http_429", "inference_failed"])
+def test_unknown_usage_poison_cannot_be_cleared_by_game_start(code):
+    # A provider failure ends this broker connection; an allowed forfeit continues only in the
+    # arena's fresh per-game broker process (test_llm_hosted), never in this one.
+    broker, peer, provider, log = session(Provider(ProviderError(code)))
     peer.responses = [rpc()]
     assert broker.exchange(choose_request())["response_type"] == "error"
-    assert events(log)[-2]["unknown_usage"] is True
+    assert events(log)[-2]["unknown_usage"] is True and events(log)[-2]["error"] == code
     assert broker.exchange(host("game_start", game_id="new"))["response_type"] == "error"
     assert len(provider.calls) == 1
 
