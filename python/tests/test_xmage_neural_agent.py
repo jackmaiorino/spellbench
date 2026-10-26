@@ -414,3 +414,47 @@ def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
         history.earlier = broken
         with pytest.raises(ValueError, match="phase transition"):
             history.callback(callback)
+
+
+def _cast_observation(stack, graveyard=(), exile=(), turn=4, step="main_1"):
+    other = {"seat": "p1", "graveyard": [{"card_name": n, "object_id": f"g-{i}"} for i, n in enumerate(graveyard)],
+             "exile": [{"card_name": n, "object_id": f"x-{i}"} for i, n in enumerate(exile)]}
+    return {"viewer": "p0", "turn": turn, "phase_step": step, "players": [{"seat": "p0"}, other],
+            "stack": [{"stack_kind": "spell", "copy": False, "object_id": oid, "card_name": name, "controller_seat": seat}
+                      for oid, name, seat in stack]}
+
+
+def test_stack_casts_record_own_methods_and_kicker_answers_and_public_flashback_only():
+    history = agent.PublicHistory("p0")
+    history.observe(_cast_observation([]))
+    cast = {"kind": "cast_spell", "method": "flashback",
+            "source": {"card_name": "Think Twice", "object_id": "o-grave", "zone": "graveyard"}}
+    history.selected({"observation": _cast_observation([]), "context": {"kind": "priority"}},
+                     {"candidate_id": 1, "semantic_echo": cast})
+    history.observe(_cast_observation([("o-new", "Think Twice", "p0")]))
+    kicker = {"kind": "optional_cost", "cost": "kicker", "pay": True,
+              "source": {"card_name": "Think Twice", "object_id": "o-new", "zone": "stack", "controller_seat": "p0"}}
+    history.selected({"observation": _cast_observation([("o-new", "Think Twice", "p0")]), "context": {"kind": "choice"}},
+                     {"candidate_id": 2, "semantic_echo": kicker})
+    assert history.fields(history.previous)["stack_casts"] == {"o-new": {"method": "flashback", "kicker": 1}}
+
+    # The other seat's spell on an otherwise unchanged stack: one card fewer in its public graveyard is flashback,
+    # an unchanged graveyard is a normal cast; an exile change or a second new object leaves the cast unknown.
+    base = [("o-new", "Think Twice", "p0")]
+    for graveyard, exile, expected in ((("Think Twice",), (), {"method": "normal"}), ((), (), None)):
+        history.observe(_cast_observation(base, graveyard=("Think Twice",), exile=exile))
+        history.observe(_cast_observation(base + [("o-opp", "Think Twice", "p1")], graveyard=graveyard))
+        assert history.casts.get("o-opp") == (expected or {"method": "flashback"})
+        history.casts.pop("o-opp")
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-opp", "Think Twice", "p1")], exile=("Think Twice",)))
+    assert "o-opp" not in history.casts
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-a", "Think Twice", "p1"), ("o-b", "Shock", "p1")]))
+    assert not {"o-a", "o-b"} & set(history.casts)
+    history.observe(_cast_observation(base, graveyard=("Think Twice",)))
+    history.observe(_cast_observation(base + [("o-late", "Think Twice", "p1")], step="main_2"))
+    assert "o-late" not in history.casts
+    # A spell that left the stack drops its fact.
+    history.observe(_cast_observation([]))
+    assert "stack_casts" not in history.fields(history.previous)

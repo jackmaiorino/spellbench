@@ -76,6 +76,7 @@ class PublicHistory:
         self.origins, self.activations = {}, []
         self.anchor, self.earlier = None, []
         self.effects = PublicEffects(seat)
+        self.previous, self.pending_cast, self.casts = None, None, {}
 
     def loyalty(self, observation, oid):
         for player in observation.get("players", []):
@@ -87,6 +88,7 @@ class PublicHistory:
 
     def observe(self, observation):
         self.effects.observe(observation)
+        self.observe_casts(observation)
         for card in _cards(observation):
             oid, name = card.get("object_id"), card.get("card_name")
             if isinstance(oid, str) and isinstance(name, str):
@@ -101,6 +103,40 @@ class PublicHistory:
             if (type(now) is int and now != activation["before"]) or on_stack:
                 activation["confirmed"] = True
 
+    # How each spell on the stack was cast, where public: this seat's own cast method and optional-cost answers,
+    # and a spell the other seat put on an otherwise unchanged stack, from its public graveyard and exile.
+    def observe_casts(self, observation):
+        previous, self.previous = self.previous, observation
+        pending, self.pending_cast = self.pending_cast, None
+        stack = observation.get("stack") or []
+        ids = [e.get("object_id") for e in stack]
+        self.casts = {oid: fact for oid, fact in self.casts.items() if oid in ids}
+        if previous is None:
+            return
+        before = [e.get("object_id") for e in previous.get("stack") or []]
+        new = [e for e in stack if e.get("object_id") not in before]
+        spells = [e for e in new if e.get("stack_kind") == "spell" and isinstance(e.get("object_id"), str)
+                  and isinstance(e.get("card_name"), str) and e.get("copy") is False]
+        if pending is not None:
+            own = [e for e in spells if e.get("controller_seat") == self.seat and e["card_name"] == pending["card_name"]]
+            if len(own) == 1:
+                self.casts.setdefault(own[0]["object_id"], {})["method"] = pending["method"]
+            return
+        if not (len(new) == len(spells) == 1 and ids[:-1] == before and new[0] is stack[-1]
+                and (observation.get("turn"), observation.get("phase_step"))
+                == (previous.get("turn"), previous.get("phase_step"))):
+            return
+        spell = new[0]
+        if spell.get("controller_seat") == self.seat or spell["object_id"] in self.casts:
+            return
+
+        def count(obs, zone):
+            return sum(card.get("card_name") == spell["card_name"] for player in obs.get("players", [])
+                       if player.get("seat") == spell.get("controller_seat") for card in player.get(zone) or [])
+        left = count(previous, "graveyard") - count(observation, "graveyard")
+        if count(previous, "exile") == count(observation, "exile") and left in (0, 1):
+            self.casts[spell["object_id"]] = {"method": "flashback" if left else "normal"}
+
     def fields(self, observation):
         renamed = {c["object_id"]: self.origins[c["object_id"]] for c in _cards(observation)
                    if c.get("object_id") in self.origins and isinstance(c.get("card_name"), str)
@@ -109,6 +145,8 @@ class PublicHistory:
                   "card_origins": dict(sorted(renamed.items()))}
         if self.effects.effects:
             result["public_effects"] = self.effects.fields()
+        if self.casts:
+            result["stack_casts"] = copy.deepcopy(dict(sorted(self.casts.items())))
         return result
 
     # A callback in the declare attackers step after this seat's complete recorded declaration group (an attack
@@ -211,6 +249,15 @@ class PublicHistory:
     def selected(self, decision, selection):
         semantic = selection["semantic_echo"]
         observation = decision["observation"]
+        source = semantic.get("source") or {}
+        if (semantic.get("kind") == "cast_spell" and semantic.get("method") in ("normal", "flashback")
+                and isinstance(source.get("card_name"), str)):
+            self.pending_cast = {"card_name": source["card_name"], "method": semantic["method"]}
+        elif (semantic.get("kind") == "optional_cost" and semantic.get("cost") == "kicker"
+                and type(semantic.get("pay")) is bool and source.get("zone") == "stack"
+                and source.get("controller_seat") == self.seat and isinstance(source.get("object_id"), str)):
+            fact = self.casts.setdefault(source["object_id"], {})
+            fact["kicker"] = fact.get("kicker", 0) + semantic["pay"]
         if semantic.get("kind") == "activate_ability":
             oid = (semantic.get("source") or {}).get("object_id")
             before = self.loyalty(observation, oid)
