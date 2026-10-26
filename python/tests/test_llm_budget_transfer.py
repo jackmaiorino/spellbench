@@ -697,3 +697,36 @@ def test_idle_snapshot_race_cannot_overwrite_arriving_evidence(tmp_path, monkeyp
     assert not (source.path.parent / "idle-map.json").exists()
     assert not source.path.with_name(source.path.name + ".continuation.json").exists()
     source.check()
+
+
+def test_provider_failure_forfeits_and_policy_survive_relocation(tmp_path):
+    source = budget(tmp_path, allow_provider_failure_forfeits=True)
+    with pytest.raises(ProviderError, match="inference_failed"):
+        BudgetedProvider(Provider(ProviderError("inference_failed")), source).complete(PROMPT, timeout_s=30)
+    before = source.summary()
+    relocated = transfer(tmp_path, source)
+    assert relocated.summary() == before
+    assert before["policy"]["schema"] == "spellbench-llm-run-budget/v5"
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        RunBudget(relocated.path, model=source.model, path_map=relocated.paths.manifest,
+                  path_map_sha256=relocated.paths.sha256, expected_limits={"allow_provider_failure_forfeits": False})
+    with pytest.raises(ProviderError, match="http_500"):
+        BudgetedProvider(Provider(ProviderError("http_500")), relocated).complete(PROMPT, timeout_s=30)
+    relocated.check()
+    after = relocated.summary()
+    assert after["active_provider_failure_forfeits"] == 2 and after["unknown_usage"] == 2
+    assert after["accounted_tokens"] == after["uncertain_reserved_tokens"] == 2 * (PROMPT.bytes + 1024)
+
+
+def test_host_preflight_recovery_keeps_the_provider_failure_policy(tmp_path):
+    source = transfer(tmp_path, budget(tmp_path, allow_provider_failure_forfeits=True))
+    source.fail("profile_renewal_failed")
+    child = recover_host(source)
+    policy = child.summary()["policy"]
+    assert policy["allow_provider_failure_forfeits"] is True and policy["schema"] == "spellbench-llm-run-budget/v5"
+    with pytest.raises(ProviderError, match="inference_failed"):
+        BudgetedProvider(Provider(ProviderError("inference_failed")), child).complete(PROMPT, timeout_s=30)
+    child.check()
+    summary = child.summary()
+    assert summary["active_provider_failure_forfeits"] == 1 and summary["host_failures"] == 1
+    assert summary["accounted_tokens"] == PROMPT.bytes + 1024

@@ -24,7 +24,7 @@ from .login import default_credentials_path, load_credentials
 from .renewal import renew_profile
 from .provider import ProviderError
 from .prompt import PROMPT_FORMATS
-from .run_budget import BudgetedProvider, RunBudget, STAGE_EXHAUSTED
+from .run_budget import BudgetedProvider, RunBudget, STAGE_EXHAUSTED, provider_failure_code
 
 
 class BoundedLog:
@@ -131,6 +131,8 @@ def main() -> int:
                         help="require the matching budget policy; settled timeouts forfeit only their game")
     parser.add_argument("--allow-http503-forfeits", action="store_true",
                         help="require the matching policy; a settled HTTP503 forfeits its game without retry")
+    parser.add_argument("--allow-provider-failure-forfeits", action="store_true",
+                        help="require the matching policy; any settled provider failure forfeits its game without retry")
     args = parser.parse_args()
     child = None
     budget = None
@@ -149,7 +151,8 @@ def main() -> int:
                                             "max_wall_seconds": args.max_run_wall_seconds,
                                             "max_inflight": args.max_inflight,
                                             "allow_timeout_forfeits": args.allow_timeout_forfeits,
-                                            "allow_http503_forfeits": args.allow_http503_forfeits})
+                                            "allow_http503_forfeits": args.allow_http503_forfeits,
+                                            "allow_provider_failure_forfeits": args.allow_provider_failure_forfeits})
         plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort,
                             budget=budget)
         provider = BudgetedProvider(plan, budget,
@@ -179,6 +182,7 @@ def main() -> int:
                                               "renew_before_game": args.renew_profile_before_game,
                                               "allow_timeout_forfeits": args.allow_timeout_forfeits,
                                               "allow_http503_forfeits": args.allow_http503_forfeits,
+                                              "allow_provider_failure_forfeits": args.allow_provider_failure_forfeits,
                                               "aggregate_budget": True, "provider_output_cap": False},
                                     max_completion_tokens=args.max_completion_tokens, log=BoundedLog(stream),
                                     config=config, limits=BrokerLimits(max_calls_total=config.max_calls_per_game,
@@ -186,7 +190,9 @@ def main() -> int:
             status = serve_broker(session, before_game_start=plan.renew_before_game
                                   if args.renew_profile_before_game else None)
             availability_error = ((args.allow_timeout_forfeits and provider.settled_error == "timeout")
-                                  or (args.allow_http503_forfeits and provider.settled_error == "http_503"))
+                                  or (args.allow_http503_forfeits and provider.settled_error == "http_503")
+                                  or (args.allow_provider_failure_forfeits
+                                      and provider_failure_code(provider.settled_error)))
             stage_exhausted = (provider.admission_error in STAGE_EXHAUSTED
                                or provider.settled_error in STAGE_EXHAUSTED)
             if status != 0 and not (session._failed and (availability_error or stage_exhausted)):

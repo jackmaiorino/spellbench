@@ -14,6 +14,15 @@ again. Report HTTP503 forfeits separately and include them in declared scores;
 this evaluates the system with its service availability. Shortened games do
 not establish reduced inference cost or representative completed-work speed.
 
+`--allow-provider-failure-forfeits` (budget schema `spellbench-llm-run-budget/v5`)
+widens the same rule to any durably settled provider failure code, for example
+`inference_failed` or `http_429`. Budget-owned `run_budget_*` failures, such as a
+returned model mismatch, stay terminal. Each forfeited request still counts, and
+unknown usage keeps its full reservation charged, so the request and token caps
+still bound the run. A persistent provider fault now forfeits games one by one
+until a cap stops admission, so watch the `active_provider_failure_forfeits`
+summary count. Continuations, transfers and recoveries keep this policy exactly.
+
 `continue_stopped_qualification` supports one exclusive mapped successor for a
 stopped **precommit** qualification whose sole new terminal request is HTTP503.
 It requires a retained `spellbench-llm-stopped-qualification/v1` receipt binding

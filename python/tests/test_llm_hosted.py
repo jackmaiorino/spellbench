@@ -236,7 +236,7 @@ def test_definition_has_complete_seat_swapped_schedule_and_fixed_settings():
 
 
 @pytest.mark.parametrize("policy_flag,command_flag", [(True, False), (False, True)])
-@pytest.mark.parametrize("availability", ["timeout", "http503"])
+@pytest.mark.parametrize("availability", ["timeout", "http503", "provider_failure"])
 def test_hosted_refuses_timeout_policy_mismatch_before_creating_child(tmp_path, monkeypatch, policy_flag, command_flag, availability):
     path = tmp_path / "budget.sqlite3"
     RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60,
@@ -247,7 +247,7 @@ def test_hosted_refuses_timeout_policy_mismatch_before_creating_child(tmp_path, 
                                     "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
                                     "--max-run-requests", "8", "--max-run-tokens", "8000",
                                     "--max-run-wall-seconds", "60"] +
-                        (["--allow-" + availability + "-forfeits"] if command_flag else []))
+                        (["--allow-" + availability.replace("_", "-") + "-forfeits"] if command_flag else []))
     assert hosted.main() == 2
     assert RunBudget(path, model="luna").summary()["requests"] == 0
 
@@ -297,11 +297,12 @@ def test_plan_provider_cannot_renew_or_infer_again_after_timeout(tmp_path, monke
 
 
 @pytest.mark.parametrize("failure", ["candidate", "timeout", "old_timeout_then_transport", "timeout_log_cap", "timeout_cleanup", "docker"])
-@pytest.mark.parametrize("availability_error", ["timeout", "http_503"])
+@pytest.mark.parametrize("availability_error", ["timeout", "http_503", "inference_failed"])
 def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp_path, monkeypatch, failure, availability_error):
     path = tmp_path / "budget.sqlite3"
     RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60, allow_timeout_forfeits=True,
-                     allow_http503_forfeits=availability_error == "http_503")
+                     allow_http503_forfeits=availability_error == "http_503",
+                     allow_provider_failure_forfeits=availability_error == "inference_failed")
     state = RunBudget(path, model="luna")
     if failure == "old_timeout_then_transport":
         with pytest.raises(ProviderError, match=availability_error):
@@ -351,7 +352,8 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
                                     "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
                                     "--max-run-requests", "8", "--max-run-tokens", "8000",
                                     "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"]
-                        + (["--allow-http503-forfeits"] if availability_error == "http_503" else []))
+                        + (["--allow-http503-forfeits"] if availability_error == "http_503" else [])
+                        + (["--allow-provider-failure-forfeits"] if availability_error == "inference_failed" else []))
     if failure == "timeout_cleanup":
         with pytest.raises(OSError, match="cleanup failed"):
             hosted.main()
@@ -370,3 +372,68 @@ def test_hosted_failure_marks_budget_terminal_except_its_own_settled_timeout(tmp
     assert summary["completed"] == int(failure == "candidate")
     assert summary["unknown_usage"] == int(failure in {"timeout", "old_timeout_then_transport", "timeout_log_cap", "timeout_cleanup"})
     assert provider.calls == int(failure in {"candidate", "timeout", "timeout_log_cap", "timeout_cleanup"})
+
+
+@pytest.mark.parametrize("allowed", [True, False])
+def test_provider_failure_forfeits_only_its_game_and_the_next_game_proceeds(tmp_path, monkeypatch, allowed):
+    path = tmp_path / "budget.sqlite3"
+    RunBudget.create(path, model="luna", requests=8, tokens=8000, wall_seconds=60,
+                     allow_provider_failure_forfeits=allowed)
+
+    class GamePeer(Peer):
+        def read_line(self):
+            if self.raw.get("request_type") == "choose":
+                self.choose_id = self.raw["request_id"]
+                return wire.canonical_json_line({"broker": RPC, "request_id": "i-1",
+                                                 "messages": list(PROMPT.messages), "timeout_ms": 1000})
+            if self.raw.get("broker") == RPC:
+                return wire.canonical_json_line({"protocol": "spellbench/v2", "request_id": self.choose_id,
+                                                 "response_type": "choice", "candidate_id": 1})
+            return super().read_line()
+
+    children = []
+
+    def child(image, command):
+        children.append(GamePeer(image, command))
+        return children[-1]
+
+    monkeypatch.setattr(hosted, "DockerPeer", child)
+
+    def play(provider):
+        # The arena starts a fresh broker process for each game; one call here is one game.
+        monkeypatch.setattr(hosted, "PlanProvider", lambda *args, **kwargs: provider)
+        incoming = io.BytesIO(
+            wire.canonical_json_line({"protocol": "spellbench/v2", "request_type": "game_start", "request_id": "g-1", "game_id": "g"})
+            + wire.canonical_json_line({"protocol": "spellbench/v2", "request_type": "choose", "request_id": "c-1", **decision().raw}))
+        output = io.BytesIO()
+        monkeypatch.setattr(sys, "stdin", type("Input", (), {"buffer": incoming})())
+        monkeypatch.setattr(sys, "stdout", type("Output", (), {"buffer": output})())
+        monkeypatch.setattr(sys, "argv", ["hosted", "--model", "luna", "--image", "sha256:" + "a" * 64,
+                                        "--run-budget", str(path), "--log-dir", str(tmp_path / "logs"),
+                                        "--max-run-requests", "8", "--max-run-tokens", "8000",
+                                        "--max-run-wall-seconds", "60"]
+                            + (["--allow-provider-failure-forfeits"] if allowed else []))
+        status = hosted.main()
+        return status, [wire.strict_json_loads(line) for line in output.getvalue().splitlines()]
+
+    failing = Provider(ProviderError("inference_failed"))
+    status, responses = play(failing)
+    assert status == 1 and responses[-1]["response_type"] == "error"
+    first = RunBudget(path, model="luna").summary()
+    assert first["requests"] == first["failed"] == first["unknown_usage"] == 1
+    assert first["uncertain_reserved_tokens"] == first["accounted_tokens"] > 1024
+    assert first["policy"]["terminal_error"] == (None if allowed else "hosted_broker_failed")
+    healthy = Provider(Completion('{"candidate_id":1}', "luna", 100, 20))
+    status, responses = play(healthy)
+    summary = RunBudget(path, model="luna").summary()
+    if allowed:
+        assert status == 0 and responses[-1]["response_type"] == "choice" and healthy.calls == 1
+        assert summary["requests"] == 2 and summary["completed"] == 1 and summary["unknown_usage"] == 1
+        assert summary["accounted_tokens"] == first["accounted_tokens"] + 120
+        assert summary["active_provider_failure_forfeits"] == 1 and summary["policy"]["terminal_error"] is None
+        RunBudget(path, model="luna").check()
+    else:
+        assert status == 1 and responses[-1]["response_type"] == "error" and healthy.calls == 0
+        assert summary["requests"] == 1 and summary["active_terminal_failures"] == 1
+        assert summary["policy"]["terminal_error"] == "hosted_broker_failed"
+    assert failing.calls == 1 and len(children) == 2 and all(value.closed for value in children)

@@ -403,7 +403,7 @@ def continue_stopped_qualification(budget, successor: Path, manifest: Path, *,
     fresh qualification budget, never resumes its game or resets any charge.
     """
     from .run_budget import (RunBudget, _origin, _successor_claim, _retained_file,
-                             _totals, _write_marker, SERVICE_FORFEIT_SCHEMA, _deadline_extension)
+                             _totals, _write_marker, _deadline_extension)
     if budget.paths.manifest is None:
         raise ProviderError("run_budget_transfer_required")
     root = budget.paths.manifest.parent
@@ -432,7 +432,8 @@ def continue_stopped_qualification(budget, successor: Path, manifest: Path, *,
         import time
         if cutoff is not None and cutoff <= time.time():
             raise ProviderError("run_budget_deadline_exhausted")
-        child = {**policy, "schema": SERVICE_FORFEIT_SCHEMA, "terminal_error": None,
+        # The v4 service schema, unless an inherited provider-failure policy selects v5.
+        child = {**policy, "schema": _policy_schema({**policy, "allow_http503_forfeits": True}), "terminal_error": None,
                  "allow_http503_forfeits": True,
                  "continuation": {"kind": "stopped-qualification-recovery", "parent": budget.paths.key(budget.path),
                                   "parent_sha256": parent_sha, "inherited": inherited,
