@@ -35,7 +35,7 @@ from kernel_selection_order_v2 import native_selection_order
 FLAT = "x_kernel_flat_v4"
 PROPOSALS = "mtg-kernel-spellbench-completion-proposals/v1"
 PROPOSAL_ENCODING = "integer-rle-table/v1"
-PREVIEW_CACHE_BYTES = 32 * 1024 * 1024
+PREVIEW_CACHE_BYTES = 16 * 1024 * 1024  # response lines; parsed views take several times that
 
 
 def _plain_ints(values):
