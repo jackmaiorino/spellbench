@@ -392,3 +392,25 @@ def test_graph_and_magezero_agents_keep_their_own_trigger_answers():
     assert agent.NeuralAgent.original_trigger_order is True
     assert xmage_gnn_search.GraphAgent.original_trigger_order is False
     assert xmage_magezero_agent.MageZeroAgent.original_trigger_order is False
+
+
+def test_attack_trigger_callbacks_replay_the_recorded_declaration_group():
+    history = agent.PublicHistory("p0")
+    begin = {"turn": 5, "phase_step": "beginning_of_combat", "active_seat": "p0", "stack": [], "passed_seats": []}
+    history.anchor = {"decision": {"context": {"kind": "priority"}, "observation": begin},
+                      "selection": {"candidate_id": 1, "semantic_echo": {"kind": "pass"}}}
+    def attack(index):
+        return {"decision": {"group": {"group_id": 7, "substep_count": 2, "substep_index": index},
+                             "candidates": [{"candidate_id": 1, "semantic": {"kind": "declare_attack"}}]},
+                "selection": {"candidate_id": 1, "semantic_echo": {"kind": "declare_attack"}}}
+    history.earlier = [attack(0), attack(1)]
+    callback = {"observation": {"turn": 5, "phase_step": "declare_attackers", "viewer": "p0"},
+                "candidates": [{"candidate_id": 3, "semantic": {"kind": "choose_target"}}]}
+    assert history.callback(callback)["replay"] == {"priority_passes": ["p1"], "earlier": history.earlier,
+                                                    "attack_declarations": 2}
+    begin["passed_seats"] = ["p1"]
+    assert history.callback(callback)["replay"]["priority_passes"] == []
+    for broken in ([attack(0)], [attack(1), attack(0)]):   # an incomplete or reordered group is not replayable
+        history.earlier = broken
+        with pytest.raises(ValueError, match="phase transition"):
+            history.callback(callback)
