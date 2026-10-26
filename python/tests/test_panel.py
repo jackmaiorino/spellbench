@@ -403,3 +403,49 @@ def test_builtin_policy_and_transport_bytes_invalidate_unchanged_versions(tmp_pa
     transport = folder.parent / "bot.py"
     transport.write_bytes(transport.read_bytes() + b"\n# transport changed\n")
     assert snapshot.files_identity(panel.bot_files(spec)) != changed
+
+
+def test_matchup_shards_play_one_evaluation_on_two_runs(tmp_path):
+    """Two committed shards hold disjoint blocks; compose joins them as one full-panel evaluation."""
+    directory = tmp_path / "fixture"
+    write_definition(directory, value(directory))
+    assert set(panel.prepare_benchmark(directory)) == {"uniform", "heuristic", "cached-llm"}
+    prepared = json.loads((directory / "benchmark.json").read_bytes())
+    shards = [[["uniform", "heuristic"]], [["cached-llm", "uniform"], ["heuristic", "cached-llm"]]]
+    played = []
+    for index, (label, shard) in enumerate(zip(("2026-10-01", "2026-10-01-2"), shards)):
+        write_definition(directory, {**prepared, "evaluation_matchups": shard})
+        benchmark = definition.load_benchmark(directory)
+        config = TournamentConfig.from_json(benchmark.tournament_config(f"runs/{label}"))
+        assert {frozenset(pair) for pair in config.matchups} == {frozenset(pair) for pair in shard}
+        if index == 0:
+            # The first shard starts no LLM: only the references, the anchor and the shard's bots are launched.
+            assert {bot.name for bot in config.bots} == {"uniform", "heuristic"}
+        played.append(play(directory, label, secret=RunSecret(bytes([index]) * 32)))
+    assert [run.games_total for run in played] == [4, 8]
+    composed = panel.compose_benchmark(directory, date="2026-10-02")
+    assert validate_tournament_dir(composed) == []
+    board = store.read_json(composed / "leaderboard.json")
+    assert board["evaluation"]["sources"] == ["2026-10-01", "2026-10-01-2"]
+    assert board["games"]["total"] == 12 and not board["evaluation"].get("pending")
+    # Preparation again drops the shard: its blocks now exist, so nothing is missing.
+    assert panel.prepare_benchmark(directory) == ()
+    assert "evaluation_matchups" not in json.loads((directory / "benchmark.json").read_bytes())
+
+
+@pytest.mark.parametrize("shard, message", [
+    ([], "distinct pairs"), ([["uniform", "uniform"]], "distinct pairs"), ([["uniform", "unknown"]], "distinct pairs"),
+    ([["uniform", "heuristic"], ["heuristic", "uniform"]], "distinct pairs"), ("all", "distinct pairs"),
+    ([["uniform", "cached-llm"]], "is not a missing panel matchup")])
+def test_matchup_shards_must_lie_in_the_targets_schedule(tmp_path, shard, message):
+    raw = value(tmp_path / "fixture")
+    raw["opponent_panel"] = ["heuristic", "cached-llm"]
+    raw["evaluation_targets"] = ["heuristic"]
+    raw["evaluation_matchups"] = shard
+    with pytest.raises(definition.BenchmarkError, match=message):
+        definition.parse_benchmark(raw)
+    raw.pop("opponent_panel")
+    raw.pop("evaluation_version")
+    raw.pop("evaluation_targets")
+    with pytest.raises(definition.BenchmarkError, match="require opponent_panel"):
+        definition.parse_benchmark(raw)

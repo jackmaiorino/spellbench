@@ -464,7 +464,7 @@ def _drift(benchmark: definition.Benchmark, run: _Run) -> tuple[list[str], froze
     assert run.config is not None
     recorded = run.config.to_json()
     if run.snapshot:
-        benchmark = replace(benchmark, evaluation_targets=None)
+        benchmark = replace(benchmark, evaluation_targets=None, evaluation_matchups=None)
     current = TournamentConfig.from_json(benchmark.tournament_config(f"runs/{run.name}"))
     if run.snapshot:
         # Pending entrants are listed beside the snapshot, not fitted, so they are not drift.

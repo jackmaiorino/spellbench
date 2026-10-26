@@ -37,7 +37,7 @@ def bot_files(spec: BotSpec) -> tuple[EngineFile, ...]:
 
 
 def full_config(benchmark: definition.Benchmark) -> TournamentConfig:
-    return TournamentConfig.from_json(replace(benchmark, evaluation_targets=None).tournament_config("snapshot"))
+    return TournamentConfig.from_json(replace(benchmark, evaluation_targets=None, evaluation_matchups=None).tournament_config("snapshot"))
 
 
 def sources(directory: Path) -> list[snapshot.Source]:
@@ -75,7 +75,7 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     if not benchmark.opponent_panel:
         raise definition.BenchmarkError("bench prepare requires opponent_panel and evaluation_version in benchmark.json")
     config = full_config(benchmark)
-    values = definition.placeholder_values(definition.placeholder_names(replace(benchmark, evaluation_targets=None)),
+    values = definition.placeholder_values(definition.placeholder_names(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)),
         definition.load_local_values(directory.parent), os.environ if environ is None else environ)
     executed = runner.executed_config(config, lambda text: definition.substitute(text, values))
     raw = definition._read_json(directory / definition.BENCHMARK_FILE)
@@ -86,6 +86,7 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
         spec = by_name[bot["name"]]
         bot["evaluation_identity"] = snapshot.files_identity(bot_files(spec))
     raw.pop("evaluation_targets", None)
+    raw.pop("evaluation_matchups", None)  # a shard names blocks of the previous targets
     updated = definition.parse_benchmark(raw)
     desired = full_config(updated)
     selected = snapshot.select_blocks(desired, sources(directory), rated_only=not unrated)

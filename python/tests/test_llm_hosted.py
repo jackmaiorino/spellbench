@@ -61,7 +61,8 @@ def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, m
                                     "--max-run-requests", "8", "--max-run-tokens", "80000",
                                     "--max-run-wall-seconds", "60", "--allow-timeout-forfeits"]
                         + (["--allow-http503-forfeits"] if result == "http_503" else []))
-    assert hosted.main() == (1 if result in {"illegal", "timeout", "http_503"} else 0)
+    # A settled illegal choice forfeits its game and keeps the broker and the run budget usable.
+    assert hosted.main() == (1 if result in {"timeout", "http_503"} else 0)
     responses = [wire.strict_json_loads(line) for line in output.getvalue().splitlines()]
     assert responses[0]["response_type"] == "hello_ok"
     assert responses[-1]["response_type"] == ("error" if result in {"illegal", "timeout", "http_503"} else "choice")
@@ -71,7 +72,7 @@ def test_trusted_real_child_preserves_choices_accounting_and_cleanup(tmp_path, m
     summary = RunBudget(path, model="luna").summary()
     assert summary["requests"] == provider.calls
     assert summary["pending"] == 0
-    assert summary["policy"]["terminal_error"] == ("hosted_broker_failed" if result == "illegal" else None)
+    assert summary["policy"]["terminal_error"] is None
     assert summary["unknown_usage"] == (1 if result in {"timeout", "http_503"} else 0)
     events = [json.loads(line) for line in next((tmp_path / "logs").glob("broker-*.jsonl")).read_text().splitlines()]
     assert events[0]["provider"]["transport"] == "trusted-chatgpt-plan"

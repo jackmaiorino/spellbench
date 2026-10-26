@@ -245,7 +245,11 @@ def _bench_run(directory: Path, args: Sequence[str]) -> int | None:
     _print_allocation(result.summary)
     if code == 0 and result.summary.status == "complete":
         from ..bench import definition, panel
-        if definition.load_benchmark(directory).opponent_panel:
+        benchmark = definition.load_benchmark(directory)
+        if benchmark.opponent_panel and benchmark.evaluation_matchups is not None:
+            # One shard leaves entrants partly played; compose once every shard has run.
+            print("shard run: compose the snapshot after the last shard with spellbench bench compose")
+        elif benchmark.opponent_panel:
             path = panel.compose_benchmark(directory, unrated=not result.summary.rated)
             print(f"reference-panel snapshot published: {path}")
             code = _report_failures(validate_tournament_dir(path))

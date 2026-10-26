@@ -88,6 +88,7 @@ _OPTIONAL_FIELDS = (
     "opponent_panel",
     "evaluation_version",
     "evaluation_targets",
+    "evaluation_matchups",
     "evaluation_engine_identity",
     "evaluation_engine_inputs",
     "pairing",
@@ -172,6 +173,7 @@ class Benchmark:
     opponent_panel: tuple[str, ...] = ()
     evaluation_version: str | None = None
     evaluation_targets: tuple[str, ...] | None = None
+    evaluation_matchups: tuple[tuple[str, str], ...] | None = None
     evaluation_engine_identity: str | None = None
     evaluation_engine_inputs: tuple[str, ...] = ()
     core_accounting: str = "concurrent"
@@ -228,6 +230,19 @@ class Benchmark:
             document["matchups"] = [[a, b] for i, a in enumerate(names) for b in names[i + 1:]
                 if (a in self.opponent_panel or b in self.opponent_panel)
                 and (a in targets or b in targets)]
+            if self.evaluation_matchups is not None:
+                # One shard of the evaluation: a committed run plays these blocks only, and compose joins the
+                # shards' blocks like any other sources.
+                wanted = {frozenset(pair) for pair in self.evaluation_matchups}
+                outside = wanted - {frozenset(pair) for pair in document["matchups"]}
+                if outside:
+                    raise BenchmarkError("benchmark.evaluation_matchups: " + ", ".join(
+                        " vs ".join(sorted(pair)) for pair in sorted(outside, key=sorted))
+                        + " is not a missing panel matchup of the evaluation targets")
+                document["matchups"] = [pair for pair in document["matchups"] if frozenset(pair) in wanted]
+                playing = {name for pair in document["matchups"] for name in pair}
+                document["bots"] = [bot for bot in document["bots"]
+                                    if bot["name"] in playing | set(self.opponent_panel) | {ANCHOR_BOT}]
             document["opponent_panel"] = list(self.opponent_panel)
             document["evaluation_version"] = self.evaluation_version
             if self.evaluation_engine_identity is not None:
@@ -473,7 +488,7 @@ def _parse_bots(value: Any, context: str) -> tuple[BenchmarkBot, ...]:
 
 
 def _check_placeholders(benchmark: Benchmark, context: str) -> None:
-    for field, text in _placeholder_fields(replace(benchmark, evaluation_targets=None)):
+    for field, text in _placeholder_fields(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)):
         if "${" in PLACEHOLDER_PATTERN.sub("", text):
             raise BenchmarkError(
                 f"{context}.{field}: malformed placeholder in {text!r}; "
@@ -490,7 +505,10 @@ def _check_arena_config(benchmark: Benchmark, context: str) -> None:
     bot and pool indices are the definition's.
     """
     try:
-        TournamentConfig.from_json(replace(benchmark, evaluation_targets=None).tournament_config(_CHECK_DIR))
+        TournamentConfig.from_json(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)
+                                   .tournament_config(_CHECK_DIR))
+        if benchmark.evaluation_matchups is not None:
+            TournamentConfig.from_json(benchmark.tournament_config(_CHECK_DIR))  # the shard lies in the schedule
     except TournamentError as exc:
         raise BenchmarkError(f"{context}: the arena refuses its config: {exc}") from exc
 
@@ -546,8 +564,18 @@ def parse_benchmark(value: Any) -> Benchmark:
             or len(set(targets)) != len(targets)
         ):
             raise BenchmarkError("benchmark.evaluation_targets: must name distinct roster bots")
-    elif any(key in document for key in ("evaluation_version", "evaluation_targets", "evaluation_engine_identity", "evaluation_engine_inputs")):
-        raise BenchmarkError("benchmark.evaluation_version and evaluation_targets require opponent_panel")
+        shard = document.get("evaluation_matchups")
+        if "evaluation_matchups" in document and (
+            not isinstance(shard, list) or not shard
+            or any(not isinstance(pair, list) or len(pair) != 2 or any(type(name) is not str or name not in names
+                                                                       for name in pair) or pair[0] == pair[1]
+                   for pair in shard)
+            or len({frozenset(pair) for pair in shard}) != len(shard)
+        ):
+            raise BenchmarkError("benchmark.evaluation_matchups: must list distinct pairs of distinct roster bots")
+    elif any(key in document for key in ("evaluation_version", "evaluation_targets", "evaluation_matchups", "evaluation_engine_identity", "evaluation_engine_inputs")):
+        raise BenchmarkError("benchmark.evaluation_version, evaluation_targets and evaluation_matchups require "
+                             "opponent_panel")
     identity = document.get("evaluation_engine_identity")
     if "evaluation_engine_identity" in document and (
         type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
@@ -588,6 +616,8 @@ def parse_benchmark(value: Any) -> Benchmark:
         opponent_panel=tuple(panel),
         evaluation_version=version,
         evaluation_targets=None if targets is None else tuple(targets),
+        evaluation_matchups=None if "evaluation_matchups" not in document else tuple(
+            (a, b) for a, b in document["evaluation_matchups"]),
         evaluation_engine_identity=identity,
         evaluation_engine_inputs=tuple(_strings(document["evaluation_engine_inputs"], "benchmark.evaluation_engine_inputs")) if "evaluation_engine_inputs" in document else (),
     )
@@ -671,6 +701,9 @@ def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
         yield f"evaluation_engine_inputs[{index}]", path
     for bot_index, bot in enumerate(benchmark.bots):
         if benchmark.opponent_panel and benchmark.evaluation_targets is not None and bot.name not in set(benchmark.opponent_panel) | set(benchmark.evaluation_targets):
+            continue
+        if benchmark.evaluation_matchups is not None and bot.name not in set(benchmark.opponent_panel) | {
+                name for pair in benchmark.evaluation_matchups for name in pair}:
             continue
         command = bot.entry.get("command")
         if isinstance(command, list):

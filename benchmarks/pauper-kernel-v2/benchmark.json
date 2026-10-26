@@ -2,7 +2,7 @@
   "schema": "spellbench-benchmark/v2",
   "id": "pauper-kernel-v2",
   "title": "Pauper · mtg-kernel v2",
-  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. GPT-6 Luna faces the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately; they measure the deployed system including availability.",
+  "summary": "Eight Pauper decks with neutral protocol v2 choices. Every decision carries the seat's public event history (x_public_history_v1) and full Section 6.7 card knowledge. Entrants, GPT-6 Luna among them, face the frozen g115, a48 and c12 policies. Their checkpoint weights are unchanged; buffered choices use the versioned deterministic-completion-logprob/v1 selection adapter. Ratings use this panel only and cannot be compared numerically with the legacy Pauper or Standard boards. Private engine/checkpoints prevent independent game replay; public ledgers permit rating recomputation. The trusted child adapter is unsandboxed with self-reported isolation. Scores include local token-cap, timeout and provider HTTP503 availability forfeits, with each kind reported separately, and malformed-choice forfeits, recorded as agent errors; they measure the deployed system including availability.",
   "format": "pauper-bo1",
   "engine": {
     "name": "mtg-kernel",
@@ -35,7 +35,7 @@
     "a48",
     "c12"
   ],
-  "evaluation_version": "pauper-neutral-v2.2.0",
+  "evaluation_version": "pauper-neutral-v2.3.0",
   "extensions": [
     "x_kernel_flat_v4",
     "x_public_history_v1"
@@ -180,8 +180,40 @@
       "evaluation_identity": "7bb2edec44dfe5c73a4ced51654360d8a754786930b88be9c76f4daafe377660"
     },
     {
+      "name": "oh2-r2s1-b512",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S1B512_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s1-b512",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "662aad1a2c01089f4b5405c0bee73f17a4c3e13c57afb989e56fc21a0c269934"
+      ],
+      "checkpoint": "${OH2R2S1B512_CHECKPOINT}",
+      "display": {
+        "label": "oh2-r2s1-b512",
+        "author": "mipo",
+        "url": null,
+        "description": "mtg-kernel policy network: the g115 lineage's r2 seed 1 continued by ordinary self-play RL to dose 512 (OH2, 82,944 updates), sampled, no search. The research program's best scoreboard checkpoint at the v2.3.0 boundary. Trained against a48 (20% of its opponents), so its a48 games are a training-opponent matchup."
+      },
+      "evaluation_identity": "d9218f28b30be428e5ac30da9360cb4828540afb364ac93103c0febfae5cf73f"
+    },
+    {
       "name": "llm-gpt-6-luna",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "type": "subprocess",
       "owner": "jackmaiorino",
       "engine": "any",
@@ -223,15 +255,46 @@
         "--max-run-wall-seconds",
         "${SPELLBENCH_LLM_WALL_SECONDS}",
         "--max-inflight",
-        "4"
+        "4",
+        "--prompt-format",
+        "lean-v1",
+        "--public-history-events",
+        "8",
+        "--admission-scope",
+        "${SPELLBENCH_LLM_ADMISSION_SCOPE}",
+        "--admission-scope-sha256",
+        "${SPELLBENCH_LLM_ADMISSION_SCOPE_SHA256}"
       ],
       "display": {
         "label": "GPT-6 Luna",
         "author": "OpenAI / mipo",
-        "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, prompt v1, no card-text supplement. Forced choices bypass inference; provider timeouts count as forfeits. No request retries or fallback.",
+        "description": "gpt-6-luna through the authorized ChatGPT-plan provider, low reasoning, one-decision history, lean-v1 prompt with the last 8 public-history events, no card-text supplement. Forced choices bypass inference. Provider timeouts, HTTP503 errors, the per-game token cap and malformed or unoffered choices forfeit the game. No request retries or fallback.",
         "url": "https://github.com/jackmaiorino/spellbench/issues/74"
       },
-      "evaluation_identity": "cce8e04cede01402b4d05abcc8084da687ab6f83f17e05fdc2f1718ef2b89644"
+      "evaluation_inputs": [
+        "${SPELLBENCH_LLM_SOURCE}/__init__.py",
+        "${SPELLBENCH_LLM_SOURCE}/__main__.py",
+        "${SPELLBENCH_LLM_SOURCE}/agent.py",
+        "${SPELLBENCH_LLM_SOURCE}/broker.py",
+        "${SPELLBENCH_LLM_SOURCE}/budget_transfer.py",
+        "${SPELLBENCH_LLM_SOURCE}/chatgpt.py",
+        "${SPELLBENCH_LLM_SOURCE}/compact.py",
+        "${SPELLBENCH_LLM_SOURCE}/container_supervisor.py",
+        "${SPELLBENCH_LLM_SOURCE}/docker_peer.py",
+        "${SPELLBENCH_LLM_SOURCE}/hosted.py",
+        "${SPELLBENCH_LLM_SOURCE}/lean.py",
+        "${SPELLBENCH_LLM_SOURCE}/login.py",
+        "${SPELLBENCH_LLM_SOURCE}/prompt.py",
+        "${SPELLBENCH_LLM_SOURCE}/prompt_json.py",
+        "${SPELLBENCH_LLM_SOURCE}/provider.py",
+        "${SPELLBENCH_LLM_SOURCE}/renewal.py",
+        "${SPELLBENCH_LLM_SOURCE}/run_budget.py",
+        "${SPELLBENCH_LLM_SOURCE}/tls.py",
+        "${SPELLBENCH_LLM_SOURCE}/../bot.py",
+        "${SPELLBENCH_LLM_SOURCE}/../wire.py",
+        "${SPELLBENCH_LLM_SOURCE}/../messages.py"
+      ],
+      "evaluation_identity": "9c7af38f5ceaa333a25c3f5babbf3014856760237bd1e1c27ac622dc7a91fde7"
     },
     {
       "name": "kit-mad-1",
@@ -521,22 +584,182 @@
       "evaluation_identity": "fda3140fceafc9195fc7a59a7b677b62a0604a50edb930bc4f3f4eb0bbdbc961"
     }
   ],
-  "qualification_sample": [
-    72,
-    0,
-    132,
-    66,
-    6,
-    138,
-    12,
-    78
-  ],
   "job_storage_budget": {
     "projected_bytes": 4294967296,
     "cap_bytes": 25769803776
   },
-  "evaluation_engine_identity": "2de20af36c12bfbd071140f400cdf1d025d903be59a4c2b69bd19546479f1a98",
+  "evaluation_engine_identity": "7bb4e637bf269f8c9e4f06d773a78c602622c5e4fb99334b2523b55688ee201a",
   "evaluation_targets": [
-    "kit-mcts-custom"
+    "a48",
+    "c12",
+    "g115",
+    "gorge-ar8",
+    "gorge-blocks",
+    "gorge-bot",
+    "gorge-explore",
+    "gorge-legacy",
+    "gorge-lethal-pressure",
+    "kit-mad-1",
+    "kit-mad-k",
+    "kit-mcts-custom",
+    "llm-gpt-6-luna",
+    "oh2-r2s1-b512",
+    "uniform"
+  ],
+  "evaluation_matchups": [
+    [
+      "uniform",
+      "g115"
+    ],
+    [
+      "uniform",
+      "a48"
+    ],
+    [
+      "uniform",
+      "c12"
+    ],
+    [
+      "g115",
+      "a48"
+    ],
+    [
+      "g115",
+      "c12"
+    ],
+    [
+      "g115",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "g115",
+      "kit-mad-1"
+    ],
+    [
+      "g115",
+      "kit-mad-k"
+    ],
+    [
+      "g115",
+      "kit-mcts-custom"
+    ],
+    [
+      "g115",
+      "gorge-bot"
+    ],
+    [
+      "g115",
+      "gorge-lethal-pressure"
+    ],
+    [
+      "g115",
+      "gorge-ar8"
+    ],
+    [
+      "g115",
+      "gorge-blocks"
+    ],
+    [
+      "g115",
+      "gorge-explore"
+    ],
+    [
+      "g115",
+      "gorge-legacy"
+    ],
+    [
+      "a48",
+      "c12"
+    ],
+    [
+      "a48",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "a48",
+      "kit-mad-1"
+    ],
+    [
+      "a48",
+      "kit-mad-k"
+    ],
+    [
+      "a48",
+      "kit-mcts-custom"
+    ],
+    [
+      "a48",
+      "gorge-bot"
+    ],
+    [
+      "a48",
+      "gorge-lethal-pressure"
+    ],
+    [
+      "a48",
+      "gorge-ar8"
+    ],
+    [
+      "a48",
+      "gorge-blocks"
+    ],
+    [
+      "a48",
+      "gorge-explore"
+    ],
+    [
+      "a48",
+      "gorge-legacy"
+    ],
+    [
+      "c12",
+      "oh2-r2s1-b512"
+    ],
+    [
+      "c12",
+      "kit-mad-1"
+    ],
+    [
+      "c12",
+      "kit-mad-k"
+    ],
+    [
+      "c12",
+      "kit-mcts-custom"
+    ],
+    [
+      "c12",
+      "gorge-bot"
+    ],
+    [
+      "c12",
+      "gorge-lethal-pressure"
+    ],
+    [
+      "c12",
+      "gorge-ar8"
+    ],
+    [
+      "c12",
+      "gorge-blocks"
+    ],
+    [
+      "c12",
+      "gorge-explore"
+    ],
+    [
+      "c12",
+      "gorge-legacy"
+    ]
+  ],
+  "qualification_sample": [
+    584,
+    384,
+    1154,
+    324,
+    2118,
+    1866,
+    1420,
+    142
   ]
 }

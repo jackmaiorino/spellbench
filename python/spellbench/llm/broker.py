@@ -163,7 +163,13 @@ class BrokerSession:
                 raise ProviderError("token_budget_exceeded")
             if self.now() >= deadline:
                 raise ProviderError("timeout")
-            candidate_id = parse_choice(result.content, {item.candidate_id for item in decision.candidates})
+            try:
+                candidate_id = parse_choice(result.content, {item.candidate_id for item in decision.candidates})
+            except ProviderError as exc:
+                # The call is settled with known usage, so a malformed or unoffered choice forfeits only this
+                # game: the child gets an error, never the content, and fails its game itself.
+                fields.update(status="error", error=exc.code)
+                return {"broker": RPC, "request_id": request["request_id"], "error": {"code": exc.code}}
             fields.update(status="chosen", candidate_id=candidate_id)
             return {"broker": RPC, "request_id": request["request_id"], "completion": asdict(result)}
         except ProviderError as exc:
