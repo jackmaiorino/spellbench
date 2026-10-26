@@ -63,6 +63,17 @@ public final class PublicReplayEffectsCheck {
         }
     }
 
+    /** Witnesses that do not explain the current board install nothing; any gap stays an approximate world. */
+    private static void unrestored(Map<String, Object> record, int immolator, int sailor, boolean approximate) {
+        World world = build(record);
+        require(!world.flags.contains("replay:public_temporary_effects")
+                && world.game.getPermanent(world.idToUuid.get(IMMOLATOR)).getPower().getValue() == immolator
+                && world.game.getPermanent(world.idToUuid.get(SAILOR)).getPower().getValue() == sailor,
+                "unexplained characteristics installed witnessed effects");
+        require(world.flags.contains("approximate:unexplained_characteristics") == approximate,
+                "unexplained characteristics flag differs");
+    }
+
     public static void main(String[] args) throws Exception {
         require(ActionEncoder.vocabLoaded() && ActionEncoder.ACTION_DIM == 1024, "pinned Exp1 action vocabulary is required");
         Runner.quietLogs(); KitRandom.installBoot(); Warmup.framework();
@@ -110,7 +121,15 @@ public final class PublicReplayEffectsCheck {
                 if (SAILOR.equals(Json.str(card, "object_id"))) ch.put("power", 1L);
             }
         }
-        refused(expired);
+        unrestored(expired, 2, 1, false);
+        Map<String, Object> pumped = Json.obj(Json.copy(record));
+        for (Object player : Json.arr(Json.obj(anchor(pumped), "observation"), "players")) {
+            for (Object item : Json.arr(Json.obj(player), "battlefield")) {
+                Map<String, Object> card = Json.obj(item), ch = Json.obj(card, "characteristics");
+                if (IMMOLATOR.equals(Json.str(card, "object_id"))) ch.put("power", 6L);
+            }
+        }
+        unrestored(pumped, 2, 1, true);
         System.out.println("public temporary effects, native expiry, full saved callback comparison and refusals: PASS");
     }
 }

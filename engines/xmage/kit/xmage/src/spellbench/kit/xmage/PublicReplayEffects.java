@@ -60,6 +60,7 @@ final class PublicReplayEffects {
         List<Ability> sources = new ArrayList<>();
         List<ContinuousEffect> effects = new ArrayList<>();
         Set<String> affected = new HashSet<>();
+        Map<String, long[]> delta = new LinkedHashMap<>();
         world.random.scopeWorld("replay-public-effects");
         try {
             // Validate every witness before installing any effects. Merely observing
@@ -132,6 +133,19 @@ final class PublicReplayEffects {
                 beforeBoard.put(id, expected);
                 require(beforeBoard.equals(afterBoard), "another permanent or attachment changed during resolution");
                 sources.add(source); effects.add(effect); affected.add(id);
+                delta.merge(id, new long[]{power, toughness}, (a, b) -> new long[]{a[0] + b[0], a[1] + b[1]});
+            }
+            // Both witnessed effects are additive boosts. Install them only when they explain the current public
+            // power and toughness exactly; another unwitnessed effect leaves the world unrestored, and
+            // checkCharacteristics() marks it approximate as before.
+            for (Map.Entry<String, long[]> entry : delta.entrySet()) {
+                Permanent target = world.game.getPermanent(world.idToUuid.get(entry.getKey()));
+                Map<String, Object> observed = Json.obj(current.get(entry.getKey()), "characteristics");
+                if (target.getPower().getValue() + entry.getValue()[0] != Json.num(observed, "power", Long.MIN_VALUE)
+                        || target.getToughness().getValue() + entry.getValue()[1]
+                        != Json.num(observed, "toughness", Long.MIN_VALUE)) {
+                    return;
+                }
             }
             for (int i = 0; i < effects.size(); i++) world.game.addEffect(effects.get(i), sources.get(i));
             if (!effects.isEmpty()) {
