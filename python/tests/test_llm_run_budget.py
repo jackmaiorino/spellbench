@@ -1187,10 +1187,22 @@ def test_deadline_overlay_preserves_opted_in_timeout_reservations_at_admission_a
 
 
 PROVIDER_FAILURE_SCHEMA = "spellbench-llm-run-budget/v5"
+PROVIDER_POLICY = {"allow_timeout_forfeits": True, "allow_http503_forfeits": True,
+                   "allow_provider_failure_forfeits": True, "max_consecutive_forfeits": 3}
+PROVIDER_FLAGS = ("--allow-http503-forfeits", "--allow-provider-failure-forfeits", "--max-consecutive-forfeits", "3")
+
+
+def forfeit(state, code="inference_failed"):
+    with pytest.raises(ProviderError, match=code):
+        BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=30)
+
+
+def succeed(state):
+    BudgetedProvider(Provider(Completion("{}", "luna", 10, 2)), state).complete(PROMPT, timeout_s=30)
 
 
 def test_provider_failure_opt_in_forfeits_one_request_and_keeps_unknown_usage_charged(tmp_path):
-    state = budget(tmp_path, allow_provider_failure_forfeits=True)
+    state = budget(tmp_path, **PROVIDER_POLICY)
     provider = Provider(ProviderError("inference_failed"))
     wrapped = BudgetedProvider(provider, state)
     with pytest.raises(ProviderError, match="inference_failed"):
@@ -1200,6 +1212,7 @@ def test_provider_failure_opt_in_forfeits_one_request_and_keeps_unknown_usage_ch
     state.check()
     summary = state.summary()
     assert provider.calls == 1 and summary["policy"]["schema"] == PROVIDER_FAILURE_SCHEMA
+    assert summary["policy"]["max_consecutive_forfeits"] == 3
     assert summary["requests"] == summary["failed"] == summary["unknown_usage"] == 1
     assert summary["active_provider_failure_forfeits"] == 1 and summary["active_terminal_failures"] == 0
     assert summary["active_timeout_forfeits"] == summary["active_http503_forfeits"] == 0
@@ -1215,10 +1228,9 @@ def test_provider_failure_opt_in_forfeits_one_request_and_keeps_unknown_usage_ch
 
 
 def test_provider_failure_forfeits_stay_charged_until_the_original_token_cap(tmp_path):
-    state = budget(tmp_path, tokens=2500, allow_provider_failure_forfeits=True)
+    state = budget(tmp_path, tokens=2500, **PROVIDER_POLICY)
     for code in ("inference_failed", "http_500"):
-        with pytest.raises(ProviderError, match=code):
-            BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=30)
+        forfeit(state, code)
     summary = state.summary()
     assert summary["failed"] == summary["unknown_usage"] == summary["active_provider_failure_forfeits"] == 2
     assert summary["accounted_tokens"] == summary["uncertain_reserved_tokens"] == 2068
@@ -1229,9 +1241,8 @@ def test_provider_failure_forfeits_stay_charged_until_the_original_token_cap(tmp
 
 
 def test_provider_failure_forfeit_does_not_relax_the_request_cap(tmp_path):
-    state = budget(tmp_path, requests=1, allow_provider_failure_forfeits=True)
-    with pytest.raises(ProviderError, match="inference_failed"):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), state).complete(PROMPT, timeout_s=30)
+    state = budget(tmp_path, requests=1, **PROVIDER_POLICY)
+    forfeit(state)
     with pytest.raises(ProviderError, match="run_budget_requests_exhausted"):
         state.check()
     provider = Provider(Completion("{}", "luna", 1, 1))
@@ -1244,13 +1255,13 @@ def test_provider_failure_forfeit_does_not_relax_the_request_cap(tmp_path):
                                     {"allow_timeout_forfeits": True, "allow_http503_forfeits": True}])
 def test_provider_failure_stays_terminal_without_its_policy(tmp_path, policy):
     state = budget(tmp_path, **policy)
-    with pytest.raises(ProviderError, match="inference_failed"):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), state).complete(PROMPT, timeout_s=30)
+    forfeit(state)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         state.check()
     summary = state.summary()
     assert summary["active_provider_failure_forfeits"] == 0 and summary["active_terminal_failures"] == 1
     assert "allow_provider_failure_forfeits" not in summary["policy"]
+    assert "max_consecutive_forfeits" not in summary["policy"]
     assert summary["policy"]["schema"] != PROVIDER_FAILURE_SCHEMA
     provider = Provider(Completion("{}", "luna", 1, 1))
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
@@ -1259,13 +1270,13 @@ def test_provider_failure_stays_terminal_without_its_policy(tmp_path, policy):
 
 
 def test_provider_failure_policy_keeps_budget_owned_and_abandoned_failures_terminal(tmp_path):
-    state = budget(tmp_path, allow_provider_failure_forfeits=True)
+    state = budget(tmp_path, **PROVIDER_POLICY)
     with pytest.raises(ProviderError, match="run_budget_model_mismatch"):
         BudgetedProvider(Provider(Completion("{}", "another-model", 1, 1)), state).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         state.check()
     assert state.summary()["active_provider_failure_forfeits"] == 0
-    other = budget(tmp_path / "abandoned", allow_provider_failure_forfeits=True)
+    other = budget(tmp_path / "abandoned", **PROVIDER_POLICY)
     request, _ = other.reserve(PROMPT, output_tokens=1024)
     with sqlite3.connect(other.path) as database:
         database.execute("UPDATE requests SET status='abandoned',error='inference_failed' WHERE id=?", (request,))
@@ -1274,76 +1285,191 @@ def test_provider_failure_policy_keeps_budget_owned_and_abandoned_failures_termi
     assert other.summary()["active_provider_failure_forfeits"] == 0
 
 
-def test_provider_failure_policy_composes_with_the_existing_flags(tmp_path):
-    flags = {"allow_timeout_forfeits": True, "allow_http503_forfeits": True, "allow_provider_failure_forfeits": True}
-    state = budget(tmp_path, **flags)
-    assert state.summary()["policy"]["schema"] == PROVIDER_FAILURE_SCHEMA
-    RunBudget(state.path, model="luna", expected_limits=flags).check()
-    for code in ("timeout", "http_503", "inference_failed"):
-        with pytest.raises(ProviderError, match=code):
-            BudgetedProvider(Provider(ProviderError(code)), state).complete(PROMPT, timeout_s=30)
+def _terminal_provider_codes():
+    from spellbench.llm.chatgpt import PLAN_ERROR_CODES
+    return ["http_401", "http_403", "credentials_expired", *sorted(PLAN_ERROR_CODES)]
+
+
+@pytest.mark.parametrize("code", _terminal_provider_codes())
+def test_account_and_authorization_failures_stay_terminal_under_the_policy(tmp_path, code):
+    from spellbench.llm.run_budget import provider_failure_code
+    assert provider_failure_code(code) is False
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    forfeit(state, code)
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check()
+    assert state.summary()["active_provider_failure_forfeits"] == 0
+
+
+@pytest.mark.parametrize("code", ["http_429", "http_500", "http_502", "http_504", "inference_failed",
+                                  "incomplete_response", "transport_error", "provider_internal_error"])
+def test_transient_provider_failures_forfeit_under_the_policy(tmp_path, code):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    forfeit(state, code)
+    state.check()
+    assert state.summary()["active_provider_failure_forfeits"] == 1
+
+
+def test_forfeit_counters_partition_the_failed_rows(tmp_path):
+    state = budget(tmp_path, **{**PROVIDER_POLICY, "max_consecutive_forfeits": 8})
+    RunBudget(state.path, model="luna", expected_limits={**PROVIDER_POLICY, "max_consecutive_forfeits": 8}).check()
+    for code in ("timeout", "http_503", "inference_failed", "http_429"):
+        forfeit(state, code)
     state.check()
     summary = state.summary()
-    assert summary["active_terminal_failures"] == 0 and summary["active_provider_failure_forfeits"] == 3
+    assert summary["active_terminal_failures"] == 0 and summary["failed"] == 4
     assert summary["active_timeout_forfeits"] == summary["active_http503_forfeits"] == 1
-    assert summary["uncertain_reserved_tokens"] == 3 * (PROMPT.bytes + 1024)
+    assert summary["active_provider_failure_forfeits"] == 2
+    assert (summary["active_timeout_forfeits"] + summary["active_http503_forfeits"]
+            + summary["active_provider_failure_forfeits"]) == summary["failed"]
+    assert summary["uncertain_reserved_tokens"] == 4 * (PROMPT.bytes + 1024)
 
 
-@pytest.mark.parametrize("flags,schema", [({}, "spellbench-llm-run-budget/v1"),
-                                          ({"allow_timeout_forfeits": True}, "spellbench-llm-run-budget/v3"),
-                                          ({"allow_http503_forfeits": True}, "spellbench-llm-run-budget/v4")])
-def test_existing_policies_do_not_gain_the_provider_failure_key(tmp_path, flags, schema):
-    state = budget(tmp_path, **flags)
-    policy = json.loads(sqlite_policy(state.path))
-    assert policy["schema"] == schema and "allow_provider_failure_forfeits" not in policy
-    RunBudget(state.path, model="luna", expected_limits={"allow_provider_failure_forfeits": False}).check()
-
-
-@pytest.mark.parametrize("allowed,expected", [(False, True), (True, False)])
-def test_provider_failure_policy_must_match_explicit_hosted_expectation(tmp_path, allowed, expected):
-    state = budget(tmp_path, allow_provider_failure_forfeits=allowed)
-    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
-        RunBudget(state.path, model="luna", expected_limits={"allow_provider_failure_forfeits": expected})
-    RunBudget(state.path, model="luna", expected_limits={"allow_provider_failure_forfeits": allowed}).check()
-
-
-@pytest.mark.parametrize("schema,flag", [("spellbench-llm-run-budget/v1", True), ("spellbench-llm-run-budget/v4", True),
-                                         (PROVIDER_FAILURE_SCHEMA, False), (PROVIDER_FAILURE_SCHEMA, "true"),
-                                         (PROVIDER_FAILURE_SCHEMA, None)])
-def test_provider_failure_policy_needs_its_own_schema(tmp_path, schema, flag):
-    state = budget(tmp_path)
-    with sqlite3.connect(state.path) as database:
-        policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
-        policy["schema"] = schema
-        if flag is not None:
-            policy["allow_provider_failure_forfeits"] = flag
-        database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
-    with pytest.raises(ProviderError, match="run_budget_unavailable"):
-        RunBudget(state.path, model="luna")
+@pytest.mark.parametrize("changes", [
+    {"allow_timeout_forfeits": False}, {"allow_http503_forfeits": False},
+    {"max_consecutive_forfeits": None}, {"max_consecutive_forfeits": 0}, {"max_consecutive_forfeits": True},
+    {"max_consecutive_forfeits": "3"}, {"allow_provider_failure_forfeits": False},
+])
+def test_create_refuses_an_incomplete_provider_failure_policy(tmp_path, changes):
+    settings = {**PROVIDER_POLICY, **changes}
+    with pytest.raises(ValueError, match="provider-failure forfeits need"):
+        RunBudget.create(tmp_path / "run.sqlite3", model="luna", requests=8, tokens=8000, wall_seconds=60, **settings)
+    assert not (tmp_path / "run.sqlite3").exists()
 
 
 def test_create_refuses_a_non_boolean_provider_failure_policy(tmp_path):
     with pytest.raises(ValueError, match="availability policy must be boolean"):
         RunBudget.create(tmp_path / "run.sqlite3", model="luna", requests=8, tokens=8000, wall_seconds=60,
-                         allow_provider_failure_forfeits="yes")
+                         **{**PROVIDER_POLICY, "allow_provider_failure_forfeits": "yes"})
     assert not (tmp_path / "run.sqlite3").exists()
 
 
+@pytest.mark.parametrize("flags,schema", [({}, "spellbench-llm-run-budget/v1"),
+                                          ({"allow_timeout_forfeits": True}, "spellbench-llm-run-budget/v3"),
+                                          ({"allow_http503_forfeits": True}, "spellbench-llm-run-budget/v4")])
+def test_existing_policies_do_not_gain_the_provider_failure_keys(tmp_path, flags, schema):
+    state = budget(tmp_path, **flags)
+    policy = json.loads(sqlite_policy(state.path))
+    assert policy["schema"] == schema
+    assert "allow_provider_failure_forfeits" not in policy and "max_consecutive_forfeits" not in policy
+    RunBudget(state.path, model="luna", expected_limits={"allow_provider_failure_forfeits": False,
+                                                         "max_consecutive_forfeits": None}).check()
+
+
+def test_legacy_forfeit_policies_have_no_streak_stop(tmp_path):
+    state = budget(tmp_path, allow_timeout_forfeits=True, allow_http503_forfeits=True)
+    for code in ("timeout", "http_503", "timeout", "http_503"):
+        forfeit(state, code)
+    state.check()
+    assert state.summary()["forfeit_streak"] is False and state.summary()["policy"]["terminal_error"] is None
+
+
+@pytest.mark.parametrize("expected", [{"allow_provider_failure_forfeits": False}, {"max_consecutive_forfeits": None},
+                                      {"max_consecutive_forfeits": 4}])
+def test_provider_failure_policy_must_match_explicit_hosted_expectation(tmp_path, expected):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        RunBudget(state.path, model="luna", expected_limits={**PROVIDER_POLICY, **expected})
+    RunBudget(state.path, model="luna", expected_limits=PROVIDER_POLICY).check()
+    legacy = budget(tmp_path / "legacy")
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        RunBudget(legacy.path, model="luna", expected_limits={"max_consecutive_forfeits": 3})
+
+
+@pytest.mark.parametrize("ledger,change", [
+    ({}, {"schema": "spellbench-llm-run-budget/v5", "allow_provider_failure_forfeits": True}),
+    (PROVIDER_POLICY, {"schema": "spellbench-llm-run-budget/v4"}),
+    (PROVIDER_POLICY, {"allow_provider_failure_forfeits": False}),
+    (PROVIDER_POLICY, {"allow_provider_failure_forfeits": "true"}),
+    (PROVIDER_POLICY, {"max_consecutive_forfeits": None}),
+    (PROVIDER_POLICY, {"max_consecutive_forfeits": 0}),
+    (PROVIDER_POLICY, {"max_consecutive_forfeits": True}),
+    (PROVIDER_POLICY, {"allow_timeout_forfeits": False}),
+    ({"allow_http503_forfeits": True}, {"max_consecutive_forfeits": 3}),
+])
+def test_provider_failure_policy_needs_its_schema_and_streak(tmp_path, ledger, change):
+    state = budget(tmp_path, **ledger)
+    with sqlite3.connect(state.path) as database:
+        policy = json.loads(database.execute("SELECT json FROM policy WHERE id=1").fetchone()[0])
+        for key, value in change.items():
+            if value is None:
+                policy.pop(key, None)
+            else:
+                policy[key] = value
+        database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy),))
+    with pytest.raises(ProviderError, match="run_budget_unavailable"):
+        RunBudget(state.path, model="luna")
+
+
+def test_a_forfeit_streak_of_any_kind_stops_admission_and_fails_the_budget(tmp_path):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    for code in ("timeout", "http_503", "inference_failed"):
+        forfeit(state, code)
+    assert state.summary()["forfeit_streak"] is True
+    provider = Provider(Completion("{}", "luna", 1, 1))
+    with pytest.raises(ProviderError, match="run_budget_forfeit_streak"):
+        BudgetedProvider(provider, state).complete(PROMPT, timeout_s=30)
+    summary = state.summary()
+    assert provider.calls == 0 and summary["requests"] == 3
+    assert summary["policy"]["terminal_error"] == "hosted_broker_failed" and summary["host_failures"] == 1
+    with pytest.raises(ProviderError, match="run_budget_already_failed"):
+        state.check()
+
+
+def test_the_launcher_check_also_trips_the_streak(tmp_path):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    for _ in range(3):
+        forfeit(state)
+    with pytest.raises(ProviderError, match="run_budget_forfeit_streak"):
+        check_hosted_budgets(hosted_config(state, extra=PROVIDER_FLAGS))
+    assert state.summary()["policy"]["terminal_error"] == "hosted_broker_failed"
+
+
+def test_a_completed_request_resets_the_streak(tmp_path):
+    state = budget(tmp_path, requests=16, tokens=100_000, **PROVIDER_POLICY)
+    forfeit(state)
+    forfeit(state, "http_503")
+    succeed(state)
+    forfeit(state, "timeout")
+    forfeit(state)
+    state.check()
+    assert state.summary()["forfeit_streak"] is False
+    succeed(state)
+    forfeit(state)
+    forfeit(state)
+    forfeit(state)
+    with pytest.raises(ProviderError, match="run_budget_forfeit_streak"):
+        state.check()
+
+
+def test_pending_requests_neither_count_nor_break_the_streak(tmp_path):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    forfeit(state)
+    forfeit(state)
+    pending, _ = state.reserve(PROMPT, output_tokens=1024)
+    state.check(allow_pending=True)
+    forfeit(state)
+    with pytest.raises(ProviderError, match="run_budget_forfeit_streak"):
+        state.check(allow_pending=True)
+    assert state.summary()["policy"]["terminal_error"] == "hosted_broker_failed"
+    assert state.finish(pending, result=Completion("{}", "luna", 1, 1), elapsed_ms=1) is None
+    assert state.summary()["pending"] == 0
+
+
 def test_provider_failure_policy_survives_failed_run_recovery_with_all_usage(tmp_path):
-    parent = budget(tmp_path, allow_provider_failure_forfeits=True)
-    with pytest.raises(ProviderError, match="inference_failed"):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
+    parent = budget(tmp_path, **PROVIDER_POLICY)
+    forfeit(parent)
     parent.fail("hosted_broker_failed")
     before = parent.summary()
     child, _, _ = failed_run_recovery(parent, tmp_path / "successor.sqlite3", tmp_path)
     after = child.summary()
     assert after["policy"]["allow_provider_failure_forfeits"] is True
+    assert after["policy"]["max_consecutive_forfeits"] == 3
     assert after["policy"]["schema"] == PROVIDER_FAILURE_SCHEMA
     assert after["unknown_usage"] == 1 and after["accounted_tokens"] == before["accounted_tokens"]
     with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
-        RunBudget(child.path, model="luna", expected_limits={"allow_provider_failure_forfeits": False})
-    with pytest.raises(ProviderError, match="http_500"):
-        BudgetedProvider(Provider(ProviderError("http_500")), child).complete(PROMPT, timeout_s=30)
+        RunBudget(child.path, model="luna", expected_limits={"max_consecutive_forfeits": 4})
+    forfeit(child, "http_500")
     child.check()
     assert child.summary()["uncertain_reserved_tokens"] == 2 * (PROMPT.bytes + 1024)
 
@@ -1363,68 +1489,89 @@ def _rebind_continuation_policy(parent, child_path, change):
         marker.write_text(json.dumps(record, sort_keys=True), encoding="utf-8")
 
 
-@pytest.mark.parametrize("parent_flag", [True, False])
-def test_continuation_cannot_drop_or_add_the_provider_failure_policy(tmp_path, parent_flag):
-    parent = budget(tmp_path, allow_provider_failure_forfeits=parent_flag)
+def _drop_policy(policy):
+    del policy["allow_provider_failure_forfeits"], policy["max_consecutive_forfeits"]
+    policy["schema"] = "spellbench-llm-run-budget/v4"
+
+
+def _add_policy(policy):
+    policy.update(allow_provider_failure_forfeits=True, max_consecutive_forfeits=3, schema=PROVIDER_FAILURE_SCHEMA)
+
+
+@pytest.mark.parametrize("parent_flag,change", [
+    (True, _drop_policy), (False, _add_policy),
+    (True, lambda policy: policy.update(max_consecutive_forfeits=4)),
+])
+def test_continuation_cannot_drop_add_or_change_the_provider_failure_policy(tmp_path, parent_flag, change):
+    flags = PROVIDER_POLICY if parent_flag else {"allow_timeout_forfeits": True, "allow_http503_forfeits": True}
+    parent = budget(tmp_path, **flags)
     parent.fail("hosted_broker_failed")
     target = tmp_path / "child.sqlite3"
-    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent))
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent), allow_timeout_forfeits=True)
     child = RunBudget(target, model="luna")
     assert child.summary()["policy"].get("allow_provider_failure_forfeits", False) is parent_flag
     child.check()
-
-    def flip(policy):
-        if parent_flag:
-            del policy["allow_provider_failure_forfeits"]
-            policy["schema"] = "spellbench-llm-run-budget/v2"
-        else:
-            policy.update(allow_provider_failure_forfeits=True, schema=PROVIDER_FAILURE_SCHEMA)
-    _rebind_continuation_policy(parent, target, flip)
+    _rebind_continuation_policy(parent, target, change)
     with pytest.raises(ProviderError, match="run_budget_continuation_changed"):
         RunBudget(target, model="luna")
 
 
 @pytest.mark.parametrize("recorded", [True, False])
 def test_only_an_authorized_failed_run_increase_may_record_a_provider_failure_enable(tmp_path, recorded):
-    parent = budget(tmp_path)
+    parent = budget(tmp_path, allow_timeout_forfeits=True, allow_http503_forfeits=True)
     parent.fail("hosted_broker_failed")
     target = tmp_path / "child.sqlite3"
-    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent))
+    RunBudget.continue_qualification(parent.path, target, **continuation_arguments(parent), allow_timeout_forfeits=True)
 
     def enable(policy):
-        policy.update(allow_provider_failure_forfeits=True, schema=PROVIDER_FAILURE_SCHEMA)
+        _add_policy(policy)
         policy["continuation"]["enable_provider_failure_forfeits"] = recorded
     _rebind_continuation_policy(parent, target, enable)
     with pytest.raises(ProviderError, match="run_budget_continuation_changed"):
         RunBudget(target, model="luna")
 
 
-@pytest.mark.parametrize("extra", [("--allow-provider-failure-forfeits", "--allow-provider-failure-forfeits"),
-                                   ("--allow-provider-failure-forfeits=true",),
-                                   ("--allow-provider-failure-forfeits=false",)])
+@pytest.mark.parametrize("extra", [
+    PROVIDER_FLAGS + ("--allow-provider-failure-forfeits",),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits=true", "--max-consecutive-forfeits", "3"),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits=false", "--max-consecutive-forfeits", "3"),
+    PROVIDER_FLAGS + ("--max-consecutive-forfeits", "3"),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits", "--max-consecutive-forfeits=3"),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits", "--max-consecutive-forfeits"),
+])
 def test_launcher_refuses_ambiguous_provider_failure_flags(tmp_path, extra):
     from spellbench.llm.run_budget import qualification_config
-    state = budget(tmp_path, allow_provider_failure_forfeits=True)
+    state = budget(tmp_path, **PROVIDER_POLICY)
     with pytest.raises(ProviderError, match="run_budget_ambiguous_command"):
         check_hosted_budgets(hosted_config(state, extra=extra))
     with pytest.raises(ProviderError, match="run_budget_ambiguous_command"):
         qualification_config(hosted_config(state, extra=extra))
 
 
+@pytest.mark.parametrize("extra", [
+    (), ("--allow-http503-forfeits",),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits"),
+    ("--allow-http503-forfeits", "--allow-provider-failure-forfeits", "--max-consecutive-forfeits", "4"),
+    ("--allow-http503-forfeits", "--max-consecutive-forfeits", "3"),
+])
+def test_launcher_refuses_a_command_that_disagrees_with_the_ledger(tmp_path, extra):
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        check_hosted_budgets(hosted_config(state, extra=extra))
+
+
 def test_launcher_accepts_only_the_bound_provider_failure_policy(tmp_path):
     from spellbench.llm.run_budget import hosted_inflight_limit, qualification_config
-    state = budget(tmp_path, allow_provider_failure_forfeits=True)
-    with pytest.raises(ProviderError, match="inference_failed"):
-        BudgetedProvider(Provider(ProviderError("inference_failed")), state).complete(PROMPT, timeout_s=30)
-    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
-        check_hosted_budgets(hosted_config(state))
-    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
-        check_hosted_budgets(hosted_config(state, extra=("--allow-http503-forfeits",)))
-    bound = hosted_config(state, extra=("--allow-provider-failure-forfeits",))
+    state = budget(tmp_path, **PROVIDER_POLICY)
+    forfeit(state)
+    bound = hosted_config(state, extra=PROVIDER_FLAGS)
     check_hosted_budgets(bound)
     assert qualification_config(bound) == bound.to_json()
     assert hosted_inflight_limit(SimpleNamespace(bots=bound.bots, matchups=None)) == 4
-    legacy = budget(tmp_path / "legacy")
+    legacy = budget(tmp_path / "legacy", allow_timeout_forfeits=True, allow_http503_forfeits=True)
     with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
-        check_hosted_budgets(hosted_config(legacy, extra=("--allow-provider-failure-forfeits",)))
-    check_hosted_budgets(hosted_config(legacy))
+        check_hosted_budgets(hosted_config(legacy, extra=PROVIDER_FLAGS))
+    with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
+        check_hosted_budgets(hosted_config(legacy, extra=("--allow-http503-forfeits", "--max-consecutive-forfeits", "3")))
+    check_hosted_budgets(hosted_config(legacy, extra=("--allow-http503-forfeits",)))
+

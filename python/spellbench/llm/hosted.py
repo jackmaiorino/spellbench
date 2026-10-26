@@ -132,7 +132,9 @@ def main() -> int:
     parser.add_argument("--allow-http503-forfeits", action="store_true",
                         help="require the matching policy; a settled HTTP503 forfeits its game without retry")
     parser.add_argument("--allow-provider-failure-forfeits", action="store_true",
-                        help="require the matching policy; any settled provider failure forfeits its game without retry")
+                        help="require the matching policy; a settled transient provider failure forfeits its game")
+    parser.add_argument("--max-consecutive-forfeits", type=int,
+                        help="must equal the provider-failure policy's frozen streak bound")
     args = parser.parse_args()
     child = None
     budget = None
@@ -152,7 +154,8 @@ def main() -> int:
                                             "max_inflight": args.max_inflight,
                                             "allow_timeout_forfeits": args.allow_timeout_forfeits,
                                             "allow_http503_forfeits": args.allow_http503_forfeits,
-                                            "allow_provider_failure_forfeits": args.allow_provider_failure_forfeits})
+                                            "allow_provider_failure_forfeits": args.allow_provider_failure_forfeits,
+                                            "max_consecutive_forfeits": args.max_consecutive_forfeits})
         plan = PlanProvider(args.model, args.credentials or default_credentials_path(), args.reasoning_effort,
                             budget=budget)
         provider = BudgetedProvider(plan, budget,
@@ -183,6 +186,7 @@ def main() -> int:
                                               "allow_timeout_forfeits": args.allow_timeout_forfeits,
                                               "allow_http503_forfeits": args.allow_http503_forfeits,
                                               "allow_provider_failure_forfeits": args.allow_provider_failure_forfeits,
+                                              "max_consecutive_forfeits": args.max_consecutive_forfeits,
                                               "aggregate_budget": True, "provider_output_cap": False},
                                     max_completion_tokens=args.max_completion_tokens, log=BoundedLog(stream),
                                     config=config, limits=BrokerLimits(max_calls_total=config.max_calls_per_game,

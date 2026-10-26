@@ -20,6 +20,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+from .chatgpt import PLAN_ERROR_CODES
 from .prompt import Prompt
 from .provider import Completion, ProviderError
 from .budget_transfer import BudgetPaths
@@ -79,14 +80,19 @@ def _retained_file(path: Path) -> None:
         raise ProviderError("run_budget_parent_unsealed")
 
 
-# arena.validate.REVEAL_KEYS: a committed run that stopped before any game was
-# published retains only its REVEAL.json, so no game ledger exists to bind.
-_REVEAL_KEYS = frozenset(("schema", "benchmark_id", "run_label", "commitment", "run_secret", "status", "reason"))
-
-
 def _aborted_reveal(publication) -> bool:
-    return (isinstance(publication, dict) and set(publication) == _REVEAL_KEYS
-            and publication["schema"] == "spellbench-run-reveal/v1" and publication["status"] == "aborted")
+    """A committed run that stopped before publishing any game retains only its
+    REVEAL.json, so no game ledger exists to bind. A withheld (secret-lost)
+    reveal cannot prove its commitment and is refused."""
+    # Imported here: the arena validator is only needed for a recovery receipt.
+    from ..arena.validate import REVEAL_KEYS, REVEAL_REASONS, REVEAL_SCHEMA
+    if not (isinstance(publication, dict) and set(publication) == set(REVEAL_KEYS)
+            and publication["schema"] == REVEAL_SCHEMA and publication["status"] == "aborted"
+            and any(publication["reason"] == reason for reason in REVEAL_REASONS)):
+        return False
+    secret, commitment = publication["run_secret"], publication["commitment"]
+    return (isinstance(secret, str) and len(secret) == 64 and all(char in "0123456789abcdef" for char in secret)
+            and isinstance(commitment, str) and hashlib.sha256(bytes.fromhex(secret)).hexdigest() == commitment)
 
 
 def _write_marker(path: Path, value: dict) -> None:
@@ -205,15 +211,47 @@ def _http503_forfeit(policy, row) -> bool:
             and row["status"] == "failed" and row["error"] == "http_503")
 
 
+# Account and authorization failures cannot recover game by game: they stay terminal.
+TERMINAL_PROVIDER_CODES = frozenset({"http_401", "http_403", "credentials_expired"}) | PLAN_ERROR_CODES
+
+
 def provider_failure_code(code) -> bool:
-    """A settled provider-side error code. Budget-owned refusals and integrity
-    checks (``run_budget_*``, such as a returned model mismatch) stay terminal."""
-    return isinstance(code, str) and bool(code) and not code.startswith("run_budget_")
+    """A settled, possibly transient provider error code. Budget-owned refusals and
+    integrity checks (``run_budget_*``, such as a returned model mismatch) and
+    TERMINAL_PROVIDER_CODES stay terminal."""
+    return (isinstance(code, str) and bool(code) and not code.startswith("run_budget_")
+            and code not in TERMINAL_PROVIDER_CODES)
 
 
 def _provider_failure_forfeit(policy, row) -> bool:
+    # Rows the timeout or HTTP503 policies claim are counted there, never twice.
     return (policy.get("allow_provider_failure_forfeits", False) is True
-            and row["status"] == "failed" and provider_failure_code(row["error"]))
+            and row["status"] == "failed" and provider_failure_code(row["error"])
+            and not _timeout_forfeit(policy, row) and not _http503_forfeit(policy, row))
+
+
+def _provider_policy_valid(allow_timeouts, allow_503, allow_provider, streak) -> bool:
+    """Provider-failure forfeits partition with, so require, the timeout and HTTP503
+    policies, and carry the frozen streak bound; without them no bound exists."""
+    if allow_provider is not True:
+        return streak is None
+    return allow_timeouts is True and allow_503 is True and type(streak) is int and streak >= 1
+
+
+def _any_forfeit(policy, row) -> bool:
+    return _timeout_forfeit(policy, row) or _http503_forfeit(policy, row) or _provider_failure_forfeit(policy, row)
+
+
+def _forfeit_streak(policy, rows) -> bool:
+    """The last N settled rows of this ledger, by id, are all forfeits.
+
+    Derived from rows only: pending rows are skipped and any other settled row
+    breaks the streak. Absent from v1 to v4 policies, which never stop on it."""
+    limit = policy.get("max_consecutive_forfeits")
+    if limit is None:
+        return False
+    settled = [row for row in sorted(rows, key=lambda row: row["id"]) if row["status"] != "pending"]
+    return len(settled) >= limit and all(_any_forfeit(policy, row) for row in settled[-limit:])
 
 
 def _continuation_schema(policy: dict) -> str:
@@ -227,7 +265,7 @@ def _continuation_schema(policy: dict) -> str:
 def _terminal_request(policy, row) -> bool:
     # A forfeit changes only "terminal for the run" into "forfeit for the game";
     # its request and any unknown usage stay charged by _totals.
-    if _timeout_forfeit(policy, row) or _http503_forfeit(policy, row) or _provider_failure_forfeit(policy, row):
+    if _any_forfeit(policy, row):
         return False
     return (row["status"] not in {"pending", "completed"} or (row["status"] != "pending"
             and (row["input_tokens"] is None or row["output_tokens"] is None)))
@@ -285,7 +323,8 @@ class RunBudget:
     @staticmethod
     def create(path: Path, *, model: str, requests: int, tokens: int,
                wall_seconds: int, max_inflight: int = 4, allow_timeout_forfeits: bool = False,
-               allow_http503_forfeits: bool = False, allow_provider_failure_forfeits: bool = False) -> None:
+               allow_http503_forfeits: bool = False, allow_provider_failure_forfeits: bool = False,
+               max_consecutive_forfeits: int | None = None) -> None:
         if not isinstance(model, str) or not model.strip():
             raise ValueError("an explicit model is required")
         for name, value in (("requests", requests), ("tokens", tokens),
@@ -295,6 +334,10 @@ class RunBudget:
         if any(type(flag) is not bool for flag in
                (allow_timeout_forfeits, allow_http503_forfeits, allow_provider_failure_forfeits)):
             raise ValueError("availability policy must be boolean")
+        if not _provider_policy_valid(allow_timeout_forfeits, allow_http503_forfeits,
+                                      allow_provider_failure_forfeits, max_consecutive_forfeits):
+            raise ValueError("provider-failure forfeits need timeout and HTTP503 forfeits "
+                             "and exactly one positive max_consecutive_forfeits")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         created = time.time()
@@ -308,7 +351,8 @@ class RunBudget:
         if allow_http503_forfeits:
             policy.update(schema=SERVICE_FORFEIT_SCHEMA, allow_http503_forfeits=True)
         if allow_provider_failure_forfeits:
-            policy.update(schema=PROVIDER_FAILURE_FORFEIT_SCHEMA, allow_provider_failure_forfeits=True)
+            policy.update(schema=PROVIDER_FAILURE_FORFEIT_SCHEMA, allow_provider_failure_forfeits=True,
+                          max_consecutive_forfeits=max_consecutive_forfeits)
         RunBudget._initialize(path, policy)
 
     @staticmethod
@@ -412,12 +456,19 @@ class RunBudget:
             # provider-failure forfeits on a parent without them, never remove them.
             enable = "enable_provider_failure_forfeits" in continuation
             if enable:
-                fields.add("enable_provider_failure_forfeits")
+                fields.update(("enable_provider_failure_forfeits", "max_consecutive_forfeits"))
             if (set(record) != fields
                     or (enable and (continuation["enable_provider_failure_forfeits"] is not True
                                     or record["enable_provider_failure_forfeits"] is not True
                                     or prior.get("allow_provider_failure_forfeits", False) is not False
-                                    or child.get("allow_provider_failure_forfeits", False) is not True))
+                                    or "max_consecutive_forfeits" in prior
+                                    or not _provider_policy_valid(
+                                        child.get("allow_timeout_forfeits", False),
+                                        child.get("allow_http503_forfeits", False),
+                                        child.get("allow_provider_failure_forfeits", False),
+                                        child.get("max_consecutive_forfeits"))
+                                    or type(record["max_consecutive_forfeits"]) is not int
+                                    or record["max_consecutive_forfeits"] != child["max_consecutive_forfeits"]))
                     or record["schema"] != LIMIT_INCREASE_SCHEMA or record["model"] != child["model"]
                     or record["parent"] != (paths.key(parent) if paths else parent_logical or str(parent))
                     or record["parent_sha256"] != continuation["parent_sha256"]
@@ -763,10 +814,14 @@ class RunBudget:
                 if enable and (continuation["enable_provider_failure_forfeits"] is not True
                                or continuation["kind"] != "failed-run-recovery" or increase is None
                                or prior.get("allow_provider_failure_forfeits", False) is not False
-                               or child.get("allow_provider_failure_forfeits", False) is not True):
+                               or "max_consecutive_forfeits" in prior
+                               or child.get("allow_provider_failure_forfeits", False) is not True
+                               or child.get("max_consecutive_forfeits") is None):
                     raise ProviderError("run_budget_continuation_changed")
-                if (not enable and child.get("allow_provider_failure_forfeits", False)
-                        != prior.get("allow_provider_failure_forfeits", False)):
+                if not enable and (child.get("allow_provider_failure_forfeits", False)
+                                   != prior.get("allow_provider_failure_forfeits", False)
+                                   or ("max_consecutive_forfeits" in child) != ("max_consecutive_forfeits" in prior)
+                                   or child.get("max_consecutive_forfeits") != prior.get("max_consecutive_forfeits")):
                     raise ProviderError("run_budget_continuation_changed")
                 if continuation["kind"] == "stopped-qualification-recovery":
                     if extension is not None or recovery is not None or increase is not None:
@@ -912,6 +967,9 @@ class RunBudget:
                 or (not allow_provider and (value["schema"] == SERVICE_FORFEIT_SCHEMA) != allow_503)
                 or (not allow_provider and not allow_503
                     and (value["schema"] == TIMEOUT_FORFEIT_SCHEMA) != allow_timeouts)
+                or not _provider_policy_valid(allow_timeouts, allow_503, allow_provider,
+                                              value.get("max_consecutive_forfeits"))
+                or (not allow_provider and "max_consecutive_forfeits" in value)
                 or (value["schema"] == SCHEMA and "continuation" in value)
                 or (value["schema"] == CONTINUATION_SCHEMA and "continuation" not in value)
                 or ("continuation" in value and not isinstance(value["continuation"], dict))):
@@ -952,7 +1010,21 @@ class RunBudget:
                 policy["terminal_error"] = code
                 database.execute("UPDATE policy SET json=? WHERE id=1", (json.dumps(policy, sort_keys=True),))
 
+    def _streak_refusal(self) -> ProviderError:
+        # A forfeit streak aborts the run like any hosted broker failure, whichever
+        # admission point (broker, profile renewal, launcher) observes it first.
+        self.fail("hosted_broker_failed")
+        return ProviderError("run_budget_forfeit_streak")
+
     def reserve(self, prompt: Prompt, *, output_tokens: int, timeout_s: float = 20) -> tuple[int, float]:
+        try:
+            return self._reserve(prompt, output_tokens=output_tokens, timeout_s=timeout_s)
+        except ProviderError as exc:
+            if exc.code != "run_budget_forfeit_streak":
+                raise
+        raise self._streak_refusal()
+
+    def _reserve(self, prompt: Prompt, *, output_tokens: int, timeout_s: float = 20) -> tuple[int, float]:
         if type(output_tokens) is not int or output_tokens < 1:
             raise ValueError("output_tokens must be positive")
         if type(timeout_s) not in (float, int) or not math.isfinite(timeout_s) or timeout_s <= 0:
@@ -962,6 +1034,8 @@ class RunBudget:
             rows = database.execute("SELECT * FROM requests").fetchall()
             if policy.get("terminal_error") or any(_terminal_request(policy, row) for row in rows):
                 raise ProviderError("run_budget_already_failed")
+            if _forfeit_streak(policy, rows):
+                raise ProviderError("run_budget_forfeit_streak")
             pending = [row for row in rows if row["status"] == "pending"]
             # Allow cleanup time after the request's own timeout. A worker
             # killed in inference leaves uncertain usage, never a free retry.
@@ -1040,6 +1114,7 @@ class RunBudget:
                     "active_timeout_forfeits": sum(_timeout_forfeit(policy, row) for row in rows),
                     "active_http503_forfeits": sum(_http503_forfeit(policy, row) for row in rows),
                     "active_provider_failure_forfeits": sum(_provider_failure_forfeit(policy, row) for row in rows),
+                    "forfeit_streak": _forfeit_streak(policy, rows),
                     "active_unknown_usage": sum(row["input_tokens"] is None or row["output_tokens"] is None for row in rows),
                     "inherited": policy.get("continuation", {}).get("inherited", dict.fromkeys(INHERITED_NAMES, 0)),
                     "pending": sum(row["status"] == "pending" for row in rows),
@@ -1055,6 +1130,8 @@ class RunBudget:
         request_limit, token_limit = self._admission_limits(summary["policy"])
         if summary["policy"].get("terminal_error") or summary["active_terminal_failures"]:
             raise ProviderError("run_budget_already_failed")
+        if summary["forfeit_streak"]:
+            raise self._streak_refusal()
         if summary["expired_pending"] or (summary["pending"] and not allow_pending):
             raise ProviderError("run_budget_unresolved_request")
         if summary["effective_deadline"] is not None and summary["effective_deadline"] <= time.time():
@@ -1174,6 +1251,13 @@ def _hosted_budgets(config):
                           or part.startswith("--allow-provider-failure-forfeits=")]
         if len(provider_flags) > 1 or any(part != "--allow-provider-failure-forfeits" for part in provider_flags):
             raise ProviderError("run_budget_ambiguous_command")
+        # Only the separate "--max-consecutive-forfeits N" spelling, at most once.
+        streak_flags = [part for part in command if part == "--max-consecutive-forfeits"
+                        or part.startswith("--max-consecutive-forfeits=")]
+        if (len(streak_flags) > 1 or any(part != "--max-consecutive-forfeits" for part in streak_flags)
+                or (command and command[-1] == "--max-consecutive-forfeits")):
+            raise ProviderError("run_budget_ambiguous_command")
+        streak = option("--max-consecutive-forfeits")
 
         map_option = option("--run-budget-map")
         scope_option = option("--admission-scope")
@@ -1189,6 +1273,7 @@ def _hosted_budgets(config):
             "allow_timeout_forfeits": bool(timeout_flags),
             "allow_http503_forfeits": bool(service_flags),
             "allow_provider_failure_forfeits": bool(provider_flags),
+            "max_consecutive_forfeits": None if streak is None else int(streak),
         })
         yield index, budget
 
@@ -1234,6 +1319,7 @@ def main() -> int:
     create.add_argument("--allow-timeout-forfeits", action="store_true")
     create.add_argument("--allow-http503-forfeits", action="store_true")
     create.add_argument("--allow-provider-failure-forfeits", action="store_true")
+    create.add_argument("--max-consecutive-forfeits", type=int)
     summary = commands.add_parser("summary")
     summary.add_argument("path", type=Path)
     summary.add_argument("--model", required=True)
@@ -1263,7 +1349,8 @@ def main() -> int:
                          wall_seconds=args.max_wall_seconds, max_inflight=args.max_inflight,
                          allow_timeout_forfeits=args.allow_timeout_forfeits,
                          allow_http503_forfeits=args.allow_http503_forfeits,
-                         allow_provider_failure_forfeits=args.allow_provider_failure_forfeits)
+                         allow_provider_failure_forfeits=args.allow_provider_failure_forfeits,
+                         max_consecutive_forfeits=args.max_consecutive_forfeits)
     elif args.command == "continue-qualification":
         RunBudget.continue_qualification(args.parent, args.path, model=args.model, parent_sha256=args.parent_sha256,
                                          allow_timeout_forfeits=args.allow_timeout_forfeits,

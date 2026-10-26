@@ -225,14 +225,16 @@ def continue_host_preflight(budget, successor: Path, manifest: Path) -> Path:
 def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
                                approved_limits: dict, failure_receipt: Path,
                                failure_receipt_sha256: str, authority: Path,
-                               authority_sha256: str, enable_provider_failure_forfeits: bool = False) -> Path:
+                               authority_sha256: str, enable_provider_failure_forfeits: bool = False,
+                               max_consecutive_forfeits: int | None = None) -> Path:
     """Explicit approved fresh-panel accounting, never a reset or in-place edit.
 
     The failed mapped parent remains byte-identical and exclusively retired.
     Receipt and authority paths must already lie within its retained bundle.
     Only cumulative request/token caps can increase; no cutoff is introduced.
     enable_provider_failure_forfeits is a one-way opt-in for a parent without
-    that policy; the authority must record it too. Every charge is inherited.
+    that policy, with its frozen max_consecutive_forfeits; the authority must
+    record both. Every charge is inherited.
     """
     from .run_budget import (RunBudget, LIMIT_NAMES, _origin, _successor_claim,
                              _retained_file, _totals, _write_marker, TIMEOUT_FORFEIT_SCHEMA,
@@ -246,6 +248,9 @@ def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
             or successor.exists() or manifest.exists() or successor == manifest
             or not failure_receipt.is_relative_to(root) or not authority.is_relative_to(root)
             or type(enable_provider_failure_forfeits) is not bool
+            or (max_consecutive_forfeits is not None) != enable_provider_failure_forfeits
+            or (enable_provider_failure_forfeits
+                and (type(max_consecutive_forfeits) is not int or max_consecutive_forfeits < 1))
             or set(approved_limits) != set(LIMIT_NAMES)
             or any(type(value) is not int or value < 1 for value in approved_limits.values())):
         raise ValueError("fresh mapped paths and explicit positive limits required")
@@ -279,7 +284,7 @@ def increase_failed_run_limits(budget, successor: Path, manifest: Path, *,
                                   "limit_increase": {"authority": str(authority), "authority_sha256": authority_sha256}}}
         if enable_provider_failure_forfeits:
             # _limit_increase refuses this unless the parent lacks the policy and the authority records it.
-            child["allow_provider_failure_forfeits"] = True
+            child.update(allow_provider_failure_forfeits=True, max_consecutive_forfeits=max_consecutive_forfeits)
             child["schema"] = _policy_schema(child)
             child["continuation"]["enable_provider_failure_forfeits"] = True
         RunBudget._limit_increase(child["continuation"], budget.path.resolve(), policy, child,

@@ -1,5 +1,6 @@
 """A relocation retires one writer and carries every settled charge forward."""
 
+import hashlib
 import json
 import shutil
 import sqlite3
@@ -326,14 +327,14 @@ def increase_evidence(source, *, suffix="increase", limits=None, mutation=None, 
         "parent_limits": old, "approved_limits": new, "failure_receipt_sha256": digest(receipt),
         "purpose": "fixed-panel-rerun", "user_authority": "Approved unchanged panel and cumulative caps."}
     if enable:
-        record["enable_provider_failure_forfeits"] = True
+        record.update(enable_provider_failure_forfeits=True, max_consecutive_forfeits=3)
     if mutation:
         mutation(record)
     authority.write_text(json.dumps(record))
     result = dict(approved_limits=new, failure_receipt=receipt, failure_receipt_sha256=digest(receipt),
                   authority=authority, authority_sha256=digest(authority))
     if enable:
-        result["enable_provider_failure_forfeits"] = True
+        result.update(enable_provider_failure_forfeits=True, max_consecutive_forfeits=3)
     return result
 
 
@@ -704,8 +705,12 @@ def test_idle_snapshot_race_cannot_overwrite_arriving_evidence(tmp_path, monkeyp
     source.check()
 
 
+PROVIDER_POLICY = {"allow_timeout_forfeits": True, "allow_http503_forfeits": True,
+                   "allow_provider_failure_forfeits": True, "max_consecutive_forfeits": 3}
+
+
 def test_provider_failure_forfeits_and_policy_survive_relocation(tmp_path):
-    source = budget(tmp_path, allow_provider_failure_forfeits=True)
+    source = budget(tmp_path, **PROVIDER_POLICY)
     with pytest.raises(ProviderError, match="inference_failed"):
         BudgetedProvider(Provider(ProviderError("inference_failed")), source).complete(PROMPT, timeout_s=30)
     before = source.summary()
@@ -714,7 +719,7 @@ def test_provider_failure_forfeits_and_policy_survive_relocation(tmp_path):
     assert before["policy"]["schema"] == "spellbench-llm-run-budget/v5"
     with pytest.raises(ProviderError, match="run_budget_limits_mismatch"):
         RunBudget(relocated.path, model=source.model, path_map=relocated.paths.manifest,
-                  path_map_sha256=relocated.paths.sha256, expected_limits={"allow_provider_failure_forfeits": False})
+                  path_map_sha256=relocated.paths.sha256, expected_limits={"max_consecutive_forfeits": 4})
     with pytest.raises(ProviderError, match="http_500"):
         BudgetedProvider(Provider(ProviderError("http_500")), relocated).complete(PROMPT, timeout_s=30)
     relocated.check()
@@ -724,11 +729,12 @@ def test_provider_failure_forfeits_and_policy_survive_relocation(tmp_path):
 
 
 def test_host_preflight_recovery_keeps_the_provider_failure_policy(tmp_path):
-    source = transfer(tmp_path, budget(tmp_path, allow_provider_failure_forfeits=True))
+    source = transfer(tmp_path, budget(tmp_path, **PROVIDER_POLICY))
     source.fail("profile_renewal_failed")
     child = recover_host(source)
     policy = child.summary()["policy"]
     assert policy["allow_provider_failure_forfeits"] is True and policy["schema"] == "spellbench-llm-run-budget/v5"
+    assert policy["max_consecutive_forfeits"] == 3
     with pytest.raises(ProviderError, match="inference_failed"):
         BudgetedProvider(Provider(ProviderError("inference_failed")), child).complete(PROMPT, timeout_s=30)
     child.check()
@@ -737,14 +743,16 @@ def test_host_preflight_recovery_keeps_the_provider_failure_policy(tmp_path):
     assert summary["accounted_tokens"] == PROMPT.bytes + 1024
 
 
+SECRET = "d" * 64
 REVEAL = {"schema": "spellbench-run-reveal/v1", "benchmark_id": "pauper-kernel-v2", "run_label": "2026-10-26-5",
-          "commitment": "c" * 64, "run_secret": "d" * 64, "status": "aborted", "reason": "guard"}
+          "commitment": hashlib.sha256(bytes.fromhex(SECRET)).hexdigest(), "run_secret": SECRET,
+          "status": "aborted", "reason": "guard"}
 
 
 def flagged_failure(tmp_path, *, provider=False):
     """A mapped failed ledger like the live one: timeout and HTTP503 forfeits, no cutoff, a provider failure."""
-    parent = budget(tmp_path, requests=4, tokens=8000, allow_timeout_forfeits=True, allow_http503_forfeits=True,
-                    allow_provider_failure_forfeits=provider)
+    flags = PROVIDER_POLICY if provider else {"allow_timeout_forfeits": True, "allow_http503_forfeits": True}
+    parent = budget(tmp_path, requests=4, tokens=8000, **flags)
     with pytest.raises(ProviderError, match="inference_failed"):
         BudgetedProvider(Provider(ProviderError("inference_failed")), parent).complete(PROMPT, timeout_s=30)
     parent.fail("hosted_broker_failed")
@@ -772,6 +780,7 @@ def test_failed_run_increase_can_enable_provider_failure_forfeits_once(tmp_path,
     policy = after["policy"]
     assert policy["allow_provider_failure_forfeits"] is True and policy["schema"] == "spellbench-llm-run-budget/v5"
     assert policy["allow_timeout_forfeits"] is True and policy["allow_http503_forfeits"] is True
+    assert policy["max_consecutive_forfeits"] == 3
     assert policy["continuation"]["enable_provider_failure_forfeits"] is True
     assert policy["max_requests"] == before["policy"]["max_requests"] + 4
     assert all(policy[name] == before["policy"][name] for name in LIMIT_NAMES if name != "max_requests")
@@ -780,8 +789,7 @@ def test_failed_run_increase_can_enable_provider_failure_forfeits_once(tmp_path,
     assert source.path.read_bytes() == parent_bytes
     with pytest.raises(ProviderError, match="run_budget_attempt_continued"):
         source.check()
-    hosted = {**{name: policy[name] for name in LIMIT_NAMES}, "allow_timeout_forfeits": True,
-              "allow_http503_forfeits": True, "allow_provider_failure_forfeits": True}
+    hosted = {**{name: policy[name] for name in LIMIT_NAMES}, **PROVIDER_POLICY}
     RunBudget(child.path, model=child.model, path_map=child.paths.manifest, path_map_sha256=child.paths.sha256,
               expected_limits=hosted).check()
     with pytest.raises(ProviderError, match="inference_failed"):
@@ -792,24 +800,40 @@ def test_failed_run_increase_can_enable_provider_failure_forfeits_once(tmp_path,
     assert summary["uncertain_reserved_tokens"] == before["uncertain_reserved_tokens"] + PROMPT.bytes + 1024
 
 
-@pytest.mark.parametrize("problem", ["authority_silent", "authority_false", "only_authority", "parent_enabled"])
+@pytest.mark.parametrize("problem", ["authority_silent", "authority_false", "only_authority", "parent_enabled",
+                                     "streak_differs", "streak_missing", "streak_bool"])
 def test_provider_failure_enable_needs_recorded_authority_and_a_parent_without_it(tmp_path, problem):
     source = flagged_failure(tmp_path, provider=problem == "parent_enabled")
     limits = requests_only(source)
+    mutations = {"authority_false": lambda record: record.update(enable_provider_failure_forfeits=False),
+                 "streak_differs": lambda record: record.update(max_consecutive_forfeits=4),
+                 "streak_missing": lambda record: record.pop("max_consecutive_forfeits"),
+                 "streak_bool": lambda record: record.update(max_consecutive_forfeits=True)}
     if problem == "authority_silent":
-        evidence = {**increase_evidence(source, limits=limits), "enable_provider_failure_forfeits": True}
-    elif problem == "authority_false":
-        evidence = increase_evidence(source, limits=limits, enable=True,
-                                     mutation=lambda record: record.update(enable_provider_failure_forfeits=False))
+        evidence = {**increase_evidence(source, limits=limits),
+                    "enable_provider_failure_forfeits": True, "max_consecutive_forfeits": 3}
     elif problem == "only_authority":
-        evidence = increase_evidence(source, limits=limits,
-                                     mutation=lambda record: record.update(enable_provider_failure_forfeits=True))
+        evidence = increase_evidence(source, limits=limits, mutation=lambda record: record.update(
+            enable_provider_failure_forfeits=True, max_consecutive_forfeits=3))
     else:
-        evidence = increase_evidence(source, limits=limits, enable=True)
+        evidence = increase_evidence(source, limits=limits, enable=True, mutation=mutations.get(problem))
     with pytest.raises(ProviderError, match="run_budget_limit_increase_changed"):
         increase(source, **evidence)
     assert not (source.path.parent / "increase-map.json").exists()
     assert not source.path.with_name(source.path.name + ".continuation.json").exists()
+
+
+@pytest.mark.parametrize("arguments", [{"enable_provider_failure_forfeits": True, "max_consecutive_forfeits": None},
+                                       {"enable_provider_failure_forfeits": False, "max_consecutive_forfeits": 3},
+                                       {"enable_provider_failure_forfeits": True, "max_consecutive_forfeits": 0},
+                                       {"enable_provider_failure_forfeits": True, "max_consecutive_forfeits": True},
+                                       {"enable_provider_failure_forfeits": 1, "max_consecutive_forfeits": 3}])
+def test_provider_failure_enable_arguments_are_checked_before_any_write(tmp_path, arguments):
+    source = flagged_failure(tmp_path)
+    evidence = {**increase_evidence(source, limits=requests_only(source), enable=True), **arguments}
+    with pytest.raises(ValueError, match="fresh mapped paths"):
+        increase(source, **evidence)
+    assert not (source.path.parent / "increase-map.json").exists()
 
 
 def test_increase_without_enable_keeps_the_parent_flags(tmp_path):
@@ -817,16 +841,20 @@ def test_increase_without_enable_keeps_the_parent_flags(tmp_path):
     child = increase(source, **increase_evidence(source, limits=requests_only(source), retained_run=REVEAL))
     policy = child.summary()["policy"]
     assert "allow_provider_failure_forfeits" not in policy and "enable_provider_failure_forfeits" not in policy["continuation"]
-    assert policy["schema"] == "spellbench-llm-run-budget/v4"
+    assert "max_consecutive_forfeits" not in policy and policy["schema"] == "spellbench-llm-run-budget/v4"
     with pytest.raises(ProviderError, match="inference_failed"):
         BudgetedProvider(Provider(ProviderError("inference_failed")), child).complete(PROMPT, timeout_s=30)
     with pytest.raises(ProviderError, match="run_budget_already_failed"):
         child.check()
 
 
-@pytest.mark.parametrize("change", [{"status": "published"}, {"status": "complete"},
-                                    {"schema": "spellbench-run-reveal/v2"}, {"extra": True}])
-def test_increase_refuses_a_reveal_that_is_not_an_aborted_run(tmp_path, change):
+@pytest.mark.parametrize("change", [
+    {"status": "published"}, {"status": "complete"}, {"schema": "spellbench-run-reveal/v2"}, {"extra": True},
+    {"commitment": "0" * 64}, {"run_secret": "e" * 64}, {"run_secret": SECRET.upper()},
+    {"run_secret": None}, {"run_secret": None, "reason": "secret_lost"}, {"reason": "secret_lost"},
+    {"reason": "exception text"},
+])
+def test_increase_refuses_a_reveal_that_is_not_a_proven_aborted_run(tmp_path, change):
     source = flagged_failure(tmp_path)
     evidence = increase_evidence(source, limits=requests_only(source), enable=True, retained_run={**REVEAL, **change})
     with pytest.raises(ProviderError, match="run_budget_recovery_changed"):
@@ -855,3 +883,5 @@ def test_enabled_increase_admission_rechecks_retained_reveal_and_authority(tmp_p
         stream.write(b"changed")
     with pytest.raises(ProviderError, match="run_budget_transfer_changed"):
         child.reserve(PROMPT, output_tokens=20)
+
+
