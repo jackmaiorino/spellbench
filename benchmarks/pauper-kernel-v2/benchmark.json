@@ -297,7 +297,7 @@
         "${SPELLBENCH_LLM_SOURCE}/../wire.py",
         "${SPELLBENCH_LLM_SOURCE}/../messages.py"
       ],
-      "evaluation_identity": "bc0d04fd13af1e831ae1162cba288e73af05689a268c4394bc7b2ee9d023e5a5"
+      "evaluation_identity": "cb3c098a2ce649dd1f77aacc64b91d781c8dfbfad476fd0b1a95587adb50c112"
     },
     {
       "name": "kit-mad-1",
