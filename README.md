@@ -103,6 +103,11 @@ engine, a deck pool, and a roster anchored on the builtin `uniform` bot
 (Elo 1000, shown as "random"). Every matchup plays each pool deck in both
 seats, and bots never play themselves.
 
+Each bot keeps a fixed `name` (its id in runs and links) and a
+`display.label` for the site. Labels name the family and number its releases
+in entry order (`Kernel 1`, `Kernel 2`, ...); codenames stay in `name` and
+training details in `description`. Relabelling never changes a rating.
+
 ```bash
 uv run spellbench bench run benchmarks/<id> --unrated
 ```
