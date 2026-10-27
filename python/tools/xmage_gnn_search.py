@@ -255,6 +255,8 @@ def profile(settings: dict) -> dict:
                                "the declining candidate, else the first",
         "callback_tolerances": "anchor-known characteristic gaps; which identical permanent a replayed payment tapped; "
                                "own draws the callback shows are pinned to the sampled library's top",
+        "step_triggers": "an own trigger's callback as the next step begins replays the recorded empty-stack pass "
+                         "and the other seat's pass; Java compares the callback's whole observation",
         "full_game_qualified": False,
     }
 

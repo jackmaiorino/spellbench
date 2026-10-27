@@ -1073,3 +1073,13 @@ replacement effects or changing legal-target sets. Multi-amount/combat distribut
 remain explicitly unconnected. Unbound players and admitted simulation copies
 retain their inherited policy. Native divided-target prompts, scry/surveil,
 turn changes/repeated phases and complete trained-weight games remain unfinished.
+
+Next-step trigger replay (Exp1, MageZero and graph frontends). An own trigger's
+callback that arrives as the next step of the same turn begins, such as a
+beginning-of-end-step target, now replays the recorded empty-stack pass and the
+other seat's pass. The callback must show the same active seat, no priority seat,
+no passed seats and only this seat's triggered abilities on the stack, with the
+callback's source among them. Java reaches the callback and compares its whole
+observation before any search. A skipped step, a new turn or any other stack
+still refuses. Search refusals for an uncovered root or an unmapped callback
+branch now name the differing actions.
