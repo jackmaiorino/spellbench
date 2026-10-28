@@ -11,6 +11,7 @@ import time
 
 from spellbench import wire
 from spellbench.bot import BotSession, Decision, GameOver, GameStart
+from spellbench.observation import PHASE_STEPS
 from xmage_neural_combat import CombatPlan, combat_kind
 from xmage_neural_search import root_family
 from xmage_neural_decisions import close_resources
@@ -34,8 +35,10 @@ PROFILE = {
     "mulligan": "original constructor default allowMulligans=false",
     "modes": "original numeric mode ordinals; offered-choice binding; original unoffered-branch accounting",
     "cleanup": "recorded end-step pass and public completed passes; original discard callback and full observation comparison",
+    "step_triggers": "recorded empty-stack pass and the other seat's pass; own trigger callback as the next step begins and full observation comparison",
     "full_game_qualified": False,
 }
+TURN_STEPS = PHASE_STEPS[1:]  # a turn's steps in order, without pregame
 _START_FIELDS = ("seat", "format", "own_deck", "opponent_deck", "rules", "engine",
                  "engine_profile", "time_control", "limits", "resources", "agent_seed")
 _DECISION_FIELDS = ("acting_seat", "seat_step", "observation", "context", "candidates", "group", "extensions")
@@ -190,13 +193,13 @@ class PublicHistory:
         observation = decision["observation"]
         previous = self.anchor["decision"]["observation"]
         action = self.anchor["selection"]["semantic_echo"]
-        cleanup = self.cleanup_discard(decision, previous, action)
+        advanced = self.cleanup_discard(decision, previous, action) or self.step_trigger(decision, previous, action)
         if (observation.get("turn"), observation.get("phase_step")) != (
-                previous.get("turn"), previous.get("phase_step")) and not cleanup:
+                previous.get("turn"), previous.get("phase_step")) and not advanced:
             raise ValueError("callback crossed an unrecorded turn or phase transition")
         passes = []
         if action.get("kind") == "pass":
-            if not previous.get("stack") and not cleanup:
+            if not previous.get("stack") and not advanced:
                 raise ValueError("callback followed an empty-stack pass without a public replay anchor")
             # The other seat must pass before the saved top object resolves
             # or the recorded end step finishes, unless it had already passed.
@@ -245,6 +248,32 @@ class PublicHistory:
         # must still reach the actual discard callback and compare its entire
         # observation before any search. Earlier discard picks stay in history.
         return True
+
+    def step_trigger(self, decision, previous, action):
+        """An own trigger's callback as the next step begins (a beginning-of-end-step target, say).
+
+        The recorded empty-stack pass and the other seat's pass end the
+        anchor's step; Java replays them, reaches this callback and compares
+        its entire observation before any search.
+        """
+        observation = decision["observation"]
+        context = decision.get("context", {})
+        stack = observation.get("stack")
+        source = context.get("source") or {}
+        if not (action.get("kind") == "pass" and not previous.get("stack")
+                and previous.get("phase_step") in TURN_STEPS[:-1]
+                and observation.get("phase_step") == TURN_STEPS[TURN_STEPS.index(previous["phase_step"]) + 1]
+                and type(previous.get("turn")) is int and observation.get("turn") == previous["turn"]
+                and previous.get("active_seat") == observation.get("active_seat")
+                and observation.get("viewer") == decision.get("acting_seat") == self.seat
+                and observation.get("priority_seat") is None and observation.get("passed_seats") == []
+                and context.get("kind") == "choice" and isinstance(stack, list) and stack):
+            return False
+        if any(not isinstance(item, dict) or item.get("stack_kind") != "triggered_ability"
+               or item.get("controller_seat") != self.seat for item in stack):
+            return False
+        return (source.get("zone") == "stack" and source.get("controller_seat") == self.seat
+                and any(item.get("object_id") == source.get("object_id") for item in stack))
 
     def selected(self, decision, selection):
         semantic = selection["semantic_echo"]

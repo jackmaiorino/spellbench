@@ -221,6 +221,71 @@ def test_cleanup_transition_refuses_unrecorded_responses_or_unbound_discards_bef
     assert bot.failed and session.closed and session.requests == []
 
 
+def step_trigger_decisions():
+    anchor = decision({"kind": "pass"}, phase="postcombat_main")
+    anchor["observation"].update(active_seat="p0", priority_seat="p0")
+    source = {"card_name": "Needletooth Pack", "object_id": "trigger", "zone": "stack",
+              "owner_seat": "p0", "controller_seat": "p0"}
+    callback = decision(*[
+        {"kind": "choose_target", "minimum": 1, "maximum": 1, "selected_count": 0, "slot": 0, "source": source,
+         "target": {"object": {"object_id": f"creature-{i}", "zone": "battlefield",
+                               "owner_seat": "p0", "controller_seat": "p0"}}}
+        for i in range(2)], step=1, phase="end_step",
+        stack=[{"object_id": "trigger", "stack_kind": "triggered_ability", "controller_seat": "p0"}])
+    callback["context"].update(source=source)
+    callback["observation"].update(active_seat="p0", priority_seat=None)
+    return anchor, callback
+
+
+def test_next_step_trigger_callback_replays_the_recorded_empty_stack_pass():
+    bot, session = ready(Session([1]))
+    anchor, callback = step_trigger_decisions()
+    assert bot.choose(view(anchor)) == 10
+    assert bot.choose(view(callback)) == 11
+    (record, _, _), = session.requests
+    assert record["anchor"]["decision"]["observation"]["phase_step"] == "postcombat_main"
+    assert record["replay"] == {"priority_passes": ["p1"], "earlier": []}
+
+
+@pytest.mark.parametrize("fault", ["new-turn", "skipped-step", "last-step", "other-active", "pending-priority",
+                                   "passed", "stacked-anchor", "empty-stack", "spell", "other-trigger",
+                                   "unstacked-source", "other-source"])
+def test_next_step_trigger_refuses_anything_but_an_own_trigger_as_the_next_step_begins(fault):
+    bot, session = ready(Session([0]))
+    anchor, callback = step_trigger_decisions()
+    observation = callback["observation"]
+    if fault == "new-turn":
+        observation["turn"] = 2
+    elif fault == "skipped-step":
+        anchor["observation"]["phase_step"] = "end_of_combat"
+    elif fault == "last-step":
+        anchor["observation"]["phase_step"] = "cleanup"
+        observation["phase_step"] = "untap"
+    elif fault == "other-active":
+        observation["active_seat"] = "p1"
+    elif fault == "pending-priority":
+        observation["priority_seat"] = "p0"
+    elif fault == "passed":
+        observation["passed_seats"] = ["p1"]
+    elif fault == "stacked-anchor":
+        anchor["observation"]["stack"] = [{"object_id": "earlier", "stack_kind": "spell"}]
+    elif fault == "empty-stack":
+        observation["stack"] = []
+    elif fault == "spell":
+        observation["stack"][0]["stack_kind"] = "spell"
+    elif fault == "other-trigger":
+        observation["stack"].append({"object_id": "theirs", "stack_kind": "triggered_ability",
+                                     "controller_seat": "p1"})
+    elif fault == "unstacked-source":
+        callback["context"]["source"] = dict(callback["context"]["source"], zone="battlefield")
+    elif fault == "other-source":
+        callback["context"]["source"] = dict(callback["context"]["source"], object_id="elsewhere")
+    bot.choose(view(anchor))
+    with pytest.raises(ValueError, match="crossed an unrecorded turn or phase transition"):
+        bot.choose(view(callback))
+    assert bot.failed and session.closed and session.requests == []
+
+
 def test_entire_combat_group_reuses_one_original_neural_plan():
     bot, session = ready()
     record, _ = combat_fixture()

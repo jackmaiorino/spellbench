@@ -28,6 +28,7 @@ def profile(settings: dict) -> dict:
         "mulligan": "original constructor default allowMulligans=false",
         "modes": "original conditional stop option and numeric mode ordinals",
         "cleanup": "recorded end-step pass, public completed passes and full observation comparison",
+        "step_triggers": "recorded empty-stack pass, the other seat's pass and full observation comparison",
         "full_game_qualified": False,
     }
 

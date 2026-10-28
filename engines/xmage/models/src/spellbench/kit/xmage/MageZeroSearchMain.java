@@ -267,7 +267,14 @@ public final class MageZeroSearchMain {
                         "excluded", true, "reason", "original " + source + " library target expansion requires its minimum before finishing"));
             }
         }
-        if (!offeredKeys.equals(branchKeys)) throw new IllegalArgumentException("search root does not cover the offered actions");
+        if (!offeredKeys.equals(branchKeys)) {
+            // Name the differing actions: a coverage sweep only sees this message.
+            Set<String> unsearched = new HashSet<>(offeredKeys), unoffered = new HashSet<>(branchKeys);
+            unsearched.removeAll(branchKeys); unoffered.removeAll(offeredKeys);
+            String detail = "; offered only " + unsearched + "; searched only " + unoffered;
+            throw new IllegalArgumentException("search root does not cover the offered actions"
+                    + detail.substring(0, Math.min(3000, detail.length())));
+        }
         String decisionHash;
         try { decisionHash = Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -330,7 +337,11 @@ public final class MageZeroSearchMain {
                 match = sem;
             }
         }
-        if (match == null) throw new IllegalArgumentException("unmapped callback branch");
+        if (match == null) {
+            throw new IllegalArgumentException("unmapped callback branch: target " + child.getTargetAction()
+                    + ", use " + child.getUseAction() + ", amount " + child.getAmountAction()
+                    + ", numeric minimum " + callback.numericMinimum);
+        }
         return match;
     }
     public static void main(String[] args) throws Exception {
