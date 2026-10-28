@@ -330,16 +330,22 @@ public final class MageZeroSearchMain {
     }
     /** An unmapped branch and the offered candidates, in world object ids: a coverage sweep only sees this message. */
     private static String describe(Map<String, Object> decision, World world, MCTSNode child, MageZeroSearchReplay.Result callback) {
-        UUID target = child.getTargetAction();
-        String branch = "target " + entity(world, target) + ", amount " + child.getAmountAction()
-                + ", choice " + child.getChoiceAction() + ", numeric minimum " + callback.numericMinimum;
+        String branch = GameAccess.describe(child) + ", target " + entity(world, child.getTargetAction())
+                + ", numeric minimum " + callback.numericMinimum;
+        SearchPlayer player = callback.player;
+        if (player != null) {
+            List<String> children = new ArrayList<>();
+            for (MCTSNode c : player.initialRootChildren()) children.add(GameAccess.describe(c));
+            branch += "; root " + GameAccess.describe(player.tree()) + " children " + children
+                    + "; history " + GameAccess.describe(player.getPlayerHistory());
+        }
         List<String> offered = new ArrayList<>();
         for (Object item : Json.arr(decision, "candidates")) {
             Map<String, Object> sem = Json.obj(Json.obj(item), "semantic");
             offered.add(Json.str(sem, "kind") + " " + entity(world, Dialogs.uuidOf(world, sem)));
         }
         String detail = branch + "; offered " + offered;
-        return detail.substring(0, Math.min(3000, detail.length()));
+        return detail.substring(0, Math.min(6000, detail.length()));
     }
     private static String entity(World world, UUID id) {
         if (id == null) return "null";
