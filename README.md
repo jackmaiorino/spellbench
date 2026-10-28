@@ -104,9 +104,12 @@ engine, a deck pool, and a roster anchored on the builtin `uniform` bot
 seats, and bots never play themselves.
 
 Each bot keeps a fixed `name` (its id in runs and links) and a
-`display.label` for the site. Labels name the family and number its releases
-in entry order (`Kernel 1`, `Kernel 2`, ...); codenames stay in `name` and
-training details in `description`. Relabelling never changes a rating.
+`display.label` for the site. mtg-kernel labels are a fantasy creature
+family plus a version: a big change to the training recipe starts the next
+family alphabetically (Archon, Basilisk, Cockatrice, ...), and each newer
+version within a family takes the next number, whatever its rating. Skip
+words that clash with pool decks. Codenames stay in `name` and training
+details in `description`. Relabelling never changes a rating.
 
 ```bash
 uv run spellbench bench run benchmarks/<id> --unrated

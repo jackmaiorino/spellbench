@@ -701,7 +701,7 @@ def test_the_committed_definition_keeps_the_kernel_bots_and_their_display() -> N
         DeckSpec(catalog_id=name) for name in ("Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries")
     )
     assert benchmark.bot("uniform").display.label == "random"
-    for name, label in (("g115", "Kernel 1"), ("a48", "Kernel 2"), ("c12", "Kernel 3")):
+    for name, label in (("g115", "Archon 3"), ("a48", "Archon 1"), ("c12", "Archon 2")):
         bot = benchmark.bot(name)
         assert (bot.entry["type"], bot.entry["version"], bot.entry["engine"]) == ("subprocess", "1.0.0", "mtg-kernel"), name
         assert bot.entry["checkpoint"] == f"${{{name.upper()}_CHECKPOINT}}" and bot.display.label == label
