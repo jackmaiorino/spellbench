@@ -77,6 +77,9 @@ class PublicHistory:
     def __init__(self, seat):
         self.seat = seat
         self.origins, self.activations = {}, []
+        # This seat's confirmed activated-ability uses, kept for the whole game: XMage counts them per ability
+        # (an "activate only once" ability, say), and a rebuilt world starts every count at zero.
+        self.uses, self.pending_use = {}, None
         self.anchor, self.earlier = None, []
         self.effects = PublicEffects(seat)
         self.previous, self.pending_cast, self.casts = None, None, {}
@@ -89,9 +92,34 @@ class PublicHistory:
                         return (card.get("permanent") or {}).get("counters", {}).get("loyalty")
         return None
 
+    @staticmethod
+    def stacked_uses(observation, oid):
+        return sum(e.get("stack_kind") == "activated_ability" and (e.get("source") or {}).get("object_id") == oid
+                   for e in observation.get("stack") or [])
+
+    def observe_use(self, observation):
+        """Confirm the pending activation once its ability is on the stack, later in the same turn."""
+        pending = self.pending_use
+        if pending is None:
+            return
+        if observation.get("turn") != pending["turn"]:
+            self.pending_use = None
+        elif self.stacked_uses(observation, pending["object_id"]) > pending["stacked"]:
+            self.pending_use = None
+            key = f'{pending["object_id"]}#{pending["ability_index"]}'
+            use = self.uses.get(key)
+            if use is None:
+                use = self.uses[key] = {"object_id": pending["object_id"], "ability_index": pending["ability_index"],
+                                        "turn": pending["turn"], "this_turn": 0, "total": 0}
+            if use["turn"] != pending["turn"]:
+                use["turn"], use["this_turn"] = pending["turn"], 0
+            use["this_turn"] += 1
+            use["total"] += 1
+
     def observe(self, observation):
         self.effects.observe(observation)
         self.observe_casts(observation)
+        self.observe_use(observation)
         for card in _cards(observation):
             oid, name = card.get("object_id"), card.get("card_name")
             if isinstance(oid, str) and isinstance(name, str):
@@ -150,6 +178,11 @@ class PublicHistory:
             result["public_effects"] = self.effects.fields()
         if self.casts:
             result["stack_casts"] = copy.deepcopy(dict(sorted(self.casts.items())))
+        here = {card.get("object_id") for player in observation.get("players", []) if player.get("seat") == self.seat
+                for card in player.get("battlefield") or []}
+        uses = [copy.deepcopy(use) for _, use in sorted(self.uses.items()) if use["object_id"] in here]
+        if uses:
+            result["ability_uses"] = uses
         return result
 
     # A callback in the declare attackers step after this seat's complete recorded declaration group (an attack
@@ -289,6 +322,9 @@ class PublicHistory:
             fact["kicker"] = fact.get("kicker", 0) + semantic["pay"]
         if semantic.get("kind") == "activate_ability":
             oid = (semantic.get("source") or {}).get("object_id")
+            if isinstance(oid, str) and type(semantic.get("ability_index")) is int and type(observation.get("turn")) is int:
+                self.pending_use = {"object_id": oid, "ability_index": semantic["ability_index"],
+                                    "turn": observation["turn"], "stacked": self.stacked_uses(observation, oid)}
             before = self.loyalty(observation, oid)
             if type(before) is int:
                 self.activations.append({"object_id": oid, "before": before,

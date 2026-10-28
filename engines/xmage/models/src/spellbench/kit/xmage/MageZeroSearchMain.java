@@ -1,5 +1,7 @@
 package spellbench.kit.xmage;
 
+import mage.MageObject;
+import mage.game.permanent.Permanent;
 import mage.player.cabt.CardResolver;
 import mage.player.spellbench.Warmup;
 import spellbench.kit.core.Json;
@@ -26,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** Original 128-slot MageZero search and public callback replay over permitted sampled worlds. */
 public final class MageZeroSearchMain {
@@ -325,6 +328,28 @@ public final class MageZeroSearchMain {
                 "decision_sha256", decisionHash(decision), "forced", LONE_TARGET, "neural_calls", calls,
                 "world_flags", world.flags, "replay", replayProof);
     }
+    /** An unmapped branch and the offered candidates, in world object ids: a coverage sweep only sees this message. */
+    private static String describe(Map<String, Object> decision, World world, MCTSNode child, MageZeroSearchReplay.Result callback) {
+        UUID target = child.getTargetAction();
+        String branch = "target " + entity(world, target) + ", amount " + child.getAmountAction()
+                + ", choice " + child.getChoiceAction() + ", numeric minimum " + callback.numericMinimum;
+        List<String> offered = new ArrayList<>();
+        for (Object item : Json.arr(decision, "candidates")) {
+            Map<String, Object> sem = Json.obj(Json.obj(item), "semantic");
+            offered.add(Json.str(sem, "kind") + " " + entity(world, Dialogs.uuidOf(world, sem)));
+        }
+        String detail = branch + "; offered " + offered;
+        return detail.substring(0, Math.min(3000, detail.length()));
+    }
+    private static String entity(World world, UUID id) {
+        if (id == null) return "null";
+        if (GameAccess.STOP_CHOOSING.equals(id)) return "stop";
+        MageObject object = world.game.getObject(id);
+        Permanent permanent = world.game.getPermanent(id);
+        return world.uuidToId.getOrDefault(id, "unlisted:" + id) + "(" + (object == null ? "?" : object.getName())
+                + "|" + world.game.getState().getZone(id)
+                + (permanent == null ? "" : "|controller " + world.seatOf(permanent.getControllerId())) + ")";
+    }
     private static String decisionHash(Map<String, Object> decision) {
         try { return Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
@@ -362,11 +387,7 @@ public final class MageZeroSearchMain {
                 match = sem;
             }
         }
-        if (match == null) {
-            throw new IllegalArgumentException("unmapped callback branch: target " + child.getTargetAction()
-                    + ", use " + child.getUseAction() + ", amount " + child.getAmountAction()
-                    + ", numeric minimum " + callback.numericMinimum);
-        }
+        if (match == null) throw new IllegalArgumentException("unmapped callback branch: " + describe(decision, world, child, callback));
         return match;
     }
     public static void main(String[] args) throws Exception {
