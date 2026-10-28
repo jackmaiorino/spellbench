@@ -206,3 +206,70 @@ def test_library_fail_to_find_binds_the_graph_frontends_own_reason():
     java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
     assert 'String source = graph == null ? "MageZero" : "graph network";' in java
     assert java.count('"original " + source + " ') == 2 and "original MageZero library" not in java
+
+
+def lone_target_fixture():
+    record, _, settings = fixture()
+    record["decision"].update(context={"kind": "choice", "purpose": "search", "rewind": False}, candidates=[
+        {"candidate_id": 0, "semantic": {"kind": "select_object", "purpose": "search",
+                                        "choice": {"object": {"object_id": "only-match", "zone": "library"}}}},
+        {"candidate_id": 1, "semantic": {"kind": "finish_selection", "purpose": "search"}}])
+    record.update(anchor={"decision": {}, "selection": {}}, replay={"priority_passes": ["p1"], "earlier": [{}]})
+    result = {"forced": search.LONE_TARGET, "neural_calls": 0, "decision_sha256": decision_hash(record["decision"]),
+              "selection": {"candidate_id": 0, "semantic_echo": record["decision"]["candidates"][0]["semantic"]},
+              "world_flags": ["approximate:watchers_reset"],
+              "replay": {"earlier": 1, "priority_passes": 1, "observation_identical": True}}
+    return record, result, settings
+
+
+def test_a_lone_original_target_is_answered_without_a_search():
+    # A library search's one match: the original player takes it itself (no stop before the search's minimum).
+    record, result, settings = lone_target_fixture()
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    out = search.BridgeSession(peer, model).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["candidate_id"] == 0 and out["neural_calls"] == 0 and model.calls == []
+
+
+@pytest.mark.parametrize("fault", ["calls", "reported-calls", "priority", "unoffered", "changed", "stale",
+                                   "unsupported", "proof", "extra", "reason", "single"])
+def test_a_lone_original_target_refuses_anything_else(fault):
+    record, result, _ = lone_target_fixture()
+    calls = 0
+    if fault == "calls":
+        calls = 1
+    elif fault == "reported-calls":
+        result["neural_calls"] = 1
+    elif fault == "priority":
+        record["decision"]["context"]["kind"] = "priority"
+        result["decision_sha256"] = decision_hash(record["decision"])
+    elif fault == "unoffered":
+        result["selection"]["candidate_id"] = 7
+    elif fault == "changed":
+        result["selection"]["semantic_echo"] = {"kind": "finish_selection", "purpose": "search"}
+    elif fault == "stale":
+        result["decision_sha256"] = "0" * 64
+    elif fault == "unsupported":
+        result["world_flags"] = ["unsupported:x"]
+    elif fault == "proof":
+        result["replay"]["earlier"] = 0
+    elif fault == "extra":
+        result["children"] = []
+    elif fault == "reason":
+        result["forced"] = "kit declining"
+    elif fault == "single":
+        del record["decision"]["candidates"][1]
+        result["decision_sha256"] = decision_hash(record["decision"])
+    with pytest.raises(ValueError):
+        search.lone_target_result(record, result, calls)
+
+
+def test_the_java_lone_target_follows_the_original_make_choice_options():
+    java = Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage"
+    replay = (java / "MageZeroSearchReplay.java").read_text()
+    main = (java / "MageZeroSearchMain.java").read_text()
+    # MCTSPlayer.makeChoice: possible targets not yet chosen, stop only once chosen, a lone option taken itself.
+    assert "if (!target.contains(id)) possible.add(id);" in replay
+    assert "if (target.isChosen(game)) possible.add(GameAccess.STOP_CHOOSING);" in replay
+    assert "if (possible.size() == 1) {" in replay
+    assert f'LONE_TARGET = "{search.LONE_TARGET}"' in main

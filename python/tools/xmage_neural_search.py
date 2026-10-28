@@ -157,16 +157,20 @@ def search_result(record: dict, result: dict, visits: int, calls: int, *,
     validate_result(decision, result, visits, calls, expected_budget=expected_budget,
                     minimum_visits=minimum_visits, source_label=source_label)
     if root_family(decision) != "priority":
-        expected = {"earlier": len(record["replay"]["earlier"]),
-                    "priority_passes": len(record["replay"]["priority_passes"]),
-                    "observation_identical": True}
-        proof = result.get("replay")
-        if (not isinstance(proof, dict) or proof != expected
-                or type(proof.get("earlier")) is not int
-                or type(proof.get("priority_passes")) is not int
-                or proof.get("observation_identical") is not True):
-            raise ValueError("callback result does not confirm its complete public replay")
+        validate_replay_proof(record, result)
     return result
+
+
+def validate_replay_proof(record: dict, result: dict) -> None:
+    expected = {"earlier": len(record["replay"]["earlier"]),
+                "priority_passes": len(record["replay"]["priority_passes"]),
+                "observation_identical": True}
+    proof = result.get("replay")
+    if (not isinstance(proof, dict) or proof != expected
+            or type(proof.get("earlier")) is not int
+            or type(proof.get("priority_passes")) is not int
+            or proof.get("observation_identical") is not True):
+        raise ValueError("callback result does not confirm its complete public replay")
 
 
 class SearchSession(NeuralSession):

@@ -69,6 +69,11 @@ final class MageZeroSearchReplay {
         int replayed;
         int binaryCallbacks;
         boolean libraryFailToFindExcluded;
+        /**
+         * The original MCTSPlayer.makeChoice takes a lone possible target without a search node (a library search
+         * before its minimum offers no stop, so one matching card is that lone target). Set instead of chosen.
+         */
+        UUID loneTarget;
         Integer numericMinimum;
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
@@ -276,6 +281,15 @@ final class MageZeroSearchReplay {
             replay.compare(game);
             replay.libraryFailToFindExcluded = target instanceof TargetCardInLibrary && !target.isChosen(game)
                     && "search".equals(Json.str(Json.obj(replay.decision, "context"), "purpose"));
+            // MCTSPlayer.makeChoice's own options: possible targets not yet chosen, plus stop once the target is chosen.
+            java.util.Set<UUID> possible = new java.util.HashSet<>();
+            for (UUID id : target.possibleTargets(controller, source, game, cards)) if (!target.contains(id)) possible.add(id);
+            if (target.isChosen(game)) possible.add(GameAccess.STOP_CHOOSING);
+            if (possible.size() == 1) {
+                replay.player = this;
+                replay.loneTarget = possible.iterator().next();
+                throw new Stop();
+            }
             String text = (source == null ? "null" : source.getRule()) + ":Choose a target:" + target.getTargetName();
             replay.player = this;
             configureSearch(replay);
@@ -714,7 +728,7 @@ final class MageZeroSearchReplay {
         } catch (Failure failure) {
             throw failure.failure;
         } catch (Stop stop) {
-            if (result.chosen == null || result.replayed != result.earlier.size()) {
+            if ((result.chosen == null) == (result.loneTarget == null) || result.replayed != result.earlier.size()) {
                 throw new IllegalArgumentException("callback replay did not complete its recorded prefix");
             }
             return result;
