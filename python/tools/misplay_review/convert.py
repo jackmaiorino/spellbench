@@ -85,19 +85,23 @@ def decision_logs(directory: Path | None, game_id: str) -> dict[str, dict]:
     for path in directory.glob(f"{game_id}.p[01].jsonl"):
         records = list(read_lines(path))
         if records and records[0].get("kind") == "header":
-            logs[records[0]["seat"]] = {"header": records[0],
-                                        "steps": {r["step"]: r for r in records[1:] if r.get("kind") == "decision"}}
+            header = records[0]
+            # Only the kernel bot's log carries logits; a human client log (spellbench-human-log/v1) names the seat.
+            model = header.get("schema") == "spellbench-kernel-bot-log/v1"
+            logs[header["seat"]] = {"header": header, "name": header.get("bot_name") or header.get("label") or "Human",
+                                    "steps": {r["step"]: r for r in records[1:] if model and r.get("kind") == "decision"}}
     return logs
 
 
-def q64(probabilities: list[float]) -> list[str]:
-    """Exact integer masses over 2^64, largest remainder, so the viewer's exact-sum check holds."""
+def q64(weights: list[float]) -> list[str]:
+    """Exact integer masses over 2^64 (largest remainder on integer weights), so the viewer's exact-sum check holds."""
     total = 1 << 64
-    raw = [p * total for p in probabilities]
-    masses = [int(math.floor(x)) for x in raw]
-    order = sorted(range(len(raw)), key=lambda i: raw[i] - masses[i], reverse=True)
-    for i in range(total - sum(masses)):
-        masses[order[i % len(order)]] += 1
+    scaled = [int(w * (1 << 53)) for w in weights]
+    whole = sum(scaled)
+    masses = [s * total // whole for s in scaled]
+    order = sorted(range(len(scaled)), key=lambda i: scaled[i] * total % whole, reverse=True)
+    for i in order[:total - sum(masses)]:
+        masses[i] += 1
     return [str(m) for m in masses]
 
 
@@ -114,7 +118,7 @@ def policy(decision: dict, log: dict | None, executed: int) -> dict | None:
     weights = [math.exp(x - top) for x in logits]
     by_candidate = [0.0] * len(sd["candidates"])
     for row, weight in zip(rows, weights):
-        by_candidate[row] = weight / sum(weights)
+        by_candidate[row] = weight
     value = record.get("value_bits")
     return {"kind": "hamilton_q64", "masses": q64(by_candidate), "sampled": executed,
             "value": float_bits(value) if isinstance(value, int) else 0.0, "valueScale": VALUE_SCALE}
@@ -267,7 +271,7 @@ def convert(game: dict, logs: dict[str, dict], model: str) -> dict | None:
     if not frames:
         return None
     decks = [s["deck"].get("catalog_id") or s["deck"].get("deck_id", "deck") for s in reset["seats"]]
-    names = [logs[s]["header"]["bot_name"] if s in logs else "Human" if s != perspective else model for s in ("p0", "p1")]
+    names = [logs[s]["name"] if s in logs else "Opponent" for s in ("p0", "p1")]
     t = game["terminal"]
     winner = t.get("winner") if t else None
     result = "unfinished" if t is None else "draw" if winner not in ("p0", "p1") else "won" if winner == perspective else "lost"
