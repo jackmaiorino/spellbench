@@ -31,7 +31,7 @@ transient provider failure), admission refuses with
 run aborts unrated. A completed request resets the streak; pending ones are skipped.
 The streak counts requests, not games: a per-game token-cap forfeit settles no
 request, and a malformed or unoffered choice comes from a completed request, so
-neither counts, and other games' requests interleave with up to N in flight.
+neither counts. With several games in flight, their requests interleave in the ledger.
 
 Continuations, transfers and recoveries keep this policy and N exactly, with one
 exception: `increase_failed_run_limits(..., enable_provider_failure_forfeits=True,
