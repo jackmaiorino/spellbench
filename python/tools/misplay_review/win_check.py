@@ -109,7 +109,7 @@ def check_game(records, engine_module, args, out):
             if result.get("response_type") != "private_win_search":
                 raise RuntimeError(f"bridge refused win_search: {result}")
             obs = sd["observation"]
-            row = {"game_id": reset["game_id"], "hero": hero, "deck": deck, "decision": f"d{decision_index}",
+            row = {"runtime": args.runtime, "source": "spellbench", "game_id": reset["game_id"], "hero": hero, "deck": deck, "decision": f"d{decision_index}",
                    "native_step": native["step"], "turn": obs["turn"], "phase": obs["phase_step"],
                    "screen": focus, "verdict": result["verdict"], "completed": result["completed"],
                    "nodes": result["nodes"], "max_nodes": budget, "max_depth": args.depth,
@@ -118,7 +118,7 @@ def check_game(records, engine_module, args, out):
             rows.append(row)
             out.write(json.dumps(row) + "\n")
             out.flush()
-        return {"game_id": reset["game_id"], "hero": hero, "deck": deck, "replay": "verified" if outcome else "unfinished",
+        return {"runtime": args.runtime, "game_id": reset["game_id"], "hero": hero, "deck": deck, "replay": "verified" if outcome else "unfinished",
                 "winner": (outcome or {}).get("winner"), "final_turn": last_turn,
                 "decisions": decision_index + 1}, rows
     finally:
@@ -141,7 +141,7 @@ def summarize(games, rows):
         available.append(entry)
         won_now = game.get("winner") == game["hero"] and game.get("final_turn") == turn
         (taken if won_now else missed).append(entry)
-    return {"kind": "summary", "games": len(games), "replay_verified": sum(g["replay"] == "verified" for g in games),
+    return {"kind": "summary", "runtime": sorted({g["runtime"] for g in games}), "games": len(games), "replay_verified": sum(g["replay"] == "verified" for g in games),
             "checked_decisions": len(rows), "proven": sum(r["verdict"] == "proven" for r in rows),
             "refuted": sum(r["verdict"] == "refuted" for r in rows), "unknown": sum(r["verdict"] == "unknown" for r in rows),
             "available_turns": len(available), "taken": len(taken), "missed": len(missed),
@@ -157,6 +157,8 @@ def main(argv=None) -> int:
     parser.add_argument("--bridge", type=Path, required=True, help="agent_bridge_v1 built with win_search")
     parser.add_argument("--catalog", type=Path, required=True)
     parser.add_argument("--source-revision", required=True)
+    parser.add_argument("--runtime", required=True,
+                        help="runtime identity of the played games, e.g. historical@92ec2393 (the Spellbench bridge has no runtime_rules)")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--nodes", type=int, default=2000)
     parser.add_argument("--focus-nodes", type=int, default=200000)
