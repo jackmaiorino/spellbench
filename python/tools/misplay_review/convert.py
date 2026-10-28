@@ -1,6 +1,6 @@
 """Turn Spellbench engine transcripts plus kernel bot decision logs into Decision Studio recordings.
 
-usage: convert.py --transcripts DIR_OR_FILE... --decisions DIR --model NAME --out DIR
+usage: convert.py --transcripts DIR_OR_FILE... --decisions DIR... --model NAME --out DIR
 
 Transcripts are engine wire logs: engine_tap.py files or the operator recording's
 engine.jsonl (both hold {"dir", "message"} lines). Decision logs come from
@@ -77,12 +77,10 @@ def games(path: Path) -> Iterator[dict]:
         yield game
 
 
-def decision_logs(directory: Path | None, game_id: str) -> dict[str, dict]:
-    """seat -> {"header", "steps": {seat_step: record}} for each logged seat of one game."""
+def decision_logs(directories: list[Path], game_id: str) -> dict[str, dict]:
+    """seat -> {"header", "name", "steps": {seat_step: record}} for each logged seat of one game."""
     logs = {}
-    if directory is None:
-        return logs
-    for path in directory.glob(f"{game_id}.p[01].jsonl"):
+    for path in (p for d in directories for p in d.glob(f"{game_id}.p[01].jsonl")):
         records = list(read_lines(path))
         if records and records[0].get("kind") == "header":
             header = records[0]
@@ -294,14 +292,18 @@ def convert(game: dict, logs: dict[str, dict], model: str) -> dict | None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--transcripts", type=Path, nargs="+", required=True)
-    parser.add_argument("--decisions", type=Path, default=None)
+    parser.add_argument("--decisions", type=Path, nargs="+", default=[])
     parser.add_argument("--model", required=True, help="bot_name of the featured model in its decision log")
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     index_path = args.out / "index.json"
     index = {g["id"]: g for g in json.loads(index_path.read_text())} if index_path.exists() else {}
+    done = {(g.get("source"), g.get("source_bytes")) for g in index.values()}
     for path in transcripts(args.transcripts):
+        source = (str(path), path.stat().st_size)
+        if source in done:
+            continue  # converted already and unchanged since
         for game in games(path):
             converted = convert(game, decision_logs(args.decisions, game["reset"]["game_id"]), args.model)
             if converted is None:
@@ -309,7 +311,8 @@ def main(argv: list[str] | None = None) -> int:
             recording, extra = converted
             file = f"{recording['id']}.json"
             (args.out / file).write_text(json.dumps(recording, separators=(",", ":")), encoding="utf-8")
-            index[recording["id"]] = {"id": recording["id"], "file": file, "title": recording["title"], **extra}
+            index[recording["id"]] = {"id": recording["id"], "file": file, "title": recording["title"], **extra,
+                                      "source": source[0], "source_bytes": source[1]}
             print(f"{file}: {recording['title']} ({len(recording['frames'])} decisions)")
     index_path.write_text(json.dumps(sorted(index.values(), key=lambda g: g["id"]), indent=1), encoding="utf-8")
     return 0
