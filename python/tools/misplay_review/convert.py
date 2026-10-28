@@ -180,16 +180,14 @@ class Projector:
         by_attacker = {c["attacker"]: c for c in combat}
         for p in observation["players"]:
             for r in p.get("battlefield") or []:
-                blocking = (r.get("permanent") or {}).get("blocking") or []
-                for target in blocking if isinstance(blocking, list) else [blocking]:
-                    attacker = str(target.get("object_id")) if isinstance(target, dict) else str(target)
+                for attacker in object_refs((r.get("permanent") or {}).get("blocked_attackers") or []):
                     if attacker in by_attacker:
                         by_attacker[attacker]["blockers"].append(str(r["object_id"]))
         stack = []
         for i, s in enumerate(observation.get("stack") or []):
             source = s.get("source")
             source_id = str(source["object_id"]) if isinstance(source, dict) and str(source.get("object_id")) in present else None
-            targets = [str(t["object_id"]) for t in s.get("targets") or [] if isinstance(t, dict) and t.get("object_id") is not None]
+            targets = list(object_refs(s.get("targets") or []))
             name = s.get("card_name") or (source.get("card_name") if isinstance(source, dict) else None) or s.get("text") or s.get("stack_kind") or "Stack item"
             if s.get("text") and s.get("stack_kind") != "spell":
                 name = f"{name}: {s['text']}"
