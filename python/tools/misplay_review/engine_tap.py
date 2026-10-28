@@ -27,7 +27,8 @@ def slim(line: bytes) -> object:
         message = json.loads(line)
     except ValueError:
         return {"unparsed": line.decode("utf-8", "replace")}
-    extensions = message.get("extensions") if isinstance(message, dict) else None
+    decision = message.get("seat_decision") if isinstance(message, dict) else None
+    extensions = decision.get("extensions") if isinstance(decision, dict) else None
     flat = extensions.get("x_kernel_flat_v4") if isinstance(extensions, dict) else None
     if isinstance(flat, dict):
         extensions["x_kernel_flat_v4"] = {k: v for k, v in flat.items() if k not in HEAVY}
