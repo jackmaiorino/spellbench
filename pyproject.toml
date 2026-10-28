@@ -25,6 +25,7 @@ include = ["spellbench*"]
 
 [tool.setuptools.package-data]
 "spellbench.site" = ["og-image.png"]
+"spellbench.human" = ["page.html"]
 
 [tool.uv]
 required-version = ">=0.11.29"

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spellbench Play</title>
+<style>
+:root {
+  --bg: #14161a; --panel: #1d2026; --panel2: #252932; --line: #343a46; --text: #e7e9ee; --dim: #9aa2b1;
+  --you: #5fb3ff; --opp: #ff8a6b; --game: #c9b458; --hi: #ffd84d; --ok: #59d18c; --bad: #ff6161;
+  --card: #2b303b; --land: #2a3a2f; --tapped: #1b1e24;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.35 system-ui, Segoe UI, sans-serif; }
+#app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; grid-template-rows: auto 1fr auto; height: 100vh; }
+#banner { grid-column: 1 / 3; display: flex; gap: 18px; align-items: center; padding: 8px 14px; background: var(--panel);
+  border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+#banner .life { font-size: 26px; font-weight: 700; }
+#banner .you { color: var(--you); } #banner .opp { color: var(--opp); }
+.pill { padding: 2px 8px; border-radius: 10px; background: var(--panel2); color: var(--dim); }
+.pill.on { background: var(--hi); color: #111; font-weight: 600; }
+#phases { display: flex; gap: 3px; }
+#board { overflow: auto; padding: 8px 12px; display: flex; flex-direction: column; gap: 8px; }
+.side { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.side h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: var(--dim); display: flex; gap: 12px; }
+.row { display: flex; flex-wrap: wrap; gap: 5px; min-height: 30px; }
+.card { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px;
+  min-width: 92px; max-width: 150px; cursor: default; user-select: none; }
+.card.land { background: var(--land); }
+.card.tapped { background: var(--tapped); opacity: .6; transform: rotate(4deg); }
+.card .n { font-weight: 600; font-size: 12.5px; }
+.card .m { font-size: 11px; color: var(--dim); }
+.card .pt { position: absolute; right: 5px; bottom: 2px; font-weight: 700; font-size: 12px; }
+.card.ref { border-color: var(--hi); box-shadow: 0 0 0 1px var(--hi); cursor: pointer; }
+.card.atk { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad); }
+.card.blk { border-color: var(--you); box-shadow: 0 0 0 2px var(--you); }
+.card.sel { outline: 2px dashed var(--hi); }
+.badge { display: inline-block; font-size: 10px; padding: 0 4px; border-radius: 4px; background: #000a; margin-right: 2px; }
+.key { display: inline-block; min-width: 18px; text-align: center; font: 600 11px monospace; background: var(--hi); color: #111;
+  border-radius: 3px; padding: 0 3px; margin-right: 4px; }
+#stack .card { min-width: 160px; }
+#side { grid-row: 2 / 3; grid-column: 2; display: flex; flex-direction: column; border-left: 1px solid var(--line); min-height: 0; }
+#action { padding: 10px; background: var(--panel); border-bottom: 1px solid var(--line); max-height: 60%; overflow: auto; }
+#prompt { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+#status { color: var(--dim); }
+.cand { display: block; width: 100%; text-align: left; margin: 2px 0; padding: 5px 8px; background: var(--panel2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px; cursor: pointer; font: inherit; }
+.cand:hover, .cand.hl { border-color: var(--hi); }
+.cand .et { color: var(--dim); font-size: 11px; margin-left: 4px; }
+.btn { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; cursor: pointer; font: inherit; }
+.btn.primary { background: var(--hi); color: #111; border-color: var(--hi); font-weight: 700; }
+#log { flex: 1; overflow: auto; padding: 6px 10px; font-size: 12.5px; }
+#log div { padding: 1px 0; }
+#log .you { color: var(--you); } #log .opp { color: var(--opp); } #log .game { color: var(--game); font-weight: 600; margin-top: 4px; }
+#footer { grid-column: 1 / 3; padding: 4px 12px; background: var(--panel); border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+#stops { display: none; padding: 8px 10px; background: var(--panel2); border-bottom: 1px solid var(--line); font-size: 12px; }
+#stops table { border-collapse: collapse; } #stops td, #stops th { padding: 1px 6px; text-align: center; }
+#overlay { position: fixed; inset: 0; background: #000b; display: none; align-items: center; justify-content: center; z-index: 5; }
+#overlay .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 26px 34px; text-align: center; min-width: 360px; }
+#overlay h1 { margin: 0 0 8px; font-size: 34px; }
+#preview { position: fixed; display: none; z-index: 10; pointer-events: none; width: 244px; border-radius: 10px; box-shadow: 0 6px 24px #000c; }
+#err { color: var(--bad); }
+.combat-list .cand.on { border-color: var(--bad); background: #3a2226; }
+.blockrow { display: flex; gap: 6px; align-items: center; margin: 2px 0; }
+@media (max-width: 900px) { #app { grid-template-columns: 1fr; grid-template-rows: auto auto auto auto; height: auto; }
+  #side { grid-row: auto; grid-column: 1; } #banner, #footer { grid-column: 1; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="banner"></div>
+  <div id="board">
+    <div class="side" id="opp"></div>
+    <div class="side" id="stackbox"><h3>Stack</h3><div class="row" id="stack"></div></div>
+    <div class="side" id="you"></div>
+    <div class="side" id="hand"></div>
+  </div>
+  <div id="side">
+    <div id="stops"></div>
+    <div id="action"><div id="prompt"></div><div id="status"></div><div id="cands"></div><div id="err"></div></div>
+    <div id="log"></div>
+  </div>
+  <div id="footer"><span class="key">Space</span>pass / OK &nbsp; <span class="key">1-9</span>pick &nbsp; <span class="key">Enter</span>confirm
+    &nbsp; <span class="key">A</span>attack with all &nbsp; <span class="key">E</span>pass to end of turn (stops on opp spells)
+    &nbsp; <span class="key">Shift+E</span>skip turn &nbsp; <span class="key">N</span>next game &nbsp; <span class="key">S</span>stops
+    &nbsp; <span class="key">I</span>card images &nbsp; <span class="key">M</span>manual combat</div>
+</div>
+<div id="overlay"><div class="box" id="obox"></div></div>
+<img id="preview" alt="">
+<script>
+"use strict";
+const token = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+let S = null;            // latest state
+let version = -1;
+let hl = 0;              // highlighted candidate index (generic screen)
+let combat = null;       // {seq, kind, attackers:Set} or {seq, kind, blocks:{}, sel}
+let manual = false;      // generic substep list instead of the combat screen
+let previews = localStorage.getItem("sb-previews") !== "0";
+const KEYS = "1234567890bcdfghjklopqrtuvwxyz".split("");
+const PH = {upkeep:"Upk", draw:"Draw", precombat_main:"Main1", beginning_of_combat:"BegC", declare_attackers:"Atk",
+  declare_blockers:"Blk", combat_damage:"Dmg", end_of_combat:"EndC", postcombat_main:"Main2", end_step:"End", cleanup:"Clean",
+  untap:"Untap", pregame:"Pre"};
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(path, body) {
+  const r = await fetch(path + "?t=" + encodeURIComponent(token), {method: "POST", headers: {"Content-Type": "application/json",
+    "X-Human-Token": token}, body: JSON.stringify(body || {})});
+  const j = await r.json().catch(() => ({}));
+  $("err").textContent = j.error || "";
+  return j;
+}
+async function poll() {
+  for (;;) {
+    try {
+      const r = await fetch(`/api/state?since=${version}&t=${encodeURIComponent(token)}`);
+      if (!r.ok) { $("prompt").textContent = "Bad token: open the URL the launcher printed."; return; }
+      const s = await r.json();
+      if (s.version !== version) { version = s.version; setState(s); }
+    } catch (e) { $("status").textContent = "Server not reachable, retrying..."; await new Promise((ok) => setTimeout(ok, 1000)); }
+  }
+}
+function setState(s) {
+  const old = S && S.pending ? S.pending.seq : null;
+  S = s;
+  if (!s.pending || s.pending.seq !== old) { hl = 0; manual = false; combat = null; $("err").textContent = ""; }
+  render();
+}
+const me = () => S.game ? S.game.seat : null;
+const players = () => (S.observation && S.observation.players) || [];
+const player = (mine) => players().find((p) => (p.seat === me()) === mine) || {};
+const refset = () => {
+  const m = new Map();
+  if (!S.pending) return m;
+  S.pending.candidates.forEach((c, i) => c.refs.forEach((r) => { if (!m.has(r)) m.set(r, []); m.get(r).push(i); }));
+  return m;
+};
+
+function cardHtml(c, refs, extra) {
+  const ch = c.characteristics || {}, pm = c.permanent || {};
+  const types = (ch.types || []);
+  const cls = ["card"];
+  if (types.includes("land")) cls.push("land");
+  if (pm.tapped) cls.push("tapped");
+  if (pm.attacking) cls.push("atk");
+  if (pm.blocking) cls.push("blk");
+  if (refs && refs.has(c.object_id)) cls.push("ref");
+  if (extra && extra.sel) cls.push("sel");
+  const badges = [];
+  if (pm.summoning_sick && types.includes("creature") && !(ch.keywords || []).includes("haste")) badges.push("sick");
+  if (pm.damage) badges.push(pm.damage + " dmg");
+  for (const [k, v] of Object.entries(pm.counters || {})) badges.push(`${v}x ${k}`);
+  if (pm.attached_to) badges.push("attached");
+  if (c.token) badges.push("token");
+  const kw = (ch.keywords || []).join(", ");
+  const pt = ch.power != null ? `<span class="pt">${ch.power}/${ch.toughness}</span>` : "";
+  const sub = types.includes("land") ? "" : `${ch.mana_value ?? ""} ${types.join(" ")}${kw ? " · " + kw : ""}`;
+  const key = extra && extra.key ? `<span class="key">${esc(extra.key)}</span>` : "";
+  return `<div class="${cls.join(" ")}" data-id="${esc(c.object_id)}" data-name="${esc(c.card_name || "")}">` +
+    `<div class="n">${key}${esc(c.card_name || "face-down")}</div><div class="m">${esc(sub)}</div>` +
+    `<div class="m">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join("")}</div>${pt}</div>`;
+}
+function zoneSplit(cards) {
+  const lands = cards.filter((c) => (c.characteristics?.types || []).includes("land"));
+  const other = cards.filter((c) => !(c.characteristics?.types || []).includes("land"));
+  return [other, lands];
+}
+function sideHtml(p, mine, refs, marks) {
+  if (!p.seat) return "";
+  const [other, lands] = zoneSplit(p.battlefield || []);
+  const gy = (p.graveyard || []).map((c) => c.card_name).join(", ");
+  const ex = (p.exile || []).map((c) => c.card_name || "face-down").join(", ");
+  const pool = Object.entries(p.mana_pool || {}).filter(([, v]) => v).map(([k, v]) => v + k).join(" ");
+  const card = (c) => cardHtml(c, refs, marks && marks(c));
+  return `<h3><span class="${mine ? "you" : "opp"}" style="color:var(--${mine ? "you" : "opp"})">${mine ? "You" : "Opponent (b512)"}</span>` +
+    `<span>Life ${p.life}</span><span>Hand ${p.hand_count}</span><span>Library ${p.library_count}</span>` +
+    `<span title="${esc(gy)}">Graveyard ${(p.graveyard || []).length}</span>` +
+    (ex ? `<span title="${esc(ex)}">Exile ${(p.exile || []).length}</span>` : "") + (pool ? `<span>Pool ${pool}</span>` : "") + `</h3>` +
+    (mine ? `<div class="row">${other.map(card).join("")}</div><div class="row">${lands.map(card).join("")}</div>`
+          : `<div class="row">${lands.map(card).join("")}</div><div class="row">${other.map(card).join("")}</div>`) +
+    (gy ? `<div class="m" style="color:var(--dim);font-size:11px;margin-top:3px">GY: ${esc(gy)}</div>` : "");
+}
+
+function render() {
+  const o = S.observation || {};
+  const g = S.game;
+  const you = player(true), opp = player(false);
+  const active = o.active_seat === me() ? "you" : "opp";
+  const phases = ["upkeep","draw","precombat_main","beginning_of_combat","declare_attackers","declare_blockers","combat_damage","end_step"]
+    .map((p) => `<span class="pill ${p === o.phase_step || (p === "precombat_main" && o.phase_step === "postcombat_main") ? "on" : ""}">${PH[p]}</span>`).join("");
+  const total = S.games_total ? ` / ${S.games_total}` : "";
+  $("banner").innerHTML = g ? `<span>Game ${g.number}${total}</span>` +
+    `<span><b class="you">You</b> ${esc(g.own_deck)} vs <b class="opp">b512</b> ${esc(g.opp_deck)}</span>` +
+    `<span class="life you">${you.life ?? "-"}</span><span class="life opp">${opp.life ?? "-"}</span>` +
+    `<span>Turn ${o.turn ?? "-"} · <b style="color:var(--${active})">${active === "you" ? "your turn" : "opp turn"}</b></span>` +
+    `<span id="phases">${phases}${o.phase_step === "postcombat_main" ? '<span class="pill on">Main2</span>' : ""}</span>` +
+    `<span id="clock"></span><span>Session ${S.wins}-${S.losses}${S.draws ? "-" + S.draws : ""}</span>` +
+    (S.skip ? `<span class="pill on">${S.skip.hard ? "skipping turn" : "passing to end of turn"}</span>` : "")
+    : `<span>Spellbench play: ${esc(S.label)}</span><span>Session ${S.wins}-${S.losses}</span>`;
+
+  const refs = refset();
+  let marks = null;
+  if (combat && combat.kind === "attack") marks = (c) => ({sel: combat.attackers.has(c.object_id), key: combatKey(c.object_id)});
+  if (combat && combat.kind === "block") marks = (c) => ({sel: combat.sel === c.object_id || combat.blocks[c.object_id] !== undefined, key: combatKey(c.object_id)});
+  $("opp").innerHTML = sideHtml(opp, false, refs, marks);
+  $("you").innerHTML = sideHtml(you, true, refs, marks);
+  $("hand").innerHTML = `<h3>Your hand (${(you.hand || []).length})</h3><div class="row">${(you.hand || []).map((c) => cardHtml(c, refs)).join("")}</div>`;
+  const stack = o.stack || [];
+  $("stackbox").style.display = stack.length ? "" : "none";
+  $("stack").innerHTML = stack.slice().reverse().map((e) => {
+    const who = e.controller_seat === me() ? "you" : "opp";
+    const tg = (e.targets || []).map((t) => !t ? "(gone)" : t.player ? (t.player === me() ? "you" : "opp") : t.object?.card_name).join(", ");
+    return `<div class="card ${refs.has(e.object_id) ? "ref" : ""}" data-id="${esc(e.object_id)}" data-name="${esc(e.card_name || "")}" style="border-left:3px solid var(--${who})">` +
+      `<div class="n">${esc(e.card_name || "?")}</div><div class="m">${esc(e.stack_kind.replace("_", " "))} · ${who}${tg ? " → " + esc(tg) : ""}</div></div>`;
+  }).join("");
+  renderAction();
+  renderLog();
+  renderStops();
+  renderOverlay();
+}
+
+function combatKey(id) {
+  if (!combat) return null;
+  const i = combat.order.indexOf(id);
+  if (i >= 0) return KEYS[i];
+  const j = (combat.targets || []).indexOf(id);
+  return j >= 0 ? "abcdefgh"[j].toUpperCase() : null;
+}
+function candidateCreatures() {
+  return (player(true).battlefield || []).filter((c) => (c.characteristics?.types || []).includes("creature") && !c.permanent?.tapped);
+}
+function renderAction() {
+  const p = S.pending;
+  const st = $("status");
+  if (!S.game) { $("prompt").textContent = S.hello_waiting ? "Ready" : "Waiting for the arena"; st.textContent = S.hello_waiting ? "Press Enter to start." : ""; $("cands").innerHTML = ""; return; }
+  if (!p) {
+    $("prompt").textContent = S.game_over ? "Game over" : "Opponent is thinking...";
+    st.textContent = ""; $("cands").innerHTML = ""; return;
+  }
+  $("prompt").textContent = p.prompt;
+  const screen = manual ? "generic" : p.screen;
+  if (screen === "attack") {
+    if (!combat) {
+      const first = p.candidates[0].semantic.attacker?.object_id;
+      const order = candidateCreatures().filter((c) => !c.permanent?.summoning_sick || (c.characteristics?.keywords || []).includes("haste")).map((c) => c.object_id);
+      if (first && !order.includes(first)) order.unshift(first);
+      combat = {seq: p.seq, kind: "attack", order, attackers: new Set()};
+    }
+    const list = combat.order.map((id, i) => {
+      const c = (player(true).battlefield || []).find((x) => x.object_id === id) || {card_name: id};
+      return `<button class="cand ${combat.attackers.has(id) ? "on" : ""}" data-toggle="${esc(id)}"><span class="key">${KEYS[i]}</span>${esc(c.card_name)}${c.characteristics?.power != null ? ` (${c.characteristics.power}/${c.characteristics.toughness})` : ""}${combat.attackers.has(id) ? " · ATTACKING" : ""}</button>`;
+    }).join("");
+    st.innerHTML = `Toggle attackers, <span class="key">A</span>all, <span class="key">Enter</span>confirm, <span class="key">Space</span>no attack, <span class="key">M</span>one by one`;
+    $("cands").innerHTML = `<div class="combat-list">${list}</div><button class="btn primary" data-confirm="1">Attack with ${combat.attackers.size} (Enter)</button>`;
+    return;
+  }
+  if (screen === "block") {
+    if (!combat) {
+      const first = p.candidates[0].semantic.blocker?.object_id;
+      const order = candidateCreatures().map((c) => c.object_id);
+      if (first && !order.includes(first)) order.unshift(first);
+      const targets = [];
+      p.candidates.forEach((c) => { const a = c.semantic.attacker?.object_id; if (a && !targets.includes(a)) targets.push(a); });
+      (player(false).battlefield || []).forEach((c) => { if (c.permanent?.attacking && !targets.includes(c.object_id)) targets.push(c.object_id); });
+      combat = {seq: p.seq, kind: "block", order, targets, blocks: {}, sel: null};
+    }
+    const name = (id) => { for (const pl of players()) { const c = (pl.battlefield || []).find((x) => x.object_id === id); if (c) return c; } return {card_name: id}; };
+    const atk = combat.targets.map((id, j) => { const c = name(id); return `<span class="pill"><span class="key">${"ABCDEFGH"[j]}</span>${esc(c.card_name)} ${c.characteristics?.power ?? ""}/${c.characteristics?.toughness ?? ""}</span>`; }).join(" ");
+    const rows = combat.order.map((id, i) => {
+      const c = name(id), b = combat.blocks[id];
+      return `<button class="cand ${combat.sel === id ? "hl" : ""} ${b ? "on" : ""}" data-blocker="${esc(id)}"><span class="key">${KEYS[i]}</span>${esc(c.card_name)} ${c.characteristics?.power ?? ""}/${c.characteristics?.toughness ?? ""}${b ? " blocks " + esc(name(b).card_name) : ""}</button>`;
+    }).join("");
+    st.innerHTML = `Attackers: ${atk}<br>Pick a blocker (number), then its attacker (letter). <span class="key">Enter</span>confirm, <span class="key">Space</span>no blocks, <span class="key">M</span>one by one`;
+    $("cands").innerHTML = rows + `<button class="btn primary" data-confirm="1">Confirm ${Object.keys(combat.blocks).length} block(s) (Enter)</button>`;
+    return;
+  }
+  const pass = p.candidates.findIndex((c) => c.kind === "pass");
+  let k = 0;
+  const keyOf = p.candidates.map((c) => c.kind === "pass" ? "Space" : KEYS[k++] || "");
+  st.innerHTML = p.context?.kind === "priority" ? `<span class="key">Space</span>pass · <span class="key">E</span>pass to end of turn` : "";
+  $("cands").innerHTML = p.candidates.map((c, i) =>
+    `<button class="cand ${i === hl ? "hl" : ""}" data-cand="${i}" title="${esc(c.engine_text || "")}"><span class="key">${esc(keyOf[i])}</span>${esc(c.text)}${c.engine_text && c.engine_text !== c.text ? `<span class="et">${esc(c.engine_text)}</span>` : ""}</button>`).join("");
+  tickClock();
+}
+function renderLog() {
+  const box = $("log");
+  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 30;
+  box.innerHTML = S.log.map((l) => `<div class="${l.side}">${esc(l.text)}</div>`).join("");
+  if (atBottom) box.scrollTop = box.scrollHeight;
+}
+function renderStops() {
+  const s = S.stops;
+  const rows = S.phases.map((ph) => `<tr><td style="text-align:left">${PH[ph] || ph}</td>` + ["own", "opp"].map((side) =>
+    `<td><input type="checkbox" data-stop="${side}_${ph}" ${s[`${side}_${ph}`] ? "checked" : ""}></td>`).join("") + `</tr>`).join("");
+  $("stops").innerHTML = `<b>Stops</b> (where priority waits for you; choices always wait)<table><tr><th></th><th>your turn</th><th>opp turn</th></tr>${rows}</table>` +
+    `<label><input type="checkbox" data-stop="opp_stack" ${s.opp_stack ? "checked" : ""}> opponent spells and abilities on the stack</label><br>` +
+    `<label><input type="checkbox" data-stop="own_stack" ${s.own_stack ? "checked" : ""}> your own spells on the stack</label>`;
+}
+function renderOverlay() {
+  const ov = $("overlay"), box = $("obox");
+  const results = S.results.map((r) => r.result === "win" ? "W" : r.result === "loss" ? "L" : "D").join(" ");
+  if (S.game_over && (S.hello_waiting || !S.pending)) {
+    const r = S.game_over.result;
+    box.innerHTML = `<h1 style="color:var(--${r === "win" ? "ok" : r === "loss" ? "bad" : "game"})">${r === "win" ? "You win" : r === "loss" ? "You lose" : "Draw"}</h1>` +
+      `<div>${esc(S.game_over.classification)}: ${esc(S.game_over.reason)}</div><p>Session ${S.wins}-${S.losses}${S.draws ? "-" + S.draws : ""} &nbsp; ${results}</p>` +
+      (S.games_total && S.results.length >= S.games_total ? `<p>Session complete.</p>` : `<p><button class="btn primary" data-next="1">Next game (N or Enter)</button></p>`);
+    ov.style.display = "flex";
+  } else if (!S.game && S.hello_waiting) {
+    box.innerHTML = `<h1>Ready</h1><p>${esc(S.label)}</p><p><button class="btn primary" data-next="1">Start (Enter)</button></p>`;
+    ov.style.display = "flex";
+  } else ov.style.display = "none";
+}
+function tickClock() {
+  const el = $("clock");
+  if (!el || !S || !S.clock || S.clock.remaining_ms == null) return;
+  let ms = S.clock.remaining_ms;
+  if (S.pending) ms -= Date.now() - S.pending.received_at;
+  const m = Math.max(0, Math.floor(ms / 60000)), s = Math.max(0, Math.floor(ms / 1000) % 60);
+  el.innerHTML = `Clock <b style="color:${ms < 120000 ? "var(--bad)" : "inherit"}">${m}:${String(s).padStart(2, "0")}</b>`;
+}
+setInterval(tickClock, 500);
+
+function choose(i) {
+  const p = S.pending; if (!p || i < 0 || i >= p.candidates.length) return;
+  api("/api/answer", {seq: p.seq, candidate_id: p.candidates[i].id});
+}
+function confirmCombat(empty) {
+  const p = S.pending; if (!p || !combat) return;
+  if (combat.kind === "attack") api("/api/plan", {seq: p.seq, plan: {kind: "attack", attackers: empty ? [] : [...combat.attackers]}});
+  else api("/api/plan", {seq: p.seq, plan: {kind: "block", blocks: empty ? {} : combat.blocks}});
+}
+function control(action, extra) { api("/api/control", Object.assign({action}, extra || {})); }
+
+document.addEventListener("keydown", (ev) => {
+  if (ev.target.tagName === "INPUT") return;
+  if (ev.ctrlKey || ev.altKey || ev.metaKey) return;
+  const k = ev.key.toLowerCase();
+  const p = S && S.pending;
+  if ((k === "n" || k === "enter") && (!S.game || (S.game_over && !p))) { control(S.game ? "next" : "start"); ev.preventDefault(); return; }
+  if (k === "s") { const st = $("stops"); st.style.display = st.style.display === "block" ? "none" : "block"; return; }
+  if (k === "i") { previews = !previews; localStorage.setItem("sb-previews", previews ? "1" : "0"); return; }
+  if (k === "e") { control(ev.shiftKey ? "skip_turn" : "pass_turn"); ev.preventDefault(); return; }
+  if (!p) return;
+  const screen = manual ? "generic" : p.screen;
+  if (k === "m" && (p.screen === "attack" || p.screen === "block")) { manual = !manual; combat = null; render(); return; }
+  if (screen === "attack" && combat) {
+    if (k === "a") { combat.order.forEach((id) => combat.attackers.add(id)); render(); }
+    else if (k === "enter") confirmCombat(false);
+    else if (k === " ") confirmCombat(true);
+    else if (k === "escape") { combat.attackers.clear(); render(); }
+    else { const i = KEYS.indexOf(k); if (i >= 0 && i < combat.order.length) { const id = combat.order[i]; combat.attackers.has(id) ? combat.attackers.delete(id) : combat.attackers.add(id); render(); } }
+    ev.preventDefault(); return;
+  }
+  if (screen === "block" && combat) {
+    const j = "abcdefgh".indexOf(k);
+    if (k === "enter") confirmCombat(false);
+    else if (k === " ") confirmCombat(true);
+    else if (k === "escape") { combat.blocks = {}; combat.sel = null; render(); }
+    else if (j >= 0 && j < combat.targets.length && combat.sel) { const t = combat.targets[j];
+      if (combat.blocks[combat.sel] === t) delete combat.blocks[combat.sel]; else combat.blocks[combat.sel] = t; combat.sel = null; render(); }
+    else { const i = KEYS.indexOf(k); if (i >= 0 && i < combat.order.length) { combat.sel = combat.order[i]; render(); } }
+    ev.preventDefault(); return;
+  }
+  if (k === " ") { const i = p.candidates.findIndex((c) => c.kind === "pass"); choose(i >= 0 ? i : (p.candidates.length === 1 ? 0 : -1)); ev.preventDefault(); return; }
+  if (k === "enter") { choose(hl); ev.preventDefault(); return; }
+  if (k === "arrowdown") { hl = Math.min(p.candidates.length - 1, hl + 1); renderAction(); ev.preventDefault(); return; }
+  if (k === "arrowup") { hl = Math.max(0, hl - 1); renderAction(); ev.preventDefault(); return; }
+  const nonpass = p.candidates.map((c, i) => [c, i]).filter(([c]) => c.kind !== "pass");
+  const i = KEYS.indexOf(k);
+  if (i >= 0 && i < nonpass.length) { choose(nonpass[i][1]); ev.preventDefault(); }
+});
+document.addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-cand],[data-toggle],[data-confirm],[data-blocker],[data-next],[data-id],[data-stop]");
+  if (!t || !S) return;
+  if (t.dataset.stop) { control("stops", {stops: {[t.dataset.stop]: t.checked}}); return; }
+  if (t.dataset.next) { control(S.game ? "next" : "start"); return; }
+  if (t.dataset.cand !== undefined) { choose(+t.dataset.cand); return; }
+  if (t.dataset.confirm) { confirmCombat(false); return; }
+  if (t.dataset.toggle && combat) { const id = t.dataset.toggle; combat.attackers.has(id) ? combat.attackers.delete(id) : combat.attackers.add(id); render(); return; }
+  if (t.dataset.blocker && combat) { combat.sel = t.dataset.blocker; render(); return; }
+  if (t.dataset.id && S.pending) {
+    const id = t.dataset.id;
+    if (combat && combat.kind === "attack" && combat.order.includes(id)) { combat.attackers.has(id) ? combat.attackers.delete(id) : combat.attackers.add(id); render(); return; }
+    if (combat && combat.kind === "block") {
+      if (combat.order.includes(id)) { combat.sel = id; render(); return; }
+      if (combat.targets.includes(id) && combat.sel) { combat.blocks[combat.sel] = id; combat.sel = null; render(); return; }
+    }
+    const hits = S.pending.candidates.map((c, i) => [c, i]).filter(([c]) => c.refs.includes(id));
+    if (hits.length === 1) choose(hits[0][1]);
+    else if (hits.length > 1) { hl = hits[0][1]; renderAction(); }
+  }
+});
+document.addEventListener("mouseover", (ev) => {
+  const t = ev.target.closest("[data-name]"), img = $("preview");
+  if (!t || !previews || !t.dataset.name) { img.style.display = "none"; return; }
+  const name = t.dataset.name;
+  if (img.dataset.name !== name) { img.dataset.name = name;
+    img.src = "https://api.scryfall.com/cards/named?format=image&version=normal&exact=" + encodeURIComponent(name); }
+  const r = t.getBoundingClientRect();
+  img.style.left = Math.min(window.innerWidth - 250, r.right + 8) + "px";
+  img.style.top = Math.max(4, Math.min(window.innerHeight - 345, r.top - 40)) + "px";
+  img.style.display = "block";
+});
+poll();
+</script>
+</body>
+</html>
