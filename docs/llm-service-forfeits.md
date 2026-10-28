@@ -25,9 +25,13 @@ full reservation charged.
 
 The v5 policy also freezes `max_consecutive_forfeits` N, which the command must
 repeat as `--max-consecutive-forfeits N`. When the last N settled requests of
-the active ledger are all forfeits of any kind, admission refuses with
+the active ledger are all provider-failure forfeits (timeout, HTTP503 or another
+transient provider failure), admission refuses with
 `run_budget_forfeit_streak` and fails the budget (`hosted_broker_failed`), so the
 run aborts unrated. A completed request resets the streak; pending ones are skipped.
+The streak counts requests, not games: a per-game token-cap forfeit settles no
+request, and a malformed or unoffered choice comes from a completed request, so
+neither counts, and other games' requests interleave with up to N in flight.
 
 Continuations, transfers and recoveries keep this policy and N exactly, with one
 exception: `increase_failed_run_limits(..., enable_provider_failure_forfeits=True,
