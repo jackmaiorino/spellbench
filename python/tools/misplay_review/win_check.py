@@ -105,16 +105,16 @@ def check_game(records, engine_module, args, out):
             budget = args.focus_nodes if focus else args.nodes
             started = time.perf_counter()
             result = peer.request({"request_type": "win_search", "game_id": engine.game, "expected_step": native["step"],
-                                   "max_nodes": budget, "max_depth": args.depth})
+                                   "max_nodes": budget, "max_depth": args.depth,
+                                   "world_seeds": [(native["step"] << 8) + k for k in range(args.worlds)]})
             if result.get("response_type") != "private_win_search":
                 raise RuntimeError(f"bridge refused win_search: {result}")
             obs = sd["observation"]
             row = {"runtime": args.runtime, "source": "spellbench", "game_id": reset["game_id"], "hero": hero, "deck": deck, "decision": f"d{decision_index}",
                    "native_step": native["step"], "turn": obs["turn"], "phase": obs["phase_step"],
-                   "screen": focus, "verdict": result["verdict"], "completed": result["completed"],
-                   "nodes": result["nodes"], "max_nodes": budget, "max_depth": args.depth,
-                   "depth_cuts": result["depth_cuts"], "forced_order_collapses": result["forced_order_collapses"],
-                   "line": result["line"], "seconds": round(time.perf_counter() - started, 3)}
+                   "screen": focus, "verdict": result["oracle"]["verdict"], "oracle": result["oracle"],
+                   "robust": result["robust"], "max_nodes": budget, "max_depth": args.depth,
+                   "seconds": round(time.perf_counter() - started, 3)}
             rows.append(row)
             out.write(json.dumps(row) + "\n")
             out.flush()
@@ -163,6 +163,7 @@ def main(argv=None) -> int:
     parser.add_argument("--nodes", type=int, default=2000)
     parser.add_argument("--focus-nodes", type=int, default=200000)
     parser.add_argument("--depth", type=int, default=400)
+    parser.add_argument("--worlds", type=int, default=4, help="resampled worlds for the robust estimand")
     args = parser.parse_args(argv)
     sys.path.insert(0, str(args.engine_py.parent))
     spec = importlib.util.spec_from_file_location("kernel_engine_v2", args.engine_py)
