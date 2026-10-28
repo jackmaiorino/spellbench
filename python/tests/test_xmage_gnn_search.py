@@ -273,3 +273,11 @@ def test_the_java_lone_target_follows_the_original_make_choice_options():
     assert "if (target.isChosen(game)) possible.add(GameAccess.STOP_CHOOSING);" in replay
     assert "if (possible.size() == 1) {" in replay
     assert f'LONE_TARGET = "{search.LONE_TARGET}"' in main
+
+
+def test_replayed_zone_changes_bind_the_received_ids_to_their_world_objects():
+    # A spell resolved during the replay is a new object id in the received callback (Apothecary Stomper's
+    # own enter trigger targets it); the compare binds only ids the world does not know yet.
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchReplay.java").read_text()
+    assert "bindNewIds(projected, current);" in java
+    assert "if (uuid != null && !world.idToUuid.containsKey(e.getValue())) {" in java

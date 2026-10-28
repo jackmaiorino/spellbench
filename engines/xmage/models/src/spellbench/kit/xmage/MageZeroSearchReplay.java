@@ -120,11 +120,26 @@ final class MageZeroSearchReplay {
                 if (!diff.isEmpty()) {
                     throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
                 }
+                bindNewIds(projected, current);
                 if (tolerated && !world.flags.contains("approximate:unexplained_characteristics_callback")) {
                     world.flags.add("approximate:unexplained_characteristics_callback");
                 }
             } catch (RuntimeException e) { throw e; }
             catch (Exception e) { throw new IllegalStateException("callback replay projection failed", e); }
+        }
+        /**
+         * The received ids of objects that changed zones during the replay (a resolved spell's permanent, a trigger
+         * on the stack) name the same world objects as the replayed ids: the observations are equal modulo ids. Only
+         * ids the world does not know yet are bound, so a tolerated permutation of identical tapped permanents is not.
+         */
+        private void bindNewIds(Map<String, Object> projected, Map<String, Object> received) {
+            for (Map.Entry<String, String> e : ObsCompare.alignIds(projected, received).entrySet()) {
+                UUID uuid = world.idToUuid.get(e.getKey());
+                if (uuid != null && !world.idToUuid.containsKey(e.getValue())) {
+                    world.idToUuid.put(e.getValue(), uuid);
+                    world.uuidToId.put(uuid, e.getValue());
+                }
+            }
         }
         /**
          * A power, toughness or keyword difference this object already had at the anchor (WorldBuilder cannot rebuild an
