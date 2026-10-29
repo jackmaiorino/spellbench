@@ -18,8 +18,9 @@ from xmage_neural_combat import (CombatPlan as PermittedPlan, combat_request as 
                                  select_candidate, validate_result as validate_combat)
 from xmage_neural_decisions import close_resources
 from xmage_neural_rpc import NeuralSession
+from xmage_neural_decisions import decision_hash
 from xmage_neural_search import (root_family, search_request as checked_request,
-                                 search_result as checked_result)
+                                 search_result as checked_result, validate_replay_proof)
 
 PROFILE = "draftzero-gnn-pimc-tree-v1"
 READY = {"ready": True, "search": "draftzero-gnn-pimc-mixed", "operations": ["search", "combat"], "profile": PROFILE}
@@ -97,6 +98,32 @@ def unsupported_result(record: dict, result: dict, calls: int) -> dict:
             raise ValueError("graph search refused a world without a horizon or unsupported flag")
     return {"selection": declining(record["decision"]), "neural_calls": 0, "world_flags": [flag],
             "fallback": "kit_declining_unsearched_world", "unsupported": refusal}
+
+
+LONE_TARGET = "original lone possible target"
+
+
+def lone_target_result(record: dict, result: dict, calls: int) -> dict:
+    """The original player's own answer to a target callback with one possible option (MCTSPlayer.makeChoice takes it
+    without a search node). The engine offers more, such as a library search's finish, which the original never
+    offers before the search's minimum. Java replayed the callback and compared its observation; no network call."""
+    decision = record["decision"]
+    selection = result.get("selection")
+    flags = result.get("world_flags")
+    if (set(result) != {"forced", "selection", "decision_sha256", "neural_calls", "world_flags", "replay"}
+            or result["forced"] != LONE_TARGET or root_family(decision) != "target"
+            or type(calls) is not int or calls != 0 or type(result["neural_calls"]) is not int
+            or result["neural_calls"] != 0 or result["decision_sha256"] != decision_hash(decision)
+            or not isinstance(selection, dict) or len(decision["candidates"]) < 2
+            or not isinstance(flags, list)
+            or any(not isinstance(f, str) or f.startswith(("horizon:", "unsupported:")) for f in flags)):
+        raise ValueError("graph search reported an invalid original lone target")
+    offered = [c for c in decision["candidates"] if type(selection.get("candidate_id")) is int
+               and c["candidate_id"] == selection["candidate_id"] and c["semantic"] == selection.get("semantic_echo")]
+    if len(offered) != 1:
+        raise ValueError("original lone target is unoffered or changed")
+    validate_replay_proof(record, result)
+    return copy.deepcopy(result)
 
 
 class DecliningPlan:
@@ -216,7 +243,8 @@ class BridgeSession(NeuralSession):
             request = search_request(record, settings)
             return self.exchange({**request, "operation": "search"}, timeout_s=timeout_s,
                                  validate=lambda result, calls: unsupported_result(record, result, calls)
-                                 if "unsupported" in result else report_unmatched(
+                                 if "unsupported" in result else lone_target_result(record, result, calls)
+                                 if "forced" in result else report_unmatched(
                                      search_result(record, result, request["settings"], calls)))
         except BaseException:
             self.failed = True
@@ -257,6 +285,8 @@ def profile(settings: dict) -> dict:
                                "own draws the callback shows are pinned to the sampled library's top",
         "step_triggers": "an own trigger's callback as the next step begins replays the recorded empty-stack pass "
                          "and the other seat's pass; Java compares the callback's whole observation",
+        "lone_targets": "a target callback the original player answers itself (one possible option, as a library "
+                        "search's one match before its minimum) takes that option without a search",
         "full_game_qualified": False,
     }
 

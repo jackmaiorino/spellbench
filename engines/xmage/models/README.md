@@ -1083,3 +1083,12 @@ callback's source among them. Java reaches the callback and compares its whole
 observation before any search. A skipped step, a new turn or any other stack
 still refuses. Search refusals for an uncovered root or an unmapped callback
 branch now name the differing actions.
+
+Lone targets and limited ability uses (MageZero and graph frontends). MageZero's
+makeChoice takes a lone possible target without a search node; a library search
+before its minimum offers no stop, so one matching card is that lone target. The
+replay answers such a callback with that option and no network call, and the
+graph frontend checks the offered selection, decision hash and replay proof.
+Rebuilt worlds also restore this seat's confirmed uses of its permanents'
+activated abilities (x_history.ability_uses), which XMage counts per ability for
+"activate only once" and once-each-turn limits.

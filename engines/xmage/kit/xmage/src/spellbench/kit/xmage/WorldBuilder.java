@@ -4,6 +4,7 @@ import mage.MageObject;
 import mage.Mana;
 import mage.abilities.Ability;
 import mage.abilities.ActivatedAbility;
+import mage.abilities.ActivatedAbilityImpl;
 import mage.abilities.Modes;
 import mage.abilities.SpellAbility;
 import mage.abilities.TriggeredAbility;
@@ -818,7 +819,9 @@ public final class WorldBuilder {
 
     /**
      * Activation usage (Section 3.3): the viewer's loyalty activations this turn are own-history (selected by the kit
-     * and confirmed by the loyalty change); another seat's planeswalkers are approximate.
+     * and confirmed by the loyalty change); another seat's planeswalkers are approximate. The viewer's confirmed uses
+     * of its permanents' activated abilities ({@code x_history.ability_uses}) restore XMage's activation counts, which
+     * limit an "activate only once" or once-each-turn ability.
      */
     private void ownHistory() {
         if (spec.history != null) {
@@ -830,12 +833,40 @@ public final class WorldBuilder {
                     flag("own_history:loyalty_used");
                 }
             }
+            for (Object o : Json.arr(spec.history, "ability_uses")) {
+                abilityUse(Json.obj(o));
+            }
         }
         for (Permanent p : game.getBattlefield().getAllPermanents()) {
             if (p.isPlaneswalker(game) && !p.getControllerId().equals(world.player(world.viewer))) {
                 flag("approximate:activation_usage_other_seat");
             }
         }
+    }
+
+    /** One own ability's activation count, as ActivatedAbilityImpl.activate stores it (keyed by its original id). */
+    private void abilityUse(Map<String, Object> use) {
+        UUID u = world.idToUuid.get(Json.str(use, "object_id"));
+        Permanent p = u == null ? null : game.getPermanent(u);
+        ActivatedAbilityImpl used = null;
+        if (p != null && p.isControlledBy(world.player(world.viewer))) {
+            for (Ability a : p.getAbilities(game)) {
+                if (a instanceof ActivatedAbilityImpl && a.getAbilityType() == AbilityType.ACTIVATED_NONMANA
+                        && mage.player.spellbench.decide.KitBridge.abilityIndex(game, a) == Json.num(use, "ability_index", -1)) {
+                    used = (ActivatedAbilityImpl) a;
+                }
+            }
+        }
+        long turn = Json.num(use, "turn", -1), thisTurn = Json.num(use, "this_turn", -1), total = Json.num(use, "total", -1);
+        if (used == null || turn < 0 || thisTurn < 1 || total < thisTurn) {
+            flag("approximate:ability_use_unmatched");
+            return;
+        }
+        String id = used.getOriginalId().toString();
+        game.getState().setValue(mage.util.CardUtil.getCardZoneString("activationsTurn" + id, used.getSourceId(), game), (int) turn);
+        game.getState().setValue(mage.util.CardUtil.getCardZoneString("activationsCount" + id, used.getSourceId(), game), (int) thisTurn);
+        game.getState().setValue(mage.util.CardUtil.getCardZoneString("totalActivations" + id, used.getSourceId(), game), (int) total);
+        flag("own_history:ability_uses");
     }
 
     /** The world UUID of a v2 target reference ({"player": seat} or {"object": ref}), or null. */

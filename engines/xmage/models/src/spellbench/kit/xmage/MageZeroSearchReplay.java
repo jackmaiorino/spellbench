@@ -10,7 +10,12 @@ import mage.cards.Card;
 import mage.cards.Cards;
 import mage.choices.Choice;
 import mage.constants.Outcome;
+import mage.game.ExileZone;
 import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.game.stack.StackObject;
+import mage.player.spellbench.observe.Observation;
+import mage.players.Player;
 import spellbench.models.magezero.v02.encoder.ActionEncoder;
 import mage.target.Target;
 import mage.target.TargetAmount;
@@ -69,6 +74,11 @@ final class MageZeroSearchReplay {
         int replayed;
         int binaryCallbacks;
         boolean libraryFailToFindExcluded;
+        /**
+         * The original MCTSPlayer.makeChoice takes a lone possible target without a search node (a library search
+         * before its minimum offers no stop, so one matching card is that lone target). Set instead of chosen.
+         */
+        UUID loneTarget;
         Integer numericMinimum;
         boolean numericRangeRestricted;
         Map<String, Map<String, Object>> namedActions;
@@ -95,8 +105,10 @@ final class MageZeroSearchReplay {
                 throw new IllegalArgumentException("replay callback belongs to another seat");
             }
             try {
-                Map<String, Object> projected = RoundTrip.project(world, RoundTrip.flagsFrom(received),
+                Observation projection = RoundTrip.observe(world, RoundTrip.flagsFrom(received),
                         Json.str(current, "priority_seat"), Json.arr(current, "known"));
+                @SuppressWarnings("unchecked")
+                Map<String, Object> projected = (Map<String, Object>) Json.copy(projection.json());
                 List<String> diff = new ArrayList<>();
                 boolean tolerated = false;
                 List<String> tapped = new ArrayList<>();
@@ -115,11 +127,42 @@ final class MageZeroSearchReplay {
                 if (!diff.isEmpty()) {
                     throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
                 }
+                bindNewIds(projection, projected, current);
                 if (tolerated && !world.flags.contains("approximate:unexplained_characteristics_callback")) {
                     world.flags.add("approximate:unexplained_characteristics_callback");
                 }
             } catch (RuntimeException e) { throw e; }
             catch (Exception e) { throw new IllegalStateException("callback replay projection failed", e); }
+        }
+        /**
+         * The received ids of objects that changed zones during the replay (a resolved spell's permanent, a trigger
+         * on the stack) name the same world objects as the replayed ids: the observations are equal modulo ids. The
+         * projection names objects by its own ids, so each world object is looked up there. Only ids the world does
+         * not know yet are bound, so a tolerated permutation of identical tapped permanents is not; a spell and its
+         * card share one reference, and both then name the received id.
+         */
+        private void bindNewIds(Observation projection, Map<String, Object> projected, Map<String, Object> received) {
+            Map<String, String> aligned = ObsCompare.alignIds(projected, received);
+            Game game = world.game;
+            List<UUID> objects = new ArrayList<>();
+            for (StackObject object : game.getStack()) objects.add(object.getId());
+            for (Permanent object : game.getBattlefield().getAllPermanents()) objects.add(object.getId());
+            for (Player player : game.getPlayers().values()) {
+                objects.addAll(player.getHand());
+                objects.addAll(player.getGraveyard());
+            }
+            for (ExileZone zone : game.getExile().getExileZones()) objects.addAll(zone);
+            java.util.Set<String> bound = new java.util.HashSet<>();
+            for (UUID uuid : objects) {
+                Map<String, Object> ref = projection.reference(uuid);
+                String id = ref == null ? null : aligned.get(Json.str(ref, "object_id"));
+                if (id == null) continue;
+                if (!world.idToUuid.containsKey(id)) {
+                    world.idToUuid.put(id, uuid);
+                    bound.add(id);
+                }
+                if (bound.contains(id)) world.uuidToId.put(uuid, id);
+            }
         }
         /**
          * A power, toughness or keyword difference this object already had at the anchor (WorldBuilder cannot rebuild an
@@ -276,6 +319,15 @@ final class MageZeroSearchReplay {
             replay.compare(game);
             replay.libraryFailToFindExcluded = target instanceof TargetCardInLibrary && !target.isChosen(game)
                     && "search".equals(Json.str(Json.obj(replay.decision, "context"), "purpose"));
+            // MCTSPlayer.makeChoice's own options: possible targets not yet chosen, plus stop once the target is chosen.
+            java.util.Set<UUID> possible = new java.util.HashSet<>();
+            for (UUID id : target.possibleTargets(controller, source, game, cards)) if (!target.contains(id)) possible.add(id);
+            if (target.isChosen(game)) possible.add(GameAccess.STOP_CHOOSING);
+            if (possible.size() == 1) {
+                replay.player = this;
+                replay.loneTarget = possible.iterator().next();
+                throw new Stop();
+            }
             String text = (source == null ? "null" : source.getRule()) + ":Choose a target:" + target.getTargetName();
             replay.player = this;
             configureSearch(replay);
@@ -714,7 +766,7 @@ final class MageZeroSearchReplay {
         } catch (Failure failure) {
             throw failure.failure;
         } catch (Stop stop) {
-            if (result.chosen == null || result.replayed != result.earlier.size()) {
+            if ((result.chosen == null) == (result.loneTarget == null) || result.replayed != result.earlier.size()) {
                 throw new IllegalArgumentException("callback replay did not complete its recorded prefix");
             }
             return result;

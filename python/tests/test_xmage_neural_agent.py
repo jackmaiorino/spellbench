@@ -374,6 +374,50 @@ def test_visible_name_and_loyalty_history_never_uses_hidden_hand_or_unconfirmed_
     assert history.fields(observation)["loyalty_used"] == []
 
 
+def test_ability_uses_count_only_activations_confirmed_on_the_stack_for_permanents_still_here():
+    history = agent.PublicHistory("p0")
+    own = {"seat": "p0", "battlefield": [{"object_id": "librarian", "card_name": "Mild-Mannered Librarian"}]}
+    observation = {"viewer": "p0", "turn": 10, "phase_step": "precombat_main",
+                   "players": [own, {"seat": "p1", "hand": None}], "stack": []}
+    ability = {"object_id": "o-ability", "stack_kind": "activated_ability", "source": {"object_id": "librarian"}}
+    use = {"candidate_id": 2, "semantic_echo": {"kind": "activate_ability", "ability_index": 0,
+                                                 "source": {"object_id": "librarian"}}}
+
+    def activate(confirmed):
+        history.observe(observation)
+        history.selected({"context": {"kind": "priority"}, "observation": copy.deepcopy(observation)}, use)
+        observation["stack"] = [ability] if confirmed else []
+        history.observe(observation)
+        observation["stack"] = []
+        history.observe(observation)
+
+    activate(False)                                   # a cancelled activation never reaches the stack
+    assert "ability_uses" not in history.fields(observation)
+    activate(True)
+    activate(True)
+    assert history.fields(observation)["ability_uses"] == [
+        {"object_id": "librarian", "ability_index": 0, "turn": 10, "this_turn": 2, "total": 2}]
+    observation["turn"] = 11
+    activate(True)                                    # a new turn restarts this turn's count, not the total
+    assert history.fields(observation)["ability_uses"] == [
+        {"object_id": "librarian", "ability_index": 0, "turn": 11, "this_turn": 1, "total": 3}]
+    history.selected({"context": {"kind": "priority"}, "observation": copy.deepcopy(observation)}, use)
+    observation["turn"] = 12                          # a pending use expires with its turn
+    observation["stack"] = [ability]
+    history.observe(observation)
+    assert history.fields(observation)["ability_uses"][0]["total"] == 3
+    own["battlefield"] = []                           # a permanent that left is a new object if it returns
+    assert "ability_uses" not in history.fields(observation)
+
+
+def test_world_builder_restores_own_ability_uses_as_xmage_stores_them():
+    java = (Path(__file__).parents[2] / "engines/xmage/kit/xmage/src/spellbench/kit/xmage/WorldBuilder.java").read_text()
+    # ActivatedAbilityImpl.setActivationInfo: three state values keyed by the ability's original id and source zone.
+    for key in ("activationsTurn", "activationsCount", "totalActivations"):
+        assert f'getCardZoneString("{key}" + id, used.getSourceId(), game)' in java
+    assert 'Json.arr(spec.history, "ability_uses")' in java and "p.isControlledBy(world.player(world.viewer))" in java
+
+
 @pytest.mark.parametrize("fault", ["checkpoint", "hidden-deck", "missing-passes"])
 def test_startup_refuses_unbound_checkpoint_or_forbidden_deck_information(fault):
     session = Session(checkpoint="wrong" if fault == "checkpoint" else CHECKPOINT)

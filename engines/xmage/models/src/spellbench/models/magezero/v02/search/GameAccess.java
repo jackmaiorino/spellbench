@@ -68,6 +68,16 @@ public final class GameAccess {
     public static boolean manualTap(Player player) {
         return player instanceof ComputerPlayer && ((ComputerPlayer) player).isManualTappingAI();
     }
+    /** A tree node's decision without unboxing its unset actions (a refusal message names what was searched). */
+    public static String describe(MCTSNode node) {
+        if (node == null) return "null";
+        return node.actionType + " by " + node.playerId + " (priority " + node.getPriorityAction() + ", target "
+                + node.getTargetAction() + ", choice " + node.getChoiceAction() + ")";
+    }
+    public static String describe(PlayerScript script) {
+        return "targets " + script.targetSequence + ", choices " + script.choiceSequence + ", uses " + script.useSequence
+                + ", numbers " + script.numSequence + ", priority " + script.prioritySequence;
+    }
     public static String entityName(Game game, UUID id, UUID viewer) { return Exp1Compat.entityName(game, id, viewer); }
     public static String entityValue(Game game, UUID id, UUID viewer) {
         String name = entityName(game, id, viewer);
