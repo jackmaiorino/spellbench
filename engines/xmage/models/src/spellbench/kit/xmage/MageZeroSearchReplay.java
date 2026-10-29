@@ -253,7 +253,8 @@ final class MageZeroSearchReplay {
         }
         void priority(String seat, SearchPlayer p, Game game) {
             if (passes.isEmpty() || !seat.equals(passes.removeFirst())) {
-                throw new IllegalArgumentException("unrecorded or reordered priority during callback replay");
+                // The replayed game reached a priority the received history does not hold: it does not reproduce it.
+                throw new IllegalArgumentException("callback replay diverges: unrecorded or reordered priority");
             }
             p.pass(game);
         }

@@ -205,7 +205,7 @@ def test_library_fail_to_find_binds_the_graph_frontends_own_reason():
                         minimum_visits=False, source_label="graph network")
     java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
     assert 'String source = graph == null ? "MageZero" : "graph network";' in java
-    assert java.count('"original " + source + " ') == 2 and "original MageZero library" not in java
+    assert java.count('"original " + source + " ') == 3 and "original MageZero library" not in java
 
 
 def lone_target_fixture():
@@ -283,3 +283,71 @@ def test_replayed_zone_changes_bind_the_received_ids_to_their_world_objects():
     assert "bindNewIds(projection, projected, current);" in java
     assert 'String id = ref == null ? null : aligned.get(Json.str(ref, "object_id"));' in java
     assert "if (!world.idToUuid.containsKey(id)) {" in java
+
+
+def food(object_id):
+    return {"kind": "activate_ability", "ability_index": 0,
+            "source": {"card_name": "Food Token", "controller_seat": "p0", "object_id": object_id,
+                       "owner_seat": "p0", "zone": "battlefield"}}
+
+
+def test_a_duplicate_activation_hidden_by_the_original_playable_list_is_excluded():
+    # XMage's getPlayable keeps one activated ability per rule text, so the original tree expands one of two Food
+    # tokens; the other offered activation is recorded as hidden behind that branch, with no work of its own.
+    record, result, settings = fixture()
+    decision = {"context": {"kind": "priority"}, "candidates": [
+        {"candidate_id": 0, "semantic": {"kind": "pass"}},
+        {"candidate_id": 1, "semantic": food("o-first")}, {"candidate_id": 2, "semantic": food("o-second")}]}
+    reason = "original graph network playable list keeps one ability per rule text"
+    result.update(decision_sha256=decision_hash(decision), root_visits=100,
+                  selection={"candidate_id": 0, "semantic_echo": {"kind": "pass"}},
+                  policy_restrictions=["hidden_duplicate_abilities"],
+                  children=[{"semantic": {"kind": "pass"}, "visits": 60, "value": 0.3},
+                            {"semantic": food("o-first"), "visits": 40, "value": 0.1},
+                            {"semantic": food("o-second"), "visits": 0, "value": None, "excluded": True,
+                             "duplicate_of": food("o-first"), "reason": reason}])
+    from xmage_neural_search import validate_result
+    def check(changed):
+        validate_result(decision, changed, settings["simulations"], 1, expected_budget=search.budget(settings),
+                        minimum_visits=False, source_label="graph network")
+    check(result)
+    bad = []
+    for path, value in ((("policy_restrictions",), []), (("children", 2, "reason"), reason.replace("graph network", "MageZero")),
+                        (("children", 2, "duplicate_of"), food("o-second")),
+                        (("children", 2, "duplicate_of", "ability_index"), 1),
+                        (("children", 2, "duplicate_of", "source", "card_name"), "Clue Token")):
+        changed = copy.deepcopy(result)
+        target = changed
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        bad.append(changed)
+    callback = copy.deepcopy(result)
+    callback["children"][2]["duplicate_of"] = {"kind": "pass"}
+    bad.append(callback)
+    for changed in bad:
+        with pytest.raises(ValueError, match="not a duplicate"):
+            check(changed)
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
+    assert ".getPlayable(world.game, true, mage.constants.Zone.ALL, false)) {" in java
+    assert "Map<String, Object> shown = branchTexts.get(a.toString());" in java
+    assert "branchTexts.put(child.getPriorityAction().toString(), action);" in java
+
+
+def test_a_diverged_callback_replay_takes_the_kits_declining_fallback():
+    # A replayed callback that reaches a priority its received history does not hold does not reproduce it: the
+    # kit's no-search policy answers the declining candidate (a ward payment is declined), never a forfeit.
+    record, _, settings = fixture()
+    record["decision"].update(context={"kind": "choice", "rewind": False}, candidates=[
+        {"candidate_id": 5, "semantic": {"kind": "optional_cost", "cost": "unless_payment", "pay": False}},
+        {"candidate_id": 6, "semantic": {"kind": "optional_cost", "cost": "unless_payment", "pay": True}}])
+    record.update(anchor={"decision": {}, "selection": {}}, replay={"priority_passes": ["p1"], "earlier": []})
+    refusal = {"unsupported": "callback replay diverges: unrecorded or reordered priority", "neural_calls": 0}
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": refusal}])
+    out = search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["candidate_id"] == 5 and out["world_flags"] == ["unreproduced_callback"]
+    with pytest.raises(ValueError):
+        search.unsupported_result(record, {**refusal, "neural_calls": 1}, 0)
+    root = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage")
+    assert '"callback replay diverges: unrecorded or reordered priority"' in (root / "MageZeroSearchReplay.java").read_text()
+    assert '"callback replay diverges: "};' in (root / "GnnBridgeMain.java").read_text()
