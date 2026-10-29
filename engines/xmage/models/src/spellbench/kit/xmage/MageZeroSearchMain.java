@@ -227,6 +227,8 @@ public final class MageZeroSearchMain {
         List<Object> children = new ArrayList<>();
         List<Object> unofferedModes = new ArrayList<>();
         Set<String> branchKeys = new HashSet<>();
+        Map<String, Map<String, Object>> branchTexts = new java.util.HashMap<>();
+        boolean hiddenDuplicates = false;
         MCTSNode2 tree = active.tree();
         // The graph frontend runs this tree under its own name: its checker binds reasons to that source.
         String source = graph == null ? "MageZero" : "graph network";
@@ -253,6 +255,7 @@ public final class MageZeroSearchMain {
             if (action == null || !branchKeys.add(Json.canonical(action))) {
                 throw new IllegalArgumentException("search root has an unmapped or aliased action");
             }
+            if (priority && child.getPriorityAction() != null) branchTexts.put(child.getPriorityAction().toString(), action);
             children.add(Json.map("semantic", action, "visits", pruned ? 0L : (long) active.visits(child),
                     "value", pruned || masked ? null : active.meanScore(child), "pruned", pruned,
                     "selection_masked", masked,
@@ -269,6 +272,14 @@ public final class MageZeroSearchMain {
                 branchKeys.add(key);
                 children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
                         "excluded", true, "reason", "original " + source + " library target expansion requires its minimum before finishing"));
+            }
+            Map<String, Object> shown = branchKeys.contains(key) || !priority ? null : hiddenDuplicate(world, index, action, branchTexts);
+            if (shown != null) {
+                branchKeys.add(key);
+                hiddenDuplicates = true;
+                children.add(Json.map("semantic", action, "visits", 0L, "value", null, "pruned", false,
+                        "excluded", true, "duplicate_of", shown,
+                        "reason", "original " + source + " playable list keeps one ability per rule text"));
             }
         }
         if (!offeredKeys.equals(branchKeys)) {
@@ -287,8 +298,7 @@ public final class MageZeroSearchMain {
                         : "original_source_time_or_visits_until_legal_future", "requested", values.get("searchBudget"),
                         "timeout_seconds", values.get("searchTimeout")),
                 "world_flags", world.flags, "replay", replayProof,
-                "policy_restrictions", libraryFailToFindExcluded ? java.util.Collections.singletonList("library_fail_to_find_before_minimum")
-                        : java.util.Collections.emptyList(),
+                "policy_restrictions", restrictions(libraryFailToFindExcluded, hiddenDuplicates),
                 "variant", "original MageZero 128-slot tree and dialog scripts; numeric roots use the legal offered range; explicit head flags and stopping rule; permitted sampled world; fresh tree; synchronous neural transport; no noise",
                 "scope", "priority and replayed target/binary/numeric/named/mode roots; combat, trained weights, full games and ratings unfinished");
         if (callback != null && callback.modeActions != null) {
@@ -359,6 +369,37 @@ public final class MageZeroSearchMain {
     private static String decisionHash(Map<String, Object> decision) {
         try { return Seeds.hex(MessageDigest.getInstance("SHA-256").digest(Json.canonical(decision).getBytes(StandardCharsets.UTF_8))); }
         catch (java.security.NoSuchAlgorithmException e) { throw new IllegalStateException(e); }
+    }
+    private static List<Object> restrictions(boolean libraryFailToFind, boolean hiddenDuplicates) {
+        List<Object> out = new ArrayList<>();
+        if (libraryFailToFind) out.add("library_fail_to_find_before_minimum");
+        if (hiddenDuplicates) out.add("hidden_duplicate_abilities");
+        return out;
+    }
+    /**
+     * The searched branch an offered activation is hidden behind: the original player's playable list (XMage's
+     * getPlayable with hidden duplicates) keeps one activated ability per rule text, so a second identical source,
+     * such as another Food token, has no branch of its own. Only the same card's same ability qualifies.
+     */
+    private static Map<String, Object> hiddenDuplicate(World world, ObsIndex index, Map<String, Object> offered,
+                                                       Map<String, Map<String, Object>> branchTexts) {
+        if (!"activate_ability".equals(Json.str(offered, "kind"))) return null;
+        mage.players.Player player = world.game.getPlayer(world.player(world.viewer));
+        if (!(player instanceof mage.players.PlayerImpl)) return null;
+        String want = Json.canonical(offered);
+        for (mage.abilities.ActivatedAbility a : ((mage.players.PlayerImpl) player)
+                .getPlayable(world.game, true, mage.constants.Zone.ALL, false)) {
+            if (a.getAbilityType() != mage.constants.AbilityType.ACTIVATED_NONMANA) continue;
+            Map<String, Object> s = Mapping.prioritySemantic(world, world.game, a, index);
+            if (s == null || !want.equals(Json.canonical(s))) continue;
+            Map<String, Object> shown = branchTexts.get(a.toString());
+            if (shown == null || !"activate_ability".equals(Json.str(shown, "kind"))
+                    || !Json.canonical(shown.get("ability_index")).equals(Json.canonical(offered.get("ability_index")))
+                    || !Json.canonical(Json.obj(shown, "source").get("card_name"))
+                            .equals(Json.canonical(Json.obj(offered, "source").get("card_name")))) return null;
+            return shown;
+        }
+        return null;
     }
     private static Map<String, Object> semantic(Map<String, Object> decision, World world, MCTSNode child,
                                                 ObsIndex index, boolean priority, MageZeroSearchReplay.Result callback) {

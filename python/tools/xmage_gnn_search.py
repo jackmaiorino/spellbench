@@ -64,7 +64,7 @@ def _receipts(result: dict, calls: int) -> None:
 
 
 UNSUPPORTED = ("search world is unsupported: ", "callback anchor is unsupported: ", "combat world is unsupported: ")
-UNREPRODUCED = "callback replay observation differs: "
+UNREPRODUCED = ("callback replay observation differs: ", "callback replay diverges: ")
 
 
 def declining(decision: dict) -> dict:
@@ -86,7 +86,7 @@ def unsupported_result(record: dict, result: dict, calls: int) -> dict:
     """A world the kit does not search (horizon or unsupported flag), refused before any network call."""
     refusal = result.get("unsupported")
     if (set(result) != {"unsupported", "neural_calls"} or not isinstance(refusal, str)
-            or not refusal.startswith((*UNSUPPORTED, UNREPRODUCED)) or result["neural_calls"] != 0 or calls != 0):
+            or not refusal.startswith((*UNSUPPORTED, *UNREPRODUCED)) or result["neural_calls"] != 0 or calls != 0):
         raise ValueError("graph search reported an invalid unsupported world")
     if refusal.startswith(UNREPRODUCED):
         if root_family(record["decision"]) == "priority":
