@@ -17,6 +17,26 @@ With `--wait`, the claim queues and starts in arrival order once cores are free.
 
 The command sees `HOST_SLOTS_CLAIM` and `HOST_SLOTS_CORES`. On Windows, `spellbench.arena.machine.usable_cpus()` counts only the pinned cores, so throughput planning sizes workers to the claim.
 
+## Backfill: small jobs ahead of a waiting head
+
+The queue is first come, first served, so a head request that does not fit blocks smaller requests behind it while cores sit idle. A request that declares a run time limit may start ahead of the head:
+
+```
+python host_slots_v1.py run --wait --max-seconds 900 --lane LANE --work-id WORK --cores 4 -- COMMAND...
+```
+
+It starts only when all of these hold:
+
+- it fits in the cores free now, without taking any background claim's cores (it never suspends CI work);
+- it and the head are both ordinary requests (later ordinary requests overtake a background head, so its protection could not hold), and the head was queued under the current per-host config (requests from launchers older than backfill are never jumped);
+- no earlier request behind the head is also eligible;
+- no timed reservation is held, and the host has at most 12 live claims (backfills and background claims included);
+- it cannot delay the head. The live claims, backfills included, could end in any order, so every subset of them is checked: whenever ending that subset would let the head start with no backfills, the head must still start with the remaining backfills running, and an ordinary head must not need any background claim's cores that it would not have needed anyway (it would wait for them to suspend).
+
+The guarantee covers claims ending. A timed reservation outranks the queue and can block any cores, so no backfill starts while one is held, and none can be proof against one acquired later. A later timed reservation suspends a backfill on its cores exactly as it suspends any other claim; backfill adds no suspension of its own. The no-delay check does not use durations. `--max-seconds` is at most 30 days. Past it, `status` lists the claim under `backfill` with `overdue: true`; it is not stopped, suspended or preempted for that. A request without `--max-seconds` waits its turn as before. The guarantee covers the head at the time of admission: if that head leaves the queue, the next one may wait for backfills already running.
+
+Deploying: ticket names are chosen under the admission mutex, but older versions choose them before taking it. Replace every deployed copy while no `host_slots_v1.py` process of any version is running, so no older launcher can publish an earlier-named ticket after a backfill is proved.
+
 ## Interaction with timed work
 
 Whenever the v1 lock is held and leaves a claim no room, every process in the claim is suspended. It resumes when the room comes back. A lock leaves no room when it has no core declaration, or when its declaration overlaps the claim's cores. A claim that would start under such a lock waits before starting.
@@ -64,6 +84,7 @@ On the compute host, its owner's use comes first. Set `keep_free` so the owner a
 - the timed reservation (lane, work and declared cores, never the token)
 - live claims and their state (`running` or `suspended`)
 - the queue
+- backfilled claims, the head each one started ahead of, and whether it is past its declared limit
 - the free cores
 
 Records whose process has exited are removed as they are read.
