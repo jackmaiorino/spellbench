@@ -351,3 +351,16 @@ def test_a_diverged_callback_replay_takes_the_kits_declining_fallback():
     root = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage")
     assert '"callback replay diverges: unrecorded or reordered priority"' in (root / "MageZeroSearchReplay.java").read_text()
     assert '"callback replay diverges: "};' in (root / "GnnBridgeMain.java").read_text()
+
+
+def test_a_root_the_copied_game_does_not_reproduce_is_refused_before_any_network_call():
+    # The original root check (search root equals the received state) now runs before the graph search, so a root
+    # whose copied game does not reproduce the received state is an unsupported world, not a forfeit.
+    record, _, settings = fixture()
+    refusal = {"unsupported": "search world is unsupported: unsupported:root_state_differs", "neural_calls": 0}
+    out = search.unsupported_result(record, refusal, 0)
+    assert out["selection"]["semantic_echo"] == {"kind": "pass"} and out["world_flags"] == ["unsupported:root_state_differs"]
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/models/magezero/v02/search/SearchPlayer.java").read_text()
+    check = java.index('throw new IllegalArgumentException("search world is unsupported: unsupported:root_state_differs");')
+    assert java.index("newRoot.validateState();") < check < java.index("newRoot.expand();") < java.index("return (MCTSNode2) calculateActions(game, actionType);")
+    assert "|| !observedRoot.equals(newRoot.stateVector))) {" in java

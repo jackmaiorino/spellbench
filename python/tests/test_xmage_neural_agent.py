@@ -567,3 +567,23 @@ def test_stack_casts_record_own_methods_and_kicker_answers_and_public_flashback_
     # A spell that left the stack drops its fact.
     history.observe(_cast_observation([]))
     assert "stack_casts" not in history.fields(history.previous)
+
+
+def test_an_agent_that_declares_an_answer_takes_it_for_an_unreplayable_callback():
+    # The graph frontend declares the kit's declining answer for a callback with no public replay anchor; the
+    # original agents keep refusing it (above). No search request is sent.
+    class Declining(agent.NeuralAgent):
+        unreplayable_callback = staticmethod(lambda decision: {
+            "candidate_id": decision["candidates"][-1]["candidate_id"],
+            "semantic_echo": decision["candidates"][-1]["semantic"]})
+    session = Session([0])
+    bot = Declining(lambda: session, checkpoint=CHECKPOINT, visits=2)
+    bot.on_game_start(GameStart.from_request(game()))
+    anchor, callback = step_trigger_decisions()
+    callback["observation"]["turn"] = 2
+    bot.choose(view(anchor))
+    assert bot.choose(view(callback)) == callback["candidates"][-1]["candidate_id"]
+    assert not bot.failed and session.requests == []
+    assert issubclass(agent.UnreplayableCallback, ValueError)
+    import xmage_gnn_search
+    assert xmage_gnn_search.GraphAgent.unreplayable_callback is xmage_gnn_search.declining
