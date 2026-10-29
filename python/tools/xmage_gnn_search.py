@@ -345,6 +345,7 @@ class GraphAgent(NeuralAgent):
     """One graph search session per public game."""
     history_factory = GraphHistory
     unsearched_family = staticmethod(declining)
+    unreplayable_callback = staticmethod(declining)  # kit policy: an unreplayable callback is not searched
     original_trigger_order = False  # the graph agent keeps its own unsearched-family answer
     def __init__(self, factory, *, checkpoint: str, settings: dict, audit=None):
         declared = validate_settings(settings)

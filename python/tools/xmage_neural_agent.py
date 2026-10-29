@@ -72,6 +72,10 @@ def first_trigger(decision):
     return {"candidate_id": first["candidate_id"], "semantic_echo": copy.deepcopy(first["semantic"])}
 
 
+class UnreplayableCallback(ValueError):
+    """A callback this history holds no public replay anchor for (the kit's no-search policy may answer it)."""
+
+
 class PublicHistory:
     """Remember only this seat's visible names, choices and confirmed costs."""
     def __init__(self, seat):
@@ -211,7 +215,7 @@ class PublicHistory:
 
     def callback(self, decision):
         if self.anchor is None:
-            raise ValueError("callback has no recorded own priority anchor")
+            raise UnreplayableCallback("callback has no recorded own priority anchor")
         attacks = self.attack_group(decision)
         if attacks:
             # The other seat passes beginning of combat unless it already had; Java re-declares the group and
@@ -229,11 +233,11 @@ class PublicHistory:
         advanced = self.cleanup_discard(decision, previous, action) or self.step_trigger(decision, previous, action)
         if (observation.get("turn"), observation.get("phase_step")) != (
                 previous.get("turn"), previous.get("phase_step")) and not advanced:
-            raise ValueError("callback crossed an unrecorded turn or phase transition")
+            raise UnreplayableCallback("callback crossed an unrecorded turn or phase transition")
         passes = []
         if action.get("kind") == "pass":
             if not previous.get("stack") and not advanced:
-                raise ValueError("callback followed an empty-stack pass without a public replay anchor")
+                raise UnreplayableCallback("callback followed an empty-stack pass without a public replay anchor")
             # The other seat must pass before the saved top object resolves
             # or the recorded end step finishes, unless it had already passed.
             # Java replay compares every resulting observation. Any intervening
@@ -245,7 +249,7 @@ class PublicHistory:
             if other not in passed:
                 passes.append(other)
         elif action.get("kind") not in ("cast_spell", "activate_ability"):
-            raise ValueError("callback has no replayable recorded action")
+            raise UnreplayableCallback("callback has no replayable recorded action")
         return {"anchor": copy.deepcopy(self.anchor),
                 "replay": {"priority_passes": passes, "earlier": copy.deepcopy(self.earlier)}}
 
@@ -341,6 +345,7 @@ class NeuralAgent:
     history_factory = PublicHistory
     # Opt-in (the graph agent): a function answering decisions no search root family supports.
     unsearched_family = None
+    unreplayable_callback = None  # the answer to a callback without a public replay anchor; None refuses
     # The original Exp1 ComputerPlayer.chooseTriggeredAbility returns abilities.get(0), no search.
     original_trigger_order = True
     def __init__(self, factory, *, checkpoint: str, visits: int = 1000, audit=None,
@@ -389,6 +394,16 @@ class NeuralAgent:
         return {"game_start": start, "decision": received,
                 "world_seed": hmac.digest(self.key, f"world:{decision.seat_step}:0".encode(), "sha256").hex(),
                 "id_seed": hmac.digest(self.key, b"ids", "sha256").hex()}
+
+    def _callback(self, record, received) -> bool:
+        """Bind a callback's replay; False when it has no public replay anchor and the agent declares an answer."""
+        try:
+            record.update(self.history.callback(received))
+        except UnreplayableCallback:
+            if self.unreplayable_callback is None:
+                raise
+            return False
+        return True
 
     def choose(self, decision: Decision) -> int:
         if self.failed or self.game is None or self.session is None:
@@ -466,12 +481,12 @@ class NeuralAgent:
                     selection, family = self.unsearched_family(received), "unsearched_family_fallback"
                 elif len(decision.candidates) == 1:
                     if family != "priority":
-                        record.update(self.history.callback(received))
+                        self._callback(record, received)
                     candidate = decision.candidates[0]
                     selection = {"candidate_id": candidate.candidate_id, "semantic_echo": candidate.semantic}
+                elif family != "priority" and not self._callback(record, received):
+                    selection, family = self.unreplayable_callback(received), "unreplayable_callback_fallback"
                 else:
-                    if family != "priority":
-                        record.update(self.history.callback(received))
                     result = self.session.choose(record, visits=self.visits, timeout_s=remaining())
                     selection = result["selection"]
             remaining()
