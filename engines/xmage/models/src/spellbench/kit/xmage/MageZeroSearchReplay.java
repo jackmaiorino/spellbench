@@ -10,7 +10,12 @@ import mage.cards.Card;
 import mage.cards.Cards;
 import mage.choices.Choice;
 import mage.constants.Outcome;
+import mage.game.ExileZone;
 import mage.game.Game;
+import mage.game.permanent.Permanent;
+import mage.game.stack.StackObject;
+import mage.player.spellbench.observe.Observation;
+import mage.players.Player;
 import spellbench.models.magezero.v02.encoder.ActionEncoder;
 import mage.target.Target;
 import mage.target.TargetAmount;
@@ -100,8 +105,10 @@ final class MageZeroSearchReplay {
                 throw new IllegalArgumentException("replay callback belongs to another seat");
             }
             try {
-                Map<String, Object> projected = RoundTrip.project(world, RoundTrip.flagsFrom(received),
+                Observation projection = RoundTrip.observe(world, RoundTrip.flagsFrom(received),
                         Json.str(current, "priority_seat"), Json.arr(current, "known"));
+                @SuppressWarnings("unchecked")
+                Map<String, Object> projected = (Map<String, Object>) Json.copy(projection.json());
                 List<String> diff = new ArrayList<>();
                 boolean tolerated = false;
                 List<String> tapped = new ArrayList<>();
@@ -120,7 +127,7 @@ final class MageZeroSearchReplay {
                 if (!diff.isEmpty()) {
                     throw new IllegalArgumentException("callback replay observation differs: " + diff.subList(0, Math.min(8, diff.size())));
                 }
-                bindNewIds(projected, current);
+                bindNewIds(projection, projected, current);
                 if (tolerated && !world.flags.contains("approximate:unexplained_characteristics_callback")) {
                     world.flags.add("approximate:unexplained_characteristics_callback");
                 }
@@ -129,16 +136,32 @@ final class MageZeroSearchReplay {
         }
         /**
          * The received ids of objects that changed zones during the replay (a resolved spell's permanent, a trigger
-         * on the stack) name the same world objects as the replayed ids: the observations are equal modulo ids. Only
-         * ids the world does not know yet are bound, so a tolerated permutation of identical tapped permanents is not.
+         * on the stack) name the same world objects as the replayed ids: the observations are equal modulo ids. The
+         * projection names objects by its own ids, so each world object is looked up there. Only ids the world does
+         * not know yet are bound, so a tolerated permutation of identical tapped permanents is not; a spell and its
+         * card share one reference, and both then name the received id.
          */
-        private void bindNewIds(Map<String, Object> projected, Map<String, Object> received) {
-            for (Map.Entry<String, String> e : ObsCompare.alignIds(projected, received).entrySet()) {
-                UUID uuid = world.idToUuid.get(e.getKey());
-                if (uuid != null && !world.idToUuid.containsKey(e.getValue())) {
-                    world.idToUuid.put(e.getValue(), uuid);
-                    world.uuidToId.put(uuid, e.getValue());
+        private void bindNewIds(Observation projection, Map<String, Object> projected, Map<String, Object> received) {
+            Map<String, String> aligned = ObsCompare.alignIds(projected, received);
+            Game game = world.game;
+            List<UUID> objects = new ArrayList<>();
+            for (StackObject object : game.getStack()) objects.add(object.getId());
+            for (Permanent object : game.getBattlefield().getAllPermanents()) objects.add(object.getId());
+            for (Player player : game.getPlayers().values()) {
+                objects.addAll(player.getHand());
+                objects.addAll(player.getGraveyard());
+            }
+            for (ExileZone zone : game.getExile().getExileZones()) objects.addAll(zone);
+            java.util.Set<String> bound = new java.util.HashSet<>();
+            for (UUID uuid : objects) {
+                Map<String, Object> ref = projection.reference(uuid);
+                String id = ref == null ? null : aligned.get(Json.str(ref, "object_id"));
+                if (id == null) continue;
+                if (!world.idToUuid.containsKey(id)) {
+                    world.idToUuid.put(id, uuid);
+                    bound.add(id);
                 }
+                if (bound.contains(id)) world.uuidToId.put(uuid, id);
             }
         }
         /**
