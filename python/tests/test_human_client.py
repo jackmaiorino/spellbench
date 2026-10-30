@@ -118,6 +118,22 @@ def test_block_plan_assigns_blockers_and_declines_extra_blocks(hub: Hub) -> None
     assert hub.choose({"decision": substep(1, wall)}) == 0  # a second block for the same creature is declined
 
 
+def test_costed_mana_sources_are_labelled_and_explained(hub: Hub) -> None:
+    swamp, spawn = ref("o-s", "Swamp"), ref("o-e", "Eldrazi Spawn Token")
+    request = decision([PASS, {"kind": "activate_mana_ability", "source": swamp, "ability_index": 0, "mana_choice": "B",
+                               "cost_target": None},
+                        {"kind": "activate_mana_ability", "source": spawn, "ability_index": 0, "mana_choice": "C",
+                         "cost_target": None}, BOLT])
+    request["observation"]["players"][0]["battlefield"] = [
+        {**swamp, "characteristics": {"types": ["land"]}}, {**spawn, "characteristics": {"types": ["creature"]}}]
+    view = hub._view(request)
+    assert [c["text"] for c in view["candidates"][1:3]] == ["Tap Swamp for mana (B)",
+                                                             "Activate Eldrazi Spawn Token for mana (C)"]
+    assert "appears once you activate it" in view["hint"]
+    request["candidates"] = request["candidates"][:2]
+    assert hub._view(request)["hint"] is None  # only lands: autopay covers them
+
+
 def test_history_lines_name_cards_for_both_sides() -> None:
     events = [{"kind": "turn_began", "turn": 2, "active_seat": OPP},
               {"kind": "draw", "seat": OPP, "card": None},

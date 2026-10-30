@@ -43,6 +43,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.35 sys
 #action { padding: 10px; background: var(--panel); border-bottom: 1px solid var(--line); max-height: 60%; overflow: auto; }
 #prompt { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
 #status { color: var(--dim); }
+.hint { margin-top: 4px; font-size: 12px; }
 .cand { display: block; width: 100%; text-align: left; margin: 2px 0; padding: 5px 8px; background: var(--panel2); color: var(--text);
   border: 1px solid var(--line); border-radius: 5px; cursor: pointer; font: inherit; }
 .cand:hover, .cand.hl { border-color: var(--hi); }
@@ -277,7 +278,8 @@ function renderAction() {
   const pass = p.candidates.findIndex((c) => c.kind === "pass");
   let k = 0;
   const keyOf = p.candidates.map((c) => c.kind === "pass" ? "Space" : KEYS[k++] || "");
-  st.innerHTML = p.context?.kind === "priority" ? `<span class="key">Space</span>pass · <span class="key">E</span>pass to end of turn` : "";
+  st.innerHTML = (p.context?.kind === "priority" ? `<span class="key">Space</span>pass · <span class="key">E</span>pass to end of turn` : "")
+    + (p.hint ? `<div class="hint">${esc(p.hint)}</div>` : "");
   $("cands").innerHTML = p.candidates.map((c, i) =>
     `<button class="cand ${i === hl ? "hl" : ""}" data-cand="${i}" title="${esc(c.engine_text || "")}"><span class="key">${esc(keyOf[i])}</span>${esc(c.text)}${c.engine_text && c.engine_text !== c.text ? `<span class="et">${esc(c.engine_text)}</span>` : ""}</button>`).join("");
   tickClock();

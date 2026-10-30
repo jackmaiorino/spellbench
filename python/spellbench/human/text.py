@@ -55,8 +55,8 @@ def refs(value: Any) -> Iterator[str]:
             yield from refs(item)
 
 
-def candidate(semantic: Mapping[str, Any], me: str | None) -> str:
-    """One candidate as a short imperative phrase."""
+def candidate(semantic: Mapping[str, Any], me: str | None, lands: frozenset[str] | None = None) -> str:
+    """One candidate as a short imperative phrase. ``lands`` (object ids) tells tapped lands from costed mana sources."""
     kind = semantic.get("kind")
     s = semantic
     if kind == "pass":
@@ -68,7 +68,8 @@ def candidate(semantic: Mapping[str, Any], me: str | None) -> str:
         return f"Cast {card(s.get('source'))}" + (f" ({method})" if method not in (None, "normal") else "")
     if kind == "activate_mana_ability":
         mana = s.get("mana_choice")
-        return f"Tap {card(s.get('source'))} for mana" + (f" ({mana})" if mana else "")
+        verb = "Tap" if lands is None or (s.get("source") or {}).get("object_id") in lands else "Activate"
+        return f"{verb} {card(s.get('source'))} for mana" + (f" ({mana})" if mana else "")
     if kind == "activate_ability":
         return f"Activate {card(s.get('source'), me, whose=True)}" + (
             f" (ability {s['ability_index'] + 1})" if s.get("ability_index") else "")
