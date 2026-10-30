@@ -8,6 +8,11 @@ relay sends it as a header, the page carries it from its URL.
 
 Each answered decision of the human seat is appended to ``<log_dir>/<game_id>.<seat>.jsonl`` (``LOG_SCHEMA``),
 with how it was answered (``human``, ``plan``, ``single``, ``auto_pass``) and the wall time it took.
+
+Mana: the kernel engine declares ``engine_autopay``, and its autopay spends only lands and plain tap-for-mana
+sources. A spell affordable only with mana from a costed source (an Eldrazi Spawn's sacrifice, a Treasure) is not
+offered until that mana is floating, unlike rule 601.2g, which lets a player activate mana abilities mid-cast. Every
+outcome stays reachable (activate, then cast), so the page labels such sources "Activate" and shows a hint instead.
 """
 
 from __future__ import annotations
