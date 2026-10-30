@@ -2,15 +2,15 @@
 
 The session builds an arena config from a benchmark definition (default ``pauper-kernel-v2``): the benchmark's
 engine, deck pool, rules, extensions and limits; the bots ``human`` (``relay.py``) and the opponent entry, which
-gets ``--decision-log``; one explicit matchup with ``ceil(games / 2)`` seat-swapped pairs, so pair ``p`` plays deck
-``p % 8`` in both seats; one worker; and a clock sized for a person (``--bank-minutes``). It then starts the play
+gets ``--decision-log``; one explicit matchup with whole deck rotations of seat-swapped pairs (at least ``games``
+games), so pair ``p`` plays deck ``p % len(pool)`` in both seats; one worker; and a clock sized for a person (``--bank-minutes``). It then starts the play
 server on 127.0.0.1, prints the page URL, and runs the tournament into ``<out>/runs/<name>/`` (ledger, manifest).
 
 The launch guard's throughput measurement is not run: a person plays one game at a time, and its qualification
 games would be games the person plays outside the ledger. The run publishes as ``unmeasured`` and unrated.
 Ctrl+C publishes the games played so far (status ``aborted``).
 
-With ``--record`` (the default) the operator engine recording is on (``spellbench.arena.engine_records``): each
+Unless ``--no-record`` is given, the operator engine recording is on (``spellbench.arena.engine_records``): each
 game's complete engine transcript lands in ``<out>/engine-records/hot``, and a local collector thread keeps the
 pinned two-copy custody (gzip copies on the cold and recovery roots) that the runner waits for after each game.
 """
