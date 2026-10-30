@@ -212,7 +212,7 @@ function render() {
     const who = e.controller_seat === me() ? "you" : "opp";
     const tg = (e.targets || []).map((t) => !t ? "(gone)" : t.player ? (t.player === me() ? "you" : "opp") : t.object?.card_name).join(", ");
     return `<div class="card ${refs.has(e.object_id) ? "ref" : ""}" data-id="${esc(e.object_id)}" data-name="${esc(e.card_name || "")}" style="border-left:3px solid var(--${who})">` +
-      `<div class="n">${esc(e.card_name || "?")}</div><div class="m">${esc(e.stack_kind.replace("_", " "))} · ${who}${tg ? " → " + esc(tg) : ""}</div></div>`;
+      `<div class="n">${esc(e.card_name || (e.stack_kind === "spell" ? "?" : "unnamed card"))}</div><div class="m">${esc(e.stack_kind.replace("_", " "))} · ${who}${tg ? " → " + esc(tg) : ""}</div></div>`;
   }).join("");
   renderAction();
   renderLog();

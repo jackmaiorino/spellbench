@@ -12,6 +12,9 @@ PHASES = {
 }
 
 
+ABILITY_KINDS = ("activated_ability", "triggered_ability")
+
+
 def seat_name(seat: Any, me: str | None) -> str:
     if seat is None:
         return "?"
@@ -22,7 +25,9 @@ def card(ref: Any, me: str | None = None, *, whose: bool = False) -> str:
     """An object reference as its card name, optionally marked with its controller."""
     if not isinstance(ref, Mapping):
         return "(gone)"
-    name = ref.get("card_name") or "a hidden card"
+    name = ref.get("card_name")
+    if not name:  # the pauper-kernel-v2 observation leaves some ability names out (spellbench issue 259)
+        name = "an unnamed card's ability" if ref.get("stack_kind") in ABILITY_KINDS else "a hidden card"
     if whose and me is not None and ref.get("zone") in ("battlefield", "stack"):
         return f"{name} ({'yours' if ref.get('controller_seat') == me else 'opp'})"
     return name

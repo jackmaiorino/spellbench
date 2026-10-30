@@ -134,6 +134,12 @@ def test_costed_mana_sources_are_labelled_and_explained(hub: Hub) -> None:
     assert hub._view(request)["hint"] is None  # only lands: autopay covers them
 
 
+def test_an_unnamed_ability_on_the_stack_is_not_called_a_hidden_card(hub: Hub) -> None:
+    ability = {"object_id": "o-x", "card_name": None, "owner_seat": OPP, "controller_seat": OPP, "zone": "stack",
+               "stack_kind": "activated_ability", "source": None, "targets": []}
+    assert text.prompt(decision([PASS, BOLT], stack=[ability]), ME) == "Opp: an unnamed card's ability on the stack. Respond?"
+
+
 def test_history_lines_name_cards_for_both_sides() -> None:
     events = [{"kind": "turn_began", "turn": 2, "active_seat": OPP},
               {"kind": "draw", "seat": OPP, "card": None},
