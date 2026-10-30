@@ -24,7 +24,8 @@ param(
     [switch]$NoRecord,
     [switch]$NoBrowser,
     [string]$SlotTool = "",
-    [int]$Cores = 2
+    [int]$Cores = 2,
+    [int]$MaxSeconds = 0  # declared run time for the slot queue; default 20 minutes per game
 )
 $ErrorActionPreference = "Stop"
 $repoPython = Split-Path -Parent $PSScriptRoot  # the python/ directory: spellbench imports from here
@@ -37,8 +38,10 @@ if ($NoRecord) { $sessionArgs += "--no-record" }
 if ($NoBrowser) { $sessionArgs += "--no-browser" }
 if ($SlotTool) {
     $work = "play-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+    if ($MaxSeconds -le 0) { $MaxSeconds = 1200 * $Games }
     Write-Host "Waiting for $Cores cores from the host slot queue..."
     & python -B $SlotTool run --lane human-client --work-id $work --cores $Cores --priority normal --wait `
+        --max-seconds $MaxSeconds `
         --cwd $repoPython -- $Python @sessionArgs
 } else {
     Push-Location $repoPython
