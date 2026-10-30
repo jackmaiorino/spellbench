@@ -164,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
     local = json.loads(args.local.read_text(encoding="utf-8"))
     python = local.get("PYTHON") or sys.executable
     config_doc = build_config(benchmark_dir=args.benchmark, local=local, opponent=args.opponent, games=args.games,
-                              run_dir=run_dir, python=python, decision_log=out / "decision-logs" / args.opponent,
+                              run_dir=run_dir, python=python, decision_log=out / "decision-logs",
                               bank_minutes=args.bank_minutes,
                               decks=[d.strip() for d in args.decks.split(",")] if args.decks else None)
     config_path = out / "runs" / f"{name}.config.json"
@@ -183,7 +183,8 @@ def main(argv: list[str] | None = None) -> int:
         os.environ.pop(engine_records.HASH_ENV, None)
 
     games_total = 2 * config_doc["pairs_per_matchup"]
-    hub = Hub(log_dir=out / "decision-logs" / HUMAN, games_total=games_total,
+    # Both seats log to one directory as <game_id>.<seat>.jsonl, the layout the misplay review converter reads.
+    hub = Hub(log_dir=out / "decision-logs", games_total=games_total, opponent=args.opponent,
               label=f"{games_total} games vs {args.opponent}, {args.bank_minutes}-minute bank")
     server = make_server(hub, port=args.port)
     host, port = server.server_address[:2]

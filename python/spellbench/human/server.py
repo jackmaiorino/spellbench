@@ -40,11 +40,13 @@ def _ms() -> int:
 class Hub:
     """All session state, guarded by one condition variable."""
 
-    def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "") -> None:
+    def __init__(self, *, log_dir: Path | None = None, games_total: int | None = None, label: str = "",
+                 opponent: str = "the bot") -> None:
         self.cond = threading.Condition()
         self.version = 0
         self.log_dir = log_dir
         self.label = label
+        self.opponent = opponent
         self.games_total = games_total
         self.stops = dict(DEFAULT_STOPS)
         self.ready = False          # the human asked for the next game
@@ -104,14 +106,14 @@ class Hub:
             self.log, self.observation, self.clock, self.pending = [], None, None, None
             self.plan = self.skip = self.game_over = None
             self._seen_stack, self._combat_logged = set(), set()
-            self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs b512 "
+            self._note("game", f"Game {self.game['number']}: you ({own.get('name')}, {seat}) vs {self.opponent} "
                                f"({opp.get('name')})")
             if self.log_dir is not None:
                 self.log_dir.mkdir(parents=True, exist_ok=True)
                 path = self.log_dir / f"{request.get('game_id')}.{seat}.jsonl"
                 self._log_file = open(path, "w", encoding="utf-8", newline="\n")
                 self._write({"schema": LOG_SCHEMA, "kind": "header", "game_id": request.get("game_id"), "seat": seat,
-                             "own_deck": own, "opponent_deck": opp, "time_control": request.get("time_control"),
+                             "bot_name": "Human", "own_deck": own, "opponent_deck": opp, "time_control": request.get("time_control"),
                              "label": self.label, "stops": self.stops})
             self._bump()
 
