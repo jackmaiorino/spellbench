@@ -25,6 +25,12 @@ public final class RoundTrip {
     @SuppressWarnings("unchecked")
     public static Map<String, Object> project(World w, Map<String, Object> flags, String prioritySeat,
                                               List<Object> known) throws Exception {
+        return (Map<String, Object>) Json.copy(observe(w, flags, prioritySeat, known).json());
+    }
+
+    /** The projection itself, whose {@link Observation#reference} names each world object by its projected id. */
+    public static Observation observe(World w, Map<String, Object> flags, String prioritySeat,
+                                      List<Object> known) throws Exception {
         ObservationBuilder b = ObservationBuilder.forSession(w.game, PROJECTION_SECRET, flags);
         List<Look> looks = new ArrayList<>();
         for (Object o : known) {
@@ -40,8 +46,7 @@ public final class RoundTrip {
             looks.add(new Look(u, how, top == null ? null : ((Number) top).intValue(),
                     bottom == null ? null : ((Number) bottom).intValue()));
         }
-        Observation o = b.build(w.viewer, prioritySeat, looks);
-        return (Map<String, Object>) Json.copy(o.json());
+        return b.build(w.viewer, prioritySeat, looks);
     }
 
     /** Differences between the world's projection and the decision's observation (empty: exact round trip). */

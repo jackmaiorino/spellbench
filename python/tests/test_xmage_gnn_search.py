@@ -205,4 +205,162 @@ def test_library_fail_to_find_binds_the_graph_frontends_own_reason():
                         minimum_visits=False, source_label="graph network")
     java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
     assert 'String source = graph == null ? "MageZero" : "graph network";' in java
-    assert java.count('"original " + source + " ') == 2 and "original MageZero library" not in java
+    assert java.count('"original " + source + " ') == 3 and "original MageZero library" not in java
+
+
+def lone_target_fixture():
+    record, _, settings = fixture()
+    record["decision"].update(context={"kind": "choice", "purpose": "search", "rewind": False}, candidates=[
+        {"candidate_id": 0, "semantic": {"kind": "select_object", "purpose": "search",
+                                        "choice": {"object": {"object_id": "only-match", "zone": "library"}}}},
+        {"candidate_id": 1, "semantic": {"kind": "finish_selection", "purpose": "search"}}])
+    record.update(anchor={"decision": {}, "selection": {}}, replay={"priority_passes": ["p1"], "earlier": [{}]})
+    result = {"forced": search.LONE_TARGET, "neural_calls": 0, "decision_sha256": decision_hash(record["decision"]),
+              "selection": {"candidate_id": 0, "semantic_echo": record["decision"]["candidates"][0]["semantic"]},
+              "world_flags": ["approximate:watchers_reset"],
+              "replay": {"earlier": 1, "priority_passes": 1, "observation_identical": True}}
+    return record, result, settings
+
+
+def test_a_lone_original_target_is_answered_without_a_search():
+    # A library search's one match: the original player takes it itself (no stop before the search's minimum).
+    record, result, settings = lone_target_fixture()
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": result}])
+    model = Model()
+    out = search.BridgeSession(peer, model).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["candidate_id"] == 0 and out["neural_calls"] == 0 and model.calls == []
+
+
+@pytest.mark.parametrize("fault", ["calls", "reported-calls", "priority", "unoffered", "changed", "stale",
+                                   "unsupported", "proof", "extra", "reason", "single"])
+def test_a_lone_original_target_refuses_anything_else(fault):
+    record, result, _ = lone_target_fixture()
+    calls = 0
+    if fault == "calls":
+        calls = 1
+    elif fault == "reported-calls":
+        result["neural_calls"] = 1
+    elif fault == "priority":
+        record["decision"]["context"]["kind"] = "priority"
+        result["decision_sha256"] = decision_hash(record["decision"])
+    elif fault == "unoffered":
+        result["selection"]["candidate_id"] = 7
+    elif fault == "changed":
+        result["selection"]["semantic_echo"] = {"kind": "finish_selection", "purpose": "search"}
+    elif fault == "stale":
+        result["decision_sha256"] = "0" * 64
+    elif fault == "unsupported":
+        result["world_flags"] = ["unsupported:x"]
+    elif fault == "proof":
+        result["replay"]["earlier"] = 0
+    elif fault == "extra":
+        result["children"] = []
+    elif fault == "reason":
+        result["forced"] = "kit declining"
+    elif fault == "single":
+        del record["decision"]["candidates"][1]
+        result["decision_sha256"] = decision_hash(record["decision"])
+    with pytest.raises(ValueError):
+        search.lone_target_result(record, result, calls)
+
+
+def test_the_java_lone_target_follows_the_original_make_choice_options():
+    java = Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage"
+    replay = (java / "MageZeroSearchReplay.java").read_text()
+    main = (java / "MageZeroSearchMain.java").read_text()
+    # MCTSPlayer.makeChoice: possible targets not yet chosen, stop only once chosen, a lone option taken itself.
+    assert "if (!target.contains(id)) possible.add(id);" in replay
+    assert "if (target.isChosen(game)) possible.add(GameAccess.STOP_CHOOSING);" in replay
+    assert "if (possible.size() == 1) {" in replay
+    assert f'LONE_TARGET = "{search.LONE_TARGET}"' in main
+
+
+def test_replayed_zone_changes_bind_the_received_ids_to_their_world_objects():
+    # A spell resolved during the replay is a new object id in the received callback (Apothecary Stomper's
+    # own enter trigger targets it); the compare binds only ids the world does not know yet.
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchReplay.java").read_text()
+    # The projection names objects by its own ids, never the world's: look each world object up there.
+    assert "bindNewIds(projection, projected, current);" in java
+    assert 'String id = ref == null ? null : aligned.get(Json.str(ref, "object_id"));' in java
+    assert "if (!world.idToUuid.containsKey(id)) {" in java
+
+
+def food(object_id):
+    return {"kind": "activate_ability", "ability_index": 0,
+            "source": {"card_name": "Food Token", "controller_seat": "p0", "object_id": object_id,
+                       "owner_seat": "p0", "zone": "battlefield"}}
+
+
+def test_a_duplicate_activation_hidden_by_the_original_playable_list_is_excluded():
+    # XMage's getPlayable keeps one activated ability per rule text, so the original tree expands one of two Food
+    # tokens; the other offered activation is recorded as hidden behind that branch, with no work of its own.
+    record, result, settings = fixture()
+    decision = {"context": {"kind": "priority"}, "candidates": [
+        {"candidate_id": 0, "semantic": {"kind": "pass"}},
+        {"candidate_id": 1, "semantic": food("o-first")}, {"candidate_id": 2, "semantic": food("o-second")}]}
+    reason = "original graph network playable list keeps one ability per rule text"
+    result.update(decision_sha256=decision_hash(decision), root_visits=100,
+                  selection={"candidate_id": 0, "semantic_echo": {"kind": "pass"}},
+                  policy_restrictions=["hidden_duplicate_abilities"],
+                  children=[{"semantic": {"kind": "pass"}, "visits": 60, "value": 0.3},
+                            {"semantic": food("o-first"), "visits": 40, "value": 0.1},
+                            {"semantic": food("o-second"), "visits": 0, "value": None, "excluded": True,
+                             "duplicate_of": food("o-first"), "reason": reason}])
+    from xmage_neural_search import validate_result
+    def check(changed):
+        validate_result(decision, changed, settings["simulations"], 1, expected_budget=search.budget(settings),
+                        minimum_visits=False, source_label="graph network")
+    check(result)
+    bad = []
+    for path, value in ((("policy_restrictions",), []), (("children", 2, "reason"), reason.replace("graph network", "MageZero")),
+                        (("children", 2, "duplicate_of"), food("o-second")),
+                        (("children", 2, "duplicate_of", "ability_index"), 1),
+                        (("children", 2, "duplicate_of", "source", "card_name"), "Clue Token")):
+        changed = copy.deepcopy(result)
+        target = changed
+        for key in path[:-1]:
+            target = target[key]
+        target[path[-1]] = value
+        bad.append(changed)
+    callback = copy.deepcopy(result)
+    callback["children"][2]["duplicate_of"] = {"kind": "pass"}
+    bad.append(callback)
+    for changed in bad:
+        with pytest.raises(ValueError, match="not a duplicate"):
+            check(changed)
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage/MageZeroSearchMain.java").read_text()
+    assert ".getPlayable(world.game, true, mage.constants.Zone.ALL, false)) {" in java
+    assert "Map<String, Object> shown = branchTexts.get(a.toString());" in java
+    assert "branchTexts.put(child.getPriorityAction().toString(), action);" in java
+
+
+def test_a_diverged_callback_replay_takes_the_kits_declining_fallback():
+    # A replayed callback that reaches a priority its received history does not hold does not reproduce it: the
+    # kit's no-search policy answers the declining candidate (a ward payment is declined), never a forfeit.
+    record, _, settings = fixture()
+    record["decision"].update(context={"kind": "choice", "rewind": False}, candidates=[
+        {"candidate_id": 5, "semantic": {"kind": "optional_cost", "cost": "unless_payment", "pay": False}},
+        {"candidate_id": 6, "semantic": {"kind": "optional_cost", "cost": "unless_payment", "pay": True}}])
+    record.update(anchor={"decision": {}, "selection": {}}, replay={"priority_passes": ["p1"], "earlier": []})
+    refusal = {"unsupported": "callback replay diverges: unrecorded or reordered priority", "neural_calls": 0}
+    peer = Peer([{"id": "1", "operation": "search", "event": "result", "ok": True, "result": refusal}])
+    out = search.BridgeSession(peer, Model()).choose(record, settings=settings, timeout_s=30)
+    assert out["selection"]["candidate_id"] == 5 and out["world_flags"] == ["unreproduced_callback"]
+    with pytest.raises(ValueError):
+        search.unsupported_result(record, {**refusal, "neural_calls": 1}, 0)
+    root = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/kit/xmage")
+    assert '"callback replay diverges: unrecorded or reordered priority"' in (root / "MageZeroSearchReplay.java").read_text()
+    assert '"callback replay diverges: "};' in (root / "GnnBridgeMain.java").read_text()
+
+
+def test_a_root_the_copied_game_does_not_reproduce_is_refused_before_any_network_call():
+    # The original root check (search root equals the received state) now runs before the graph search, so a root
+    # whose copied game does not reproduce the received state is an unsupported world, not a forfeit.
+    record, _, settings = fixture()
+    refusal = {"unsupported": "search world is unsupported: unsupported:root_state_differs", "neural_calls": 0}
+    out = search.unsupported_result(record, refusal, 0)
+    assert out["selection"]["semantic_echo"] == {"kind": "pass"} and out["world_flags"] == ["unsupported:root_state_differs"]
+    java = (Path(__file__).parents[2] / "engines/xmage/models/src/spellbench/models/magezero/v02/search/SearchPlayer.java").read_text()
+    check = java.index('throw new IllegalArgumentException("search world is unsupported: unsupported:root_state_differs");')
+    assert java.index("newRoot.validateState();") < check < java.index("newRoot.expand();") < java.index("return (MCTSNode2) calculateActions(game, actionType);")
+    assert "|| !observedRoot.equals(newRoot.stateVector))) {" in java

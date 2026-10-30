@@ -28,7 +28,8 @@ public final class GnnBridgeMain {
      * kit's continuation does) for a callback whose replay does not reproduce the received observation.
      */
     private static final String[] UNSUPPORTED = {"search world is unsupported: ", "callback anchor is unsupported: ",
-            "combat world is unsupported: ", "callback replay observation differs: "};
+            "combat world is unsupported: ", "callback replay observation differs: ",
+            "callback replay diverges: "};
 
     static String unsupported(RuntimeException e) {
         if (!(e instanceof IllegalArgumentException) || e.getMessage() == null) return null;

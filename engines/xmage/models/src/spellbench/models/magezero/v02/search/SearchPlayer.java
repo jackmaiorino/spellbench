@@ -39,6 +39,7 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
     private Set<MCTSNode> graphPruned = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
     private int graphRootVisits;
     private boolean requireVisitBudget;
+    private Set<Integer> observedRoot;
     private List<MCTSNode> initialRootChildren = new ArrayList<>();
     private Map<MCTSNode, Integer> beforeSelectionVisits = new IdentityHashMap<>();
     private Set<MCTSNode> selectionMasked = java.util.Collections.newSetFromMap(new IdentityHashMap<MCTSNode, Boolean>());
@@ -102,7 +103,10 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         if (stateEncoder == null) RLInit(game);
         Set<Integer> observedFeatures = new HashSet<>(stateEncoder.processState(game, playerId, type, text));
         resetSearchTree();
-        MCTSNode2 best = getNextAction(game, type);
+        observedRoot = observedFeatures;
+        MCTSNode2 best;
+        try { best = getNextAction(game, type); }
+        finally { observedRoot = null; }
         if (best == null || root == null || (requireVisitBudget && rootVisits() < searchBudget)) {
             throw new IllegalStateException("original search did not complete its declared stopping rule");
         }
@@ -153,6 +157,12 @@ public class SearchPlayer extends ComputerPlayerMCTS2 {
         PlayerScript opponentPrefixScript = new PlayerScript(GameAccess.history(GameAccess.opponent(game, playerId)));
         MCTSNode2 newRoot = new MCTSNode2(this, sim, actionType, prefixScript, opponentPrefixScript);
         newRoot.validateState();
+        // The same check searchAction makes, before any network call: a root the copied game does not reproduce is
+        // a world the kit does not search, so the frontend answers the declining candidate instead of a forfeit.
+        if (observedRoot != null && (!playerId.equals(newRoot.playerId) || newRoot.actionType != actionType
+                || !observedRoot.equals(newRoot.stateVector))) {
+            throw new IllegalArgumentException("search world is unsupported: unsupported:root_state_differs");
+        }
         newRoot.expand();
         root = newRoot;
         root.emancipate();

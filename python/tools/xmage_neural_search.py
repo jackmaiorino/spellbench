@@ -75,7 +75,10 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int, *,
                 or (masked and (pruned or excluded or budget is None
                      or child.get("mask_reason") != f"original {source_label} bestChild resets branches without a legal future"))):
             raise ValueError("search selection masking lacks original work accounting")
-        if excluded and (pruned or decision.get("context", {}).get("purpose") != "search"
+        if excluded and "duplicate_of" in child:
+            if not hidden_duplicate(decision, result, child, children, source_label):
+                raise ValueError("search hid an action that is not a duplicate of a searched branch")
+        elif excluded and (pruned or decision.get("context", {}).get("purpose") != "search"
                          or child["semantic"].get("kind") != "finish_selection"
                          or child["semantic"].get("purpose") != "search"
                          or "library_fail_to_find_before_minimum" not in result.get("policy_restrictions", [])
@@ -94,6 +97,21 @@ def validate_result(decision: dict, result: dict, visits: int, calls: int, *,
     flags = result.get("world_flags")
     if (not isinstance(flags, list) or any(not isinstance(f, str) or f.startswith(("horizon:", "unsupported:")) for f in flags)):
         raise ValueError("search ran outside its supported world envelope")
+
+
+def hidden_duplicate(decision: dict, result: dict, child: dict, children: list, source_label: str) -> bool:
+    """An offered activation the original playable list hides behind a searched branch of the same card's same
+    ability (XMage keeps one activated ability per rule text, such as one of two Food tokens)."""
+    action, shown = child["semantic"], child["duplicate_of"]
+    searched = next((c for c in children if c["semantic"] == shown), None)
+    return (root_family(decision) == "priority" and not child.get("pruned", False)
+            and "hidden_duplicate_abilities" in result.get("policy_restrictions", [])
+            and child.get("reason") == f"original {source_label} playable list keeps one ability per rule text"
+            and isinstance(shown, dict) and action.get("kind") == shown.get("kind") == "activate_ability"
+            and action != shown and action.get("ability_index") == shown.get("ability_index")
+            and isinstance(action.get("source"), dict) and isinstance(shown.get("source"), dict)
+            and action["source"].get("card_name") == shown["source"].get("card_name")
+            and searched is not None and not searched.get("excluded", False))
 
 
 def validate_unoffered_modes(decision: dict, result: dict, actual: int) -> int:
@@ -157,16 +175,20 @@ def search_result(record: dict, result: dict, visits: int, calls: int, *,
     validate_result(decision, result, visits, calls, expected_budget=expected_budget,
                     minimum_visits=minimum_visits, source_label=source_label)
     if root_family(decision) != "priority":
-        expected = {"earlier": len(record["replay"]["earlier"]),
-                    "priority_passes": len(record["replay"]["priority_passes"]),
-                    "observation_identical": True}
-        proof = result.get("replay")
-        if (not isinstance(proof, dict) or proof != expected
-                or type(proof.get("earlier")) is not int
-                or type(proof.get("priority_passes")) is not int
-                or proof.get("observation_identical") is not True):
-            raise ValueError("callback result does not confirm its complete public replay")
+        validate_replay_proof(record, result)
     return result
+
+
+def validate_replay_proof(record: dict, result: dict) -> None:
+    expected = {"earlier": len(record["replay"]["earlier"]),
+                "priority_passes": len(record["replay"]["priority_passes"]),
+                "observation_identical": True}
+    proof = result.get("replay")
+    if (not isinstance(proof, dict) or proof != expected
+            or type(proof.get("earlier")) is not int
+            or type(proof.get("priority_passes")) is not int
+            or proof.get("observation_identical") is not True):
+        raise ValueError("callback result does not confirm its complete public replay")
 
 
 class SearchSession(NeuralSession):
