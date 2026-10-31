@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from . import leaderboard, registry, store
-from .config import BotSpec, TournamentConfig
+from .config import BotSpec, Ladder, TournamentConfig, ladder_pairs
 from .ledger import LedgerRow, parse_ledger
 from .manifest import EngineFile
 
@@ -25,6 +25,17 @@ CAVEAT = (
     "evaluations are reused, so this is a dated model measurement. Elo and its interval can change when the "
     "combined results are refitted without replaying earlier games."
 )
+LADDER_CAVEAT = (
+    "Ladder rating: the references (rungs) play the rungs nearest them in rating and each entrant plays the "
+    "rungs named for it, so ratings connect through overlapping matchups. Unplayed head-to-head matchups are "
+    "not measured; matchup-specific strengths can differ from the ranking. Compatible earlier evaluations are "
+    "reused, so this is a dated model measurement. Elo and its interval can change when the combined results "
+    "are refitted without replaying earlier games."
+)
+
+
+def caveat(config: TournamentConfig) -> str:
+    return LADDER_CAVEAT if config.ladder is not None else CAVEAT
 
 
 class SnapshotError(ValueError):
@@ -59,12 +70,19 @@ def contract(config: TournamentConfig) -> dict[str, Any]:
     keys = ("format", "engine", "deck_pool", "decks", "pairs_per_matchup", "rules", "extensions",
             "native_id_audits", "time_control", "limits", "resources", "rating_anchor",
             "evaluation_version", "evaluation_engine_identity", "evaluation_engine_inputs")
-    return {**{key: doc[key] for key in keys if key in doc},
-            "references": {name: bot_inputs(by_name[name]) for name in sorted(config.opponent_panel)}}
+    conditions = {key: doc[key] for key in keys if key in doc}
+    if config.ladder is not None:
+        # A ladder block is one matchup under these conditions; select_blocks matches both players' inputs. The
+        # rungs, band and entrant lists only schedule matchups, so adding a rung or an entrant reuses every block.
+        return {**conditions, "schedule": "ladder"}
+    return {**conditions, "references": {name: bot_inputs(by_name[name]) for name in sorted(config.opponent_panel)}}
 
 
 def required_matchups(config: TournamentConfig) -> tuple[tuple[str, str], ...]:
     names = sorted(bot.name for bot in config.bots)
+    if config.ladder is not None:
+        scheduled = ladder_pairs(config.opponent_panel, config.ladder)
+        return tuple((a, b) for i, a in enumerate(names) for b in names[i + 1:] if frozenset((a, b)) in scheduled)
     panel = set(config.opponent_panel)
     return tuple((a, b) for i, a in enumerate(names) for b in names[i + 1:] if a in panel or b in panel)
 
@@ -75,7 +93,9 @@ def without_entrants(config: TournamentConfig, names: tuple[str, ...]) -> Tourna
         return config
     left = replace(config, bots=tuple(bot for bot in config.bots if bot.name not in names),
                    matchups=None if config.matchups is None else
-                   tuple(pair for pair in config.matchups if not set(pair) & set(names)))
+                   tuple(pair for pair in config.matchups if not set(pair) & set(names)),
+                   ladder=None if config.ladder is None else Ladder(config.ladder.band,
+                       {name: rungs for name, rungs in config.ladder.entrants.items() if name not in names}))
     return TournamentConfig.from_json(left.to_json())
 
 
@@ -145,6 +165,35 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
     return selected
 
 
+def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -> list[tuple[str, str]]:
+    """Rated rung-versus-rung blocks, compatible with ``config``, that its ladder no longer schedules.
+
+    Reordering or inserting rungs can move played pairs out of the band; their results would silently leave the
+    fit. Entrant blocks may change with placement, so only rung pairs count. Removing a rung from the panel
+    takes its rung blocks with it by design: that is a new rung set, decided in the definition's review.
+    """
+    if config.ladder is None:
+        return []
+    expected = contract(config)
+    current = {bot.name: bot for bot in config.bots}
+    rungs = set(config.opponent_panel)
+    wanted = set(required_matchups(config))
+    dropped = set()
+    for source in sources:
+        if source.manifest["run"]["rated"] is not True:
+            continue
+        try:
+            if contract(source.config) != expected:
+                continue
+        except SnapshotError:
+            continue
+        by_name = {bot.name: bot for bot in source.config.bots}
+        for pair in source.blocks().keys() - wanted:
+            if set(pair) <= rungs and all(bot_inputs(by_name[name]) == bot_inputs(current[name]) for name in pair):
+                dropped.add(pair)
+    return sorted(dropped)
+
+
 def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source], *, benchmark_id: str,
                 label: str, rated_only: bool = True, pending: Sequence[str] = ()
                 ) -> tuple[dict[str, Any], list[registry.RegistryEntry], dict[str, Any], str]:
@@ -210,10 +259,13 @@ def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source],
         bootstrap_replicates=config.bootstrap_replicates, format=config.format, schema=store.LEADERBOARD_SCHEMA)
     if document["status"] != "ok" or any(not row["rated"] for row in document["rows"]):
         raise SnapshotError("panel results do not connect every entrant to the rating anchor")
-    document["evaluation"] = {"mode": "reference_panel", "version": config.evaluation_version,
-        "opponents": list(config.opponent_panel), "sources": sorted(sources), "caveat": CAVEAT,
+    document["evaluation"] = {"mode": "reference_panel" if config.ladder is None else "ladder",
+        "version": config.evaluation_version,
+        "opponents": list(config.opponent_panel), "sources": sorted(sources), "caveat": caveat(config),
         "observed_matchups": len(document["matchups"]), "possible_matchups": len(entries) * (len(entries) - 1) // 2}
-    document["notes"] = [*document["notes"], CAVEAT]
+    if config.ladder is not None:
+        document["evaluation"]["band"] = config.ladder.band
+    document["notes"] = [*document["notes"], caveat(config)]
     if pending:
         # Listed, not rated: these roster entries have no compatible panel block yet.
         document["evaluation"]["pending"] = sorted(pending)

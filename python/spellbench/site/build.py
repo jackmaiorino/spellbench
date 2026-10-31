@@ -55,7 +55,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .._schema import OBSERVATION_FLAGS
 from ..arena import legacy_v1, registry, store
@@ -65,7 +65,7 @@ from ..arena.ledger import LedgerRow, parse_ledger
 from ..arena.validate import validate_tournament_dir
 from ..bench import definition, panel
 from ..messages import ENGINE_DEFAULT_KEYS, EngineIdentity
-from . import hero, render
+from . import charts, hero, render
 
 REPO_URL = "https://github.com/jackmaiorino/spellbench"
 SITE_URL = "https://jackmaiorino.github.io/spellbench/"
@@ -191,8 +191,10 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             failures = validate_tournament_dir(directory)
             if failures:
                 raise SiteError(f"{benchmark.id} snapshots/{directory.name}: " + "; ".join(failures))
+        excluded = {run for run, _ in benchmark.excluded_runs}
         rated = [directory for directory in snapshots
-                 if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]]
+                 if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]
+                 and not _cites(directory, excluded)]
         if rated:
             runs[benchmark.id] = replace(_read_snapshot(rated[-1], newer[benchmark.id]),
                                          withheld_runs=withheld[benchmark.id])
@@ -204,15 +206,30 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         if run is not None:
             board_warnings, stale[benchmark.id] = _board_run_check(benchmark, run)
             warnings.extend(board_warnings)
+    for benchmark in benchmarks:
+        warnings.extend(f"{benchmark.id} runs/{run}: excluded from measurement: {reason}"
+                        for run, reason in benchmark.excluded_runs)
     table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()])
     warnings.extend(table.warnings)
     warnings.extend(_mixed_hero_bots(runs, table.benchmark_ids))
 
+    boards = {bench_id: (next(b.title for b in benchmarks if b.id == bench_id),
+                         f"{'snapshots' if run.snapshot else 'runs'}/{run.name}", run.board,
+                         tuple(run.config.opponent_panel) if run.config else ())
+              for bench_id, run in runs.items()}
+    try:
+        chart_files, chart_warnings = charts.site_charts(benchmarks_dir, boards)
+    except charts.ChartError as exc:
+        raise SiteError(str(exc)) from exc
+    warnings.extend(chart_warnings)
+    tracks = [{"title": track["title"], "chart": f"charts/tracks/{track['id']}.svg"}
+              for track in charts.load_tracks(benchmarks_dir)]
+
     info = {"site": _SITE}
     files = {
         SITE_MARKER: _MARKER_TEXT.encode("utf-8"),  # first: a partial write can still be replaced
-        "index.html": render.render_home(_home_view(benchmarks, runs, stale, table, proposed,
-            publications={name: newer[name] + withheld[name] for name in listings})).encode("utf-8"),
+        "index.html": render.render_home({**_home_view(benchmarks, runs, stale, table, proposed,
+            publications={name: newer[name] + withheld[name] for name in listings}), "tracks": tracks}).encode("utf-8"),
         "models.html": render.render_models(_models_view(benchmarks, runs, stale)).encode("utf-8"),
         "join.html": render.render_join(info).encode("utf-8"),
         "method.html": render.render_method(info).encode("utf-8"),
@@ -222,10 +239,12 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         run = runs.get(benchmark.id)
         if run is None:
             continue
-        page = render.render_benchmark(_benchmark_view(benchmark, run, stale[benchmark.id]))
+        page = render.render_benchmark({**_benchmark_view(benchmark, run, stale[benchmark.id]),
+                                        "chart": f"../../charts/{benchmark.id}.svg"})
         files[f"b/{benchmark.id}/index.html"] = page.encode("utf-8")
         for name, data in run.files.items():
             files[f"b/{benchmark.id}/run/{name}"] = data
+    files.update(chart_files)
     _write_site(out_dir, files)
     return warnings
 
@@ -240,9 +259,18 @@ def board_run_dir(benchmark_dir: Path) -> Path | None:
     ``build_site`` then validates the board run and every run after it, so a
     manifest claiming what its files do not show refuses the build.
     """
+    excluded = definition.excluded_run_names(benchmark_dir)
     snapshots = [path for path in panel.published_snapshots(benchmark_dir)
-                 if store.read_json(path / store.MANIFEST_NAME).get("run", {}).get("rated") is True]
-    return snapshots[-1] if snapshots else _board_of(definition.published_runs(benchmark_dir))
+                 if store.read_json(path / store.MANIFEST_NAME).get("run", {}).get("rated") is True
+                 and not _cites(path, excluded)]
+    return snapshots[-1] if snapshots else _board_of([path for path in definition.published_runs(benchmark_dir)
+                                                      if path.name not in excluded])
+
+
+def _cites(snapshot_dir: Path, runs: Iterable[str]) -> bool:
+    """Whether a snapshot's sources include any of ``runs`` (excluded runs keep their snapshots off the board)."""
+    sources = store.read_json(snapshot_dir / store.MANIFEST_NAME).get("sources", [])
+    return bool({source.get("run") for source in sources if isinstance(source, dict)} & set(runs))
 
 
 def _board_of(published: Sequence[Path]) -> Path | None:
@@ -275,9 +303,11 @@ def _load_benchmarks(benchmarks_dir: Path) -> tuple[list[definition.Benchmark], 
         except definition.BenchmarkError as exc:
             raise SiteError(str(exc)) from exc
         benchmarks.append(benchmark)
+        excluded = {run for run, _ in benchmark.excluded_runs}
         published = definition.published_runs(folder)
-        board = _board_of(published)
+        board = _board_of([path for path in published if path.name not in excluded])
         newer = published if board is None else published[published.index(board) + 1 :]
+        newer = [path for path in newer if path.name not in excluded]  # listed apart, with their reasons
         listings[benchmark.id] = _Listing(board, tuple(newer), tuple(definition.unpublished_runs(folder)))
     return benchmarks, listings
 

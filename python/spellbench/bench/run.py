@@ -541,6 +541,7 @@ def run_benchmark(
     values = definition.placeholder_values(
         definition.placeholder_names(benchmark), definition.load_local_values(benchmark_dir.parent), environ
     )
+    definition.check_ladder_arguments(benchmark, values)
 
     def resolve(text: str) -> str:
         return definition.substitute(text, values)

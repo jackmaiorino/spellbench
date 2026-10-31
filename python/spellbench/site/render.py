@@ -294,6 +294,8 @@ svg.ticks text { fill: var(--muted); }
 /* a bound's open-ended arrow: the tone's color in a table, the whisker's in the Hero chart */
 svg.bar .arrow { color: var(--text); }
 .track { stroke: var(--border); }
+.chart { margin: 1.5rem 0; }
+.chart img { display: block; max-width: 100%; height: auto; }
 .up { color: var(--accent); }
 .down { color: var(--warn); }
 .flat { color: var(--muted); }
@@ -481,6 +483,11 @@ def render_home(view: Mapping[str, Any]) -> str:
         *listing,
         "</section>",
     ]
+    if view.get("tracks"):
+        main += ['<section id="tracks">', "<h2>Tracks</h2>"]
+        main += [f'<figure class="chart"><img src="{_e(track["chart"])}" alt="{_e(track["title"])}: Elo above random '
+                 f'with 95% intervals"></figure>' for track in view["tracks"]]
+        main.append("</section>")
     return _page(
         site,
         title=f"{site['title']}{_SEP}{site['tagline']}",
@@ -514,6 +521,8 @@ def render_benchmark(view: Mapping[str, Any]) -> str:
         f'<p class="lead">{_e(view["summary"])}</p>',
         f'<p class="meta">{meta}</p>',
         _tiles(view),
+        *([f'<figure class="chart"><img src="{_e(view["chart"])}" alt="Elo with 95% intervals for every rated bot">'
+           "</figure>"] if view.get("chart") else []),
         _leaderboards(view),
         _grid(view["grid"], _panel_opponents(view)),
         '<section class="about">',

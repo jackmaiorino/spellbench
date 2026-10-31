@@ -58,6 +58,48 @@ class TournamentError(Exception):
 
 
 @dataclass(frozen=True)
+class Ladder:
+    """A reference ladder: the panel in rating order, each reference playing those within ``band`` places,
+    and each entrant playing only the references named for it."""
+
+    band: int
+    entrants: dict[str, tuple[str, ...]]
+
+    def to_json(self) -> dict[str, Any]:
+        return {"band": self.band, "entrants": {name: list(self.entrants[name]) for name in sorted(self.entrants)}}
+
+
+def ladder_pairs(panel: tuple[str, ...], ladder: Ladder) -> frozenset[frozenset[str]]:
+    """Every matchup the ladder schedules: references within the band, and each entrant's named references."""
+    pairs = {frozenset((a, panel[j])) for i, a in enumerate(panel) for j in range(i + 1, min(len(panel), i + 1 + ladder.band))}
+    pairs.update(frozenset((name, rung)) for name, rungs in ladder.entrants.items() for rung in rungs)
+    return frozenset(pairs)
+
+
+def parse_ladder(value: Any, panel: tuple[str, ...], names: set[str], context: str) -> Ladder:
+    """Check a ladder object against the panel (the rungs, in order) and the configured bot names."""
+    if not isinstance(value, dict) or set(value) != {"band", "entrants"}:
+        raise TournamentError(f"{context}: must be an object with band and entrants")
+    if len(panel) < 2:
+        raise TournamentError(f"{context}: needs an opponent_panel of at least two references (the rungs)")
+    band = value["band"]
+    if type(band) is not int or not 1 <= band < len(panel):
+        raise TournamentError(f"{context}.band: must be an integer from 1 to the number of rungs minus one")
+    raw = value["entrants"]
+    if not isinstance(raw, dict):
+        raise TournamentError(f"{context}.entrants: must map entrant names to lists of rungs")
+    entrants = {}
+    for name, rungs in raw.items():
+        if name not in names or name in panel:
+            raise TournamentError(f"{context}.entrants: {name!r} is not a configured bot outside the panel")
+        if (not isinstance(rungs, list) or not rungs or any(type(rung) is not str or rung not in panel for rung in rungs)
+                or len(set(rungs)) != len(rungs)):
+            raise TournamentError(f"{context}.entrants[{name!r}]: must list distinct rungs")
+        entrants[name] = tuple(rungs)
+    return Ladder(band=band, entrants=entrants)
+
+
+@dataclass(frozen=True)
 class BotSpec:
     name: str
     version: str
@@ -355,6 +397,7 @@ class TournamentConfig:
     evaluation_engine_identity: str | None = None
     evaluation_engine_inputs: tuple[str, ...] = ()
     core_accounting: str = "concurrent"
+    ladder: Ladder | None = None
 
     def decks_for_pair(self, pair_index: int) -> tuple[DeckSpec, DeckSpec]:
         """The (p0, p1) decks of both games of pair ``pair_index``."""
@@ -425,6 +468,8 @@ class TournamentConfig:
                 doc["evaluation_engine_identity"] = self.evaluation_engine_identity
             if self.evaluation_engine_inputs:
                 doc["evaluation_engine_inputs"] = list(self.evaluation_engine_inputs)
+        if self.ladder is not None:  # written only for ladders, so panel configs keep their bytes
+            doc["ladder"] = self.ladder.to_json()
         return doc
 
     @classmethod
@@ -465,6 +510,7 @@ class TournamentConfig:
             "evaluation_engine_identity",
             "evaluation_engine_inputs",
             "core_accounting",
+            "ladder",
         }
         required = {
             "schema",
@@ -569,6 +615,13 @@ class TournamentConfig:
         engine_inputs = value.get("evaluation_engine_inputs", [])
         if not isinstance(engine_inputs, list) or any(type(path) is not str or not path for path in engine_inputs) or len(set(engine_inputs)) != len(engine_inputs) or (engine_inputs and not panel):
             raise TournamentError("config.evaluation_engine_inputs: must name distinct input files for a panel")
+        ladder = None
+        if "ladder" in value:
+            ladder = parse_ladder(value["ladder"], tuple(panel), set(names), f"{context}.ladder")
+            if matchups is None:
+                raise TournamentError("config.matchups: a ladder config lists its matchups")
+            if not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
+                raise TournamentError("config.matchups: a ladder config plays only ladder matchups")
         stats_seed = _req_uint(value["stats_seed"], f"{context}.stats_seed")
         rules = RulesSpec.from_json(value["rules"], f"{context}.rules") if "rules" in value else RulesSpec()
         raw_extensions = value.get("extensions", [])
@@ -649,4 +702,5 @@ class TournamentConfig:
             evaluation_engine_identity=engine_identity,
             evaluation_engine_inputs=tuple(engine_inputs),
             core_accounting=core_accounting,
+            ladder=ladder,
         )

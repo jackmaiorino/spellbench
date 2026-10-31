@@ -1,0 +1,264 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "pauper-ladder-v1",
+  "title": "Pauper · mtg-kernel ladder",
+  "summary": "The pauper-kernel-v2 engine, decks and choices, rated on a ladder: references (rungs) about 50 to 200 Elo apart, from the random bot up past the strongest policy, each playing the three rungs above and below it. Entrants play the rungs nearest their strength, so strong bots are rated against near-equals rather than bounded by weaker references. The clock is longer than v2's so that search bots fit it; policy bots are unaffected. Ratings are on this board's own scale and cannot be compared numerically with v2's.",
+  "format": "pauper-bo1",
+  "engine": {
+    "name": "mtg-kernel",
+    "command": [
+      "${PYTHON}",
+      "${MTG_KERNEL_V2_ENGINE}",
+      "--bridge",
+      "${MTG_KERNEL_V2_BRIDGE}",
+      "--catalog",
+      "${MTG_KERNEL_PUBLIC_CATALOG}",
+      "--source-revision",
+      "92ec2393db34bea805a85991163458b9ff890f57",
+      "--known-cards"
+    ]
+  },
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Affinity",
+    "Elves",
+    "Spy",
+    "Burn",
+    "CawGates",
+    "Faeries"
+  ],
+  "pairs_per_deck": 8,
+  "stats_seed": 20261031,
+  "opponent_panel": [
+    "uniform",
+    "heuristic",
+    "c12",
+    "gorge-ar8",
+    "g115",
+    "oh2-r2s1-b512",
+    "oh2-r2s1-b512-argmax"
+  ],
+  "evaluation_version": "pauper-ladder-v1.0.0",
+  "ladder": {
+    "band": 3,
+    "entrants": {}
+  },
+  "extensions": [
+    "x_kernel_flat_v4",
+    "x_public_history_v1"
+  ],
+  "native_id_audits": {
+    "x_kernel_flat_v4": "docs/pauper-luna-panel-20261003.md#visibility-and-policy-inputs"
+  },
+  "evaluation_engine_inputs": [
+    "${MTG_KERNEL_V2_OBSERVATION}",
+    "${MTG_KERNEL_V2_SEMANTICS}",
+    "${MTG_KERNEL_V2_COMBAT}",
+    "${MTG_KERNEL_V2_ARRANGEMENT}",
+    "${MTG_KERNEL_V2_SELECTION_ORDER}",
+    "${MTG_KERNEL_V2_ORDER}",
+    "${MTG_KERNEL_V2_HISTORY}"
+  ],
+  "workers": 12,
+  "core_accounting": "sequential",
+  "qualification_budget_percent": 30,
+  "qualification_worker_selection": "wall",
+  "bootstrap_replicates": 2000,
+  "time_control": {
+    "startup_ms": 120000,
+    "game_start_ms": 60000,
+    "bank_ms": 7200000,
+    "increment_ms": 30000,
+    "max_decision_ms": 180000,
+    "engine_step_ms": 120000
+  },
+  "bots": [
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "seed": 11,
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "heuristic",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "heuristic",
+        "author": "Spellbench",
+        "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and blocks only when it must. A fixed reference line, not a learning bot.",
+        "url": null
+      }
+    },
+    {
+      "name": "c12",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${C12_SCORER_CONFIG}",
+        "--name",
+        "c12",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "5c14c025e3cc87fb2c3eea28e1dbd770d7d257344174296d6259020f720da9de"
+      ],
+      "checkpoint": "${C12_CHECKPOINT}",
+      "display": {
+        "label": "Archon 2",
+        "author": "mipo",
+        "description": "mtg-kernel policy network, Phase 1 lineage c block 12 (4,000 updates), sampled, no search. Trained on all 8 of these decks plus Terror. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
+        "url": null
+      }
+    },
+    {
+      "name": "gorge-ar8",
+      "version": "gorge-26257e0eda17/adapter-0.2.0/neutral-0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "any",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "${GORGE_SPELLBENCH_AGENT}",
+        "-world",
+        "neutral",
+        "-policy",
+        "ar8",
+        "-registry",
+        "${GORGE_REGISTRY}",
+        "-registry-sha256",
+        "42ddaff112267bb2554d1cdb5c09a7637c70f6f738bc4e21911b191fa7d19937"
+      ],
+      "display": {
+        "label": "gorge ar8",
+        "author": "gorge",
+        "description": "gorge's combined lethal attack policy. Plays protocol v2 as an ordinary agent through gorge's neutral world: each decision is rebuilt from the seat's own observation and candidates, with printed facts from gorge's frozen registry, so it sees nothing the seat cannot. Mana is paid by the engine. Affinity, Elves and Faeries each hold one card gorge cannot play fully.",
+        "url": "https://github.com/adams-shaun/gorge"
+      }
+    },
+    {
+      "name": "g115",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${G115_SCORER_CONFIG}",
+        "--name",
+        "g115",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "8139016ca561961714f25e22a9d6f7fc888548fc332e45b6bce402dfc43159f2"
+      ],
+      "checkpoint": "${G115_CHECKPOINT}",
+      "display": {
+        "label": "Archon 3",
+        "author": "mipo",
+        "description": "mtg-kernel policy network, Phase 1 lineage g block 115 (32,400 updates), sampled, no search. Trained on 6 of these 8 decks plus Terror; never saw Spy or CawGates. Neutral v2 choices, with deterministic-completion-logprob/v1 for buffered declarations and ordering; these ratings do not reuse the legacy v1 games.",
+        "url": null
+      }
+    },
+    {
+      "name": "oh2-r2s1-b512",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S1B512_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s1-b512",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "662aad1a2c01089f4b5405c0bee73f17a4c3e13c57afb989e56fc21a0c269934"
+      ],
+      "checkpoint": "${OH2R2S1B512_CHECKPOINT}",
+      "display": {
+        "label": "Basilisk 1",
+        "author": "mipo",
+        "url": null,
+        "description": "mtg-kernel policy network: the g115 lineage's r2 seed 1 continued by ordinary self-play RL to dose 512 (OH2, 82,944 updates), sampled, no search. The research program's best scoreboard checkpoint at the v2.3.0 boundary. Trained against a48 (20% of its opponents), so its a48 games are a training-opponent matchup."
+      }
+    },
+    {
+      "name": "oh2-r2s1-b512-argmax",
+      "version": "pauper-v2.0.0",
+      "type": "subprocess",
+      "owner": "jackmaiorino",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "reinforcement-learning"
+      ],
+      "command": [
+        "${PYTHON}",
+        "${MTG_KERNEL_V2_BOT}",
+        "--scorer",
+        "${MTG_KERNEL_SCORER}",
+        "--config",
+        "${OH2R2S1B512_ARGMAX_SCORER_CONFIG}",
+        "--name",
+        "oh2-r2s1-b512-argmax",
+        "--version",
+        "pauper-v2.0.0",
+        "--expect-model-state",
+        "662aad1a2c01089f4b5405c0bee73f17a4c3e13c57afb989e56fc21a0c269934"
+      ],
+      "checkpoint": "${OH2R2S1B512_CHECKPOINT}",
+      "display": {
+        "label": "Basilisk 1 (argmax)",
+        "author": "mipo",
+        "url": null,
+        "description": "The same checkpoint as Basilisk 1 (oh2-r2s1-b512), choosing the highest-scoring candidate (argmax-first-v1) instead of sampling. No search. A ladder rung comparing selection methods."
+      }
+    }
+  ],
+  "job_storage_budget": {
+    "projected_bytes": 4294967296,
+    "cap_bytes": 25769803776
+  }
+}
