@@ -169,7 +169,8 @@ def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -
     """Rated rung-versus-rung blocks, compatible with ``config``, that its ladder no longer schedules.
 
     Reordering or inserting rungs can move played pairs out of the band; their results would silently leave the
-    fit. Entrant blocks may change with placement, so only rung pairs count.
+    fit. Entrant blocks may change with placement, so only rung pairs count. Removing a rung from the panel
+    takes its rung blocks with it by design: that is a new rung set, decided in the definition's review.
     """
     if config.ladder is None:
         return []

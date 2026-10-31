@@ -9,11 +9,13 @@ says it is not on the board. The anchor sits at 1000.
 
 Human games come from ``benchmarks/<id>/human/<session>/`` (a ledger and a
 ``SESSION.json``). They never enter the rating fit. On the chart each opponent
-row carries the human's natural-game record against it, with timeout forfeits
-and other endings counted beside it, not scored. From ``HUMAN_ESTIMATE_GAMES``
-natural games on, a descriptive human row shows a one-parameter fit against
-the bots' ratings held fixed, with a likelihood interval, or a one-sided bound
-when every natural game is a win or every one a loss.
+row carries the human's natural-game record against it, with forfeits and
+other endings counted beside it by who lost them, not scored. A record whose
+opponent's bot id differs from the board row's is marked "other build" and
+never enters the estimate. From ``HUMAN_ESTIMATE_GAMES`` matching natural games
+on, a descriptive human row shows a one-parameter fit against the bots'
+ratings held fixed, with a 95% likelihood interval, or, when every such game
+is a win (or every one a loss), the matching one-sided bound (97.5%).
 
 A track chart (``benchmarks/tracks.json``) applies the Hero method
 (:mod:`spellbench.site.hero`) to the track's boards: a descriptive average of
@@ -26,12 +28,14 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ..arena import store
+from ..arena.ledger import parse_ledger
 from ..wire import strict_json_loads
 from . import hero
 
@@ -41,6 +45,7 @@ HUMAN_DIR = "human"
 SESSION_FILE = "SESSION.json"
 SESSION_SCHEMA = "spellbench-human-session/v1"
 HUMAN_ESTIMATE_GAMES = 10
+TRACK_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 HEURISTIC = "heuristic"
 ANCHOR_ELO = 1000.0
 _LOG_TO_ELO = 400 / math.log(10)
@@ -79,8 +84,9 @@ class HumanRecord:
     wins: int
     draws: int
     losses: int
-    other: dict[str, int]  # endings that are not natural results, by classification
+    other: dict[str, int]  # endings that are not natural results, by classification and who lost them
     sessions: tuple[str, ...]
+    opponent_ids: frozenset[str] = frozenset()  # the opponent's bot ids in these games
 
 
 @dataclass(frozen=True)
@@ -104,10 +110,11 @@ def load_tracks(benchmarks_dir: Path) -> list[dict[str, Any]]:
     tracks = []
     for track in data["tracks"]:
         if (not isinstance(track, dict) or set(track) != {"id", "title", "benchmarks"}
-                or not all(isinstance(track[key], str) and track[key] for key in ("id", "title"))
+                or not isinstance(track["id"], str) or not TRACK_ID.fullmatch(track["id"])
+                or not isinstance(track["title"], str) or not track["title"]
                 or not isinstance(track["benchmarks"], list) or not track["benchmarks"]
                 or any(not isinstance(item, str) for item in track["benchmarks"])):
-            raise ChartError(f"{path}: every track needs id, title and a nonempty benchmarks list")
+            raise ChartError(f"{path}: every track needs an id (a-z, 0-9, '-'), a title and a nonempty benchmarks list")
         tracks.append(track)
     if len({track["id"] for track in tracks}) != len(tracks):
         raise ChartError(f"{path}: track ids must be distinct")
@@ -121,13 +128,19 @@ def load_human_sessions(benchmark_dir: Path) -> list[HumanSession]:
         return []
     sessions = []
     for path in sorted(child for child in folder.iterdir() if child.is_dir()):
-        info = strict_json_loads((path / SESSION_FILE).read_bytes())
-        if not isinstance(info, dict) or info.get("schema") != SESSION_SCHEMA or not isinstance(info.get("human"), str) or not isinstance(
-                info.get("conditions"), str):
-            raise ChartError(f"{path / SESSION_FILE}: needs schema {SESSION_SCHEMA}, human and conditions")
-        rows = tuple(store.read_jsonl(path / store.LEDGER_NAME))
-        if any(info["human"] not in {seat["name"] for seat in row["seats"]} for row in rows):
-            raise ChartError(f"{path}: every game must seat {info['human']!r}")
+        try:
+            info = strict_json_loads((path / SESSION_FILE).read_bytes())
+            if (not isinstance(info, dict) or info.get("schema") != SESSION_SCHEMA
+                    or not isinstance(info.get("human"), str) or not isinstance(info.get("conditions"), str)):
+                raise ChartError(f"{path / SESSION_FILE}: needs schema {SESSION_SCHEMA}, human and conditions")
+            rows = tuple(store.read_jsonl(path / store.LEDGER_NAME))
+            parse_ledger(list(rows))  # the ledger schema, row by row
+        except ChartError:
+            raise
+        except Exception as exc:
+            raise ChartError(f"{path}: not a readable human session: {exc}") from exc
+        if any([seat["name"] for seat in row["seats"]].count(info["human"]) != 1 for row in rows):
+            raise ChartError(f"{path}: every game must seat {info['human']!r} exactly once")
         sessions.append(HumanSession(path.name, info["human"], info["conditions"], rows))
     return sessions
 
@@ -140,11 +153,15 @@ def human_records(sessions: Sequence[HumanSession]) -> list[HumanRecord]:
             seats = {seat["seat"]: seat["name"] for seat in row["seats"]}
             mine = next(seat for seat, name in seats.items() if name == session.human)
             opponent = next(name for seat, name in seats.items() if seat != mine)
-            tally = tallies.setdefault((session.human, opponent),
-                                       {"wins": 0, "draws": 0, "losses": 0, "other": {}, "sessions": set()})
+            tally = tallies.setdefault((session.human, opponent), {"wins": 0, "draws": 0, "losses": 0, "other": {},
+                                                                   "sessions": set(), "ids": set()})
             tally["sessions"].add(session.name)
+            tally["ids"].update(seat.get("bot_id") for seat in row["seats"] if seat["seat"] != mine)
             if row["classification"] != "natural":
-                tally["other"][row["classification"]] = tally["other"].get(row["classification"], 0) + 1
+                side = ("lost by " + session.human if row["winner"] not in (None, mine) else
+                        "won by " + session.human if row["winner"] == mine else "no winner")
+                kind = f"{row['classification']} {side}"
+                tally["other"][kind] = tally["other"].get(kind, 0) + 1
             elif row["winner"] is None:
                 tally["draws"] += 1
             elif row["winner"] == mine:
@@ -152,7 +169,7 @@ def human_records(sessions: Sequence[HumanSession]) -> list[HumanRecord]:
             else:
                 tally["losses"] += 1
     return [HumanRecord(human, opponent, t["wins"], t["draws"], t["losses"], dict(sorted(t["other"].items())),
-                        tuple(sorted(t["sessions"])))
+                        tuple(sorted(t["sessions"])), frozenset(i for i in t["ids"] if i is not None))
             for (human, opponent), t in sorted(tallies.items())]
 
 
@@ -200,7 +217,8 @@ def human_estimate(games: Sequence[tuple[float, float]]) -> tuple[float | None, 
 # ---------------- drawing ----------------
 
 def _num(value: float) -> str:
-    return f"{value:.1f}".rstrip("0").rstrip(".")
+    text = f"{value:.1f}".rstrip("0").rstrip(".")
+    return "0" if text == "-0" else text
 
 
 def _scale(values: Sequence[float]) -> tuple[float, float, float]:
@@ -275,8 +293,10 @@ def _legend(y: int, items: Sequence[tuple[str, str]]) -> list[str]:
     return out
 
 
-def _record_text(record: HumanRecord) -> str:
+def _record_text(record: HumanRecord, same_build: bool = True) -> str:
     text = f"{record.human} {record.wins}-{record.losses}" + (f"-{record.draws}" if record.draws else "")
+    if not same_build:
+        text += ", other build"
     others = ", ".join(f"{count} {kind}" for kind, count in record.other.items())
     return text + (f" (+{others})" if others else "")
 
@@ -287,6 +307,7 @@ def benchmark_chart(benchmark_id: str, title: str, board: Mapping[str, Any], *, 
     """One board: every rated row's Elo and 95% interval, the heuristic line and the human records."""
     rows = [row for row in board["rows"] if row["rated"]]
     elo = {row["name"]: row["elo_milli"] / 1000 for row in rows}
+    bot_ids = {row["name"]: row.get("bot_id") for row in rows}
     records = [record for record in human_records(sessions) if record.opponent in elo]
     estimates = []
     for human in sorted({record.human for record in records}):
@@ -298,7 +319,8 @@ def benchmark_chart(benchmark_id: str, title: str, board: Mapping[str, Any], *, 
                 seats = {seat["seat"]: seat["name"] for seat in row["seats"]}
                 mine = next(seat for seat, name in seats.items() if name == human)
                 opponent = next(name for seat, name in seats.items() if seat != mine)
-                if opponent in elo:
+                opponent_id = next(seat.get("bot_id") for seat in row["seats"] if seat["seat"] != mine)
+                if opponent in elo and opponent_id == bot_ids[opponent]:  # the very bot the board rated
                     score = 0.5 if row["winner"] is None else float(row["winner"] == mine)
                     games.append((elo[opponent], score))
         if len(games) >= HUMAN_ESTIMATE_GAMES:
@@ -349,10 +371,10 @@ def benchmark_chart(benchmark_id: str, title: str, board: Mapping[str, Any], *, 
         body.append("</g>")
         for offset, record in enumerate(by_opponent.get(row["name"], ())):
             hx = x(value) + 14 + 12 * offset
-            body.append(f'<g><title>{escape(_record_text(record))} against {escape(row["name"])}</title>'
+            text = _record_text(record, row.get("bot_id") in record.opponent_ids or not record.opponent_ids)
+            body.append(f'<g><title>{escape(text)} against {escape(row["name"])}</title>'
                         f'{_mark("human", hx, y)}</g>')
-            body.append(f'<text class="note" x="{_num(hx + 9)}" y="{_num(y - 8)}">'
-                        f'{escape(_record_text(record))}</text>')
+            body.append(f'<text class="note" x="{_num(hx + 9)}" y="{_num(y - 8)}">{escape(text)}</text>')
     for offset, (human, count, value, lower, upper, bound) in enumerate(estimates):
         y = top + (len(ordered) + offset) * _ROW_H + _ROW_H / 2
         body.append(f'<text class="lab" x="{plot_left - 10}" y="{_num(y + 4)}" text-anchor="end">'
@@ -369,8 +391,9 @@ def benchmark_chart(benchmark_id: str, title: str, board: Mapping[str, Any], *, 
     for session in sessions:
         notes.append(f"human session {session.name}: {session.conditions}")
     if estimates:
-        notes.append("human estimate: natural games only, bot ratings held fixed; it does not cover their "
-                     "uncertainty or when sessions stopped")
+        notes.append("human estimate: natural games against the rated builds only, bot ratings held fixed (95% "
+                     "interval, or a 97.5% one-sided bound); it does not cover their uncertainty or when sessions "
+                     "stopped")
     if board.get("evaluation"):
         notes.append(board["evaluation"]["caveat"].split(":")[0])
     legend_y = bottom + 50
@@ -411,6 +434,10 @@ def track_chart(track: Mapping[str, Any], boards: Sequence[tuple[str, Mapping[st
         body.append(f'<line class="ref" x1="{_num(x(heuristic.score))}" y1="{top - 6}" '
                     f'x2="{_num(x(heuristic.score))}" y2="{bottom}"/>')
     records = human_records(sessions)
+    track_ids: dict[str, set[str]] = {}
+    for _, document in boards:
+        for board_row in document["rows"]:
+            track_ids.setdefault(board_row["name"], set()).add(board_row.get("bot_id"))
     for index, row in enumerate(rows):
         y = top + index * _ROW_H + _ROW_H / 2
         coverage = f"{len(row.chips)}/{len(included)} boards"
@@ -433,10 +460,10 @@ def track_chart(track: Mapping[str, Any], boards: Sequence[tuple[str, Mapping[st
         body.append("</g>")
         for offset, record in enumerate(r for r in records if r.opponent == row.name):
             hx = x(row.score) + 14 + 12 * offset
-            body.append(f'<g><title>{escape(_record_text(record))} against {escape(row.name)}</title>'
-                        f'{_mark("human", hx, y)}</g>')
-            body.append(f'<text class="note" x="{_num(hx + 9)}" y="{_num(y - 8)}">'
-                        f'{escape(_record_text(record))}</text>')
+            text = _record_text(record, bool(track_ids.get(row.name, set()) & record.opponent_ids)
+                                or not record.opponent_ids)
+            body.append(f'<g><title>{escape(text)} against {escape(row.name)}</title>{_mark("human", hx, y)}</g>')
+            body.append(f'<text class="note" x="{_num(hx + 9)}" y="{_num(y - 8)}">{escape(text)}</text>')
     legend_y = bottom + 50
     legend = [("entrant", "mean over entered boards"), ("reference", "anchor")]
     if heuristic is not None:
@@ -464,17 +491,21 @@ def preview_chart(run_dir: Path, *, title: str | None = None) -> str:
     config = TournamentConfig.from_json(store.read_json(run_dir / store.CONFIG_NAME))
     benchmark_id = manifest["run"]["benchmark_id"]
     benchmark_dir = run_dir.parent.parent
-    return benchmark_chart(benchmark_id, title or benchmark_id, board, label=f"{run_dir.parent.name}/{run_dir.name}",
+    from ..bench import definition
+    excluded = run_dir.name in definition.excluded_run_names(benchmark_dir)
+    return benchmark_chart(benchmark_id, title or benchmark_id, board, label=f"{run_dir.parent.name}/{run_dir.name}"
+                           + (" (excluded run)" if excluded else ""),
                            references=config.opponent_panel, sessions=load_human_sessions(benchmark_dir),
-                           preview=manifest["run"]["rated"] is not True)
+                           preview=manifest["run"]["rated"] is not True or excluded)
 
 
 def site_charts(benchmarks_dir: Path, boards: Mapping[str, tuple[str, str, Mapping[str, Any], Sequence[str]]]
                 ) -> tuple[dict[str, bytes], list[str]]:
     """Charts for the site: ``boards`` maps a benchmark id to (title, run label, leaderboard, references).
 
-    Returns ``charts/<id>.svg`` and ``charts/track-<id>.svg`` files and the warnings.
+    Returns ``charts/<id>.svg`` and ``charts/tracks/<id>.svg`` files and the warnings.
     """
+    from ..bench import definition
     files: dict[str, bytes] = {}
     warnings: list[str] = []
     sessions = {bench_id: load_human_sessions(benchmarks_dir / bench_id) for bench_id in boards}
@@ -482,21 +513,27 @@ def site_charts(benchmarks_dir: Path, boards: Mapping[str, tuple[str, str, Mappi
         files[f"charts/{bench_id}.svg"] = benchmark_chart(
             bench_id, title, board, label=label, references=references, sessions=sessions[bench_id]).encode("utf-8")
     for track in load_tracks(benchmarks_dir):
-        unknown = [bench_id for bench_id in track["benchmarks"] if not (benchmarks_dir / bench_id).is_dir()]
+        known = {path.name for path in definition.find_benchmarks(benchmarks_dir)}
+        unknown = [bench_id for bench_id in track["benchmarks"] if bench_id not in known]
         if unknown:
             raise ChartError(f"track {track['id']}: no benchmark {', '.join(unknown)}")
         rated = [(bench_id, boards[bench_id][2]) for bench_id in track["benchmarks"] if bench_id in boards]
         track_sessions = [s for bench_id in track["benchmarks"] if bench_id in boards for s in sessions[bench_id]]
         svg, track_warnings = track_chart(track, rated, track_sessions)
-        files[f"charts/track-{track['id']}.svg"] = svg.encode("utf-8")
+        files[f"charts/tracks/{track['id']}.svg"] = svg.encode("utf-8")
         warnings.extend(f"track {track['id']}: {warning}" for warning in track_warnings)
     return files, warnings
 
 
 def write_session(source_run: Path, target: Path, *, human: str, conditions: str, note: str) -> None:
-    """File a human session's ledger under a board: ``target`` is ``benchmarks/<id>/human/<session>``."""
+    """File a human session's ledger under a board: ``target`` is ``benchmarks/<id>/human/<session>``.
+
+    ``SESSION.json`` records the source run's name and the ledger's sha256, so the copy can be traced back.
+    """
+    ledger = (source_run / store.LEDGER_NAME).read_bytes()
     target.mkdir(parents=True, exist_ok=False)
-    store.write_bytes_atomic(target / store.LEDGER_NAME, (source_run / store.LEDGER_NAME).read_bytes())
+    store.write_bytes_atomic(target / store.LEDGER_NAME, ledger)
     store.write_bytes_atomic(target / SESSION_FILE, (json.dumps(
-        {"schema": SESSION_SCHEMA, "human": human, "conditions": conditions, "note": note},
+        {"schema": SESSION_SCHEMA, "human": human, "conditions": conditions, "note": note,
+         "source": {"run": source_run.name, "ledger_sha256": store.sha256_hex(ledger)}},
         ensure_ascii=False, indent=2) + "\n").encode("utf-8"))

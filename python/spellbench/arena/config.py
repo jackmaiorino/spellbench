@@ -618,7 +618,9 @@ class TournamentConfig:
         ladder = None
         if "ladder" in value:
             ladder = parse_ladder(value["ladder"], tuple(panel), set(names), f"{context}.ladder")
-            if matchups is not None and not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
+            if matchups is None:
+                raise TournamentError("config.matchups: a ladder config lists its matchups")
+            if not {frozenset(pair) for pair in matchups} <= ladder_pairs(tuple(panel), ladder):
                 raise TournamentError("config.matchups: a ladder config plays only ladder matchups")
         stats_seed = _req_uint(value["stats_seed"], f"{context}.stats_seed")
         rules = RulesSpec.from_json(value["rules"], f"{context}.rules") if "rules" in value else RulesSpec()

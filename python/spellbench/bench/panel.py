@@ -80,7 +80,8 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     config = full_config(benchmark)
     values = definition.placeholder_values(definition.placeholder_names(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)),
         definition.load_local_values(directory.parent), os.environ if environ is None else environ)
-    definition.check_ladder_arguments(benchmark, values)
+    # The whole definition, not the previous shard: a new entrant's command is checked before any commitment.
+    definition.check_ladder_arguments(replace(benchmark, evaluation_targets=None, evaluation_matchups=None), values)
     executed = runner.executed_config(config, lambda text: definition.substitute(text, values))
     raw = definition._read_json(directory / definition.BENCHMARK_FILE)
     engine = pinning.engine_files(executed.engine_command, extra=executed.evaluation_engine_inputs)

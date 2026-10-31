@@ -206,6 +206,9 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
         if run is not None:
             board_warnings, stale[benchmark.id] = _board_run_check(benchmark, run)
             warnings.extend(board_warnings)
+    for benchmark in benchmarks:
+        warnings.extend(f"{benchmark.id} runs/{run}: excluded from measurement: {reason}"
+                        for run, reason in benchmark.excluded_runs)
     table = hero.hero_table([(bench_id, run.board) for bench_id, run in runs.items()])
     warnings.extend(table.warnings)
     warnings.extend(_mixed_hero_bots(runs, table.benchmark_ids))
@@ -219,7 +222,7 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
     except charts.ChartError as exc:
         raise SiteError(str(exc)) from exc
     warnings.extend(chart_warnings)
-    tracks = [{"title": track["title"], "chart": f"charts/track-{track['id']}.svg"}
+    tracks = [{"title": track["title"], "chart": f"charts/tracks/{track['id']}.svg"}
               for track in charts.load_tracks(benchmarks_dir)]
 
     info = {"site": _SITE}
@@ -304,6 +307,7 @@ def _load_benchmarks(benchmarks_dir: Path) -> tuple[list[definition.Benchmark], 
         published = definition.published_runs(folder)
         board = _board_of([path for path in published if path.name not in excluded])
         newer = published if board is None else published[published.index(board) + 1 :]
+        newer = [path for path in newer if path.name not in excluded]  # listed apart, with their reasons
         listings[benchmark.id] = _Listing(board, tuple(newer), tuple(definition.unpublished_runs(folder)))
     return benchmarks, listings
 

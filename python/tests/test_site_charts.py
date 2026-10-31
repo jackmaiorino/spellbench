@@ -61,10 +61,18 @@ def test_human_records_count_natural_results_and_other_endings_apart():
     records = charts.human_records([session(rows)])
     assert len(records) == 1
     record = records[0]
-    assert (record.wins, record.losses, record.draws, record.other) == (2, 0, 0, {"forfeit": 6})
+    assert (record.wins, record.losses, record.draws, record.other) == (2, 0, 0, {"forfeit lost by human": 6})
     svg = charts.benchmark_chart("fixture", "t", BOARD, label="x", sessions=[session(rows)])
-    assert "human 2-0 (+6 forfeit)" in svg and "fixture clock: bank 30 min" in svg
+    assert "human 2-0 (+6 forfeit lost by human)" in svg and "fixture clock: bank 30 min" in svg
+    assert "other build" not in svg
     assert "(human, descriptive)" not in svg  # fewer than HUMAN_ESTIMATE_GAMES natural games
+
+
+def test_a_record_against_another_build_is_marked_and_kept_out_of_the_estimate():
+    rows = [dict(ledger_row("p0", "p0"), seats=[{"seat": "p0", "name": "human", "bot_id": "h"},
+                                                {"seat": "p1", "name": "strong", "bot_id": "old-build"}])] * 10
+    svg = charts.benchmark_chart("fixture", "t", BOARD, label="x", sessions=[session(rows)])
+    assert "human 10-0, other build" in svg and "(human, descriptive)" not in svg
 
 
 def test_human_estimate_needs_enough_games_and_bounds_a_perfect_record():
@@ -94,17 +102,28 @@ def test_tracks_file_is_checked(tmp_path):
         {"id": "a", "title": "A", "benchmarks": []}]}), encoding="utf-8")
     with pytest.raises(charts.ChartError, match="nonempty benchmarks"):
         charts.load_tracks(tmp_path)
+    (tmp_path / "tracks.json").write_text(json.dumps({"schema": "spellbench-tracks/v1", "tracks": [
+        {"id": "../x", "title": "A", "benchmarks": ["b"]}]}), encoding="utf-8")
+    with pytest.raises(charts.ChartError, match="an id"):
+        charts.load_tracks(tmp_path)
+
+
+def test_a_malformed_session_is_a_chart_error(tmp_path):
+    (tmp_path / "bench" / "human" / "s1").mkdir(parents=True)
+    with pytest.raises(charts.ChartError, match="not a readable human session"):
+        charts.load_human_sessions(tmp_path / "bench")
 
 
 def test_filed_session_round_trips(tmp_path):
-    run = tmp_path / "run"
+    filed = Path(__file__).resolve().parents[2] / "benchmarks" / "pauper-kernel-v2" / "human" / "session-20261030-082938"
+    run = tmp_path / "session-x"
     run.mkdir()
-    rows = [ledger_row("p0", "p0"), ledger_row("p1", "p0")]
-    (run / "matches.jsonl").write_bytes(b"".join(
-        json.dumps(item, separators=(",", ":"), sort_keys=True).encode() + b"\n" for item in rows))
+    (run / "matches.jsonl").write_bytes((filed / "matches.jsonl").read_bytes())
     target = tmp_path / "bench" / "human" / "s1"
     charts.write_session(run, target, human="human", conditions="fixture", note="evaluation only")
+    assert json.loads((target / "SESSION.json").read_text(encoding="utf-8"))["source"]["run"] == "session-x"
     loaded = charts.load_human_sessions(tmp_path / "bench")
     assert [s.name for s in loaded] == ["s1"]
     record = charts.human_records(loaded)[0]
-    assert (record.wins, record.losses) == (1, 1)
+    assert (record.wins, record.losses, record.other) == (2, 0, {"forfeit lost by human": 6})
+    assert len(record.opponent_ids) == 1

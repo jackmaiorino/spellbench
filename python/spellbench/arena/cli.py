@@ -374,9 +374,10 @@ def _cmd_charts(argv: Sequence[str]) -> int:
         for warning in build_site(Path(argv[0]), site):
             print(f"warning: {warning}", file=sys.stderr)
         out_dir.mkdir(parents=True, exist_ok=True)
-        for chart in sorted((site / "charts").glob("*.svg")):
-            (out_dir / chart.name).write_bytes(chart.read_bytes())
-            written.append(chart.name)
+        for chart in sorted((site / "charts").rglob("*.svg")):
+            name = chart.name if chart.parent.name == "charts" else f"track-{chart.name}"
+            (out_dir / name).write_bytes(chart.read_bytes())
+            written.append(name)
     for run_dir in previews:
         name = f"preview-{run_dir.parent.parent.name}-{run_dir.name}.svg"
         (out_dir / name).write_bytes(preview_chart(run_dir).encode("utf-8"))

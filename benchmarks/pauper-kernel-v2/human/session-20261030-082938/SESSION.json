@@ -2,5 +2,9 @@
   "schema": "spellbench-human-session/v1",
   "human": "human",
   "conditions": "human client vs oh2-r2s1-b512 on this board's engine and decks; 16 games scheduled over 8 decks, 8 recorded; clock: bank 30 min, decision limit 30 min (board: 10 min, 90 s)",
-  "note": "Evaluation only, never training data. Player: the maintainer (mipo)."
+  "note": "Evaluation only, never training data. Player: the maintainer.",
+  "source": {
+    "run": "session-20261030-082938",
+    "ledger_sha256": "5f9e7817cab8a24dab71965057db77d9028ad366273a55cce9ed91c5e852ddb4"
+  }
 }
