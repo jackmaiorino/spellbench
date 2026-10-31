@@ -93,7 +93,12 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     missing = set(snapshot.required_matchups(desired)) - selected.keys()
     panel = set(updated.opponent_panel)
     pending = {name for pair in missing for name in pair if name not in panel}
-    if any(set(pair) <= panel for pair in missing):
+    if updated.ladder is not None:
+        # A ladder replays only its missing blocks: a new rung or entrant never restarts the other rungs' matchups.
+        pending.update(name for pair in missing for name in pair)
+        if missing:
+            raw["evaluation_matchups"] = [list(pair) for pair in sorted(missing)]
+    elif any(set(pair) <= panel for pair in missing):
         pending.update(panel)
     raw["evaluation_targets"] = sorted(pending)
     definition.parse_benchmark(raw)

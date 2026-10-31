@@ -25,6 +25,11 @@ Every input is strict: unknown fields are errors, and each error names the
 offending field. A protocol v1 definition, or a v1 field, is refused with
 the name of its v2 replacement. A definition that parses gives an arena
 config (:meth:`Benchmark.tournament_config`) that the arena accepts.
+
+A reference-panel benchmark may add ``ladder``: its ``opponent_panel`` is
+then the rungs in rating order, each rung plays the rungs within ``band``
+places, and every other roster bot plays only the rungs listed for it in
+``entrants``.
 """
 
 from __future__ import annotations
@@ -49,8 +54,11 @@ from ..arena.config import (
     DEFAULT_WORKERS,
     MAX_WORKERS,
     DeckSpec,
+    Ladder,
     TournamentConfig,
     TournamentError,
+    ladder_pairs,
+    parse_ladder,
 )
 from ..errors import MalformedJsonError, ValidationError
 from ..messages import Limits, Resources, TimeControl
@@ -91,6 +99,7 @@ _OPTIONAL_FIELDS = (
     "evaluation_matchups",
     "evaluation_engine_identity",
     "evaluation_engine_inputs",
+    "ladder",
     "pairing",
     "extensions",
     "native_id_audits",
@@ -177,6 +186,7 @@ class Benchmark:
     evaluation_engine_identity: str | None = None
     evaluation_engine_inputs: tuple[str, ...] = ()
     core_accounting: str = "concurrent"
+    ladder: Ladder | None = None
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -227,9 +237,12 @@ class Benchmark:
             names = [bot["name"] for bot in document["bots"]]
             # Targets outside the panel play every reference. Reference calibration is cheap and is only
             # repeated when preparation selects a reference, or on the initial full-panel evaluation.
+            # A ladder plays only its scheduled matchups: rungs within the band, entrants their listed rungs.
+            scheduled = None if self.ladder is None else ladder_pairs(self.opponent_panel, self.ladder)
             document["matchups"] = [[a, b] for i, a in enumerate(names) for b in names[i + 1:]
                 if (a in self.opponent_panel or b in self.opponent_panel)
-                and (a in targets or b in targets)]
+                and (a in targets or b in targets)
+                and (scheduled is None or frozenset((a, b)) in scheduled)]
             if self.evaluation_matchups is not None:
                 # One shard of the evaluation: a committed run plays these blocks only, and compose joins the
                 # shards' blocks like any other sources.
@@ -244,6 +257,10 @@ class Benchmark:
                 document["bots"] = [bot for bot in document["bots"]
                                     if bot["name"] in playing | set(self.opponent_panel) | {ANCHOR_BOT}]
             document["opponent_panel"] = list(self.opponent_panel)
+            if self.ladder is not None:
+                active = {bot["name"] for bot in document["bots"]}
+                document["ladder"] = Ladder(self.ladder.band, {name: rungs for name, rungs in self.ladder.entrants.items()
+                                                               if name in active}).to_json()
             document["evaluation_version"] = self.evaluation_version
             if self.evaluation_engine_identity is not None:
                 document["evaluation_engine_identity"] = self.evaluation_engine_identity
@@ -573,9 +590,19 @@ def parse_benchmark(value: Any) -> Benchmark:
             or len({frozenset(pair) for pair in shard}) != len(shard)
         ):
             raise BenchmarkError("benchmark.evaluation_matchups: must list distinct pairs of distinct roster bots")
-    elif any(key in document for key in ("evaluation_version", "evaluation_targets", "evaluation_matchups", "evaluation_engine_identity", "evaluation_engine_inputs")):
-        raise BenchmarkError("benchmark.evaluation_version, evaluation_targets and evaluation_matchups require "
-                             "opponent_panel")
+    elif any(key in document for key in ("evaluation_version", "evaluation_targets", "evaluation_matchups", "evaluation_engine_identity", "evaluation_engine_inputs", "ladder")):
+        raise BenchmarkError("benchmark.evaluation_version, evaluation_targets, evaluation_matchups and ladder "
+                             "require opponent_panel")
+    ladder = None
+    if "ladder" in document:
+        try:
+            ladder = parse_ladder(document["ladder"], tuple(panel), names, "benchmark.ladder")
+        except TournamentError as exc:
+            raise BenchmarkError(str(exc)) from exc
+        unlisted = sorted(names - set(panel) - set(ladder.entrants))
+        if unlisted:
+            raise BenchmarkError("benchmark.ladder.entrants: every bot outside the panel needs its rungs; missing "
+                                 + ", ".join(unlisted))
     identity = document.get("evaluation_engine_identity")
     if "evaluation_engine_identity" in document and (
         type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
@@ -620,6 +647,7 @@ def parse_benchmark(value: Any) -> Benchmark:
             (a, b) for a, b in document["evaluation_matchups"]),
         evaluation_engine_identity=identity,
         evaluation_engine_inputs=tuple(_strings(document["evaluation_engine_inputs"], "benchmark.evaluation_engine_inputs")) if "evaluation_engine_inputs" in document else (),
+        ladder=ladder,
     )
     _check_placeholders(benchmark, context)
     _check_arena_config(benchmark, context)
