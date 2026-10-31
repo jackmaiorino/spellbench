@@ -8,6 +8,11 @@ relay sends it as a header, the page carries it from its URL.
 
 Each answered decision of the human seat is appended to ``<log_dir>/<game_id>.<seat>.jsonl`` (``LOG_SCHEMA``),
 with how it was answered (``human``, ``plan``, ``single``, ``auto_pass``) and the wall time it took.
+
+Mana: the kernel engine declares ``engine_autopay``, and its autopay spends only lands and plain tap-for-mana
+sources. A spell affordable only with mana from a costed source (an Eldrazi Spawn's sacrifice, a Treasure) is not
+offered until that mana is floating, unlike rule 601.2g, which lets a player activate mana abilities mid-cast. Every
+outcome stays reachable (activate, then cast), so the page labels such sources "Activate" and shows a hint instead.
 """
 
 from __future__ import annotations
@@ -286,11 +291,15 @@ class Hub:
 
     def _view(self, decision: Mapping[str, Any]) -> dict[str, Any]:
         me = (self.game or {}).get("seat")
+        observation = decision.get("observation") or {}
+        lands = frozenset(o.get("object_id") for player in observation.get("players") or []
+                          for o in player.get("battlefield") or []
+                          if "land" in ((o.get("characteristics") or {}).get("types") or []))
         candidates = []
         for c in decision.get("candidates") or []:
             semantic = c.get("semantic") or {}
             candidates.append({"id": c["candidate_id"], "kind": semantic.get("kind"),
-                               "text": text.candidate(semantic, me), "engine_text": c.get("display_text"),
+                               "text": text.candidate(semantic, me, lands), "engine_text": c.get("display_text"),
                                "refs": sorted(set(text.refs(semantic))), "semantic": semantic})
         kinds = {c["kind"] for c in candidates}
         group = decision.get("group") or {}
@@ -299,8 +308,15 @@ class Hub:
             screen = "attack"
         elif kinds == {"declare_block"} and group.get("substep_index") == 0:
             screen = "block"
+        # The engine's autopay only uses plain tap sources, so a spell payable only with mana from a costed source
+        # (an Eldrazi Spawn's sacrifice, a Treasure) is not offered until that mana is floating.
+        hint = None
+        if any(c["kind"] == "activate_mana_ability" and (c["semantic"].get("source") or {}).get("object_id") not in lands
+               for c in candidates):
+            hint = ("Autopay only taps lands and plain mana sources: a spell that needs mana from an Activate source "
+                    "(sacrifice, Treasure) appears once you activate it.")
         return {"seq": self.seq, "prompt": text.prompt(decision, me), "context": decision.get("context"),
-                "group": group, "candidates": candidates, "screen": screen, "received_at": _ms()}
+                "group": group, "candidates": candidates, "screen": screen, "hint": hint, "received_at": _ms()}
 
     # -- page side ----------------------------------------------------------------------------------------------
 

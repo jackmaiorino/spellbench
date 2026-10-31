@@ -43,6 +43,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.35 sys
 #action { padding: 10px; background: var(--panel); border-bottom: 1px solid var(--line); max-height: 60%; overflow: auto; }
 #prompt { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
 #status { color: var(--dim); }
+.hint { margin-top: 4px; font-size: 12px; }
 .cand { display: block; width: 100%; text-align: left; margin: 2px 0; padding: 5px 8px; background: var(--panel2); color: var(--text);
   border: 1px solid var(--line); border-radius: 5px; cursor: pointer; font: inherit; }
 .cand:hover, .cand.hl { border-color: var(--hi); }
@@ -211,7 +212,7 @@ function render() {
     const who = e.controller_seat === me() ? "you" : "opp";
     const tg = (e.targets || []).map((t) => !t ? "(gone)" : t.player ? (t.player === me() ? "you" : "opp") : t.object?.card_name).join(", ");
     return `<div class="card ${refs.has(e.object_id) ? "ref" : ""}" data-id="${esc(e.object_id)}" data-name="${esc(e.card_name || "")}" style="border-left:3px solid var(--${who})">` +
-      `<div class="n">${esc(e.card_name || "?")}</div><div class="m">${esc(e.stack_kind.replace("_", " "))} · ${who}${tg ? " → " + esc(tg) : ""}</div></div>`;
+      `<div class="n">${esc(e.card_name || (e.stack_kind === "spell" ? "?" : "unnamed card"))}</div><div class="m">${esc(e.stack_kind.replace("_", " "))} · ${who}${tg ? " → " + esc(tg) : ""}</div></div>`;
   }).join("");
   renderAction();
   renderLog();
@@ -270,14 +271,15 @@ function renderAction() {
       const c = name(id), b = combat.blocks[id];
       return `<button class="cand ${combat.sel === id ? "hl" : ""} ${b ? "on" : ""}" data-blocker="${esc(id)}"><span class="key">${KEYS[i]}</span>${esc(c.card_name)} ${c.characteristics?.power ?? ""}/${c.characteristics?.toughness ?? ""}${b ? " blocks " + esc(name(b).card_name) : ""}</button>`;
     }).join("");
-    st.innerHTML = `Attackers: ${atk}<br>Pick a blocker (number), then its attacker (letter). <span class="key">Enter</span>confirm, <span class="key">Space</span>no blocks, <span class="key">M</span>one by one`;
+    st.innerHTML = `Attackers: ${atk}<br>${combat.targets.length === 1 ? "Pick blockers (number)." : "Pick a blocker (number), then its attacker (letter)."} <span class="key">Enter</span>confirm, <span class="key">Space</span>no blocks, <span class="key">M</span>one by one`;
     $("cands").innerHTML = rows + `<button class="btn primary" data-confirm="1">Confirm ${Object.keys(combat.blocks).length} block(s) (Enter)</button>`;
     return;
   }
   const pass = p.candidates.findIndex((c) => c.kind === "pass");
   let k = 0;
   const keyOf = p.candidates.map((c) => c.kind === "pass" ? "Space" : KEYS[k++] || "");
-  st.innerHTML = p.context?.kind === "priority" ? `<span class="key">Space</span>pass · <span class="key">E</span>pass to end of turn` : "";
+  st.innerHTML = (p.context?.kind === "priority" ? `<span class="key">Space</span>pass · <span class="key">E</span>pass to end of turn` : "")
+    + (p.hint ? `<div class="hint">${esc(p.hint)}</div>` : "");
   $("cands").innerHTML = p.candidates.map((c, i) =>
     `<button class="cand ${i === hl ? "hl" : ""}" data-cand="${i}" title="${esc(c.engine_text || "")}"><span class="key">${esc(keyOf[i])}</span>${esc(c.text)}${c.engine_text && c.engine_text !== c.text ? `<span class="et">${esc(c.engine_text)}</span>` : ""}</button>`).join("");
   tickClock();
@@ -324,8 +326,18 @@ function choose(i) {
   const p = S.pending; if (!p || i < 0 || i >= p.candidates.length) return;
   api("/api/answer", {seq: p.seq, candidate_id: p.candidates[i].id});
 }
+function pickBlocker(id) {
+  // With one attacker there is nothing to choose: picking a blocker blocks it (again: unblocks).
+  if (combat.targets.length === 1) {
+    if (combat.blocks[id]) delete combat.blocks[id]; else combat.blocks[id] = combat.targets[0];
+    combat.sel = null;
+  } else combat.sel = combat.sel === id ? null : id;
+  render();
+}
 function confirmCombat(empty) {
   const p = S.pending; if (!p || !combat) return;
+  // A blocker picked without its attacker would otherwise be dropped silently.
+  if (!empty && combat.kind === "block" && combat.sel) { $("err").textContent = "Pick the attacker it blocks (letter) first, or Esc."; return; }
   if (combat.kind === "attack") api("/api/plan", {seq: p.seq, plan: {kind: "attack", attackers: empty ? [] : [...combat.attackers]}});
   else api("/api/plan", {seq: p.seq, plan: {kind: "block", blocks: empty ? {} : combat.blocks}});
 }
@@ -358,7 +370,7 @@ document.addEventListener("keydown", (ev) => {
     else if (k === "escape") { combat.blocks = {}; combat.sel = null; render(); }
     else if (j >= 0 && j < combat.targets.length && combat.sel) { const t = combat.targets[j];
       if (combat.blocks[combat.sel] === t) delete combat.blocks[combat.sel]; else combat.blocks[combat.sel] = t; combat.sel = null; render(); }
-    else { const i = KEYS.indexOf(k); if (i >= 0 && i < combat.order.length) { combat.sel = combat.order[i]; render(); } }
+    else { const i = KEYS.indexOf(k); if (i >= 0 && i < combat.order.length) pickBlocker(combat.order[i]); }
     ev.preventDefault(); return;
   }
   if (k === " ") { const i = p.candidates.findIndex((c) => c.kind === "pass"); choose(i >= 0 ? i : (p.candidates.length === 1 ? 0 : -1)); ev.preventDefault(); return; }
@@ -377,12 +389,12 @@ document.addEventListener("click", (ev) => {
   if (t.dataset.cand !== undefined) { choose(+t.dataset.cand); return; }
   if (t.dataset.confirm) { confirmCombat(false); return; }
   if (t.dataset.toggle && combat) { const id = t.dataset.toggle; combat.attackers.has(id) ? combat.attackers.delete(id) : combat.attackers.add(id); render(); return; }
-  if (t.dataset.blocker && combat) { combat.sel = t.dataset.blocker; render(); return; }
+  if (t.dataset.blocker && combat) { pickBlocker(t.dataset.blocker); return; }
   if (t.dataset.id && S.pending) {
     const id = t.dataset.id;
     if (combat && combat.kind === "attack" && combat.order.includes(id)) { combat.attackers.has(id) ? combat.attackers.delete(id) : combat.attackers.add(id); render(); return; }
     if (combat && combat.kind === "block") {
-      if (combat.order.includes(id)) { combat.sel = id; render(); return; }
+      if (combat.order.includes(id)) { pickBlocker(id); return; }
       if (combat.targets.includes(id) && combat.sel) { combat.blocks[combat.sel] = id; combat.sel = null; render(); return; }
     }
     const hits = S.pending.candidates.map((c, i) => [c, i]).filter(([c]) => c.refs.includes(id));
