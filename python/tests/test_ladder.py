@@ -192,8 +192,11 @@ def test_an_excluded_run_is_kept_but_never_measured(completed, tmp_path):
     assert set(panel.prepare_benchmark(directory)) == {"uniform", "heuristic", "first", "cached-llm"}
     assert (directory / "runs" / "2026-10-01" / "manifest.json").is_file()
     from spellbench.site.build import board_run_dir
-    shutil.rmtree(directory / "snapshots")
+    assert (directory / "snapshots" / "2026-10-01").is_dir()  # rated, but it cites the excluded run
     assert board_run_dir(directory) is None
+    site = tmp_path / "site"
+    build_site(tmp_path, site)
+    assert not (site / "b" / directory.name).exists() and not (site / "charts" / f"{directory.name}.svg").exists()
     with pytest.raises(definition.BenchmarkError, match="excluded_runs"):
         definition.parse_benchmark({**raw, "excluded_runs": [{"run": "yesterday", "reason": "x"}]})
 

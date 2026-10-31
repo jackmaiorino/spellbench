@@ -55,7 +55,7 @@ from __future__ import annotations
 import shutil
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from .._schema import OBSERVATION_FLAGS
 from ..arena import legacy_v1, registry, store
@@ -191,8 +191,10 @@ def build_site(benchmarks_dir: Path, out_dir: Path) -> list[str]:
             failures = validate_tournament_dir(directory)
             if failures:
                 raise SiteError(f"{benchmark.id} snapshots/{directory.name}: " + "; ".join(failures))
+        excluded = {run for run, _ in benchmark.excluded_runs}
         rated = [directory for directory in snapshots
-                 if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]]
+                 if store.read_json(directory / store.MANIFEST_NAME)["run"]["rated"]
+                 and not _cites(directory, excluded)]
         if rated:
             runs[benchmark.id] = replace(_read_snapshot(rated[-1], newer[benchmark.id]),
                                          withheld_runs=withheld[benchmark.id])
@@ -254,11 +256,18 @@ def board_run_dir(benchmark_dir: Path) -> Path | None:
     ``build_site`` then validates the board run and every run after it, so a
     manifest claiming what its files do not show refuses the build.
     """
-    snapshots = [path for path in panel.published_snapshots(benchmark_dir)
-                 if store.read_json(path / store.MANIFEST_NAME).get("run", {}).get("rated") is True]
     excluded = definition.excluded_run_names(benchmark_dir)
+    snapshots = [path for path in panel.published_snapshots(benchmark_dir)
+                 if store.read_json(path / store.MANIFEST_NAME).get("run", {}).get("rated") is True
+                 and not _cites(path, excluded)]
     return snapshots[-1] if snapshots else _board_of([path for path in definition.published_runs(benchmark_dir)
                                                       if path.name not in excluded])
+
+
+def _cites(snapshot_dir: Path, runs: Iterable[str]) -> bool:
+    """Whether a snapshot's sources include any of ``runs`` (excluded runs keep their snapshots off the board)."""
+    sources = store.read_json(snapshot_dir / store.MANIFEST_NAME).get("sources", [])
+    return bool({source.get("run") for source in sources if isinstance(source, dict)} & set(runs))
 
 
 def _board_of(published: Sequence[Path]) -> Path | None:
