@@ -36,6 +36,10 @@
   the ledger's.
 - ``spellbench site BENCHMARKS_DIR OUT_DIR``: validate every benchmark's
   latest run, then build the static site into OUT_DIR.
+- ``spellbench charts BENCHMARKS_DIR OUT_DIR [--preview RUN_DIR]...``: write
+  the site's hero charts (one SVG per benchmark and per track) into OUT_DIR;
+  each ``--preview`` adds a chart of that run or snapshot, labelled unrated
+  when it is not rated.
 - ``spellbench bot NAME [--seed N]``: serve a builtin bot (protocol v2) as an
   agent-role subprocess (so configs can reference builtins over stdio too).
 - ``spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck ...]
@@ -73,6 +77,7 @@ _USAGE = (
     f"  spellbench bench reveal BENCHMARK_DIR --run NAME [--reason {'|'.join(REVEAL_REASONS)} | --withheld]\n"
     "  spellbench bench rerun RUN_DIR [--game N]... [--placement TEXT]\n"
     "  spellbench site BENCHMARKS_DIR OUT_DIR\n"
+    "  spellbench charts BENCHMARKS_DIR OUT_DIR [--preview RUN_DIR]...\n"
     "  spellbench bot NAME [--seed N]\n"
     "  spellbench conformance engine --format FORMAT --deck CATALOG_ID [--deck CATALOG_ID ...] [--games N]"
     " [--timeout-s SECONDS] -- ENGINE [ARG ...]"
@@ -347,6 +352,39 @@ def _cmd_bench(argv: Sequence[str]) -> int:
     return code
 
 
+def _cmd_charts(argv: Sequence[str]) -> int:
+    import tempfile
+
+    from ..site.build import build_site
+    from ..site.charts import preview_chart
+
+    previews = [Path(argv[i + 1]) for i in range(2, len(argv) - 1, 2) if argv[i] == "--preview"]
+    if len(argv) < 2 or len(argv) % 2 or len(previews) != (len(argv) - 2) // 2:
+        print("usage: spellbench charts BENCHMARKS_DIR OUT_DIR [--preview RUN_DIR]...", file=sys.stderr)
+        return 2
+    for run_dir in previews:
+        failures = validate_tournament_dir(run_dir)
+        if failures:
+            print(f"error: {run_dir} does not validate: " + "; ".join(failures), file=sys.stderr)
+            return 1
+    out_dir = Path(argv[1])
+    written = []
+    with tempfile.TemporaryDirectory() as scratch:
+        site = Path(scratch) / "site"  # the site's own selection and validation choose every board
+        for warning in build_site(Path(argv[0]), site):
+            print(f"warning: {warning}", file=sys.stderr)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for chart in sorted((site / "charts").glob("*.svg")):
+            (out_dir / chart.name).write_bytes(chart.read_bytes())
+            written.append(chart.name)
+    for run_dir in previews:
+        name = f"preview-{run_dir.parent.parent.name}-{run_dir.name}.svg"
+        (out_dir / name).write_bytes(preview_chart(run_dir).encode("utf-8"))
+        written.append(name)
+    print(f"charts written to {out_dir}: " + ", ".join(written))
+    return 0
+
+
 def _cmd_site(argv: Sequence[str]) -> int:
     # Imported here so `spellbench bot`, spawned once per seat per game, starts without the site modules.
     from ..site.build import build_site
@@ -459,6 +497,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _cmd_bench(rest)
         if command == "site":
             return _cmd_site(rest)
+        if command == "charts":
+            return _cmd_charts(rest)
         if command == "bot":
             return _cmd_bot(rest)
         if command == "conformance":

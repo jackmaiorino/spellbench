@@ -165,6 +165,34 @@ def select_blocks(config: TournamentConfig, sources: Sequence[Source], *, rated_
     return selected
 
 
+def dropped_ladder_blocks(config: TournamentConfig, sources: Sequence[Source]) -> list[tuple[str, str]]:
+    """Rated rung-versus-rung blocks, compatible with ``config``, that its ladder no longer schedules.
+
+    Reordering or inserting rungs can move played pairs out of the band; their results would silently leave the
+    fit. Entrant blocks may change with placement, so only rung pairs count.
+    """
+    if config.ladder is None:
+        return []
+    expected = contract(config)
+    current = {bot.name: bot for bot in config.bots}
+    rungs = set(config.opponent_panel)
+    wanted = set(required_matchups(config))
+    dropped = set()
+    for source in sources:
+        if source.manifest["run"]["rated"] is not True:
+            continue
+        try:
+            if contract(source.config) != expected:
+                continue
+        except SnapshotError:
+            continue
+        by_name = {bot.name: bot for bot in source.config.bots}
+        for pair in source.blocks().keys() - wanted:
+            if set(pair) <= rungs and all(bot_inputs(by_name[name]) == bot_inputs(current[name]) for name in pair):
+                dropped.add(pair)
+    return sorted(dropped)
+
+
 def materialize(config: TournamentConfig, chosen: dict[tuple[str, str], Source], *, benchmark_id: str,
                 label: str, rated_only: bool = True, pending: Sequence[str] = ()
                 ) -> tuple[dict[str, Any], list[registry.RegistryEntry], dict[str, Any], str]:

@@ -29,7 +29,13 @@ config (:meth:`Benchmark.tournament_config`) that the arena accepts.
 A reference-panel benchmark may add ``ladder``: its ``opponent_panel`` is
 then the rungs in rating order, each rung plays the rungs within ``band``
 places, and every other roster bot plays only the rungs listed for it in
-``entrants``.
+``entrants``. On a ladder, every engine or bot command part holding a
+placeholder must resolve to a regular file, so its bytes are fingerprinted:
+a setting that changes play goes in the definition or in a file.
+
+``excluded_runs`` lists published runs, each with a reason, that a failed
+validity rule keeps out of preparation, snapshots and the board. Their files
+stay published.
 """
 
 from __future__ import annotations
@@ -99,6 +105,7 @@ _OPTIONAL_FIELDS = (
     "evaluation_matchups",
     "evaluation_engine_identity",
     "evaluation_engine_inputs",
+    "excluded_runs",
     "ladder",
     "pairing",
     "extensions",
@@ -187,6 +194,7 @@ class Benchmark:
     evaluation_engine_inputs: tuple[str, ...] = ()
     core_accounting: str = "concurrent"
     ladder: Ladder | None = None
+    excluded_runs: tuple[tuple[str, str], ...] = ()  # (run name, reason)
 
     def qualification_rules(self):
         from ..arena.qualification import current_rules
@@ -603,6 +611,13 @@ def parse_benchmark(value: Any) -> Benchmark:
         if unlisted:
             raise BenchmarkError("benchmark.ladder.entrants: every bot outside the panel needs its rungs; missing "
                                  + ", ".join(unlisted))
+    excluded = document.get("excluded_runs", [])
+    if (not isinstance(excluded, list)
+            or any(not isinstance(item, dict) or set(item) != {"run", "reason"} or type(item["run"]) is not str
+                   or not RUN_NAME_PATTERN.fullmatch(item["run"]) or type(item["reason"]) is not str
+                   or not item["reason"].strip() for item in excluded)
+            or len({item["run"] for item in excluded}) != len(excluded)):
+        raise BenchmarkError("benchmark.excluded_runs: must list distinct {run, reason} objects with dated run names")
     identity = document.get("evaluation_engine_identity")
     if "evaluation_engine_identity" in document and (
         type(identity) is not str or not re.fullmatch(r"[0-9a-f]{64}", identity)
@@ -648,6 +663,7 @@ def parse_benchmark(value: Any) -> Benchmark:
         evaluation_engine_identity=identity,
         evaluation_engine_inputs=tuple(_strings(document["evaluation_engine_inputs"], "benchmark.evaluation_engine_inputs")) if "evaluation_engine_inputs" in document else (),
         ladder=ladder,
+        excluded_runs=tuple((item["run"], item["reason"]) for item in excluded),
     )
     _check_placeholders(benchmark, context)
     _check_arena_config(benchmark, context)
@@ -743,6 +759,30 @@ def _placeholder_fields(benchmark: Benchmark) -> Iterator[tuple[str, str]]:
             yield f"bots[{bot_index}].checkpoint", checkpoint
         for index, path in enumerate(bot.entry.get("evaluation_inputs", [])):
             yield f"bots[{bot_index}].evaluation_inputs[{index}]", path
+
+
+def check_ladder_arguments(benchmark: Benchmark, values: Mapping[str, str]) -> None:
+    """On a ladder, refuse a command part whose placeholder resolves to anything but a regular file.
+
+    Evaluation identities hash files only, so a resolved setting (a search
+    budget, say) could change play while every identity stays the same.
+    """
+    if benchmark.ladder is None:
+        return
+    for field, text in _placeholder_fields(benchmark):
+        if ".command[" not in field or not PLACEHOLDER_PATTERN.search(text):
+            continue
+        if not Path(substitute(text, values)).is_file():
+            raise BenchmarkError(f"benchmark.{field}: on a ladder a placeholder must name a regular file, so its "
+                                 "bytes are fingerprinted; write other settings into the definition or a file")
+
+
+def excluded_run_names(benchmark_dir: Path) -> frozenset[str]:
+    """The runs a definition excludes (``excluded_runs``); none when it does not parse."""
+    try:
+        return frozenset(run for run, _ in load_benchmark(benchmark_dir).excluded_runs)
+    except BenchmarkError:
+        return frozenset()
 
 
 def placeholder_names(benchmark: Benchmark) -> tuple[str, ...]:

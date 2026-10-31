@@ -1,0 +1,15 @@
+{
+  "schema": "spellbench-tracks/v1",
+  "tracks": [
+    {
+      "id": "pauper-constructed",
+      "title": "Pauper constructed",
+      "benchmarks": ["pauper-kernel-v2", "pauper-ladder-v1"]
+    },
+    {
+      "id": "fdn-limited",
+      "title": "Foundations Limited",
+      "benchmarks": ["fdn-draftzero-v1", "fdn-native-v1", "fdn-mirror-v0"]
+    }
+  ]
+}

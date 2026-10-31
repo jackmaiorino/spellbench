@@ -42,7 +42,10 @@ def full_config(benchmark: definition.Benchmark) -> TournamentConfig:
 
 def sources(directory: Path) -> list[snapshot.Source]:
     found = []
+    excluded = definition.excluded_run_names(directory)
     for run_dir in definition.published_runs(directory):
+        if run_dir.name in excluded:
+            continue  # kept published, never measured (benchmark.excluded_runs)
         manifest = store.read_json(run_dir / store.MANIFEST_NAME)
         if manifest.get("schema") != store.TOURNAMENT_SCHEMA:
             continue  # frozen legacy runs cannot be transported to a v2 reference panel
@@ -77,6 +80,7 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     config = full_config(benchmark)
     values = definition.placeholder_values(definition.placeholder_names(replace(benchmark, evaluation_targets=None, evaluation_matchups=None)),
         definition.load_local_values(directory.parent), os.environ if environ is None else environ)
+    definition.check_ladder_arguments(benchmark, values)
     executed = runner.executed_config(config, lambda text: definition.substitute(text, values))
     raw = definition._read_json(directory / definition.BENCHMARK_FILE)
     engine = pinning.engine_files(executed.engine_command, extra=executed.evaluation_engine_inputs)
@@ -89,7 +93,12 @@ def prepare_benchmark(directory: Path, *, unrated: bool = False,
     raw.pop("evaluation_matchups", None)  # a shard names blocks of the previous targets
     updated = definition.parse_benchmark(raw)
     desired = full_config(updated)
-    selected = snapshot.select_blocks(desired, sources(directory), rated_only=not unrated)
+    found = sources(directory)
+    dropped = snapshot.dropped_ladder_blocks(desired, found)
+    if dropped:
+        raise definition.BenchmarkError("the ladder would drop rated rung matchups it has played: " + ", ".join(
+            f"{a} vs {b}" for a, b in dropped) + "; append rungs at the top, or start a new benchmark version")
+    selected = snapshot.select_blocks(desired, found, rated_only=not unrated)
     missing = set(snapshot.required_matchups(desired)) - selected.keys()
     panel = set(updated.opponent_panel)
     pending = {name for pair in missing for name in pair if name not in panel}

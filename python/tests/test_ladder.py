@@ -167,3 +167,46 @@ def test_site_labels_the_ladder(completed, tmp_path):
     build_site(tmp_path, site)
     page = (site / "b" / directory.name / "index.html").read_text(encoding="utf-8")
     assert "Ladder rating" in page
+
+
+def test_inserting_a_rung_that_drops_played_rung_matchups_is_refused(completed, tmp_path):
+    directory = copied(completed, tmp_path)
+    raw = json.loads((directory / "benchmark.json").read_bytes())
+    middle = subprocess_bot("middle", [sys.executable, str(BOT), "middle", f"--marker={tmp_path / 'calls-mid.txt'}"])
+    middle["display"] = {"label": "middle", "author": "fixture", "description": "inserted rung", "url": None}
+    raw["bots"].append(middle)
+    raw["opponent_panel"] = ["first", "middle", "uniform", "heuristic"]  # first vs uniform leaves band 1
+    for key in ("evaluation_targets", "evaluation_matchups"):  # the last shard named the old graph
+        raw.pop(key)
+    write_definition(directory, raw)
+    with pytest.raises(definition.BenchmarkError, match="drop rated rung matchups it has played: first vs uniform"):
+        panel.prepare_benchmark(directory)
+
+
+def test_an_excluded_run_is_kept_but_never_measured(completed, tmp_path):
+    directory = copied(completed, tmp_path)
+    raw = json.loads((directory / "benchmark.json").read_bytes())
+    raw["excluded_runs"] = [{"run": "2026-10-01", "reason": "fixture: failed the validity rule"}]
+    write_definition(directory, raw)
+    assert panel.sources(directory) == []
+    assert set(panel.prepare_benchmark(directory)) == {"uniform", "heuristic", "first", "cached-llm"}
+    assert (directory / "runs" / "2026-10-01" / "manifest.json").is_file()
+    from spellbench.site.build import board_run_dir
+    shutil.rmtree(directory / "snapshots")
+    assert board_run_dir(directory) is None
+    with pytest.raises(definition.BenchmarkError, match="excluded_runs"):
+        definition.parse_benchmark({**raw, "excluded_runs": [{"run": "yesterday", "reason": "x"}]})
+
+
+def test_a_ladder_placeholder_must_name_a_file(tmp_path, monkeypatch):
+    directory = tmp_path / "fixture"
+    raw = ladder_value(directory)
+    raw["bots"][3]["command"].append("${SEARCH_BUDGET}")
+    write_definition(directory, raw)
+    monkeypatch.setenv("SEARCH_BUDGET", "65536")
+    with pytest.raises(definition.BenchmarkError, match="placeholder must name a regular file"):
+        panel.prepare_benchmark(directory)
+    setting = tmp_path / "budget.txt"
+    setting.write_text("65536", encoding="utf-8")
+    monkeypatch.setenv("SEARCH_BUDGET", str(setting))
+    assert "cached-llm" in panel.prepare_benchmark(directory)
