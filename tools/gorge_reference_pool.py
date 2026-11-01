@@ -230,7 +230,8 @@ def admit_node_request(request, *, node, source_commit, native_verdict, runtime_
         raise ThroughputError('Unadmitted node request exceeds the bounded scaling comparison')
     descriptor = request.get('pool_descriptor')
     # The pool measures one, two or four nodes, so it keeps the divisor ladder (no full-core rungs).
-    rules = replace(replace(current_rules(), worker_selection='wall') if rules is None else rules, full_core_ladder=False)
+    rules = replace(current_rules(), worker_selection='wall') if rules is None else rules
+    rules = replace(rules, full_core_ladder=False)
     if (not isinstance(descriptor, dict) or descriptor.get('kind') != 'gorge-reference-pool/v1' or
             descriptor.get('source_commit') != source_commit or descriptor.get('native_verdict') != native_verdict or
             descriptor.get('runtime_pins') != runtime_pins or descriptor.get('configuration') != configuration or

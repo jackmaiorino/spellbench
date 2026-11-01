@@ -21,10 +21,11 @@
   every worker occupied, as in a long run) (``workers * games / summed game
   seconds``; on identical games the spread in game lengths cancels, where a
   batch's wall time is dominated by its slowest games), the fewer workers on
-  a tie, or the more workers under the full-core ladder. A substantial run needs a ``Placement`` naming every machine with a
-  disposition. Outputs that change with the worker count are refused, even
-  beside games whose outputs change on every replay (bots that read the
-  clock), which are recorded rather than refused.
+  a tie, or the more workers under the full-core ladder. A substantial run
+  needs a ``Placement`` naming every machine with a disposition. Outputs that
+  change with the worker count are refused, even beside games whose outputs
+  change on every replay (bots that read the clock), which are recorded
+  rather than refused.
 - Every other run is small: after a short probe it keeps its configured
   workers (within the declared cores and the game count), and after the run
   one scheduled game is replayed serially (:func:`spot_check_game`,
