@@ -350,9 +350,9 @@ def plan_for(
 
     ``config`` is the executed config. Unvetted subprocess entries are refused first, as the runner refuses them,
     before any process starts (spec 11.7, R3-9). ``throughput.plan_allocation`` then measures the schedule (or the
-    scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking each matchup's first
-    game in schedule order, then each matchup's second, and so on, so a pool that opens with builtins still
-    measures the slow bots (R3-6). ``placement`` is the note a substantial run needs. ``evidence`` is the local
+    scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking one game of each
+    matchup in turn (:func:`spread_order`: spread across each matchup's games, so every deck block is timed), so a
+    pool that opens with builtins still measures the slow bots (R3-6). ``placement`` is the note a substantial run needs. ``evidence`` is the local
     evidence file: a measurement of the same workload (the config minus ``tournament_dir``, the ``files``'
     SHA-256 values, the rerun's games and the arena version) on the same host, cores and hardware is reused, and a
     fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in ``environ`` (default
