@@ -187,5 +187,10 @@ Read the spec's non-claims before building against it.
 
 Benchmarks: `pauper-kernel` (eight Pauper decks on mtg-kernel) with the
 builtin and submitted bots. Its existing board runs remain labelled
-protocol v1. Luna's proposed two-deck XMage benchmark has no rated result
+protocol v1. `pauper-ladder-v1` is a rated strength ladder on the same
+engine and decks: seven reference rungs from uniform to oh2-r2s1-b512, each
+playing the rungs nearest it, so a new entrant gets a rating from games
+against 3 rungs near its strength. Its b512-argmax rung is within noise of
+b512 (+22 Elo, 95% CI [-21, +67], in the unrated pass that sized the
+ladder; +10, [-36, +54], in the rated run). Luna's proposed two-deck XMage benchmark has no rated result
 yet; `docs/llm-rated-entry.md` tracks its remaining live checks and publication.
