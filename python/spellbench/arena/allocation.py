@@ -99,12 +99,13 @@ def projected_row_bytes(probe: Trial, games_total: int) -> int:
     return -(-probe.row_bytes * games_total // probe.games)
 
 
-def fastest_workers(trials: Sequence[Trial], *, method: str = "busy") -> int:
-    """The fastest measured rung under the recorded method; fewer workers on a tie."""
+def fastest_workers(trials: Sequence[Trial], *, method: str = "busy", more_on_tie: bool = False) -> int:
+    """The fastest measured rung under the recorded method; on a tie fewer workers, or more under rules with
+    the full-core ladder (``more_on_tie``)."""
     if method not in ("busy", "wall"):
         raise ValueError("worker selection must be busy or wall")
     return max(trials, key=lambda trial: (trial.wall_rate if method == "wall" else trial.rate,
-                                         -trial.workers)).workers
+                                         trial.workers if more_on_tie else -trial.workers)).workers
 
 
 # ---------------------------------------------------------------------------
@@ -123,7 +124,8 @@ class QualificationRules:
     schedule. The rungs are 1 and ``cap // divisor`` for each of
     ``ladder_divisors`` (largest first, ending with 1, which is the cap
     itself); ``full_core_ladder`` adds ``3 * cap // 4`` and ``cap - 1``, so a
-    13-core claim compares 1, 6, 9, 12 and 13 workers. A schedule whose
+    13-core claim compares 1, 6, 9, 12 and 13 workers, and breaks a tie
+    toward more workers. A schedule whose
     comparison does not fit probes
     ``probe_games`` games. A small run spot-checks game
     ``games_total // spot_check_divisor``.
@@ -158,18 +160,24 @@ class QualificationRules:
         ):
             raise ValidationError("rules.ladder_divisors: distinct positive integers, largest first, ending with 1")
 
-    def ladder(self, cap: int) -> tuple[int, ...]:
-        """The worker counts a substantial run compares under these rules, ascending, without repeats."""
-        rungs = {1, *(max(1, cap // divisor) for divisor in self.ladder_divisors)}
-        if self.full_core_ladder:
-            rungs |= {max(1, 3 * cap // 4), max(1, cap - 1)}
-        return tuple(sorted(rungs))
+    def ladder(self, cap: int, games_total: int | None = None) -> tuple[int, ...]:
+        """The worker counts a substantial run compares under these rules, ascending, without repeats: with
+        ``full_core_ladder``, the full-core rungs too, unless ``games_total`` is given and they do not fit its
+        budget (a short schedule keeps the divisor rungs rather than becoming small)."""
+        divisor = {1, *(max(1, cap // divisor) for divisor in self.ladder_divisors)}
+        full = divisor | {max(1, 3 * cap // 4), max(1, cap - 1)}
+        if self.full_core_ladder and (games_total is None or self._fits(full, games_total, cap)):
+            return tuple(sorted(full))
+        return tuple(sorted(divisor))
+
+    def _fits(self, rungs: set[int] | tuple[int, ...], games_total: int, bound: int) -> bool:
+        games = self.games_per_worker * bound
+        cost = games * sum(Fraction(1, workers) for workers in rungs)
+        return games <= games_total and cost * 100 <= games_total * self.budget_percent
 
     def ladder_fits(self, games_total: int, bound: int) -> bool:
         """Whether the scaling comparison fits the schedule (the time per game cancels: counts alone decide)."""
-        games = self.games_per_worker * bound
-        cost = games * sum(Fraction(1, workers) for workers in self.ladder(bound))
-        return games <= games_total and cost * 100 <= games_total * self.budget_percent
+        return self._fits(self.ladder(bound, games_total), games_total, bound)
 
     def probe_size(self, games_total: int, bound: int) -> int:
         """Games the probe plays: the comparison's games when it fits (the probe is then its first rung)."""
@@ -664,7 +672,7 @@ def _check_allocation(allocation: Allocation) -> None:
     if (
         not trials
         or trials[0] != probe
-        or tuple(trial.workers for trial in trials) != rules.ladder(top)
+        or tuple(trial.workers for trial in trials) != rules.ladder(top, games_total)
         or any(trial.indices != probe.indices for trial in trials)
         or probe.games != rules.games_per_worker * top
         or rules.size_class(probe, games_total, top) != "substantial"
@@ -675,7 +683,7 @@ def _check_allocation(allocation: Allocation) -> None:
         )
     if allocation.placement is None or allocation.spot_check is not None:
         raise ValidationError("allocation: a substantial allocation needs its placement and has no spot check")
-    if allocation.workers != fastest_workers(trials, method=rules.worker_selection):
+    if allocation.workers != fastest_workers(trials, method=rules.worker_selection, more_on_tie=rules.full_core_ladder):
         raise ValidationError("allocation.workers: must be the fastest rung under its recorded selection rule")
     same = len({trial.outputs_digest for trial in trials}) == 1
     if allocation.outputs_identical is not same or (allocation.outputs_note is None) is not same:

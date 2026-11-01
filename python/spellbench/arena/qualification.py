@@ -21,7 +21,7 @@
   every worker occupied, as in a long run) (``workers * games / summed game
   seconds``; on identical games the spread in game lengths cancels, where a
   batch's wall time is dominated by its slowest games), the fewer workers on
-  a tie. A substantial run needs a ``Placement`` naming every machine with a
+  a tie, or the more workers under the full-core ladder. A substantial run needs a ``Placement`` naming every machine with a
   disposition. Outputs that change with the worker count are refused, even
   beside games whose outputs change on every replay (bots that read the
   clock), which are recorded rather than refused.
@@ -48,7 +48,7 @@ import math
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Hashable, Mapping, Sequence
 
 from ..errors import ProtocolError, ValidationError
 from ..wire import canonical_json_dumps, strict_json_loads
@@ -114,18 +114,26 @@ def sample_order(groups: Sequence[Sequence[int]]) -> tuple[int, ...]:
     return tuple(order)
 
 
-def spread_order(groups: Sequence[Sequence[int]]) -> tuple[int, ...]:
-    """Like :func:`sample_order`, but each group's games are taken spread across the group (bit-reversed rank,
-    starting further along for each group), so a short sample covers every block of a schedule, such as each deck
-    pair of every matchup, instead of only the first block of each group."""
-    def spread(group: Sequence[int], start: int) -> list[int]:
-        if not group:
-            return []
-        bits = max(1, (len(group) - 1).bit_length())
-        ranks = sorted(range(len(group)), key=lambda i: (int(format(i, f"0{bits}b")[::-1], 2), i))
-        start %= len(ranks)
-        return [group[i] for i in ranks[start:] + ranks[:start]]
-    return sample_order([spread(group, number) for number, group in enumerate(groups)])
+def spread_order(groups: Sequence[Sequence[int]], kinds: Mapping[int, Hashable]) -> tuple[int, ...]:
+    """Like :func:`sample_order`, but each group's games rotate through ``kinds`` (for example each game's deck
+    pair), group ``m`` starting at the ``m``-th kind: a short sample then times every kind across the matchups,
+    instead of only the kind each group's schedule opens with. Kinds are numbered by first appearance."""
+    order = {kind: number for number, kind in enumerate(dict.fromkeys(kinds[index] for group in groups
+                                                                       for index in group))}
+
+    def rotated(group: Sequence[int], start: int) -> list[int]:
+        queues: dict[int, list[int]] = {}
+        for index in group:
+            queues.setdefault(order[kinds[index]], []).append(index)
+        picked: list[int] = []
+        kind = start
+        while len(picked) < len(group):
+            queue = queues.get(kind % len(order))
+            if queue:
+                picked.append(queue.pop(0))
+            kind += 1
+        return picked
+    return sample_order([rotated(group, number) for number, group in enumerate(groups)])
 
 
 def workload_id(value: Any) -> str:
@@ -454,12 +462,13 @@ def plan_allocation(
         if note is None:
             raise ThroughputError(_placement_needed(projected))
         trials, rung_digests = [probe], [probe_digests]
-        for workers in rules.ladder(bound)[1:]:
+        for workers in rules.ladder(bound, games_total)[1:]:
             trial, digests = _trial(play, workers, indices)
             trials.append(trial)
             rung_digests.append(digests)
         identical, outputs_note = _outputs(play, indices, rung_digests)
-        allocation = Allocation(kind="substantial", workers=fastest_workers(trials, method=rules.worker_selection), trials=tuple(trials),
+        workers = fastest_workers(trials, method=rules.worker_selection, more_on_tie=rules.full_core_ladder)
+        allocation = Allocation(kind="substantial", workers=workers, trials=tuple(trials),
                                 outputs_identical=identical, outputs_note=outputs_note,
                                 qualification_seconds_milli=_since(clock, started), **common)
     if evidence is not None:

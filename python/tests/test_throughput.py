@@ -736,6 +736,26 @@ def test_the_full_core_ladder_qualifies_every_claim_size_up_front(monkeypatch) -
     assert Allocation.from_json(allocation.to_json()) == allocation
 
 
+def test_the_full_core_ladder_breaks_a_tie_toward_more_workers(monkeypatch) -> None:
+    monkeypatch.setattr(qualification, "FULL_CORE_LADDER", True)
+    play, _ = _player(10.0, {4: 2.0, 6: 2.0, 7: 2.0, 8: 2.0})  # every rung above one equally fast
+    allocation = _plan(play, games_total=2000)
+    assert allocation.workers == 8 and Allocation.from_json(allocation.to_json()) == allocation
+    monkeypatch.setattr(qualification, "FULL_CORE_LADDER", False)
+    assert _plan(play, games_total=2000).workers == 4  # the divisor ladder keeps its fewer-workers tie rule
+
+
+def test_a_short_schedule_keeps_the_divisor_rungs_rather_than_becoming_small(monkeypatch) -> None:
+    monkeypatch.setattr(qualification, "FULL_CORE_LADDER", True)
+    monkeypatch.setattr(qualification, "QUALIFY_BUDGET_PERCENT", 30)
+    rules = qualification.current_rules()
+    assert rules.ladder(4) == (1, 2, 3, 4) and rules.ladder(4, 48) == (1, 2, 4)  # 16.7 of 48 games is over 30%
+    play, calls = _player(120.0, {2: 2.0, 4: 3.0})
+    allocation = _plan(play, games_total=48, cap=4, cpu_count=4)
+    assert allocation.kind == "substantial" and [workers for workers, _ in calls][:3] == [1, 2, 4]
+    assert Allocation.from_json(allocation.to_json()) == allocation
+
+
 def test_rules_without_the_full_core_key_keep_the_divisor_ladder() -> None:
     old = {"substantial_run_seconds": 600, "budget_percent": 30, "games_per_worker": 2, "probe_games": 2,
            "ladder_divisors": [2, 1], "spot_check_divisor": 2, "worker_selection": "wall"}
@@ -745,12 +765,15 @@ def test_rules_without_the_full_core_key_keep_the_divisor_ladder() -> None:
         QualificationRules.from_json({**old, "full_core_ladder": 1})
 
 
-def test_a_spread_sample_covers_every_block_of_each_matchup() -> None:
-    # 15 matchups of 128 games, each in 8 deck blocks of 16: the first game of each matchup used to be deck 0.
+def test_a_spread_sample_times_every_deck_pair() -> None:
+    # 15 matchups of 128 games whose deck pair cycles with every seat-swapped pair, as pauper-ladder-v1 schedules
+    # them: the first two games of each matchup were all one mirror.
     matchups = [list(range(start, start + 128)) for start in range(0, 1920, 128)]
-    sample = spread_order(matchups)
-    assert sorted(sample) == list(range(1920))
-    first = sample[:24]
-    assert {(index % 128) // 16 for index in first} == set(range(8))  # every deck block in the first 24 games
-    assert len({index // 128 for index in first}) == 15  # and every matchup
-    assert spread_order(matchups) == sample  # deterministic: a qualification's games depend on the schedule only
+    decks = {index: ((index % 128) // 2) % 8 for index in range(1920)}
+    sample = spread_order(matchups, decks)
+    assert sorted(sample) == list(range(1920)) and spread_order(matchups, decks) == sample
+    assert {decks[index] for index in sample[:8]} == set(range(8)) and len({i // 128 for i in sample[:15]}) == 15
+    blocks = {index: (index % 128) // 16 for index in range(1920)}  # decks in blocks of 16 instead
+    assert {blocks[index] for index in spread_order(matchups, blocks)[:8]} == set(range(8))
+    three = [list(range(start, start + 128)) for start in range(0, 384, 128)]  # few matchups: later columns
+    assert {decks[index] for index in spread_order(three, decks)[:24]} == set(range(8))
