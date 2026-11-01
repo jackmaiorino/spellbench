@@ -38,6 +38,7 @@ from .machine import RESERVE_BYTES, CpuSampler, check_reserve, free_bytes, machi
 from .monitor import IDLE_WINDOWS, RATE_FLOOR_PERCENT, RATE_MIN_GAMES, IdleMonitor, warning_sink
 from .qualification import (
     EVIDENCE_SCHEMA,
+    FULL_CORE_LADDER,
     LADDER_DIVISORS,
     PROBE_GAMES,
     QUALIFY_BUDGET_PERCENT,
@@ -48,6 +49,7 @@ from .qualification import (
     plan_allocation,
     resource_bound,
     sample_order,
+    spread_order,
     spot_check_game,
     worker_ladder,
     workload_id,
@@ -57,6 +59,7 @@ __all__ = [
     "ALLOCATION_KINDS",
     "EVIDENCE_SCHEMA",
     "IDLE_WINDOWS",
+    "FULL_CORE_LADDER",
     "LADDER_DIVISORS",
     "PLACEMENT_DISPOSITIONS",
     "PLACEMENT_MACHINES",
@@ -89,6 +92,7 @@ __all__ = [
     "plan_allocation",
     "resource_bound",
     "sample_order",
+    "spread_order",
     "spot_check_game",
     "total_memory",
     "warning_sink",

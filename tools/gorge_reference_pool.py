@@ -75,7 +75,8 @@ class ReferencePool:
         self.configuration = json.loads(json.dumps(configuration))
         self.indices = tuple(indices)
         self.stage = Path(stage)
-        self.placement, self.host, self.rules = placement, host, rules
+        # The pool measures one, two or four nodes, so it keeps the divisor ladder (no full-core rungs).
+        self.placement, self.host, self.rules = placement, host, replace(rules, full_core_ladder=False)
         self.clock = clock
         self.per_game_cores = 3
         self.cap_bytes = 2 * 2**30
@@ -228,7 +229,9 @@ def admit_node_request(request, *, node, source_commit, native_verdict, runtime_
     if request['phase'] == 'qualification' and (len(request['indices']) > 2*pool_slots or type(request['batch']) is not int or request['batch'] not in (1, 2, 3, 4, 5)):
         raise ThroughputError('Unadmitted node request exceeds the bounded scaling comparison')
     descriptor = request.get('pool_descriptor')
+    # The pool measures one, two or four nodes, so it keeps the divisor ladder (no full-core rungs).
     rules = replace(current_rules(), worker_selection='wall') if rules is None else rules
+    rules = replace(rules, full_core_ladder=False)
     if (not isinstance(descriptor, dict) or descriptor.get('kind') != 'gorge-reference-pool/v1' or
             descriptor.get('source_commit') != source_commit or descriptor.get('native_verdict') != native_verdict or
             descriptor.get('runtime_pins') != runtime_pins or descriptor.get('configuration') != configuration or

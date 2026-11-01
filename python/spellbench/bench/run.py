@@ -48,7 +48,7 @@ from ..arena.manifest import CommitmentProof, EngineFile, commitment_record, iso
 from ..arena.schedule import RunSetup, preflight, schedule
 from ..arena.throughput import (
     Allocation, MachineFacts, Placement, PlayedGame, ThroughputError, check_reserve, plan_allocation, resource_bound,
-    sample_order, workload_id, QualificationRules,
+    spread_order, workload_id, QualificationRules,
 )
 from ..arena.validate import validate_tournament_dir
 from ..arena.job_storage import JobStorageGuard
@@ -350,13 +350,13 @@ def plan_for(
 
     ``config`` is the executed config. Unvetted subprocess entries are refused first, as the runner refuses them,
     before any process starts (spec 11.7, R3-9). ``throughput.plan_allocation`` then measures the schedule (or the
-    scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking each matchup's first
-    game in schedule order, then each matchup's second, and so on, so a pool that opens with builtins still
-    measures the slow bots (R3-6). ``placement`` is the note a substantial run needs. ``evidence`` is the local
-    evidence file: a measurement of the same workload (the config minus ``tournament_dir``, the ``files``'
-    SHA-256 values, the rerun's games and the arena version) on the same host, cores and hardware is reused, and a
-    fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in ``environ`` (default
-    ``os.environ``), else ``"local"``, never the machine's name (R3-28).
+    scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking one game of each
+    matchup in turn, each matchup rotating through the deck pairs (:func:`spread_order`), so a pool that opens with
+    builtins still measures the slow bots (R3-6) and every deck is timed. ``placement`` is the note a substantial
+    run needs. ``evidence`` is the local evidence file: a measurement of the same workload (the config minus
+    ``tournament_dir``, the ``files``' SHA-256 values, the rerun's games and the arena version) on the same host,
+    cores and hardware is reused, and a fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in
+    ``environ`` (default ``os.environ``), else ``"local"``, never the machine's name (R3-28).
 
     ``volumes`` names the ``run_dir`` volume (where the run lands) and, when the launch pins ``files``, the
     ``pin_root`` volume: the pinned bytes then join the budget. A launch that pins nothing checks its run volume
@@ -380,7 +380,10 @@ def plan_for(
     if any(type(index) is not int or index not in positions for index in sample) or len(set(sample)) != len(sample):
         raise ThroughputError("qualification sample must name distinct scheduled games")
     preferred = [positions.index(index) for index in sample]
-    ordinary = sample_order(list(matchups.values()))
+    # Each matchup's games rotate through the deck pairs, so the sample times every deck (the first games of every
+    # matchup were often one mirror).
+    ordinary = spread_order(list(matchups.values()),
+                            {position: tuple(contexts[index].decks) for position, index in enumerate(positions)})
     ordered_sample = tuple(preferred + [index for index in ordinary if index not in preferred])
     environ = os.environ if environ is None else environ
     host = environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS

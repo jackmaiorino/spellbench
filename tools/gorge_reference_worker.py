@@ -136,7 +136,7 @@ class ReferenceWorker:
         self.runtime_pins = [value.to_json() for value in self.files]
         self.helpers = load_original_helpers(source, stage)
         self.rules = replace(definition.load_benchmark(self.source / 'benchmarks/pauper-gorge').qualification_rules(),
-                             worker_selection='wall')
+                             worker_selection='wall', full_core_ladder=False)
         # Index/seat/deck selection is independent of the actual private secret.
         # This placeholder never starts an engine or becomes a played seed.
         selected, self.expected = self.helpers.select_matrix(schedule(cfg, RunSecret.from_hex('00'*32)))

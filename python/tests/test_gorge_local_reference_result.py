@@ -107,7 +107,7 @@ def matched(recovered, monkeypatch):
     """Synthetic completed ledgers exercise recovery without starting engines."""
     stage, args = recovered
     rules = replace(definition.load_benchmark(ROOT/'benchmarks/pauper-gorge').qualification_rules(),
-                    worker_selection='wall')
+                    worker_selection='wall', full_core_ladder=False)
     bound = max(n for n in range(2, 9) if rules.ladder_fits(140, n))
     cfg = replace(args['cfg'], workers=bound)
     files = []

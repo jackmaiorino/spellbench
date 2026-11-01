@@ -107,7 +107,7 @@ def coordinate(*, source, source_commit, cfg, stage, client, inputs, native_verd
     stage.mkdir(parents=True, exist_ok=True)
     helpers = load_original_helpers(source, stage)
     benchmark = definition.load_benchmark(Path(source) / 'benchmarks/pauper-gorge')
-    rules = replace(benchmark.qualification_rules(), worker_selection='wall')
+    rules = replace(benchmark.qualification_rules(), worker_selection='wall', full_core_ladder=False)
     files = bench_run.run_files(cfg)
     pins = [value.to_json() for value in files]
     portable = portable_native_verdict(native_verdict)

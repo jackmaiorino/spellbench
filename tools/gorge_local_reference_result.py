@@ -143,7 +143,7 @@ def verify_local_reference_result(stage, *, source, head_sha, native_verdict, re
     blueprint = config.TournamentConfig.from_json(benchmark.tournament_config(cfg.tournament_dir))
     blueprint = runner.executed_config(blueprint, lambda text: definition.substitute(text, values))
     allocation = Allocation.from_json(report['allocation'])
-    rules = replace(benchmark.qualification_rules(), worker_selection='wall')
+    rules = replace(benchmark.qualification_rules(), worker_selection='wall', full_core_ladder=False)
     eligible = min(blueprint.workers, resource_bound(allocation.cpu_count, cfg.per_game_cores()))
     games = len(manifest['selected_indices'])
     bounds = [n for n in range(2, eligible+1) if rules.ladder_fits(games, n)]
