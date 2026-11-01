@@ -353,9 +353,9 @@ def plan_for(
     scheduled ``games`` a rerun replays) with :func:`qualification_play`, its sample taking one game of each
     matchup in turn, each matchup rotating through the deck pairs (:func:`spread_order`), so a pool that opens with
     builtins still measures the slow bots (R3-6) and every deck is timed. ``placement`` is the note a substantial
-    run needs. ``evidence`` is the local evidence file: a measurement of the same workload (the config minus ``tournament_dir``, the ``files``'
-    SHA-256 values, the rerun's games and the arena version) on the same host, cores and hardware is reused, and a
-    fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in ``environ`` (default
+    run needs. ``evidence`` is the local evidence file: a measurement of the same workload (the config minus
+    ``tournament_dir``, the ``files``' SHA-256 values, the rerun's games and the arena version) on the same host,
+    cores and hardware is reused, and a fresh one is recorded. The host is the alias ``SPELLBENCH_HOST_ALIAS`` in ``environ`` (default
     ``os.environ``), else ``"local"``, never the machine's name (R3-28).
 
     ``volumes`` names the ``run_dir`` volume (where the run lands) and, when the launch pins ``files``, the
