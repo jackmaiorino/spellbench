@@ -60,10 +60,10 @@
     "${MTG_KERNEL_V2_ORDER}",
     "${MTG_KERNEL_V2_HISTORY}"
   ],
-  "workers": 12,
+  "workers": 16,
   "core_accounting": "sequential",
   "qualification_budget_percent": 30,
-  "qualification_worker_selection": "wall",
+  "qualification_worker_selection": "busy",
   "bootstrap_replicates": 2000,
   "time_control": {
     "startup_ms": 120000,

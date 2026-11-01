@@ -122,7 +122,9 @@ class QualificationRules:
     ideal scaling costs at most ``budget_percent`` percent of the serial
     schedule. The rungs are 1 and ``cap // divisor`` for each of
     ``ladder_divisors`` (largest first, ending with 1, which is the cap
-    itself). A schedule whose comparison does not fit probes
+    itself); ``full_core_ladder`` adds ``3 * cap // 4`` and ``cap - 1``, so a
+    13-core claim compares 1, 6, 9, 12 and 13 workers. A schedule whose
+    comparison does not fit probes
     ``probe_games`` games. A small run spot-checks game
     ``games_total // spot_check_divisor``.
     """
@@ -135,6 +137,8 @@ class QualificationRules:
     spot_check_divisor: int
     # Existing manifests select by busy time; a new benchmark may record wall completion.
     worker_selection: str = "busy"
+    # Existing manifests compare only the divisor rungs; current rules also compare the full-core counts.
+    full_core_ladder: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "ladder_divisors", tuple(self.ladder_divisors))
@@ -143,6 +147,8 @@ class QualificationRules:
             _count(getattr(self, name), f"rules.{name}", 1)
         if self.worker_selection not in ("busy", "wall"):
             raise ValidationError("rules.worker_selection: must be busy or wall")
+        if type(self.full_core_ladder) is not bool:
+            raise ValidationError("rules.full_core_ladder: must be true or false")
         divisors = self.ladder_divisors
         if (
             not divisors
@@ -154,7 +160,10 @@ class QualificationRules:
 
     def ladder(self, cap: int) -> tuple[int, ...]:
         """The worker counts a substantial run compares under these rules, ascending, without repeats."""
-        return tuple(sorted({1, *(max(1, cap // divisor) for divisor in self.ladder_divisors)}))
+        rungs = {1, *(max(1, cap // divisor) for divisor in self.ladder_divisors)}
+        if self.full_core_ladder:
+            rungs |= {max(1, 3 * cap // 4), max(1, cap - 1)}
+        return tuple(sorted(rungs))
 
     def ladder_fits(self, games_total: int, bound: int) -> bool:
         """Whether the scaling comparison fits the schedule (the time per game cancels: counts alone decide)."""
@@ -189,12 +198,15 @@ class QualificationRules:
         # Preserve the exact serialization and selection rule of existing runs.
         if self.worker_selection != "busy":
             record["worker_selection"] = self.worker_selection
+        if self.full_core_ladder:
+            record["full_core_ladder"] = True
         return record
 
     @classmethod
     def from_json(cls, value: Any, context: str = "rules") -> QualificationRules:
         value = _object(value, context)
-        exact_keys(value, _RULES_KEYS + (("worker_selection",) if "worker_selection" in value else ()), context)
+        optional = tuple(key for key in ("worker_selection", "full_core_ladder") if key in value)
+        exact_keys(value, _RULES_KEYS + optional, context)
         if not isinstance(value["ladder_divisors"], list):
             raise ValidationError(f"{context}.ladder_divisors: must be a list")
         try:

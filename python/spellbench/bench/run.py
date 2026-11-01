@@ -48,7 +48,7 @@ from ..arena.manifest import CommitmentProof, EngineFile, commitment_record, iso
 from ..arena.schedule import RunSetup, preflight, schedule
 from ..arena.throughput import (
     Allocation, MachineFacts, Placement, PlayedGame, ThroughputError, check_reserve, plan_allocation, resource_bound,
-    sample_order, workload_id, QualificationRules,
+    spread_order, workload_id, QualificationRules,
 )
 from ..arena.validate import validate_tournament_dir
 from ..arena.job_storage import JobStorageGuard
@@ -380,7 +380,7 @@ def plan_for(
     if any(type(index) is not int or index not in positions for index in sample) or len(set(sample)) != len(sample):
         raise ThroughputError("qualification sample must name distinct scheduled games")
     preferred = [positions.index(index) for index in sample]
-    ordinary = sample_order(list(matchups.values()))
+    ordinary = spread_order(list(matchups.values()))
     ordered_sample = tuple(preferred + [index for index in ordinary if index not in preferred])
     environ = os.environ if environ is None else environ
     host = environ.get(HOST_ALIAS_ENV, "").strip() or DEFAULT_HOST_ALIAS

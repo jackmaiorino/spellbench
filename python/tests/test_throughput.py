@@ -20,8 +20,9 @@ from spellbench.arena.machine import cgroup_cpus, host_name
 from spellbench.arena.throughput import (
     RESERVE_BYTES, SUBSTANTIAL_RUN_SECONDS, Allocation, Budget, CpuSampler, IdleMonitor, MachineFacts, Placement,
     PlayedGame, ThroughputError, check_reserve, free_bytes, machine_facts, nvidia_gpus, plan_allocation, resource_bound,
-    sample_order, spot_check_game, total_memory, warning_sink, worker_ladder, workload_id,
+    sample_order, spot_check_game, spread_order, total_memory, warning_sink, worker_ladder, workload_id,
 )
+from spellbench.arena.allocation import QualificationRules
 from spellbench.errors import ValidationError
 from spellbench.wire import canonical_json_dumps
 
@@ -31,6 +32,13 @@ PLACEMENT = ("main-pc=used: fastest measured; computehost=slower: about half the
              "runpod=not_authorized: no spending authority for this run")
 FIRST_16 = tuple(range(16))
 MACHINE = MachineFacts(memory_bytes=2**36, gpus=(), free_bytes=(("pin_root", 2**42), ("run_dir", 2**42)))
+
+
+@pytest.fixture(autouse=True)
+def divisor_ladder(monkeypatch):
+    """Most tests here check reuse, spot checks and placement on the divisor ladder (1, cap // 2, cap), the rules
+    of every manifest before the full-core ladder; the full-core tests turn it back on."""
+    monkeypatch.setattr(qualification, "FULL_CORE_LADDER", False)
 
 
 def _player(per_game_seconds: float, speedup: dict[int, float], *, digest=lambda workers, index: DIGEST, row_bytes: int = 1000):
@@ -714,3 +722,35 @@ def test_warnings_are_written_and_flushed_as_they_happen(tmp_path: Path) -> None
     assert _ticks(monitor, now, [120], running=1) == [120]
     (line,) = path.read_text(encoding="utf-8").splitlines()  # on disk as soon as the tick returned
     assert json.loads(line)["warning"].startswith("idle capacity") and stream.getvalue().startswith("idle capacity")
+
+
+def test_the_full_core_ladder_qualifies_every_claim_size_up_front(monkeypatch) -> None:
+    monkeypatch.setattr(qualification, "FULL_CORE_LADDER", True)
+    assert worker_ladder(13) == (1, 6, 9, 12, 13) and worker_ladder(8) == (1, 4, 6, 7, 8)
+    assert worker_ladder(2) == (1, 2) and worker_ladder(1) == (1,)
+    # 12 workers finish 2.2 times faster per game than one, 6 workers 2 times: a long run picks 12, not 6.
+    play, calls = _player(10.0, {4: 1.9, 6: 2.0, 7: 2.1, 8: 2.2})
+    allocation = _plan(play, games_total=2000)
+    assert _counts(calls)[:5] == [(1, 16), (4, 16), (6, 16), (7, 16), (8, 16)] and allocation.workers == 8
+    assert allocation.to_json()["rules"]["full_core_ladder"] is True
+    assert Allocation.from_json(allocation.to_json()) == allocation
+
+
+def test_rules_without_the_full_core_key_keep_the_divisor_ladder() -> None:
+    old = {"substantial_run_seconds": 600, "budget_percent": 30, "games_per_worker": 2, "probe_games": 2,
+           "ladder_divisors": [2, 1], "spot_check_divisor": 2, "worker_selection": "wall"}
+    rules = QualificationRules.from_json(old)
+    assert not rules.full_core_ladder and rules.ladder(12) == (1, 6, 12) and rules.to_json() == old
+    with pytest.raises(ValidationError, match="full_core_ladder"):
+        QualificationRules.from_json({**old, "full_core_ladder": 1})
+
+
+def test_a_spread_sample_covers_every_block_of_each_matchup() -> None:
+    # 15 matchups of 128 games, each in 8 deck blocks of 16: the first game of each matchup used to be deck 0.
+    matchups = [list(range(start, start + 128)) for start in range(0, 1920, 128)]
+    sample = spread_order(matchups)
+    assert sorted(sample) == list(range(1920))
+    first = sample[:24]
+    assert {(index % 128) // 16 for index in first} == set(range(8))  # every deck block in the first 24 games
+    assert len({index // 128 for index in first}) == 15  # and every matchup
+    assert spread_order(matchups) == sample  # deterministic: a qualification's games depend on the schedule only

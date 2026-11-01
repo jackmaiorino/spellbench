@@ -10,12 +10,15 @@
   against those, so tests that change a rule patch it here.
 - A run is substantial when its projected serial time reaches
   ``SUBSTANTIAL_RUN_SECONDS`` and its scaling comparison fits the
-  budget: every rung of 1, ``bound // 2`` and ``bound``
-  workers plays the same ``QUALIFY_GAMES_PER_WORKER * bound`` games, at
+  budget: every rung of 1, ``bound // 2``, ``3 * bound // 4``, ``bound - 1``
+  and ``bound`` workers (``FULL_CORE_LADDER``: the claim's full-core counts,
+  so 1, 6, 9, 12 and 13 on 13 cores) plays the same
+  ``QUALIFY_GAMES_PER_WORKER * bound`` games, at
   most ``QUALIFY_BUDGET_PERCENT`` percent of the serial schedule at ideal
   scaling, because qualification counts toward the time to a completed
   result. The probe plays those games with one worker and is the first
-  rung. The fastest rung by busy time wins (``workers * games / summed game
+  rung. The fastest rung by busy time wins (completed games per hour with
+  every worker occupied, as in a long run) (``workers * games / summed game
   seconds``; on identical games the spread in game lengths cancels, where a
   batch's wall time is dominated by its slowest games), the fewer workers on
   a tie. A substantial run needs a ``Placement`` naming every machine with a
@@ -67,6 +70,8 @@ QUALIFY_GAMES_PER_WORKER = 2
 PROBE_GAMES = 2
 # The worker ladder: 1 and cap // divisor for each divisor, so (2, 1) compares 1, cap // 2 and cap.
 LADDER_DIVISORS = (2, 1)
+# Also compare 3 * cap // 4 and cap - 1, so the full-core counts are qualified up front (COMPUTE-POLICY.md item 2).
+FULL_CORE_LADDER = True
 # A small run spot-checks game games_total // SPOT_CHECK_DIVISOR: the middle one, played while every worker was busy.
 SPOT_CHECK_DIVISOR = 2
 EVIDENCE_SCHEMA = "spellbench-throughput-evidence/v1"
@@ -79,7 +84,7 @@ def current_rules() -> QualificationRules:
     return QualificationRules(
         substantial_run_seconds=SUBSTANTIAL_RUN_SECONDS, budget_percent=QUALIFY_BUDGET_PERCENT,
         games_per_worker=QUALIFY_GAMES_PER_WORKER, probe_games=PROBE_GAMES, ladder_divisors=LADDER_DIVISORS,
-        spot_check_divisor=SPOT_CHECK_DIVISOR,
+        spot_check_divisor=SPOT_CHECK_DIVISOR, full_core_ladder=FULL_CORE_LADDER,
     )
 
 
@@ -89,7 +94,8 @@ def resource_bound(cpu_count: int, per_game_cores: int) -> int:
 
 
 def worker_ladder(cap: int) -> tuple[int, ...]:
-    """The worker counts a substantial run compares under the current rules: 1, ``cap // 2`` and ``cap``."""
+    """The worker counts a substantial run compares under the current rules: 1, ``cap // 2``, ``3 * cap // 4``,
+    ``cap - 1`` and ``cap``."""
     return current_rules().ladder(cap)
 
 
@@ -106,6 +112,20 @@ def sample_order(groups: Sequence[Sequence[int]]) -> tuple[int, ...]:
     for position in range(max((len(column) for column in columns), default=0)):
         order.extend(column[position] for column in columns if position < len(column))
     return tuple(order)
+
+
+def spread_order(groups: Sequence[Sequence[int]]) -> tuple[int, ...]:
+    """Like :func:`sample_order`, but each group's games are taken spread across the group (bit-reversed rank,
+    starting further along for each group), so a short sample covers every block of a schedule, such as each deck
+    pair of every matchup, instead of only the first block of each group."""
+    def spread(group: Sequence[int], start: int) -> list[int]:
+        if not group:
+            return []
+        bits = max(1, (len(group) - 1).bit_length())
+        ranks = sorted(range(len(group)), key=lambda i: (int(format(i, f"0{bits}b")[::-1], 2), i))
+        start %= len(ranks)
+        return [group[i] for i in ranks[start:] + ranks[:start]]
+    return sample_order([spread(group, number) for number, group in enumerate(groups)])
 
 
 def workload_id(value: Any) -> str:
