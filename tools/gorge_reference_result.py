@@ -59,7 +59,7 @@ def verify_reference_result(stage, *, source, inputs, head_sha, native_verdict):
     sample=sample_order(list(matchups.values()))
     if manifest['selected_indices']!=indices or manifest['qualification_sample']!=list(sample):
         raise ThroughputError('Reference result changed its original matrix or representative sample')
-    rules=replace(benchmark.qualification_rules(),worker_selection='wall')
+    rules=replace(benchmark.qualification_rules(),worker_selection='wall',full_core_ladder=False)
     allocation=Allocation.from_json(report['allocation'])
     pool=read(stage/'pool/POOL.json')
     nodes=[PoolNode(**value) for value in pool['nodes']]
