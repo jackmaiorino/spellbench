@@ -7,6 +7,7 @@ This does not qualify throughput or establish playing strength.
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import hashlib
 import json
 import random
@@ -99,7 +100,11 @@ def check(executable, catalog, deck, seed):
                 peek = request({"request_type": "preview_steps", "game_id": game_id,
                     "expected_step": current["step"], "candidate_ids": prefix})
                 assert peek["response_type"] == "private_preview", peek
-                assert peek["view"]["extensions"] == current["extensions"]
+                # Production decisions also carry the public-history slice,
+                # which previews never send; every other extension must match.
+                root = deepcopy(current["extensions"])
+                root["x_kernel_v2_support"].pop("history", None)
+                assert peek["view"]["extensions"] == root
                 seen[family]["successful"] += 1
                 while len(prefix) <= 256:
                     prefix.append(binder(peek["view"]))
