@@ -83,6 +83,8 @@ class ReferencePool:
         self.trial = 0
         if rules.worker_selection != 'wall':
             raise ThroughputError('Distributed collection selects by measured wall completion including transport')
+        if rules.full_core_ladder:
+            raise ThroughputError('The pool measures one, two or four nodes, so it keeps the divisor ladder')
         if (native_verdict.get('closed') is not True or native_verdict.get('seed_blocks') != 320 or
                 native_verdict.get('completed_games') != 640 or native_verdict.get('outputs_identical') is not True):
             raise ThroughputError('A full, closed native pass is required before reference collection')
@@ -228,7 +230,8 @@ def admit_node_request(request, *, node, source_commit, native_verdict, runtime_
     if request['phase'] == 'qualification' and (len(request['indices']) > 2*pool_slots or type(request['batch']) is not int or request['batch'] not in (1, 2, 3, 4, 5)):
         raise ThroughputError('Unadmitted node request exceeds the bounded scaling comparison')
     descriptor = request.get('pool_descriptor')
-    rules = replace(current_rules(), worker_selection='wall') if rules is None else rules
+    # The pool measures one, two or four nodes, so it keeps the divisor ladder (no full-core rungs).
+    rules = replace(current_rules(), worker_selection='wall', full_core_ladder=False) if rules is None else rules
     if (not isinstance(descriptor, dict) or descriptor.get('kind') != 'gorge-reference-pool/v1' or
             descriptor.get('source_commit') != source_commit or descriptor.get('native_verdict') != native_verdict or
             descriptor.get('runtime_pins') != runtime_pins or descriptor.get('configuration') != configuration or

@@ -44,7 +44,7 @@ def make_pool(tmp_path, *, nodes=NODES, verdict=VERDICT, bad=None):
     value = pool.ReferencePool(nodes=nodes, execute_node=execute, source_commit='source-fixture',
         native_verdict=verdict, runtime_pins={}, configuration={'fixture': True}, indices=range(140),
         stage=tmp_path/'pool', placement=PLACEMENT, host='two-node-fixture',
-        rules=replace(current_rules(),worker_selection='wall'), clock=lambda:next(clock_values))
+        rules=replace(current_rules(),worker_selection='wall',full_core_ladder=False), clock=lambda:next(clock_values))
     return value, calls
 
 
