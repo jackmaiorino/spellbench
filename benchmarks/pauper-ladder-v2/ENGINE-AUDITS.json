@@ -4,9 +4,9 @@
   "engine": {
     "name": "mtg-kernel",
     "source_revision": "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
-    "pull_requests": ["jackmaiorino/mtg-kernel#462", "jackmaiorino/mtg-kernel#476"],
+    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
     "build": "cargo build --release --locked -p mtg-kernel (Windows x86_64 MSVC, rust 1.94.1, rust-lld linker)",
-    "host": "HaleysPC, under a host_slots claim of 3 cores",
+    "host": "second build host (Windows, Zen 2), under a 3-core slot claim",
     "date": "2026-11-02"
   },
   "pinned_files": {
