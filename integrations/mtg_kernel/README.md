@@ -20,3 +20,24 @@ Selection is the training sampler with one draw per own decision from a
 per-seat stream seeded by the game id and seat, so reruns are identical.
 `--decision-log DIR` writes one JSONL file per game and seat for the
 kernel's `spellbench_qualify_v1` replay check.
+
+## Engine pins
+
+`pauper-kernel-v2` and `pauper-ladder-v1` run the bridge, scorer and catalog
+built from the mtg-kernel 92ec2393 line. `pauper-ladder-v2` runs them built
+from mtg-kernel main at the commit named by its `--source-revision`, which
+carries the same bridge (mtg-kernel PRs #462 and #476). Build at that
+commit with:
+
+    cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 \
+        --bin spellbench_scorer_v1 --bin spellbench_kernel_catalog
+    target/release/spellbench_kernel_catalog > pauper-v2-catalog.json
+
+Every engine change behind a board needs fresh audits on the pinned binary
+before that board rates games: the history two-world audit, the
+`check_engine_v2` and `check_private_preview_v2` checks here, the gorge-ar8
+smoke, and the kernel's V4 visibility audit at the same commit
+(`cargo test --release -p mtg-kernel --lib -- --ignored
+spellbench_v4_visibility_audit --nocapture`). The board's `ENGINE-AUDITS.json`
+records the commit, the binary hashes, each result and the reveal sites the
+V4 audit printed.
