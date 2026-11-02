@@ -1,0 +1,84 @@
+{
+  "schema": "spellbench-engine-audits/v1",
+  "benchmark": "pauper-ladder-v2",
+  "engine": {
+    "name": "mtg-kernel",
+    "source_revision": "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
+    "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
+    "build": "cargo build --release --locked -p mtg-kernel (Windows x86_64 MSVC, rust 1.94.1, rust-lld linker)",
+    "host": "second build host (Windows, Zen 2), under a 3-core slot claim",
+    "date": "2026-11-02"
+  },
+  "pinned_files": {
+    "agent_bridge_v1.exe": {"sha256": "f585d669a042ac1bf5c598ee606c29b6a3a7e5fff6b88af9c08e98deaf63f69a", "bytes": 46688256},
+    "spellbench_scorer_v1.exe": {"sha256": "26f2d85545f26bdbeaa30277b8e37fc5861b78ff7b6e0697e303793b50d3e1a1", "bytes": 5549056},
+    "spellbench_qualify_v1.exe": {"sha256": "46c1e6ea7c6693ff8fb2ca403b508ff277fe17da2f0c41815400ae1d1bd91b5a", "bytes": 50650112},
+    "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json"}
+  },
+  "audits": {
+    "history_two_world": {
+      "tool": "integrations/mtg_kernel/audit_history_two_world_v2.py --seeds 7 11 23",
+      "binary": "agent_bridge_v1.exe above",
+      "result": "pass",
+      "games": 48,
+      "natural_endings": 48,
+      "differences": 0
+    },
+    "check_engine_v2": {
+      "tool": "integrations/mtg_kernel/check_engine_v2.py",
+      "binary": "agent_bridge_v1.exe above",
+      "result": "pass",
+      "decks": 8,
+      "buffer_cap_reset_equals_fresh": true
+    },
+    "check_private_preview_v2": {
+      "tool": "integrations/mtg_kernel/check_private_preview_v2.py",
+      "binary": "agent_bridge_v1.exe above",
+      "result": "pass",
+      "preview_checks": {
+        "Affinity": {"blocker": {"successful": 1, "boundary_refused": 1}},
+        "Wildfire": {"blocker": {"successful": 1, "boundary_refused": 1}, "arrangement": {"successful": 1, "boundary_refused": 1}}
+      }
+    },
+    "gorge_ar8_smoke": {
+      "matchup": "c12 vs gorge-ar8, 8 pairs (16 games), unrated",
+      "binary": "agent_bridge_v1.exe and spellbench_scorer_v1.exe above",
+      "result": "pass",
+      "games": 16,
+      "halted": 0,
+      "truncated": 0,
+      "forfeit": 0
+    },
+    "v4_visibility": {
+      "tool": "cargo test --release -p mtg-kernel --lib -- --ignored spellbench_v4_visibility_audit --nocapture",
+      "commit": "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
+      "result": "pass",
+      "what_it_tests": "At every decision of neutral private-support games on the eight board decks, the acting seat's V4 boundary and x_kernel_flat_v4 encoding are unchanged when the search sampler redeterminizes every hidden card the engine's knowledge tables mark as unknown to that seat; and every place one player learned hidden cards of the other (library look or reveal, hand reveal, library reorder revealed to the opponent) is a reviewed site marked in the source. It is a consistency check against the engine's own knowledge tables plus a pinned enumeration of reveal sites, not a proof against a fact the tables wrongly mark as known.",
+      "games": 16,
+      "decisions": 4731,
+      "sampled_worlds": 14193,
+      "worlds_changing_any_hidden_card": 14179,
+      "worlds_changing_opponent_hand": 11883,
+      "refusals": 0,
+      "leaks": 0,
+      "reveal_sites_hit": [
+        "hand mtg-kernel/src/effect.rs:13952",
+        "hand mtg-kernel/src/effect.rs:14386",
+        "hand mtg-kernel/src/effect.rs:16261",
+        "hand mtg-kernel/src/effect.rs:18056",
+        "hand mtg-kernel/src/engine.rs:28428",
+        "hand mtg-kernel/src/event.rs:7414",
+        "hand mtg-kernel/src/event.rs:7426",
+        "hand mtg-kernel/src/spell_costs_v1.rs:54",
+        "library mtg-kernel/src/effect.rs:9329",
+        "library mtg-kernel/src/effect.rs:15736",
+        "library mtg-kernel/src/effect.rs:16715",
+        "library mtg-kernel/src/effect.rs:16716",
+        "library mtg-kernel/src/effect.rs:19840",
+        "library mtg-kernel/src/event.rs:7402"
+      ],
+      "coverage": "The audit exercised 6 of the 21 marked library-reveal calls and 8 of the 35 marked hand-reveal calls; the rest rest on the static enumeration reviewed in mtg-kernel #462 and #476. Every current library reorder reveals only to its owner."
+    }
+  },
+  "rule": "Rerun every audit above on the pinned binaries, and replace this receipt, whenever the engine behind this board changes. The board rates no games on an engine without a passing receipt."
+}
