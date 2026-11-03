@@ -450,3 +450,24 @@ def test_allowance_share_counts_a_multi_point_group_once(tmp_path):
     result = report.report([tmp_path])
     assert result["allowance_limited"] == {"decisions": 0, "groups": 1, "group_points": 4,
                                            "share_of_eligible": 1.0}
+
+
+def test_c5_counts_each_eligible_unit_once(tmp_path):
+    # Sol r4: an all-trees-excluded search is a tree fault and an incomplete
+    # search (two events), but one faulted eligible decision.
+    class AllExcluded(FakePool):
+        def request_line(self, line):
+            answer = super().request_line(line)
+            if "search" in answer:
+                answer["search"]["excluded"] = [0]
+            return answer
+
+    bot = search.KernelSearchBot(RecordedScorer(), AllExcluded(picks={}), dict(ENTRANT), seed=11,
+                                 decision_log=tmp_path, name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(decision(0, payload_ext(live_candidate_ids=[0, 1, 2])))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R8"}))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    assert bot._tally["fault:tree_fault"] == 1 and bot._tally["fault:incomplete"] == 1
+    summary = json.loads((tmp_path / "g-test.p0.jsonl").read_text().splitlines()[-1])
+    assert summary["eligible"] == 2 and summary["c5_faults"] == 2

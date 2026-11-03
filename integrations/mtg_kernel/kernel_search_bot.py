@@ -160,6 +160,9 @@ class KernelSearchBot(KernelFlatBot):
         self._walk_rng: SplitMix64 | None = None
         self._charged_wall_us = 0
         self._last_fault = ""
+        # Whether the current eligible unit (an ordinary decision, or a
+        # buffered group) already has a C5 fault: AC5's bound counts units.
+        self._unit_faulted = False
 
     # -- game lifecycle --------------------------------------------------
 
@@ -176,9 +179,11 @@ class KernelSearchBot(KernelFlatBot):
         self._write_log({"kind": "entrant", "entrant": self._entrant})
 
     def on_game_over(self, request: GameOver) -> None:
-        # C5 faults (design 5): every refusal, missing order map, failed
-        # search, composition no-match or cap, and lost group, as it happens.
-        faults = sum(n for key, n in self._tally.items() if key.startswith("fault:"))
+        # C5 faults (design 5, AC5): eligible decisions (a buffered group
+        # counts once) with at least one refusal, missing order map, failed
+        # search or tree, composition no-match or cap, or lost group. Events
+        # by reason stay in the tally as fault:<reason>.
+        faults = self._tally["c5_units"]
         self._write_log({
             "kind": "availability", "game_id": request.game_id, "tally": dict(sorted(self._tally.items())),
             "eligible": self._tally["eligible"],
@@ -204,12 +209,16 @@ class KernelSearchBot(KernelFlatBot):
             if buffered:
                 return self._group_choose(decision, seed)
             self._group = None
+            self._unit_faulted = False
             return self._ordinary_choose(decision, seed)
         finally:
             self._charged_wall_us += (time.perf_counter_ns() - started) // 1000
 
     def _fault(self, reason: str) -> None:
         self._tally[f"fault:{reason}"] += 1
+        if not self._unit_faulted:
+            self._unit_faulted = True
+            self._tally["c5_units"] += 1
 
     def _policy(self, decision: Decision, seed: int, reason: str) -> int:
         """kernel_flat_bot's answer with this decision's draw; a fault reason is counted."""
@@ -329,9 +338,11 @@ class KernelSearchBot(KernelFlatBot):
         index = decision.group.get("substep_index")
         count = decision.group.get("substep_count")
         if index == 0:
+            self._unit_faulted = False
             self._group = self._open_group(decision, group_id)
         elif self._group is None or self._group["id"] != group_id or len(self._group["prefix"]) != index:
             self._group = {"id": group_id, "mode": "policy", "reason": "group_lost", "prefix": [None] * index}
+            self._unit_faulted = False
             self._fault("group_lost")
         g = self._group
         if g["mode"] == "walk":
