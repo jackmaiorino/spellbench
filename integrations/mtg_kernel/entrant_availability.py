@@ -68,9 +68,11 @@ def report(paths: list[Path]) -> dict:
                     zero_tree_searches += any(t == 0 for t in trees)
     policy = {key[7:]: n for key, n in sorted(tally.items()) if key.startswith("policy:")}
     faults = {key[6:]: n for key, n in sorted(tally.items()) if key.startswith("fault:")}
-    # Allowance-limited: ordinary decisions answered by policy for the
-    # allowance, plus eligible group points decided by policy for it.
-    allowance_limited = tally["policy:allowance"] + tally["allowance_points"]
+    # Allowance-limited eligible decisions, in the unit of `eligible` (a
+    # buffered group counts once): ordinary decisions answered by policy for
+    # the allowance, plus groups with at least one point decided by policy
+    # for it. Points are reported separately.
+    allowance_limited = tally["policy:allowance"] + tally["allowance_groups"]
     bound = upper_bound_95(c5, eligible)
     return {
         "games": games, "eligible": eligible, "searched_decisions": searched, "group_walk_answers": tally["walk"],
@@ -79,7 +81,8 @@ def report(paths: list[Path]) -> dict:
                              "median": sorted(transitions)[len(transitions) // 2] if transitions else None,
                              "max": max(transitions, default=None)},
         "units_charged": tally["units_charged"], "policy_by_reason": policy, "c5_by_reason": faults,
-        "allowance_limited": {"decisions": tally["policy:allowance"], "group_points": tally["allowance_points"],
+        "allowance_limited": {"decisions": tally["policy:allowance"], "groups": tally["allowance_groups"],
+                              "group_points": tally["allowance_points"],
                               "share_of_eligible": None if not eligible else allowance_limited / eligible},
         "group_points": {"searched": tally["searched_points"], "policy": tally["policy_points"]},
         "c5_faults": c5, "c5_share": None if not eligible else c5 / eligible, "c5_upper_95": bound,

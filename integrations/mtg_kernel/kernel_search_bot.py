@@ -433,6 +433,10 @@ class KernelSearchBot(KernelFlatBot):
                     self._tally["searched_groups"] += 1
         elif point["eligible"]:
             self._tally["allowance_points"] += 1
+            if not g.get("allowance_limited"):
+                # Counted once per group, in the same unit as `eligible`.
+                g["allowance_limited"] = True
+                self._tally["allowance_groups"] += 1
         if pick is None:
             pick = self._point_policy(decision, point["flat"], len(g["path"]))
             self._tally["policy_points"] += 1

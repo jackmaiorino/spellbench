@@ -431,3 +431,22 @@ def test_report_counts_allowance_limited_group_points(tmp_path):
     assert result["allowance_limited"]["group_points"] == 1
     assert result["allowance_limited"]["share_of_eligible"] == 1.0
     assert result["group_points"] == {"searched": 0, "policy": 1}
+
+
+def test_allowance_share_counts_a_multi_point_group_once(tmp_path):
+    # Sol r3: worked example 2 with no allowance: every native point is
+    # policy (exclude, row 0), four limited points, one eligible group.
+    import entrant_availability as report
+    keys, composition = block_composition()
+    point = lambda attacker, blocker: ([f"{attacker}{blocker}:ex", f"{attacker}{blocker}:in"], True)
+    pool = FakePool(points={(): point("a1", "b1"), (0,): point("a1", "b2"), (0, 0): point("a2", "b1"),
+                            (0, 0, 0): point("a2", "b2")})
+    bot = search.KernelSearchBot(ForcedRowScorer(0), pool, {**ENTRANT, "allowance": 1}, seed=11,
+                                 decision_log=tmp_path, name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    assert bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition))) == 0
+    assert bot.choose(group_decision(1, 1, 2, 3)) == 0
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    result = report.report([tmp_path])
+    assert result["allowance_limited"] == {"decisions": 0, "groups": 1, "group_points": 4,
+                                           "share_of_eligible": 1.0}
