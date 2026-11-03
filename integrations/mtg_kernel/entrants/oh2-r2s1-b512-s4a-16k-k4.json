@@ -1,0 +1,19 @@
+{
+  "schema": "spellbench-kernel-search-entrant/v1",
+  "name": "oh2-r2s1-b512-s4a-16k-k4",
+  "status": "provisional",
+  "note": "W1 design v7 section 3 [P] values (B, A_K and a_units from the provisional grid table, whose arithmetic uses 4k = 4,000). TC on the frozen load profile replaces every number here before AC1 and the soaks (design 13, 14).",
+  "design": "collab LANES/lead/W1-ENTRANT-DESIGN.md v7 a133528d",
+  "network": "oh2-r2s1-b512",
+  "model_state_sha256": "662aad1a (scorer config oh2-r2s1-b512.scorer.json)",
+  "workers": 4,
+  "budget": 16000,
+  "allowance": 1200000,
+  "a_units": 1111,
+  "group_cap": 34222,
+  "seed_model": "w1-entrant-v1",
+  "pick": "pick-v2",
+  "policy": "sampled-wide-v1",
+  "game_time_basis_seconds": 500,
+  "allowance_margin_m": 1.5
+}
