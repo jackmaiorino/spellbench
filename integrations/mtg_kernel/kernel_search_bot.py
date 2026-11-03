@@ -61,7 +61,8 @@ WALK_DOMAIN = b"spellbench-kernel-search-bot/walk-policy/v1"
 # Policy outcomes that are C5 faults (design 5 and 6.7): refusals, a missing
 # order map, failed searches, composition no-match, a lost group.
 FAULTS = ("R1", "R1b", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R8b",
-          "order_map_missing", "incomplete", "pool_error", "no_match", "group_lost", "composition_cap")
+          "order_map_missing", "incomplete", "pool_error", "no_match", "group_lost", "composition_cap",
+          "tree_fault")
 
 
 class _OneDraw:
@@ -306,6 +307,10 @@ class KernelSearchBot(KernelFlatBot):
             "wall_us": wall_us, "pool_wall_seconds": answer.get("wall_seconds"),
             "tree_cpu_seconds": [t.get("cpu_seconds") for t in trees],
         })
+        if search["excluded"] or any(t.get("faults") for t in trees):
+            # Design 4 and 5: a tree with no root, a differing menu or a worker
+            # failure is excluded and counted, even when the others still pick.
+            self._fault("tree_fault")
         if search["incomplete"] or search["pick"] is None:
             self._last_fault = "incomplete"
             return None

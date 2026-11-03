@@ -401,3 +401,33 @@ def test_upper_bound_is_stable_on_large_counts():
     for faults, n in ((100, 100_000), (200, 10_000), (3, 5_000)):
         bound = report.upper_bound_95(faults, n)
         assert faults / n < bound < 1
+
+
+def test_an_excluded_tree_is_a_fault_even_when_the_search_picks():
+    class OneTreeFails(FakePool):
+        def request_line(self, line):
+            answer = super().request_line(line)
+            if "search" in answer:
+                answer["search"]["excluded"] = [1]
+                answer["trees"].append({"transitions": 9, "cpu_seconds": 0.0, "faults": ["worker 1: panicked"]})
+            return answer
+
+    bot = make_bot(OneTreeFails(picks={(): 2}))
+    assert bot.choose(decision(0, payload_ext(live_candidate_ids=[0, 1, 2]))) == 2
+    assert bot._tally["fault:tree_fault"] == 1 and bot._tally["searched"] == 1
+
+
+def test_report_counts_allowance_limited_group_points(tmp_path):
+    import entrant_availability as report
+    keys, composition = trigger_completions()
+    bot = search.KernelSearchBot(RecordedScorer(), FakePool(points={(): (keys, True)}),
+                                 {**ENTRANT, "allowance": 1_299}, seed=11, decision_log=tmp_path,
+                                 name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition)))
+    bot.choose(group_decision(1, 1, 2, 2))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    result = report.report([tmp_path])
+    assert result["allowance_limited"]["group_points"] == 1
+    assert result["allowance_limited"]["share_of_eligible"] == 1.0
+    assert result["group_points"] == {"searched": 0, "policy": 1}
