@@ -1,0 +1,90 @@
+"""Availability report for the W1 search entrant from its decision logs.
+
+Reads every ``<game>.<seat>.jsonl`` written by kernel_search_bot.py
+(``--decision-log``) and totals, per entrant: eligible decisions, searched
+decisions and group walks, policy answers by reason (refusal predicate R1 to
+R8b, allowance, order map, faults), C5 faults with a one-sided 95 percent
+upper bound on their share of eligible decisions (design 13 AC5), searches,
+units charged and tree transitions.
+
+Usage: python entrant_availability.py LOG_DIR [LOG_DIR ...] [--json OUT]
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import sys
+from collections import Counter
+from pathlib import Path
+
+
+def upper_bound_95(faults: int, n: int) -> float | None:
+    """Clopper-Pearson one-sided 95 percent upper bound (bisection on the binomial tail)."""
+    if n == 0:
+        return None
+    if faults >= n:
+        return 1.0
+
+    def tail(p: float) -> float:  # P(X <= faults)
+        return sum(math.comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(faults + 1))
+
+    lo, hi = faults / n, 1.0
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if tail(mid) > 0.05:
+            lo = mid
+        else:
+            hi = mid
+    return hi
+
+
+def report(paths: list[Path]) -> dict:
+    tally: Counter[str] = Counter()
+    games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
+    for root in paths:
+        for path in sorted(root.glob("*.jsonl")):
+            for line in path.read_text(encoding="utf-8").splitlines():
+                record = json.loads(line)
+                kind = record.get("kind")
+                if kind == "availability":
+                    games += 1
+                    tally.update(record["tally"])
+                    c5 += record["c5_faults"]
+                    eligible += record["eligible"]
+                    searched += record["searched_decisions"]
+                elif kind == "search" and "tree_transitions" in record:
+                    searches += 1
+                    trees = record["tree_transitions"]
+                    transitions.extend(trees)
+                    zero_tree_searches += any(t == 0 for t in trees)
+    policy = {key[7:]: n for key, n in sorted(tally.items()) if key.startswith("policy:")}
+    bound = upper_bound_95(c5, eligible)
+    return {
+        "games": games, "eligible": eligible, "searched_decisions": searched, "group_walk_answers": tally["walk"],
+        "searches": searches, "searches_with_a_zero_transition_tree": zero_tree_searches,
+        "tree_transitions": {"trees": len(transitions), "min": min(transitions, default=None),
+                             "median": sorted(transitions)[len(transitions) // 2] if transitions else None,
+                             "max": max(transitions, default=None)},
+        "units_charged": tally["units_charged"], "policy_by_reason": policy,
+        "c5_faults": c5, "c5_share": None if not eligible else c5 / eligible, "c5_upper_95": bound,
+        "c5_pass_below_1pct": None if bound is None else bound < 0.01,
+        "searched_share_of_eligible": None if not eligible else searched / eligible,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("logs", nargs="+", type=Path)
+    parser.add_argument("--json", type=Path)
+    args = parser.parse_args(argv)
+    result = report(args.logs)
+    text = json.dumps(result, indent=2, sort_keys=True)
+    print(text)
+    if args.json:
+        args.json.write_text(text + "\n", encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

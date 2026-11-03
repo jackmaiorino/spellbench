@@ -81,7 +81,7 @@ def test_ordinary_order_map_names_wire_candidates():
 
 def test_block_completions_cover_every_legal_declaration():
     plan = BlockPlan(("b1", "b2"), {"b1": ("a1", "a2"), "b2": ("a1", "a2")}, {"a1": 1, "a2": 1})
-    found = engine.completions(BlockDeclaration(plan, {}))
-    assignments = sorted(tuple(p.prefix) for _, p in found)
+    found = engine.completions(BlockDeclaration(plan, {k: {"object_id": k} for k in ("a1", "a2", "b1", "b2")}))
+    assignments = {tuple(p.prefix) for _, p in found}
     assert len(assignments) == 9
     assert all(plan.completion(a) == a for a in assignments)
