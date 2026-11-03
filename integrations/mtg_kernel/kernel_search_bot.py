@@ -337,10 +337,16 @@ class KernelSearchBot(KernelFlatBot):
         group_id = decision.group.get("group_id")
         index = decision.group.get("substep_index")
         count = decision.group.get("substep_count")
-        if index == 0:
+        continuing = self._group is not None and self._group.get("continues")
+        if index == 0 and continuing and INFOSET not in decision.extensions:
+            # One adapter buffer can span two wire groups (a selection, then
+            # the order of the selected cards): the plan carries over.
+            self._group.update(id=group_id, continues=False, offset=len(self._group["prefix"]))
+        elif index == 0:
             self._unit_faulted = False
             self._group = self._open_group(decision, group_id)
-        elif self._group is None or self._group["id"] != group_id or len(self._group["prefix"]) != index:
+        elif (self._group is None or self._group["id"] != group_id
+              or len(self._group["prefix"]) - self._group.get("offset", 0) != index):
             self._group = {"id": group_id, "mode": "policy", "reason": "group_lost", "prefix": [None] * index}
             self._unit_faulted = False
             self._fault("group_lost")
@@ -359,7 +365,11 @@ class KernelSearchBot(KernelFlatBot):
             self._tally["walk"] += 1
         g["prefix"].append(answer)
         if type(index) is int and type(count) is int and index + 1 == count:
-            self._group = None
+            p = g["prefix"]
+            if any(w[:len(p)] == p and len(w) > len(p) for w, _ in g.get("completions", [])):
+                g["continues"] = True
+            else:
+                self._group = None
         return answer
 
     def _open_group(self, decision: Decision, group_id: Any) -> dict[str, Any]:

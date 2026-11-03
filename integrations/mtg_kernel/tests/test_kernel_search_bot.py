@@ -471,3 +471,45 @@ def test_c5_counts_each_eligible_unit_once(tmp_path):
     assert bot._tally["fault:tree_fault"] == 1 and bot._tally["fault:incomplete"] == 1
     summary = json.loads((tmp_path / "g-test.p0.jsonl").read_text().splitlines()[-1])
     assert summary["eligible"] == 2 and summary["c5_faults"] == 2
+
+
+def selection_then_order_completions():
+    """Brainstorm-like put-back of two of A, B, C: wire group 1 selects two
+    cards (sorted remaining choices), wire group 2 orders them (first pick
+    among the sorted selection); natively the cards go back one at a time."""
+    keys, index, rows = [], {}, []
+    cards = ["A", "B", "C"]
+    for i in range(3):
+        rest = [c for c in cards if c != cards[i]]
+        for j in range(2):
+            selected = sorted([cards[i], rest[j]])
+            for k in range(2):
+                order = [selected[k], selected[1 - k]]
+                native = []
+                for card in order:
+                    name = f"top:{card}"
+                    if name not in index:
+                        index[name] = len(keys)
+                        keys.append(name)
+                    native.append(index[name])
+                rows.append({"wire": [i, j, k], "native": native})
+    return keys, {"keys": keys, "completions": rows}
+
+
+def test_a_buffer_spanning_two_wire_groups_keeps_its_plan():
+    # Sol r5: the order phase follows the searched native order (C, then A).
+    _, composition = selection_then_order_completions()
+    pool = FakePool(picks={(): 2, (2,): 0},
+                    points={(): (["top:A", "top:B", "top:C"], True), (2,): (["top:A", "top:B"], True),
+                            (2, 0): None})
+    bot = make_bot(pool)
+    select = lambda step, index, candidates, infoset=None: decision(
+        step, infoset, candidates=candidates, proposals=True,
+        group={"group_id": 5, "substep_index": index, "substep_count": 2})
+    assert bot.choose(select(0, 0, 3, payload_ext(composition=composition))) == 0  # A (lowest of A, C)
+    assert bot.choose(select(1, 1, 2)) == 1  # C
+    assert bot._group is not None and bot._group["continues"]
+    order = decision(2, None, candidates=2, proposals=True,
+                     group={"group_id": 6, "substep_index": 0, "substep_count": 1})
+    assert bot.choose(order) == 1  # C first, as the plan put it back first
+    assert bot._group is None and bot._tally["walk"] == 3 and bot._tally["c5_units"] == 0
