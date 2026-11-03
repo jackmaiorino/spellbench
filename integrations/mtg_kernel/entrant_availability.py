@@ -26,8 +26,16 @@ def upper_bound_95(faults: int, n: int) -> float | None:
     if faults >= n:
         return 1.0
 
-    def tail(p: float) -> float:  # P(X <= faults)
-        return sum(math.comb(n, k) * p ** k * (1 - p) ** (n - k) for k in range(faults + 1))
+    def tail(p: float) -> float:  # P(X <= faults), summed in log space
+        if p <= 0.0:
+            return 1.0
+        if p >= 1.0:
+            return 0.0
+        lp, lq = math.log(p), math.log1p(-p)
+        logs = [math.lgamma(n + 1) - math.lgamma(k + 1) - math.lgamma(n - k + 1) + k * lp + (n - k) * lq
+                for k in range(faults + 1)]
+        top = max(logs)
+        return math.exp(top) * sum(math.exp(x - top) for x in logs)
 
     lo, hi = faults / n, 1.0
     for _ in range(60):

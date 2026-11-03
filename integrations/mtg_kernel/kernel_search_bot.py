@@ -175,13 +175,13 @@ class KernelSearchBot(KernelFlatBot):
         self._write_log({"kind": "entrant", "entrant": self._entrant})
 
     def on_game_over(self, request: GameOver) -> None:
-        # C5 faults: eligible decisions (a group counts once, at its root)
-        # answered by policy for a fault, plus walk no-matches and lost groups.
-        faults = (sum(n for key, n in self._tally.items() if key.startswith("policy:") and key[7:] in FAULTS)
-                  + self._tally["no_match"] + self._tally["group_lost"])
+        # C5 faults (design 5): every refusal, missing order map, failed
+        # search, composition no-match or cap, and lost group, as it happens.
+        faults = sum(n for key, n in self._tally.items() if key.startswith("fault:"))
         self._write_log({
             "kind": "availability", "game_id": request.game_id, "tally": dict(sorted(self._tally.items())),
-            "eligible": self._tally["eligible"], "searched_decisions": self._tally["searched"],
+            "eligible": self._tally["eligible"],
+            "searched_decisions": self._tally["searched"] + self._tally["searched_groups"],
             "c5_faults": faults, "allowance_remaining": self._game_remaining,
             "allowance": self._entrant["allowance"], "charged_wall_us": self._charged_wall_us,
         })
@@ -207,9 +207,14 @@ class KernelSearchBot(KernelFlatBot):
         finally:
             self._charged_wall_us += (time.perf_counter_ns() - started) // 1000
 
+    def _fault(self, reason: str) -> None:
+        self._tally[f"fault:{reason}"] += 1
+
     def _policy(self, decision: Decision, seed: int, reason: str) -> int:
-        """kernel_flat_bot's answer with this decision's draw."""
+        """kernel_flat_bot's answer with this decision's draw; a fault reason is counted."""
         self._tally[f"policy:{reason}"] += 1
+        if reason in FAULTS:
+            self._fault(reason)
         rng, self._rng = self._rng, _OneDraw(seed)
         try:
             answer = super().choose(decision)
@@ -248,6 +253,9 @@ class KernelSearchBot(KernelFlatBot):
             return self._policy(decision, seed, "allowance")
         payload = json.loads(ext["payload_json"])
         pick = self._search(decision, ext["payload_json"], payload, [], budget, None)
+        if pick is not None and not 0 <= pick < len(live):
+            self._write_log({"kind": "fault", "step": decision.seat_step, "detail": "pick outside the order map"})
+            self._last_fault, pick = "pool_error", None
         if pick is None:
             return self._policy(decision, seed, self._last_fault)
         self._tally["searched"] += 1
@@ -263,7 +271,12 @@ class KernelSearchBot(KernelFlatBot):
         """One merged search; charges it; the pick-v2 index or None (fault in _last_fault)."""
         root_id = self._root_id(payload, len(path))
         started = time.perf_counter_ns()
-        answer = self._pool.request_line(search_line(root_id, budget, self._a, payload_json, path))
+        try:
+            answer = self._pool.request_line(search_line(root_id, budget, self._a, payload_json, path))
+        except (BotError, OSError, ValueError) as exc:
+            # The pool is gone: the attempt is charged its whole budget
+            # (section 2 charges failed attempts; its spend is unknown).
+            answer = {"ok": False, "error": f"transport: {exc}", "charge": budget + self._a}
         wall_us = (time.perf_counter_ns() - started) // 1000
         if answer.get("ok") is not True:
             charge = int(answer.get("charge") or 0)
@@ -314,7 +327,7 @@ class KernelSearchBot(KernelFlatBot):
             self._group = self._open_group(decision, group_id)
         elif self._group is None or self._group["id"] != group_id or len(self._group["prefix"]) != index:
             self._group = {"id": group_id, "mode": "policy", "reason": "group_lost", "prefix": [None] * index}
-            self._tally["group_lost"] += 1
+            self._fault("group_lost")
         g = self._group
         if g["mode"] == "walk":
             g["walked"] = True
@@ -342,9 +355,9 @@ class KernelSearchBot(KernelFlatBot):
             composition = ext.get("composition")
             if composition is None:
                 reason = "composition_cap"
-            elif spend(self._b, self._a, self._game_remaining, g["remaining"]) is None:
-                reason = "allowance"
             else:
+                # The walk runs whatever the allowance: each native point is
+                # searched when eligible and allowed, else decided by policy.
                 g.update(mode="walk", payload_json=ext["payload_json"], payload=json.loads(ext["payload_json"]),
                          keys=composition["keys"],
                          completions=[(c["wire"], [composition["keys"][k] for k in c["native"]])
@@ -365,7 +378,7 @@ class KernelSearchBot(KernelFlatBot):
             choices = sorted({w[depth] for w, _ in compatible})
             if not choices:
                 g.update(mode="policy", reason="no_match")
-                self._tally["no_match"] += 1
+                self._fault("no_match")
                 return None
             if len(choices) == 1 or all(len(n) == len(g["plan"]) for _, n in compatible):
                 answer = choices[0]
@@ -374,37 +387,53 @@ class KernelSearchBot(KernelFlatBot):
                 self._write_log({"kind": "answer", "step": decision.seat_step, "candidate_id": answer,
                                  "group_plan": len(g["plan"]), "compatible": choices})
                 return answer
-            if not self._decide_point(decision, g):
+            outcome = self._decide_point(decision, g)
+            if outcome == "failed":
+                return None
+            if outcome == "exhausted":
                 answer = choices[0]
                 self._write_log({"kind": "answer", "step": decision.seat_step, "candidate_id": answer,
                                  "group_plan": len(g["plan"]), "compatible": choices, "points_exhausted": True})
                 return answer
 
-    def _decide_point(self, decision: Decision, g: dict[str, Any]) -> bool:
-        """Decides the next native point on the local state: False when none is left."""
-        answer = self._pool.request_line(point_line(g["payload_json"], g["path"]))
-        if answer.get("ok") is not True:
-            raise self._fail(f"search pool refused a group point: {answer.get('error')}")
-        point = answer["point"]
+    def _decide_point(self, decision: Decision, g: dict[str, Any]) -> str:
+        """Decides the next native point on the local state: "decided", "exhausted"
+        (no viewer point is left) or "failed" (the pool could not answer: the
+        rest of the group is policy, a counted fault)."""
+        try:
+            answer = self._pool.request_line(point_line(g["payload_json"], g["path"]))
+            point = answer["point"] if answer.get("ok") is True else None
+        except (BotError, OSError, ValueError, KeyError) as exc:
+            answer, point = {"error": f"transport: {exc}"}, None
+        if point is None or (point.get("viewer_decision") and not isinstance(point.get("keys"), list)):
+            self._write_log({"kind": "fault", "step": decision.seat_step, "detail": str(answer.get("error"))})
+            g.update(mode="policy", reason="pool_error")
+            self._fault("pool_error")
+            return "failed"
         if not point.get("viewer_decision"):
-            return False
+            return "exhausted"
         keys = point["keys"]
         budget = spend(self._b, self._a, self._game_remaining, g["remaining"]) if point["eligible"] else None
         pick = None
         if budget is not None:
             pick = self._search(decision, g["payload_json"], g["payload"], g["path"], budget, g)
+            if pick is not None and not 0 <= pick < len(keys):
+                self._last_fault, pick = "pool_error", None
             if pick is None:
-                self._tally[self._last_fault] += 1
+                self._fault(self._last_fault)
             else:
                 self._tally["searched_points"] += 1
+                if not g.get("searched"):
+                    g["searched"] = True
+                    self._tally["searched_groups"] += 1
+        elif point["eligible"]:
+            self._tally["allowance_points"] += 1
         if pick is None:
             pick = self._point_policy(decision, point["flat"], len(g["path"]))
             self._tally["policy_points"] += 1
-        if not 0 <= pick < len(keys):
-            raise self._fail("group point pick is outside its menu")
         g["plan"].append(keys[pick])
         g["path"].append(pick)
-        return True
+        return "decided"
 
     def _point_policy(self, decision: Decision, point_flat: dict[str, Any], point: int) -> int:
         """b512 sampled-wide-v1 at a native point of the local state."""

@@ -302,7 +302,7 @@ def test_no_match_falls_back_to_policy_and_counts_a_fault():
     pool = FakePool(picks={(): 0}, points={(): (["unknown"] * 6, True)})
     bot = make_bot(pool)
     bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition)))
-    assert bot._tally["no_match"] == 1 and bot._tally["policy:group_no_match"] == 1
+    assert bot._tally["fault:no_match"] == 1 and bot._tally["policy:group_no_match"] == 1
     bot.choose(group_decision(1, 1, 2, 2))
     assert bot._tally["policy:group_no_match"] == 2
 
@@ -333,3 +333,71 @@ def test_availability_record_counts_c5_faults(tmp_path):
     assert summary["kind"] == "availability"
     assert summary["eligible"] == 2 and summary["searched_decisions"] == 1 and summary["c5_faults"] == 1
     assert any(r.get("kind") == "search" and r["tree_digests"] == ["d"] for r in records)
+
+
+class ForcedRowScorer(RecordedScorer):
+    """Native-point policy answers a fixed row."""
+
+    def __init__(self, row):
+        super().__init__()
+        self.row = row
+
+    def score(self, request):
+        wire, result = super().score(request)
+        if request["schema"] == flat.REQUEST_SCHEMA and request["request_id"].count(":p"):
+            row = self.row
+            result.update(selected_row=row, selected_candidate_id=request["row_candidate_ids"][row])
+        return wire, result
+
+
+def test_allowance_limited_group_still_walks_by_native_policy():
+    # Sol r1: with too little allowance the native point is decided by policy
+    # (CBA, row 5) and the wire answer follows it (C first).
+    keys, composition = trigger_completions()
+    pool = FakePool(points={(): (keys, True)})
+    bot = make_bot(pool, entrant={**ENTRANT, "allowance": 1_299}, scorer=ForcedRowScorer(5))
+    assert bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition))) == 2
+    assert bot.choose(group_decision(1, 1, 2, 2)) == 1  # B after C
+    assert [line for line in pool.lines if b'"op"' not in line] == []
+    assert bot._tally["allowance_points"] == 1 and bot._tally["walk"] == 2
+
+
+class DeadPool(FakePool):
+    def request_line(self, line):
+        self.lines.append(line)
+        raise flat.BotError("search pool exited (code 1)")
+
+
+def test_pool_failures_fall_back_to_policy_and_count():
+    bot = make_bot(DeadPool())
+    bot.choose(decision(0, payload_ext(live_candidate_ids=[0, 1, 2])))
+    assert bot._tally["fault:pool_error"] == 1 and bot._tally["policy:pool_error"] == 1
+    assert bot._game_remaining == 100_000 - 4300  # charged its whole budget
+    keys, composition = trigger_completions()
+    bot.choose(group_decision(1, 0, 2, 3, payload_ext(composition=composition)))
+    assert bot._tally["fault:pool_error"] == 2 and bot._tally["policy:group_pool_error"] == 1
+
+
+def test_failed_group_search_is_a_fault_and_a_searched_group_counts_once(tmp_path):
+    keys, composition = trigger_completions()
+    pool = FakePool(picks={}, points={(): (keys, True)}, units={(): 5})
+    bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
+                                 name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=composition)))
+    bot.choose(group_decision(1, 1, 2, 2))
+    assert bot._tally["fault:incomplete"] == 1 and bot._tally["policy_points"] == 1
+    pool.picks[()] = 3
+    bot.choose(group_decision(2, 0, 2, 3, payload_ext(composition=composition)))
+    bot.choose(group_decision(3, 1, 2, 2))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    summary = json.loads((tmp_path / "g-test.p0.jsonl").read_text().splitlines()[-1])
+    assert summary["eligible"] == 2 and summary["searched_decisions"] == 1 and summary["c5_faults"] == 1
+
+
+def test_upper_bound_is_stable_on_large_counts():
+    import entrant_availability as report
+    assert report.upper_bound_95(0, 300) == pytest.approx(1 - 0.05 ** (1 / 300), rel=1e-6)
+    for faults, n in ((100, 100_000), (200, 10_000), (3, 5_000)):
+        bound = report.upper_bound_95(faults, n)
+        assert faults / n < bound < 1
