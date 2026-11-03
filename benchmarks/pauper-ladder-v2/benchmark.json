@@ -14,7 +14,7 @@
       "--catalog",
       "${MTG_KERNEL_PUBLIC_CATALOG}",
       "--source-revision",
-      "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
+      "89fb69a9550289e97981e6943bd3a02e5e8e4426",
       "--known-cards"
     ]
   },
