@@ -745,3 +745,19 @@ def test_report_fails_on_an_unclassified_refusal(tmp_path):
     result = entrant_availability.report([tmp_path])
     assert result["unclassified_refusals"] == 1 and not result["checks"]["no_unclassified_refusal"]
     assert entrant_availability.main([str(tmp_path)]) == 1
+
+
+def test_own_library_searches_are_ineligible_and_reported(tmp_path):
+    # Amendment 43.2: R3b own_library_search is ineligible, not C5; any other
+    # R3b subclass is a fault; the report gives the own share.
+    _one_game_log(tmp_path, infosets=[
+        {"schema": search.INFOSET_SCHEMA, "refusal": "R3b", "refusal_detail": "own_library_search"},
+        {"schema": search.INFOSET_SCHEMA, "refusal": "R3b", "refusal_detail": "export"},
+        payload_ext(live_candidate_ids=[0, 1, 2])])
+    import entrant_availability
+
+    report = entrant_availability.report([tmp_path])
+    assert report["own_ineligible"] == 1 and report["eligible"] == 2 and report["c5_faults"] == 1
+    assert report["c5_by_reason"] == {"R3b:export": 1}
+    assert report["own_share"] == pytest.approx(1 / 3) and report["own_share_over_2pct"] is True
+
