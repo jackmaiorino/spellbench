@@ -80,8 +80,12 @@ def test_ordinary_order_map_names_wire_candidates():
         "schema": engine.WIRE_SCHEMA, "refusal": "R8"}
     assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R2", "refusal_detail": "discard_untracked"}) == {
         "schema": engine.WIRE_SCHEMA, "refusal": "R2", "refusal_detail": "discard_untracked"}
-    with pytest.raises(engine.ProjectionError):
-        e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R2", "refusal_detail": "a free text detail"})
+    assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}) == {
+        "schema": engine.WIRE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}
+    for code, detail in (("R2", "a free text detail"), ("R2", "discard_reshape"), ("R8", "discard_untracked"),
+                         ("R2", 3)):
+        with pytest.raises(engine.ProjectionError):
+            e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail})
     assert e.ordinary_extension(None) is None
 
 

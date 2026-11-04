@@ -42,6 +42,11 @@ INFOSET = "x_kernel_infoset_v1"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset/v1"
 NATIVE_SCHEMA = "x_kernel_infoset_v1"
 BRIDGE_FLAG = "--x-kernel-infoset-v1"
+# Refusal subclasses (amendment 43.1 part 2): any code refused by the export
+# itself is "export"; an R2 the payload refuses names the surface state.
+EXPORT_SUBCLASS = "export"
+R2_SURFACE_SUBCLASSES = frozenset({"hunter_trigger_order", "optional_cost_reshape", "madness_reprompt",
+                                   "discard_untracked", "combat_untracked", "other_surface"})
 # A group whose buffer accepts more complete assignments than this carries
 # no composition (the entrant answers it with its policy and counts why).
 COMPLETION_CAP = 512
@@ -135,8 +140,8 @@ class InfosetEngine(KernelEngine):
             # surface state the payload cannot carry, else "export".
             detail = native.get("refusal_detail")
             if detail is not None:
-                if not isinstance(detail, str) or not detail.replace("_", "").isalnum() or len(detail) > 64:
-                    raise ProjectionError("native infoset refusal_detail is not a subclass name")
+                if not (detail == EXPORT_SUBCLASS or (native["refusal"] == "R2" and detail in R2_SURFACE_SUBCLASSES)):
+                    raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
                 refusal["refusal_detail"] = detail
             return refusal
         if not isinstance(native.get("payload_json"), str):
