@@ -732,7 +732,10 @@ def test_report_reconciles_the_engine_side_receipts(tmp_path):
     adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}},
             groups=[{**bad, "views_equal": True}])
     result = check()
-    assert result["checks"]["receipts_reconcile"] and result["commit_check"]["witness"]["multi_attacker"] == 1
+    # The group is rooted at the opponent's native seat: checked, but not the
+    # entrant's witness.
+    assert result["checks"]["receipts_reconcile"] and result["commit_check"]["witness"]["multi_attacker"] == 0
+    assert result["commit_check"]["groups"] == 1 and result["commit_check"]["all_ok"]
     assert entrant_availability.report([logs], [ledger], None, receipts)["checks"]["entrant_given"] is False
 
 
