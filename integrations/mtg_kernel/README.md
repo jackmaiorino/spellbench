@@ -26,8 +26,10 @@ kernel's `spellbench_qualify_v1` replay check.
 `pauper-kernel-v2` and `pauper-ladder-v1` run the bridge, scorer and catalog
 built from the mtg-kernel 92ec2393 line. `pauper-ladder-v2` runs them built
 from mtg-kernel main at the commit named by its `--source-revision`, which
-carries the same bridge (mtg-kernel PRs #462 and #476). Build at that
-commit with:
+carries the same bridge (mtg-kernel PRs #462 and #476). The pin moved from
+63a019dc9 to 89fb69a95 (mtg-kernel #505's merge) for the W1 search entrant;
+the later bridge changes add only the `x_kernel_infoset_v1` extension, which
+the board does not enable. Build at that commit with:
 
     cargo build --release --locked -p mtg-kernel --bin agent_bridge_v1 \
         --bin spellbench_scorer_v1 --bin spellbench_kernel_catalog

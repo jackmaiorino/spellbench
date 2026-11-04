@@ -3,16 +3,17 @@
   "benchmark": "pauper-ladder-v2",
   "engine": {
     "name": "mtg-kernel",
-    "source_revision": "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
+    "source_revision": "89fb69a9550289e97981e6943bd3a02e5e8e4426",
     "pull_requests": ["mtg-kernel#462", "mtg-kernel#476"],
+    "later_pull_requests": "mtg-kernel#466, #488, #489, #496, #497 and #505 add the W1 information-set extension (x_kernel_infoset_v1), which this board does not enable; the bridge without it behaves as at 63a019dc9 (the two-world audit and the gorge-ar8 replay below)",
     "build": "cargo build --release --locked -p mtg-kernel (Windows x86_64 MSVC, rust 1.94.1, rust-lld linker)",
     "host": "second build host (Windows, Zen 2), under a 3-core slot claim",
-    "date": "2026-11-02"
+    "date": "2026-11-03"
   },
   "pinned_files": {
-    "agent_bridge_v1.exe": {"sha256": "f585d669a042ac1bf5c598ee606c29b6a3a7e5fff6b88af9c08e98deaf63f69a", "bytes": 46688256},
-    "spellbench_scorer_v1.exe": {"sha256": "26f2d85545f26bdbeaa30277b8e37fc5861b78ff7b6e0697e303793b50d3e1a1", "bytes": 5549056},
-    "spellbench_qualify_v1.exe": {"sha256": "46c1e6ea7c6693ff8fb2ca403b508ff277fe17da2f0c41815400ae1d1bd91b5a", "bytes": 50650112},
+    "agent_bridge_v1.exe": {"sha256": "3b81f391155f7213b72bfc7f135229e5299eadd66ac10709b2ddfa685f62f8b0", "bytes": 47147008},
+    "spellbench_scorer_v1.exe": {"sha256": "cbde1c49edf846b03fdf6a6a186f32410f256d9cac42fb47308c72cff22e819d", "bytes": 5694464},
+    "spellbench_qualify_v1.exe": {"sha256": "ada6a2056244881de65c33ed9e21fcab521a7db74b4e1212d847f81b2982c45a", "bytes": 51237376},
     "pauper-v2-catalog.json": {"sha256": "af8e1b914d76ed6d30318403c6d434fc4d3a651a68d7e37c79c9d09c68cc457e", "bytes": 56975, "note": "byte-identical to pauper-v2-omen-92ec2393.json"}
   },
   "audits": {
@@ -22,7 +23,8 @@
       "result": "pass",
       "games": 48,
       "natural_endings": 48,
-      "differences": 0
+      "differences": 0,
+      "identical_to_63a019dc9_record": true
     },
     "check_engine_v2": {
       "tool": "integrations/mtg_kernel/check_engine_v2.py",
@@ -47,11 +49,12 @@
       "games": 16,
       "halted": 0,
       "truncated": 0,
-      "forfeit": 0
+      "forfeit": 0,
+      "replay_at_this_pin": "the 16 games of the 63a019dc9 run replayed from its revealed secret (bench rerun) on the binaries above: every ledger field equal, game_digest included, except c12's bot_id (and winner_bot_id where c12 won), which hashes c12's scorer binary"
     },
     "v4_visibility": {
       "tool": "cargo test --release -p mtg-kernel --lib -- --ignored spellbench_v4_visibility_audit --nocapture",
-      "commit": "63a019dc9d76ae0a7f4623903c4a7f5592acc2c7",
+      "commit": "89fb69a9550289e97981e6943bd3a02e5e8e4426",
       "result": "pass",
       "what_it_tests": "At every decision of neutral private-support games on the eight board decks, the acting seat's V4 boundary and x_kernel_flat_v4 encoding are unchanged when the search sampler redeterminizes every hidden card the engine's knowledge tables mark as unknown to that seat; and every place one player learned hidden cards of the other (library look or reveal, hand reveal, library reorder revealed to the opponent) is a reviewed site marked in the source. It is a consistency check against the engine's own knowledge tables plus a pinned enumeration of reveal sites, not a proof against a fact the tables wrongly mark as known.",
       "games": 16,
@@ -74,7 +77,7 @@
         "library mtg-kernel/src/effect.rs:15736",
         "library mtg-kernel/src/effect.rs:16715",
         "library mtg-kernel/src/effect.rs:16716",
-        "library mtg-kernel/src/effect.rs:19840",
+        "library mtg-kernel/src/effect.rs:19907",
         "library mtg-kernel/src/event.rs:7402"
       ],
       "coverage": "The audit exercised 6 of the 21 marked library-reveal calls and 8 of the 35 marked hand-reveal calls; the rest rest on the static enumeration reviewed in mtg-kernel #462 and #476. Every current library reorder reveals only to its owner."
