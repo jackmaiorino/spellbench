@@ -101,7 +101,8 @@ def test_block_completions_cover_every_legal_declaration():
 
 def test_r3_subclasses_and_the_opponent_discard_are_allowed_per_code():
     e = bare_engine()
-    for code, detail in (("R3", "opponent"), ("R3", "plan_error"), ("R2", "opponent_discard")):
+    for code, detail in (("R3", "opponent"), ("R3", "plan_error"), ("R2", "opponent_discard"),
+                         ("R3b", "own_library_search")):
         assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail}) == {
             "schema": engine.WIRE_SCHEMA, "refusal": code, "refusal_detail": detail}
     with pytest.raises(engine.ProjectionError):

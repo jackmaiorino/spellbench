@@ -68,7 +68,7 @@ FAULTS = ("R1", "R1b", "R2", "R4", "R5", "R6", "R7", "R8", "R8b",
 # allowance, an opponent's library search (R3, amendment 43.1) and the
 # continuation points of a group already counted at its root. Every other
 # reason is a fault, unknown refusal codes included (fairness gate G2).
-NOT_FAULTS = ("ineligible", "allowance", "R3")
+NOT_FAULTS = ("ineligible", "allowance", "R3", "R3b")
 COMPOSITION_UNAVAILABLE = ("composition_cap", "no_completions", "missing_preview_keys")
 
 
@@ -200,6 +200,7 @@ class KernelSearchBot(KernelFlatBot):
             "eligible": self._tally["eligible"],
             "searched_decisions": self._tally["searched"] + self._tally["searched_groups"],
             "c5_faults": faults, "r3_ineligible": self._tally["r3_ineligible"],
+            "own_ineligible": self._tally["own_ineligible"],
             "allowance_remaining": self._game_remaining,
             "allowance": self._entrant["allowance"], "charged_wall_us": self._charged_wall_us,
         })
@@ -262,11 +263,17 @@ class KernelSearchBot(KernelFlatBot):
             # other R3 (fairness gate G1) is eligible and a C5 fault.
             self._tally["r3_ineligible"] += 1
             return ext, "R3"
+        if ext.get("refusal") == "R3b" and ext.get("refusal_detail") == "own_library_search":
+            # Amendment 43.2: V's own library search is ineligible by
+            # definition (the bridge decides it by the pending effect's
+            # owner); counted and reported, not C5.
+            self._tally["own_ineligible"] += 1
+            return ext, "R3b"
         self._tally["eligible"] += 1
         if "refusal" in ext:
             code = str(ext["refusal"])
-            if code == "R3":
-                return ext, f"R3:{ext.get('refusal_detail', 'unclassified')}"
+            if code in ("R3", "R3b"):
+                return ext, f"{code}:{ext.get('refusal_detail', 'unclassified')}"
             # A refusal is always a fault: a code that collides with a policy
             # reason that is not one is renamed so it cannot escape C5.
             return ext, code if is_fault(code) else f"refusal:{code}"

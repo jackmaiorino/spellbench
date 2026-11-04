@@ -122,7 +122,7 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     expected_refusals = Counter(bot_refusals)
     expected_refusals.update(internal["refusals"])
     out.update(native_seat=native, bridge_eligible=bridge["eligible"][index],
-               entrant_units=final["eligible"] + final.get("r3_ineligible", 0),
+               entrant_units=final["eligible"] + final.get("r3_ineligible", 0) + final.get("own_ineligible", 0),
                internal_eligible=internal["eligible"], internal_refusals=internal["refusals"],
                bridge_refusals=engine_refusals, entrant_refusals=bot_refusals,
                bridge_order_map_missing=bridge["order_map_missing"][index],
@@ -162,6 +162,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     tally: Counter[str] = Counter()
     games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
     r3_ineligible, search_errors, group_over_cap, allowance_over, unbalanced = 0, 0, 0, [], 0
+    own_ineligible = 0
     seen: set[tuple[str, str]] = set()
     duplicates, incomplete, unledgered, reconciliation = [], [], [], []
     ledger = _ledger_games(ledgers, entrant) if ledgers else None
@@ -187,6 +188,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
             eligible += final["eligible"]
             searched += final["searched_decisions"]
             r3_ineligible += final.get("r3_ineligible", 0)
+            own_ineligible += final.get("own_ineligible", 0)
             charged = final["tally"].get("units_charged", 0)
             if (final["allowance_remaining"] < 0 or charged > final["allowance"]
                     or charged != final["allowance"] - final["allowance_remaining"]):
@@ -265,6 +267,13 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
         "searched_share_of_eligible": None if not eligible else searched / eligible,
         # Amendment 43.1: R3 decisions are ineligible, reported beside the units.
         "r3_ineligible": r3_ineligible,
+        # Amendment 43.2: V's own library searches are ineligible; their share
+        # of eligible-plus-own units, and the declared 2 percent soak trigger
+        # (above it, exporting the searched library returns to the lead).
+        "own_ineligible": own_ineligible,
+        "own_share": None if not eligible + own_ineligible else own_ineligible / (eligible + own_ineligible),
+        "own_share_over_2pct": None if not eligible + own_ineligible
+        else own_ineligible / (eligible + own_ineligible) > 0.02,
         # Amendment 43.1 part 2: every refusal by code and subclass (decisions
         # and group roots); "unclassified" means the bridge sent no subclass.
         "refusals_by_subclass": refusals,

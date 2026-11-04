@@ -53,6 +53,8 @@ R2_SURFACE_SUBCLASSES = frozenset({"hunter_trigger_order", "optional_cost_reshap
                                    "discard_untracked", "opponent_discard", "combat_untracked",
                                    "other_surface"})
 R3_SUBCLASSES = frozenset({"opponent", "plan_error"})
+# Amendment 43.2: R3b, V's own pending library search.
+R3B_SUBCLASSES = frozenset({"own_library_search"})
 # Why a group carries no composition (fairness gate G3); each is a C5 fault.
 COMPOSITION_UNAVAILABLE = ("composition_cap", "no_completions", "missing_preview_keys")
 # The directory for engine-side receipts: the bridge's (it reads the variable)
@@ -277,6 +279,7 @@ class InfosetEngine(KernelEngine):
                 code = native["refusal"]
                 allowed = isinstance(detail, str) and (
                     detail in R3_SUBCLASSES if code == "R3" else
+                    detail in R3B_SUBCLASSES if code == "R3b" else
                     detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
                 if not allowed:
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
