@@ -50,8 +50,9 @@ The native bridge's own `spellbench/v1` wire is for `kernel_engine_v2.py`
 only; never connect a bot to it. Its `obj-<arena_id>-z<zcc>` ids and raw
 `x_kernel_v5` observations carry native identity: the arena id follows the
 initial library order and survives hidden zones, so a bot could re-identify
-a card after an unseen shuffle, tell identical copies apart and date draws
-(mtg-kernel `docs/contracts/AGENT_BRIDGE_V1.md`). The adapter mints
+a card after an unseen shuffle, tell identical copies apart and, while draws
+follow the original order, infer when a card was drawn (mtg-kernel
+`docs/contracts/AGENT_BRIDGE_V1.md`). The adapter mints
 per-viewer ids instead and never forwards `x_kernel_v5`. `check_engine_v2`
 fails if `obj-`, `arena_id` or `x_kernel_v5` appears in any bot-facing
 message; `--extension x_kernel_flat_v4 --extension x_public_history_v1`
