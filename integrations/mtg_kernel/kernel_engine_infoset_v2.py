@@ -23,6 +23,8 @@ not enable the extension keep their pinned engine bytes.
 from __future__ import annotations
 
 import argparse
+import os
+import time
 import json
 import subprocess
 import sys
@@ -42,11 +44,19 @@ INFOSET = "x_kernel_infoset_v1"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset/v1"
 NATIVE_SCHEMA = "x_kernel_infoset_v1"
 BRIDGE_FLAG = "--x-kernel-infoset-v1"
-# Refusal subclasses (amendment 43.1 part 2): any code refused by the export
-# itself is "export"; an R2 the payload refuses names the surface state.
+# Refusal subclasses (amendment 43.1 part 2): a code refused by the export
+# itself is "export", except R3, which names whose library-search plan is
+# pending (fairness gate G1); an R2 the payload refuses names the surface.
 EXPORT_SUBCLASS = "export"
 R2_SURFACE_SUBCLASSES = frozenset({"hunter_trigger_order", "optional_cost_reshape", "madness_reprompt",
-                                   "discard_untracked", "combat_untracked", "other_surface"})
+                                   "discard_untracked", "opponent_discard", "combat_untracked",
+                                   "other_surface"})
+R3_SUBCLASSES = frozenset({"opponent", "plan_error"})
+# Why a group carries no composition (fairness gate G3); each is a C5 fault.
+COMPOSITION_UNAVAILABLE = ("composition_cap", "no_completions", "missing_preview_keys")
+# The directory for engine-side receipts: the bridge's (it reads the variable)
+# and this adapter's, one file per game.
+RECEIPT_DIR_ENV = "W1_INFOSET_RECEIPT_DIR"
 # A group whose buffer accepts more complete assignments than this carries
 # no composition (the entrant answers it with its policy and counts why).
 COMPLETION_CAP = 512
@@ -61,6 +71,7 @@ class InfosetPeer(NativePeer):
         self.serial = 0
 
     def _spawn(self):
+        # The bridge inherits the environment, W1_INFOSET_RECEIPT_DIR included.
         return subprocess.Popen([self.executable, "--x-kernel-flat-v4", "--private-v2-support", BRIDGE_FLAG],
                                 stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
@@ -98,6 +109,8 @@ class InfosetEngine(KernelEngine):
         self.hello["extensions"] = [*self.hello["extensions"], {"name": INFOSET, "native_ids": False}]
         EnvHelloOk.from_json(self.hello)
         self.infoset_on = False
+        self.receipt_dir = os.environ.get(RECEIPT_DIR_ENV) or None
+        self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
 
     def reset(self, request):
         rules = request.get("rules", {})
@@ -110,7 +123,23 @@ class InfosetEngine(KernelEngine):
         result = super().reset(request)
         if result.get("response_type") != "error":
             self.rules = {**self.rules, "extensions": list(names)}
+        self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
         return result
+
+    def terminal(self, rid, outcome, reason, winner=None):
+        result = super().terminal(rid, outcome, reason, winner)
+        self.write_receipt()
+        return result
+
+    def write_receipt(self):
+        """The adapter's engine-side receipt for the game just ended (G10):
+        composition enumeration wall, groups and why any group had none."""
+        if not (self.infoset_on and self.receipt_dir and self.game):
+            return
+        safe = "".join(c if c.isalnum() or c == "-" else "_" for c in self.game)
+        record = {"receipt": "x_kernel_infoset_v1_adapter", "game_id": self.game, "composition": self._composition}
+        Path(self.receipt_dir, f"{safe}.adapter.json").write_text(json.dumps(record, sort_keys=True) + "\n",
+                                                                  encoding="utf-8")
 
     def pose(self, rid):
         opened = self.buffer is None
@@ -140,8 +169,10 @@ class InfosetEngine(KernelEngine):
             # surface state the payload cannot carry, else "export".
             detail = native.get("refusal_detail")
             if detail is not None:
-                if not isinstance(detail, str) or not (
-                        detail == EXPORT_SUBCLASS or (native["refusal"] == "R2" and detail in R2_SURFACE_SUBCLASSES)):
+                code = native["refusal"]
+                allowed = (detail in R3_SUBCLASSES if code == "R3" else
+                           detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
+                if not isinstance(detail, str) or not allowed:
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
                 refusal["refusal_detail"] = detail
             return refusal
@@ -163,22 +194,35 @@ class InfosetEngine(KernelEngine):
         extension = self._checked(native)
         if extension is None or "refusal" in extension:
             return extension
-        extension["composition"] = self.composition(candidate_count)
+        started = time.perf_counter_ns()
+        composition, unavailable = self.composition(candidate_count)
+        wall_us = (time.perf_counter_ns() - started) // 1000
+        stats = self._composition
+        stats["groups"] += 1
+        stats["wall_us"] += wall_us
+        stats["max_wall_us"] = max(stats["max_wall_us"], wall_us)
+        extension["composition"] = composition
+        if composition is None:
+            extension["composition_unavailable"] = unavailable
+            stats["unavailable"][unavailable] = stats["unavailable"].get(unavailable, 0) + 1
         return extension
 
     def composition(self, candidate_count):
-        """Each completion's wire indices and native row keys, or None when the
-        group is too large or a native point carries no keys."""
+        """(each completion's wire indices and native row keys, None) or (None,
+        why): the group is too large, has no completions, or a native point
+        carries no preview keys."""
         found = completions(self.buffer)
-        if found is None or not found or any(len(wire) < 1 for wire, _ in found):
-            return None
+        if found is None:
+            return None, "composition_cap"
+        if not found or any(len(wire) < 1 for wire, _ in found):
+            return None, "no_completions"
         if {wire[0] for wire, _ in found} != set(range(candidate_count)):
             raise ProjectionError("buffered completions do not cover the posed candidates")
         table, index, rows = [], {}, []
         for wire_choices, plan in found:
             keys = self.native_keys(plan)
             if keys is None:
-                return None
+                return None, "missing_preview_keys"
             encoded = []
             for key in keys:
                 if key not in index:
@@ -186,7 +230,7 @@ class InfosetEngine(KernelEngine):
                     table.append(key)
                 encoded.append(index[key])
             rows.append({"wire": list(wire_choices), "native": encoded})
-        return {"keys": table, "completions": rows}
+        return {"keys": table, "completions": rows}, None
 
     @staticmethod
     def _row_keys(view):

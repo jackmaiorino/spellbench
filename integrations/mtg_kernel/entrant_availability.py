@@ -7,7 +7,17 @@ R8b, allowance, order map, faults), C5 faults with a one-sided 95 percent
 upper bound on their share of eligible decisions (design 13 AC5), searches,
 units charged and tree transitions.
 
-Usage: python entrant_availability.py LOG_DIR [LOG_DIR ...] [--json OUT]
+Acceptance checks (fairness gate G8): one log per game and seat, each ending
+in its terminal availability record; with ``--ledger``, every ledger game of
+the entrant has its log and the totals cover the ledger games only (other
+logs, such as the arena's qualification games, are reported apart); with
+``--receipts``, each game's engine-side receipts (the bridge's and the
+adapter's) reconcile with the entrant's record; every attempted search is
+counted, errors included; charge never exceeds the allowance or a group's
+cap; no refusal is unclassified. The command exits 1 when a check fails.
+
+Usage: python entrant_availability.py LOG_DIR [LOG_DIR ...] [--ledger MATCHES.jsonl ...]
+       [--entrant NAME] [--receipts DIR] [--json OUT]
 """
 from __future__ import annotations
 
@@ -47,38 +57,136 @@ def upper_bound_95(faults: int, n: int) -> float | None:
     return hi
 
 
-def report(paths: list[Path]) -> dict:
+def _read_log(path: Path) -> tuple[dict | None, list[dict], dict | None]:
+    """(header, records, terminal availability record or None)."""
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    header = records[0] if records and records[0].get("kind") == "header" else None
+    final = records[-1] if records and records[-1].get("kind") == "availability" else None
+    return header, records, final
+
+
+def _ledger_games(ledgers: list[Path], entrant: str | None) -> dict[tuple[str, str], dict]:
+    """(game_id, seat) of the entrant in every ledger row."""
+    games = {}
+    for ledger in ledgers:
+        for line in ledger.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            for seat in row.get("seats", []):
+                if entrant is None or seat.get("name") == entrant:
+                    games[(row["game_id"], seat["seat"])] = row
+    return games
+
+
+def _bot_refusals(tally: dict) -> dict[str, int]:
+    return {key[8:]: n for key, n in tally.items() if key.startswith("refusal:")}
+
+
+def _reconcile(receipts: Path, game: str, seat: str, final: dict) -> dict:
+    """One game's engine-side receipts against the entrant's record. The
+    bridge counts a refusal at every eligible decision it refuses and the
+    entrant once per unit (a buffered group once), so the two must name the
+    same refusal subclasses, the bridge with at least the entrant's count of
+    each, and the bridge's subclass counts must cover its code counts."""
+    safe = "".join(c if c.isalnum() or c == "-" else "_" for c in game)
+    out: dict = {"game_id": game, "seat": seat}
+    bridge_path, adapter_path = receipts / f"{safe}.bridge.json", receipts / f"{safe}.adapter.json"
+    if not bridge_path.exists():
+        out["error"] = "bridge receipt missing"
+        out["reconciled"] = False
+        return out
+    bridge = json.loads(bridge_path.read_text(encoding="utf-8"))
+    index = 0 if seat == "p0" else 1
+    side = bridge["tally"][index]
+    engine_refusals = dict(side.get("by_subclass", {}))
+    bot_refusals = _bot_refusals(final["tally"])
+    out.update(bridge_eligible=bridge["eligible"][index],
+               entrant_units=final["eligible"] + final.get("r3_ineligible", 0),
+               bridge_refusals=engine_refusals, entrant_refusals=bot_refusals,
+               bridge_order_map_missing=bridge["order_map_missing"][index])
+    ok = (set(engine_refusals) == set(bot_refusals)
+          and all(engine_refusals[k] >= n for k, n in bot_refusals.items())
+          and sum(side.get("by_code", {}).values()) == sum(engine_refusals.values()))
+    if adapter_path.exists():
+        out["composition"] = json.loads(adapter_path.read_text(encoding="utf-8"))["composition"]
+    else:
+        ok = False
+        out["error"] = "adapter receipt missing"
+    out["reconciled"] = ok
+    return out
+
+
+def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | None = None,
+           receipts: Path | None = None) -> dict:
     tally: Counter[str] = Counter()
     games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
-    r3_ineligible = 0
+    r3_ineligible, search_errors, group_over_cap, allowance_over = 0, 0, 0, []
+    seen: set[tuple[str, str]] = set()
+    duplicates, incomplete, unledgered, reconciliation = [], [], [], []
+    ledger = _ledger_games(ledgers, entrant) if ledgers else None
     for root in paths:
         for path in sorted(root.glob("*.jsonl")):
-            for line in path.read_text(encoding="utf-8").splitlines():
-                record = json.loads(line)
-                kind = record.get("kind")
-                if kind == "availability":
-                    games += 1
-                    tally.update(record["tally"])
-                    c5 += record["c5_faults"]
-                    eligible += record["eligible"]
-                    searched += record["searched_decisions"]
-                    r3_ineligible += record.get("r3_ineligible", 0)
-                elif kind == "search" and "tree_transitions" in record:
+            header, records, final = _read_log(path)
+            if header is None or final is None:
+                incomplete.append(path.name)
+                continue
+            key = (header["game_id"], header["seat"])
+            if key in seen:
+                duplicates.append(path.name)
+                continue
+            seen.add(key)
+            if ledger is not None and key not in ledger:
+                unledgered.append(path.name)
+                continue
+            games += 1
+            tally.update(final["tally"])
+            c5 += final["c5_faults"]
+            eligible += final["eligible"]
+            searched += final["searched_decisions"]
+            r3_ineligible += final.get("r3_ineligible", 0)
+            charged = final["tally"].get("units_charged", 0)
+            if (final["allowance_remaining"] < 0 or charged > final["allowance"]
+                    or charged != final["allowance"] - final["allowance_remaining"]):
+                allowance_over.append(path.name)
+            for record in records:
+                if record.get("kind") != "search":
+                    continue
+                if record.get("group_remaining") is not None and record["group_remaining"] < 0:
+                    group_over_cap += 1
+                if "tree_transitions" in record:
                     searches += 1
                     trees = record["tree_transitions"]
                     transitions.extend(trees)
                     zero_tree_searches += any(t == 0 for t in trees)
+                else:
+                    search_errors += 1
+            if receipts is not None:
+                reconciliation.append(_reconcile(receipts, *key, final))
+    missing = sorted(f"{g}.{s}" for g, s in (set(ledger) - seen)) if ledger is not None else []
     policy = {key[7:]: n for key, n in sorted(tally.items()) if key.startswith("policy:")}
     faults = {key[6:]: n for key, n in sorted(tally.items()) if key.startswith("fault:")}
+    refusals = {key[8:]: n for key, n in sorted(tally.items()) if key.startswith("refusal:")}
+    unclassified = sum(n for key, n in refusals.items() if key.endswith(":unclassified"))
     # Allowance-limited eligible decisions, in the unit of `eligible` (a
     # buffered group counts once): ordinary decisions answered by policy for
     # the allowance, plus groups with at least one point decided by policy
     # for it. Points are reported separately.
     allowance_limited = tally["policy:allowance"] + tally["allowance_groups"]
     bound = upper_bound_95(c5, eligible)
+    checks = {
+        "one_log_per_game_and_seat": not duplicates,
+        "every_log_complete": not incomplete,
+        "every_ledger_game_logged": not missing,
+        "charge_within_allowance": not allowance_over,
+        "group_charge_within_cap": group_over_cap == 0,
+        "no_unclassified_refusal": unclassified == 0,
+        "receipts_reconcile": all(r.get("reconciled") for r in reconciliation),
+    }
     return {
         "games": games, "eligible": eligible, "searched_decisions": searched, "group_walk_answers": tally["walk"],
-        "searches": searches, "searches_with_a_zero_transition_tree": zero_tree_searches,
+        "searches": searches, "search_errors": search_errors, "attempted_searches": searches + search_errors,
+        "searches_with_a_zero_transition_tree": zero_tree_searches,
         "tree_transitions": {"trees": len(transitions), "min": min(transitions, default=None),
                              "median": sorted(transitions)[len(transitions) // 2] if transitions else None,
                              "max": max(transitions, default=None)},
@@ -94,23 +202,30 @@ def report(paths: list[Path]) -> dict:
         "r3_ineligible": r3_ineligible,
         # Amendment 43.1 part 2: every refusal by code and subclass (decisions
         # and group roots); "unclassified" means the bridge sent no subclass.
-        "refusals_by_subclass": {key[8:]: n for key, n in sorted(tally.items()) if key.startswith("refusal:")},
-        "unclassified_refusals": sum(n for key, n in tally.items()
-                                     if key.startswith("refusal:") and key.endswith(":unclassified")),
+        "refusals_by_subclass": refusals,
+        "unclassified_refusals": unclassified,
+        "logs": {"counted": games, "duplicates": duplicates, "incomplete": incomplete, "unledgered": unledgered,
+                 "missing_for_ledger_games": missing, "ledger_games": None if ledger is None else len(ledger)},
+        "charge": {"games_over_allowance": allowance_over, "searches_over_group_cap": group_over_cap},
+        "receipts": reconciliation if receipts is not None else None,
+        "checks": checks, "checks_pass": all(checks.values()),
     }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("logs", nargs="+", type=Path)
+    parser.add_argument("--ledger", action="append", type=Path, help="a run's matches.jsonl (repeatable)")
+    parser.add_argument("--entrant", help="the entrant's bot name in the ledger")
+    parser.add_argument("--receipts", type=Path, help="the engine-side receipt directory")
     parser.add_argument("--json", type=Path)
     args = parser.parse_args(argv)
-    result = report(args.logs)
+    result = report(args.logs, args.ledger, args.entrant, args.receipts)
     text = json.dumps(result, indent=2, sort_keys=True)
     print(text)
     if args.json:
         args.json.write_text(text + "\n", encoding="utf-8")
-    return 0
+    return 0 if result["checks_pass"] else 1
 
 
 if __name__ == "__main__":

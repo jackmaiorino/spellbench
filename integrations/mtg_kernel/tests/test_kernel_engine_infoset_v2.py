@@ -1,6 +1,7 @@
 """The entrant's engine adapter: order map translation and buffered completions."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -54,7 +55,8 @@ def test_trigger_composition_keys_each_permutation_through_the_lockstep_rows():
     e = bare_engine()
     e.root = root
     e.buffer = TriggerOrder(root, Projection())
-    composition = e.composition(3)
+    composition, unavailable = e.composition(3)
+    assert unavailable is None
     seen = {}
     for row in composition["completions"]:
         first, second = row["wire"]
@@ -95,3 +97,36 @@ def test_block_completions_cover_every_legal_declaration():
     assignments = {tuple(p.prefix) for _, p in found}
     assert len(assignments) == 9
     assert all(plan.completion(a) == a for a in assignments)
+
+
+def test_r3_subclasses_and_the_opponent_discard_are_allowed_per_code():
+    e = bare_engine()
+    for code, detail in (("R3", "opponent"), ("R3", "plan_error"), ("R2", "opponent_discard")):
+        assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail}) == {
+            "schema": engine.WIRE_SCHEMA, "refusal": code, "refusal_detail": detail}
+    with pytest.raises(engine.ProjectionError):
+        e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R3", "refusal_detail": "export"})
+
+
+def test_a_group_without_composition_says_why(monkeypatch):
+    # G3: cap, no completions and missing preview keys are told apart.
+    e = bare_engine()
+    e.root = trigger_root()
+    e.buffer = TriggerOrder(e.root, Projection())
+    monkeypatch.setattr(engine, "completions", lambda plan: None)
+    assert e.composition(3) == (None, "composition_cap")
+    monkeypatch.setattr(engine, "completions", lambda plan: [])
+    assert e.composition(3) == (None, "no_completions")
+    monkeypatch.setattr(engine, "completions", lambda plan: [((0,), plan), ((1,), plan), ((2,), plan)])
+    monkeypatch.setattr(engine.InfosetEngine, "native_keys", lambda self, plan: None)
+    assert e.composition(3) == (None, "missing_preview_keys")
+
+
+def test_the_adapter_receipt_records_composition_wall(tmp_path):
+    # G10: one adapter receipt per game, beside the bridge's.
+    e = bare_engine()
+    e.infoset_on, e.receipt_dir, e.game = True, str(tmp_path), "g-1"
+    e._composition = {"groups": 2, "wall_us": 40, "max_wall_us": 30, "unavailable": {"no_completions": 1}}
+    e.write_receipt()
+    record = json.loads((tmp_path / "g-1.adapter.json").read_text())
+    assert record == {"receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-1", "composition": e._composition}
