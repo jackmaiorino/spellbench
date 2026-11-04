@@ -522,7 +522,7 @@ def test_r3_decisions_are_ineligible_and_counted(tmp_path):
     bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
                                  name="entrant", version="0", expect_model_state="0" * 64)
     start(bot)
-    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3"}))
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}))
     bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
     bot.choose(decision(2, payload_ext(live_candidate_ids=[0, 1, 2])))
     bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
@@ -543,12 +543,205 @@ def test_refusals_are_classified_by_subclass(tmp_path):
                                  name="entrant", version="0", expect_model_state="0" * 64)
     start(bot)
     bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R2", "refusal_detail": "hunter_trigger_order"}))
-    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "export"}))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}))
     bot.choose(decision(2, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
     bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
     import entrant_availability
 
     report = entrant_availability.report([tmp_path])
-    assert report["refusals_by_subclass"] == {"R2:hunter_trigger_order": 1, "R2:unclassified": 1, "R3:export": 1}
+    assert report["refusals_by_subclass"] == {"R2:hunter_trigger_order": 1, "R2:unclassified": 1, "R3:opponent": 1}
     assert report["unclassified_refusals"] == 1
     assert report["eligible"] == 2 and report["c5_faults"] == 2 and report["r3_ineligible"] == 1
+
+
+def test_r3_is_ineligible_only_for_the_opponents_plan():
+    # G1: R3 with any subclass but "opponent" is eligible and a C5 fault.
+    bot = make_bot(FakePool())
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "plan_error"}))
+    bot.choose(decision(2, {"schema": search.INFOSET_SCHEMA, "refusal": "R3"}))
+    assert bot._tally["r3_ineligible"] == 1 and bot._tally["eligible"] == 2
+    assert bot._tally["fault:R3:plan_error"] == 1 and bot._tally["fault:R3:unclassified"] == 1
+    assert bot._tally["c5_units"] == 2
+
+
+def test_unknown_refusal_codes_are_faults():
+    # G2: fail closed on any refusal code other than R3 for the opponent.
+    bot = make_bot(FakePool())
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R9", "refusal_detail": "export"}))
+    assert bot._tally["fault:R9"] == 1 and bot._tally["c5_units"] == 1
+    assert search.is_fault("anything_new") and not search.is_fault("ineligible")
+    assert not search.is_fault("allowance") and not search.is_fault("R3") and not search.is_fault("group_R2")
+    # A refusal code named like a policy reason that is no fault still is one.
+    for code in ("allowance", "ineligible", "group_new"):
+        bot = make_bot(FakePool())
+        bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": code, "refusal_detail": "export"}))
+        assert bot._tally[f"fault:refusal:{code}"] == 1 and bot._tally["c5_units"] == 1
+
+
+def test_groups_without_composition_fault_by_reason():
+    # G3: each reason a group carries no composition is its own C5 fault.
+    for why in ("composition_cap", "no_completions", "missing_preview_keys"):
+        bot = make_bot(FakePool())
+        bot.choose(group_decision(0, 0, 2, 3, payload_ext(composition=None, composition_unavailable=why)))
+        assert bot._tally[f"fault:{why}"] == 1 and bot._tally["c5_units"] == 1
+
+
+class FailingPool(FakePool):
+    """Answers every search with a failure charged nothing (a pool that
+    failed before dispatch, as an old pool did)."""
+
+    def request_line(self, line):
+        self.lines.append(line)
+        return {"ok": False, "error": "import: payload", "charge": 0}
+
+
+def test_a_failed_attempt_is_charged_at_least_a_units():
+    # G4: the fixed charge covers import and dispatch even when they fail.
+    bot = make_bot(FailingPool())
+    remaining = bot._game_remaining
+    bot.choose(decision(0, payload_ext(live_candidate_ids=[0, 1, 2])))
+    assert bot._game_remaining == remaining - ENTRANT["a_units"]
+    assert bot._tally["units_charged"] == ENTRANT["a_units"] and bot._tally["fault:pool_error"] == 1
+
+
+def _one_game_log(tmp_path, pool=None, infosets=()):
+    """One game's decision log (game g-test, seat p0) in tmp_path."""
+    bot = search.KernelSearchBot(RecordedScorer(), pool or FakePool(picks={(): 0}), dict(ENTRANT), seed=11,
+                                 decision_log=tmp_path, name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    for step, infoset in enumerate(infosets):
+        bot.choose(decision(step, infoset))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    return tmp_path / "g-test.p0.jsonl"
+
+
+def _ledger(path, *games, entrant="entrant"):
+    rows = [{"game_id": game, "seats": [{"name": entrant, "seat": "p0"}, {"name": "heuristic", "seat": "p1"}]}
+            for game in games]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    return path
+
+
+def test_report_counts_each_game_and_seat_once(tmp_path):
+    # G8: a log read twice (two directories) neither inflates the units nor passes.
+    import entrant_availability
+    first = tmp_path / "a"
+    first.mkdir()
+    log = _one_game_log(first, infosets=[payload_ext(live_candidate_ids=[0, 1, 2])])
+    second = tmp_path / "b"
+    second.mkdir()
+    (second / log.name).write_text(log.read_text())
+    once = entrant_availability.report([first])
+    twice = entrant_availability.report([first, second])
+    assert twice["eligible"] == once["eligible"] == 1 and twice["logs"]["duplicates"] == [log.name]
+    assert once["checks"]["one_log_per_game_and_seat"] and not twice["checks"]["one_log_per_game_and_seat"]
+    # Without a ledger and receipts the report cannot pass (no vacuous pass).
+    assert not once["checks_pass"] and not once["checks"]["ledger_given"]
+
+
+def test_report_requires_the_terminal_record_and_every_ledger_game(tmp_path):
+    import entrant_availability
+    log = _one_game_log(tmp_path, infosets=[payload_ext(live_candidate_ids=[0, 1, 2])])
+    lines = log.read_text().splitlines()
+    cut = tmp_path / "cut"
+    cut.mkdir()
+    (cut / "g-cut.p0.jsonl").write_text("\n".join(lines[:-1]) + "\n")
+    assert entrant_availability.report([cut])["checks"]["every_log_complete"] is False
+    ledger = _ledger(tmp_path / "matches.jsonl", "g-test", "g-lost")
+    result = entrant_availability.report([tmp_path], [ledger], "entrant")
+    assert result["logs"]["missing_for_ledger_games"] == ["g-lost.p0"]
+    assert not result["checks"]["every_ledger_game_logged"] and result["games"] == 1
+
+
+def test_report_keeps_unledgered_games_out_of_the_totals(tmp_path):
+    import entrant_availability
+    _one_game_log(tmp_path, infosets=[payload_ext(live_candidate_ids=[0, 1, 2])])
+    ledger = _ledger(tmp_path / "matches.jsonl", "g-other")
+    result = entrant_availability.report([tmp_path], [ledger], "entrant")
+    assert result["games"] == 0 and result["logs"]["unledgered"] == ["g-test.p0.jsonl"]
+
+
+def test_report_counts_failed_searches_as_attempts(tmp_path):
+    import entrant_availability
+    _one_game_log(tmp_path, pool=FailingPool(), infosets=[payload_ext(live_candidate_ids=[0, 1, 2])])
+    result = entrant_availability.report([tmp_path])
+    assert result["search_errors"] == 1 and result["attempted_searches"] == 1 and result["searches"] == 0
+    assert result["checks"]["charge_within_allowance"] and result["checks"]["every_search_balanced"]
+
+
+def test_report_reconciles_the_engine_side_receipts(tmp_path):
+    import entrant_availability
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    _one_game_log(logs, infosets=[{"schema": search.INFOSET_SCHEMA, "refusal": "R2", "refusal_detail": "other_surface"},
+                                  payload_ext(live_candidate_ids=[0, 1, 2])])
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    ledger = _ledger(tmp_path / "matches.jsonl", "g-test")
+
+    def bridge(by_subclass, eligible=2, native=0):
+        side = {"exported": 1, "by_code": {"R2": sum(by_subclass.values())} if by_subclass else {},
+                "by_subclass": by_subclass}
+        tally = [side, {"exported": 0, "by_code": {}}] if native == 0 else [{"exported": 0, "by_code": {}}, side]
+        counts = [eligible, 0] if native == 0 else [0, eligible]
+        (receipts / "g-test.bridge.json").write_text(json.dumps({
+            "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": counts,
+            "tally": tally, "order_map_missing": [0, 0]}))
+
+    def adapter(native_p0, internal=None, groups=()):
+        seats = {"p0": native_p0, "p1": "p1" if native_p0 == "p0" else "p0"}
+        (receipts / "g-test.adapter.json").write_text(json.dumps({
+            "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-test", "native_seats": seats,
+            "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}},
+            "internal": internal or {}, "groups": list(groups)}))
+
+    check = lambda: entrant_availability.report([logs], [ledger], "entrant", receipts)
+    bridge({"R2:other_surface": 1})
+    assert check()["checks"]["receipts_reconcile"] is False  # no adapter receipt
+    adapter("p0")
+    result = check()
+    assert result["checks"]["receipts_reconcile"] and result["receipts"][0]["bridge_eligible"] == 2
+    assert result["checks_pass"]
+    bridge({"R2:hunter_trigger_order": 1})
+    assert check()["checks"]["receipts_reconcile"] is False  # another subclass
+    bridge({"R2:other_surface": 2})
+    assert check()["checks"]["receipts_reconcile"] is False  # another count
+    bridge({"R2:other_surface": 1}, eligible=3)
+    assert check()["checks"]["receipts_reconcile"] is False  # another eligible count
+    bridge({"R2:other_surface": 1}, native=1)
+    assert check()["checks"]["receipts_reconcile"] is False  # read from the wrong native seat
+    adapter("p1")
+    assert check()["checks"]["receipts_reconcile"]  # the adapter seated the entrant as native p1
+    # A committing group's internal points: counted by the bridge, not the entrant.
+    bridge({"R2:other_surface": 1, "R4:export": 1}, eligible=4, native=1)
+    assert check()["checks"]["receipts_reconcile"] is False
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}})
+    assert check()["checks"]["receipts_reconcile"] is False  # by_code must cover R4 too
+    side = {"exported": 2, "by_code": {"R2": 1, "R4": 1}, "by_subclass": {"R2:other_surface": 1, "R4:export": 1}}
+    (receipts / "g-test.bridge.json").write_text(json.dumps({
+        "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": [0, 4],
+        "tally": [{"exported": 0, "by_code": {}}, side], "order_map_missing": [0, 0]}))
+    assert check()["checks"]["receipts_reconcile"]
+    # G6: a commit that left the previewed points fails.
+    bad = {"type": "BlockDeclaration", "root_seat": "p0", "points": 2, "composition": True,
+           "witness": {"multi_attacker": True}, "views_equal": False, "keys_equal": True,
+           "committed_keys": ["a", "b"], "expected_keys": ["a", "b"]}
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}}, groups=[bad])
+    assert check()["checks"]["receipts_reconcile"] is False
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}},
+            groups=[{**bad, "views_equal": True}])
+    result = check()
+    # The group is rooted at the opponent's native seat: checked, but not the
+    # entrant's witness.
+    assert result["checks"]["receipts_reconcile"] and result["commit_check"]["witness"]["multi_attacker"] == 0
+    assert result["commit_check"]["groups"] == 1 and result["commit_check"]["all_ok"]
+    assert entrant_availability.report([logs], [ledger], None, receipts)["checks"]["entrant_given"] is False
+
+
+def test_report_fails_on_an_unclassified_refusal(tmp_path):
+    import entrant_availability
+    _one_game_log(tmp_path, infosets=[{"schema": search.INFOSET_SCHEMA, "refusal": "R2"}])
+    result = entrant_availability.report([tmp_path])
+    assert result["unclassified_refusals"] == 1 and not result["checks"]["no_unclassified_refusal"]
+    assert entrant_availability.main([str(tmp_path)]) == 1

@@ -1,6 +1,7 @@
 """The entrant's engine adapter: order map translation and buffered completions."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -54,7 +55,8 @@ def test_trigger_composition_keys_each_permutation_through_the_lockstep_rows():
     e = bare_engine()
     e.root = root
     e.buffer = TriggerOrder(root, Projection())
-    composition = e.composition(3)
+    composition, unavailable = e.composition(3)
+    assert unavailable is None
     seen = {}
     for row in composition["completions"]:
         first, second = row["wire"]
@@ -83,7 +85,7 @@ def test_ordinary_order_map_names_wire_candidates():
     assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}) == {
         "schema": engine.WIRE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}
     for code, detail in (("R2", "a free text detail"), ("R2", "discard_reshape"), ("R8", "discard_untracked"),
-                         ("R2", 3), ("R2", []), ("R2", {})):
+                         ("R2", 3), ("R2", []), ("R2", {}), ("R3", []), ("R3", {})):
         with pytest.raises(engine.ProjectionError):
             e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail})
     assert e.ordinary_extension(None) is None
@@ -95,3 +97,81 @@ def test_block_completions_cover_every_legal_declaration():
     assignments = {tuple(p.prefix) for _, p in found}
     assert len(assignments) == 9
     assert all(plan.completion(a) == a for a in assignments)
+
+
+def test_r3_subclasses_and_the_opponent_discard_are_allowed_per_code():
+    e = bare_engine()
+    for code, detail in (("R3", "opponent"), ("R3", "plan_error"), ("R2", "opponent_discard")):
+        assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail}) == {
+            "schema": engine.WIRE_SCHEMA, "refusal": code, "refusal_detail": detail}
+    with pytest.raises(engine.ProjectionError):
+        e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R3", "refusal_detail": "export"})
+
+
+def test_a_group_without_composition_says_why(monkeypatch):
+    # G3: cap, no completions and missing preview keys are told apart.
+    e = bare_engine()
+    e.root = trigger_root()
+    e.buffer = TriggerOrder(e.root, Projection())
+    monkeypatch.setattr(engine, "completions", lambda plan: None)
+    assert e.composition(3) == (None, "composition_cap")
+    monkeypatch.setattr(engine, "completions", lambda plan: [])
+    assert e.composition(3) == (None, "no_completions")
+    monkeypatch.setattr(engine, "completions", lambda plan: [((0,), plan), ((1,), plan), ((2,), plan)])
+    monkeypatch.setattr(engine.InfosetEngine, "native_keys", lambda self, plan: None)
+    assert e.composition(3) == (None, "missing_preview_keys")
+
+
+def test_the_adapter_receipt_records_composition_wall(tmp_path):
+    # G10: one adapter receipt per game, beside the bridge's.
+    e = bare_engine()
+    e.infoset_on, e.receipt_dir, e.game = True, str(tmp_path), "g-1"
+    e._composition = {"groups": 2, "wall_us": 40, "max_wall_us": 30, "unavailable": {"no_completions": 1}}
+    e._native_seats = {"p0": "p1", "p1": "p0"}
+    e._groups, e._internal = [], engine.InfosetEngine._new_internal()
+    e.write_receipt()
+    record = json.loads((tmp_path / "g-1.adapter.json").read_text())
+    assert record == {"receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-1", "composition": e._composition,
+                      "native_seats": {"p0": "p1", "p1": "p0"}, "groups": [], "internal": e._internal}
+
+
+def _view(ids, keys, tag):
+    return {"candidates": [{"id": i, "semantic": {"tag": tag, "i": i}} for i in ids],
+            "extensions": {engine.FLAT: {"row_candidate_ids": ids, "tensor": [tag]},
+                           engine.INFOSET: {"row_keys": keys}}}
+
+
+class _Previews(dict):
+    def put(self, key, value, _size):
+        self[key] = value
+        return value
+
+
+def test_commit_check_traces_the_previewed_points_and_the_planned_rows():
+    # G6: the committed points equal the previews Pi was composed from, and
+    # the committed rows are the composition row of the wire answer.
+    e = bare_engine()
+    root, second = _view([7, 8], ["r7", "r8"], "root"), _view([3, 4], ["k3", "k4"], "second")
+    e.root = root
+    e.previews = _Previews({(): [root, None], (8,): [second, None]})
+
+    class Buffer:
+        prefix = (1, 0)
+
+    e.buffer = Buffer()
+    composition = {"keys": ["r7", "r8", "k3", "k4"],
+                   "completions": [{"wire": [1, 0], "native": [1, 2]}, {"wire": [0, 1], "native": [0, 3]}]}
+    info = {"type": "BlockDeclaration", "root_seat": "p0", "composition": composition,
+            "witness": {"multi_attacker": True}}
+    planned = [(root, 8, "r8"), (second, 3, "k3")]
+    good = e.commit_check([(root, 8), (second, 3)], info, planned, [1, 0])
+    assert good["views_equal"] and good["keys_equal"] and good["committed_keys"] == ["r8", "k3"]
+    assert good["committed_tensors"] == [e.tensor_digest(root["extensions"][engine.FLAT]),
+                                         e.tensor_digest(second["extensions"][engine.FLAT])]
+    drifted = e.commit_check([(root, 8), (_view([3, 4], ["k3", "k4"], "other"), 3)], info, planned, [1, 0])
+    assert not drifted["views_equal"]
+    other_pick = e.commit_check([(root, 8), (second, 4)], info, planned, [1, 0])
+    assert not other_pick["views_equal"]
+    other_wire = e.commit_check([(root, 8), (second, 3)], info, planned, [0, 1])
+    assert other_wire["views_equal"] and not other_wire["keys_equal"]
+    assert not e.commit_check([(root, 8), (second, 3)], info, None, [1, 0])["views_equal"]

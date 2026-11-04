@@ -63,7 +63,17 @@ WALK_DOMAIN = b"spellbench-kernel-search-bot/walk-policy/v1"
 # one: amendment 43.1 makes an R3 decision ineligible (counted separately).
 FAULTS = ("R1", "R1b", "R2", "R4", "R5", "R6", "R7", "R8", "R8b",
           "order_map_missing", "incomplete", "pool_error", "no_match", "group_lost", "composition_cap",
-          "tree_fault")
+          "no_completions", "missing_preview_keys", "tree_fault")
+# Policy outcomes that are not C5 faults: an ineligible decision, the
+# allowance, an opponent's library search (R3, amendment 43.1) and the
+# continuation points of a group already counted at its root. Every other
+# reason is a fault, unknown refusal codes included (fairness gate G2).
+NOT_FAULTS = ("ineligible", "allowance", "R3")
+COMPOSITION_UNAVAILABLE = ("composition_cap", "no_completions", "missing_preview_keys")
+
+
+def is_fault(reason: str) -> bool:
+    return reason in FAULTS or not (reason in NOT_FAULTS or reason.startswith("group_"))
 
 
 class _OneDraw:
@@ -225,7 +235,7 @@ class KernelSearchBot(KernelFlatBot):
     def _policy(self, decision: Decision, seed: int, reason: str) -> int:
         """kernel_flat_bot's answer with this decision's draw; a fault reason is counted."""
         self._tally[f"policy:{reason}"] += 1
-        if reason in FAULTS:
+        if is_fault(reason):
             self._fault(reason)
         rng, self._rng = self._rng, _OneDraw(seed)
         try:
@@ -246,14 +256,20 @@ class KernelSearchBot(KernelFlatBot):
             # Every refusal is classified (amendment 43.1 part 2): by code and
             # the bridge's subclass, once per decision or group root.
             self._tally[f"refusal:{ext['refusal']}:{ext.get('refusal_detail', 'unclassified')}"] += 1
-        if ext.get("refusal") == "R3":
+        if ext.get("refusal") == "R3" and ext.get("refusal_detail") == "opponent":
             # Amendment 43.1: an opponent's library search pending makes the
-            # decision ineligible by definition; counted and reported.
+            # decision ineligible by definition; counted and reported. Any
+            # other R3 (fairness gate G1) is eligible and a C5 fault.
             self._tally["r3_ineligible"] += 1
             return ext, "R3"
         self._tally["eligible"] += 1
         if "refusal" in ext:
-            return ext, str(ext["refusal"])
+            code = str(ext["refusal"])
+            if code == "R3":
+                return ext, f"R3:{ext.get('refusal_detail', 'unclassified')}"
+            # A refusal is always a fault: a code that collides with a policy
+            # reason that is not one is renamed so it cannot escape C5.
+            return ext, code if is_fault(code) else f"refusal:{code}"
         if not isinstance(ext.get("payload_json"), str):
             raise self._fail("x_kernel_infoset_v1 lacks its payload")
         return ext, None
@@ -300,11 +316,15 @@ class KernelSearchBot(KernelFlatBot):
             answer = {"ok": False, "error": f"transport: {exc}", "charge": budget + self._a}
         wall_us = (time.perf_counter_ns() - started) // 1000
         if answer.get("ok") is not True:
-            charge = int(answer.get("charge") or 0)
+            # A failed attempt costs at least a_units (fairness gate G4), even
+            # when the pool failed before dispatching any tree.
+            charge = max(int(answer.get("charge") or 0), self._a)
             self._charge(charge, group)
             self._last_fault = "pool_error"
             self._write_log({"kind": "search", "step": decision.seat_step, "root_id": root_id, "budget": budget,
-                             "charge": charge, "error": answer.get("error"), "wall_us": wall_us})
+                             "charge": charge, "error": answer.get("error"), "wall_us": wall_us,
+                             "allowance_remaining": self._game_remaining,
+                             "group_remaining": None if group is None else group["remaining"]})
             return None
         search = answer["search"]
         if search.get("root_id") != root_id or search.get("budget") != budget or search.get("a_units") != self._a:
@@ -380,6 +400,10 @@ class KernelSearchBot(KernelFlatBot):
             if any(w[:len(p)] == p and len(w) > len(p) for w, _ in g.get("completions", [])):
                 g["continues"] = True
             else:
+                # The group's plan Pi, for the commit check (fairness gate G6),
+                # with each walked point's tensor digest (the imported state).
+                self._write_log({"kind": "group_plan", "step": decision.seat_step, "mode": g["mode"],
+                                 "plan": g.get("plan", []), "tensors": g.get("tensors", []), "wire": p})
                 self._group = None
         return answer
 
@@ -391,7 +415,8 @@ class KernelSearchBot(KernelFlatBot):
             assert ext is not None
             composition = ext.get("composition")
             if composition is None:
-                reason = "composition_cap"
+                why = ext.get("composition_unavailable", "composition_cap")
+                reason = why if why in COMPOSITION_UNAVAILABLE else "composition_cap"
             else:
                 # The walk runs whatever the allowance: each native point is
                 # searched when eligible and allowed, else decided by policy.
@@ -472,6 +497,8 @@ class KernelSearchBot(KernelFlatBot):
         if pick is None:
             pick = self._point_policy(decision, point["flat"], len(g["path"]))
             self._tally["policy_points"] += 1
+        text = json.dumps(point["flat"].get("tensor"), sort_keys=True, separators=(",", ":"))
+        g.setdefault("tensors", []).append(hashlib.sha256(text.encode()).hexdigest())
         g["plan"].append(keys[pick])
         g["path"].append(pick)
         return "decided"
