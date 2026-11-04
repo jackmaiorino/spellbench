@@ -50,6 +50,7 @@ def upper_bound_95(faults: int, n: int) -> float | None:
 def report(paths: list[Path]) -> dict:
     tally: Counter[str] = Counter()
     games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
+    r3_ineligible = 0
     for root in paths:
         for path in sorted(root.glob("*.jsonl")):
             for line in path.read_text(encoding="utf-8").splitlines():
@@ -61,6 +62,7 @@ def report(paths: list[Path]) -> dict:
                     c5 += record["c5_faults"]
                     eligible += record["eligible"]
                     searched += record["searched_decisions"]
+                    r3_ineligible += record.get("r3_ineligible", 0)
                 elif kind == "search" and "tree_transitions" in record:
                     searches += 1
                     trees = record["tree_transitions"]
@@ -88,6 +90,8 @@ def report(paths: list[Path]) -> dict:
         "c5_faults": c5, "c5_share": None if not eligible else c5 / eligible, "c5_upper_95": bound,
         "c5_pass_below_1pct": None if bound is None else bound < 0.01,
         "searched_share_of_eligible": None if not eligible else searched / eligible,
+        # Amendment 43.1: R3 decisions are ineligible, reported beside the units.
+        "r3_ineligible": r3_ineligible,
     }
 
 

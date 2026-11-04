@@ -59,8 +59,9 @@ ENTRANT_SCHEMA = "spellbench-kernel-search-entrant/v1"
 SEED_MODEL = "w1-entrant-v1"
 WALK_DOMAIN = b"spellbench-kernel-search-bot/walk-policy/v1"
 # Policy outcomes that are C5 faults (design 5 and 6.7): refusals, a missing
-# order map, failed searches, composition no-match, a lost group.
-FAULTS = ("R1", "R1b", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R8b",
+# order map, failed searches, composition no-match, a lost group. R3 is not
+# one: amendment 43.1 makes an R3 decision ineligible (counted separately).
+FAULTS = ("R1", "R1b", "R2", "R4", "R5", "R6", "R7", "R8", "R8b",
           "order_map_missing", "incomplete", "pool_error", "no_match", "group_lost", "composition_cap",
           "tree_fault")
 
@@ -188,7 +189,8 @@ class KernelSearchBot(KernelFlatBot):
             "kind": "availability", "game_id": request.game_id, "tally": dict(sorted(self._tally.items())),
             "eligible": self._tally["eligible"],
             "searched_decisions": self._tally["searched"] + self._tally["searched_groups"],
-            "c5_faults": faults, "allowance_remaining": self._game_remaining,
+            "c5_faults": faults, "r3_ineligible": self._tally["r3_ineligible"],
+            "allowance_remaining": self._game_remaining,
             "allowance": self._entrant["allowance"], "charged_wall_us": self._charged_wall_us,
         })
         super().on_game_over(request)
@@ -240,6 +242,11 @@ class KernelSearchBot(KernelFlatBot):
             return None, "ineligible"
         if not isinstance(ext, dict) or ext.get("schema") != INFOSET_SCHEMA:
             raise self._fail("x_kernel_infoset_v1 has an unknown schema")
+        if ext.get("refusal") == "R3":
+            # Amendment 43.1: an opponent's library search pending makes the
+            # decision ineligible by definition; counted and reported.
+            self._tally["r3_ineligible"] += 1
+            return ext, "R3"
         self._tally["eligible"] += 1
         if "refusal" in ext:
             return ext, str(ext["refusal"])

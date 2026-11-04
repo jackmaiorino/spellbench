@@ -513,3 +513,23 @@ def test_a_buffer_spanning_two_wire_groups_keeps_its_plan():
                      group={"group_id": 6, "substep_index": 0, "substep_count": 1})
     assert bot.choose(order) == 1  # C first, as the plan put it back first
     assert bot._group is None and bot._tally["walk"] == 3 and bot._tally["c5_units"] == 0
+
+
+def test_r3_decisions_are_ineligible_and_counted(tmp_path):
+    # Amendment 43.1: an R3 refusal is not an eligible unit and not a C5
+    # fault; the availability record and the report count it separately.
+    pool = FakePool(picks={(): 0})
+    bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
+                                 name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3"}))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
+    bot.choose(decision(2, payload_ext(live_candidate_ids=[0, 1, 2])))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    summary = json.loads((tmp_path / "g-test.p0.jsonl").read_text().splitlines()[-1])
+    assert summary["eligible"] == 2 and summary["c5_faults"] == 1 and summary["r3_ineligible"] == 1
+    assert summary["tally"]["policy:R3"] == 1 and "fault:R3" not in summary["tally"]
+    import entrant_availability
+
+    report = entrant_availability.report([tmp_path])
+    assert report["r3_ineligible"] == 1 and report["eligible"] == 2 and report["c5_faults"] == 1
