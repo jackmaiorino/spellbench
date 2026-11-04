@@ -130,7 +130,15 @@ class InfosetEngine(KernelEngine):
         if not isinstance(native, dict) or native.get("schema") != NATIVE_SCHEMA:
             raise ProjectionError("native bridge sent an unknown infoset extension")
         if "refusal" in native:
-            return {"schema": WIRE_SCHEMA, "refusal": native["refusal"]}
+            refusal = {"schema": WIRE_SCHEMA, "refusal": native["refusal"]}
+            # The refusal's subclass (amendment 43.1 part 2): for R2 the
+            # surface state the payload cannot carry, else "export".
+            detail = native.get("refusal_detail")
+            if detail is not None:
+                if not isinstance(detail, str) or not detail.replace("_", "").isalnum() or len(detail) > 64:
+                    raise ProjectionError("native infoset refusal_detail is not a subclass name")
+                refusal["refusal_detail"] = detail
+            return refusal
         if not isinstance(native.get("payload_json"), str):
             raise ProjectionError("native infoset extension lacks its payload")
         return {"schema": WIRE_SCHEMA, "payload_json": native["payload_json"]}

@@ -533,3 +533,22 @@ def test_r3_decisions_are_ineligible_and_counted(tmp_path):
 
     report = entrant_availability.report([tmp_path])
     assert report["r3_ineligible"] == 1 and report["eligible"] == 2 and report["c5_faults"] == 1
+
+
+def test_refusals_are_classified_by_subclass(tmp_path):
+    # Amendment 43.1 part 2: each refusal is tallied by code and the bridge's
+    # subclass; the report lists them and counts any without a subclass.
+    pool = FakePool(picks={(): 0})
+    bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
+                                 name="entrant", version="0", expect_model_state="0" * 64)
+    start(bot)
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R2", "refusal_detail": "hunter_trigger_order"}))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "export"}))
+    bot.choose(decision(2, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
+    bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
+    import entrant_availability
+
+    report = entrant_availability.report([tmp_path])
+    assert report["refusals_by_subclass"] == {"R2:hunter_trigger_order": 1, "R2:unclassified": 1, "R3:export": 1}
+    assert report["unclassified_refusals"] == 1
+    assert report["eligible"] == 2 and report["c5_faults"] == 2 and report["r3_ineligible"] == 1

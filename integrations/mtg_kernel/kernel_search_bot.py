@@ -242,6 +242,10 @@ class KernelSearchBot(KernelFlatBot):
             return None, "ineligible"
         if not isinstance(ext, dict) or ext.get("schema") != INFOSET_SCHEMA:
             raise self._fail("x_kernel_infoset_v1 has an unknown schema")
+        if "refusal" in ext:
+            # Every refusal is classified (amendment 43.1 part 2): by code and
+            # the bridge's subclass, once per decision or group root.
+            self._tally[f"refusal:{ext['refusal']}:{ext.get('refusal_detail', 'unclassified')}"] += 1
         if ext.get("refusal") == "R3":
             # Amendment 43.1: an opponent's library search pending makes the
             # decision ineligible by definition; counted and reported.
