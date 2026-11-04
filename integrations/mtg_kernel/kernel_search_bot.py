@@ -265,7 +265,11 @@ class KernelSearchBot(KernelFlatBot):
         self._tally["eligible"] += 1
         if "refusal" in ext:
             code = str(ext["refusal"])
-            return ext, code if code != "R3" else f"R3:{ext.get('refusal_detail', 'unclassified')}"
+            if code == "R3":
+                return ext, f"R3:{ext.get('refusal_detail', 'unclassified')}"
+            # A refusal is always a fault: a code that collides with a policy
+            # reason that is not one is renamed so it cannot escape C5.
+            return ext, code if is_fault(code) else f"refusal:{code}"
         if not isinstance(ext.get("payload_json"), str):
             raise self._fail("x_kernel_infoset_v1 lacks its payload")
         return ext, None
@@ -318,7 +322,9 @@ class KernelSearchBot(KernelFlatBot):
             self._charge(charge, group)
             self._last_fault = "pool_error"
             self._write_log({"kind": "search", "step": decision.seat_step, "root_id": root_id, "budget": budget,
-                             "charge": charge, "error": answer.get("error"), "wall_us": wall_us})
+                             "charge": charge, "error": answer.get("error"), "wall_us": wall_us,
+                             "allowance_remaining": self._game_remaining,
+                             "group_remaining": None if group is None else group["remaining"]})
             return None
         search = answer["search"]
         if search.get("root_id") != root_id or search.get("budget") != budget or search.get("a_units") != self._a:

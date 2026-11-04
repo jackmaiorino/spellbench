@@ -522,7 +522,7 @@ def test_r3_decisions_are_ineligible_and_counted(tmp_path):
     bot = search.KernelSearchBot(RecordedScorer(), pool, dict(ENTRANT), seed=11, decision_log=tmp_path,
                                  name="entrant", version="0", expect_model_state="0" * 64)
     start(bot)
-    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3"}))
+    bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}))
     bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
     bot.choose(decision(2, payload_ext(live_candidate_ids=[0, 1, 2])))
     bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
@@ -543,13 +543,13 @@ def test_refusals_are_classified_by_subclass(tmp_path):
                                  name="entrant", version="0", expect_model_state="0" * 64)
     start(bot)
     bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": "R2", "refusal_detail": "hunter_trigger_order"}))
-    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "export"}))
+    bot.choose(decision(1, {"schema": search.INFOSET_SCHEMA, "refusal": "R3", "refusal_detail": "opponent"}))
     bot.choose(decision(2, {"schema": search.INFOSET_SCHEMA, "refusal": "R2"}))
     bot.on_game_over(GameOver.from_request({"game_id": "g-test", "terminal": {}}))
     import entrant_availability
 
     report = entrant_availability.report([tmp_path])
-    assert report["refusals_by_subclass"] == {"R2:hunter_trigger_order": 1, "R2:unclassified": 1, "R3:export": 1}
+    assert report["refusals_by_subclass"] == {"R2:hunter_trigger_order": 1, "R2:unclassified": 1, "R3:opponent": 1}
     assert report["unclassified_refusals"] == 1
     assert report["eligible"] == 2 and report["c5_faults"] == 2 and report["r3_ineligible"] == 1
 
@@ -572,6 +572,11 @@ def test_unknown_refusal_codes_are_faults():
     assert bot._tally["fault:R9"] == 1 and bot._tally["c5_units"] == 1
     assert search.is_fault("anything_new") and not search.is_fault("ineligible")
     assert not search.is_fault("allowance") and not search.is_fault("R3") and not search.is_fault("group_R2")
+    # A refusal code named like a policy reason that is no fault still is one.
+    for code in ("allowance", "ineligible", "group_new"):
+        bot = make_bot(FakePool())
+        bot.choose(decision(0, {"schema": search.INFOSET_SCHEMA, "refusal": code, "refusal_detail": "export"}))
+        assert bot._tally[f"fault:refusal:{code}"] == 1 and bot._tally["c5_units"] == 1
 
 
 def test_groups_without_composition_fault_by_reason():
@@ -630,7 +635,9 @@ def test_report_counts_each_game_and_seat_once(tmp_path):
     once = entrant_availability.report([first])
     twice = entrant_availability.report([first, second])
     assert twice["eligible"] == once["eligible"] == 1 and twice["logs"]["duplicates"] == [log.name]
-    assert once["checks_pass"] and not twice["checks"]["one_log_per_game_and_seat"]
+    assert once["checks"]["one_log_per_game_and_seat"] and not twice["checks"]["one_log_per_game_and_seat"]
+    # Without a ledger and receipts the report cannot pass (no vacuous pass).
+    assert not once["checks_pass"] and not once["checks"]["ledger_given"]
 
 
 def test_report_requires_the_terminal_record_and_every_ledger_game(tmp_path):
@@ -660,7 +667,7 @@ def test_report_counts_failed_searches_as_attempts(tmp_path):
     _one_game_log(tmp_path, pool=FailingPool(), infosets=[payload_ext(live_candidate_ids=[0, 1, 2])])
     result = entrant_availability.report([tmp_path])
     assert result["search_errors"] == 1 and result["attempted_searches"] == 1 and result["searches"] == 0
-    assert result["checks"]["charge_within_allowance"]
+    assert result["checks"]["charge_within_allowance"] and result["checks"]["every_search_balanced"]
 
 
 def test_report_reconciles_the_engine_side_receipts(tmp_path):
@@ -671,23 +678,40 @@ def test_report_reconciles_the_engine_side_receipts(tmp_path):
                                   payload_ext(live_candidate_ids=[0, 1, 2])])
     receipts = tmp_path / "receipts"
     receipts.mkdir()
+    ledger = _ledger(tmp_path / "matches.jsonl", "g-test")
 
-    def bridge(by_subclass):
+    def bridge(by_subclass, eligible=2, native=0):
         side = {"exported": 1, "by_code": {"R2": sum(by_subclass.values())} if by_subclass else {},
                 "by_subclass": by_subclass}
+        tally = [side, {"exported": 0, "by_code": {}}] if native == 0 else [{"exported": 0, "by_code": {}}, side]
+        counts = [eligible, 0] if native == 0 else [0, eligible]
         (receipts / "g-test.bridge.json").write_text(json.dumps({
-            "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": [2, 0],
-            "tally": [side, {"exported": 0, "by_code": {}}], "order_map_missing": [0, 0]}))
+            "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": counts,
+            "tally": tally, "order_map_missing": [0, 0]}))
 
+    def adapter(native_p0):
+        seats = {"p0": native_p0, "p1": "p1" if native_p0 == "p0" else "p0"}
+        (receipts / "g-test.adapter.json").write_text(json.dumps({
+            "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-test", "native_seats": seats,
+            "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}}))
+
+    check = lambda: entrant_availability.report([logs], [ledger], "entrant", receipts)
     bridge({"R2:other_surface": 1})
-    assert entrant_availability.report([logs], receipts=receipts)["checks"]["receipts_reconcile"] is False
-    (receipts / "g-test.adapter.json").write_text(json.dumps({
-        "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-test",
-        "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}}))
-    result = entrant_availability.report([logs], receipts=receipts)
+    assert check()["checks"]["receipts_reconcile"] is False  # no adapter receipt
+    adapter("p0")
+    result = check()
     assert result["checks"]["receipts_reconcile"] and result["receipts"][0]["bridge_eligible"] == 2
+    assert result["checks_pass"]
     bridge({"R2:hunter_trigger_order": 1})
-    assert entrant_availability.report([logs], receipts=receipts)["checks"]["receipts_reconcile"] is False
+    assert check()["checks"]["receipts_reconcile"] is False  # another subclass
+    bridge({"R2:other_surface": 2})
+    assert check()["checks"]["receipts_reconcile"] is False  # another count
+    bridge({"R2:other_surface": 1}, eligible=3)
+    assert check()["checks"]["receipts_reconcile"] is False  # another eligible count
+    bridge({"R2:other_surface": 1}, native=1)
+    assert check()["checks"]["receipts_reconcile"] is False  # read from the wrong native seat
+    adapter("p1")
+    assert check()["checks"]["receipts_reconcile"]  # the adapter seated the entrant as native p1
 
 
 def test_report_fails_on_an_unclassified_refusal(tmp_path):

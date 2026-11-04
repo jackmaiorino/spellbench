@@ -111,6 +111,7 @@ class InfosetEngine(KernelEngine):
         self.infoset_on = False
         self.receipt_dir = os.environ.get(RECEIPT_DIR_ENV) or None
         self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
+        self._native_seats = {"p0": "p0", "p1": "p1"}
 
     def reset(self, request):
         rules = request.get("rules", {})
@@ -120,10 +121,19 @@ class InfosetEngine(KernelEngine):
             # The base adapter knows only its own extensions; it never reads
             # this one, so the request it sees omits it.
             request = {**request, "rules": {**rules, "extensions": [n for n in names if n != INFOSET]}}
+        # A new game's statistics start before its first decision is posed
+        # (inside the reset); a rejected reset keeps the active game's.
+        kept = (self._composition, self._native_seats)
+        self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
+        first = rules.get("starting_seat", "p0")
+        # The native bridge seats the starting player as p0 (kernel_engine_v2
+        # reset); its receipt counts by native seat.
+        self._native_seats = {"p0": "p0", "p1": "p1"} if first == "p0" else {"p0": "p1", "p1": "p0"}
         result = super().reset(request)
         if result.get("response_type") != "error":
             self.rules = {**self.rules, "extensions": list(names)}
-        self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
+        else:
+            self._composition, self._native_seats = kept
         return result
 
     def terminal(self, rid, outcome, reason, winner=None):
@@ -137,7 +147,8 @@ class InfosetEngine(KernelEngine):
         if not (self.infoset_on and self.receipt_dir and self.game):
             return
         safe = "".join(c if c.isalnum() or c == "-" else "_" for c in self.game)
-        record = {"receipt": "x_kernel_infoset_v1_adapter", "game_id": self.game, "composition": self._composition}
+        record = {"receipt": "x_kernel_infoset_v1_adapter", "game_id": self.game, "composition": self._composition,
+                  "native_seats": self._native_seats}
         Path(self.receipt_dir, f"{safe}.adapter.json").write_text(json.dumps(record, sort_keys=True) + "\n",
                                                                   encoding="utf-8")
 
@@ -170,9 +181,10 @@ class InfosetEngine(KernelEngine):
             detail = native.get("refusal_detail")
             if detail is not None:
                 code = native["refusal"]
-                allowed = (detail in R3_SUBCLASSES if code == "R3" else
-                           detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
-                if not isinstance(detail, str) or not allowed:
+                allowed = isinstance(detail, str) and (
+                    detail in R3_SUBCLASSES if code == "R3" else
+                    detail == EXPORT_SUBCLASS or (code == "R2" and detail in R2_SURFACE_SUBCLASSES))
+                if not allowed:
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
                 refusal["refusal_detail"] = detail
             return refusal

@@ -96,24 +96,37 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict) -> dict:
         out["error"] = "bridge receipt missing"
         out["reconciled"] = False
         return out
+    if not adapter_path.exists():
+        out["error"] = "adapter receipt missing"
+        out["reconciled"] = False
+        return out
+    adapter = json.loads(adapter_path.read_text(encoding="utf-8"))
     bridge = json.loads(bridge_path.read_text(encoding="utf-8"))
-    index = 0 if seat == "p0" else 1
+    # The bridge counts by native seat; the adapter seats the starting player
+    # as native p0.
+    native = adapter.get("native_seats", {}).get(seat)
+    if native not in ("p0", "p1"):
+        out["error"] = "adapter receipt lacks the seat mapping"
+        out["reconciled"] = False
+        return out
+    index = 0 if native == "p0" else 1
     side = bridge["tally"][index]
     engine_refusals = dict(side.get("by_subclass", {}))
     bot_refusals = _bot_refusals(final["tally"])
-    out.update(bridge_eligible=bridge["eligible"][index],
+    by_code: Counter[str] = Counter()
+    for key, n in engine_refusals.items():
+        by_code[key.split(":", 1)[0]] += n
+    out.update(native_seat=native, bridge_eligible=bridge["eligible"][index],
                entrant_units=final["eligible"] + final.get("r3_ineligible", 0),
                bridge_refusals=engine_refusals, entrant_refusals=bot_refusals,
-               bridge_order_map_missing=bridge["order_map_missing"][index])
-    ok = (set(engine_refusals) == set(bot_refusals)
-          and all(engine_refusals[k] >= n for k, n in bot_refusals.items())
-          and sum(side.get("by_code", {}).values()) == sum(engine_refusals.values()))
-    if adapter_path.exists():
-        out["composition"] = json.loads(adapter_path.read_text(encoding="utf-8"))["composition"]
-    else:
-        ok = False
-        out["error"] = "adapter receipt missing"
-    out["reconciled"] = ok
+               bridge_order_map_missing=bridge["order_map_missing"][index],
+               composition=adapter["composition"])
+    # Exact: the bridge's eligible decisions are the entrant's units (each
+    # buffered group is posed once, at its root), its refusals by subclass
+    # are the entrant's, and its code counts are the sums of its subclasses.
+    out["reconciled"] = (out["bridge_eligible"] == out["entrant_units"]
+                         and engine_refusals == bot_refusals
+                         and dict(by_code) == {k: n for k, n in side.get("by_code", {}).items() if n})
     return out
 
 
@@ -121,7 +134,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
            receipts: Path | None = None) -> dict:
     tally: Counter[str] = Counter()
     games, c5, eligible, searched, searches, zero_tree_searches, transitions = 0, 0, 0, 0, 0, 0, []
-    r3_ineligible, search_errors, group_over_cap, allowance_over = 0, 0, 0, []
+    r3_ineligible, search_errors, group_over_cap, allowance_over, unbalanced = 0, 0, 0, [], 0
     seen: set[tuple[str, str]] = set()
     duplicates, incomplete, unledgered, reconciliation = [], [], [], []
     ledger = _ledger_games(ledgers, entrant) if ledgers else None
@@ -152,6 +165,11 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
             for record in records:
                 if record.get("kind") != "search":
                     continue
+                # Every attempt, failed ones included, logs its balances.
+                if "allowance_remaining" not in record or "group_remaining" not in record:
+                    unbalanced += 1
+                elif record["allowance_remaining"] < 0:
+                    allowance_over.append(f"{path.name}:{record.get('step')}")
                 if record.get("group_remaining") is not None and record["group_remaining"] < 0:
                     group_over_cap += 1
                 if "tree_transitions" in record:
@@ -175,6 +193,12 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     allowance_limited = tally["policy:allowance"] + tally["allowance_groups"]
     bound = upper_bound_95(c5, eligible)
     checks = {
+        # Gate inputs: the declared ledger (naming the entrant), the receipts
+        # and at least one counted game, so no check passes vacuously.
+        "ledger_given": bool(ledger),
+        "receipts_given": receipts is not None,
+        "games_counted": games > 0,
+        "every_search_balanced": unbalanced == 0,
         "one_log_per_game_and_seat": not duplicates,
         "every_log_complete": not incomplete,
         "every_ledger_game_logged": not missing,
