@@ -112,6 +112,8 @@ class InfosetEngine(KernelEngine):
         self.receipt_dir = os.environ.get(RECEIPT_DIR_ENV) or None
         self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
         self._native_seats = {"p0": "p0", "p1": "p1"}
+        self._groups, self._internal = [], self._new_internal()
+        self._committing, self._commit_steps, self._group_info = False, [], None
 
     def reset(self, request):
         rules = request.get("rules", {})
@@ -123,8 +125,9 @@ class InfosetEngine(KernelEngine):
             request = {**request, "rules": {**rules, "extensions": [n for n in names if n != INFOSET]}}
         # A new game's statistics start before its first decision is posed
         # (inside the reset); a rejected reset keeps the active game's.
-        kept = (self._composition, self._native_seats)
+        kept = (self._composition, self._native_seats, self._groups, self._internal)
         self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
+        self._groups, self._internal = [], self._new_internal()
         first = rules.get("starting_seat", "p0")
         # The native bridge seats the starting player as p0 (kernel_engine_v2
         # reset); its receipt counts by native seat.
@@ -133,8 +136,80 @@ class InfosetEngine(KernelEngine):
         if result.get("response_type") != "error":
             self.rules = {**self.rules, "extensions": list(names)}
         else:
-            self._composition, self._native_seats = kept
+            self._composition, self._native_seats, self._groups, self._internal = kept
         return result
+
+    @staticmethod
+    def _new_internal():
+        return {seat: {"eligible": 0, "refusals": {}} for seat in ("p0", "p1")}
+
+    @staticmethod
+    def _native_actor(view):
+        return json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])["acting_player"]
+
+    def native_step(self, candidate):
+        if self._committing:
+            self._commit_steps.append((self.current, candidate))
+        super().native_step(candidate)
+
+    def commit_buffer(self):
+        """Commits the group, then checks the commit (fairness gate G6) and
+        tallies the group's internal native decisions: those the bridge poses
+        while the group commits and no bot is shown (receipt reconciliation)."""
+        self._committing, self._commit_steps = True, []
+        try:
+            super().commit_buffer()
+        finally:
+            self._committing = False
+        steps, self._commit_steps = self._commit_steps, []
+        for view, _ in steps[1:]:
+            native = self.current_infoset(view)
+            if native is None:
+                continue
+            side = self._internal[self._native_actor(view)]
+            side["eligible"] += 1
+            if "refusal" in native:
+                key = f"{native['refusal']}:{native.get('refusal_detail', 'unclassified')}"
+                side["refusals"][key] = side["refusals"].get(key, 0) + 1
+        if self.infoset_on and self._group_info is not None:
+            self._groups.append(self.commit_check(steps, self._group_info))
+        self._group_info = None
+
+    @staticmethod
+    def current_infoset(view):
+        native = view.get("extensions", {}).get(INFOSET)
+        return native if isinstance(native, dict) else None
+
+    def commit_check(self, steps, info):
+        """G6: the committed native points are the previewed points the
+        composition was built from (candidates and x_kernel_flat_v4 equal),
+        and the committed rows' keys are the composition row of the group's
+        wire answer: the rows Pi induced."""
+        record = {"type": info["type"], "root_seat": info["root_seat"], "points": len(steps),
+                  "witness": info["witness"], "composition": info["composition"] is not None}
+        if info["composition"] is None:
+            return record
+        prefix, committed, views_equal = [], [], True
+        for view, candidate in steps:
+            entry = self.previews.get(tuple(prefix)) if prefix else (self.previews.get(()) or [self.root])
+            preview = None if entry is None else entry[0]
+            if preview is None:
+                views_equal = False
+                committed.append(None)
+            else:
+                views_equal = views_equal and (preview["candidates"] == view["candidates"]
+                                               and preview["extensions"][FLAT] == view["extensions"][FLAT])
+                keys = self._row_keys(preview)
+                ids = preview["extensions"][FLAT]["row_candidate_ids"]
+                committed.append(None if keys is None or candidate not in ids else keys[ids.index(candidate)])
+            prefix.append(candidate)
+        wire = list(getattr(self.buffer, "prefix", ()) or ())
+        table = info["composition"]["keys"]
+        expected = next(([table[k] for k in row["native"]] for row in info["composition"]["completions"]
+                         if row["wire"] == wire), None)
+        record.update(committed_keys=committed, expected_keys=expected, views_equal=views_equal,
+                      keys_equal=expected is not None and committed == expected)
+        return record
 
     def terminal(self, rid, outcome, reason, winner=None):
         result = super().terminal(rid, outcome, reason, winner)
@@ -148,7 +223,7 @@ class InfosetEngine(KernelEngine):
             return
         safe = "".join(c if c.isalnum() or c == "-" else "_" for c in self.game)
         record = {"receipt": "x_kernel_infoset_v1_adapter", "game_id": self.game, "composition": self._composition,
-                  "native_seats": self._native_seats}
+                  "native_seats": self._native_seats, "groups": self._groups, "internal": self._internal}
         Path(self.receipt_dir, f"{safe}.adapter.json").write_text(json.dumps(record, sort_keys=True) + "\n",
                                                                   encoding="utf-8")
 
@@ -217,7 +292,19 @@ class InfosetEngine(KernelEngine):
         if composition is None:
             extension["composition_unavailable"] = unavailable
             stats["unavailable"][unavailable] = stats["unavailable"].get(unavailable, 0) + 1
+        self._group_info = {"type": type(self.buffer).__name__, "root_seat": self._native_actor(self.root),
+                            "composition": composition, "witness": self.group_witness()}
         return extension
+
+    def group_witness(self):
+        """Design 13's AC3 witness classes this group belongs to."""
+        buffer = self.buffer
+        if isinstance(buffer, BlockDeclaration):
+            plan = buffer.plan
+            return {"multi_attacker": len(plan.minimums) >= 2, "multi_blocker": len(plan.blockers) >= 2}
+        if isinstance(buffer, TriggerOrder):
+            return {"three_triggers": len(buffer.items) >= 3}
+        return {}
 
     def composition(self, candidate_count):
         """(each completion's wire indices and native row keys, None) or (None,

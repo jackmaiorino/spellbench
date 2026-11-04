@@ -128,7 +128,44 @@ def test_the_adapter_receipt_records_composition_wall(tmp_path):
     e.infoset_on, e.receipt_dir, e.game = True, str(tmp_path), "g-1"
     e._composition = {"groups": 2, "wall_us": 40, "max_wall_us": 30, "unavailable": {"no_completions": 1}}
     e._native_seats = {"p0": "p1", "p1": "p0"}
+    e._groups, e._internal = [], engine.InfosetEngine._new_internal()
     e.write_receipt()
     record = json.loads((tmp_path / "g-1.adapter.json").read_text())
     assert record == {"receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-1", "composition": e._composition,
-                      "native_seats": {"p0": "p1", "p1": "p0"}}
+                      "native_seats": {"p0": "p1", "p1": "p0"}, "groups": [], "internal": e._internal}
+
+
+def _view(ids, keys, tag):
+    return {"candidates": [{"id": i, "semantic": {"tag": tag, "i": i}} for i in ids],
+            "extensions": {engine.FLAT: {"row_candidate_ids": ids, "tensor": [tag]},
+                           engine.INFOSET: {"row_keys": keys}}}
+
+
+class _Previews(dict):
+    def put(self, key, value, _size):
+        self[key] = value
+        return value
+
+
+def test_commit_check_traces_the_previewed_points_and_the_planned_rows():
+    # G6: the committed points equal the previews Pi was composed from, and
+    # the committed rows are the composition row of the wire answer.
+    e = bare_engine()
+    root, second = _view([7, 8], ["r7", "r8"], "root"), _view([3, 4], ["k3", "k4"], "second")
+    e.root = root
+    e.previews = _Previews({(): [root, None], (8,): [second, None]})
+
+    class Buffer:
+        prefix = (1, 0)
+
+    e.buffer = Buffer()
+    composition = {"keys": ["r7", "r8", "k3", "k4"],
+                   "completions": [{"wire": [1, 0], "native": [1, 2]}, {"wire": [0, 1], "native": [0, 3]}]}
+    info = {"type": "BlockDeclaration", "root_seat": "p0", "composition": composition,
+            "witness": {"multi_attacker": True}}
+    good = e.commit_check([(root, 8), (second, 3)], info)
+    assert good["views_equal"] and good["keys_equal"] and good["committed_keys"] == ["r8", "k3"]
+    drifted = e.commit_check([(root, 8), (_view([3, 4], ["k3", "k4"], "other"), 3)], info)
+    assert not drifted["views_equal"]
+    other_row = e.commit_check([(root, 8), (second, 4)], info)
+    assert other_row["views_equal"] and not other_row["keys_equal"]

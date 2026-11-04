@@ -83,7 +83,7 @@ def _bot_refusals(tally: dict) -> dict[str, int]:
     return {key[8:]: n for key, n in tally.items() if key.startswith("refusal:")}
 
 
-def _reconcile(receipts: Path, game: str, seat: str, final: dict) -> dict:
+def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[dict]) -> dict:
     """One game's engine-side receipts against the entrant's record. The
     bridge counts a refusal at every eligible decision it refuses and the
     entrant once per unit (a buffered group once), so the two must name the
@@ -116,17 +116,38 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict) -> dict:
     by_code: Counter[str] = Counter()
     for key, n in engine_refusals.items():
         by_code[key.split(":", 1)[0]] += n
+    # A committing group's later native points are posed by the bridge but
+    # shown to no bot; the adapter tallies them by native seat.
+    internal = adapter.get("internal", {}).get(native, {"eligible": 0, "refusals": {}})
+    expected_refusals = Counter(bot_refusals)
+    expected_refusals.update(internal["refusals"])
     out.update(native_seat=native, bridge_eligible=bridge["eligible"][index],
                entrant_units=final["eligible"] + final.get("r3_ineligible", 0),
+               internal_eligible=internal["eligible"], internal_refusals=internal["refusals"],
                bridge_refusals=engine_refusals, entrant_refusals=bot_refusals,
                bridge_order_map_missing=bridge["order_map_missing"][index],
                composition=adapter["composition"])
-    # Exact: the bridge's eligible decisions are the entrant's units (each
-    # buffered group is posed once, at its root), its refusals by subclass
-    # are the entrant's, and its code counts are the sums of its subclasses.
-    out["reconciled"] = (out["bridge_eligible"] == out["entrant_units"]
-                         and engine_refusals == bot_refusals
+    # Exact: the bridge's eligible decisions are the entrant's units plus the
+    # internal ones, its refusals by subclass likewise, and its code counts
+    # are the sums of its subclasses.
+    out["reconciled"] = (out["bridge_eligible"] == out["entrant_units"] + internal["eligible"]
+                         and engine_refusals == {k: n for k, n in expected_refusals.items() if n}
                          and dict(by_code) == {k: n for k, n in side.get("by_code", {}).items() if n})
+    # G6: every committed group with a composition re-traced the previewed
+    # points and committed the rows of its wire answer's completion, and the
+    # entrant's completed walks planned exactly those rows.
+    groups = adapter.get("groups", [])
+    checked = [g for g in groups if g.get("composition")]
+    out["commit_groups"] = len(checked)
+    out["commit_ok"] = all(g.get("views_equal") and g.get("keys_equal") for g in checked)
+    mine = [g for g in checked if g.get("root_seat") == native]
+    plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
+    out["plans_match"] = len(plans) == len(mine) and all(
+        len(r["plan"]) != len(g["committed_keys"]) or r["plan"] == g["committed_keys"]
+        for r, g in zip(plans, mine))
+    out["witness"] = {k: sum(1 for g in checked if g.get("witness", {}).get(k))
+                      for k in ("multi_attacker", "multi_blocker", "three_triggers")}
+    out["reconciled"] = out["reconciled"] and out["commit_ok"] and out["plans_match"]
     return out
 
 
@@ -143,6 +164,8 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
             header, records, final = _read_log(path)
             if header is None or final is None:
                 incomplete.append(path.name)
+                continue
+            if entrant is not None and header.get("bot_name") != entrant:
                 continue
             key = (header["game_id"], header["seat"])
             if key in seen:
@@ -180,7 +203,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
                 else:
                     search_errors += 1
             if receipts is not None:
-                reconciliation.append(_reconcile(receipts, *key, final))
+                reconciliation.append(_reconcile(receipts, *key, final, records))
     missing = sorted(f"{g}.{s}" for g, s in (set(ledger) - seen)) if ledger is not None else []
     policy = {key[7:]: n for key, n in sorted(tally.items()) if key.startswith("policy:")}
     faults = {key[6:]: n for key, n in sorted(tally.items()) if key.startswith("fault:")}
@@ -195,6 +218,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     checks = {
         # Gate inputs: the declared ledger (naming the entrant), the receipts
         # and at least one counted game, so no check passes vacuously.
+        "entrant_given": entrant is not None,
         "ledger_given": bool(ledger),
         "receipts_given": receipts is not None,
         "games_counted": games > 0,
@@ -232,6 +256,11 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
                  "missing_for_ledger_games": missing, "ledger_games": None if ledger is None else len(ledger)},
         "charge": {"games_over_allowance": allowance_over, "searches_over_group_cap": group_over_cap},
         "receipts": reconciliation if receipts is not None else None,
+        "commit_check": None if receipts is None else {
+            "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
+            "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
+            "witness": {k: sum(r.get("witness", {}).get(k, 0) for r in reconciliation)
+                        for k in ("multi_attacker", "multi_blocker", "three_triggers")}},
         "checks": checks, "checks_pass": all(checks.values()),
     }
 

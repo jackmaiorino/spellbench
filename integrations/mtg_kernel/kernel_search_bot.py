@@ -400,6 +400,9 @@ class KernelSearchBot(KernelFlatBot):
             if any(w[:len(p)] == p and len(w) > len(p) for w, _ in g.get("completions", [])):
                 g["continues"] = True
             else:
+                # The group's plan Pi, for the commit check (fairness gate G6).
+                self._write_log({"kind": "group_plan", "step": decision.seat_step, "mode": g["mode"],
+                                 "plan": g["plan"], "wire": p})
                 self._group = None
         return answer
 

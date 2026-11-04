@@ -689,11 +689,12 @@ def test_report_reconciles_the_engine_side_receipts(tmp_path):
             "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": counts,
             "tally": tally, "order_map_missing": [0, 0]}))
 
-    def adapter(native_p0):
+    def adapter(native_p0, internal=None, groups=()):
         seats = {"p0": native_p0, "p1": "p1" if native_p0 == "p0" else "p0"}
         (receipts / "g-test.adapter.json").write_text(json.dumps({
             "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-test", "native_seats": seats,
-            "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}}))
+            "composition": {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}},
+            "internal": internal or {}, "groups": list(groups)}))
 
     check = lambda: entrant_availability.report([logs], [ledger], "entrant", receipts)
     bridge({"R2:other_surface": 1})
@@ -712,6 +713,27 @@ def test_report_reconciles_the_engine_side_receipts(tmp_path):
     assert check()["checks"]["receipts_reconcile"] is False  # read from the wrong native seat
     adapter("p1")
     assert check()["checks"]["receipts_reconcile"]  # the adapter seated the entrant as native p1
+    # A committing group's internal points: counted by the bridge, not the entrant.
+    bridge({"R2:other_surface": 1, "R4:export": 1}, eligible=4, native=1)
+    assert check()["checks"]["receipts_reconcile"] is False
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}})
+    assert check()["checks"]["receipts_reconcile"] is False  # by_code must cover R4 too
+    side = {"exported": 2, "by_code": {"R2": 1, "R4": 1}, "by_subclass": {"R2:other_surface": 1, "R4:export": 1}}
+    (receipts / "g-test.bridge.json").write_text(json.dumps({
+        "receipt": "x_kernel_infoset_v1", "game_id": "g-test", "eligible": [0, 4],
+        "tally": [{"exported": 0, "by_code": {}}, side], "order_map_missing": [0, 0]}))
+    assert check()["checks"]["receipts_reconcile"]
+    # G6: a commit that left the previewed points fails.
+    bad = {"type": "BlockDeclaration", "root_seat": "p0", "points": 2, "composition": True,
+           "witness": {"multi_attacker": True}, "views_equal": False, "keys_equal": True,
+           "committed_keys": ["a", "b"], "expected_keys": ["a", "b"]}
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}}, groups=[bad])
+    assert check()["checks"]["receipts_reconcile"] is False
+    adapter("p1", internal={"p1": {"eligible": 2, "refusals": {"R4:export": 1}}},
+            groups=[{**bad, "views_equal": True}])
+    result = check()
+    assert result["checks"]["receipts_reconcile"] and result["commit_check"]["witness"]["multi_attacker"] == 1
+    assert entrant_availability.report([logs], [ledger], None, receipts)["checks"]["entrant_given"] is False
 
 
 def test_report_fails_on_an_unclassified_refusal(tmp_path):
