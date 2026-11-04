@@ -6,11 +6,26 @@ import json
 import random
 from pathlib import Path
 
-from kernel_engine_v2 import KernelEngine, NativePeer
+from kernel_engine_v2 import FLAT, HISTORY, KernelEngine, NativePeer
 from spellbench import wire
 from spellbench.digests import deck_id, card_name_domain
 from spellbench.host.validator import LiveValidator
 from spellbench.messages import EnvHelloOk, Rules, Decision, Terminal
+
+# The raw bridge wire carries native identity: `obj-<arena_id>-z<zcc>` ids whose
+# arena number persists across hidden zones and follows the initial library
+# order, plus the raw `x_kernel_v5` observation. None of it may reach a bot.
+# Its opaque strings (hex ids, standard base64) cannot contain these markers, so
+# a substring test on the canonical bytes has no accidental matches.
+NATIVE_IDENTITY_MARKERS = ("obj-", "arena_id", "x_kernel_v5")
+
+
+def assert_no_native_identity(message):
+    """Fail if one outbound bot-facing message (bytes or str) carries native identity."""
+    text = message.decode("utf-8") if isinstance(message, bytes) else message
+    found = [marker for marker in NATIVE_IDENTITY_MARKERS if marker in text]
+    if found:
+        raise AssertionError(f"bot-facing message carries native identity: {', '.join(found)}")
 
 
 def check(executable, catalog, deck, first, extensions, *, diagnostics=None):
@@ -26,6 +41,7 @@ def check(executable, catalog, deck, first, extensions, *, diagnostics=None):
         answers = [engine.handle(payload) for engine in engines]
         assert answers[0] == answers[1], "v2 deterministic replay diverged"
         assert engines[0].handle(payload) == answers[0], "exact retry changed its answer"
+        assert_no_native_identity(answers[0])
         digest.update(answers[0])
         return wire.strict_json_loads(answers[0])
     try:
@@ -92,6 +108,7 @@ def check_buffer_cap_reset(executable, catalog):
             payload = wire.canonical_json_dumps({"protocol": "spellbench/v2", "request_id": f"cap-{serial}", **value})
             answer = engine.handle(payload)
             assert engine.handle(payload) == answer, "cap/reset retry diverged"
+            assert_no_native_identity(answer)
             return wire.strict_json_loads(answer)
         try:
             current = exchange({**reset, "game_id": "buffer-cap-fixture", "max_steps": cap or 4096})
@@ -130,11 +147,13 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--deck", action="append")
     parser.add_argument("--diagnostics", type=Path)
+    parser.add_argument("--extension", action="append", choices=(FLAT, HISTORY), default=[],
+                        help="bot-facing extensions to enable in every game (default: none)")
     args = parser.parse_args()
     catalog = json.loads(args.catalog.read_bytes())
     records = []
     for deck in args.deck or [entry["catalog_id"] for entry in catalog["catalog"]]:
-        record = check(args.bridge, catalog, deck, "p0", [], diagnostics=args.diagnostics)
+        record = check(args.bridge, catalog, deck, "p0", args.extension, diagnostics=args.diagnostics)
         records.append(record)
         print(json.dumps(record), flush=True)
     result = {"schema": "spellbench-kernel-v2-offline-replay/v1", "records": records,
