@@ -92,6 +92,11 @@ def report(paths: list[Path]) -> dict:
         "searched_share_of_eligible": None if not eligible else searched / eligible,
         # Amendment 43.1: R3 decisions are ineligible, reported beside the units.
         "r3_ineligible": r3_ineligible,
+        # Amendment 43.1 part 2: every refusal by code and subclass (decisions
+        # and group roots); "unclassified" means the bridge sent no subclass.
+        "refusals_by_subclass": {key[8:]: n for key, n in sorted(tally.items()) if key.startswith("refusal:")},
+        "unclassified_refusals": sum(n for key, n in tally.items()
+                                     if key.startswith("refusal:") and key.endswith(":unclassified")),
     }
 
 

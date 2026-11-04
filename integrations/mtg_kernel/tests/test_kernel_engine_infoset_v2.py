@@ -4,6 +4,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import kernel_engine_infoset_v2 as engine
 from kernel_combat_v2 import BlockDeclaration, BlockPlan
@@ -76,6 +78,14 @@ def test_ordinary_order_map_names_wire_candidates():
     assert e.ordinary_extension(native)["live_candidate_ids"] is None
     assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R8"}) == {
         "schema": engine.WIRE_SCHEMA, "refusal": "R8"}
+    assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R2", "refusal_detail": "discard_untracked"}) == {
+        "schema": engine.WIRE_SCHEMA, "refusal": "R2", "refusal_detail": "discard_untracked"}
+    assert e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}) == {
+        "schema": engine.WIRE_SCHEMA, "refusal": "R8", "refusal_detail": "export"}
+    for code, detail in (("R2", "a free text detail"), ("R2", "discard_reshape"), ("R8", "discard_untracked"),
+                         ("R2", 3), ("R2", []), ("R2", {})):
+        with pytest.raises(engine.ProjectionError):
+            e.ordinary_extension({"schema": engine.NATIVE_SCHEMA, "refusal": code, "refusal_detail": detail})
     assert e.ordinary_extension(None) is None
 
 
