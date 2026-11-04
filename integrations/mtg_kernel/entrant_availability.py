@@ -147,9 +147,11 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     out["plans_match"] = len(plans) == len(mine) and all(
         len(r["plan"]) <= len(g.get("committed_keys") or [])
         and r["plan"] == g["committed_keys"][:len(r["plan"])]
-        and r.get("tensors", []) == g.get("committed_tensors", [])[:len(r.get("tensors", []))]
+        and len(r.get("tensors", [])) == len(r["plan"])
+        and r["tensors"] == g.get("committed_tensors", [])[:len(r["plan"])]
         for r, g in zip(plans, mine))
-    out["witness"] = {k: sum(1 for g in checked if g.get("witness", {}).get(k))
+    # Witnesses: the groups rooted at this seat (each counted once per game).
+    out["witness"] = {k: sum(1 for g in mine if g.get("witness", {}).get(k))
                       for k in ("multi_attacker", "multi_blocker", "three_triggers")}
     out["reconciled"] = out["reconciled"] and out["commit_ok"] and out["plans_match"]
     return out

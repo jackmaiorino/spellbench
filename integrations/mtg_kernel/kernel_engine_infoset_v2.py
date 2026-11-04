@@ -151,7 +151,7 @@ class InfosetEngine(KernelEngine):
     def step(self, request):
         # The wire answers of the open group, for the commit check (G6).
         recorded = False
-        if self.buffer is not None and isinstance(request.get("selection"), dict):
+        if getattr(self, "buffer", None) is not None and isinstance(request.get("selection"), dict):
             candidate = request["selection"].get("candidate_id")
             if type(candidate) is int:
                 self._wire.append(candidate)
