@@ -140,7 +140,8 @@ class InfosetEngine(KernelEngine):
             # surface state the payload cannot carry, else "export".
             detail = native.get("refusal_detail")
             if detail is not None:
-                if not (detail == EXPORT_SUBCLASS or (native["refusal"] == "R2" and detail in R2_SURFACE_SUBCLASSES)):
+                if not isinstance(detail, str) or not (
+                        detail == EXPORT_SUBCLASS or (native["refusal"] == "R2" and detail in R2_SURFACE_SUBCLASSES)):
                     raise ProjectionError("native infoset refusal_detail is not a subclass of its code")
                 refusal["refusal_detail"] = detail
             return refusal
