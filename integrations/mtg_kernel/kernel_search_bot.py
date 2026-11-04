@@ -400,9 +400,10 @@ class KernelSearchBot(KernelFlatBot):
             if any(w[:len(p)] == p and len(w) > len(p) for w, _ in g.get("completions", [])):
                 g["continues"] = True
             else:
-                # The group's plan Pi, for the commit check (fairness gate G6).
+                # The group's plan Pi, for the commit check (fairness gate G6),
+                # with each walked point's tensor digest (the imported state).
                 self._write_log({"kind": "group_plan", "step": decision.seat_step, "mode": g["mode"],
-                                 "plan": g["plan"], "wire": p})
+                                 "plan": g.get("plan", []), "tensors": g.get("tensors", []), "wire": p})
                 self._group = None
         return answer
 
@@ -496,6 +497,8 @@ class KernelSearchBot(KernelFlatBot):
         if pick is None:
             pick = self._point_policy(decision, point["flat"], len(g["path"]))
             self._tally["policy_points"] += 1
+        text = json.dumps(point["flat"].get("tensor"), sort_keys=True, separators=(",", ":"))
+        g.setdefault("tensors", []).append(hashlib.sha256(text.encode()).hexdigest())
         g["plan"].append(keys[pick])
         g["path"].append(pick)
         return "decided"

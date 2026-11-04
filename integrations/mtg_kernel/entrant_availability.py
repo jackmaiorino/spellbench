@@ -142,8 +142,12 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     out["commit_ok"] = all(g.get("views_equal") and g.get("keys_equal") for g in checked)
     mine = [g for g in checked if g.get("root_seat") == native]
     plans = [r for r in records if r.get("kind") == "group_plan" and r.get("mode") == "walk"]
+    # Pi may stop before the last point (one completion left): its rows and
+    # its points' tensors are a prefix of the committed ones, never longer.
     out["plans_match"] = len(plans) == len(mine) and all(
-        len(r["plan"]) != len(g["committed_keys"]) or r["plan"] == g["committed_keys"]
+        len(r["plan"]) <= len(g.get("committed_keys") or [])
+        and r["plan"] == g["committed_keys"][:len(r["plan"])]
+        and r.get("tensors", []) == g.get("committed_tensors", [])[:len(r.get("tensors", []))]
         for r, g in zip(plans, mine))
     out["witness"] = {k: sum(1 for g in checked if g.get("witness", {}).get(k))
                       for k in ("multi_attacker", "multi_blocker", "three_triggers")}
@@ -215,6 +219,17 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
     # for it. Points are reported separately.
     allowance_limited = tally["policy:allowance"] + tally["allowance_groups"]
     bound = upper_bound_95(c5, eligible)
+    # G6 (AC3 committed trajectories): reported with its own witness bar
+    # (design 13: 5 multi-attacker, 5 multi-blocker, 1 three-trigger group);
+    # a short run may not reach it, which the report says.
+    witness = {k: sum(r.get("witness", {}).get(k, 0) for r in reconciliation)
+               for k in ("multi_attacker", "multi_blocker", "three_triggers")}
+    commit_check = None if receipts is None else {
+        "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
+        "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
+        "witness": witness,
+        "witnesses_met": witness["multi_attacker"] >= 5 and witness["multi_blocker"] >= 5
+        and witness["three_triggers"] >= 1}
     checks = {
         # Gate inputs: the declared ledger (naming the entrant), the receipts
         # and at least one counted game, so no check passes vacuously.
@@ -256,11 +271,7 @@ def report(paths: list[Path], ledgers: list[Path] | None = None, entrant: str | 
                  "missing_for_ledger_games": missing, "ledger_games": None if ledger is None else len(ledger)},
         "charge": {"games_over_allowance": allowance_over, "searches_over_group_cap": group_over_cap},
         "receipts": reconciliation if receipts is not None else None,
-        "commit_check": None if receipts is None else {
-            "groups": sum(r.get("commit_groups", 0) for r in reconciliation),
-            "all_ok": all(r.get("commit_ok", False) and r.get("plans_match", False) for r in reconciliation),
-            "witness": {k: sum(r.get("witness", {}).get(k, 0) for r in reconciliation)
-                        for k in ("multi_attacker", "multi_blocker", "three_triggers")}},
+        "commit_check": commit_check,
         "checks": checks, "checks_pass": all(checks.values()),
     }
 

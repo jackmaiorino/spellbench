@@ -23,6 +23,7 @@ not enable the extension keep their pinned engine bytes.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import time
 import json
@@ -113,7 +114,7 @@ class InfosetEngine(KernelEngine):
         self._composition = {"groups": 0, "wall_us": 0, "max_wall_us": 0, "unavailable": {}}
         self._native_seats = {"p0": "p0", "p1": "p1"}
         self._groups, self._internal = [], self._new_internal()
-        self._committing, self._commit_steps, self._group_info = False, [], None
+        self._committing, self._commit_steps, self._group_info, self._wire = False, [], None, []
 
     def reset(self, request):
         rules = request.get("rules", {})
@@ -147,6 +148,19 @@ class InfosetEngine(KernelEngine):
     def _native_actor(view):
         return json.loads(view["extensions"]["x_kernel_v5"]["observation_json"])["acting_player"]
 
+    def step(self, request):
+        # The wire answers of the open group, for the commit check (G6).
+        recorded = False
+        if self.buffer is not None and isinstance(request.get("selection"), dict):
+            candidate = request["selection"].get("candidate_id")
+            if type(candidate) is int:
+                self._wire.append(candidate)
+                recorded = True
+        result = super().step(request)
+        if recorded and result.get("response_type") == "error" and self._wire:
+            self._wire.pop()
+        return result
+
     def native_step(self, candidate):
         if self._committing:
             self._commit_steps.append((self.current, candidate))
@@ -156,6 +170,12 @@ class InfosetEngine(KernelEngine):
         """Commits the group, then checks the commit (fairness gate G6) and
         tallies the group's internal native decisions: those the bridge poses
         while the group commits and no bot is shown (receipt reconciliation)."""
+        # The planned trajectory, read before the bridge moves (previews of
+        # the root are valid only until then; evicted ones are fetched again).
+        planned = None
+        if self.infoset_on and self._group_info is not None and self._group_info["composition"] is not None:
+            planned = self.trajectory(self.buffer)
+        wire, self._wire = list(self._wire), []
         self._committing, self._commit_steps = True, []
         try:
             super().commit_buffer()
@@ -172,7 +192,7 @@ class InfosetEngine(KernelEngine):
                 key = f"{native['refusal']}:{native.get('refusal_detail', 'unclassified')}"
                 side["refusals"][key] = side["refusals"].get(key, 0) + 1
         if self.infoset_on and self._group_info is not None:
-            self._groups.append(self.commit_check(steps, self._group_info))
+            self._groups.append(self.commit_check(steps, self._group_info, planned, wire))
         self._group_info = None
 
     @staticmethod
@@ -180,34 +200,33 @@ class InfosetEngine(KernelEngine):
         native = view.get("extensions", {}).get(INFOSET)
         return native if isinstance(native, dict) else None
 
-    def commit_check(self, steps, info):
-        """G6: the committed native points are the previewed points the
-        composition was built from (candidates and x_kernel_flat_v4 equal),
-        and the committed rows' keys are the composition row of the group's
-        wire answer: the rows Pi induced."""
+    @staticmethod
+    def tensor_digest(flat_extension):
+        """sha256 of a point's x_kernel_flat_v4 tensor (canonical JSON)."""
+        text = json.dumps(flat_extension.get("tensor"), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(text.encode()).hexdigest()
+
+    def commit_check(self, steps, info, planned, wire):
+        """G6: every committed native point is the planned (previewed) point
+        the composition was built from (candidates and x_kernel_flat_v4
+        equal) with the planned row picked, and the planned keys are the
+        composition row of the group's wire answer: the rows Pi induced. The
+        committed points' tensor digests go to the receipt for comparison
+        with the entrant's walk (the imported state's points)."""
         record = {"type": info["type"], "root_seat": info["root_seat"], "points": len(steps),
-                  "witness": info["witness"], "composition": info["composition"] is not None}
+                  "witness": info["witness"], "composition": info["composition"] is not None,
+                  "committed_tensors": [self.tensor_digest(view["extensions"][FLAT]) for view, _ in steps]}
         if info["composition"] is None:
             return record
-        prefix, committed, views_equal = [], [], True
-        for view, candidate in steps:
-            entry = self.previews.get(tuple(prefix)) if prefix else (self.previews.get(()) or [self.root])
-            preview = None if entry is None else entry[0]
-            if preview is None:
-                views_equal = False
-                committed.append(None)
-            else:
-                views_equal = views_equal and (preview["candidates"] == view["candidates"]
-                                               and preview["extensions"][FLAT] == view["extensions"][FLAT])
-                keys = self._row_keys(preview)
-                ids = preview["extensions"][FLAT]["row_candidate_ids"]
-                committed.append(None if keys is None or candidate not in ids else keys[ids.index(candidate)])
-            prefix.append(candidate)
-        wire = list(getattr(self.buffer, "prefix", ()) or ())
+        planned = planned or []
+        views_equal = len(planned) == len(steps) and all(
+            p_view["candidates"] == view["candidates"] and p_view["extensions"][FLAT] == view["extensions"][FLAT]
+            and p_pick == pick for (p_view, p_pick, _), (view, pick) in zip(planned, steps))
+        committed = [key for _, _, key in planned]
         table = info["composition"]["keys"]
         expected = next(([table[k] for k in row["native"]] for row in info["composition"]["completions"]
                          if row["wire"] == wire), None)
-        record.update(committed_keys=committed, expected_keys=expected, views_equal=views_equal,
+        record.update(committed_keys=committed, expected_keys=expected, views_equal=views_equal, wire=wire,
                       keys_equal=expected is not None and committed == expected)
         return record
 
@@ -294,6 +313,7 @@ class InfosetEngine(KernelEngine):
             stats["unavailable"][unavailable] = stats["unavailable"].get(unavailable, 0) + 1
         self._group_info = {"type": type(self.buffer).__name__, "root_seat": self._native_actor(self.root),
                             "composition": composition, "witness": self.group_witness()}
+        self._wire = []
         return extension
 
     def group_witness(self):
@@ -339,10 +359,22 @@ class InfosetEngine(KernelEngine):
     def native_keys(self, plan):
         """The canonical keys of the native rows a finished plan induces, in
         native order, through the shared private preview cache."""
+        found = self.trajectory(plan)
+        if found is None or any(key is None for _, _, key in found):
+            return None
+        return [key for _, _, key in found]
+
+    def trajectory(self, plan):
+        """The native points a finished plan visits from the root, each as
+        (preview view, selected candidate, canonical key), through the shared
+        private preview cache (a missing entry is fetched); None when a point
+        carries no keys."""
         if isinstance(plan, TriggerOrder):
             keys = self._row_keys(self.root)
-            row = self.root["extensions"][FLAT]["row_candidate_ids"].index(plan.result())
-            return None if keys is None else [keys[row]]
+            selected = plan.result()
+            if keys is None:
+                return None
+            return [(self.root, selected, keys[self.root["extensions"][FLAT]["row_candidate_ids"].index(selected)])]
         if isinstance(plan, BlockDeclaration):
             binding = legacy_block_assignment(self.root, plan.plan, plan.assignment())
             pick = lambda view: native_block_pick(view, binding)
@@ -351,14 +383,14 @@ class InfosetEngine(KernelEngine):
             result = plan.result()
             pick = lambda view: native_arrangement_pick(view, result, binding)
         entry = self.previews.get(()) or self.previews.put((), [self.root, None], 0)
-        prefix, keys = [], []
+        prefix, found = [], []
         for _ in range(4096):
             view = entry[0]
             row_keys = self._row_keys(view)
             if row_keys is None:
                 return None
             selected = pick(view)
-            keys.append(row_keys[view["extensions"][FLAT]["row_candidate_ids"].index(selected)])
+            found.append((view, selected, row_keys[view["extensions"][FLAT]["row_candidate_ids"].index(selected)]))
             prefix.append(selected)
             entry = self.previews.get(tuple(prefix))
             if entry is None:
@@ -370,7 +402,7 @@ class InfosetEngine(KernelEngine):
                 size = getattr(self.peer, "last_line_bytes", None)
                 entry = self.previews.put(tuple(prefix), [view, None], len(json.dumps(answer)) if size is None else size)
             if entry[0] is None:
-                return keys
+                return found
         raise ProjectionError("private completion preview exceeded its bound")
 
 

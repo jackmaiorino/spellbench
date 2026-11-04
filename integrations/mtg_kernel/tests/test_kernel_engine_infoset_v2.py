@@ -163,9 +163,15 @@ def test_commit_check_traces_the_previewed_points_and_the_planned_rows():
                    "completions": [{"wire": [1, 0], "native": [1, 2]}, {"wire": [0, 1], "native": [0, 3]}]}
     info = {"type": "BlockDeclaration", "root_seat": "p0", "composition": composition,
             "witness": {"multi_attacker": True}}
-    good = e.commit_check([(root, 8), (second, 3)], info)
+    planned = [(root, 8, "r8"), (second, 3, "k3")]
+    good = e.commit_check([(root, 8), (second, 3)], info, planned, [1, 0])
     assert good["views_equal"] and good["keys_equal"] and good["committed_keys"] == ["r8", "k3"]
-    drifted = e.commit_check([(root, 8), (_view([3, 4], ["k3", "k4"], "other"), 3)], info)
+    assert good["committed_tensors"] == [e.tensor_digest(root["extensions"][engine.FLAT]),
+                                         e.tensor_digest(second["extensions"][engine.FLAT])]
+    drifted = e.commit_check([(root, 8), (_view([3, 4], ["k3", "k4"], "other"), 3)], info, planned, [1, 0])
     assert not drifted["views_equal"]
-    other_row = e.commit_check([(root, 8), (second, 4)], info)
-    assert other_row["views_equal"] and not other_row["keys_equal"]
+    other_pick = e.commit_check([(root, 8), (second, 4)], info, planned, [1, 0])
+    assert not other_pick["views_equal"]
+    other_wire = e.commit_check([(root, 8), (second, 3)], info, planned, [0, 1])
+    assert other_wire["views_equal"] and not other_wire["keys_equal"]
+    assert not e.commit_check([(root, 8), (second, 3)], info, None, [1, 0])["views_equal"]
