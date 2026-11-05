@@ -52,7 +52,7 @@ from spellbench.bot import Decision, GameOver, GameStart, serve  # noqa: E402
 from spellbench.builtins.uniform import SplitMix64  # noqa: E402
 import kernel_flat_bot as flat  # noqa: E402
 from kernel_flat_bot import BotError, KernelFlatBot, ScorerProcess  # noqa: E402
-from kernel_g6_digest import known_hand_masked_digest, tensor_digest  # noqa: E402
+from kernel_g6_digest import known_hand_digest, known_hand_masked_digest, tensor_digest  # noqa: E402
 
 INFOSET = "x_kernel_infoset_v1"
 INFOSET_SCHEMA = "mtg-kernel-spellbench-infoset/v1"
@@ -412,7 +412,8 @@ class KernelSearchBot(KernelFlatBot):
                 # with each walked point's tensor digests (the imported state).
                 self._write_log({"kind": "group_plan", "step": decision.seat_step, "mode": g["mode"],
                                  "plan": g.get("plan", []), "tensors": g.get("tensors", []),
-                                 "masked_tensors": g.get("masked_tensors", []), "wire": p})
+                                 "masked_tensors": g.get("masked_tensors", []),
+                                 "known_hands": g.get("known_hands", []), "wire": p})
                 self._group = None
         return answer
 
@@ -510,6 +511,7 @@ class KernelSearchBot(KernelFlatBot):
         # The same point without V's knowledge of the opponent's hand (G6
         # tells a known-hand divergence from a drifted state by it).
         g.setdefault("masked_tensors", []).append(known_hand_masked_digest(point["flat"]))
+        g.setdefault("known_hands", []).append(known_hand_digest(point["flat"]))
         g["plan"].append(keys[pick])
         g["path"].append(pick)
         return "decided"

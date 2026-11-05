@@ -145,19 +145,25 @@ def _reconcile(receipts: Path, game: str, seat: str, final: dict, records: list[
     # Pi may stop before the last point (one completion left): its rows and
     # its points' tensors are a prefix of the committed ones, never longer.
     # A point whose tensors differ only in V's knowledge of the opponent's
-    # hand (equal known-hand-masked digests, kernel_g6_digest) matches and is
-    # reported as a known-hand divergence: the export's knowledge follows V's
-    # information where the engine's known-hand rows follow copies (R5).
+    # hand (the known hands differ, the known-hand-masked digests are equal:
+    # kernel_g6_digest) matches and is reported as a known-hand divergence:
+    # the export's knowledge follows V's information where the engine's
+    # known-hand rows follow copies (R5).
     divergent: list[dict] = []
+
+    def at(record: dict, key: str, i: int):
+        values = record.get(key) or []
+        return values[i] if i < len(values) else None
 
     def point_matches(r: dict, g: dict, i: int) -> bool:
         if r["tensors"][i] == g["committed_tensors"][i]:
             return True
-        walk, committed = r.get("masked_tensors") or [], g.get("committed_masked_tensors") or []
-        if i < len(walk) and i < len(committed) and walk[i] is not None and walk[i] == committed[i]:
-            divergent.append({"step": r.get("step"), "point": i})
-            return True
-        return False
+        masked = (at(r, "masked_tensors", i), at(g, "committed_masked_tensors", i))
+        hands = (at(r, "known_hands", i), at(g, "committed_known_hands", i))
+        if None in masked or None in hands or masked[0] != masked[1] or hands[0] == hands[1]:
+            return False
+        divergent.append({"step": r.get("step"), "point": i})
+        return True
 
     out["plans_match"] = len(plans) == len(mine) and all(
         len(r["plan"]) <= len(g.get("committed_keys") or [])

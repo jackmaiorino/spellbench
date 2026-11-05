@@ -12,10 +12,16 @@ engine's rows follow object identity.
 ``known_hand_masked_digest`` digests the tensor without that one component:
 the KnownOpponentHand objects with their relations, the opponent's
 known-hand count in the state, and the state's digest of the canonical
-observation (which includes the known hand). G6 accepts a point whose full
-digests differ only when the masked digests are equal, and reports it as a
-known-hand divergence; any other difference is a failure. The mask is defined
-for one feature encoding; for any other it returns None (full digests only).
+observation (which includes the known hand). ``known_hand_digest`` digests
+the known opponent hand itself (its card ids, sorted). G6 accepts a point
+whose full digests differ only when the masked digests are equal and the
+known hands differ, and reports it as a known-hand divergence; any other
+difference is a failure. At such a point what only the observation digest
+carries (for example subtype identities, of which the object features keep
+the count) is not compared: the walk's pool returns no observation, so a
+digest of it without the known hand needs the kernel. The functions are
+defined for one feature encoding; for any other they return None (full
+digests only).
 """
 from __future__ import annotations
 
@@ -52,6 +58,20 @@ def _rows(flat: list, count: int) -> list[list] | None:
         return None
     width = len(flat) // count
     return [flat[i * width:(i + 1) * width] for i in range(count)]
+
+
+def known_hand_digest(flat_extension: dict[str, Any]) -> str | None:
+    """sha256 of the sorted card ids of the point's KnownOpponentHand objects,
+    or None when the extension is not of the mask's encoding."""
+    if flat_extension.get("feature_encoding_digest") != MASK_ENCODING_DIGEST:
+        return None
+    try:
+        t = flat_extension["tensor"]
+        cards = sorted(c for g, c in zip(t["object_groups"], t["object_card_ids"], strict=True)
+                       if g == KNOWN_OPPONENT_HAND)
+    except (KeyError, TypeError, ValueError):
+        return None
+    return tensor_digest(cards)
 
 
 def known_hand_masked_digest(flat_extension: dict[str, Any]) -> str | None:

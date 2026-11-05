@@ -39,7 +39,7 @@ from kernel_engine_v2 import FLAT, KernelEngine, NativePeer, ProjectionError, er
 from kernel_combat_v2 import BlockDeclaration, legacy_block_assignment, native_block_pick
 from kernel_arrangement_v2 import native_arrangement_binding, native_arrangement_pick
 from kernel_order_v2 import TriggerOrder
-from kernel_g6_digest import known_hand_masked_digest, tensor_digest
+from kernel_g6_digest import known_hand_digest, known_hand_masked_digest, tensor_digest
 
 INFOSET = "x_kernel_infoset_v1"
 WIRE_SCHEMA = "mtg-kernel-spellbench-infoset/v1"
@@ -225,7 +225,8 @@ class InfosetEngine(KernelEngine):
                   "witness": info["witness"], "composition": info["composition"] is not None,
                   "committed_tensors": [self.tensor_digest(view["extensions"][FLAT]) for view, _ in steps],
                   "committed_masked_tensors": [known_hand_masked_digest(view["extensions"][FLAT])
-                                               for view, _ in steps]}
+                                               for view, _ in steps],
+                  "committed_known_hands": [known_hand_digest(view["extensions"][FLAT]) for view, _ in steps]}
         if info["composition"] is None:
             return record
         planned = planned or []

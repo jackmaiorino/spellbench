@@ -33,6 +33,8 @@ def test_soak_points_differ_only_in_the_known_opponent_hand(case):
     assert case["walk_digest"] != case["committed_digest"]
     masked = g6.known_hand_masked_digest(walk)
     assert masked is not None and masked == g6.known_hand_masked_digest(committed)
+    hands = g6.known_hand_digest(walk), g6.known_hand_digest(committed)
+    assert None not in hands and hands[0] != hands[1]
 
 
 def _kept_edge_feature(tensor):
@@ -75,7 +77,7 @@ def test_other_encodings_and_shapes_are_not_masked():
     assert g6.known_hand_masked_digest({"feature_encoding_digest": g6.MASK_ENCODING_DIGEST, "tensor": None}) is None
 
 
-def _reconcile(tmp_path, walk_masked, committed_masked):
+def _reconcile(tmp_path, walk_masked, committed_masked, walk_hands=("h1",), committed_hands=("h2",)):
     """plans_match for one walked group whose full tensor digests differ."""
     import entrant_availability
     (tmp_path / "g-x.bridge.json").write_text(json.dumps({
@@ -83,11 +85,13 @@ def _reconcile(tmp_path, walk_masked, committed_masked):
         "tally": [{"by_code": {}, "by_subclass": {}}, {"by_code": {}}], "order_map_missing": [0, 0]}))
     group = {"type": "SelectionOrder", "root_seat": "p0", "points": 1, "composition": True, "witness": {},
              "views_equal": True, "keys_equal": True, "committed_keys": ["k"], "expected_keys": ["k"],
-             "committed_tensors": ["native"], "committed_masked_tensors": committed_masked}
+             "committed_tensors": ["native"], "committed_masked_tensors": committed_masked,
+             "committed_known_hands": list(committed_hands)}
     (tmp_path / "g-x.adapter.json").write_text(json.dumps({
         "receipt": "x_kernel_infoset_v1_adapter", "game_id": "g-x", "native_seats": {"p0": "p0", "p1": "p1"},
         "composition": {}, "internal": {}, "groups": [group]}))
-    plan = {"kind": "group_plan", "mode": "walk", "step": 7, "plan": ["k"], "tensors": ["imported"], "wire": [0]}
+    plan = {"kind": "group_plan", "mode": "walk", "step": 7, "plan": ["k"], "tensors": ["imported"], "wire": [0],
+            "known_hands": list(walk_hands)}
     if walk_masked is not None:
         plan["masked_tensors"] = walk_masked
     final = {"tally": {}, "eligible": 1}
@@ -107,3 +111,23 @@ def test_plans_match_fails_without_equal_masked_digests(tmp_path, walk, committe
     # or an encoding the mask does not cover: the full digests decide.
     out = _reconcile(tmp_path, walk, committed)
     assert not out["plans_match"] and not out["reconciled"]
+
+
+def test_plans_match_needs_the_known_hands_to_differ(tmp_path):
+    # Equal masked digests with the same known hand on both sides: the full
+    # digests then differ elsewhere (say in the observation digest only), a
+    # drifted state.
+    assert not _reconcile(tmp_path, ["m"], ["m"], ("h",), ("h",))["plans_match"]
+    assert not _reconcile(tmp_path, ["m"], ["m"], (), ("h",))["plans_match"]
+
+
+def test_an_observation_digest_drift_without_a_known_hand_difference_fails(tmp_path):
+    # Review round 1: the committed point differs from the walk's only in the
+    # observation digest (state[123]), with the same known hand.
+    walk = CASES[1]["committed"]
+    drifted = copy.deepcopy(walk)
+    drifted["tensor"]["state"][g6.STATE_OBSERVATION_DIGEST] ^= 1
+    assert g6.known_hand_masked_digest(walk) == g6.known_hand_masked_digest(drifted)
+    out = _reconcile(tmp_path, [g6.known_hand_masked_digest(walk)], [g6.known_hand_masked_digest(drifted)],
+                     (g6.known_hand_digest(walk),), (g6.known_hand_digest(drifted),))
+    assert not out["plans_match"] and out["known_hand_divergent_points"] == []
