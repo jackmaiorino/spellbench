@@ -221,6 +221,8 @@ def test_commit_check_traces_the_previewed_points_and_the_planned_rows():
     assert good["views_equal"] and good["keys_equal"] and good["committed_keys"] == ["r8", "k3"]
     assert good["committed_tensors"] == [e.tensor_digest(root["extensions"][engine.FLAT]),
                                          e.tensor_digest(second["extensions"][engine.FLAT])]
+    # The fake points are of no known encoding: no masked digests.
+    assert good["committed_masked_tensors"] == [None, None]
     drifted = e.commit_check([(root, 8), (_view([3, 4], ["k3", "k4"], "other"), 3)], info, planned, [1, 0])
     assert not drifted["views_equal"]
     other_pick = e.commit_check([(root, 8), (second, 4)], info, planned, [1, 0])
