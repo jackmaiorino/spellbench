@@ -189,7 +189,9 @@ class InfosetEngine(KernelEngine):
             self._committing = False
         steps, self._commit_steps = self._commit_steps, []
         for view, _ in steps[1:]:
-            native = self.current_infoset(view)
+            # Validated like any posed point: an unknown refusal subclass at
+            # a later point of a group halts as it does at a group root.
+            native = self._checked(view.get("extensions", {}).get(INFOSET))
             if native is None:
                 continue
             side = self._internal[self._native_actor(view)]
@@ -360,9 +362,20 @@ class InfosetEngine(KernelEngine):
             rows.append({"wire": list(wire_choices), "native": encoded})
         return {"keys": table, "completions": rows}, None
 
-    @staticmethod
-    def _row_keys(view):
-        keys = view["extensions"].get(INFOSET, {}).get("row_keys")
+    @classmethod
+    def _row_keys(cls, view):
+        """A point's canonical row keys. A preview's extension carries only
+        its keys; any extension is checked for its schema, and a refusal for
+        its subclass, as at a posed point."""
+        native = view["extensions"].get(INFOSET)
+        if native is None:
+            return None
+        if not isinstance(native, dict) or native.get("schema") != NATIVE_SCHEMA:
+            raise ProjectionError("native bridge sent an unknown infoset extension")
+        if "refusal" in native:
+            cls._checked(native)
+            return None
+        keys = native.get("row_keys")
         return keys if isinstance(keys, list) else None
 
     def native_keys(self, plan):
